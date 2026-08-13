@@ -10,7 +10,9 @@ controller implementations, and narrow service ports consumed by those controlle
 
 - Does not own core domain contracts (`IDagDefinition`, `IDagRun`, `ITaskRun`, state machines) -- those belong to `dag-core`.
 - Does not own runtime orchestration logic -- delegates through API-owned service ports.
-- Does not own worker execution or DLQ behavior -- delegates through API-owned service ports.
+- Does not own worker execution, advancement lifecycle, or DLQ behavior. Worker execution and
+  advancement belong to `dag-worker`; assembly composition belongs to `dag-framework`. API controllers
+  delegate only through the narrow service ports they consume.
 - Does not own projection read-model logic -- delegates through API-owned service ports.
 - Does not own operational HTTP client behavior -- that belongs to `@robota-sdk/dag-orchestration-client`.
 - Depends on `dag-core` only for production domain contracts. Runtime, worker, scheduler,
@@ -43,12 +45,11 @@ This package is SSOT for:
 - `IRunProjectionView`, `ILineageProjectionView`, `IObservabilityProjectionReaderPort` -- observability controller DTO and port contracts
 - `IObservabilityDashboardProjection`, `ILineageNodeView`, `ILineageEdgeView`, `TObservabilityTaskStatusSummary` -- observability projection DTOs and status summary alias
 - `IRuntimeRunStarterPort`, `IRuntimeRunCreatorPort`, `IRuntimeRunReaderPort`, `IRuntimeRunCancellerPort`, `IDiagnosticsDeadLetterReinjectPort` -- runtime and diagnostics controller service ports
-- `IRuntimeWorkerLoopPort`, `IRuntimeWorkerLoopResult`, `IRuntimeRunProgressEventBusPort` -- runtime worker-loop and progress event-bus ports
+- `IRuntimeRunProgressEventBusPort` -- runtime progress event-bus port consumed by controllers
 - `IRuntimeStartRunInput`, `IRuntimeStartRunResult`, `IRuntimeCreateRunResult`, `IRuntimeRunReadResult`, `IRuntimeRunCancelResult` -- runtime port input/result DTOs
 - `IDiagnosticsDeadLetterReinjectResult` -- diagnostics DLQ reinject result DTO
 - `IRunProgressLogger` -- run progress logger interface
 - `IDagControllerComposition`, `IDagControllerCompositionDependencies`, `IDagControllerCompositionOptions` -- controller composition types
-- `IDagExecutionComposition` -- runtime execution composition port consumed by Prompt API backends
 - `IRunProgressEventBus`, `TRunProgressEventListener` -- event bus types
 - `INodeCatalogService` -- runtime `TObjectInfo` node catalog port interface
 - `IDiagnosticsPolicy` -- diagnostics policy interface
@@ -63,7 +64,6 @@ This package is SSOT for:
 - `DagDiagnosticsController` -- failure analysis, rerun, DLQ reinject
 - `PromptApiController` -- prompt-backed node API controller
 - `createDagControllerComposition(deps, options?)` -- wires all controllers from explicit service ports
-- `IDagExecutionComposition` -- interface-only execution composition contract; implementations live in runtime composition roots
 - `RunProgressEventBus` -- in-memory pub/sub for run progress events
 - `DAG_API_PACKAGE_NAME` -- package name constant `@robota-sdk/dag-api`
 

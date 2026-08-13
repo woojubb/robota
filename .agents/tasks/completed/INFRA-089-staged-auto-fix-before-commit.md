@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-089: staged and whole-repository lint auto-fix commands'
-status: in-progress
+status: done
 created: 2026-08-13
+completed: 2026-08-14
 priority: medium
 urgency: now
 area: package.json, .husky, scripts/harness, .agents/skills
@@ -10,7 +11,7 @@ depends_on: []
 
 # INFRA-089 — staged and whole-repository lint auto-fix commands
 
-**Spec:** [`.agents/spec-docs/active/INFRA-089-staged-auto-fix-before-commit.md`](../spec-docs/active/INFRA-089-staged-auto-fix-before-commit.md)
+**Spec:** [`.agents/spec-docs/done/INFRA-089-staged-auto-fix-before-commit.md`](../../spec-docs/done/INFRA-089-staged-auto-fix-before-commit.md)
 
 ## Objective
 
@@ -20,13 +21,16 @@ inspect the post-fix tree. Keep the pre-commit path staged-only and retain exact
 
 ## Plan
 
-- [ ] TC-01: add a failing fixture test for staged-only fixing, tool order, and unrelated-file preservation; implement `lint:fix:staged` and make it pass.
-- [ ] TC-02: add a failing command-contract test; extend `lint:fix` to canonical ESLint scope followed by repository-root Prettier and make it pass. Defer real-tree idempotence to the post-promotion normalization task.
-- [ ] TC-03: add a failing wiring test; delegate pre-commit to `lint:fix:staged` while preserving guards, memory options, and exactly one lock.
-- [ ] TC-04: prove the wiring guard fails on missing commands, missing lock/delegation, full-fix hook use, and reversed ESLint/Prettier order; restore GREEN.
-- [ ] TC-05: update the single workflow owner (`post-implementation-checklist`) to require stage → staged fix → verification → commit and document reviewed manual full sweeps; run harness scan.
-- [ ] TC-06: prove the attempted whole-tree run was reverted exactly to its pre-run dirty-path set, run staged fix and affected verification, and link the dependent post-promotion normalization task.
-- [ ] Run GATE-VERIFY and GATE-COMPLETE, archive this task and spec atomically with the implementation commit.
+- [x] TC-01: add a failing fixture test for staged-only fixing, tool order, and unrelated-file preservation; implement `lint:fix:staged` and make it pass.
+- [x] TC-02: add a failing command-contract test; extend `lint:fix` to canonical ESLint scope followed by repository-root Prettier and make it pass. Defer real-tree idempotence to the post-promotion normalization task.
+- [x] TC-03: add a failing wiring test; delegate pre-commit to `lint:fix:staged` while preserving guards, memory options, and exactly one lock.
+- [x] TC-04: prove the wiring guard fails on missing commands, missing lock/delegation, full-fix hook use, and reversed ESLint/Prettier order; restore GREEN.
+- [x] TC-05: update the single workflow owner (`post-implementation-checklist`) to require stage → staged fix → verification → commit and document reviewed manual full sweeps; run harness scan.
+- [x] TC-06: prove the attempted whole-tree run was reverted exactly to its pre-run dirty-path set, run staged fix and affected verification, and link the dependent post-promotion normalization task.
+
+Lifecycle handoff: after the implementation checklist above is complete, GATE-VERIFY and
+GATE-COMPLETE own the status transitions and atomic task/spec archival; they are gates over this task,
+not implementation work that can truthfully be checked before those gates run.
 
 ## Test Plan
 
@@ -56,6 +60,16 @@ execution evidence.
 - GATE-WRITE passed after placement evidence was added.
 - Owner selected the `lint:fix` namespace and approved the final reviewed design.
 - Independent architecture placement review returned ENDORSE.
+- Implementation commit `9cf8a12b9` is present on `develop` and `main`; the root scripts, single-lock hook
+  delegation, completion workflow, and mutation fixtures are present in the current tree.
+- The dependent full-sweep task
+  [`INFRA-090`](INFRA-090-post-promotion-whole-repository-format-normalization.md) is completed:
+  the repository-wide fixer ran to convergence, passed CI-equivalent verification, reached `main`, and its
+  temporary branches were removed.
+- Fresh completion audit: `staged-auto-fix.test.mjs` and `worktrees-share-the-stash.test.mjs` passed
+  31/31 tests. The staged fixture invoked the actual root `pnpm lint:fix:staged` script and directly proved
+  source and Markdown mutation, automatic re-staging, and byte-identical preservation of an unrelated
+  unstaged Markdown file. A mutation also proves that moving `lint-staged` outside the lock is rejected.
 
 ## Decisions
 
@@ -70,4 +84,5 @@ execution evidence.
 
 ## Result
 
-Pending.
+Implementation, post-promotion normalization, independent GATE-VERIFY, and GATE-COMPLETE are complete.
+The task and spec were archived atomically after the completion verdict.

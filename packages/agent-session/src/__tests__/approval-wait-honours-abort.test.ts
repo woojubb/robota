@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+import { FunctionTool } from '@robota-sdk/agent-core';
+import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
 import { PermissionEnforcer } from '../permission-enforcer.js';
+import { Session } from '../session.js';
 
 import type { IPermissionEnforcerOptions, TPermissionResult } from '../permission-types.js';
 import type { IToolWithEventService, ITerminalOutput, TToolArgs } from '@robota-sdk/agent-core';
@@ -192,5 +195,61 @@ describe('the turn signal reaches the prompt through the tool wrapper (RUNTIME-0
       signal: new AbortController().signal,
     });
     expect(tool.execute).toHaveBeenCalled();
+  });
+});
+
+describe('Session abort releases a turn parked on approval (RUNTIME-005)', () => {
+  it('rejects the real run, releases its claim, and never invokes the unapproved tool', async () => {
+    let markApprovalEntered!: () => void;
+    const approvalEntered = new Promise<void>((resolve) => {
+      markApprovalEntered = resolve;
+    });
+    const executeTool = vi.fn().mockResolvedValue('should not run');
+    const tool = new FunctionTool(
+      {
+        name: 'DestructiveAction',
+        description: 'permission-gated test tool',
+        parameters: { type: 'object', properties: {}, required: [] },
+      },
+      executeTool,
+    );
+    const { provider } = createScriptedProvider([
+      { toolCalls: [{ name: 'DestructiveAction', args: {} }] },
+      { text: 'tool was denied' },
+    ]);
+    const session = new Session({
+      cwd: process.cwd(),
+      tools: [tool],
+      provider,
+      systemMessage: 'test',
+      terminal: makeNoopTerminal(),
+      permissionHandler: () => {
+        markApprovalEntered();
+        return new Promise<TPermissionResult>(() => undefined);
+      },
+    });
+
+    const run = session.run('use the tool');
+    await approvalEntered;
+    expect(session.isRunning()).toBe(true);
+
+    session.abort();
+    const outcome = await Promise.race([
+      run.then(
+        (value) => ({ status: 'resolved' as const, value }),
+        (error: unknown) => ({ status: 'rejected' as const, error }),
+      ),
+      new Promise<{ status: 'pending' }>((resolve) =>
+        setTimeout(() => resolve({ status: 'pending' }), 250),
+      ),
+    ]);
+
+    expect(outcome.status).toBe('rejected');
+    if (outcome.status === 'rejected') {
+      expect(outcome.error).toBeInstanceOf(Error);
+      expect((outcome.error as Error).name).toBe('AbortError');
+    }
+    expect(session.isRunning()).toBe(false);
+    expect(executeTool).not.toHaveBeenCalled();
   });
 });

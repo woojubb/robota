@@ -101,6 +101,19 @@ When the plan genuinely selects the full workspace, package-owned commands run t
 recursive/filter scheduler with complete per-scope result accounting; no global worker ceiling is
 raised. Every CI-equivalent stage and the total command report measured elapsed time.
 
+## Declaration Build Topology (INFRA-092)
+
+The root declaration scheduler derives its local prerequisite graph from the sorted, deduplicated
+union of `dependencies`, `devDependencies`, `peerDependencies`, and `optionalDependencies` for every
+package under `packages/**` that declares `build:types`. External packages, apps, and local packages
+without that script are outside this package-family declaration graph.
+
+Graph discovery, prerequisites, tiers, and cycle diagnostics are deterministic: filesystem and input
+enumeration order cannot change the plan. The scheduler executes tiers in topological order and
+fails closed with every remaining package and waiting local edge when no next tier exists. Within a
+tier, the current `execSync` implementation remains serial; true bounded process parallelism is a
+separate performance concern rather than an implied property of this correctness contract.
+
 ## Prior Art Findings
 
 - GitHub Actions supports branch and path filters, but skipped required workflows can remain pending; GitHub also limits path-filter diff evaluation, so path filters should not be the only correctness boundary.

@@ -155,7 +155,7 @@ Execute the twelve existing records without redefining their scope:
 - [ ] TC-08: RUNTIME-003 retains the landed TurnClaim/turn-handle correlation proofs and establishes exactly one DAG advancement owner across `WorkerLoopDriver`, prompt backend, and local runtime; the shared queue has exclusive ownership, prompt-backend work is owned and awaited during stop, and failures cannot escape through floating promises.
 - [ ] TC-09: RUNTIME-004 retains the landed compaction-cancellation/history-preservation proof and propagates cancellation through DAG orchestration, worker admission, local runtime loops, timeout execution, and node lifecycle without starting further queued work after cancellation; the HTTP provider either gains a real end-to-end cancel endpoint or preserves its explicit unsupported rejection.
 - [ ] TC-10: RUNTIME-005 retains the abortable approval-wait regression and gives the interactive execution state a single token/claim owner so a foreground command cannot clear another live turn's state or consume/drop queued input.
-- [ ] TC-11: RUNTIME-006 requires turn identity on every queued/settlement path, removes silent undefined settlement, and prevents public callers from forging internal resume identity.
+- [x] TC-11: RUNTIME-006 requires turn identity on every queued/settlement path, removes silent undefined settlement, and prevents public callers from forging internal resume identity.
 - [ ] TC-12: all twelve Task records contain current engineering and user-scenario evidence, reach a valid terminal status, and move atomically to `.agents/tasks/completed/` when commits resume.
 - [ ] TC-13: `pnpm harness:conformance` and `pnpm harness:verify-like-ci` exit 0 on the assembled initiative, with any environment-only exclusions reported rather than inferred green.
 
@@ -191,7 +191,7 @@ Execute the twelve existing records without redefining their scope:
 - [ ] `.agents/tasks/RUNTIME-003-no-turn-or-run-identity.md` — existing
 - [ ] `.agents/tasks/RUNTIME-004-cancellation-declared-at-four-layers-honoured-at-none.md` — existing
 - [ ] `.agents/tasks/RUNTIME-005-a-turn-parked-on-approval-is-not-cancellable.md` — existing
-- [ ] `.agents/tasks/RUNTIME-006-turn-identity-is-optional-in-four-places.md` — existing
+- [x] `.agents/tasks/completed/RUNTIME-006-turn-identity-is-optional-in-four-places.md` — completed 2026-08-13
 
 ## Evidence Log
 

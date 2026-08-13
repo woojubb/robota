@@ -21,12 +21,28 @@ import { acceptSubmission } from '../interactive-session-accept-submission.js';
 import { InteractiveSession } from '../interactive-session.js';
 import { SessionExecutionController } from '../interactive-session-execution-controller.js';
 import type { IQueuedInput } from '../interactive-session-execution-controller.js';
+import type { ICommandResult } from '../../commands/index.js';
 import { TurnNotRunError } from '../turn-not-run-error.js';
 
 /** Exposes the protected drain so a case can reach the resubmission path directly. */
 class DrainableController extends SessionExecutionController {
   drainNow(submit: Parameters<DrainableController['drainPendingQueue']>[0]): void {
     this.drainPendingQueue(submit);
+  }
+
+  holdExecution(): () => void {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    void this.executeForegroundCommand(
+      async () => {
+        await held;
+        return { success: true, message: 'released' };
+      },
+      () => Promise.resolve(),
+    );
+    return release;
   }
 }
 
@@ -38,6 +54,7 @@ function createController(): DrainableController {
       emit: vi.fn(),
       getContextState: vi.fn(),
       getCwd: () => process.cwd(),
+      getSession: () => null,
       getSessionOrThrow: vi.fn(),
       persistSession: vi.fn(),
     } as never,
@@ -130,7 +147,10 @@ describe('RUNTIME-003: the identity survives the whole queued path', () => {
     readonly enqueued: IQueuedInput[] = [];
 
     watchTheQueue(): void {
-      this.execCtrl.executing = true; // a turn is in flight, so the next submission queues
+      void this.execCtrl.executeForegroundCommand(
+        () => new Promise<ICommandResult>(() => {}),
+        () => Promise.resolve(),
+      ); // a turn is in flight, so the next submission queues
       const enqueue = this.execCtrl.enqueuePending.bind(this.execCtrl);
       this.execCtrl.enqueuePending = (entry: IQueuedInput) => {
         this.enqueued.push(entry);
@@ -148,7 +168,6 @@ describe('RUNTIME-003: the identity survives the whole queued path', () => {
     const { turnId, completed } = controller.turns.begin();
     controller.enqueuePending({ input: 'queued', options: { driverId: 'owner' }, turnId });
 
-    controller.executing = false;
     controller.drainNow(() => {
       throw new Error('session is shutting down');
     });
@@ -178,18 +197,17 @@ describe('RUNTIME-003: the identity survives the whole queued path', () => {
     let maxConcurrent = 0;
 
     const resume = async (entry: IQueuedInput): Promise<void> => {
-      controller.executing = true;
-      concurrent += 1;
-      maxConcurrent = Math.max(maxConcurrent, concurrent);
-      order.push(entry.input);
-      await Promise.resolve();
-      concurrent -= 1;
-      controller.executing = false;
-      controller.turns.settle(entry.turnId, { content: entry.input } as never);
-      controller.drainNow(resume);
+      await controller.executeForegroundCommand(async () => {
+        concurrent += 1;
+        maxConcurrent = Math.max(maxConcurrent, concurrent);
+        order.push(entry.input);
+        await Promise.resolve();
+        concurrent -= 1;
+        controller.turns.settle(entry.turnId, { content: entry.input } as never);
+        return { success: true, message: 'resumed' };
+      }, resume);
     };
 
-    controller.executing = false;
     controller.drainNow(resume);
 
     expect(controller.executing, 'queue handoff released execution ownership for one tick').toBe(

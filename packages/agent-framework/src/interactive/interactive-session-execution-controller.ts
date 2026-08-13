@@ -2,30 +2,31 @@
  * SessionExecutionController — owns execution lifecycle state and methods
  * for InteractiveSession.
  *
- * Manages: executing flag, streaming text, active tools, pending queue,
+ * Manages: execution claim, streaming text, active tools, pending queue,
  * shutting-down flag, and all private execution lifecycle methods.
  */
 
 import {
   createUserMessage,
-  createAssistantMessage,
   createSystemMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
 
+import { InteractiveExecutionClaimOwner } from './interactive-execution-claim.js';
 import { checkAndRefreshContextIfStale } from './interactive-session-context-refresh.js';
+import {
+  projectCompactEvent,
+  projectForkSkillResult,
+  projectToolExecution,
+} from './interactive-session-execution-events.js';
 import { PendingInputQueue } from './interactive-session-pending-queue.js';
 import { capturePostTurnMemory } from './interactive-session-post-turn-memory.js';
 import { executePromptTurn } from './interactive-session-prompt.js';
-import {
-  STREAMING_FLUSH_INTERVAL_MS,
-  pushToolSummaryToHistory,
-  applyToolStart,
-  applyToolEnd,
-} from './interactive-session-streaming.js';
+import { STREAMING_FLUSH_INTERVAL_MS } from './interactive-session-streaming.js';
 import { TurnSettlerRegistry } from './turn-settler-registry.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
 
+import type { IExecutionClaim } from './interactive-execution-claim.js';
 import type {
   IExecutionControllerCallbacks,
   ITurnOptions,
@@ -58,7 +59,7 @@ export type {
 } from './interactive-session-execution-contracts.js';
 
 export class SessionExecutionController {
-  executing = false;
+  private readonly executionClaim: InteractiveExecutionClaimOwner;
   streamingText = '';
   flushTimer: ReturnType<typeof setTimeout> | null = null;
   activeTools: IToolState[] = [];
@@ -78,10 +79,20 @@ export class SessionExecutionController {
     private readonly histTracker: SessionHistoryTracker,
     private readonly skillRouter: SessionSkillRouter,
     private readonly callbacks: IExecutionControllerCallbacks,
-  ) {}
+  ) {
+    this.executionClaim = new InteractiveExecutionClaimOwner([
+      () => this.callbacks.persistSession(),
+      () => this.callbacks.emit('thinking', false),
+      () => this.emitExecutionWorkspaceUpdated('main_thread'),
+    ]);
+  }
 
   /** RUNTIME-003: the registry that makes `ITurnHandle.completed` able to promise it settles. */
   readonly turns = new TurnSettlerRegistry();
+
+  get executing(): boolean {
+    return this.executionClaim.active;
+  }
 
   /** The HEAD queued prompt (next to run), or null — backward-compatible single-prompt read. */
   get pendingPrompt(): string | null {
@@ -128,19 +139,8 @@ export class SessionExecutionController {
   }
 
   handleCompactEvent(event: ICompactEvent): void {
-    if (event.trigger === 'auto') {
-      this.histTracker.append(
-        messageToHistoryEntry(
-          createSystemMessage(
-            `Auto compacted context: ${Math.round(event.before.usedPercentage)}% -> ${Math.round(event.after.usedPercentage)}%`,
-          ),
-        ),
-      );
-    }
-    this.callbacks.emit('compact', event);
-    this.callbacks.emit('context_update', event.after);
+    projectCompactEvent(this.histTracker, this.callbacks, event);
   }
-
   handleToolExecution(event: {
     type: 'start' | 'end';
     toolName: string;
@@ -150,19 +150,13 @@ export class SessionExecutionController {
     toolResultData?: string;
     executionId?: string;
   }): void {
-    const streamingState = {
-      activeTools: this.activeTools,
-      history: this.histTracker.getHistory(),
-    };
-    if (event.type === 'start') {
-      const toolState = applyToolStart(streamingState, event);
-      this.activeTools = streamingState.activeTools;
-      this.callbacks.emit('tool_start', toolState);
-    } else {
-      const finished = applyToolEnd(streamingState, event);
-      this.activeTools = streamingState.activeTools;
-      if (finished) this.callbacks.emit('tool_end', finished);
-    }
+    this.activeTools = projectToolExecution(
+      this.activeTools,
+      this.histTracker.getHistory(),
+      this.callbacks,
+      (activeTools) => void (this.activeTools = activeTools),
+      event,
+    );
   }
 
   emitExecutionWorkspaceUpdated(cause: TExecutionWorkspaceUpdateCause, entryId?: string): void {
@@ -193,12 +187,10 @@ export class SessionExecutionController {
       try {
         resumed = resumeQueuedTurn(head);
       } catch (error) {
-        this.executing = false;
         this.turns.fail(head.turnId, error instanceof Error ? error : new Error(String(error)));
         return;
       }
       void resumed.catch((error: unknown) => {
-        this.executing = false;
         this.turns.fail(head.turnId, error instanceof Error ? error : new Error(String(error)));
       });
     }
@@ -217,12 +209,18 @@ export class SessionExecutionController {
     turnOptions: ITurnOptions = {},
   ): Promise<void> {
     // RUNTIME-12: claim the turn SYNCHRONOUSLY at entry. The caller's `if (execCtrl.executing)` gate
-    // (interactive-session.submit) and this assignment are synchronous, so a second concurrent submit
+    // (interactive-session.submit) and this claim are synchronous, so a second concurrent submit
     // observes `executing` and coalesces to the pending queue instead of BOTH starting a turn. (Previously
     // set only AFTER the awaited checkAndRefreshContextIfStale below, leaving a two-await window where both
     // entries saw idle.) The `finally` always releases it — including if the refresh throws, which is why
     // checkAndRefreshContextIfStale now runs INSIDE the try.
-    this.executing = true;
+    let executionClaim: IExecutionClaim;
+    try {
+      executionClaim = this.executionClaim.acquire('prompt');
+    } catch (error) {
+      this.turns.fail(turnId, error instanceof Error ? error : new Error(String(error)));
+      throw error;
+    }
     // RUNTIME-003: which submission this turn belongs to; the handle minted then settles here.
     // REMOTE-014 E5: capture the ACTIVE turn's driver so event/prompt emitters can attribute to it.
     this.activeDriverId = turnOptions.driverId ?? null;
@@ -323,18 +321,14 @@ export class SessionExecutionController {
         record: (event) => this.histTracker.recordMemoryEvent(event),
         onError: (error) => this.callbacks.emit('error', error),
       });
-      this.callbacks.persistSession();
       // RUNTIME-003: settled BEFORE draining, in the `finally` that always runs — so a caller is
       // answered by ITS turn, and a turn that threw where onError never saw still settles.
       if (terminalResult !== undefined) this.turns.settle(turnId, terminalResult);
       else this.turns.fail(turnId, turnError ?? new Error('the turn ended without a result'));
-      this.executing = false;
       this.activeDriverId = null; // REMOTE-014 E5: turn ended — events after this are not turn-authored
-      this.callbacks.emit('thinking', false);
       // FLOW-002: the wake for this task id is no longer in flight; allow future wakes to inject.
       if (turnOptions.wakeTaskId !== undefined) this.wakeTaskIds.delete(turnOptions.wakeTaskId);
-      this.emitExecutionWorkspaceUpdated('main_thread');
-      this.drainPendingQueue(resumeQueuedTurn);
+      this.executionClaim.complete(executionClaim, () => this.drainPendingQueue(resumeQueuedTurn));
     }
   }
 
@@ -349,15 +343,15 @@ export class SessionExecutionController {
     if (this.executing) {
       throw new Error('Cannot execute fork skill while another prompt is running.');
     }
-    this.executing = true;
-    this.clearStreaming();
-    this.callbacks.emit('thinking', true);
-    this.histTracker.append(
-      messageToHistoryEntry(createUserMessage(displayInput ?? `/${skill.name}`)),
-    );
-    this.emitExecutionWorkspaceUpdated('main_thread');
+    const executionClaim = this.executionClaim.acquire('fork-skill');
 
     try {
+      this.clearStreaming();
+      this.callbacks.emit('thinking', true);
+      this.histTracker.append(
+        messageToHistoryEntry(createUserMessage(displayInput ?? `/${skill.name}`)),
+      );
+      this.emitExecutionWorkspaceUpdated('main_thread');
       const result = await this.skillRouter.executeSkillWithActivation(
         skill,
         args,
@@ -375,11 +369,7 @@ export class SessionExecutionController {
       this.callbacks.emit('error', error);
       return { mode: 'fork', result: '' };
     } finally {
-      this.executing = false;
-      this.callbacks.emit('thinking', false);
-      this.emitExecutionWorkspaceUpdated('main_thread');
-      this.callbacks.persistSession();
-      this.drainPendingQueue(resumeQueuedTurn);
+      this.executionClaim.complete(executionClaim, () => this.drainPendingQueue(resumeQueuedTurn));
     }
   }
 
@@ -387,11 +377,19 @@ export class SessionExecutionController {
     execute: () => Promise<ICommandResult>,
     resumeQueuedTurn: TResumeQueuedTurnFn,
   ): Promise<ICommandResult> {
-    this.executing = true;
-    this.clearStreaming();
-    this.callbacks.emit('thinking', true);
-    this.emitExecutionWorkspaceUpdated('main_thread');
+    let executionClaim: IExecutionClaim;
     try {
+      executionClaim = this.executionClaim.acquire('foreground-command');
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
+    try {
+      this.clearStreaming();
+      this.callbacks.emit('thinking', true);
+      this.emitExecutionWorkspaceUpdated('main_thread');
       const result = await execute();
       this.callbacks.emit('context_update', this.callbacks.getContextState());
       return result;
@@ -399,29 +397,18 @@ export class SessionExecutionController {
       const errMsg = err instanceof Error ? err.message : String(err);
       return { success: false, message: `Error: ${errMsg}` };
     } finally {
-      this.executing = false;
-      this.callbacks.emit('thinking', false);
-      this.emitExecutionWorkspaceUpdated('main_thread');
-      this.callbacks.persistSession();
-      this.drainPendingQueue(resumeQueuedTurn);
+      this.executionClaim.complete(executionClaim, () => this.drainPendingQueue(resumeQueuedTurn));
     }
   }
 
   async applyForkSkillResult(result: string): Promise<void> {
-    this.flushStreaming();
-    pushToolSummaryToHistory({
-      activeTools: this.activeTools,
-      history: this.histTracker.getHistory(),
-    });
-    this.clearStreaming();
-    const executionResult = {
-      response: result,
-      history: this.histTracker.getHistory(),
-      toolSummaries: [],
-      contextState: this.callbacks.getContextState(),
-    };
-    this.histTracker.append(messageToHistoryEntry(createAssistantMessage(result)));
-    this.callbacks.emit('complete', executionResult);
-    this.callbacks.emit('context_update', this.callbacks.getContextState());
+    projectForkSkillResult(
+      result,
+      this.activeTools,
+      this.histTracker,
+      this.callbacks,
+      () => this.flushStreaming(),
+      () => this.clearStreaming(),
+    );
   }
 }

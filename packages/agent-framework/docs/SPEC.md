@@ -551,7 +551,11 @@ All errors from `session.run()` are caught by `InteractiveSession` and emitted a
 
 - 82 test files across `src/__tests__/` and `src/interactive/__tests__/`
 - Key test files:
-  - `interactive-session.test.ts` — InteractiveSession behavior: submit, abort, queue, history
+  - `interactive-session-execution-claim.test.ts` — identity-bound prompt/fork/foreground claim,
+    foreign-release resistance, callback re-entry/failure safety, and synchronous queued handoff
+  - `testing/__tests__/execution-claim-functional.test.ts` — public busy refusal preserves an
+    already queued turn, which later executes and settles exactly once without busy-error history
+  - `interactive-session.test.ts` — public busy policy, submit/abort queue behavior, and history
   - `interactive-session-background-tasks.test.ts` — background task events and controls
   - `interactive-session-checkpoints.test.ts` — edit checkpoint capture and restore
   - `interactive-session-skill-command.test.ts` — skill command routing
@@ -1087,6 +1091,16 @@ reusing broad context-loading internals for repository interpretation.
 - **Design**: Commands return `ICommandResult` with `message`, `success`, and optional SDK-owned `hostActions`/`uiIntents`. `data` remains available for command-specific diagnostic payloads, but callers must not invent command-specific side-effect keys. User-facing prompts are solicited inline via the CMD-004 ask seam (`context.getUserInteraction()?.ask`), not returned in the result; host semantics (restart, shutdown, model/language changes, session rename, status-line updates, remote-control) are typed `TCommandHostAction` values the session executes, and screen navigation (settings/plugin-manager/session-picker/agent-switcher) is a typed `TCommandUiIntent` rendered by the requesting surface.
 - **Single owner rule**: SDK-default built-in command metadata is derived from executable `ISystemCommand` records. A built-in command must not be added to autocomplete/help metadata without an executable owner module.
 - **Lifecycle policy**: `ISystemCommand` may declare command lifecycle metadata. Blocking foreground commands share the same `InteractiveSession` execution guard and `thinking` events as prompt execution. Inline commands execute immediately and must not call model-backed long-running operations.
+- **Foreground execution ownership**: `SessionExecutionController` is the single owner of one
+  identity-bound foreground claim spanning prompt turns, fork skills, and blocking commands. Each
+  path acquires synchronously before its first await or state mutation. Only the matching holder may
+  release the claim, emit idle state, persist release-time state, or drain `PendingInputQueue`; a
+  stale or foreign release has no effect. Public commands retain explicit busy rejection, while
+  prompts retain the existing attributed queue policy.
+- **Cancellation and handoff**: abort signals the active operation but never releases its claim;
+  `isExecuting()` remains true until the holder unwinds. Prompt handle settlement, post-turn capture,
+  driver/wake cleanup, and persistence complete before matching release. The release performs the
+  existing synchronous queued-turn handoff so no public submission can enter an idle gap.
 - **Command identity**: `ICommand.name`, `ISystemCommand.name`, `ICapabilityDescriptor.name`, and projected model-command reverse mappings use slash-free canonical command ids such as `skills`, `agent`, and `memory`. Slash syntax such as `/skills` or `/agent` belongs only to UI/transport input parsing and display.
 - **SDK core built-ins**: SDK core has no user-visible built-in commands. `skills` is owned by `@robota-sdk/agent-command`, which consumes SDK skill discovery and activation APIs like any other command module.
 - **Product-specific built-in commands**: User-visible internal commands outside SDK-owned discovery are provided by product-composed command modules.

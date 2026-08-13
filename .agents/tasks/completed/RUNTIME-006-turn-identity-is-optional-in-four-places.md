@@ -1,7 +1,8 @@
 ---
 title: 'RUNTIME-006: a turn identity that is optional in four places'
-status: in-progress
+status: done
 created: 2026-08-08
+completed: 2026-08-13
 priority: medium
 urgency: soon
 area: packages/agent-framework, packages/agent-interface-transport
@@ -138,6 +139,13 @@ public-SDK reachability, a complete non-interactive exact Bash recipe, determini
 fixtures, bounded admission/settlement timeouts, exact identity/correlation/queue observables, exit
 semantics, and bounded cleanup. It also confirmed that `Observed evidence: EMPTY` is correct before
 implementation and that no engineering test output is being substituted for user evidence.
+
+**DONE-GATE-STAGE-2: PASS — 2026-08-13.** The durable public-SDK scenario was executed unchanged
+against the completed implementation. It exited `0`, reported that the forged resume identity was
+ignored, produced distinct turn identities, correlated `FIRST_TURN_OK` and `SECOND_TURN_OK` to their
+original handles, made exactly two provider calls, drained the queue to zero, and completed bounded
+cleanup. An independent guardian confirmed that every recorded observable matched and that engineering
+verification was not substituted for user-execution evidence.
 
 ## Implementation checkpoint — 2026-08-13
 

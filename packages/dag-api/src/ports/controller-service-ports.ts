@@ -134,29 +134,8 @@ export interface IDiagnosticsDeadLetterReinjectPort {
   ): Promise<TResult<IDiagnosticsDeadLetterReinjectResult, IDagError>>;
 }
 
-/** Result of one runtime worker loop iteration. */
-export interface IRuntimeWorkerLoopResult {
-  processed: boolean;
-  taskRunId?: string;
-  retried?: boolean;
-}
-
-/** Minimal worker loop capability needed by Prompt API backends. */
-export interface IRuntimeWorkerLoopPort {
-  processOnce(): Promise<TResult<IRuntimeWorkerLoopResult, IDagError>>;
-}
-
 /** Minimal run-progress event bus capability needed by runtime WebSocket bridges. */
 export interface IRuntimeRunProgressEventBusPort {
   publish(event: TRunProgressEvent): void;
   subscribe(listener: TRunProgressEventListener): () => void;
-}
-
-/** Runtime execution composition contract consumed by Prompt API backends. */
-export interface IDagExecutionComposition {
-  runOrchestrator: IRuntimeRunCreatorPort;
-  runQuery: IRuntimeRunReaderPort;
-  runCancel: IRuntimeRunCancellerPort;
-  workerLoop: IRuntimeWorkerLoopPort;
-  runProgressEventBus: IRuntimeRunProgressEventBusPort;
 }

@@ -6,8 +6,14 @@ import type {
   ITaskExecutorPort,
 } from '@robota-sdk/dag-core';
 import { RunCancelService, RunOrchestratorService, RunQueryService } from '@robota-sdk/dag-runtime';
-import { createWorkerLoopService, type IWorkerLoopPolicyOptions } from '@robota-sdk/dag-worker';
-import { RunProgressEventBus, type IDagExecutionComposition } from '@robota-sdk/dag-api';
+import {
+  createWorkerLoopService,
+  RunAdvancementCoordinator,
+  type IRunAdvancementCoordinatorLogger,
+  type IWorkerLoopPolicyOptions,
+} from '@robota-sdk/dag-worker';
+import { RunProgressEventBus } from '@robota-sdk/dag-api';
+import type { IDagExecutionComposition } from '../types.js';
 
 /** Infrastructure dependencies required for DAG execution. */
 export interface IDagExecutionCompositionDependencies {
@@ -23,6 +29,7 @@ export interface IDagExecutionCompositionDependencies {
 /** Worker policy options for execution composition. */
 export interface IDagExecutionCompositionOptions {
   worker: IWorkerLoopPolicyOptions;
+  logger?: IRunAdvancementCoordinatorLogger;
 }
 
 /**
@@ -58,12 +65,13 @@ export function createExecutionComposition(
       retryEnabled: options.worker.retryEnabled ?? false,
     },
   );
+  const runAdvancement = new RunAdvancementCoordinator(workerLoop, runQuery, options.logger);
 
   return {
     runOrchestrator,
     runQuery,
     runCancel,
-    workerLoop,
+    runAdvancement,
     runProgressEventBus,
   };
 }

@@ -1,7 +1,8 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [cli, typescript]
+completed: 2026-08-14
 ---
 
 # INFRA-089: Staged auto-fix before commit
@@ -149,27 +150,27 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm lint:fix:staged` with staged malformed TS/JS and Markdown fixtures exits 0, applies ESLint before Prettier where applicable, and leaves unrelated unstaged fixtures byte-identical.
-- [ ] TC-02: the `pnpm lint:fix` command contract applies ESLint fix to the canonical full lint scope and then Prettier to the repository root under canonical ignore files; actual whole-tree execution is deferred to a fresh post-promotion normalization branch so it cannot obstruct earlier feature merges.
-- [ ] TC-03: `.husky/pre-commit` invokes the root `lint:fix:staged` command, never full `lint:fix`, while preserving the clone-wide repository lock and all existing guards.
-- [ ] TC-04: a harness test fails against a fixture that removes either command, hook delegation, the lock, or reverses ESLint/Prettier order, and passes against the repository configuration.
-- [ ] TC-05: the canonical change-completion workflow states `stage → pnpm lint:fix:staged → verify → commit`, documents `pnpm lint:fix` as an occasional reviewed full sweep, and `pnpm harness:scan` exits 0.
-- [ ] TC-06: the attempted current-tree full sweep is reverted exactly to its pre-run dirty-path baseline; current intended paths pass `pnpm lint:fix:staged` and affected verification runs afterward; a dependent normalization work item records the post-main execution.
+- [x] TC-01: `pnpm lint:fix:staged` with staged malformed TS/JS and Markdown fixtures exits 0, applies ESLint before Prettier where applicable, and leaves unrelated unstaged fixtures byte-identical.
+- [x] TC-02: the `pnpm lint:fix` command contract applies ESLint fix to the canonical full lint scope and then Prettier to the repository root under canonical ignore files; actual whole-tree execution is deferred to a fresh post-promotion normalization branch so it cannot obstruct earlier feature merges.
+- [x] TC-03: `.husky/pre-commit` invokes the root `lint:fix:staged` command, never full `lint:fix`, while preserving the clone-wide repository lock and all existing guards.
+- [x] TC-04: a harness test fails against a fixture that removes either command, hook delegation, the lock, or reverses ESLint/Prettier order, and passes against the repository configuration.
+- [x] TC-05: the canonical change-completion workflow states `stage → pnpm lint:fix:staged → verify → commit`, documents `pnpm lint:fix` as an occasional reviewed full sweep, and `pnpm harness:scan` exits 0.
+- [x] TC-06: the attempted current-tree full sweep is reverted exactly to its pre-run dirty-path baseline; current intended paths pass `pnpm lint:fix:staged` and affected verification runs afterward; a dependent normalization work item records the post-main execution.
 
 ## Test Plan
 
-| TC-ID | Test Type              | Tool / Approach                                                                                                                   | Notes                                                                              |
-| ----- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| TC-01 | CI pipeline smoke test | Temporary Git fixture invoking `pnpm lint:fix:staged`; byte comparison for unrelated file                                         | Include partially staged behavior if the existing lint-staged harness supports it. |
-| TC-02 | CI pipeline smoke test | Assert canonical ESLint scope followed by `prettier --write .`; execute and prove idempotence in the dependent normalization item | Broad mutation starts only after current work reaches main.                        |
-| TC-03 | CI pipeline smoke test | Harness assertion over `package.json` and `.husky/pre-commit`, plus existing hook tests                                           | Preserve current guard ordering and staged-only hook scope.                        |
-| TC-04 | CI pipeline smoke test | RED fixture mutations followed by the new Vitest harness test                                                                     | Proves the mechanism, not only the happy path.                                     |
-| TC-05 | CI pipeline smoke test | `rg` assertion for the canonical workflow plus `pnpm harness:scan`                                                                | No manual-only criterion.                                                          |
-| TC-06 | CI pipeline smoke test | Compare pre/post rollback status sets, run staged fix and affected verification, and link the dependent normalization task        | Broad normalization remains separately reviewable.                                 |
+| TC-ID | Test Type              | Tool / Approach                                                                                                                                                                                                                                                                                                   | Notes                                                                                                                                                                 |
+| ----- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | CI pipeline smoke test | `scripts/harness/__tests__/staged-auto-fix.test.mjs` — `fixes only staged source and documentation files and automatically re-stages them`                                                                                                                                                                        | Temporary Git fixture checks exact mutations, staged paths, and unrelated bytes.                                                                                      |
+| TC-02 | CI pipeline smoke test | `scripts/harness/__tests__/staged-auto-fix.test.mjs` > `INFRA-089 staged and full auto-fix contract` > `the live repository has one staged fixer, one optional full fixer, and post-fix verification`; plus `.agents/tasks/completed/INFRA-090-post-promotion-whole-repository-format-normalization.md`           | Contract ordering plus durable full-sweep convergence/promotion evidence.                                                                                             |
+| TC-03 | CI pipeline smoke test | `scripts/harness/__tests__/staged-auto-fix.test.mjs` live-contract case; `scripts/harness/__tests__/worktrees-share-the-stash.test.mjs` — `the pre-commit hook reaches the lock through the root staged-fix command`                                                                                              | Verifies hook delegation and exactly one lock owner.                                                                                                                  |
+| TC-04 | CI pipeline smoke test | `scripts/harness/__tests__/staged-auto-fix.test.mjs` table `rejects %s`                                                                                                                                                                                                                                           | Mutation cases cover missing command/lock, broad hook use, and reversed ordering.                                                                                     |
+| TC-05 | CI pipeline smoke test | `scripts/harness/__tests__/staged-auto-fix.test.mjs` > `INFRA-089 staged and full auto-fix contract` > `the live repository has one staged fixer, one optional full fixer, and post-fix verification`; plus `pnpm harness:scan`                                                                                   | Verifies the workflow owner and full harness registration.                                                                                                            |
+| TC-06 | CI pipeline smoke test | Automated test skipped: rollback equality, cross-branch normalization, PR promotion, and branch removal are historical Git/CI operations that cannot be safely replayed by a repository unit test. Durable evidence: `.agents/tasks/completed/INFRA-090-post-promotion-whole-repository-format-normalization.md`. | The staged-workflow contract remains covered by `scripts/harness/__tests__/staged-auto-fix.test.mjs`; the one-time operational transition is evidenced, not replayed. |
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-089-staged-auto-fix-before-commit.md` — TC-01 through TC-06 implementation and verification
+- [x] `.agents/tasks/completed/INFRA-089-staged-auto-fix-before-commit.md` — TC-01 through TC-06 implementation and verification
 
 ## Evidence Log
 
@@ -253,3 +254,124 @@ None
 - Completion-Criteria coverage: the task `## Plan` contains one explicit work item for each of `TC-01`, `TC-02`, `TC-03`, `TC-04`, `TC-05`, and `TC-06`, plus the terminal gate/archive step.
 - Test plan: the task contains a substantive `## Test Plan` describing RED contract and fixture failures, GREEN implementation, real-tree idempotence, staged execution, focused harness checks, scan, and verify-like-CI.
 - Implementation boundary: no implementation commit for the approved source changes was observed before task creation and this gate run.
+
+### [GATE-VERIFY] — 🔴 NON-COMPLIANCE | 2026-08-13
+
+**Status remains:** in-progress
+**Violation:** The required prior `[GATE-IMPLEMENT] — ✅ PASS` evidence is materially false and does not establish a valid ordered transition. It claims that `.agents/tasks/INFRA-089.md` existed and was recorded in `## Tasks`, but that path does not exist and has no Git history. Commit `9cf8a12b9` added, and the current spec links, `.agents/tasks/INFRA-089-staged-auto-fix-before-commit.md` instead. Because prior-gate evidence is contradicted by the repository record, GATE-VERIFY cannot evaluate its own criteria.
+**Required action:** Independently re-establish and record valid GATE-IMPLEMENT evidence against `.agents/tasks/INFRA-089-staged-auto-fix-before-commit.md`, including its TC-01 through TC-06 coverage and substantive Test Plan, then re-run GATE-VERIFY.
+
+### [GATE-IMPLEMENT REVALIDATION] — ✅ PASS | 2026-08-13
+
+**Status confirmation:** in-progress (corrective evidence only; no additional status transition)
+
+- Task file: `.agents/tasks/INFRA-089-staged-auto-fix-before-commit.md` exists, has `status: in-progress`, and links back to this spec.
+- Tasks-section linkage: the spec's `## Tasks` section records `.agents/tasks/INFRA-089-staged-auto-fix-before-commit.md` as the TC-01 through TC-06 implementation and verification task.
+- Completion-Criteria coverage: the task's `## Plan` contains one explicit work item for each of `TC-01`, `TC-02`, `TC-03`, `TC-04`, `TC-05`, and `TC-06`, plus a separate terminal gate/archive step.
+- Test plan: the task contains a substantive 1,060-character `## Test Plan` covering the RED contract/fixture failures, GREEN implementation, repository lock and staged execution, dependent full-tree normalization, focused harness verification, scan, and CI-equivalent verification.
+- Approved-design integrity: comparison with implementation commit `9cf8a12b9` shows no subsequent modification to the approved Problem, Architecture Review, Decision, Solution, Affected Files, or Test Plan; current spec changes are completion checkboxes and corrective Evidence Log entries only.
+- Implementation boundary: parent commit `85612606f` contains neither the task nor the new `lint:fix:staged` implementation (`package.json` has no such script and pre-commit invokes lint-staged directly). The first implementation commit, `9cf8a12b9`, atomically adds the correctly named task together with the implementation. Therefore no implementation commit exists in history while the task file is absent.
+- Correction: this revalidation supersedes only the prior PASS entry's erroneous `.agents/tasks/INFRA-089.md` path claim; the actual verified path is `.agents/tasks/INFRA-089-staged-auto-fix-before-commit.md`.
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-08-14
+
+**Status remains:** in-progress
+
+**Verified evidence:** TC-01 through TC-06, the 30 focused harness tests, the 108-scan suite, `pnpm build`,
+and `pnpm test` all passed under independent execution. `INFRA-090` supplies the completed full-sweep,
+idempotence, promotion, and rollback evidence required by TC-02 and TC-06.
+
+**Failed criterion:** the task combined the future GATE-COMPLETE and archival transition into an unchecked
+implementation checkbox. GATE-VERIFY requires no pending task items, while checking that future transition
+before it happens would be false evidence.
+
+**Required action:** represent the future gate/archive transition as a lifecycle handoff rather than an
+implementation checkbox, then re-run GATE-VERIFY. Do not mark an unexecuted gate complete.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** in-progress → verifying
+
+- Ordering: the corrective `[GATE-IMPLEMENT REVALIDATION] — ✅ PASS` establishes the valid prior gate against `.agents/tasks/INFRA-089-staged-auto-fix-before-commit.md`; the spec is in the expected `in-progress` state under `.agents/spec-docs/active/`.
+- Task completion state: the task contains exactly six implementation checkboxes, corresponding one-to-one with TC-01 through TC-06; all six are `[x]` and unchecked count is zero.
+- Pending/blocked state: `## Blockers` records `None`. The future GATE-VERIFY, GATE-COMPLETE, and archival operations are correctly represented as a non-checkbox lifecycle handoff, not unfinished implementation work.
+- TC-01/TC-04 focused verification: `pnpm exec vitest run scripts/harness/__tests__/staged-auto-fix.test.mjs scripts/harness/__tests__/worktrees-share-the-stash.test.mjs --pool=threads --maxWorkers=2 --testTimeout=30000 --reporter=dot` exited 0 with 2 test files and 31 tests passed.
+- TC-02/TC-06 dependent evidence: completed task `.agents/tasks/completed/INFRA-090-post-promotion-whole-repository-format-normalization.md` records rollback-baseline equality, full-sweep convergence, CI-equivalent verification, and promotion to `main`; normalization commit `376532990` is an ancestor of current `main`.
+- TC-03: current root and hook wiring still delegates pre-commit to `pnpm lint:fix:staged`, with the root staged command owning the single repository lock.
+- TC-05/current harness state: `pnpm harness:scan` was rerun after the lifecycle-handoff correction and exited 0 with 108 scans passed, 2 skipped, and no failures.
+- Build: `pnpm build` exited 0 and completed the workspace JavaScript build plus ordered type builds for all 75 packages.
+- Tests: `pnpm test` exited 0 and completed the full workspace test run.
+- Evidence currency: the focused test file and implementation surfaces were unchanged after their successful runs; only the task/spec lifecycle documentation changed afterward, and the document-sensitive harness scan was rerun successfully against that corrected current tree.
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-08-14
+
+**Status remains:** verifying
+
+**Verified prerequisites:** ordering, all six checked criteria, active task readiness, focused/full evidence,
+and the not-applicable user-execution disposition are valid.
+
+**Failed criteria:** the Evidence Log lacked the catalogue-required `[GATE-COMPLETE: TC-N]` record for
+each criterion, and the Test Plan rows did not name durable test/evidence references.
+
+**Required action:** add TC-01 through TC-06 evidence entries with exact commands/actions, observed results,
+and exit codes where applicable; update every Test Plan row with a durable test or operational-evidence path.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-14
+
+- Command: `pnpm exec vitest run scripts/harness/__tests__/staged-auto-fix.test.mjs scripts/harness/__tests__/worktrees-share-the-stash.test.mjs --pool=threads --maxWorkers=2 --testTimeout=30000 --reporter=dot`
+- Result: exit 0; 2 files and 31 tests passed. The temporary Git fixture invokes the actual root
+  `pnpm lint:fix:staged` command with fixture-scoped lint-staged arguments.
+- Observable: `fixes only staged source and documentation files and automatically re-stages them` formatted
+  staged TypeScript and Markdown, re-staged exactly those two paths, and left unrelated unstaged Markdown
+  byte-identical.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-14
+
+- Command: `pnpm exec vitest run scripts/harness/__tests__/staged-auto-fix.test.mjs scripts/harness/__tests__/worktrees-share-the-stash.test.mjs --pool=threads --maxWorkers=2 --testTimeout=30000 --reporter=dot`; exit 0. The live contract test verified root `lint:fix`
+  contains canonical ESLint `--fix` before repository-root `prettier --write .`.
+- Full-sweep command/action: `pnpm lint:fix`; exit 0. Completed `INFRA-090` ran it to convergence; its second/third-run diff hash was
+  `f5290a14303e08bda4ceacdad6916ec7e074101f5da0bd313b373476515c9a99`, CI-equivalent verification passed,
+  and normalization commit `376532990` is an ancestor of `main`.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-14
+
+- Command: `pnpm exec vitest run scripts/harness/__tests__/staged-auto-fix.test.mjs scripts/harness/__tests__/worktrees-share-the-stash.test.mjs --pool=threads --maxWorkers=2 --testTimeout=30000 --reporter=dot`; exit 0.
+- Observable: the live repository contract and `the pre-commit hook reaches the lock through the root
+staged-fix command` passed. `.husky/pre-commit` delegates to `pnpm lint:fix:staged`, never broad
+  `lint:fix`; the root script owns the sole `with-repo-lock.sh` invocation and existing guards remain.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-14
+
+- Command: `pnpm exec vitest run scripts/harness/__tests__/staged-auto-fix.test.mjs scripts/harness/__tests__/worktrees-share-the-stash.test.mjs --pool=threads --maxWorkers=2 --testTimeout=30000 --reporter=dot`; exit 0.
+- Observable: the `rejects %s` mutation table produced non-empty contract failures for a missing staged
+  command, missing lock owner, escaped lint-staged invocation, whole-tree fixer wired to commit, a second
+  hook lock, and formatter-before-linter.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-14
+
+- Commands: `pnpm exec vitest run scripts/harness/__tests__/staged-auto-fix.test.mjs scripts/harness/__tests__/worktrees-share-the-stash.test.mjs --pool=threads --maxWorkers=2 --testTimeout=30000 --reporter=dot`, exit 0; `pnpm harness:scan`, exit 0.
+- Observable: `post-implementation-checklist/SKILL.md` owns stage → staged fix → post-fix verification →
+  commit and documents reviewed full sweeps. The current aggregate reported 108 scans passed, 2 skipped,
+  and zero failures.
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-08-14
+
+- Exact historical action: save the sorted dirty-path set before the premature sweep, restore only paths
+  added or changed by that sweep, then compare the sorted post-rollback set against the saved set. Observed:
+  25 paths before, 25 after, zero extra, zero missing.
+- Normalization/verification commands: `pnpm lint:fix`, exit 0; repeat `pnpm lint:fix` and compare the
+  resulting diff hash, unchanged at `f5290a14303e08bda4ceacdad6916ec7e074101f5da0bd313b373476515c9a99`;
+  `pnpm harness:verify-like-ci`, exit 0. The isolated change reached `main` and its temporary branches were removed.
+- Current contract command: `pnpm exec vitest run scripts/harness/__tests__/staged-auto-fix.test.mjs scripts/harness/__tests__/worktrees-share-the-stash.test.mjs --pool=threads --maxWorkers=2 --testTimeout=30000 --reporter=dot`; exit 0.
+- Durable action evidence: `.agents/tasks/completed/INFRA-090-post-promotion-whole-repository-format-normalization.md`.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** verifying → done
+
+- Ordering/state: `[GATE-VERIFY] — ✅ PASS | 2026-08-14` exists and the document entered this gate as `verifying` under `.agents/spec-docs/active/`.
+- TC-01 through TC-06 are checked and each has a dedicated `[GATE-COMPLETE: TC-N]` entry with an exact command or action, observed result, and exit code where applicable.
+- Every Test Plan row names a durable test file plus test/describe name, or for TC-06 records the specific non-replayable historical Git/CI reason and durable `INFRA-090` evidence.
+- The active task was completion-ready: six implementation tasks checked, no unchecked or blocked work, and a valid internal-workflow user-execution N/A disposition.
+- Fresh current-tree `pnpm harness:scan` exited 0 with 108 scans passed, 2 skipped, and no failures.
+- Terminal metadata, pointer update, task/spec archival, and final placement scans are the atomic post-PASS handoff performed immediately after this verdict.

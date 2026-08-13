@@ -28,10 +28,10 @@ async function fixture(files) {
 
 describe('tautological-assertion detection', () => {
   /**
-   * The literal line from `packages/dag-framework/src/__tests__/worker-loop-driver.test.ts` as it
-   * stood before #1443. SEC-005 proved that suite inert by deleting the behaviour under test and
-   * watching it stay green — this is the regression fixture for the incident that motivated the
-   * scan, so a rewrite of the rules that stops catching it fails here.
+   * The literal line from the former dag-framework worker-loop driver suite as it stood before
+   * #1443. SEC-005 proved that suite inert by deleting the behaviour under test and watching it stay
+   * green — this is the regression fixture for the incident that motivated the scan, so a rewrite
+   * of the rules that stops catching it fails here.
    */
   it('flags the assertion from the dag-framework incident', () => {
     const findings = findTautologiesInSource('    expect(true).toBe(true);\n');

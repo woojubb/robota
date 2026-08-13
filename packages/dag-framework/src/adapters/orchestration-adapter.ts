@@ -10,11 +10,8 @@ import {
   type IStoragePort,
   type IAssetStore,
 } from '@robota-sdk/dag-core';
-import type {
-  IDagControllerComposition,
-  IDagExecutionComposition,
-  IProblemDetails,
-} from '@robota-sdk/dag-api';
+import type { IDagControllerComposition, IProblemDetails } from '@robota-sdk/dag-api';
+import type { IDagExecutionComposition } from '../types.js';
 import type {
   IDagOrchestrationAssetContentDownloadInfo,
   IDagOrchestrationAssetUploadRequest,
