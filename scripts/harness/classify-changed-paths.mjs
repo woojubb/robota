@@ -10,9 +10,9 @@
  *
  *  - `.github/workflows/ci.yml` › `changes` — decides whether the heavy matrix (`tui-e2e`,
  *    `examples-typecheck`, `windows-shell`, patch-coverage, regression-red-proof) runs at all.
- *  - `.github/workflows/review-gate.yml` — decides whether a code-scanning analysis is EXPECTED for
- *    this PR. A docs-only PR never triggers CodeQL (`codeql.yml` `paths-ignore`), so no analysis
- *    record is ever written for it; without this signal the gate waits for an analysis that will
+ *  - `.github/workflows/review-gate.yml` — decides whether its same-workflow CodeQL job is
+ *    applicable. A docs-only PR does not run that job, so no analysis record is written for it;
+ *    without this signal the gate waits for an analysis that will
  *    never arrive and then blocks on its absence (INFRA-048's fail-closed path, misapplied — see
  *    #1436, which was blocked for a single backlog markdown file).
  *
@@ -22,14 +22,10 @@
  * by the very rule that also decided to skip its build and test matrix — a code PR cannot satisfy
  * one without satisfying the other.
  *
- * ## The docs set, and why it is pinned to codeql.yml
+ * ## The docs set
  *
- * `DOCS_ONLY_GLOBS` is byte-equivalent to `codeql.yml`'s `paths-ignore`. That equivalence is what
- * makes "docs-only" a sound predictor of "no analysis will ever exist", and it is asserted
- * mechanically in `__tests__/classify-changed-paths.test.mjs` so the two cannot drift apart. If
- * `paths-ignore` ever grows, the classifier over-reports code (fail-closed: the gate waits and
- * blocks). If it ever shrinks without this list following, an analysed PR would be treated as
- * not-applicable — which is the direction the parity test exists to prevent.
+ * `DOCS_ONLY_GLOBS` is the sole owner of docs-only applicability. CI and Review Gate consume the
+ * classifier output rather than copying this list into workflow `paths-ignore` blocks.
  *
  * ## Fail-closed
  *
@@ -50,8 +46,8 @@ import path from 'node:path';
 import { appendFileSync } from 'node:fs';
 
 /**
- * Paths that are pure documentation. Kept byte-equivalent to `codeql.yml`'s `paths-ignore`; the
- * parity is enforced by a unit test rather than by a comment.
+ * Paths that are pure documentation. Workflow callers consume this classifier; they do not own a
+ * second path list.
  */
 export const DOCS_ONLY_GLOBS = ['**/*.md', '**/*.mdx', 'docs/**', 'content/**'];
 

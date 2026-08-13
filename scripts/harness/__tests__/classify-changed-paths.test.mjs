@@ -6,8 +6,8 @@
  *   - review-gate.yml — whether a code-scanning analysis is expected at all (#1436: a docs-only PR
  *     was blocked for 15 m 23 s waiting for an analysis CodeQL never schedules).
  *
- * Two properties are load-bearing and both are asserted mechanically here: the docs set stays
- * byte-equivalent to codeql.yml's `paths-ignore`, and every undeterminable case answers CODE.
+ * Two properties are load-bearing and both are asserted mechanically here: workflows consume this
+ * classifier instead of copying the docs set, and every undeterminable case answers CODE.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -27,20 +27,22 @@ import {
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
 const SCRIPT = path.resolve(import.meta.dirname, '../classify-changed-paths.mjs');
 
-describe('the docs set is pinned to codeql.yml (anti-drift)', () => {
-  // If `paths-ignore` GROWS without this list following, the classifier over-reports code and the
-  // gate waits then blocks — annoying but safe. If it SHRINKS, an analysed PR would be treated as
-  // not-applicable and skip the gate. That second direction is a hole, and this test is what
-  // prevents it.
-  it('DOCS_ONLY_GLOBS equals codeql.yml `paths-ignore`, entry for entry', () => {
-    const yaml = readFileSync(path.join(REPO_ROOT, '.github/workflows/codeql.yml'), 'utf8');
-    const block = /paths-ignore:\n((?:\s*-\s*'[^']*'\n)+)/.exec(yaml);
-    expect(block, 'codeql.yml must still declare a paths-ignore block').not.toBeNull();
-    const pathsIgnore = [...block[1].matchAll(/-\s*'([^']*)'/g)].map((match) => match[1]);
-    expect([...pathsIgnore].sort()).toEqual([...DOCS_ONLY_GLOBS].sort());
+describe('the classifier owns the docs-only set', () => {
+  it('workflows do not carry a second paths-ignore list', () => {
+    const reviewGate = readFileSync(
+      path.join(REPO_ROOT, '.github/workflows/review-gate.yml'),
+      'utf8',
+    );
+    const codeql = readFileSync(path.join(REPO_ROOT, '.github/workflows/codeql.yml'), 'utf8');
+    expect(reviewGate).not.toContain('paths-ignore:');
+    expect(codeql).not.toContain('paths-ignore:');
+    expect(
+      reviewGate.match(/^\s*node scripts\/harness\/classify-changed-paths\.mjs/gm),
+    ).toHaveLength(1);
   });
 
-  it('every path codeql.yml ignores is classified docs-only, and code paths are not', () => {
+  it('every declared docs path is classified docs-only, and code paths are not', () => {
+    expect(DOCS_ONLY_GLOBS).toEqual(['**/*.md', '**/*.mdx', 'docs/**', 'content/**']);
     for (const file of ['README.md', '.agents/tasks/X.md', 'docs/a/b.mdx', 'content/post.md']) {
       expect(isDocsOnlyPath(file), file).toBe(true);
     }
