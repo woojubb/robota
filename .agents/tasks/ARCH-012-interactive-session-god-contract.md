@@ -1,5 +1,5 @@
 ---
-title: 'ARCH-012: `IInteractiveSession` is a 40+-member god contract that nothing can implement, with 51 unchecked casts and no conformant test double'
+title: 'ARCH-012: the 39-member session aggregate still forces 37 unchecked partial casts'
 status: in-progress
 created: 2026-08-02
 priority: high
@@ -8,9 +8,23 @@ area: packages/agent-interface-transport, packages/agent-framework, packages/age
 depends_on: []
 ---
 
-# ARCH-012: one wide hand-mirrored interface stands in for a set of capability-scoped ports
+# ARCH-012: decompose the remaining session aggregate into capability-scoped ports
 
-## Problem
+## Current Problem
+
+P1 corrected the original audit premise: `IInteractiveSession` now has 39 required members and zero
+optional members; the shipped `InteractiveSession` and the reachable
+`@robota-sdk/agent-interface-transport/testing` double both conform; and the AST ratchet records 37
+direct casts rather than the false-positive 51/33 count. The attribution ambiguity named by the
+original report is fixed.
+
+The remaining problem is the aggregate itself. Submission, lifecycle, goal, state, commands, events,
+prompt resolution, background work, workspace, and agent jobs remain one structural contract. A
+consumer needing a subset must still claim every member or cast a partial. This Task now owns only
+the session-contract axis. The parallel command-host defect has a different owner and migration graph
+and is filed separately as ARCH-029.
+
+## Historical Problem (superseded by P1 measurements)
 
 Nothing can implement `IInteractiveSession` honestly, so every consumer fabricates a private
 approximation. There are **51 unchecked casts across 33 files in 8 packages**, each with its own

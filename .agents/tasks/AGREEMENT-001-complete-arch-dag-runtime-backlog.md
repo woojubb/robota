@@ -13,6 +13,8 @@ children:
     ARCH-011,
     ARCH-012,
     ARCH-013,
+    ARCH-019,
+    ARCH-029,
     DAG-001,
     DAG-004,
     RUNTIME-002,
@@ -27,9 +29,10 @@ children:
 
 ## Objective
 
-Execute the twelve active ARCH, DAG, and RUNTIME Tasks in the dependency order and with the full
+Execute the original twelve active ARCH, DAG, and RUNTIME Tasks plus the two foundational items
+discovered while validating ARCH-012, in dependency order and with the full
 acceptance scope approved in the governing agreement. This record tracks initiative convergence;
-the twelve source Task files remain authoritative for their detailed implementation and scenario
+the source Task files remain authoritative for their detailed implementation and scenario
 evidence.
 
 ## Spec
@@ -53,6 +56,8 @@ projection is the section below.
 - [ ] ARCH-011 — in-progress — `.agents/tasks/ARCH-011-transport-adapter-is-a-lifecycle-stub.md`
 - [ ] ARCH-012 — in-progress — `.agents/tasks/ARCH-012-interactive-session-god-contract.md`
 - [ ] ARCH-013 — in-progress — `.agents/tasks/ARCH-013-preset-to-session-options-projection-has-no-owner.md`
+- [ ] ARCH-019 — todo — `.agents/tasks/ARCH-019-interactive-session-getSession-contract-understated.md`
+- [ ] ARCH-029 — todo — `.agents/tasks/ARCH-029-command-host-capability-contracts.md`
 - [x] DAG-001 — done — `.agents/tasks/completed/DAG-001-running-is-a-terminal-trap.md`
 - [ ] DAG-004 — todo — `.agents/tasks/DAG-004-eight-cli-commands-open-code-the-import-adapter.md`
 - [ ] RUNTIME-002 — todo — `.agents/tasks/RUNTIME-002-headless-only-bun-runtime-entry.md`
@@ -88,6 +93,8 @@ projection is the section below.
 
 - Source Tasks retain detailed contract and evidence ownership; this file is a non-duplicating initiative index.
 - Work is sequenced by shared-contract dependency, not by diff size.
+- ARCH-019 precedes ARCH-012's final factory conformance. ARCH-029 owns the separately identified
+  framework command-host root cause and follows ARCH-012 so the framework adapter is not designed twice.
 
 ## Blockers
 

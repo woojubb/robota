@@ -8,7 +8,7 @@ tags: [typescript, async, cli]
 
 ## Problem
 
-Twelve active Task records under `.agents/tasks/` retain `todo` or `in-progress` status across the
+The original twelve Task records under `.agents/tasks/` retained `todo` or `in-progress` status across the
 ARCH, DAG, and RUNTIME areas. Several records describe partially landed stages, while others still
 require contract, assembly, build, or verification work. The repository therefore advertises
 foundational execution, cancellation, transport, DAG recovery, preset ownership, and headless-runtime
@@ -64,7 +64,10 @@ instead of inheriting a new design from this umbrella document.
 
 ### Decision
 
-Use alternative 2. First audit every Task against current code and reject stale premises. Then execute
+Use alternative 2. First audit every Task against current code and reject stale premises. The ARCH-012
+audit found two additional owner-level prerequisites: ARCH-019 corrects the sanctioned full session
+factory before capability conformance is claimed, and ARCH-029 owns the distinct framework command-host
+facade rather than hiding it inside the session-contract PR. Then execute
 cohesive dependency-safe contract migrations, with shared contracts before consumers: session
 capability before transport conformance; DAG execution context before DAG cancellation/root consumers;
 turn identity before queue settlers. Slice boundaries follow ownership and the complete target design,
@@ -87,7 +90,7 @@ Two conditional new-surface placements are part of that decision:
   owns or is imported to reuse these ports. Their test doubles remain on the contract package's
   `./testing` surface, following the existing conformant-double placement. The parallel
   `ICommandHostContext` capability decomposition stays in `agent-framework`, which owns the command
-  host contract; it is not moved into the transport contract package.
+  host contract; ARCH-029 tracks that separate owner and it is not moved into the transport contract package.
 - **Headless-only Bun entry (TC-07)** mirrors `agent-cli`'s existing process-entry → Node bundle → Bun
   compile distribution layer, while its runtime behavior reuses the already-landed
   `runServeMode` → `agent-framework.startRuntimeHost` seam. A CLI-owned, presentation-neutral
@@ -119,7 +122,8 @@ Execute the twelve existing records without redefining their scope:
 1. Reconcile each Task's claims with current code, accepted package SPECs, and already-landed tests.
 2. Close DAG-001's durable recovery evidence; establish the trusted DAG execution context; establish
    one DAG advancement owner; then thread cancellation through that owner and node execution. Complete
-   RUNTIME-006 after the turn-handle contract, and complete ARCH-012 before ARCH-011. Schedule the
+   RUNTIME-006 after the turn-handle contract, complete ARCH-019 before ARCH-012, and complete ARCH-012
+   before ARCH-011 and ARCH-029. Schedule the
    independent ARCH-009, ARCH-013, DAG-004, RUNTIME-002, and RUNTIME-005 migrations at dependency-safe
    points. Combine only steps that modify the same owner contract; each Task keeps independent
    acceptance and evidence.
@@ -147,7 +151,7 @@ Execute the twelve existing records without redefining their scope:
 
 - [ ] TC-01: ARCH-009's `/preset` surface uses the assembled instance registry, and two products in one process expose isolated preset sets without module-global registration.
 - [x] TC-02: ARCH-010 carries a required, trusted absolute execution root through the DAG node execution path as well as the already-landed session/tool path; missing, empty, or relative roots fail closed, and LLM-authored `config.cwd` may only narrow within that root and never widen it.
-- [ ] TC-03: ARCH-012 decomposes `IInteractiveSession` into reachable capability-scoped contracts and the parallel `ICommandHostContext` into framework-owned command-host capability ports; real sessions and test doubles conform without unchecked partial casts, absent capability is distinct from a provided-empty result, and the direct `IInteractiveSession` cast ratchet reaches zero. ARCH-011 then defines and verifies every transport's lifecycle meaning, admission, cancellation verb, error/result shape, in-flight-on-disconnect policy, and session-capability declaration through one shared six-adapter conformance suite, replacing anonymous adapter intersection surfaces with named capabilities.
+- [ ] TC-03: ARCH-019 first makes the sanctioned full session double honest about submission identity and its declared nested-session surface. ARCH-012 then decomposes `IInteractiveSession` into reachable capability-scoped contracts; real sessions and test doubles conform without unchecked partial casts, absent capability is distinct from a provided-empty result, and the direct `IInteractiveSession` cast ratchet reaches zero. ARCH-029 separately decomposes `ICommandHostContext` into framework-owned command-host capability ports and removes its direct casts. ARCH-011 then defines and verifies every transport's lifecycle meaning, admission, cancellation verb, error/result shape, in-flight-on-disconnect policy, and session-capability declaration through one shared six-adapter conformance suite, replacing anonymous adapter intersection surfaces with named capabilities.
 - [ ] TC-04: ARCH-013 gives every supported `IResolvedPresetOptions` and reachable `ICreateSessionOptions` field one explicit projection/consumption owner or removes the unsupported field; projects resolved language, prompts, temperature, output limits, trust, tool allow/deny, and interactive `--system-prompt`, `--append-system-prompt`, `--task-file`, and `--json-schema` consistently through interactive, headless, serve, startup, and live `/preset`; supplies or deliberately removes the guardrail-registry and retrieval-adapter composition roots; and documents the legitimate distinction between registered guardrail implementations and hook-selected guardrail names rather than treating them as conflicting shapes.
 - [ ] TC-05: DAG-001's recovery behavior is proven through the in-memory and SQLite queue-adapter recovery matrix from persisted abandoned work to terminal run advancement, and its exact executable commands, fixtures, cleanup, output, and exit evidence live in a durable in-repo user-scenario artifact.
 - [ ] TC-06: DAG-004 routes every external-definition import boundary in dag-cli (including the named command siblings, runner dispatch, and MCP helpers) through the canonical validated import adapter and rejects malformed definitions consistently; the stale “eight commands” count is not used as a boundary.
@@ -156,7 +160,7 @@ Execute the twelve existing records without redefining their scope:
 - [ ] TC-09: RUNTIME-004 retains the landed compaction-cancellation/history-preservation proof and propagates cancellation through DAG orchestration, worker admission, local runtime loops, timeout execution, and node lifecycle without starting further queued work after cancellation; the HTTP provider either gains a real end-to-end cancel endpoint or preserves its explicit unsupported rejection.
 - [ ] TC-10: RUNTIME-005 retains the abortable approval-wait regression and gives the interactive execution state a single token/claim owner so a foreground command cannot clear another live turn's state or consume/drop queued input.
 - [x] TC-11: RUNTIME-006 requires turn identity on every queued/settlement path, removes silent undefined settlement, and prevents public callers from forging internal resume identity.
-- [ ] TC-12: all twelve Task records contain current engineering and user-scenario evidence, reach a valid terminal status, and move atomically to `.agents/tasks/completed/` when commits resume.
+- [ ] TC-12: every declared child Task record contains current engineering and user-scenario evidence, reaches a valid terminal status, and moves atomically to `.agents/tasks/completed/`.
 - [ ] TC-13: `pnpm harness:conformance` and `pnpm harness:verify-like-ci` exit 0 on the assembled initiative, with any environment-only exclusions reported rather than inferred green.
 
 ## Test Plan
@@ -165,7 +169,7 @@ Execute the twelve existing records without redefining their scope:
 | ----- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | TC-01 | Agreement / integration  | agent-command and agent-cli Vitest integration tests                                                                                         | Exercise the shipped command path with two registries.                                                          |
 | TC-02 | Agreement / contract     | dag-core/dag-node type tests plus containment and child-process integration tests                                                            | Prove trusted absolute root validation and that config cannot widen containment.                                |
-| TC-03 | Agreement / conformance  | type tests, zero-cast ratchet, subset/absence tests, and shared transport-adapter conformance suite                                          | Cover command-host ports plus all lifecycle/capability axes against every concrete transport.                   |
+| TC-03 | Agreement / conformance  | ARCH-019 double tests, session/command type tests, zero-cast ratchets, subset/absence tests, and shared transport-adapter conformance suite  | Cover both separately owned capability axes plus every concrete transport.                                      |
 | TC-04 | Agreement / integration  | reverse option-reachability scan plus assembly-equivalence and TUI/headless/serve/live-preset tests                                          | Assert every supported field has a producer and consumer; unsupported fields are removed explicitly.            |
 | TC-05 | Agreement / recovery     | persisted local- and SQLite-adapter restart scenarios plus DAG worker tests                                                                  | Record exact commands and terminal run/task evidence in a durable scenario artifact.                            |
 | TC-06 | Agreement / CLI          | dag-cli process/integration tests and a complete import-boundary sibling scan                                                                | Include malformed active-status and unknown-shape fixtures plus one valid fixture.                              |
@@ -184,6 +188,8 @@ Execute the twelve existing records without redefining their scope:
 - [ ] ARCH-011 — in-progress — `.agents/tasks/ARCH-011-transport-adapter-is-a-lifecycle-stub.md`
 - [ ] ARCH-012 — in-progress — `.agents/tasks/ARCH-012-interactive-session-god-contract.md`
 - [ ] ARCH-013 — in-progress — `.agents/tasks/ARCH-013-preset-to-session-options-projection-has-no-owner.md`
+- [ ] ARCH-019 — todo — `.agents/tasks/ARCH-019-interactive-session-getSession-contract-understated.md`
+- [ ] ARCH-029 — todo — `.agents/tasks/ARCH-029-command-host-capability-contracts.md`
 - [x] DAG-001 — done — `.agents/tasks/completed/DAG-001-running-is-a-terminal-trap.md`
 - [ ] DAG-004 — todo — `.agents/tasks/DAG-004-eight-cli-commands-open-code-the-import-adapter.md`
 - [ ] RUNTIME-002 — todo — `.agents/tasks/RUNTIME-002-headless-only-bun-runtime-entry.md`
