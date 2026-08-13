@@ -45,6 +45,7 @@
     "resolving-claims",
     "review-findings",
     "review-token-supply",
+    "run-advancement-owner",
     "rule-case-narrative",
     "runner-wait",
     "shell-portability",

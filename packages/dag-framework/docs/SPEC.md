@@ -43,10 +43,14 @@ interface IDagFramework {
     promptBackend: IPromptBackendPort & { getPromptIdForDagRun(id: string): string | undefined };
     assetStore: IAssetStore;
   };
-  start(): Promise<void>; // Start background worker loop. Idempotent.
-  stop(): Promise<void>; // Stop + drain. Idempotent.
+  start(): Promise<void>; // Start queue advancement. Idempotent only while running.
+  stop(): Promise<void>; // Close prompt admission and quiesce owned work. Idempotent.
 }
 ```
+
+`IDagExecutionComposition` is owned by `dag-framework` because it is an assembly result, not an API
+controller contract. It exposes `runAdvancement` and never exposes the raw worker loop. Product
+consumers cannot call `processOnce()` or create a second advancement loop.
 
 ### `IDagFrameworkOptions`
 
@@ -115,7 +119,7 @@ import {
   LocalFsAssetStore,
   createExecutionComposition,
 } from '@robota-sdk/dag-framework';
-import type { IWorkerLoopDriverLogger } from '@robota-sdk/dag-framework';
+import type { IDagExecutionComposition } from '@robota-sdk/dag-framework';
 ```
 
 `NoopDeadLetterReinject` (exported) is the diagnostics reinject port the default composition wires:
@@ -193,34 +197,33 @@ createDagFramework(options)
   → creates infrastructure ports (storage, queue, lease, clock, etc.)
   → builds node assembly (manifests)
   → creates controller composition (design, run, observability, cost)
-  → creates execution composition (workerLoop, runOrchestrator)
+  → creates execution composition (runAdvancement, runOrchestrator, runQuery, runCancel)
   → creates DagFrameworkOrchestrationAdapter (the IDagOrchestrationPort impl)
-  → creates WorkerLoopDriver (AbortController-based background loop)
   → returns IDagFramework (not yet started)
 
 framework.start()
-  → WorkerLoopDriver.start()
-  → background loop calls workerLoop.processOnce() with exponential backoff
-  → MIN_IDLE_DELAY=25ms, MAX_IDLE_DELAY=500ms
+  → execution.runAdvancement.start()
+  → the dag-worker coordinator owns the sole processOnce actor for this composition
 
 framework.stop()
-  → AbortController.abort()
-  → awaits loop drain
-  → state returns to 'idle'
+  → prompt backend closes admission and drains already-admitted submissions through waiter registration
+  → runAdvancement.stop() settles observers and awaits at most the current worker step
+  → prompt backend awaits every owned history-observation job
+  → remains stopped; restart is rejected
 ```
 
 ---
 
 ## Internal Components
 
-### `WorkerLoopDriver`
+### Prompt advancement ownership
 
-Drives `IRuntimeWorkerLoopPort.processOnce()` in a background loop with exponential idle backoff. Uses `AbortController` for cancellation. Timers are `unref()`'d to prevent process hang.
-
-- `start()`: idempotent (double-start is no-op)
-- `stop()`: idempotent (stop-when-idle is no-op)
-- Error on iteration → logs via `IWorkerLoopDriverLogger`, backs off to `MAX_IDLE_DELAY`
-- Processed work → resets delay to `MIN_IDLE_DELAY`
+`DagPromptBackend` receives only run creation and `IRunAdvancementCoordinator`; it cannot reach the
+raw worker step. It tracks admitted submissions and terminal-observation promises from creation,
+attaches rejection handlers immediately, records a success/error history entry, and removes each job
+in `finally`. Framework shutdown closes prompt admission before stopping advancement and resolves only
+after those owned jobs have settled. Submitting before `framework.start()` remains supported because a
+run waiter itself creates advancement demand.
 
 ### `DagFrameworkOrchestrationAdapter`
 

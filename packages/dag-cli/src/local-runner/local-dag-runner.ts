@@ -20,31 +20,21 @@ import {
   StaticNodeManifestRegistry,
   StaticNodeTaskHandlerRegistry,
 } from '@robota-sdk/dag-node';
-import type { IDagExecutionComposition } from '@robota-sdk/dag-api';
-import { createExecutionComposition } from '@robota-sdk/dag-framework';
+import {
+  createExecutionComposition,
+  type IDagExecutionComposition,
+} from '@robota-sdk/dag-framework';
 
 const LOCAL_WORKER_ID = 'local-cli';
 const LOCAL_LEASE_DURATION_MS = 60_000;
 const LOCAL_VISIBILITY_TIMEOUT_MS = 60_000;
 const LOCAL_MAX_ATTEMPTS = 1;
 const LOCAL_DEFAULT_TIMEOUT_MS = 300_000;
-const WORKER_IDLE_POLL_DELAY_MS = 10;
-const MAX_WORKER_ITERATIONS = 10_000;
 
 /** Result snapshot returned after a local run completes. */
 export interface ILocalRunResult {
   dagRun: IDagRun;
   taskRuns: ITaskRun[];
-}
-
-function isTerminalStatus(status: string): boolean {
-  return status === 'success' || status === 'failed' || status === 'cancelled';
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 }
 
 /**
@@ -119,29 +109,8 @@ export class LocalDagRunner {
     }
     const { dagRunId } = startResult.value;
 
-    for (let i = 0; i < MAX_WORKER_ITERATIONS; i++) {
-      const stepResult = await this.composition.workerLoop.processOnce();
-      if (!stepResult.ok) {
-        throw new Error(`Worker step failed: ${stepResult.error.code}`);
-      }
-
-      const queryResult = await this.composition.runQuery.getRun(dagRunId);
-      if (!queryResult.ok) {
-        throw new Error(`Run query failed: ${queryResult.error.code}`);
-      }
-
-      const { dagRun, taskRuns } = queryResult.value;
-      if (isTerminalStatus(dagRun.status)) {
-        return { dagRun, taskRuns };
-      }
-
-      if (!stepResult.value.processed) {
-        await sleep(WORKER_IDLE_POLL_DELAY_MS);
-      }
-    }
-
-    throw new Error(
-      `Run ${dagRunId} did not reach terminal state after ${MAX_WORKER_ITERATIONS} iterations`,
-    );
+    const terminal = await this.composition.runAdvancement.waitForTerminal(dagRunId);
+    if (!terminal.ok) throw new Error(`Run advancement failed: ${terminal.error.code}`);
+    return terminal.value;
   }
 }

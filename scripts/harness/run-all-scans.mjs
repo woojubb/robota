@@ -495,6 +495,10 @@ export const SCAN_COMMANDS = [
   },
   { name: 'authority-bypass', command: ['node', 'scripts/harness/scan-authority-bypass.mjs'] },
   {
+    name: 'run-advancement-owner',
+    command: ['node', 'scripts/harness/scan-run-advancement-owner.mjs'],
+  },
+  {
     name: 'contract-cast-ratchet',
     command: ['node', 'scripts/harness/scan-contract-cast-ratchet.mjs'],
   },
