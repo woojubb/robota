@@ -240,5 +240,6 @@ worker declaration and coordinator call, preventing any of the four former direc
 returning.
 
 Package verification is green: dag-worker 94 tests, dag-framework 132 tests, and dag-cli 1,039 tests,
-plus affected typechecks/builds and all three SPEC public-surface scans. Both durable user scenarios
+plus affected typechecks/builds and all three SPEC public-surface scans. Both durable user execution
+test scenarios
 passed with exit 0 on 2026-08-13 19:43 KST and their exact output is recorded in the linked artifact.
