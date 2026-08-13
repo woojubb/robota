@@ -111,44 +111,53 @@ part of the work, not a consequence of it.
 
 ## Test Plan
 
-- **Required red-first regression:** a conformance test that asserts the shipped `InteractiveSession`
-  and the published test double both satisfy the same capability ports, and that a host implementing
-  only a declared subset is accepted **without a cast**. Against current code this must FAIL — there
-  is no published double, and every consumer reaches the contract through
-  `as unknown as IInteractiveSession`.
-- A mechanical floor: `rg "as unknown as IInteractiveSession|as IInteractiveSession"` must return
-  **0** matches in the repo (it returns 51 across 33 files today). Wire it as a scan so the count
-  cannot regress.
-- Red-first for the optional-member seam: assert a host that does _not_ provide driver attribution is
-  distinguishable from one that provides it and has no active driver
-  (`ws-session-events.ts:48`, `session-contracts.ts:368`).
-- Same treatment asserted for `ICommandHostContext`'s ~30 optional members
-  (`host-context.ts:126-225`).
-- `pnpm typecheck`, `pnpm harness:verify-like-ci` green.
+- **Required red-first regression:** the current published testing double and shipped
+  `InteractiveSession` structurally satisfy the same 16 named role ports, while a public
+  `createSessionCapabilityHost` accepts only submission/events without a cast. Current code fails
+  because those role exports and factory do not exist; the full double itself already exists and is
+  conformant.
+- A mechanical floor: the AST-owned `scan-contract-cast-ratchet.mjs` must lower the current exact
+  `IInteractiveSession` count from 37 across 25 files to 0 and reject a reintroduced canonical cast.
+- Red-first capability query: absent driver attribution returns `{ provided: false }`, while a
+  provided `ISessionDriverAttribution` whose `getActiveDriverId()` returns `null` returns
+  `{ provided: true, value }`.
+- Public compatibility: each migrated transport factory retains the existing full
+  `IInteractiveSession` attach signature and adds its named subset-host overload; old full custom
+  sessions and new honest subsets both compile.
+- Public SDK scenario: a cast-free host containing the seven HTTP role keys attaches through public
+  `createHttpTransport({ admission: { open: true, openReason: 'ARCH-012 local capability scenario' } })`,
+  POSTs `/submit`, observes `ARCH012_OK`, and
+  prints `NOT_PROVIDED` versus `PROVIDED_EMPTY` from two explicit capability queries.
+- Affected package builds/tests/typechecks, SSOT scan, harness scan/conformance, and
+  `pnpm harness:verify-like-ci` green.
 
 ## User Execution Test Scenarios
 
-**Applies — via the public SDK surface.** The synthesis's central claim is that this contract cannot
-be implemented; the scenario is an SDK consumer implementing it, which is a supported public usage of
-the published packages. (The internal refactor and the cast count belong to `## Test Plan`.)
+**Applies — via the built public SDK and HTTP transport.** The durable agent-executable scenario lives
+at [`arch-012-session-capabilities-agent-run.md`](../evals/scenarios/arch-012-session-capabilities-agent-run.md).
 
-- **Prerequisites:** built workspace and a scratch consumer project depending on the published
-  `@robota-sdk/agent-interface-transport`. This example project does not exist today and **will be
-  built by this work**.
-- **Steps:**
-  1. In the scratch project, implement a session host against the published capability ports,
-     declaring only the capabilities it actually supports (e.g. submission and events, but no
-     background tasks and no driver attribution).
-  2. Attach a shipped transport to it and submit a prompt.
-  3. From the transport side, query a capability the host did **not** declare.
-- **Expected observable result (after the fix):** step 1 type-checks with **no** `as unknown as`
-  cast; step 2 delivers the prompt result; step 3 reports "capability not provided" distinctly from
-  "provided, empty result".
-- **Expected observable result (before the fix, for contrast):** step 1 requires a cast over a
-  40+-member interface, and step 3 returns `undefined` indistinguishable from an empty result.
-- **Cleanup:** delete the scratch project.
-- **Evidence (fill in after implementation):** the consumer's source (showing no casts), the
-  typecheck output, and the console output for steps 2 and 3.
+- Prerequisites: built interface-transport and HTTP transport packages, Node.js 22+, pnpm,
+  TypeScript, Bash, `timeout`, `mktemp`, and symlink permission; no credential, provider, or network
+  service.
+- Steps: compile a cast-free isolated consumer; create a host containing exactly the seven HTTP role
+  keys; attach it through public `createHttpTransport` with explicit local-open admission; POST
+  `/submit` through `getApp().request()`; inspect the SSE result; query absent driver attribution;
+  then query a provided driver-attribution capability returning `null`.
+- Expected: the consumer prints exactly `ARCH012_OK`, `NOT_PROVIDED`, and `PROVIDED_EMPTY`; Bash then
+  prints the separate `CLEANUP_OK` marker and exits `0`.
+- Cleanup: the validated `robota-arch012.*` temporary consumer is removed and its absence asserted.
+- Evidence: `EMPTY` until the completed implementation is independently executed at Done Gate Stage 2.
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** scenario drafted → scenario written
+The durable `ARCH-012 — cast-free public session capability host over HTTP` scenario is fully written,
+explicitly agent-executable, credential-free, and bounded. Its exact Bash block builds the two public
+packages, compiles a no-type-assertion external-style consumer, attaches the exact seven-role host
+through public HTTP, checks the SSE result and absent/provided-empty capability queries, validates the
+three consumer lines plus separate Bash cleanup marker, and safely removes its basename-validated temp
+tree. The approved API surface is deliberately supplied by this work and the evidence field remains
+`EMPTY` until independent Stage 2 execution.
 
 ## Progress
 
@@ -229,3 +238,21 @@ by cases — the scan counts CODE, not prose, and not member types.
 Also taken: five further doubles that flow into `subscribeSessionEvents` and would have thrown on the
 first attributed event, a now-unreachable `getPendingCount?.() ?? …` fallback in `useTuiChannel`, the
 `agent-framework` SPEC's stale description, and the config block's missing `$comment`.
+
+## Plan
+
+- [ ] TC-01: add red-first role-map/query types and prove cast-free subset plus absent/provided-empty
+      discrimination.
+- [ ] TC-02: preserve the legacy interface declaration kind and prove complete production/full-double
+      plus exact subset-host conformance.
+- [ ] TC-03: migrate every session consumer to named role requirements while retaining public legacy
+      attach compatibility.
+- [ ] TC-04: lower the AST-owned direct `IInteractiveSession` cast floor from 37 to zero and add the
+      reintroduction regression.
+- [ ] TC-05: author, Stage-1 gate, execute, and Stage-2 gate the exact public HTTP SDK scenario.
+- [ ] TC-06: synchronize owner SPECs/changesets and pass targeted, conformance, scan, and CI-equivalent
+      verification before completion/archive.
+
+## Blockers
+
+- None. ARCH-019 is completed and archived; ARCH-011 and ARCH-029 remain downstream.
