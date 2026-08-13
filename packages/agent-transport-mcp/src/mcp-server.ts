@@ -10,7 +10,8 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { isTurnNotRunError } from '@robota-sdk/agent-interface-transport';
 
-import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IMcpTransportSession } from './mcp-session.js';
+import type { IExecutionResult } from '@robota-sdk/agent-interface-transport';
 
 export interface IAgentMcpOptions {
   /** Name for the MCP server. */
@@ -18,7 +19,7 @@ export interface IAgentMcpOptions {
   /** Version string. */
   version: string;
   /** IInteractiveSession to expose. */
-  session: IInteractiveSession;
+  session: IMcpTransportSession;
   /** If true, register each system command as a separate MCP tool. Default: true. */
   exposeCommands?: boolean;
 }
@@ -183,7 +184,7 @@ export function createAgentMcpServer(options: IAgentMcpOptions): Server {
  * than left to hang — the failure mode the event-listening version could not even express.
  */
 async function waitForCompletion(
-  session: IInteractiveSession,
+  session: IMcpTransportSession,
   prompt: string,
 ): Promise<IExecutionResult> {
   const handle = await session.submit(prompt);

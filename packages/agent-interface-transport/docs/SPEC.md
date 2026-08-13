@@ -106,46 +106,53 @@ the other.
 
 ## Public API Surface
 
-| Export                         | Kind      | Description                                                                                    |
-| ------------------------------ | --------- | ---------------------------------------------------------------------------------------------- |
-| `ITransportAdapter`            | Interface | Core attach/start/stop lifecycle contract (generic TSession)                                   |
-| `ITransportConfig`             | Interface | Persisted enabled + options shape                                                              |
-| `IConfigurableTransport`       | Interface | Configurable transport with defaultEnabled + options schema                                    |
-| `ITransportEntry`              | Interface | (transport, config) pair used in registry storage                                              |
-| `ITransportRegistryView`       | Interface | Registry management: getAll, setEnabled, startAll, stopAll                                     |
-| `OWNER_DRIVER_ID`              | Constant  | REMOTE-014 E5 driver id for a local/owner turn (display-only attribution, never authorization) |
-| `AGENT_DRIVER_ID`              | Constant  | REMOTE-014 E5 driver id for an autonomous (wakeup/goal) turn — never the owner                 |
-| `createTestInteractiveSession` | Function  | ARCH-012: the conformant `IInteractiveSession` double — see § Session capability members       |
-| `ITransportAdmission`          | Interface | SEC-008: the resolved decision — a credential, or `null` with a written `openReason`           |
-| `ITransportAdmissionConfig`    | Interface | SEC-008: how a caller asks for an admission decision                                           |
-| `ITurnHandle`                  | Interface | RUNTIME-003: a submission's identity and a promise for its own turn                            |
-| `ITurnNotRunError`             | Interface | RUNTIME-003: the shape a rejected `completed` carries — constructed in agent-framework         |
-| `TTurnNotRunReason`            | Type      | RUNTIME-003: why a submission never became a turn (coalesced/dropped/cancelled)                |
-| `isTurnNotRunError`            | Function  | RUNTIME-003: the one narrowing for a rejected `completed` — refusal vs. a failure in the turn  |
+| Export                            | Kind      | Description                                                                                    |
+| --------------------------------- | --------- | ---------------------------------------------------------------------------------------------- |
+| `ITransportAdapter`               | Interface | Core attach/start/stop lifecycle contract (generic TSession)                                   |
+| `ITransportConfig`                | Interface | Persisted enabled + options shape                                                              |
+| `IConfigurableTransport`          | Interface | Configurable transport with defaultEnabled + options schema                                    |
+| `ITransportEntry`                 | Interface | (transport, config) pair used in registry storage                                              |
+| `ITransportRegistryView`          | Interface | Registry management: getAll, setEnabled, startAll, stopAll                                     |
+| `OWNER_DRIVER_ID`                 | Constant  | REMOTE-014 E5 driver id for a local/owner turn (display-only attribution, never authorization) |
+| `AGENT_DRIVER_ID`                 | Constant  | REMOTE-014 E5 driver id for an autonomous (wakeup/goal) turn — never the owner                 |
+| `createTestInteractiveSession`    | Function  | ARCH-012: the conformant `IInteractiveSession` double — see § Session capability members       |
+| `createTestSessionCapabilityHost` | Function  | ARCH-012 testing-subpath alias for constructing a typed subset capability host                 |
+| `createSessionCapabilityHost`     | Function  | ARCH-012: construct a flattened host from one typed session capability map                     |
+| `readSessionCapability`           | Function  | ARCH-012: distinguish an absent role from a present role whose method returns an empty value   |
+| `readAssistantReplies`            | Function  | Pure interaction-event accessor for assistant reply records                                    |
+| `readLastAssistantText`           | Function  | Pure interaction-event accessor for the latest assistant text                                  |
+| `readToolCalls`                   | Function  | Pure interaction-event accessor for tool-call observations                                     |
+| `readErrors`                      | Function  | Pure interaction-event accessor for recorded errors                                            |
+| `ITransportAdmission`             | Interface | SEC-008: the resolved decision — a credential, or `null` with a written `openReason`           |
+| `ITransportAdmissionConfig`       | Interface | SEC-008: how a caller asks for an admission decision                                           |
+| `ITurnHandle`                     | Interface | RUNTIME-003: a submission's identity and a promise for its own turn                            |
+| `ITurnNotRunError`                | Interface | RUNTIME-003: the shape a rejected `completed` carries — constructed in agent-framework         |
+| `TTurnNotRunReason`               | Type      | RUNTIME-003: why a submission never became a turn (coalesced/dropped/cancelled)                |
+| `isTurnNotRunError`               | Function  | RUNTIME-003: the one narrowing for a rejected `completed` — refusal vs. a failure in the turn  |
 
 The package root (`src/index.ts`) additionally re-exports the following contract groups. These
 are type-only except for the four pure accessor functions re-exported from `interaction-contracts`
 (`readAssistantReplies`, `readLastAssistantText`, `readToolCalls`, `readErrors`) and the
 `isTurnNotRunError` predicate re-exported from `turn-contracts`:
 
-| Contract group (file)                                         | Exported contracts                                                                                                                                                                                                                                                                                                     |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Payload-agnostic channels (`channel-contracts`, TRANS-001)    | `IBinaryFrame`, `IChannelEventFrame`, `TChannelFrame`, `TChannelEventMap`, `IChannelDescriptor`, `IPayloadChannel`, `IPayloadChannelHost`, `TChannelReceiveResult`                                                                                                                                                     |
-| Capability descriptors (`capability-contracts`)               | `ICapabilityDescriptor`, `TCapabilityKind`, `TCapabilitySafety`                                                                                                                                                                                                                                                        |
-| Command system (`command-contracts`)                          | `ICommand`, `ICommandSource`, `ICommandResult` (+ CMD-004 `hostActions`/`uiIntents`), `TCommandInvocationSource` (REMOTE-003), `TCommandHostAction`, `TCommandUiIntent`, plugin-adapter + status-line command settings contracts                                                                                       |
-| Interaction channel (`interaction-contracts`)                 | `IInteractionChannel`, `IAgentDriver`, `IToolCallObservation`, `ITerminalHandoff`, `InteractionEvent`, `ICommandInfo` (+ the accessor functions above)                                                                                                                                                                 |
-| Session-event payloads (`event-contracts`)                    | Skill-activation, memory, prompt-file-reference, and context-reference event payload contracts                                                                                                                                                                                                                         |
-| Background task (`background-task-contracts`, INFRA-025 SSOT) | `TBackgroundTaskRequest` (+ agent/process/scheduled variants), `IBackgroundTaskResult`/`State`/`Schedule`/`Input`/`Usage`/`Error`, log cursor/page + list-filter, event + listener, and the `TBackgroundTask*` kind/mode/isolation/status enums (`IBackgroundTaskUsage` = alias of agent-core `ITokenUsage`, TYPE-003) |
-| Subagent jobs (`subagent-contracts`, INFRA-025 SSOT)          | `TSubagentJobStatus`, `TSubagentJobMode`, `ISubagentJobState` — TYPE-003: derived from the background-task contracts (`Exclude` status / mode alias / `Pick` state projection), never a manual mirror                                                                                                                  |
-| Context compaction (`compact-contracts`, INFRA-025 SSOT)      | `TCompactTrigger`, `ICompactEvent`                                                                                                                                                                                                                                                                                     |
-| Background job-group (`background-group-contracts`)           | `IBackgroundJobGroupState`/`Summary`/`CreateRequest`, `IBackgroundJobResultEnvelope`, event + status/wait contracts                                                                                                                                                                                                    |
-| Execution workspace (`workspace-contracts`)                   | `IExecutionWorkspaceEntry`/`Snapshot`/`Event`/`Filter`, execution-detail page/record contracts, and their enum kinds                                                                                                                                                                                                   |
-| Interactive session (`session-contracts`)                     | `IInteractiveSession`, `IInteractiveSessionEvents` (incl. `ui_intent`/`session_renamed`/`history_cleared`), `IExecutionResult`, `IToolState`/`Summary`, `IInteractiveSessionStore`                                                                                                                                     |
-| Driver identity (`driver-contracts`)                          | `TDriverId`, `ISubmitOptions`, `OWNER_DRIVER_ID`/`AGENT_DRIVER_ID`, `IUiIntentEvent`, `ISessionRenamedEvent`                                                                                                                                                                                                           |
+| Contract group (file)                                                                                | Exported contracts                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Payload-agnostic channels (`channel-contracts`, TRANS-001)                                           | `IBinaryFrame`, `IChannelEventFrame`, `TChannelFrame`, `TChannelEventMap`, `IChannelDescriptor`, `IPayloadChannel`, `IPayloadChannelHost`, `TChannelReceiveResult`                                                                                                                                                                                                                       |
+| Capability descriptors (`capability-contracts`)                                                      | `ICapabilityDescriptor`, `TCapabilityKind`, `TCapabilitySafety`                                                                                                                                                                                                                                                                                                                          |
+| Command system (`command-contracts`)                                                                 | `ICommand`, `ICommandSource`, `ICommandResult` (+ CMD-004 `hostActions`/`uiIntents`), `TCommandInvocationSource` (REMOTE-003), `TCommandHostAction`, `TCommandUiIntent`, plugin-adapter + status-line command settings contracts                                                                                                                                                         |
+| Interaction channel (`interaction-contracts`)                                                        | `IInteractionChannel`, `IAgentDriver`, `IToolCallObservation`, `ITerminalHandoff`, `InteractionEvent`, `ICommandInfo` (+ the accessor functions above)                                                                                                                                                                                                                                   |
+| Session-event payloads (`event-contracts`)                                                           | Skill-activation, memory, prompt-file-reference, and context-reference event payload contracts                                                                                                                                                                                                                                                                                           |
+| Background task (`background-task-contracts`, INFRA-025 SSOT)                                        | `TBackgroundTaskRequest` (+ agent/process/scheduled variants), `IBackgroundTaskResult`/`State`/`Schedule`/`Input`/`Usage`/`Error`, log cursor/page + list-filter, event + listener, and the `TBackgroundTask*` kind/mode/isolation/status enums (`IBackgroundTaskUsage` = alias of agent-core `ITokenUsage`, TYPE-003)                                                                   |
+| Subagent jobs (`subagent-contracts`, INFRA-025 SSOT)                                                 | `TSubagentJobStatus`, `TSubagentJobMode`, `ISubagentJobState` — TYPE-003: derived from the background-task contracts (`Exclude` status / mode alias / `Pick` state projection), never a manual mirror                                                                                                                                                                                    |
+| Context compaction (`compact-contracts`, INFRA-025 SSOT)                                             | `TCompactTrigger`, `ICompactEvent`                                                                                                                                                                                                                                                                                                                                                       |
+| Background job-group (`background-group-contracts`)                                                  | `IBackgroundJobGroupState`/`Summary`/`CreateRequest`, `IBackgroundJobResultEnvelope`, event + status/wait contracts                                                                                                                                                                                                                                                                      |
+| Execution workspace (`workspace-contracts`)                                                          | `IExecutionWorkspaceEntry`/`Snapshot`/`Event`/`Filter`, execution-detail page/record contracts, and their enum kinds                                                                                                                                                                                                                                                                     |
+| Interactive session (`session-contracts`, `session-capability-contracts`, `session-capability-host`) | 16 named `ISession*` role ports, `ISessionCapabilityMap`/`ISessionCapabilityHost`, flattened `TSessionCapabilityHost`, `createSessionCapabilityHost`/`readSessionCapability`, compatibility aggregate `IInteractiveSession`, `IInteractiveSessionEvents` (incl. `ui_intent`/`session_renamed`/`history_cleared`), `IExecutionResult`, `IToolState`/`Summary`, `IInteractiveSessionStore` |
+| Driver identity (`driver-contracts`)                                                                 | `TDriverId`, `ISubmitOptions`, `OWNER_DRIVER_ID`/`AGENT_DRIVER_ID`, `IUiIntentEvent`, `ISessionRenamedEvent`                                                                                                                                                                                                                                                                             |
 
 ## Interface Contracts
 
-### Session capability members, and why they are not optional (ARCH-012)
+### Session role contracts and explicit capability presence (ARCH-012)
 
 `IInteractiveSession`'s `isInitialized`, `getPendingCount` and `getActiveDriverId` were OPTIONAL. The
 one consumer read attribution as `session.getActiveDriverId?.() ?? undefined`, and two unrelated
@@ -157,6 +164,24 @@ situations arrived as the same `undefined`:
 The second loses every co-drive attribution with no error, no log and nothing to distinguish it from
 the first. They are REQUIRED now: a host either provides the capability or does not claim this
 contract, so `null` from `getActiveDriverId()` means exactly one thing.
+
+The 39-member legacy interface remains an exported `interface` and extends 16 named role ports. Its
+member shape and declaration-merging behavior are unchanged, so existing full implementations remain
+source-compatible. `ISessionCapabilityHost` is the genuine interface that owns the canonical map;
+`TSessionCapabilityHost` is the flattened selected-port intersection returned by the factory. New
+consumers depend on only the roles they use. Optional capability hosts use one
+typed `ISessionCapabilityMap`; `readSessionCapability(host, key)` returns `{ provided: false }` when a
+role is absent and `{ provided: true, value }` when present. A present role may legitimately return
+`null`, `undefined`, or an empty array from one of its methods; that result is not confused with an
+absent role. Capability objects are local function-valued ports and are never serialized over a
+transport protocol.
+
+`SESSION_CAPABILITY_MEMBER_KEYS` is the runtime SSOT for flattening: its 16 rows are checked in exact
+`keyof` parity with all 39 role members. `createSessionCapabilityHost` forwards only those canonical
+members from own or prototype implementations, binds methods to their original receiver, treats an
+explicit `undefined` role as absent in both runtime and type algebra, and rejects missing/duplicate or
+reserved members. The flattened host has a null prototype and a final non-overridable canonical
+`capabilities` property, so extra role properties cannot replace the map or trigger prototype setters.
 
 **`createTestInteractiveSession` lives here, with the contract.** A double existed before, published
 from `@robota-sdk/agent-framework` and documented in its SPEC — with zero consumers, because every
@@ -173,8 +198,9 @@ its distinct session id. A custom `submit` override remains authoritative. The n
 from default `getSession()` exposes only the transport contract's `getSessionId`; framework-only
 `Session` services do not leak into this lower contract fixture.
 
-The remaining casts are held by a ratchet (`scan-contract-cast-ratchet`) that may fall and never
-rise, so the debt cannot grow while the capability-scoped ports are designed.
+`createTestSessionCapabilityHost` on the same testing subpath builds honest subset hosts. The
+contract-cast scanner now freezes the direct `IInteractiveSession` cast floor at zero: a future
+canonical aggregate cast fails the harness instead of restoring partial implementations.
 
 ### `ITransportAdapter<TSession>`
 

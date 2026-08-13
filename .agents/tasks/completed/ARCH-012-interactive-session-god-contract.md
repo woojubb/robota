@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-012: the 39-member session aggregate still forces 37 unchecked partial casts'
-status: in-progress
+status: done
 created: 2026-08-02
+completed: 2026-08-14
 priority: high
 urgency: soon
 area: packages/agent-interface-transport, packages/agent-framework, packages/agent-transport, packages/agent-transport-ws, packages/agent-transport-http, packages/agent-transport-mcp, packages/agent-transport-tui, packages/agent-transport-protocol, packages/agent-transport-webrtc, packages/agent-cli
@@ -134,7 +135,7 @@ part of the work, not a consequence of it.
 ## User Execution Test Scenarios
 
 **Applies — via the built public SDK and HTTP transport.** The durable agent-executable scenario lives
-at [`arch-012-session-capabilities-agent-run.md`](../evals/scenarios/arch-012-session-capabilities-agent-run.md).
+at [`arch-012-session-capabilities-agent-run.md`](../../evals/scenarios/arch-012-session-capabilities-agent-run.md).
 
 - Prerequisites: built interface-transport and HTTP transport packages, Node.js 22+, pnpm,
   TypeScript, Bash, `timeout`, `mktemp`, and symlink permission; no credential, provider, or network
@@ -146,7 +147,9 @@ at [`arch-012-session-capabilities-agent-run.md`](../evals/scenarios/arch-012-se
 - Expected: the consumer prints exactly `ARCH012_OK`, `NOT_PROVIDED`, and `PROVIDED_EMPTY`; Bash then
   prints the separate `CLEANUP_OK` marker and exits `0`.
 - Cleanup: the validated `robota-arch012.*` temporary consumer is removed and its absence asserted.
-- Evidence: `EMPTY` until the completed implementation is independently executed at Done Gate Stage 2.
+- Evidence: the linked durable scenario records the independently verified exit-0 run, exact
+  `ARCH012_OK` / `NOT_PROVIDED` / `PROVIDED_EMPTY` output, `CLEANUP_OK`, and absence of residual temp
+  directories.
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-14
 
@@ -158,6 +161,17 @@ through public HTTP, checks the SSE result and absent/provided-empty capability 
 three consumer lines plus separate Bash cleanup marker, and safely removes its basename-validated temp
 tree. The approved API surface is deliberately supplied by this work and the evidence field remains
 `EMPTY` until independent Stage 2 execution.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** scenario written → scenario verified
+The agent independently executed the durable scenario's complete Bash block against the current
+ARCH-012 implementation. The isolated consumer compiled against the built public package exports,
+attached the exact seven-role capability host through public `createHttpTransport`, submitted through
+the public HTTP surface, and exited `0` after printing exactly `ARCH012_OK`, `NOT_PROVIDED`, and
+`PROVIDED_EMPTY`. Bash then printed `CLEANUP_OK`; a fresh post-run probe found no
+`robota-arch012.*` temporary directory. The durable scenario's observed-evidence section records the
+same result, and package build output is treated only as setup rather than user-execution evidence.
 
 ## Progress
 
@@ -241,18 +255,44 @@ first attributed event, a now-unreachable `getPendingCount?.() ?? …` fallback 
 
 ## Plan
 
-- [ ] TC-01: add red-first role-map/query types and prove cast-free subset plus absent/provided-empty
+- [x] TC-01: add red-first role-map/query types and prove cast-free subset plus absent/provided-empty
       discrimination.
-- [ ] TC-02: preserve the legacy interface declaration kind and prove complete production/full-double
+- [x] TC-02: preserve the legacy interface declaration kind and prove complete production/full-double
       plus exact subset-host conformance.
-- [ ] TC-03: migrate every session consumer to named role requirements while retaining public legacy
+- [x] TC-03: migrate every session consumer to named role requirements while retaining public legacy
       attach compatibility.
-- [ ] TC-04: lower the AST-owned direct `IInteractiveSession` cast floor from 37 to zero and add the
+- [x] TC-04: lower the AST-owned direct `IInteractiveSession` cast floor from 37 to zero and add the
       reintroduction regression.
-- [ ] TC-05: author, Stage-1 gate, execute, and Stage-2 gate the exact public HTTP SDK scenario.
-- [ ] TC-06: synchronize owner SPECs/changesets and pass targeted, conformance, scan, and CI-equivalent
+- [x] TC-05: author, Stage-1 gate, execute, and Stage-2 gate the exact public HTTP SDK scenario.
+- [x] TC-06: synchronize owner SPECs/changesets and pass targeted, conformance, scan, and CI-equivalent
       verification before completion/archive.
 
 ## Blockers
 
 - None. ARCH-019 is completed and archived; ARCH-011 and ARCH-029 remain downstream.
+
+### Final implementation verification — 2026-08-14
+
+- Independent Round-A review converged at `ACTIONABLE FINDINGS: 0` after the capability host's
+  immutable snapshot, runtime-frozen 16-role/39-member registry, class/prototype and accessor-backed
+  forwarding, undefined/non-enumerable role handling, legacy transport declarations, and scenario
+  evidence were re-audited.
+- `pnpm --filter @robota-sdk/agent-interface-transport test` passed 8 files / 39 tests; package
+  typecheck passed.
+- `node scripts/harness/scan-contract-cast-ratchet.mjs` passed with zero direct
+  `IInteractiveSession` casts across 2,793 production/test TypeScript files; its 14-test regression
+  suite passed.
+- `pnpm harness:conformance`, the SSOT declaration scan, and `pnpm harness:scan` passed (109 scans,
+  1 intentional skip).
+- `pnpm harness:verify-like-ci` passed all 12 mirrored stages in 6m54.9s, including full build,
+  typecheck, affected verification, binary E2E, examples typecheck, and TUI PTY E2E.
+- The durable public HTTP SDK scenario was rerun after the final forwarding changes and exited 0 with
+  `ARCH012_OK`, `NOT_PROVIDED`, `PROVIDED_EMPTY`, and the separate `CLEANUP_OK` marker.
+
+## Result
+
+Completed. The 39-member legacy interface remains source-compatible while 16 reachable role
+contracts and an honest capability host let consumers declare only what they use. All 37 direct
+aggregate casts were removed and the AST ratchet is fixed at zero. Public transport declarations
+retain the legacy full-session contract and add named subset support. The final public HTTP SDK
+scenario, focused tests/typechecks, conformance and scans, and all 12 CI-equivalent stages passed.

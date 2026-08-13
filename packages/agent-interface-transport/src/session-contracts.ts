@@ -7,55 +7,67 @@
  */
 
 import type {
-  IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupState,
   TBackgroundJobGroupEvent,
 } from './background-group-contracts.js';
-import type {
-  IBackgroundTaskInput,
-  IBackgroundTaskListFilter,
-  IBackgroundTaskLogCursor,
-  IBackgroundTaskLogPage,
-  IBackgroundTaskState,
-  TBackgroundTaskEvent,
-  TBackgroundTaskIsolation,
-} from './background-task-contracts';
-import type {
-  ICommandListEntry,
-  ICommandResult,
-  TCommandInvocationSource,
-} from './command-contracts.js';
+import type { IBackgroundTaskState, TBackgroundTaskEvent } from './background-task-contracts';
 import type { ICompactEvent } from './compact-contracts';
-import type {
-  ISessionRenamedEvent,
-  ISubmitOptions,
-  IUiIntentEvent,
-  TDriverId,
-} from './driver-contracts.js';
+import type { ISessionRenamedEvent, IUiIntentEvent, TDriverId } from './driver-contracts.js';
 import type {
   IContextReferenceItem,
   IMemoryEvent,
   IMemoryReference,
   IPlanApprovalEvent,
-  IPromptFileReferenceRecord,
   ISkillActivationEvent,
 } from './event-contracts.js';
-import type { ISubagentJobState } from './subagent-contracts';
-import type { IExecutionResult, ITurnHandle } from './turn-contracts.js';
 import type {
-  IExecutionWorkspaceEvent,
-  IExecutionWorkspaceSnapshot,
-  IExecutionWorkspaceSnapshotOptions,
-} from './workspace-contracts.js';
+  ISessionAgentJobs,
+  ISessionBackgroundGroups,
+  ISessionBackgroundTasks,
+  ISessionCommands,
+  ISessionConversationRead,
+  ISessionDriverAttribution,
+  ISessionEvents,
+  ISessionExecutionState,
+  ISessionExecutionWorkspace,
+  ISessionGoal,
+  ISessionIdentity,
+  ISessionLifecycle,
+  ISessionPromptResolution,
+  ISessionTurnControl,
+  ISessionTurnSubmission,
+  ISessionWorkspaceLocation,
+} from './session-capability-contracts.js';
+import type { IExecutionResult } from './turn-contracts.js';
+import type { IExecutionWorkspaceEvent } from './workspace-contracts.js';
 import type {
   IActionRequest,
   IContextWindowState,
   IHistoryEntry,
   IToolSchema,
-  TActionResponse,
   TToolArgs,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
+
+export type {
+  ISessionAgentJobs,
+  ISessionBackgroundGroups,
+  ISessionBackgroundTasks,
+  ISessionCapabilityMap,
+  ISessionCommands,
+  ISessionConversationRead,
+  ISessionDriverAttribution,
+  ISessionEvents,
+  ISessionExecutionState,
+  ISessionExecutionWorkspace,
+  ISessionGoal,
+  ISessionIdentity,
+  ISessionLifecycle,
+  ISessionPromptResolution,
+  ISessionTurnControl,
+  ISessionTurnSubmission,
+  ISessionWorkspaceLocation,
+} from './session-capability-contracts.js';
 
 // Re-export the background job-group contracts referenced by the session surface so
 // that this module stays the single import hub for session-facing types.
@@ -333,111 +345,25 @@ export interface IInteractiveSessionEvents {
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;
 
-/** Minimal session surface. ARCH-012: capability members are REQUIRED — see SPEC § Session capability members. */
-export interface IInteractiveSession {
-  /** True once the underlying session has been initialized. */
-  readonly isInitialized: boolean;
-
-  // Submission
-  // REMOTE-014 E5: `options.driverId` is the SERVER-ASSIGNED co-drive attribution id (optional — a human turn
-  // with no id defaults to the owner; an agent-wakeup turn to the agent id). Existing callers omit it.
-  // RUNTIME-003: returns the submission's own identity — see SPEC § Turn identity.
-  submit(
-    input: string,
-    displayInput?: string,
-    rawInput?: string,
-    options?: ISubmitOptions,
-  ): Promise<ITurnHandle>;
-  abort(): void;
-  cancelQueue(): void;
-  shutdown(options?: { reason?: string; message?: string }): Promise<void>;
-
-  // Autonomous goal pursuit (GOAL-001)
-  setGoal(
-    objective: string,
-    options?: { maxIterations?: number; noProgressLimit?: number },
-  ): Promise<IGoalState>;
-  getGoalState(): IGoalState | null;
-  cancelGoal(): IGoalState | null;
-
-  // State
-  isExecuting(): boolean;
-  getPendingPrompt(): string | null;
-  /** REMOTE-014 E5: number of queued inputs behind the head (0 when none) — for a co-drive "N queued" hint. */
-  getPendingCount(): number;
-  /** REMOTE-014 E5: the ACTIVE turn's driver id. `null` means nobody is driving, and only that. */
-  getActiveDriverId(): TDriverId | null;
-  getMessages(): TUniversalMessage[];
-  getContextState(): IContextWindowState;
-  getSession(): { getSessionId(): string };
-  getCwd(): string;
-
-  // Commands
-  // `source` defaults to `'user'` (the local operator). Transport adapters pass `'remote'` so the session can
-  // apply an optional remote-command policy (allow-by-default; REMOTE-006). Local callers omit it.
-  // CMD-004 Phase 2: `originDriverId` is the SERVER-ASSIGNED driver id of the surface that issued the
-  // command (REMOTE-014 E5 rule — never a client-sent one). It stamps `ui_intent.requesterDriverId` so
-  // intents route to the requesting surface. Optional — untouched callers compile; a local `'user'`
-  // command defaults to the owner; a model-invoked command falls back to the active turn's driver.
-  executeCommand(
-    name: string,
-    args: string,
-    source?: TCommandInvocationSource,
-    originDriverId?: TDriverId,
-  ): Promise<ICommandResult | null>;
-  listCommands(): ICommandListEntry[];
-
-  // Events
-  on<E extends TInteractiveEventName>(event: E, handler: IInteractiveSessionEvents[E]): void;
-  off<E extends TInteractiveEventName>(event: E, handler: IInteractiveSessionEvents[E]): void;
-
-  // Transport-neutral prompt resolution (REMOTE-007). Any attached surface answers a pending
-  // `permission_request` / `ask_request` by id; the first resolve wins, later ones for a settled id
-  // are no-ops. Idempotent and safe to call for an unknown/already-settled id.
-  // REMOTE-014 E5: `answererDriverId` is the SERVER-ASSIGNED driver who answered (display-only). A local
-  // answer omits it (defaults to owner); a transport injects its bound remote id.
-  resolvePermission(id: string, result: TPermissionResultValue, answererDriverId?: TDriverId): void;
-  resolveAsk(id: string, response: TActionResponse, answererDriverId?: TDriverId): void;
-
-  // Background tasks
-  listBackgroundTasks(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[];
-  getBackgroundTask(taskId: string): IBackgroundTaskState | undefined;
-  cancelBackgroundTask(taskId: string, reason?: string): Promise<void>;
-  closeBackgroundTask(taskId: string): Promise<void>;
-  sendBackgroundTask(taskId: string, input: IBackgroundTaskInput): Promise<void>;
-  readBackgroundTaskLog(
-    taskId: string,
-    cursor?: IBackgroundTaskLogCursor,
-  ): Promise<IBackgroundTaskLogPage>;
-
-  // Background job groups
-  listBackgroundJobGroups(): IBackgroundJobGroupState[];
-  getBackgroundJobGroup(groupId: string): IBackgroundJobGroupState | undefined;
-  createBackgroundJobGroup(
-    input: Omit<IBackgroundJobGroupCreateRequest, 'parentSessionId'>,
-  ): IBackgroundJobGroupState;
-  waitBackgroundJobGroup(groupId: string): Promise<IBackgroundJobGroupState>;
-
-  // Execution workspace
-  getExecutionWorkspaceSnapshot(
-    options?: IExecutionWorkspaceSnapshotOptions,
-  ): IExecutionWorkspaceSnapshot;
-
-  // Agent jobs
-  listAgentDefinitions(): Array<{ name: string; description: string }>;
-  listAgentJobs(): ISubagentJobState[];
-  spawnAgentJob(input: {
-    agentType: string;
-    label: string;
-    mode: 'foreground' | 'background';
-    prompt: string;
-    model?: string;
-    isolation?: TBackgroundTaskIsolation;
-  }): Promise<ISubagentJobState>;
-  sendAgentJob(jobId: string, prompt: string): Promise<void>;
-  cancelAgentJob(jobId: string, reason?: string): Promise<void>;
-  closeAgentJob(jobId: string): Promise<void>;
-}
+/** Compatibility aggregate: declaration kind and all 39 required members remain source-compatible. */
+export interface IInteractiveSession
+  extends
+    ISessionLifecycle,
+    ISessionTurnSubmission,
+    ISessionTurnControl,
+    ISessionGoal,
+    ISessionExecutionState,
+    ISessionDriverAttribution,
+    ISessionConversationRead,
+    ISessionIdentity,
+    ISessionWorkspaceLocation,
+    ISessionCommands,
+    ISessionEvents,
+    ISessionPromptResolution,
+    ISessionBackgroundTasks,
+    ISessionBackgroundGroups,
+    ISessionExecutionWorkspace,
+    ISessionAgentJobs {}
 
 /**
  * Lifecycle status of an autonomous goal (GOAL-001).

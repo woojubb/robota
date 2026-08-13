@@ -1,3 +1,5 @@
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { describe, expect, it, vi } from 'vitest';
 import { RTCPeerConnection } from 'werift';
 import { WebRtcTransport, WsSignalingClient } from '@robota-sdk/agent-transport-webrtc';
@@ -14,11 +16,11 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport'
  */
 
 function createStubSession(): IInteractiveSession {
-  return {
+  return Object.assign(createTestInteractiveSession(), {
     getMessages: vi.fn().mockReturnValue([{ role: 'user', content: 'hi' }]),
     on: vi.fn(),
     off: vi.fn(),
-  } as unknown as IInteractiveSession;
+  });
 }
 
 /**

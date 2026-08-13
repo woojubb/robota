@@ -7,7 +7,7 @@
  * modes, and it was four fifths of the handler.
  */
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IHttpTransportSession } from './http-session.js';
 import type { SSEStreamingApi } from 'hono/streaming';
 
 /**
@@ -36,7 +36,7 @@ export type TStreamFailureListener = (error: Error) => void;
  * rejection surfaces afterwards at `await done` — by which point the turn is gone.
  */
 function wireRelay(
-  session: IInteractiveSession,
+  session: IHttpTransportSession,
   stream: SSEStreamingApi,
   cleanup: Array<() => void>,
   onFailure: TStreamFailureListener | undefined,
@@ -99,7 +99,7 @@ function wireRelay(
  * detail goes where every other stream failure's detail goes.
  */
 function onClientAbort(
-  session: IInteractiveSession,
+  session: IHttpTransportSession,
   onFailure: TStreamFailureListener | undefined,
   settle: () => void,
 ): void {
@@ -150,7 +150,7 @@ function teardown(cleanup: Array<() => void>, release: () => void): void {
  * this file keeps writing about, caught doing it.)
  */
 export function relayTurn(
-  session: IInteractiveSession,
+  session: IHttpTransportSession,
   prompt: string,
   release: () => void,
   onFailure?: TStreamFailureListener,

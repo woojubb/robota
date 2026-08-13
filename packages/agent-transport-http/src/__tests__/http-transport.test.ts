@@ -1,9 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
+import { describe, it, expect, expectTypeOf, vi } from 'vitest';
 import { createHttpTransport } from '../http-transport.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IHttpTransportSession } from '../http-session.js';
+import type { IInteractiveSession, ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 
 function createMockSession(): IInteractiveSession {
-  return {
+  return Object.assign(createTestInteractiveSession(), {
     submit: vi.fn(),
     abort: vi.fn(),
     cancelQueue: vi.fn(),
@@ -17,10 +20,16 @@ function createMockSession(): IInteractiveSession {
     listCommands: vi.fn().mockReturnValue([]),
     on: vi.fn(),
     off: vi.fn(),
-  } as unknown as IInteractiveSession;
+  });
 }
 
 describe('createHttpTransport', () => {
+  it('preserves the legacy adapter declaration and accepts the named subset', () => {
+    const transport = createHttpTransport();
+    expectTypeOf(transport).toMatchTypeOf<ITransportAdapter<IInteractiveSession>>();
+    expectTypeOf(transport.attach).parameter(0).toMatchTypeOf<IHttpTransportSession>();
+  });
+
   it('returns an adapter with name "http"', () => {
     const transport = createHttpTransport();
     expect(transport.name).toBe('http');
@@ -38,7 +47,7 @@ describe('createHttpTransport', () => {
 
   it('creates a Hono app after attach + start', async () => {
     const transport = createHttpTransport();
-    transport.attach(createMockSession() as never);
+    transport.attach(createMockSession());
     await transport.start();
     const app = transport.getApp();
     expect(app).toBeDefined();
@@ -47,7 +56,7 @@ describe('createHttpTransport', () => {
 
   it('nullifies app after stop()', async () => {
     const transport = createHttpTransport();
-    transport.attach(createMockSession() as never);
+    transport.attach(createMockSession());
     await transport.start();
     await transport.stop();
     expect(() => transport.getApp()).toThrow('Transport not started');

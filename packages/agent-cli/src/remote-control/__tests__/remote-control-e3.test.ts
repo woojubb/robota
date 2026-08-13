@@ -1,3 +1,5 @@
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import {
   deriveIdentityId,
   exportPublicKey,
@@ -75,7 +77,11 @@ function build(
 }
 
 function stubSession(): IInteractiveSession {
-  return { on: vi.fn(), off: vi.fn(), getMessages: () => [] } as unknown as IInteractiveSession;
+  return Object.assign(createTestInteractiveSession(), {
+    on: vi.fn(),
+    off: vi.fn(),
+    getMessages: () => [],
+  });
 }
 
 describe('RemoteControlController E3 wiring (REMOTE-012)', () => {

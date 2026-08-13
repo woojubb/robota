@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
+import type { IHeadlessSession } from './headless-session.js';
 import type {
   ICommandResult,
   IExecutionResult,
-  IInteractiveSession,
   TBackgroundJobGroupEvent,
 } from '@robota-sdk/agent-interface-transport';
 import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
@@ -23,7 +23,7 @@ function parseSlashCommand(prompt: string): { name: string; args: string } | nul
 }
 
 export async function executeSlashCommandIfPresent(
-  session: IInteractiveSession,
+  session: IHeadlessSession,
   prompt: string,
 ): Promise<TSlashCommandExecution> {
   const command = parseSlashCommand(prompt);
@@ -68,8 +68,8 @@ interface IStreamJsonHandlers {
 }
 
 function writeStreamJsonEvent(
-  session: IInteractiveSession,
-  getSessionId: (s: IInteractiveSession) => string,
+  session: IHeadlessSession,
+  getSessionId: (s: IHeadlessSession) => string,
   event: TStreamJsonEvent,
 ): void {
   const output = JSON.stringify({
@@ -82,8 +82,8 @@ function writeStreamJsonEvent(
 }
 
 export function subscribeStreamJsonEvents(
-  session: IInteractiveSession,
-  getSessionId: (s: IInteractiveSession) => string,
+  session: IHeadlessSession,
+  getSessionId: (s: IHeadlessSession) => string,
   writeJsonResult: (
     sessionId: string,
     result: string,
@@ -138,7 +138,7 @@ export function subscribeStreamJsonEvents(
 }
 
 function unsubscribeStreamJsonEvents(
-  session: IInteractiveSession,
+  session: IHeadlessSession,
   handlers: IStreamJsonHandlers,
 ): void {
   session.off('text_delta', handlers.onTextDelta);

@@ -2,6 +2,8 @@
  * Tests for WebSocket transport handler.
  */
 
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { describe, it, expect, vi } from 'vitest';
 import { createWsHandler } from '../ws-handler.js';
 import type { TServerMessage } from '../ws-protocol.js';
@@ -59,7 +61,7 @@ const backgroundJobGroup: IBackgroundJobGroupState = {
 
 function createMockSession() {
   const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
-  return {
+  return Object.assign(createTestInteractiveSession(), {
     submit: vi.fn().mockResolvedValue(undefined),
     abort: vi.fn(),
     cancelQueue: vi.fn(),
@@ -103,7 +105,7 @@ function createMockSession() {
     _emit: (event: string, ...args: unknown[]) => {
       listeners.get(event)?.forEach((h) => h(...args));
     },
-  } as unknown as IInteractiveSession & { _emit: (event: string, ...args: unknown[]) => void };
+  });
 }
 
 describe('WebSocket Transport Handler', () => {
@@ -111,7 +113,7 @@ describe('WebSocket Transport Handler', () => {
     const session = createMockSession();
     const sent: TServerMessage[] = [];
     const { onMessage, cleanup } = createWsHandler({
-      session: session as unknown as IInteractiveSession,
+      session,
       send: (msg) => sent.push(msg),
     });
     return { session, sent, onMessage, cleanup };
@@ -315,7 +317,7 @@ describe('WebSocket Transport Handler', () => {
     const session = createMockSession();
     const sent: TServerMessage[] = [];
     const { onMessage } = createWsHandler({
-      session: session as unknown as IInteractiveSession,
+      session,
       send: (msg) => sent.push(msg),
       driverId: 'device-7',
     });
@@ -330,7 +332,7 @@ describe('WebSocket Transport Handler', () => {
     const session = createMockSession();
     const sent: TServerMessage[] = [];
     createWsHandler({
-      session: session as unknown as IInteractiveSession,
+      session,
       send: (msg) => sent.push(msg),
       driverId: 'device-7',
     });
@@ -356,12 +358,12 @@ describe('WebSocket Transport Handler', () => {
       const sentA: TServerMessage[] = [];
       const sentB: TServerMessage[] = [];
       createWsHandler({
-        session: session as unknown as IInteractiveSession,
+        session,
         send: (msg) => sentA.push(msg),
         driverId: 'device-A',
       });
       createWsHandler({
-        session: session as unknown as IInteractiveSession,
+        session,
         send: (msg) => sentB.push(msg),
         driverId: 'device-B',
       });

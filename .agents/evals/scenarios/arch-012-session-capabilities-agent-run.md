@@ -270,4 +270,18 @@ file is modified.
 
 ## Observed evidence
 
-EMPTY
+Re-executed the complete exact Bash block from the repository root on 2026-08-14 after the final
+capability-registry, immutable snapshot, non-enumerable role, and accessor-backed method forwarding
+changes, against planning HEAD `27d2ee475` plus the ARCH-012 implementation working tree. Both public
+packages built, the isolated
+consumer compiled without casts or private imports, and the unified command exited `0`. The consumer
+printed exactly:
+
+```text
+ARCH012_OK
+NOT_PROVIDED
+PROVIDED_EMPTY
+```
+
+Bash then proved the temporary directory absent and printed exactly one `CLEANUP_OK` marker. A
+post-run search found no `robota-arch012.*` directory under `${TMPDIR:-/tmp}`.

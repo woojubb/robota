@@ -1,3 +1,5 @@
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { describe, it, expect, vi } from 'vitest';
 
 import { createWsHandler } from '../ws-handler.js';
@@ -15,7 +17,7 @@ import type {
 
 function mockSession(activeDriverId: string | null) {
   const listeners = new Map<string, Set<(...a: unknown[]) => void>>();
-  return {
+  return Object.assign(createTestInteractiveSession(), {
     submit: vi.fn().mockResolvedValue(undefined),
     executeCommand: vi.fn().mockResolvedValue({ message: 'ok', success: true }),
     resolvePermission: vi.fn(),
@@ -27,7 +29,7 @@ function mockSession(activeDriverId: string | null) {
     },
     off: (e: string, h: (...a: unknown[]) => void) => listeners.get(e)?.delete(h),
     _emit: (e: string, ...a: unknown[]) => listeners.get(e)?.forEach((h) => h(...a)),
-  } as unknown as IInteractiveSession & { _emit: (e: string, ...a: unknown[]) => void };
+  });
 }
 
 describe('ws-handler E5 driver attribution (REMOTE-014)', () => {

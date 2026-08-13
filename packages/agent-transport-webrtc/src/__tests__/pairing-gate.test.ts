@@ -1,3 +1,5 @@
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import { PairingGate, type IPairingGateOptions } from '../pairing-gate.js';
@@ -42,7 +44,7 @@ function makeHandshakeStub() {
 function makeGate(over: Partial<IPairingGateOptions> = {}) {
   const channelSends: string[] = [];
   const channel = { send: (d: string) => channelSends.push(d), close: vi.fn() };
-  const session = {} as IInteractiveSession;
+  const session = Object.assign(createTestInteractiveSession(), {});
   const sessionOnMessage = vi.fn();
   const handlerCleanup = vi.fn();
   const createHandler: typeof createWsHandler = () => ({

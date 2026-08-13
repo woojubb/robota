@@ -8,23 +8,26 @@
 import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
 
 import type { IInteractiveSession, ITransportAdapter } from '@robota-sdk/agent-interface-transport';
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { IProtocolSession, TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
 export interface IWsTransportOptions {
   /** Send a JSON message to the connected WebSocket client. */
   send: (message: TServerMessage) => void;
 }
 
-export function createWsTransport(
-  options: IWsTransportOptions,
-): ITransportAdapter<IInteractiveSession> & { onMessage: ((data: string) => void) | null } {
-  let session: IInteractiveSession | null = null;
+export interface IWsTransport extends ITransportAdapter<IInteractiveSession> {
+  attach(session: IProtocolSession): void;
+  onMessage: ((data: string) => void) | null;
+}
+
+export function createWsTransport(options: IWsTransportOptions): IWsTransport {
+  let session: IProtocolSession | null = null;
   let cleanup: (() => void) | null = null;
 
   return {
     name: 'ws',
     onMessage: null,
-    attach(s: IInteractiveSession) {
+    attach(s: IProtocolSession) {
       session = s;
     },
     async start() {

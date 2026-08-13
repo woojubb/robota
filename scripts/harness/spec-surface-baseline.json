@@ -4,7 +4,7 @@
   "@robota-sdk/agent-core": 148,
   "@robota-sdk/agent-executor": 1,
   "@robota-sdk/agent-framework": 160,
-  "@robota-sdk/agent-interface-transport": 4,
+  "@robota-sdk/agent-interface-transport": 1,
   "@robota-sdk/agent-playground": 26,
   "@robota-sdk/agent-plugin": 29,
   "@robota-sdk/agent-provider-replay": 2,

@@ -28,7 +28,7 @@ import type {
   IPayloadChannelHost,
   TChannelEventMap,
 } from '@robota-sdk/agent-interface-transport';
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { IProtocolSession, TServerMessage } from '@robota-sdk/agent-transport-protocol';
 import type { RawData } from 'ws';
 
 /**
@@ -68,7 +68,7 @@ export class WsTransport
     },
   };
 
-  private session: IInteractiveSession | null = null;
+  private session: IProtocolSession | null = null;
   private stopFn: (() => Promise<void>) | null = null;
   private readonly port: number;
   private readonly maxRetries: number;
@@ -89,7 +89,9 @@ export class WsTransport
     this.allowedOrigins = new Set(config.allowedOrigins ?? []);
   }
 
-  attach(session: IInteractiveSession): void {
+  attach(session: IInteractiveSession): void;
+  attach(session: IProtocolSession): void;
+  attach(session: IProtocolSession): void {
     this.session = session;
   }
 
@@ -144,7 +146,7 @@ export class WsTransport
   }
 
   private bindWithRetry(
-    session: IInteractiveSession,
+    session: IProtocolSession,
     port: number,
     retriesLeft: number,
   ): Promise<{ stop: () => Promise<void>; port: number }> {
@@ -156,7 +158,7 @@ export class WsTransport
   }
 
   private tryBind(
-    session: IInteractiveSession,
+    session: IProtocolSession,
     port: number,
   ): Promise<{ stop: () => Promise<void>; port: number }> {
     return new Promise((resolve, reject) => {

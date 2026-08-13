@@ -1,9 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
+import { describe, it, expect, expectTypeOf, vi } from 'vitest';
 import { createMcpTransport } from '../mcp-transport.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IMcpTransportSession } from '../mcp-session.js';
+import type { IInteractiveSession, ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 
 function createMockSession(): IInteractiveSession {
-  return {
+  return Object.assign(createTestInteractiveSession(), {
     submit: vi.fn(),
     abort: vi.fn(),
     cancelQueue: vi.fn(),
@@ -17,10 +20,16 @@ function createMockSession(): IInteractiveSession {
     listCommands: vi.fn().mockReturnValue([]),
     on: vi.fn(),
     off: vi.fn(),
-  } as unknown as IInteractiveSession;
+  });
 }
 
 describe('createMcpTransport', () => {
+  it('preserves the legacy adapter declaration and accepts the named subset', () => {
+    const transport = createMcpTransport({ name: 'test', version: '1.0.0' });
+    expectTypeOf(transport).toMatchTypeOf<ITransportAdapter<IInteractiveSession>>();
+    expectTypeOf(transport.attach).parameter(0).toMatchTypeOf<IMcpTransportSession>();
+  });
+
   it('returns an adapter with name "mcp"', () => {
     const transport = createMcpTransport({ name: 'test', version: '1.0.0' });
     expect(transport.name).toBe('mcp');

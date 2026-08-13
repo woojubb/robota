@@ -9,6 +9,7 @@ import { resolveAdmission } from '@robota-sdk/agent-transport-protocol';
 
 import { createAgentRoutes } from './routes.js';
 
+import type { IHttpTransportSession } from './http-session.js';
 import type { TStreamFailureListener } from './submit-stream.js';
 import type {
   IInteractiveSession,
@@ -37,13 +38,14 @@ export interface IHttpTransportOptions {
   onStreamFailure?: TStreamFailureListener;
 }
 
-export function createHttpTransport(
-  options?: IHttpTransportOptions,
-): ITransportAdapter<IInteractiveSession> & {
+export interface IHttpTransport extends ITransportAdapter<IInteractiveSession> {
+  attach(session: IHttpTransportSession): void;
   getApp(): Hono;
   getAdmissionToken(): string | null;
-} {
-  let session: IInteractiveSession | null = null;
+}
+
+export function createHttpTransport(options?: IHttpTransportOptions): IHttpTransport {
+  let session: IHttpTransportSession | null = null;
   let app: Hono | null = null;
   // Resolved at CONSTRUCTION, not at start: a host needs the credential to hand to its client, and
   // a transport that cannot mint one must fail before anything is served.
@@ -51,7 +53,7 @@ export function createHttpTransport(
 
   return {
     name: 'http',
-    attach(s: IInteractiveSession) {
+    attach(s: IHttpTransportSession) {
       session = s;
     },
     async start() {

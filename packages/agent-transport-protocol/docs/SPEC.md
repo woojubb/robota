@@ -10,7 +10,8 @@ Owns the **transport-neutral session bridge + wire protocol** shared by transpor
 (`agent-transport-ws`, `agent-transport-webrtc`, …). Extracted from `agent-transport-ws` (REMOTE-002) so a
 non-WebSocket transport can reuse it without a `webrtc → ws` package edge.
 
-- `createWsHandler({ session, send })` — subscribes to an `IInteractiveSession`'s events and pushes them as
+- `createWsHandler({ session, send })` — accepts the named `IProtocolSession` role aggregate,
+  subscribes to its events, and pushes them as
   `TServerMessage`s via the injected `send`; returns `onMessage(data)` (drives `session.submit/executeCommand/
 abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: works over any byte/string
   channel via `send`/`onMessage` callbacks — no `ws`, no `node:` sockets.
@@ -72,6 +73,11 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
   `session.getActiveDriverId()`; background / job-group / execution-workspace events are NEVER stamped (not
   authored by a driver turn). **Invariant:** `driverId` is DISPLAY attribution only, never an authorization
   input — the OWNER PRINCIPLE (local == remote) governs who may act; every paired driver holds owner authority.
+
+`IProtocolSession` is the exact shared protocol capability: turn submission/control, commands,
+events, prompt resolution, conversation/execution reads, driver attribution, background tasks and
+groups, and execution-workspace reads. WS and WebRTC reuse this one named protocol-owned aggregate;
+they do not rebuild anonymous intersections or require the unrelated lifecycle/goal/identity roles.
 
 ## Boundaries
 

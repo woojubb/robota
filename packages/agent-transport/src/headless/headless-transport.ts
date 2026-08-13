@@ -13,6 +13,7 @@
 import { createHeadlessRunner } from './headless-runner.js';
 
 import type { TOutputFormat } from './headless-runner.js';
+import type { IHeadlessSession } from './headless-session.js';
 import type { IInteractiveSession, ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 
 export interface IHeadlessTransportOptions {
@@ -22,15 +23,18 @@ export interface IHeadlessTransportOptions {
   prompt: string;
 }
 
-export function createHeadlessTransport(
-  options: IHeadlessTransportOptions,
-): ITransportAdapter<IInteractiveSession> & { getExitCode(): number } {
-  let session: IInteractiveSession | null = null;
+export interface IHeadlessTransport extends ITransportAdapter<IInteractiveSession> {
+  attach(session: IHeadlessSession): void;
+  getExitCode(): number;
+}
+
+export function createHeadlessTransport(options: IHeadlessTransportOptions): IHeadlessTransport {
+  let session: IHeadlessSession | null = null;
   let exitCode = 0;
 
   return {
     name: 'headless',
-    attach(s: IInteractiveSession) {
+    attach(s: IHeadlessSession) {
       session = s;
     },
     // ARCH-011: `start()` here runs the entire prompt. Declared, so `startAll` does not await it and
