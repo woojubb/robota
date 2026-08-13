@@ -1,7 +1,8 @@
 ---
 title: 'RUNTIME-003: no turn or run identity — concurrency has no owner, so every consumer invents its own busy flag and two of them race'
-status: in-progress
+status: done
 created: 2026-08-02
+completed: 2026-08-13
 priority: critical
 urgency: now
 area: packages/agent-session, packages/agent-framework, packages/agent-transport-mcp, packages/agent-transport-http, packages/dag-worker, packages/dag-framework
@@ -130,6 +131,23 @@ The artifact records exact Bash, prerequisites, assertions, exit behavior, and c
 blocks passed on 2026-08-13 19:43 KST: the SDK flow reported 12 accepted/completed prompts,
 `maximumConcurrentExecutions: 1`, zero active execution after stop and zero unhandled rejections;
 the built CLI emitted exactly `RUNTIME003_OK`, with both blocks exiting 0.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-13
+
+**Status upgrade:** scenario written → scenario executed
+
+Scenario 1 — concurrent public-SDK prompts share one advancement actor: PASS — the independent
+guardian freshly executed the exact Bash block in the durable scenario against commit
+`2ad61d188a96603d4c2dab077278bd646b356149`. It exited 0 and emitted 12 accepted and completed
+prompts, maximum concurrency 1, zero active execution after stop, and zero unhandled rejections.
+
+Scenario 2 — shipped CLI execution remains observable: PASS — the guardian freshly executed the
+exact Bash block against `packages/dag-cli/dist/node/bin.js`. It exited 0 and stdout was exactly
+`RUNTIME003_OK` followed by one newline.
+
+Cleanup and evidence integrity: PASS — scratch files were removed, the working tree was clean, and
+no build, test, lint, harness, CI output, or capability-absence exception was used as product
+execution evidence.
 
 ## Progress
 
