@@ -12,11 +12,11 @@
  * `.agents/tasks/*.md` (excluding completed/), so a done-but-active file keeps
  * feeding a stale plan into the harness forever.
  *
- * This scan makes "done" machine-detectable and enforced. A task file under
- * `.agents/tasks/` (excluding README.md and completed/) is ARCHIVABLE when:
- *   - it carries an explicit `Status: completed` line, OR
- *   - every checkbox is checked (>=1 checkbox, zero `- [ ]`) AND its `Spec:`
- *     pointer references `.agents/spec-docs/done/` (the spec already shipped).
+ * This scan makes terminal lifecycle and initiative rollups machine-detectable. Task lifecycle
+ * comes only from YAML frontmatter through `task-lifecycle.mjs`; body prose and checkboxes never
+ * declare completion. Fully checked work whose spec is still active remains a gate-overdue signal.
+ * Exact-ID `type: AGREEMENT` pairs additionally project declared child status/path into Task
+ * `## Children` and spec `## Tasks` sections.
  *
  * An archivable file that still lives in the active directory is a finding.
  * Escape hatch: a `<!-- archival-exempt: <reason> -->` line keeps a deliberately
@@ -28,19 +28,23 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { idOf } from './check-backlog-placement.mjs';
+import { asList, asScalar, splitFrontmatter } from './frontmatter.mjs';
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
+import { classifyTaskLifecycle } from './task-lifecycle.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TASKS_DIR = '.agents/tasks';
 const COMPLETED_DIR = `${TASKS_DIR}/completed`;
+const SPEC_DOCS_DIR = '.agents/spec-docs';
 
 const UNCHECKED_PATTERN = /^\s*[-*]\s+\[ \]/;
 const CHECKED_PATTERN = /^\s*[-*]\s+\[[xX]\]/;
-const STATUS_COMPLETED_PATTERN = /status\*{0,2}\s*:\s*completed/i;
-const SPEC_POINTER_PATTERN = /^\s*Spec:.*spec-docs\/done\//i;
 const UNDONE_SPEC_POINTER_PATTERN = /^\s*Spec:.*spec-docs\/(draft|backlog|todo|active)\//i;
 const EXEMPT_PATTERN = /<!--\s*archival-exempt:\s*(.+?)\s*-->/;
+const PROJECTION_ROW_PATTERN =
+  /^\s*[-*]\s+\[([ xX])\]\s+([A-Z]+(?:-[A-Z]+)*-\d+(?:-P\d+)*)\s+—\s+([a-z-]+)\s+—\s+`([^`]+)`\s*$/;
 
 /**
  * Classify a single task-file body.
@@ -51,16 +55,12 @@ export function classifyTaskFile(content) {
 
   let unchecked = 0;
   let checked = 0;
-  let hasStatusCompleted = false;
-  let hasDoneSpecPointer = false;
   let hasUndoneSpecPointer = false;
   let exemptReason = null;
 
   for (const line of lines) {
     if (UNCHECKED_PATTERN.test(line)) unchecked += 1;
     else if (CHECKED_PATTERN.test(line)) checked += 1;
-    if (STATUS_COMPLETED_PATTERN.test(line)) hasStatusCompleted = true;
-    if (SPEC_POINTER_PATTERN.test(line)) hasDoneSpecPointer = true;
     if (UNDONE_SPEC_POINTER_PATTERN.test(line)) hasUndoneSpecPointer = true;
     const exemptMatch = EXEMPT_PATTERN.exec(line);
     if (exemptMatch) exemptReason = exemptMatch[1];
@@ -70,12 +70,10 @@ export function classifyTaskFile(content) {
   let archivable = false;
   let gatesOverdue = false;
   let reason = '';
-  if (hasStatusCompleted) {
+  const lifecycle = classifyTaskLifecycle(content);
+  if (lifecycle.state === 'terminal' && lifecycle.valid) {
     archivable = true;
-    reason = 'Status: completed';
-  } else if (allChecked && hasDoneSpecPointer) {
-    archivable = true;
-    reason = `all ${checked} checkbox(es) checked, spec in spec-docs/done/`;
+    reason = `status: ${lifecycle.status}`;
   } else if (allChecked && hasUndoneSpecPointer) {
     // Lesson (2026-07-02): TERM-008/WORKFLOW-003 sat fully-checked for days while their specs
     // stayed in active/ — invisible to the archivable rule above because that rule requires the
@@ -110,6 +108,238 @@ async function readDirOrAbsent(dir) {
 async function countArchived(root) {
   const entries = await readDirOrAbsent(path.join(root, COMPLETED_DIR));
   return entries.filter((name) => name.endsWith('.md') && name !== 'README.md').length;
+}
+
+async function listMarkdownRecords(root, relativeDirs) {
+  const records = [];
+  for (const relativeDir of relativeDirs) {
+    for (const name of (await readDirOrAbsent(path.join(root, relativeDir))).sort()) {
+      if (!name.endsWith('.md') || name === 'README.md') continue;
+      const relative = path.posix.join(relativeDir, name);
+      const absolute = path.join(root, relative);
+      const handle = await fs.open(absolute, 'r');
+      let content;
+      try {
+        const stat = await handle.stat();
+        if (!stat.isFile()) continue;
+        content = await handle.readFile('utf8');
+      } finally {
+        await handle.close();
+      }
+      const { entries, body } = splitFrontmatter(content);
+      records.push({ id: idOf(name), relative, content, entries, body });
+    }
+  }
+  return records;
+}
+
+async function listSpecLifecycleDirs(root) {
+  const entries = await readDirOrAbsent(path.join(root, SPEC_DOCS_DIR));
+  const dirs = [];
+  for (const name of entries.sort()) {
+    const stat = await fs.stat(path.join(root, SPEC_DOCS_DIR, name));
+    if (stat.isDirectory()) dirs.push(path.join(SPEC_DOCS_DIR, name));
+  }
+  return dirs;
+}
+
+function recordsById(records) {
+  const index = new Map();
+  for (const record of records) {
+    if (record.id === null) continue;
+    const matches = index.get(record.id) ?? [];
+    matches.push(record);
+    index.set(record.id, matches);
+  }
+  return index;
+}
+
+function projectionRows(body, heading) {
+  const lines = body.split(/\r?\n/);
+  const start = lines.findIndex((line) => line.trim() === `## ${heading}`);
+  if (start === -1) return { missing: true, rows: [], malformed: [] };
+  const section = [];
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (/^##\s+/.test(lines[index])) break;
+    section.push(lines[index]);
+  }
+  const rows = [];
+  const malformed = [];
+  for (const line of section) {
+    if (!/^\s*[-*]\s+\[[ xX]\]/.test(line)) continue;
+    const match = PROJECTION_ROW_PATTERN.exec(line);
+    if (match === null) malformed.push(line);
+    else
+      rows.push({
+        checked: match[1].toLowerCase() === 'x',
+        id: match[2],
+        status: match[3],
+        taskPath: match[4],
+      });
+  }
+  return { missing: false, rows, malformed };
+}
+
+function validateProjection({ parent, heading, expected }) {
+  const findings = [];
+  const projection = projectionRows(parent.body, heading);
+  if (projection.missing) {
+    findings.push(`missing ## ${heading} lifecycle projection`);
+    return findings;
+  }
+  if (projection.malformed.length > 0) {
+    findings.push(`malformed ## ${heading} row(s): ${projection.malformed.join(' | ')}`);
+  }
+  const expectedIds = new Set(expected.map((child) => child.id));
+  for (const child of expected) {
+    const matches = projection.rows.filter((row) => row.id === child.id);
+    if (matches.length !== 1) {
+      findings.push(`${heading} requires exactly one ${child.id} row; found ${matches.length}`);
+      continue;
+    }
+    const [row] = matches;
+    const terminal = child.lifecycle.state === 'terminal';
+    if (
+      row.checked !== terminal ||
+      row.status !== child.lifecycle.status ||
+      row.taskPath !== child.record.relative
+    ) {
+      findings.push(
+        `${heading} ${child.id} row is stale; expected [${terminal ? 'x' : ' '}] ` +
+          `${child.lifecycle.status} at ${child.record.relative}`,
+      );
+    }
+  }
+  for (const row of projection.rows) {
+    if (!expectedIds.has(row.id))
+      findings.push(`${heading} contains undeclared child row ${row.id}`);
+  }
+  return findings;
+}
+
+async function findAgreementProjectionFindings(root) {
+  const taskRecords = await listMarkdownRecords(root, [TASKS_DIR, COMPLETED_DIR]);
+  const specRecords = await listMarkdownRecords(root, await listSpecLifecycleDirs(root));
+  const tasks = recordsById(taskRecords);
+  const specs = recordsById(specRecords);
+  const findings = [];
+  const candidateIds = new Set();
+  for (const spec of specRecords) {
+    if (asScalar(spec.entries?.get('type')) === 'AGREEMENT' && spec.id !== null)
+      candidateIds.add(spec.id);
+  }
+  for (const task of taskRecords) {
+    if (task.entries?.has('children') && task.id !== null) candidateIds.add(task.id);
+  }
+
+  for (const agreementId of [...candidateIds].sort()) {
+    const taskMatches = tasks.get(agreementId) ?? [];
+    const specMatches = specs.get(agreementId) ?? [];
+    const taskFile = taskMatches[0]?.relative ?? specMatches[0]?.relative ?? agreementId;
+    if (specMatches.length !== 1) {
+      findings.push({
+        taskFile,
+        reason: `${agreementId} requires exactly one paired spec; found ${specMatches.length}`,
+      });
+      continue;
+    }
+    if (taskMatches.length !== 1) {
+      findings.push({
+        taskFile,
+        reason: `${agreementId} requires exactly one paired Task; found ${taskMatches.length}`,
+      });
+      continue;
+    }
+
+    const spec = specMatches[0];
+    if (asScalar(spec.entries?.get('type')) !== 'AGREEMENT') {
+      findings.push({
+        taskFile,
+        reason: `${agreementId} children declaration requires paired spec type: AGREEMENT`,
+      });
+      continue;
+    }
+
+    const task = taskMatches[0];
+    const children = asList(task.entries?.get('children'));
+    if (children.length === 0) {
+      findings.push({
+        taskFile,
+        reason: `${agreementId} AGREEMENT Task requires a non-empty children declaration`,
+      });
+      continue;
+    }
+    if (new Set(children).size !== children.length) {
+      findings.push({
+        taskFile,
+        reason: `${agreementId} children declaration contains duplicate IDs`,
+      });
+      continue;
+    }
+    if (children.includes(agreementId)) {
+      findings.push({
+        taskFile,
+        reason: `${agreementId} children declaration must not reference itself`,
+      });
+      continue;
+    }
+
+    const resolved = [];
+    for (const childId of children) {
+      const matches = tasks.get(childId) ?? [];
+      if (matches.length !== 1) {
+        findings.push({
+          taskFile,
+          reason: `child ${childId} must resolve to exactly one Task; found ${matches.length}`,
+        });
+        continue;
+      }
+      const nestedAgreement = (specs.get(childId) ?? []).some(
+        (candidate) => asScalar(candidate.entries?.get('type')) === 'AGREEMENT',
+      );
+      if (nestedAgreement) {
+        findings.push({ taskFile, reason: `nested AGREEMENT child ${childId} is not supported` });
+        continue;
+      }
+      const lifecycle = classifyTaskLifecycle(matches[0].content);
+      if (!lifecycle.valid) {
+        findings.push({
+          taskFile,
+          reason: `child ${childId} has invalid lifecycle: ${lifecycle.problems.join('; ')}`,
+        });
+        continue;
+      }
+      resolved.push({ id: childId, record: matches[0], lifecycle });
+    }
+    if (resolved.length !== children.length) continue;
+
+    for (const reason of validateProjection({
+      parent: task,
+      heading: 'Children',
+      expected: resolved,
+    })) {
+      findings.push({ taskFile, reason });
+    }
+    for (const reason of validateProjection({
+      parent: spec,
+      heading: 'Tasks',
+      expected: resolved,
+    })) {
+      findings.push({ taskFile, reason });
+    }
+
+    const parentLifecycle = classifyTaskLifecycle(task.content);
+    if (
+      parentLifecycle.status === 'done' &&
+      resolved.some((child) => child.lifecycle.status !== 'done')
+    ) {
+      findings.push({
+        taskFile,
+        reason: 'parent status: done requires every declared child to be status: done',
+      });
+    }
+  }
+  return findings;
 }
 
 /**
@@ -147,6 +377,8 @@ export async function findTaskArchivalFindings(root = WORKSPACE_ROOT) {
     }
     findings.push({ taskFile, reason, gatesOverdue });
   }
+
+  findings.push(...(await findAgreementProjectionFindings(root)));
 
   return { findings, exemptions, examined, archived };
 }

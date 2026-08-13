@@ -34,8 +34,10 @@ with no direction chosen yet. And `backlog` was simultaneously a _lifecycle fold
    - Update `status: done` and add `completed: YYYY-MM-DD` in frontmatter.
    - Use `git mv` to move the file from this directory to `completed/`.
    - Include the status update and the move in the same commit — do not split them.
-4. For items that will not be implemented, set `status: wontfix` or `status: skipped` in
-   frontmatter, then move to `completed/` in the same commit.
+4. For items that will not be implemented, set `status: wontfix`, `skipped`, or `superseded`, add
+   the completion date, then move to `completed/` in the same commit.
+5. If another Task declares this Task in `children`, update that initiative Task's `## Children`
+   and paired AGREEMENT spec's `## Tasks` rows in the same commit as this lifecycle transition.
 
 **Never** move a file to `completed/` without first updating `status` in its frontmatter.
 **Never** set `status: done` before the User Execution Test Scenario gate passes (if applicable).
@@ -55,12 +57,29 @@ priority: critical | high | medium | low
 urgency: now | soon | later | someday
 area: <affected packages or apps>
 depends_on: [] # list of blocking Task IDs, empty if none
+children: [] # required and non-empty only for a Task paired to a type: AGREEMENT spec
 ---
 ```
 
 The `status` field in frontmatter is the **single source of truth**. Do not write status
 information anywhere in the body — body sections such as `## Status` are banned. Grep-based
 tooling and harness scripts rely exclusively on frontmatter for status tracking.
+
+Open statuses are `todo`, `in-progress`, and `blocked`. Terminal statuses are `done`, `wontfix`,
+`skipped`, and `superseded`; every terminal Task requires a real `completed: YYYY-MM-DD` date and
+must live under `completed/`. A paired `type: AGREEMENT` Task must declare a non-empty unique
+`children` list. Its `## Children` section and the paired spec's `## Tasks` section each contain
+exactly one row per child in this form:
+
+```markdown
+- [x] CHILD-001 — done — `.agents/tasks/completed/CHILD-001-description.md`
+- [ ] CHILD-002 — in-progress — `.agents/tasks/CHILD-002-description.md`
+```
+
+The checkbox is checked for every terminal disposition, while the explicit status preserves whether
+the child was delivered (`done`) or administratively closed. An AGREEMENT may itself be `done` only
+when every declared child is `done`. Its authored Plan and Completion Criteria remain independent
+initiative evidence, not child-state projections.
 
 ## Task Requirements
 
@@ -115,7 +134,7 @@ The Task files themselves are the single source of truth — there is no inline 
 (a duplicated list goes stale and violates the archive policy above).
 
 - **Current items:** the `.md` files in this directory (`ls .agents/tasks/*.md`). Each file's
-  frontmatter (`status`, `priority`, `urgency`, `depends_on`) is authoritative.
+  frontmatter (`status`, `priority`, `urgency`, `depends_on`, and when applicable `children`) is authoritative.
 - **Completed items:** archived in [`completed/`](completed/) with `status: done` (or
   `wontfix`/`skipped`/`superseded`) set in frontmatter.
 - **Execution process and gates:** see

@@ -7,6 +7,7 @@ priority: medium
 urgency: soon
 area: apps/www, apps/docs
 depends_on: []
+children: [MKT-001]
 ---
 
 > **Superseded.** The only agent-executable slice shipped: the Korean README
@@ -15,6 +16,10 @@ depends_on: []
 > never performed, and community/blog launch content is owned by MKT-001 (done 2026-05-18,
 > `apps/blog` + GitHub community). Do not stamp done — no community posting evidence exists.
 > Reconciled 2026-07-25 (PROC-001).
+
+## Children
+
+- [x] MKT-001 — done — `.agents/tasks/completed/MKT-001-community-and-blog-content.md`
 
 ## Background
 

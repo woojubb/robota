@@ -346,13 +346,16 @@ no route from it ends in `status: done`.
 
 Completion is a single atomic act, not a sequence that usually finishes:
 
-1. **Update frontmatter** — set `status: done` and add `completed: YYYY-MM-DD` to the backlog
-   file's frontmatter. For items that will not be implemented, use `status: wontfix` or
-   `status: skipped` instead.
+1. **Update frontmatter** — set `status: done` and add `completed: YYYY-MM-DD` to the Task
+   file's frontmatter. For items that will not be implemented, use `status: wontfix`, `skipped`,
+   or `superseded`; every terminal status requires the date.
 2. **Move the file** — `git mv .agents/tasks/<file>.md .agents/tasks/completed/<file>.md`.
    Always `git mv`, never `cp` — the root must be left with no duplicate.
-3. **Single commit** — the frontmatter update and the move land in the SAME commit. Do not commit or
-   push before both are staged together.
+3. **Update declaring initiatives** — for every AGREEMENT Task whose `children` includes this Task,
+   update both its `## Children` row and its paired spec `## Tasks` row to the exact new status and
+   canonical path. Authored Plan and Completion Criteria are not lifecycle projections.
+4. **Single commit** — the frontmatter update, move, and all declaring-initiative projection updates
+   land in the SAME commit. Do not commit or push before all are staged together.
 
 Recovery when only one half lands, and what to do when the move conflicts, are routing owned by
 [`backlog-execution-orchestrator`](../skills/backlog-execution-orchestrator/SKILL.md).
@@ -361,17 +364,20 @@ Recovery when only one half lands, and what to do when the move conflicts, are r
 
 - Frontmatter `status:` is the **only** place status is recorded. Body sections such as
   `## Status` are banned and must not be written.
-- A file may not reside in `completed/` with `status: todo` or `status: in-progress`.
+- A file may not reside in `completed/` with `status: todo`, `status: in-progress`, or `status: blocked`.
 - A file may not have `status: done` while still in the `backlog/` root.
 - `status: done` must not be set before the User Execution Test Scenario gate passes (Stage 2).
 - `wontfix`, `skipped`, and `superseded` are valid terminal statuses for items that were
-  deliberately not implemented.
+  deliberately not implemented; every terminal status requires `completed: YYYY-MM-DD`.
+- A paired `type: AGREEMENT` Task must declare non-empty unique `children`; its Task/spec lifecycle
+  rows must match every child, and `status: done` requires every child to be exactly `done`.
 - Closing the loop (evidence, status, move, gates) happens in the SAME change as the work. A "tracked
   as follow-on" claim must name an existing backlog/task file.
 - **Mechanized:** the `backlog-placement` scan (`scripts/harness/check-backlog-placement.mjs`, in
   `pnpm harness:scan`) fails on a terminal-status file in the root, an open-status file in
-  `completed/`, or `status: done` without a `completed:` date. The `task-archival` scan additionally
-  fails a fully-checked task file whose spec never reached `spec-docs/done/` (gates overdue). These
+  `completed/`, or any terminal status without a valid `completed:` date. The `task-archival` scan
+  additionally validates AGREEMENT child projections and fails a fully-checked task file whose spec
+  never reached `spec-docs/done/` (gates overdue). These
   invariants held only as prose until they were mechanized, and the sweep that mechanized them found
   eight shipped items with stale placement.
 

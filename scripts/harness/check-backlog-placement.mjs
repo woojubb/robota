@@ -19,19 +19,22 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { asScalar, parseFrontmatterBlock } from './frontmatter.mjs';
+import crypto from 'node:crypto';
 import { requireGovernedTree } from './governed-tree.mjs';
+import {
+  OPEN_TASK_STATUSES,
+  TERMINAL_TASK_STATUSES,
+  classifyTaskLifecycle,
+} from './task-lifecycle.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const BACKLOG_DIR = '.agents/tasks';
 const COMPLETED_DIR = '.agents/tasks/completed';
 const SPEC_DOCS_DIR = '.agents/spec-docs';
+const LEGACY_LIFECYCLE_BASELINE = 'scripts/harness/task-lifecycle-legacy-baseline.json';
 
 /** The leading ID token of a backlog/spec filename, phase suffix included (`SELFHOST-008-P5`). */
 export const idOf = (name) => /^([A-Z]+(?:-[A-Z]+)*-\d+(?:-P\d+)*)/.exec(name)?.[1] ?? null;
-
-const TERMINAL_STATUSES = new Set(['done', 'wontfix', 'skipped', 'superseded']);
-const OPEN_STATUSES = new Set(['todo', 'in-progress']);
 
 /**
  * Historical debt: PR #589 (2026-05-25) archived files as implemented while leaving their
@@ -61,14 +64,10 @@ const LEGACY_COMPLETED_TODO = new Set([]);
  * @returns {{ status: string | null, hasCompletedDate: boolean }}
  */
 export function readBacklogFrontmatter(content) {
-  const entries = parseFrontmatterBlock(content);
-  if (entries === null) return { status: null, hasCompletedDate: false };
-  // The first token of the value: `status: done # note` is still `done`, matching what the previous
-  // `(\S+)` capture read, so a trailing YAML comment does not silently become an unknown status.
-  const status = asScalar(entries.get('status')).trim().split(/\s+/)[0];
+  const lifecycle = classifyTaskLifecycle(content);
   return {
-    status: status === '' ? null : status,
-    hasCompletedDate: asScalar(entries.get('completed')).trim() !== '',
+    status: lifecycle.status,
+    hasCompletedDate: lifecycle.completed !== null,
   };
 }
 
@@ -105,15 +104,15 @@ export async function findBacklogPlacementFindings(root = WORKSPACE_ROOT) {
     why: 'Placement is a claim about the backlog tree; with no tree there are no misplaced items and no correct ones either.',
   });
   const findings = [];
+  const invalidArchived = [];
 
   for (const name of await listMarkdown(path.join(root, BACKLOG_DIR))) {
-    const relative = path.join(BACKLOG_DIR, name);
+    const relative = path.posix.join(BACKLOG_DIR, name);
     if (relative.startsWith(COMPLETED_DIR)) continue;
     const stat = await fs.stat(path.join(root, relative));
     if (stat.isDirectory()) continue;
-    const { status, hasCompletedDate } = readBacklogFrontmatter(
-      await fs.readFile(path.join(root, relative), 'utf8'),
-    );
+    const lifecycle = classifyTaskLifecycle(await fs.readFile(path.join(root, relative), 'utf8'));
+    const { status } = lifecycle;
     // A task with no readable `status:` is REPORTED, not skipped, and review found why. `README.md`
     // requires every task file to carry a `---`-delimited frontmatter block and says outright that
     // "grep-based tooling and harness scripts rely exclusively on frontmatter for status tracking"
@@ -127,24 +126,27 @@ export async function findBacklogPlacementFindings(root = WORKSPACE_ROOT) {
       findings.push({ file: relative, problem: NO_STATUS_PROBLEM });
       continue;
     }
-    if (TERMINAL_STATUSES.has(status)) {
+    if (TERMINAL_TASK_STATUSES.has(status)) {
       findings.push({
         file: relative,
         problem: `terminal status "${status}" but still in the backlog root — git mv to completed/`,
       });
-      if (status === 'done' && !hasCompletedDate) {
+      if (!lifecycle.valid) {
         findings.push({
           file: relative,
-          problem: 'status: done without a completed: YYYY-MM-DD frontmatter date',
+          problem: lifecycle.problems.join('; '),
         });
       }
+    } else if (!lifecycle.valid) {
+      findings.push({ file: relative, problem: lifecycle.problems.join('; ') });
     }
   }
 
   for (const name of await listMarkdown(path.join(root, COMPLETED_DIR))) {
-    const relative = path.join(COMPLETED_DIR, name);
+    const relative = path.posix.join(COMPLETED_DIR, name);
     if (LEGACY_COMPLETED_TODO.has(relative)) continue;
-    const { status } = readBacklogFrontmatter(await fs.readFile(path.join(root, relative), 'utf8'));
+    const lifecycle = classifyTaskLifecycle(await fs.readFile(path.join(root, relative), 'utf8'));
+    const { status } = lifecycle;
     // The same rule as the root loop, and review found it applied to only one of them. An archived
     // file with no frontmatter passed silently, and the reason the root loop refuses one — that
     // nothing can read the status of a file that does not declare it where the tooling looks — does
@@ -153,12 +155,35 @@ export async function findBacklogPlacementFindings(root = WORKSPACE_ROOT) {
       findings.push({ file: relative, problem: NO_STATUS_PROBLEM });
       continue;
     }
-    if (OPEN_STATUSES.has(status)) {
+    if (OPEN_TASK_STATUSES.has(status)) {
       findings.push({
         file: relative,
         problem: `open status "${status}" inside completed/ — reopen (move back) or close it`,
       });
+    } else if (!lifecycle.valid) {
+      invalidArchived.push(`${relative}|${lifecycle.status ?? ''}|${lifecycle.completed ?? ''}`);
     }
+  }
+
+  const baselinePath = path.join(root, LEGACY_LIFECYCLE_BASELINE);
+  let baseline = null;
+  try {
+    baseline = JSON.parse(await fs.readFile(baselinePath, 'utf8'));
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  const digest = crypto
+    .createHash('sha256')
+    .update(invalidArchived.sort().join('\n'))
+    .digest('hex');
+  const baselineMatches = baseline?.count === invalidArchived.length && baseline?.sha256 === digest;
+  if ((baseline !== null || invalidArchived.length > 0) && !baselineMatches) {
+    findings.push({
+      file: COMPLETED_DIR,
+      problem:
+        `${invalidArchived.length} archived Task lifecycle violation(s) do not match the frozen ` +
+        `${LEGACY_LIFECYCLE_BASELINE} (sha256 ${digest}); fix new drift and leave legacy removal to HARNESS-092`,
+    });
   }
 
   findings.push(...(await findDuplicateIdFindings(root)));
