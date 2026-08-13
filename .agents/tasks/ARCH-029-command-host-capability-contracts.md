@@ -6,7 +6,7 @@ priority: high
 urgency: soon
 area: packages/agent-framework, packages/agent-command, packages/agent-command-workflows, packages/agent-cli, packages/agent-transport-tui
 depends_on: [ARCH-012]
-issue: 1722
+issue: https://github.com/woojubb/robota/issues/1722
 ---
 
 # ARCH-029: decompose the command host into explicit capability contracts

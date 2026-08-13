@@ -5,7 +5,7 @@ created: 2026-08-02
 priority: high
 urgency: soon
 area: packages/agent-interface-transport, packages/agent-framework, packages/agent-transport, packages/agent-transport-ws, packages/agent-transport-http, packages/agent-transport-mcp, packages/agent-transport-tui, packages/agent-transport-protocol, packages/agent-transport-webrtc, packages/agent-cli
-depends_on: []
+depends_on: [ARCH-019]
 ---
 
 # ARCH-012: decompose the remaining session aggregate into capability-scoped ports
