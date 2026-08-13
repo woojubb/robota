@@ -124,8 +124,8 @@ export function decideReviewGate({
   // the wrong cause, and reading it as acknowledged would clear on an override nobody gave.
   const acknowledged = !labelsUnavailable && labels.includes(ACKNOWLEDGE_LABEL);
 
-  // Checked FIRST, and only on the literal `false`. A docs-only PR never triggers CodeQL
-  // (`codeql.yml` `paths-ignore`), so its alert lists are legitimately absent — reaching the
+  // Checked FIRST, and only on the literal `false`. A docs-only PR does not run the Review Gate
+  // analyzer, so its alert lists are legitimately absent — reaching the
   // UNAVAILABLE branch below would block it on the absence of an analysis that was never owed.
   if (codeChanged === false) {
     return {

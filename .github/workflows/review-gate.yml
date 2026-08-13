@@ -1,5 +1,10 @@
 name: Review Gate
 
+# Contained — INFRA-097. A pull_request run loads this workflow YAML from the PR merge revision.
+# Exact-base checkout below protects the scripts it executes but cannot make the workflow control
+# plane itself trusted. INFRA-097 owns the required-workflow/ruleset provenance fix; this item changes
+# ordering only and must not claim that a PR cannot rewrite its own workflow.
+
 # INFRA-048. The checks that gate a merge on `develop` produce no review feedback, and the two jobs
 # that do (`Claude review`, CodeQL `Analyze`) report `success` whether or not they found anything —
 # so an armed auto-merge carries the findings straight into the integration branch (#1409). This
@@ -21,8 +26,8 @@ name: Review Gate
 # still the right design, but its justification is "a standing backlog exists", not "the backlog is
 # harmless". Re-measure with `--paginate` before citing a count here.
 #
-# Not-applicable (the #1436 correction). A docs-only PR never triggers CodeQL (`codeql.yml`
-# `paths-ignore`), so no analysis record is ever written for it. The first version of this gate read
+# Not-applicable (the #1436 correction). A docs-only PR does not run the analyzer job, so no
+# analysis record is written for it. The first version of this gate read
 # that absence as "unreadable" and blocked #1436 — one backlog markdown file, zero code — for
 # 15 m 23 s, which is why the required-check entry had to be rolled back. The classification is NOT
 # re-derived here: it comes from `scripts/harness/classify-changed-paths.mjs`, the same module whose
@@ -35,24 +40,77 @@ on:
     branches: [main, develop]
     # `labeled`/`unlabeled` are included so applying the acknowledge label re-runs the gate rather
     # than requiring a push.
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
 
 concurrency:
-  group: review-gate-${{ github.event.pull_request.number }}
+  # Label reevaluation must not cancel an in-flight analysis for the same PR. Head-changing events
+  # share the `head` lane; label-only events share the independent `labels` lane.
+  group: review-gate-${{ github.event.pull_request.number }}-${{ (github.event.action == 'labeled' || github.event.action == 'unlabeled') && 'labels' || 'head' }}
   cancel-in-progress: true
 
-# The default for every job here. `contents: read` is deliberate: the gate job checks out and runs
-# code from the pull request, so it must never hold a write token. The one job that needs
-# `contents: write` — `disarm-auto-merge` — declares its own block, which REPLACES this one.
-permissions:
-  contents: read
-  security-events: read
-  pull-requests: write
+# Every job declares its own minimum capability. This empty workflow default prevents a new job
+# from silently inheriting the repository's token permissions.
+permissions: {}
 
 jobs:
+  classify:
+    name: classify review applicability
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Defense in depth: load the classifier implementation from the base revision. INFRA-097
+          # owns the larger fact that the pull_request workflow YAML itself is PR-controlled.
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+      - name: Classify this PR (code vs docs-only)
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # This is the sole docs-only owner. Failure, missing ancestry, and empty diffs all answer
+          # code=true inside the classifier, so the analyzer is skipped only by an explicit false.
+          git fetch --no-tags origin "${HEAD_SHA}"
+          node scripts/harness/classify-changed-paths.mjs --base-ref "${BASE_SHA}" --head "${HEAD_SHA}"
+
+  analyze:
+    name: Analyze (javascript-typescript)
+    needs: classify
+    if: ${{ needs.classify.outputs.code == 'true' && github.event.action != 'labeled' && github.event.action != 'unlabeled' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v4
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: '/language:javascript-typescript'
+
   review-gate:
     name: review-gate
+    needs: [classify, analyze]
+    # A failed prerequisite must produce a blocking gate verdict. Cancellation is the only state
+    # that must not start new work.
+    if: ${{ !cancelled() && needs.classify.result != 'cancelled' && needs.analyze.result != 'cancelled' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: read
+      pull-requests: write
     steps:
       # PROC-007. FIRST, and before anything is checked out.
       #
@@ -71,7 +129,7 @@ jobs:
       # `merge-gate.sh` hook reads the same label, but a hook cannot see an auto-merge that GitHub
       # fires on its own; only this job can.
       #
-      # Deliberately NOT gated on `steps.classify.outputs.code`: a withdrawal is a decision about the
+      # Deliberately NOT gated on `needs.classify.outputs.code`: a withdrawal is a decision about the
       # change, and a docs-only change can be withdrawn exactly like a code one. Running before the
       # checkout also means the withdrawal is decided without ever executing code from the PR.
       - name: Has this change been withdrawn? (finding-depth disposition)
@@ -107,77 +165,70 @@ jobs:
             echo "PR #${PR_NUMBER} carries 'disposition-containment': it lands under a labelled hold."
           fi
 
-      # INFRA-050: `fetch-depth: 0`. The classify step below reads base-relative history (a merge
-      # base against `origin/<base>`), and a depth-limited checkout GRAFTS the ancestry, which would
-      # make that read fail — and a classification that cannot be determined answers `code=true`,
-      # sending every docs-only PR back into the 15-minute wait this change removes.
+      # Defense in depth: execute decision modules from the exact base revision after withdrawal.
+      # This does not claim trusted workflow provenance; INFRA-097 owns that repository-level gap.
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: ${{ github.event.pull_request.base.sha }}
 
-      - name: Classify this PR (code vs docs-only)
-        id: classify
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          # THE SAME classifier ci.yml's `changes` job uses — one implementation, two callers, so
-          # the two cannot disagree about whether this PR contains code. Fail-closed by
-          # construction: no merge base, a failed diff or an empty file list all answer `code=true`.
-          node scripts/harness/classify-changed-paths.mjs --base-ref "origin/${BASE_REF}"
-
-      - name: Read the code-scanning analysis of this PR (single read, no wait)
-        # Skipped entirely when no code changed: there is nothing to wait for, and waiting is what
-        # cost #1436 fifteen minutes before it was blocked.
-        if: steps.classify.outputs.code == 'true'
+      - name: Resolve the current PR merge commit
+        if: needs.classify.outputs.code == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          # The gate must read a COMPLETED analysis: "the analysis has not run yet" must never be
-          # read as "the analysis found nothing". It reads ONCE and does not wait.
-          #
-          # Waiting used to happen here — up to 15 minutes of polling, on a held runner, for an
-          # analysis that runs in parallel with this job. Billing is per job rounded up, so that wait
-          # was charged in full, and it was measured as this workflow's entire runtime: the job took
-          # about as long as the analysis it was watching. A runner is the most expensive place to
-          # wait, because it is the one place that bills while doing nothing.
-          #
-          # So the wait moved to the agent side: an incomplete read blocks, exactly as before, and
-          # the observation loop re-runs this check once the analysis completes. The verdict semantics
-          # are unchanged — what changed is who holds the clock.
-          #
-          # WHAT THIS COSTS, stated because it is a real trade and not a free win. The poll used to be
-          # self-recovering: most pull requests resolved inside a single run without anyone acting.
-          # Now the first read almost always finds the analysis still running — the two workflows are
-          # triggered by the same event — so this check goes red until it is re-run. The RECOVERY is
-          # codeql.yml's last step (#1660): when the analysis completes, it re-runs a same-SHA gate
-          # run that failed, so the red is transient without anyone watching and without changing
-          # this workflow's trigger or holding a runner. Measured before that step existed: all
-          # eight open code PRs red simultaneously on a gate that had found nothing.
-          #
-          # The `workflow_run` alternative is deliberately NOT taken: such a run reports against the
-          # default branch's workflow file, and whether it can satisfy branch protection as the same
-          # required context name is unverified — #1660 records the constraint.
-          runs="$(node scripts/harness/github-api.mjs \
-                    "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
-                    --jq '[.[] | select(.name | startswith("Analyze"))]' 2>/dev/null || echo '[]')"
-          total="$(printf '%s' "$runs" | jq 'length')"
-          done_count="$(printf '%s' "$runs" | jq '[.[] | select(.status == "completed")] | length')"
-          echo "code-scanning analyses: ${done_count}/${total} completed"
-          if [ "$total" -gt 0 ] && [ "$total" -eq "$done_count" ]; then
-            echo "analysis_complete=true" >> "$GITHUB_ENV"
-          elif [ "$total" -eq 0 ]; then
-            # Deliberately NOT a pass: this PR changes code, and nothing has analysed it yet.
-            echo "::error::review-gate: no completed code-scanning analysis for ${HEAD_SHA}. This is not a defect if the analysis is still running — re-run this check once it completes. Nothing has been analysed, so nothing has been cleared."
+          # allow-unpaginated: this is a single pull-request resource by number, not a collection;
+          # the command reads one merge_commit_sha field and derives no count.
+          if ! merge_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.merge_commit_sha // empty')"; then
+            echo "::error::review-gate: could not resolve the current merge commit for PR #${PR_NUMBER}."
+            exit 1
+          fi
+          if ! printf '%s' "${merge_sha}" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::review-gate: PR #${PR_NUMBER} has no valid current merge commit (${merge_sha:-empty})."
+            exit 1
+          fi
+          echo "CURRENT_MERGE_SHA=${merge_sha}" >> "$GITHUB_ENV"
+
+      - name: Confirm the code-scanning analysis available to this gate
+        if: needs.classify.outputs.code == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ANALYZE_RESULT: ${{ needs.analyze.result }}
+          EVENT_ACTION: ${{ github.event.action }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Head-changing events consume the same-workflow prerequisite result. Label-only events
+          # intentionally skip the expensive analyzer. Both paths require the processed CodeQL
+          # record for this exact current merge commit and category; head SHA alone is insufficient
+          # because base retargeting preserves it while changing the synthetic merge.
+          if [ "${EVENT_ACTION}" != 'labeled' ] && [ "${EVENT_ACTION}" != 'unlabeled' ]; then
+            if [ "${ANALYZE_RESULT}" != 'success' ]; then
+              echo "::error::review-gate: same-workflow CodeQL prerequisite concluded ${ANALYZE_RESULT}."
+              echo "analysis_complete=false" >> "$GITHUB_ENV"
+              exit 0
+            fi
+          fi
+
+          # allow-unpaginated: analyses for the current PR ref are newest-first; the current merge
+          # record, if processed, is on the first 100-result page. This is an exact existence probe,
+          # not an inventory count.
+          if ! analysis_count="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/code-scanning/analyses?ref=refs/pull/${PR_NUMBER}/merge&per_page=100" \
+            --jq "[.[] | select(.commit_sha == \"${CURRENT_MERGE_SHA}\" and .category == \"/language:javascript-typescript\" and .tool.name == \"CodeQL\")] | length")"; then
+            echo "::error::review-gate: could not read the current CodeQL analysis record."
             echo "analysis_complete=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "matching current-merge CodeQL analyses: ${analysis_count}"
+          if [ "$analysis_count" -gt 0 ]; then
+            echo "analysis_complete=true" >> "$GITHUB_ENV"
           else
-            # Deliberately NOT a pass: an analysis still running has cleared nothing.
-            echo "::error::review-gate: the code-scanning analysis for ${HEAD_SHA} is still running (${done_count}/${total} complete). Re-run this check once it completes."
+            echo "::error::review-gate: no processed CodeQL analysis for current merge ${CURRENT_MERGE_SHA}."
             echo "analysis_complete=false" >> "$GITHUB_ENV"
           fi
 
       - name: Collect the review output
-        if: steps.classify.outputs.code == 'true'
+        if: needs.classify.outputs.code == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_REF: ${{ github.base_ref }}
@@ -197,9 +248,10 @@ jobs:
           # response is `length != 0`, i.e. "was this ref analysed at all?". No count is derived from
           # it, so page two could not change the answer.
           analyses="$(gh api \
-            "repos/${GITHUB_REPOSITORY}/code-scanning/analyses?ref=refs/pull/${PR_NUMBER}/merge&per_page=1" \
-            --jq 'length' 2>/dev/null || echo 0)"
-          echo "code-scanning analyses recorded for refs/pull/${PR_NUMBER}/merge: ${analyses}"
+            "repos/${GITHUB_REPOSITORY}/code-scanning/analyses?ref=refs/pull/${PR_NUMBER}/merge&per_page=100" \
+            --jq "[.[] | select(.commit_sha == \"${CURRENT_MERGE_SHA}\" and .category == \"/language:javascript-typescript\" and .tool.name == \"CodeQL\")] | length" \
+            2>/dev/null || echo 0)"
+          echo "matching current-merge code-scanning analyses: ${analyses}"
           if [ "${analysis_complete}" != "true" ] || [ "${analyses}" = "0" ]; then
             echo "UNAVAILABLE" > pr-alerts.json
           else
@@ -239,7 +291,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          CODE_CHANGED: ${{ steps.classify.outputs.code }}
+          CODE_CHANGED: ${{ needs.classify.outputs.code }}
         run: |
           # This step always runs — a gate that reports nothing when its inputs are missing is the
           # INFRA-048 defect itself. `--code-changed` carries the classifier's verdict; only the
@@ -280,13 +332,9 @@ jobs:
             exit 1
           fi
           # A PASS after a BLOCKED comment says so, or the last word on the PR stays a stale
-          # refusal: the #1660 recovery reruns this gate the moment the analysis completes, which
-          # makes the transient BLOCKED comment routine — and a reader scanning comments would
-          # keep meeting a verdict the checks page no longer agrees with. Only posted when a
-          # BLOCKED comment exists AND this pass actually judged code: on the docs-only path
-          # nothing was re-read. The sentence claims only the supersession — a pass can arrive
-          # by re-reading a completed analysis OR by the acknowledge label (a human override
-          # with findings still real), and naming the wrong one would misreport the second.
+          # refusal. This now occurs primarily when a label reevaluation acknowledges a genuine
+          # finding; the former routine CodeQL-ordering failure is removed by the job dependency.
+          # Only posted when a BLOCKED comment exists AND this pass actually judged code.
           # (#1669 review, three rounds)
           # Read PAGINATED, oldest→newest, because whether `gh pr view --json comments` returns
           # the newest or the oldest page on a >100-comment PR is not documented and could not
@@ -337,10 +385,10 @@ jobs:
   #      comment successfully one second later, which is what rules out "the token has no write scope
   #      at all" and pins the gap to `contents`.
   #
-  # Why a SEPARATE job rather than `contents: write` on the gate. The gate job checks out the pull
-  # request and executes scripts from it (`classify-changed-paths.mjs`, `github-api.mjs`). Handing a
-  # write token to a job that runs PR-authored code is the standard supply-chain hole. This job
-  # checks nothing out and runs `gh` only, so the write scope never meets PR-controlled code.
+  # Why a SEPARATE job rather than `contents: write` on the gate. The gate executes trusted scripts
+  # from the base revision and still handles PR-derived API data; keeping repository-write authority
+  # out of that decision job is the least-privilege boundary. This job checks nothing out and runs
+  # `gh` only, so its write scope never meets checked-out content.
   #
   # What this lever is and is not. It is belt-and-braces, not the guarantee:
   #   - On `develop` it is redundant — `review-gate` is a REQUIRED check on `protect-develop`, so a

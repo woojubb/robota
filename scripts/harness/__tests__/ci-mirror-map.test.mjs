@@ -13,8 +13,8 @@
  * original defect wearing a test. Every command-executing step of every mirrored job must be
  * claimed by a stage or declared CI plumbing with a reason.
  *
- * Modelled on the `DOCS_ONLY_GLOBS` <-> `codeql.yml` `paths-ignore` pin in
- * `classify-changed-paths.test.mjs`: parse the real workflow, compare entry for entry, no
+ * Modelled on the workflow-to-classifier ownership assertion in
+ * `classify-changed-paths.test.mjs`: parse the real owner relation rather than preserving
  * hand-copied lists.
  */
 

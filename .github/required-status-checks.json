@@ -149,7 +149,7 @@
         },
         {
           "context": "CodeQL / Analyze (javascript-typescript)",
-          "reason": "`codeql.yml` carries `paths-ignore` for markdown/docs, so a docs-only promotion (routine in this repo) never triggers it and the context never reports — a required context that cannot report leaves the PR permanently pending, which is the #1436 review-gate rollback shape. Separately, the `CodeQL` results check is diff-scoped and a promotion's diff is the whole `develop`->`main` delta, so its verdict scales with promotion size rather than with anything the promotion decides (GitHub's own summary on #1427: `Alerts not introduced by this pull request might have been detected because the code changes were too large`). Follow-up: converge on `review-gate`, which fails closed and already shares `classify-changed-paths.mjs` with ci.yml, after it has been observed reporting a real conclusion on both a code and a docs-only promotion."
+          "reason": "The standalone `codeql.yml` is push-only and therefore has no pull-request context to require. Pull-request CodeQL now runs as the ordered analyzer predecessor inside `review-gate.yml`, whose `review-gate` job is the stable verdict context and uses `classify-changed-paths.mjs` for docs-only applicability. Separately, raw CodeQL results are diff-scoped and a promotion's diff is the whole `develop`->`main` delta, so its verdict scales with promotion size rather than with anything the promotion decides (GitHub's own summary on #1427: `Alerts not introduced by this pull request might have been detected because the code changes were too large`)."
         }
       ]
     }
