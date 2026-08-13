@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Canonical Task lifecycle classifier (HARNESS-089).
+ * Canonical Task lifecycle classifier (HARNESS-091).
  *
  * Scope: Task YAML frontmatter only. Body prose and checkbox state are deliberately excluded.
  * Generic YAML-frontmatter parsing remains owned by `frontmatter.mjs`; this module owns only the

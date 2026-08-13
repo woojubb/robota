@@ -1,5 +1,5 @@
 ---
-title: 'HARNESS-089: canonical completion state and initiative rollup'
+title: 'HARNESS-091: canonical completion state and initiative rollup'
 status: done
 created: 2026-08-14
 completed: 2026-08-14
@@ -9,9 +9,9 @@ area: task lifecycle rules, skills, hooks, and harness scans
 depends_on: []
 ---
 
-# HARNESS-089 — canonical completion state and initiative rollup
+# HARNESS-091 — canonical completion state and initiative rollup
 
-**Spec:** [`.agents/spec-docs/done/HARNESS-089-canonical-completion-state-and-initiative-rollup.md`](../../spec-docs/done/HARNESS-089-canonical-completion-state-and-initiative-rollup.md)
+**Spec:** [`.agents/spec-docs/done/HARNESS-091-canonical-completion-state-and-initiative-rollup.md`](../../spec-docs/done/HARNESS-091-canonical-completion-state-and-initiative-rollup.md)
 
 ## Objective
 
@@ -60,7 +60,7 @@ surface; its observables are engineering tests, hooks, scans, and CI gates.
   repair it passes over 69 active and 779 archived Task files. AGREEMENT-001 now records five `done` and seven
   open children at their canonical paths.
 - Historical sweep: 341 pre-canonical archived records were discovered. Their exact count/digest is frozen,
-  INFRA-090's retired status spelling was corrected, and HARNESS-090 Task/spec own evidence-backed removal.
+  INFRA-090's retired status spelling was corrected, and HARNESS-092 Task/spec own evidence-backed removal.
 - Independent Round A review converged from three findings to `ACTIONABLE FINDINGS: 0`.
 - Final verification: `pnpm harness:scan` passed 108 scans with 2 declared skips; `pnpm lint` exited 0 with
   existing warnings; `pnpm harness:verify-like-ci` passed all 11 stages in 4m02.2s. The dominant stage was
@@ -81,4 +81,4 @@ None.
 Canonical Task lifecycle is now frontmatter-only and shared by placement, archival, and session hooks.
 AGREEMENT child declarations and exact Task/spec projections fail closed across active and archived corpora,
 including premature parent completion. Current initiatives are reconciled, historical metadata debt is
-frozen without invented dates under HARNESS-090, and all focused, scan, review, and CI-equivalent gates pass.
+frozen without invented dates under HARNESS-092, and all focused, scan, review, and CI-equivalent gates pass.

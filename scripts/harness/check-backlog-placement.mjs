@@ -182,7 +182,7 @@ export async function findBacklogPlacementFindings(root = WORKSPACE_ROOT) {
       file: COMPLETED_DIR,
       problem:
         `${invalidArchived.length} archived Task lifecycle violation(s) do not match the frozen ` +
-        `${LEGACY_LIFECYCLE_BASELINE} (sha256 ${digest}); fix new drift and leave legacy removal to HARNESS-090`,
+        `${LEGACY_LIFECYCLE_BASELINE} (sha256 ${digest}); fix new drift and leave legacy removal to HARNESS-092`,
     });
   }
 

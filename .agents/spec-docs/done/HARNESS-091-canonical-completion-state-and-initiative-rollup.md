@@ -5,7 +5,7 @@ type: RULE
 tags: [harness, tasks, completion]
 ---
 
-# HARNESS-089: Canonical completion state and initiative rollup
+# HARNESS-091: Canonical completion state and initiative rollup
 
 ## Problem
 
@@ -110,7 +110,7 @@ All terminal statuses require a syntactically valid `completed: YYYY-MM-DD`. Bod
 
 The repository predates that date contract: 341 archived records lack an evidence-backed canonical
 date/status. Their exact path/status/date fingerprint is frozen by count and SHA-256 so no new violation
-or substitution can pass, while HARNESS-090 owns history-backed removal of the baseline. This task does
+or substitution can pass, while HARNESS-092 owns history-backed removal of the baseline. This task does
 not invent dates for historical records.
 
 Pairing is by exact Task ID across all spec lifecycle folders, reusing the existing `idOf()`/index semantics:
@@ -166,7 +166,7 @@ None. A declared initiative whose child cannot be resolved or whose projection i
 - `.agents/spec-docs/active/AGREEMENT-001-complete-arch-dag-runtime-backlog.md`
 - `.agents/tasks/completed/PM-027-korean-marketing-content.md`
 - `.agents/spec-docs/done/PM-027-korean-marketing-content.md`
-- `.agents/spec-docs/draft/HARNESS-090-retire-legacy-task-lifecycle-baseline.md`
+- `.agents/spec-docs/draft/HARNESS-092-retire-legacy-task-lifecycle-baseline.md`
 - `.agents/archive/audits/rules-without-enforcement-2026-07-28.md`
 
 ## Completion Criteria
@@ -207,7 +207,7 @@ behavior; all observables are engineering verification and belong in the Test Pl
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/HARNESS-089-canonical-completion-state-and-initiative-rollup.md` — TC-01 through TC-05 implementation and verification
+- [x] `.agents/tasks/completed/HARNESS-091-canonical-completion-state-and-initiative-rollup.md` — TC-01 through TC-05 implementation and verification
 
 ## Evidence Log
 
@@ -296,7 +296,7 @@ behavior; all observables are engineering verification and belong in the Test Pl
 - Live corpus: the first task-archival run failed on AGREEMENT-001 and PM-027. The repaired run passed over
   69 active and 779 archived Tasks; AGREEMENT-001 projects five done and seven open children exactly.
 - Legacy sweep: 341 pre-contract archived records are frozen by exact count/SHA-256, zero-set and substitution
-  changes fail, and HARNESS-090 is filed as the canonical removal owner rather than inventing dates.
+  changes fail, and HARNESS-092 is filed as the canonical removal owner rather than inventing dates.
 - Governance: the Task README, backlog rule, task-tracking skill, hook, placement scan, and archival scan share
   the same frontmatter-only vocabulary and atomic initiative-update contract.
 - Independent local review: converged to `ACTIONABLE FINDINGS: 0` after missing-pair, zero-set baseline,
@@ -310,7 +310,7 @@ behavior; all observables are engineering verification and belong in the Test Pl
 
 - Ordering/state: `[GATE-IMPLEMENT] — ✅ PASS | 2026-08-14` exists; the spec entered this gate with
   `status: in-progress` under `.agents/spec-docs/active/`.
-- Task completion: the active HARNESS-089 Task contains exactly five TC-mapped Plan items; all five are
+- Task completion: the active HARNESS-091 Task contains exactly five TC-mapped Plan items; all five are
   `[x]`, unchecked count is zero, and `## Blockers` records `None`.
 - Focused tests: the five lifecycle/placement/archival/frontmatter/hook suites exited 0; 87 tests passed.
 - Live corpus: `node scripts/harness/check-task-archival.mjs` exited 0; 69 active and 779 archived Task files
@@ -376,7 +376,7 @@ behavior; all observables are engineering verification and belong in the Test Pl
 해주세요.`
 - Standing approval directive: the user stated, `타당한 이유와 함께 추천안을 제시하면 타당할 경우
 자동으로 승인하겠습니다.`
-- Approval applicability: HARNESS-089 is the concrete, reasoned recommendation for that exact requested
+- Approval applicability: HARNESS-091 is the concrete, reasoned recommendation for that exact requested
   scope. Its prior art, alternatives, ownership decision, completion criteria, and test plan were presented
   and independently reviewed.
 - Conditional approval satisfaction: two `REVISE` rounds were incorporated, and
@@ -396,7 +396,7 @@ behavior; all observables are engineering verification and belong in the Test Pl
 
 - Prior approval/order: `[GATE-APPROVAL] — ✅ PASS | 2026-08-14` is recorded; the spec entered this gate
   with `status: approved` under `.agents/spec-docs/todo/`.
-- Task file: `.agents/tasks/HARNESS-089-canonical-completion-state-and-initiative-rollup.md` exists with
+- Task file: `.agents/tasks/HARNESS-091-canonical-completion-state-and-initiative-rollup.md` exists with
   `status: in-progress` and links to the exact todo spec.
 - Tasks-section linkage: the spec's `## Tasks` section records the Task as the TC-01 through TC-05
   implementation and verification owner.
@@ -407,7 +407,7 @@ behavior; all observables are engineering verification and belong in the Test Pl
   initiative trees, shared hook delegation, live AGREEMENT-001 RED/GREEN evidence, focused Vitest,
   `pnpm harness:scan`, and `pnpm harness:verify-like-ci`.
 - Implementation boundary: current changes contain only the new spec and Task documents; no
-  `task-lifecycle.mjs`, HARNESS-089 source edit, or HARNESS-089 implementation commit exists. Task creation
+  `task-lifecycle.mjs`, HARNESS-091 source edit, or HARNESS-091 implementation commit exists. Task creation
   therefore precedes implementation.
 
 ### [GATE-COMPLETE] — ✅ PASS | 2026-08-14
@@ -431,7 +431,7 @@ behavior; all observables are engineering verification and belong in the Test Pl
   twelve rows agree as five `done` and seven open children.
 - TC-05: focused tests, archival scan, harness scan, lint, build, and verify-like-CI all exited 0;
   verify-like-CI passed all 11 stages in 4m02.2s and Round A reported zero actionable findings.
-- Task readiness: `.agents/tasks/HARNESS-089-canonical-completion-state-and-initiative-rollup.md` existed,
+- Task readiness: `.agents/tasks/HARNESS-091-canonical-completion-state-and-initiative-rollup.md` existed,
   all five TC-mapped Plan items were checked, no pending item remained, and `## Blockers` recorded `None`.
 - Independent final check: the exact focused Vitest command again passed 87/87, the archival scan again
   passed 69/779, the current documentation tree passed all 108 harness scans with two declared skips, and

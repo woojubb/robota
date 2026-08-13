@@ -4,19 +4,19 @@ type: RULE
 tags: [harness, tasks, migration]
 ---
 
-# HARNESS-090: Retire the legacy Task lifecycle baseline
+# HARNESS-092: Retire the legacy Task lifecycle baseline
 
 ## Problem
 
 Hundreds of Task records archived before the canonical lifecycle contract either omit a
-`completed: YYYY-MM-DD` date or use a retired terminal status. HARNESS-089 can fail new violations
+`completed: YYYY-MM-DD` date or use a retired terminal status. HARNESS-091 can fail new violations
 closed, but it cannot invent historically accurate completion dates. The exact legacy set is frozen
 by count and digest; without a deliberate migration it remains visible debt rather than silently
 becoming accepted schema.
 
 ## Prior Art Research
 
-Waived: this draft records repository-specific historical metadata debt discovered during HARNESS-089;
+Waived: this draft records repository-specific historical metadata debt discovered during HARNESS-091;
 the migration approach and any relevant prior art must be researched before GATE-WRITE.
 
 ## Architecture Review

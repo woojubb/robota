@@ -1,16 +1,16 @@
 ---
-title: 'HARNESS-090: retire legacy Task lifecycle baseline'
+title: 'HARNESS-092: retire legacy Task lifecycle baseline'
 status: todo
 created: 2026-08-14
 priority: medium
 urgency: later
 area: Task lifecycle migration and harness scans
-depends_on: [HARNESS-089]
+depends_on: [HARNESS-091]
 ---
 
-# HARNESS-090 — retire legacy Task lifecycle baseline
+# HARNESS-092 — retire legacy Task lifecycle baseline
 
-**Spec:** [`.agents/spec-docs/draft/HARNESS-090-retire-legacy-task-lifecycle-baseline.md`](../spec-docs/draft/HARNESS-090-retire-legacy-task-lifecycle-baseline.md)
+**Spec:** [`.agents/spec-docs/draft/HARNESS-092-retire-legacy-task-lifecycle-baseline.md`](../spec-docs/draft/HARNESS-092-retire-legacy-task-lifecycle-baseline.md)
 
 ## Objective
 
@@ -36,7 +36,7 @@ then remove the legacy baseline so lifecycle validation runs with zero exemption
 
 ### 2026-08-14
 
-- Filed from HARNESS-089 after the canonical classifier found 341 pre-contract archived records.
+- Filed from HARNESS-091 after the canonical classifier found 341 pre-contract archived records.
 
 ## Decisions
 
