@@ -188,7 +188,7 @@ Execute the twelve existing records without redefining their scope:
 - [ ] ARCH-011 — in-progress — `.agents/tasks/ARCH-011-transport-adapter-is-a-lifecycle-stub.md`
 - [ ] ARCH-012 — in-progress — `.agents/tasks/ARCH-012-interactive-session-god-contract.md`
 - [ ] ARCH-013 — in-progress — `.agents/tasks/ARCH-013-preset-to-session-options-projection-has-no-owner.md`
-- [ ] ARCH-019 — todo — `.agents/tasks/ARCH-019-interactive-session-getSession-contract-understated.md`
+- [x] ARCH-019 — done — `.agents/tasks/completed/ARCH-019-interactive-session-getSession-contract-understated.md`
 - [ ] ARCH-029 — todo — `.agents/tasks/ARCH-029-command-host-capability-contracts.md`
 - [x] DAG-001 — done — `.agents/tasks/completed/DAG-001-running-is-a-terminal-trap.md`
 - [ ] DAG-004 — todo — `.agents/tasks/DAG-004-eight-cli-commands-open-code-the-import-adapter.md`

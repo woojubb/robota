@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: DATA
 tags: [typescript, async]
 capability: true
@@ -127,36 +127,36 @@ changeset.
 
 ## Completion Criteria
 
-- [ ] TC-01: For one default double, two calls return exactly `${sessionId}-turn-1` and
+- [x] TC-01: For one default double, two calls return exactly `${sessionId}-turn-1` and
       `${sessionId}-turn-2` and both complete; a second double starts at `<its-session-id>-turn-1`.
-- [ ] TC-02: The default `getSession()` result contains exactly the public `getSessionId` capability;
+- [x] TC-02: The default `getSession()` result contains exactly the public `getSessionId` capability;
       transport consumers typecheck and framework prompt collection continues through its concrete
       `Session` contract.
-- [ ] TC-03: A non-empty overridden session id prefixes default turn ids; throwing/empty session-id
+- [x] TC-03: A non-empty overridden session id prefixes default turn ids; throwing/empty session-id
       overrides use the deterministic fallback; an overridden `submit` remains authoritative.
-- [ ] TC-04: Interface-transport and framework SPEC/export surfaces agree that only
+- [x] TC-04: Interface-transport and framework SPEC/export surfaces agree that only
       `@robota-sdk/agent-interface-transport/testing` exports the factory, and the PATCH changeset records
       the compatible testing-fixture behavior correction.
-- [ ] TC-05: The durable public-SDK scenario imports only
+- [x] TC-05: The durable public-SDK scenario imports only
       `@robota-sdk/agent-interface-transport/testing`, submits twice, prints two distinct deterministic ids
       and `DISTINCT`, exits 0, and removes its scratch directory.
-- [ ] TC-06: package build, typecheck, tests, scoped harness verification, and
+- [x] TC-06: package build, typecheck, tests, scoped harness verification, and
       `pnpm harness:verify-like-ci` exit 0.
 
 ## Test Plan
 
-| TC-ID | Test Type                | Tool / Approach                                                            | Notes                                                                                |
-| ----- | ------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| TC-01 | Unit + async contract    | Vitest two-submit regression in `test-double-turn-identity.test.ts`        | First RED expects unequal ids against the current fixed literal.                     |
-| TC-02 | Type + regression        | exact nested-session shape assertion and affected package typecheck/tests  | No framework-only event-service member on the transport fixture.                     |
-| TC-03 | Unit + async contract    | table-driven override/fallback/custom-submit cases                         | Preserve all documented factory override semantics.                                  |
-| TC-04 | Contract/docs            | export-surface and SPEC assertions plus PATCH changeset inspection         | Pin the sole testing-subpath owner.                                                  |
-| TC-05 | Public SDK scenario      | `.agents/evals/scenarios/arch-019-test-session-turn-identity-agent-run.md` | Fresh process prints exact ids derived from its runtime session id, then `DISTINCT`. |
-| TC-06 | Engineering verification | package and harness/CI-mirror commands                                     | Run targeted checks before the broad gate.                                           |
+| TC-ID | Test Type                | Tool / Approach                                                                                                                                                                                                                                 | Notes                                                                                      |
+| ----- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| TC-01 | Unit + async contract    | `packages/agent-interface-transport/src/__tests__/test-double-turn-identity.test.ts` — `createTestInteractiveSession turn identity (ARCH-019) > mints deterministic per-call ids and settles each handle`                                       | RED failed on the fixed literal; GREEN proves exact IDs, per-double reset, and settlement. |
+| TC-02 | Type + regression        | `packages/agent-interface-transport/src/__tests__/test-double-turn-identity.test.ts` — `createTestInteractiveSession turn identity (ARCH-019) > keeps the nested transport session identity-only`                                               | Exact type and runtime keys exclude the framework-only event service.                      |
+| TC-03 | Unit + async contract    | `packages/agent-interface-transport/src/__tests__/test-double-turn-identity.test.ts` — `createTestInteractiveSession turn identity (ARCH-019) > uses the resolved session id and preserves submit overrides`                                    | Covers named, empty, throwing, and custom-submit paths.                                    |
+| TC-04 | Contract/docs            | Test skipped: owner SPEC/export and PATCH changeset agreement is a documentation/package-metadata inspection criterion; it is verified by focused package build/typecheck plus `pnpm harness:scan`, not wrapped in a duplicative unit test.     | Pin the sole testing-subpath owner and compatibility classification.                       |
+| TC-05 | Public SDK scenario      | Test skipped: the authoritative executable check is `.agents/evals/scenarios/arch-019-test-session-turn-identity-agent-run.md`, independently executed by DONE-GATE-STAGE-2 rather than duplicated in Vitest.                                   | Fresh process prints exact runtime-derived ids, `DISTINCT`, and the Bash cleanup marker.   |
+| TC-06 | Engineering verification | Test skipped: this criterion is the aggregate execution of package build/typecheck/tests, scoped verification, scans, and `pnpm harness:verify-like-ci`; wrapping those commands in another test would only invoke the same owners recursively. | Targeted checks precede the broad 12-stage gate.                                           |
 
 ## Tasks
 
-- [ ] `.agents/tasks/ARCH-019-interactive-session-getSession-contract-understated.md`
+- [x] `.agents/tasks/completed/ARCH-019-interactive-session-getSession-contract-understated.md`
 
 ## Evidence Log
 
@@ -219,3 +219,96 @@ PATCH changeset, the public SDK scenario, and broad verification/archive. Its su
 Plan covers red-first, type/regression, public scenario, package/scoped-harness, and CI-equivalent
 checks, with no blockers. Planned implementation/test/scenario/changeset artifacts had not been created
 or modified, so no implementation predated this gate.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** in-progress → verifying
+The active ARCH-019 task is 6/6 complete with no blockers. Independent code/spec review confirmed
+deterministic per-call/per-double IDs, resolved-session fallback and override semantics, the
+identity-only nested session, synchronized owner SPECs, and PATCH metadata. Fresh affected-package
+builds and typechecks exited 0; fresh tests passed 7 files / 27 tests for interface-transport and 162
+files / 1,334 tests for framework, including the three ARCH-019 regressions. DONE-GATE-STAGE-2
+independently passed the public testing-subpath scenario with exact identity and cleanup output. The
+task also records current scoped verification and `harness:verify-like-ci` 12/12 in 6m00.8s.
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-08-14
+
+**Status remains:** verifying
+Readiness passed, but the Evidence Log did not yet contain one labelled completion entry per TC or a
+final summary. Checked criteria, Test Plan references, GATE-VERIFY, and DONE-GATE-STAGE-2 do not
+replace the catalogue-mandated TC evidence records.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-14
+
+**Status remains:** verifying
+`pnpm --filter @robota-sdk/agent-interface-transport test` exited 0 with 7 files / 27 tests. The exact
+test `createTestInteractiveSession turn identity (ARCH-019) > mints deterministic per-call ids and
+settles each handle` observed `<session-id>-turn-1`, `<session-id>-turn-2`, independent second-double
+restart at 1, and both completed handles settling. Its pre-implementation RED failed on the fixed
+`test-turn` literal.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-14
+
+**Status remains:** verifying
+The exact test `createTestInteractiveSession turn identity (ARCH-019) > keeps the nested transport
+session identity-only` passed in the same exit-0 package run, proving type equality and runtime keys
+exactly `['getSessionId']`. Fresh interface-transport and framework builds, typechecks, and framework
+tests (162 files / 1,334 tests) all exited 0, proving the concrete framework Session path remains green.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-14
+
+**Status remains:** verifying
+The exact test `createTestInteractiveSession turn identity (ARCH-019) > uses the resolved session id
+and preserves submit overrides` passed in the exit-0 27-test package run. It observed the named prefix,
+deterministic empty/throwing fallback, and byte-authoritative `custom-turn` submit override.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-14
+
+**Status remains:** verifying
+Exact inspection of `packages/agent-interface-transport/docs/SPEC.md` found
+`@robota-sdk/agent-interface-transport/testing` named as sole published owner and framework explicitly
+not re-exporting it; exact inspection of `packages/agent-framework/docs/SPEC.md` records the same
+moved/not-re-exported surface. Exact inspection of
+`.changeset/arch-019-test-session-turn-identity.md` found a PATCH for
+`@robota-sdk/agent-interface-transport`. The commands
+`pnpm --filter @robota-sdk/agent-interface-transport --filter @robota-sdk/agent-framework build`,
+`pnpm --filter @robota-sdk/agent-interface-transport --filter @robota-sdk/agent-framework typecheck`,
+and `pnpm harness:scan` each exited 0.
+Test skipped: this is documentation/package-metadata agreement already checked by those authoritative
+owners and scans; a duplicative prose-snapshot unit test would create a second owner.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-14
+
+**Status remains:** verifying
+DONE-GATE-STAGE-2 freshly ran the exact `/bin/bash` block from
+`.agents/evals/scenarios/arch-019-test-session-turn-identity-agent-run.md`. The public bare-specifier
+consumer printed `test-session-1-turn-1`, `test-session-1-turn-2`, and `DISTINCT`; Bash printed
+`CLEANUP_OK`, the unified command exited 0, and no temporary path remained. Test skipped: this public
+SDK scenario is independently executed by the scenario gate rather than duplicated in Vitest.
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-08-14
+
+**Status remains:** verifying
+`pnpm --filter @robota-sdk/agent-interface-transport --filter @robota-sdk/agent-framework build`,
+`pnpm --filter @robota-sdk/agent-interface-transport --filter @robota-sdk/agent-framework typecheck`,
+and `pnpm --filter @robota-sdk/agent-interface-transport --filter @robota-sdk/agent-framework test`
+each exited 0; interface-transport passed 7 files / 27 tests and framework passed 162 files / 1,334
+tests. `pnpm harness:verify -- --scope packages/agent-interface-transport` exited 0 after its root
+build and scoped build/test/lint/typecheck checks. `pnpm harness:scan` exited 0, and
+`pnpm harness:verify-like-ci` exited 0 with all 12 stages passing in 6m00.8s. Test skipped: this
+criterion aggregates the repository's owning verification commands, so wrapping them in another test
+would recursively duplicate the same owners.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** verifying → done
+TC-01 through TC-06 are checked and each has a labelled evidence entry containing the exact
+verification action or command, observed result, and exit code where applicable. TC-01 through TC-03
+name exact Vitest file and test identities; TC-04 through TC-06 record explicit `Test skipped:` reasons
+tied respectively to owner metadata inspection, the independently executed durable public-SDK
+scenario, and aggregate engineering verification. The affected package build, typecheck, and test
+commands passed; scoped `pnpm harness:verify -- --scope packages/agent-interface-transport` exited 0;
+`pnpm harness:scan` exited 0; and `pnpm harness:verify-like-ci` passed all 12 stages. The exact active
+task is completion-ready with all six Plan items checked and no blockers. GATE-COMPLETE therefore
+passes; task terminalization/archive and the spec's active/verifying → done/done transition are the
+atomic post-PASS handoff.

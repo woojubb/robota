@@ -112,4 +112,18 @@ file is created or modified.
 
 ## Observed evidence
 
-EMPTY
+Executed from the repository root with `/bin/bash` on 2026-08-14 against commit `e519f7e3c` plus the
+current evidence-only working-tree update. The package build completed successfully; the public
+bare-specifier consumer exited `0` and printed exactly:
+
+```text
+test-session-1-turn-1
+test-session-1-turn-2
+DISTINCT
+```
+
+Both handle completion promises settled before consumer output. After explicit cleanup, Bash proved
+the temporary path absent and printed the separate marker `CLEANUP_OK`; no `robota-arch019.*`
+directory remained. An earlier diagnostic invocation under the tool's default zsh reached the three
+correct product lines but stopped at Bash-only `mapfile`; it is not completion evidence. The recorded
+successful run explicitly selected `/bin/bash`, matching this scenario's prerequisite.

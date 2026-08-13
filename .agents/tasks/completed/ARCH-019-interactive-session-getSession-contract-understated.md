@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-019: the sanctioned session double reuses one turn identity across distinct submissions'
-status: todo
+status: done
 created: 2026-08-13
+completed: 2026-08-14
 priority: medium
 urgency: soon
 area: packages/agent-interface-transport, packages/agent-framework
@@ -89,16 +90,36 @@ testing subpath, not a production signature change.
 
 ## Plan
 
-- [ ] TC-01: add red-first exact per-call/per-double turn identity and settlement regressions.
-- [ ] TC-02: remove the undeclared nested event-service stub and prove the identity-only shape.
-- [ ] TC-03: cover session-id override, throwing/empty fallback, and authoritative submit override.
-- [ ] TC-04: synchronize both owner SPECs and add the PATCH changeset.
-- [ ] TC-05: author, gate, execute, and record the durable public testing-subpath scenario.
-- [ ] TC-06: run affected package and broad harness verification, completion gates, and atomic archive.
+- [x] TC-01: add red-first exact per-call/per-double turn identity and settlement regressions.
+- [x] TC-02: remove the undeclared nested event-service stub and prove the identity-only shape.
+- [x] TC-03: cover session-id override, throwing/empty fallback, and authoritative submit override.
+- [x] TC-04: synchronize both owner SPECs and add the PATCH changeset.
+- [x] TC-05: author, gate, execute, and record the durable public testing-subpath scenario.
+- [x] TC-06: run affected package and broad harness verification; completion gates and atomic archive
+      follow only after this plan is complete.
 
 ## Blockers
 
 - None.
+
+## Progress
+
+### 2026-08-14
+
+- Added deterministic per-factory submission identities and removed the undeclared nested event-service
+  fixture member under red-first regression coverage.
+- Synchronized the two owner SPECs and recorded a PATCH changeset for the published testing subpath.
+- Executed the public SDK scenario successfully with exact identity and cleanup markers.
+- Verified the affected packages and completed `pnpm harness:verify-like-ci` with 12/12 stages passing
+  in 6m 0.8s.
+
+## Result
+
+The sanctioned public testing double now mints deterministic, distinct submission identities per
+factory, preserves every override/fallback path, and exposes only its declared nested identity surface.
+Both owner SPECs and the PATCH changeset agree on the sole testing-subpath owner. The durable public
+SDK scenario, affected-package checks, scoped harness verification, scans, and the 12-stage CI mirror
+all passed; DONE-GATE-STAGE-2 and GATE-COMPLETE independently passed before archival.
 
 ## Historical Test Plan
 
@@ -114,7 +135,7 @@ testing subpath, not a production signature change.
 **Applies — via the public SDK surface** (a consumer using
 `@robota-sdk/agent-interface-transport/testing`). Exact agent-executable commands, prerequisites,
 observable output, bounds, cleanup, and the evidence field live in
-[`arch-019-test-session-turn-identity-agent-run.md`](../evals/scenarios/arch-019-test-session-turn-identity-agent-run.md).
+[`arch-019-test-session-turn-identity-agent-run.md`](../../evals/scenarios/arch-019-test-session-turn-identity-agent-run.md).
 
 - Prerequisites: built workspace; a scratch consumer that constructs the double and submits two
   prompts.
@@ -122,7 +143,8 @@ observable output, bounds, cleanup, and the evidence field live in
 - Expected (after fix): the two ids differ.
 - Expected (before fix, contrast): both ids are `'test-turn'`.
 - Cleanup: delete the scratch project.
-- Evidence (fill in after implementation): the two distinct turn ids printed by the consumer.
+- Evidence: the durable scenario records the two distinct turn ids, settled handles, exit 0, and
+  successful cleanup from the independent Stage-2 execution.
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-14
 
@@ -156,3 +178,14 @@ command against the built public testing subpath; separates package-build setup 
 three consumer lines and the single Bash `CLEANUP_OK` marker; asserts distinct deterministic IDs and
 settled handles; uses validated explicit cleanup with an EXIT fallback and absence proof; and retains
 an empty Observed evidence field for post-implementation Stage 2.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** scenario written → scenario verified
+The agent freshly ran the sole durable scenario from repository root with `/bin/bash` against HEAD
+`e519f7e3c`. The built public `@robota-sdk/agent-interface-transport/testing` consumer exited 0 and
+printed exactly `test-session-1-turn-1`, `test-session-1-turn-2`, and `DISTINCT`; both completion
+promises settled. Explicit cleanup succeeded, Bash printed `CLEANUP_OK`, and a post-run temp-directory
+probe found no `robota-arch019.*` directory. The matching concrete evidence is recorded in
+`.agents/evals/scenarios/arch-019-test-session-turn-identity-agent-run.md`; build output is setup, not
+substituted user-execution evidence.
