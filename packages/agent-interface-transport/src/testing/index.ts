@@ -65,6 +65,7 @@ export function createTestInteractiveSession(
   overrides?: Partial<IInteractiveSession>,
 ): IInteractiveSession {
   const fallbackId = `test-session-${(doublesCreated += 1)}`;
+  let submissionsAccepted = 0;
   /**
    * The id EVERY surface of this double names — including when a caller overrides `getSession`.
    *
@@ -96,7 +97,7 @@ export function createTestInteractiveSession(
     // stands in for hangs. The default turn ends at once with an empty result.
     submit: () =>
       Promise.resolve({
-        turnId: 'test-turn',
+        turnId: `${sessionId()}-turn-${(submissionsAccepted += 1)}`,
         completed: Promise.resolve({
           response: '',
           history: [],
@@ -122,8 +123,6 @@ export function createTestInteractiveSession(
       // A counter, not a random: the value stays stable within one double and reproducible across
       // runs, so a failure message names the same session twice.
       getSessionId: () => fallbackId,
-      // SELFHOST-004: the span collector subscribes to the session bus each turn.
-      getEventService: () => ({ subscribe: () => {}, unsubscribe: () => {} }),
     }),
     getCwd: () => '/workspace',
     executeCommand: () => Promise.resolve(null),

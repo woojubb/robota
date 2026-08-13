@@ -35,8 +35,9 @@ This package does NOT own: provider implementations, generic session run loop, t
 - Path helpers: `projectPaths()`, `userPaths()`
 - User-local storage: `resolveUserLocalStorageRoot()`, user-local memory APIs
 - Testing utilities: exported from the `@robota-sdk/agent-framework/testing` subpath (not the
-  runtime entry) — `scriptedSession()` / `ScriptedSessionHarness` (functional harness) and
-  `createTestInteractiveSession()` (stub). See Test Strategy → Functional test harness.
+  runtime entry) — `scriptedSession()` / `ScriptedSessionHarness` (functional harness). The lightweight
+  `createTestInteractiveSession()` stub is owned and exported only by
+  `@robota-sdk/agent-interface-transport/testing`. See Test Strategy → Functional test harness.
 - Update check: `checkForCliUpdate()`, related helpers
 - Git utilities: `resolveGitBranch()`
 - Semver utilities: `compareSemverVersions()`, `isNewerSemverVersion()`
@@ -596,8 +597,9 @@ forkSession?, model?, commandModules?, ... })` / `ScriptedSessionHarness` builds
   `session_init` / `provider_request` / `tool_call` / `tool_result` / `assistant` records), and
   `readFile()`/`exists()`/`files()` (workspace side effects). Lifecycle: `dispose()` tears down the
   workspace. Scripted tool-call args may use the `{{cwd}}` placeholder for absolute workspace paths.
-- `createTestInteractiveSession()` (same subpath) remains a lightweight **stub** for wiring/type tests
-  that do not need the real loop.
+- `createTestInteractiveSession()` is a lightweight **stub** for wiring/type tests that do not need the
+  real loop, owned and exported only by `@robota-sdk/agent-interface-transport/testing`; this framework
+  testing subpath does not re-export it.
 
 ### Approach
 
