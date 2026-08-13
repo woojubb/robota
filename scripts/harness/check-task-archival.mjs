@@ -117,9 +117,15 @@ async function listMarkdownRecords(root, relativeDirs) {
       if (!name.endsWith('.md') || name === 'README.md') continue;
       const relative = path.posix.join(relativeDir, name);
       const absolute = path.join(root, relative);
-      const stat = await fs.stat(absolute);
-      if (!stat.isFile()) continue;
-      const content = await fs.readFile(absolute, 'utf8');
+      const handle = await fs.open(absolute, 'r');
+      let content;
+      try {
+        const stat = await handle.stat();
+        if (!stat.isFile()) continue;
+        content = await handle.readFile('utf8');
+      } finally {
+        await handle.close();
+      }
       const { entries, body } = splitFrontmatter(content);
       records.push({ id: idOf(name), relative, content, entries, body });
     }
