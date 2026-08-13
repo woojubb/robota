@@ -373,14 +373,14 @@ The contract this package now publishes:
 - `isRunning()` is therefore authoritative for the session, and a consumer does not need to maintain
   a parallel busy flag.
 
-The one caveat, stated because the recipe above is not unconditional: a turn that never OBSERVES the
-signal is never cut, and its claim is held until it unwinds. A provider that hangs is cut by
-agent-core's upstream-abort path, but a turn parked on a consumer-supplied `permissionHandler` is
-not — `PermissionEnforcer` awaits it with no signal and no timeout — so `abort()` returns, the await
-never does, and every later `run()` on that session is refused. Recovery is `shutdown()`, which does
-not consult the claim, and then a fresh session. `agent-framework` avoids the case by draining its
-prompt registry before aborting; a direct `agent-session` consumer has no equivalent, which is
-RUNTIME-004's subject, not this contract's.
+Every wait owned by this package that can park a turn observes the turn signal. In particular,
+`PermissionEnforcer` races both a consumer `permissionHandler` and an injected approval prompt against
+the signal. Abort resolves that approval decision as **deny** (fail closed), allowing the turn to
+unwind and its matching claim to release; it can never convert cancellation into approval.
+`isRunning()` remains true between `abort()` and that unwind. A consumer must await the active run
+before starting the next one. Long-running tools receive the same signal in their execution context
+and are contractually responsible for observing it; tool-cooperation conformance is a separate
+cross-tool concern rather than a second cancellation channel.
 
 Concurrency ACROSS transports (MCP request correlation, the HTTP `POST /submit` TOCTOU) rides
 `InteractiveSession` in `agent-framework`, a different object, and is not covered by this contract —
@@ -502,6 +502,9 @@ No formal interface implementations. `PermissionEnforcer`, `ContextWindowTracker
 
 - **Session system prompt delivery** -- tests verifying the system prompt is passed to Robota as the single-source top-level `config.systemMessage`, and that `updateSystemMessage` propagates a live change to the next provider request via `Robota.updateSystemPrompt`.
 - **Session provider callback isolation** -- 1 regression test verifying two sessions sharing one provider keep `onTextDelta` output isolated per run.
+- **Approval abort recovery** -- bounded tests cover both approval adapters, wrapper signal wiring,
+  fail-closed denial, listener cleanup, and a full `Session.run()` parked on approval through
+  `abort()` → rejected turn → `isRunning() === false`.
 
 ### Gaps
 
