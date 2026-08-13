@@ -59,7 +59,7 @@ projection is the section below.
 - [ ] ARCH-013 — in-progress — `.agents/tasks/ARCH-013-preset-to-session-options-projection-has-no-owner.md`
 - [x] ARCH-019 — done — `.agents/tasks/completed/ARCH-019-interactive-session-getSession-contract-understated.md`
 - [ ] ARCH-029 — todo — `.agents/tasks/ARCH-029-command-host-capability-contracts.md`
-- [ ] INFRA-098 — in-progress — `.agents/tasks/INFRA-098-review-every-integration-base-child-pr.md`
+- [x] INFRA-098 — done — `.agents/tasks/completed/INFRA-098-review-every-integration-base-child-pr.md`
 - [x] DAG-001 — done — `.agents/tasks/completed/DAG-001-running-is-a-terminal-trap.md`
 - [ ] DAG-004 — todo — `.agents/tasks/DAG-004-eight-cli-commands-open-code-the-import-adapter.md`
 - [ ] RUNTIME-002 — todo — `.agents/tasks/RUNTIME-002-headless-only-bun-runtime-entry.md`

@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-098: review every integration-base child PR against its exact diff'
-status: in-progress
+status: done
 created: 2026-08-14
+completed: 2026-08-14
 priority: critical
 urgency: now
 area: GitHub Actions, merge gate, review governance, harness
@@ -18,7 +19,7 @@ separately filed trusted-workflow provenance problem under labelled INFRA-097 co
 
 ## Spec
 
-`.agents/spec-docs/active/INFRA-098-review-every-integration-base-child-pr.md`
+`.agents/spec-docs/done/INFRA-098-review-every-integration-base-child-pr.md`
 
 ## Plan
 
@@ -26,7 +27,7 @@ separately filed trusted-workflow provenance problem under labelled INFRA-097 co
 - [x] TC-02: preserve and mechanically verify the same-repository, permission, token, concurrency, and verdict-marker contract.
 - [x] TC-03: add red-first merge-gate fixtures for exact base/head identity and every fail-closed malformed or stale case.
 - [x] TC-04: register the workflow safety owner fail-closed and pass focused suites plus `pnpm harness:scan`.
-- [ ] TC-05: push the implementation to PR #1724, converge its exact-pair hosted review to zero findings, and record evidence.
+- [x] TC-05: push the implementation to PR #1724, converge its exact-pair hosted review to zero findings, and record evidence.
 
 ## Progress
 
@@ -45,6 +46,11 @@ separately filed trusted-workflow provenance problem under labelled INFRA-097 co
   its own prompt, and the owning job's exact guarded `if:` scalar. Focused workflow/merge suites pass
   116/116, the independent reviewer reports `ACTIONABLE FINDINGS: 0`, and `pnpm harness:scan` passes
   110 scans with one intentional skip.
+- Hosted run `31755020176` completed successfully in 2m44s on PR #1724. Its reviewer verdict names
+  base `95f74bfa029ec00cab191351b436be1d19ca6fc1`, head
+  `1562fda76c5b1227f6c8e390dff785969fd8d938`, and `ACTIONABLE FINDINGS: 0`.
+- The exact pre-push `pnpm build` command completed all package JS and ordered declaration builds
+  with exit 0. A fresh explicit `pnpm test` then ran every workspace test script and exited 0.
 
 ## Decisions
 
@@ -71,4 +77,5 @@ user can execute.
 
 ## Result
 
-Pending.
+The all-base reviewer and exact base/head merge verdict are implemented, locally reviewed with zero
+findings, verified on hosted PR #1724, and archived after GATE-COMPLETE PASS.
