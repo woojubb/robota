@@ -15,7 +15,7 @@ depends_on: []
 ## Plan
 
 - [x] TC-01 — Put PR classification, CodeQL analysis, and review-gate in one ordered DAG with retarget-safe triggers.
-- [ ] TC-02 — Preserve fail-closed semantics while accepting only equivalent regenerated merge identities, never old-base analysis.
+- [x] TC-02 — Preserve fail-closed semantics while accepting only equivalent regenerated merge identities, never old-base analysis.
 - [x] TC-03 — Keep `codeql.yml` push-only and remove recovery/rerun/write authority.
 - [x] TC-04 — Enforce job-local least privilege, required context identity, and isolated disarm.
 - [x] TC-05 — Run focused/full verification and observe one real PR's head-analysis lane without a recovery rerun.
@@ -41,6 +41,16 @@ depends_on: []
 - Final-head run 31738169221 exposed GitHub regenerating synthetic merge `596c61a5` as
   `60b2c51f` with identical base/head parents and tree. Literal SHA equality rejected the valid
   analysis, so TC-02 and completion were reopened.
+- RED added a workflow contract assertion; the old literal-SHA workflow failed as intended. GREEN
+  now binds ordinary events to `github.sha` and
+  permits label reuse only across equal base/head/tree identities with the CodeQL tool/category.
+  The focused seven-file regression passed 170 tests and `pnpm harness:scan` passed 109 scans. The
+  selected analysis now also owns the alert handoff: open+dismissed result counts must equal its
+  `results_count`, and every returned instance must name the selected SHA. A
+  proposed new resolver file was discarded before commit because it cannot exist in the exact base
+  checkout on the feature's first run; the workflow performs the API identity projection directly.
+- Final reopened verification passed all 12 `harness:verify-like-ci` stages in 4m16.4s; the dominant
+  repository-contract suite took 3m42.5s (110 files / 2,241 tests), while the hermetic tier took 12s.
 
 ## Blockers
 
@@ -49,8 +59,8 @@ None.
 ## Test Plan
 
 - RED: workflow contract rejects separate PR CodeQL/recovery and unordered review-gate.
-- GREEN: parsed workflow proves classify → analyze → gate, event lanes, classifier-only applicability,
-  base-SHA defense-in-depth loading, current-merge analysis identity, exact context, and least privilege.
+- GREEN: parsed workflow and executable jq fixtures prove classify → analyze → gate, event lanes, classifier-only applicability,
+  base-SHA defense-in-depth loading, event/equivalent-merge analysis identity, exact context, and least privilege.
 - Regression: existing classifier, decision, disarm, permission, required-check, and scan suites.
 - Final: `pnpm harness:scan`, focused Vitest, and `pnpm harness:verify-like-ci`.
 

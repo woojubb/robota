@@ -174,9 +174,18 @@ jobs:
       - name: Resolve the current PR merge commit
         if: needs.classify.outputs.code == 'true'
         env:
+          EVENT_ACTION: ${{ github.event.action }}
+          EVENT_MERGE_SHA: ${{ github.sha }}
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          # A head-changing event is permanently bound to the synthetic merge it checked out and
+          # analysed. Only label-only reevaluation asks GitHub for the current synthetic merge;
+          # GitHub may regenerate its SHA without changing its base/head/tree identity.
+          if [ "${EVENT_ACTION}" != 'labeled' ] && [ "${EVENT_ACTION}" != 'unlabeled' ]; then
+            echo "CURRENT_MERGE_SHA=${EVENT_MERGE_SHA}" >> "$GITHUB_ENV"
+            exit 0
+          fi
           # allow-unpaginated: this is a single pull-request resource by number, not a collection;
           # the command reads one merge_commit_sha field and derives no count.
           if ! merge_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.merge_commit_sha // empty')"; then
@@ -195,12 +204,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ANALYZE_RESULT: ${{ needs.analyze.result }}
           EVENT_ACTION: ${{ github.event.action }}
+          EVENT_MERGE_SHA: ${{ github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           # Head-changing events consume the same-workflow prerequisite result. Label-only events
-          # intentionally skip the expensive analyzer. Both paths require the processed CodeQL
-          # record for this exact current merge commit and category; head SHA alone is insufficient
-          # because base retargeting preserves it while changing the synthetic merge.
+          # intentionally skip the expensive analyzer. Ordinary events require the processed
+          # CodeQL record for this workflow's immutable merge SHA. Label events may reuse an older
+          # synthetic SHA only when its base parent, head parent, and tree equal the current merge.
           if [ "${EVENT_ACTION}" != 'labeled' ] && [ "${EVENT_ACTION}" != 'unlabeled' ]; then
             if [ "${ANALYZE_RESULT}" != 'success' ]; then
               echo "::error::review-gate: same-workflow CodeQL prerequisite concluded ${ANALYZE_RESULT}."
@@ -209,23 +219,69 @@ jobs:
             fi
           fi
 
-          # allow-unpaginated: analyses for the current PR ref are newest-first; the current merge
-          # record, if processed, is on the first 100-result page. This is an exact existence probe,
-          # not an inventory count.
-          if ! analysis_count="$(gh api \
-            "repos/${GITHUB_REPOSITORY}/code-scanning/analyses?ref=refs/pull/${PR_NUMBER}/merge&per_page=100" \
-            --jq "[.[] | select(.commit_sha == \"${CURRENT_MERGE_SHA}\" and .category == \"/language:javascript-typescript\" and .tool.name == \"CodeQL\")] | length")"; then
-            echo "::error::review-gate: could not read the current CodeQL analysis record."
+          # Read all analysis pages before selecting. `gh --jq` evaluates once per page, so the
+          # pages are slurped and merged by jq exactly once.
+          if ! analysis_pages="$(gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/code-scanning/analyses?ref=refs/pull/${PR_NUMBER}/merge&tool_name=CodeQL&per_page=100")" || \
+             ! analyses="$(jq -ce 'add | map(select(.tool.name == "CodeQL" and .category == "/language:javascript-typescript"))' \
+               <<<"${analysis_pages}")"; then
+            echo "::error::review-gate: could not read a complete CodeQL analysis inventory."
             echo "analysis_complete=false" >> "$GITHUB_ENV"
             exit 0
           fi
-          echo "matching current-merge CodeQL analyses: ${analysis_count}"
-          if [ "$analysis_count" -gt 0 ]; then
-            echo "analysis_complete=true" >> "$GITHUB_ENV"
+
+          analysis_sha=''
+          if [ "${EVENT_ACTION}" != 'labeled' ] && [ "${EVENT_ACTION}" != 'unlabeled' ]; then
+            analysis_sha="$(jq -r --arg sha "${EVENT_MERGE_SHA}" \
+              '[.[] | select(.commit_sha == $sha)][0].commit_sha // empty' <<<"${analyses}")"
           else
-            echo "::error::review-gate: no processed CodeQL analysis for current merge ${CURRENT_MERGE_SHA}."
-            echo "analysis_complete=false" >> "$GITHUB_ENV"
+            # GitHub can regenerate a synthetic merge SHA while preserving the actual merge. For a
+            # label-only reevaluation, compare the two ordered parents and tree. Same-head/old-base
+            # and any malformed non-two-parent commit therefore remain rejected.
+            # allow-unpaginated: Git commit-by-SHA is one resource, not a collection; the response
+            # supplies exactly one commit identity and no count is derived.
+            if ! current_commit="$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${CURRENT_MERGE_SHA}")" || \
+               ! current_identity="$(jq -er \
+                 'select((.parents | length) == 2) | [.parents[0].sha, .parents[1].sha, .tree.sha] | @tsv' \
+                 <<<"${current_commit}")"; then
+              echo "::error::review-gate: current PR merge identity is unreadable or malformed."
+              echo "analysis_complete=false" >> "$GITHUB_ENV"
+              exit 0
+            fi
+
+            while IFS= read -r candidate_sha; do
+              if ! printf '%s' "${candidate_sha}" | grep -Eq '^[0-9a-f]{40}$'; then
+                continue
+              fi
+              # allow-unpaginated: Git commit-by-SHA is one resource, not a collection; the response
+              # supplies exactly one commit identity and no count is derived.
+              if candidate_commit="$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${candidate_sha}")" 2>/dev/null && \
+                 candidate_identity="$(jq -er \
+                   'select((.parents | length) == 2) | [.parents[0].sha, .parents[1].sha, .tree.sha] | @tsv' \
+                   <<<"${candidate_commit}")" && \
+                 [ "${candidate_identity}" = "${current_identity}" ]; then
+                analysis_sha="${candidate_sha}"
+                break
+              fi
+            done < <(jq -r '.[].commit_sha' <<<"${analyses}")
           fi
+
+          if ! printf '%s' "${analysis_sha}" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::review-gate: no trustworthy current CodeQL analysis record is available."
+            echo "analysis_complete=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          if ! analysis_results_count="$(jq -er --arg sha "${analysis_sha}" \
+            '[.[] | select(.commit_sha == $sha)][0].results_count | select(type == "number" and . >= 0 and floor == .)' \
+            <<<"${analyses}")"; then
+            echo "::error::review-gate: selected CodeQL analysis has no valid results_count."
+            echo "analysis_complete=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "trusted CodeQL analysis: ${analysis_sha}"
+          echo "ANALYSIS_SHA=${analysis_sha}" >> "$GITHUB_ENV"
+          echo "ANALYSIS_RESULTS_COUNT=${analysis_results_count}" >> "$GITHUB_ENV"
+          echo "analysis_complete=true" >> "$GITHUB_ENV"
 
       - name: Collect the review output
         if: needs.classify.outputs.code == 'true'
@@ -244,20 +300,35 @@ jobs:
           # for the PR ref while `develop` carried 100; the analyses endpoint is what proves the
           # zero is a real, diff-informed result rather than an absence.)
           #
-          # allow-unpaginated: a single-record EXISTENCE probe — the only question asked of this
-          # response is `length != 0`, i.e. "was this ref analysed at all?". No count is derived from
-          # it, so page two could not change the answer.
-          analyses="$(gh api \
-            "repos/${GITHUB_REPOSITORY}/code-scanning/analyses?ref=refs/pull/${PR_NUMBER}/merge&per_page=100" \
-            --jq "[.[] | select(.commit_sha == \"${CURRENT_MERGE_SHA}\" and .category == \"/language:javascript-typescript\" and .tool.name == \"CodeQL\")] | length" \
-            2>/dev/null || echo 0)"
-          echo "matching current-merge code-scanning analyses: ${analyses}"
-          if [ "${analysis_complete}" != "true" ] || [ "${analyses}" = "0" ]; then
+          # The preceding resolver is the single identity proof. Re-querying the mutable current
+          # merge SHA here would recreate the regeneration race that INFRA-096 closes.
+          if [ "${analysis_complete}" != "true" ]; then
             echo "UNAVAILABLE" > pr-alerts.json
           else
-            gh api --paginate \
+            # GitHub's alerts endpoint does not accept a commit SHA as `ref` (it returns an empty
+            # list for a valid SHA), so read the PR ref and then bind EVERY returned current result
+            # to the selected immutable analysis. Open+dismissed must equal the analysis record's
+            # results_count; fixed alerts are absent from the current analysis by definition.
+            if ! node scripts/harness/github-api.mjs \
               "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=open&ref=refs/pull/${PR_NUMBER}/merge&per_page=100" \
-              > pr-alerts.json || echo "UNAVAILABLE" > pr-alerts.json
+              > pr-alerts.json || \
+               ! node scripts/harness/github-api.mjs \
+                 "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=dismissed&ref=refs/pull/${PR_NUMBER}/merge&per_page=100" \
+                 > pr-alerts-dismissed.json || \
+               ! jq -e --arg sha "${ANALYSIS_SHA}" \
+                 'type == "array" and all(.[]; .most_recent_instance.commit_sha == $sha)' \
+                 pr-alerts.json >/dev/null || \
+               ! jq -e --arg sha "${ANALYSIS_SHA}" \
+                 'type == "array" and all(.[]; .most_recent_instance.commit_sha == $sha)' \
+                 pr-alerts-dismissed.json >/dev/null || \
+               ! current_result_count="$(jq -n \
+                 --slurpfile open pr-alerts.json \
+                 --slurpfile dismissed pr-alerts-dismissed.json \
+                 '$open[0] | length + ($dismissed[0] | length)')" || \
+               [ "${current_result_count}" != "${ANALYSIS_RESULTS_COUNT}" ]; then
+              echo "UNAVAILABLE" > pr-alerts.json
+            fi
+            rm -f pr-alerts-dismissed.json
           fi
           gh api --paginate \
             "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=open&ref=refs/heads/${BASE_REF}&per_page=100" \
