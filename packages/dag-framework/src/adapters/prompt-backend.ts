@@ -23,6 +23,7 @@ import {
   buildDispatchError,
 } from '@robota-sdk/dag-core';
 import type { IDagExecutionComposition } from '../types.js';
+import { recordPromptHistory } from './prompt-history.js';
 
 interface IDagPromptBackendDependencies {
   storage: IStoragePort;
@@ -122,7 +123,7 @@ export class DagPromptBackend implements IPromptBackendPort {
       request.prompt,
     )
       .catch(() => {
-        this.recordHistory(promptId, request.prompt, 'error');
+        recordPromptHistory(this.promptHistory, promptId, request.prompt, 'error');
       })
       .finally(() => {
         this.ownedObservationJobs.delete(observation);
@@ -273,23 +274,7 @@ export class DagPromptBackend implements IPromptBackendPort {
   ): Promise<void> {
     const terminal = await this.execution.runAdvancement.waitForTerminal(dagRunId);
     const succeeded = terminal.ok && terminal.value.dagRun.status === 'success';
-    this.recordHistory(promptId, prompt, succeeded ? 'success' : 'error');
-  }
-
-  private recordHistory(
-    promptId: string,
-    prompt: IPromptRequest['prompt'],
-    statusStr: 'success' | 'error',
-  ): void {
-    this.promptHistory.set(promptId, {
-      prompt,
-      outputs: {},
-      status: {
-        status_str: statusStr,
-        completed: true,
-        messages: [],
-      },
-    });
+    recordPromptHistory(this.promptHistory, promptId, prompt, succeeded ? 'success' : 'error');
   }
 
   private manifestToObjectInfo(manifest: INodeManifest): INodeObjectInfo {
