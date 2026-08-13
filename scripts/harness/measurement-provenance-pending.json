@@ -57,6 +57,7 @@
     "scripts/harness/scan-review-findings.mjs",
     "scripts/harness/scan-review-token-supply.mjs",
     "scripts/harness/scan-rule-case-narrative.mjs",
+    "scripts/harness/scan-run-advancement-owner.mjs",
     "scripts/harness/scan-runner-wait.mjs",
     "scripts/harness/scan-shell-portability.mjs",
     "scripts/harness/scan-skill-registration.mjs",
