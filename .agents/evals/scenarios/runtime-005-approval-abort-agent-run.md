@@ -186,4 +186,22 @@ trap removes the command-materialized script and only the `mktemp` directory mat
 
 ## Observed evidence
 
-EMPTY
+PASS — 2026-08-13. The exact Bash block exited `0` and printed:
+
+```json
+{
+  "phase": "runtime-005-approval-abort-recovery",
+  "permissionRequests": 1,
+  "busyRejected": true,
+  "queuePreservedUntilAbort": true,
+  "queuedOutcome": "cancelled",
+  "abortedTurnSettled": true,
+  "idleAfterAbort": true,
+  "pendingAfterAbort": 0,
+  "deniedToolRan": false,
+  "nextResponse": "NEXT_PROMPT_OK"
+}
+```
+
+All ten exact `grep -F` assertions passed. The `EXIT` trap removed the scratch consumer and its
+`/tmp/robota-runtime005.*` directory.

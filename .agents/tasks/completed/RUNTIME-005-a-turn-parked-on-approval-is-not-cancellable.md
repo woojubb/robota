@@ -1,7 +1,8 @@
 ---
 title: 'RUNTIME-005: a turn parked on a human-approval prompt cannot be cancelled, and the framework flag that hides it has no owner'
-status: in-progress
+status: done
 created: 2026-08-02
+completed: 2026-08-13
 priority: high
 urgency: next
 area: packages/agent-session, packages/agent-core, packages/agent-framework
@@ -11,26 +12,24 @@ depends_on: []
 # RUNTIME-005: abort() reaches the provider but not the wait
 
 - **Branch**: `fix/runtime-005-execution-claim-owner`
-- **Spec**: `.agents/spec-docs/active/BEHAVIOR-008-interactive-execution-claim-ownership.md`
+- **Spec**: `.agents/spec-docs/done/BEHAVIOR-008-interactive-execution-claim-ownership.md`
 
 ## Current scope correction
 
 The original `/compact` reproduction below is historical. Current
 `InteractiveSessionBase.executeCommand()` rejects a public command while `execCtrl.executing` is
-true, and all shipped TUI/HTTP/MCP/WebSocket command paths use that method. Stage 2 is preventative
-invariant hardening: prompt, fork-skill, foreground-command, and queue-resume failure paths still
-write or clear one identity-free boolean. BEHAVIOR-008 received independent `ENDORSE` for replacing
-those raw writers with a controller-owned opaque claim while preserving current public busy/queue
-policy. Stage 1 also still needs the task's requested full `Session.run()` abort integration proof
-and stale SPEC correction.
+true, and all shipped TUI/HTTP/MCP/WebSocket command paths use that method. Stage 2 completed the
+preventative invariant hardening: prompt, fork-skill, foreground-command, and queue-resume paths now
+share one controller-owned opaque claim while preserving current public busy/queue policy. Stage 1
+also completed the requested full `Session.run()` abort integration proof and stale SPEC correction.
 
 ## Plan
 
-- [ ] TC-01: Preserve public command-during-prompt busy rejection and exact queued-turn settlement.
-- [ ] TC-02: Make foreign or stale execution-claim release unable to clear state or drain the queue.
-- [ ] TC-03: Route prompt, fork-skill, foreground-command, and queue-error cleanup through one claim owner.
-- [ ] TC-04: Add bounded full-session approval-abort settlement and `isRunning() === false` integration proof.
-- [ ] TC-05: Execute the durable public scenario and pass affected/full verification.
+- [x] TC-01: Preserve public command-during-prompt busy rejection and exact queued-turn settlement.
+- [x] TC-02: Make foreign or stale execution-claim release unable to clear state or drain the queue.
+- [x] TC-03: Route prompt, fork-skill, foreground-command, and queue-error cleanup through one claim owner.
+- [x] TC-04: Add bounded full-session approval-abort settlement and `isRunning() === false` integration proof.
+- [x] TC-05: Execute the durable public scenario and pass affected/full verification.
 
 ## Problem
 
@@ -73,7 +72,7 @@ interleaved turn it replaces, but the flag has two writers and no owner.
 
 **FOUNDATIONAL** for the wait: cancellation is declared at the session boundary and not honoured by
 the waits inside it, so no fix at the call site can be complete. Same class as
-[RUNTIME-004](RUNTIME-004-cancellation-declared-at-four-layers-honoured-at-none.md) — check whether
+[RUNTIME-004](../RUNTIME-004-cancellation-declared-at-four-layers-honoured-at-none.md) — check whether
 these should merge before starting.
 
 The `executing` flag is **LOCAL** to `agent-framework` but has the ownership shape RUNTIME-003
@@ -106,7 +105,7 @@ lets a live turn interleave with its successor, which is the defect, not the rem
   testing SDK with the shipped deterministic provider; it requires no credential, network service,
   TTY, test runner, or owner action.
 - **Durable artifact:**
-  [`.agents/evals/scenarios/runtime-005-approval-abort-agent-run.md`](../evals/scenarios/runtime-005-approval-abort-agent-run.md)
+  [`.agents/evals/scenarios/runtime-005-approval-abort-agent-run.md`](../../evals/scenarios/runtime-005-approval-abort-agent-run.md)
 - **Prerequisites:** run from the repository root with workspace dependencies installed; Bash,
   Node.js, and pnpm available; writable `scratch/src/`. No provider key or external service is
   required.
@@ -126,7 +125,9 @@ lets a live turn interleave with its successor, which is the defect, not the rem
   accepts and completes the next prompt.
 - **Cleanup:** the fixture shuts down its session and deletes its isolated workspace; the Bash
   `EXIT` trap removes the scratch script and only its `/tmp/robota-runtime005.*` root.
-- **Observed evidence:** EMPTY
+- **Observed evidence:** PASS — 2026-08-13. The artifact's exact Bash exited `0`; its recovery JSON
+  reported one permission request, busy refusal with queue preservation, cancelled queued turn,
+  settled abort, idle/empty state, no denied-tool execution, and `NEXT_PROMPT_OK`. Cleanup passed.
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-13
 
@@ -149,6 +150,22 @@ run -- <script>` entrypoint, and `@robota-sdk/agent-framework/testing` publicly 
   not build, test, typecheck, lint, harness/CI output, or repository-text inspection.
 - Credentials and services: PASS — the prerequisites explicitly state that the deterministic shipped
   provider needs no provider key, network service, TTY, or owner action.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-13
+
+**Status upgrade:** scenario written → scenario executed
+
+- Ordering: PASS — `[DONE-GATE-STAGE-1]` passed before implementation; commit `01e2761a2` records
+  the scenario with `Observed evidence: EMPTY`.
+- Scenario `abort a parked approval and run the next prompt`: PASS — the durable artifact's exact
+  Bash was independently executed against the completed implementation and exited `0`.
+- Observed result: PASS — one permission request, busy refusal, queue preservation until abort,
+  cancelled queued turn, settled aborted turn, idle/empty recovery, no denied-tool execution, and
+  `NEXT_PROMPT_OK`.
+- Evidence location: `.agents/evals/scenarios/runtime-005-approval-abort-agent-run.md` and this
+  task's scenario evidence field.
+- Cleanup: PASS — the materialized scratch script and constrained `/tmp/robota-runtime005.*` root
+  were removed.
 
 ## Implementation — stage 1 of 2
 
@@ -200,3 +217,17 @@ permission" that can drift, now one.
 - **Tool cooperation with the signal is unverified.** The channel exists; nothing checks that
   long-running tools use it, and the CORE-018 contract is prose. Worth its own item rather than a
   sentence here.
+
+## Implementation — stage 2
+
+`SessionExecutionController` now derives `executing` from one private opaque claim. Prompt,
+fork-skill, and foreground-command entry points acquire synchronously before their first state
+mutation; only the identical claim may release, emit idle state, persist, and hand the pending queue
+to its next turn. Queue-resume error handlers no longer clear another operation's state. A prompt
+that cannot acquire also rejects the already-issued turn handle, so no caller waits forever.
+
+Existing tests that directly wrote the boolean now hold a real foreground claim. The focused claim
+suite proves stale-release rejection, mutual exclusion across all three kinds, and failed-acquisition
+turn settlement. The real `Session.run()` integration parks on a never-resolving permission handler,
+aborts, observes an `AbortError`, verifies `isRunning() === false`, and proves the unapproved tool did
+not execute. The durable public scenario passed with exit `0` and the expected recovery JSON.

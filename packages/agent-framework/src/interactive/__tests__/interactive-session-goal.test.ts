@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { InteractiveSession } from '../interactive-session.js';
 
 import type { IGoalEvent } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '../../commands/index.js';
 import { createSessionStub as createSharedSessionStub } from './helpers/session-stub.js';
 
 import type { SessionExecutionController } from '../interactive-session-execution-controller.js';
@@ -20,13 +21,20 @@ function getExecCtrl(session: InteractiveSession): SessionExecutionController {
   return (session as unknown as { execCtrl: SessionExecutionController }).execCtrl;
 }
 
+function holdExecution(execCtrl: SessionExecutionController): void {
+  void execCtrl.executeForegroundCommand(
+    () => new Promise<ICommandResult>(() => {}),
+    () => Promise.resolve(),
+  );
+}
+
 describe('InteractiveSession goal wiring (GOAL-001)', () => {
   it('setGoal seeds an active goal, emits goal_started, and schedules the first agent-wakeup turn', async () => {
     const session = new InteractiveSession({
       session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
     });
     const execCtrl = getExecCtrl(session);
-    execCtrl.executing = true;
+    holdExecution(execCtrl);
     const events: IGoalEvent[] = [];
     session.on('goal_event', (event) => events.push(event));
 
@@ -47,7 +55,7 @@ describe('InteractiveSession goal wiring (GOAL-001)', () => {
     const session = new InteractiveSession({
       session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
     });
-    getExecCtrl(session).executing = true;
+    holdExecution(getExecCtrl(session));
     const events: IGoalEvent[] = [];
     session.on('goal_event', (event) => events.push(event));
 

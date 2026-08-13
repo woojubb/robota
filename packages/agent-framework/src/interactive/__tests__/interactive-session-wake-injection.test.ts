@@ -81,6 +81,21 @@ function getExecCtrl(session: InteractiveSession): SessionExecutionController {
   return (session as unknown as { execCtrl: SessionExecutionController }).execCtrl;
 }
 
+function holdExecution(execCtrl: SessionExecutionController): () => void {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  void execCtrl.executeForegroundCommand(
+    async () => {
+      await held;
+      return { success: true, message: 'released' };
+    },
+    () => Promise.resolve(),
+  );
+  return release;
+}
+
 async function setupSession(): Promise<{
   session: InteractiveSession;
   manager: BackgroundTaskManager;
@@ -101,7 +116,7 @@ describe('FLOW-002 session wake injection', () => {
   it('TC-01/TC-04: a wake injects one agent-wakeup turn carrying the instruction', async () => {
     const { session, manager, started } = await setupSession();
     const execCtrl = getExecCtrl(session);
-    execCtrl.executing = true;
+    holdExecution(execCtrl);
 
     const created = await manager.spawn(scheduledWakeRequest('check the build'));
     await Promise.resolve();
@@ -122,7 +137,7 @@ describe('FLOW-002 session wake injection', () => {
   it('TC-03: duplicate wakes for the same task id coalesce to a single turn', async () => {
     const { session, manager, started } = await setupSession();
     const execCtrl = getExecCtrl(session);
-    execCtrl.executing = true;
+    holdExecution(execCtrl);
 
     await manager.spawn(scheduledWakeRequest('do X'));
     await Promise.resolve();
@@ -140,7 +155,7 @@ describe('FLOW-002 session wake injection', () => {
   it('TC-02: while a turn is executing, the wake queues (not interleaved)', async () => {
     const { session, manager, started } = await setupSession();
     const execCtrl = getExecCtrl(session);
-    execCtrl.executing = true; // simulate an in-flight turn
+    holdExecution(execCtrl); // simulate an in-flight turn
 
     await manager.spawn(scheduledWakeRequest('queued instruction'));
     await Promise.resolve();
@@ -155,7 +170,7 @@ describe('FLOW-002 session wake injection', () => {
   it('RUNTIME-19: aborting a queued wake evicts its id so a future wake is not locked out', async () => {
     const { session, manager, started } = await setupSession();
     const execCtrl = getExecCtrl(session);
-    execCtrl.executing = true; // a turn is in flight, so the wake queues instead of running
+    const releaseExecution = holdExecution(execCtrl); // a turn is in flight, so the wake queues instead of running
 
     const created = await manager.spawn(scheduledWakeRequest('follow up'));
     await Promise.resolve();
@@ -172,7 +187,8 @@ describe('FLOW-002 session wake injection', () => {
     expect(execCtrl.wakeTaskIds.has(created.id)).toBe(false);
 
     // A brand-new wake for the same task id is now accepted (not locked out).
-    execCtrl.executing = false;
+    releaseExecution();
+    await Promise.resolve();
     expect(session.requestWakeup('later', created.id)).toBe(true);
   });
 });

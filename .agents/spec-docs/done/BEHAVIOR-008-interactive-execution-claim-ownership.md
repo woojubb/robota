@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: BEHAVIOR
 tags: [typescript, async, cli]
 ---
@@ -158,29 +158,29 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: While a prompt claim is live, a public blocking command returns the existing busy
+- [x] TC-01: While a prompt claim is live, a public blocking command returns the existing busy
       result, does not change thinking/streaming state, does not drain queued input, and the queued
       prompt later executes and settles exactly once without a `SessionBusyError` history entry.
-- [ ] TC-02: A stale or foreign claim cannot release the active execution, emit idle, persist, or
+- [x] TC-02: A stale or foreign claim cannot release the active execution, emit idle, persist, or
       drain the queue; only the matching holder can do so.
-- [ ] TC-03: Prompt, fork-skill, and foreground-command execution all use the same claim owner;
+- [x] TC-03: Prompt, fork-skill, and foreground-command execution all use the same claim owner;
       no production path writes a shared execution boolean directly, and prompts queued behind a
       foreground or fork claim are handed off only by its matching release.
-- [ ] TC-04: In a real `agent-session` run parked on a never-resolving permission handler, `abort()`
+- [x] TC-04: In a real `agent-session` run parked on a never-resolving permission handler, `abort()`
       causes the turn to reject and `isRunning()` to become false within a bounded assertion; the
       aborted approval is never interpreted as permission.
-- [ ] TC-05: The agent-executable framework scenario exits 0 after proving abort→settlement→next
+- [x] TC-05: The agent-executable framework scenario exits 0 after proving abort→settlement→next
       prompt usability, and affected build/test/typecheck plus `pnpm harness:verify-like-ci` pass.
 
 ## Test Plan
 
-| TC-ID | Test Type                                    | Tool / Approach                                                                                             | Notes                                        |
-| ----- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| TC-01 | BEHAVIOR async integration                   | Vitest with real `InteractiveSession`, held scripted turn, blocking command module, and queued turn handles | Public framework boundary; no live provider  |
-| TC-02 | BEHAVIOR async unit                          | Vitest controller claim identity/deferred-release test                                                      | Named RED against current multi-writer state |
-| TC-03 | BEHAVIOR async integration + structural scan | Vitest for all three owners plus `rg`/AST assertion over production writes                                  | Preserves synchronous queue handoff          |
-| TC-04 | BEHAVIOR async integration                   | Vitest over real `Session.run`, never-resolving permission handler, `abort()`, and bounded races            | Fail-closed approval assertion               |
-| TC-05 | FLOW CLI/agent scenario + CI smoke           | Exact durable Bash scenario; package build/test/typecheck; `pnpm harness:verify-like-ci`                    | No credentials/network                       |
+| TC-ID | Test Type                                    | Tool / Approach                                                                                                                                                                                                                   | Notes                                       |
+| ----- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| TC-01 | BEHAVIOR async integration                   | `packages/agent-framework/src/testing/__tests__/execution-claim-functional.test.ts` > `interactive execution claim (framework functional)` > `keeps a queued prompt through public command refusal and settles it exactly once`   | Public framework boundary; no live provider |
+| TC-02 | BEHAVIOR async unit                          | `packages/agent-framework/src/interactive/__tests__/interactive-session-execution-claim.test.ts` > `interactive foreground execution claim ownership` > `does not let stale completion run idle, persistence, or queue handoff`   | Named identity-bound completion regression  |
+| TC-03 | BEHAVIOR async integration + structural scan | Same claim-suite describe block: mutual exclusion, acquisition settlement, all entry/failure paths, synchronous handoff, and production single-assignment scan                                                                    | Preserves synchronous queue handoff         |
+| TC-04 | BEHAVIOR async integration                   | `packages/agent-session/src/__tests__/approval-wait-honours-abort.test.ts` > `Session abort releases a turn parked on approval (RUNTIME-005)` > `rejects the real run, releases its claim, and never invokes the unapproved tool` | Fail-closed approval assertion              |
+| TC-05 | FLOW CLI/agent scenario + CI smoke           | `.agents/evals/scenarios/runtime-005-approval-abort-agent-run.md` `## Exact Bash`; package build/test/typecheck; `pnpm harness:verify-like-ci`                                                                                    | No credentials/network                      |
 
 ## User Execution Test Scenarios
 
@@ -191,8 +191,8 @@ bounded waits, exact output/exit assertions, and cleanup before implementation b
 
 ## Tasks
 
-- [ ] `.agents/tasks/RUNTIME-005-a-turn-parked-on-approval-is-not-cancellable.md` — existing task;
-      reconcile to TC-01 through TC-05 after GATE-APPROVAL
+- [x] `.agents/tasks/completed/RUNTIME-005-a-turn-parked-on-approval-is-not-cancellable.md` — existing
+      task; reconciled to TC-01 through TC-05 after GATE-APPROVAL
 
 ## Evidence Log
 
@@ -238,6 +238,24 @@ bounded waits, exact output/exit assertions, and cleanup before implementation b
 
 ### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-13
 
+### [IMPLEMENTATION EVIDENCE] — ✅ PASS | 2026-08-13
+
+- Code→SPEC: checked the prompt, fork-skill, foreground-command, queue-error, callback re-entry,
+  persistence-failure, and synchronous handoff paths; all use the identity-bound claim contract.
+- SPEC→code: checked every TC-01 through TC-05 behavior against implementation, focused tests, the
+  full-session approval-abort integration, and the durable public scenario; no discrepancy remains.
+- Affected verification: `agent-session` 193 tests plus build/typecheck; `agent-framework` 1,334
+  tests plus build/typecheck; claim/streaming/queue focused regressions pass.
+- Repository verification: `pnpm harness:verify-like-ci` PASS, all 11 locally reproducible CI stages
+  in 6m25s. Windows-shell, dependency audit, and review-gate remain remote-only as the harness
+  explicitly reports.
+- Review convergence: independent Round A findings converged `5 → 2 → 0`, then extraction review
+  converged `1 → 0`; final `ACTIONABLE FINDINGS: 0`.
+- File-size ratchet: the controller was split into claim/event collaborators, now 422 lines, and the
+  tightened baseline passes.
+- User execution: independent DONE-GATE-STAGE-2 reran exact Bash, exit `0`, all ten observables and
+  cleanup PASS.
+
 **Status upgrade:** approved → in-progress
 
 - Ordering: `[GATE-APPROVAL] — ✅ PASS | 2026-08-13` is recorded, frontmatter is `status: approved`, and the document is in `.agents/spec-docs/todo/`, matching the required GATE-IMPLEMENT input state.
@@ -245,3 +263,103 @@ bounded waits, exact output/exit assertions, and cleanup before implementation b
 - Completion-criterion mapping: the task's `## Plan` contains one explicit task for each of TC-01, TC-02, TC-03, TC-04, and TC-05, covering public busy/queue settlement, identity-bound release, all execution claim users, bounded approval-abort settlement, and durable/full verification respectively.
 - Test-plan substance: the task's `## Test Plan` is substantially longer than 50 characters and specifies three red-first bounded behavioral regressions plus the full `pnpm harness:verify-like-ci` gate; it is neither empty nor a placeholder.
 - Missing-task non-compliance check: the task artifact predates the stage-1 implementation commit and remains recorded for this reconciled stage-2 work, so implementation was not committed without a task file.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-13
+
+**Status upgrade:** in-progress → verifying
+
+- Ordering and placement: `[GATE-IMPLEMENT]` is recorded, the spec entered this gate as
+  `in-progress` under `spec-docs/active/`, and the linked task remains active and completion-ready.
+- Task mapping: task Plan rows TC-01 through TC-05 are all checked and correspond one-for-one with
+  this spec's checked Completion Criteria.
+- Fresh affected verification: `agent-session` build/typecheck and 193 tests passed;
+  `agent-framework` build/typecheck and 1,334 tests passed.
+- Contract verification: independent SPEC→code and code→SPEC inspection found the single claim
+  owner on prompt, fork-skill, and foreground-command paths, with fail-closed approval abort matching
+  both package SPECs.
+- Product verification: the exact durable Stage-2 Bash exited `0`, produced all ten required
+  recovery fields, and cleaned its isolated artifacts.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-13
+
+- `execution-claim-functional.test.ts` drives a real `InteractiveSession` with the deterministic
+  scripted provider. While its first turn is parked on a permission request, a second turn is queued
+  and a public blocking command returns the existing busy result without invoking its implementation,
+  changing thinking state, or removing the queued prompt.
+- After fail-closed permission denial, the first turn returns `FIRST_DONE`, the already queued turn
+  returns `QUEUED_DONE`, its completion observer fires exactly once, the queue is empty, and full
+  history contains no `SessionBusyError`.
+- Exact verification command:
+  `pnpm --filter @robota-sdk/agent-framework exec vitest run src/testing/__tests__/execution-claim-functional.test.ts src/interactive/__tests__/interactive-session-execution-claim.test.ts --reporter=verbose`.
+  Result: 2 files and 10 tests passed; exit `0`.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-13
+
+- `interactive-session-execution-claim.test.ts` proves both stale release and stale completion.
+  Calling `complete()` with an obsolete token leaves the successor claim active and invokes none of
+  the idle, persistence, or queue-handoff callbacks; only the successor token releases ownership.
+- Exact verification command: the TC-01 Vitest command above. The named stale-completion regression
+  passed; exit `0`.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-13
+
+- The focused claim suite covers mutual exclusion across prompt, fork-skill, and foreground-command
+  acquisition, failed prompt acquisition settlement, synchronous queued handoff, persistence failure,
+  entry-listener failure, and tool-event re-entry ordering.
+- Production scan `rg -n "executing\\s*=" packages/agent-framework/src --glob '!**/__tests__/**'`
+  finds no assignment; the sole match is explanatory text containing `executing === false`.
+- Exact verification commands: the TC-01 Vitest command above exited `0`; additionally,
+  `! rg --pcre2 -n '(?:this\\.)?executing\\s*=(?!=)' packages/agent-framework/src --glob '!**/__tests__/**'`
+  exited `0`, proving no single-assignment production match.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-13
+
+- `approval-wait-honours-abort.test.ts` test “rejects the real run, releases its claim, and never
+  invokes the unapproved tool” runs a real `Session.run()`, parks on a never-resolving approval,
+  aborts it, observes a bounded `AbortError`, verifies `isRunning() === false`, and proves the tool
+  was never invoked. The complete file's nine approval-path cases pass.
+- Exact verification command:
+  `pnpm --filter @robota-sdk/agent-session exec vitest run src/__tests__/approval-wait-honours-abort.test.ts --reporter=verbose`.
+  Result: 1 file and 9 tests passed; exit `0`.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-13
+
+- The durable public scenario was independently rerun from its exact Bash: exit `0`, all ten
+  approval-abort recovery observables PASS, and cleanup PASS.
+- Exact scenario execution identity:
+
+  ````sh
+  awk '/^```bash$/{capture=1;next} capture && /^```$/{exit} capture{print}' .agents/evals/scenarios/runtime-005-approval-abort-agent-run.md | bash
+  ````
+
+  Result: all ten exact JSON assertions passed, `SCENARIO_EXIT=0`, and cleanup passed.
+
+- Affected builds, typechecks, and full package suites passed; `pnpm harness:verify-like-ci` passed
+  all 11 locally reproducible stages in 6m25s; independent local review converged to
+  `ACTIONABLE FINDINGS: 0`.
+- Exact repository command: `pnpm harness:verify-like-ci`; exit `0`.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-13
+
+**Status upgrade:** verifying → done
+
+- Ordering: PASS — `[GATE-VERIFY] — ✅ PASS | 2026-08-13` is recorded; the spec entered this
+  gate as `status: verifying` under `.agents/spec-docs/active/`.
+- TC-01: PASS — `packages/agent-framework/src/testing/__tests__/execution-claim-functional.test.ts`
+  proves busy refusal, unchanged thinking state, preserved queue, exactly-once settlement, and no
+  `SessionBusyError`. The focused framework command passed 2 files and 10 tests; exit `0`.
+- TC-02: PASS — the named stale-completion regression in
+  `interactive-session-execution-claim.test.ts` proves identity-bound completion; exit `0`.
+- TC-03: PASS — the same claim suite covers all three owner kinds, acquisition failure settlement,
+  synchronous handoff, persistence/listener failure, and callback re-entry. The production
+  single-assignment scan found no match and exited `0`.
+- TC-04: PASS — the real `Session.run()` regression in
+  `approval-wait-honours-abort.test.ts` passed with all 9 focused approval tests; exit `0`.
+- TC-05: PASS — the durable scenario produced all ten recovery observables, `SCENARIO_EXIT=0`, and
+  complete cleanup. Affected package verification and `pnpm harness:verify-like-ci` passed.
+- Test Plan coverage: PASS — every TC has a concrete artifact plus test/describe identity or exact
+  durable-scenario identity; no criterion is skipped.
+- Task readiness: PASS — the linked task has TC-01 through TC-05 checked with no pending or blocked
+  item.
+- User-execution gate: PASS — `[DONE-GATE-STAGE-2]` records direct execution, matched output, exit
+  `0`, and cleanup evidence.
