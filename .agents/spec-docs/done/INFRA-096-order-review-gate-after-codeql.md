@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [async]
 ---
@@ -174,7 +174,7 @@ failure, label reuse, and genuine findings.
 
 ## Tasks
 
-- [x] `.agents/tasks/INFRA-096-order-review-gate-after-codeql.md`
+- [x] `.agents/tasks/completed/INFRA-096-order-review-gate-after-codeql.md`
 
 ## Evidence Log
 
@@ -325,4 +325,74 @@ evidence remains historical and must be superseded by fresh verification.
 - `pnpm harness:scan` passed 109 scans with one intentional skip, exit 0.
 - Fresh `pnpm harness:verify-like-ci` passed 12/12 in 4m16.4s, exit 0. The repository-contract
   tier accounted for 3m42.5s (110 files / 2,241 tests); the hermetic tier took 12.0s.
-- Hosted final-head validation remains the next verification step; no completion claim is made here.
+- Hosted final-head PR #1720 run 31740314620 passed on attempt 1: classify 7s → Analyze 3m16s →
+  review-gate 12s. All nine required checks passed on exact HEAD `dadfcda35`, and the fresh automated
+  review reported `ACTIONABLE FINDINGS: 0`.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** in-progress → verifying
+Fresh independent verification passed the current seven-file suite (173 tests) and full harness scan
+(109 passed, one skipped), both exit 0. The task is 5/5 with no blockers; recorded verify-like-ci is
+12/12. PR #1720 exact HEAD `dadfcda35` run 31740314620 completed on attempt 1 in the required order:
+classify 7s → Analyze 3m16s → review-gate 12s, all success, with disarm skipped.
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-08-14
+
+**Status remains:** verifying
+The reopened completion audit confirmed ordering, all five checked criteria, exact test references,
+and a 5/5 unblocked active task, but correctly rejected the historical pre-reopen per-TC entries.
+Fresh per-TC evidence and a fresh final summary are recorded below.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-14
+
+**Action:** independently ran the seven-file focused Vitest command including
+`review-gate-workflow-order.test.mjs` suite `review-gate waits for same-workflow CodeQL (INFRA-096)`.
+**Observed result:** the suite proved explicit classify → Analyze → review-gate ordering,
+cancellation exclusion, `edited` handling, and separate head/label concurrency lanes; the complete
+focused run passed 173 tests. **Exit code:** 0.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-14
+
+**Action:** the same focused command executed `review-gate-workflow-order.test.mjs` tests
+`rejects same-head old-base, wrong-tool, and wrong-category analysis identities`,
+`executes the checked-in jq identity programs against regenerated and stale merges`, and
+`collects alerts only from the selected immutable analysis identity`, plus classifier and decision suites.
+**Observed result:** ordinary events bind to immutable `github.sha`; label reuse requires equal
+ordered base/head/tree and CodeQL category/tool; open+dismissed counts and every alert instance bind
+to the selected analysis. Stale, malformed, wrong-tool/category, API, and count mismatches fail closed.
+The focused run passed 173 tests. **Exit code:** 0.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-14
+
+**Action:** the focused command executed `review-gate-workflow-order.test.mjs` test
+`keeps standalone CodeQL push-only and removes recovery authority`; `pnpm harness:scan` was rerun.
+**Observed result:** the standalone CodeQL workflow remains push-only with no recovery job,
+`actions: write`, or `gh run rerun`; the harness scan passed 109 scans with one skip.
+**Exit code:** 0 for both commands.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-14
+
+**Action:** the focused command executed workflow-order test `keeps write permissions separated by
+job capability`, `scan-workflow-permissions.test.mjs` suite `the real repository`, and
+`ci-mirror-map.test.mjs` test `every required check on develop is answered for (anti-drift)`.
+**Observed result:** analyzer, gate, and disarm permissions are isolated; the required `review-gate`
+context and develop merge-blocking mapping remain reachable. The focused run passed 173 tests.
+**Exit code:** 0.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-14
+
+**Test skipped:** this criterion is aggregate root verification plus a hosted GitHub workflow
+observation; wrapping the external service in another test would not reproduce hosted behavior.
+**Action:** ran `pnpm harness:verify-like-ci` and observed PR #1720 exact HEAD `dadfcda35` run
+31740314620 plus `gh pr checks 1720 --required` and the fresh automated-review comment.
+**Observed result:** local verification passed 12/12 in 4m16.4s. Hosted execution passed on attempt 1:
+classify 7s → Analyze 3m16s → review-gate 12s, disarm skipped; all nine required checks passed and
+the review reported `ACTIONABLE FINDINGS: 0`. **Exit code:** 0; GitHub conclusions: success.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** verifying → done
+The reopened implementation satisfies TC-01 through TC-05 with fresh current-HEAD evidence, exact
+test references or the explicit hosted-observation skip, a 5/5 task, and no blockers. Archive/status
+mutation remains the post-PASS handoff and has not been performed before this verdict.

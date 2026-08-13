@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-096: order review gate after CodeQL'
-status: in-progress
+status: done
 created: 2026-08-14
+completed: 2026-08-14
 priority: high
 urgency: now
 area: .github/workflows, scripts/harness
@@ -51,10 +52,20 @@ depends_on: []
   checkout on the feature's first run; the workflow performs the API identity projection directly.
 - Final reopened verification passed all 12 `harness:verify-like-ci` stages in 4m16.4s; the dominant
   repository-contract suite took 3m42.5s (110 files / 2,241 tests), while the hermetic tier took 12s.
+- Final PR HEAD `dadfcda35` run 31740314620 passed on attempt 1: classify 7s → Analyze 3m16s →
+  review-gate 12s; all nine required checks are green and the fresh automated review reports
+  `ACTIONABLE FINDINGS: 0`.
 
 ## Blockers
 
 None.
+
+## Result
+
+Done. PR CodeQL and review-gate now run in one ordered DAG without recovery reruns. Ordinary events
+bind to the analyzed event merge SHA; label-only reevaluation safely accepts a regenerated merge only
+when ordered base/head/tree identity matches, and alert payloads are bound to the selected analysis.
+Focused tests, harness scans, verify-like-ci, all required PR checks, and independent review passed.
 
 ## Test Plan
 
