@@ -1,5 +1,5 @@
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readFile, rename, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -8,8 +8,10 @@ import { describe, expect, it } from 'vitest';
 import { classifyTaskFile, findTaskArchivalFindings, main } from '../check-task-archival.mjs';
 import { ADVISORY_MARKER } from '../run-all-scans.mjs';
 
+// allow-missing-artifact-file: this suite creates every Task/spec path inside disposable fixtures.
+
 describe('classifyTaskFile', () => {
-  it('flags an all-checked breakdown whose spec is in spec-docs/done/', () => {
+  it('does not infer terminal lifecycle from checked boxes or a done spec', () => {
     const content = [
       '# PRESET-006: something',
       'Spec: `.agents/spec-docs/done/PRESET-006-foo.md`',
@@ -18,9 +20,9 @@ describe('classifyTaskFile', () => {
       '- [x] TC-02',
     ].join('\n');
     const result = classifyTaskFile(content);
-    expect(result.archivable).toBe(true);
+    expect(result.archivable).toBe(false);
     expect(result.exemptReason).toBeNull();
-    expect(result.reason).toContain('spec-docs/done/');
+    expect(result.reason).toBe('');
   });
 
   it('does not flag when a checkbox is still unchecked', () => {
@@ -60,11 +62,11 @@ describe('classifyTaskFile', () => {
     expect(result.exemptReason).toBe('verification blocked on external dependency');
   });
 
-  it('flags via an explicit Status: completed line even without checkboxes', () => {
+  it('ignores a body-level Status: completed line', () => {
     const content = ['# Task', '- **Status**: completed', 'No checkboxes here.'].join('\n');
     const result = classifyTaskFile(content);
-    expect(result.archivable).toBe(true);
-    expect(result.reason).toBe('Status: completed');
+    expect(result.archivable).toBe(false);
+    expect(result.reason).toBe('');
   });
 
   it('does not flag an in-progress status', () => {
@@ -74,6 +76,10 @@ describe('classifyTaskFile', () => {
 
   it('treats an archival-exempt annotation as an exemption, not a finding', () => {
     const content = [
+      '---',
+      'status: done',
+      'completed: 2026-08-14',
+      '---',
       'Spec: `.agents/spec-docs/done/PRESET-006-foo.md`',
       '<!-- archival-exempt: blocked on dependent task PRESET-099 -->',
       '- [x] TC-01',
@@ -86,6 +92,17 @@ describe('classifyTaskFile', () => {
   it('ignores a file with no checkboxes and no status', () => {
     expect(classifyTaskFile('# Notes\nSome prose, no checkboxes.').archivable).toBe(false);
   });
+
+  it('uses terminal frontmatter as the only archival signal', () => {
+    const content = [
+      '---',
+      'status: done',
+      'completed: 2026-08-14',
+      '---',
+      '- [ ] body state does not override lifecycle',
+    ].join('\n');
+    expect(classifyTaskFile(content)).toMatchObject({ archivable: true, reason: 'status: done' });
+  });
 });
 
 /**
@@ -96,8 +113,21 @@ describe('classifyTaskFile', () => {
  * because the archive is what made the pass look populated.
  */
 describe('the examined count', () => {
-  const ARCHIVABLE = ['Spec: `.agents/spec-docs/done/X-001.md`', '- [x] TC-01'].join('\n');
-  const OPEN = ['Spec: `.agents/spec-docs/active/X-002.md`', '- [ ] TC-01'].join('\n');
+  const ARCHIVABLE = [
+    '---',
+    'status: done',
+    'completed: 2026-08-14',
+    '---',
+    'Spec: `.agents/spec-docs/done/X-001.md`',
+    '- [x] TC-01',
+  ].join('\n');
+  const OPEN = [
+    '---',
+    'status: in-progress',
+    '---',
+    'Spec: `.agents/spec-docs/active/X-002.md`',
+    '- [ ] TC-01',
+  ].join('\n');
 
   async function tasksFixture(files) {
     const root = await mkdtemp(path.join(tmpdir(), 'robota-task-archival-'));
@@ -192,5 +222,252 @@ describe('the examined count', () => {
     } finally {
       chmodSync(archive, 0o755);
     }
+  });
+});
+
+describe('AGREEMENT child lifecycle projections', () => {
+  const childRow = (checked, id, status, taskPath) =>
+    `- [${checked ? 'x' : ' '}] ${id} — ${status} — \`${taskPath}\``;
+
+  async function agreementFixture({
+    children = ['CHILD-001', 'CHILD-002'],
+    taskRows,
+    specRows,
+    parentStatus = 'in-progress',
+    parentCompleted,
+    archivedParent = false,
+    child2Status = 'in-progress',
+  } = {}) {
+    const root = await mkdtemp(path.join(tmpdir(), 'robota-task-agreement-'));
+    const parentDir = archivedParent ? '.agents/tasks/completed' : '.agents/tasks';
+    const specDir = archivedParent ? '.agents/spec-docs/done' : '.agents/spec-docs/active';
+    const parentTask = `${parentDir}/AGREEMENT-900-parent.md`;
+    const parentSpec = `${specDir}/AGREEMENT-900-parent.md`;
+    const child1Path = '.agents/tasks/completed/CHILD-001-done.md';
+    const child2Terminal = ['done', 'wontfix', 'skipped', 'superseded'].includes(child2Status);
+    const child2Path = `${child2Terminal ? '.agents/tasks/completed' : '.agents/tasks'}/CHILD-002-open.md`;
+    const defaultRows = [
+      childRow(true, 'CHILD-001', 'done', child1Path),
+      childRow(child2Terminal, 'CHILD-002', child2Status, child2Path),
+    ];
+    const files = {
+      [parentTask]: [
+        '---',
+        `status: ${parentStatus}`,
+        ...(parentCompleted ? [`completed: ${parentCompleted}`] : []),
+        `children: [${children.join(', ')}]`,
+        '---',
+        '# Parent',
+        '## Children',
+        ...(taskRows ?? defaultRows),
+      ].join('\n'),
+      [parentSpec]: [
+        '---',
+        `status: ${archivedParent ? 'done' : 'in-progress'}`,
+        'type: AGREEMENT',
+        'tags: [test]',
+        '---',
+        '# Parent spec',
+        '## Tasks',
+        ...(specRows ?? defaultRows),
+      ].join('\n'),
+      [child1Path]: '---\nstatus: done\ncompleted: 2026-08-14\n---\n',
+      [child2Path]: [
+        '---',
+        `status: ${child2Status}`,
+        ...(child2Terminal ? ['completed: 2026-08-14'] : []),
+        '---',
+      ].join('\n'),
+    };
+    for (const [relative, content] of Object.entries(files)) {
+      const absolute = path.join(root, relative);
+      mkdirSync(path.dirname(absolute), { recursive: true });
+      writeFileSync(absolute, content, 'utf8');
+    }
+    return root;
+  }
+
+  it('accepts exact one-row projections for done and open children', async () => {
+    const root = await agreementFixture();
+    expect((await findTaskArchivalFindings(root)).findings).toEqual([]);
+  });
+
+  it.each([[[]], [['AGREEMENT-900']], [['CHILD-001', 'CHILD-001']]])(
+    'rejects an invalid children declaration: %j',
+    async (children) => {
+      const root = await agreementFixture({ children });
+      const reasons = (await findTaskArchivalFindings(root)).findings.map((item) => item.reason);
+      expect(reasons.join('\n')).toMatch(/children|self|duplicate/i);
+    },
+  );
+
+  it.each([
+    [
+      'checkbox',
+      [
+        childRow(false, 'CHILD-001', 'done', '.agents/tasks/completed/CHILD-001-done.md'),
+        childRow(false, 'CHILD-002', 'in-progress', '.agents/tasks/CHILD-002-open.md'),
+      ],
+    ],
+    [
+      'status',
+      [
+        childRow(true, 'CHILD-001', 'in-progress', '.agents/tasks/completed/CHILD-001-done.md'),
+        childRow(false, 'CHILD-002', 'in-progress', '.agents/tasks/CHILD-002-open.md'),
+      ],
+    ],
+    [
+      'path',
+      [
+        childRow(true, 'CHILD-001', 'done', '.agents/tasks/CHILD-001-done.md'),
+        childRow(false, 'CHILD-002', 'in-progress', '.agents/tasks/CHILD-002-open.md'),
+      ],
+    ],
+    [
+      'missing row',
+      [childRow(false, 'CHILD-002', 'in-progress', '.agents/tasks/CHILD-002-open.md')],
+    ],
+    [
+      'prefix ID',
+      [
+        childRow(true, 'CHILD-001-P1', 'done', '.agents/tasks/completed/CHILD-001-done.md'),
+        childRow(false, 'CHILD-002', 'in-progress', '.agents/tasks/CHILD-002-open.md'),
+      ],
+    ],
+  ])('rejects a stale %s projection independently', async (_case, taskRows) => {
+    const root = await agreementFixture({ taskRows });
+    const reasons = (await findTaskArchivalFindings(root)).findings
+      .map((item) => item.reason)
+      .join('\n');
+    expect(reasons).toMatch(/CHILD-001/);
+  });
+
+  it.each(['missing', 'wrong-type'])(
+    'cannot disable the relation by making the paired spec %s',
+    async (mode) => {
+      const root = await agreementFixture();
+      const specPath = path.join(root, '.agents/spec-docs/active/AGREEMENT-900-parent.md');
+      if (mode === 'missing') {
+        await unlink(specPath);
+      } else {
+        const content = await readFile(specPath, 'utf8');
+        writeFileSync(specPath, content.replace('type: AGREEMENT', 'type: RULE'));
+      }
+      const reasons = (await findTaskArchivalFindings(root)).findings
+        .map((item) => item.reason)
+        .join('\n');
+      expect(reasons).toMatch(/paired spec|type: AGREEMENT/i);
+    },
+  );
+
+  it('rejects a declared child that cannot be resolved', async () => {
+    const root = await agreementFixture({ children: ['CHILD-001', 'CHILD-404'] });
+    const reasons = (await findTaskArchivalFindings(root)).findings
+      .map((item) => item.reason)
+      .join('\n');
+    expect(reasons).toMatch(/CHILD-404.*exactly one Task/i);
+  });
+
+  it.each(['task', 'spec'])('rejects a duplicate %s pair record', async (kind) => {
+    const root = await agreementFixture();
+    const relative =
+      kind === 'task'
+        ? '.agents/tasks/AGREEMENT-900-duplicate.md'
+        : '.agents/spec-docs/backlog/AGREEMENT-900-duplicate.md';
+    const absolute = path.join(root, relative);
+    mkdirSync(path.dirname(absolute), { recursive: true });
+    writeFileSync(
+      absolute,
+      kind === 'task'
+        ? '---\nstatus: in-progress\n---\n'
+        : '---\nstatus: in-progress\ntype: AGREEMENT\ntags: [test]\n---\n',
+    );
+    const reasons = (await findTaskArchivalFindings(root)).findings
+      .map((item) => item.reason)
+      .join('\n');
+    expect(reasons).toMatch(/exactly one (?:paired )?(?:Task|spec)/i);
+  });
+
+  it('rejects a nested AGREEMENT child', async () => {
+    const root = await agreementFixture();
+    const nested = path.join(root, '.agents/spec-docs/active/CHILD-002-nested.md');
+    writeFileSync(nested, '---\nstatus: in-progress\ntype: AGREEMENT\ntags: [test]\n---\n');
+    const reasons = (await findTaskArchivalFindings(root)).findings
+      .map((item) => item.reason)
+      .join('\n');
+    expect(reasons).toMatch(/nested AGREEMENT child CHILD-002/i);
+  });
+
+  it('rejects a malformed projection row', async () => {
+    const root = await agreementFixture({
+      taskRows: [
+        '- [x] CHILD-001 done `.agents/tasks/completed/CHILD-001-done.md`',
+        childRow(false, 'CHILD-002', 'in-progress', '.agents/tasks/CHILD-002-open.md'),
+      ],
+    });
+    const reasons = (await findTaskArchivalFindings(root)).findings
+      .map((item) => item.reason)
+      .join('\n');
+    expect(reasons).toMatch(/malformed ## Children row/i);
+  });
+
+  it('rejects stale spec-side projection independently', async () => {
+    const root = await agreementFixture({
+      specRows: [
+        childRow(false, 'CHILD-001', 'done', '.agents/tasks/completed/CHILD-001-done.md'),
+        childRow(false, 'CHILD-002', 'in-progress', '.agents/tasks/CHILD-002-open.md'),
+      ],
+    });
+    const reasons = (await findTaskArchivalFindings(root)).findings
+      .map((item) => item.reason)
+      .join('\n');
+    expect(reasons).toMatch(/Tasks CHILD-001 row is stale/i);
+  });
+
+  it('rejects a child with a malformed terminal date', async () => {
+    const root = await agreementFixture();
+    const child = path.join(root, '.agents/tasks/completed/CHILD-001-done.md');
+    writeFileSync(child, '---\nstatus: done\ncompleted: 2026-02-30\n---\n');
+    const reasons = (await findTaskArchivalFindings(root)).findings
+      .map((item) => item.reason)
+      .join('\n');
+    expect(reasons).toMatch(/CHILD-001 has invalid lifecycle/i);
+  });
+
+  it('rejects parent projections left stale after child archival', async () => {
+    const root = await agreementFixture();
+    const source = path.join(root, '.agents/tasks/CHILD-002-open.md');
+    const target = path.join(root, '.agents/tasks/completed/CHILD-002-open.md');
+    writeFileSync(source, '---\nstatus: done\ncompleted: 2026-08-14\n---\n');
+    await rename(source, target);
+    const reasons = (await findTaskArchivalFindings(root)).findings
+      .map((item) => item.reason)
+      .join('\n');
+    expect(reasons).toMatch(/CHILD-002 row is stale/i);
+  });
+
+  it.each(['in-progress', 'wontfix', 'skipped', 'superseded'])(
+    'rejects successful parent done while a child is %s',
+    async (child2Status) => {
+      const root = await agreementFixture({
+        parentStatus: 'done',
+        parentCompleted: '2026-08-14',
+        child2Status,
+      });
+      const reasons = (await findTaskArchivalFindings(root)).findings
+        .map((item) => item.reason)
+        .join('\n');
+      expect(reasons).toMatch(/parent.*done|all.*done/i);
+    },
+  );
+
+  it('validates archived AGREEMENT parents too', async () => {
+    const root = await agreementFixture({
+      archivedParent: true,
+      parentStatus: 'done',
+      parentCompleted: '2026-08-14',
+      child2Status: 'done',
+    });
+    expect((await findTaskArchivalFindings(root)).findings).toEqual([]);
   });
 });

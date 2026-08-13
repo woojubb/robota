@@ -7,7 +7,8 @@ description: Track work using task files in .agents/tasks/. Use when starting, p
 
 ## Rule Anchor
 
-- `AGENTS.md` > "Harness Operating Model"
+- [backlog-execution.md](../../rules/backlog-execution.md) — Completion Steps and Status Invariants
+- [`.agents/tasks/README.md`](../../tasks/README.md) — Task schema and lifecycle vocabulary
 
 ## Use This Skill When
 
@@ -27,12 +28,16 @@ description: Track work using task files in .agents/tasks/. Use when starting, p
 ## Task File Format
 
 ```markdown
-# <Task Title>
-
-- **Status**: todo | in-progress | blocked | completed
-- **Created**: YYYY-MM-DD
-- **Branch**: feat/xxx (if applicable)
-- **Scope**: packages/foo, apps/bar
+---
+title: '<ID>: <Task title>'
+status: todo | in-progress | blocked | done | wontfix | skipped | superseded
+created: YYYY-MM-DD
+completed: YYYY-MM-DD # terminal statuses only
+priority: high
+urgency: now
+area: <scope>
+depends_on: []
+---
 
 ## Objective
 
@@ -84,45 +89,34 @@ What this task aims to achieve (1-3 sentences).
 
 ### Completing a Task
 
-7. Set status to `completed`.
+7. Set frontmatter status to the correct terminal value and add `completed: YYYY-MM-DD`.
 8. Fill the Result section with a summary and any follow-up items.
 9. Move the file to `completed/` with `git mv`:
    ```bash
    git mv .agents/tasks/<task-name>.md .agents/tasks/completed/<task-name>.md
    ```
-10. Commit the move **in the same commit as the work it tracks** — never leave a
-    done task file in the active directory across a commit boundary.
+10. Update every declaring AGREEMENT Task `## Children` row and paired spec `## Tasks` row.
+11. Commit the status, move, and parent projections **in the same commit as the work it tracks**.
 
 ### Archival Timing (when exactly to move) — enforced
 
-A task file is **done and must be archived** the moment **either** holds:
-
-- it carries a `Status: completed` line, **or**
-- every checkbox is checked (zero `- [ ]`) **and** its `Spec:` pointer references
-  `.agents/spec-docs/done/` (the spec has shipped).
+A task file is terminal and must be archived when its YAML frontmatter status is `done`, `wontfix`,
+`skipped`, or `superseded`. Body prose and checkbox state never declare lifecycle. Every terminal
+status requires `completed: YYYY-MM-DD`.
 
 Archive in the **same commit** that completes the work. This is enforced by the
 `task-archival` harness scan (`pnpm harness:scan:task-archival`, part of
 `pnpm harness:scan`): a done task file left in `.agents/tasks/` fails the scan.
 The SessionStart/Stop hooks flag the same files as `DONE, needs archival`.
 
-If a complete file must stay active (e.g. blocked on a dependent task), add one
-line to exempt it explicitly — do not silently leave it:
-
-```markdown
-<!-- archival-exempt: blocked on dependent task <ID> -->
-```
-
-> The two task formats — this skill's `Status:` form and the backlog-execution
-> "Task Breakdown" form (a `Spec:` pointer + `## Plan` checkboxes) — are both
-> recognized by the scan and hooks. Whichever you use, the archival signal and
-> timing above apply.
+The shared classifier is `scripts/harness/task-lifecycle.mjs`; placement, archival, and the session
+hook must consume it rather than implementing their own status regex.
 
 ### Resuming a Task
 
-11. Check `.agents/tasks/` for active task files.
-12. Read the task file to restore context.
-13. Continue from the last progress entry.
+12. Check `.agents/tasks/` for active task files.
+13. Read the task file to restore context.
+14. Continue from the last progress entry.
 
 ## Naming Convention
 

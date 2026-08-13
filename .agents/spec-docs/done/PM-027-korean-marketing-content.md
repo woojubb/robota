@@ -62,7 +62,7 @@ GeekNews 포스트, velog 기술 블로그 포스트, okky 공유 콘텐츠 작�
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/PM-027.md` — 완료 (GATE-COMPLETE 통과)
+- [x] MKT-001 — done — `.agents/tasks/completed/MKT-001-community-and-blog-content.md`
 
 ## Evidence Log
 

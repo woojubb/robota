@@ -6,6 +6,21 @@ priority: critical
 urgency: now
 area: cross-cutting ARCH, DAG, and RUNTIME initiative
 depends_on: []
+children:
+  [
+    ARCH-009,
+    ARCH-010,
+    ARCH-011,
+    ARCH-012,
+    ARCH-013,
+    DAG-001,
+    DAG-004,
+    RUNTIME-002,
+    RUNTIME-003,
+    RUNTIME-004,
+    RUNTIME-005,
+    RUNTIME-006,
+  ]
 ---
 
 # AGREEMENT-001: ARCH, DAG, and RUNTIME completion initiative
@@ -23,19 +38,28 @@ evidence.
 
 ## Plan
 
-- [ ] TC-01: complete ARCH-009 instance preset-registry ownership and product isolation.
-- [x] TC-02: complete ARCH-010 trusted DAG execution-root propagation and containment.
-- [ ] TC-03: complete ARCH-012 session/command capability decomposition, then ARCH-011 six-transport conformance.
-- [ ] TC-04: complete ARCH-013 option reachability and projection across every product surface.
-- [x] TC-05: complete DAG-001 recovery adapter matrix and durable executable scenario evidence.
-- [ ] TC-06: complete DAG-004 canonical validation at every external definition import boundary.
-- [ ] TC-07: complete RUNTIME-002 headless bootstrap, artifact, and agent-app packaging migration.
-- [ ] TC-08: complete RUNTIME-003 single DAG advancement ownership while retaining turn identity proofs.
-- [ ] TC-09: complete RUNTIME-004 end-to-end DAG cancellation while retaining compaction proofs.
-- [ ] TC-10: complete RUNTIME-005 approval cancellation and single interactive execution-state ownership.
-- [ ] TC-11: complete RUNTIME-006 required, unforgeable turn settlement identity.
-- [ ] TC-12: run and record each source Task's engineering and user-execution evidence, then archive it atomically.
-- [ ] TC-13: pass architecture conformance and CI-equivalent initiative verification.
+- [ ] Preserve the approved dependency order while each source Task runs through its own gates.
+- [ ] Audit the source Tasks' engineering and user-execution evidence against the agreement criteria.
+- [ ] Pass architecture conformance and CI-equivalent verification over the assembled initiative.
+- [ ] Close and archive this initiative only after every required child is `done`.
+
+These Plan rows are initiative-level work, not a second child lifecycle ledger. The canonical child
+projection is the section below.
+
+## Children
+
+- [ ] ARCH-009 — todo — `.agents/tasks/ARCH-009-preset-registry-through-command-host.md`
+- [x] ARCH-010 — done — `.agents/tasks/completed/ARCH-010-execution-root-carried-by-no-contract.md`
+- [ ] ARCH-011 — in-progress — `.agents/tasks/ARCH-011-transport-adapter-is-a-lifecycle-stub.md`
+- [ ] ARCH-012 — in-progress — `.agents/tasks/ARCH-012-interactive-session-god-contract.md`
+- [ ] ARCH-013 — in-progress — `.agents/tasks/ARCH-013-preset-to-session-options-projection-has-no-owner.md`
+- [x] DAG-001 — done — `.agents/tasks/completed/DAG-001-running-is-a-terminal-trap.md`
+- [ ] DAG-004 — todo — `.agents/tasks/DAG-004-eight-cli-commands-open-code-the-import-adapter.md`
+- [ ] RUNTIME-002 — todo — `.agents/tasks/RUNTIME-002-headless-only-bun-runtime-entry.md`
+- [x] RUNTIME-003 — done — `.agents/tasks/completed/RUNTIME-003-no-turn-or-run-identity.md`
+- [ ] RUNTIME-004 — in-progress — `.agents/tasks/RUNTIME-004-cancellation-declared-at-four-layers-honoured-at-none.md`
+- [x] RUNTIME-005 — done — `.agents/tasks/completed/RUNTIME-005-a-turn-parked-on-approval-is-not-cancellable.md`
+- [x] RUNTIME-006 — done — `.agents/tasks/completed/RUNTIME-006-turn-identity-is-optional-in-four-places.md`
 
 ## Test Plan
 

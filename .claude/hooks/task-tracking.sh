@@ -6,11 +6,7 @@
 #   start (SessionStart): list active tasks and inject context, flagging DONE ones.
 #   stop  (Stop):         detect DONE-but-active task files and instruct archival.
 #
-# "Done" is detected the same way the harness enforces it
-# (scripts/harness/check-task-archival.mjs): a task is archivable when its
-# Status is completed, OR every checkbox is checked and its Spec points into
-# spec-docs/done/. A `**Status**` grep alone is blind to the task-breakdown
-# format, so it is not used as the completion signal.
+# Lifecycle is read only from Task YAML frontmatter by the shared classifier.
 
 set -euo pipefail
 
@@ -35,6 +31,7 @@ fi
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 TASKS_DIR="$PROJECT_DIR/.agents/tasks"
+HOOK_REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 
 # --- Open GitHub issues ---------------------------------------------------------------------------
 #
@@ -225,22 +222,16 @@ if [[ ! -d "$TASKS_DIR" ]]; then
   exit 0
 fi
 
-# Classify a single task file: prints "done" if archivable, else "active".
+# Classify a single task file through the same executable owner as the harness scans.
 classify_task() {
   local file="$1"
-  if grep -qiE 'status\*{0,2}[[:space:]]*:[[:space:]]*completed' "$file"; then
-    echo "done"
-    return
-  fi
-  local unchecked checked spec_done
-  unchecked=$(grep -cE '^[[:space:]]*[-*][[:space:]]+\[ \]' "$file" || true)
-  checked=$(grep -cE '^[[:space:]]*[-*][[:space:]]+\[[xX]\]' "$file" || true)
-  spec_done=$(grep -ciE '^[[:space:]]*Spec:.*spec-docs/done/' "$file" || true)
-  if [[ "$unchecked" -eq 0 && "$checked" -gt 0 && "$spec_done" -gt 0 ]]; then
-    echo "done"
-  else
-    echo "active"
-  fi
+  local lifecycle
+  lifecycle=$(node "$HOOK_REPO_ROOT/scripts/harness/task-lifecycle.mjs" classify "$file") || true
+  case "$lifecycle" in
+    terminal) echo "done" ;;
+    open) echo "active" ;;
+    *) echo "invalid" ;;
+  esac
 }
 
 # Collect active (non-README) task files
@@ -265,6 +256,8 @@ if [[ "$MODE" == "start" ]]; then
     if [[ "$STATE" == "done" ]]; then
       echo "  - $task — DONE, needs archival to completed/"
       DONE_COUNT=$((DONE_COUNT + 1))
+    elif [[ "$STATE" == "invalid" ]]; then
+      echo "  - $task — INVALID lifecycle frontmatter (run harness:scan)"
     else
       echo "  - $task — in progress"
     fi
@@ -279,24 +272,37 @@ fi
 # MODE == stop: only genuinely-done files are called out, so the reminder is
 # actionable rather than a blanket nag.
 DONE_TASKS=()
+INVALID_TASKS=()
 for task in "${ACTIVE_TASKS[@]}"; do
-  if [[ "$(classify_task "$TASKS_DIR/$task")" == "done" ]]; then
+  STATE=$(classify_task "$TASKS_DIR/$task")
+  if [[ "$STATE" == "done" ]]; then
     DONE_TASKS+=("$task")
+  elif [[ "$STATE" == "invalid" ]]; then
+    INVALID_TASKS+=("$task")
   fi
 done
 
-if [[ ${#DONE_TASKS[@]} -eq 0 ]]; then
+if [[ ${#DONE_TASKS[@]} -eq 0 && ${#INVALID_TASKS[@]} -eq 0 ]]; then
   exit 0
 fi
 
-echo "ACTION REQUIRED — DONE task files still in .agents/tasks/ (not archived):"
-for task in "${DONE_TASKS[@]}"; do
-  echo "  - $task"
-done
-echo ""
-echo "Archive each in the SAME commit as its work (the harness 'task-archival' scan fails otherwise):"
-echo "  git mv .agents/tasks/<name>.md .agents/tasks/completed/<name>.md"
-echo "If a file must stay active despite being complete, add a line:"
-echo "  <!-- archival-exempt: <reason> -->"
+if [[ ${#INVALID_TASKS[@]} -gt 0 ]]; then
+  echo "ACTION REQUIRED — invalid Task lifecycle frontmatter:"
+  for task in "${INVALID_TASKS[@]}"; do
+    echo "  - $task"
+  done
+  echo "Run pnpm harness:scan and correct the YAML frontmatter status/date before stopping."
+  echo ""
+fi
+
+if [[ ${#DONE_TASKS[@]} -gt 0 ]]; then
+  echo "ACTION REQUIRED — DONE task files still in .agents/tasks/ (not archived):"
+  for task in "${DONE_TASKS[@]}"; do
+    echo "  - $task"
+  done
+  echo ""
+  echo "Archive each in the SAME commit as its work and update every declaring AGREEMENT rollup:"
+  echo "  git mv .agents/tasks/<name>.md .agents/tasks/completed/<name>.md"
+fi
 
 exit 0
