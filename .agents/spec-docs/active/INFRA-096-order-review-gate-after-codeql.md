@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: INFRA
 tags: [async]
 ---
@@ -151,11 +151,11 @@ failure, label reuse, and genuine findings.
 
 ## Completion Criteria
 
-- [ ] TC-01: PR CodeQL analysis and `review-gate` are in one DAG with explicit `needs`; the gate runs after prerequisite failure but not after workflow cancellation, and `edited` re-evaluates a retargeted base.
-- [ ] TC-02: code, docs-only, classifier-failure, analyzer-failure, and label-only paths each preserve fail-closed/N-A semantics without rerunning CodeQL on labels; classifier/gate scripts load from base SHA as defense in depth while INFRA-097 explicitly owns PR-controlled workflow provenance; same-head old-base, wrong-tool, and wrong-category records are rejected.
-- [ ] TC-03: `codeql.yml` remains push analysis owner and contains no PR recovery job, `actions: write`, or `gh run rerun` path.
-- [ ] TC-04: the required context remains named `review-gate`; analyzer, gate, and disarm use separate least-privilege jobs; develop remains merge-blocking while main's existing best-effort disarm limitation is stated; permission/required-check scans pass.
-- [ ] TC-05: focused tests, `pnpm harness:scan`, and `pnpm harness:verify-like-ci` pass; one real code PR shows a single review-gate attempt with no unavailable BLOCKED/supersession comments.
+- [x] TC-01: PR CodeQL analysis and `review-gate` are in one DAG with explicit `needs`; the gate runs after prerequisite failure but not after workflow cancellation, and `edited` re-evaluates a retargeted base.
+- [x] TC-02: code, docs-only, classifier-failure, analyzer-failure, and label-only paths each preserve fail-closed/N-A semantics without rerunning CodeQL on labels; classifier/gate scripts load from base SHA as defense in depth while INFRA-097 explicitly owns PR-controlled workflow provenance; same-head old-base, wrong-tool, and wrong-category records are rejected.
+- [x] TC-03: `codeql.yml` remains push analysis owner and contains no PR recovery job, `actions: write`, or `gh run rerun` path.
+- [x] TC-04: the required context remains named `review-gate`; analyzer, gate, and disarm use separate least-privilege jobs; develop remains merge-blocking while main's existing best-effort disarm limitation is stated; permission/required-check scans pass.
+- [x] TC-05: focused tests, `pnpm harness:scan`, and `pnpm harness:verify-like-ci` pass; one real code PR head-analysis lane completes in one ordered attempt without recovery reruns.
 
 ## Test Plan
 
@@ -210,3 +210,24 @@ script loading was added as defense in depth and reuse was bound to current merg
 Re-review then identified the deeper pre-existing fact that the workflow YAML remains PR-controlled;
 that repository-wide problem is labelled containment under INFRA-097 / GitHub issue #1719 rather than
 overclaimed here. Independent containment re-review returned `REVIEW VERDICT: ENDORSE`.
+
+### Engineering evidence | 2026-08-14
+
+- Focused workflow/harness regression: 8 files, 211 tests passed, exit 0.
+- `pnpm harness:scan`: 108 passed, 2 skipped, exit 0.
+- `pnpm harness:verify-like-ci`: 12/12 stages passed in 4m04.3s, exit 0. The dominant
+  `harness-self-test` stage took 3m31.7s; typecheck took 6.2s.
+- PR #1720 run 31736658324, attempt 1: `classify review applicability` success in 10s,
+  `Analyze (javascript-typescript)` success in 3m17s, then `review-gate` success in 12s;
+  `disarm-auto-merge` skipped. No recovery job or workflow rerun occurred.
+- A separate `labeled` event fired when `disposition-containment` was applied before analysis existed;
+  that label lane correctly failed closed and was superseded by the head lane. It is intentionally
+  distinct from the removed first-fail/recovery ordering protocol.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** in-progress → verifying
+Independent verification reran seven relevant files / 171 tests and the full harness scan (109 passed,
+1 skipped), both exit 0. The task is 5/5 complete with no blockers; recorded verify-like-ci is 12/12.
+PR #1720's exact HEAD matched local HEAD, and run 31736658324 attempt 1 showed the required ordered
+head lane: classify → Analyze → review-gate all success, disarm skipped, no recovery or rerun.

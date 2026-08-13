@@ -14,11 +14,11 @@ depends_on: []
 
 ## Plan
 
-- [ ] TC-01 — Put PR classification, CodeQL analysis, and review-gate in one ordered DAG with retarget-safe triggers.
-- [ ] TC-02 — Preserve docs-only/failure/cancellation semantics with trusted-base governance and current-merge label identity.
-- [ ] TC-03 — Keep `codeql.yml` push-only and remove recovery/rerun/write authority.
-- [ ] TC-04 — Enforce job-local least privilege, required context identity, and isolated disarm.
-- [ ] TC-05 — Run focused/full verification and observe one real PR without transient unavailable comments.
+- [x] TC-01 — Put PR classification, CodeQL analysis, and review-gate in one ordered DAG with retarget-safe triggers.
+- [x] TC-02 — Preserve docs-only/failure/cancellation semantics with base-SHA defense in depth and current-merge label identity.
+- [x] TC-03 — Keep `codeql.yml` push-only and remove recovery/rerun/write authority.
+- [x] TC-04 — Enforce job-local least privilege, required context identity, and isolated disarm.
+- [x] TC-05 — Run focused/full verification and observe one real PR's head-analysis lane without a recovery rerun.
 
 ## Progress
 
@@ -32,6 +32,12 @@ depends_on: []
   PR-controlled workflow provenance gap was contained under INFRA-097 rather than claimed as solved.
 - RED workflow-order tests failed against the separate/untrusted/head-only design; the revised seven
   structural cases and the broader focused suites are GREEN.
+- Post-format focused verification passed 211 tests; `pnpm harness:scan` passed 108 scans with two
+  intentional skips; `pnpm harness:verify-like-ci` passed 12/12 stages in 4m04.3s.
+- PR #1720 head-analysis run 31736658324 completed on attempt 1: classify 10s → Analyze 3m17s →
+  review-gate 12s, all success; disarm skipped and no recovery/rerun job exists. The independently
+  triggered pre-analysis containment-label lane correctly failed closed, then the ordered head lane
+  superseded it; it is not an ordering-race retry.
 
 ## Blockers
 
