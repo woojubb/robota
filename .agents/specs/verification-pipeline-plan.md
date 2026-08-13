@@ -73,11 +73,14 @@ If a future implementation cannot meet these targets for a common change class, 
 
 ## Verification Evidence Reuse and Single Ownership (INFRA-091)
 
-Routine verification has one substantive owner per check. The required `scans` job owns the complete
-harness test suite; `quality` owns affected package checks and must not rediscover that suite as a
-repository check. The local CI-equivalent command follows the same graph: its harness-self-test stage
-owns the suite, and its affected stage reuses that result. Standalone `harness:verify` retains every
-repository check unless its caller names an already-covered check explicitly; unknown omissions fail.
+Routine verification has one substantive owner per check. The required `scans` job owns both harness
+self-test tiers: repository-contract tests always run, while only a conservatively allowlisted tier
+proven in a stripped repository is gated by the canonical `harness` changed-path capability. The
+`quality` job owns affected package checks and must not rediscover either tier as a repository check.
+The local CI-equivalent and pre-push commands consume the same classifier verdict and skip only the
+hermetic tier after an explicit `harness=false`; missing or failed classification runs both tiers.
+Standalone `harness:verify` retains every repository check unless its caller names an already-covered
+check explicitly; unknown omissions fail. Release-grade verification retains the complete suite.
 
 A completed CI-equivalent local gate may satisfy the weaker pre-push gate only through an exact
 verification receipt. A receipt is created only for a full successful stage set on a clean tracked

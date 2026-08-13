@@ -142,7 +142,8 @@ describe('repository-check ownership', () => {
     expect(localGate).toContain("'--skip-typecheck'");
     expect(prePushGate).toContain("'--skip-repository-check',\n        'harness-tests'");
     expect(localGate.match(/'harness-self-test'/g)).not.toHaveLength(0);
-    expect(prePushGate).toContain("['pnpm', ['harness:test']]");
+    expect(prePushGate).toContain("['pnpm', ['harness:test:contracts']]");
+    expect(prePushGate).toContain("['pnpm', ['harness:test:hermetic']]");
   });
 });
 

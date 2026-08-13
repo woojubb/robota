@@ -66,7 +66,28 @@ export function isDocsOnlyPath(file) {
 const INFRASTRUCTURE_ONLY_PATTERN = /^(scripts\/harness\/|\.github\/|\.husky\/|\.claude\/)/;
 
 function failClosedCapabilities(reason) {
-  return { code: true, product: true, tui: true, examples: true, reason };
+  return { code: true, product: true, tui: true, examples: true, harness: true, reason };
+}
+
+const HARNESS_OWNER_FILES = new Set([
+  '.agents/harness.config.json',
+  '.npmrc',
+  'package.json',
+  'pnpm-lock.yaml',
+  'vitest.config.ts',
+  'vitest.shared.ts',
+]);
+
+/** Whether one repository-relative path can change the harness implementation or its execution. */
+export function isHarnessOwnerPath(file) {
+  const normalized = String(file ?? '')
+    .trim()
+    .replaceAll('\\', '/');
+  return (
+    normalized.startsWith('scripts/harness/') ||
+    normalized.startsWith('.github/workflows/') ||
+    HARNESS_OWNER_FILES.has(normalized)
+  );
 }
 
 /**
@@ -82,6 +103,7 @@ export function classifyFiles(files) {
       'no changed files could be resolved — classifying as CODE so nothing is skipped.',
     );
   }
+  const harness = changed.some(isHarnessOwnerPath);
   const codeFiles = changed.filter((file) => !isDocsOnlyPath(file));
   if (codeFiles.length === 0) {
     return {
@@ -89,6 +111,7 @@ export function classifyFiles(files) {
       product: false,
       tui: false,
       examples: false,
+      harness,
       reason: 'docs-only PR: no analyzable code changed.',
     };
   }
@@ -99,6 +122,7 @@ export function classifyFiles(files) {
     product,
     tui: product,
     examples: product,
+    harness,
     reason: product
       ? `product changes present: product matrix runs (${codeFiles.length} code file(s)).`
       : `infrastructure-only changes: product matrix is not applicable (${codeFiles.length} code file(s)).`,
@@ -193,11 +217,12 @@ export function main(argv = process.argv.slice(2), write = (text) => process.std
   write(`product=${result.product}\n`);
   write(`tui=${result.tui}\n`);
   write(`examples=${result.examples}\n`);
+  write(`harness=${result.harness}\n`);
 
   if (process.env.GITHUB_OUTPUT) {
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `code=${result.code}\nproduct=${result.product}\ntui=${result.tui}\nexamples=${result.examples}\n`,
+      `code=${result.code}\nproduct=${result.product}\ntui=${result.tui}\nexamples=${result.examples}\nharness=${result.harness}\n`,
     );
   }
   return result;
