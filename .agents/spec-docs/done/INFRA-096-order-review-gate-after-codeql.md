@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: done
 type: INFRA
 tags: [async]
 ---
@@ -159,17 +159,17 @@ failure, label reuse, and genuine findings.
 
 ## Test Plan
 
-| TC-ID | Test Type                          | Tool / Approach                                                              | Notes                                                                                                                                                                                                   |
-| ----- | ---------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Workflow contract                  | Parsed workflow structure test                                               | Assert `needs`, `!cancelled()`, `edited`, exact job name, and concurrency lanes.                                                                                                                        |
-| TC-02 | Adversarial matrix                 | `review-gate-workflow-order.test.mjs` + classifier/`check-review-gate` tests | Assert base-SHA script loading as bounded defense in depth and explicit INFRA-097 containment; reject same-head old-base, wrong-tool, wrong-category, missing, and failed records; no second path list. |
-| TC-03 | Permission/source contract         | Parsed `codeql.yml` and permission scan                                      | No PR trigger, recovery job, rerun, or actions write.                                                                                                                                                   |
-| TC-04 | Security/required-check regression | Existing disarm, workflow permission, and required-check suites              | Analyzer holds only SARIF upload authority; gate holds only PR-comment write; disarm's contents/PR write remains isolated from checkout.                                                                |
-| TC-05 | Engineering/live smoke             | Root verification plus exact-PR-revision observation                         | Record commands, counts, single-attempt/comment evidence.                                                                                                                                               |
+| TC-ID | Test Type                          | Tool / Approach                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Notes                                                                                                                                    |
+| ----- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Workflow contract                  | `scripts/harness/__tests__/review-gate-workflow-order.test.mjs` > `review-gate waits for same-workflow CodeQL (INFRA-096)` > `orders classify then analyze then the required review-gate context`; `handles base retargeting and separates label reevaluation from head analysis concurrency`                                                                                                                                                                                                               | Assert `needs`, `!cancelled()`, `edited`, exact job name, and concurrency lanes.                                                         |
+| TC-02 | Adversarial matrix                 | `scripts/harness/__tests__/review-gate-workflow-order.test.mjs` > `review-gate waits for same-workflow CodeQL (INFRA-096)` > `loads governance scripts from base SHA and records the workflow-provenance containment`; `rejects same-head old-base, wrong-tool, and wrong-category analysis identities`; `scripts/harness/__tests__/classify-changed-paths.test.mjs` > `the classifier owns the docs-only set`; `scripts/harness/__tests__/check-review-gate.test.mjs` > `not-applicable (no code changed)` | Assert bounded base-SHA defense in depth and INFRA-097 containment; reject stale/malformed/unavailable records; no second path list.     |
+| TC-03 | Permission/source contract         | `scripts/harness/__tests__/review-gate-workflow-order.test.mjs` > `review-gate waits for same-workflow CodeQL (INFRA-096)` > `keeps standalone CodeQL push-only and removes recovery authority`                                                                                                                                                                                                                                                                                                             | No PR trigger, recovery job, rerun, or actions write.                                                                                    |
+| TC-04 | Security/required-check regression | `scripts/harness/__tests__/review-gate-workflow-order.test.mjs` > `review-gate waits for same-workflow CodeQL (INFRA-096)` > `keeps write permissions separated by job capability`; `scripts/harness/__tests__/scan-workflow-permissions.test.mjs` > `the real repository`; `scripts/harness/__tests__/ci-mirror-map.test.mjs` > `every required check on develop is answered for (anti-drift)`                                                                                                             | Analyzer holds only SARIF upload authority; gate holds only PR-comment write; disarm's contents/PR write remains isolated from checkout. |
+| TC-05 | Engineering/live smoke             | **Test skipped:** this criterion is an aggregate root-verification and live GitHub workflow observation; wrapping the external Actions run in another automated test would not reproduce the hosted service.                                                                                                                                                                                                                                                                                                | Record commands, counts, single-attempt/comment evidence.                                                                                |
 
 ## Tasks
 
-- [x] `.agents/tasks/INFRA-096-order-review-gate-after-codeql.md`
+- [x] `.agents/tasks/completed/INFRA-096-order-review-gate-after-codeql.md`
 
 ## Evidence Log
 
@@ -231,3 +231,70 @@ Independent verification reran seven relevant files / 171 tests and the full har
 1 skipped), both exit 0. The task is 5/5 complete with no blockers; recorded verify-like-ci is 12/12.
 PR #1720's exact HEAD matched local HEAD, and run 31736658324 attempt 1 showed the required ordered
 head lane: classify → Analyze → review-gate all success, disarm skipped, no recovery or rerun.
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-08-14
+
+**Status remains:** verifying
+The first completion audit found no per-TC `[GATE-COMPLETE: TC-N]` entries. TC-01 through TC-04
+also lacked exact file-plus-suite references, and TC-05 lacked either a test reference or an explicit
+skip reason. The Test Plan and per-TC evidence below repair each listed defect before re-review.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-14
+
+**Action:** `pnpm exec vitest run scripts/harness/__tests__/review-gate-workflow-order.test.mjs`
+and the broader focused seven-file gate run.
+**Observed result:** the parsed workflow suite proved explicit classify → Analyze → review-gate
+ordering, cancellation exclusion, `edited` handling, and separate concurrency lanes; the focused
+run passed 171 tests. **Exit code:** 0.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-14
+
+**Action:** the same focused run executed `review-gate-workflow-order.test.mjs`,
+`classify-changed-paths.test.mjs`, and `check-review-gate.test.mjs`.
+**Observed result:** base-SHA loading and INFRA-097 containment were present; same-head old-base,
+wrong-tool, wrong-category, unavailable, failed, and non-docs classifications were rejected
+fail-closed while docs-only remained N/A. **Exit code:** 0.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-14
+
+**Action:** `pnpm exec vitest run scripts/harness/__tests__/review-gate-workflow-order.test.mjs`
+plus `pnpm harness:scan`.
+**Observed result:** the standalone CodeQL workflow was push-only and the structural test found no
+PR trigger, recovery job, `actions: write`, or `gh run rerun`; the independent scan passed 109 scans
+with one intentional skip. **Exit code:** 0.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-14
+
+**Action:** the focused run executed the workflow-order, workflow-permission, disarm, and
+required-check mapping suites.
+**Observed result:** analyzer, gate, and disarm permissions remained job-local; the required
+`review-gate` context and develop merge-blocking mapping remained reachable; all 171 focused tests
+passed. **Exit code:** 0.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-14
+
+**Action:** `pnpm harness:verify-like-ci` and live observation of PR #1720 run `31736658324`,
+attempt 1, at implementation HEAD `72551fa8f`.
+**Observed result:** local verification passed 12/12 stages in 4m04.3s; the hosted head lane ran
+classify (10s) → Analyze (3m17s) → review-gate (12s), all success, with disarm skipped and no
+recovery job or rerun. **Exit code:** 0 for the local command; GitHub run conclusion: success.
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-08-14
+
+**Status remains:** verifying
+The second completion audit confirmed every per-TC criterion and test disposition, but found the
+catalogue-required final summary entry absent. The summary below repairs that sole remaining defect.
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-08-14
+
+**Status remains:** verifying
+The third completion audit found the final PASS summary substantively complete but missing the
+mandatory `Status upgrade: verifying → done` line. This failed audit is retained as the ordering
+record before the repaired PASS below.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** verifying → done
+TC-01 through TC-05 are checked and each has exact verification evidence plus an exact test
+reference or explicit skip reason. The active task is 5/5 complete with no blockers, and the prior
+GATE-VERIFY PASS is recorded. Status/folder transition and task archival remain the post-PASS handoff.

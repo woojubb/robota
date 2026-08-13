@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-096: order review gate after CodeQL'
-status: in-progress
+status: done
 created: 2026-08-14
+completed: 2026-08-14
 priority: high
 urgency: now
 area: .github/workflows, scripts/harness
@@ -10,7 +11,7 @@ depends_on: []
 
 # INFRA-096: order review gate after CodeQL
 
-**Spec:** [active design](../spec-docs/active/INFRA-096-order-review-gate-after-codeql.md)
+**Spec:** [completed design](../../spec-docs/done/INFRA-096-order-review-gate-after-codeql.md)
 
 ## Plan
 
@@ -56,3 +57,10 @@ None.
 Not applicable — this changes internal GitHub Actions orchestration and merge governance, not a
 shipped CLI, TUI, browser, application, or public SDK behavior. Exact-head PR observations belong
 to engineering verification.
+
+## Result
+
+PR CodeQL analysis and the required review gate now run in one ordered workflow DAG. The previous
+first-fail/recovery rerun and its `actions: write` authority are gone; docs-only, label-only,
+retargeting, current-merge identity, and fail-closed error paths remain covered. The broader trusted
+workflow-provenance gap is explicitly contained under INFRA-097 / GitHub issue #1719.
