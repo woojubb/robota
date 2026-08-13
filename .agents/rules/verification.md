@@ -113,8 +113,10 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
   Working Tree Before Every Commit and Push. What it runs is owned there; it reports which required
   contexts it could not run. Do not substitute a hand-written list of those commands: a second list
   is what drifts.
-- For release prep — a promotion to `main` — run `pnpm harness:verify:release`, which is what the
-  `release-grade verification` required check executes.
+- For release prep — a promotion to `main` — the protected PR's `release-grade verification`
+  required check runs `pnpm harness:verify:release` as the sole automatic content-verification
+  owner. The same root command remains available as an explicit local diagnostic; `promote.mjs`
+  does not duplicate it before the PR.
 - If any stage fails, fix the issue before proceeding.
 - The harness results must be reported with counts (total tests, failures, build status).
 - This is a blocking gate — no merge to `main` or `release/*` without harness pass.

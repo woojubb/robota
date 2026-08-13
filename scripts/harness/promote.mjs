@@ -30,7 +30,6 @@
  * requires explicit user approval (`.agents/rules/git-branch.md`). It prints the exact next commands.
  */
 
-import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 import { ADOPTION_BASELINE, evaluatePromotion, runGit } from './scan-promotion-ancestry.mjs';
@@ -59,13 +58,11 @@ export async function main({
   cwd = WORKSPACE_ROOT,
   out = (text) => process.stdout.write(text),
   fetch: shouldFetch = true,
-  spawn = spawnSync,
-  env = process.env,
+  runGitImpl = runGit,
 } = {}) {
-  const git = (args) => runGit(args, cwd);
+  const git = (args) => runGitImpl(args, cwd);
   const branch = flag(argv, '--branch', DEFAULT_BRANCH);
   const dryRun = argv.includes('--dry-run');
-  const skipReleaseGate = argv.includes('--skip-release-gate');
   const mainRef = flag(argv, '--main-ref', 'origin/main');
   const developRef = flag(argv, '--develop-ref', 'origin/develop');
   const baseline = flag(argv, '--baseline', ADOPTION_BASELINE);
@@ -79,10 +76,22 @@ export async function main({
   };
 
   /** Undo a partially-applied merge and put the caller back where they started. */
-  const restore = (previousBranch, branchExisted) => {
+  const restore = (previousBranch, previousHead, branchExisted, previousBranchHead) => {
     git(['merge', '--abort']);
-    if (previousBranch) git(['checkout', '--quiet', previousBranch]);
-    if (!branchExisted) git(['branch', '-D', branch]);
+    if (previousBranch === branch && previousBranchHead) {
+      git(['reset', '--hard', previousBranchHead]);
+      return;
+    }
+    if (previousBranch) {
+      git(['checkout', '--quiet', previousBranch]);
+    } else if (previousHead) {
+      git(['checkout', '--quiet', '--detach', previousHead]);
+    }
+    if (branchExisted && previousBranchHead) {
+      git(['branch', '-f', branch, previousBranchHead]);
+    } else if (!branchExisted) {
+      git(['branch', '-D', branch]);
+    }
   };
 
   try {
@@ -148,8 +157,12 @@ export async function main({
     }
 
     const previousBranch = git(['branch', '--show-current']).stdout;
+    const previousHead = git(['rev-parse', 'HEAD']).stdout;
     const branchExisted =
       git(['rev-parse', '--verify', '--quiet', `${branch}^{commit}`]).code === 0;
+    const previousBranchHead = branchExisted
+      ? git(['rev-parse', `${branch}^{commit}`]).stdout
+      : undefined;
 
     out(`promote: creating ${branch} from ${developRef}…\n`);
     must(['checkout', '-B', branch, developRef], `creating ${branch}`);
@@ -162,7 +175,7 @@ export async function main({
       "chore(release): record main's ancestry into the promotion",
     ]);
     if (merge.code !== 0) {
-      restore(previousBranch, branchExisted);
+      restore(previousBranch, previousHead, branchExisted, previousBranchHead);
       throw new PromoteError(
         `git merge failed after the pre-flight said it would be clean:\n${merge.stderr || merge.stdout}\n` +
           'The merge was aborted and the branch state restored; re-run after fetching.',
@@ -179,65 +192,17 @@ export async function main({
     });
     if (findings.length > 0) {
       const detail = findings.map((finding) => `  - [${finding.id}] ${finding.detail}`).join('\n');
-      restore(previousBranch, branchExisted);
+      restore(previousBranch, previousHead, branchExisted, previousBranchHead);
       throw new PromoteError(
         `the promotion branch does NOT satisfy the promotion-ancestry gate:\n${detail}\n` +
           'The branch was discarded rather than left behind half-built.',
       );
     }
 
-    // The main-only gate, run HERE rather than discovered on the promotion PR.
-    //
-    // `release-grade verification` is required on `protect-main` and runs nowhere else, so a defect
-    // it catches is invisible until the promotion PR is already open. Measured 2026-07-27: two
-    // consecutive promotions failed on it — a timing-flaky test, then a fixture outside a newly
-    // contained root — each costing an open-PR/CI/diagnose/fix/re-promote round trip. The command
-    // below is byte-identical to what that job runs and was available both times.
-    //
-    // Default-on, because the cost of running it is bounded and the cost of skipping it was
-    // measured. `--skip-release-gate` exists for a deliberate bypass and says so in the output, so
-    // a skip is a visible choice rather than an omission.
-    if (!skipReleaseGate) {
-      out('\npromote: running the main-only release gate (pnpm harness:verify:release)…\n');
-      // `cwd` — this function takes the repository as a parameter and passes it to every git call;
-      // the gate must run in the SAME repository or it verifies the wrong tree while reporting on
-      // this one. Omitted at first, which would have made a scratch-root invocation silently verify
-      // the developer's own checkout.
-      // Package-manager homes can be added by an interactive shell without being exported in the
-      // PATH Node passes to children. Add their canonical bin directories explicitly: the first
-      // pnpm process and every nested `pnpm` in the release script then resolve the same pinned
-      // executable instead of failing at a different nesting level.
-      const packageManagerPaths = [
-        env.PNPM_HOME,
-        env.VOLTA_HOME ? path.join(env.VOLTA_HOME, 'bin') : undefined,
-      ].filter(Boolean);
-      const childPath = [...packageManagerPaths, env.PATH].filter(Boolean).join(path.delimiter);
-      const gate = spawn('pnpm', ['harness:verify:release'], {
-        cwd,
-        stdio: 'inherit',
-        shell: false,
-        // The promotion tree is develop's tree. The PR target (`GITHUB_BASE_REF=main`) remains the
-        // promotion-context signal, while this explicit override scopes novelty diffs to content the
-        // promotion step itself introduced. The CI release job declares the same environment.
-        env: { ...env, PATH: childPath, HARNESS_BASE_REF: developRef },
-      });
-      if (gate.status !== 0) {
-        restore(previousBranch, branchExisted);
-        const launchFailure = gate.error
-          ? `\nThe release-gate process could not start (${gate.error.code ?? 'spawn error'}): ${gate.error.message}`
-          : '';
-        throw new PromoteError(
-          'the release gate FAILED, so the promotion branch was discarded rather than pushed.\n' +
-            'This is the same check `release-grade verification` runs on the promotion PR — fixing it\n' +
-            'here costs one local run instead of an open-PR round trip. Re-run promote when green.' +
-            launchFailure,
-        );
-      }
-    }
-
     out(
       `\npromote: ${branch} is ready — A1/A2/A3 hold (non-merge debt on main: ${currentDebt}).` +
-        `${skipReleaseGate ? '\npromote: RELEASE GATE SKIPPED (--skip-release-gate) — `release-grade verification` is unverified.' : '\npromote: release gate PASSED locally.'}\n` +
+        '\npromote: `release-grade verification` runs once in protected CI on the promotion PR.\n' +
+        'promote: optional diagnostic before push: `pnpm harness:verify:release`.\n' +
         `\nNext (promoting to \`main\` is a release-level action needing explicit user approval):\n` +
         `  git push -u origin ${branch}\n` +
         `  gh pr create --base main --head ${branch} --title "chore(release): promote develop to main"\n` +

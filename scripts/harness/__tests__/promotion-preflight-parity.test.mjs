@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const CI_WORKFLOW = path.join(WORKSPACE_ROOT, '.github/workflows/ci.yml');
 const PROMOTE_SCRIPT = path.join(WORKSPACE_ROOT, 'scripts/harness/promote.mjs');
+const ROOT_PACKAGE = path.join(WORKSPACE_ROOT, 'package.json');
 
 /**
  * The job name `protect-main` requires. Not a guess — `scan-main-required-checks` pins the ruleset's
@@ -42,23 +43,12 @@ export function harnessEntryPointsOfJob(workflowText, jobDisplayName) {
 }
 
 /**
- * INFRA-056 pinned `verify-like-ci`'s stages against `protect-develop`'s required jobs, and stopped
- * there. `protect-main`'s substantive required context — `release-grade verification` — runs on NO
- * other branch, so nothing local told you what it would say until the promotion PR was already open.
- *
- * Measured 2026-07-27: two consecutive promotions failed on that job, each costing an
- * open-PR → CI → diagnose → fix → re-promote round trip. `pnpm harness:verify:release` is what the
- * job runs, existed the whole time, and was simply never wired to the act of promoting.
- *
- * That is the same defect shape INFRA-056 fixed one level over: an entry point NAMED as a gate's
- * equivalent while nothing connected it to the gate. `verify-like-ci.mjs`'s own header names this
- * command — writing it down was not enough, which is the general lesson here.
- *
- * So the pin is on the CONNECTION, not on a literal: whatever entry point `protect-main`'s required
- * job runs, `promote.mjs` must run the same one before declaring a promotion branch ready. Change
- * the job and this fails until the preflight follows.
+ * Protected CI is the only automatic release-verification result consumed by `protect-main`.
+ * Promotion assembly keeps its deterministic tree and ancestry checks local, while the root release
+ * command remains reachable for explicit diagnosis. These tests pin that ownership boundary so the
+ * full release sweep cannot silently become an automatic local prerequisite again.
  */
-describe('promotion preflight mirrors protect-main', () => {
+describe('promotion verification has one automatic owner', () => {
   const workflowText = readFileSync(CI_WORKFLOW, 'utf8');
   const promoteSource = readFileSync(PROMOTE_SCRIPT, 'utf8');
 
@@ -73,26 +63,18 @@ describe('promotion preflight mirrors protect-main', () => {
     expect(harnessEntryPointsOfJob(workflowText, MAIN_ONLY_JOB)).toHaveLength(1);
   });
 
-  it('runs, before promoting, the same entry point that job runs', () => {
-    const [entryPoint] = harnessEntryPointsOfJob(workflowText, MAIN_ONLY_JOB) ?? [];
-    const [command, script] = entryPoint.split(/\s+/);
-    const invoked = new RegExp(`['"\`]${command}['"\`][\\s\\S]{0,80}?['"\`]${script}['"\`]`).test(
-      promoteSource,
-    );
-
+  it('leaves the required release entry point to protected CI instead of spawning a local duplicate', () => {
+    expect(promoteSource).not.toMatch(/from\s+['"]node:child_process['"]/);
+    expect(promoteSource).not.toMatch(/\b(?:spawn|spawnSync|exec|execFile)\s*[:=(]/);
+    expect(promoteSource).not.toMatch(/\b(?:spawn|env)\s*=/);
     expect(
-      invoked,
-      `promote.mjs must run \`${entryPoint}\` — what \`${MAIN_ONLY_JOB}\` runs — before it declares a ` +
-        "promotion branch ready. Otherwise the first time anyone learns that gate's verdict is on an " +
-        'open promotion PR.',
-    ).toBe(true);
+      JSON.parse(readFileSync(ROOT_PACKAGE, 'utf8')).scripts['harness:verify:release'],
+    ).toBeTruthy();
   });
 
-  it('treats a failing preflight as blocking, not advisory', () => {
-    // A preflight that runs and ignores its exit code is decoration. The script must branch on the
-    // status and abandon the branch rather than print a warning beside a "ready" line.
-    expect(promoteSource).toMatch(/status\s*!==\s*0/);
-    expect(promoteSource).toMatch(/PromoteError/);
+  it('has no local release-gate bypass mode', () => {
+    expect(promoteSource).not.toContain('--skip-release-gate');
+    expect(promoteSource).not.toContain('release gate PASSED locally');
   });
 
   it('compares promotion-local novelty against develop in the main-only release job', () => {

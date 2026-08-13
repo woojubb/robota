@@ -90,7 +90,15 @@ These scripts are the executable layer of the Robota harness.
 - defaults to fast mode, which verifies directly changed scopes and executable repository checks
 - uses `--skip-dependent-scopes` in fast mode so local push latency does not explode on shared package entrypoint changes
 - supports `HARNESS_PRE_PUSH_MODE=full` when dependent scope typechecks should run locally before publishing
-- leaves release-grade verification as an explicit `pnpm harness:verify:release` command
+- leaves `pnpm harness:verify:release` available as an explicit diagnostic; for promotions,
+  protected main-PR CI is the sole automatic release-grade verification owner
+
+### `promote.mjs`
+
+- validates the clean tree, fresh refs, merge tree, exact develop tree, and A1/A2/A3 ancestry
+- assembles or rolls back the promotion branch without running the full release suite locally
+- names protected main-PR CI as the sole automatic owner of `pnpm harness:verify:release`
+- prints the root release command only as an optional local diagnostic
 
 ### `verify-change.mjs`
 
