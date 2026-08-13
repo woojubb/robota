@@ -162,8 +162,16 @@ contract, so `null` from `getActiveDriverId()` means exactly one thing.
 from `@robota-sdk/agent-framework` and documented in its SPEC — with zero consumers, because every
 transport package sits BELOW `agent-framework` and could not import it. The 41 hand-rolled
 `as unknown as IInteractiveSession` partials were not an oversight; they were the only thing those
-packages could reach. `agent-framework` re-exports this one rather than keeping a second: two doubles
-for one contract can disagree, which is this defect one level down.
+packages could reach. The sole published owner is
+`@robota-sdk/agent-interface-transport/testing`; `agent-framework` intentionally does not re-export it,
+because pass-through re-exports would create two apparent owners for one contract.
+
+The default double preserves identity semantics rather than only type shape. Each factory instance has
+one deterministic session id, and its successive default submissions return
+`<session-id>-turn-1`, `<session-id>-turn-2`, and so on. Another double restarts its own counter under
+its distinct session id. A custom `submit` override remains authoritative. The nested object returned
+from default `getSession()` exposes only the transport contract's `getSessionId`; framework-only
+`Session` services do not leak into this lower contract fixture.
 
 The remaining casts are held by a ratchet (`scan-contract-cast-ratchet`) that may fall and never
 rise, so the debt cannot grow while the capability-scoped ports are designed.
