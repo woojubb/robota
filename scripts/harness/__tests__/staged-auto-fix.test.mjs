@@ -1,9 +1,13 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 import { describe, expect, it } from 'vitest';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
+const LOCKED_STAGED_FIX_COMMAND = 'scripts/harness/with-repo-lock.sh pnpm exec lint-staged';
 
 function repositoryContract() {
   return {
@@ -30,7 +34,7 @@ function contractProblems({ hook, lintStaged, packageJson, workflow }) {
   if (!fullFix.includes('prettier --write .')) {
     problems.push('lint:fix must finish with repository-root Prettier');
   }
-  if (!stagedFix.includes('with-repo-lock.sh') || !stagedFix.includes('lint-staged')) {
+  if (stagedFix !== LOCKED_STAGED_FIX_COMMAND) {
     problems.push('lint:fix:staged must own the locked lint-staged invocation');
   }
   if (!hook.includes('pnpm lint:fix:staged')) {
@@ -71,6 +75,13 @@ describe('INFRA-089 staged and full auto-fix contract', () => {
         packageJson.scripts['lint:fix:staged'] = 'lint-staged';
       },
     ],
+    [
+      'lint-staged escapes the repository lock',
+      ({ packageJson }) => {
+        packageJson.scripts['lint:fix:staged'] =
+          'scripts/harness/with-repo-lock.sh true && pnpm exec lint-staged';
+      },
+    ],
     ['whole-tree fixer wired to commit', ({ hook }) => ({ hook: `${hook}\npnpm lint:fix\n` })],
     [
       'second lock in hook',
@@ -88,5 +99,65 @@ describe('INFRA-089 staged and full auto-fix contract', () => {
     const changed = replacement === undefined ? fixture : { ...fixture, ...replacement };
 
     expect(contractProblems(changed)).not.toEqual([]);
+  });
+
+  it('fixes only staged source and documentation files and automatically re-stages them', async () => {
+    const fixtureRoot = await mkdtemp(path.join(tmpdir(), 'robota-staged-auto-fix-'));
+    const sourcePath = path.join(fixtureRoot, 'fixture.ts');
+    const markdownPath = path.join(fixtureRoot, 'fixture.md');
+    const unrelatedPath = path.join(fixtureRoot, 'unrelated.md');
+    const unrelatedBefore = '#Unrelated\n';
+
+    try {
+      symlinkSync(
+        path.join(WORKSPACE_ROOT, 'node_modules'),
+        path.join(fixtureRoot, 'node_modules'),
+      );
+      writeFileSync(
+        path.join(fixtureRoot, '.eslintrc.json'),
+        readFileSync(path.join(WORKSPACE_ROOT, '.eslintrc.json'), 'utf8'),
+      );
+      writeFileSync(
+        path.join(fixtureRoot, '.prettierrc.json'),
+        readFileSync(path.join(WORKSPACE_ROOT, '.prettierrc.json'), 'utf8'),
+      );
+      writeFileSync(sourcePath, 'const answer={value:"ok"}\n');
+      writeFileSync(markdownPath, '# Title\n\n-   item\n');
+      writeFileSync(unrelatedPath, unrelatedBefore);
+
+      const git = (...args) =>
+        spawnSync('git', args, { cwd: fixtureRoot, encoding: 'utf8', stdio: 'pipe' });
+      expect(git('init').status).toBe(0);
+      expect(git('config', 'user.email', 'fixture@example.test').status).toBe(0);
+      expect(git('config', 'user.name', 'Fixture').status).toBe(0);
+      expect(git('add', 'fixture.ts', 'fixture.md').status).toBe(0);
+
+      const result = spawnSync(
+        'pnpm',
+        [
+          '--dir',
+          WORKSPACE_ROOT,
+          'run',
+          'lint:fix:staged',
+          '--cwd',
+          fixtureRoot,
+          '--config',
+          path.join(WORKSPACE_ROOT, '.lintstagedrc.json'),
+        ],
+        { cwd: fixtureRoot, encoding: 'utf8', stdio: 'pipe' },
+      );
+
+      expect(`${result.stdout}${result.stderr}`).not.toContain('FAILED');
+      expect(result.status).toBe(0);
+      expect(readFileSync(sourcePath, 'utf8')).toBe("const answer = { value: 'ok' };\n");
+      expect(readFileSync(markdownPath, 'utf8')).toBe('# Title\n\n- item\n');
+      expect(readFileSync(unrelatedPath, 'utf8')).toBe(unrelatedBefore);
+      expect(git('diff', '--cached', '--name-only').stdout.trim().split('\n').sort()).toEqual([
+        'fixture.md',
+        'fixture.ts',
+      ]);
+    } finally {
+      await rm(fixtureRoot, { recursive: true, force: true });
+    }
   });
 });
