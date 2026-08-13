@@ -10,6 +10,28 @@ depends_on: []
 
 # RUNTIME-005: abort() reaches the provider but not the wait
 
+- **Branch**: `fix/runtime-005-execution-claim-owner`
+- **Spec**: `.agents/spec-docs/active/BEHAVIOR-008-interactive-execution-claim-ownership.md`
+
+## Current scope correction
+
+The original `/compact` reproduction below is historical. Current
+`InteractiveSessionBase.executeCommand()` rejects a public command while `execCtrl.executing` is
+true, and all shipped TUI/HTTP/MCP/WebSocket command paths use that method. Stage 2 is preventative
+invariant hardening: prompt, fork-skill, foreground-command, and queue-resume failure paths still
+write or clear one identity-free boolean. BEHAVIOR-008 received independent `ENDORSE` for replacing
+those raw writers with a controller-owned opaque claim while preserving current public busy/queue
+policy. Stage 1 also still needs the task's requested full `Session.run()` abort integration proof
+and stale SPEC correction.
+
+## Plan
+
+- [ ] TC-01: Preserve public command-during-prompt busy rejection and exact queued-turn settlement.
+- [ ] TC-02: Make foreign or stale execution-claim release unable to clear state or drain the queue.
+- [ ] TC-03: Route prompt, fork-skill, foreground-command, and queue-error cleanup through one claim owner.
+- [ ] TC-04: Add bounded full-session approval-abort settlement and `isRunning() === false` integration proof.
+- [ ] TC-05: Execute the durable public scenario and pass affected/full verification.
+
 ## Problem
 
 `abort()` cancels a turn by signalling it. Two waits inside a turn do not observe that signal, so a
@@ -78,16 +100,55 @@ lets a live turn interleave with its successor, which is the defect, not the rem
 
 ## User Execution Test Scenarios
 
-**Applies.** Pressing ESC while a permission prompt is open is a user-reachable path.
+### Scenario 1 — abort a parked approval and run the next prompt
 
-- **Prerequisites:** built `robota` CLI, a provider key, permission mode that prompts.
-- **Steps:** ask for an action that triggers an approval prompt; press ESC instead of answering; then
-  submit a new prompt.
-- **Expected observable result (after the fix):** the turn ends and the next prompt runs.
-- **Expected observable result (before the fix, for contrast):** the session reports busy and refuses
-  the next prompt until it is discarded.
-- **Cleanup:** none.
-- **Evidence (fill in after implementation):** transcript excerpt.
+- **Agent executability:** `agent-executable`. This non-interactive flow drives the public framework
+  testing SDK with the shipped deterministic provider; it requires no credential, network service,
+  TTY, test runner, or owner action.
+- **Durable artifact:**
+  [`.agents/evals/scenarios/runtime-005-approval-abort-agent-run.md`](../evals/scenarios/runtime-005-approval-abort-agent-run.md)
+- **Prerequisites:** run from the repository root with workspace dependencies installed; Bash,
+  Node.js, and pnpm available; writable `scratch/src/`. No provider key or external service is
+  required.
+- **Bounded waits:** the script races every permission, submission, command, turn-settlement,
+  queue-settlement, next-prompt, and cleanup await against 5 seconds.
+- **Exact Bash:** execute the complete command block under `## Exact Bash` in the durable artifact
+  verbatim. It materializes `scratch/src/runtime-005-approval-abort-agent-run.ts`, runs
+  `pnpm --dir scratch run run -- src/runtime-005-approval-abort-agent-run.ts`, and asserts every
+  observable with exact `grep -F` checks.
+- **Expected output and exit:** exit `0` and one JSON line containing
+  `"phase":"runtime-005-approval-abort-recovery"`, `"permissionRequests":1`,
+  `"busyRejected":true`, `"queuePreservedUntilAbort":true`,
+  `"queuedOutcome":"cancelled"`, `"abortedTurnSettled":true`, `"idleAfterAbort":true`,
+  `"pendingAfterAbort":0`, `"deniedToolRan":false`, and
+  `"nextResponse":"NEXT_PROMPT_OK"`. This proves a public command preserves the existing busy
+  refusal and queue, abort fail-closes and settles the parked approval turn, and the same session
+  accepts and completes the next prompt.
+- **Cleanup:** the fixture shuts down its session and deletes its isolated workspace; the Bash
+  `EXIT` trap removes the scratch script and only its `/tmp/robota-runtime005.*` root.
+- **Observed evidence:** EMPTY
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-13
+
+**Status upgrade:** scenario drafted → scenario written
+
+- Ordering: PASS — DONE-GATE-STAGE-1 is an entry gate with no predecessor; the scenario and linked
+  durable artifact exist before BEHAVIOR-008 implementation source edits, while observed execution
+  evidence remains `EMPTY` as required at PLAN time.
+- Scenario `abort a parked approval and run the next prompt`: PASS — it records the explicit
+  `agent-executable` decision, repository-root prerequisites, the exact Bash invocation through the
+  linked durable artifact, 5-second bounds for every asynchronous permission/submission/command/turn/
+  queue/next-prompt/cleanup await, exact JSON substrings plus exit `0`, constrained cleanup, and its
+  separate `Observed evidence: EMPTY` field.
+- Invocation plausibility: PASS — `scratch/package.json` provides the declared `pnpm --dir scratch run
+run -- <script>` entrypoint, and `@robota-sdk/agent-framework/testing` publicly exports
+  `scriptedSession`; the script drives the real exported `InteractiveSession` submit, permission event,
+  busy-command, pending-queue, abort, turn-handle, and disposal surfaces.
+- Product surface: PASS — the observable is public SDK workflow behavior (busy refusal without queue
+  loss, fail-closed approval abort, turn settlement, idle recovery, and same-session next-prompt reuse),
+  not build, test, typecheck, lint, harness/CI output, or repository-text inspection.
+- Credentials and services: PASS — the prerequisites explicitly state that the deterministic shipped
+  provider needs no provider key, network service, TTY, or owner action.
 
 ## Implementation — stage 1 of 2
 
