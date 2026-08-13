@@ -68,7 +68,9 @@ gate, and neither is any narrower command. Which local gate runs at PUSH time â€
 
 **A PR into `main` is a different gate.** `protect-main` requires `promotion ancestry`, `main PR
 source guard` and `release-grade verification`; the entry point that reproduces the last of those is
-`pnpm harness:verify:release`.
+`pnpm harness:verify:release`. Protected CI is the sole automatic owner of that content-verification
+entry point: `promote.mjs` performs the local structural and ancestry checks but does not run the
+release suite a second time. The root command remains available as an explicit local diagnostic.
 
 **Why:** selective commits leave invisible half-states â€” code pushed while dependent files (SPEC.md, README, tests, backlog) are not.
 
