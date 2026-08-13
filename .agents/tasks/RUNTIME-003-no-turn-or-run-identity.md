@@ -112,6 +112,8 @@ It contains two complete, credential-free command blocks written before P3 imple
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-13
 
+**Status upgrade:** scenario drafted → scenario written
+
 The independent guardian confirmed before P3 implementation that both scenarios are explicitly
 agent-executable and contain complete prerequisites, exact Bash, bounded waits, public product
 surfaces, precise exit/output observables, cleanup, and separate `Observed evidence: EMPTY` fields.
