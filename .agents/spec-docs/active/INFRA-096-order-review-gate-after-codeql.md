@@ -1,5 +1,5 @@
 ---
-status: done
+status: in-progress
 type: INFRA
 tags: [async]
 ---
@@ -75,8 +75,12 @@ and disarm sequencing. Its `review-gate` job depends on both classifier and anal
 cancellation-excluding condition, so analyzer failure/skips are judged rather than silently skipping
 the required context. Only a literal docs-only classification may take the N/A path.
 
-Label/unlabel events use a distinct concurrency key, skip the analyzer, and re-read the processed
-analysis for the current PR merge commit, expected tool, and category. Head-changing events include `edited`: base retargeting must
+Label/unlabel events use a distinct concurrency key, skip the analyzer, and re-read a processed
+analysis whose merge has the same base parent, head parent, and tree as the current PR merge, plus
+the expected tool and category. GitHub may regenerate a synthetic merge with a different commit SHA
+while preserving those identities, so literal SHA equality rejects a result that analyzed the same
+merge. Ordinary head events instead bind to the immutable `github.sha` that their own analyzer job
+checked out. Head-changing events include `edited`: base retargeting must
 reclassify and reanalyze the new merge ref rather than reuse an old-base result. Open/synchronize/
 reopen/edited events share a head-analysis lane so synchronize cancels obsolete work. `codeql.yml`
 remains the push owner for base-branch inventory and loses its PR trigger, recovery job, and
@@ -93,7 +97,7 @@ As defense in depth, classifier and gate decision modules execute from the exact
 diffing or querying the PR. Only the CodeQL analyzer checks out PR merge content with SARIF upload
 permission. This does not establish trusted workflow provenance because `pull_request` loads the YAML
 from the PR merge revision; that pre-existing repository-wide control-plane gap is contained under
-INFRA-097. Label reuse is bound to the current PR merge commit, CodeQL tool identity, and
+INFRA-097. Label reuse is bound to equal base/head parents and tree, CodeQL tool identity, and
 `/language:javascript-typescript` category; an old-base record sharing the same head SHA is rejected.
 
 The recommendation preserves every consumer: develop/main PRs still receive `review-gate`; code PRs
@@ -126,9 +130,10 @@ need both jobs and run when the workflow was not cancelled; preserve its withdra
 decision, comment, and disarm behavior. Use separate concurrency suffixes for head-changing and
 label-only actions.
 
-On ordinary code PR events, the gate accepts analysis only when its analyzer prerequisite succeeded;
-on label-only events, it accepts only an already processed CodeQL analysis for the current merge SHA,
-expected tool, and category.
+On ordinary code PR events, the gate accepts analysis only when its analyzer prerequisite succeeded
+and the analysis names that run's immutable merge SHA. On label-only events, it accepts only an
+already processed CodeQL analysis whose merge base/head parents and tree match the current merge,
+along with the expected tool and category.
 Missing, failed, malformed, or stale results produce the existing `verdict-unavailable` BLOCK.
 
 Make `codeql.yml` push-only and delete `recover-review-gate`, `actions: write`, rerun scripting, and
@@ -152,7 +157,7 @@ failure, label reuse, and genuine findings.
 ## Completion Criteria
 
 - [x] TC-01: PR CodeQL analysis and `review-gate` are in one DAG with explicit `needs`; the gate runs after prerequisite failure but not after workflow cancellation, and `edited` re-evaluates a retargeted base.
-- [x] TC-02: code, docs-only, classifier-failure, analyzer-failure, and label-only paths each preserve fail-closed/N-A semantics without rerunning CodeQL on labels; classifier/gate scripts load from base SHA as defense in depth while INFRA-097 explicitly owns PR-controlled workflow provenance; same-head old-base, wrong-tool, and wrong-category records are rejected.
+- [ ] TC-02: code, docs-only, classifier-failure, analyzer-failure, and label-only paths each preserve fail-closed/N-A semantics without rerunning CodeQL on labels; classifier/gate scripts load from base SHA as defense in depth while INFRA-097 explicitly owns PR-controlled workflow provenance; ordinary runs bind to their event merge SHA, label reuse accepts only equal base/head parents and tree, and same-head old-base, wrong-tool, and wrong-category records are rejected.
 - [x] TC-03: `codeql.yml` remains push analysis owner and contains no PR recovery job, `actions: write`, or `gh run rerun` path.
 - [x] TC-04: the required context remains named `review-gate`; analyzer, gate, and disarm use separate least-privilege jobs; develop remains merge-blocking while main's existing best-effort disarm limitation is stated; permission/required-check scans pass.
 - [x] TC-05: focused tests, `pnpm harness:scan`, and `pnpm harness:verify-like-ci` pass; one real code PR head-analysis lane completes in one ordered attempt without recovery reruns.
@@ -298,3 +303,11 @@ record before the repaired PASS below.
 TC-01 through TC-05 are checked and each has exact verification evidence plus an exact test
 reference or explicit skip reason. The active task is 5/5 complete with no blockers, and the prior
 GATE-VERIFY PASS is recorded. Status/folder transition and task archival remain the post-PASS handoff.
+
+### [COMPLETION REOPENED] — 🔁 IN-PROGRESS | 2026-08-14
+
+PR #1720 run `31738169221` exposed a post-gate implementation defect on final HEAD `ba667c237`.
+CodeQL analyzed synthetic merge `596c61a5`; before the dependent gate queried the PR, GitHub had
+regenerated the same two-parent/same-tree merge as `60b2c51f`. Literal current-SHA equality rejected
+the successful analysis. The item returns to implementation with TC-02 reopened; prior completion
+evidence remains historical and must be superseded by fresh verification.

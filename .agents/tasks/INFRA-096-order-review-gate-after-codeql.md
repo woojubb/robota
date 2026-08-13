@@ -1,8 +1,7 @@
 ---
 title: 'INFRA-096: order review gate after CodeQL'
-status: done
+status: in-progress
 created: 2026-08-14
-completed: 2026-08-14
 priority: high
 urgency: now
 area: .github/workflows, scripts/harness
@@ -11,12 +10,12 @@ depends_on: []
 
 # INFRA-096: order review gate after CodeQL
 
-**Spec:** [completed design](../../spec-docs/done/INFRA-096-order-review-gate-after-codeql.md)
+**Spec:** [active design](../spec-docs/active/INFRA-096-order-review-gate-after-codeql.md)
 
 ## Plan
 
 - [x] TC-01 — Put PR classification, CodeQL analysis, and review-gate in one ordered DAG with retarget-safe triggers.
-- [x] TC-02 — Preserve docs-only/failure/cancellation semantics with base-SHA defense in depth and current-merge label identity.
+- [ ] TC-02 — Preserve fail-closed semantics while accepting only equivalent regenerated merge identities, never old-base analysis.
 - [x] TC-03 — Keep `codeql.yml` push-only and remove recovery/rerun/write authority.
 - [x] TC-04 — Enforce job-local least privilege, required context identity, and isolated disarm.
 - [x] TC-05 — Run focused/full verification and observe one real PR's head-analysis lane without a recovery rerun.
@@ -39,6 +38,9 @@ depends_on: []
   review-gate 12s, all success; disarm skipped and no recovery/rerun job exists. The independently
   triggered pre-analysis containment-label lane correctly failed closed, then the ordered head lane
   superseded it; it is not an ordering-race retry.
+- Final-head run 31738169221 exposed GitHub regenerating synthetic merge `596c61a5` as
+  `60b2c51f` with identical base/head parents and tree. Literal SHA equality rejected the valid
+  analysis, so TC-02 and completion were reopened.
 
 ## Blockers
 
@@ -57,10 +59,3 @@ None.
 Not applicable — this changes internal GitHub Actions orchestration and merge governance, not a
 shipped CLI, TUI, browser, application, or public SDK behavior. Exact-head PR observations belong
 to engineering verification.
-
-## Result
-
-PR CodeQL analysis and the required review gate now run in one ordered workflow DAG. The previous
-first-fail/recovery rerun and its `actions: write` authority are gone; docs-only, label-only,
-retargeting, current-merge identity, and fail-closed error paths remain covered. The broader trusted
-workflow-provenance gap is explicitly contained under INFRA-097 / GitHub issue #1719.
