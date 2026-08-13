@@ -35,7 +35,6 @@ import {
   collectOutputsFromTaskRuns,
   extractFinalText,
   extractRunError,
-  isTerminalStatus,
 } from './run-result-mapping.js';
 
 const LOCAL_WORKER_ID = 'local-dag-runtime-provider';
@@ -43,14 +42,6 @@ const LOCAL_LEASE_DURATION_MS = 60_000;
 const LOCAL_VISIBILITY_TIMEOUT_MS = 60_000;
 const LOCAL_MAX_ATTEMPTS = 1;
 const LOCAL_DEFAULT_TIMEOUT_MS = 300_000;
-const WORKER_IDLE_POLL_DELAY_MS = 10;
-const MAX_WORKER_ITERATIONS = 10_000;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
 
 /** Options accepted by {@link LocalDagRuntimeProvider}. */
 export interface ILocalDagRuntimeProviderOptions {
@@ -103,12 +94,6 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
     // node id to `node-<n>` — undoing a conversion the caller had just performed.
 
     const startMs = Date.now();
-    let aborted = false;
-    const abortHandler = (): void => {
-      aborted = true;
-    };
-    options?.signal?.addEventListener('abort', abortHandler);
-
     try {
       const result = await runDagOnce(
         dag,
@@ -116,7 +101,7 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
         this.executionRoot,
         inputs as TPortPayload,
         options?.onProgress,
-        () => aborted,
+        options?.signal,
       );
 
       const durationMs = Date.now() - startMs;
@@ -149,8 +134,6 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
         error,
       });
       return { ok: false, outputs: {}, durationMs, error };
-    } finally {
-      options?.signal?.removeEventListener('abort', abortHandler);
     }
   }
 
@@ -190,7 +173,7 @@ async function runDagOnce(
   executionRoot: string,
   inputs: TPortPayload,
   onProgress: ((event: IDagRuntimeProgressEvent) => void) | undefined,
-  isAborted: () => boolean,
+  signal: AbortSignal | undefined,
 ): Promise<IDagRunOutcome> {
   const assemblyResult = buildNodeDefinitionAssembly(nodeDefinitions);
   if (!assemblyResult.ok) {
@@ -276,33 +259,21 @@ async function runDagOnce(
     }
     const { dagRunId } = startResult.value;
 
-    for (let i = 0; i < MAX_WORKER_ITERATIONS; i++) {
-      if (isAborted()) {
-        await composition.runCancel.cancelRun(dagRunId);
-      }
-      const stepResult = await composition.workerLoop.processOnce();
-      if (!stepResult.ok) {
-        throw new Error(`Worker step failed: ${stepResult.error.code}`);
-      }
-
-      const queryResult = await composition.runQuery.getRun(dagRunId);
-      if (!queryResult.ok) {
-        throw new Error(`Run query failed: ${queryResult.error.code}`);
-      }
-
-      const { dagRun, taskRuns } = queryResult.value;
-      if (isTerminalStatus(dagRun.status)) {
-        return { dagRun, taskRuns };
-      }
-
-      if (!stepResult.value.processed) {
-        await sleep(WORKER_IDLE_POLL_DELAY_MS);
-      }
+    let cancellation: Promise<unknown> | undefined;
+    const cancel = (): void => {
+      cancellation ??= composition.runCancel.cancelRun(dagRunId);
+    };
+    if (signal?.aborted) cancel();
+    else signal?.addEventListener('abort', cancel, { once: true });
+    try {
+      const terminal = await composition.runAdvancement.waitForTerminal(dagRunId);
+      if (!terminal.ok) throw new Error(`Run advancement failed: ${terminal.error.code}`);
+      return terminal.value;
+    } finally {
+      signal?.removeEventListener('abort', cancel);
+      await cancellation;
+      await composition.runAdvancement.stop();
     }
-
-    throw new Error(
-      `Run ${dagRunId} did not reach terminal state after ${MAX_WORKER_ITERATIONS} iterations`,
-    );
   } finally {
     unsubscribe();
   }

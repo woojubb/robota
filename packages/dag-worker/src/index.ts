@@ -2,6 +2,7 @@
 // Worker services will be exported here.
 
 export * from './services/worker-loop-service.js';
+export * from './services/run-advancement-coordinator.js';
 export * from './services/dlq-reinject-service.js';
 // DAG-001: the reader for `IStoragePort.listStaleRunningTaskRuns` — recovery on a queue that does
 // not redeliver.

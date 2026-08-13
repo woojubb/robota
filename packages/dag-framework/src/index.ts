@@ -12,6 +12,7 @@ export type {
   IDagFrameworkPorts,
   IDagFrameworkPaths,
   IDagFrameworkLogger,
+  IDagExecutionComposition,
 } from './types.js';
 
 export { LocalDagRuntimeProvider } from './local-dag-runtime-provider.js';
@@ -25,6 +26,5 @@ export { LocalFsAssetStore } from './adapters/local-fs-asset-store.js';
 export { createExecutionComposition } from './composition/create-execution-composition.js';
 export { scanWorkspaceCatalog } from './workspace-catalog.js';
 export type { IWorkspaceCatalogEntry, IWorkspaceCatalogMeta } from './workspace-catalog.js';
-export type { IWorkerLoopDriverLogger } from './runtime/worker-loop-driver.js';
 
 export const DAG_FRAMEWORK_PACKAGE_NAME = '@robota-sdk/dag-framework';

@@ -10,9 +10,24 @@ import type {
   IAssetStore,
 } from '@robota-sdk/dag-core';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import type { IWorkerLoopPolicyOptions } from '@robota-sdk/dag-worker';
-import type { IDagControllerComposition, IDagExecutionComposition } from '@robota-sdk/dag-api';
+import type { IRunAdvancementCoordinator, IWorkerLoopPolicyOptions } from '@robota-sdk/dag-worker';
+import type {
+  IDagControllerComposition,
+  IRuntimeRunCancellerPort,
+  IRuntimeRunCreatorPort,
+  IRuntimeRunProgressEventBusPort,
+  IRuntimeRunReaderPort,
+} from '@robota-sdk/dag-api';
 import type { IDagOrchestrationPort } from '@robota-sdk/dag-orchestration-client';
+
+/** Framework-owned assembly result for one in-process execution composition. */
+export interface IDagExecutionComposition {
+  readonly runOrchestrator: IRuntimeRunCreatorPort;
+  readonly runQuery: IRuntimeRunReaderPort;
+  readonly runCancel: IRuntimeRunCancellerPort;
+  readonly runAdvancement: IRunAdvancementCoordinator;
+  readonly runProgressEventBus: IRuntimeRunProgressEventBusPort;
+}
 
 /** Lifecycle-aware in-process DAG framework instance. */
 export interface IDagFramework {
@@ -32,10 +47,10 @@ export interface IDagFramework {
     readonly assetStore: IAssetStore;
   };
 
-  /** Starts the background worker loop. Idempotent. */
+  /** Starts the queue-scoped advancement actor. Idempotent until the framework is stopped. */
   start(): Promise<void>;
 
-  /** Stops the background worker loop and drains pending tasks. Idempotent. */
+  /** Closes prompt admission, quiesces the current worker step, and drains owned observers. */
   stop(): Promise<void>;
 }
 

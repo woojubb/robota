@@ -106,27 +106,28 @@ alive independently of whatever guard is added.
 
 ## User Execution Test Scenarios
 
-**Applies.** Concurrent submissions over a shipped transport are a user-reachable path, and the
-observable failure (interleaved or cross-resolved responses) is user-visible.
+**Applies and is agent-executable.** The durable scenario is
+[runtime-003-dag-advancement-agent-run.md](../evals/scenarios/runtime-003-dag-advancement-agent-run.md).
+It contains two complete, credential-free command blocks written before P3 implementation:
 
-- **Prerequisites:** built `robota` CLI; a provider key. A locally served transport is needed and
-  already exists (the CLI serves the HTTP transport); no new fixture required.
-- **Steps:**
-  1. Start the CLI serving the HTTP transport on loopback.
-  2. Issue two `POST /submit` requests essentially simultaneously with two clearly distinguishable
-     prompts (e.g. "reply with exactly AAAA" and "reply with exactly BBBB").
-  3. Separately, in an interactive session, start a long turn and issue a second submission before it
-     finishes, then cancel.
-- **Expected observable result (after the fix):** in step 2 the second request is refused as busy (or
-  is queued and answered with its own response) — the two responses are never crossed. In step 3, the
-  cancel stops the turn that is actually running, and the session reports the correct running state
-  throughout.
-- **Expected observable result (before the fix, for contrast):** the two responses can cross, and a
-  cancel after a second submission leaves the first turn streaming while the session reports it is
-  not running.
-- **Cleanup:** stop the served transport.
-- **Evidence (fill in after implementation):** the two request/response pairs showing correct
-  correlation, plus a transcript excerpt for the cancel case.
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-13
+
+The independent guardian confirmed before P3 implementation that both scenarios are explicitly
+agent-executable and contain complete prerequisites, exact Bash, bounded waits, public product
+surfaces, precise exit/output observables, cleanup, and separate `Observed evidence: EMPTY` fields.
+The final prerequisite correction named GNU coreutils `timeout`; the guardian then returned PASS.
+This entry restores the durable audit trace for that prior read-only verdict.
+
+1. The public `createDagFramework` SDK surface accepts twelve concurrent prompts over one queue. A
+   deliberately slow custom node records `maximumConcurrentExecutions`; the required observable is
+   exactly `1`, with 12 accepted/completed prompts, zero active execution after stop, zero unhandled
+   rejection, bounded submission/history/stop waits, and deterministic cleanup.
+2. The built `robota-dag` CLI runs `input | text-output` and emits exactly `RUNTIME003_OK` with exit 0.
+
+The artifact records exact Bash, prerequisites, assertions, exit behavior, and cleanup. Both exact
+blocks passed on 2026-08-13 19:43 KST: the SDK flow reported 12 accepted/completed prompts,
+`maximumConcurrentExecutions: 1`, zero active execution after stop and zero unhandled rejections;
+the built CLI emitted exactly `RUNTIME003_OK`, with both blocks exiting 0.
 
 ## Progress
 
@@ -216,10 +217,28 @@ comment-only edit as an unproven regression test.
 and the RUNNING turn settles through its own `finally` — the same rule P1 landed for `agent-session`,
 that a turn is over when it has stopped and not when it was asked to stop.
 
-### Remaining
+### P3 — one queue-scoped actor owns DAG advancement (100% of P3; 3 of 3 phases)
 
-- **P3 — DAG run advancement.** Owned by [DAG-001](completed/DAG-001-running-is-a-terminal-trap.md) and
-  [DAG-002](completed/DAG-002-run-contract-typed-on-a-foreign-file-format.md); the floating
-  `void this.processRunUntilTerminal(...)` (`prompt-backend.ts:89`) belongs with them.
-- **User Execution Test Scenarios** are written against the transport surface, so they close with P2,
-  not with P1.
+`dag-worker` now owns `RunAdvancementCoordinator`: persistent background demand and any number of
+run-terminal observers share one actor promise, so only one `WorkerLoopService.processOnce()` can be
+in flight for a queue. Observer abort/deadline settles only that observer, query errors retain their
+typed result, queue-wide worker errors and throws are handled at the actor boundary, and terminal
+stop rejects restart while draining only the current step.
+
+`dag-framework` now owns `IDagExecutionComposition` and exposes `runAdvancement` rather than the raw
+worker loop. The legacy `WorkerLoopDriver` and the two manual local/provider loops are removed;
+`DagPromptBackend`, `LocalDagRuntimeProvider`, and `dag-cli`'s `LocalDagRunner` all use the same
+coordinator contract. Prompt admission and observation promises are tracked at creation, drained in
+framework shutdown order, and never float.
+
+The required RED used twelve concurrent public prompt submissions and observed
+`maximumConcurrentExecutions: 12` before the fix; it is GREEN at exactly `1`. Coordinator tests cover
+continuous plus waiter demand, observer abort and deadline, query result/throw, worker result/throw,
+terminal state, and bounded idempotent stop/restart refusal. The AST-based
+`scan-run-advancement-owner.mjs` examined 1,891 production TypeScript files and permits exactly the
+worker declaration and coordinator call, preventing any of the four former direct drivers from
+returning.
+
+Package verification is green: dag-worker 94 tests, dag-framework 132 tests, and dag-cli 1,039 tests,
+plus affected typechecks/builds and all three SPEC public-surface scans. Both durable user scenarios
+passed with exit 0 on 2026-08-13 19:43 KST and their exact output is recorded in the linked artifact.

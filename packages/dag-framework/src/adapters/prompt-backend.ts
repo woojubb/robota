@@ -20,27 +20,29 @@ import {
   type INodeObjectInfo,
   type TInputTypeSpec,
   buildValidationError,
+  buildDispatchError,
 } from '@robota-sdk/dag-core';
-import type { IDagExecutionComposition } from '@robota-sdk/dag-api';
+import type { IDagExecutionComposition } from '../types.js';
 
 interface IDagPromptBackendDependencies {
   storage: IStoragePort;
-  execution: IDagExecutionComposition;
+  execution: Pick<IDagExecutionComposition, 'runOrchestrator' | 'runAdvancement'>;
   clock: IClockPort;
   manifests: INodeManifest[];
 }
 
-const MAX_PROCESS_ITERATIONS = 5000;
-
 export class DagPromptBackend implements IPromptBackendPort {
   private readonly storage: IStoragePort;
-  private readonly execution: IDagExecutionComposition;
+  private readonly execution: Pick<IDagExecutionComposition, 'runOrchestrator' | 'runAdvancement'>;
   private readonly clock: IClockPort;
   private readonly definitionService: DagDefinitionService;
   private readonly manifests: INodeManifest[];
   private readonly promptHistory = new Map<string, IHistoryEntry>();
   private readonly promptIdToDagRunId = new Map<string, string>();
   private readonly dagRunIdToPromptId = new Map<string, string>();
+  private readonly admittedSubmissions = new Set<Promise<TResult<IPromptResponse, IDagError>>>();
+  private readonly ownedObservationJobs = new Set<Promise<void>>();
+  private accepting = true;
 
   getPromptIdForDagRun(dagRunId: string): string | undefined {
     return this.dagRunIdToPromptId.get(dagRunId);
@@ -54,7 +56,35 @@ export class DagPromptBackend implements IPromptBackendPort {
     this.definitionService = new DagDefinitionService(deps.storage);
   }
 
-  async submitPrompt(request: IPromptRequest): Promise<TResult<IPromptResponse, IDagError>> {
+  submitPrompt(request: IPromptRequest): Promise<TResult<IPromptResponse, IDagError>> {
+    if (!this.accepting) {
+      return Promise.resolve({
+        ok: false,
+        error: buildDispatchError(
+          'DAG_RUNTIME_ADVANCEMENT_STOPPED',
+          'The prompt backend has stopped accepting submissions.',
+        ),
+      });
+    }
+    const admitted = this.submitAdmittedPrompt(request).finally(() => {
+      this.admittedSubmissions.delete(admitted);
+    });
+    this.admittedSubmissions.add(admitted);
+    return admitted;
+  }
+
+  public async closeIngressAndDrainSubmissions(): Promise<void> {
+    this.accepting = false;
+    await Promise.allSettled([...this.admittedSubmissions]);
+  }
+
+  public async drainOwnedObservationJobs(): Promise<void> {
+    await Promise.allSettled([...this.ownedObservationJobs]);
+  }
+
+  private async submitAdmittedPrompt(
+    request: IPromptRequest,
+  ): Promise<TResult<IPromptResponse, IDagError>> {
     const promptId = request.prompt_id ?? randomUUID();
     const definition = this.buildDefinitionFromPrompt(promptId, request.prompt);
 
@@ -86,7 +116,18 @@ export class DagPromptBackend implements IPromptBackendPort {
     this.promptIdToDagRunId.set(promptId, createdRun.value.dagRunId);
     this.dagRunIdToPromptId.set(createdRun.value.dagRunId, promptId);
 
-    void this.processRunUntilTerminal(createdRun.value.dagRunId, promptId, request.prompt);
+    const observation = this.observeRunUntilTerminal(
+      createdRun.value.dagRunId,
+      promptId,
+      request.prompt,
+    )
+      .catch(() => {
+        this.recordHistory(promptId, request.prompt, 'error');
+      })
+      .finally(() => {
+        this.ownedObservationJobs.delete(observation);
+      });
+    this.ownedObservationJobs.add(observation);
 
     return {
       ok: true,
@@ -225,46 +266,14 @@ export class DagPromptBackend implements IPromptBackendPort {
     };
   }
 
-  private async processRunUntilTerminal(
+  private async observeRunUntilTerminal(
     dagRunId: string,
     promptId: string,
     prompt: IPromptRequest['prompt'],
   ): Promise<void> {
-    let iteration = 0;
-    let emptyQueueRetries = 0;
-    const MAX_EMPTY_QUEUE_RETRIES = 20;
-    const EMPTY_QUEUE_WAIT_MS = 100;
-
-    while (iteration < MAX_PROCESS_ITERATIONS) {
-      const queried = await this.execution.runQuery.getRun(dagRunId);
-      if (!queried.ok) {
-        this.recordHistory(promptId, prompt, 'error');
-        return;
-      }
-      const status = queried.value.dagRun.status;
-      if (status === 'success' || status === 'failed' || status === 'cancelled') {
-        this.recordHistory(promptId, prompt, status === 'success' ? 'success' : 'error');
-        return;
-      }
-      const processed = await this.execution.workerLoop.processOnce();
-      if (!processed.ok) {
-        this.recordHistory(promptId, prompt, 'error');
-        return;
-      }
-      if (!processed.value.processed) {
-        // Queue is empty but run is not terminal — downstream tasks may not be enqueued yet.
-        // Wait briefly and retry instead of immediately failing.
-        emptyQueueRetries += 1;
-        if (emptyQueueRetries > MAX_EMPTY_QUEUE_RETRIES) {
-          this.recordHistory(promptId, prompt, 'error');
-          return;
-        }
-        await new Promise((resolve) => setTimeout(resolve, EMPTY_QUEUE_WAIT_MS));
-        continue;
-      }
-      emptyQueueRetries = 0;
-      iteration += 1;
-    }
+    const terminal = await this.execution.runAdvancement.waitForTerminal(dagRunId);
+    const succeeded = terminal.ok && terminal.value.dagRun.status === 'success';
+    this.recordHistory(promptId, prompt, succeeded ? 'success' : 'error');
   }
 
   private recordHistory(

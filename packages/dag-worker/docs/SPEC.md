@@ -2,9 +2,9 @@
 
 ## Scope
 
-Owns the dequeue-process loop for task execution within DAG runs.
+Owns the dequeue-process step and the queue-scoped actor that advances task execution within DAG runs.
 Applies lease acquisition, timeout enforcement, retry logic, dead letter queue (DLQ) handling,
-downstream task dispatch, and DAG run finalization behavior.
+downstream task dispatch, DAG run finalization, and exclusive advancement lifecycle behavior.
 
 ## Boundaries
 
@@ -18,6 +18,9 @@ downstream task dispatch, and DAG run finalization behavior.
 The package has three main modules:
 
 - **WorkerLoopService** (`services/worker-loop-service.ts`): The core processing loop. Each `processOnce()` call dequeues a message, acquires a lease, executes the task via `ITaskExecutorPort`, handles success/failure paths, dispatches downstream tasks, and finalizes the DAG run when all tasks are terminal.
+- **RunAdvancementCoordinator** (`services/run-advancement-coordinator.ts`): The sole actor allowed to
+  call `processOnce()` for one worker/queue composition. It combines persistent background demand and
+  any number of run-terminal waiters without creating competing loops.
 - **DownstreamTaskDispatcher** (`services/downstream-task-dispatcher.ts`): Resolves downstream nodes, builds input payloads from edge bindings, creates task runs, and enqueues them.
 - **DagRunFinalizer** (`services/dag-run-finalizer.ts`): Checks whether all tasks in a DAG run are terminal and determines success/failure outcome.
 - **DlqReinjectService** (`services/dlq-reinject-service.ts`): Dequeues from the dead letter queue, transitions the task to retry state, and re-enqueues to the main queue.
@@ -151,6 +154,28 @@ the incremented attempt so the message and storage agree (`handleRetry` reads th
 
 Task timeout (`defaultTimeoutMs`) is enforced via `AbortController` signal during execution. However, if the executor does not respect the abort signal, the timeout has no effect. This is a known limitation — node implementations must cooperate with the abort signal for timeout to be effective.
 
+### Queue-Scoped Advancement Ownership (RUNTIME-003)
+
+One worker/queue composition has exactly one `RunAdvancementCoordinator`. `WorkerLoopService` remains
+the one-step functional core; only the coordinator invokes `processOnce()`. Consumers request either
+persistent background advancement or observation of a named run. Multiple waiters and background
+demand share one owned actor promise, so at most one worker step is in flight per composition.
+
+`waitForTerminal(dagRunId, { signal?, deadlineEpochMs? })` observes run state before each step and
+settles every waiter exactly once with the terminal snapshot or a typed `IDagError`. Aborting or timing
+out a waiter removes only that observer; it never cancels the DAG run. Actual run/task/node cancellation
+is a separate contract. A worker-step `TResult` failure is queue-wide rather than evidence that any one
+run failed, so the coordinator logs, backs off, and retries while demand exists. Query failure settles
+only waiters for the queried run while preserving the original error.
+
+The lifecycle is terminal: `created → running → stopping → stopped`. Duplicate start while running and
+duplicate stop are idempotent. Start after stop is rejected with `RunAdvancementStoppedError`; new
+waiters during stopping/stopped receive `DAG_RUNTIME_ADVANCEMENT_STOPPED`. Stop closes admission
+synchronously, wakes idle backoff, settles pending observers, and waits only for the current query or
+single worker step. It does not wait indefinitely for a run to become terminal and does not persist a
+cancelled run state. Every internal promise has a rejection handler at creation; no actor promise may
+float beyond the owner.
+
 ## Type Ownership
 
 This package is SSOT for:
@@ -160,6 +185,8 @@ This package is SSOT for:
 - `IDlqReinjectResult` -- reinject result (reinjected, taskRunId)
 - `IWorkerLoopDependencies` -- dependency injection shape for the composition factory
 - `IWorkerLoopPolicyOptions` -- policy-level options with optional retry/DLQ flags
+- `IRunAdvancementCoordinator`, `IRunAdvancementWaitOptions` -- queue-scoped continuous advancement,
+  terminal-run observation, and terminal lifecycle contracts
 
 `IWorkerLoopDependencies.executionRoot` is required execution authority, not worker policy. The worker
 validates it at construction, canonicalizes it to an absolute real directory, and copies that trusted
@@ -171,13 +198,15 @@ message or DAG definition.
 A table rather than a bullet list, because `check-spec-public-surface` reads table rows — as a list
 this section was invisible to the surface scan and every export in it counted as undocumented.
 
-| Export                    | Kind     | Description                                                                                                                                                      |
-| ------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WorkerLoopService`       | class    | Main service. `processOnce(): Promise<TResult<IWorkerLoopResult, IDagError>>` dequeues and processes one task, and sweeps abandoned tasks when the queue is idle |
-| `DlqReinjectService`      | class    | DLQ reinject. `reinjectOnce(workerId, visibilityTimeoutMs): Promise<TResult<IDlqReinjectResult, IDagError>>`                                                     |
-| `createWorkerLoopService` | function | Composition factory — `(deps, options) => WorkerLoopService`                                                                                                     |
-| `sweepStaleTaskRuns`      | function | DAG-001: returns tasks abandoned by a dead worker to the queue. The reader for `IStoragePort.listStaleRunningTaskRuns` — see § Crash Recovery                    |
-| `DAG_WORKER_PACKAGE_NAME` | constant | This package's name                                                                                                                                              |
+| Export                       | Kind     | Description                                                                                                                                                      |
+| ---------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WorkerLoopService`          | class    | Main service. `processOnce(): Promise<TResult<IWorkerLoopResult, IDagError>>` dequeues and processes one task, and sweeps abandoned tasks when the queue is idle |
+| `RunAdvancementCoordinator`  | class    | Queue-scoped single actor combining background demand and run-terminal waiters without concurrent `processOnce()` calls                                          |
+| `RunAdvancementStoppedError` | class    | Typed lifecycle error thrown when a stopped coordinator is started again                                                                                         |
+| `DlqReinjectService`         | class    | DLQ reinject. `reinjectOnce(workerId, visibilityTimeoutMs): Promise<TResult<IDlqReinjectResult, IDagError>>`                                                     |
+| `createWorkerLoopService`    | function | Composition factory — `(deps, options) => WorkerLoopService`                                                                                                     |
+| `sweepStaleTaskRuns`         | function | DAG-001: returns tasks abandoned by a dead worker to the queue. The reader for `IStoragePort.listStaleRunningTaskRuns` — see § Crash Recovery                    |
+| `DAG_WORKER_PACKAGE_NAME`    | constant | This package's name                                                                                                                                              |
 
 `replaceAttemptSegment(path, nextAttempt)` is an internal utility (`src/utils/execution-path.ts`), not re-exported from `src/index.ts`; see "Supporting utility" above.
 
@@ -260,6 +289,9 @@ None. Service classes are standalone (no `extends`).
 ## Test Strategy
 
 - **Unit tests**: `worker-loop-service.test.ts`, `dlq-reinject-service.test.ts`, `worker-loop-composition.test.ts`
+- **Advancement ownership tests**: `run-advancement-coordinator.test.ts` covers continuous demand plus
+  concurrent waiters, maximum in-flight step count, wake-up/backoff, typed query/step failures,
+  waiter-only abort/deadline behavior, bounded terminal stop, idempotence, and non-restart.
 - Tests use in-memory port implementations from `@robota-sdk/dag-adapters-local`.
 - Coverage focus: lease acquisition/release, success/failure paths, retry logic with attempt increment, DLQ enqueue/reinject, downstream dispatch with binding resolution, DAG run finalization (success/failure), timeout enforcement.
 - Run: `pnpm --filter @robota-sdk/dag-worker test`

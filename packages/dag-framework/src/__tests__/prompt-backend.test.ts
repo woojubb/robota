@@ -83,8 +83,13 @@ function makeMockExecution() {
       startRun: vi.fn(),
     },
     runQuery: { getRun: vi.fn() },
-    workerLoop: { processOnce: vi.fn() },
-    runCanceller: { cancelRun: vi.fn() },
+    runCancel: { cancelRun: vi.fn() },
+    runAdvancement: {
+      start: vi.fn().mockResolvedValue(undefined),
+      waitForTerminal: vi.fn(),
+      stop: vi.fn().mockResolvedValue(undefined),
+    },
+    runProgressEventBus: { publish: vi.fn(), subscribe: vi.fn() },
   };
 }
 
@@ -416,7 +421,7 @@ describe('DagPromptBackend.getObjectInfo — branches for no-meta specs', () => 
   });
 });
 
-describe('DagPromptBackend.submitPrompt — async processRunUntilTerminal', () => {
+describe('DagPromptBackend.submitPrompt — owned terminal observation', () => {
   it('records history after run completes successfully', async () => {
     const execution = makeMockExecution();
     const storage = makeMockStorage();
@@ -434,11 +439,10 @@ describe('DagPromptBackend.submitPrompt — async processRunUntilTerminal', () =
       },
     });
     execution.runOrchestrator.startCreatedRun.mockResolvedValue({ ok: true, value: {} });
-    // First getRun call returns 'running', second returns 'success'
-    execution.runQuery.getRun
-      .mockResolvedValueOnce({ ok: true, value: { dagRun: { status: 'running' }, taskRuns: [] } })
-      .mockResolvedValueOnce({ ok: true, value: { dagRun: { status: 'success' }, taskRuns: [] } });
-    execution.workerLoop.processOnce.mockResolvedValue({ ok: true, value: { processed: true } });
+    execution.runAdvancement.waitForTerminal.mockResolvedValue({
+      ok: true,
+      value: { dagRun: { status: 'success' }, taskRuns: [] },
+    });
 
     // Mock storage to support definitionService operations
     const savedDefs: Record<string, unknown> = {};
@@ -474,8 +478,7 @@ describe('DagPromptBackend.submitPrompt — async processRunUntilTerminal', () =
     if (!result.ok) return;
     expect(result.value.prompt_id).toBe('test-prompt');
 
-    // Wait for the background processRunUntilTerminal to complete
-    await new Promise((r) => setTimeout(r, 300));
+    await backend.drainOwnedObservationJobs();
 
     // history should now be recorded
     const history = await backend.getHistory('test-prompt');
@@ -494,7 +497,7 @@ describe('DagPromptBackend.submitPrompt — async processRunUntilTerminal', () =
     expect(Object.keys(allHistory.value)).toContain('test-prompt');
   });
 
-  it('records error history when getRun fails', async () => {
+  it('records error history when terminal observation fails', async () => {
     const execution = makeMockExecution();
     const storage = makeMockStorage();
     const clock = makeMockClock();
@@ -511,7 +514,7 @@ describe('DagPromptBackend.submitPrompt — async processRunUntilTerminal', () =
       },
     });
     execution.runOrchestrator.startCreatedRun.mockResolvedValue({ ok: true, value: {} });
-    execution.runQuery.getRun.mockResolvedValue({
+    execution.runAdvancement.waitForTerminal.mockResolvedValue({
       ok: false,
       error: { code: 'NOT_FOUND', message: 'gone' },
     });
@@ -542,7 +545,7 @@ describe('DagPromptBackend.submitPrompt — async processRunUntilTerminal', () =
       prompt: { '1': { class_type: 'input', inputs: { text: 'x' } } },
     });
 
-    await new Promise((r) => setTimeout(r, 200));
+    await backend.drainOwnedObservationJobs();
 
     const history = await backend.getHistory('fail-prompt');
     expect(history.ok).toBe(true);
@@ -551,7 +554,7 @@ describe('DagPromptBackend.submitPrompt — async processRunUntilTerminal', () =
     expect(entry?.status.status_str).toBe('error');
   });
 
-  it('records error history when processOnce fails', async () => {
+  it('records error history when terminal observation returns an advancement error', async () => {
     const execution = makeMockExecution();
     const storage = makeMockStorage();
     const clock = makeMockClock();
@@ -567,11 +570,10 @@ describe('DagPromptBackend.submitPrompt — async processRunUntilTerminal', () =
       },
     });
     execution.runOrchestrator.startCreatedRun.mockResolvedValue({ ok: true, value: {} });
-    execution.runQuery.getRun.mockResolvedValue({
-      ok: true,
-      value: { dagRun: { status: 'running' }, taskRuns: [] },
+    execution.runAdvancement.waitForTerminal.mockResolvedValue({
+      ok: false,
+      error: { code: 'DAG_RUNTIME_ADVANCEMENT_QUERY_THROW', message: 'fail' },
     });
-    execution.workerLoop.processOnce.mockResolvedValue({ ok: false, error: { message: 'fail' } });
 
     const savedDefs: Record<string, unknown> = {};
     storage.saveDefinition.mockImplementation((def: { dagId: string; version: number }) => {
@@ -599,7 +601,7 @@ describe('DagPromptBackend.submitPrompt — async processRunUntilTerminal', () =
       prompt: { '1': { class_type: 'input', inputs: { text: 'x' } } },
     });
 
-    await new Promise((r) => setTimeout(r, 200));
+    await backend.drainOwnedObservationJobs();
 
     const history = await backend.getHistory('p');
     expect(history.ok).toBe(true);
@@ -623,7 +625,7 @@ describe('DagPromptBackend.submitPrompt — async processRunUntilTerminal', () =
       },
     });
     execution.runOrchestrator.startCreatedRun.mockResolvedValue({ ok: true, value: {} });
-    execution.runQuery.getRun.mockResolvedValue({
+    execution.runAdvancement.waitForTerminal.mockResolvedValue({
       ok: true,
       value: { dagRun: { status: 'success' }, taskRuns: [] },
     });
@@ -659,6 +661,7 @@ describe('DagPromptBackend.submitPrompt — async processRunUntilTerminal', () =
     });
 
     expect(result.ok).toBe(true);
+    await backend.drainOwnedObservationJobs();
   });
 });
 

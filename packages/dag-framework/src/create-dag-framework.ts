@@ -46,7 +46,6 @@ import { AssetAwareTaskExecutorPort } from './adapters/asset-aware-executor.js';
 import { LocalFsAssetStore } from './adapters/local-fs-asset-store.js';
 import { DagPromptBackend } from './adapters/prompt-backend.js';
 import { DagFrameworkOrchestrationAdapter } from './adapters/orchestration-adapter.js';
-import { WorkerLoopDriver } from './runtime/worker-loop-driver.js';
 import { loadDefaultNodeRegistry } from './load-default-node-registry.js';
 import type { IDagFramework, IDagFrameworkOptions } from './types.js';
 
@@ -141,7 +140,7 @@ export async function createDagFramework(
   };
   const execution = createExecutionComposition(
     { executionRoot, storage, queue, deadLetterQueue, lease, executor, clock },
-    { worker: workerOptions },
+    { worker: workerOptions, logger: options.logger },
   );
 
   // 7. Prompt backend (for prompt API consumers)
@@ -183,18 +182,17 @@ export async function createDagFramework(
     clock,
   });
 
-  // 11. Worker loop driver
-  const driver = new WorkerLoopDriver(execution.workerLoop, options.logger);
-
-  // 12. Framework instance
+  // 11. Framework instance
   const framework: IDagFramework = {
     client,
     internals: { controllers, execution, storage, promptBackend, assetStore },
     async start(): Promise<void> {
-      await driver.start();
+      await execution.runAdvancement.start();
     },
     async stop(): Promise<void> {
-      await driver.stop();
+      await promptBackend.closeIngressAndDrainSubmissions();
+      await execution.runAdvancement.stop();
+      await promptBackend.drainOwnedObservationJobs();
     },
   };
 
