@@ -337,6 +337,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-review-token-supply.mjs'],
   },
   {
+    name: 'claude-review-coverage',
+    command: ['node', 'scripts/harness/scan-claude-review-coverage.mjs'],
+  },
+  {
     name: 'workflow-permissions',
     command: ['node', 'scripts/harness/scan-workflow-permissions.mjs'],
   },
