@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { CI_SCANS_JOB_MIRROR } from '../pre-push.mjs';
+import { CI_SCANS_JOB_MIRROR, createCiScansJobMirror } from '../pre-push.mjs';
 
 const CI = readFileSync(
   path.resolve(import.meta.dirname, '../../../.github/workflows/ci.yml'),
@@ -82,5 +82,14 @@ describe('the pre-push gate mirrors the required `scans` context (INFRA-069)', (
     // And the exclusion must not have eaten the subject: a PROVISIONING pattern loose enough to
     // match a real check would empty the list above and pass everything.
     expect(commands.every((command) => /harness:/.test(command))).toBe(true);
+  });
+
+  it('always runs contracts and scans, and skips only hermetic tests for a proven false verdict', () => {
+    expect(createCiScansJobMirror({ harness: false })).toEqual([
+      ['pnpm', ['harness:test:contracts']],
+      ['pnpm', ['harness:scan', '--', '--skip', 'dist', '--skip', 'build-contracts']],
+    ]);
+    expect(createCiScansJobMirror({ harness: true })).toEqual(CI_SCANS_JOB_MIRROR);
+    expect(createCiScansJobMirror(undefined)).toEqual(CI_SCANS_JOB_MIRROR);
   });
 });

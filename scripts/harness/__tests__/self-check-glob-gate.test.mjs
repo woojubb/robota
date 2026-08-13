@@ -1,4 +1,4 @@
-// TEST-011: the harness test suite must run as a DIRECTORY GLOB, gated in CI/pre-push.
+// TEST-011: the complete harness test directory must remain covered by the canonical tier owner.
 //
 // Defect class this fences (same as MOCK-001 hardcoded module mocks): an enumerated
 // snapshot of a growing set, enforced nowhere. verify-change.mjs once ran a hardcoded
@@ -40,18 +40,21 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
     expect(content).not.toMatch(/scripts\/harness\/__tests__\/[\w.-]+\.test\.mjs/);
   });
 
-  it('root harness:test script runs vitest on the whole directory', () => {
+  it('root harness:test delegates the complete run to the canonical tier owner', () => {
     const packageJson = JSON.parse(read('package.json'));
     const script = packageJson.scripts?.['harness:test'];
 
     expect(script).toBeTypeOf('string');
-    expect(script).toContain(`vitest run ${HARNESS_TESTS_DIR}`);
+    expect(script).toContain('harness-test-tiers.mjs --tier all');
     expect(script).not.toMatch(/\.test\.mjs/);
+    const owner = read('scripts/harness/harness-test-tiers.mjs');
+    expect(owner).toContain(`const TEST_DIR = '${HARNESS_TESTS_DIR}'`);
+    expect(owner).toContain("entry.name.endsWith('.test.mjs')");
   });
 
   it('root harness:test uses the bounded thread pool', () => {
     const packageJson = JSON.parse(read('package.json'));
-    const script = packageJson.scripts?.['harness:test'];
+    const script = read('scripts/harness/harness-test-tiers.mjs');
 
     expect(script).toContain('--pool=threads');
     expect(script).toContain('--maxWorkers=2');
@@ -60,23 +63,24 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
 });
 
 describe('globbed harness suite is gated in CI and pre-push (TEST-011)', () => {
-  it('CI runs the full harness test suite on the develop-merge path', () => {
+  it('CI always runs contracts and gates only the hermetic tier on the develop path', () => {
     const content = read('.github/workflows/ci.yml');
-    const stepIndex = content.indexOf('Harness scan test suite');
+    const stepIndex = content.indexOf('Harness repository-contract test suite');
 
     expect(stepIndex).toBeGreaterThanOrEqual(0);
 
-    // The step must execute the directory-globbed script. INFRA-055 moved the main-PR exclusion
-    // from this step to the `scans` job's own `if:`, so the step itself is now unconditional.
-    const stepBlock = content.slice(stepIndex, stepIndex + 300);
-    expect(stepBlock).toContain('pnpm harness:test');
-    expect(stepBlock).not.toContain('github.base_ref');
+    const stepBlock = content.slice(stepIndex, stepIndex + 650);
+    expect(stepBlock).toContain('pnpm harness:test:contracts');
+    expect(stepBlock).toContain('Harness hermetic test suite');
+    expect(stepBlock).toContain('pnpm harness:test:hermetic');
+    expect(stepBlock).toContain("needs.changes.result != 'success'");
 
     const scansHeader = content.slice(
       content.indexOf('\n  scans:\n'),
       content.indexOf('steps:', content.indexOf('\n  scans:\n')),
     );
-    expect(scansHeader).toContain("if: github.base_ref != 'main'");
+    expect(scansHeader).toContain('!cancelled()');
+    expect(scansHeader).toContain("github.base_ref != 'main'");
   });
 
   // INFRA-055: on a main PR the `scans` job no longer runs at all, so the release gate is the only

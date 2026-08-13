@@ -172,6 +172,7 @@ jobs:
       product: ${{ steps.filter.outputs.product }}
       tui: ${{ steps.filter.outputs.tui }}
       examples: ${{ steps.filter.outputs.examples }}
+      harness: ${{ steps.filter.outputs.harness }}
     steps:
       # INFRA-050: `fetch-depth: 0`, and NO depth-limited fetch anywhere in this job. A `--depth`
       # fetch GRAFTS the whole repository (INFRA-049 measured 109 commits locally vs 97 — a
@@ -398,7 +399,8 @@ jobs:
   # never consumed dist). INFRA-055: develop-side only — see the note above `build`.
   scans:
     name: scans
-    if: github.base_ref != 'main'
+    needs: changes
+    if: ${{ !cancelled() && github.base_ref != 'main' && needs.changes.result != 'cancelled' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -425,12 +427,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # HARNESS-021: the harness scans' own unit suite runs in full — per-scan test selection
-      # (verify-change) cannot see suite-wide drift, which let 5 stale fixtures sit silent.
-      # INFRA-055 added the same command to `harness:verify:release`, so the release gate is no
-      # longer blind to a scan whose own tests have rotted.
-      - name: Harness scan test suite
-        run: pnpm harness:test
+      # INFRA-093: live-repository contract tests inspect product/docs/policy content, so they remain
+      # unconditional. Only the stripped-root-proven hermetic tier is path-gated. A failed changes
+      # job or missing output runs it too; only an explicit harness=false may skip it.
+      - name: Harness repository-contract test suite
+        run: pnpm harness:test:contracts
+
+      - name: Harness hermetic test suite
+        if: ${{ needs.changes.result != 'success' || needs.changes.outputs.harness != 'false' }}
+        run: pnpm harness:test:hermetic
 
       # INFRA-026: the full scan suite is a develop-merge gate, not a release-only one.
       # `dist` is a LOCAL pre-CI freshness check (a fresh checkout has no dist to measure — skip printed,

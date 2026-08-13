@@ -549,7 +549,8 @@ async function runAffectedVerify({ baseRef }, context) {
 const STAGE_RUNNERS = {
   'format-check': runFormatCheck,
   commitlint: runCommitlint,
-  'harness-self-test': async () => ({ code: await run('pnpm', ['harness:test']) }),
+  'harness-self-test': async () => ({ code: await run('pnpm', ['harness:test:contracts']) }),
+  'harness-hermetic-test': async () => ({ code: await run('pnpm', ['harness:test:hermetic']) }),
   'scan-suite-dist-free': runDistFreeScanSuite,
   typecheck: async () => ({ code: await run('pnpm', ['-w', 'typecheck']) }),
   build: runBuild,
@@ -600,6 +601,7 @@ export async function resolveRunContext(baseRef) {
   const productChanged = changeClassification.product;
   const tuiChanged = changeClassification.tui;
   const examplesChanged = changeClassification.examples;
+  const harnessChanged = changeClassification.harness;
   return {
     changedFiles,
     plan,
@@ -608,6 +610,7 @@ export async function resolveRunContext(baseRef) {
     productChanged,
     tuiChanged,
     examplesChanged,
+    harnessChanged,
     missingDist,
     buildReason: describeBuildReason({ distRequired, productChanged, missingDist }),
   };
@@ -690,6 +693,13 @@ export function stageBlockCause(stage, state) {
  */
 export function stageGate(name, context) {
   switch (name) {
+    case 'harness-hermetic-test':
+      return context.harnessChanged !== false
+        ? { run: true }
+        : {
+            run: false,
+            note: 'harness capability is not affected — CI skips only the hermetic tier',
+          };
     case 'build':
       return context.distRequired || context.productChanged || context.missingDist.length > 0
         ? { run: true }

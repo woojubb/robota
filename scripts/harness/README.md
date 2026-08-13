@@ -154,10 +154,23 @@ These scripts are the executable layer of the Robota harness.
   job" correction landed in two of them and left the third contradicting the others — HARNESS-068's
   subject, inside the change that raised it.) It is enforced by
   `scripts/harness/__tests__/cleanup-drift.test.mjs`, not by `run-all-scans.mjs`, so that test file is
-  where a rise fails. CI reaches it on both sides: the `scans` job (`base_ref != 'main'`) runs
-  `pnpm harness:test` as a step, and a promotion to `main` runs it inside `harness:verify:release`.
+  where a rise fails. CI reaches it on both sides: the `scans` job (`base_ref != 'main'`) runs the
+  always-applicable `pnpm harness:test:contracts` tier, and a promotion to `main` runs the complete
+  `pnpm harness:test` suite inside `harness:verify:release`.
 - a failed measurement is an error, never a smaller number: `grep` exiting 2 or more, or a root with
   no `packages/`, stops the run rather than reporting less drift.
+
+### Harness self-test tiers (INFRA-093)
+
+- `pnpm harness:test` runs the complete self-test directory and remains the release-grade command.
+- `pnpm harness:test:contracts` runs every test not explicitly admitted to the hermetic allowlist.
+  This tier is fail-closed and always runs in `scans`, pre-push, and verify-like-CI.
+- `pnpm harness:test:hermetic` skips only when the canonical changed-path classifier successfully
+  reports explicit `harness=false`. Harness-owner changes, missing output, and classifier failure run it.
+- `pnpm harness:test:tiers:guard` copies `scripts/harness/**` into a stripped temporary repository,
+  links only installed runtime dependencies, and proves every allowlisted test without `.git`,
+  `.github`, `.agents`, hooks, packages, apps, or unrelated root files. Unlisted tests never enter
+  this tier implicitly.
 
 ## Design Notes
 

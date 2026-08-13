@@ -101,8 +101,14 @@ export const CI_STAGES = [
   {
     name: 'harness-self-test',
     needsBuildOutput: false,
-    mirrors: [{ job: 'scans', steps: ['Harness scan test suite'] }],
-    why: 'asserts baseline TIGHTNESS (spec-surface notices == []), which run-all-scans reports as a pass',
+    mirrors: [{ job: 'scans', steps: ['Harness repository-contract test suite'] }],
+    why: 'always runs repository-contract assertions that can inspect changed product, docs, and policy content',
+  },
+  {
+    name: 'harness-hermetic-test',
+    needsBuildOutput: false,
+    mirrors: [{ job: 'scans', steps: ['Harness hermetic test suite'] }],
+    why: 'runs the complete stripped-root-proven tier whenever a harness execution owner changes',
   },
   {
     name: 'scan-suite-dist-free',
