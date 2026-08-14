@@ -16,6 +16,7 @@ import {
   resolveWsAdmission,
   tokenMatches,
 } from './ws-connection-guards.js';
+import { toBytes } from './ws-message-data.js';
 import { DEFAULT_MAX_RETRIES, DEFAULT_PORT } from './ws-transport-config.js';
 
 import type { IWsTransportConfig } from './ws-transport-config.js';
@@ -39,16 +40,6 @@ import type { RawData } from 'ws';
  * + `ws` + drain-then-force convention (a WS close handshake completes in well under a second; 5s is generous).
  */
 const WS_STOP_TERMINATE_DEADLINE_MS = 5000;
-
-/**
- * Normalize the `ws` inbound payload shapes (Buffer | ArrayBuffer | Buffer[]) to a single
- * `Uint8Array` view. `ws` delivers a fragmented message as an array of Buffers.
- */
-function toBytes(data: RawData): Uint8Array {
-  if (Array.isArray(data)) return new Uint8Array(Buffer.concat(data));
-  if (data instanceof ArrayBuffer) return new Uint8Array(data);
-  return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-}
 
 /**
  * TRANS-001: the WS transport is a payload-agnostic CARRIER that routes by WebSocket frame opcode —
@@ -136,7 +127,16 @@ export class WsTransport
     this.startCancelled = false;
     const operation = this.bindWithRetry(this.session, this.port, this.maxRetries);
     this.startOperation = operation;
-    const handle = await operation;
+    let handle: Awaited<typeof operation>;
+    try {
+      handle = await operation;
+    } catch (error) {
+      if (this.state === 'starting' && this.startOperation === operation) {
+        this.startOperation = undefined;
+        this.state = this.session ? 'attached' : 'detached';
+      }
+      throw error;
+    }
     if (this.startCancelled || this.startOperation !== operation) {
       await handle.stop();
       this.state = this.session ? 'attached' : 'detached';

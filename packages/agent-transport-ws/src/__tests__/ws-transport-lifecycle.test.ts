@@ -1,3 +1,5 @@
+import { createServer } from 'node:net';
+
 import {
   createTestInteractiveSession,
   runTransportLifecycleConformance,
@@ -78,6 +80,40 @@ describe('WsTransport lifecycle (ARCH-004 RUNTIME-13)', () => {
       ws.terminate();
     } catch {
       /* already closed */
+    }
+  });
+
+  it('can retry start after a bind failure without an intervening stop', async () => {
+    const blocker = createServer();
+    await new Promise<void>((resolve, reject) => {
+      blocker.once('error', reject);
+      blocker.listen(0, '127.0.0.1', resolve);
+    });
+    const address = blocker.address();
+    if (!address || typeof address === 'string') throw new Error('Expected a TCP address.');
+
+    const transport = new WsTransport({
+      port: address.port,
+      maxRetries: 0,
+      open: true,
+      openReason: 'bind failure lifecycle regression',
+    });
+    transport.attach(mockSession());
+    let blockerOpen = true;
+    try {
+      await expect(transport.start()).rejects.toMatchObject({ code: 'EADDRINUSE' });
+      await new Promise<void>((resolve, reject) =>
+        blocker.close((error) => (error ? reject(error) : resolve())),
+      );
+      blockerOpen = false;
+
+      await expect(transport.start()).resolves.toBeUndefined();
+      started.push(transport);
+      expect(transport.boundPort).toBe(address.port);
+    } finally {
+      if (blockerOpen) {
+        await new Promise<void>((resolve) => blocker.close(() => resolve()));
+      }
     }
   });
 
