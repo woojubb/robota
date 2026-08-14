@@ -48,6 +48,9 @@ branch's PR must satisfy (`scripts/harness/verify-like-ci.mjs`). A bare `run-all
 gate, and neither is any narrower command. Which local gate runs at PUSH time — the fast scoped
 `pnpm harness:pre-push` by default, the full entry point opt-in — is owned by
 [verification.md](verification.md) § Pre-Push Local Verification Requirement, not here.
+For an integration-child PR, that entry point binds PR-base discovery to the actual single pushed ref, HEAD
+object, and matching `origin` destination; it never infers a narrow base from the checkout while another
+remote or ref, or multiple refs, are being pushed.
 
 - It runs the monorepo **build** and the affected packages' **test** suites, gated on exactly the
   conditions CI gates its own jobs on. Do not re-add a separate "plus build and tests" instruction

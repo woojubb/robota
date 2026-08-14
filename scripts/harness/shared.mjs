@@ -106,10 +106,10 @@ function gitRefExists(ref) {
   return result.status === 0;
 }
 
-export function resolveGitBaseRef(explicitBaseRef = null) {
+export function resolveGitBaseRef(explicitBaseRef = null, env = process.env) {
   return resolveBaseRef({
     explicitBaseRef,
-    env: process.env,
+    env,
     refExists: gitRefExists,
   });
 }

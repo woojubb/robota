@@ -434,6 +434,8 @@ describe('pre-push hook', () => {
     const content = readFileSync('.husky/pre-push', 'utf8');
 
     expect(content).toContain('pnpm harness:pre-push');
+    expect(content).toContain('HARNESS_PRE_PUSH_REMOTE_NAME="$1"');
+    expect(content).toContain('HARNESS_PRE_PUSH_REMOTE_URL="$2"');
     expect(content).not.toContain('origin/main');
     expect(content).not.toContain('harness:scan:dist');
   });
@@ -450,7 +452,16 @@ describe('pre-push hook', () => {
     const content = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
 
     expect(content).toContain('hasWorkingTreeChanges');
-    expect(content).toContain('baseRef && !hasWorkingTreeChanges()');
+    expect(content).toContain('basePlan.decisionBaseRef && !hasWorkingTreeChanges()');
+  });
+
+  it('threads the one resolved base plan through every pre-push consumer', () => {
+    const content = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+
+    expect(content).toContain('baseRef: basePlan.classificationBaseRef');
+    expect(content).toContain('baseRef: basePlan.decisionBaseRef');
+    expect(content).toContain('baseRef: basePlan.receiptBaseRef');
+    expect(content).toContain('const baseArgs = basePlan.baseArgs');
   });
 
   it('parses Git pre-push update lines', () => {
