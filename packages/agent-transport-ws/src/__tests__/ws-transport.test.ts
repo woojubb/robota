@@ -1,4 +1,7 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import {
+  createTestInteractiveSession,
+  runTransportLifecycleConformance,
+} from '@robota-sdk/agent-interface-transport/testing';
 
 import { describe, it, expect, expectTypeOf, vi } from 'vitest';
 import { createWsTransport } from '../ws-transport.js';
@@ -37,7 +40,10 @@ describe('createWsTransport', () => {
 
   it('throws if start() is called without attach()', async () => {
     const transport = createWsTransport({ send: vi.fn() });
-    await expect(transport.start()).rejects.toThrow('No session attached');
+    await expect(transport.start()).rejects.toMatchObject({
+      name: 'TransportLifecycleError',
+      code: 'not-attached',
+    });
   });
 
   it('onMessage is null before start()', () => {
@@ -58,5 +64,17 @@ describe('createWsTransport', () => {
     await transport.start();
     await transport.stop();
     expect(transport.onMessage).toBeNull();
+  });
+
+  it('invokes the shared lifecycle conformance suite', async () => {
+    await runTransportLifecycleConformance({
+      subjectId: '@robota-sdk/agent-transport-ws#createWsTransport',
+      kind: 'service',
+      createAdapter: () => createWsTransport({ send: vi.fn() }),
+      createSession: createMockSession,
+      assertReady: (transport) => {
+        if (typeof transport.onMessage !== 'function') throw new Error('WS handler not ready');
+      },
+    });
   });
 });

@@ -9,7 +9,11 @@ import { createAgentMcpServer } from './mcp-server.js';
 
 import type { IMcpTransportSession } from './mcp-session.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import type { IInteractiveSession, ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+import type {
+  IInteractiveSession,
+  ITransportAdapter,
+  ITransportLifecycleError,
+} from '@robota-sdk/agent-interface-transport';
 
 export interface IMcpTransportOptions {
   /** Name for the MCP server. */
@@ -28,14 +32,22 @@ export interface IMcpTransport extends ITransportAdapter<IInteractiveSession> {
 export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport {
   let session: IMcpTransportSession | null = null;
   let server: Server | null = null;
+  const lifecycleError = (code: ITransportLifecycleError['code']): ITransportLifecycleError =>
+    Object.assign(new Error(`MCP transport ${code}.`), {
+      name: 'TransportLifecycleError' as const,
+      code,
+      transportName: 'mcp',
+    });
 
   return {
     name: 'mcp',
+    lifecycle: Object.freeze({ kind: 'service' }),
     attach(s: IMcpTransportSession) {
       session = s;
     },
     async start() {
-      if (!session) throw new Error('No session attached. Call attach() first.');
+      if (!session) throw lifecycleError('not-attached');
+      if (server) throw lifecycleError('already-started');
       server = createAgentMcpServer({ ...options, session });
     },
     async stop() {
@@ -43,6 +55,7 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
         await server.close();
         server = null;
       }
+      session = null;
     },
     getServer() {
       if (!server) throw new Error('Transport not started. Call start() first.');

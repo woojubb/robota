@@ -6,12 +6,25 @@
 export type { IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
 
 // ── Transport adapter contracts ──────────────────────────────
-export type { ITransportAdapter } from './transport-adapter.js';
+export type {
+  ITransportAdapter,
+  ITransportCompletionRecord,
+  ITransportLifecycle,
+  ITransportLifecycleError,
+  ITransportRunnerAdapter,
+  TTransportLifecycleKind,
+  TTransportLifecycleErrorCode,
+  TTransportRunOutcome,
+} from './transport-adapter.js';
 export type {
   ITransportConfig,
   IConfigurableTransport,
   ITransportEntry,
+  ITransportConfigurationError,
+  ITransportLifecycleRegistryView,
   ITransportRegistryView,
+  ITransportSettingsRegistryView,
+  TTransportConfigurationErrorCode,
 } from './transport-config.js';
 
 // ── Payload-agnostic channel contracts (TRANS-001) ───────────

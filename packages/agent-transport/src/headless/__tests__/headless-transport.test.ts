@@ -1,4 +1,7 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import {
+  createTestInteractiveSession,
+  runTransportLifecycleConformance,
+} from '@robota-sdk/agent-interface-transport/testing';
 
 import { describe, it, expect, expectTypeOf, vi, beforeEach, afterEach } from 'vitest';
 import { createHeadlessTransport } from '../headless-transport.js';
@@ -90,11 +93,17 @@ describe('createHeadlessTransport', () => {
   it('returns an adapter with name "headless"', () => {
     const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'hello' });
     expect(transport.name).toBe('headless');
+    expect(transport.lifecycle).toEqual({ kind: 'runner' });
+    expect(Object.isFrozen(transport.lifecycle)).toBe(true);
   });
 
   it('throws if start() is called without attach()', async () => {
     const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'hello' });
-    await expect(transport.start()).rejects.toThrow('No session attached');
+    await expect(transport.start()).rejects.toMatchObject({
+      name: 'TransportLifecycleError',
+      code: 'not-attached',
+      transportName: 'headless',
+    });
   });
 
   it('returns exit code 0 by default', () => {
@@ -117,11 +126,28 @@ describe('createHeadlessTransport', () => {
       const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'hello' });
       transport.attach(mockSession as never);
       await transport.start();
+      await transport.waitForCompletion();
 
       expect(transport.getExitCode()).toBe(0);
       expect(writes.join('')).toContain('test output');
     } finally {
       process.stdout.write = originalWrite;
+    }
+  });
+
+  it('invokes the shared lifecycle conformance suite', async () => {
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      await runTransportLifecycleConformance({
+        subjectId: '@robota-sdk/agent-transport#createHeadlessTransport',
+        kind: 'runner',
+        createAdapter: () =>
+          createHeadlessTransport({ outputFormat: 'text', prompt: 'ARCH-011 conformance' }),
+        createSession: createEventDrivenMockSession,
+        assertReady: () => {},
+      });
+    } finally {
+      write.mockRestore();
     }
   });
 });
@@ -145,6 +171,10 @@ describe('createHeadlessTransport (json adapter)', () => {
     const transport = createHeadlessTransport({ outputFormat: 'json', prompt: 'test prompt' });
     transport.attach(mockSession as never);
     await transport.start();
+    await expect(transport.waitForCompletion()).resolves.toEqual({
+      status: 'succeeded',
+      exitCode: 0,
+    });
 
     expect(transport.getExitCode()).toBe(0);
     expect(stdoutWriteSpy).toHaveBeenCalledTimes(1);
@@ -183,6 +213,10 @@ describe('createHeadlessTransport (stream-json adapter)', () => {
     });
     transport.attach(mockSession as never);
     await transport.start();
+    await expect(transport.waitForCompletion()).resolves.toEqual({
+      status: 'succeeded',
+      exitCode: 0,
+    });
 
     expect(transport.getExitCode()).toBe(0);
 
@@ -244,6 +278,10 @@ describe('createHeadlessTransport (error and interrupted)', () => {
     const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'test prompt' });
     transport.attach(mockSession as never);
     await transport.start();
+    await expect(transport.waitForCompletion()).resolves.toEqual({
+      status: 'failed',
+      exitCode: 1,
+    });
 
     expect(transport.getExitCode()).toBe(1);
   });
@@ -256,6 +294,10 @@ describe('createHeadlessTransport (error and interrupted)', () => {
     const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'test prompt' });
     transport.attach(mockSession as never);
     await transport.start();
+    await expect(transport.waitForCompletion()).resolves.toEqual({
+      status: 'succeeded',
+      exitCode: 0,
+    });
 
     expect(transport.getExitCode()).toBe(0);
     expect(stdoutWriteSpy).toHaveBeenCalledWith('partial output\n');

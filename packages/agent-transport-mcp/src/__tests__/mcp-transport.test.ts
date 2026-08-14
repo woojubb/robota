@@ -1,4 +1,7 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import {
+  createTestInteractiveSession,
+  runTransportLifecycleConformance,
+} from '@robota-sdk/agent-interface-transport/testing';
 
 import { describe, it, expect, expectTypeOf, vi } from 'vitest';
 import { createMcpTransport } from '../mcp-transport.js';
@@ -37,7 +40,10 @@ describe('createMcpTransport', () => {
 
   it('throws if start() is called without attach()', async () => {
     const transport = createMcpTransport({ name: 'test', version: '1.0.0' });
-    await expect(transport.start()).rejects.toThrow('No session attached');
+    await expect(transport.start()).rejects.toMatchObject({
+      name: 'TransportLifecycleError',
+      code: 'not-attached',
+    });
   });
 
   it('throws if getServer() is called before start()', () => {
@@ -51,5 +57,17 @@ describe('createMcpTransport', () => {
     await transport.start();
     const server = transport.getServer();
     expect(server).toBeDefined();
+  });
+
+  it('invokes the shared lifecycle conformance suite', async () => {
+    await runTransportLifecycleConformance({
+      subjectId: '@robota-sdk/agent-transport-mcp#createMcpTransport',
+      kind: 'service',
+      createAdapter: () => createMcpTransport({ name: 'conformance', version: '1.0.0' }),
+      createSession: createMockSession,
+      assertReady: (transport) => {
+        transport.getServer();
+      },
+    });
   });
 });

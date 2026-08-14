@@ -16,7 +16,10 @@ import type {
   IResumableSessionSummary,
   IToolState,
   ITransportAdapter,
+  ITransportCompletionRecord,
   ITransportConfig,
+  ITransportRunnerAdapter,
+  TTransportRunOutcome,
   IUsageSnapshot,
   TCommandHostAction,
   TPermissionResultValue,
@@ -29,6 +32,10 @@ import type {
 describe('agent-interface-transport contract surface', () => {
   it('exports the transport adapter contracts', () => {
     expectTypeOf<ITransportAdapter>().toBeObject();
+    expectTypeOf<ITransportAdapter>().toHaveProperty('lifecycle');
+    expectTypeOf<ITransportRunnerAdapter>().toHaveProperty('waitForCompletion');
+    expectTypeOf<TTransportRunOutcome>().not.toBeNever();
+    expectTypeOf<ITransportCompletionRecord>().toHaveProperty('outcome');
     expectTypeOf<ITransportConfig>().toBeObject();
     expectTypeOf<IConfigurableTransport>().toBeObject();
   });

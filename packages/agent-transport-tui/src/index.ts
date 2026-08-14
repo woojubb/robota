@@ -1,4 +1,3 @@
-export { TuiTransport } from './tui-transport.js';
 export { renderApp } from './render.js';
 export type { IRenderOptions } from './render.js';
 export type { ITuiCliAdapter } from './tui-cli-adapter.js';

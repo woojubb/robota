@@ -24,6 +24,7 @@ import type {
   IChannelDescriptor,
   IConfigurableTransport,
   IInteractiveSession,
+  ITransportLifecycleError,
   IPayloadChannel,
   IPayloadChannelHost,
   TChannelEventMap,
@@ -58,6 +59,7 @@ export class WsTransport
   implements IConfigurableTransport<IInteractiveSession>, IPayloadChannelHost
 {
   readonly name = 'ws';
+  readonly lifecycle = Object.freeze({ kind: 'service' as const });
   readonly defaultEnabled = true;
   readonly optionsSchema = {
     port: { type: 'number', description: 'WebSocket server port', default: DEFAULT_PORT },
@@ -126,7 +128,8 @@ export class WsTransport
   }
 
   async start(): Promise<void> {
-    if (!this.session) throw new Error('WsTransport: attach() must be called before start()');
+    if (!this.session) throw this.lifecycleError('not-attached');
+    if (this.stopFn) throw this.lifecycleError('already-started');
     const handle = await this.bindWithRetry(this.session, this.port, this.maxRetries);
     this.stopFn = handle.stop;
     this.resolvedPort = handle.port;
@@ -135,6 +138,8 @@ export class WsTransport
   async stop(): Promise<void> {
     await this.stopFn?.();
     this.stopFn = null;
+    this.resolvedPort = undefined;
+    this.session = null;
   }
 
   validateOptions(options: Record<string, TUniversalValue>): boolean {
@@ -143,6 +148,14 @@ export class WsTransport
     if (maxRetries !== undefined && (typeof maxRetries !== 'number' || maxRetries < 0))
       return false;
     return true;
+  }
+
+  private lifecycleError(code: ITransportLifecycleError['code']): ITransportLifecycleError {
+    return Object.assign(new Error(`WsTransport ${code}.`), {
+      name: 'TransportLifecycleError' as const,
+      code,
+      transportName: this.name,
+    });
   }
 
   private bindWithRetry(

@@ -1,4 +1,7 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import {
+  createTestInteractiveSession,
+  runTransportLifecycleConformance,
+} from '@robota-sdk/agent-interface-transport/testing';
 
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { RTCPeerConnection } from 'werift';
@@ -90,7 +93,50 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
       open: true,
       openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing',
     });
-    await expect(t.start()).rejects.toThrow(/attach\(\) must be called/);
+    await expect(t.start()).rejects.toMatchObject({
+      name: 'TransportLifecycleError',
+      code: 'not-attached',
+    });
+  });
+
+  it('invokes the shared lifecycle conformance suite', async () => {
+    const sent: Array<{ readonly kind: string }> = [];
+    const signaling: ISignalingClient = {
+      send: (message) => sent.push(message),
+      onSignal: () => () => {},
+      close: () => {},
+    };
+    const fakeWerift = {
+      RTCPeerConnection: function () {
+        return {
+          onIceCandidate: { subscribe: () => {} },
+          createDataChannel: () => ({
+            onMessage: { subscribe: () => {} },
+            send: () => {},
+          }),
+          createOffer: async () => ({ type: 'offer', sdp: 'a=fingerprint:sha-256 AA' }),
+          setLocalDescription: async () => {},
+          localDescription: { type: 'offer', sdp: 'a=fingerprint:sha-256 AA' },
+          close: async () => {},
+        };
+      },
+    } as unknown as import('../werift-loader.js').IWeriftModule;
+
+    await runTransportLifecycleConformance({
+      subjectId: '@robota-sdk/agent-transport-webrtc#WebRtcTransport',
+      kind: 'service',
+      createAdapter: () =>
+        new WebRtcTransport({
+          signaling,
+          open: true,
+          openReason: 'ARCH-011 lifecycle conformance',
+          loadWerift: () => fakeWerift,
+        }),
+      createSession: createStubSession,
+      assertReady: () => {
+        if (!sent.some(({ kind }) => kind === 'offer')) throw new Error('offer not published');
+      },
+    });
   });
 
   it('REMOTE-010: forceTurn → iceTransportPolicy:relay (NOT top-level forceTurn, which werift ignores) + turn: passes through', async () => {

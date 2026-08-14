@@ -1,4 +1,7 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import {
+  createTestInteractiveSession,
+  runTransportLifecycleConformance,
+} from '@robota-sdk/agent-interface-transport/testing';
 
 import { describe, it, expect, expectTypeOf, vi } from 'vitest';
 import { createHttpTransport } from '../http-transport.js';
@@ -37,7 +40,10 @@ describe('createHttpTransport', () => {
 
   it('throws if start() is called without attach()', async () => {
     const transport = createHttpTransport();
-    await expect(transport.start()).rejects.toThrow('No session attached');
+    await expect(transport.start()).rejects.toMatchObject({
+      name: 'TransportLifecycleError',
+      code: 'not-attached',
+    });
   });
 
   it('throws if getApp() is called before start()', () => {
@@ -60,6 +66,21 @@ describe('createHttpTransport', () => {
     await transport.start();
     await transport.stop();
     expect(() => transport.getApp()).toThrow('Transport not started');
+  });
+
+  it('invokes the shared lifecycle conformance suite', async () => {
+    await runTransportLifecycleConformance({
+      subjectId: '@robota-sdk/agent-transport-http#createHttpTransport',
+      kind: 'service',
+      createAdapter: () =>
+        createHttpTransport({
+          admission: { open: true, openReason: 'ARCH-011 lifecycle conformance' },
+        }),
+      createSession: createMockSession,
+      assertReady: (transport) => {
+        if (typeof transport.getApp().fetch !== 'function') throw new Error('HTTP app not ready');
+      },
+    });
   });
 });
 

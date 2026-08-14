@@ -285,6 +285,7 @@ describe('headless transport skill activation integration', () => {
 
       session.attachTransport(transport);
       await transport.start();
+      await transport.waitForCompletion();
 
       const output = parseJsonObject(stdout.writes.join('').trim());
       expect(transport.getExitCode()).toBe(0);
@@ -353,6 +354,7 @@ describe('headless transport skill activation integration', () => {
 
       session.attachTransport(transport);
       await transport.start();
+      await transport.waitForCompletion();
 
       const output = parseJsonObject(stdout.writes.join('').trim());
       expect(transport.getExitCode()).toBe(0);
@@ -403,6 +405,7 @@ describe('headless transport skill activation integration', () => {
 
       session.attachTransport(transport);
       await transport.start();
+      await transport.waitForCompletion();
 
       const output = parseJsonObject(stdout.writes.join('').trim());
       expect(transport.getExitCode()).toBe(0);

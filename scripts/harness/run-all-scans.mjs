@@ -494,6 +494,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-transport-admission.mjs'],
   },
   {
+    name: 'transport-conformance',
+    command: ['node', 'scripts/harness/scan-transport-conformance.mjs'],
+  },
+  {
     name: 'browser-package-node-subpath',
     command: ['node', 'scripts/harness/scan-browser-package-node-subpath.mjs'],
   },

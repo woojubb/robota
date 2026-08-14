@@ -1,8 +1,5 @@
 /**
- * TransportRegistry — manages IConfigurableTransport instances with settings-backed enable/disable.
- *
- * Settings file shape (under `transports` key in settings.json):
- *   { "ws": { "enabled": true, "options": { "port": 7070 } } }
+ * TransportRegistry — one lifecycle registry with an optional settings capability per entry.
  */
 
 import { readSettings, writeSettings, type TSettingsData } from '@robota-sdk/agent-framework';
@@ -11,49 +8,121 @@ import type { IDestroyResult, TUniversalValue } from '@robota-sdk/agent-core';
 import type {
   IConfigurableTransport,
   IInteractiveSession,
+  ITransportAdapter,
+  ITransportCompletionRecord,
   ITransportConfig,
   ITransportEntry,
+  ITransportLifecycleError,
+  ITransportRunnerAdapter,
+  TTransportConfigurationErrorCode,
 } from '@robota-sdk/agent-interface-transport';
 
+interface IRegistryEntry {
+  readonly transport: ITransportAdapter<IInteractiveSession>;
+  readonly configurable?: IConfigurableTransport<IInteractiveSession>;
+}
+
+interface IDeferred<T> {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T) => void;
+  readonly reject: (error: unknown) => void;
+}
+
+interface IRunGeneration {
+  active: boolean;
+  sealed: boolean;
+  pending: number;
+  settled: boolean;
+  failureSettled: boolean;
+  readonly orderedNames: string[];
+  readonly records: Map<string, ITransportCompletionRecord>;
+  readonly completion: IDeferred<ITransportCompletionRecord[]>;
+  readonly failure: IDeferred<ITransportCompletionRecord | undefined>;
+}
+
+function deferred<T>(): IDeferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function isConfigurableTransport(
+  transport: ITransportAdapter<IInteractiveSession>,
+): transport is IConfigurableTransport<IInteractiveSession> {
+  return 'defaultEnabled' in transport && typeof transport.defaultEnabled === 'boolean';
+}
+
+function isRunnerTransport(
+  transport: ITransportAdapter<IInteractiveSession>,
+): transport is ITransportRunnerAdapter<IInteractiveSession> {
+  return transport.lifecycle.kind === 'runner' && 'waitForCompletion' in transport;
+}
+
+function configurationError(transportName: string, code: TTransportConfigurationErrorCode): Error {
+  return Object.assign(new Error(`Transport ${transportName} is ${code}.`), {
+    name: 'TransportConfigurationError' as const,
+    code,
+    transportName,
+  });
+}
+
+function lifecycleError(transportName: string, cause: unknown): ITransportLifecycleError {
+  const error = Object.assign(new Error(`Runner ${transportName} rejected.`), {
+    name: 'TransportLifecycleError' as const,
+    code: 'runner-rejected' as const,
+    transportName,
+  });
+  Object.defineProperty(error, 'cause', { value: cause, enumerable: false });
+  return error;
+}
+
 export class TransportRegistry {
-  private readonly entries = new Map<string, IConfigurableTransport<IInteractiveSession>>();
+  private readonly entries = new Map<string, IRegistryEntry>();
   private readonly settingsPath: string;
-  /** ARCH-011: in-flight `start()` promises of run-to-completion transports, by name. */
-  private readonly running = new Map<string, Promise<void>>();
-  /**
-   * Failures of run-to-completion transports, held until `waitForCompletion` asks for them.
-   *
-   * REPLACED on `stopAll`, not emptied. A handler attached to a still-in-flight `start()` cannot be
-   * detached, so it fires after the stop and writes to whatever array it captured. Emptying the array
-   * in place left that write landing in the SAME instance a later session was reading, so a failure
-   * from a stopped session was thrown as if it belonged to the current one. Replacing it means the
-   * stale handler writes to an array nobody holds.
-   */
-  private failures: unknown[] = [];
+  private generation: IRunGeneration | undefined;
 
   constructor(settingsPath: string) {
     this.settingsPath = settingsPath;
   }
 
-  register(transport: IConfigurableTransport<IInteractiveSession>): void {
-    this.entries.set(transport.name, transport);
+  register(transport: ITransportAdapter<IInteractiveSession>): void {
+    if (this.entries.has(transport.name)) {
+      throw new Error(`Duplicate transport name: ${transport.name}`);
+    }
+    this.entries.set(transport.name, {
+      transport,
+      configurable: isConfigurableTransport(transport) ? transport : undefined,
+    });
   }
 
   getAll(): ITransportEntry<IInteractiveSession>[] {
     const saved = this.readTransportSettings();
-    return Array.from(this.entries.values()).map((transport) => ({
-      transport,
-      config: this.resolveConfig(transport, saved[transport.name]),
-    }));
+    return [...this.entries.values()].flatMap(({ configurable }) =>
+      configurable
+        ? [
+            {
+              transport: configurable,
+              config: this.resolveConfig(configurable, saved[configurable.name]),
+            },
+          ]
+        : [],
+    );
   }
 
-  getEnabled(): IConfigurableTransport<IInteractiveSession>[] {
-    return this.getAll()
-      .filter((e) => e.config.enabled)
-      .map((e) => e.transport);
+  getEnabled(): ITransportAdapter<IInteractiveSession>[] {
+    const saved = this.readTransportSettings();
+    return [...this.entries.values()].flatMap(({ transport, configurable }) => {
+      if (!configurable) return [transport];
+      return this.resolveConfig(configurable, saved[transport.name]).enabled ? [transport] : [];
+    });
   }
 
   async setEnabled(name: string, enabled: boolean): Promise<void> {
+    this.requireConfigurable(name);
     const settings = readSettings(this.settingsPath);
     const transports = (settings.transports ?? {}) as TSettingsData;
     const entry = (transports[name] ?? {}) as TSettingsData;
@@ -63,6 +132,7 @@ export class TransportRegistry {
   }
 
   async setOptions(name: string, options: Record<string, TUniversalValue>): Promise<void> {
+    this.requireConfigurable(name);
     const settings = readSettings(this.settingsPath);
     const transports = (settings.transports ?? {}) as TSettingsData;
     const entry = (transports[name] ?? {}) as TSettingsData;
@@ -71,98 +141,127 @@ export class TransportRegistry {
     writeSettings(this.settingsPath, settings);
   }
 
-  /**
-   * Start every enabled transport. ARCH-011.
-   *
-   * A transport that declares `runsToCompletion` is started WITHOUT being awaited — its `start()`
-   * does not return while it is alive, and awaiting it meant every transport behind it never
-   * started. Its promise is kept, not dropped: `waitForCompletion()` is where its result and its
-   * failure arrive, because a transport whose entire job happens inside `start()` is exactly the one
-   * whose failure matters, and an unawaited rejection would be an unhandled promise instead of a
-   * reported error.
-   */
   async startAll(session: IInteractiveSession): Promise<void> {
-    const enabled = this.getEnabled();
-    for (const transport of enabled) {
+    const generation = this.createGeneration();
+    this.generation = generation;
+
+    for (const transport of this.getEnabled()) {
       transport.attach(session);
-      if (transport.runsToCompletion === true) {
-        this.trackRunToCompletion(transport.name, transport.start());
-        continue;
-      }
       await transport.start();
-    }
-  }
-
-  /**
-   * Take ownership of a run-to-completion transport's promise.
-   *
-   * The handler is attached HERE, not left to `waitForCompletion`. Merely storing the promise does
-   * not attach one: a rejection between `startAll` returning and the caller getting round to
-   * `waitForCompletion` is an unhandled rejection, which on Node ≥15 aborts the process — measured,
-   * exit code 1, bypassing shutdown entirely. The first draft's comment claimed the opposite. The
-   * outcome is recorded and replayed instead, so the failure arrives when it is asked for and never
-   * escapes in the meantime.
-   *
-   * The entry is dropped once it settles, so a registry that is stopped and started again — a session
-   * switch does exactly this — does not accumulate or overwrite them.
-   */
-  private trackRunToCompletion(name: string, promise: Promise<void>): void {
-    // Captured at TRACK time. A stop replaces `this.failures`, so a handler that fires afterwards
-    // records into the array of the generation it belonged to — which nobody reads.
-    const sink = this.failures;
-    // Deleted only if it is still OURS. The key is the transport name, and a stale promise from a
-    // stopped session settles late — deleting by name alone would drop the CURRENT session's entry
-    // for the same transport, and `waitForCompletion` would then resolve without waiting for work
-    // that is still in flight.
-    let tracked: Promise<void>;
-    const clearIfOurs = (): void => {
-      if (this.running.get(name) === tracked) {
-        this.running.delete(name);
+      if (isRunnerTransport(transport)) {
+        this.trackRunner(generation, transport);
       }
-    };
-    tracked = promise.then(clearIfOurs, (error: unknown) => {
-      clearIfOurs();
-      sink.push(error);
-    });
-    this.running.set(name, tracked);
-  }
+    }
 
-  /**
-   * Settle when every run-to-completion transport has finished, rejecting with the first failure to
-   * occur. Resolves immediately when there are none, which is the ordinary case.
-   */
-  async waitForCompletion(): Promise<void> {
-    await Promise.all([...this.running.values()]);
-    // Presence, not `!== undefined`: `Promise.reject()` with no value pushes `undefined`, and an
-    // equality check would read that as "no failure" and swallow it.
-    if (this.failures.length > 0) {
-      throw this.failures.shift();
+    generation.sealed = true;
+    if (generation.pending === 0) {
+      this.settleCompletion(generation);
+      this.settleFailure(generation, undefined);
     }
   }
 
-  /**
-   * Stop every registered transport — **best-effort** (CORE-013 disposal convention): one
-   * transport's stop failure must not skip the others or reject a fire-and-forget caller.
-   * Failures are collected into the returned result.
-   */
+  waitForCompletion(): Promise<ITransportCompletionRecord[]> {
+    return this.generation?.completion.promise ?? Promise.resolve([]);
+  }
+
+  waitForFailure(): Promise<ITransportCompletionRecord | undefined> {
+    return this.generation?.failure.promise ?? Promise.resolve(undefined);
+  }
+
   async stopAll(): Promise<IDestroyResult> {
     const errors: Error[] = [];
-    // ARCH-011: a run-to-completion transport is ABANDONED here, not awaited. `stopAll`'s contract is
-    // best-effort and bounded (CORE-013); waiting on a transport whose `stop()` is a documented no-op
-    // — which both of them are — would make it neither. Dropping the tracking is what makes it
-    // honest: `waitForCompletion` after a stop resolves rather than hanging on work nobody will
-    // finish, and a later `startAll` (a session switch does this) starts from empty.
-    this.running.clear();
-    this.failures = [];
-    for (const transport of this.entries.values()) {
+    const generation = this.generation;
+    if (generation) {
+      generation.active = false;
+      this.settleCompletion(generation);
+      this.settleFailure(generation, undefined);
+      this.generation = undefined;
+    }
+
+    for (const { transport } of this.entries.values()) {
       try {
         await transport.stop();
       } catch (error) {
-        // allow-fallback: best-effort disposal IS the contract — the failure is collected into the returned result and the remaining transports still stop (CORE-013 convention)
         errors.push(error instanceof Error ? error : new Error(String(error)));
       }
     }
     return { errors };
+  }
+
+  private createGeneration(): IRunGeneration {
+    const completion = deferred<ITransportCompletionRecord[]>();
+    const failure = deferred<ITransportCompletionRecord | undefined>();
+    // Both rejections are owned immediately; later callers still receive the original rejection.
+    void completion.promise.catch(() => undefined);
+    void failure.promise.catch(() => undefined);
+    return {
+      active: true,
+      sealed: false,
+      pending: 0,
+      settled: false,
+      failureSettled: false,
+      orderedNames: [],
+      records: new Map(),
+      completion,
+      failure,
+    };
+  }
+
+  private trackRunner(
+    generation: IRunGeneration,
+    runner: ITransportRunnerAdapter<IInteractiveSession>,
+  ): void {
+    generation.pending += 1;
+    generation.orderedNames.push(runner.name);
+    void runner.waitForCompletion().then(
+      (outcome) => {
+        if (!generation.active) return;
+        const record = { name: runner.name, outcome } satisfies ITransportCompletionRecord;
+        generation.records.set(runner.name, record);
+        generation.pending -= 1;
+        if (outcome.status === 'failed') this.settleFailure(generation, record);
+        if (generation.sealed && generation.pending === 0) {
+          this.settleCompletion(generation);
+          this.settleFailure(generation, undefined);
+        }
+      },
+      (cause: unknown) => {
+        if (!generation.active) return;
+        const error = lifecycleError(runner.name, cause);
+        generation.active = false;
+        generation.completion.reject(error);
+        generation.failure.reject(error);
+        generation.settled = true;
+        generation.failureSettled = true;
+      },
+    );
+  }
+
+  private settleCompletion(generation: IRunGeneration): void {
+    if (generation.settled) return;
+    generation.settled = true;
+    generation.completion.resolve(
+      generation.orderedNames.flatMap((name) => {
+        const record = generation.records.get(name);
+        return record ? [record] : [];
+      }),
+    );
+  }
+
+  private settleFailure(
+    generation: IRunGeneration,
+    record: ITransportCompletionRecord | undefined,
+  ): void {
+    if (generation.failureSettled) return;
+    generation.failureSettled = true;
+    generation.failure.resolve(record);
+  }
+
+  private requireConfigurable(name: string): IConfigurableTransport<IInteractiveSession> {
+    const entry = this.entries.get(name);
+    if (!entry) throw configurationError(name, 'unknown-transport');
+    if (!entry.configurable) throw configurationError(name, 'not-configurable');
+    return entry.configurable;
   }
 
   private resolveConfig(

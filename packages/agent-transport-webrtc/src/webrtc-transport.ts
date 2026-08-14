@@ -80,6 +80,7 @@ export interface IWebRtcTransportOptions {
  */
 export class WebRtcTransport implements IConfigurableTransport<IInteractiveSession> {
   public readonly name = 'webrtc';
+  public readonly lifecycle = Object.freeze({ kind: 'service' as const });
   public readonly defaultEnabled = false;
   public readonly optionsSchema = {} as const;
 
@@ -145,7 +146,8 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
 
   public async start(): Promise<void> {
     const session = this.session;
-    if (!session) throw new Error('WebRtcTransport: attach() must be called before start()');
+    if (!session) throw this.lifecycleError('not-attached');
+    if (this.peer) throw this.lifecycleError('already-started');
 
     const { RTCPeerConnection } = (this.options.loadWerift ?? loadWerift)();
     const peerConfig: {
@@ -285,5 +287,16 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
       await this.peer.close();
       this.peer = undefined;
     }
+    this.session = undefined;
+  }
+
+  private lifecycleError(
+    code: import('@robota-sdk/agent-interface-transport').ITransportLifecycleError['code'],
+  ): import('@robota-sdk/agent-interface-transport').ITransportLifecycleError {
+    return Object.assign(new Error(`WebRtcTransport ${code}.`), {
+      name: 'TransportLifecycleError' as const,
+      code,
+      transportName: this.name,
+    });
   }
 }

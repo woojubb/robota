@@ -15,6 +15,7 @@ import type {
   IInteractiveSession,
   ITransportAdapter,
   ITransportAdmissionConfig,
+  ITransportLifecycleError,
 } from '@robota-sdk/agent-interface-transport';
 import type { Hono } from 'hono';
 
@@ -50,14 +51,22 @@ export function createHttpTransport(options?: IHttpTransportOptions): IHttpTrans
   // Resolved at CONSTRUCTION, not at start: a host needs the credential to hand to its client, and
   // a transport that cannot mint one must fail before anything is served.
   const admission = resolveAdmission(options?.admission);
+  const lifecycleError = (code: ITransportLifecycleError['code']): ITransportLifecycleError =>
+    Object.assign(new Error(`HTTP transport ${code}.`), {
+      name: 'TransportLifecycleError' as const,
+      code,
+      transportName: 'http',
+    });
 
   return {
     name: 'http',
+    lifecycle: Object.freeze({ kind: 'service' }),
     attach(s: IHttpTransportSession) {
       session = s;
     },
     async start() {
-      if (!session) throw new Error('No session attached. Call attach() first.');
+      if (!session) throw lifecycleError('not-attached');
+      if (app) throw lifecycleError('already-started');
       app = createAgentRoutes({
         sessionFactory: () => session!,
         // The decision already made, passed through — not taken apart and rebuilt for the routes to
@@ -68,6 +77,7 @@ export function createHttpTransport(options?: IHttpTransportOptions): IHttpTrans
     },
     async stop() {
       app = null;
+      session = null;
     },
     getApp() {
       if (!app) throw new Error('Transport not started. Call start() first.');

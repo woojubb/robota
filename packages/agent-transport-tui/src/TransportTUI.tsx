@@ -12,7 +12,7 @@ import { PALETTE } from './tui-palette.js';
 import type {
   IInteractiveSession,
   ITransportEntry,
-  ITransportRegistryView,
+  ITransportSettingsRegistryView,
 } from '@robota-sdk/agent-interface-transport';
 
 const TRANSPORT_NAME_WIDTH = 18;
@@ -43,7 +43,7 @@ function useTransportInput(
   entries: ITransportEntry<IInteractiveSession>[],
   cursor: number,
   saving: boolean,
-  registry: ITransportRegistryView<IInteractiveSession>,
+  registry: ITransportSettingsRegistryView<IInteractiveSession>,
   setCursor: (fn: (c: number) => number) => void,
   setSaving: (v: boolean) => void,
   onClose: () => void,
@@ -84,7 +84,7 @@ function useTransportInput(
 }
 
 interface IProps {
-  registry: ITransportRegistryView<IInteractiveSession>;
+  registry: ITransportSettingsRegistryView<IInteractiveSession>;
   onClose: () => void;
 }
 

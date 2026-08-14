@@ -19,7 +19,10 @@ import { InteractiveSession } from '../interactive/interactive-session.js';
 
 import type { IInteractiveSession } from '../interactive/index.js';
 import type { TInteractiveSessionOptions } from '../interactive/interactive-session.js';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+import type {
+  ITransportCompletionRecord,
+  ITransportLifecycleRegistryView,
+} from '@robota-sdk/agent-interface-transport';
 
 /** Upper bound on the graceful session shutdown so a wedged subsystem cannot block process exit. */
 const RUNTIME_SHUTDOWN_TIMEOUT_MS = 5000;
@@ -33,7 +36,7 @@ export interface IRuntimeHostOptions {
   /** The resolved session-build options — the consumer resolves settings/preset/args and passes them in. */
   session: TInteractiveSessionOptions;
   /** The transport registry (e.g. the loopback WS sidecar); the host owns its start/stop lifecycle. */
-  transportRegistry?: ITransportRegistryView<IInteractiveSession>;
+  transportRegistry?: ITransportLifecycleRegistryView<IInteractiveSession>;
 }
 
 export interface IRuntimeHostHandle {
@@ -49,7 +52,9 @@ export interface IRuntimeHostHandle {
    * transport whose entire job happens inside `start()` cannot fail unobserved. Without it the
    * failure would sit in the registry with nothing able to ask for it.
    */
-  waitForCompletion(): Promise<void>;
+  waitForCompletion(): Promise<ITransportCompletionRecord[]>;
+  /** Report the first nonzero runner outcome without waiting for unrelated runners. */
+  waitForFailure(): Promise<ITransportCompletionRecord | undefined>;
 }
 
 /**
@@ -65,8 +70,11 @@ export async function startRuntimeHost(opts: IRuntimeHostOptions): Promise<IRunt
   let stopped = false;
   return {
     session,
-    async waitForCompletion(): Promise<void> {
-      await opts.transportRegistry?.waitForCompletion();
+    async waitForCompletion(): Promise<ITransportCompletionRecord[]> {
+      return (await opts.transportRegistry?.waitForCompletion()) ?? [];
+    },
+    async waitForFailure(): Promise<ITransportCompletionRecord | undefined> {
+      return opts.transportRegistry?.waitForFailure();
     },
     async shutdown(message = 'runtime host stopped'): Promise<void> {
       if (stopped) return;

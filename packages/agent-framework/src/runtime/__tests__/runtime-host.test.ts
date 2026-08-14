@@ -16,7 +16,7 @@ import { startRuntimeHost } from '../runtime-host.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type {
   IInteractiveSession,
-  ITransportRegistryView,
+  ITransportLifecycleRegistryView,
 } from '@robota-sdk/agent-interface-transport';
 
 function stubProvider(): IAIProvider {
@@ -44,14 +44,17 @@ function stubProvider(): IAIProvider {
   } as unknown as IAIProvider;
 }
 
-function stubRegistry(): ITransportRegistryView<IInteractiveSession> & {
+function stubRegistry(): ITransportLifecycleRegistryView<IInteractiveSession> & {
   startAll: ReturnType<typeof vi.fn>;
   stopAll: ReturnType<typeof vi.fn>;
 } {
   return {
+    register: vi.fn(),
     startAll: vi.fn(async () => undefined),
-    stopAll: vi.fn(async () => undefined),
-  } as unknown as ITransportRegistryView<IInteractiveSession> & {
+    waitForCompletion: vi.fn(async () => []),
+    waitForFailure: vi.fn(async () => undefined),
+    stopAll: vi.fn(async () => ({ errors: [] })),
+  } as ITransportLifecycleRegistryView<IInteractiveSession> & {
     startAll: ReturnType<typeof vi.fn>;
     stopAll: ReturnType<typeof vi.fn>;
   };
@@ -99,5 +102,30 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     const host = await startRuntimeHost({ session: { cwd, provider: stubProvider() } });
     expect(host.session).toBeInstanceOf(InteractiveSession);
     await expect(host.shutdown()).resolves.toBeUndefined();
+  });
+
+  it('exposes ordered completion and prompt failure waits from the lifecycle registry', async () => {
+    const registry = stubRegistry();
+    vi.mocked(registry.waitForCompletion).mockResolvedValue([
+      { name: 'runner', outcome: { status: 'failed', exitCode: 2 } },
+    ]);
+    vi.mocked(registry.waitForFailure).mockResolvedValue({
+      name: 'runner',
+      outcome: { status: 'failed', exitCode: 2 },
+    });
+    const host = await startRuntimeHost({
+      session: { cwd, provider: stubProvider() },
+      transportRegistry: registry,
+    });
+
+    await expect(host.waitForCompletion()).resolves.toEqual([
+      { name: 'runner', outcome: { status: 'failed', exitCode: 2 } },
+    ]);
+    await expect(host.waitForFailure()).resolves.toEqual({
+      name: 'runner',
+      outcome: { status: 'failed', exitCode: 2 },
+    });
+
+    await host.shutdown();
   });
 });

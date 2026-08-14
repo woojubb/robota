@@ -23,6 +23,7 @@ import type {
 /** A test-support transport that records the exact session instance handed to `attach()`. */
 class RecordingTransport implements IConfigurableTransport<IInteractiveSession> {
   readonly defaultEnabled = true;
+  readonly lifecycle = Object.freeze({ kind: 'service' as const });
   attached: IInteractiveSession | undefined;
   started = false;
 

@@ -1,4 +1,7 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import {
+  createTestInteractiveSession,
+  runTransportLifecycleConformance,
+} from '@robota-sdk/agent-interface-transport/testing';
 
 import { WebSocket } from 'ws';
 import { describe, it, expect, expectTypeOf, vi, afterEach } from 'vitest';
@@ -76,5 +79,22 @@ describe('WsTransport lifecycle (ARCH-004 RUNTIME-13)', () => {
     } catch {
       /* already closed */
     }
+  });
+
+  it('invokes the shared lifecycle conformance suite', async () => {
+    await runTransportLifecycleConformance({
+      subjectId: '@robota-sdk/agent-transport-ws#WsTransport',
+      kind: 'service',
+      createAdapter: () =>
+        new WsTransport({
+          port: 0,
+          open: true,
+          openReason: 'ARCH-011 lifecycle conformance',
+        }),
+      createSession: mockSession,
+      assertReady: (transport) => {
+        if (transport.boundPort === undefined) throw new Error('WS endpoint not bound');
+      },
+    });
   });
 });
