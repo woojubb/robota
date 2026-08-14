@@ -4,75 +4,15 @@ import path from 'node:path';
 
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
 
 import { TransportRegistry } from '../transport-registry.js';
 
 import type {
-  IConfigurableTransport,
   IInteractiveSession,
+  ITransportRunnerAdapter,
+  TTransportRunOutcome,
 } from '@robota-sdk/agent-interface-transport';
-
-/**
- * ARCH-011 — `start()` did not mean the same thing in every transport, and `startAll` awaited each
- * one in turn.
- *
- * Four transports treat `start()` as BIND: attach to a port, return, keep serving. Two treat it as
- * RUN TO COMPLETION — `headless-transport.ts` runs the whole prompt inside it, and
- * `tui-transport.ts` blocks for the life of the UI. `startAll` awaited them sequentially, so
- * registering either one first meant every transport behind it never started at all. Not a crash, not
- * an error: they were simply never reached, and nothing said so.
- *
- * The contract said only `start(): Promise<void>`, which is why two readings of it could coexist for
- * as long as they did. It says which one it means now, and a transport that runs to completion
- * declares itself so the registry can start it without blocking the rest.
- */
-function bindingTransport(
-  name: string,
-  started: string[],
-): IConfigurableTransport<IInteractiveSession> {
-  return {
-    name,
-    defaultEnabled: true,
-    attach: vi.fn(),
-    start: async () => {
-      started.push(name);
-    },
-    stop: async () => {},
-  };
-}
-
-/** The shape `headless` and `tui` have: `start()` does not return while the transport is alive. */
-function blockingTransport(
-  name: string,
-  started: string[],
-): IConfigurableTransport<IInteractiveSession> & { release: () => void } {
-  let release!: () => void;
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  return {
-    name,
-    defaultEnabled: true,
-    release,
-    attach: vi.fn(),
-    start: async () => {
-      started.push(name);
-      await held;
-    },
-    stop: async () => {},
-    // ARCH-011: the declaration that makes the difference visible to the registry.
-    runsToCompletion: true,
-  };
-}
-
-/** A registry over a real, empty settings file — `/dev/null` is not valid JSON. */
-function registryOverTempSettings(): TransportRegistry {
-  const dir = mkdtempSync(path.join(tmpdir(), 'transport-registry-'));
-  const file = path.join(dir, 'settings.json');
-  writeFileSync(file, '{}');
-  tempDirs.push(dir);
-  return new TransportRegistry(file);
-}
 
 const tempDirs: string[] = [];
 
@@ -80,199 +20,291 @@ afterEach(() => {
   for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
-/** Settle or report that it did not — never hang the suite to make a point about hanging. */
-async function within<T>(promise: Promise<T>, ms = 250): Promise<'settled' | 'pending'> {
-  let timer: ReturnType<typeof setTimeout>;
-  const pending = new Promise<'pending'>((resolve) => {
-    timer = setTimeout(() => resolve('pending'), ms);
-  });
-  try {
-    return await Promise.race([promise.then(() => 'settled' as const), pending]);
-  } finally {
-    clearTimeout(timer!);
-  }
+function registryOverTempSettings(): TransportRegistry {
+  const dir = mkdtempSync(path.join(tmpdir(), 'transport-registry-start-'));
+  const file = path.join(dir, 'settings.json');
+  writeFileSync(file, '{}');
+  tempDirs.push(dir);
+  return new TransportRegistry(file);
 }
 
-describe('startAll starts every transport (ARCH-011)', () => {
-  it('a transport whose start() runs to completion does not block the ones behind it', async () => {
-    const started: string[] = [];
+function registryAtSettings(file: string): TransportRegistry {
+  return new TransportRegistry(file);
+}
+
+function restartableRunner(): ITransportRunnerAdapter<IInteractiveSession> & {
+  resolve(index: number, outcome: TTransportRunOutcome): void;
+  reject(index: number, error?: unknown): void;
+} {
+  const completions: Array<Promise<TTransportRunOutcome>> = [];
+  const resolvers: Array<(outcome: TTransportRunOutcome) => void> = [];
+  const rejecters: Array<(error?: unknown) => void> = [];
+  let run = -1;
+  return {
+    name: 'runner',
+    lifecycle: Object.freeze({ kind: 'runner' }),
+    attach: vi.fn(),
+    start: async () => {
+      run += 1;
+      completions[run] = new Promise<TTransportRunOutcome>((resolve, reject) => {
+        resolvers[run] = resolve;
+        rejecters[run] = reject;
+      });
+    },
+    stop: vi.fn().mockResolvedValue(undefined),
+    waitForCompletion: () => completions[run]!,
+    resolve: (index, outcome) => resolvers[index]!(outcome),
+    reject: (index, error) => rejecters[index]!(error),
+  };
+}
+
+describe('TransportRegistry generation ownership (ARCH-011)', () => {
+  it('holds a runner rejection across a macrotask without an unhandled rejection', async () => {
     const registry = registryOverTempSettings();
-    const blocking = blockingTransport('headless', started);
-    registry.register(blocking);
-    registry.register(bindingTransport('http', started));
+    const runner = restartableRunner();
+    registry.register(runner);
+    await registry.startAll(createTestInteractiveSession());
 
-    const outcome = await within(registry.startAll(createTestInteractiveSession()));
+    runner.reject(0, new Error('prompt failed'));
+    await new Promise((resolve) => setTimeout(resolve, 20));
 
-    // Against the defect this is `'pending'`, and `started` is `['headless']` — the HTTP transport
-    // was never reached.
-    expect(outcome).toBe('settled');
-    expect(started).toEqual(['headless', 'http']);
-
-    blocking.release();
+    await expect(registry.waitForCompletion()).rejects.toMatchObject({
+      name: 'TransportLifecycleError',
+      code: 'runner-rejected',
+      transportName: 'runner',
+    });
   });
 
-  it('still starts a purely binding set in order, and awaits each', async () => {
-    const started: string[] = [];
+  it('ignores a stale settlement after stop and preserves the current generation', async () => {
     const registry = registryOverTempSettings();
-    registry.register(bindingTransport('http', started));
-    registry.register(bindingTransport('ws', started));
+    const runner = restartableRunner();
+    registry.register(runner);
 
-    expect(await within(registry.startAll(createTestInteractiveSession()))).toBe('settled');
-    expect(started).toEqual(['http', 'ws']);
+    await registry.startAll(createTestInteractiveSession());
+    await registry.stopAll();
+    await registry.startAll(createTestInteractiveSession());
+
+    runner.reject(0, new Error('stale failure'));
+    runner.resolve(1, { status: 'succeeded', exitCode: 0 });
+
+    await expect(registry.waitForCompletion()).resolves.toEqual([
+      { name: 'runner', outcome: { status: 'succeeded', exitCode: 0 } },
+    ]);
   });
 
-  it('surfaces a run-to-completion transport that FAILS, rather than losing it', async () => {
-    // Not awaiting it must not mean not watching it. A transport whose whole job happens inside
-    // `start()` is exactly the one whose failure matters, and an unawaited rejection would be an
-    // unhandled promise rather than a reported error.
+  it('treats a rejection without a value as a lifecycle failure', async () => {
     const registry = registryOverTempSettings();
-    const failing: IConfigurableTransport<IInteractiveSession> = {
-      name: 'headless',
-      defaultEnabled: true,
+    const runner = restartableRunner();
+    registry.register(runner);
+    await registry.startAll(createTestInteractiveSession());
+
+    runner.reject(0);
+
+    await expect(registry.waitForFailure()).rejects.toMatchObject({
+      name: 'TransportLifecycleError',
+      code: 'runner-rejected',
+    });
+  });
+
+  it('rejects an active second start before attaching or replacing the generation', async () => {
+    const registry = registryOverTempSettings();
+    const runner = restartableRunner();
+    registry.register(runner);
+    const session = createTestInteractiveSession();
+    await registry.startAll(session);
+    const completion = registry.waitForCompletion();
+
+    await expect(registry.startAll(session)).rejects.toMatchObject({ code: 'already-started' });
+    expect(runner.attach).toHaveBeenCalledTimes(1);
+    runner.resolve(0, createTransportFailedOutcome(3));
+    await expect(completion).resolves.toEqual([
+      { name: 'runner', outcome: { status: 'failed', exitCode: 3 } },
+    ]);
+  });
+
+  it('remains idle when settings resolution fails before startup begins', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'transport-registry-settings-'));
+    const file = path.join(dir, 'settings.json');
+    tempDirs.push(dir);
+    writeFileSync(file, '{');
+    const registry = registryAtSettings(file);
+    registry.register(restartableRunner());
+
+    await expect(registry.startAll(createTestInteractiveSession())).rejects.toBeDefined();
+    writeFileSync(file, '{}');
+    await expect(registry.startAll(createTestInteractiveSession())).resolves.toBeUndefined();
+  });
+
+  it('coalesces concurrent stop calls into one transport stop traversal', async () => {
+    const registry = registryOverTempSettings();
+    let release!: () => void;
+    const service = {
+      name: 'service',
+      lifecycle: Object.freeze({ kind: 'service' as const }),
+      attach: vi.fn(),
+      start: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn(() => new Promise<void>((resolve) => (release = resolve))),
+    };
+    registry.register(service);
+    await registry.startAll(createTestInteractiveSession());
+
+    const first = registry.stopAll();
+    const second = registry.stopAll();
+    expect(service.stop).toHaveBeenCalledTimes(1);
+    release();
+    await expect(Promise.all([first, second])).resolves.toEqual([{ errors: [] }, { errors: [] }]);
+    expect(service.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('rolls back from the failing adapter in reverse order and preserves safe rollback errors', async () => {
+    const registry = registryOverTempSettings();
+    const order: string[] = [];
+    const first = {
+      name: 'first',
+      lifecycle: Object.freeze({ kind: 'service' as const }),
       attach: vi.fn(),
       start: async () => {
-        throw new Error('prompt failed');
+        order.push('start:first');
       },
-      stop: async () => {},
-      runsToCompletion: true,
+      stop: async () => {
+        order.push('stop:first');
+        throw new Error('first rollback failed');
+      },
     };
+    const failing = {
+      name: 'failing',
+      lifecycle: Object.freeze({ kind: 'service' as const }),
+      attach: vi.fn(),
+      start: async () => {
+        order.push('start:failing');
+        throw new Error('primary startup failure');
+      },
+      stop: async () => {
+        order.push('stop:failing');
+      },
+    };
+    registry.register(first);
     registry.register(failing);
 
-    await registry.startAll(createTestInteractiveSession());
-
-    await expect(registry.waitForCompletion()).rejects.toThrow(/prompt failed/);
-  });
-
-  it('holds a failure across a MACROTASK — the shape a real consumer has', async () => {
-    // The window the first draft left open. Storing the promise is not attaching a handler: a
-    // rejection between `startAll` returning and the caller reaching `waitForCompletion` was an
-    // unhandled rejection, which on Node ≥15 aborts the process. Review measured exit code 1, with
-    // `startAll` having already resolved OK. The previous case awaited the two back to back and so
-    // never left the microtask drain, which is exactly why it did not catch this.
-    const registry = registryOverTempSettings();
-    registry.register({
-      name: 'headless',
-      defaultEnabled: true,
-      attach: vi.fn(),
-      start: async () => {
-        throw new Error('prompt failed');
-      },
-      stop: async () => {},
-      runsToCompletion: true,
+    const error = await registry.startAll(createTestInteractiveSession()).catch((cause) => cause);
+    expect(error).toMatchObject({
+      name: 'TransportStartupError',
+      transportName: 'failing',
+      rollbackErrors: [
+        {
+          transportName: 'first',
+          message: 'Transport stop failed during startup rollback.',
+        },
+      ],
     });
-
-    await registry.startAll(createTestInteractiveSession());
-    await new Promise((resolve) => setTimeout(resolve, 20));
-
-    await expect(registry.waitForCompletion()).rejects.toThrow(/prompt failed/);
-  });
-
-  it('a stopped registry does not wait on work nobody will finish', async () => {
-    // `stop()` is a documented no-op for both run-to-completion transports, so awaiting them after
-    // `stopAll` would hang forever. Abandoning them is what makes `stopAll`'s bounded, best-effort
-    // contract honest — and it is what lets a session switch start from empty rather than
-    // overwriting a promise that then has no handler.
-    const started: string[] = [];
-    const registry = registryOverTempSettings();
-    const blocking = blockingTransport('tui', started);
-    registry.register(blocking);
-
-    await registry.startAll(createTestInteractiveSession());
-    await registry.stopAll();
-
-    expect(await within(registry.waitForCompletion())).toBe('settled');
-    blocking.release();
-  });
-
-  it('a failure that arrives AFTER a stop does not leak into the next session', async () => {
-    // The handler attached to an in-flight `start()` cannot be detached, so it fires after the stop.
-    // Emptying the failure array in place left that write landing in the same instance the NEXT
-    // session read, and a failure from a stopped session was thrown as if it belonged to the current
-    // one — contradicting "a later startAll starts from empty". A session switch is exactly this
-    // shape, and the earlier stop case only exercised the resolve path.
-    const registry = registryOverTempSettings();
-    let failFirst!: (error: Error) => void;
-    let run = 0;
-    registry.register({
-      name: 'headless',
-      defaultEnabled: true,
-      attach: vi.fn(),
-      // A fresh promise per start, as a real transport gives: the FIRST session's fails, the second
-      // is healthy. Returning one shared promise would make the second session fail on its own
-      // account and prove nothing about leakage.
-      start: () => {
-        run += 1;
-        return run === 1
-          ? new Promise<void>((_resolve, reject) => {
-              failFirst = reject;
-            })
-          : Promise.resolve();
-      },
-      stop: async () => {},
-      runsToCompletion: true,
+    expect(Object.keys(error as object)).not.toContain('cause');
+    expect(Object.keys(error as object)).not.toContain('rollbackCauses');
+    expect((error as Error & { cause?: unknown }).cause).toMatchObject({
+      message: 'primary startup failure',
     });
-
-    await registry.startAll(createTestInteractiveSession());
-    await registry.stopAll();
-
-    // The stopped session's transport fails only now.
-    failFirst(new Error('previous session died'));
-    await new Promise((resolve) => setTimeout(resolve, 20));
-
-    // A new session starts on the same registry, and finishes cleanly.
-    await registry.startAll(createTestInteractiveSession());
-    await expect(registry.waitForCompletion()).resolves.toBeUndefined();
+    expect((error as { rollbackCauses?: readonly Error[] }).rollbackCauses?.[0]).toMatchObject({
+      message: 'first rollback failed',
+    });
+    expect(order).toEqual(['start:first', 'start:failing', 'stop:failing', 'stop:first']);
+    await expect(registry.waitForFailure()).resolves.toBeUndefined();
   });
 
-  it("a STALE settle does not drop the current session's entry for the same transport", async () => {
-    // The ordering the previous case did not cover. Session A starts `headless`; `stopAll` abandons
-    // it while its promise is still live; session B starts the same-named transport; only THEN does
-    // A's promise settle. Deleting by name alone dropped B's entry, and `waitForCompletion` resolved
-    // without waiting for work that was still in flight — silently losing the guarantee this whole
-    // change exists to add.
+  it('serializes stop during startup and never starts a later adapter', async () => {
     const registry = registryOverTempSettings();
-    const finishers: Array<() => void> = [];
-    registry.register({
-      name: 'headless',
-      defaultEnabled: true,
+    let rejectStart!: (error: Error) => void;
+    const starting = {
+      name: 'starting',
+      lifecycle: Object.freeze({ kind: 'service' as const }),
       attach: vi.fn(),
       start: () =>
-        new Promise<void>((resolve) => {
-          finishers.push(resolve);
+        new Promise<void>((_resolve, reject) => {
+          rejectStart = reject;
         }),
-      stop: async () => {},
-      runsToCompletion: true,
+      stop: vi.fn(async () => rejectStart(new Error('stopped while starting'))),
+    };
+    const later = {
+      name: 'later',
+      lifecycle: Object.freeze({ kind: 'service' as const }),
+      attach: vi.fn(),
+      start: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn().mockResolvedValue(undefined),
+    };
+    registry.register(starting);
+    registry.register(later);
+
+    const start = registry.startAll(createTestInteractiveSession());
+    await Promise.resolve();
+    const stop = registry.stopAll();
+
+    await expect(start).rejects.toMatchObject({
+      name: 'TransportStartupError',
+      transportName: 'starting',
     });
-
-    await registry.startAll(createTestInteractiveSession()); // session A
-    await registry.stopAll();
-    await registry.startAll(createTestInteractiveSession()); // session B, same name
-
-    finishers[0]?.(); // A settles LATE
-    await new Promise((resolve) => setTimeout(resolve, 20));
-
-    // B is still running, so this must NOT settle yet.
-    expect(await within(registry.waitForCompletion(), 100)).toBe('pending');
-
-    finishers[1]?.();
-    expect(await within(registry.waitForCompletion())).toBe('settled');
+    await expect(stop).resolves.toMatchObject({ errors: [] });
+    expect(later.start).not.toHaveBeenCalled();
   });
 
-  it('a rejection with no value is still a failure', async () => {
-    // `Promise.reject()` pushes `undefined`, and an `!== undefined` check read that as "no failure".
+  it('preserves a preemption stop failure even when the rollback retry succeeds', async () => {
     const registry = registryOverTempSettings();
-    registry.register({
-      name: 'headless',
-      defaultEnabled: true,
+    let resolveStart!: () => void;
+    let stops = 0;
+    const starting = {
+      name: 'starting',
+      lifecycle: Object.freeze({ kind: 'service' as const }),
       attach: vi.fn(),
-      start: () => Promise.reject(),
-      stop: async () => {},
-      runsToCompletion: true,
+      start: () => new Promise<void>((resolve) => (resolveStart = resolve)),
+      stop: vi.fn(async () => {
+        stops += 1;
+        if (stops === 1) {
+          resolveStart();
+          throw new Error('credential=private');
+        }
+      }),
+    };
+    registry.register(starting);
+    const start = registry.startAll(createTestInteractiveSession());
+    await Promise.resolve();
+    const stop = registry.stopAll();
+
+    const error = await start.catch((cause) => cause);
+    expect(error).toMatchObject({
+      rollbackErrors: [
+        {
+          transportName: 'starting',
+          message: 'Transport stop failed during startup rollback.',
+        },
+      ],
     });
+    expect(JSON.stringify(error)).not.toContain('credential=private');
+    expect((error as { rollbackCauses?: readonly Error[] }).rollbackCauses?.[0]?.message).toBe(
+      'credential=private',
+    );
+    await expect(stop).resolves.toEqual({ errors: [] });
+  });
 
-    await registry.startAll(createTestInteractiveSession());
-    await new Promise((resolve) => setTimeout(resolve, 20));
+  it('terminalizes every pending runner as startup-rollback in registration order', async () => {
+    const registry = registryOverTempSettings();
+    const runner = restartableRunner();
+    const failing = {
+      name: 'failing',
+      lifecycle: Object.freeze({ kind: 'service' as const }),
+      attach: vi.fn(),
+      start: vi.fn(async () => Promise.reject(new Error('boom'))),
+      stop: vi.fn().mockResolvedValue(undefined),
+    };
+    registry.register(runner);
+    registry.register(failing);
 
-    await expect(registry.waitForCompletion()).rejects.toBeUndefined();
+    await expect(registry.startAll(createTestInteractiveSession())).rejects.toMatchObject({
+      name: 'TransportStartupError',
+    });
+    await expect(registry.waitForCompletion()).resolves.toEqual([
+      { name: 'runner', outcome: { status: 'abandoned', reason: 'startup-rollback' } },
+    ]);
+    await expect(registry.waitForFailure()).resolves.toBeUndefined();
+    runner.resolve(0, createTransportFailedOutcome(4));
+    await expect(registry.waitForCompletion()).resolves.toEqual([
+      { name: 'runner', outcome: { status: 'abandoned', reason: 'startup-rollback' } },
+    ]);
   });
 });

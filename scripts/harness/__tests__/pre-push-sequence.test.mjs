@@ -35,6 +35,7 @@ function recordingSteps(decision) {
       pruneAndWarnStaleWorktrees: record('prune-worktrees'),
       assertCleanWorkingTree: record('clean-working-tree'),
       assertLockfileConsistency: record('lockfile-consistency'),
+      reportBaseResolution: record('report-base-resolution'),
       decideVerification: record('decide-verification', decision),
       findReusableReceipt: record('find-reusable-receipt', { reusable: false }),
       reportReceiptReused: record('report-receipt-reused'),
@@ -57,6 +58,7 @@ describe('runPrePushGate step order', () => {
       'prune-worktrees',
       'clean-working-tree',
       'lockfile-consistency',
+      'report-base-resolution',
       'decide-verification',
       'find-reusable-receipt',
       'tree-prerequisites',
@@ -85,6 +87,7 @@ describe('runPrePushGate step order', () => {
       'prune-worktrees',
       'clean-working-tree',
       'lockfile-consistency',
+      'report-base-resolution',
       'decide-verification',
       'report-skipped',
     ]);
@@ -122,10 +125,25 @@ describe('runPrePushGate step order', () => {
       'prune-worktrees',
       'clean-working-tree',
       'lockfile-consistency',
+      'report-base-resolution',
       'decide-verification',
       'find-reusable-receipt',
       'report-receipt-reused',
     ]);
+  });
+
+  it.each([
+    ['verification', VERIFY, false],
+    ['no-delta skip', SKIP_NO_DELTA, false],
+    ['receipt reuse', VERIFY, true],
+  ])('reports the resolved base exactly once on the %s path', (_label, decision, reusable) => {
+    const { order, steps } = recordingSteps(decision);
+    steps.findReusableReceipt = () => {
+      order.push('find-reusable-receipt');
+      return { reusable, headCommit: 'abc123' };
+    };
+    runPrePushGate(steps);
+    expect(order.filter((step) => step === 'report-base-resolution')).toHaveLength(1);
   });
 });
 

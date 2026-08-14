@@ -20,7 +20,7 @@ MCP, TUI, etc.) and their configurable lifecycle.
   `IContextWindowState`, …). Mechanized: the `deps` scan fails any `agent-interface-*`
   package whose internal dependencies exceed `{agent-core}`.
 - Does not depend on `@robota-sdk/agent-framework` or any transport implementation package.
-- Implementation packages (the separate `agent-transport-{tui,ws,http,mcp}` packages and
+- Implementation packages (the separate `agent-transport-{ws,http,mcp,webrtc}` packages and
   `agent-transport` for headless) depend on this package for interface types, not on `agent-framework`.
 - `agent-framework` depends on this package to consume the transport contracts it wires.
 
@@ -28,15 +28,19 @@ MCP, TUI, etc.) and their configurable lifecycle.
 
 ```
 agent-interface-transport          ← this package (contracts only, zero deps)
-  ├── ITransportAdapter            ← core lifecycle: attach / start / stop
-  ├── IConfigurableTransport       ← extends ITransportAdapter with enable/disable + options
+  ├── ITransportAdapter            ← required frozen lifecycle kind + attach / start / stop
+  ├── ITransportRunnerAdapter      ← runner launch + typed terminal outcome
+  ├── IConfigurableTransport       ← legacy service adapter + settings capability
+  ├── TConfigurableTransport       ← any lifecycle adapter + settings capability
   ├── ITransportConfig             ← persisted transport configuration shape
-  ├── ITransportEntry              ← (transport, config) pairing for registry storage
-  ├── ITransportRegistryView       ← read/write registry of IConfigurableTransport instances
+  ├── ITransportEntry              ← configurable-only settings projection
+  ├── ITransportLifecycleRegistryView ← base-adapter lifecycle and runner waits
+  ├── ITransportSettingsRegistryView  ← configurable-only settings projection
+  ├── ITransportRegistryView       ← composition of both views
   └── IPayloadChannelHost          ← TRANS-001: consumer-declared binary/event channels carried
                                      alongside a transport's own protocol profile
 
-agent-transport-tui (TuiTransport), agent-transport-ws (WsTransport)
+agent-transport-ws (WsTransport), agent-transport-webrtc (WebRtcTransport)
   └── implements IConfigurableTransport<TSession>
 
 agent-transport-http (createHttpTransport), agent-transport-mcp (createMcpTransport),
@@ -51,13 +55,18 @@ agent-transport
 
 Types owned by this package (SSOT):
 
-| Type                     | Kind      | File                   | Description                                                                                              |
-| ------------------------ | --------- | ---------------------- | -------------------------------------------------------------------------------------------------------- |
-| `ITransportAdapter`      | Interface | `transport-adapter.ts` | Core transport lifecycle: `name`, `attach(session)`, `start()`, `stop()`, `runsToCompletion?` (ARCH-011) |
-| `ITransportConfig`       | Interface | `transport-config.ts`  | Persisted config shape: `{ enabled: boolean; options?: Record<string, unknown> }`                        |
-| `IConfigurableTransport` | Interface | `transport-config.ts`  | Extends `ITransportAdapter` with `defaultEnabled`, `optionsSchema`, and optional `validateOptions()`     |
-| `ITransportEntry`        | Interface | `transport-config.ts`  | `{ transport: IConfigurableTransport<T>; config: ITransportConfig }` — registry item shape               |
-| `ITransportRegistryView` | Interface | `transport-config.ts`  | `getAll()`, `setEnabled()`, `startAll()`, `stopAll()` — registry management contract                     |
+| Type                              | Kind      | File                   | Description                                                                                     |
+| --------------------------------- | --------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
+| `ITransportAdapter`               | Interface | `transport-adapter.ts` | Core transport lifecycle: `name`, frozen `lifecycle`, `attach(session)`, `start()`, `stop()`    |
+| `ITransportRunnerAdapter`         | Interface | `transport-adapter.ts` | Runner lifecycle plus `waitForCompletion()` and exact typed outcome                             |
+| `ITransportConfig`                | Interface | `transport-config.ts`  | Persisted config shape: `{ enabled: boolean; options?: Record<string, unknown> }`               |
+| `ITransportSettingsCapability`    | Interface | `transport-config.ts`  | Orthogonal `defaultEnabled`, `optionsSchema`, and optional `validateOptions()` settings shape   |
+| `IConfigurableTransport`          | Interface | `transport-config.ts`  | Source-compatible service adapter plus `ITransportSettingsCapability`                           |
+| `TConfigurableTransport`          | Type      | `transport-config.ts`  | Any service or runner adapter intersected with the settings capability                          |
+| `ITransportEntry`                 | Interface | `transport-config.ts`  | `{ transport: TConfigurableTransport<T>; config: ITransportConfig }` — settings-only projection |
+| `ITransportLifecycleRegistryView` | Interface | `transport-config.ts`  | Base registration, start/stop, ordered completion and prompt failure waits                      |
+| `ITransportSettingsRegistryView`  | Interface | `transport-config.ts`  | Configurable-only `getAll`, `setEnabled`, and `setOptions` projection                           |
+| `ITransportRegistryView`          | Interface | `transport-config.ts`  | Composition of lifecycle and settings views                                                     |
 
 In addition to the transport-adapter contracts above, the package owns several further contract
 groups, each in its own file (all re-exported from `src/index.ts`):
@@ -106,46 +115,58 @@ the other.
 
 ## Public API Surface
 
-| Export                         | Kind      | Description                                                                                    |
-| ------------------------------ | --------- | ---------------------------------------------------------------------------------------------- |
-| `ITransportAdapter`            | Interface | Core attach/start/stop lifecycle contract (generic TSession)                                   |
-| `ITransportConfig`             | Interface | Persisted enabled + options shape                                                              |
-| `IConfigurableTransport`       | Interface | Configurable transport with defaultEnabled + options schema                                    |
-| `ITransportEntry`              | Interface | (transport, config) pair used in registry storage                                              |
-| `ITransportRegistryView`       | Interface | Registry management: getAll, setEnabled, startAll, stopAll                                     |
-| `OWNER_DRIVER_ID`              | Constant  | REMOTE-014 E5 driver id for a local/owner turn (display-only attribution, never authorization) |
-| `AGENT_DRIVER_ID`              | Constant  | REMOTE-014 E5 driver id for an autonomous (wakeup/goal) turn — never the owner                 |
-| `createTestInteractiveSession` | Function  | ARCH-012: the conformant `IInteractiveSession` double — see § Session capability members       |
-| `ITransportAdmission`          | Interface | SEC-008: the resolved decision — a credential, or `null` with a written `openReason`           |
-| `ITransportAdmissionConfig`    | Interface | SEC-008: how a caller asks for an admission decision                                           |
-| `ITurnHandle`                  | Interface | RUNTIME-003: a submission's identity and a promise for its own turn                            |
-| `ITurnNotRunError`             | Interface | RUNTIME-003: the shape a rejected `completed` carries — constructed in agent-framework         |
-| `TTurnNotRunReason`            | Type      | RUNTIME-003: why a submission never became a turn (coalesced/dropped/cancelled)                |
-| `isTurnNotRunError`            | Function  | RUNTIME-003: the one narrowing for a rejected `completed` — refusal vs. a failure in the turn  |
+| Export                             | Kind      | Description                                                                                    |
+| ---------------------------------- | --------- | ---------------------------------------------------------------------------------------------- |
+| `ITransportAdapter`                | Interface | Core attach/start/stop lifecycle contract (generic TSession)                                   |
+| `ITransportRunnerAdapter`          | Interface | Runner adapter with a separate typed terminal-outcome wait                                     |
+| `ITransportLifecycleRegistryView`  | Interface | Base-adapter registration, lifecycle, completion, and prompt failure projection                |
+| `ITransportSettingsRegistryView`   | Interface | Configurable-adapter settings projection                                                       |
+| `ITransportConfig`                 | Interface | Persisted enabled + options shape                                                              |
+| `IConfigurableTransport`           | Interface | Configurable transport with defaultEnabled + options schema                                    |
+| `ITransportEntry`                  | Interface | Configurable-only `(transport, config)` settings projection                                    |
+| `ITransportRegistryView`           | Interface | Registry management: getAll, setEnabled, startAll, stopAll                                     |
+| `OWNER_DRIVER_ID`                  | Constant  | REMOTE-014 E5 driver id for a local/owner turn (display-only attribution, never authorization) |
+| `AGENT_DRIVER_ID`                  | Constant  | REMOTE-014 E5 driver id for an autonomous (wakeup/goal) turn — never the owner                 |
+| `createTestInteractiveSession`     | Function  | ARCH-012: the conformant `IInteractiveSession` double — see § Session capability members       |
+| `createTestSessionCapabilityHost`  | Function  | ARCH-012 testing-subpath alias for constructing a typed subset capability host                 |
+| `runTransportLifecycleConformance` | Function  | Testing-subpath fixture runner for the shared adapter lifecycle contract                       |
+| `createSessionCapabilityHost`      | Function  | ARCH-012: construct a flattened host from one typed session capability map                     |
+| `readSessionCapability`            | Function  | ARCH-012: distinguish an absent role from a present role whose method returns an empty value   |
+| `SESSION_CAPABILITY_MEMBER_KEYS`   | Constant  | Frozen runtime SSOT mapping the 16 session roles to their exact 39 legacy members              |
+| `readAssistantReplies`             | Function  | Pure interaction-event accessor for assistant reply records                                    |
+| `readLastAssistantText`            | Function  | Pure interaction-event accessor for the latest assistant text                                  |
+| `readToolCalls`                    | Function  | Pure interaction-event accessor for tool-call observations                                     |
+| `readErrors`                       | Function  | Pure interaction-event accessor for recorded errors                                            |
+| `ITransportAdmission`              | Interface | SEC-008: the resolved decision — a credential, or `null` with a written `openReason`           |
+| `ITransportAdmissionConfig`        | Interface | SEC-008: how a caller asks for an admission decision                                           |
+| `ITurnHandle`                      | Interface | RUNTIME-003: a submission's identity and a promise for its own turn                            |
+| `ITurnNotRunError`                 | Interface | RUNTIME-003: the shape a rejected `completed` carries — constructed in agent-framework         |
+| `TTurnNotRunReason`                | Type      | RUNTIME-003: why a submission never became a turn (coalesced/dropped/cancelled)                |
+| `isTurnNotRunError`                | Function  | RUNTIME-003: the one narrowing for a rejected `completed` — refusal vs. a failure in the turn  |
 
 The package root (`src/index.ts`) additionally re-exports the following contract groups. These
 are type-only except for the four pure accessor functions re-exported from `interaction-contracts`
 (`readAssistantReplies`, `readLastAssistantText`, `readToolCalls`, `readErrors`) and the
 `isTurnNotRunError` predicate re-exported from `turn-contracts`:
 
-| Contract group (file)                                         | Exported contracts                                                                                                                                                                                                                                                                                                     |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Payload-agnostic channels (`channel-contracts`, TRANS-001)    | `IBinaryFrame`, `IChannelEventFrame`, `TChannelFrame`, `TChannelEventMap`, `IChannelDescriptor`, `IPayloadChannel`, `IPayloadChannelHost`, `TChannelReceiveResult`                                                                                                                                                     |
-| Capability descriptors (`capability-contracts`)               | `ICapabilityDescriptor`, `TCapabilityKind`, `TCapabilitySafety`                                                                                                                                                                                                                                                        |
-| Command system (`command-contracts`)                          | `ICommand`, `ICommandSource`, `ICommandResult` (+ CMD-004 `hostActions`/`uiIntents`), `TCommandInvocationSource` (REMOTE-003), `TCommandHostAction`, `TCommandUiIntent`, plugin-adapter + status-line command settings contracts                                                                                       |
-| Interaction channel (`interaction-contracts`)                 | `IInteractionChannel`, `IAgentDriver`, `IToolCallObservation`, `ITerminalHandoff`, `InteractionEvent`, `ICommandInfo` (+ the accessor functions above)                                                                                                                                                                 |
-| Session-event payloads (`event-contracts`)                    | Skill-activation, memory, prompt-file-reference, and context-reference event payload contracts                                                                                                                                                                                                                         |
-| Background task (`background-task-contracts`, INFRA-025 SSOT) | `TBackgroundTaskRequest` (+ agent/process/scheduled variants), `IBackgroundTaskResult`/`State`/`Schedule`/`Input`/`Usage`/`Error`, log cursor/page + list-filter, event + listener, and the `TBackgroundTask*` kind/mode/isolation/status enums (`IBackgroundTaskUsage` = alias of agent-core `ITokenUsage`, TYPE-003) |
-| Subagent jobs (`subagent-contracts`, INFRA-025 SSOT)          | `TSubagentJobStatus`, `TSubagentJobMode`, `ISubagentJobState` — TYPE-003: derived from the background-task contracts (`Exclude` status / mode alias / `Pick` state projection), never a manual mirror                                                                                                                  |
-| Context compaction (`compact-contracts`, INFRA-025 SSOT)      | `TCompactTrigger`, `ICompactEvent`                                                                                                                                                                                                                                                                                     |
-| Background job-group (`background-group-contracts`)           | `IBackgroundJobGroupState`/`Summary`/`CreateRequest`, `IBackgroundJobResultEnvelope`, event + status/wait contracts                                                                                                                                                                                                    |
-| Execution workspace (`workspace-contracts`)                   | `IExecutionWorkspaceEntry`/`Snapshot`/`Event`/`Filter`, execution-detail page/record contracts, and their enum kinds                                                                                                                                                                                                   |
-| Interactive session (`session-contracts`)                     | `IInteractiveSession`, `IInteractiveSessionEvents` (incl. `ui_intent`/`session_renamed`/`history_cleared`), `IExecutionResult`, `IToolState`/`Summary`, `IInteractiveSessionStore`                                                                                                                                     |
-| Driver identity (`driver-contracts`)                          | `TDriverId`, `ISubmitOptions`, `OWNER_DRIVER_ID`/`AGENT_DRIVER_ID`, `IUiIntentEvent`, `ISessionRenamedEvent`                                                                                                                                                                                                           |
+| Contract group (file)                                                                                | Exported contracts                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Payload-agnostic channels (`channel-contracts`, TRANS-001)                                           | `IBinaryFrame`, `IChannelEventFrame`, `TChannelFrame`, `TChannelEventMap`, `IChannelDescriptor`, `IPayloadChannel`, `IPayloadChannelHost`, `TChannelReceiveResult`                                                                                                                                                                                                                       |
+| Capability descriptors (`capability-contracts`)                                                      | `ICapabilityDescriptor`, `TCapabilityKind`, `TCapabilitySafety`                                                                                                                                                                                                                                                                                                                          |
+| Command system (`command-contracts`)                                                                 | `ICommand`, `ICommandSource`, `ICommandResult` (+ CMD-004 `hostActions`/`uiIntents`), `TCommandInvocationSource` (REMOTE-003), `TCommandHostAction`, `TCommandUiIntent`, plugin-adapter + status-line command settings contracts                                                                                                                                                         |
+| Interaction channel (`interaction-contracts`)                                                        | `IInteractionChannel`, `IAgentDriver`, `IToolCallObservation`, `ITerminalHandoff`, `InteractionEvent`, `ICommandInfo` (+ the accessor functions above)                                                                                                                                                                                                                                   |
+| Session-event payloads (`event-contracts`)                                                           | Skill-activation, memory, prompt-file-reference, and context-reference event payload contracts                                                                                                                                                                                                                                                                                           |
+| Background task (`background-task-contracts`, INFRA-025 SSOT)                                        | `TBackgroundTaskRequest` (+ agent/process/scheduled variants), `IBackgroundTaskResult`/`State`/`Schedule`/`Input`/`Usage`/`Error`, log cursor/page + list-filter, event + listener, and the `TBackgroundTask*` kind/mode/isolation/status enums (`IBackgroundTaskUsage` = alias of agent-core `ITokenUsage`, TYPE-003)                                                                   |
+| Subagent jobs (`subagent-contracts`, INFRA-025 SSOT)                                                 | `TSubagentJobStatus`, `TSubagentJobMode`, `ISubagentJobState` — TYPE-003: derived from the background-task contracts (`Exclude` status / mode alias / `Pick` state projection), never a manual mirror                                                                                                                                                                                    |
+| Context compaction (`compact-contracts`, INFRA-025 SSOT)                                             | `TCompactTrigger`, `ICompactEvent`                                                                                                                                                                                                                                                                                                                                                       |
+| Background job-group (`background-group-contracts`)                                                  | `IBackgroundJobGroupState`/`Summary`/`CreateRequest`, `IBackgroundJobResultEnvelope`, event + status/wait contracts                                                                                                                                                                                                                                                                      |
+| Execution workspace (`workspace-contracts`)                                                          | `IExecutionWorkspaceEntry`/`Snapshot`/`Event`/`Filter`, execution-detail page/record contracts, and their enum kinds                                                                                                                                                                                                                                                                     |
+| Interactive session (`session-contracts`, `session-capability-contracts`, `session-capability-host`) | 16 named `ISession*` role ports, `ISessionCapabilityMap`/`ISessionCapabilityHost`, flattened `TSessionCapabilityHost`, `createSessionCapabilityHost`/`readSessionCapability`, compatibility aggregate `IInteractiveSession`, `IInteractiveSessionEvents` (incl. `ui_intent`/`session_renamed`/`history_cleared`), `IExecutionResult`, `IToolState`/`Summary`, `IInteractiveSessionStore` |
+| Driver identity (`driver-contracts`)                                                                 | `TDriverId`, `ISubmitOptions`, `OWNER_DRIVER_ID`/`AGENT_DRIVER_ID`, `IUiIntentEvent`, `ISessionRenamedEvent`                                                                                                                                                                                                                                                                             |
 
 ## Interface Contracts
 
-### Session capability members, and why they are not optional (ARCH-012)
+### Session role contracts and explicit capability presence (ARCH-012)
 
 `IInteractiveSession`'s `isInitialized`, `getPendingCount` and `getActiveDriverId` were OPTIONAL. The
 one consumer read attribution as `session.getActiveDriverId?.() ?? undefined`, and two unrelated
@@ -158,64 +179,76 @@ The second loses every co-drive attribution with no error, no log and nothing to
 the first. They are REQUIRED now: a host either provides the capability or does not claim this
 contract, so `null` from `getActiveDriverId()` means exactly one thing.
 
+The 39-member legacy interface remains an exported `interface` and extends 16 named role ports. Its
+member shape and declaration-merging behavior are unchanged, so existing full implementations remain
+source-compatible. `ISessionCapabilityHost` is the genuine interface that owns the canonical map;
+`TSessionCapabilityHost` is the flattened selected-port intersection returned by the factory. New
+consumers depend on only the roles they use. Optional capability hosts use one
+typed `ISessionCapabilityMap`; `readSessionCapability(host, key)` returns `{ provided: false }` when a
+role is absent and `{ provided: true, value }` when present. A present role may legitimately return
+`null`, `undefined`, or an empty array from one of its methods; that result is not confused with an
+absent role. Capability objects are local function-valued ports and are never serialized over a
+transport protocol.
+
+`SESSION_CAPABILITY_MEMBER_KEYS` is the runtime SSOT for flattening: its 16 rows are checked in exact
+`keyof` parity with all 39 role members. `createSessionCapabilityHost` forwards only those canonical
+members from own or prototype implementations, binds methods to their original receiver, treats an
+explicit `undefined` role as absent in both runtime and type algebra, and rejects missing/duplicate or
+reserved members. The flattened host has a null prototype and a final non-overridable canonical
+`capabilities` property, so extra role properties cannot replace the map or trigger prototype setters.
+
 **`createTestInteractiveSession` lives here, with the contract.** A double existed before, published
 from `@robota-sdk/agent-framework` and documented in its SPEC — with zero consumers, because every
 transport package sits BELOW `agent-framework` and could not import it. The 41 hand-rolled
 `as unknown as IInteractiveSession` partials were not an oversight; they were the only thing those
-packages could reach. `agent-framework` re-exports this one rather than keeping a second: two doubles
-for one contract can disagree, which is this defect one level down.
+packages could reach. The sole published owner is
+`@robota-sdk/agent-interface-transport/testing`; `agent-framework` intentionally does not re-export it,
+because pass-through re-exports would create two apparent owners for one contract.
 
-The remaining casts are held by a ratchet (`scan-contract-cast-ratchet`) that may fall and never
-rise, so the debt cannot grow while the capability-scoped ports are designed.
+The default double preserves identity semantics rather than only type shape. Each factory instance has
+one deterministic session id, and its successive default submissions return
+`<session-id>-turn-1`, `<session-id>-turn-2`, and so on. Another double restarts its own counter under
+its distinct session id. A custom `submit` override remains authoritative. The nested object returned
+from default `getSession()` exposes only the transport contract's `getSessionId`; framework-only
+`Session` services do not leak into this lower contract fixture.
+
+`createTestSessionCapabilityHost` on the same testing subpath builds honest subset hosts. The
+contract-cast scanner now freezes the direct `IInteractiveSession` cast floor at zero: a future
+canonical aggregate cast fails the harness instead of restoring partial implementations.
 
 ### `ITransportAdapter<TSession>`
 
 ```typescript
 export interface ITransportAdapter<TSession = unknown> {
   readonly name: string;
+  readonly lifecycle: Readonly<{ kind: 'service' | 'runner' }>;
   attach(session: TSession): void;
   start(): Promise<void>;
   stop(): Promise<void>;
-  readonly runsToCompletion?: boolean;
 }
 ```
 
-- `name` — unique human-readable identifier (e.g., `'ws'`, `'tui'`, `'headless'`)
+- `name` — unique human-readable runtime identifier (e.g., `'ws'`, `'headless'`)
+- `lifecycle` — required frozen discriminant; silence is invalid
 - `attach()` — called before `start()` to bind the transport to a session
-- `start()` — begin serving; idempotent. **Resolves once the transport is SERVING, not when its work
-  is done** — unless it declares `runsToCompletion`
-- `stop()` — stop serving and release resources; idempotent
-- `runsToCompletion` — `true` when `start()` does not return while the transport is alive
+- `start()` — resolves at the concrete package's documented readiness boundary. Starting before
+  attach or starting an active adapter rejects `TransportLifecycleError`
+- `stop()` — safe and bounded when repeated. A stopped adapter may be attached and started again
 
 #### What `start()` means, and why it had to be said (ARCH-011)
 
-The contract used to say only `start(): Promise<void>`, and two readings coexisted. Four transports
-bound a port and returned. `headless` ran the entire prompt inside `start()`; `tui` blocked for the
-life of the UI. `TransportRegistry.startAll` awaited each in turn, so registering either of those
-first meant **every transport behind it never started** — no crash, no error, simply never reached.
+The former contract had one ambiguous `start(): Promise<void>` and an optional
+`runsToCompletion` hint. Headless ran the whole prompt inside `start()`, so a registry awaiting it
+could never reach a service registered behind it. ARCH-011 replaces that ambiguity with a required
+kind. A runner's `start()` launches and returns; `ITransportRunnerAdapter.waitForCompletion()` returns
+exactly `{status:'succeeded', exitCode:0}` or `{status:'failed', exitCode:<nonzero>}` with no raw cause.
+The registry owns the promise immediately. Adapter results are only `succeeded | failed`; the wider
+registry aggregate may also record `abandoned: stopped | startup-rollback` for a pending runner.
+The aggregate always contains every runner in registration order. A separate first-failure wait
+reports only a real failed runner and does not turn normal stop abandonment into process failure.
 
-A transport whose whole job happens inside `start()` declares `runsToCompletion: true`, and the
-registry starts it without awaiting. Its promise is kept, not dropped: `TransportRegistry.waitForCompletion()`
-is where its result and its failure arrive, because the transport whose entire job is inside `start()`
-is exactly the one whose failure matters, and an unawaited rejection would be an unhandled promise
-rather than a reported error.
-
-The route is wired: `ITransportRegistryView.waitForCompletion()` carries it, and
-`IRuntimeHostHandle.waitForCompletion()` exposes it to the caller that owns the process-lifetime
-wait.
-
-**What it actually covers**, stated because the apparatus is easy to read as wider than it is: a
-transport whose `start()` REJECTS. `headless` — the transport that most obviously runs to completion —
-absorbs every failure inside its runner and always resolves, expressing failure through
-`getExitCode()` instead; so it does not use this route today, and a non-zero exit code is not a
-rejection. Whether a run-to-completion transport should be able to report failure by result as well
-as by rejection is an open question recorded on ARCH-011, not something this contract answers. The first draft put the method on the concrete registry alone, where neither production caller
-— both hold the view — could reach it; a failure route nothing can call is not a route.
-
-`runsToCompletion` is the ONE optional member on this contract, and deliberately so: "resolves once
-serving" is the ordinary case, a transport that omits it is asserting that meaning, and the registry
-treats absence as `false` rather than guessing. Contrast `IInteractiveSession`'s capability members
-(ARCH-012), where silence had no safe reading and optionality was removed.
+`TuiTransport` is not part of this family: it ignored `attach()` and constructed its own session.
+The TUI's existing `renderApp` and `TuiInteractionChannel` are presentation/session-owner surfaces.
 
 ### `ITransportConfig`
 
@@ -231,27 +264,42 @@ Persisted in `settings.json` under `transports.<name>`.
 ### `IConfigurableTransport<TSession>`
 
 ```typescript
-export interface IConfigurableTransport<TSession = unknown> extends ITransportAdapter<TSession> {
+export interface ITransportSettingsCapability {
   readonly defaultEnabled: boolean;
   readonly optionsSchema?: Record<string, { type: string; description: string; default?: unknown }>;
   validateOptions?(options: Record<string, unknown>): boolean;
 }
+
+export interface IConfigurableTransport<TSession = unknown>
+  extends ITransportServiceAdapter<TSession>, ITransportSettingsCapability {}
+
+export type TConfigurableTransport<TSession = unknown> = TTransportAdapter<TSession> &
+  ITransportSettingsCapability;
 ```
 
 - `defaultEnabled` — used when no `settings.transports.<name>.enabled` is present
 - `optionsSchema` — describes configurable options (e.g., for a `/settings` TUI panel)
 - `validateOptions()` — optional schema validation before applying user options
 
-### `ITransportRegistryView<TSession>`
+### Registry views
 
 ```typescript
-export interface ITransportRegistryView<TSession = unknown> {
-  getAll(): ITransportEntry<TSession>[];
-  setEnabled(name: string, enabled: boolean): Promise<void>;
+export interface ITransportLifecycleRegistryView<TSession = unknown> {
+  register(transport: TTransportAdapter<TSession>): void;
   startAll(session: TSession): Promise<void>;
-  /** Best-effort: never rejects; per-transport stop failures come back in the result (CORE-013). */
+  waitForCompletion(): Promise<ITransportCompletionRecord[]>;
+  waitForFailure(): Promise<ITransportFailureRecord | undefined>;
   stopAll(): Promise<IDestroyResult>;
 }
+
+export interface ITransportSettingsRegistryView<TSession = unknown> {
+  getAll(): ITransportEntry<TSession>[];
+  setEnabled(name: string, enabled: boolean): Promise<void>;
+  setOptions(name: string, options: Record<string, unknown>): Promise<void>;
+}
+
+export interface ITransportRegistryView<TSession = unknown>
+  extends ITransportLifecycleRegistryView<TSession>, ITransportSettingsRegistryView<TSession> {}
 ```
 
 `IDestroyResult` is imported (type-only) from `@robota-sdk/agent-core`. `stopAll()` is best-effort:
@@ -339,17 +387,18 @@ This package defines contracts that consumers implement or extend:
 | Extension Point          | Kind      | Implementor                                                                                                                                                                  | Description                                                      |
 | ------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | `ITransportAdapter`      | Interface | `createHttpTransport` (http), `createMcpTransport` (mcp), `createHeadlessTransport` (agent-transport/headless), `createWsTransport` factory (ws) — all return a bare adapter | Implement to create a transport with attach/start/stop lifecycle |
-| `IConfigurableTransport` | Interface | `TuiTransport` (`agent-transport-tui`), `WsTransport` (`agent-transport-ws`)                                                                                                 | Extend `ITransportAdapter` to support enable/disable and options |
-| `ITransportRegistryView` | Interface | `agent-transport` (`TransportRegistry`, structurally compatible — no declared `implements`)                                                                                  | Provide registry management for configurable transports          |
+| `IConfigurableTransport` | Interface | `WsTransport` (`agent-transport-ws`), `WebRtcTransport` (`agent-transport-webrtc`)                                                                                           | Legacy service adapter with settings capability                  |
+| `TConfigurableTransport` | Type      | Registry settings projection, including configurable runners                                                                                                                 | Compose any adapter kind with settings capability                |
+| Registry views           | Interface | `agent-transport` (`TransportRegistry`, structurally compatible)                                                                                                             | Segregate lifecycle from configurable settings projection        |
 | `IPayloadChannelHost`    | Interface | `WsTransport` (`agent-transport-ws`, via its `PayloadChannelRegistry`)                                                                                                       | Carry consumer-declared binary/event channels on the connection  |
 
 No abstract classes or base classes are exported — all extension is through interface implementation.
 
 ## Error Taxonomy
 
-This package defines no error types. It contains only interface and type declarations.
-Errors arising from transport lifecycle (e.g., failed `start()` or `stop()`) are thrown by
-implementing packages (the separate `agent-transport-*` packages and `agent-transport`) and are not part of this package's contract.
+This package owns the inert error shapes `ITransportLifecycleError` and
+`ITransportConfigurationError`. Implementing packages construct them; consumers discriminate by
+stable `name` and `code`. No error class or stateful runtime owner lives here.
 
 ## Constraints
 
@@ -363,21 +412,25 @@ implementing packages (the separate `agent-transport-*` packages and `agent-tran
 
 ## Test Strategy
 
-No tests required. This package contains only interface declarations; correctness is verified by
-the TypeScript compiler in consumers. The `package.json` configures `vitest run --passWithNoTests`
-so the test script succeeds with zero test files.
+Type tests pin the public shapes. The pure `/testing` helper
+`runTransportLifecycleConformance()` drives attach/start/readiness/repeated-start/repeated-stop/restart
+without importing Vitest or concrete products. Every public adapter subject invokes it in its owner
+package, and the harness roster scan requires exactly one invocation for each of the six subjects.
 
 ## Class Contract Registry
 
 This package contains no classes. The following interfaces are the extension contracts that
 implementors must satisfy:
 
-| Interface                | Implemented By                                                                                                                                                  | Package                                |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `ITransportAdapter`      | `createHttpTransport`/`createMcpTransport`/`createHeadlessTransport`/`createWsTransport` factories (bare adapters); also satisfied via `IConfigurableTransport` | `agent-transport-*`, `agent-transport` |
-| `IConfigurableTransport` | `TuiTransport` (`agent-transport-tui`), `WsTransport` (`agent-transport-ws`)                                                                                    | `agent-transport-*` packages           |
-| `ITransportRegistryView` | `TransportRegistry` (structurally compatible, no declared `implements`)                                                                                         | `agent-transport`                      |
-| `IPayloadChannelHost`    | `WsTransport` (declared `implements`) and `PayloadChannelRegistry`                                                                                              | `agent-transport-ws`                   |
+| Interface                 | Implemented By                                                                                                                                                  | Package                                        |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `ITransportAdapter`       | `createHttpTransport`/`createMcpTransport`/`createHeadlessTransport`/`createWsTransport` factories (bare adapters); also satisfied via `IConfigurableTransport` | `agent-transport-*`, `agent-transport`         |
+| `ITransportRunnerAdapter` | `createHeadlessTransport`                                                                                                                                       | `agent-transport`                              |
+| `IConfigurableTransport`  | `WsTransport`, `WebRtcTransport`                                                                                                                                | `agent-transport-ws`, `agent-transport-webrtc` |
+| Registry views            | `TransportRegistry` (structurally compatible)                                                                                                                   | `agent-transport`                              |
+| `IPayloadChannelHost`     | `WsTransport` (declared `implements`) and `PayloadChannelRegistry`                                                                                              | `agent-transport-ws`                           |
 
-No `extends` chains exist within this package — `IConfigurableTransport` extends `ITransportAdapter`
-and is the only intra-package inheritance.
+The deliberate intra-package extension chains are `ITransportRunnerAdapter` and
+`ITransportServiceAdapter` over `ITransportAdapter`, legacy `IConfigurableTransport` over the service
+adapter plus settings capability, and `ITransportRegistryView` composing the lifecycle and settings
+registry views. `TConfigurableTransport` keeps settings orthogonal to lifecycle kind.

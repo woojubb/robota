@@ -1,4 +1,4 @@
-import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { ISessionConversationRead, TDriverId } from '@robota-sdk/agent-interface-transport';
 import type {
   IAskRequestEvent,
   IBackgroundJobGroupState,
@@ -76,8 +76,8 @@ export type TServerMessage =
       success: boolean;
       data?: ICommandResult['data'];
     }
-  | { type: 'messages'; messages: ReturnType<IInteractiveSession['getMessages']> }
-  | { type: 'context'; state: ReturnType<IInteractiveSession['getContextState']> }
+  | { type: 'messages'; messages: ReturnType<ISessionConversationRead['getMessages']> }
+  | { type: 'context'; state: ReturnType<ISessionConversationRead['getContextState']> }
   // SELFHOST-004 (P5, TC-08): carry the assembled trace/cost read-model (per-op span timeline +
   // cost-by-source) across the sidecar boundary — no existing variant carries per-op `durationMs` or
   // per-source `costUsd`. The GUI renders it renderer-side.

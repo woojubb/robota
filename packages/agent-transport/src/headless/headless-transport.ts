@@ -2,18 +2,21 @@
  * ITransportAdapter implementation for headless transport.
  *
  * Wraps createHeadlessRunner into the unified ITransportAdapter interface.
- * After start() completes, getExitCode() returns the runner's exit code.
- *
- * ARCH-011: this transport declares `runsToCompletion`, so a registry does not await it — read
- * `getExitCode()` only after `waitForCompletion()`, never straight after `startAll()`. Note that the
- * runner ABSORBS failures and always resolves, so failure arrives here as a non-zero exit code and
- * never as a rejection: `waitForCompletion()` will not report it.
+ * `start()` launches the work and returns; `waitForCompletion()` owns the typed terminal outcome.
  */
+
+import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
 
 import { createHeadlessRunner } from './headless-runner.js';
 
 import type { TOutputFormat } from './headless-runner.js';
-import type { IInteractiveSession, ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+import type { IHeadlessSession } from './headless-session.js';
+import type {
+  IInteractiveSession,
+  ITransportLifecycleError,
+  ITransportRunnerAdapter,
+  TTransportRunOutcome,
+} from '@robota-sdk/agent-interface-transport';
 
 export interface IHeadlessTransportOptions {
   /** Output format: 'text', 'json', or 'stream-json'. */
@@ -22,27 +25,53 @@ export interface IHeadlessTransportOptions {
   prompt: string;
 }
 
-export function createHeadlessTransport(
-  options: IHeadlessTransportOptions,
-): ITransportAdapter<IInteractiveSession> & { getExitCode(): number } {
-  let session: IInteractiveSession | null = null;
+export interface IHeadlessTransport extends ITransportRunnerAdapter<IInteractiveSession> {
+  attach(session: IHeadlessSession): void;
+  getExitCode(): number;
+}
+
+export function createHeadlessTransport(options: IHeadlessTransportOptions): IHeadlessTransport {
+  let session: IHeadlessSession | null = null;
   let exitCode = 0;
+  let active = false;
+  let generation = 0;
+  let completion: Promise<TTransportRunOutcome> | undefined;
+
+  const createLifecycleError = (code: ITransportLifecycleError['code']): ITransportLifecycleError =>
+    Object.assign(new Error(`Headless transport ${code}.`), {
+      name: 'TransportLifecycleError' as const,
+      code,
+      transportName: 'headless',
+    });
 
   return {
     name: 'headless',
-    attach(s: IInteractiveSession) {
+    lifecycle: Object.freeze({ kind: 'runner' }),
+    attach(s: IHeadlessSession) {
       session = s;
     },
-    // ARCH-011: `start()` here runs the entire prompt. Declared, so `startAll` does not await it and
-    // block every transport registered behind this one.
-    runsToCompletion: true,
     async start() {
-      if (!session) throw new Error('No session attached. Call attach() first.');
+      if (!session) throw createLifecycleError('not-attached');
+      if (active) throw createLifecycleError('already-started');
+      active = true;
+      const runGeneration = ++generation;
       const runner = createHeadlessRunner({ session, outputFormat: options.outputFormat });
-      exitCode = await runner.run(options.prompt);
+      completion = runner.run(options.prompt).then((code): TTransportRunOutcome => {
+        if (runGeneration === generation) exitCode = code;
+        return code === 0
+          ? { status: 'succeeded', exitCode: 0 }
+          : createTransportFailedOutcome(code);
+      });
+      void completion.catch(() => undefined);
+    },
+    async waitForCompletion() {
+      if (!completion) throw createLifecycleError('not-attached');
+      return completion;
     },
     async stop() {
-      /* no-op: headless runner completes in start() */
+      active = false;
+      generation += 1;
+      session = null;
     },
     getExitCode() {
       return exitCode;

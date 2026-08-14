@@ -1,3 +1,5 @@
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { parsePairingUrl } from '@robota-sdk/agent-remote-pairing';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -67,7 +69,7 @@ function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
     registry,
     readRelayUrl: () => 'ws://127.0.0.1:9999',
     readClientUrl: () => 'https://remote.example/',
-    getSession: () => ({}) as IInteractiveSession,
+    getSession: () => Object.assign(createTestInteractiveSession(), {}),
     renderQr: () => Promise.resolve('[QR]'),
     createSignaling: () => signaling as unknown as ISignalingClient,
     createTransport: (_s, _secret, h, ice) => {

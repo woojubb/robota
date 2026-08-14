@@ -1,14 +1,10 @@
 # @robota-sdk/agent-transport-tui
 
-React + Ink terminal UI transport for the Robota SDK. Split out of the consolidated transport
-package so React/Ink/node-pty stay isolated from non-TUI consumers.
+React + Ink terminal UI presentation for the Robota SDK. It owns its interactive session through
+`TuiInteractionChannel`; it is not a borrowed-session `ITransportAdapter`.
 
 ```typescript
-import {
-  renderApp,
-  createDefaultTuiCliAdapter,
-  TuiTransport,
-} from '@robota-sdk/agent-transport-tui';
+import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport-tui';
 ```
 
 See [docs/SPEC.md](./docs/SPEC.md) for the full contract.

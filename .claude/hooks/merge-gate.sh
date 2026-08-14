@@ -24,9 +24,9 @@
 #
 # On (2) the hook cannot judge whether a finding was ADDRESSED — that is the reviewer's call, and a
 # hook pretending to make it would be a guard checking the wrong thing. What it CAN establish is that
-# a review exists, that it is newer than the head commit it judges, and that nobody is merging while
-# the reviewer's own machine-readable count says findings remain. A review older than the commit has
-# not seen what is being merged.
+# a review exists, that it names the exact current base/head SHA pair, and that nobody is merging
+# while the reviewer's own machine-readable count says findings remain. A timestamp cannot identify
+# the comparison because the base may move while the child head does not.
 #
 # Override: MERGE_GATE_ACK=1 INLINE in the same command. It must be inline because this hook reads
 # the command string — an `export` in an earlier statement never reaches it, the same property
@@ -186,8 +186,16 @@ if [[ "$STATE" != "CLEAN" ]]; then
 fi
 
 # --- 2. Review --------------------------------------------------------------------------------
-# A review that predates the head commit has not seen what is about to be merged.
-HEAD_AT=$(bounded_gh pr view "$PR" --json commits --jq '.commits[-1].committedDate' || echo "")
+# The review identity is the ordered current base/head pair. A timestamp can say when somebody
+# wrote a comment; it cannot say which base comparison they reviewed.
+OID_PAIR=$(bounded_gh pr view "$PR" --json baseRefOid,headRefOid --jq '"\(.baseRefOid) \(.headRefOid)"' || echo "")
+CURRENT_BASE_OID="${OID_PAIR%% *}"
+CURRENT_HEAD_OID="${OID_PAIR##* }"
+if [[ ! "$CURRENT_BASE_OID" =~ ^[0-9a-f]{40}$ ]] || [[ ! "$CURRENT_HEAD_OID" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "[merge-gate] Blocked: could not read PR #$PR's current 40-hex base/head OIDs." >&2
+  echo "[merge-gate] Verify by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+  exit 2
+fi
 
 # The newest comment BY THE REVIEWER, not the newest comment. Reading `comments[-1]` unconditionally
 # meant anyone — including the person merging — could post a remark after the review and satisfy both
@@ -276,7 +284,7 @@ fi
 # file warns about a hundred lines down and would otherwise have re-created here.
 #
 # Unknown is not zero. If the thread state cannot be read, the gate refuses, the same way it refuses
-# an unreadable head date below.
+# unreadable current OIDs.
 # Only GraphQL exposes thread resolution — `gh pr view --json` has no such field. The repository is
 # READ from the checkout rather than reconstructed: a hook that guessed an owner or a name would ask
 # about the wrong repository and answer confidently.
@@ -327,29 +335,29 @@ if [[ "$UNRESOLVED" != "0" ]]; then
   exit 2
 fi
 
-# Fail closed on an unreadable head date. `-n "$HEAD_AT" && …` skipped the whole recency check when
-# the extraction returned empty — reading "I could not tell" as "it is fine", which is the exact
-# conflation this hook's own header forbids. Review's MUST, and correct.
-if [[ -z "$HEAD_AT" ]]; then
-  echo "[merge-gate] Blocked: could not read PR #$PR's head commit date, so review recency is unknown." >&2
-  echo "[merge-gate] Verify by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
-  exit 2
-fi
-
-if [[ "$LAST_REVIEW_AT" < "$HEAD_AT" ]]; then
-  echo "[merge-gate] Blocked: the newest review on #$PR predates its head commit." >&2
-  echo "[merge-gate]   review: $LAST_REVIEW_AT   head: $HEAD_AT" >&2
-  echo "[merge-gate] It judged code that is no longer what would merge. Wait for the re-review." >&2
-  exit 2
-fi
-
-# The reviewer's own machine-readable count, when it emitted one. `pr-review-reviewer` declares
-# `ACTIONABLE FINDINGS: <n>` as its output contract precisely so a pipeline can route on it.
 BODY=$(printf '%s' "$LAST_REVIEW" | jq -r '.body // ""' 2>/dev/null || echo "")
-# The LAST numeric match, not the first: the contract puts the count on the summary's final line,
-# and a review quoting an earlier round carries that round's number ahead of its own.
-COUNT=$(printf '%s' "$BODY" | grep -oiE 'ACTIONABLE FINDINGS:[[:space:]]*[0-9]+' | grep -oE '[0-9]+' | tail -1 || true)
-if [[ -n "$COUNT" && "$COUNT" != "0" ]]; then
+BASE_MARKER_COUNT=$(printf '%s\n' "$BODY" | grep -Ec '^REVIEWED BASE: [0-9a-f]{40}$' || true)
+HEAD_MARKER_COUNT=$(printf '%s\n' "$BODY" | grep -Ec '^REVIEWED HEAD: [0-9a-f]{40}$' || true)
+COUNT_MARKER_COUNT=$(printf '%s\n' "$BODY" | grep -Ec '^ACTIONABLE FINDINGS: [0-9]+$' || true)
+if [[ "$BASE_MARKER_COUNT" != "1" ]] || [[ "$HEAD_MARKER_COUNT" != "1" ]] || [[ "$COUNT_MARKER_COUNT" != "1" ]]; then
+  echo "[merge-gate] Blocked: the review on #$PR must carry exactly one REVIEWED BASE, REVIEWED HEAD," >&2
+  echo "[merge-gate] and ACTIONABLE FINDINGS marker; found $BASE_MARKER_COUNT/$HEAD_MARKER_COUNT/$COUNT_MARKER_COUNT." >&2
+  exit 2
+fi
+
+REVIEWED_BASE=$(printf '%s\n' "$BODY" | sed -nE 's/^REVIEWED BASE: ([0-9a-f]{40})$/\1/p')
+REVIEWED_HEAD=$(printf '%s\n' "$BODY" | sed -nE 's/^REVIEWED HEAD: ([0-9a-f]{40})$/\1/p')
+COUNT=$(printf '%s\n' "$BODY" | sed -nE 's/^ACTIONABLE FINDINGS: ([0-9]+)$/\1/p')
+
+if [[ "$REVIEWED_BASE" != "$CURRENT_BASE_OID" ]]; then
+  echo "[merge-gate] Blocked: reviewed base $REVIEWED_BASE does not match current base $CURRENT_BASE_OID." >&2
+  exit 2
+fi
+if [[ "$REVIEWED_HEAD" != "$CURRENT_HEAD_OID" ]]; then
+  echo "[merge-gate] Blocked: reviewed head $REVIEWED_HEAD does not match current head $CURRENT_HEAD_OID." >&2
+  exit 2
+fi
+if [[ "$COUNT" != "0" ]]; then
   echo "[merge-gate] Blocked: the review on #$PR reports ACTIONABLE FINDINGS: $COUNT." >&2
   echo "[merge-gate] Resolve them, then re-review. git-branch.md: only after ALL findings are resolved." >&2
   exit 2
@@ -357,25 +365,7 @@ fi
 
 # The gate stops here on purpose. Whether a finding written in prose was addressed is the reviewer's
 # judgement, and a hook guessing at it would be a check measuring the wrong thing. What it has
-# established: CI is green, a review exists, and it is newer than what is being merged.
-#
-# An absent count is a refusal, like every other unreadable state in this file. It was a warning and
-# an exit 0, on the argument that only 4 of the 38 most recent reviews carried the marker and a
-# refusal would make the override routine. That argument is spent: the count is now required of the
-# reviewer in claude-code-review.yml, and the review that produced this change carried it. What
-# remains is the script's own rule, which the findings check was the single exception to — "I could
-# not check" and "it is fine" are the two states a guard must never conflate, and a review with real
-# findings written only in prose is exactly the merge-past-findings incident (#1503, #1510) this
-# hook exists to stop.
-if [[ -z "$COUNT" ]]; then
-  # Near-unreachable now — the selection above already requires the marker — and kept as the
-  # backstop it always was: if the two readings of the marker ever drift, "I could not check" must
-  # not read as "it is fine".
-  echo "[merge-gate] Blocked: the review on #$PR carries no 'ACTIONABLE FINDINGS: <n>' line, so" >&2
-  echo "[merge-gate] this gate cannot tell whether findings remain. Re-run the review, or read it" >&2
-  echo "[merge-gate] and override deliberately: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
-  exit 2
-fi
-
-echo "[merge-gate] PR #$PR: CI CLEAN, review newer than head, ACTIONABLE FINDINGS: 0. READ IT." >&2
+# established: CI is green, every inline finding is answered, and the latest verdict names the
+# exact current base/head comparison with zero findings.
+echo "[merge-gate] PR #$PR: CI CLEAN, exact base/head review, ACTIONABLE FINDINGS: 0. READ IT." >&2
 exit 0

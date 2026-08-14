@@ -23,8 +23,9 @@ import { ResumeBuffer, type IResumeBufferOptions } from './resume-buffer.js';
 import { handleClientMessage, parseClientMessage } from './ws-handler.js';
 import { subscribeSessionEvents } from './ws-session-events.js';
 
+import type { IProtocolSession } from './protocol-session.js';
 import type { TSeqServerMessage, TServerMessage } from './ws-protocol.js';
-import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId } from '@robota-sdk/agent-interface-transport';
 
 /** The current channel sink — receives a serialized JSON frame to put on the wire. */
 export type TResumeSink = (data: string) => void;
@@ -42,14 +43,14 @@ export interface IAttachOptions {
 }
 
 export interface ISessionResumeBridgeOptions {
-  readonly session: IInteractiveSession;
+  readonly session: IProtocolSession;
   readonly buffer?: IResumeBufferOptions;
   /** REMOTE-014 E5: the SERVER-ASSIGNED driver id for this surface, injected into inbound submit/command/prompt-response. */
   readonly driverId?: TDriverId;
 }
 
 export class SessionResumeBridge {
-  private readonly session: IInteractiveSession;
+  private readonly session: IProtocolSession;
   private readonly buffer: ResumeBuffer;
   private driverId?: TDriverId;
   private readonly unsubscribe: () => void;

@@ -1,3 +1,5 @@
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -21,6 +23,7 @@ import type {
 /** A test-support transport that records the exact session instance handed to `attach()`. */
 class RecordingTransport implements IConfigurableTransport<IInteractiveSession> {
   readonly defaultEnabled = true;
+  readonly lifecycle = Object.freeze({ kind: 'service' as const });
   attached: IInteractiveSession | undefined;
   started = false;
 
@@ -54,7 +57,7 @@ describe('one definition → many transports (reference identity)', () => {
     registry.register(t2);
 
     // One session (as built once by buildRuntimeSession) — a distinct sentinel instance.
-    const session = { id: 'the-one-session' } as unknown as IInteractiveSession;
+    const session = Object.assign(createTestInteractiveSession(), { id: 'the-one-session' });
 
     await registry.startAll(session);
 
@@ -73,7 +76,7 @@ describe('one definition → many transports (reference identity)', () => {
     registry.register(enabled);
     registry.register(outOfBand);
 
-    const session = { id: 's' } as unknown as IInteractiveSession;
+    const session = Object.assign(createTestInteractiveSession(), { id: 's' });
     await registry.startAll(session);
 
     expect(enabled.attached).toBe(session);

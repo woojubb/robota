@@ -6,6 +6,8 @@
  * command-registry/autocomplete refresh.
  */
 
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { homedir } from 'node:os';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -46,9 +48,9 @@ describe('applySystemCommandResult', () => {
   });
 
   function createSession(): IInteractiveSession {
-    return {
+    return Object.assign(createTestInteractiveSession(), {
       getContextState: () => ({ usedPercentage: 0, usedTokens: 0, maxTokens: 0 }),
-    } as unknown as IInteractiveSession;
+    });
   }
 
   it('renders the message only — UI intents are delivered via the ui_intent session event', () => {

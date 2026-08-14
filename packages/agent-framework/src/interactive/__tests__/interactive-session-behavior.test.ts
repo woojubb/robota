@@ -820,6 +820,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('attachTransport calls transport.attach with session', () => {
     const mockTransport = {
       name: 'test',
+      lifecycle: Object.freeze({ kind: 'service' as const }),
       attach: vi.fn(),
       start: vi.fn().mockResolvedValue(undefined),
       stop: vi.fn().mockResolvedValue(undefined),

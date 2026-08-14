@@ -11,11 +11,11 @@
  * race it closed.
  */
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IHttpTransportSession } from './http-session.js';
 
 export interface ITurnClaims {
   /** The key this session is claimed under, or `undefined` when it will not name itself. */
-  keyFor(session: IInteractiveSession): string | undefined;
+  keyFor(session: IHttpTransportSession): string | undefined;
   isHeld(key: string): boolean;
   hold(key: string): void;
   release(key: string): void;

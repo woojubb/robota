@@ -10,9 +10,9 @@ import { streamSSE } from 'hono/streaming';
 
 import { relayTurn } from './submit-stream.js';
 
+import type { IHttpTransportSession } from './http-session.js';
 import type { TStreamFailureListener } from './submit-stream.js';
 import type { ITurnClaims } from './turn-claims.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import type { Context } from 'hono';
 
 /**
@@ -35,7 +35,9 @@ import type { Context } from 'hono';
  * (Review moved this block here: it sat on the RE-EXPORT in `routes.ts` after the split, where the
  * person editing the definition would never see it.)
  */
-export type TSessionFactory = (c: Context) => IInteractiveSession | Promise<IInteractiveSession>;
+export type TSessionFactory = (
+  c: Context,
+) => IHttpTransportSession | Promise<IHttpTransportSession>;
 
 /**
  * Admit this request to ONE turn on its session, or answer why not.
@@ -44,7 +46,7 @@ export type TSessionFactory = (c: Context) => IInteractiveSession | Promise<IInt
  * Response. A named unit, and review is why: the admission decision (nameable? busy? claim) is what
  * this route decides, independently testable from the stream wiring it hands the turn to.
  */
-function admitTurn(c: Context, session: IInteractiveSession, claims: ITurnClaims) {
+function admitTurn(c: Context, session: IHttpTransportSession, claims: ITurnClaims) {
   // RUNTIME-38: the session is single-threaded (one turn at a time) and shared across requests, so a
   // concurrent /submit would cross-subscribe to the same emitter and interleave two clients' events.
   //

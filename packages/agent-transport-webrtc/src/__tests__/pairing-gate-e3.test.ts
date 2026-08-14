@@ -1,3 +1,5 @@
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import {
   deriveIdentityId,
   exportPublicKey,
@@ -18,14 +20,14 @@ import { PairingGate, type IHostReconnectConfig } from '../pairing-gate.js';
  */
 
 function stubSession(): IInteractiveSession {
-  return {
+  return Object.assign(createTestInteractiveSession(), {
     getMessages: vi.fn().mockReturnValue([]),
     // ARCH-012: required. This double feeds `subscribeSessionEvents`, which calls it on every
     // turn-authored event — omitting it throws the moment a case emits one.
     getActiveDriverId: () => null,
     on: vi.fn(),
     off: vi.fn(),
-  } as unknown as IInteractiveSession;
+  });
 }
 
 /** A channel that captures sends and can route parsed frames to a sink (the counterpart controller). */

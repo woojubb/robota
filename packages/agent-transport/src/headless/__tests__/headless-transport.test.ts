@@ -1,6 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  createTestInteractiveSession,
+  runTransportLifecycleConformance,
+} from '@robota-sdk/agent-interface-transport/testing';
+
+import { describe, it, expect, expectTypeOf, vi, beforeEach, afterEach } from 'vitest';
 import { createHeadlessTransport } from '../headless-transport.js';
-import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IHeadlessSession } from '../headless-session.js';
+import type {
+  IExecutionResult,
+  IInteractiveSession,
+  ITransportAdapter,
+} from '@robota-sdk/agent-interface-transport';
 
 function createEventDrivenMockSession(
   behavior: 'complete' | 'error' | 'interrupted' = 'complete',
@@ -10,7 +20,7 @@ function createEventDrivenMockSession(
   const response = options?.response ?? 'test output';
   const textDeltas = options?.textDeltas;
 
-  return {
+  return Object.assign(createTestInteractiveSession(), {
     submit: vi.fn(async () => {
       if (textDeltas) {
         for (const delta of textDeltas) {
@@ -68,18 +78,32 @@ function createEventDrivenMockSession(
         if (idx >= 0) handlers.splice(idx, 1);
       }
     }),
-  } as unknown as IInteractiveSession;
+  });
 }
+
+describe('createHeadlessTransport declaration compatibility (ARCH-012)', () => {
+  it('preserves the legacy adapter declaration and accepts the named subset', () => {
+    const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'test' });
+    expectTypeOf(transport).toMatchTypeOf<ITransportAdapter<IInteractiveSession>>();
+    expectTypeOf(transport.attach).parameter(0).toMatchTypeOf<IHeadlessSession>();
+  });
+});
 
 describe('createHeadlessTransport', () => {
   it('returns an adapter with name "headless"', () => {
     const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'hello' });
     expect(transport.name).toBe('headless');
+    expect(transport.lifecycle).toEqual({ kind: 'runner' });
+    expect(Object.isFrozen(transport.lifecycle)).toBe(true);
   });
 
   it('throws if start() is called without attach()', async () => {
     const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'hello' });
-    await expect(transport.start()).rejects.toThrow('No session attached');
+    await expect(transport.start()).rejects.toMatchObject({
+      name: 'TransportLifecycleError',
+      code: 'not-attached',
+      transportName: 'headless',
+    });
   });
 
   it('returns exit code 0 by default', () => {
@@ -102,11 +126,43 @@ describe('createHeadlessTransport', () => {
       const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'hello' });
       transport.attach(mockSession as never);
       await transport.start();
+      await transport.waitForCompletion();
 
       expect(transport.getExitCode()).toBe(0);
       expect(writes.join('')).toContain('test output');
     } finally {
       process.stdout.write = originalWrite;
+    }
+  });
+
+  it('invokes the shared lifecycle conformance suite', async () => {
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const pendingSubmissions: Array<() => void> = [];
+    try {
+      await runTransportLifecycleConformance({
+        subjectId: '@robota-sdk/agent-transport#createHeadlessTransport',
+        kind: 'runner',
+        createAdapter: () =>
+          createHeadlessTransport({ outputFormat: 'text', prompt: 'ARCH-011 conformance' }),
+        createSession: () =>
+          Object.assign(createEventDrivenMockSession(), {
+            submit: vi.fn(
+              () =>
+                new Promise<void>((resolve) => {
+                  pendingSubmissions.push(resolve);
+                }),
+            ),
+          }),
+        assertReady: () => {},
+        assertStopped: () => {},
+        completeRunner: () => {
+          const complete = pendingSubmissions.shift();
+          if (!complete) throw new Error('no pending headless submission');
+          complete();
+        },
+      });
+    } finally {
+      write.mockRestore();
     }
   });
 });
@@ -130,6 +186,10 @@ describe('createHeadlessTransport (json adapter)', () => {
     const transport = createHeadlessTransport({ outputFormat: 'json', prompt: 'test prompt' });
     transport.attach(mockSession as never);
     await transport.start();
+    await expect(transport.waitForCompletion()).resolves.toEqual({
+      status: 'succeeded',
+      exitCode: 0,
+    });
 
     expect(transport.getExitCode()).toBe(0);
     expect(stdoutWriteSpy).toHaveBeenCalledTimes(1);
@@ -168,6 +228,10 @@ describe('createHeadlessTransport (stream-json adapter)', () => {
     });
     transport.attach(mockSession as never);
     await transport.start();
+    await expect(transport.waitForCompletion()).resolves.toEqual({
+      status: 'succeeded',
+      exitCode: 0,
+    });
 
     expect(transport.getExitCode()).toBe(0);
 
@@ -229,6 +293,10 @@ describe('createHeadlessTransport (error and interrupted)', () => {
     const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'test prompt' });
     transport.attach(mockSession as never);
     await transport.start();
+    await expect(transport.waitForCompletion()).resolves.toEqual({
+      status: 'failed',
+      exitCode: 1,
+    });
 
     expect(transport.getExitCode()).toBe(1);
   });
@@ -241,6 +309,10 @@ describe('createHeadlessTransport (error and interrupted)', () => {
     const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'test prompt' });
     transport.attach(mockSession as never);
     await transport.start();
+    await expect(transport.waitForCompletion()).resolves.toEqual({
+      status: 'succeeded',
+      exitCode: 0,
+    });
 
     expect(transport.getExitCode()).toBe(0);
     expect(stdoutWriteSpy).toHaveBeenCalledWith('partial output\n');

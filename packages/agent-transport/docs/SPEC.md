@@ -10,7 +10,8 @@ Core transport package for the Robota SDK. After DQ-AUDIT-005 the consolidated t
 split by concern; this package owns only the **dependency-free core**:
 
 - Headless transport (`/headless`): non-interactive print/JSON/stream-json runner — `HeadlessInteractionChannel`, `createHeadlessRunner`, `PrintTerminal`, `promptInput`, `createHeadlessTransport`.
-- Transport registry (root): `TransportRegistry` — settings-backed enable/disable of `IConfigurableTransport` instances.
+- Transport registry (root): `TransportRegistry` — base-adapter lifecycle plus an optional,
+  configurable-only settings projection on the same entry.
 - Programmatic driver (`/programmatic`): an in-process `IInteractionChannel` adapter
   (`ProgrammaticInteractionChannel`) + `createProgrammaticAgent` driver — drive the real agent
   structurally (`start`/`send`/`stop`, read assistant replies / tool calls / errors as data) with no
@@ -35,7 +36,7 @@ dependencies** — pure TypeScript over Node stdlib + `@robota-sdk/*` contracts.
 ```
 agent-transport/src
   index.ts                      ← barrel: headless + TransportRegistry
-  transport-registry.ts         ← TransportRegistry (generic, settings-backed)
+  transport-registry.ts         ← TransportRegistry (base lifecycle + optional settings capability)
   headless/
     HeadlessInteractionChannel.ts ← session creation + runner for print mode
     headless-runner.ts          ← createHeadlessRunner (text/json/stream-json)
@@ -84,13 +85,14 @@ is selected by the runner options.
 
 ## 4. Type Ownership
 
-| Type                                 | File                                          | Description                                  |
-| ------------------------------------ | --------------------------------------------- | -------------------------------------------- |
-| `IHeadlessInteractionChannelOptions` | `src/headless/HeadlessInteractionChannel.ts`  | Constructor options for the headless channel |
-| `IHeadlessRunnerOptions`             | `src/headless/headless-runner.ts`             | Options for `createHeadlessRunner`           |
-| `TOutputFormat`                      | `src/headless/headless-runner.ts`             | `'text' \| 'json' \| 'stream-json'`          |
-| `IHeadlessTransportOptions`          | `src/headless/headless-transport.ts`          | Options for `createHeadlessTransport`        |
-| `ICreateProgrammaticAgentOptions`    | `src/programmatic/createProgrammaticAgent.ts` | Options for `createProgrammaticAgent`        |
+| Type                                 | File                                          | Description                                                                         |
+| ------------------------------------ | --------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `IHeadlessInteractionChannelOptions` | `src/headless/HeadlessInteractionChannel.ts`  | Constructor options for the headless channel                                        |
+| `IHeadlessRunnerOptions`             | `src/headless/headless-runner.ts`             | Options for `createHeadlessRunner`                                                  |
+| `TOutputFormat`                      | `src/headless/headless-runner.ts`             | `'text' \| 'json' \| 'stream-json'`                                                 |
+| `IHeadlessTransportOptions`          | `src/headless/headless-transport.ts`          | Options for `createHeadlessTransport`                                               |
+| `IHeadlessSession`                   | `src/headless/headless-session.ts`            | Exact submission/events/commands/goal/identity roles consumed by headless execution |
+| `ICreateProgrammaticAgentOptions`    | `src/programmatic/createProgrammaticAgent.ts` | Options for `createProgrammaticAgent`                                               |
 
 The in-process driver surface itself is `IAgentDriver`, owned by
 `@robota-sdk/agent-interface-transport` — this package defines no driver type of its own.
@@ -108,8 +110,10 @@ The in-process driver surface itself is `IAgentDriver`, owned by
 | `createHeadlessRunner`               | function   | Creates a runner with `run(prompt): Promise<number>`; supports text/json/stream-json modes               |
 | `IHeadlessRunnerOptions`             | interface  | Options for `createHeadlessRunner`                                                                       |
 | `TOutputFormat`                      | type alias | `'text' \| 'json' \| 'stream-json'`                                                                      |
-| `createHeadlessTransport`            | function   | Returns `ITransportAdapter & { getExitCode(): number }` wrapping `createHeadlessRunner`                  |
+| `createHeadlessTransport`            | function   | Returns legacy-compatible `IHeadlessTransport` wrapping `createHeadlessRunner`                           |
 | `IHeadlessTransportOptions`          | interface  | Options for `createHeadlessTransport`                                                                    |
+| `IHeadlessSession`                   | interface  | Narrow session-role aggregate accepted by headless runner and transport                                  |
+| `IHeadlessTransport`                 | interface  | Legacy `ITransportAdapter<IInteractiveSession>` declaration with `attach(IHeadlessSession)` overload     |
 
 ### `/programmatic`
 
@@ -132,20 +136,24 @@ The driver returned by `createProgrammaticAgent` is typed as `IAgentDriver` (own
 
 ### Root (`@robota-sdk/agent-transport`)
 
-| Export                                          | Kind  | Description                                                          |
-| ----------------------------------------------- | ----- | -------------------------------------------------------------------- |
-| `TransportRegistry`                             | class | Settings-backed enable/disable registry of `IConfigurableTransport`s |
-| (plus `/headless` + `/programmatic` re-exports) |       | The root barrel also re-exports the headless + programmatic surfaces |
+| Export                                          | Kind  | Description                                                                |
+| ----------------------------------------------- | ----- | -------------------------------------------------------------------------- |
+| `TransportRegistry`                             | class | Base adapter lifecycle registry with configurable-only settings projection |
+| (plus `/headless` + `/programmatic` re-exports) |       | The root barrel also re-exports the headless + programmatic surfaces       |
 
 ## 6. Extension Points
 
-Register any `IConfigurableTransport` (from the per-concern transport packages) into a
-`TransportRegistry`; enablement and options are persisted under `transports` in settings.json. The
-composition root decides which concrete transports to register.
+Register any `ITransportAdapter` into a `TransportRegistry`. A service or runner that also satisfies
+the orthogonal `ITransportSettingsCapability` appears as `TConfigurableTransport` in `getAll()` and
+persists enablement/options under `transports` in settings.json; a base-only adapter is
+lifecycle-enabled and absent from settings. The legacy `IConfigurableTransport` name remains the
+source-compatible configurable-service shape. Duplicate names reject. Unknown or non-configurable
+settings mutations reject `TransportConfigurationError`.
 
 ## 7. Error Taxonomy
 
-Headless runner surfaces provider/runtime errors with a non-zero exit code (`getExitCode()`).
+Headless runner surfaces provider/runtime errors as typed failed outcomes with a non-zero exit code;
+`getExitCode()` remains the package-specific readback.
 Registry settings I/O errors propagate from the `agent-framework` settings helpers.
 
 `run(prompt)` resolves the exit code only AFTER the underlying `session.submit()` operation has fully
@@ -157,6 +165,8 @@ process may exit. It writes exactly one terminal record per run (CI-001).
 ## 8. Test Strategy
 
 Headless runner/channel unit + integration tests and scripted-provider tests under `src/**/__tests__`.
+The headless public adapter invokes the shared interface-transport lifecycle conformance helper; the
+harness roster scan proves it is one of exactly six registered public subjects.
 
 ## 9. Class Contract Registry
 
@@ -168,22 +178,25 @@ delegated to the runner. Does not own interactive UI.
 ### `TransportRegistry`
 
 `register(transport)`, `getAll()`, `getEnabled()`, `setEnabled(name, enabled)`,
-`setOptions(name, options)`, `startAll(session)`, `waitForCompletion()`, `stopAll()`. Reads/writes the
+`setOptions(name, options)`, `startAll(session)`, `waitForCompletion()`, `waitForFailure()`,
+`stopAll()`. Reads/writes the
 `transports` block of a settings file at the path supplied to the constructor. Holds no
 concrete-transport import.
 
-**Run-to-completion transports (ARCH-011).** `startAll` does not await a transport that declares
-`ITransportAdapter.runsToCompletion` — its `start()` does not return while it is alive, and awaiting
-it meant every transport registered behind it never started. The registry takes ownership of that
-promise: the rejection handler is attached at start time, not left to whoever calls
-`waitForCompletion` later, because merely holding a reference is not handling it and a rejection in
-the gap aborts the process.
+**Runner ownership (ARCH-011).** `startAll` awaits each adapter's readiness-returning `start()`, then
+immediately owns every runner's separate completion promise. A startup generation is sealed only
+after every enabled subject is registered, so a synchronously successful first runner cannot make a
+later runner disappear. `waitForCompletion()` returns one named record per runner in registration
+order; pending runners become registry-owned `abandoned:stopped` or
+`abandoned:startup-rollback`. `waitForFailure()` returns only the first real failed runner immediately
+and returns `undefined` for no runners, all success, or normal stop abandonment. A rejected runner
+promise rejects both
+routes as `TransportLifecycleError`; it is observed immediately and cannot become an unhandled
+rejection.
 
-`waitForCompletion()` settles when every such transport has finished and rejects with the first
-failure to occur. It is on `ITransportRegistryView`, not only on this class, so the consumers that
-hold the view can actually reach it.
-
-`stopAll()` ABANDONS in-flight run-to-completion transports rather than awaiting them. `stop()` is a
-documented no-op for both of the transports that declare it, so awaiting would make `stopAll` neither
-bounded nor best-effort; abandoning also means a later `startAll` — a session switch does exactly
-this — starts from empty rather than overwriting a tracked promise.
+The registry serializes idle/starting/active/stopping transitions. Active restart rejects before
+mutation. Startup failure rolls back from the failing adapter through prior adapters in reverse order
+and rejects `TransportStartupError` with the primary non-enumerable cause plus ordered safe rollback
+details. `stopAll()` terminalizes pending aggregate slots rather than waiting on terminal work. Late
+settlement is ignored, and a later `startAll` owns a distinct generation. Transport stops remain
+best-effort and their errors are collected in `IDestroyResult`.

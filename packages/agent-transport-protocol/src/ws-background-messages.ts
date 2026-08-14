@@ -1,8 +1,8 @@
+import type { IProtocolSession } from './protocol-session.js';
 import type { TBackgroundControlAction, TClientMessage, TServerMessage } from './ws-protocol.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
 export function handleBackgroundQueryMessage(
-  session: IInteractiveSession,
+  session: IProtocolSession,
   send: (message: TServerMessage) => void,
   msg: Extract<
     TClientMessage,
@@ -37,7 +37,7 @@ export function handleBackgroundQueryMessage(
 }
 
 export function handleBackgroundControlMessage(
-  session: IInteractiveSession,
+  session: IProtocolSession,
   send: (message: TServerMessage) => void,
   msg: Extract<
     TClientMessage,
@@ -70,7 +70,7 @@ export function handleBackgroundControlMessage(
 }
 
 function sendBackgroundTaskSnapshot(
-  session: IInteractiveSession,
+  session: IProtocolSession,
   send: (message: TServerMessage) => void,
   msg: Extract<TClientMessage, { type: 'get-background-task' }>,
 ): void {
@@ -86,7 +86,7 @@ function sendBackgroundTaskSnapshot(
 }
 
 function sendBackgroundTaskLogPage(
-  session: IInteractiveSession,
+  session: IProtocolSession,
   send: (message: TServerMessage) => void,
   msg: Extract<TClientMessage, { type: 'read-background-task-log' }>,
 ): void {
@@ -101,7 +101,7 @@ function sendBackgroundTaskLogPage(
 }
 
 function sendBackgroundJobGroupSnapshot(
-  session: IInteractiveSession,
+  session: IProtocolSession,
   send: (message: TServerMessage) => void,
   msg: Extract<TClientMessage, { type: 'get-background-job-group' }>,
 ): void {
@@ -117,7 +117,7 @@ function sendBackgroundJobGroupSnapshot(
 }
 
 function sendBackgroundJobGroupWaitResult(
-  session: IInteractiveSession,
+  session: IProtocolSession,
   send: (message: TServerMessage) => void,
   msg: Extract<TClientMessage, { type: 'wait-background-job-group' }>,
 ): void {
@@ -132,7 +132,7 @@ function sendBackgroundJobGroupWaitResult(
 }
 
 function sendBackgroundTaskInput(
-  session: IInteractiveSession,
+  session: IProtocolSession,
   send: (message: TServerMessage) => void,
   msg: Extract<TClientMessage, { type: 'send-background-task' }>,
 ): void {

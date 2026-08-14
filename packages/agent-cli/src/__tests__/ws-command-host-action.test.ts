@@ -53,7 +53,7 @@ function setup(adapters: ICommandHostAdapters): {
   });
   const sent: TServerMessage[] = [];
   const { onMessage } = createWsHandler({
-    session: session as unknown as IInteractiveSession,
+    session,
     send: (msg) => sent.push(msg),
     driverId: 'device-e2e-1',
   });

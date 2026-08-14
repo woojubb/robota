@@ -10,6 +10,7 @@
     "build-contracts",
     "ci-base-history",
     "ci-concurrency-footprint",
+    "claude-review-coverage",
     "conflict-markers",
     "contract-cast-ratchet",
     "deployment-matrix",
@@ -58,6 +59,7 @@
     "test-plans",
     "test-selection-tolerance",
     "transport-admission",
+    "transport-conformance",
     "vitest-resource-ceiling",
     "workflow-permissions",
     "workspace-refs"

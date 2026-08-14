@@ -6,7 +6,7 @@ transport-admission: none — the peer is this process's own terminal. There is 
 
 ## Scope
 
-Terminal UI transport for the Robota SDK — the React + Ink interactive renderer. Split out of the
+Terminal UI presentation for the Robota SDK — the React + Ink interactive renderer. Split out of the
 former consolidated `agent-transport` package (DQ-AUDIT-005) so that React/Ink/node-pty are isolated
 to this package and never enter the dependency graph of non-TUI consumers.
 
@@ -16,12 +16,15 @@ to this package and never enter the dependency graph of non-TUI consumers.
 - Depends on `agent-interface-tui` for interaction contracts and `agent-framework` for the
   interactive-session runtime; does **not** depend on the other transport implementation packages.
 - No other transport package depends on this one (verified: zero cross-transport runtime imports).
+- ARCH-011: this package exports no `ITransportAdapter`. The removed `TuiTransport` ignored the
+  borrowed session passed to `attach()` and constructed a different session through the renderer,
+  so it was not an honest implementation of that port. `renderApp` and `TuiInteractionChannel` are
+  the supported session-owning presentation surfaces.
 
 ## Architecture Overview
 
 ```
 agent-transport-tui
-  ├── TuiTransport            ← ITransportAdapter implementation (Ink app)
   ├── renderApp              ← mounts the Ink <App/>
   ├── TuiInteractionChannel  ← IInteractionChannel for TUI mode
   └── createDefaultTuiCliAdapter ← wires command/provider UX into the renderer
@@ -93,7 +96,7 @@ reset, exit/restart, rename, statusline patch, remote control. The renderer only
 
 ## Type Ownership
 
-Owns the TUI rendering/adapter types (`IRenderOptions`, `ITuiCliAdapter`,
+Owns the TUI rendering/presentation types (`IRenderOptions`, `ITuiCliAdapter`,
 `IDefaultTuiCliAdapterOptions`). Re-exports the `agent-interface-tui` interaction contracts for
 convenience at the transport boundary.
 
@@ -101,7 +104,6 @@ convenience at the transport boundary.
 
 | Export                                                                      | Kind     | Description                                                             |
 | --------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------- |
-| `TuiTransport`                                                              | class    | Ink-based interactive transport adapter                                 |
 | `renderApp`                                                                 | function | Mount the Ink application                                               |
 | `createDefaultTuiCliAdapter`                                                | function | Default CLI adapter for the renderer                                    |
 | `ITuiCliAdapter` + option types                                             | types    | Adapter contracts                                                       |

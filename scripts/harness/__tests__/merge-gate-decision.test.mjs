@@ -7,6 +7,9 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/merge-gate.sh');
+const BASE_OID = '1111111111111111111111111111111111111111';
+const HEAD_OID = '2222222222222222222222222222222222222222';
+const VERDICT_MARKERS = `REVIEWED BASE: ${BASE_OID}\nREVIEWED HEAD: ${HEAD_OID}`;
 
 /**
  * The gate's DECISION, not merely that it reacted.
@@ -36,6 +39,8 @@ function stubbedPath({
   comments = [],
   reviews = [],
   headAt,
+  baseOid = BASE_OID,
+  headOid = HEAD_OID,
   labels = [],
   unresolved = 0,
   resolvedWithoutReply = 0,
@@ -53,6 +58,8 @@ function stubbedPath({
       comments,
       reviews,
       headAt,
+      baseOid,
+      headOid,
       labels,
       unresolved,
       resolvedWithoutReply,
@@ -84,6 +91,10 @@ function stubbedPath({
       '  process.exit(0);',
       '}',
       'if (args.includes("mergeStateStatus")) { console.log(f.state); process.exit(0); }',
+      'if (args.includes("baseRefOid") && args.includes("headRefOid")) {',
+      '  console.log(`${f.baseOid ?? ""} ${f.headOid ?? ""}`);',
+      '  process.exit(0);',
+      '}',
       'if (args.includes("--json commits")) { console.log(f.headAt ?? ""); process.exit(0); }',
       'if (args.includes("--json comments")) {',
       '  const jq = process.argv[process.argv.indexOf("--jq") + 1] ?? "";',
@@ -155,14 +166,20 @@ function judge(world, command = 'cd /repo && gh pr merge 7 --merge') {
  * A review as the reviewer is contracted to write one: prose, then the count on the last line.
  * Cases that mean to test an ABSENT count pass a body without it, deliberately.
  */
-const REVIEW = (createdAt, body = 'looks fine\nACTIONABLE FINDINGS: 0') => ({
+const REVIEW = (
+  createdAt,
+  body = 'looks fine\nACTIONABLE FINDINGS: 0',
+  { baseOid = BASE_OID, headOid = HEAD_OID } = {},
+) => ({
   author: { login: 'github-actions' },
   createdAt,
-  body,
+  body: /ACTIONABLE FINDINGS:/i.test(body)
+    ? `REVIEWED BASE: ${baseOid}\nREVIEWED HEAD: ${headOid}\n${body}`
+    : body,
 });
 
 describe('the merge gate decides on CI and on a current review', () => {
-  it('allows a merge when CI is clean and the review is newer than the head', () => {
+  it('allows a merge when CI is clean and the review names the exact current pair', () => {
     const verdict = judge({
       state: 'CLEAN',
       headAt: '2026-07-28T10:00:00Z',
@@ -171,6 +188,68 @@ describe('the merge gate decides on CI and on a current review', () => {
 
     expect(verdict.status, verdict.output).toBe(0);
     expect(verdict.output).toMatch(/READ IT/);
+  });
+
+  it('refuses a zero-finding verdict for a stale base SHA', () => {
+    const verdict = judge({
+      state: 'CLEAN',
+      headAt: '2026-07-28T10:00:00Z',
+      comments: [
+        REVIEW('2026-07-28T10:05:00Z', undefined, {
+          baseOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        }),
+      ],
+    });
+
+    expect(verdict.status, 'a verdict for another base was accepted').toBe(2);
+    expect(verdict.output).toMatch(/base.*does not match/i);
+  });
+
+  it('refuses a zero-finding verdict for a stale head SHA', () => {
+    const verdict = judge({
+      state: 'CLEAN',
+      headAt: '2026-07-28T10:00:00Z',
+      comments: [
+        REVIEW('2026-07-28T10:05:00Z', undefined, {
+          headOid: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        }),
+      ],
+    });
+
+    expect(verdict.status, 'a verdict for another head was accepted').toBe(2);
+    expect(verdict.output).toMatch(/head.*does not match/i);
+  });
+
+  it.each([
+    ['missing head', `REVIEWED BASE: ${BASE_OID}\nACTIONABLE FINDINGS: 0`],
+    [
+      'malformed base',
+      `REVIEWED BASE: not-a-sha\nREVIEWED HEAD: ${HEAD_OID}\nACTIONABLE FINDINGS: 0`,
+    ],
+    [
+      'duplicate base',
+      `REVIEWED BASE: ${BASE_OID}\nREVIEWED BASE: ${BASE_OID}\nREVIEWED HEAD: ${HEAD_OID}\nACTIONABLE FINDINGS: 0`,
+    ],
+    ['duplicate count', `${VERDICT_MARKERS}\nACTIONABLE FINDINGS: 0\nACTIONABLE FINDINGS: 0`],
+  ])('refuses a %s verdict identity', (_label, body) => {
+    const verdict = judge({
+      state: 'CLEAN',
+      comments: [{ author: { login: 'github-actions' }, createdAt: '2026-07-28T10:05:00Z', body }],
+    });
+
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/exactly one REVIEWED BASE/);
+  });
+
+  it('refuses unreadable current OIDs', () => {
+    const verdict = judge({
+      state: 'CLEAN',
+      baseOid: '',
+      comments: [REVIEW('2026-07-28T10:05:00Z')],
+    });
+
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/could not read.*base\/head OIDs/i);
   });
 
   it('refuses when CI is not clean', () => {
@@ -184,16 +263,14 @@ describe('the merge gate decides on CI and on a current review', () => {
     expect(verdict.output).toMatch(/BLOCKED, not CLEAN/);
   });
 
-  it('refuses a review older than the commit it would merge', () => {
-    // A review that predates the head has not seen what is about to land.
+  it('uses exact comparison identity instead of timestamp ordering', () => {
     const verdict = judge({
       state: 'CLEAN',
       headAt: '2026-07-28T10:00:00Z',
       comments: [REVIEW('2026-07-28T09:00:00Z')],
     });
 
-    expect(verdict.status).toBe(2);
-    expect(verdict.output).toMatch(/predates its head commit/);
+    expect(verdict.status, verdict.output).toBe(0);
   });
 
   it('refuses while the review reports findings', () => {
@@ -286,9 +363,7 @@ describe('the merge gate decides on CI and on a current review', () => {
     expect(verdict.status, 'a gate notice displaced the verdict').toBe(0);
   });
 
-  it('does not let a fresh notice lend RECENCY to a stale verdict', () => {
-    // The composition #1661 measured on #1651: the verdict predates the head, and an empty or
-    // verdict-less entry postdates it. Recency must be judged on the VERDICT.
+  it('does not let a fresh notice displace an exact-pair verdict', () => {
     const verdict = judge({
       state: 'CLEAN',
       headAt: '2026-07-28T10:00:00Z',
@@ -298,8 +373,7 @@ describe('the merge gate decides on CI and on a current review', () => {
       ],
     });
 
-    expect(verdict.status, 'a notice made a stale verdict look fresh').toBe(2);
-    expect(verdict.output).toMatch(/predates its head commit/);
+    expect(verdict.status, verdict.output).toBe(0);
   });
 
   it('reads a verdict delivered on the REVIEWS channel', () => {
@@ -314,7 +388,7 @@ describe('the merge gate decides on CI and on a current review', () => {
         {
           author: { login: 'github-actions' },
           submittedAt: '2026-07-28T10:05:00Z',
-          body: 'reviewed as a PR review\nACTIONABLE FINDINGS: 0',
+          body: `${VERDICT_MARKERS}\nreviewed as a PR review\nACTIONABLE FINDINGS: 0`,
         },
       ],
     });
@@ -334,7 +408,7 @@ describe('the merge gate decides on CI and on a current review', () => {
       ],
     });
 
-    expect(verdict.status, 'an empty review lent freshness to a stale verdict').toBe(2);
+    expect(verdict.status, verdict.output).toBe(0);
   });
 
   it('reads the last count in the body, not the first', () => {
@@ -367,16 +441,14 @@ describe('the merge gate decides on CI and on a current review', () => {
     );
   });
 
-  it('refuses when the head commit date cannot be read', () => {
-    // "I could not check" and "it is fine" are the two states a guard must never conflate.
+  it('does not depend on the head commit date when the exact OIDs are readable', () => {
     const verdict = judge({
       state: 'CLEAN',
       headAt: '',
       comments: [REVIEW('2026-07-28T10:05:00Z')],
     });
 
-    expect(verdict.status).toBe(2);
-    expect(verdict.output).toMatch(/head commit date/);
+    expect(verdict.status, verdict.output).toBe(0);
   });
 
   it('names a reviewer mismatch instead of reporting no review', () => {
@@ -410,7 +482,7 @@ describe('the merge gate decides on CI and on a current review', () => {
           {
             author: { login },
             createdAt: '2026-07-28T10:05:00Z',
-            body: 'fine\nACTIONABLE FINDINGS: 0',
+            body: `${VERDICT_MARKERS}\nfine\nACTIONABLE FINDINGS: 0`,
           },
         ],
       });
@@ -477,7 +549,7 @@ describe('every inline finding is answered where it was raised', () => {
       {
         author: { login: 'github-actions' },
         createdAt: '2030-01-01T00:00:00Z',
-        body: 'ACTIONABLE FINDINGS: 0',
+        body: `${VERDICT_MARKERS}\nACTIONABLE FINDINGS: 0`,
       },
     ],
     unresolved,
@@ -538,7 +610,7 @@ describe('every inline finding is answered where it was raised', () => {
   });
 
   it('refuses when it cannot read the thread state at all', () => {
-    // Unknown is not zero. The same fail-closed rule this gate applies to an unreadable head date.
+    // Unknown is not zero. The same fail-closed rule this gate applies to unreadable current OIDs.
     const verdict = judge({ ...world(0), unresolved: undefined, threadsUnreadable: true });
 
     expect(verdict.status).toBe(2);

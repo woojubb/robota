@@ -2,12 +2,14 @@
  * Tests for MCP transport adapter.
  */
 
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { describe, it, expect, vi } from 'vitest';
 import { createAgentMcpServer } from '../mcp-server.js';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
 function createMockSession(commands?: Array<{ name: string; description: string }>) {
-  return {
+  return Object.assign(createTestInteractiveSession(), {
     submit: vi.fn(),
     abort: vi.fn(),
     cancelQueue: vi.fn(),
@@ -26,7 +28,7 @@ function createMockSession(commands?: Array<{ name: string; description: string 
     ),
     on: vi.fn(),
     off: vi.fn(),
-  } as unknown as IInteractiveSession;
+  });
 }
 
 describe('createAgentMcpServer', () => {

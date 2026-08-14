@@ -2,6 +2,8 @@
  * GOAL-001: headless autonomous goal runner. A fake session emits goal lifecycle events; the
  * runner resolves to exit 0 when satisfied, GOAL_NOT_SATISFIED_EXIT_CODE at a bound, and 1 on error.
  */
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { createHeadlessRunner, GOAL_NOT_SATISFIED_EXIT_CODE } from '../headless-runner.js';
@@ -35,7 +37,7 @@ function createFakeSession(
   const emit = (event: string, ...args: unknown[]): void => {
     for (const fn of listeners.get(event) ?? []) fn(...args);
   };
-  return {
+  return Object.assign(createTestInteractiveSession(), {
     on: (event: string, handler: TListener) => {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event)!.add(handler);
@@ -46,7 +48,7 @@ function createFakeSession(
       return goalState();
     },
     getSession: () => ({ getSessionId: () => 'sess' }),
-  } as unknown as IInteractiveSession;
+  });
 }
 
 const stdoutChunks: string[] = [];
