@@ -10,15 +10,18 @@ npm install @robota-sdk/agent-interface-transport
 
 ## Overview
 
-This package defines the standard protocol for transport adapters (TUI, headless, HTTP, WebSocket, MCP). Transport implementations depend on this package, not on `agent-framework`, for interface types.
+This package defines the standard protocol for transport adapters (headless, HTTP, WebSocket, MCP, WebRTC). TUI is a session-owning presentation channel rather than a borrowed-session adapter. Transport implementations depend on this package, not on `agent-framework`, for interface types.
 
 ## Public API
 
 ```typescript
 import type {
   ITransportAdapter,
+  ITransportRunnerAdapter,
   IConfigurableTransport,
   ITransportConfig,
+  ITransportLifecycleRegistryView,
+  ITransportSettingsRegistryView,
   ITransportRegistryView,
 } from '@robota-sdk/agent-interface-transport';
 ```
@@ -30,11 +33,20 @@ Core transport lifecycle:
 ```typescript
 interface ITransportAdapter<TSession = unknown> {
   readonly name: string;
+  readonly lifecycle: Readonly<{ kind: 'service' | 'runner' }>;
   attach(session: TSession): void;
   start(): Promise<void>;
   stop(): Promise<void>;
 }
 ```
+
+`start()` resolves at the adapter's documented readiness boundary. A runner launches from `start()`
+and reports its exact `succeeded | failed` exit-code outcome separately through
+`ITransportRunnerAdapter.waitForCompletion()`. Starting before attach or while already active is a
+typed lifecycle error; repeated `stop()` is safe.
+
+The registry views are interface-segregated: lifecycle registration accepts any base adapter, while
+the settings view lists and mutates only configurable adapters.
 
 ### `IConfigurableTransport`
 
