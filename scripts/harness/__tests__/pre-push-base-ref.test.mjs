@@ -11,6 +11,7 @@ import {
   selectPushBoundBranch,
 } from '../pre-push-base-ref.mjs';
 import { classifyRange } from '../classify-changed-paths.mjs';
+import { resolveGitBaseRef } from '../shared.mjs';
 
 const HEAD = 'a'.repeat(40);
 const BASE = 'b'.repeat(40);
@@ -265,6 +266,12 @@ describe('resolvePrePushBaseRef (INFRA-099)', () => {
     });
     expect(result.fallbackReason).toBe('pull request base ref fetch failed');
     expect(result.baseRef).toBe('origin/develop');
+  });
+});
+
+describe('resolveGitBaseRef environment seam (INFRA-099)', () => {
+  it('uses the injected GitHub base instead of the process environment', () => {
+    expect(resolveGitBaseRef(null, { GITHUB_BASE_REF: 'main' })).toBe('origin/main');
   });
 });
 
