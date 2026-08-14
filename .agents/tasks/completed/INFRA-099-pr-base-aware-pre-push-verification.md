@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-099: resolve pre-push verification against the current PR base'
-status: in-progress
+status: done
 created: 2026-08-14
+completed: 2026-08-14
 priority: critical
 urgency: now
 area: scripts/harness, git hooks, multi-backlog initiatives
@@ -18,7 +19,7 @@ keeping the existing broader base as a visible fail-safe fallback.
 
 ## Spec
 
-`.agents/spec-docs/active/INFRA-099-pr-base-aware-pre-push-verification.md`
+`.agents/spec-docs/done/INFRA-099-pr-base-aware-pre-push-verification.md`
 
 ## Plan
 
@@ -28,7 +29,8 @@ keeping the existing broader base as a visible fail-safe fallback.
       race verification, and visible safe fallback tests.
 - [x] TC-03: thread one resolved-base result through every pre-push consumer.
 - [x] TC-04: prove cumulative integration history is excluded from the child delta in a scratch Git fixture.
-- [ ] TC-05: complete focused/broad/hosted verification, independent review, lifecycle gates, and archive.
+- [x] TC-05: complete focused/broad/hosted verification and independent review; hand completion/archive to the
+      post-GATE-COMPLETE transition.
 
 ## Progress
 
@@ -53,11 +55,15 @@ keeping the existing broader base as a visible fail-safe fallback.
 - Post-fix `pnpm harness:verify-like-ci` passed all 12 stages in 7m04.1s. Its embedded scan passed 110 scans
   with one intentional skip; the run also passed the 112-file / 2,289-test repository-contract tier, the
   72-file / 1,058-test hermetic tier, the root build, typecheck, affected verification, binary E2E, examples,
-  and TUI E2E. Hosted exact-PR-base proof and lifecycle completion remain part of TC-05.
+  and TUI E2E.
 - The first hosted push, before a PR existed, visibly took the safe `origin/develop` fallback and reproduced
   the excessive 110-file / 11-workspace-scope plan. Draft PR #1725 now targets
-  `feat/arch-dag-runtime-completion` at exact base OID `0d98461b6a613dadb26a4410619ebc9c430ecba9`; the next push is
-  the hosted optimized-path proof.
+  `feat/arch-dag-runtime-completion` at exact base OID `0d98461b6a613dadb26a4410619ebc9c430ecba9`.
+- The next hosted push selected that exact PR base OID, reduced the plan from 110 to 14 changed files and from
+  11 to zero workspace scopes, and therefore skipped the cumulative root build and package checks. The
+  always-on contract/scans floor remained green (108 scans passed, one intentional skip).
+- PR #1725's fresh automated review names exact base `0d98461b6a613dadb26a4410619ebc9c430ecba9` and head
+  `71c6874040bd873a731cce72a6ccfc13bdb45571` with `ACTIONABLE FINDINGS: 0`; it has zero review threads.
 
 ## Decisions
 
@@ -83,4 +89,7 @@ CLI, TUI, browser, application, public SDK, or example behavior. All observables
 
 ## Result
 
-Pending.
+PR #1725 landed the exact-PR-base resolver on `feat/arch-dag-runtime-completion`. Hosted evidence reduced the
+same child plan from 110 to 14 changed files and from 11 to zero workspace scopes, removing the cumulative
+root build and package checks while retaining the always-on contract/scans floor. Focused tests passed 122/122,
+the CI-equivalent local gate passed 12/12, automated review reported zero findings, and GATE-COMPLETE passed.
