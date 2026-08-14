@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -17,6 +17,26 @@ const SCOPE = loadHarnessConfig().npmScopePrefix;
 beforeEach(() => {
   root = mkdtempSync(path.join(tmpdir(), 'transport-conformance-'));
   mkdirSync(path.join(root, 'packages'), { recursive: true });
+  const harnessDir = path.join(root, 'scripts', 'harness');
+  mkdirSync(harnessDir, { recursive: true });
+  writeFileSync(
+    path.join(harnessDir, 'transport-conformance.tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        target: 'ES2022',
+        module: 'ESNext',
+        moduleResolution: 'Bundler',
+        customConditions: ['source'],
+        strict: true,
+        skipLibCheck: true,
+        noEmit: true,
+      },
+      include: [
+        '../../packages/agent-interface-transport/src/**/*.ts',
+        '../../packages/agent-transport*/src/**/*.ts',
+      ],
+    }),
+  );
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -58,6 +78,69 @@ const value: IExample = {} as IExample;
       `import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';\nrunTransportLifecycleConformance({ subjectId: '${packageName}#${exportName}' });\n`,
     );
   }
+}
+
+function makeBarrelReExportSubject({ packageDir, packageName, exportName, invoke = true }) {
+  const dir = path.join(root, 'packages', packageDir);
+  mkdirSync(path.join(dir, 'src', '__tests__'), { recursive: true });
+  writeFileSync(
+    path.join(dir, 'package.json'),
+    JSON.stringify({ name: packageName, exports: { '.': { source: './src/index.ts' } } }),
+  );
+  writeFileSync(
+    path.join(dir, 'src', 'adapter.ts'),
+    `interface IExample {
+  readonly name: string;
+  readonly lifecycle: Readonly<{ readonly kind: 'service' }>;
+  attach(session: unknown): void;
+  start(): Promise<void>;
+  stop(): Promise<void>;
+}
+const value: IExample = {} as IExample;
+export function ${exportName}(): IExample { return value; }
+`,
+  );
+  writeFileSync(
+    path.join(dir, 'src', 'index.ts'),
+    `export { ${exportName} } from './adapter.js';\n`,
+  );
+  if (invoke) {
+    writeFileSync(
+      path.join(dir, 'src', '__tests__', 'conformance.test.ts'),
+      `import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';\nrunTransportLifecycleConformance({ subjectId: '${packageName}#${exportName}' });\n`,
+    );
+  }
+}
+
+function makeSourceConditionContract() {
+  const contractDir = path.join(root, 'packages', 'agent-interface-transport');
+  mkdirSync(path.join(contractDir, 'src'), { recursive: true });
+  writeFileSync(
+    path.join(contractDir, 'package.json'),
+    JSON.stringify({
+      name: '@scope/contracts',
+      exports: {
+        '.': {
+          types: './dist/index.d.ts',
+          source: './src/index.ts',
+          default: './dist/index.js',
+        },
+      },
+    }),
+  );
+  writeFileSync(
+    path.join(contractDir, 'src', 'index.ts'),
+    `export interface IAdapter {
+  readonly name: string;
+  readonly lifecycle: Readonly<{ readonly kind: 'service' }>;
+  attach(session: unknown): void;
+  start(): Promise<void>;
+  stop(): Promise<void>;
+}\n`,
+  );
+  const scopeDir = path.join(root, 'node_modules', '@scope');
+  mkdirSync(scopeDir, { recursive: true });
+  symlinkSync(contractDir, path.join(scopeDir, 'contracts'), 'dir');
 }
 
 describe('transport conformance roster', () => {
@@ -109,6 +192,46 @@ describe('transport conformance roster', () => {
       exportName: 'createOne',
       kind: 'arrow',
     });
+    expect(findTransportConformanceFindings(root, ['@scope/one#createOne'])).toEqual([]);
+  });
+
+  it('discovers barrel re-exported factories when alias declarations are unavailable', () => {
+    makeBarrelReExportSubject({
+      packageDir: 'agent-transport-one',
+      packageName: '@scope/one',
+      exportName: 'createOne',
+    });
+
+    expect(findTransportConformanceFindings(root, ['@scope/one#createOne'])).toEqual([]);
+  });
+
+  it('discovers a factory through workspace source exports without built declarations', () => {
+    makeSourceConditionContract();
+    const dir = path.join(root, 'packages', 'agent-transport-one');
+    mkdirSync(path.join(dir, 'src', '__tests__'), { recursive: true });
+    writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({
+        name: '@scope/one',
+        exports: { '.': { source: './src/index.ts', types: './dist/index.d.ts' } },
+      }),
+    );
+    writeFileSync(
+      path.join(dir, 'src', 'transport.ts'),
+      `import type { IAdapter } from '@scope/contracts';
+export interface IOneTransport extends IAdapter {}
+declare const value: IOneTransport;
+export function createOne(): IOneTransport { return value; }\n`,
+    );
+    writeFileSync(
+      path.join(dir, 'src', 'index.ts'),
+      "export { createOne } from './transport.js';\n",
+    );
+    writeFileSync(
+      path.join(dir, 'src', '__tests__', 'conformance.test.ts'),
+      "import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';\nrunTransportLifecycleConformance({ subjectId: '@scope/one#createOne' });\n",
+    );
+
     expect(findTransportConformanceFindings(root, ['@scope/one#createOne'])).toEqual([]);
   });
 

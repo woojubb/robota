@@ -27,6 +27,7 @@ const GOVERNED_TREE = 'packages';
 
 const SCOPE = loadHarnessConfig().npmScopePrefix;
 const CONFORMANCE_HELPER_MODULE = `${SCOPE}agent-interface-transport/testing`;
+const TYPE_PROJECT = 'scripts/harness/transport-conformance.tsconfig.json';
 export const TRANSPORT_CONFORMANCE_SUBJECTS = Object.freeze([
   `${SCOPE}agent-transport#createHeadlessTransport`,
   `${SCOPE}agent-transport-http#createHttpTransport`,
@@ -139,14 +140,21 @@ export function discoverTransportSubjects(root = WORKSPACE_ROOT) {
     return [{ packageName: manifest.name, entries: sourceExportEntries(manifest, packageDir) }];
   });
   const rootNames = packages.flatMap(({ entries }) => entries);
+  const projectFile = path.join(root, TYPE_PROJECT);
+  if (!existsSync(projectFile)) {
+    throw new Error(`transport-conformance type project does not exist: ${projectFile}`);
+  }
   const api = new API({ cwd: root });
-  const snapshot = api.updateSnapshot({ openFiles: rootNames });
+  const snapshot = api.updateSnapshot({ openProjects: [projectFile], openFiles: rootNames });
+  const typeProject = snapshot.getProject(projectFile);
+  if (!typeProject) {
+    throw new Error(`transport-conformance type project did not load: ${projectFile}`);
+  }
   const subjects = [];
   for (const { packageName, entries } of packages) {
     for (const entry of entries) {
-      const project = snapshot.getDefaultProjectForFile(entry);
-      const sourceFile = project?.program.getSourceFile(entry);
-      const checker = project?.checker;
+      const sourceFile = typeProject.program.getSourceFile(entry);
+      const checker = typeProject.checker;
       const moduleSymbol =
         sourceFile && checker ? checker.getSymbolAtLocation(sourceFile) : undefined;
       if (!sourceFile || !checker || !moduleSymbol) continue;
