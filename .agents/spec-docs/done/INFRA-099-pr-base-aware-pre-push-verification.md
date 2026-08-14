@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [cli, typescript]
 ---
@@ -160,22 +160,22 @@ weaker or silent.
 - [x] TC-04: a scratch integration-child fixture whose branch contains cumulative ancestor work plus a
       four-document child delta reports the PR base OID and selects only that child delta; a no-PR twin reports
       the broad fallback and retains the cumulative plan.
-- [ ] TC-05: focused tests, `pnpm harness:scan`, root build/test requirements, and independent local review pass;
+- [x] TC-05: focused tests, `pnpm harness:scan`, root build/test requirements, and independent local review pass;
       hosted PR evidence shows a later push plans against the integration-base OID rather than `origin/develop`.
 
 ## Test Plan
 
-| TC-ID | Test Type               | Tool / Approach                                                    | Notes                                                                            |
-| ----- | ----------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| TC-01 | Unit                    | push-binding parser/decision Vitest suite                          | Current branch, manual, remote name/URL, other/renamed/multi/detached/OID matrix |
-| TC-02 | Integration/unit        | injected `gh`/git argv runner fixture                              | Unique same-repo candidate, precedence, fetch race, fail-safe directions         |
-| TC-03 | Sequence contract       | `pre-push-sequence.test.mjs`                                       | Same source-tagged base reaches every consumer                                   |
-| TC-04 | Scratch Git integration | temporary bare origin + integration base + child PR stub           | Assert exact changed paths/scope counts and fallback twin                        |
-| TC-05 | Regression/hosted smoke | focused Vitest, harness scan, required build/test evidence, PR log | Hosted credentials are evidence, not locally fabricated                          |
+| TC-ID | Test Type               | Tool / Approach                                                                                                                                                                                                                        | Notes                                                                                                                                          |
+| ----- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit                    | `scripts/harness/__tests__/pre-push-base-ref.test.mjs` > `selectPushBoundBranch (INFRA-099)` > `accepts one exact current-branch push and the no-stdin manual path`                                                                    | The same suite's rejection matrix covers other/renamed/multi/detached/delete/OID/remote cases                                                  |
+| TC-02 | Integration/unit        | `scripts/harness/__tests__/pre-push-base-ref.test.mjs` > `resolvePrePushBaseRef (INFRA-099)` > unique-PR, explicit/fallback precedence, full-ref fetch, fetch-race, and fetch-failure tests                                            | Exact individual test names are repeated in TC-02 completion evidence                                                                          |
+| TC-03 | Sequence contract       | `scripts/harness/__tests__/pre-push-base-ref.test.mjs` > `createPrePushBasePlan (INFRA-099)` > `projects one exact base into plan, classification, decision, and receipt consumers`; sequence/structural tests named in TC-03 evidence | Same base and one report reach every consumer/path                                                                                             |
+| TC-04 | Scratch Git integration | `scripts/harness/__tests__/pre-push-base-ref.test.mjs` > `integration-child delta isolation (INFRA-099)` > `excludes cumulative initiative history only when the unique PR base is trusted`                                            | Asserts exact child/fallback changed paths                                                                                                     |
+| TC-05 | Regression/hosted smoke | `pnpm harness:verify-like-ci` plus PR #1725 hosted push/review evidence                                                                                                                                                                | Test skipped: GitHub/Claude credentials and push-event delivery cannot be reproduced locally; the successful exact-pair hosted run is evidence |
 
 ## Tasks
 
-- [x] `.agents/tasks/INFRA-099-pr-base-aware-pre-push-verification.md`
+- [x] `.agents/tasks/completed/INFRA-099-pr-base-aware-pre-push-verification.md`
 
 ## Evidence Log
 
@@ -338,3 +338,103 @@ characters and covering all five TC areas. Blockers: PASS — explicitly recorde
 boundary: PASS — no INFRA-099 implementation edit or commit exists before this gate; only lifecycle and
 specification artifacts are present. Lifecycle note: the Task Spec pointer is synchronized during this
 post-PASS transition.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** in-progress → verifying
+Tasks completion: PASS — TC-01 through TC-05 are checked in
+`.agents/tasks/INFRA-099-pr-base-aware-pre-push-verification.md`; no implementation item remains and
+`## Blockers` records `None.` Build: PASS — `pnpm harness:verify-like-ci` passed all 12 stages in 7m04.1s,
+including the root `pnpm build` stage. Tests: PASS — the exact PR-base plan had zero affected workspace
+package/app scopes, so no affected package test was omitted; affected verification, the 112-file/2,289-test
+repository-contract tier, and the 72-file/1,058-test hermetic tier all passed. Focused verification: PASS —
+resolver, sequence, and structural suites passed 3 files / 122 tests; the embedded harness scan passed 110
+scans with one intentional skip. Hosted planning evidence: PASS — the PR-aware push selected exact base
+`0d98461b6a613dadb26a4410619ebc9c430ecba9`, reducing the plan from 110 to 14 files and from 11 to zero
+workspace scopes while preserving the always-on contract/scans floor. Review evidence: PASS — independent
+local review reported `ACTIONABLE FINDINGS: 0`; GitHub confirms PR #1725's successful fresh automated review
+for exact base `0d98461b6a613dadb26a4410619ebc9c430ecba9` and head
+`71c6874040bd873a731cce72a6ccfc13bdb45571`, with zero review threads and
+`ACTIONABLE FINDINGS: 0`.
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-08-14
+
+**Status remains:** verifying
+**Failed criteria:**
+
+- Per-TC completion evidence: TC-01 through TC-05 were checked, but none had a matching
+  `[GATE-COMPLETE: TC-N]` entry containing the exact verification command/action, observed result, and exit
+  code where applicable.
+  **Required action:** add one format-compliant completion-evidence entry for each TC.
+- Test Plan evidence: TC-01 through TC-04 did not identify exact durable test file/suite/test names, and TC-05
+  had neither exact test references nor an explicit hosted-only skip statement.
+  **Required action:** replace generic Tool/Approach descriptions with exact file/suite/test references; for
+  the non-local hosted portion of TC-05, record `Test skipped:` with the specific GitHub/Claude credential and
+  event-delivery reason.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-14
+
+**Status remains:** verifying
+`pnpm exec vitest run scripts/harness/__tests__/pre-push-base-ref.test.mjs scripts/harness/__tests__/pre-push-sequence.test.mjs scripts/harness/__tests__/harness-scripts.test.mjs`
+exited 0 as a 3-file / 122-test focused run. `scripts/harness/__tests__/pre-push-base-ref.test.mjs` >
+`selectPushBoundBranch (INFRA-099)` > `accepts one exact current-branch push and the no-stdin manual path`
+passed, and the same suite rejected other-branch, renamed-ref, multi-ref, detached, deleted, mismatched-OID,
+and non-origin destination cases.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-14
+
+**Status remains:** verifying
+The same exact focused Vitest command exited 0. `scripts/harness/__tests__/pre-push-base-ref.test.mjs` >
+`resolvePrePushBaseRef (INFRA-099)` passed `uses one same-repository OPEN PR and returns its immutable base OID`,
+`keeps explicit HARNESS_BASE_REF authoritative without consulting GitHub`,
+`delegates misses to the existing resolver, preserving GITHUB_BASE_REF`,
+`fetches only the advertised full base ref via argv and accepts matching FETCH_HEAD`, and the lookup/fetch
+OID-race and fetch-failure fallback tests.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-14
+
+**Status remains:** verifying
+The same exact focused Vitest command exited 0. `scripts/harness/__tests__/pre-push-base-ref.test.mjs` >
+`createPrePushBasePlan (INFRA-099)` >
+`projects one exact base into plan, classification, decision, and receipt consumers`;
+`scripts/harness/__tests__/pre-push-sequence.test.mjs` > `runPrePushGate step order` >
+`reports the resolved base exactly once on the verification/no-delta/receipt reuse paths`; and
+`scripts/harness/__tests__/harness-scripts.test.mjs` > `pre-push hook` >
+`threads the one resolved base plan through every pre-push consumer` all passed.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-14
+
+**Status remains:** verifying
+The same exact focused Vitest command exited 0. `scripts/harness/__tests__/pre-push-base-ref.test.mjs` >
+`integration-child delta isolation (INFRA-099)` >
+`excludes cumulative initiative history only when the unique PR base is trusted` observed exactly four child
+documents for the trusted PR base and those four documents plus the cumulative package file for the broad
+fallback.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-14
+
+**Status remains:** verifying
+`pnpm harness:verify-like-ci` exited 0 with all 12 stages passing in 7m04.1s, including root build, affected
+verification, repository-contract tests, hermetic tests, scans, typecheck, binary E2E, examples, and TUI E2E.
+Hosted PR #1725 selected exact base `0d98461b6a613dadb26a4410619ebc9c430ecba9`, reducing the plan from 110
+to 14 files and 11 to zero workspace scopes. Its exact base/head automated review ended with
+`ACTIONABLE FINDINGS: 0`. Test skipped: hosted GitHub/Claude credentials and push-event delivery cannot be
+reproduced locally; the successful PR #1725 run is the durable hosted evidence.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** verifying → done
+Completion Criteria: PASS — TC-01 through TC-05 are all checked and each has a matching
+`[GATE-COMPLETE: TC-N]` entry recording the exact verification command or action, observed result, and exit
+code where applicable. Test Plan: PASS — TC-01 through TC-04 identify durable test files, suites, and named
+tests; TC-05 records the explicit hosted-only local-reproduction skip reason and durable PR #1725 evidence.
+Focused verification: PASS —
+`pnpm exec vitest run scripts/harness/__tests__/pre-push-base-ref.test.mjs scripts/harness/__tests__/pre-push-sequence.test.mjs scripts/harness/__tests__/harness-scripts.test.mjs`
+exited 0 with 3 files and 122 tests passing. Full verification: PASS — `pnpm harness:verify-like-ci` exited 0
+with all 12 stages passing in 7m04.1s. Hosted acceptance: PASS — PR #1725 selected exact base
+`0d98461b6a613dadb26a4410619ebc9c430ecba9`, reduced the plan from 110 to 14 files and 11 to zero workspace
+scopes, and received an exact base/head automated review ending `ACTIONABLE FINDINGS: 0`. Task linkage: PASS —
+the checked spec pointer names `.agents/tasks/completed/INFRA-099-pr-base-aware-pre-push-verification.md`
+exactly. Task readiness: PASS — all five Task Plan items are checked and `## Blockers` records `None.`
+Post-PASS handoff: the Task is terminal with a completion date, Task/spec are archived, parent projections are
+done, and placement/task-archival scans are the final mechanical check.

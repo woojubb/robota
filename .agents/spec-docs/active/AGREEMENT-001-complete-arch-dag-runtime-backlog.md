@@ -191,7 +191,7 @@ Execute the twelve existing records without redefining their scope:
 - [x] ARCH-019 — done — `.agents/tasks/completed/ARCH-019-interactive-session-getSession-contract-understated.md`
 - [ ] ARCH-029 — todo — `.agents/tasks/ARCH-029-command-host-capability-contracts.md`
 - [x] INFRA-098 — done — `.agents/tasks/completed/INFRA-098-review-every-integration-base-child-pr.md`
-- [ ] INFRA-099 — in-progress — `.agents/tasks/INFRA-099-pr-base-aware-pre-push-verification.md`
+- [x] INFRA-099 — done — `.agents/tasks/completed/INFRA-099-pr-base-aware-pre-push-verification.md`
 - [x] DAG-001 — done — `.agents/tasks/completed/DAG-001-running-is-a-terminal-trap.md`
 - [ ] DAG-004 — todo — `.agents/tasks/DAG-004-eight-cli-commands-open-code-the-import-adapter.md`
 - [ ] RUNTIME-002 — todo — `.agents/tasks/RUNTIME-002-headless-only-bun-runtime-entry.md`
