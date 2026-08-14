@@ -196,14 +196,15 @@ The existing harness already has useful primitives, but the plan is not safe to 
 
 ## Base Reference Policy
 
-| Context                          | Default comparison base                         | Notes                                               |
-| -------------------------------- | ----------------------------------------------- | --------------------------------------------------- |
-| Feature branch targeting develop | `origin/develop`                                | Normal local and PR development path                |
-| Develop branch push              | previous `origin/develop`                       | Validates what is newly being pushed to integration |
-| Main branch push                 | previous `origin/main`                          | Protected; should rarely be used directly           |
-| Develop-to-main promotion        | `origin/main` or explicit release-grade command | Broad verification is intentional in this case      |
-| CI pull request                  | `origin/${{ github.base_ref }}`                 | Base comes from PR metadata                         |
-| Manual override                  | `HARNESS_BASE_REF` or `--base-ref`              | Always wins over inferred defaults                  |
+| Context                                    | Default comparison base                         | Notes                                               |
+| ------------------------------------------ | ----------------------------------------------- | --------------------------------------------------- |
+| Feature branch with one trusted OPEN PR    | Exact advertised PR base OID                    | Bound to the single pushed current-branch ref       |
+| Feature branch without trusted PR metadata | `origin/develop` or existing resolver result    | Broader fail-safe path, with the miss reason shown  |
+| Develop branch push                        | previous `origin/develop`                       | Validates what is newly being pushed to integration |
+| Main branch push                           | previous `origin/main`                          | Protected; should rarely be used directly           |
+| Develop-to-main promotion                  | `origin/main` or explicit release-grade command | Broad verification is intentional in this case      |
+| CI pull request                            | `origin/${{ github.base_ref }}`                 | Base comes from PR metadata                         |
+| Manual override                            | `HARNESS_BASE_REF` or `--base-ref`              | Always wins over inferred defaults                  |
 
 ## Change Classification Policy
 
@@ -370,7 +371,11 @@ Scenario results should be added to the task file before each slice is merged. I
 
 ### Unit Tests
 
-- Given a feature branch context, when no explicit base is supplied, then base resolution selects `origin/develop`.
+- Given one exact current-branch push with one same-repository OPEN PR, when no explicit base is supplied,
+  then pre-push uses the advertised immutable PR base OID.
+- Given another remote name/URL or absent, ambiguous, cross-repository, renamed, multi-ref, detached, or mismatched PR discovery, when
+  no explicit base is supplied, then pre-push reports the miss once and delegates to the existing broader
+  resolver, which normally selects `origin/develop`.
 - Given `HARNESS_BASE_REF`, when base resolution runs, then the explicit env base wins.
 - Given a develop-to-main release context, when release mode is requested, then the plan uses `origin/main`.
 - Given an explicit changed-file list fixture, when plan generation runs, then it does not read `git status`.
