@@ -12,6 +12,11 @@ and keeps the process alive until SIGTERM — rendering NO ink. This is the back
 GUI) spawns: the TUI and the GUI are sibling presentations over the SAME runtime host; the GUI does not control
 the CLI. `agent-framework` owns the neutral build-session + transport-lifecycle seam.
 
+ARCH-011 runner propagation is explicit in serve mode. The host's `waitForFailure()` returns the
+first named nonzero runner outcome without waiting for unrelated runners; serve mode assigns that
+exact exit code and enters its existing owned shutdown path. A rejected runner wait assigns exit 1.
+No runners, all-success, and stop abandonment return `undefined` and leave the service alive.
+
 **Product shell, not a composition root (ARCH-005 S2).** `robota`'s product identity — branding, provider
 surface, presets, capability packs, base command modules, and the injected transports/runners/subagent
 factory — is declared as DATA in `src/product/robota-profile.ts` and folded by the product-neutral

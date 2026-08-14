@@ -41,6 +41,14 @@ agent-transport-ws
    from @robota-sdk/agent-transport-protocol)
 ```
 
+### Lifecycle conformance (ARCH-011)
+
+Both public subjects declare frozen `service` lifecycles. `createWsTransport` is ready when its
+handler and `onMessage` callback exist; `WsTransport` is ready only after the loopback endpoint is
+bound and `boundPort` is available. Start before attach and repeated active start reject
+`TransportLifecycleError`; repeated stop is bounded/safe and clears the session so restart requires
+reattach. Each subject invokes the shared suite exactly once under its package/export roster id.
+
 ### Frame routing — two profiles on one connection (TRANS-001)
 
 `WsTransport` is a **payload-agnostic carrier**. It routes by WebSocket frame opcode, so the

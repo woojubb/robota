@@ -10,8 +10,8 @@ sub-path exports. TUI (Ink/React) rendering ships as the standalone
 // Headless (non-interactive) transport
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
 
-// TUI transport
-import { TuiTransport } from '@robota-sdk/agent-transport-tui';
+// TUI presentation host (session-owning, not ITransportAdapter)
+import { renderApp } from '@robota-sdk/agent-transport-tui';
 
 // WebSocket transport
 import { WsTransport } from '@robota-sdk/agent-transport-ws';

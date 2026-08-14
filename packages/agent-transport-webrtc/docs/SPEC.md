@@ -50,6 +50,12 @@ arrive before a subscription and the remote can send its first `TClientMessage` 
 Outbound `send` runs under try/catch (werift buffers sends while `connecting`; only a `closing`/`closed` channel
 throws). `stop()` tears down the handler, signal subscription, and peer.
 
+ARCH-011 classifies this as a frozen `service` lifecycle. Its readiness boundary is publication of
+the local offer/signaling state; it deliberately does not wait for an external answer, data-channel
+open, or pairing decision. Start before attach and repeated active start reject
+`TransportLifecycleError`; repeated stop is safe and restart requires reattach. The shared suite
+owner id is `@robota-sdk/agent-transport-webrtc#WebRtcTransport`.
+
 **Pairing gate (REMOTE-008, when `options.secret` is set).** The eager `onMessage` subscription becomes a ROUTING
 SWITCH into `PairingGate` (`src/pairing-gate.ts`) — never a deferred subscription. The local DTLS fingerprint is
 captured from the offer SDP; the remote fingerprint from the answer SDP in the signal branch, where the gate is then

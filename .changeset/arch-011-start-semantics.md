@@ -1,44 +1,27 @@
 ---
-'@robota-sdk/agent-interface-transport': minor
-'@robota-sdk/agent-transport': minor
-'@robota-sdk/agent-transport-tui': minor
-'@robota-sdk/agent-framework': minor
+'@robota-sdk/agent-interface-transport': major
+'@robota-sdk/agent-transport': major
+'@robota-sdk/agent-framework': major
+'@robota-sdk/agent-transport-http': major
+'@robota-sdk/agent-transport-mcp': major
+'@robota-sdk/agent-transport-ws': major
+'@robota-sdk/agent-transport-webrtc': major
+'@robota-sdk/agent-transport-tui': major
+'@robota-sdk/agent-cli': patch
 ---
 
-**ARCH-011: `ITransportAdapter.start()` now says which of its two meanings it has.**
+**ARCH-011: replace the ambiguous transport lifecycle stub with executable conformance.**
 
-The contract said only `start(): Promise<void>`, and two readings coexisted. Four transports bound a
-port and returned; `headless` ran the entire prompt inside `start()` and `tui` blocked for the life of
-the UI. `TransportRegistry.startAll` awaited each in turn, so registering either of those first meant
-**every transport behind it never started** — no crash, no error, simply never reached.
+`ITransportAdapter` now requires a frozen `service | runner` lifecycle descriptor. `start()` resolves
+at the concrete transport's documented readiness boundary; start before attach and repeated active
+start reject a stable lifecycle error, repeated stop is safe, and stopped adapters can reattach and
+restart.
 
-`start()` resolves once the transport is SERVING. A transport whose whole job happens inside `start()`
-declares the new optional `runsToCompletion: true`, and the registry starts it without awaiting:
+Runner adapters launch separately and expose a typed terminal outcome through
+`waitForCompletion()`. The registry accepts base adapters, rejects duplicate names, keeps
+configuration as an optional capability, returns ordered completion records, and exposes an
+immediate first-failure wait. Runtime host and serve mode propagate real nonzero runner results.
 
-```ts
-const transport: ITransportAdapter = {
-  name: 'my-runner',
-  runsToCompletion: true, // start() does not return while this is alive
-  attach(session) {
-    /* … */
-  },
-  async start() {
-    await this.runEverything();
-  },
-  async stop() {},
-};
-```
-
-`ITransportRegistryView` and `TransportRegistry` gain `waitForCompletion()`, which settles when every
-run-to-completion transport has finished and rejects with the first failure to occur — **any custom
-implementation of `ITransportRegistryView` must add it**. `IRuntimeHostHandle` (`@robota-sdk/agent-framework`) gains the
-same method, so the caller that owns the process-lifetime wait can race it — **any consumer
-implementing or mocking that handle must add it**.
-
-The registry attaches the rejection handler when it starts such a transport rather than leaving it to
-whoever calls `waitForCompletion`: holding a promise is not handling it, and a rejection in the gap
-aborts the process. `stopAll()` abandons in-flight run-to-completion transports, since `stop()` is a
-no-op for both of them.
-
-Existing transports need no change: absence of `runsToCompletion` means the ordinary "resolves once
-serving", which is what four of the six already did.
+HTTP, MCP, both WebSocket adapters, WebRTC, and headless invoke one shared public conformance kit.
+The former `TuiTransport` export is removed because it ignored the attached session; use `renderApp`
+or `TuiInteractionChannel`, which honestly own their session lifecycle.

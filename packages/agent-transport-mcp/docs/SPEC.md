@@ -44,6 +44,13 @@ turn-submission and command roles. The public transport preserves its legacy
 
 New tools/resources extend `createAgentMcpServer`; new options extend the option interfaces.
 
+## Lifecycle Conformance (ARCH-011)
+
+`createMcpTransport` is a frozen `service` lifecycle. Readiness means the MCP `Server` exists through
+`getServer()`; carrier connection remains the host's responsibility. Start before attach and repeated
+active start reject `TransportLifecycleError`; repeated stop is safe and restart requires a new
+attach. The shared suite owner id is `@robota-sdk/agent-transport-mcp#createMcpTransport`.
+
 ## Error Taxonomy
 
 MCP protocol errors surface through the MCP SDK; no new error classes.

@@ -297,6 +297,13 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `writeUpdateCheckCache`                     | function | Write the CLI update check cache                                                                                                                                                                                                                                                     |
 | `shouldRunStartupCliUpdateCheck`            | function | Decide whether to run a startup update check                                                                                                                                                                                                                                         |
 
+### Runtime transport waits (ARCH-011)
+
+`startRuntimeHost` depends only on `ITransportLifecycleRegistryView`, not the settings projection.
+Its handle exposes the registry's deterministic ordered `waitForCompletion()` result and its
+prompt `waitForFailure()` result. A runner rejection remains a typed rejection; a normal nonzero
+runner exit remains a failed outcome. Presentation shells decide process policy from those values.
+
 ## Extension Points
 
 ### Command Modules (`ICommandModule`)

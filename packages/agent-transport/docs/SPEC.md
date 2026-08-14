@@ -10,7 +10,8 @@ Core transport package for the Robota SDK. After DQ-AUDIT-005 the consolidated t
 split by concern; this package owns only the **dependency-free core**:
 
 - Headless transport (`/headless`): non-interactive print/JSON/stream-json runner — `HeadlessInteractionChannel`, `createHeadlessRunner`, `PrintTerminal`, `promptInput`, `createHeadlessTransport`.
-- Transport registry (root): `TransportRegistry` — settings-backed enable/disable of `IConfigurableTransport` instances.
+- Transport registry (root): `TransportRegistry` — base-adapter lifecycle plus an optional,
+  configurable-only settings projection on the same entry.
 - Programmatic driver (`/programmatic`): an in-process `IInteractionChannel` adapter
   (`ProgrammaticInteractionChannel`) + `createProgrammaticAgent` driver — drive the real agent
   structurally (`start`/`send`/`stop`, read assistant replies / tool calls / errors as data) with no
@@ -35,7 +36,7 @@ dependencies** — pure TypeScript over Node stdlib + `@robota-sdk/*` contracts.
 ```
 agent-transport/src
   index.ts                      ← barrel: headless + TransportRegistry
-  transport-registry.ts         ← TransportRegistry (generic, settings-backed)
+  transport-registry.ts         ← TransportRegistry (base lifecycle + optional settings capability)
   headless/
     HeadlessInteractionChannel.ts ← session creation + runner for print mode
     headless-runner.ts          ← createHeadlessRunner (text/json/stream-json)
@@ -135,20 +136,22 @@ The driver returned by `createProgrammaticAgent` is typed as `IAgentDriver` (own
 
 ### Root (`@robota-sdk/agent-transport`)
 
-| Export                                          | Kind  | Description                                                          |
-| ----------------------------------------------- | ----- | -------------------------------------------------------------------- |
-| `TransportRegistry`                             | class | Settings-backed enable/disable registry of `IConfigurableTransport`s |
-| (plus `/headless` + `/programmatic` re-exports) |       | The root barrel also re-exports the headless + programmatic surfaces |
+| Export                                          | Kind  | Description                                                                |
+| ----------------------------------------------- | ----- | -------------------------------------------------------------------------- |
+| `TransportRegistry`                             | class | Base adapter lifecycle registry with configurable-only settings projection |
+| (plus `/headless` + `/programmatic` re-exports) |       | The root barrel also re-exports the headless + programmatic surfaces       |
 
 ## 6. Extension Points
 
-Register any `IConfigurableTransport` (from the per-concern transport packages) into a
-`TransportRegistry`; enablement and options are persisted under `transports` in settings.json. The
-composition root decides which concrete transports to register.
+Register any `ITransportAdapter` into a `TransportRegistry`. A transport that also satisfies
+`IConfigurableTransport` appears in `getAll()` and persists enablement/options under `transports` in
+settings.json; a base-only adapter is lifecycle-enabled and absent from settings. Duplicate names
+reject. Unknown or non-configurable settings mutations reject `TransportConfigurationError`.
 
 ## 7. Error Taxonomy
 
-Headless runner surfaces provider/runtime errors with a non-zero exit code (`getExitCode()`).
+Headless runner surfaces provider/runtime errors as typed failed outcomes with a non-zero exit code;
+`getExitCode()` remains the package-specific readback.
 Registry settings I/O errors propagate from the `agent-framework` settings helpers.
 
 `run(prompt)` resolves the exit code only AFTER the underlying `session.submit()` operation has fully
@@ -160,6 +163,8 @@ process may exit. It writes exactly one terminal record per run (CI-001).
 ## 8. Test Strategy
 
 Headless runner/channel unit + integration tests and scripted-provider tests under `src/**/__tests__`.
+The headless public adapter invokes the shared interface-transport lifecycle conformance helper; the
+harness roster scan proves it is one of exactly six registered public subjects.
 
 ## 9. Class Contract Registry
 
@@ -171,22 +176,20 @@ delegated to the runner. Does not own interactive UI.
 ### `TransportRegistry`
 
 `register(transport)`, `getAll()`, `getEnabled()`, `setEnabled(name, enabled)`,
-`setOptions(name, options)`, `startAll(session)`, `waitForCompletion()`, `stopAll()`. Reads/writes the
+`setOptions(name, options)`, `startAll(session)`, `waitForCompletion()`, `waitForFailure()`,
+`stopAll()`. Reads/writes the
 `transports` block of a settings file at the path supplied to the constructor. Holds no
 concrete-transport import.
 
-**Run-to-completion transports (ARCH-011).** `startAll` does not await a transport that declares
-`ITransportAdapter.runsToCompletion` — its `start()` does not return while it is alive, and awaiting
-it meant every transport registered behind it never started. The registry takes ownership of that
-promise: the rejection handler is attached at start time, not left to whoever calls
-`waitForCompletion` later, because merely holding a reference is not handling it and a rejection in
-the gap aborts the process.
+**Runner ownership (ARCH-011).** `startAll` awaits each adapter's readiness-returning `start()`, then
+immediately owns every runner's separate completion promise. A startup generation is sealed only
+after every enabled subject is registered, so a synchronously successful first runner cannot make a
+later runner disappear. `waitForCompletion()` returns named outcomes in registration order after all
+runners settle. `waitForFailure()` returns the first nonzero outcome immediately and returns
+`undefined` for no runners, all success, or stop abandonment. A rejected runner promise rejects both
+routes as `TransportLifecycleError`; it is observed immediately and cannot become an unhandled
+rejection.
 
-`waitForCompletion()` settles when every such transport has finished and rejects with the first
-failure to occur. It is on `ITransportRegistryView`, not only on this class, so the consumers that
-hold the view can actually reach it.
-
-`stopAll()` ABANDONS in-flight run-to-completion transports rather than awaiting them. `stop()` is a
-documented no-op for both of the transports that declare it, so awaiting would make `stopAll` neither
-bounded nor best-effort; abandoning also means a later `startAll` — a session switch does exactly
-this — starts from empty rather than overwriting a tracked promise.
+`stopAll()` abandons the current generation rather than waiting on terminal work. Late settlement is
+ignored, and a later `startAll` owns a distinct generation. Transport stops remain best-effort and
+their errors are collected in `IDestroyResult`.

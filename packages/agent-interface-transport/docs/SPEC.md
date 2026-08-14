@@ -20,7 +20,7 @@ MCP, TUI, etc.) and their configurable lifecycle.
   `IContextWindowState`, …). Mechanized: the `deps` scan fails any `agent-interface-*`
   package whose internal dependencies exceed `{agent-core}`.
 - Does not depend on `@robota-sdk/agent-framework` or any transport implementation package.
-- Implementation packages (the separate `agent-transport-{tui,ws,http,mcp}` packages and
+- Implementation packages (the separate `agent-transport-{ws,http,mcp,webrtc}` packages and
   `agent-transport` for headless) depend on this package for interface types, not on `agent-framework`.
 - `agent-framework` depends on this package to consume the transport contracts it wires.
 
@@ -28,15 +28,18 @@ MCP, TUI, etc.) and their configurable lifecycle.
 
 ```
 agent-interface-transport          ← this package (contracts only, zero deps)
-  ├── ITransportAdapter            ← core lifecycle: attach / start / stop
+  ├── ITransportAdapter            ← required frozen lifecycle kind + attach / start / stop
+  ├── ITransportRunnerAdapter      ← runner launch + typed terminal outcome
   ├── IConfigurableTransport       ← extends ITransportAdapter with enable/disable + options
   ├── ITransportConfig             ← persisted transport configuration shape
   ├── ITransportEntry              ← (transport, config) pairing for registry storage
-  ├── ITransportRegistryView       ← read/write registry of IConfigurableTransport instances
+  ├── ITransportLifecycleRegistryView ← base-adapter lifecycle and runner waits
+  ├── ITransportSettingsRegistryView  ← configurable-only settings projection
+  ├── ITransportRegistryView       ← composition of both views
   └── IPayloadChannelHost          ← TRANS-001: consumer-declared binary/event channels carried
                                      alongside a transport's own protocol profile
 
-agent-transport-tui (TuiTransport), agent-transport-ws (WsTransport)
+agent-transport-ws (WsTransport), agent-transport-webrtc (WebRtcTransport)
   └── implements IConfigurableTransport<TSession>
 
 agent-transport-http (createHttpTransport), agent-transport-mcp (createMcpTransport),
@@ -51,13 +54,16 @@ agent-transport
 
 Types owned by this package (SSOT):
 
-| Type                     | Kind      | File                   | Description                                                                                              |
-| ------------------------ | --------- | ---------------------- | -------------------------------------------------------------------------------------------------------- |
-| `ITransportAdapter`      | Interface | `transport-adapter.ts` | Core transport lifecycle: `name`, `attach(session)`, `start()`, `stop()`, `runsToCompletion?` (ARCH-011) |
-| `ITransportConfig`       | Interface | `transport-config.ts`  | Persisted config shape: `{ enabled: boolean; options?: Record<string, unknown> }`                        |
-| `IConfigurableTransport` | Interface | `transport-config.ts`  | Extends `ITransportAdapter` with `defaultEnabled`, `optionsSchema`, and optional `validateOptions()`     |
-| `ITransportEntry`        | Interface | `transport-config.ts`  | `{ transport: IConfigurableTransport<T>; config: ITransportConfig }` — registry item shape               |
-| `ITransportRegistryView` | Interface | `transport-config.ts`  | `getAll()`, `setEnabled()`, `startAll()`, `stopAll()` — registry management contract                     |
+| Type                              | Kind      | File                   | Description                                                                                          |
+| --------------------------------- | --------- | ---------------------- | ---------------------------------------------------------------------------------------------------- |
+| `ITransportAdapter`               | Interface | `transport-adapter.ts` | Core transport lifecycle: `name`, frozen `lifecycle`, `attach(session)`, `start()`, `stop()`         |
+| `ITransportRunnerAdapter`         | Interface | `transport-adapter.ts` | Runner lifecycle plus `waitForCompletion()` and exact typed outcome                                  |
+| `ITransportConfig`                | Interface | `transport-config.ts`  | Persisted config shape: `{ enabled: boolean; options?: Record<string, unknown> }`                    |
+| `IConfigurableTransport`          | Interface | `transport-config.ts`  | Extends `ITransportAdapter` with `defaultEnabled`, `optionsSchema`, and optional `validateOptions()` |
+| `ITransportEntry`                 | Interface | `transport-config.ts`  | `{ transport: IConfigurableTransport<T>; config: ITransportConfig }` — registry item shape           |
+| `ITransportLifecycleRegistryView` | Interface | `transport-config.ts`  | Base registration, start/stop, ordered completion and prompt failure waits                           |
+| `ITransportSettingsRegistryView`  | Interface | `transport-config.ts`  | Configurable-only `getAll`, `setEnabled`, and `setOptions` projection                                |
+| `ITransportRegistryView`          | Interface | `transport-config.ts`  | Composition of lifecycle and settings views                                                          |
 
 In addition to the transport-adapter contracts above, the package owns several further contract
 groups, each in its own file (all re-exported from `src/index.ts`):
@@ -207,49 +213,32 @@ canonical aggregate cast fails the harness instead of restoring partial implemen
 ```typescript
 export interface ITransportAdapter<TSession = unknown> {
   readonly name: string;
+  readonly lifecycle: Readonly<{ kind: 'service' | 'runner' }>;
   attach(session: TSession): void;
   start(): Promise<void>;
   stop(): Promise<void>;
-  readonly runsToCompletion?: boolean;
 }
 ```
 
-- `name` — unique human-readable identifier (e.g., `'ws'`, `'tui'`, `'headless'`)
+- `name` — unique human-readable runtime identifier (e.g., `'ws'`, `'headless'`)
+- `lifecycle` — required frozen discriminant; silence is invalid
 - `attach()` — called before `start()` to bind the transport to a session
-- `start()` — begin serving; idempotent. **Resolves once the transport is SERVING, not when its work
-  is done** — unless it declares `runsToCompletion`
-- `stop()` — stop serving and release resources; idempotent
-- `runsToCompletion` — `true` when `start()` does not return while the transport is alive
+- `start()` — resolves at the concrete package's documented readiness boundary. Starting before
+  attach or starting an active adapter rejects `TransportLifecycleError`
+- `stop()` — safe and bounded when repeated. A stopped adapter may be attached and started again
 
 #### What `start()` means, and why it had to be said (ARCH-011)
 
-The contract used to say only `start(): Promise<void>`, and two readings coexisted. Four transports
-bound a port and returned. `headless` ran the entire prompt inside `start()`; `tui` blocked for the
-life of the UI. `TransportRegistry.startAll` awaited each in turn, so registering either of those
-first meant **every transport behind it never started** — no crash, no error, simply never reached.
+The former contract had one ambiguous `start(): Promise<void>` and an optional
+`runsToCompletion` hint. Headless ran the whole prompt inside `start()`, so a registry awaiting it
+could never reach a service registered behind it. ARCH-011 replaces that ambiguity with a required
+kind. A runner's `start()` launches and returns; `ITransportRunnerAdapter.waitForCompletion()` returns
+exactly `{status:'succeeded', exitCode:0}` or `{status:'failed', exitCode:<nonzero>}` with no raw cause.
+The registry owns the promise immediately, aggregates named outcomes in registration order, and
+offers a separate first-failure wait that does not wait for an unrelated runner.
 
-A transport whose whole job happens inside `start()` declares `runsToCompletion: true`, and the
-registry starts it without awaiting. Its promise is kept, not dropped: `TransportRegistry.waitForCompletion()`
-is where its result and its failure arrive, because the transport whose entire job is inside `start()`
-is exactly the one whose failure matters, and an unawaited rejection would be an unhandled promise
-rather than a reported error.
-
-The route is wired: `ITransportRegistryView.waitForCompletion()` carries it, and
-`IRuntimeHostHandle.waitForCompletion()` exposes it to the caller that owns the process-lifetime
-wait.
-
-**What it actually covers**, stated because the apparatus is easy to read as wider than it is: a
-transport whose `start()` REJECTS. `headless` — the transport that most obviously runs to completion —
-absorbs every failure inside its runner and always resolves, expressing failure through
-`getExitCode()` instead; so it does not use this route today, and a non-zero exit code is not a
-rejection. Whether a run-to-completion transport should be able to report failure by result as well
-as by rejection is an open question recorded on ARCH-011, not something this contract answers. The first draft put the method on the concrete registry alone, where neither production caller
-— both hold the view — could reach it; a failure route nothing can call is not a route.
-
-`runsToCompletion` is the ONE optional member on this contract, and deliberately so: "resolves once
-serving" is the ordinary case, a transport that omits it is asserting that meaning, and the registry
-treats absence as `false` rather than guessing. Contrast `IInteractiveSession`'s capability members
-(ARCH-012), where silence had no safe reading and optionality was removed.
+`TuiTransport` is not part of this family: it ignored `attach()` and constructed its own session.
+The TUI's existing `renderApp` and `TuiInteractionChannel` are presentation/session-owner surfaces.
 
 ### `ITransportConfig`
 
@@ -276,16 +265,25 @@ export interface IConfigurableTransport<TSession = unknown> extends ITransportAd
 - `optionsSchema` — describes configurable options (e.g., for a `/settings` TUI panel)
 - `validateOptions()` — optional schema validation before applying user options
 
-### `ITransportRegistryView<TSession>`
+### Registry views
 
 ```typescript
-export interface ITransportRegistryView<TSession = unknown> {
-  getAll(): ITransportEntry<TSession>[];
-  setEnabled(name: string, enabled: boolean): Promise<void>;
+export interface ITransportLifecycleRegistryView<TSession = unknown> {
+  register(transport: ITransportAdapter<TSession>): void;
   startAll(session: TSession): Promise<void>;
-  /** Best-effort: never rejects; per-transport stop failures come back in the result (CORE-013). */
+  waitForCompletion(): Promise<ITransportCompletionRecord[]>;
+  waitForFailure(): Promise<ITransportCompletionRecord | undefined>;
   stopAll(): Promise<IDestroyResult>;
 }
+
+export interface ITransportSettingsRegistryView<TSession = unknown> {
+  getAll(): ITransportEntry<TSession>[];
+  setEnabled(name: string, enabled: boolean): Promise<void>;
+  setOptions(name: string, options: Record<string, unknown>): Promise<void>;
+}
+
+export interface ITransportRegistryView<TSession = unknown>
+  extends ITransportLifecycleRegistryView<TSession>, ITransportSettingsRegistryView<TSession> {}
 ```
 
 `IDestroyResult` is imported (type-only) from `@robota-sdk/agent-core`. `stopAll()` is best-effort:
@@ -373,17 +371,17 @@ This package defines contracts that consumers implement or extend:
 | Extension Point          | Kind      | Implementor                                                                                                                                                                  | Description                                                      |
 | ------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | `ITransportAdapter`      | Interface | `createHttpTransport` (http), `createMcpTransport` (mcp), `createHeadlessTransport` (agent-transport/headless), `createWsTransport` factory (ws) — all return a bare adapter | Implement to create a transport with attach/start/stop lifecycle |
-| `IConfigurableTransport` | Interface | `TuiTransport` (`agent-transport-tui`), `WsTransport` (`agent-transport-ws`)                                                                                                 | Extend `ITransportAdapter` to support enable/disable and options |
-| `ITransportRegistryView` | Interface | `agent-transport` (`TransportRegistry`, structurally compatible — no declared `implements`)                                                                                  | Provide registry management for configurable transports          |
+| `IConfigurableTransport` | Interface | `WsTransport` (`agent-transport-ws`), `WebRtcTransport` (`agent-transport-webrtc`)                                                                                           | Extend `ITransportAdapter` with settings capability              |
+| Registry views           | Interface | `agent-transport` (`TransportRegistry`, structurally compatible)                                                                                                             | Segregate lifecycle from configurable settings projection        |
 | `IPayloadChannelHost`    | Interface | `WsTransport` (`agent-transport-ws`, via its `PayloadChannelRegistry`)                                                                                                       | Carry consumer-declared binary/event channels on the connection  |
 
 No abstract classes or base classes are exported — all extension is through interface implementation.
 
 ## Error Taxonomy
 
-This package defines no error types. It contains only interface and type declarations.
-Errors arising from transport lifecycle (e.g., failed `start()` or `stop()`) are thrown by
-implementing packages (the separate `agent-transport-*` packages and `agent-transport`) and are not part of this package's contract.
+This package owns the inert error shapes `ITransportLifecycleError` and
+`ITransportConfigurationError`. Implementing packages construct them; consumers discriminate by
+stable `name` and `code`. No error class or stateful runtime owner lives here.
 
 ## Constraints
 
@@ -397,21 +395,24 @@ implementing packages (the separate `agent-transport-*` packages and `agent-tran
 
 ## Test Strategy
 
-No tests required. This package contains only interface declarations; correctness is verified by
-the TypeScript compiler in consumers. The `package.json` configures `vitest run --passWithNoTests`
-so the test script succeeds with zero test files.
+Type tests pin the public shapes. The pure `/testing` helper
+`runTransportLifecycleConformance()` drives attach/start/readiness/repeated-start/repeated-stop/restart
+without importing Vitest or concrete products. Every public adapter subject invokes it in its owner
+package, and the harness roster scan requires exactly one invocation for each of the six subjects.
 
 ## Class Contract Registry
 
 This package contains no classes. The following interfaces are the extension contracts that
 implementors must satisfy:
 
-| Interface                | Implemented By                                                                                                                                                  | Package                                |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `ITransportAdapter`      | `createHttpTransport`/`createMcpTransport`/`createHeadlessTransport`/`createWsTransport` factories (bare adapters); also satisfied via `IConfigurableTransport` | `agent-transport-*`, `agent-transport` |
-| `IConfigurableTransport` | `TuiTransport` (`agent-transport-tui`), `WsTransport` (`agent-transport-ws`)                                                                                    | `agent-transport-*` packages           |
-| `ITransportRegistryView` | `TransportRegistry` (structurally compatible, no declared `implements`)                                                                                         | `agent-transport`                      |
-| `IPayloadChannelHost`    | `WsTransport` (declared `implements`) and `PayloadChannelRegistry`                                                                                              | `agent-transport-ws`                   |
+| Interface                 | Implemented By                                                                                                                                                  | Package                                        |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `ITransportAdapter`       | `createHttpTransport`/`createMcpTransport`/`createHeadlessTransport`/`createWsTransport` factories (bare adapters); also satisfied via `IConfigurableTransport` | `agent-transport-*`, `agent-transport`         |
+| `ITransportRunnerAdapter` | `createHeadlessTransport`                                                                                                                                       | `agent-transport`                              |
+| `IConfigurableTransport`  | `WsTransport`, `WebRtcTransport`                                                                                                                                | `agent-transport-ws`, `agent-transport-webrtc` |
+| Registry views            | `TransportRegistry` (structurally compatible)                                                                                                                   | `agent-transport`                              |
+| `IPayloadChannelHost`     | `WsTransport` (declared `implements`) and `PayloadChannelRegistry`                                                                                              | `agent-transport-ws`                           |
 
-No `extends` chains exist within this package — `IConfigurableTransport` extends `ITransportAdapter`
-and is the only intra-package inheritance.
+The deliberate intra-package extension chains are `ITransportRunnerAdapter` and
+`IConfigurableTransport` over `ITransportAdapter`, plus `ITransportRegistryView` composing the
+lifecycle and settings registry views.
