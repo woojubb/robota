@@ -1,9 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
+import { describe, it, expect, expectTypeOf, vi } from 'vitest';
 import { createWsTransport } from '../ws-transport.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession, ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
 
 function createMockSession(): IInteractiveSession {
-  return {
+  return Object.assign(createTestInteractiveSession(), {
     submit: vi.fn(),
     abort: vi.fn(),
     cancelQueue: vi.fn(),
@@ -17,10 +20,16 @@ function createMockSession(): IInteractiveSession {
     listCommands: vi.fn().mockReturnValue([]),
     on: vi.fn(),
     off: vi.fn(),
-  } as unknown as IInteractiveSession;
+  });
 }
 
 describe('createWsTransport', () => {
+  it('preserves the legacy adapter declaration and accepts the named subset', () => {
+    const transport = createWsTransport({ send: vi.fn() });
+    expectTypeOf(transport).toMatchTypeOf<ITransportAdapter<IInteractiveSession>>();
+    expectTypeOf(transport.attach).parameter(0).toMatchTypeOf<IProtocolSession>();
+  });
+
   it('returns an adapter with name "ws"', () => {
     const transport = createWsTransport({ send: vi.fn() });
     expect(transport.name).toBe('ws');

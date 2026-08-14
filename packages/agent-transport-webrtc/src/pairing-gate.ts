@@ -34,7 +34,7 @@ import {
   type TReconnectFrame,
 } from '@robota-sdk/agent-remote-pairing';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
 
 /** The minimal data-channel surface the gate drives (a werift `RTCDataChannel` satisfies it). */
 export interface IPairingChannel {
@@ -63,7 +63,7 @@ interface IEnrollFrame {
 
 export interface IPairingGateOptions {
   readonly channel: IPairingChannel;
-  readonly session: IInteractiveSession;
+  readonly session: IProtocolSession;
   readonly secret: string;
   readonly role: TPairingRole;
   readonly localFingerprint: string;

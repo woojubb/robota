@@ -1,20 +1,26 @@
-import { describe, expect, it, vi } from 'vitest';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
+import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { RTCPeerConnection } from 'werift';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type {
+  IConfigurableTransport,
+  IInteractiveSession,
+} from '@robota-sdk/agent-interface-transport';
+import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
 
 import { WebRtcTransport } from '../webrtc-transport.js';
 import { createInMemorySignalingPair, type ISignalingClient } from '../signaling.js';
 
 /** Minimal stub session — only `getMessages` + no-op `on`/`off` are exercised by the get-messages round-trip. */
 function createStubSession(): IInteractiveSession {
-  return {
+  return Object.assign(createTestInteractiveSession(), {
     getMessages: vi.fn().mockReturnValue([{ role: 'user', content: 'hi' }]),
     // ARCH-012: required. This double feeds `subscribeSessionEvents`, which calls it on every
     // turn-authored event — omitting it throws the moment a case emits one.
     getActiveDriverId: () => null,
     on: vi.fn(),
     off: vi.fn(),
-  } as unknown as IInteractiveSession;
+  });
 }
 
 /**
@@ -56,6 +62,16 @@ function connectRemote(signaling: ISignalingClient): Promise<Record<string, unkn
 }
 
 describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
+  it('preserves the legacy adapter declaration and accepts the named subset', () => {
+    const transport = new WebRtcTransport({
+      signaling: createInMemorySignalingPair()[0],
+      open: true,
+      openReason: 'type compatibility test',
+    });
+    expectTypeOf(transport).toMatchTypeOf<IConfigurableTransport<IInteractiveSession>>();
+    expectTypeOf(transport.attach).parameter(0).toMatchTypeOf<IProtocolSession>();
+  });
+
   it('has the collapsed webrtc metadata and is disabled by default', () => {
     const [sig] = createInMemorySignalingPair();
     const t = new WebRtcTransport({

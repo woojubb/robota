@@ -25,14 +25,20 @@ agent-transport-http
 
 ## Type Ownership
 
-Owns `IHttpTransportOptions`, `IAgentRoutesOptions`, `TSessionFactory`.
+Owns `IHttpTransportOptions`, `IAgentRoutesOptions`, `TSessionFactory`, and
+`IHttpTransportSession`. The session role is exactly submission, events, turn control, identity,
+commands, conversation reads, and execution state. The public transport preserves its legacy
+`ITransportAdapter<IInteractiveSession>` declaration and adds a narrow `attach(IHttpTransportSession)`
+overload; full sessions remain assignable because they implement every role.
 
 ## Public API Surface
 
-| Export                | Kind     | Description                        |
-| --------------------- | -------- | ---------------------------------- |
-| `createHttpTransport` | function | Hono-based HTTP transport adapter  |
-| `createAgentRoutes`   | function | Build agent routes onto a Hono app |
+| Export                  | Kind      | Description                                            |
+| ----------------------- | --------- | ------------------------------------------------------ |
+| `createHttpTransport`   | function  | Hono-based HTTP transport adapter                      |
+| `createAgentRoutes`     | function  | Build agent routes onto a Hono app                     |
+| `IHttpTransport`        | interface | Legacy adapter declaration plus narrow attach overload |
+| `IHttpTransportSession` | interface | Exact seven-role session capability required by HTTP   |
 
 ## Extension Points
 

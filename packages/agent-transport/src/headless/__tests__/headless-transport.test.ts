@@ -1,6 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
+import { describe, it, expect, expectTypeOf, vi, beforeEach, afterEach } from 'vitest';
 import { createHeadlessTransport } from '../headless-transport.js';
-import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IHeadlessSession } from '../headless-session.js';
+import type {
+  IExecutionResult,
+  IInteractiveSession,
+  ITransportAdapter,
+} from '@robota-sdk/agent-interface-transport';
 
 function createEventDrivenMockSession(
   behavior: 'complete' | 'error' | 'interrupted' = 'complete',
@@ -10,7 +17,7 @@ function createEventDrivenMockSession(
   const response = options?.response ?? 'test output';
   const textDeltas = options?.textDeltas;
 
-  return {
+  return Object.assign(createTestInteractiveSession(), {
     submit: vi.fn(async () => {
       if (textDeltas) {
         for (const delta of textDeltas) {
@@ -68,8 +75,16 @@ function createEventDrivenMockSession(
         if (idx >= 0) handlers.splice(idx, 1);
       }
     }),
-  } as unknown as IInteractiveSession;
+  });
 }
+
+describe('createHeadlessTransport declaration compatibility (ARCH-012)', () => {
+  it('preserves the legacy adapter declaration and accepts the named subset', () => {
+    const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'test' });
+    expectTypeOf(transport).toMatchTypeOf<ITransportAdapter<IInteractiveSession>>();
+    expectTypeOf(transport.attach).parameter(0).toMatchTypeOf<IHeadlessSession>();
+  });
+});
 
 describe('createHeadlessTransport', () => {
   it('returns an adapter with name "headless"', () => {

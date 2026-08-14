@@ -84,13 +84,14 @@ is selected by the runner options.
 
 ## 4. Type Ownership
 
-| Type                                 | File                                          | Description                                  |
-| ------------------------------------ | --------------------------------------------- | -------------------------------------------- |
-| `IHeadlessInteractionChannelOptions` | `src/headless/HeadlessInteractionChannel.ts`  | Constructor options for the headless channel |
-| `IHeadlessRunnerOptions`             | `src/headless/headless-runner.ts`             | Options for `createHeadlessRunner`           |
-| `TOutputFormat`                      | `src/headless/headless-runner.ts`             | `'text' \| 'json' \| 'stream-json'`          |
-| `IHeadlessTransportOptions`          | `src/headless/headless-transport.ts`          | Options for `createHeadlessTransport`        |
-| `ICreateProgrammaticAgentOptions`    | `src/programmatic/createProgrammaticAgent.ts` | Options for `createProgrammaticAgent`        |
+| Type                                 | File                                          | Description                                                                         |
+| ------------------------------------ | --------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `IHeadlessInteractionChannelOptions` | `src/headless/HeadlessInteractionChannel.ts`  | Constructor options for the headless channel                                        |
+| `IHeadlessRunnerOptions`             | `src/headless/headless-runner.ts`             | Options for `createHeadlessRunner`                                                  |
+| `TOutputFormat`                      | `src/headless/headless-runner.ts`             | `'text' \| 'json' \| 'stream-json'`                                                 |
+| `IHeadlessTransportOptions`          | `src/headless/headless-transport.ts`          | Options for `createHeadlessTransport`                                               |
+| `IHeadlessSession`                   | `src/headless/headless-session.ts`            | Exact submission/events/commands/goal/identity roles consumed by headless execution |
+| `ICreateProgrammaticAgentOptions`    | `src/programmatic/createProgrammaticAgent.ts` | Options for `createProgrammaticAgent`                                               |
 
 The in-process driver surface itself is `IAgentDriver`, owned by
 `@robota-sdk/agent-interface-transport` — this package defines no driver type of its own.
@@ -108,8 +109,10 @@ The in-process driver surface itself is `IAgentDriver`, owned by
 | `createHeadlessRunner`               | function   | Creates a runner with `run(prompt): Promise<number>`; supports text/json/stream-json modes               |
 | `IHeadlessRunnerOptions`             | interface  | Options for `createHeadlessRunner`                                                                       |
 | `TOutputFormat`                      | type alias | `'text' \| 'json' \| 'stream-json'`                                                                      |
-| `createHeadlessTransport`            | function   | Returns `ITransportAdapter & { getExitCode(): number }` wrapping `createHeadlessRunner`                  |
+| `createHeadlessTransport`            | function   | Returns legacy-compatible `IHeadlessTransport` wrapping `createHeadlessRunner`                           |
 | `IHeadlessTransportOptions`          | interface  | Options for `createHeadlessTransport`                                                                    |
+| `IHeadlessSession`                   | interface  | Narrow session-role aggregate accepted by headless runner and transport                                  |
+| `IHeadlessTransport`                 | interface  | Legacy `ITransportAdapter<IInteractiveSession>` declaration with `attach(IHeadlessSession)` overload     |
 
 ### `/programmatic`
 

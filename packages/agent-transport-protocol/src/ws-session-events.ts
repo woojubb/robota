@@ -6,13 +6,13 @@
  * `SessionResumeBridge` (REMOTE-013 E4 — a SINGLE subscription that outlives per-channel handlers).
  */
 
+import type { IProtocolSession } from './protocol-session.js';
 import type { TServerMessage } from './ws-protocol.js';
 import type { TDriverId } from '@robota-sdk/agent-interface-transport';
 import type {
   IAskRequestEvent,
   IExecutionResult,
   IExecutionWorkspaceEvent,
-  IInteractiveSession,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
   ISessionRenamedEvent,
@@ -37,7 +37,7 @@ export interface ISubscribeSessionEventsOptions {
  * outlives per-channel handlers.
  */
 export function subscribeSessionEvents(
-  session: IInteractiveSession,
+  session: IProtocolSession,
   send: (message: TServerMessage) => void,
   options?: ISubscribeSessionEventsOptions,
 ): () => void {

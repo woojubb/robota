@@ -2,7 +2,8 @@
 
 ## Scope
 
-WebRTC P2P transport (REMOTE-001 / REMOTE-002 Stage A). Carries an `IInteractiveSession` over an
+WebRTC P2P transport (REMOTE-001 / REMOTE-002 Stage A). Carries the protocol-owned
+`IProtocolSession` capability over an
 `RTCDataChannel` so an external remote client can co-drive a live `agent-cli` session directly, peer-to-peer,
 without routing session content through any server. Reuses the transport-neutral session bridge + wire protocol
 from `@robota-sdk/agent-transport-protocol` (the same `createWsHandler` the WebSocket transport uses) so the
@@ -37,7 +38,8 @@ protocol is shared, not duplicated.
 
 ## Architecture Overview
 
-`WebRtcTransport` implements `IConfigurableTransport<IInteractiveSession>` (`name='webrtc'`,
+`WebRtcTransport` preserves `IConfigurableTransport<IInteractiveSession>` for declaration compatibility
+and adds `attach(IProtocolSession)` for the exact role subset (`name='webrtc'`,
 `defaultEnabled:false`). The host is the **offerer**: `start()` lazily loads `werift`, opens an
 `RTCPeerConnection`, subscribes ICE candidates to the injected signaling client, serializes inbound
 answer/ICE signals (so `setRemoteDescription` always precedes any `addIceCandidate` — werift does not buffer
@@ -134,9 +136,9 @@ protocol) + `@robota-sdk/agent-remote-pairing` (REMOTE-008 pairing gate; zero-de
 
 ### Interface Implementations
 
-| Class             | Implements                                    | Location                  |
-| ----------------- | --------------------------------------------- | ------------------------- |
-| `WebRtcTransport` | `IConfigurableTransport<IInteractiveSession>` | `src/webrtc-transport.ts` |
+| Class             | Implements                                                                    | Location                  |
+| ----------------- | ----------------------------------------------------------------------------- | ------------------------- |
+| `WebRtcTransport` | `IConfigurableTransport<IInteractiveSession>` plus `attach(IProtocolSession)` | `src/webrtc-transport.ts` |
 
 ### Inheritance Chains
 

@@ -23,10 +23,13 @@ name: Claude Code Review
 
 on:
   pull_request:
-    # This repo's flow is feature→develop→main, so most PRs target `develop`. `pull_request` runs use
-    # the merge-ref's copy of this file, so a change here takes effect on its own PR.
-    branches: [main, develop]
-    types: [opened, synchronize]
+    # Every PR base is deliberate: multi-backlog initiatives merge child PRs into a stable
+    # integration base before the final develop PR. Filtering to main/develop left those children
+    # with no reviewer at all (INFRA-098).
+    # Contained — INFRA-097. `pull_request` still loads this control-plane YAML from the candidate
+    # merge revision. INFRA-097 / issue #1719 owns the trusted-workflow end state; this prerequisite
+    # must land first so the current integration child can receive any review.
+    types: [opened, synchronize, reopened, edited]
 
 concurrency:
   group: claude-review-${{ github.event.pull_request.number }}
@@ -46,7 +49,7 @@ jobs:
     name: Claude review
     runs-on: ubuntu-latest
     # Fork PRs have no access to secrets — skip so the run doesn't fail auth-less.
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && (github.event.action != 'edited' || github.event.changes.base != null) }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -68,6 +71,8 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
             BASE BRANCH: ${{ github.base_ref }}
+            BASE SHA: ${{ github.event.pull_request.base.sha }}
+            HEAD SHA: ${{ github.event.pull_request.head.sha }}
 
             이 PR의 변경분(diff)을 리뷰한다. 이것은 **가벼운 통과 리뷰**다 — 머지를 막을 만한
             결함만 찾고, 그 외에는 아무것도 쓰지 않는다. 깊은 감사는 작성자가 필요할 때 별도로
@@ -115,9 +120,13 @@ jobs:
                항목을 빼고 세면 그대로 머지된다.
             3. diff 를 다 읽었으면, 인라인 코멘트를 남기기 **전에** 먼저
                `gh pr comment <PR NUMBER> --body "..."` 로 요약을 남긴다. 요약에는 발견한 것을
-               심각도 순으로 한 줄씩 적는다(없으면 없다고 쓴다). 요약의 **마지막 줄**은 반드시
-               `ACTIONABLE FINDINGS: <n>` 형식이어야 한다 — n 은 조치가 필요한 항목(MUST/SHOULD)의
-               개수이고, 없으면 0 이다. 이 줄은 사람이 아니라 머지 게이트가 읽는다. 없으면 게이트는
+               심각도 순으로 한 줄씩 적는다(없으면 없다고 쓴다). 요약의 **마지막 세 줄**은 반드시
+               아래 세 줄이어야 한다. SHA 값은 위 입력을 그대로 쓴다.
+               `REVIEWED BASE: ${{ github.event.pull_request.base.sha }}`
+               `REVIEWED HEAD: ${{ github.event.pull_request.head.sha }}`
+               `ACTIONABLE FINDINGS: <n>`
+               n 은 조치가 필요한 항목(MUST/SHOULD)의 개수이고, 없으면 0 이다. 이 세 줄은 사람이
+               아니라 머지 게이트가 읽는다. 하나라도 없으면 게이트는
                "셀 수 없었다"고 말할 뿐 리뷰 내용을 대신 판단하지 못한다. 이 순서는 의도된 것이다 —
                예산이 끊기더라도 요약은 이미 남아 있다. 아무것도 남기지 않은 실행은 리뷰하지
                않은 실행과 구분되지 않는다.

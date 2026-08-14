@@ -7,7 +7,7 @@ import type {
 import type { RTCDataChannel, RTCPeerConnection } from 'werift';
 
 import type { IPairingResult } from '@robota-sdk/agent-remote-pairing';
-import type { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
+import type { IProtocolSession, SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
 
 import { loadWerift } from './werift-loader.js';
 import { PairingGate, type IHostReconnectConfig } from './pairing-gate.js';
@@ -72,7 +72,7 @@ export interface IWebRtcTransportOptions {
 }
 
 /**
- * WebRTC P2P transport (REMOTE-001/002): carries an `IInteractiveSession` over an `RTCDataChannel` using the
+ * WebRTC P2P transport (REMOTE-001/002): carries an `IProtocolSession` over an `RTCDataChannel` using the
  * SAME transport-neutral session bridge as the WebSocket transport (`createWsHandler` from
  * `@robota-sdk/agent-transport-protocol`). The host is the offerer: it creates the data channel + offer, and on
  * data-channel open wires the handler. **Stage A: `defaultEnabled: false`, no pairing/auth** — the signaling
@@ -83,7 +83,7 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
   public readonly defaultEnabled = false;
   public readonly optionsSchema = {} as const;
 
-  private session?: IInteractiveSession;
+  private session?: IProtocolSession;
   private peer?: RTCPeerConnection;
   private unsubscribeSignal?: () => void;
   private cleanupHandler?: () => void;
@@ -137,7 +137,9 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     return true;
   }
 
-  public attach(session: IInteractiveSession): void {
+  public attach(session: IInteractiveSession): void;
+  public attach(session: IProtocolSession): void;
+  public attach(session: IProtocolSession): void {
     this.session = session;
   }
 
@@ -201,7 +203,7 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
    */
   private startPairingIfConfigured(
     channel: RTCDataChannel,
-    session: IInteractiveSession,
+    session: IProtocolSession,
     answer: unknown,
   ): void {
     const secret = this.options.secret;
@@ -226,7 +228,7 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     });
   }
 
-  private wireChannel(channel: RTCDataChannel, session: IInteractiveSession): void {
+  private wireChannel(channel: RTCDataChannel, session: IProtocolSession): void {
     // Subscribe `onMessage` **eagerly at channel creation** — NOT inside the `open` event. werift does not buffer
     // inbound messages that arrive before a subscription exists, and the remote (answerer) can open its end and
     // send its first frame before the host's `open` fires, so a deferred subscription drops that first message.

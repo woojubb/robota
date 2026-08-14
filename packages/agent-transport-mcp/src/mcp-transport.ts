@@ -7,6 +7,7 @@
 
 import { createAgentMcpServer } from './mcp-server.js';
 
+import type { IMcpTransportSession } from './mcp-session.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import type { IInteractiveSession, ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 
@@ -19,15 +20,18 @@ export interface IMcpTransportOptions {
   exposeCommands?: boolean;
 }
 
-export function createMcpTransport(
-  options: IMcpTransportOptions,
-): ITransportAdapter<IInteractiveSession> & { getServer(): Server } {
-  let session: IInteractiveSession | null = null;
+export interface IMcpTransport extends ITransportAdapter<IInteractiveSession> {
+  attach(session: IMcpTransportSession): void;
+  getServer(): Server;
+}
+
+export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport {
+  let session: IMcpTransportSession | null = null;
   let server: Server | null = null;
 
   return {
     name: 'mcp',
-    attach(s: IInteractiveSession) {
+    attach(s: IMcpTransportSession) {
       session = s;
     },
     async start() {

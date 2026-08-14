@@ -198,6 +198,12 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'the token-supply rule exists because the review action skips and exits 0 when it authenticates via OIDC against a divergent workflow; with no workflow to inspect, "nothing to guard" is indistinguishable from the failure it guards (INFRA-062 replaced the parity scan here, carrying this classification with it)',
   },
   {
+    file: 'scan-claude-review-coverage.mjs',
+    finder: 'findClaudeReviewCoverageFindings',
+    tree: '.github/workflows',
+    why: 'it proves every pull request base reaches the Claude reviewer and each verdict names the exact base/head comparison; with no workflow tree, no review route exists and an empty finding set would certify the absence it must reject',
+  },
+  {
     file: 'scan-ci-base-history.mjs',
     finder: 'findBaseHistoryFindings',
     tree: '.github/workflows',

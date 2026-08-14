@@ -1,4 +1,5 @@
 import type { IInteractiveSession } from '../session-contracts.js';
+export { createSessionCapabilityHost as createTestSessionCapabilityHost } from '../session-capability-host.js';
 
 const EMPTY_CONTEXT_STATE = {
   usedTokens: 0,
