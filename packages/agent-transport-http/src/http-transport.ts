@@ -9,11 +9,13 @@ import { resolveAdmission } from '@robota-sdk/agent-transport-protocol';
 
 import { createAgentRoutes } from './routes.js';
 
+import type { IHttpTransportSession } from './http-session.js';
 import type { TStreamFailureListener } from './submit-stream.js';
 import type {
   IInteractiveSession,
   ITransportAdapter,
   ITransportAdmissionConfig,
+  ITransportLifecycleError,
 } from '@robota-sdk/agent-interface-transport';
 import type { Hono } from 'hono';
 
@@ -37,25 +39,34 @@ export interface IHttpTransportOptions {
   onStreamFailure?: TStreamFailureListener;
 }
 
-export function createHttpTransport(
-  options?: IHttpTransportOptions,
-): ITransportAdapter<IInteractiveSession> & {
+export interface IHttpTransport extends ITransportAdapter<IInteractiveSession> {
+  attach(session: IHttpTransportSession): void;
   getApp(): Hono;
   getAdmissionToken(): string | null;
-} {
-  let session: IInteractiveSession | null = null;
+}
+
+export function createHttpTransport(options?: IHttpTransportOptions): IHttpTransport {
+  let session: IHttpTransportSession | null = null;
   let app: Hono | null = null;
   // Resolved at CONSTRUCTION, not at start: a host needs the credential to hand to its client, and
   // a transport that cannot mint one must fail before anything is served.
   const admission = resolveAdmission(options?.admission);
+  const lifecycleError = (code: ITransportLifecycleError['code']): ITransportLifecycleError =>
+    Object.assign(new Error(`HTTP transport ${code}.`), {
+      name: 'TransportLifecycleError' as const,
+      code,
+      transportName: 'http',
+    });
 
   return {
     name: 'http',
-    attach(s: IInteractiveSession) {
+    lifecycle: Object.freeze({ kind: 'service' }),
+    attach(s: IHttpTransportSession) {
       session = s;
     },
     async start() {
-      if (!session) throw new Error('No session attached. Call attach() first.');
+      if (!session) throw lifecycleError('not-attached');
+      if (app) throw lifecycleError('already-started');
       app = createAgentRoutes({
         sessionFactory: () => session!,
         // The decision already made, passed through — not taken apart and rebuilt for the routes to
@@ -66,6 +77,7 @@ export function createHttpTransport(
     },
     async stop() {
       app = null;
+      session = null;
     },
     getApp() {
       if (!app) throw new Error('Transport not started. Call start() first.');

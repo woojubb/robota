@@ -179,7 +179,12 @@ The transport layer exposes `InteractiveSession` over various protocols. Each tr
 
 All adapters import `InteractiveSession` from `agent-framework`. None of them implement session logic — they only translate protocol messages into session calls and forward session events back to the caller.
 
-All transport adapters implement `ITransportAdapter` (defined in `agent-interface-transport`), which provides a uniform lifecycle: `attach(session)` to bind a session, `start()` to begin serving, and `stop()` to shut down.
+Protocol and runner adapters implement `ITransportAdapter` (defined in
+`agent-interface-transport`). Its frozen service/runner kind makes readiness and completion distinct:
+`attach(session)` binds a borrowed session, `start()` resolves at readiness/launch, and `stop()` is
+safe to repeat. Runner completion uses a separate typed outcome. `agent-transport-tui` is a
+session-owning presentation boundary and does not implement this port. Registry aggregation keeps
+adapter success/failure distinct from registry-owned stop/rollback abandonment.
 
 `agent-remote-client` is a companion HTTP client that allows a remote process to call an agent exposed via `agent-transport-http`. It has no dependency on `agent-framework`.
 

@@ -4,11 +4,13 @@
   "covered": [
     "scripts/harness/check-stub-markers.mjs",
     "scripts/harness/check-workspace-refs.mjs",
+    "scripts/harness/scan-claude-review-coverage.mjs",
     "scripts/harness/scan-conflict-markers.mjs",
     "scripts/harness/scan-measurement-provenance.mjs",
     "scripts/harness/scan-memory-mirror.mjs",
     "scripts/harness/scan-no-fake-in-src.mjs",
     "scripts/harness/scan-product-identity.mjs",
+    "scripts/harness/scan-transport-conformance.mjs",
     "scripts/harness/scan-workflow-permissions.mjs"
   ],
   "pending": [

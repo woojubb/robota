@@ -48,6 +48,9 @@ branch's PR must satisfy (`scripts/harness/verify-like-ci.mjs`). A bare `run-all
 gate, and neither is any narrower command. Which local gate runs at PUSH time — the fast scoped
 `pnpm harness:pre-push` by default, the full entry point opt-in — is owned by
 [verification.md](verification.md) § Pre-Push Local Verification Requirement, not here.
+For an integration-child PR, that entry point binds PR-base discovery to the actual single pushed ref, HEAD
+object, and matching `origin` destination; it never infers a narrow base from the checkout while another
+remote or ref, or multiple refs, are being pushed.
 
 - It runs the monorepo **build** and the affected packages' **test** suites, gated on exactly the
   conditions CI gates its own jobs on. Do not re-add a separate "plus build and tests" instruction
@@ -444,10 +447,12 @@ No CONFIRMED/PLAUSIBLE finding may be left silently unaddressed. **Only after al
 may the PR be merged.
 
 **Enforced** by `.claude/hooks/merge-gate.sh`, which refuses `gh pr merge` unless the PR is `CLEAN`
-and carries a review newer than its head commit, and refuses outright when the reviewer's own
-`ACTIONABLE FINDINGS: <n>` says findings remain. It fails closed: an unreadable state is a refusal,
-never a pass. Deliberate exception: `MERGE_GATE_ACK=1` **inline in the same command**, which prints
-that the gate did not verify — an override is a visible choice, not a silent one.
+and carries a review naming the exact current `baseRefOid` and `headRefOid`, and refuses outright
+when the reviewer's own `ACTIONABLE FINDINGS: <n>` says findings remain. Timestamp recency is not
+review identity: a base can change while the child head does not. The hook fails closed on missing,
+malformed, duplicate, stale, or unreadable markers. Deliberate exception: `MERGE_GATE_ACK=1` **inline
+in the same command**, which prints that the gate did not verify — an override is a visible choice,
+not a silent one.
 
 The hook deliberately does NOT judge whether a prose finding was addressed; that is the reviewer's
 call, and a hook guessing at it would be a check measuring the wrong thing. It establishes only that

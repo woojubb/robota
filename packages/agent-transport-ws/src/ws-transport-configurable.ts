@@ -16,6 +16,7 @@ import {
   resolveWsAdmission,
   tokenMatches,
 } from './ws-connection-guards.js';
+import { toBytes } from './ws-message-data.js';
 import { DEFAULT_MAX_RETRIES, DEFAULT_PORT } from './ws-transport-config.js';
 
 import type { IWsTransportConfig } from './ws-transport-config.js';
@@ -24,11 +25,12 @@ import type {
   IChannelDescriptor,
   IConfigurableTransport,
   IInteractiveSession,
+  ITransportLifecycleError,
   IPayloadChannel,
   IPayloadChannelHost,
   TChannelEventMap,
 } from '@robota-sdk/agent-interface-transport';
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { IProtocolSession, TServerMessage } from '@robota-sdk/agent-transport-protocol';
 import type { RawData } from 'ws';
 
 /**
@@ -40,16 +42,6 @@ import type { RawData } from 'ws';
 const WS_STOP_TERMINATE_DEADLINE_MS = 5000;
 
 /**
- * Normalize the `ws` inbound payload shapes (Buffer | ArrayBuffer | Buffer[]) to a single
- * `Uint8Array` view. `ws` delivers a fragmented message as an array of Buffers.
- */
-function toBytes(data: RawData): Uint8Array {
-  if (Array.isArray(data)) return new Uint8Array(Buffer.concat(data));
-  if (data instanceof ArrayBuffer) return new Uint8Array(data);
-  return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-}
-
-/**
  * TRANS-001: the WS transport is a payload-agnostic CARRIER that routes by WebSocket frame opcode —
  * TEXT frames go to the text-agent protocol profile (`createWsHandler`), BINARY frames go to the
  * consumer-declared channels. The two profiles share one connection and never constrain each other.
@@ -58,6 +50,7 @@ export class WsTransport
   implements IConfigurableTransport<IInteractiveSession>, IPayloadChannelHost
 {
   readonly name = 'ws';
+  readonly lifecycle = Object.freeze({ kind: 'service' as const });
   readonly defaultEnabled = true;
   readonly optionsSchema = {
     port: { type: 'number', description: 'WebSocket server port', default: DEFAULT_PORT },
@@ -68,8 +61,11 @@ export class WsTransport
     },
   };
 
-  private session: IInteractiveSession | null = null;
+  private session: IProtocolSession | null = null;
   private stopFn: (() => Promise<void>) | null = null;
+  private state: 'detached' | 'attached' | 'starting' | 'ready' | 'stopping' = 'detached';
+  private startOperation: Promise<{ stop: () => Promise<void>; port: number }> | undefined;
+  private startCancelled = false;
   private readonly port: number;
   private readonly maxRetries: number;
   private readonly token?: string;
@@ -89,8 +85,11 @@ export class WsTransport
     this.allowedOrigins = new Set(config.allowedOrigins ?? []);
   }
 
-  attach(session: IInteractiveSession): void {
+  attach(session: IInteractiveSession): void;
+  attach(session: IProtocolSession): void;
+  attach(session: IProtocolSession): void {
     this.session = session;
+    this.state = 'attached';
   }
 
   /**
@@ -105,11 +104,7 @@ export class WsTransport
     return this.channels.registerChannel(descriptor);
   }
 
-  /**
-   * GUI-007: the actually-bound port after `start()` (may differ from the requested port — `bindWithRetry`
-   * walks up on `EADDRINUSE`). `undefined` before start. A surface (e.g. `agent-cli --serve`) reads this to
-   * point the served monitor's `ws-url` at the real port.
-   */
+  /** Actually-bound port after start; undefined before start. */
   get boundPort(): number | undefined {
     return this.resolvedPort;
   }
@@ -124,15 +119,51 @@ export class WsTransport
   }
 
   async start(): Promise<void> {
-    if (!this.session) throw new Error('WsTransport: attach() must be called before start()');
-    const handle = await this.bindWithRetry(this.session, this.port, this.maxRetries);
+    if (!this.session) throw this.lifecycleError('not-attached');
+    if (this.state === 'starting' || this.state === 'ready' || this.state === 'stopping') {
+      throw this.lifecycleError('already-started');
+    }
+    this.state = 'starting';
+    this.startCancelled = false;
+    const operation = this.bindWithRetry(this.session, this.port, this.maxRetries);
+    this.startOperation = operation;
+    let handle: Awaited<typeof operation>;
+    try {
+      handle = await operation;
+    } catch (error) {
+      if (this.state === 'starting' && this.startOperation === operation) {
+        this.startOperation = undefined;
+        this.state = this.session ? 'attached' : 'detached';
+      }
+      throw error;
+    }
+    if (this.startCancelled || this.startOperation !== operation) {
+      await handle.stop();
+      this.state = this.session ? 'attached' : 'detached';
+      throw new Error('WsTransport startup was stopped.');
+    }
     this.stopFn = handle.stop;
     this.resolvedPort = handle.port;
+    this.startOperation = undefined;
+    this.state = 'ready';
   }
 
   async stop(): Promise<void> {
+    if (this.state === 'starting') {
+      this.state = 'stopping';
+      this.startCancelled = true;
+      try {
+        await this.startOperation;
+      } catch {
+        // The start caller owns bind failure; stop still clears lifecycle state.
+      }
+    }
     await this.stopFn?.();
     this.stopFn = null;
+    this.startOperation = undefined;
+    this.resolvedPort = undefined;
+    this.session = null;
+    this.state = 'detached';
   }
 
   validateOptions(options: Record<string, TUniversalValue>): boolean {
@@ -143,8 +174,16 @@ export class WsTransport
     return true;
   }
 
+  private lifecycleError(code: ITransportLifecycleError['code']): ITransportLifecycleError {
+    return Object.assign(new Error(`WsTransport ${code}.`), {
+      name: 'TransportLifecycleError' as const,
+      code,
+      transportName: this.name,
+    });
+  }
+
   private bindWithRetry(
-    session: IInteractiveSession,
+    session: IProtocolSession,
     port: number,
     retriesLeft: number,
   ): Promise<{ stop: () => Promise<void>; port: number }> {
@@ -156,7 +195,7 @@ export class WsTransport
   }
 
   private tryBind(
-    session: IInteractiveSession,
+    session: IProtocolSession,
     port: number,
   ): Promise<{ stop: () => Promise<void>; port: number }> {
     return new Promise((resolve, reject) => {
@@ -176,9 +215,7 @@ export class WsTransport
       httpServer.listen(port, '127.0.0.1', () => {
         const wss = new WebSocketServer({
           server: httpServer,
-          // SEC-001 defense-in-depth: reject a disallowed Host/Origin at the UPGRADE handshake (HTTP 403,
-          // before the 101 protocol switch), independently of the token. Closes DNS-rebinding (Host) and the
-          // browser drive-by hole (Origin) before any session data can be sent.
+          // Reject disallowed Host/Origin before the protocol upgrade or any session data.
           verifyClient: (
             info: { origin: string; secure: boolean; req: IncomingMessage },
             cb: (res: boolean, code?: number, message?: string) => void,
@@ -196,9 +233,7 @@ export class WsTransport
         });
 
         wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
-          // REJECT BEFORE ANY SESSION DATA. When a token is required (explicit or SEC-001 auto-minted), an
-          // unauthenticated connection is closed here — before the `messages` / `execution_workspace_event`
-          // sends below — so a co-resident process/page cannot read history or answer prompts.
+          // Reject unauthenticated peers before sending history or accepting prompt responses.
           if (expectedToken !== undefined && !tokenMatches(expectedToken, presentedToken(req))) {
             ws.close(1008, 'unauthorized');
             return;
@@ -210,7 +245,6 @@ export class WsTransport
 
           const { onMessage, cleanup } = createWsHandler({ session, send });
 
-          // TRANS-001: this connection becomes a sink for every declared channel's outbound frames.
           const detachSink = channels.addSink((frame: Uint8Array) => {
             if (ws.readyState === WebSocket.OPEN) ws.send(frame, { binary: true });
           });

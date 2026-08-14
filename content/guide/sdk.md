@@ -406,7 +406,15 @@ standalone packages; `@robota-sdk/agent-transport` itself is a lean core that ke
 
 Each transport wraps an `InteractiveSession` instance and translates protocol messages into `submit()` / `abort()` calls, then forwards emitted events back to the client. No separate gateway interface exists — `InteractiveSession` is the gateway.
 
-All transport adapters implement the `ITransportAdapter` interface (defined in `@robota-sdk/agent-interface-transport`), which defines a common lifecycle: `attach(session)`, `start()`, and `stop()`. Each transport package (or `agent-transport` sub-path) provides a factory function (e.g., `createHttpTransport()`, `createWsTransport()`, `createMcpTransport()`, `createHeadlessTransport()`) that returns an `ITransportAdapter`. `createHeadlessTransport()` also accepts a `createHeadlessRunner()` helper for pre-configured non-interactive execution.
+All protocol and runner adapters implement `ITransportAdapter` from
+`@robota-sdk/agent-interface-transport`. Its frozen lifecycle kind distinguishes a service from a
+runner. `start()` resolves when a service is ready or a runner is launched; runner termination is
+observed separately through `ITransportRunnerAdapter.waitForCompletion()`, which returns an exact
+success/failure exit-code outcome. Registry completion is wider: normal stop or startup rollback
+records pending runners as `abandoned` without turning shutdown into failure. The TUI is deliberately
+different: `renderApp` and
+`TuiInteractionChannel` own their session instead of pretending to implement the borrowed-session
+adapter contract.
 
 `agent-remote-client` is a companion package that provides an HTTP client for calling an agent exposed via `agent-transport-http`. It has no dependency on `agent-framework`.
 

@@ -13,11 +13,17 @@ import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-co
 
 import type { TuiStateManager } from '../tui-state-manager.js';
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
-import type { ICommandResult, IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type {
+  ICommandResult,
+  ISessionConversationRead,
+  ISessionLifecycle,
+} from '@robota-sdk/agent-interface-transport';
+
+export interface ICommandResultSession extends ISessionLifecycle, ISessionConversationRead {}
 
 export function applySystemCommandResult(
   result: ICommandResult,
-  interactiveSession: IInteractiveSession,
+  interactiveSession: ICommandResultSession,
   registry: CommandRegistry,
   manager: TuiStateManager,
   reloadPluginCommandSource?: (registry: CommandRegistry) => void,

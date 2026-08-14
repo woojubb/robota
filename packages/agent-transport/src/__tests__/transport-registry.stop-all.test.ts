@@ -15,6 +15,7 @@ function makeTransport(
 ): IConfigurableTransport<IInteractiveSession> {
   return {
     name,
+    lifecycle: Object.freeze({ kind: 'service' }),
     defaultEnabled: true,
     attach: vi.fn(),
     start: vi.fn().mockResolvedValue(undefined),

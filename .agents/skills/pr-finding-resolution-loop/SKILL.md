@@ -115,7 +115,8 @@ Track: `last_findings = {}` (set of finding identities `file:line + severity`).
    [ci-gate-watch](../ci-gate-watch/SKILL.md) on the PR's checks. `GREEN` → step 1. `RED` or `STALLED` →
    **leave the loop** and route it as a build/test failure under the verification rules, not as a review
    finding; re-enter here once the head is green. This precondition belongs HERE and only here: the merge
-   round must judge what will actually merge, and `merge-gate` requires a review newer than the head commit.
+   round must judge what will actually merge, and `merge-gate` requires a verdict for the exact current
+   base/head SHA pair.
 1. **Read the review CI produced. Do not perform one.** The reviewer on an open PR is the review
    automation the pull request runs; this loop RESOLVES what it reports. Fetch its findings —
    [automated-review-convergence](../automated-review-convergence/SKILL.md) owns that procedure,
@@ -203,9 +204,11 @@ Track: `last_findings = {}` (set of finding identities `file:line + severity`).
 ## Merge path (on `ACTIONABLE FINDINGS: 0`)
 
 Hand to the gated merge path (detailed wiring is HARNESS-018d). The gate is mechanical:
-`.claude/hooks/merge-gate.sh` refuses `gh pr merge` unless CI is `CLEAN` and a review newer than the
-head commit exists, and refuses outright while `ACTIONABLE FINDINGS: <n>` is non-zero — so a step of
-this pipeline cannot be skipped by merging directly.
+`.claude/hooks/merge-gate.sh` refuses `gh pr merge` unless CI is `CLEAN` and the newest verdict names
+the exact current `baseRefOid` and `headRefOid`, and refuses outright while
+`ACTIONABLE FINDINGS: <n>` is non-zero — so a step of this pipeline cannot be skipped by merging
+directly. A newer timestamp cannot substitute for that pair because the base may change without a
+new child-head commit.
 
 It also refuses while any of the reviewer's inline finding threads is unanswered. Resolved with no
 reply under it counts as unanswered: anyone can resolve a thread, and a finding with no reply is the

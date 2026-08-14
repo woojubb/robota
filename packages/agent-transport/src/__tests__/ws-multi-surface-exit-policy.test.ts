@@ -60,7 +60,7 @@ function setupSharedHost(adapters: ICommandHostAdapters): {
   const attach = (driverId: string): ISurface => {
     const sent: TServerMessage[] = [];
     const { onMessage } = createWsHandler({
-      session: session as unknown as IInteractiveSession,
+      session,
       send: (msg) => sent.push(msg),
       driverId,
     });

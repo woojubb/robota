@@ -41,6 +41,14 @@ agent-transport-ws
    from @robota-sdk/agent-transport-protocol)
 ```
 
+### Lifecycle conformance (ARCH-011)
+
+Both public subjects declare frozen `service` lifecycles. `createWsTransport` is ready when its
+handler and `onMessage` callback exist; `WsTransport` is ready only after the loopback endpoint is
+bound and `boundPort` is available. Start before attach and repeated active start reject
+`TransportLifecycleError`; repeated stop is bounded/safe and clears the session so restart requires
+reattach. Each subject invokes the shared suite exactly once under its package/export roster id.
+
 ### Frame routing — two profiles on one connection (TRANS-001)
 
 `WsTransport` is a **payload-agnostic carrier**. It routes by WebSocket frame opcode, so the
@@ -66,17 +74,21 @@ unauthenticated socket receives no channel traffic.
 Owns `IWsTransportOptions`, `IWsTransportConfig`, and `TChannelSink`. The session bridge
 (`createWsHandler`/`IWsHandlerOptions`), the wire protocol (`TClientMessage`/`TServerMessage`), and the
 TRANS-001 channel frame codec are owned by `@robota-sdk/agent-transport-protocol` and imported from
-there; the channel CONTRACTS (`IPayloadChannel`, `IChannelDescriptor`, `IBinaryFrame`, …) are owned by
+there. Both WS adapters accept the protocol-owned `IProtocolSession` role aggregate through a narrow
+attach overload while preserving their legacy `ITransportAdapter<IInteractiveSession>` /
+`IConfigurableTransport<IInteractiveSession>` declarations. The channel CONTRACTS (`IPayloadChannel`,
+`IChannelDescriptor`, `IBinaryFrame`, …) are owned by
 `@robota-sdk/agent-interface-transport`. Consumers import execution-workspace contract types from
 `@robota-sdk/agent-interface-transport` directly (INFRA-025: no pass-through re-exports).
 
 ## Public API Surface
 
-| Export                   | Kind     | Description                                                                       |
-| ------------------------ | -------- | --------------------------------------------------------------------------------- |
-| `WsTransport`            | class    | Settings-backed configurable WS transport; also an `IPayloadChannelHost`          |
-| `createWsTransport`      | function | Functional WS transport factory                                                   |
-| `PayloadChannelRegistry` | class    | TRANS-001 channel registry: declare, route inbound frames, fan out to connections |
+| Export                   | Kind      | Description                                                                       |
+| ------------------------ | --------- | --------------------------------------------------------------------------------- |
+| `WsTransport`            | class     | Settings-backed configurable WS transport; also an `IPayloadChannelHost`          |
+| `createWsTransport`      | function  | Functional WS transport factory                                                   |
+| `IWsTransport`           | interface | Legacy adapter declaration plus narrow attach overload                            |
+| `PayloadChannelRegistry` | class     | TRANS-001 channel registry: declare, route inbound frames, fan out to connections |
 
 ### Payload-agnostic channels (TRANS-001)
 

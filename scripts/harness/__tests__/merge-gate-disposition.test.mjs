@@ -10,6 +10,8 @@ import { DISPOSITION_LABELS } from '../record-local-review.mjs';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/merge-gate.sh');
 const WORKFLOW = path.join(WORKSPACE_ROOT, '.github/workflows/review-gate.yml');
+const BASE_OID = '1111111111111111111111111111111111111111';
+const HEAD_OID = '2222222222222222222222222222222222222222';
 
 /**
  * The disposition a merge is judged against belongs to the PR, not to a checkout (PROC-007).
@@ -91,6 +93,10 @@ function stubbedPath(prs) {
       '  process.exit(0);',
       '}',
       'if (args.includes("mergeStateStatus")) { console.log(pr.state ?? "CLEAN"); process.exit(0); }',
+      'if (args.includes("baseRefOid") && args.includes("headRefOid")) {',
+      '  console.log(`${pr.baseOid ?? ""} ${pr.headOid ?? ""}`);',
+      '  process.exit(0);',
+      '}',
       'if (args.includes("--json commits")) { console.log(pr.headAt ?? ""); process.exit(0); }',
       'if (args.includes("--json comments")) {',
       '  const jq = process.argv[process.argv.indexOf("--jq") + 1] ?? "";',
@@ -131,11 +137,13 @@ function stubbedPath(prs) {
 const CLEARED = {
   state: 'CLEAN',
   headAt: '2026-08-01T10:00:00Z',
+  baseOid: BASE_OID,
+  headOid: HEAD_OID,
   comments: [
     {
       author: { login: 'github-actions' },
       createdAt: '2026-08-01T10:05:00Z',
-      body: 'fine\nACTIONABLE FINDINGS: 0',
+      body: `REVIEWED BASE: ${BASE_OID}\nREVIEWED HEAD: ${HEAD_OID}\nfine\nACTIONABLE FINDINGS: 0`,
     },
   ],
 };

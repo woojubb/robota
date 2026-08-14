@@ -1,10 +1,7 @@
 import { executeSlashCommandIfPresent, subscribeStreamJsonEvents } from './headless-stream-json.js';
 
-import type {
-  IExecutionResult,
-  IGoalEvent,
-  IInteractiveSession,
-} from '@robota-sdk/agent-interface-transport';
+import type { IHeadlessSession } from './headless-session.js';
+import type { IExecutionResult, IGoalEvent } from '@robota-sdk/agent-interface-transport';
 
 export type TOutputFormat = 'text' | 'json' | 'stream-json';
 
@@ -19,7 +16,7 @@ export interface IHeadlessGoalOptions {
 }
 
 export interface IHeadlessRunnerOptions {
-  session: IInteractiveSession;
+  session: IHeadlessSession;
   outputFormat: TOutputFormat;
 }
 
@@ -48,7 +45,7 @@ export function createHeadlessRunner(options: IHeadlessRunnerOptions): {
  * if it stopped at a bound (max-iterations / no-progress / cancelled), or 1 on a turn error.
  */
 function runGoalFormat(
-  session: IInteractiveSession,
+  session: IHeadlessSession,
   objective: string,
   goalOptions: IHeadlessGoalOptions,
   outputFormat: TOutputFormat,
@@ -123,7 +120,7 @@ export function writeJsonResult(
   process.stdout.write(output + '\n');
 }
 
-export function getSessionId(session: IInteractiveSession): string {
+export function getSessionId(session: IHeadlessSession): string {
   try {
     return session.getSession().getSessionId();
   } catch {
@@ -163,7 +160,7 @@ function createExitCodeLatch(): {
   };
 }
 
-async function runTextFormat(session: IInteractiveSession, prompt: string): Promise<number> {
+async function runTextFormat(session: IHeadlessSession, prompt: string): Promise<number> {
   const latch = createExitCodeLatch();
   const cleanup = (): void => {
     session.off('complete', onComplete);
@@ -208,7 +205,7 @@ async function runTextFormat(session: IInteractiveSession, prompt: string): Prom
   return latch.value();
 }
 
-async function runJsonFormat(session: IInteractiveSession, prompt: string): Promise<number> {
+async function runJsonFormat(session: IHeadlessSession, prompt: string): Promise<number> {
   const latch = createExitCodeLatch();
   const cleanup = (): void => {
     session.off('complete', onComplete);
@@ -256,7 +253,7 @@ async function runJsonFormat(session: IInteractiveSession, prompt: string): Prom
   return latch.value();
 }
 
-async function runStreamJsonFormat(session: IInteractiveSession, prompt: string): Promise<number> {
+async function runStreamJsonFormat(session: IHeadlessSession, prompt: string): Promise<number> {
   const latch = createExitCodeLatch();
   // subscribeStreamJsonEvents' terminal handlers each cleanup + write a single result then invoke this
   // callback; guard so a terminal event and the catch below cannot both write (see createExitCodeLatch).

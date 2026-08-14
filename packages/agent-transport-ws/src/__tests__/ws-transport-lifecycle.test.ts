@@ -1,9 +1,20 @@
+import { createServer } from 'node:net';
+
+import {
+  createTestInteractiveSession,
+  runTransportLifecycleConformance,
+} from '@robota-sdk/agent-interface-transport/testing';
+
 import { WebSocket } from 'ws';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, expectTypeOf, vi, afterEach } from 'vitest';
 
 import { WsTransport } from '../ws-transport-configurable.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type {
+  IConfigurableTransport,
+  IInteractiveSession,
+} from '@robota-sdk/agent-interface-transport';
+import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
 
 /**
  * ARCH-004 RUNTIME-13 — `stop()` must resolve even with a client still connected.
@@ -14,7 +25,7 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport'
  */
 
 function mockSession(): IInteractiveSession {
-  return {
+  return Object.assign(createTestInteractiveSession(), {
     getMessages: vi.fn().mockReturnValue([]),
     getExecutionWorkspaceSnapshot: vi.fn().mockReturnValue({ entries: [] }),
     on: vi.fn(),
@@ -22,7 +33,7 @@ function mockSession(): IInteractiveSession {
     submit: vi.fn(),
     abort: vi.fn(),
     cancelQueue: vi.fn(),
-  } as unknown as IInteractiveSession;
+  });
 }
 
 const started: WsTransport[] = [];
@@ -31,6 +42,15 @@ afterEach(async () => {
 });
 
 describe('WsTransport lifecycle (ARCH-004 RUNTIME-13)', () => {
+  it('preserves the legacy adapter declaration and accepts the named subset', () => {
+    const transport = new WsTransport({
+      open: true,
+      openReason: 'type compatibility test',
+    });
+    expectTypeOf(transport).toMatchTypeOf<IConfigurableTransport<IInteractiveSession>>();
+    expectTypeOf(transport.attach).parameter(0).toMatchTypeOf<IProtocolSession>();
+  });
+
   it('stop() resolves promptly with a client still connected (previously hung forever)', async () => {
     const t = new WsTransport({
       port: 17800,
@@ -61,5 +81,59 @@ describe('WsTransport lifecycle (ARCH-004 RUNTIME-13)', () => {
     } catch {
       /* already closed */
     }
+  });
+
+  it('can retry start after a bind failure without an intervening stop', async () => {
+    const blocker = createServer();
+    await new Promise<void>((resolve, reject) => {
+      blocker.once('error', reject);
+      blocker.listen(0, '127.0.0.1', resolve);
+    });
+    const address = blocker.address();
+    if (!address || typeof address === 'string') throw new Error('Expected a TCP address.');
+
+    const transport = new WsTransport({
+      port: address.port,
+      maxRetries: 0,
+      open: true,
+      openReason: 'bind failure lifecycle regression',
+    });
+    transport.attach(mockSession());
+    let blockerOpen = true;
+    try {
+      await expect(transport.start()).rejects.toMatchObject({ code: 'EADDRINUSE' });
+      await new Promise<void>((resolve, reject) =>
+        blocker.close((error) => (error ? reject(error) : resolve())),
+      );
+      blockerOpen = false;
+
+      await expect(transport.start()).resolves.toBeUndefined();
+      started.push(transport);
+      expect(transport.boundPort).toBe(address.port);
+    } finally {
+      if (blockerOpen) {
+        await new Promise<void>((resolve) => blocker.close(() => resolve()));
+      }
+    }
+  });
+
+  it('invokes the shared lifecycle conformance suite', async () => {
+    await runTransportLifecycleConformance({
+      subjectId: '@robota-sdk/agent-transport-ws#WsTransport',
+      kind: 'service',
+      createAdapter: () =>
+        new WsTransport({
+          port: 0,
+          open: true,
+          openReason: 'ARCH-011 lifecycle conformance',
+        }),
+      createSession: mockSession,
+      assertReady: (transport) => {
+        if (transport.boundPort === undefined) throw new Error('WS endpoint not bound');
+      },
+      assertStopped: (transport) => {
+        if (transport.boundPort !== undefined) throw new Error('WS endpoint still bound');
+      },
+    });
   });
 });

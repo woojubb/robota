@@ -1,3 +1,5 @@
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { extractDtlsFingerprint, startPairingHandshake } from '@robota-sdk/agent-remote-pairing';
 import { describe, expect, it, vi } from 'vitest';
 import { RTCPeerConnection } from 'werift';
@@ -17,14 +19,14 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport'
  */
 
 function createStubSession(): IInteractiveSession {
-  return {
+  return Object.assign(createTestInteractiveSession(), {
     getMessages: vi.fn().mockReturnValue([{ role: 'user', content: 'hi' }]),
     // ARCH-012: required. This double feeds `subscribeSessionEvents`, which calls it on every
     // turn-authored event — omitting it throws the moment a case emits one.
     getActiveDriverId: () => null,
     on: vi.fn(),
     off: vi.fn(),
-  } as unknown as IInteractiveSession;
+  });
 }
 
 interface IRemoteResult {

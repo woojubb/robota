@@ -238,6 +238,7 @@ describe('default CLI command composition', () => {
 
       session.attachTransport(transport);
       await transport.start();
+      await transport.waitForCompletion();
 
       expect(transport.getExitCode()).toBe(0);
       expect(session.getSession().getPermissionMode()).toBe('plan');
@@ -307,6 +308,7 @@ describe('default CLI command composition', () => {
 
       session.attachTransport(transport);
       await transport.start();
+      await transport.waitForCompletion();
 
       expect(transport.getExitCode()).toBe(0);
       const output = parseJsonObject(writes.join('').trim());

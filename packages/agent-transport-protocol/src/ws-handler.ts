@@ -1,11 +1,11 @@
 /**
- * WebSocket transport adapter — exposes IInteractiveSession over WebSocket.
+ * WebSocket transport adapter — exposes IProtocolSession over WebSocket.
  *
  * Framework-agnostic: works with any WebSocket implementation via
  * send/onMessage callbacks. No dependency on ws, uWebSockets, etc.
  *
  * Protocol: JSON messages with { type, ...payload } structure.
- * Server pushes IInteractiveSession events to client in real-time.
+ * Server pushes IProtocolSession events to client in real-time.
  */
 
 import {
@@ -14,8 +14,9 @@ import {
 } from './ws-background-messages.js';
 import { subscribeSessionEvents } from './ws-session-events.js';
 
+import type { IProtocolSession } from './protocol-session.js';
 import type { TClientMessage, TServerMessage } from './ws-protocol.js';
-import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId } from '@robota-sdk/agent-interface-transport';
 
 // Outbound session→TServerMessage fan-out (incl. CMD-004 requester-routed `ui_intent`) lives in
 // `ws-session-events.ts`; re-exported here for the bridge and existing importers.
@@ -23,8 +24,8 @@ export { subscribeSessionEvents } from './ws-session-events.js';
 export type { ISubscribeSessionEventsOptions } from './ws-session-events.js';
 
 export interface IWsHandlerOptions {
-  /** IInteractiveSession to expose. */
-  session: IInteractiveSession;
+  /** IProtocolSession to expose. */
+  session: IProtocolSession;
   /** Send a JSON message to the client. */
   send: (message: TServerMessage) => void;
   /**
@@ -36,7 +37,7 @@ export interface IWsHandlerOptions {
 }
 
 /**
- * Create a WebSocket message handler for an IInteractiveSession.
+ * Create a WebSocket message handler for an IProtocolSession.
  *
  * Returns:
  * - `onMessage(data)`: call this when the WebSocket receives a message
@@ -66,7 +67,7 @@ export function createWsHandler(options: IWsHandlerOptions): {
 }
 
 function createWsMessageHandler(
-  session: IInteractiveSession,
+  session: IProtocolSession,
   send: (message: TServerMessage) => void,
   driverId?: TDriverId,
 ): (data: string) => void {
@@ -95,7 +96,7 @@ export function parseClientMessage(
  * the {@link SessionResumeBridge} intercepts `resume`/`ack` itself and delegates everything else here.
  */
 export function handleClientMessage(
-  session: IInteractiveSession,
+  session: IProtocolSession,
   send: (message: TServerMessage) => void,
   msg: TClientMessage,
   driverId?: TDriverId,
@@ -193,7 +194,7 @@ function isPromptResponseMessage(
  * acknowledgement is needed; the resulting `prompt_resolved` server event is the shared signal.
  */
 function handlePromptResponseMessage(
-  session: IInteractiveSession,
+  session: IProtocolSession,
   msg: Extract<TClientMessage, { type: 'permission-response' | 'ask-response' }>,
   driverId?: TDriverId,
 ): void {
@@ -206,7 +207,7 @@ function handlePromptResponseMessage(
 }
 
 function handleSessionControlMessage(
-  session: IInteractiveSession,
+  session: IProtocolSession,
   send: (message: TServerMessage) => void,
   msg: Extract<TClientMessage, { type: 'submit' | 'command' | 'abort' | 'cancel-queue' }>,
   driverId?: TDriverId,
@@ -251,7 +252,7 @@ function handleSessionControlMessage(
 }
 
 function handleSessionQueryMessage(
-  session: IInteractiveSession,
+  session: IProtocolSession,
   send: (message: TServerMessage) => void,
   msg: Extract<
     TClientMessage,

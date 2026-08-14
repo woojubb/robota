@@ -2,7 +2,12 @@
  * Configurable transport contracts — enable/disable + options schema.
  */
 
-import type { ITransportAdapter } from './transport-adapter.js';
+import type {
+  ITransportCompletionRecord,
+  ITransportFailureRecord,
+  ITransportServiceAdapter,
+  TTransportAdapter,
+} from './transport-adapter.js';
 import type { IDestroyResult } from '@robota-sdk/agent-core';
 
 export interface ITransportConfig {
@@ -10,31 +15,46 @@ export interface ITransportConfig {
   options?: Record<string, unknown>;
 }
 
-export interface IConfigurableTransport<TSession = unknown> extends ITransportAdapter<TSession> {
+export interface ITransportSettingsCapability {
   readonly defaultEnabled: boolean;
   readonly optionsSchema?: Record<string, { type: string; description: string; default?: unknown }>;
   validateOptions?(options: Record<string, unknown>): boolean;
 }
 
+/** Legacy configurable transports are services; settings remain an orthogonal capability. */
+export interface IConfigurableTransport<TSession = unknown>
+  extends ITransportServiceAdapter<TSession>, ITransportSettingsCapability {}
+
+export type TConfigurableTransport<TSession = unknown> = TTransportAdapter<TSession> &
+  ITransportSettingsCapability;
+
 export interface ITransportEntry<TSession = unknown> {
-  transport: IConfigurableTransport<TSession>;
+  transport: TConfigurableTransport<TSession>;
   config: ITransportConfig;
 }
 
-export interface ITransportRegistryView<TSession = unknown> {
-  getAll(): ITransportEntry<TSession>[];
-  setEnabled(name: string, enabled: boolean): Promise<void>;
+export type TTransportConfigurationErrorCode = 'unknown-transport' | 'not-configurable';
+
+export interface ITransportConfigurationError extends Error {
+  readonly name: 'TransportConfigurationError';
+  readonly code: TTransportConfigurationErrorCode;
+  readonly transportName: string;
+}
+
+export interface ITransportLifecycleRegistryView<TSession = unknown> {
+  register(transport: TTransportAdapter<TSession>): void;
   startAll(session: TSession): Promise<void>;
-  /**
-   * Settle when every run-to-completion transport has finished, rejecting with the first failure to
-   * occur. Resolves immediately when there are none, which is the ordinary case.
-   *
-   * ARCH-011: on the VIEW, not only the concrete registry. A run-to-completion transport is started
-   * without being awaited, so this is the only place its failure can arrive — and the first draft put
-   * it on the class alone, where the two production callers, which both hold this view, could not
-   * reach it. A failure route nothing can call is not a route.
-   */
-  waitForCompletion(): Promise<void>;
+  waitForCompletion(): Promise<ITransportCompletionRecord[]>;
+  waitForFailure(): Promise<ITransportFailureRecord | undefined>;
   /** Best-effort: never rejects; per-transport stop failures come back in the result (CORE-013). */
   stopAll(): Promise<IDestroyResult>;
 }
+
+export interface ITransportSettingsRegistryView<TSession = unknown> {
+  getAll(): ITransportEntry<TSession>[];
+  setEnabled(name: string, enabled: boolean): Promise<void>;
+  setOptions(name: string, options: Record<string, unknown>): Promise<void>;
+}
+
+export interface ITransportRegistryView<TSession = unknown>
+  extends ITransportLifecycleRegistryView<TSession>, ITransportSettingsRegistryView<TSession> {}

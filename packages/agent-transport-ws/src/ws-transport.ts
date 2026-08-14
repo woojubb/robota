@@ -7,28 +7,43 @@
 
 import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
 
-import type { IInteractiveSession, ITransportAdapter } from '@robota-sdk/agent-interface-transport';
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type {
+  IInteractiveSession,
+  ITransportAdapter,
+  ITransportLifecycleError,
+} from '@robota-sdk/agent-interface-transport';
+import type { IProtocolSession, TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
 export interface IWsTransportOptions {
   /** Send a JSON message to the connected WebSocket client. */
   send: (message: TServerMessage) => void;
 }
 
-export function createWsTransport(
-  options: IWsTransportOptions,
-): ITransportAdapter<IInteractiveSession> & { onMessage: ((data: string) => void) | null } {
-  let session: IInteractiveSession | null = null;
+export interface IWsTransport extends ITransportAdapter<IInteractiveSession> {
+  attach(session: IProtocolSession): void;
+  onMessage: ((data: string) => void) | null;
+}
+
+export function createWsTransport(options: IWsTransportOptions): IWsTransport {
+  let session: IProtocolSession | null = null;
   let cleanup: (() => void) | null = null;
+  const lifecycleError = (code: ITransportLifecycleError['code']): ITransportLifecycleError =>
+    Object.assign(new Error(`WebSocket transport ${code}.`), {
+      name: 'TransportLifecycleError' as const,
+      code,
+      transportName: 'ws',
+    });
 
   return {
     name: 'ws',
+    lifecycle: Object.freeze({ kind: 'service' }),
     onMessage: null,
-    attach(s: IInteractiveSession) {
+    attach(s: IProtocolSession) {
       session = s;
     },
     async start() {
-      if (!session) throw new Error('No session attached. Call attach() first.');
+      if (!session) throw lifecycleError('not-attached');
+      if (cleanup) throw lifecycleError('already-started');
       const handler = createWsHandler({ session, send: options.send });
       cleanup = handler.cleanup;
       this.onMessage = handler.onMessage;
@@ -37,6 +52,7 @@ export function createWsTransport(
       cleanup?.();
       cleanup = null;
       this.onMessage = null;
+      session = null;
     },
   };
 }

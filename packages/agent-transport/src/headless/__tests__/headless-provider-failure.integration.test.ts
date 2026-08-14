@@ -102,6 +102,7 @@ describe('headless provider failure exit codes (CLI-064)', () => {
       const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'say hi' });
       session.attachTransport(transport);
       await transport.start();
+      await transport.waitForCompletion();
 
       expect(transport.getExitCode()).toBe(1);
       expect(stderr.writes.join('')).toContain('authentication_error');
@@ -127,6 +128,7 @@ describe('headless provider failure exit codes (CLI-064)', () => {
       const transport = createHeadlessTransport({ outputFormat: 'json', prompt: 'say hi' });
       session.attachTransport(transport);
       await transport.start();
+      await transport.waitForCompletion();
 
       expect(transport.getExitCode()).toBe(1);
       const parsed: unknown = JSON.parse(stdout.writes.join('').trim());
@@ -170,6 +172,7 @@ describe('headless provider failure exit codes (CLI-064)', () => {
       const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'say hi' });
       session.attachTransport(transport);
       await transport.start();
+      await transport.waitForCompletion();
 
       expect(transport.getExitCode(), 'an abort-prose failure exited zero').toBe(1);
       expect(stderr.writes.join('')).toContain('connection aborted by peer');

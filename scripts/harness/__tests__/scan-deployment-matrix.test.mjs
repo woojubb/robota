@@ -72,15 +72,8 @@ describe('findTransportNames — the live transport packages', () => {
    * this scan parses — could never contribute. This assertion, and the matrix line it mirrors,
    * asserted a complete set that the code contradicted.
    */
-  it('enumerates exactly {tui, headless, ws, webrtc, http, mcp} from code', () => {
-    expect([...findTransportNames()].sort()).toEqual([
-      'headless',
-      'http',
-      'mcp',
-      'tui',
-      'webrtc',
-      'ws',
-    ]);
+  it('enumerates exactly {headless, ws, webrtc, http, mcp} adapter names from code', () => {
+    expect([...findTransportNames()].sort()).toEqual(['headless', 'http', 'mcp', 'webrtc', 'ws']);
   });
 
   it('includes the BASE agent-transport package, not only its hyphenated siblings', () => {

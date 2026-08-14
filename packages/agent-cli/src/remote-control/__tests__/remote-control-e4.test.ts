@@ -1,3 +1,5 @@
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import {
   deriveReconnectRendezvous,
   deriveReconnectSeed,
@@ -76,11 +78,11 @@ function setup(store: ITrustedDeviceStore, identity: IHostIdentity) {
   const created: ICreatedTransport[] = [];
   const rendezvouses: string[] = [];
   const ceilings: { cb: () => void; delayMs: number }[] = [];
-  const session = {
+  const session = Object.assign(createTestInteractiveSession(), {
     on: vi.fn(),
     off: vi.fn(),
     getMessages: () => [],
-  } as unknown as IInteractiveSession;
+  });
   const controller = new RemoteControlController({
     registry: { register: () => {} } as unknown as TransportRegistry,
     readRelayUrl: () => 'ws://relay',

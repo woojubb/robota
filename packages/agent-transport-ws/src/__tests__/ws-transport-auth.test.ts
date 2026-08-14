@@ -1,3 +1,5 @@
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { WebSocket } from 'ws';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
@@ -16,7 +18,7 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport'
  */
 
 function mockSession(): IInteractiveSession {
-  return {
+  return Object.assign(createTestInteractiveSession(), {
     getMessages: vi.fn().mockReturnValue([{ role: 'user', content: 'hi' }]),
     getExecutionWorkspaceSnapshot: vi.fn().mockReturnValue({ entries: [] }),
     on: vi.fn(),
@@ -27,7 +29,7 @@ function mockSession(): IInteractiveSession {
     executeCommand: vi.fn(),
     resolvePermission: vi.fn(),
     resolveAsk: vi.fn(),
-  } as unknown as IInteractiveSession;
+  });
 }
 
 const started: WsTransport[] = [];

@@ -127,6 +127,7 @@ describe('scan-contract-cast-ratchet', () => {
     const frozen = JSON.parse(
       readFileSync(path.join(root, 'scripts/harness/contract-cast-baseline.json'), 'utf8'),
     );
+    expect(frozen[CONTRACT]).toBe(0);
     const reported = Number(/(\d+) cast\(s\) at baseline/.exec(output)?.[1] ?? '-1');
     expect(reported).toBe(frozen[CONTRACT]);
   });

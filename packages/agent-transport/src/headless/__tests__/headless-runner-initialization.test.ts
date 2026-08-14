@@ -1,3 +1,5 @@
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { describe, it, expect, vi } from 'vitest';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import { createHeadlessRunner } from '../headless-runner.js';
@@ -7,7 +9,7 @@ describe('createHeadlessRunner initialization', () => {
     const stdoutWriteSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
     let initialized = false;
-    const session = {
+    const session = Object.assign(createTestInteractiveSession(), {
       on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         if (!listeners.has(event)) listeners.set(event, []);
         listeners.get(event)!.push(handler);
@@ -28,7 +30,7 @@ describe('createHeadlessRunner initialization', () => {
         }
         return { getSessionId: () => 'initialized-session' };
       }),
-    } as unknown as IInteractiveSession;
+    });
 
     try {
       const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });

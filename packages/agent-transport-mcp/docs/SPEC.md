@@ -26,18 +26,30 @@ agent-transport-mcp
 
 ## Type Ownership
 
-Owns `IMcpTransportOptions`, `IAgentMcpOptions`.
+Owns `IMcpTransportOptions`, `IAgentMcpOptions`, and `IMcpTransportSession`. MCP consumes only the
+turn-submission and command roles. The public transport preserves its legacy
+`ITransportAdapter<IInteractiveSession>` declaration and adds a narrow
+`attach(IMcpTransportSession)` overload.
 
 ## Public API Surface
 
-| Export                 | Kind     | Description                      |
-| ---------------------- | -------- | -------------------------------- |
-| `createMcpTransport`   | function | MCP server transport adapter     |
-| `createAgentMcpServer` | function | Build an MCP server for an agent |
+| Export                 | Kind      | Description                                            |
+| ---------------------- | --------- | ------------------------------------------------------ |
+| `createMcpTransport`   | function  | MCP server transport adapter                           |
+| `createAgentMcpServer` | function  | Build an MCP server for an agent                       |
+| `IMcpTransport`        | interface | Legacy adapter declaration plus narrow attach overload |
+| `IMcpTransportSession` | interface | Exact submission + command session roles               |
 
 ## Extension Points
 
 New tools/resources extend `createAgentMcpServer`; new options extend the option interfaces.
+
+## Lifecycle Conformance (ARCH-011)
+
+`createMcpTransport` is a frozen `service` lifecycle. Readiness means the MCP `Server` exists through
+`getServer()`; carrier connection remains the host's responsibility. Start before attach and repeated
+active start reject `TransportLifecycleError`; repeated stop is safe and restart requires a new
+attach. The shared suite owner id is `@robota-sdk/agent-transport-mcp#createMcpTransport`.
 
 ## Error Taxonomy
 

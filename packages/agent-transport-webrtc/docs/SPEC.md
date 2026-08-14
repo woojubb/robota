@@ -2,7 +2,8 @@
 
 ## Scope
 
-WebRTC P2P transport (REMOTE-001 / REMOTE-002 Stage A). Carries an `IInteractiveSession` over an
+WebRTC P2P transport (REMOTE-001 / REMOTE-002 Stage A). Carries the protocol-owned
+`IProtocolSession` capability over an
 `RTCDataChannel` so an external remote client can co-drive a live `agent-cli` session directly, peer-to-peer,
 without routing session content through any server. Reuses the transport-neutral session bridge + wire protocol
 from `@robota-sdk/agent-transport-protocol` (the same `createWsHandler` the WebSocket transport uses) so the
@@ -37,7 +38,8 @@ protocol is shared, not duplicated.
 
 ## Architecture Overview
 
-`WebRtcTransport` implements `IConfigurableTransport<IInteractiveSession>` (`name='webrtc'`,
+`WebRtcTransport` preserves `IConfigurableTransport<IInteractiveSession>` for declaration compatibility
+and adds `attach(IProtocolSession)` for the exact role subset (`name='webrtc'`,
 `defaultEnabled:false`). The host is the **offerer**: `start()` lazily loads `werift`, opens an
 `RTCPeerConnection`, subscribes ICE candidates to the injected signaling client, serializes inbound
 answer/ICE signals (so `setRemoteDescription` always precedes any `addIceCandidate` — werift does not buffer
@@ -47,6 +49,12 @@ is built immediately and `onMessage` subscribed at once, because werift does not
 arrive before a subscription and the remote can send its first `TClientMessage` before the host's channel opens.
 Outbound `send` runs under try/catch (werift buffers sends while `connecting`; only a `closing`/`closed` channel
 throws). `stop()` tears down the handler, signal subscription, and peer.
+
+ARCH-011 classifies this as a frozen `service` lifecycle. Its readiness boundary is publication of
+the local offer/signaling state; it deliberately does not wait for an external answer, data-channel
+open, or pairing decision. Start before attach and repeated active start reject
+`TransportLifecycleError`; repeated stop is safe and restart requires reattach. The shared suite
+owner id is `@robota-sdk/agent-transport-webrtc#WebRtcTransport`.
 
 **Pairing gate (REMOTE-008, when `options.secret` is set).** The eager `onMessage` subscription becomes a ROUTING
 SWITCH into `PairingGate` (`src/pairing-gate.ts`) — never a deferred subscription. The local DTLS fingerprint is
@@ -134,9 +142,9 @@ protocol) + `@robota-sdk/agent-remote-pairing` (REMOTE-008 pairing gate; zero-de
 
 ### Interface Implementations
 
-| Class             | Implements                                    | Location                  |
-| ----------------- | --------------------------------------------- | ------------------------- |
-| `WebRtcTransport` | `IConfigurableTransport<IInteractiveSession>` | `src/webrtc-transport.ts` |
+| Class             | Implements                                                                    | Location                  |
+| ----------------- | ----------------------------------------------------------------------------- | ------------------------- |
+| `WebRtcTransport` | `IConfigurableTransport<IInteractiveSession>` plus `attach(IProtocolSession)` | `src/webrtc-transport.ts` |
 
 ### Inheritance Chains
 

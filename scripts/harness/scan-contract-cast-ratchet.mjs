@@ -14,16 +14,17 @@
  * conformant double existed the whole time — in `@robota-sdk/agent-framework`, which every transport
  * package sits BELOW, so none of them could import it. The partials were not an oversight; they were
  * the only thing those packages could reach. The double now lives at
- * `@robota-sdk/agent-interface-transport/testing`, beside the contract, and the count is 37.
+ * `@robota-sdk/agent-interface-transport/testing`, beside the contract. ARCH-012 then split the
+ * consumer roles and migrated the remaining 37 casts, bringing the live count to zero.
  *
  * (The audit that raised this reported 51/33. That came from `rg 'as IInteractiveSession'`, which
  * also matches `as IInteractiveSessionEvents[...]` and `as IInteractiveSessionStandardOptions` —
  * casts to different types. Recorded because a baseline whose provenance nobody can explain is a
  * number, not a ratchet.)
  *
- * A RATCHET, NOT A BAN. The count may fall and must never rise. Banning outright would be
- * unlandable today and would be suppressed rather than obeyed; freezing the number makes every new
- * cast a deliberate, visible decision instead of a default.
+ * ARCH-012 completed the migration: the frozen count is now ZERO. The same ratchet therefore acts
+ * as a ban on reintroducing a direct aggregate cast, while retaining generic support for other
+ * contracts whose debt may still need a non-zero migration baseline.
  *
  * NEUTRAL BY CONSTRUCTION: the contracts it watches are data in `.agents/harness.config.json` →
  * `contractCastRatchet`, so another repository names its own and changes no code here.

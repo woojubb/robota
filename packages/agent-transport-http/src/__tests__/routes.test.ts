@@ -605,7 +605,7 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
     const backing = createHonestSession();
     const app = createAgentRoutes({
       // A new object every call, forwarding to one session — the shape that defeated identity.
-      sessionFactory: () => ({ ...backing.session }) as IInteractiveSession,
+      sessionFactory: () => Object.assign(createTestInteractiveSession(), { ...backing.session }),
       admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
     });
     const post = async (prompt: string): Promise<Response> =>

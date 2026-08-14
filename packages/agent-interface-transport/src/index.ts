@@ -6,12 +6,36 @@
 export type { IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
 
 // ── Transport adapter contracts ──────────────────────────────
-export type { ITransportAdapter } from './transport-adapter.js';
+export type {
+  ITransportAdapter,
+  ITransportCompletionRecord,
+  ITransportFailureRecord,
+  ITransportLifecycle,
+  ITransportLifecycleError,
+  ITransportRollbackError,
+  ITransportRunnerAdapter,
+  ITransportServiceAdapter,
+  ITransportStartupError,
+  TNonZeroExitCode,
+  TTransportAbandonmentReason,
+  TTransportAdapter,
+  TTransportCompletionOutcome,
+  TTransportLifecycleKind,
+  TTransportLifecycleErrorCode,
+  TTransportRunOutcome,
+} from './transport-adapter.js';
+export { createTransportFailedOutcome, isTransportRunOutcome } from './transport-adapter.js';
 export type {
   ITransportConfig,
   IConfigurableTransport,
+  ITransportSettingsCapability,
   ITransportEntry,
+  ITransportConfigurationError,
+  ITransportLifecycleRegistryView,
   ITransportRegistryView,
+  ITransportSettingsRegistryView,
+  TConfigurableTransport,
+  TTransportConfigurationErrorCode,
 } from './transport-config.js';
 
 // ── Payload-agnostic channel contracts (TRANS-001) ───────────
@@ -73,6 +97,13 @@ export {
 } from './interaction-contracts.js';
 // RUNTIME-003: the one narrowing for a rejected `ITurnHandle.completed` (a value, not a type).
 export { isTurnNotRunError } from './turn-contracts.js';
+export { createSessionCapabilityHost, readSessionCapability } from './session-capability-host.js';
+export { SESSION_CAPABILITY_MEMBER_KEYS } from './session-capability-contracts.js';
+export type {
+  ISessionCapabilityHost,
+  TSessionCapabilityHost,
+  TSessionCapabilityReadResult,
+} from './session-capability-host.js';
 // ── Driver identity + driver-routed event contracts ─────────
 // REMOTE-014 E5: co-drive driver-id constants (values, not types).
 export { OWNER_DRIVER_ID, AGENT_DRIVER_ID } from './driver-contracts.js';
@@ -183,6 +214,23 @@ export type {
 export type {
   IInteractiveSession,
   IInteractiveSessionEvents,
+  ISessionAgentJobs,
+  ISessionBackgroundGroups,
+  ISessionBackgroundTasks,
+  ISessionCapabilityMap,
+  ISessionCommands,
+  ISessionConversationRead,
+  ISessionDriverAttribution,
+  ISessionEvents,
+  ISessionExecutionState,
+  ISessionExecutionWorkspace,
+  ISessionGoal,
+  ISessionIdentity,
+  ISessionLifecycle,
+  ISessionPromptResolution,
+  ISessionTurnControl,
+  ISessionTurnSubmission,
+  ISessionWorkspaceLocation,
   TInteractiveEventName,
   TTurnSource,
   IExecutionResult,

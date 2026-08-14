@@ -11,7 +11,8 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { resolveGitBaseRef, WORKSPACE_ROOT } from './shared.mjs';
+import { WORKSPACE_ROOT } from './shared.mjs';
+import { createPrePushBasePlan, resolvePrePushBaseRef } from './pre-push-base-ref.mjs';
 import {
   decidePrePushVerification,
   formatLockfileFailureMessage,
@@ -197,14 +198,24 @@ function hasWorkingTreeChanges() {
 
 function readPrePushInput() {
   if (process.stdin.isTTY) {
-    return '';
+    return { input: '', provided: false };
   }
 
   try {
-    return readFileSync(0, 'utf8');
+    const input = readFileSync(0, 'utf8');
+    return { input, provided: input.trim().length > 0 };
   } catch {
-    return '';
+    return { input: '', provided: true };
   }
+}
+
+function readGitValue(args) {
+  const result = spawnSync('git', args, {
+    cwd: WORKSPACE_ROOT,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+  return result.status === 0 ? result.stdout.trim() : '';
 }
 
 function resolvePrePushMode(value) {
@@ -251,6 +262,7 @@ export function runPrePushGate(steps) {
   steps.pruneAndWarnStaleWorktrees();
   steps.assertCleanWorkingTree();
   steps.assertLockfileConsistency();
+  steps.reportBaseResolution();
 
   const decision = steps.decideVerification();
   if (!decision.shouldRun) {
@@ -271,14 +283,29 @@ export function runPrePushGate(steps) {
 }
 
 /** The real steps, bound to this process's environment and working tree. */
-function createPrePushSteps() {
-  const baseRef = resolveGitBaseRef(process.env.HARNESS_BASE_REF ?? null);
-  const baseArgs = baseRef ? ['--base-ref', baseRef] : [];
+export function createPrePushSteps() {
+  const prePushInput = readPrePushInput();
+  const updates = parsePrePushUpdates(prePushInput.input);
+  const currentBranch = readGitValue(['symbolic-ref', '--quiet', '--short', 'HEAD']);
+  const headOid = readGitValue(['rev-parse', 'HEAD^{commit}']);
+  const baseResolution = resolvePrePushBaseRef({
+    updates,
+    hookInputProvided: prePushInput.provided,
+    currentBranch,
+    headOid,
+    pushRemoteName: process.env.HARNESS_PRE_PUSH_REMOTE_NAME ?? null,
+    pushRemoteUrl: process.env.HARNESS_PRE_PUSH_REMOTE_URL ?? null,
+    originUrl: readGitValue(['remote', 'get-url', 'origin']),
+    explicitBaseRef: process.env.HARNESS_BASE_REF ?? null,
+    env: process.env,
+  });
+  const basePlan = createPrePushBasePlan(baseResolution);
+  const baseRef = basePlan.baseRef;
+  const baseArgs = basePlan.baseArgs;
   const prePushMode = resolvePrePushMode(process.env.HARNESS_PRE_PUSH_MODE);
   const scopeExpansionArgs = prePushMode === 'fast' ? ['--skip-dependent-scopes'] : [];
-  const updates = parsePrePushUpdates(readPrePushInput());
-  const changeClassification = baseRef
-    ? classifyRange({ baseRef, head: 'HEAD', cwd: WORKSPACE_ROOT })
+  const changeClassification = basePlan.classificationBaseRef
+    ? classifyRange({ baseRef: basePlan.classificationBaseRef, head: 'HEAD', cwd: WORKSPACE_ROOT })
     : classifyFiles([]);
 
   return {
@@ -287,19 +314,30 @@ function createPrePushSteps() {
     assertLockfileConsistency,
     assertTreePrerequisites,
 
+    reportBaseResolution: () => {
+      if (baseResolution.source === 'fallback') {
+        process.stdout.write(
+          `▶ PR-base optimization unavailable: ${baseResolution.fallbackReason}; ` +
+            `using fallback ${baseRef ?? 'unresolved'}\n`,
+        );
+        return;
+      }
+      process.stdout.write(`▶ pre-push base: ${baseRef} (${baseResolution.source})\n`);
+    },
+
     decideVerification: () =>
       decidePrePushVerification({
         updates,
-        baseRef,
+        baseRef: basePlan.decisionBaseRef,
         treeMatchesBase:
-          baseRef && !hasWorkingTreeChanges()
-            ? runGitQuiet(['diff', '--quiet', baseRef, 'HEAD', '--'])
+          basePlan.decisionBaseRef && !hasWorkingTreeChanges()
+            ? runGitQuiet(['diff', '--quiet', basePlan.decisionBaseRef, 'HEAD', '--'])
             : false,
       }),
 
     findReusableReceipt: () =>
       findReusableVerification({
-        baseRef,
+        baseRef: basePlan.receiptBaseRef,
         stages: CI_STAGES.map((stage) => stage.name),
         updates,
         root: WORKSPACE_ROOT,
