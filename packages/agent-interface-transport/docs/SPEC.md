@@ -112,29 +112,34 @@ the other.
 
 ## Public API Surface
 
-| Export                            | Kind      | Description                                                                                    |
-| --------------------------------- | --------- | ---------------------------------------------------------------------------------------------- |
-| `ITransportAdapter`               | Interface | Core attach/start/stop lifecycle contract (generic TSession)                                   |
-| `ITransportConfig`                | Interface | Persisted enabled + options shape                                                              |
-| `IConfigurableTransport`          | Interface | Configurable transport with defaultEnabled + options schema                                    |
-| `ITransportEntry`                 | Interface | (transport, config) pair used in registry storage                                              |
-| `ITransportRegistryView`          | Interface | Registry management: getAll, setEnabled, startAll, stopAll                                     |
-| `OWNER_DRIVER_ID`                 | Constant  | REMOTE-014 E5 driver id for a local/owner turn (display-only attribution, never authorization) |
-| `AGENT_DRIVER_ID`                 | Constant  | REMOTE-014 E5 driver id for an autonomous (wakeup/goal) turn — never the owner                 |
-| `createTestInteractiveSession`    | Function  | ARCH-012: the conformant `IInteractiveSession` double — see § Session capability members       |
-| `createTestSessionCapabilityHost` | Function  | ARCH-012 testing-subpath alias for constructing a typed subset capability host                 |
-| `createSessionCapabilityHost`     | Function  | ARCH-012: construct a flattened host from one typed session capability map                     |
-| `readSessionCapability`           | Function  | ARCH-012: distinguish an absent role from a present role whose method returns an empty value   |
-| `readAssistantReplies`            | Function  | Pure interaction-event accessor for assistant reply records                                    |
-| `readLastAssistantText`           | Function  | Pure interaction-event accessor for the latest assistant text                                  |
-| `readToolCalls`                   | Function  | Pure interaction-event accessor for tool-call observations                                     |
-| `readErrors`                      | Function  | Pure interaction-event accessor for recorded errors                                            |
-| `ITransportAdmission`             | Interface | SEC-008: the resolved decision — a credential, or `null` with a written `openReason`           |
-| `ITransportAdmissionConfig`       | Interface | SEC-008: how a caller asks for an admission decision                                           |
-| `ITurnHandle`                     | Interface | RUNTIME-003: a submission's identity and a promise for its own turn                            |
-| `ITurnNotRunError`                | Interface | RUNTIME-003: the shape a rejected `completed` carries — constructed in agent-framework         |
-| `TTurnNotRunReason`               | Type      | RUNTIME-003: why a submission never became a turn (coalesced/dropped/cancelled)                |
-| `isTurnNotRunError`               | Function  | RUNTIME-003: the one narrowing for a rejected `completed` — refusal vs. a failure in the turn  |
+| Export                             | Kind      | Description                                                                                    |
+| ---------------------------------- | --------- | ---------------------------------------------------------------------------------------------- |
+| `ITransportAdapter`                | Interface | Core attach/start/stop lifecycle contract (generic TSession)                                   |
+| `ITransportRunnerAdapter`          | Interface | Runner adapter with a separate typed terminal-outcome wait                                     |
+| `ITransportLifecycleRegistryView`  | Interface | Base-adapter registration, lifecycle, completion, and prompt failure projection                |
+| `ITransportSettingsRegistryView`   | Interface | Configurable-adapter settings projection                                                       |
+| `ITransportConfig`                 | Interface | Persisted enabled + options shape                                                              |
+| `IConfigurableTransport`           | Interface | Configurable transport with defaultEnabled + options schema                                    |
+| `ITransportEntry`                  | Interface | (transport, config) pair used in registry storage                                              |
+| `ITransportRegistryView`           | Interface | Registry management: getAll, setEnabled, startAll, stopAll                                     |
+| `OWNER_DRIVER_ID`                  | Constant  | REMOTE-014 E5 driver id for a local/owner turn (display-only attribution, never authorization) |
+| `AGENT_DRIVER_ID`                  | Constant  | REMOTE-014 E5 driver id for an autonomous (wakeup/goal) turn — never the owner                 |
+| `createTestInteractiveSession`     | Function  | ARCH-012: the conformant `IInteractiveSession` double — see § Session capability members       |
+| `createTestSessionCapabilityHost`  | Function  | ARCH-012 testing-subpath alias for constructing a typed subset capability host                 |
+| `runTransportLifecycleConformance` | Function  | Testing-subpath fixture runner for the shared adapter lifecycle contract                       |
+| `createSessionCapabilityHost`      | Function  | ARCH-012: construct a flattened host from one typed session capability map                     |
+| `readSessionCapability`            | Function  | ARCH-012: distinguish an absent role from a present role whose method returns an empty value   |
+| `SESSION_CAPABILITY_MEMBER_KEYS`   | Constant  | Frozen runtime SSOT mapping the 16 session roles to their exact 39 legacy members              |
+| `readAssistantReplies`             | Function  | Pure interaction-event accessor for assistant reply records                                    |
+| `readLastAssistantText`            | Function  | Pure interaction-event accessor for the latest assistant text                                  |
+| `readToolCalls`                    | Function  | Pure interaction-event accessor for tool-call observations                                     |
+| `readErrors`                       | Function  | Pure interaction-event accessor for recorded errors                                            |
+| `ITransportAdmission`              | Interface | SEC-008: the resolved decision — a credential, or `null` with a written `openReason`           |
+| `ITransportAdmissionConfig`        | Interface | SEC-008: how a caller asks for an admission decision                                           |
+| `ITurnHandle`                      | Interface | RUNTIME-003: a submission's identity and a promise for its own turn                            |
+| `ITurnNotRunError`                 | Interface | RUNTIME-003: the shape a rejected `completed` carries — constructed in agent-framework         |
+| `TTurnNotRunReason`                | Type      | RUNTIME-003: why a submission never became a turn (coalesced/dropped/cancelled)                |
+| `isTurnNotRunError`                | Function  | RUNTIME-003: the one narrowing for a rejected `completed` — refusal vs. a failure in the turn  |
 
 The package root (`src/index.ts`) additionally re-exports the following contract groups. These
 are type-only except for the four pure accessor functions re-exported from `interaction-contracts`

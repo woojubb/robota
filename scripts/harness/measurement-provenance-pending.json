@@ -10,6 +10,7 @@
     "scripts/harness/scan-memory-mirror.mjs",
     "scripts/harness/scan-no-fake-in-src.mjs",
     "scripts/harness/scan-product-identity.mjs",
+    "scripts/harness/scan-transport-conformance.mjs",
     "scripts/harness/scan-workflow-permissions.mjs"
   ],
   "pending": [

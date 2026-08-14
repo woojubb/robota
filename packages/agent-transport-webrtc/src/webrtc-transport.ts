@@ -11,6 +11,7 @@ import type { IProtocolSession, SessionResumeBridge } from '@robota-sdk/agent-tr
 
 import { loadWerift } from './werift-loader.js';
 import { PairingGate, type IHostReconnectConfig } from './pairing-gate.js';
+import { createTransportLifecycleError } from './transport-lifecycle-error.js';
 import type { ISignalingClient } from './signaling.js';
 import type { IWeriftModule } from './werift-loader.js';
 
@@ -90,7 +91,7 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
   private cleanupHandler?: () => void;
   /** REMOTE-013 E4: true once the pairing gate accepted; a channel close after this is a DROP, not a failure. */
   private paired = false;
-  /** REMOTE-013 E4: guards `onDropped` to fire at most once per transport instance. */
+  /** Guards `onDropped` to fire at most once per transport instance. */
   private dropped = false;
   /** REMOTE-008: local DTLS fingerprint (from the offer SDP), captured for the pairing channel-binding. */
   private localFingerprint?: string;
@@ -102,8 +103,7 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     // transport auto-mints its credential, which cannot work here — a pairing secret has to be known
     // by the peer, so there is nothing to mint. What carries across is the direction of the default:
     // no decision means no transport, rather than no gate.
-    // A secret AND an explicit open is a contradiction, and it used to pass in silence: the branch
-    // below is skipped when a secret is present, so `open`/`openReason` were ignored without a word.
+    // A secret AND explicit open is a contradiction; previously open/openReason were ignored.
     // The caller asked for two different things and got one — which of them they meant is not
     // something this constructor can know, so it refuses rather than picking.
     if (this.options.secret && this.options.open === true) {
@@ -146,8 +146,8 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
 
   public async start(): Promise<void> {
     const session = this.session;
-    if (!session) throw this.lifecycleError('not-attached');
-    if (this.peer) throw this.lifecycleError('already-started');
+    if (!session) throw createTransportLifecycleError('not-attached');
+    if (this.peer) throw createTransportLifecycleError('already-started');
 
     const { RTCPeerConnection } = (this.options.loadWerift ?? loadWerift)();
     const peerConfig: {
@@ -288,15 +288,5 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
       this.peer = undefined;
     }
     this.session = undefined;
-  }
-
-  private lifecycleError(
-    code: import('@robota-sdk/agent-interface-transport').ITransportLifecycleError['code'],
-  ): import('@robota-sdk/agent-interface-transport').ITransportLifecycleError {
-    return Object.assign(new Error(`WebRtcTransport ${code}.`), {
-      name: 'TransportLifecycleError' as const,
-      code,
-      transportName: this.name,
-    });
   }
 }

@@ -17,18 +17,26 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
+import { loadHarnessConfig } from './harness-config.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const GOVERNED_TREE = 'packages';
 
+const SCOPE = loadHarnessConfig().npmScopePrefix;
 export const TRANSPORT_CONFORMANCE_SUBJECTS = Object.freeze([
-  '@robota-sdk/agent-transport#createHeadlessTransport',
-  '@robota-sdk/agent-transport-http#createHttpTransport',
-  '@robota-sdk/agent-transport-mcp#createMcpTransport',
-  '@robota-sdk/agent-transport-ws#createWsTransport',
-  '@robota-sdk/agent-transport-ws#WsTransport',
-  '@robota-sdk/agent-transport-webrtc#WebRtcTransport',
+  `${SCOPE}agent-transport#createHeadlessTransport`,
+  `${SCOPE}agent-transport-http#createHttpTransport`,
+  `${SCOPE}agent-transport-mcp#createMcpTransport`,
+  `${SCOPE}agent-transport-ws#createWsTransport`,
+  `${SCOPE}agent-transport-ws#WsTransport`,
+  `${SCOPE}agent-transport-webrtc#WebRtcTransport`,
 ]);
+
+let examinedTransportCount = 0;
+
+export function readExaminedTransportCount() {
+  return examinedTransportCount;
+}
 
 function walk(dir, accept) {
   if (!existsSync(dir)) return [];
@@ -59,6 +67,7 @@ export function discoverTransportSubjects(root = WORKSPACE_ROOT) {
     why: 'the public adapter declarations and their conformance invocations live there.',
   });
 
+  examinedTransportCount = 0;
   const subjects = [];
   for (const packageDir of transportPackageDirs(root)) {
     const manifestPath = path.join(packageDir, 'package.json');
@@ -80,12 +89,16 @@ export function discoverTransportSubjects(root = WORKSPACE_ROOT) {
         const factory = new RegExp(
           `export\\s+function\\s+(\\w+)\\s*\\([^)]*\\)\\s*:\\s*${interfaceName}\\b`,
         ).exec(source)?.[1];
-        if (factory) subjects.push(`${packageName}#${factory}`);
+        if (factory) {
+          subjects.push(`${packageName}#${factory}`);
+          examinedTransportCount += 1;
+        }
       }
       for (const match of source.matchAll(
         /export\s+class\s+(\w+)[\s\S]{0,160}?implements\s+IConfigurableTransport\s*</g,
       )) {
         subjects.push(`${packageName}#${match[1]}`);
+        examinedTransportCount += 1;
       }
     }
   }
@@ -127,9 +140,8 @@ export function findTransportConformanceFindings(
 }
 
 function main() {
-  const discovered = discoverTransportSubjects();
   const findings = findTransportConformanceFindings();
-  console.log(`::examined:: ${discovered.length} public transport adapter subject(s)`);
+  console.log(`::examined:: ${readExaminedTransportCount()} public transport adapter subject(s)`);
   if (findings.length === 0) {
     console.log('transport-conformance scan passed.');
     return;

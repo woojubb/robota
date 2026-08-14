@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   discoverTransportSubjects,
   findTransportConformanceFindings,
+  readExaminedTransportCount,
 } from '../scan-transport-conformance.mjs';
 
 let root;
@@ -49,10 +50,15 @@ describe('transport conformance roster', () => {
       kind: 'class',
     });
 
-    expect(discoverTransportSubjects(root)).toEqual([
-      '@scope/one#createOne',
-      '@scope/two#TwoTransport',
-    ]);
+    expect(
+      findTransportConformanceFindings(root, ['@scope/one#createOne', '@scope/two#TwoTransport']),
+    ).toEqual([]);
+    expect(readExaminedTransportCount()).toBe(2);
+
+    expect(
+      findTransportConformanceFindings(root, ['@scope/one#createOne', '@scope/two#TwoTransport']),
+    ).toEqual([]);
+    expect(readExaminedTransportCount()).toBe(2);
   });
 
   it('fails an unregistered new public adapter', () => {

@@ -112,6 +112,13 @@ export const MANDATORY_TREE_GUARDS = [
   },
   {
     // Measured the way this harness calls it — `finder(bare)`: throws `packages missing from <root>`.
+    file: 'scan-transport-conformance.mjs',
+    finder: 'findTransportConformanceFindings',
+    tree: 'packages',
+    why: 'it reconciles every public transport adapter against the conformance roster; without packages, an empty discovered set would otherwise look like complete lifecycle coverage',
+  },
+  {
+    // Measured the way this harness calls it — `finder(bare)`: throws `packages missing from <root>`.
     file: 'scan-browser-package-node-subpath.mjs',
     finder: 'findBrowserNodeSubpathFindings',
     tree: 'packages',

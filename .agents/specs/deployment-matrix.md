@@ -15,7 +15,7 @@ missing a row here (undocumented) or a Transport-`name` row here names a nonexis
 ## Matrix
 
 The **Transport `name`** column is the drift-scanned key — the set of transport adapters that declare a `name`,
-verified in code as exactly `{tui, headless, ws, webrtc, http, mcp}`. The **Client / presentation** column is NOT
+verified in code as exactly `{headless, ws, webrtc, http, mcp}`. The **Client / presentation** column is NOT
 a transport (React/browser packages carry no transport `name`) and is out of scope for the drift floor.
 
 `headless` was added by HARNESS-052, not by a new transport: the drift scan matched the package-directory prefix
@@ -25,7 +25,7 @@ been asserted as complete by a check structurally incapable of reading one of it
 
 | Surface        | Runtime                                              | Transport `name`   | Client / presentation        | Prior art in-repo                                              |
 | -------------- | ---------------------------------------------------- | ------------------ | ---------------------------- | -------------------------------------------------------------- |
-| CLI / terminal | local `agent-cli` process                            | `tui`              | `agent-transport` print      | —                                                              |
+| CLI / terminal | local `agent-cli` process                            | —                  | `agent-transport-tui`        | `renderApp` + `TuiInteractionChannel` presentation boundary    |
 | CLI / one-shot | local `agent-cli` print mode (`-p`), non-interactive | `headless`         | —                            | `agent-transport/headless` (print / JSON / stream-json runner) |
 | Desktop        | headless `robota --serve` spawned by Electron        | `ws` (nonce auth)  | `agent-transport-gui`        | GUI-002 / RUNTIME-001                                          |
 | Web            | `apps/agent-server` (Express + WS) / browser peer    | `ws`               | `agent-transport-webrtc-web` | playground stack                                               |
@@ -38,8 +38,8 @@ been asserted as complete by a check structurally incapable of reading one of it
 The drift scan parses both forms (a transport declares its `name` in one of two ways):
 
 - **Class form** — `readonly name = '…'` on an `IConfigurableTransport` class (registry-registrable, has
-  `defaultEnabled`): `tui` (`agent-transport-tui`), `ws` (`agent-transport-ws/ws-transport-configurable.ts`),
-  `webrtc` (`agent-transport-webrtc`).
+  `defaultEnabled`): `ws` (`agent-transport-ws/ws-transport-configurable.ts`) and `webrtc`
+  (`agent-transport-webrtc`).
 - **Factory form** — `name: '…'` on a factory object-literal implementing plain `ITransportAdapter` (no
   `defaultEnabled`; mounted outside `startAll`'s fan-out but still `attach(session)` over the DIP): `http`
   (`agent-transport-http`), `mcp` (`agent-transport-mcp`), `ws` (`agent-transport-ws/ws-transport.ts`),
@@ -47,14 +47,14 @@ The drift scan parses both forms (a transport declares its `name` in one of two 
   package-prefix filter used to skip).
 
 **Excluded** (export no transport `name`): `agent-transport-protocol` (shared protocol lib),
-`agent-transport-gui` + `agent-transport-webrtc-web` (React/browser presentation).
+`agent-transport-tui`, `agent-transport-gui`, and `agent-transport-webrtc-web` (presentation).
 
 ## Fan-out (one session → many transports)
 
 `startAll(session)` starts every `defaultEnabled:true` transport, each `attach(session)`'d to the **same**
-`IInteractiveSession` instance. A transport that is `defaultEnabled:false` (or a plain `ITransportAdapter`
-factory) is mounted **out-of-band** — `registry.register(t); t.attach(session); void t.start()` — still on the
-same session. The live simultaneous two-transport / one-session case is **REMOTE-001**: a default `WsTransport`
+`IInteractiveSession` instance. A transport that is `defaultEnabled:false` is skipped until enabled; a plain
+`ITransportAdapter` has no settings projection and is always lifecycle-enabled once registered. The live
+simultaneous two-transport / one-session case is **REMOTE-001**: a default `WsTransport`
 plus the pairing-time `WebRtcTransport`, both `attach(session)` on one instance.
 
 ## Deploying one definition over ≥2 channels

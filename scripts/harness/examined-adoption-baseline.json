@@ -59,6 +59,7 @@
     "test-plans",
     "test-selection-tolerance",
     "transport-admission",
+    "transport-conformance",
     "vitest-resource-ceiling",
     "workflow-permissions",
     "workspace-refs"
