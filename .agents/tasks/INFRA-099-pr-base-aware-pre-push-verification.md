@@ -54,6 +54,10 @@ keeping the existing broader base as a visible fail-safe fallback.
   with one intentional skip; the run also passed the 112-file / 2,289-test repository-contract tier, the
   72-file / 1,058-test hermetic tier, the root build, typecheck, affected verification, binary E2E, examples,
   and TUI E2E. Hosted exact-PR-base proof and lifecycle completion remain part of TC-05.
+- The first hosted push, before a PR existed, visibly took the safe `origin/develop` fallback and reproduced
+  the excessive 110-file / 11-workspace-scope plan. Draft PR #1725 now targets
+  `feat/arch-dag-runtime-completion` at exact base OID `0d98461b6a613dadb26a4410619ebc9c430ecba9`; the next push is
+  the hosted optimized-path proof.
 
 ## Decisions
 
