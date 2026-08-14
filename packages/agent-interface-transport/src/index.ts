@@ -9,21 +9,32 @@ export type { IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
 export type {
   ITransportAdapter,
   ITransportCompletionRecord,
+  ITransportFailureRecord,
   ITransportLifecycle,
   ITransportLifecycleError,
+  ITransportRollbackError,
   ITransportRunnerAdapter,
+  ITransportServiceAdapter,
+  ITransportStartupError,
+  TNonZeroExitCode,
+  TTransportAbandonmentReason,
+  TTransportAdapter,
+  TTransportCompletionOutcome,
   TTransportLifecycleKind,
   TTransportLifecycleErrorCode,
   TTransportRunOutcome,
 } from './transport-adapter.js';
+export { createTransportFailedOutcome, isTransportRunOutcome } from './transport-adapter.js';
 export type {
   ITransportConfig,
   IConfigurableTransport,
+  ITransportSettingsCapability,
   ITransportEntry,
   ITransportConfigurationError,
   ITransportLifecycleRegistryView,
   ITransportRegistryView,
   ITransportSettingsRegistryView,
+  TConfigurableTransport,
   TTransportConfigurationErrorCode,
 } from './transport-config.js';
 

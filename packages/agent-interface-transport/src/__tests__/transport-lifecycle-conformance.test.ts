@@ -49,6 +49,9 @@ describe('runTransportLifecycleConformance', () => {
         assertReady: (adapter) => {
           if (!adapter.ready) throw new Error('not ready');
         },
+        assertStopped: (adapter) => {
+          if (adapter.ready) throw new Error('still ready');
+        },
       }),
     ).resolves.toBeUndefined();
   });
@@ -61,7 +64,24 @@ describe('runTransportLifecycleConformance', () => {
         createAdapter: () => ({ ...createService(), lifecycle: { kind: 'service' } }),
         createSession: () => ({ id: 'session' }),
         assertReady: () => {},
+        assertStopped: () => {},
       }),
     ).rejects.toThrow(/must be frozen/);
+  });
+
+  it('rejects a service that exposes runner completion', async () => {
+    await expect(
+      runTransportLifecycleConformance({
+        subjectId: 'fixture#service-with-completion',
+        kind: 'service',
+        createAdapter: () => ({
+          ...createService(),
+          waitForCompletion: async () => ({ status: 'succeeded' as const, exitCode: 0 as const }),
+        }),
+        createSession: () => ({ id: 'session' }),
+        assertReady: () => {},
+        assertStopped: () => {},
+      }),
+    ).rejects.toThrow(/service must not expose waitForCompletion/);
   });
 });

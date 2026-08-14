@@ -93,19 +93,15 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
   private paired = false;
   /** Guards `onDropped` to fire at most once per transport instance. */
   private dropped = false;
-  /** REMOTE-008: local DTLS fingerprint (from the offer SDP), captured for the pairing channel-binding. */
+  /** Invalidates pending async startup work and scopes pairing/drop state to one start generation. */
+  private generation = 0;
+  /** Local DTLS fingerprint captured for pairing channel binding. */
   private localFingerprint?: string;
-  /** REMOTE-008: the pairing gate for the current channel (only when `options.secret` is set). */
+  /** Pairing gate for the current channel. */
   private pairingGate?: PairingGate;
 
   public constructor(private readonly options: IWebRtcTransportOptions) {
-    // SEC-008: fail at CONSTRUCTION, before anything can be signalled or connected. The sibling WS
-    // transport auto-mints its credential, which cannot work here — a pairing secret has to be known
-    // by the peer, so there is nothing to mint. What carries across is the direction of the default:
-    // no decision means no transport, rather than no gate.
-    // A secret AND explicit open is a contradiction; previously open/openReason were ignored.
-    // The caller asked for two different things and got one — which of them they meant is not
-    // something this constructor can know, so it refuses rather than picking.
+    // A pairing secret and explicit open admission are contradictory, so fail before signaling.
     if (this.options.secret && this.options.open === true) {
       throw new Error(
         'WebRtcTransport: `secret` and `open: true` are contradictory. A pairing secret gates the ' +
@@ -119,14 +115,7 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
             'data channel, or `{ open: true, openReason: "…" }` to run without pairing on purpose.',
         );
       }
-      // The written-reason requirement is the shared seam's, not this file's — one place decides what
-      // counts as an answer, so the two sibling transports cannot drift apart again. The seam is asked
-      // for its verdict and its error; nothing here re-implements it.
-      //
-      // THE RETURN VALUE IS INTENTIONALLY UNUSED: this call exists only to THROW. WebRTC does not
-      // carry a bearer credential — it pairs — so there is no resolved admission for it to hold; what
-      // it needs from the seam is the refusal of `open` without a reason. Review asked for this
-      // sentence, because a call whose result is always discarded reads at a glance like dead code.
+      // WebRTC has no bearer credential; use the shared seam only to validate the open reason.
       void resolveAdmission({
         open: true,
         ...(this.options.openReason !== undefined ? { openReason: this.options.openReason } : {}),
@@ -143,55 +132,72 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
   public attach(session: IProtocolSession): void {
     this.session = session;
   }
-
-  public async start(): Promise<void> {
-    const session = this.session;
-    if (!session) throw createTransportLifecycleError('not-attached');
-    if (this.peer) throw createTransportLifecycleError('already-started');
-
+  private createPeer(): RTCPeerConnection {
     const { RTCPeerConnection } = (this.options.loadWerift ?? loadWerift)();
-    const peerConfig: {
+    const config: {
       iceServers?: { urls: string; username?: string; credential?: string }[];
       iceTransportPolicy?: 'all' | 'relay';
     } = {};
     if (this.options.iceServers)
-      peerConfig.iceServers = this.options.iceServers.map((s) => ({ ...s }));
-    // REMOTE-010: werift's ICE gatherer derives relay-only from `iceTransportPolicy === 'relay'` — it IGNORES a
-    // top-level `forceTurn`. Map `forceTurn` → `iceTransportPolicy:'relay'`, else the privacy control is a silent
-    // no-op and host/server-reflexive candidates still leak.
-    if (this.options.forceTurn) peerConfig.iceTransportPolicy = 'relay';
-    const peer = new RTCPeerConnection(Object.keys(peerConfig).length > 0 ? peerConfig : undefined);
-    this.peer = peer;
+      config.iceServers = this.options.iceServers.map((server) => ({ ...server }));
+    if (this.options.forceTurn) config.iceTransportPolicy = 'relay';
+    return new RTCPeerConnection(Object.keys(config).length > 0 ? config : undefined);
+  }
+
+  private wireSignaling(
+    peer: RTCPeerConnection,
+    channel: RTCDataChannel,
+    session: IProtocolSession,
+    generation: number,
+  ): void {
     const signaling = this.options.signaling;
-
     peer.onIceCandidate.subscribe((candidate) => {
-      if (candidate) signaling.send({ kind: 'ice', data: candidate.toJSON() });
+      if (candidate && generation === this.generation && peer === this.peer) {
+        signaling.send({ kind: 'ice', data: candidate.toJSON() });
+      }
     });
-
-    // Serialize signal processing so `setRemoteDescription(answer)` always completes before any subsequent
-    // `addIceCandidate` (werift does not buffer trickle candidates that arrive before the remote description).
     let signalChain: Promise<void> = Promise.resolve();
     this.unsubscribeSignal = signaling.onSignal((message) => {
+      if (generation !== this.generation) return;
       signalChain = signalChain.then(async () => {
+        if (generation !== this.generation || peer !== this.peer) return;
         if (message.kind === 'answer') {
           await peer.setRemoteDescription(
             message.data as Parameters<typeof peer.setRemoteDescription>[0],
           );
-          // REMOTE-008: the remote DTLS fingerprint is only knowable now (from the answer SDP). Start the
-          // pairing handshake here — the data channel cannot open (DTLS) until the answer is processed, so no
-          // inbound frame can arrive before the gate exists.
-          this.startPairingIfConfigured(channel, session, message.data);
+          this.startPairingIfConfigured(channel, session, message.data, generation);
         } else if (message.kind === 'ice') {
           await peer.addIceCandidate(message.data as Parameters<typeof peer.addIceCandidate>[0]);
         }
       });
     });
+  }
 
+  private async requireCurrentPeer(peer: RTCPeerConnection, generation: number): Promise<void> {
+    if (generation === this.generation && this.peer === peer) return;
+    await peer.close();
+    throw new Error('WebRtcTransport startup was stopped.');
+  }
+
+  public async start(): Promise<void> {
+    const session = this.session;
+    if (!session) throw createTransportLifecycleError('not-attached');
+    if (this.peer) throw createTransportLifecycleError('already-started');
+    const generation = ++this.generation;
+    this.paired = false;
+    this.dropped = false;
+
+    const peer = this.createPeer();
+    this.peer = peer;
+    const signaling = this.options.signaling;
     const channel = peer.createDataChannel('robota-session');
-    this.wireChannel(channel, session);
+    this.wireChannel(channel, session, generation);
+    this.wireSignaling(peer, channel, session, generation);
 
     const offer = await peer.createOffer();
+    await this.requireCurrentPeer(peer, generation);
     await peer.setLocalDescription(offer);
+    await this.requireCurrentPeer(peer, generation);
     // Capture the local DTLS fingerprint for the pairing channel-binding (offer SDP).
     if (this.options.secret && peer.localDescription) {
       this.localFingerprint = extractDtlsFingerprint(peer.localDescription.sdp);
@@ -199,15 +205,14 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     signaling.send({ kind: 'offer', data: peer.localDescription });
   }
 
-  /**
-   * REMOTE-008: when a pairing secret is configured, build the {@link PairingGate} from the local + remote DTLS
-   * fingerprints once the answer is in. The gate drives the handshake and only exposes the session on accept.
-   */
+  /** Build the pairing gate only after the answer supplies the remote DTLS fingerprint. */
   private startPairingIfConfigured(
     channel: RTCDataChannel,
     session: IProtocolSession,
     answer: unknown,
+    generation: number,
   ): void {
+    if (generation !== this.generation) return;
     const secret = this.options.secret;
     if (!secret || !this.localFingerprint) return;
     const sdp = (answer as { sdp?: unknown }).sdp;
@@ -216,11 +221,11 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
       channel: { send: (d) => channel.send(d), close: () => void channel.close() },
       session,
       secret,
-      role: 'initiator', // the host is the WebRTC offerer ≡ pairing initiator
+      role: 'initiator',
       localFingerprint: this.localFingerprint,
       remoteFingerprint: extractDtlsFingerprint(sdp),
-      // E4: mark paired on accept so a later channel close is a DROP (→ onDropped), not a pre-accept failure.
       onAccept: (result) => {
+        if (generation !== this.generation) return;
         this.paired = true;
         this.options.onPaired?.(result);
       },
@@ -230,23 +235,21 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     });
   }
 
-  private wireChannel(channel: RTCDataChannel, session: IProtocolSession): void {
-    // Subscribe `onMessage` **eagerly at channel creation** — NOT inside the `open` event. werift does not buffer
-    // inbound messages that arrive before a subscription exists, and the remote (answerer) can open its end and
-    // send its first frame before the host's `open` fires, so a deferred subscription drops that first message.
-    //
-    // REMOTE-008: when a pairing secret is configured, the eager subscription is a ROUTING SWITCH — it forwards
-    // to the {@link PairingGate}, which routes to the handshake pre-accept (dropping non-pairing frames) and to
-    // the session bridge post-accept. The gate is created in the answer branch, so a frame arriving before it
-    // exists is dropped (fail-closed) — but the channel cannot open until DTLS (post-answer), so that window is
-    // empty in practice. Without a secret, behavior is unchanged: expose the session immediately.
+  private wireChannel(
+    channel: RTCDataChannel,
+    session: IProtocolSession,
+    generation: number,
+  ): void {
+    // Subscribe eagerly: werift does not buffer a remote's first frame before a listener exists.
+    // With a secret the gate drops pre-accept non-pairing frames; otherwise the session is exposed directly.
     if (this.options.secret) {
       channel.onMessage.subscribe((data) => {
+        if (generation !== this.generation) return;
         this.pairingGate?.onInbound(typeof data === 'string' ? data : data.toString());
       });
-      // REMOTE-013 E4: a channel close AFTER the gate accepted is a reconnectable DROP — detach the bridge
-      // (via the gate cleanup) and tell the controller to run the reconnect loop. The session is NOT torn down.
+      // A post-accept close detaches the resume bridge and starts reconnect without ending the session.
       channel.stateChanged.subscribe((state) => {
+        if (generation !== this.generation) return;
         if ((state === 'closed' || state === 'closing') && this.paired && !this.dropped) {
           this.dropped = true;
           this.pairingGate?.cleanup(); // detaches the resume bridge (keeps buffering); session survives
@@ -272,17 +275,21 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     });
     this.cleanupHandler = cleanup;
     channel.onMessage.subscribe((data) => {
+      if (generation !== this.generation) return;
       onMessage(typeof data === 'string' ? data : data.toString());
     });
   }
 
   public async stop(): Promise<void> {
+    this.generation += 1;
     this.cleanupHandler?.();
     this.unsubscribeSignal?.();
     this.cleanupHandler = undefined;
     this.unsubscribeSignal = undefined;
     this.pairingGate = undefined;
     this.localFingerprint = undefined;
+    this.paired = false;
+    this.dropped = false;
     if (this.peer) {
       await this.peer.close();
       this.peer = undefined;

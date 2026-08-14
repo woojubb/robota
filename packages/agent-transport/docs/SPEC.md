@@ -143,10 +143,12 @@ The driver returned by `createProgrammaticAgent` is typed as `IAgentDriver` (own
 
 ## 6. Extension Points
 
-Register any `ITransportAdapter` into a `TransportRegistry`. A transport that also satisfies
-`IConfigurableTransport` appears in `getAll()` and persists enablement/options under `transports` in
-settings.json; a base-only adapter is lifecycle-enabled and absent from settings. Duplicate names
-reject. Unknown or non-configurable settings mutations reject `TransportConfigurationError`.
+Register any `ITransportAdapter` into a `TransportRegistry`. A service or runner that also satisfies
+the orthogonal `ITransportSettingsCapability` appears as `TConfigurableTransport` in `getAll()` and
+persists enablement/options under `transports` in settings.json; a base-only adapter is
+lifecycle-enabled and absent from settings. The legacy `IConfigurableTransport` name remains the
+source-compatible configurable-service shape. Duplicate names reject. Unknown or non-configurable
+settings mutations reject `TransportConfigurationError`.
 
 ## 7. Error Taxonomy
 
@@ -184,12 +186,17 @@ concrete-transport import.
 **Runner ownership (ARCH-011).** `startAll` awaits each adapter's readiness-returning `start()`, then
 immediately owns every runner's separate completion promise. A startup generation is sealed only
 after every enabled subject is registered, so a synchronously successful first runner cannot make a
-later runner disappear. `waitForCompletion()` returns named outcomes in registration order after all
-runners settle. `waitForFailure()` returns the first nonzero outcome immediately and returns
-`undefined` for no runners, all success, or stop abandonment. A rejected runner promise rejects both
+later runner disappear. `waitForCompletion()` returns one named record per runner in registration
+order; pending runners become registry-owned `abandoned:stopped` or
+`abandoned:startup-rollback`. `waitForFailure()` returns only the first real failed runner immediately
+and returns `undefined` for no runners, all success, or normal stop abandonment. A rejected runner
+promise rejects both
 routes as `TransportLifecycleError`; it is observed immediately and cannot become an unhandled
 rejection.
 
-`stopAll()` abandons the current generation rather than waiting on terminal work. Late settlement is
-ignored, and a later `startAll` owns a distinct generation. Transport stops remain best-effort and
-their errors are collected in `IDestroyResult`.
+The registry serializes idle/starting/active/stopping transitions. Active restart rejects before
+mutation. Startup failure rolls back from the failing adapter through prior adapters in reverse order
+and rejects `TransportStartupError` with the primary non-enumerable cause plus ordered safe rollback
+details. `stopAll()` terminalizes pending aggregate slots rather than waiting on terminal work. Late
+settlement is ignored, and a later `startAll` owns a distinct generation. Transport stops remain
+best-effort and their errors are collected in `IDestroyResult`.

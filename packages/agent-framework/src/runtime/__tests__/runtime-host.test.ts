@@ -12,6 +12,7 @@ import { InteractiveSession } from '../../interactive/interactive-session.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { startRuntimeHost } from '../runtime-host.js';
+import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type {
@@ -106,12 +107,11 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
 
   it('exposes ordered completion and prompt failure waits from the lifecycle registry', async () => {
     const registry = stubRegistry();
-    vi.mocked(registry.waitForCompletion).mockResolvedValue([
-      { name: 'runner', outcome: { status: 'failed', exitCode: 2 } },
-    ]);
+    const failed = createTransportFailedOutcome(2);
+    vi.mocked(registry.waitForCompletion).mockResolvedValue([{ name: 'runner', outcome: failed }]);
     vi.mocked(registry.waitForFailure).mockResolvedValue({
       name: 'runner',
-      outcome: { status: 'failed', exitCode: 2 },
+      outcome: failed,
     });
     const host = await startRuntimeHost({
       session: { cwd, provider: stubProvider() },

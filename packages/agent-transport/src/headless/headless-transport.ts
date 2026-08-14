@@ -5,6 +5,8 @@
  * `start()` launches the work and returns; `waitForCompletion()` owns the typed terminal outcome.
  */
 
+import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
+
 import { createHeadlessRunner } from './headless-runner.js';
 
 import type { TOutputFormat } from './headless-runner.js';
@@ -58,7 +60,7 @@ export function createHeadlessTransport(options: IHeadlessTransportOptions): IHe
         if (runGeneration === generation) exitCode = code;
         return code === 0
           ? { status: 'succeeded', exitCode: 0 }
-          : { status: 'failed', exitCode: code };
+          : createTransportFailedOutcome(code);
       });
       void completion.catch(() => undefined);
     },

@@ -30,9 +30,10 @@ MCP, TUI, etc.) and their configurable lifecycle.
 agent-interface-transport          ← this package (contracts only, zero deps)
   ├── ITransportAdapter            ← required frozen lifecycle kind + attach / start / stop
   ├── ITransportRunnerAdapter      ← runner launch + typed terminal outcome
-  ├── IConfigurableTransport       ← extends ITransportAdapter with enable/disable + options
+  ├── IConfigurableTransport       ← legacy service adapter + settings capability
+  ├── TConfigurableTransport       ← any lifecycle adapter + settings capability
   ├── ITransportConfig             ← persisted transport configuration shape
-  ├── ITransportEntry              ← (transport, config) pairing for registry storage
+  ├── ITransportEntry              ← configurable-only settings projection
   ├── ITransportLifecycleRegistryView ← base-adapter lifecycle and runner waits
   ├── ITransportSettingsRegistryView  ← configurable-only settings projection
   ├── ITransportRegistryView       ← composition of both views
@@ -54,16 +55,18 @@ agent-transport
 
 Types owned by this package (SSOT):
 
-| Type                              | Kind      | File                   | Description                                                                                          |
-| --------------------------------- | --------- | ---------------------- | ---------------------------------------------------------------------------------------------------- |
-| `ITransportAdapter`               | Interface | `transport-adapter.ts` | Core transport lifecycle: `name`, frozen `lifecycle`, `attach(session)`, `start()`, `stop()`         |
-| `ITransportRunnerAdapter`         | Interface | `transport-adapter.ts` | Runner lifecycle plus `waitForCompletion()` and exact typed outcome                                  |
-| `ITransportConfig`                | Interface | `transport-config.ts`  | Persisted config shape: `{ enabled: boolean; options?: Record<string, unknown> }`                    |
-| `IConfigurableTransport`          | Interface | `transport-config.ts`  | Extends `ITransportAdapter` with `defaultEnabled`, `optionsSchema`, and optional `validateOptions()` |
-| `ITransportEntry`                 | Interface | `transport-config.ts`  | `{ transport: IConfigurableTransport<T>; config: ITransportConfig }` — registry item shape           |
-| `ITransportLifecycleRegistryView` | Interface | `transport-config.ts`  | Base registration, start/stop, ordered completion and prompt failure waits                           |
-| `ITransportSettingsRegistryView`  | Interface | `transport-config.ts`  | Configurable-only `getAll`, `setEnabled`, and `setOptions` projection                                |
-| `ITransportRegistryView`          | Interface | `transport-config.ts`  | Composition of lifecycle and settings views                                                          |
+| Type                              | Kind      | File                   | Description                                                                                     |
+| --------------------------------- | --------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
+| `ITransportAdapter`               | Interface | `transport-adapter.ts` | Core transport lifecycle: `name`, frozen `lifecycle`, `attach(session)`, `start()`, `stop()`    |
+| `ITransportRunnerAdapter`         | Interface | `transport-adapter.ts` | Runner lifecycle plus `waitForCompletion()` and exact typed outcome                             |
+| `ITransportConfig`                | Interface | `transport-config.ts`  | Persisted config shape: `{ enabled: boolean; options?: Record<string, unknown> }`               |
+| `ITransportSettingsCapability`    | Interface | `transport-config.ts`  | Orthogonal `defaultEnabled`, `optionsSchema`, and optional `validateOptions()` settings shape   |
+| `IConfigurableTransport`          | Interface | `transport-config.ts`  | Source-compatible service adapter plus `ITransportSettingsCapability`                           |
+| `TConfigurableTransport`          | Type      | `transport-config.ts`  | Any service or runner adapter intersected with the settings capability                          |
+| `ITransportEntry`                 | Interface | `transport-config.ts`  | `{ transport: TConfigurableTransport<T>; config: ITransportConfig }` — settings-only projection |
+| `ITransportLifecycleRegistryView` | Interface | `transport-config.ts`  | Base registration, start/stop, ordered completion and prompt failure waits                      |
+| `ITransportSettingsRegistryView`  | Interface | `transport-config.ts`  | Configurable-only `getAll`, `setEnabled`, and `setOptions` projection                           |
+| `ITransportRegistryView`          | Interface | `transport-config.ts`  | Composition of lifecycle and settings views                                                     |
 
 In addition to the transport-adapter contracts above, the package owns several further contract
 groups, each in its own file (all re-exported from `src/index.ts`):
@@ -120,7 +123,7 @@ the other.
 | `ITransportSettingsRegistryView`   | Interface | Configurable-adapter settings projection                                                       |
 | `ITransportConfig`                 | Interface | Persisted enabled + options shape                                                              |
 | `IConfigurableTransport`           | Interface | Configurable transport with defaultEnabled + options schema                                    |
-| `ITransportEntry`                  | Interface | (transport, config) pair used in registry storage                                              |
+| `ITransportEntry`                  | Interface | Configurable-only `(transport, config)` settings projection                                    |
 | `ITransportRegistryView`           | Interface | Registry management: getAll, setEnabled, startAll, stopAll                                     |
 | `OWNER_DRIVER_ID`                  | Constant  | REMOTE-014 E5 driver id for a local/owner turn (display-only attribution, never authorization) |
 | `AGENT_DRIVER_ID`                  | Constant  | REMOTE-014 E5 driver id for an autonomous (wakeup/goal) turn — never the owner                 |
@@ -239,8 +242,10 @@ The former contract had one ambiguous `start(): Promise<void>` and an optional
 could never reach a service registered behind it. ARCH-011 replaces that ambiguity with a required
 kind. A runner's `start()` launches and returns; `ITransportRunnerAdapter.waitForCompletion()` returns
 exactly `{status:'succeeded', exitCode:0}` or `{status:'failed', exitCode:<nonzero>}` with no raw cause.
-The registry owns the promise immediately, aggregates named outcomes in registration order, and
-offers a separate first-failure wait that does not wait for an unrelated runner.
+The registry owns the promise immediately. Adapter results are only `succeeded | failed`; the wider
+registry aggregate may also record `abandoned: stopped | startup-rollback` for a pending runner.
+The aggregate always contains every runner in registration order. A separate first-failure wait
+reports only a real failed runner and does not turn normal stop abandonment into process failure.
 
 `TuiTransport` is not part of this family: it ignored `attach()` and constructed its own session.
 The TUI's existing `renderApp` and `TuiInteractionChannel` are presentation/session-owner surfaces.
@@ -259,11 +264,17 @@ Persisted in `settings.json` under `transports.<name>`.
 ### `IConfigurableTransport<TSession>`
 
 ```typescript
-export interface IConfigurableTransport<TSession = unknown> extends ITransportAdapter<TSession> {
+export interface ITransportSettingsCapability {
   readonly defaultEnabled: boolean;
   readonly optionsSchema?: Record<string, { type: string; description: string; default?: unknown }>;
   validateOptions?(options: Record<string, unknown>): boolean;
 }
+
+export interface IConfigurableTransport<TSession = unknown>
+  extends ITransportServiceAdapter<TSession>, ITransportSettingsCapability {}
+
+export type TConfigurableTransport<TSession = unknown> = TTransportAdapter<TSession> &
+  ITransportSettingsCapability;
 ```
 
 - `defaultEnabled` — used when no `settings.transports.<name>.enabled` is present
@@ -274,10 +285,10 @@ export interface IConfigurableTransport<TSession = unknown> extends ITransportAd
 
 ```typescript
 export interface ITransportLifecycleRegistryView<TSession = unknown> {
-  register(transport: ITransportAdapter<TSession>): void;
+  register(transport: TTransportAdapter<TSession>): void;
   startAll(session: TSession): Promise<void>;
   waitForCompletion(): Promise<ITransportCompletionRecord[]>;
-  waitForFailure(): Promise<ITransportCompletionRecord | undefined>;
+  waitForFailure(): Promise<ITransportFailureRecord | undefined>;
   stopAll(): Promise<IDestroyResult>;
 }
 
@@ -376,7 +387,8 @@ This package defines contracts that consumers implement or extend:
 | Extension Point          | Kind      | Implementor                                                                                                                                                                  | Description                                                      |
 | ------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | `ITransportAdapter`      | Interface | `createHttpTransport` (http), `createMcpTransport` (mcp), `createHeadlessTransport` (agent-transport/headless), `createWsTransport` factory (ws) — all return a bare adapter | Implement to create a transport with attach/start/stop lifecycle |
-| `IConfigurableTransport` | Interface | `WsTransport` (`agent-transport-ws`), `WebRtcTransport` (`agent-transport-webrtc`)                                                                                           | Extend `ITransportAdapter` with settings capability              |
+| `IConfigurableTransport` | Interface | `WsTransport` (`agent-transport-ws`), `WebRtcTransport` (`agent-transport-webrtc`)                                                                                           | Legacy service adapter with settings capability                  |
+| `TConfigurableTransport` | Type      | Registry settings projection, including configurable runners                                                                                                                 | Compose any adapter kind with settings capability                |
 | Registry views           | Interface | `agent-transport` (`TransportRegistry`, structurally compatible)                                                                                                             | Segregate lifecycle from configurable settings projection        |
 | `IPayloadChannelHost`    | Interface | `WsTransport` (`agent-transport-ws`, via its `PayloadChannelRegistry`)                                                                                                       | Carry consumer-declared binary/event channels on the connection  |
 
@@ -419,5 +431,6 @@ implementors must satisfy:
 | `IPayloadChannelHost`     | `WsTransport` (declared `implements`) and `PayloadChannelRegistry`                                                                                              | `agent-transport-ws`                           |
 
 The deliberate intra-package extension chains are `ITransportRunnerAdapter` and
-`IConfigurableTransport` over `ITransportAdapter`, plus `ITransportRegistryView` composing the
-lifecycle and settings registry views.
+`ITransportServiceAdapter` over `ITransportAdapter`, legacy `IConfigurableTransport` over the service
+adapter plus settings capability, and `ITransportRegistryView` composing the lifecycle and settings
+registry views. `TConfigurableTransport` keeps settings orthogonal to lifecycle kind.

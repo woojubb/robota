@@ -29,6 +29,11 @@ registry.register(createHttpTransport()); // a plain adapter → lifecycle-manag
 await registry.startAll(session); // attaches + starts every enabled transport on THIS session
 ```
 
+The registry serializes startup and shutdown. A second active `startAll()` is rejected before
+mutation; partial startup is rolled back in reverse order. Runner adapters report only their own
+success/failure, while `waitForCompletion()` may record a pending runner as registry-owned
+`abandoned` on normal stop or startup rollback. That abandonment does not make normal shutdown fail.
+
 Both channels now serve the one session. See the runnable
 [`examples/capabilities/multi-surface-deploy`](../../examples/capabilities/multi-surface-deploy/).
 

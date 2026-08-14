@@ -72,6 +72,9 @@ export class WsTransport
 
   private session: IProtocolSession | null = null;
   private stopFn: (() => Promise<void>) | null = null;
+  private state: 'detached' | 'attached' | 'starting' | 'ready' | 'stopping' = 'detached';
+  private startOperation: Promise<{ stop: () => Promise<void>; port: number }> | undefined;
+  private startCancelled = false;
   private readonly port: number;
   private readonly maxRetries: number;
   private readonly token?: string;
@@ -95,6 +98,7 @@ export class WsTransport
   attach(session: IProtocolSession): void;
   attach(session: IProtocolSession): void {
     this.session = session;
+    this.state = 'attached';
   }
 
   /**
@@ -109,11 +113,7 @@ export class WsTransport
     return this.channels.registerChannel(descriptor);
   }
 
-  /**
-   * GUI-007: the actually-bound port after `start()` (may differ from the requested port — `bindWithRetry`
-   * walks up on `EADDRINUSE`). `undefined` before start. A surface (e.g. `agent-cli --serve`) reads this to
-   * point the served monitor's `ws-url` at the real port.
-   */
+  /** Actually-bound port after start; undefined before start. */
   get boundPort(): number | undefined {
     return this.resolvedPort;
   }
@@ -129,17 +129,41 @@ export class WsTransport
 
   async start(): Promise<void> {
     if (!this.session) throw this.lifecycleError('not-attached');
-    if (this.stopFn) throw this.lifecycleError('already-started');
-    const handle = await this.bindWithRetry(this.session, this.port, this.maxRetries);
+    if (this.state === 'starting' || this.state === 'ready' || this.state === 'stopping') {
+      throw this.lifecycleError('already-started');
+    }
+    this.state = 'starting';
+    this.startCancelled = false;
+    const operation = this.bindWithRetry(this.session, this.port, this.maxRetries);
+    this.startOperation = operation;
+    const handle = await operation;
+    if (this.startCancelled || this.startOperation !== operation) {
+      await handle.stop();
+      this.state = this.session ? 'attached' : 'detached';
+      throw new Error('WsTransport startup was stopped.');
+    }
     this.stopFn = handle.stop;
     this.resolvedPort = handle.port;
+    this.startOperation = undefined;
+    this.state = 'ready';
   }
 
   async stop(): Promise<void> {
+    if (this.state === 'starting') {
+      this.state = 'stopping';
+      this.startCancelled = true;
+      try {
+        await this.startOperation;
+      } catch {
+        // The start caller owns bind failure; stop still clears lifecycle state.
+      }
+    }
     await this.stopFn?.();
     this.stopFn = null;
+    this.startOperation = undefined;
     this.resolvedPort = undefined;
     this.session = null;
+    this.state = 'detached';
   }
 
   validateOptions(options: Record<string, TUniversalValue>): boolean {
@@ -191,9 +215,7 @@ export class WsTransport
       httpServer.listen(port, '127.0.0.1', () => {
         const wss = new WebSocketServer({
           server: httpServer,
-          // SEC-001 defense-in-depth: reject a disallowed Host/Origin at the UPGRADE handshake (HTTP 403,
-          // before the 101 protocol switch), independently of the token. Closes DNS-rebinding (Host) and the
-          // browser drive-by hole (Origin) before any session data can be sent.
+          // Reject disallowed Host/Origin before the protocol upgrade or any session data.
           verifyClient: (
             info: { origin: string; secure: boolean; req: IncomingMessage },
             cb: (res: boolean, code?: number, message?: string) => void,
@@ -211,9 +233,7 @@ export class WsTransport
         });
 
         wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
-          // REJECT BEFORE ANY SESSION DATA. When a token is required (explicit or SEC-001 auto-minted), an
-          // unauthenticated connection is closed here — before the `messages` / `execution_workspace_event`
-          // sends below — so a co-resident process/page cannot read history or answer prompts.
+          // Reject unauthenticated peers before sending history or accepting prompt responses.
           if (expectedToken !== undefined && !tokenMatches(expectedToken, presentedToken(req))) {
             ws.close(1008, 'unauthorized');
             return;
@@ -225,7 +245,6 @@ export class WsTransport
 
           const { onMessage, cleanup } = createWsHandler({ session, send });
 
-          // TRANS-001: this connection becomes a sink for every declared channel's outbound frames.
           const detachSink = channels.addSink((frame: Uint8Array) => {
             if (ws.readyState === WebSocket.OPEN) ws.send(frame, { binary: true });
           });

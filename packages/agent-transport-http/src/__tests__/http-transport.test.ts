@@ -80,6 +80,14 @@ describe('createHttpTransport', () => {
       assertReady: (transport) => {
         if (typeof transport.getApp().fetch !== 'function') throw new Error('HTTP app not ready');
       },
+      assertStopped: (transport) => {
+        try {
+          transport.getApp();
+          throw new Error('HTTP app still ready');
+        } catch (error) {
+          if (!(error instanceof Error) || error.message === 'HTTP app still ready') throw error;
+        }
+      },
     });
   });
 });

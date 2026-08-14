@@ -137,14 +137,29 @@ describe('createHeadlessTransport', () => {
 
   it('invokes the shared lifecycle conformance suite', async () => {
     const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const pendingSubmissions: Array<() => void> = [];
     try {
       await runTransportLifecycleConformance({
         subjectId: '@robota-sdk/agent-transport#createHeadlessTransport',
         kind: 'runner',
         createAdapter: () =>
           createHeadlessTransport({ outputFormat: 'text', prompt: 'ARCH-011 conformance' }),
-        createSession: createEventDrivenMockSession,
+        createSession: () =>
+          Object.assign(createEventDrivenMockSession(), {
+            submit: vi.fn(
+              () =>
+                new Promise<void>((resolve) => {
+                  pendingSubmissions.push(resolve);
+                }),
+            ),
+          }),
         assertReady: () => {},
+        assertStopped: () => {},
+        completeRunner: () => {
+          const complete = pendingSubmissions.shift();
+          if (!complete) throw new Error('no pending headless submission');
+          complete();
+        },
       });
     } finally {
       write.mockRestore();

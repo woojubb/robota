@@ -300,9 +300,11 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 ### Runtime transport waits (ARCH-011)
 
 `startRuntimeHost` depends only on `ITransportLifecycleRegistryView`, not the settings projection.
-Its handle exposes the registry's deterministic ordered `waitForCompletion()` result and its
-prompt `waitForFailure()` result. A runner rejection remains a typed rejection; a normal nonzero
-runner exit remains a failed outcome. Presentation shells decide process policy from those values.
+Its handle exposes the registry's deterministic ordered `waitForCompletion()` aggregate and its
+real-runner-only `waitForFailure()` result. A runner rejection remains a typed rejection; a normal
+nonzero runner exit remains a failed outcome; registry-owned stop/rollback abandonment remains
+aggregate metadata and does not become process failure. Presentation shells decide process policy
+from those values.
 
 ## Extension Points
 

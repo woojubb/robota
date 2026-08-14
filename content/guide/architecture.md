@@ -183,7 +183,8 @@ Protocol and runner adapters implement `ITransportAdapter` (defined in
 `agent-interface-transport`). Its frozen service/runner kind makes readiness and completion distinct:
 `attach(session)` binds a borrowed session, `start()` resolves at readiness/launch, and `stop()` is
 safe to repeat. Runner completion uses a separate typed outcome. `agent-transport-tui` is a
-session-owning presentation boundary and does not implement this port.
+session-owning presentation boundary and does not implement this port. Registry aggregation keeps
+adapter success/failure distinct from registry-owned stop/rollback abandonment.
 
 `agent-remote-client` is a companion HTTP client that allows a remote process to call an agent exposed via `agent-transport-http`. It has no dependency on `agent-framework`.
 

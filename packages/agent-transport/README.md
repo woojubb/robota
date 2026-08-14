@@ -92,6 +92,11 @@ re-exported here — import them from their own packages shown above.
 import { createHeadlessTransport } from '@robota-sdk/agent-transport';
 ```
 
+`TransportRegistry` accepts the discriminated base service/runner adapter union. It rejects active
+restart before mutation, rolls partial startup back in reverse order, reports real runner failure
+immediately, and returns a complete ordered aggregate whose pending runners become registry-owned
+`abandoned` records on stop or rollback.
+
 ## Dependencies
 
 - `@robota-sdk/agent-core`

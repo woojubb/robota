@@ -68,6 +68,9 @@ describe('createMcpTransport', () => {
       assertReady: (transport) => {
         transport.getServer();
       },
+      assertStopped: (transport) => {
+        expect(() => transport.getServer()).toThrow('Transport not started');
+      },
     });
   });
 });

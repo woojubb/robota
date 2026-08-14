@@ -75,6 +75,9 @@ describe('createWsTransport', () => {
       assertReady: (transport) => {
         if (typeof transport.onMessage !== 'function') throw new Error('WS handler not ready');
       },
+      assertStopped: (transport) => {
+        if (transport.onMessage !== null) throw new Error('WS handler still ready');
+      },
     });
   });
 });

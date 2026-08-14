@@ -410,7 +410,9 @@ All protocol and runner adapters implement `ITransportAdapter` from
 `@robota-sdk/agent-interface-transport`. Its frozen lifecycle kind distinguishes a service from a
 runner. `start()` resolves when a service is ready or a runner is launched; runner termination is
 observed separately through `ITransportRunnerAdapter.waitForCompletion()`, which returns an exact
-success/failure exit-code outcome. The TUI is deliberately different: `renderApp` and
+success/failure exit-code outcome. Registry completion is wider: normal stop or startup rollback
+records pending runners as `abandoned` without turning shutdown into failure. The TUI is deliberately
+different: `renderApp` and
 `TuiInteractionChannel` own their session instead of pretending to implement the borrowed-session
 adapter contract.
 

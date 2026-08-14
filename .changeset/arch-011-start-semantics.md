@@ -19,8 +19,11 @@ restart.
 
 Runner adapters launch separately and expose a typed terminal outcome through
 `waitForCompletion()`. The registry accepts base adapters, rejects duplicate names, keeps
-configuration as an optional capability, returns ordered completion records, and exposes an
-immediate first-failure wait. Runtime host and serve mode propagate real nonzero runner results.
+configuration as an optional capability, returns complete ordered records whose pending slots become
+registry-owned `abandoned` outcomes on stop/rollback, and exposes a real-runner-only first-failure
+wait. It serializes startup/stop, rejects active restart before mutation, and reverses partial startup
+from the currently failing adapter with typed safe rollback details. Runtime host and serve mode
+propagate real nonzero runner results without treating normal shutdown abandonment as failure.
 
 HTTP, MCP, both WebSocket adapters, WebRTC, and headless invoke one shared public conformance kit.
 The former `TuiTransport` export is removed because it ignored the attached session; use `renderApp`

@@ -95,6 +95,9 @@ describe('WsTransport lifecycle (ARCH-004 RUNTIME-13)', () => {
       assertReady: (transport) => {
         if (transport.boundPort === undefined) throw new Error('WS endpoint not bound');
       },
+      assertStopped: (transport) => {
+        if (transport.boundPort !== undefined) throw new Error('WS endpoint still bound');
+      },
     });
   });
 });

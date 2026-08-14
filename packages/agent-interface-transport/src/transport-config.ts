@@ -2,7 +2,12 @@
  * Configurable transport contracts — enable/disable + options schema.
  */
 
-import type { ITransportAdapter, ITransportCompletionRecord } from './transport-adapter.js';
+import type {
+  ITransportCompletionRecord,
+  ITransportFailureRecord,
+  ITransportServiceAdapter,
+  TTransportAdapter,
+} from './transport-adapter.js';
 import type { IDestroyResult } from '@robota-sdk/agent-core';
 
 export interface ITransportConfig {
@@ -10,14 +15,21 @@ export interface ITransportConfig {
   options?: Record<string, unknown>;
 }
 
-export interface IConfigurableTransport<TSession = unknown> extends ITransportAdapter<TSession> {
+export interface ITransportSettingsCapability {
   readonly defaultEnabled: boolean;
   readonly optionsSchema?: Record<string, { type: string; description: string; default?: unknown }>;
   validateOptions?(options: Record<string, unknown>): boolean;
 }
 
+/** Legacy configurable transports are services; settings remain an orthogonal capability. */
+export interface IConfigurableTransport<TSession = unknown>
+  extends ITransportServiceAdapter<TSession>, ITransportSettingsCapability {}
+
+export type TConfigurableTransport<TSession = unknown> = TTransportAdapter<TSession> &
+  ITransportSettingsCapability;
+
 export interface ITransportEntry<TSession = unknown> {
-  transport: IConfigurableTransport<TSession>;
+  transport: TConfigurableTransport<TSession>;
   config: ITransportConfig;
 }
 
@@ -30,10 +42,10 @@ export interface ITransportConfigurationError extends Error {
 }
 
 export interface ITransportLifecycleRegistryView<TSession = unknown> {
-  register(transport: ITransportAdapter<TSession>): void;
+  register(transport: TTransportAdapter<TSession>): void;
   startAll(session: TSession): Promise<void>;
   waitForCompletion(): Promise<ITransportCompletionRecord[]>;
-  waitForFailure(): Promise<ITransportCompletionRecord | undefined>;
+  waitForFailure(): Promise<ITransportFailureRecord | undefined>;
   /** Best-effort: never rejects; per-transport stop failures come back in the result (CORE-013). */
   stopAll(): Promise<IDestroyResult>;
 }

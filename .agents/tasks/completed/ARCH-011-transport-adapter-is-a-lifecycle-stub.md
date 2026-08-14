@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-011: make transport lifecycle semantics executable across every public adapter'
-status: in-progress
+status: done
 created: 2026-08-02
+completed: 2026-08-14
 priority: critical
 urgency: now
 area: packages/agent-interface-transport, packages/agent-transport, packages/agent-transport-http, packages/agent-transport-mcp, packages/agent-transport-ws, packages/agent-transport-tui, packages/agent-transport-webrtc, packages/agent-framework, packages/agent-cli, scripts/harness
@@ -77,21 +78,21 @@ semantics are not one executable port contract across all implementations.
 
 ## Plan
 
-- [ ] TC-01 — Specify service/runner lifecycle profiles, readiness, legal state transitions, and typed lifecycle failures in the contract owner.
-- [ ] TC-02 — Add an exact `succeeded | failed` runner outcome with exit code and no raw cause, preserve current headless exit meanings, and propagate production nonzero outcomes through registry, runtime host, and CLI process-lifetime ownership.
-- [ ] TC-03 — Split lifecycle/settings registry views, accept base adapters, reject duplicate names, preserve configurable settings/options projection, and type unknown/non-configurable setting failures.
-- [ ] TC-04 — Reclassify the TUI session-owning presentation host and establish the exact six-subject adapter roster with fail-closed discovery/registration checks.
-- [ ] TC-05 — Add the shared fixture-driven lifecycle conformance kit and invoke it for all six public adapter subjects with protocol-specific readiness drivers.
-- [ ] TC-06 — Author and execute the durable cast-free external-consumer scenario using a custom runner plus a shipped configurable WS service.
-- [ ] TC-07 — Synchronize owner SPECs/READMEs, correct semver changesets, run affected-package and full harness verification, complete gates, archive, review, and merge.
+- [x] TC-01 — Specify service/runner lifecycle profiles, readiness, legal state transitions, typed lifecycle failures, and bounded stop-during-start that prevents later readiness/resource publication.
+- [x] TC-02 — Enforce a discriminated service/runner adapter with callable completion and validated nonzero failure exit; keep runner `succeeded | failed` separate from registry-only `abandoned: stopped | startup-rollback`, preserve ordered complete aggregates, and propagate only real runner failure through runtime host/CLI.
+- [x] TC-03 — Split lifecycle/settings registry views, accept base adapters, reject duplicate names and active restart before mutation, serialize start/stop, rollback from the currently failing adapter in reverse order, and reject typed `TransportStartupError` with authoritative original cause plus ordered safe rollback details while preserving configurable settings/options projection and typed invalid setting failures.
+- [x] TC-04 — Reclassify the TUI session-owning presentation host and establish the exact six-subject adapter roster with fail-closed discovery/registration checks.
+- [x] TC-05 — Add the shared fixture-driven lifecycle conformance kit with concurrent-start, bounded stop-during-start/no late readiness, runner capability/launch separation, and `finally` cleanup; invoke it for all six public adapter subjects with protocol-specific readiness drivers.
+- [x] TC-06 — Author and execute the durable cast-free external-consumer scenario using a custom runner plus shipped configurable WS, including normal-stop `abandoned:stopped` aggregate with `FAILURE=NONE`.
+- [x] TC-07 — Synchronize owner SPECs/READMEs and semver changesets, run affected-package and full harness verification, and prepare the completion/archive handoff.
 
 ## Test Plan
 
 - RED first: contract type tests fail until lifecycle profile and runner completion types exist.
 - RED first: shared conformance cases reject the current attach/start/stop behavior and missing roster.
-- Registry tests cover base-adapter registration, duplicate rejection, service readiness, typed runner
-  success/failure, immediate failure observation, runner rejection ownership, stop abandonment, and
-  stale generations.
+- Registry tests cover base-adapter registration, duplicate rejection, service readiness, active-start
+  rejection, start/stop serialization, reverse partial-start rollback, typed runner success/failure,
+  immediate failure observation, aggregate-only stop/rollback abandonment, and stale generations.
 - Every concrete subject runs the same conformance assertions; fixtures only drive its real readiness
   boundary and cleanup.
 - The public scenario builds isolated consumers against bare package exports, uses no casts/private
@@ -109,16 +110,18 @@ semantics are not one executable port contract across all implementations.
   session, and shipped configurable WS transport.
 - Exact command: the durable file builds public packages, creates a disposable external-style
   TypeScript consumer, registers a custom runner and shipped WS service, proves service startup is not
-  blocked, observes ordered typed completion and no failure, performs bounded repeated stop, and
-  proves its temporary consumer tree was removed.
+  blocked, observes ordered typed success, starts a second pending generation, proves normal stop
+  yields ordered `abandoned:stopped` with no failure, performs bounded repeated stop, and proves its
+  temporary consumer tree was removed.
 - Expected consumer output: `STARTED=arch011-runner,ws`,
-  `RUNNER=arch011-runner:succeeded:0`, `FAILURE=NONE`, `WS_READY=true`, `STOP=TWICE`; Bash then prints
-  `CLEANUP_OK` after cleanup.
+  `RUNNER=arch011-runner:succeeded:0`, `ABANDONED=arch011-runner:stopped`, `FAILURE=NONE`,
+  `WS_READY=true`, `STOP=TWICE`; Bash then prints `CLEANUP_OK` after cleanup.
 - The custom runner remains pending until after `startAll()` has returned and `ws.boundPort` is
   asserted, so a registry that waits for runner completion cannot reach the sibling readiness marker.
 - Admission, active-turn cancellation, peer disconnect, and protocol wire-error parity are explicitly
   not claimed by this lifecycle scenario.
-- Evidence: EMPTY until DONE-GATE-STAGE-2.
+- Evidence: the durable scenario's `## Observed evidence` records the independently verified six
+  lifecycle lines, exit `0`, `CLEANUP_OK`, and the empty residual-temp-path scan.
 
 ### [DONE-GATE-STAGE-1] — ❌ FAIL | 2026-08-14
 
@@ -143,6 +146,62 @@ stop, exact output, and cleanup. Evidence fields remain EMPTY until post-impleme
 The prior Stage 1 failure is preserved and its pending-runner correction is resolved. No current P2
 implementation work had begun at this gate.
 
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** scenario written → scenario verified
+The guardian independently extracted and executed the durable scenario's current Bash fence from the
+repository root. The command exited `0`; the isolated public consumer printed exactly
+`STARTED=arch011-runner,ws`, `RUNNER=arch011-runner:succeeded:0`, `FAILURE=NONE`,
+`WS_READY=true`, and `STOP=TWICE`, after which Bash printed `CLEANUP_OK`. No
+`robota-arch011.*` temporary directory remained. Package build output was setup only; the qualifying
+evidence is the public lifecycle composition, typed outcome, sibling readiness, repeated stop, and
+cleanup recorded in `.agents/evals/scenarios/arch-011-custom-transport-agent-run.md`.
+
+### [SCENARIO VERIFICATION REOPENED] | 2026-08-14
+
+**Status reset:** scenario verified → scenario drafted
+Round A exposed that normal stop needs an explicit registry-owned `abandoned:stopped` aggregate
+without becoming a process failure. The previous Stage-2 PASS remains historical evidence for the
+superseded success-only scenario at
+`.agents/evals/scenarios/arch-011-custom-transport-agent-run.md`. The durable command, Stage-1 gate,
+direct execution, and Stage-2 evidence must all be refreshed for the revised observable before
+completion.
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** scenario drafted → scenario written
+The revised durable scenario is agent-executable, bounded, public-SDK-only, and requires no
+credential or external service. It proves first-generation runner success and shipped WS readiness,
+then starts a second pending generation and requires `stopAll()` to produce the ordered
+`abandoned:stopped` aggregate while `waitForFailure()` remains `undefined`. Repeated stop, exact six
+consumer markers, basename-validated cleanup, and `CLEANUP_OK` are all specified. Observed evidence
+remains `EMPTY` until implementation and direct Stage-2 execution.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** scenario written → scenario verified
+Scenario: `.agents/evals/scenarios/arch-011-custom-transport-agent-run.md`.
+
+The guardian independently extracted and executed the durable scenario's exact current Bash fence
+from the repository root against the revised ARCH-011 implementation. The command exited `0`. The
+isolated public SDK consumer printed exactly `STARTED=arch011-runner,ws`,
+`RUNNER=arch011-runner:succeeded:0`, `ABANDONED=arch011-runner:stopped`, `FAILURE=NONE`,
+`WS_READY=true`, and `STOP=TWICE`. Bash then removed the basename-validated temporary consumer,
+proved its path absent, and printed `CLEANUP_OK`; a final `${TMPDIR:-/tmp}/robota-arch011.*` scan
+returned no residual paths. Package-build output was setup only and was not used as user-execution
+evidence.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** scenario written → scenario verified
+Post-final-review refresh: after Round A converged at `ACTIONABLE FINDINGS: 0`, the guardian freshly
+executed the durable scenario's exact Bash fence against the final registry/settings/WebRTC/scanner
+tree. It exited `0` and printed exactly `STARTED=arch011-runner,ws`,
+`RUNNER=arch011-runner:succeeded:0`, `ABANDONED=arch011-runner:stopped`, `FAILURE=NONE`,
+`WS_READY=true`, `STOP=TWICE`, and `CLEANUP_OK`. A final `/tmp/robota-arch011.*` scan returned no
+paths. This refresh supersedes the pre-final-review Stage-2 execution; build output remained setup
+only, and the durable scenario owns the concrete product evidence.
+
 ## Progress
 
 ### 2026-08-02 — P1 complete
@@ -163,10 +222,29 @@ implementation work had begun at this gate.
   from the remaining direction.
 - Chose a lifecycle-only contract and six-subject conformance boundary.
 
+### 2026-08-14 — P2 implementation and review complete
+
+- Implemented typed service/runner lifecycle outcomes, generation-owned registry completion,
+  serialized start/stop rollback, orthogonal settings capability, and real failure propagation.
+- Added the six-subject shared conformance kit and fail-closed AST roster, including dist-only
+  presentation-package source inspection.
+- Independent Round A review converged at `ACTIONABLE FINDINGS: 0`; the post-review public SDK
+  scenario passed with exact output and cleanup.
+- Affected package build/test/typecheck passed; `pnpm harness:verify -- --scope
+packages/agent-interface-transport` exited `0`; `pnpm harness:scan` passed 111 scans with one
+  intentional skip; and `pnpm harness:verify-like-ci` passed all 12 stages in 7m22.6s.
+
 ## Blockers
 
 None.
 
 ## Result
 
-Pending.
+Completed the executable transport lifecycle contract across the six public adapter subjects. The
+change replaces optional runner guessing with typed service/runner outcomes, separates immediate
+failure from ordered aggregate completion, makes registry startup/rollback and stop serialization
+explicit, preserves settings as an orthogonal capability, removes the false TUI adapter claim, and
+adds a shared conformance kit plus a fail-closed six-subject roster. Runtime-host/CLI propagation,
+owner SPECs/READMEs, ADR-003, and coordinated semver metadata are synchronized. Independent review
+converged with zero actionable findings; affected build/typecheck/test, scoped verification, 111
+harness scans, all 12 CI-equivalent stages, and the durable public-SDK scenario passed.

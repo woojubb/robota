@@ -5,24 +5,28 @@
  *
  * Scope: production TypeScript below every `packages/agent-transport.../src` tree (excluding tests)
  * and Vitest files below those same package trees. The discovery relation is the exported adapter
- * declaration itself: an exported interface extending `ITransportAdapter`/`ITransportRunnerAdapter`
- * plus its exported factory, or an exported class implementing `IConfigurableTransport`.
+ * declaration itself: TypeScript resolves every package export entry and identifies exported runtime
+ * values whose returned/constructed public type has the adapter lifecycle shape. This covers direct
+ * and arrow factories, classes, inheritance, and barrel re-exports without source-regex guesses.
  *
  * Every discovered public subject must equal the approved six-subject package/export roster and its
- * stable subject id must occur in exactly one test file that invokes the shared
- * `runTransportLifecycleConformance` helper. New/missing/duplicate subjects therefore fail closed.
+ * stable subject id must appear in exactly one parsed call to the imported shared
+ * `runTransportLifecycleConformance` helper. Comments and unrelated strings cannot claim ownership.
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { API } from '@typescript/native-preview/unstable/sync';
 
 import { requireGovernedTree } from './governed-tree.mjs';
 import { loadHarnessConfig } from './harness-config.mjs';
+import * as ts from './lib/ts-ast.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const GOVERNED_TREE = 'packages';
 
 const SCOPE = loadHarnessConfig().npmScopePrefix;
+const CONFORMANCE_HELPER_MODULE = `${SCOPE}agent-interface-transport/testing`;
 export const TRANSPORT_CONFORMANCE_SUBJECTS = Object.freeze([
   `${SCOPE}agent-transport#createHeadlessTransport`,
   `${SCOPE}agent-transport-http#createHttpTransport`,
@@ -30,6 +34,10 @@ export const TRANSPORT_CONFORMANCE_SUBJECTS = Object.freeze([
   `${SCOPE}agent-transport-ws#createWsTransport`,
   `${SCOPE}agent-transport-ws#WsTransport`,
   `${SCOPE}agent-transport-webrtc#WebRtcTransport`,
+]);
+const DIST_ONLY_EXPORT_PACKAGES = new Set([
+  `${SCOPE}agent-transport-gui`,
+  `${SCOPE}agent-transport-webrtc-web`,
 ]);
 
 let examinedTransportCount = 0;
@@ -61,6 +69,61 @@ function transportPackageDirs(root) {
     .filter((dir) => statSync(dir).isDirectory());
 }
 
+function sourceExportEntries(manifest, packageDir) {
+  const entries = [];
+  const visit = (value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (typeof value.source === 'string') entries.push(path.resolve(packageDir, value.source));
+      for (const child of Object.values(value)) visit(child);
+    }
+  };
+  visit(manifest.exports);
+  const unique = [...new Set(entries)];
+  if (unique.length === 0) {
+    if (DIST_ONLY_EXPORT_PACKAGES.has(manifest.name)) {
+      const conventionalEntry = path.join(packageDir, 'src', 'index.ts');
+      if (!existsSync(conventionalEntry)) {
+        throw new Error(`${manifest.name}: conventional source export does not exist`);
+      }
+      return [conventionalEntry];
+    }
+    throw new Error(`${manifest.name}: package exports declare no source entry`);
+  }
+  for (const file of unique) {
+    if (!existsSync(file))
+      throw new Error(`${manifest.name}: source export does not exist: ${file}`);
+  }
+  return unique;
+}
+
+function hasAdapterShape(checker, type) {
+  const required = ['name', 'lifecycle', 'attach', 'start', 'stop'];
+  if (!required.every((name) => checker.getPropertyOfType(type, name))) return false;
+  const lifecycle = checker.getPropertyOfType(type, 'lifecycle');
+  if (!lifecycle) return false;
+  const lifecycleType = checker.getTypeOfSymbol(lifecycle);
+  const kind = checker.getPropertyOfType(lifecycleType, 'kind');
+  if (!kind) return false;
+  const kindType = checker.getTypeOfSymbol(kind);
+  const parts = kindType.isUnionType() ? kindType.getTypes() : [kindType];
+  return ['service', 'runner'].some((value) =>
+    parts.some((part) => part.isStringLiteralType() && part.value === value),
+  );
+}
+
+function exportedAdapterType(checker, symbol) {
+  const valueType = checker.getTypeOfSymbol(symbol);
+  for (const signature of checker.getSignaturesOfType(valueType, 0)) {
+    const returned = checker.getReturnTypeOfSignature(signature);
+    if (hasAdapterShape(checker, returned)) return returned;
+  }
+  for (const signature of checker.getSignaturesOfType(valueType, 1)) {
+    const instance = checker.getReturnTypeOfSignature(signature);
+    if (hasAdapterShape(checker, instance)) return instance;
+  }
+  return hasAdapterShape(checker, valueType) ? valueType : undefined;
+}
+
 export function discoverTransportSubjects(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, GOVERNED_TREE, {
     scan: 'transport-conformance',
@@ -68,41 +131,86 @@ export function discoverTransportSubjects(root = WORKSPACE_ROOT) {
   });
 
   examinedTransportCount = 0;
-  const subjects = [];
-  for (const packageDir of transportPackageDirs(root)) {
+  const packages = transportPackageDirs(root).flatMap((packageDir) => {
     const manifestPath = path.join(packageDir, 'package.json');
-    if (!existsSync(manifestPath)) continue;
-    const packageName = JSON.parse(readFileSync(manifestPath, 'utf8')).name;
-    if (typeof packageName !== 'string') continue;
-    const sourceFiles = walk(
-      path.join(packageDir, 'src'),
-      (file) => file.endsWith('.ts') && !file.includes(`${path.sep}__tests__${path.sep}`),
-    );
-    for (const file of sourceFiles) {
-      const source = readFileSync(file, 'utf8');
-      const interfaceNames = [
-        ...source.matchAll(
-          /export\s+interface\s+(\w+)\s+extends\s+ITransport(?:Runner)?Adapter\s*</g,
-        ),
-      ].map((match) => match[1]);
-      for (const interfaceName of interfaceNames) {
-        const factory = new RegExp(
-          `export\\s+function\\s+(\\w+)\\s*\\([^)]*\\)\\s*:\\s*${interfaceName}\\b`,
-        ).exec(source)?.[1];
-        if (factory) {
-          subjects.push(`${packageName}#${factory}`);
-          examinedTransportCount += 1;
+    if (!existsSync(manifestPath)) return [];
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    if (typeof manifest.name !== 'string') return [];
+    return [{ packageName: manifest.name, entries: sourceExportEntries(manifest, packageDir) }];
+  });
+  const rootNames = packages.flatMap(({ entries }) => entries);
+  const api = new API({ cwd: root });
+  const snapshot = api.updateSnapshot({ openFiles: rootNames });
+  const subjects = [];
+  for (const { packageName, entries } of packages) {
+    for (const entry of entries) {
+      const project = snapshot.getDefaultProjectForFile(entry);
+      const sourceFile = project?.program.getSourceFile(entry);
+      const checker = project?.checker;
+      const moduleSymbol =
+        sourceFile && checker ? checker.getSymbolAtLocation(sourceFile) : undefined;
+      if (!sourceFile || !checker || !moduleSymbol) continue;
+      for (const exported of checker.getExportsOfModule(moduleSymbol)) {
+        const target = exported.valueDeclaration ? exported : checker.getAliasedSymbol(exported);
+        if (!target.valueDeclaration) continue;
+        if (exportedAdapterType(checker, target)) {
+          subjects.push(`${packageName}#${exported.name}`);
         }
-      }
-      for (const match of source.matchAll(
-        /export\s+class\s+(\w+)[\s\S]{0,160}?implements\s+IConfigurableTransport\s*</g,
-      )) {
-        subjects.push(`${packageName}#${match[1]}`);
-        examinedTransportCount += 1;
       }
     }
   }
-  return subjects.sort();
+  const uniqueSubjects = [...new Set(subjects)].sort();
+  examinedTransportCount = uniqueSubjects.length;
+  return uniqueSubjects;
+}
+
+function countConformanceInvocations(file, subjectId) {
+  const source = readFileSync(file, 'utf8');
+  const ast = ts.createSourceFile(file, source, ts.ScriptTarget.ESNext, true, ts.ScriptKind.TS);
+  let helperLocalName;
+  let calls = 0;
+  const visit = (node) => {
+    if (
+      ts.isImportDeclaration(node) &&
+      ts.isStringLiteral(node.moduleSpecifier) &&
+      node.moduleSpecifier.text === CONFORMANCE_HELPER_MODULE &&
+      node.importClause?.namedBindings &&
+      ts.isNamedImports(node.importClause.namedBindings)
+    ) {
+      const imported = node.importClause.namedBindings.elements.find(
+        ({ propertyName, name }) =>
+          (propertyName?.text ?? name.text) === 'runTransportLifecycleConformance',
+      );
+      if (imported) helperLocalName = imported.name.text;
+    }
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      helperLocalName !== undefined &&
+      node.expression.text === helperLocalName
+    ) {
+      const argument = node.arguments[0];
+      if (argument && ts.isObjectLiteralExpression(argument)) {
+        const property = argument.properties.find(
+          (candidate) =>
+            ts.isPropertyAssignment(candidate) &&
+            ((ts.isIdentifier(candidate.name) && candidate.name.text === 'subjectId') ||
+              (ts.isStringLiteral(candidate.name) && candidate.name.text === 'subjectId')),
+        );
+        if (
+          property &&
+          ts.isPropertyAssignment(property) &&
+          ts.isStringLiteral(property.initializer) &&
+          property.initializer.text === subjectId
+        ) {
+          calls += 1;
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(ast);
+  return calls;
 }
 
 export function findTransportConformanceFindings(
@@ -126,13 +234,13 @@ export function findTransportConformanceFindings(
     ),
   );
   for (const subject of expected) {
-    const owners = tests.filter((file) => {
-      const source = readFileSync(file, 'utf8');
-      return source.includes(subject) && source.includes('runTransportLifecycleConformance');
-    });
-    if (owners.length !== 1) {
+    const invocationCount = tests.reduce(
+      (count, file) => count + countConformanceInvocations(file, subject),
+      0,
+    );
+    if (invocationCount !== 1) {
       findings.push(
-        `${subject}: expected exactly one shared-suite invocation, found ${owners.length}`,
+        `${subject}: expected exactly one shared-suite invocation, found ${invocationCount}`,
       );
     }
   }

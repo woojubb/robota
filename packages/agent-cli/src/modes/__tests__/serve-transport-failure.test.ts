@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { settleOnServeTransportFailure } from '../serve-transport-failure.js';
+import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
 
 describe('serve runner failure propagation (ARCH-011)', () => {
   it('sets the real nonzero runner exit code and enters owned shutdown', async () => {
@@ -12,7 +13,7 @@ describe('serve runner failure propagation (ARCH-011)', () => {
       {
         waitForFailure: async () => ({
           name: 'headless',
-          outcome: { status: 'failed', exitCode: 2 },
+          outcome: createTransportFailedOutcome(2),
         }),
       },
       { setExitCode, writeError },

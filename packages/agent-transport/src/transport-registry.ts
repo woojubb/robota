@@ -1,8 +1,8 @@
-/**
- * TransportRegistry — one lifecycle registry with an optional settings capability per entry.
- */
+/** Transport lifecycle registry with optional settings capability per entry. */
 
 import { readSettings, writeSettings, type TSettingsData } from '@robota-sdk/agent-framework';
+
+import { TransportRunGeneration } from './transport-run-generation.js';
 
 import type { IDestroyResult, TUniversalValue } from '@robota-sdk/agent-core';
 import type {
@@ -12,54 +12,29 @@ import type {
   ITransportCompletionRecord,
   ITransportConfig,
   ITransportEntry,
-  ITransportLifecycleError,
+  ITransportFailureRecord,
   ITransportRunnerAdapter,
+  ITransportStartupError,
+  TConfigurableTransport,
+  TTransportAdapter,
   TTransportConfigurationErrorCode,
 } from '@robota-sdk/agent-interface-transport';
 
 interface IRegistryEntry {
-  readonly transport: ITransportAdapter<IInteractiveSession>;
-  readonly configurable?: IConfigurableTransport<IInteractiveSession>;
-}
-
-interface IDeferred<T> {
-  readonly promise: Promise<T>;
-  readonly resolve: (value: T) => void;
-  readonly reject: (error: unknown) => void;
-}
-
-interface IRunGeneration {
-  active: boolean;
-  sealed: boolean;
-  pending: number;
-  settled: boolean;
-  failureSettled: boolean;
-  readonly orderedNames: string[];
-  readonly records: Map<string, ITransportCompletionRecord>;
-  readonly completion: IDeferred<ITransportCompletionRecord[]>;
-  readonly failure: IDeferred<ITransportCompletionRecord | undefined>;
-}
-
-function deferred<T>(): IDeferred<T> {
-  let resolve!: (value: T) => void;
-  let reject!: (error: unknown) => void;
-  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
-  });
-  return { promise, resolve, reject };
+  readonly transport: TTransportAdapter<IInteractiveSession>;
+  readonly configurable?: TConfigurableTransport<IInteractiveSession>;
 }
 
 function isConfigurableTransport(
-  transport: ITransportAdapter<IInteractiveSession>,
-): transport is IConfigurableTransport<IInteractiveSession> {
+  transport: TTransportAdapter<IInteractiveSession>,
+): transport is TConfigurableTransport<IInteractiveSession> {
   return 'defaultEnabled' in transport && typeof transport.defaultEnabled === 'boolean';
 }
 
 function isRunnerTransport(
-  transport: ITransportAdapter<IInteractiveSession>,
+  transport: TTransportAdapter<IInteractiveSession>,
 ): transport is ITransportRunnerAdapter<IInteractiveSession> {
-  return transport.lifecycle.kind === 'runner' && 'waitForCompletion' in transport;
+  return transport.lifecycle.kind === 'runner';
 }
 
 function configurationError(transportName: string, code: TTransportConfigurationErrorCode): Error {
@@ -70,28 +45,56 @@ function configurationError(transportName: string, code: TTransportConfiguration
   });
 }
 
-function lifecycleError(transportName: string, cause: unknown): ITransportLifecycleError {
-  const error = Object.assign(new Error(`Runner ${transportName} rejected.`), {
-    name: 'TransportLifecycleError' as const,
-    code: 'runner-rejected' as const,
+function startupError(
+  transportName: string,
+  cause: unknown,
+  rollbackErrors: ITransportStartupError['rollbackErrors'],
+  rollbackCauses: readonly unknown[],
+): ITransportStartupError {
+  const error = Object.assign(new Error(`Transport ${transportName} failed during startup.`), {
+    name: 'TransportStartupError' as const,
     transportName,
+    rollbackErrors: Object.freeze([...rollbackErrors]),
   });
   Object.defineProperty(error, 'cause', { value: cause, enumerable: false });
+  Object.defineProperty(error, 'rollbackCauses', {
+    value: Object.freeze([...rollbackCauses]),
+    enumerable: false,
+  });
   return error;
 }
+
+type TRegistryState = 'idle' | 'starting' | 'active' | 'stopping';
 
 export class TransportRegistry {
   private readonly entries = new Map<string, IRegistryEntry>();
   private readonly settingsPath: string;
-  private generation: IRunGeneration | undefined;
+  private generation: TransportRunGeneration | undefined;
+  private state: TRegistryState = 'idle';
+  private startOperation: Promise<void> | undefined;
+  private stopOperation: Promise<IDestroyResult> | undefined;
+  private preemptionStopOperation: Promise<void> | undefined;
+  private startingTransport: TTransportAdapter<IInteractiveSession> | undefined;
+  private preemptionStopFailure:
+    { readonly transportName: string; readonly cause: unknown } | undefined;
 
   constructor(settingsPath: string) {
     this.settingsPath = settingsPath;
   }
 
-  register(transport: ITransportAdapter<IInteractiveSession>): void {
+  register(transport: TTransportAdapter<IInteractiveSession>): void {
     if (this.entries.has(transport.name)) {
       throw new Error(`Duplicate transport name: ${transport.name}`);
+    }
+    const hasCompletion =
+      'waitForCompletion' in transport && typeof transport.waitForCompletion === 'function';
+    if (
+      (transport.lifecycle.kind === 'runner' && !hasCompletion) ||
+      (transport.lifecycle.kind === 'service' && hasCompletion)
+    ) {
+      throw new TypeError(
+        `Transport ${transport.name} has an invalid ${transport.lifecycle.kind} shape.`,
+      );
     }
     this.entries.set(transport.name, {
       transport,
@@ -113,7 +116,7 @@ export class TransportRegistry {
     );
   }
 
-  getEnabled(): ITransportAdapter<IInteractiveSession>[] {
+  getEnabled(): TTransportAdapter<IInteractiveSession>[] {
     const saved = this.readTransportSettings();
     return [...this.entries.values()].flatMap(({ transport, configurable }) => {
       if (!configurable) return [transport];
@@ -142,40 +145,71 @@ export class TransportRegistry {
   }
 
   async startAll(session: IInteractiveSession): Promise<void> {
-    const generation = this.createGeneration();
-    this.generation = generation;
-
-    for (const transport of this.getEnabled()) {
-      transport.attach(session);
-      await transport.start();
-      if (isRunnerTransport(transport)) {
-        this.trackRunner(generation, transport);
-      }
+    if (this.state !== 'idle') {
+      throw Object.assign(new Error('Transport registry is already started.'), {
+        name: 'TransportLifecycleError' as const,
+        code: 'already-started' as const,
+        transportName: 'transport-registry',
+      });
     }
-
-    generation.sealed = true;
-    if (generation.pending === 0) {
-      this.settleCompletion(generation);
-      this.settleFailure(generation, undefined);
+    const enabled = this.getEnabled();
+    this.state = 'starting';
+    const generation = new TransportRunGeneration(
+      enabled.filter(isRunnerTransport).map(({ name }) => name),
+    );
+    this.generation = generation;
+    const operation = this.performStart(generation, enabled, session);
+    this.startOperation = operation;
+    try {
+      await operation;
+    } finally {
+      if (this.startOperation === operation) this.startOperation = undefined;
     }
   }
 
   waitForCompletion(): Promise<ITransportCompletionRecord[]> {
-    return this.generation?.completion.promise ?? Promise.resolve([]);
+    return this.generation?.waitForCompletion() ?? Promise.resolve([]);
   }
 
-  waitForFailure(): Promise<ITransportCompletionRecord | undefined> {
-    return this.generation?.failure.promise ?? Promise.resolve(undefined);
+  waitForFailure(): Promise<ITransportFailureRecord | undefined> {
+    return this.generation?.waitForFailure() ?? Promise.resolve(undefined);
   }
 
   async stopAll(): Promise<IDestroyResult> {
+    if (this.stopOperation) return this.stopOperation;
+    const operation = this.performStop();
+    this.stopOperation = operation;
+    try {
+      return await operation;
+    } finally {
+      if (this.stopOperation === operation) this.stopOperation = undefined;
+    }
+  }
+
+  private async performStop(): Promise<IDestroyResult> {
+    if (this.state === 'starting') {
+      const generation = this.generation;
+      if (generation) generation.stopRequested = true;
+      const transportName = this.startingTransport?.name ?? 'transport-registry';
+      const preemption = Promise.resolve()
+        .then(() => this.startingTransport?.stop())
+        .then(() => undefined)
+        .catch((cause) => {
+          this.preemptionStopFailure = { transportName, cause };
+        });
+      this.preemptionStopOperation = preemption;
+      await preemption;
+      try {
+        await this.startOperation;
+      } catch {
+        // startAll owns its typed primary/rollback error; stopAll continues best-effort cleanup.
+      }
+    }
+    this.state = 'stopping';
     const errors: Error[] = [];
     const generation = this.generation;
     if (generation) {
-      generation.active = false;
-      this.settleCompletion(generation);
-      this.settleFailure(generation, undefined);
-      this.generation = undefined;
+      generation.abandon('stopped');
     }
 
     for (const { transport } of this.entries.values()) {
@@ -185,79 +219,62 @@ export class TransportRegistry {
         errors.push(error instanceof Error ? error : new Error(String(error)));
       }
     }
+    this.state = 'idle';
     return { errors };
   }
 
-  private createGeneration(): IRunGeneration {
-    const completion = deferred<ITransportCompletionRecord[]>();
-    const failure = deferred<ITransportCompletionRecord | undefined>();
-    // Both rejections are owned immediately; later callers still receive the original rejection.
-    void completion.promise.catch(() => undefined);
-    void failure.promise.catch(() => undefined);
-    return {
-      active: true,
-      sealed: false,
-      pending: 0,
-      settled: false,
-      failureSettled: false,
-      orderedNames: [],
-      records: new Map(),
-      completion,
-      failure,
-    };
-  }
-
-  private trackRunner(
-    generation: IRunGeneration,
-    runner: ITransportRunnerAdapter<IInteractiveSession>,
-  ): void {
-    generation.pending += 1;
-    generation.orderedNames.push(runner.name);
-    void runner.waitForCompletion().then(
-      (outcome) => {
-        if (!generation.active) return;
-        const record = { name: runner.name, outcome } satisfies ITransportCompletionRecord;
-        generation.records.set(runner.name, record);
-        generation.pending -= 1;
-        if (outcome.status === 'failed') this.settleFailure(generation, record);
-        if (generation.sealed && generation.pending === 0) {
-          this.settleCompletion(generation);
-          this.settleFailure(generation, undefined);
+  private async performStart(
+    generation: TransportRunGeneration,
+    enabled: TTransportAdapter<IInteractiveSession>[],
+    session: IInteractiveSession,
+  ): Promise<void> {
+    const attempted: TTransportAdapter<IInteractiveSession>[] = [];
+    let currentName = 'transport-registry';
+    try {
+      for (const transport of enabled) {
+        currentName = transport.name;
+        attempted.push(transport);
+        this.startingTransport = transport;
+        transport.attach(session);
+        await transport.start();
+        if (generation.stopRequested) throw new Error('Transport startup was stopped.');
+        if (isRunnerTransport(transport)) generation.track(transport);
+      }
+      generation.seal();
+      this.startingTransport = undefined;
+      this.state = 'active';
+    } catch (cause) {
+      await this.preemptionStopOperation;
+      this.preemptionStopOperation = undefined;
+      const rollbackErrors: Array<{ transportName: string; message: string }> = [];
+      const rollbackCauses: unknown[] = [];
+      if (this.preemptionStopFailure) {
+        rollbackErrors.push({
+          transportName: this.preemptionStopFailure.transportName,
+          message: 'Transport stop failed during startup rollback.',
+        });
+        rollbackCauses.push(this.preemptionStopFailure.cause);
+        this.preemptionStopFailure = undefined;
+      }
+      for (const transport of attempted.reverse()) {
+        try {
+          await transport.stop();
+        } catch (rollbackCause) {
+          rollbackErrors.push({
+            transportName: transport.name,
+            message: 'Transport stop failed during startup rollback.',
+          });
+          rollbackCauses.push(rollbackCause);
         }
-      },
-      (cause: unknown) => {
-        if (!generation.active) return;
-        const error = lifecycleError(runner.name, cause);
-        generation.active = false;
-        generation.completion.reject(error);
-        generation.failure.reject(error);
-        generation.settled = true;
-        generation.failureSettled = true;
-      },
-    );
+      }
+      this.startingTransport = undefined;
+      generation.abandon('startup-rollback');
+      this.state = 'idle';
+      throw startupError(currentName, cause, rollbackErrors, rollbackCauses);
+    }
   }
 
-  private settleCompletion(generation: IRunGeneration): void {
-    if (generation.settled) return;
-    generation.settled = true;
-    generation.completion.resolve(
-      generation.orderedNames.flatMap((name) => {
-        const record = generation.records.get(name);
-        return record ? [record] : [];
-      }),
-    );
-  }
-
-  private settleFailure(
-    generation: IRunGeneration,
-    record: ITransportCompletionRecord | undefined,
-  ): void {
-    if (generation.failureSettled) return;
-    generation.failureSettled = true;
-    generation.failure.resolve(record);
-  }
-
-  private requireConfigurable(name: string): IConfigurableTransport<IInteractiveSession> {
+  private requireConfigurable(name: string): TConfigurableTransport<IInteractiveSession> {
     const entry = this.entries.get(name);
     if (!entry) throw configurationError(name, 'unknown-transport');
     if (!entry.configurable) throw configurationError(name, 'not-configurable');
@@ -265,7 +282,7 @@ export class TransportRegistry {
   }
 
   private resolveConfig(
-    transport: IConfigurableTransport<IInteractiveSession>,
+    transport: TConfigurableTransport<IInteractiveSession>,
     saved?: TSettingsData,
   ): ITransportConfig {
     const enabled = (saved?.enabled as boolean | undefined) ?? transport.defaultEnabled;

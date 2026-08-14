@@ -51,6 +51,8 @@ for package_name in agent-interface-transport agent-transport agent-transport-ws
   ln -s "$repo_root/packages/$package_name" \
     "$scenario_root/node_modules/@robota-sdk/$package_name"
 done
+mkdir -p "$scenario_root/node_modules/@types"
+ln -s "$repo_root/node_modules/@types/node" "$scenario_root/node_modules/@types/node"
 
 tee "$scenario_root/package.json" >/dev/null <<'JSON'
 {
@@ -68,6 +70,7 @@ tee "$scenario_root/tsconfig.json" >/dev/null <<'JSON'
     "moduleResolution": "NodeNext",
     "strict": true,
     "skipLibCheck": false,
+    "types": ["node"],
     "outDir": "dist"
   },
   "include": ["*.ts"]
@@ -77,7 +80,7 @@ JSON
 tee "$scenario_root/custom-transport.ts" >/dev/null <<'TYPESCRIPT'
 import type {
   IInteractiveSession,
-  ITransportRunOutcome,
+  TTransportRunOutcome,
   ITransportRunnerAdapter,
 } from '@robota-sdk/agent-interface-transport';
 
@@ -87,8 +90,8 @@ export class Arch011Runner implements ITransportRunnerAdapter<IInteractiveSessio
 
   private attached = false;
   private started = false;
-  private completion: Promise<ITransportRunOutcome> | undefined;
-  private settle: ((outcome: ITransportRunOutcome) => void) | undefined;
+  private completion: Promise<TTransportRunOutcome> | undefined;
+  private settle: ((outcome: TTransportRunOutcome) => void) | undefined;
 
   constructor(private readonly onLaunch: () => void) {}
 
@@ -102,12 +105,12 @@ export class Arch011Runner implements ITransportRunnerAdapter<IInteractiveSessio
     if (this.started) throw new Error('already started');
     this.started = true;
     this.onLaunch();
-    this.completion = new Promise<ITransportRunOutcome>((resolve) => {
+    this.completion = new Promise<TTransportRunOutcome>((resolve) => {
       this.settle = resolve;
     });
   }
 
-  waitForCompletion(): Promise<ITransportRunOutcome> {
+  waitForCompletion(): Promise<TTransportRunOutcome> {
     if (this.completion === undefined) throw new Error('start required');
     return this.completion;
   }
@@ -156,14 +159,28 @@ assert.deepEqual(outcomes, [
   { name: 'arch011-runner', outcome: { status: 'succeeded', exitCode: 0 } },
 ]);
 assert.equal(failure, undefined);
+const firstStarted = started.join(',');
 
 const firstStop = await registry.stopAll();
-const secondStop = await registry.stopAll();
 assert.deepEqual(firstStop.errors, []);
+
+await registry.startAll(createTestInteractiveSession());
+assert.equal(typeof ws.boundPort, 'number');
+const stoppedCompletion = registry.waitForCompletion();
+const stoppedFailure = registry.waitForFailure();
+const stopped = await registry.stopAll();
+assert.deepEqual(stopped.errors, []);
+assert.deepEqual(await stoppedCompletion, [
+  { name: 'arch011-runner', outcome: { status: 'abandoned', reason: 'stopped' } },
+]);
+assert.equal(await stoppedFailure, undefined);
+
+const secondStop = await registry.stopAll();
 assert.deepEqual(secondStop.errors, []);
 
-process.stdout.write(`STARTED=${started.join(',')}\n`);
+process.stdout.write(`STARTED=${firstStarted}\n`);
 process.stdout.write('RUNNER=arch011-runner:succeeded:0\n');
+process.stdout.write('ABANDONED=arch011-runner:stopped\n');
 process.stdout.write('FAILURE=NONE\n');
 process.stdout.write('WS_READY=true\n');
 process.stdout.write('STOP=TWICE\n');
@@ -173,12 +190,13 @@ timeout 60s pnpm exec tsc -p "$scenario_root/tsconfig.json"
 timeout 30s node "$scenario_root/dist/scenario.js" | tee "$scenario_root/result.log"
 
 mapfile -t observed < "$scenario_root/result.log"
-test "${#observed[@]}" -eq 5
+test "${#observed[@]}" -eq 6
 test "${observed[0]}" = 'STARTED=arch011-runner,ws'
 test "${observed[1]}" = 'RUNNER=arch011-runner:succeeded:0'
-test "${observed[2]}" = 'FAILURE=NONE'
-test "${observed[3]}" = 'WS_READY=true'
-test "${observed[4]}" = 'STOP=TWICE'
+test "${observed[2]}" = 'ABANDONED=arch011-runner:stopped'
+test "${observed[3]}" = 'FAILURE=NONE'
+test "${observed[4]}" = 'WS_READY=true'
+test "${observed[5]}" = 'STOP=TWICE'
 
 completed_root="$scenario_root"
 cleanup
@@ -196,13 +214,15 @@ printf 'CLEANUP_OK\n'
   ```text
   STARTED=arch011-runner,ws
   RUNNER=arch011-runner:succeeded:0
+  ABANDONED=arch011-runner:stopped
   FAILURE=NONE
   WS_READY=true
   STOP=TWICE
   ```
 
 - Bash then proves the disposable consumer directory is absent and prints exactly `CLEANUP_OK`.
-- A blocked sibling, wrong typed result/order, unexpected failure, unbound WS service, repeated-stop
+- A blocked sibling, wrong typed result/order, missing or failure-producing normal-stop abandonment,
+  unexpected failure, unbound WS service, repeated-stop
   error, cast/private import compile failure, timeout, or residual directory makes the block nonzero.
 
 ## Cleanup
@@ -213,4 +233,20 @@ marker. No tracked repository file is created or modified.
 
 ## Observed evidence
 
-EMPTY
+On 2026-08-14, after the final Round A review converged at `ACTIONABLE FINDINGS: 0`, the guardian
+independently extracted and executed the exact Bash fence from the repository root against the final
+registry/settings/WebRTC/scanner implementation. The unified command exited `0`. The isolated public
+SDK consumer printed exactly:
+
+```text
+STARTED=arch011-runner,ws
+RUNNER=arch011-runner:succeeded:0
+ABANDONED=arch011-runner:stopped
+FAILURE=NONE
+WS_READY=true
+STOP=TWICE
+```
+
+Bash then removed the basename-validated temporary consumer, proved its path absent, and printed
+`CLEANUP_OK`. A final `${TMPDIR:-/tmp}/robota-arch011.*` scan returned no residual paths. Package
+build output was setup only and was not used as user-execution evidence.

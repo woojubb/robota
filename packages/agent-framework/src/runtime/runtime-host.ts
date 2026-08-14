@@ -21,6 +21,7 @@ import type { IInteractiveSession } from '../interactive/index.js';
 import type { TInteractiveSessionOptions } from '../interactive/interactive-session.js';
 import type {
   ITransportCompletionRecord,
+  ITransportFailureRecord,
   ITransportLifecycleRegistryView,
 } from '@robota-sdk/agent-interface-transport';
 
@@ -44,17 +45,10 @@ export interface IRuntimeHostHandle {
   readonly session: InteractiveSession;
   /** Stop the transports and shut the session down (bounded); idempotent. */
   shutdown(message?: string): Promise<void>;
-  /**
-   * Settle when every run-to-completion transport has finished, rejecting with the first failure
-   * (ARCH-011). Resolves immediately when there are none, which is the ordinary case.
-   *
-   * The caller owns the process-lifetime wait; this is what it races that wait against, so a
-   * transport whose entire job happens inside `start()` cannot fail unobserved. Without it the
-   * failure would sit in the registry with nothing able to ask for it.
-   */
+  /** Return the complete ordered runner aggregate, including registry-owned abandonment on stop. */
   waitForCompletion(): Promise<ITransportCompletionRecord[]>;
-  /** Report the first nonzero runner outcome without waiting for unrelated runners. */
-  waitForFailure(): Promise<ITransportCompletionRecord | undefined>;
+  /** Report only the first real failed runner outcome; normal stop abandonment is not a failure. */
+  waitForFailure(): Promise<ITransportFailureRecord | undefined>;
 }
 
 /**
@@ -73,7 +67,7 @@ export async function startRuntimeHost(opts: IRuntimeHostOptions): Promise<IRunt
     async waitForCompletion(): Promise<ITransportCompletionRecord[]> {
       return (await opts.transportRegistry?.waitForCompletion()) ?? [];
     },
-    async waitForFailure(): Promise<ITransportCompletionRecord | undefined> {
+    async waitForFailure(): Promise<ITransportFailureRecord | undefined> {
       return opts.transportRegistry?.waitForFailure();
     },
     async shutdown(message = 'runtime host stopped'): Promise<void> {
