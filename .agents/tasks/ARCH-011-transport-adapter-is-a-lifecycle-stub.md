@@ -1,245 +1,172 @@
 ---
-title: 'ARCH-011: `ITransportAdapter` is a four-member lifecycle stub, so six transports have each grown a private dialect and nothing mechanical can see the drift'
+title: 'ARCH-011: make transport lifecycle semantics executable across every public adapter'
 status: in-progress
 created: 2026-08-02
 priority: critical
 urgency: now
-area: packages/agent-interface-transport, packages/agent-transport, packages/agent-transport-http, packages/agent-transport-mcp, packages/agent-transport-ws, packages/agent-transport-tui, packages/agent-transport-webrtc
+area: packages/agent-interface-transport, packages/agent-transport, packages/agent-transport-http, packages/agent-transport-mcp, packages/agent-transport-ws, packages/agent-transport-tui, packages/agent-transport-webrtc, packages/agent-framework, packages/agent-cli, scripts/harness
 depends_on: [ARCH-012]
 ---
 
-# ARCH-011: the transport contract specifies lifecycle and nothing else
+# ARCH-011: make transport lifecycle semantics executable
 
-## Problem
+## Objective
 
-"Implementing a transport" is an open-ended manual obligation with **no parity check**. Six packages
-have each answered the unspecified questions differently, and nothing mechanical can see the drift.
-This blocks any new transport and any capability added to the session.
+Replace the remaining prose-only transport lifecycle dialects with one typed service/runner lifecycle
+contract, a shared conformance kit, and a mechanically complete public-adapter roster. Preserve
+protocol-specific admission, cancellation, disconnect, and wire-error policies in their owning
+packages rather than forcing unlike transports to behave identically.
 
-`start()` does not even mean the same thing across implementations: in two of them it runs work to
-completion while the registry awaits each one sequentially — so registering either **deadlocks
-everything behind it**.
+## Current Problem
 
-Every other transport-layer finding in the audit — the missing admission boundary (SEC-008),
-`ICommandResult`'s English-only failure, the GUI discarding the error channel, and the registry
-deadlock — is named by the synthesis as a consequence of this one.
+P1 fixed the registry deadlock, but its optional `runsToCompletion` flag still makes lifecycle mode
+an unchecked convention. The owner SPEC says `start()` and `stop()` are idempotent, while public
+implementations recreate resources or work on repeated start. The production headless runner reports
+failure by exit code rather than through the completion route that the registry observes. No shared
+suite proves attach-before-start, readiness, repeated-call behavior, bounded stop, or completion
+outcome for every adapter.
 
-## Evidence
+The mismatch is reproducible today:
 
-**Layer: L3 (transport).** L3 F1:
+- `TuiTransport.attach()` ignores the supplied session and creates a separate session internally, so
+  it is not an honest implementation of the borrowed-session adapter port.
+- `TransportRegistry.register()` accepts only configurable transports even though the lifecycle
+  orchestration itself needs only the base adapter contract.
+- Six packages expose seven adapter-shaped subjects because the WS package has both a lightweight
+  factory and a configurable server. There is no canonical roster or shared suite invocation.
+- `createHeadlessTransport()` absorbs execution failure into `getExitCode()`, so
+  `waitForCompletion()` cannot observe the real production runner failure.
 
-- The entire shared contract is `packages/agent-interface-transport/src/transport-adapter.ts:7-12`:
-  `{ readonly name; attach(session); start(); stop() }`. It says nothing about what of the session is
-  exposed, admission, framing, cancellation or error shape.
-- Every implementation therefore returns an intersection with its own extra surface, so no consumer
-  can be polymorphic: `agent-transport-http/src/http-transport.ts:20` (`& { getApp(): Hono }`),
-  `agent-transport-mcp/src/mcp-transport.ts:24` (`& { getServer(): Server }`),
-  `agent-transport-ws/src/ws-transport.ts:20` (`& { onMessage }`),
-  `agent-transport/src/headless/headless-transport.ts:22` (`& { getExitCode() }`).
-- Measured drift on every omitted axis (L3's table): session surface, admission,
-  in-flight-on-disconnect, error shape, cancellation verb — six transports, six answers. The
-  capability gap is stated in the code and enforced nowhere:
-  `agent-transport-http/src/routes.ts:5-6` — _"Exposes the core session methods (a subset;
-  background-task, job-group, and execution-workspace methods are WS-only)."_
-- `start()` does not even mean the same thing:
-  `agent-transport/src/headless/headless-transport.ts:31-35` runs the entire prompt to completion
-  inside `start()` and `agent-transport-tui/src/tui-transport.ts:24-26` blocks for the life of the UI,
-  while `TransportRegistry.startAll` awaits each sequentially
-  (`agent-transport/src/transport-registry.ts:62-68`) — registering either deadlocks everything
-  behind it.
+## Finding-Depth Correction
 
-The synthesis re-verified, read-only: `transport-adapter.ts` is exactly the four members quoted.
+The original current-state premise is partly INVALID after completed work and must not drive P2:
 
-The cause in one sentence, from the synthesis: _the transport contract specifies lifecycle and
-nothing else, so "implementing a transport" is an open-ended manual obligation with no parity check._
+- P1 already fixed sequential-start deadlock and rejection ownership.
+- ARCH-012 already replaced the unaskable session surface with 16 named roles and a zero-cast floor.
+- SEC-008 already owns admission parity and documented not-applicable/delegated boundaries.
+- Public transport factories now return named package-owned interfaces rather than anonymous
+  intersections.
+- HTTP, MCP, WS/WebRTC, local TUI, and headless are not required to share one wire cancellation,
+  disconnect, admission, or error representation.
 
-## Why this is foundational (or not)
+The remaining FOUNDATIONAL defect is narrower: attach/start/readiness/stop and runner-completion
+semantics are not one executable port contract across all implementations.
 
-**FOUNDATIONAL.** Single layer (L3), but the synthesis ranks it BLOCKER on blast radius: six
-packages, and it is the root of four other transport findings.
+## Decisions
 
-**Sequencing, stated by the synthesis:** L3 itself identifies the `IInteractiveSession` god contract
-(filed as ARCH-012) as _this_ finding's root — `IInteractiveSession` is the de-facto transport
-contract — _"so the two should be sequenced together"_. That is why `depends_on: [ARCH-012]`.
+- Model two lifecycle profiles: a service becomes ready and continues serving; a runner launches and
+  reports terminal outcome through a separate typed completion channel. Concrete packages own their
+  readiness boundary; the universal contract does not encode topology names.
+- `start()` is not universally idempotent. Starting before attach or starting an already started
+  adapter rejects a typed lifecycle error. Repeated `stop()` is safe, bounded, and releases no
+  resource twice. A stopped adapter may be attached again and restarted.
+- Remove `TuiTransport`; the existing `renderApp` and `TuiInteractionChannel` surfaces already own
+  the session-owning TUI presentation flow.
+- Separate lifecycle and settings registry views. Lifecycle registration accepts honest base
+  adapters; the settings projection lists only configurable adapters. Unknown and non-configurable
+  setting mutations reject stable typed configuration errors.
+- The shared conformance kit lives on the contract package's public testing subpath. Concrete
+  packages supply fixtures; they do not choose the expected lifecycle policy.
+- Maintain a fail-closed roster with stable package/export subject IDs for the six remaining public
+  adapter subjects: headless, HTTP, MCP, lightweight WS, configurable WS, and WebRTC.
+- Preserve current headless meanings: exit 0 (including interrupted prompt) is successful completion;
+  nonzero (including unsatisfied/cancelled goal exit 2) is failed completion. Lifecycle does not
+  invent a universal cancellation meaning.
+- Classify each changed public package independently; the fixed group coordinates the highest bump.
+  The existing P1 minor classification is semver-inaccurate where required public types changed.
 
-## Direction
+## Plan
 
-The invariant the synthesis states for this class (theme T8): _a port with more than one
-implementation needs a shared conformance suite; without one it has as many contracts as it has
-adapters._ It lists this finding twice under that theme — six transports with six answers on
-admission, cancellation, error shape and session surface with no parity check, and
-`ITransportAdapter.start()` meaning "bind" in four implementations and "run to completion" in two.
-
-So the direction the synthesis contains has two parts:
-
-1. **Specify the omitted axes on the contract** — session surface, admission, in-flight-on-disconnect,
-   error shape, cancellation verb — rather than leaving each to the implementation. `start()`'s
-   meaning is one of them: "bind" and "run to completion" cannot both be `start()` while
-   `TransportRegistry.startAll` awaits sequentially.
-2. **Add the shared conformance suite** that makes drift visible. The synthesis is explicit that
-   without one, the contract has as many meanings as it has adapters.
-
-It does not choose the specific decomposition. The related capability gap it names — HTTP exposing
-only a subset of session methods, with background-task/job-group/execution-workspace WS-only
-(`routes.ts:5-6`) — is a capability question the new contract has to be able to _ask_, not
-necessarily one this work must answer for every transport.
-
-Risk named by the synthesis: the intersection types
-(`& { getApp() }`, `& { getServer() }`, `& { onMessage }`, `& { getExitCode() }`) are what consumers
-currently depend on, so narrowing the contract without providing the capability-scoped equivalents
-breaks every consumer that reaches through them.
+- [ ] TC-01 — Specify service/runner lifecycle profiles, readiness, legal state transitions, and typed lifecycle failures in the contract owner.
+- [ ] TC-02 — Add an exact `succeeded | failed` runner outcome with exit code and no raw cause, preserve current headless exit meanings, and propagate production nonzero outcomes through registry, runtime host, and CLI process-lifetime ownership.
+- [ ] TC-03 — Split lifecycle/settings registry views, accept base adapters, reject duplicate names, preserve configurable settings/options projection, and type unknown/non-configurable setting failures.
+- [ ] TC-04 — Reclassify the TUI session-owning presentation host and establish the exact six-subject adapter roster with fail-closed discovery/registration checks.
+- [ ] TC-05 — Add the shared fixture-driven lifecycle conformance kit and invoke it for all six public adapter subjects with protocol-specific readiness drivers.
+- [ ] TC-06 — Author and execute the durable cast-free external-consumer scenario using a custom runner plus a shipped configurable WS service.
+- [ ] TC-07 — Synchronize owner SPECs/READMEs, correct semver changesets, run affected-package and full harness verification, complete gates, archive, review, and merge.
 
 ## Test Plan
 
-- **Required red-first regression:** a shared conformance suite run against **all six** transports,
-  asserting one agreed answer per axis (admission required, cancellation verb, error shape,
-  in-flight-on-disconnect, session surface). Against current code this must FAIL for the transports
-  that answer differently — it is designed to expose exactly the drift L3's table measured.
-- Red-first for the deadlock: register a transport whose `start()` runs to completion
-  (`headless-transport.ts:31-35`) together with a second transport, call
-  `TransportRegistry.startAll` (`transport-registry.ts:62-68`), and assert the second transport is
-  started. Today this hangs.
-- A mechanical check that no `ITransportAdapter` implementation returns an intersection type carrying
-  extra public surface (the four sites at `http-transport.ts:20`, `mcp-transport.ts:24`,
-  `ws-transport.ts:20`, `headless-transport.ts:22`).
-- `pnpm typecheck`, `pnpm harness:verify-like-ci` green.
+- RED first: contract type tests fail until lifecycle profile and runner completion types exist.
+- RED first: shared conformance cases reject the current attach/start/stop behavior and missing roster.
+- Registry tests cover base-adapter registration, duplicate rejection, service readiness, typed runner
+  success/failure, immediate failure observation, runner rejection ownership, stop abandonment, and
+  stale generations.
+- Every concrete subject runs the same conformance assertions; fixtures only drive its real readiness
+  boundary and cleanup.
+- The public scenario builds isolated consumers against bare package exports, uses no casts/private
+  imports/credentials, and proves sibling service readiness plus custom runner completion.
+- Verify affected builds, tests, and typechecks; contract roster and cast scans; conformance; scoped
+  harness; full CI-equivalent verification.
 
 ## User Execution Test Scenarios
 
-**Applies — via the public SDK surface.** The delivered change is a published contract an external
-consumer implements against; the synthesis's core claim is that this is currently not possible
-without private dialects, and the scenario is to do it.
+**Applies — public SDK lifecycle composition.**
 
-- **Prerequisites:** built workspace and a scratch consumer project depending on the published
-  `@robota-sdk/agent-interface-transport` and `@robota-sdk/agent-transport`. This example project does
-  not exist today and **will be built by this work**.
-- **Steps:**
-  1. In the scratch project, implement a minimal custom transport against the published
-     `ITransportAdapter` alone — no intersection type, no cast, no reach-through to a concrete class.
-  2. Register it in a `TransportRegistry` alongside a shipped transport and start the session.
-  3. Submit a prompt through the custom transport, then cancel mid-run, then disconnect while a run
-     is in flight.
-- **Expected observable result (after the fix):** the custom transport starts (and does not block the
-  sibling transport from starting), admits or rejects the submission per the contract's admission
-  member, delivers the prompt result, honours the cancellation verb, and produces the contract's
-  error shape on disconnect — all without importing anything beyond the contract package.
-- **Expected observable result (before the fix, for contrast):** the custom transport cannot express
-  admission or cancellation at all (the contract has four members), and registering it after a
-  run-to-completion transport never returns.
-- **Cleanup:** delete the scratch project.
-- **Evidence (fill in after implementation):** the consumer's source (showing no casts), and its
-  console output across the three steps.
+- Durable artifact: `.agents/evals/scenarios/arch-011-custom-transport-agent-run.md`.
+- The isolated consumer's `custom-transport.ts` imports only
+  `@robota-sdk/agent-interface-transport`; composition imports the public registry, public testing
+  session, and shipped configurable WS transport.
+- Exact command: the durable file builds public packages, creates a disposable external-style
+  TypeScript consumer, registers a custom runner and shipped WS service, proves service startup is not
+  blocked, observes ordered typed completion and no failure, performs bounded repeated stop, and
+  proves its temporary consumer tree was removed.
+- Expected consumer output: `STARTED=arch011-runner,ws`,
+  `RUNNER=arch011-runner:succeeded:0`, `FAILURE=NONE`, `WS_READY=true`, `STOP=TWICE`; Bash then prints
+  `CLEANUP_OK` after cleanup.
+- The custom runner remains pending until after `startAll()` has returned and `ws.boundPort` is
+  asserted, so a registry that waits for runner completion cannot reach the sibling readiness marker.
+- Admission, active-turn cancellation, peer disconnect, and protocol wire-error parity are explicitly
+  not claimed by this lifecycle scenario.
+- Evidence: EMPTY until DONE-GATE-STAGE-2.
+
+### [DONE-GATE-STAGE-1] — ❌ FAIL | 2026-08-14
+
+**Status remains:** scenario drafted
+**Failed criteria:**
+
+- Sibling-readiness proof: the custom runner originally resolved its completion promise immediately,
+  so a registry that incorrectly waited for runner completion could still reach and print the WS
+  readiness marker.
+  **Required action:** keep runner completion pending, prove `startAll()` returns with WS bound, then
+  settle the runner explicitly before awaiting aggregate completion.
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** scenario drafted → scenario written
+Scenario: `.agents/evals/scenarios/arch-011-custom-transport-agent-run.md`. Executability is
+`agent-executable`; prerequisites are complete and explicitly require no credential or external
+service. The exact bounded command drives an isolated public SDK consumer. Its custom runner remains
+pending until `startAll()` returns and the shipped WS service exposes its bound port, after which the
+scenario explicitly completes the runner and verifies ordered typed completion, no failure, repeated
+stop, exact output, and cleanup. Evidence fields remain EMPTY until post-implementation execution.
+The prior Stage 1 failure is preserved and its pending-runner correction is resolved. No current P2
+implementation work had begun at this gate.
 
 ## Progress
 
-### P1 — `start()` means one thing, and the deadlock is closed
+### 2026-08-02 — P1 complete
 
-The synthesis lists this finding twice under theme T8, and the second listing is the one with a
-runnable failure: `ITransportAdapter.start()` meant "bind" in four implementations and "run to
-completion" in two, while `TransportRegistry.startAll` awaited each sequentially. Registering
-`headless` or `tui` first meant **every transport behind it never started** — no crash, no error,
-never reached.
+- Added `runsToCompletion`, nonblocking registry startup, owned completion failure replay,
+  `ITransportRegistryView.waitForCompletion()`, runtime-host reachability, and serve-mode failure
+  observation.
+- Added regressions for unhandled rejection, stop abandonment, stale generations, current-entry
+  ownership, and rejection with `undefined`.
+- P1 deliberately left the production headless exit-code result channel and shared conformance suite
+  for the remaining work.
 
-`start()` now says which it means: it resolves once the transport is SERVING. A transport whose whole
-job happens inside `start()` declares `runsToCompletion: true`, and the registry starts it without
-awaiting — keeping the promise, not dropping it, so `waitForCompletion()` is where its failure
-arrives. `headless-transport` and `tui-transport` declare it.
+### 2026-08-14 — premise and scope corrected
 
-`runsToCompletion` is optional, and that is a decision rather than an omission: "resolves once
-serving" is the ordinary case, so a transport that says nothing is asserting it, and the registry
-treats absence as `false` rather than guessing. That is the opposite call from ARCH-012's capability
-members, where silence had no safe reading — the difference is stated in the SPEC so the next reader
-does not have to infer which rule applies.
+- Re-audited current code after P1, SEC-008, and ARCH-012.
+- Counted seven current adapter-shaped public subjects and identified TUI's false attach contract.
+- Removed resolved admission/session/intersection/deadlock claims and invalid universal protocol parity
+  from the remaining direction.
+- Chose a lifecycle-only contract and six-subject conformance boundary.
 
-Red-proved on both halves, separately: restoring the sequential await fails
-`expected 'pending' to be 'settled'`; dropping the promise instead of keeping it fails
-`promise resolved "undefined" instead of rejecting`.
+## Blockers
 
-### Remaining — the conformance suite and the other axes
+None.
 
-The synthesis's direction has two parts and this is the first. What remains:
+## Result
 
-- **The shared conformance suite** across all six transports, asserting one agreed answer per axis
-  (admission, cancellation verb, error shape, in-flight-on-disconnect, session surface). Without it
-  the contract still has as many meanings as it has adapters on those axes.
-- **The intersection types** (`& { getApp() }`, `& { getServer() }`, `& { onMessage }`,
-  `& { getExitCode() }`) that consumers depend on. The synthesis names narrowing them without
-  capability-scoped equivalents as the risk, and those equivalents are ARCH-012 P2.
-- **The capability gap** — HTTP exposing a subset of session methods, background-task/job-group/
-  execution-workspace WS-only. The synthesis says the new contract must be able to ASK this, not
-  necessarily answer it for every transport here.
-
-### Review round — the failure route nothing could call
-
-Two MUSTs, both measured, and the second is this session's recurring class in a new shape.
-
-1. **`waitForCompletion()` was on the concrete registry only.** Both production `startAll` callers
-   hold `ITransportRegistryView`, which did not declare it, so neither could call it — and neither
-   did. The failure of a run-to-completion transport was stored in a map nothing could read, which is
-   WORSE than before, where `startAll` awaited it and the error reached the caller. It is on the view
-   now, and `IRuntimeHostHandle` exposes it to the caller that owns the process-lifetime wait.
-2. **Holding a promise is not handling it.** `this.running.set(name, transport.start())` keeps a
-   reference and attaches nothing, so a rejection between `startAll` returning and the caller reaching
-   `waitForCompletion` is an unhandled rejection — measured as exit code 1, bypassing shutdown. My
-   JSDoc and the SPEC both asserted the opposite. The handler is attached at start time now and the
-   outcome replayed, and the existing test could not have caught it because it awaited the two back to
-   back and never left the microtask drain. The new case puts a macrotask between them.
-
-Also: `stopAll` ignored the tracking entirely, so it reported success over live work and a subsequent
-`waitForCompletion` would hang on a transport whose `stop()` is a documented no-op. It abandons them
-explicitly, which is what makes its bounded best-effort contract honest — and what lets a session
-switch start from empty rather than overwrite a promise that then has no handler.
-
-CI review round: two more, and the first is the same class again.
-
-**A failure from a STOPPED session leaked into the next one.** `stopAll` emptied the failure array in
-place, but the handler attached to a still-in-flight `start()` cannot be detached — it fires after the
-stop and writes to whatever array it captured, which was the same instance the next session read. So
-"a later `startAll` starts from empty", which I had written into the code and the SPEC, was not true.
-The array is REPLACED now and the handler captures its own generation, so a stale write lands where
-nobody reads. The earlier stop case only exercised the resolve path; the new one rejects after the
-stop, and red-proves.
-
-**And the new route still had no production caller.** `serve-mode` — the `--serve` process-lifetime
-waiter — awaited signals alone. Exposing `IRuntimeHostHandle.waitForCompletion()` without anything
-racing it is the same shape this branch fixed at the registry layer, one level up. It races it now;
-no run-to-completion transport is registered there today, and the wire is what stops that from
-mattering later.
-
-Second CI round, three more — and the first was a regression I introduced while fixing the previous
-round's SHOULD.
-
-**`--serve` tore itself down one microtask after it started serving.** Wiring
-`host.waitForCompletion()` into the process-lifetime wait, I settled on RESOLUTION as well as
-rejection. `waitForCompletion` resolves immediately when there is nothing to wait for, which is the
-ordinary case for `--serve` — so every ordinary run ended instantly. Only a FAILURE settles it now:
-`--serve`'s whole job is to stay alive until a signal or a host-executed exit. The binary e2e caught
-it (`serve host did not come up within 20000ms`), and that is the second time in this branch a fix
-for a review finding introduced a worse defect than the finding.
-
-**A stale settle deleted the CURRENT session's entry.** `this.running.delete(name)` keyed on the
-transport name with no ownership check, so a promise abandoned by `stopAll` could, on settling late,
-delete the entry a NEW session had put under the same name — and `waitForCompletion` would then
-resolve without waiting for work still in flight. The previous case covered the opposite ordering
-only. Same `if (current === ours)` check `TurnClaim.release` needed in RUNTIME-003.
-
-**A rejection with no value was read as no failure.** `Promise.reject()` pushes `undefined`, and the
-`!== undefined` guard swallowed it. Presence, not equality.
-
-Third CI round, two SHOULDs, both about completeness rather than correctness.
-
-`agent-framework` was missing from the changeset although its public `IRuntimeHostHandle` gained a
-required member. Added.
-
-And the sharper one: **the failure route's real reach is narrower than the narrative.** `headless` —
-the transport that most obviously runs to completion — absorbs every failure inside its runner and
-always resolves, expressing failure through `getExitCode()`. So its actual failure mode does not
-reject and therefore never reaches `trackRunToCompletion` → `waitForCompletion` → serve-mode's
-`.catch`. The new tests use a synthetic `start()` that throws, which is a different shape from the
-one production has. The machinery is right for what it covers; the prose implied it covered more.
-Both SPEC and the transport header now say which channel carries what.
-
-**Open question recorded rather than answered:** should a run-to-completion transport be able to
-report failure BY RESULT (a non-zero exit code) as well as by rejection? Making `waitForCompletion`
-observe exit codes would change `headless`'s deliberate black-box contract (RUNTIME-001), so it is a
-design decision for the conformance-suite work, not a patch here.
+Pending.
