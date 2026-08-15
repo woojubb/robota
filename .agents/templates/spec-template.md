@@ -38,6 +38,12 @@
 
 {Current test files, scenario verification, coverage gaps.}
 
+## User-Facing Contract
+
+<!-- Optional. Only when an END USER (not calling code) directly observes and depends on this
+     surface — key bindings, terminal visual grammar, exit codes. Placement criterion:
+     .agents/skills/design-doc-authoring/SKILL.md > "Placement criterion". Delete if N/A. -->
+
 ## Class Contract Registry
 
 | Class       | Implements/Extends | Defined In      |

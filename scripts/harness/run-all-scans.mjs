@@ -411,6 +411,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/check-design-doc-completeness.mjs'],
   },
   {
+    name: 'spec-whitebox-leakage',
+    command: ['node', 'scripts/harness/check-spec-whitebox-leakage.mjs'],
+  },
+  {
     name: 'adr',
     command: ['node', 'scripts/harness/check-adr-completeness.mjs'],
   },

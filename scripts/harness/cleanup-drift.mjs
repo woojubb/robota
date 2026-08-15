@@ -4,22 +4,12 @@ import { spawnSync } from 'node:child_process';
 
 import { requireGovernedTree } from './governed-tree.mjs';
 import { listWorkspaceScopes, pathExists, readText } from './shared.mjs';
+import { normalizeSpecHeading, readSpecSectionContract } from './spec-sections.mjs';
 
 const WORKSPACE_ROOT = process.cwd();
 const SKILLS_ROOT = path.join(WORKSPACE_ROOT, '.agents', 'skills');
 const SKILLS_INDEX_PATH = path.join(SKILLS_ROOT, 'index.md');
 const DESIGN_TMP_PATH = path.join(WORKSPACE_ROOT, '.design', 'tmp');
-
-const SPEC_REQUIRED_SECTIONS = [
-  'Scope',
-  'Boundaries',
-  'Architecture Overview',
-  'Type Ownership',
-  'Public API Surface',
-  'Extension Points',
-  'Error Taxonomy',
-  'Test Strategy',
-];
 
 const FORBIDDEN_AGENT_TERMS = [
   /\bmain agent\b/i,
@@ -79,6 +69,9 @@ async function checkStaleDesignDocs(findings) {
 }
 
 async function checkSpecQuality(findings) {
+  // Fail-closed: an unreadable section contract throws rather than letting the loop below report a
+  // clean tree against an empty list (enforcement-architecture.md, "Silence is not success").
+  const specSections = readSpecSectionContract(WORKSPACE_ROOT);
   const scopes = await listWorkspaceScopes();
 
   for (const scope of scopes) {
@@ -99,9 +92,13 @@ async function checkSpecQuality(findings) {
       });
     }
 
-    const missingSections = SPEC_REQUIRED_SECTIONS.filter(
-      (required) => !sections.some((section) => section.includes(required)),
+    // RULE-013: the required list is parsed from its owning skill, not copied here, and headings
+    // are matched by the shared normalizer (`## 1. Scope` counts as Scope). Substring matching used
+    // to accept `## Scope Notes` as `Scope` and to reject every ordinal-prefixed SPEC.
+    const presentRequired = new Set(
+      sections.map(normalizeSpecHeading).filter((name) => specSections.required.includes(name)),
     );
+    const missingSections = specSections.required.filter((name) => !presentRequired.has(name));
 
     if (missingSections.length > 0) {
       findings.push({

@@ -87,6 +87,14 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Measured the way this harness calls it — `collectRows(bare, contract)` cannot even be reached:
+    // building `contract` throws `cannot read the section contract — .agents/skills/...` first.
+    file: 'check-spec-whitebox-leakage.mjs',
+    finder: 'collectRows',
+    tree: '.agents/skills',
+    why: 'it measures how much of each package SPEC sits outside the standard sections, and the section list is parsed from the skill that owns it; over a root with no skills tree the contract would be empty, every heading would count as non-standard, and the scan would either flag the whole corpus or — if the empty contract were tolerated — report zero leakage, which reads exactly like a clean tree',
+  },
+  {
     // Measured the way this harness calls it — `finder(bare)`: throws
     // `scripts/harness does not exist under <root>`.
     file: 'scan-measurement-provenance.mjs',
