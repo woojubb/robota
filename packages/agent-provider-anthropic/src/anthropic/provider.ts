@@ -386,11 +386,21 @@ function closeObjectSchemas(node: unknown): unknown {
   if (record.items && typeof record.items === 'object') {
     closed.items = closeObjectSchemas(record.items);
   }
+  // CORE-039: a union node's branches are objects too. Without this the spread carries `anyOf`
+  // through unrecursed, leaving every object inside a branch open — the exact thing this seam
+  // exists to prevent, reached by the one route it did not walk.
+  if (Array.isArray(record.anyOf)) {
+    closed.anyOf = record.anyOf.map(closeObjectSchemas);
+  }
   if (record.additionalProperties && typeof record.additionalProperties === 'object') {
     // Schema-valued additionalProperties (record types) pass through recursed;
     // Anthropic may reject them — surfaced as a provider error, not masked here.
     closed.additionalProperties = closeObjectSchemas(record.additionalProperties);
   } else if (record.type === 'object') {
+    // Deliberate overwrite, including of an explicit `true`. CORE-039 made the converter emit
+    // `additionalProperties: true` routinely (Zod's default `strip` means "accept then drop"), and
+    // Anthropic still requires every object node closed at this seam. The consumer's original
+    // schema keeps governing core-side validation, where the `true` is honoured.
     closed.additionalProperties = false;
   }
   return closed;

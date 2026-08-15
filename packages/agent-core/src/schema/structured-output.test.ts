@@ -138,3 +138,61 @@ describe('parseStructuredResponseText', () => {
     });
   });
 });
+
+/**
+ * CORE-039 — a union node carries `anyOf` INSTEAD of `type`. Before the subset could express one,
+ * `switch (schema.type)` fell to `default: unsupported schema type undefined` for every such node,
+ * so emitting `anyOf` without teaching this walk to branch on it would have rejected every value of
+ * a union-typed field — trading a converter crash for a tool that cannot be called.
+ */
+describe('validateAgainstJsonSchema — union nodes (CORE-039)', () => {
+  const choice = {
+    anyOf: [
+      { type: 'string' as const },
+      {
+        type: 'object' as const,
+        properties: { label: { type: 'string' as const } },
+        required: ['label'],
+      },
+    ],
+  };
+
+  it('accepts a value matching either branch', () => {
+    expect(validateAgainstJsonSchema(choice, 'yes', '$')).toEqual([]);
+    expect(validateAgainstJsonSchema(choice, { label: 'yes' }, '$')).toEqual([]);
+  });
+
+  it('rejects a value matching no branch, reporting how many shapes were allowed', () => {
+    const issues = validateAgainstJsonSchema(choice, 42, '$');
+    expect(issues[0]).toBe('$: value matches none of the 2 allowed shapes');
+  });
+
+  it('reports each branch its own complaint so the near-miss is visible', () => {
+    const issues = validateAgainstJsonSchema(choice, { wrong: 1 }, '$');
+    expect(issues.join(' ')).toContain('$|anyOf[1].label: required property missing');
+  });
+
+  it('validates a union nested inside an array inside an object', () => {
+    const schema = {
+      type: 'object' as const,
+      properties: { options: { type: 'array' as const, items: choice } },
+      required: ['options'],
+    };
+    expect(validateAgainstJsonSchema(schema, { options: ['a', { label: 'b' }] }, '$')).toEqual([]);
+    expect(
+      validateAgainstJsonSchema(schema, { options: ['a', { nope: 'b' }] }, '$').join(' '),
+    ).toContain('options[1]');
+  });
+
+  it('refuses a node declaring neither a type nor anyOf rather than accepting it', () => {
+    expect(validateAgainstJsonSchema({}, 'anything', '$')).toEqual([
+      '$: schema node declares neither a type nor anyOf',
+    ]);
+  });
+
+  it('refuses an empty anyOf rather than treating it as satisfiable', () => {
+    expect(validateAgainstJsonSchema({ anyOf: [] }, 'anything', '$')).toEqual([
+      '$: anyOf declares no members',
+    ]);
+  });
+});

@@ -89,17 +89,25 @@ export function normalizeStructuredOutput(output: TStructuredOutputSchema): IStr
 }
 
 /**
- * Validate a value against the universal JSON-schema subset used by tool
- * parameters (`IParameterSchema`). Covers type, required, enum, items, nested
- * properties, and numeric bounds — the full expressible surface of the subset.
+ * Validate a value against the universal JSON-schema subset (`IParameterSchema`). Covers type,
+ * required, enum, items, nested properties, unions and numeric bounds — the full expressible
+ * surface of the subset, at every level.
+ *
+ * CORE-039: this is the ONE complete walk. `parameter-validator` delegates its depth here rather
+ * than keeping a second, shallower copy, and the two must therefore agree by construction.
  */
 export function validateAgainstJsonSchema(
-  schema: IToolSchema['parameters'] | IParameterSchema,
+  schema: IParameterSchema,
   value: unknown,
   path: string,
 ): string[] {
   const issues: string[] = [];
   const kind = schema.type;
+
+  // A union node carries `anyOf` instead of `type`, so it is answered before the type switch.
+  if (schema.anyOf) {
+    return validateAnyOf(schema.anyOf, value, path);
+  }
 
   switch (kind) {
     case 'object': {
@@ -107,7 +115,7 @@ export function validateAgainstJsonSchema(
         return [`${path}: expected object, got ${describeType(value)}`];
       }
       const record = value as Record<string, unknown>;
-      const required = 'required' in schema ? (schema.required ?? []) : [];
+      const required = schema.required ?? [];
       for (const key of required) {
         if (!(key in record)) {
           issues.push(`${path}.${key}: required property missing`);
@@ -140,7 +148,7 @@ export function validateAgainstJsonSchema(
       if (!Array.isArray(value)) {
         return [`${path}: expected array, got ${describeType(value)}`];
       }
-      const items = 'items' in schema ? schema.items : undefined;
+      const items = schema.items;
       if (items) {
         value.forEach((entry, index) => {
           issues.push(...validateAgainstJsonSchema(items, entry, `${path}[${index}]`));
@@ -153,12 +161,12 @@ export function validateAgainstJsonSchema(
       if (typeof value !== 'string') {
         return [`${path}: expected string, got ${describeType(value)}`];
       }
-      if ('enum' in schema && schema.enum && !schema.enum.some((entry) => entry === value)) {
+      if (schema.enum && !schema.enum.some((entry) => entry === value)) {
         issues.push(
           `${path}: value ${JSON.stringify(value)} is not one of the allowed enum values`,
         );
       }
-      if ('pattern' in schema && schema.pattern && !new RegExp(schema.pattern).test(value)) {
+      if (schema.pattern && !new RegExp(schema.pattern).test(value)) {
         issues.push(`${path}: value does not match pattern ${schema.pattern}`);
       }
       return issues;
@@ -172,13 +180,13 @@ export function validateAgainstJsonSchema(
       if (kind === 'integer' && !Number.isInteger(value)) {
         issues.push(`${path}: expected integer, got non-integer number`);
       }
-      if ('minimum' in schema && schema.minimum !== undefined && value < schema.minimum) {
+      if (schema.minimum !== undefined && value < schema.minimum) {
         issues.push(`${path}: value ${value} is below minimum ${schema.minimum}`);
       }
-      if ('maximum' in schema && schema.maximum !== undefined && value > schema.maximum) {
+      if (schema.maximum !== undefined && value > schema.maximum) {
         issues.push(`${path}: value ${value} is above maximum ${schema.maximum}`);
       }
-      if ('enum' in schema && schema.enum && !schema.enum.some((entry) => entry === value)) {
+      if (schema.enum && !schema.enum.some((entry) => entry === value)) {
         issues.push(`${path}: value ${value} is not one of the allowed enum values`);
       }
       return issues;
@@ -199,8 +207,30 @@ export function validateAgainstJsonSchema(
     }
 
     default:
-      return [`${path}: unsupported schema type ${String(kind)}`];
+      return kind === undefined
+        ? [`${path}: schema node declares neither a type nor anyOf`]
+        : [`${path}: unsupported schema type ${String(kind)}`];
   }
+}
+
+/**
+ * A union node is satisfied by ANY member. Reporting every member's complaint would bury the real
+ * one, so a failure reports the branch count and each branch's issues under its own index.
+ */
+function validateAnyOf(members: IParameterSchema[], value: unknown, path: string): string[] {
+  if (members.length === 0) {
+    return [`${path}: anyOf declares no members`];
+  }
+  const perMember = members.map((member, index) =>
+    validateAgainstJsonSchema(member, value, `${path}|anyOf[${index}]`),
+  );
+  if (perMember.some((memberIssues) => memberIssues.length === 0)) {
+    return [];
+  }
+  return [
+    `${path}: value matches none of the ${members.length} allowed shapes`,
+    ...perMember.flat(),
+  ];
 }
 
 function describeType(value: unknown): string {

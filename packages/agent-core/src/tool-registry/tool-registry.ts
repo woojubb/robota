@@ -1,8 +1,25 @@
 import { ValidationError } from '../utils/errors';
 import { logger } from '../utils/logger';
 
-import type { IToolSchema } from '../interfaces/provider';
+import type { IToolSchema, TJSONSchemaKind } from '../interfaces/provider';
 import type { ITool, IToolRegistry } from '../interfaces/tool';
+
+/**
+ * The parameter kinds a registered tool may declare — every member of `TJSONSchemaKind`.
+ *
+ * CORE-039: this list previously omitted `integer` and `null`, so a tool declaring an `integer`
+ * parameter was refused at registration by a type the subset itself defines. Derived from the union
+ * rather than re-listed, so a new kind cannot be added to the subset and forgotten here.
+ */
+const VALID_PARAMETER_TYPES: readonly TJSONSchemaKind[] = [
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'array',
+  'object',
+  'null',
+];
 
 /**
  * Tool registry implementation
@@ -153,12 +170,21 @@ export class ToolRegistry implements IToolRegistry {
     if (schema.parameters.properties) {
       for (const propName of Object.keys(schema.parameters.properties)) {
         const propSchema = schema.parameters.properties[propName];
+        // CORE-039: a union node carries `anyOf` INSTEAD of `type`, so demanding a type here would
+        // reject every tool with a union-typed argument at registration — the converter would emit
+        // it correctly and this check would throw on it.
+        if (propSchema?.anyOf) {
+          if (propSchema.anyOf.length === 0) {
+            throw new ValidationError(`Parameter "${propName}" declares an empty anyOf`);
+          }
+          continue;
+        }
+
         if (!propSchema?.type) {
           throw new ValidationError(`Parameter "${propName}" must have a type`);
         }
 
-        const validTypes = ['string', 'number', 'boolean', 'array', 'object'];
-        if (!validTypes.includes(propSchema.type)) {
+        if (!VALID_PARAMETER_TYPES.includes(propSchema.type)) {
           throw new ValidationError(
             `Parameter "${propName}" has invalid type "${propSchema.type}"`,
           );

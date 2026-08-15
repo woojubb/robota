@@ -32,6 +32,7 @@ export type {
   IAIProvider,
   IToolSchema,
   IParameterSchema,
+  IObjectParameterSchema,
   TJSONSchemaKind,
   TJSONSchemaEnum,
   TParameterDefaultValue,

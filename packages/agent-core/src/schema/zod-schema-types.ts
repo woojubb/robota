@@ -28,6 +28,12 @@ export interface IZodSchemaDef {
   values?: TUniversalValue[];
   description?: string;
   unknownKeys?: 'passthrough' | 'strip' | 'strict';
+  /** `ZodEffects` (`.refine()` / `.transform()`) holds the schema it wraps here. */
+  schema?: IZodSchema;
+  /** `ZodUnion` / `ZodDiscriminatedUnion` members. */
+  options?: IZodSchema[];
+  /** `ZodLiteral` value. */
+  value?: TUniversalValue;
 }
 
 export interface IZodSchema {

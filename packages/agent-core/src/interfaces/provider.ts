@@ -47,46 +47,60 @@ export type TJSONSchemaEnum = string[] | number[] | boolean[] | (string | number
 export interface IToolSchema {
   name: string;
   description: string;
-  parameters: {
-    type: 'object';
-    properties: Record<string, IParameterSchema>;
-    required?: string[];
-    additionalProperties?: boolean | IParameterSchema;
-  };
+  parameters: IObjectParameterSchema;
   /**
    * SELFHOST-005: optional schema the tool's OUTPUT (`result.data`) must match. When present, the
    * tool-registry validates the returned value against it in `FunctionTool.execute` (beside the
    * tool-INPUT `parameter-validator`) and throws on mismatch before the result returns. Absent =
    * no output validation (backward-compatible). Model-output validation is separate (CORE-015).
    *
-   * Accepts the same object-root shape as `parameters` (so object outputs can declare `required`
-   * fields and strict `additionalProperties`) OR a bare `IParameterSchema` for a non-object output.
+   * An object output is declared as an {@link IObjectParameterSchema} (so it names its properties);
+   * a non-object output is a bare {@link IParameterSchema}. Both are the same subset — CORE-039
+   * removed the second, structurally identical root shape that used to be spelled out here purely
+   * to regain `required`, which `IParameterSchema` now carries at every level.
    */
-  outputSchema?:
-    | {
-        type: 'object';
-        properties: Record<string, IParameterSchema>;
-        required?: string[];
-        additionalProperties?: boolean | IParameterSchema;
-      }
-    | IParameterSchema;
+  outputSchema?: IParameterSchema;
 }
 
 /**
- * Parameter schema for tools
+ * Parameter schema for tools — the universal JSON-schema subset (CORE-039 SSOT).
+ *
+ * The same shape describes a root object and every node inside it: `required` and `anyOf` are
+ * members at every level, so a nested object states its own requirements rather than losing them.
+ * Splitting root from nested is what let a nested object be treated as a leaf.
+ *
+ * `type` is optional because a union node carries `anyOf` INSTEAD of a type — emitting both is
+ * invalid JSON Schema (a provider applies the two constraints together and rejects the branch that
+ * does not match the type). A node with neither is not valid: every walk over this subset rejects
+ * it rather than passing it silently.
+ *
+ * `additionalProperties` omitted means CLOSED, by convention — see agent-core `docs/SPEC.md`
+ * § Universal JSON-Schema Subset. Producers that mean "open" say so with `true`.
  */
 export interface IParameterSchema {
-  type: TJSONSchemaKind;
+  type?: TJSONSchemaKind;
   description?: string;
   enum?: TJSONSchemaEnum;
   items?: IParameterSchema;
   properties?: Record<string, IParameterSchema>;
-  additionalProperties?: IParameterSchema;
+  required?: string[];
+  /** Union node: the value must match at least one member. Carried instead of `type`. */
+  anyOf?: IParameterSchema[];
+  additionalProperties?: boolean | IParameterSchema;
   minimum?: number;
   maximum?: number;
   pattern?: string;
   format?: string;
   default?: TParameterDefaultValue;
+}
+
+/**
+ * An {@link IParameterSchema} narrowed to an object node that names its properties — the shape a
+ * tool's `parameters` root must take.
+ */
+export interface IObjectParameterSchema extends IParameterSchema {
+  type: 'object';
+  properties: Record<string, IParameterSchema>;
 }
 
 /**
