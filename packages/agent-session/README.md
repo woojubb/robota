@@ -138,6 +138,14 @@ Streaming text deltas are written to append-only JSONL session logs as `text_del
 - `tool_message_committed`
 - `history_mutation`
 
+`SESSION_LOG_EVENT` is the complete production and replay-reader vocabulary. Direct logger calls and core
+execution-event literals must be members of that shared list, and the coverage test scans every source so a
+new event cannot silently become writer-only or reader-only.
+
+Manual and automatic compaction also share one session-owned trigger value. The same `manual` or `auto`
+value reaches PreCompact, PostCompact, the `context_compact` log entry, and `onCompactEvent`; instructions
+do not cause the compaction orchestrator to reclassify the trigger.
+
 `FileSessionLogger` redacts common secret fields before writing logs and stores large fields as
 content-addressed JSON payload references under `{sessionId}.payloads/`. `loadSessionLogEntries()`
 hydrates those sidecars before replay and fails closed on malformed references, path/symlink escape,

@@ -240,12 +240,18 @@ The CLI is intentionally a thin TUI over SDK-owned session state. Recent updates
 `TuiInteractionChannel` (in `agent-transport-tui`) is the owner of the `InteractiveSession` lifecycle in TUI mode. It:
 
 1. Creates `InteractiveSession` and `CommandRegistry` once (not recreated on re-render).
-2. Subscribes to SDK events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `context_update`, `error`) and drives a `TuiStateManager` instance.
+2. Subscribes to the exhaustive TUI-classified SDK event set and drives a `TuiStateManager` instance.
 3. Exposes actions (`submit`, `abort`, `cancelQueue`, `shutdown`) and state via an `onChange` subscription.
 
 The `useTuiChannel` React hook subscribes to `TuiInteractionChannel.onChange` and feeds the immutable state snapshot into the React component tree.
 
-The state shape exposed to components includes `history: IHistoryEntry[]` — the universal timeline of chat messages and session events. Components render from this single list; there is no separate `messages` array.
+The state shape exposed to components includes `history: IHistoryEntry[]` — the canonical conversation
+timeline. Conversation components render from this single list; there is no separate `messages` array.
+
+Plan lifecycle, context-file refresh, and checkpoint/branch transitions appear in a separate bounded notice
+list so history synchronization cannot erase them. If the TUI cannot project one of these events, it reports
+the delivery error to the embedding owner or renders a visible fallback notice; the committed SDK operation
+remains successful.
 
 `TuiStateManager` is a pure TypeScript class with no React dependency. It can be instantiated and tested independently of the component tree, making state transition logic fully unit-testable.
 
