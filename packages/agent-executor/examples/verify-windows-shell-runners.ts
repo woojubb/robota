@@ -19,16 +19,9 @@ interface IShellCase {
   sentinel: string;
 }
 
-interface ITrackedSchedule {
-  handle: IBackgroundTaskHandle;
-  cancelled: boolean;
-}
+type TTrackedSchedule = { handle: IBackgroundTaskHandle; cancelled: boolean };
 
-interface IRunnerResult {
-  success: true;
-  executableBasename: string;
-  output: string;
-}
+type TRunnerResult = { success: true; executableBasename: string; output: string };
 
 function assertCondition(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -77,7 +70,7 @@ function requestFor(shellCase: IShellCase, kind: 'process' | 'scheduled'): IBack
   };
 }
 
-async function managedResult(shellCase: IShellCase): Promise<IRunnerResult> {
+async function managedResult(shellCase: IShellCase): Promise<TRunnerResult> {
   const handle = createManagedShellProcessRunner().start(requestFor(shellCase, 'process'));
   const result = await handle.result;
   assertCondition(result.exitCode === 0, `${shellCase.name} managed exit was ${result.exitCode}`);
@@ -109,8 +102,8 @@ async function waitForScheduledSentinel(
 
 async function scheduledResult(
   shellCase: IShellCase,
-  schedules: ITrackedSchedule[],
-): Promise<IRunnerResult & { fires: 1 }> {
+  schedules: TTrackedSchedule[],
+): Promise<TRunnerResult & { fires: 1 }> {
   let fires = 0;
   let handle: IBackgroundTaskHandle | undefined;
   const task = requestFor(shellCase, 'scheduled');
@@ -181,7 +174,7 @@ async function main(): Promise<void> {
   assertCondition(process.platform === 'win32', 'Windows shell scenario requires win32');
   const originalRobotaShell = process.env['ROBOTA_SHELL'];
   const originalShell = process.env['SHELL'];
-  const schedules: ITrackedSchedule[] = [];
+  const schedules: TTrackedSchedule[] = [];
   let failure: unknown;
   let rows: Array<Record<string, unknown>> = [];
   let unknownShellSpawnAttempts = -1;
