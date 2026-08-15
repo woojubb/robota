@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: in-progress
 type: AGREEMENT
 tags: [typescript, async, cli, websocket]
 ---
@@ -305,6 +305,8 @@ adversarial review before code changes.
 
 ## Tasks
 
+Active initiative Task: `.agents/tasks/AGREEMENT-002-complete-august-13-agent-architecture-findings.md`.
+
 - [ ] ARCH-014 — todo — `.agents/tasks/ARCH-014-session-log-external-payloads-have-no-dereferencer.md`
 - [ ] ARCH-015 — todo — `.agents/tasks/ARCH-015-two-writers-one-record-contract-session-save-destroys-fields.md`
 - [ ] ARCH-016 — todo — `.agents/tasks/ARCH-016-session-log-event-vocabulary-and-compaction-trigger-split-brain.md`
@@ -383,3 +385,40 @@ ARCH-020+028 event-delivery work unit and ARCH-021 parent-side capability broker
   correction for ownership fields and extension-value serialization.
 
 REVIEW VERDICT: ENDORSE
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-15
+
+**Status upgrade:** review-ready → approved
+
+- Explicit user approval: the current user-provided active goal states verbatim,
+  “ARCH-014~028 을 모두 진행해줘.”
+- Approval scope: the instruction directly authorizes implementation of the full ARCH child set governed
+  by this AGREEMENT-002 document; “모두 진행해줘” is an unambiguous instruction to proceed with that design.
+- Post-approval integrity: the document is clean at committed HEAD `657aca3cc`; no Architecture Review,
+  `type`, or `tags` change exists after the current approval statement.
+- Independent architecture validation: the preceding `[proposal-review]` entry records
+  `REVIEW VERDICT: ENDORSE` and specifically endorses the new parent-side broker placement in the existing
+  `agent-subagent-runner` IPC family, with live endpoints retained in the parent and no sibling-PRODUCT
+  dependency introduced.
+- Pre-implementation ordering: the worktree was clean at the approval check and remains at the
+  documentation-only AGREEMENT-002 commit; no ARCH-014–028 implementation edit or commit preceded this gate.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-15
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file: `.agents/tasks/AGREEMENT-002-complete-august-13-agent-architecture-findings.md` exists and is
+  recorded in the spec document's `## Tasks` section as the active initiative execution record.
+- Completion-criteria correspondence: the Tasks file `## Plan` contains one explicit task for each
+  agreement criterion, `TC-01` through `TC-16`, covering all fourteen child findings, child lifecycle
+  completion, and assembled-base verification.
+- Tasks created: `TC-01` ARCH-014 external payload replay; `TC-02` ARCH-015 record preservation/store port;
+  `TC-03` ARCH-016 event vocabulary/compact trigger; `TC-04` ARCH-017 prompt-registry permission cleanup;
+  `TC-05` ARCH-018 interaction-channel contract; `TC-06` ARCH-020 transition matrix; `TC-07` ARCH-028
+  TUI/protocol delivery; `TC-08` ARCH-021 parent-side worker broker; `TC-09` ARCH-023 default session store;
+  `TC-10` ARCH-024 semantic command roles; `TC-11` ARCH-027 provider override/pack collisions; `TC-12`
+  ARCH-022 public-surface guard; `TC-13` ARCH-025 total executor projections; `TC-14` ARCH-026 shared shell
+  resolver; `TC-15` child done gates/archive; and `TC-16` assembled verification.
+- Task test plan: the Tasks file contains a substantive `## Test Plan` section specifying per-child
+  red-green tests and builds, applicable user-execution scenarios, assembled conformance/scoped/CI-equivalent
+  verification, and task/spec lifecycle projection checks; it exceeds the required 50 characters.

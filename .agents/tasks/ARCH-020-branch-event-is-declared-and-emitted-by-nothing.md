@@ -5,7 +5,7 @@ created: 2026-08-13
 priority: medium
 urgency: soon
 area: packages/agent-interface-transport, packages/agent-framework
-depends_on: []
+depends_on: [ARCH-016]
 ---
 
 # ARCH-020: branch_event is dead wiring
@@ -36,15 +36,19 @@ edit-checkpoint-store.ts:77-101` (createCheckpoint), `:156-199` (restore→forkF
 
 ## Direction
 
-Emit `branch_event` from the checkpoint-store transitions through `InteractiveSession`, mirroring how
-`goal_event`/`plan_event` are emitted — so a GUI/monitor surface can render branch changes. (Small,
-mechanical.) If the event is genuinely not wanted yet, strike the "Emitted on every transition" TSDoc
-and mark it forward-provisioned — but the pointer being wired argues for emitting it.
+Execute with ARCH-028 as one named event-delivery work unit. Define an exhaustive checkpoint/branch
+operation matrix covering create, fork, switch, restore, rollback, and resume-pointer updates. Assign
+each operation one exact declared event kind and payload, or explicitly classify it as a non-event.
+Emit only after checkpoint mutation, history replacement, and persistence succeed. A subscriber failure
+must not retroactively fail committed state: the operation remains successful while the owning TUI or
+protocol adapter reports the delivery failure through its injected error lifecycle. Shared keys and
+payloads belong to `agent-interface-transport`; executable fan-out policy remains in transport packages.
 
 ## Test Plan
 
-- Red-first: subscribe to `branch_event` on a session, fork/switch a checkpoint, assert the event
-  fires with the transition kind — fails today.
+- Red-first: drive every matrix row and assert its exact post-persistence event or explicit non-event.
+- Throwing-subscriber tests assert committed state remains successful and the transport-owned error sink
+  observes the delivery failure.
 - `pnpm harness:verify -- --scope packages/agent-framework` green.
 
 ## User Execution Test Scenarios

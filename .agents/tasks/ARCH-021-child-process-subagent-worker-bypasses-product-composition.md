@@ -5,7 +5,7 @@ created: 2026-08-13
 priority: high
 urgency: soon
 area: packages/agent-subagent-runner, packages/agent-cli, packages/pack-coding, packages/agent-product
-depends_on: []
+depends_on: [ARCH-025]
 ---
 
 # ARCH-021: subagent worker ignores the product's composition
@@ -44,19 +44,27 @@ directly contradicts ARCH-006 ("every tool robota runs comes from a pack").
 
 ## Direction
 
-Give `IChildProcessSubagentRunnerOptions` (and the worker start payload) a seam for the product's
-provider-definition module and composed tool surface, threaded from the composition root the same way
-the in-process runner receives `deps.tools` — so a product's declared providers/tools reach
-child-process subagents. Reconcile `project-structure.md:15` vs `:351` (the composition-leaf
-"imported only at composition roots" rule vs the library edge the same document blesses): either name
-the forked-worker entry a sanctioned composition root or move the entry to the composition-root tier.
-Scope ARCH-006's claim to in-process execution in the meantime if the seam lands incrementally.
+Treat the process boundary as a serialization boundary. Keep the exact composed provider definitions,
+tool instances, credentials, and live owner-bound services in the parent, and expose them to the neutral
+worker through a versioned correlated capability broker. The worker uses provider/tool proxies and must
+fail startup when the broker handshake is unavailable; it never imports or reconstructs Robota defaults.
+
+The protocol must preserve provider streaming, cancellation, typed errors, permissions, and settle-once
+lifecycle behavior. Provider profile selection occurs through an injected parent resolver, falling back
+to the invoking runtime provider only when the request omits a profile. Tool calls serialize every
+classifiable `IToolExecutionContext` field, derive `signal`, and reconstruct live event/ask services in
+the parent. Extensions use a bounded recursive tagged codec for `undefined`, finite/special numbers,
+`Date`, `Error`, arrays, and plain records; cycles, invalid dates, unsupported prototypes, malformed tags,
+and depth/byte overflow fail explicitly. Exhaustive fixtures cover every top-level context key and wire
+variant.
 
 ## Test Plan
 
-- Red-first: a product profile with a custom provider definition and a pack-contributed tool whose
-  name is NOT in `createDefaultTools()` — assert a child-process subagent can construct the provider
-  and call the pack tool. Fails today ("Unknown provider" / tool absent).
+- Red-first: a custom provider and uniquely named pack tool execute through the parent broker without
+  credentials or live instances entering the start payload.
+- Forked-worker tests cover requested/default/unknown profiles, streaming, cancellation, typed errors,
+  ownership-field and tagged-extension round trips, malformed/cyclic/over-limit rejection, missing
+  capabilities, broker handshake failure, and settle-once disconnect/error/exit cleanup.
 - Regression: existing in-process subagent tool-surface parity still holds.
 - `pnpm harness:verify -- --scope packages/agent-subagent-runner` green.
 
