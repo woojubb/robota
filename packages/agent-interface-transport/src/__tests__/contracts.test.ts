@@ -73,6 +73,7 @@ describe('agent-interface-transport contract surface', () => {
     expectTypeOf<IUsageSnapshot>().toHaveProperty('totalTokens');
     expectTypeOf<TPermissionResultValue>().not.toBeNever();
     expectTypeOf<IInteractiveSessionStore>().toHaveProperty('save');
+    expectTypeOf<IInteractiveSessionStore>().toHaveProperty('getFilePath');
     expectTypeOf<IResumableSessionSummary>().toHaveProperty('messageCount');
   });
 

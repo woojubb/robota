@@ -15,11 +15,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { SessionStore } from '../session-store.js';
 
-import type { ISessionRecord } from '../session-store.js';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
 
 let baseDir: string;
 
-function createRecord(overrides: Partial<ISessionRecord> = {}): ISessionRecord {
+function createRecord(
+  overrides: Partial<IInteractiveSessionRecord> = {},
+): IInteractiveSessionRecord {
   return {
     id: 'core-019-atomic',
     cwd: '/tmp',

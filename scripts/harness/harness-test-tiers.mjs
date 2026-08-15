@@ -11,8 +11,10 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
+
+import { canonicalTemporaryDirectory } from './canonical-temporary-directory.mjs';
+import { envWithoutGitVars } from './shared.mjs';
 
 const DEFAULT_ROOT = path.resolve(import.meta.dirname, '../..');
 const TEST_DIR = 'scripts/harness/__tests__';
@@ -23,6 +25,7 @@ const TEST_DIR = 'scripts/harness/__tests__';
  */
 export const HERMETIC_TEST_FILES = Object.freeze([
   'scripts/harness/__tests__/api-pagination.test.mjs',
+  'scripts/harness/__tests__/canonical-temporary-directory.test.mjs',
   'scripts/harness/__tests__/check-adr-completeness.test.mjs',
   'scripts/harness/__tests__/check-agent-server-boundary.test.mjs',
   'scripts/harness/__tests__/check-architecture-map-completeness.test.mjs',
@@ -131,7 +134,7 @@ export function classifyHarnessTestFiles(root = DEFAULT_ROOT) {
   return { all, contract, hermetic };
 }
 
-function vitestInvocation(root, files, cwd = root, config = undefined) {
+export function vitestInvocation(root, files, cwd = root, config = undefined) {
   const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
   const vitestPackage = path.join(root, 'node_modules', 'vitest', 'vitest.mjs');
   if (!existsSync(vitestPackage) || packageJson.type !== 'module') {
@@ -151,7 +154,16 @@ function vitestInvocation(root, files, cwd = root, config = undefined) {
     '--testTimeout=30000',
     '--reporter=dot',
   ];
-  return spawnSync(process.execPath, args, { cwd, encoding: 'utf8' });
+  return spawnSync(process.execPath, args, {
+    cwd,
+    encoding: 'utf8',
+    env: harnessTestEnvironment(),
+  });
+}
+
+/** Keep fixture git commands rooted at their explicit cwd, including when a git hook launches us. */
+export function harnessTestEnvironment(base = process.env) {
+  return { ...envWithoutGitVars(base), TMPDIR: canonicalTemporaryDirectory() };
 }
 
 /**
@@ -160,7 +172,7 @@ function vitestInvocation(root, files, cwd = root, config = undefined) {
  * and spawned-script closure; only runtime dependencies are linked from the installed repository.
  */
 export function runHermeticTestsInStrippedRepository(root = DEFAULT_ROOT) {
-  const stage = mkdtempSync(path.join(tmpdir(), 'robota-harness-hermetic-'));
+  const stage = mkdtempSync(path.join(canonicalTemporaryDirectory(), 'robota-harness-hermetic-'));
   try {
     cpSync(path.join(root, 'scripts', 'harness'), path.join(stage, 'scripts', 'harness'), {
       recursive: true,

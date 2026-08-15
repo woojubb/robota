@@ -12,13 +12,13 @@ import {
 } from '../session-artifact.js';
 import { SessionStore } from '../session-store.js';
 
-import type { ISessionRecord } from '../session-store.js';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
 
 /**
- * SELFHOST-014 — the export/import artifact envelope over the storage-neutral ISessionRecord.
+ * SELFHOST-014 — the export/import artifact envelope over the canonical interactive session record.
  */
 
-function fullRecord(): ISessionRecord {
+function fullRecord(): IInteractiveSessionRecord {
   return {
     id: 'sess_1',
     name: 'demo',
@@ -33,7 +33,7 @@ function fullRecord(): ISessionRecord {
     goal: { objective: 'ship', status: 'active' },
     contextReferences: [{ path: 'AGENTS.md' }],
     sandboxSnapshotId: 'snap_1',
-  } as unknown as ISessionRecord;
+  } as unknown as IInteractiveSessionRecord;
 }
 
 function newStore(): SessionStore {
@@ -76,16 +76,16 @@ describe('session artifact — export-for-share redact seam (TC-07)', () => {
   it('applies an app-supplied redact (strip cwd/sandboxSnapshotId + scrub secrets); no-redact keeps them', () => {
     const record = fullRecord();
     // App-owned FIELD policy lives here (in the test = the app), never in the library.
-    const redact = (r: ISessionRecord): ISessionRecord => {
+    const redact = (r: IInteractiveSessionRecord): IInteractiveSessionRecord => {
       const {
         cwd: _cwd,
         sandboxSnapshotId: _snap,
         ...rest
-      } = r as ISessionRecord & {
+      } = r as IInteractiveSessionRecord & {
         cwd?: string;
         sandboxSnapshotId?: string;
       };
-      return scrubSensitiveKeys(rest) as ISessionRecord;
+      return scrubSensitiveKeys(rest) as IInteractiveSessionRecord;
     };
 
     const shared = deserializeSessionArtifact(serializeSessionArtifact(record, { redact }));
@@ -123,9 +123,9 @@ describe('session artifact — async share → resume across two independent sur
 describe('session artifact — a REDACTED artifact still resumes on B with import-side rebind (TC-08)', () => {
   it('redact strips required cwd → import on B → app rebinds B cwd → resumes with content intact', () => {
     const record = fullRecord();
-    const redactStripCwd = (r: ISessionRecord): ISessionRecord => {
-      const { cwd: _cwd, ...rest } = r as ISessionRecord & { cwd?: string };
-      return rest as ISessionRecord;
+    const redactStripCwd = (r: IInteractiveSessionRecord): IInteractiveSessionRecord => {
+      const { cwd: _cwd, ...rest } = r as IInteractiveSessionRecord & { cwd?: string };
+      return rest as IInteractiveSessionRecord;
     };
     const artifact = serializeSessionArtifact(record, { redact: redactStripCwd });
 

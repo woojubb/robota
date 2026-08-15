@@ -53,12 +53,22 @@ export type {
   TSessionLogValue,
 } from './session-logger.js';
 export {
+  resolveSessionLogExternalPayloads,
+  SessionLogPayloadResolutionError,
+} from './external-payload-resolver.js';
+export type {
+  ISessionLogPayloadResolutionErrorMetadata,
+  ISessionLogPayloadResolutionOptions,
+  TSessionLogPayloadResolutionErrorCode,
+} from './external-payload-resolver.js';
+export {
   loadSessionLogEntries,
   replaySessionLogEntries,
   validateSessionReplayLogEntries,
 } from './session-log-replay.js';
 export type {
   ISessionLogEntry,
+  ISessionLogLoadOptions,
   ISessionReplayRecord,
   ISessionReplayValidationIssue,
   ISessionReplayValidationResult,
@@ -67,7 +77,12 @@ export type {
 // Session persistence
 export { assertSafeSessionId, isSafeSessionId } from './session-id.js';
 export { SessionStore } from './session-store.js';
-export type { ISessionRecord, ISessionStore } from './session-store.js';
+export type {
+  IInteractiveSessionRecord,
+  IInteractiveSessionStore,
+  IInteractiveSessionRecord as ISessionRecord,
+  IInteractiveSessionStore as ISessionStore,
+} from '@robota-sdk/agent-interface-transport';
 
 // SELFHOST-007: neutral checkpoint tree (branching time-travel) — pure, I/O-free.
 export { CheckpointTree } from './checkpoint-tree.js';

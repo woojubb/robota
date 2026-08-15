@@ -10,11 +10,11 @@
  *
  * This module answers it by observation. Two subjects, two instruments, one question:
  *
- *   - a `bash` script is traced with `BASH_XTRACEFD`. `BASH_ENV` names a prelude every
+ *   - a `bash` script is traced with a `DEBUG` trap. `BASH_ENV` names a prelude every
  *     non-interactive bash sources before the script it was asked to run, so the instrument reaches
- *     a hook the gate never spawns itself — the test spawns it, several processes down. `PS4` is set
- *     to `@${BASH_SOURCE}:${LINENO}@`, and the trace goes to its OWN descriptor, so a test asserting
- *     on the hook's stderr is unaffected by being measured.
+ *     a hook the gate never spawns itself — the test spawns it, several processes down. The trap
+ *     writes `@${BASH_SOURCE}:${LINENO}@` to its OWN descriptor, so a test asserting on the hook's
+ *     stderr is unaffected by being measured.
  *   - a `.mjs`/`.ts` module is measured with vitest's v8 coverage, whose istanbul-shaped output
  *     names the executed statements and, just as importantly, WHICH lines are statements at all.
  *
@@ -192,14 +192,14 @@ export function judgeWitness({ targetLines, executedLines, executable = null }) 
  * Sourced by every non-interactive bash before the script it was invoked with, so a hook spawned
  * from inside a vitest worker is traced without the gate touching the test or the hook.
  *
- * The descriptor is opened by `exec {fd}>>`, appended to, and named through `BASH_XTRACEFD` so the
- * trace never lands on stderr — the stream several of these tests assert on.
+ * Bash 3.2 has neither dynamic descriptor allocation nor `BASH_XTRACEFD`, so use a fixed high
+ * descriptor and a function-inherited `DEBUG` trap. The trace remains out of stderr — the stream
+ * several of these tests assert on — and retains the same parser contract.
  */
 export const XTRACE_PRELUDE = `if [ -n "\${HARNESS_XTRACE_FILE:-}" ]; then
-  exec {__harness_xtrace_fd}>>"\$HARNESS_XTRACE_FILE"
-  BASH_XTRACEFD=\$__harness_xtrace_fd
-  PS4='@\${BASH_SOURCE}:\${LINENO}@ '
-  set -x
+  exec 19>>"\$HARNESS_XTRACE_FILE"
+  set -T
+  trap 'printf "@%s:%s@ \\n" "\${BASH_SOURCE[0]}" "\$LINENO" >&19' DEBUG
 fi
 `;
 

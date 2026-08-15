@@ -939,6 +939,21 @@ agent-cli (Ink TUI — CLI-specific)
 - **Behavior**: AnthropicProvider uses the streaming API, returning the completed message while calling the callback for each text delta
 - **UI connection**: Session → onTextDelta → InteractiveSession `text_delta` event → client
 
+### Agent Runtime Factory
+
+- **Runtime persistence default**: `createAgentRuntime({ cwd, provider })` owns a project session store
+  for that `cwd` and passes it to every created session unless the call supplies its own
+  `sessionStore` property.
+- **Tri-state precedence**: an omitted per-session `sessionStore` inherits the runtime store; an
+  explicit store replaces it for that session; an explicit `sessionStore: undefined` disables
+  persistence for that session. The exported runtime and per-session option types both admit the
+  explicit-`undefined` case under `exactOptionalPropertyTypes`.
+- **Stateless runtime**: `createStatelessRuntime()` constructs its base runtime with an explicit
+  undefined store, so omission remains filesystem-free. A caller may still supply a per-session store
+  to deliberately enable persistence for one stateless session.
+- **Resume**: `resumeSessionId` uses the same effective store. A normal runtime therefore persists and
+  resumes across runtime instances without requiring callers to re-forward `runtime.sessionStore`.
+
 ### InteractiveSession (SDK-Specific)
 
 - **Package**: `agent-framework/interactive/`

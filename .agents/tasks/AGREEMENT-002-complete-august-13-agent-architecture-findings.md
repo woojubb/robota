@@ -42,15 +42,15 @@ The paired spec passed GATE-APPROVAL on 2026-08-15. The user's instruction
 
 ## Plan
 
-- [ ] TC-01 — preserve full-fidelity external session payloads in ARCH-014.
-- [ ] TC-02 — preserve unknown session-record fields and reconcile the canonical store port in ARCH-015.
+- [x] TC-01 — preserve full-fidelity external session payloads in ARCH-014.
+- [x] TC-02 — preserve unknown session-record fields and reconcile the canonical store port in ARCH-015.
 - [ ] TC-03 — unify the session-log vocabulary and compact trigger in ARCH-016.
 - [ ] TC-04 — remove obsolete permission/ask seams and retain the prompt-registry SSOT in ARCH-017.
 - [ ] TC-05 — make the interaction-channel charter and implementer set agree in ARCH-018.
 - [ ] TC-06 — implement the complete committed checkpoint/branch transition matrix in ARCH-020.
 - [ ] TC-07 — deliver the shared event contract through exhaustive TUI/protocol mappings in ARCH-028.
 - [ ] TC-08 — preserve live product composition through a parent-side worker broker in ARCH-021.
-- [ ] TC-09 — forward runtime-owned default session persistence in ARCH-023.
+- [x] TC-09 — forward runtime-owned default session persistence in ARCH-023.
 - [ ] TC-10 — inject semantic command roles from composition in ARCH-024.
 - [ ] TC-11 — remove the dead provider override and add whole-pack duplicate diagnostics in ARCH-027.
 - [ ] TC-12 — remove framework public-surface laundering and recursively enforce the boundary in ARCH-022.
@@ -64,15 +64,15 @@ projection is the section below.
 
 ## Children
 
-- [ ] ARCH-014 — todo — `.agents/tasks/ARCH-014-session-log-external-payloads-have-no-dereferencer.md`
-- [ ] ARCH-015 — todo — `.agents/tasks/ARCH-015-two-writers-one-record-contract-session-save-destroys-fields.md`
+- [x] ARCH-014 — done — `.agents/tasks/completed/ARCH-014-session-log-external-payloads-have-no-dereferencer.md`
+- [x] ARCH-015 — done — `.agents/tasks/completed/ARCH-015-two-writers-one-record-contract-session-save-destroys-fields.md`
 - [ ] ARCH-016 — todo — `.agents/tasks/ARCH-016-session-log-event-vocabulary-and-compaction-trigger-split-brain.md`
 - [ ] ARCH-017 — todo — `.agents/tasks/ARCH-017-injected-permission-ask-handlers-are-dead-surface.md`
 - [ ] ARCH-018 — todo — `.agents/tasks/ARCH-018-interaction-channel-charter-is-unsatisfiable-as-written.md`
 - [ ] ARCH-020 — todo — `.agents/tasks/ARCH-020-branch-event-is-declared-and-emitted-by-nothing.md`
 - [ ] ARCH-021 — todo — `.agents/tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`
 - [ ] ARCH-022 — todo — `.agents/tasks/ARCH-022-framework-pass-through-re-export-evades-public-surface-guard.md`
-- [ ] ARCH-023 — todo — `.agents/tasks/ARCH-023-createAgentRuntime-default-sessionstore-never-forwarded.md`
+- [x] ARCH-023 — done — `.agents/tasks/completed/ARCH-023-createAgentRuntime-default-sessionstore-never-forwarded.md`
 - [ ] ARCH-024 — todo — `.agents/tasks/ARCH-024-framework-hardcodes-module-owned-command-ids.md`
 - [ ] ARCH-025 — todo — `.agents/tasks/ARCH-025-executor-projections-silently-drop-contract-fields.md`
 - [ ] ARCH-026 — todo — `.agents/tasks/ARCH-026-scheduled-task-runner-bypasses-shell-resolution-ssot.md`

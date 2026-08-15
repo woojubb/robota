@@ -25,7 +25,6 @@ import type {
 } from './permission-types.js';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
 import type { IRunContext } from './session-run.js';
-import type { ISessionStore } from './session-store.js';
 import type {
   ICompactEvent,
   ISessionOptions,
@@ -41,6 +40,7 @@ import type {
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
 import type { Robota } from '@robota-sdk/agent-core';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
 
 export type {
   ICompactEvent,
@@ -78,7 +78,7 @@ export class Session extends SessionBase {
   protected systemMessage: string;
   protected messageCount = 0;
   private readonly terminal: ITerminalOutput;
-  private readonly sessionStore?: ISessionStore;
+  private readonly sessionStore?: IInteractiveSessionStore;
   private readonly hooks?: Record<string, unknown>;
   private readonly hookTypeExecutors?: IHookTypeExecutor[];
   private readonly onTextDeltaCallback?: (delta: string) => void;

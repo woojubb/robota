@@ -177,7 +177,38 @@ describe('INFRA-072 — a red proof that never reached the fix', () => {
 
 // ── The instruments ───────────────────────────────────────────────────────────────────────────────
 
-describe('bash execution witness (BASH_XTRACEFD)', () => {
+describe('bash execution witness', () => {
+  it('records commands reached inside a shell function', () => {
+    const dir = scratchDir('xtrace-function-');
+    const prelude = path.join(dir, 'prelude.sh');
+    const traceFile = path.join(dir, 'trace.log');
+    const script = path.join(dir, 'function.sh');
+    writeFileSync(prelude, XTRACE_PRELUDE);
+    writeFileSync(
+      script,
+      [
+        '#!/usr/bin/env bash',
+        'set -euo pipefail',
+        'helper() {',
+        '  echo reached',
+        '}',
+        'helper',
+        '',
+      ].join('\n'),
+    );
+
+    const result = spawnSync('bash', [script], {
+      encoding: 'utf8',
+      env: { ...process.env, BASH_ENV: prelude, HARNESS_XTRACE_FILE: traceFile },
+    });
+
+    expect(result.status, `${result.stdout ?? ''}${result.stderr ?? ''}`).toBe(0);
+    const executed = parseXtrace(readFileSync(traceFile, 'utf8')).get(script);
+    expect(executed, 'the trace never mentioned the script').toBeTruthy();
+    expect(executed.has(4), 'the function body was not reported as executed').toBe(true);
+    expect(executed.has(6), 'the function call was not reported as executed').toBe(true);
+  });
+
   it('records the branch that ran and NOT the branch that did not', () => {
     // The whole claim in one assertion: a trace that reported both branches would witness a line the
     // case never reached, and the gate built on it would accept every red.

@@ -55,6 +55,19 @@ const runtime = createAgentRuntime({
 const session = runtime.createSession({});
 ```
 
+The runtime creates a project-local session store by default, so sessions persist and
+`resumeSessionId` works without re-passing a store on every call. A per-session `sessionStore`
+replaces that runtime default; an explicit `sessionStore: undefined` disables persistence for one
+session. `createStatelessRuntime()` uses that explicit-undefined contract as its default, while still
+allowing a caller to opt one session into a supplied store.
+
+The maintained offline example verifies the runtime-default persist→resume path with two real
+sessions and no provider credentials:
+
+```bash
+pnpm --filter @robota-sdk/agent-framework scenario:verify
+```
+
 ### Runtime host (`robota --serve`)
 
 `buildRuntimeSession()` is the single session-construction seam: every presentation — the TUI channel

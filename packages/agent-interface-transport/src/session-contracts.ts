@@ -478,14 +478,6 @@ export interface IInteractiveSessionStore {
   load(id: string): IInteractiveSessionRecord | undefined;
   list(): IInteractiveSessionRecord[];
   delete(id: string): void;
-}
-
-/** Projection used to render a resume picker. */
-export interface IResumableSessionSummary {
-  id: string;
-  name?: string;
-  cwd: string;
-  updatedAt: string;
-  messageCount: number;
-  preview: string;
+  /** Return the absolute record path when the store is file-backed. */
+  getFilePath?(id: string): string;
 }
