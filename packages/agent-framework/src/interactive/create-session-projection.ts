@@ -79,6 +79,7 @@ export function buildCreateSessionOptions(
           ],
         }
       : {}),
+    ...(options.commandSemanticRoles ? { commandSemanticRoles: options.commandSemanticRoles } : {}),
     modelCommandExecutor: options.modelCommandExecutor,
     isModelCommandInvocable: options.isModelCommandInvocable,
     editCheckpointRecorder: options.editCheckpointRecorder,

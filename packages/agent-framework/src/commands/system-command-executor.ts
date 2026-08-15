@@ -1,28 +1,65 @@
 import { createSystemCommands } from './system-command.js';
+import { DuplicateSystemCommandSemanticRoleError } from '../command-api/contracts.js';
 
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { ICommandHostContext, ICommandResult, ISystemCommand } from '../command-api/index.js';
+import type {
+  ICommandHostContext,
+  ICommandResult,
+  ISystemCommand,
+  ISystemCommandSemanticRoles,
+} from '../command-api/index.js';
+
+interface ICommandState {
+  commands: Map<string, ISystemCommand>;
+  semanticRoles: ISystemCommandSemanticRoles;
+}
+
+function buildCommandState(commands: readonly ISystemCommand[]): ICommandState {
+  const commandMap = new Map<string, ISystemCommand>();
+  for (const command of commands) commandMap.set(command.name, command);
+  const semanticRoles: Record<string, string> = {};
+  for (const command of commandMap.values()) {
+    if (!command.semanticRole) continue;
+    const existing = semanticRoles[command.semanticRole];
+    if (existing !== undefined && existing !== command.name) {
+      throw new DuplicateSystemCommandSemanticRoleError(
+        command.semanticRole,
+        existing,
+        command.name,
+      );
+    }
+    semanticRoles[command.semanticRole] = command.name;
+  }
+  return { commands: commandMap, semanticRoles };
+}
 
 /** Registry for system commands. */
 export class SystemCommandExecutor {
-  private readonly commands: Map<string, ISystemCommand>;
+  private commands: Map<string, ISystemCommand>;
+  private semanticRoles: ISystemCommandSemanticRoles;
 
   constructor(commands?: ISystemCommand[]) {
-    this.commands = new Map();
-    for (const cmd of commands ?? createSystemCommands()) {
-      this.commands.set(cmd.name, cmd);
-    }
+    const state = buildCommandState(commands ?? createSystemCommands());
+    this.commands = state.commands;
+    this.semanticRoles = state.semanticRoles;
   }
 
   /** Register an additional command. */
   register(command: ISystemCommand): void {
-    this.commands.set(command.name, command);
+    const state = buildCommandState([...this.commands.values(), command]);
+    this.commands = state.commands;
+    this.semanticRoles = state.semanticRoles;
   }
 
   /** Replace the entire command set (used by live preset command-module re-selection — PRESET-015). */
   replaceCommands(commands: readonly ISystemCommand[]): void {
-    this.commands.clear();
-    for (const command of commands) this.commands.set(command.name, command);
+    const state = buildCommandState(commands);
+    this.commands = state.commands;
+    this.semanticRoles = state.semanticRoles;
+  }
+
+  getSemanticRoles(): ISystemCommandSemanticRoles {
+    return { ...this.semanticRoles };
   }
 
   /** Execute a command by name. Returns null if command not found. */

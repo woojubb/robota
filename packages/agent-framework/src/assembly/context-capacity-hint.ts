@@ -9,30 +9,14 @@
  * such command exists, no product wording is emitted and the neutral core default stands.
  */
 
-import type { ICommandModule } from '../command-api/index.js';
-
-/** The context-reduction command whose presence makes the hard-capacity notice actionable. */
-const COMPACT_COMMAND_NAME = 'compact';
-
-function hasCommand(modules: readonly ICommandModule[], commandName: string): boolean {
-  for (const module of modules) {
-    if (module.systemCommands?.some((command) => command.name === commandName)) return true;
-    for (const source of module.commandSources ?? []) {
-      if (source.getCommands().some((command) => command.name === commandName)) return true;
-    }
-  }
-  return false;
-}
-
 /**
  * Derive the concrete remediation hint for the hard-capacity notice from the composed command set.
  * Returns `undefined` when no context-reduction command is registered, leaving the neutral core
  * default (`DEFAULT_CONTEXT_CAPACITY_HINT`) in force.
  */
 export function deriveContextCapacityHint(
-  commandModules: readonly ICommandModule[] | undefined,
+  contextReductionCommandName: string | undefined,
 ): string | undefined {
-  if (!commandModules || commandModules.length === 0) return undefined;
-  if (!hasCommand(commandModules, COMPACT_COMMAND_NAME)) return undefined;
-  return `Run /${COMPACT_COMMAND_NAME} and retry.`;
+  if (!contextReductionCommandName) return undefined;
+  return `Run /${contextReductionCommandName} and retry.`;
 }

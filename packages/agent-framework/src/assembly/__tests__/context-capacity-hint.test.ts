@@ -13,30 +13,14 @@ import { describe, expect, it } from 'vitest';
 
 import { deriveContextCapacityHint } from '../context-capacity-hint.js';
 
-import type { ICommandModule } from '../../command-api/index.js';
-
-function moduleWithSystemCommand(name: string): ICommandModule {
-  return {
-    name: `test-module-${name}`,
-    systemCommands: [
-      {
-        name,
-        description: 'test command',
-        execute: () => ({ kind: 'text', text: '' }) as never,
-      },
-    ],
-  };
-}
-
 describe('deriveContextCapacityHint (NEUT-005)', () => {
-  it('names the registered compact command so the notice is actionable', () => {
-    const hint = deriveContextCapacityHint([moduleWithSystemCommand('compact')]);
-    expect(hint).toBe('Run /compact and retry.');
+  it('names an alternate role-bearing command id so the notice is actionable', () => {
+    expect(deriveContextCapacityHint('reduce-context-alt')).toBe(
+      'Run /reduce-context-alt and retry.',
+    );
   });
 
-  it('returns undefined when no compact command is registered (neutral core default stands)', () => {
-    expect(deriveContextCapacityHint([moduleWithSystemCommand('help')])).toBeUndefined();
-    expect(deriveContextCapacityHint([])).toBeUndefined();
+  it('returns undefined when the semantic role is absent', () => {
     expect(deriveContextCapacityHint(undefined)).toBeUndefined();
   });
 });

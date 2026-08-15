@@ -26,6 +26,7 @@ function createSkillsSystemCommand(): ISystemCommand {
   const entry = createSkillsCommandEntry();
   return {
     name: entry.name,
+    semanticRole: 'skillActivation',
     displayName: entry.displayName,
     description: entry.description,
     requiresPermission: false,

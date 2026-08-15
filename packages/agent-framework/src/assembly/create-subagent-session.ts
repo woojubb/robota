@@ -15,6 +15,7 @@ import { createProviderSafeModelCommandToolName } from '../tools/model-command-t
 
 import type { TSubagentSuffix } from './subagent-prompts.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import type { ISystemCommandSemanticRoles } from '../command-api/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
 import type { IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
@@ -37,7 +38,6 @@ const MODEL_SHORTCUTS: Record<string, string> = {
   opus: 'claude-opus-4-6',
 };
 const LEGACY_AGENT_TOOL_NAME = 'Agent';
-const PROJECTED_AGENT_COMMAND_TOOL_NAME = createProviderSafeModelCommandToolName('agent');
 
 /** Options for creating a subagent session. */
 export interface ISubagentOptions {
@@ -108,6 +108,8 @@ export interface ISubagentOptions {
     toolResultData?: string;
     executionId?: string;
   }) => void;
+  /** Selected command semantic roles inherited from the parent session. */
+  commandSemanticRoles?: ISystemCommandSemanticRoles;
 }
 
 /**
@@ -129,6 +131,7 @@ function resolveModelId(shortName: string, _parentModel: string): string {
 function filterTools(
   parentTools: IToolWithEventService[],
   agentDefinition: IAgentDefinition,
+  subagentSpawnCommandName: string | undefined,
 ): IToolWithEventService[] {
   let tools = [...parentTools];
 
@@ -145,9 +148,13 @@ function filterTools(
   }
 
   // Step 3: Always remove agent-spawning tools
+  const projectedSpawnToolName = subagentSpawnCommandName
+    ? createProviderSafeModelCommandToolName(subagentSpawnCommandName)
+    : undefined;
   tools = tools.filter(
-    (t) =>
-      t.getName() !== LEGACY_AGENT_TOOL_NAME && t.getName() !== PROJECTED_AGENT_COMMAND_TOOL_NAME,
+    (tool) =>
+      tool.getName() !== LEGACY_AGENT_TOOL_NAME &&
+      (projectedSpawnToolName === undefined || tool.getName() !== projectedSpawnToolName),
   );
 
   return tools;
@@ -163,7 +170,11 @@ export function createSubagentSession(options: ISubagentOptions): Session {
   const { agentDefinition, parentConfig, parentContext, parentTools, terminal } = options;
 
   // Filter tools based on agent definition constraints
-  const tools = filterTools(parentTools, agentDefinition);
+  const tools = filterTools(
+    parentTools,
+    agentDefinition,
+    options.commandSemanticRoles?.subagentSpawn,
+  );
 
   // Resolve model (precedence): explicit alias override > SELFHOST-006 per-role routing > parent model.
   // v1 resolution site (per opaque role key = role ?? name). The subagent runs on the PARENT provider

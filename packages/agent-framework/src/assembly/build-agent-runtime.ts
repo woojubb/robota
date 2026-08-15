@@ -65,6 +65,7 @@ export function buildAgentRuntime(
       onToolExecution: options.onToolExecution,
       customAgentRegistry: (name: string) => agentLoader.getAgent(name),
       agentDefinitions,
+      commandSemanticRoles: options.commandSemanticRoles,
     };
     const subagentManager = new SubagentManager({
       runner: (options.subagentRunnerFactory ?? createInProcessSubagentRunner)(agentToolDeps),

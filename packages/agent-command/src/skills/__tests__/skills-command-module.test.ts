@@ -66,6 +66,7 @@ describe('createSkillsCommandModule', () => {
     ]);
     expect(command).toMatchObject({
       name: 'skills',
+      semanticRole: 'skillActivation',
       userInvocable: true,
       modelInvocable: true,
       lifecycle: 'inline',

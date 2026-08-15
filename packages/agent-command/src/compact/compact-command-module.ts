@@ -20,6 +20,7 @@ function createCompactSystemCommand(): ISystemCommand {
   const entry = createCompactCommandEntry();
   return {
     name: entry.name,
+    semanticRole: 'contextReduction',
     displayName: entry.displayName,
     description: entry.description,
     example: entry.example,
