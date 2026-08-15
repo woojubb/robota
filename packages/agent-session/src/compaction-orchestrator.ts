@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 
 import { runHooks } from '@robota-sdk/agent-core';
 
+import type { TCompactTrigger } from './session-types.js';
 import type {
   IAIProvider,
   TUniversalMessage,
@@ -96,6 +97,7 @@ export class CompactionOrchestrator {
     history: TUniversalMessage[],
     instructions?: string,
     signal?: AbortSignal,
+    trigger: TCompactTrigger = 'manual',
   ): Promise<string> {
     // RUNTIME-004: FIRST, before the empty-history shortcut. Review found that ordering the other way
     // returned `''` for an already-cancelled turn — and the caller replaces the conversation with
@@ -104,8 +106,6 @@ export class CompactionOrchestrator {
     // out before calling.
     signal?.throwIfAborted();
     if (history.length === 0) return '';
-
-    const trigger: 'auto' | 'manual' = instructions !== undefined ? 'manual' : 'auto';
 
     // Fire PreCompact hook
     const preHookInput: IHookInput = {
