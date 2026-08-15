@@ -5,9 +5,7 @@
   "packageName": "@robota-sdk/agent-transport-ws",
   "command": {
     "executable": "pnpm",
-    "args": [
-      "scenario:verify"
-    ],
+    "args": ["scenario:verify"],
     "rendered": "pnpm scenario:verify"
   },
   "cwd": "<cwd>",

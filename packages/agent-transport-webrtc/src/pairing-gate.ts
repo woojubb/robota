@@ -16,11 +16,12 @@
  * `pair-nonce`, no enrollment, no reconnect) — preserving existing behavior.
  */
 
-import {
-  createOutboundDelivery,
-  createWsHandler,
-  type SessionResumeBridge,
-} from '@robota-sdk/agent-transport-protocol';
+import { createWsHandler, type SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
+
+import { createChannelDelivery } from './channel-delivery.js';
+import { isEnrollFrame, isPairingFrame, isReconnectFrame } from './pairing-frames.js';
+
+import type { IEnrollFrame } from './pairing-frames.js';
 import {
   deriveIdentityId,
   importPublicKey,
@@ -52,12 +53,6 @@ export interface IHostReconnectConfig {
   readonly resolveDevicePublicKey: (deviceId: string) => Promise<CryptoKey | undefined>;
   /** Pin a device's public key on first-pair enrollment (deviceId, base64url SPKI). */
   readonly onEnroll: (deviceId: string, deviceSpki: string) => void;
-}
-
-/** A gate-level identity-exchange frame (first-pair enrollment, post-B3-accept). */
-interface IEnrollFrame {
-  readonly t: 'enroll-key';
-  readonly spki: string;
 }
 
 export interface IPairingGateOptions {
@@ -92,29 +87,6 @@ export interface IPairingGateOptions {
   /** Injection seams (default to the real implementations). */
   readonly startHandshake?: typeof startPairingHandshake;
   readonly createHandler?: typeof createWsHandler;
-}
-
-/** True when a parsed value is a B3 pairing frame (`{ t: 'pair-nonce' | 'pair-confirm', … }`). */
-function isPairingFrame(value: unknown): value is TPairingFrame {
-  if (typeof value !== 'object' || value === null) return false;
-  const t = (value as { t?: unknown }).t;
-  return t === 'pair-nonce' || t === 'pair-confirm';
-}
-
-/** True when a parsed value is a reconnect frame the host consumes (`rc-hello` / `rc-device`). */
-function isReconnectFrame(value: unknown): value is TReconnectFrame {
-  if (typeof value !== 'object' || value === null) return false;
-  const t = (value as { t?: unknown }).t;
-  return t === 'rc-hello' || t === 'rc-device';
-}
-
-function isEnrollFrame(value: unknown): value is IEnrollFrame {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as { t?: unknown }).t === 'enroll-key' &&
-    typeof (value as { spki?: unknown }).spki === 'string'
-  );
 }
 
 type TGateState =
@@ -291,13 +263,11 @@ export class PairingGate {
       this.handlerCleanup = () => bridge.detach();
     } else {
       const create = this.options.createHandler ?? createWsHandler;
-      // ARCH-030: the gate is the carrier on this branch, so it builds the connection's outbound
-      // boundary from its own channel sink and its own failure policy and passes it down.
+      // ARCH-030: the gate is the carrier on this branch — its own channel sink, its own failure policy.
       const { onMessage, cleanup } = create({
         session: this.options.session,
-        deliver: createOutboundDelivery(
-          (serverMessage) => this.options.channel.send(JSON.stringify(serverMessage)),
-          (error, event) => this.handleSessionDeliveryError(error, event),
+        deliver: createChannelDelivery(this.options.channel, (error, event) =>
+          this.handleSessionDeliveryError(error, event),
         ),
       });
       this.onSessionMessage = onMessage;
