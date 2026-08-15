@@ -48,6 +48,68 @@ async function createDesignDir(files) {
 }
 
 describe('findDesignDocFindings', () => {
+  // RULE-013: the reverse link. A design doc that points at its SPEC while the SPEC does not point
+  // back is unreachable from the contract a reader starts at — which is how the whitebox material
+  // ended up inside SPEC.md in the first place.
+  const MUST_SECTIONS_DOC = [
+    '# Renderer',
+    '',
+    'Realizes [the contract](../SPEC.md).',
+    '',
+    '## Context & Goal',
+    'a',
+    '## Constraints',
+    'a',
+    '## Internal Structure',
+    'a',
+    '## Key Flows',
+    'a',
+    '## Test Approach',
+    'a',
+    '',
+  ].join('\n');
+
+  it('warns when the owning SPEC does not link back', async () => {
+    const root = await createDesignDir({
+      'packages/widget/docs/SPEC.md': '# SPEC\n',
+      'packages/widget/docs/design/renderer.md': MUST_SECTIONS_DOC,
+    });
+    const { warnings } = findDesignDocFindings(
+      path.join(root, 'packages/widget/docs/design'),
+      root,
+    );
+    expect(warnings.map((w) => w.detail).join(' ')).toMatch(/one-way/);
+  });
+
+  it('resolves the owning SPEC for a design doc nested under a topic directory', async () => {
+    // The defect: `dirname(dirname(file))` resolved `docs/design/SPEC.md` for a nested doc, which
+    // never exists, so the check silently passed — fail-open.
+    const root = await createDesignDir({
+      'packages/widget/docs/SPEC.md': '# SPEC\n',
+      'packages/widget/docs/design/tui/renderer.md': MUST_SECTIONS_DOC.replace(
+        '../SPEC.md',
+        '../../SPEC.md',
+      ),
+    });
+    const { warnings } = findDesignDocFindings(
+      path.join(root, 'packages/widget/docs/design'),
+      root,
+    );
+    expect(warnings.map((w) => w.detail).join(' ')).toMatch(/one-way/);
+  });
+
+  it('does not warn when the SPEC links back', async () => {
+    const root = await createDesignDir({
+      'packages/widget/docs/SPEC.md': '# SPEC\n\nSee [design](docs/design/renderer.md).\n',
+      'packages/widget/docs/design/renderer.md': MUST_SECTIONS_DOC,
+    });
+    const { warnings } = findDesignDocFindings(
+      path.join(root, 'packages/widget/docs/design'),
+      root,
+    );
+    expect(warnings.map((w) => w.detail).join(' ')).not.toMatch(/one-way/);
+  });
+
   it('passes a design doc with all MUST sections and a SPEC link', async () => {
     const root = await createDesignDir({ 'design/session-store.md': GREEN_DESIGN_DOC });
     const { blocking, warnings } = findDesignDocFindings(path.join(root, 'design'));

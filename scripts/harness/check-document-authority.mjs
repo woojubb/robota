@@ -78,7 +78,11 @@ function isDesignDoc(filePath) {
     // RULE-013 (T-16): the location RULE-009 defined for design/LLD documents. Its absence here is
     // why the placement criterion was not in force — the one blocking gate that judges content
     // placement could not see the documents the criterion routes content into.
-    /^packages\/[^/]+\/docs\/design\/.+\.md$/.test(filePath) ||
+    // Nesting-aware and apps-inclusive on purpose: a depth-1 glob would leave the 20 nested
+    // `packages/dag-nodes/*` packages invisible to this blocking gate — the HARNESS-052/INFRA-021
+    // defect the sibling scans in this same change explicitly avoid. `getPackageScope()` already
+    // handles `apps/`, and apps own SPECs, so they are in scope too.
+    /^(?:packages|apps)\/(?:[^/]+\/)?[^/]+\/docs\/design\/.+\.md$/.test(filePath) ||
     /^docs\/plans\/.+-design\.md$/.test(filePath) ||
     /^docs\/superpowers\/.*design.*\.md$/.test(filePath)
   );

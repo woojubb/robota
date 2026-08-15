@@ -39,6 +39,8 @@ const OPTIONAL_TABLE_HEADER = /^\|\s*#\s*\|\s*Optional section\s*\|/i;
 const REQUIRED_TABLE_HEADER = /^\|\s*#\s*\|\s*Section\s*\|/i;
 
 const SEPARATOR_ROW = /^\|[\s:|-]+\|$/;
+/** A data row's first cell is its ordinal — `1`…`9` for required, `O1`…`O6` for optional. */
+const ORDINAL_CELL = /^O?\d+$/i;
 
 /**
  * Normalize a markdown heading to its comparable section name.
@@ -82,10 +84,38 @@ function parseTableRows(lines, startIndex, headerPattern) {
       .slice(1, -1)
       .map((cell) => cell.trim());
     if (cells.length < 2) continue;
+    // The ordinal column is what makes a row a row. Without this check the required parse runs on
+    // into the optional table when no blank line separates them — `Optional section` would enter the
+    // REQUIRED set and `## Configuration` would answer true to `isRequiredSpecSection`, which is the
+    // exact collapse this module's header says must not happen.
+    if (!ORDINAL_CELL.test(cells[0])) {
+      if (names.length > 0) break;
+      continue;
+    }
     const name = normalizeSpecHeading(cells[1]);
     if (name) names.push(name);
   }
   return names;
+}
+
+/**
+ * Rows the table declares, counted INDEPENDENTLY of the row-collecting loop.
+ *
+ * It deliberately does not share `parseTableRows`'s termination rule: two counts computed by the
+ * same buggy loop always agree, so the comparison would prove nothing. This one scans to the next
+ * `## ` heading and counts every row whose ordinal matches `ordinalPattern`, so a stray line inside
+ * the table changes one count and not the other.
+ */
+function countDeclaredRows(lines, startIndex, ordinalPattern) {
+  let count = 0;
+  for (let i = startIndex + 1; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    if (line.startsWith('## ')) break;
+    if (!line.startsWith('|') || SEPARATOR_ROW.test(line)) continue;
+    const first = line.split('|').slice(1, -1)[0]?.trim() ?? '';
+    if (ordinalPattern.test(first)) count += 1;
+  }
+  return count;
 }
 
 /**
@@ -120,6 +150,25 @@ export function readSpecSectionContract(workspaceRoot) {
     throw new Error(
       `spec-sections: the required-sections table in ${SKILL_RELATIVE_PATH} parsed as empty. ` +
         'Refusing to report a clean tree against an empty contract.',
+    );
+  }
+  // A PARTIAL parse is the dangerous case, not an empty one: a single unexpected line inside the
+  // table ends the loop, and a short list makes every consumer quietly stop checking the sections it
+  // dropped. The table declares its own length in the ordinal column, so compare against that.
+  const declaredRequired = countDeclaredRows(lines, anchorIndex, /^\d+$/);
+  if (required.length !== declaredRequired) {
+    throw new Error(
+      `spec-sections: parsed ${required.length} required section(s) but the table in ` +
+        `${SKILL_RELATIVE_PATH} declares ${declaredRequired}. A partial parse silently shrinks the ` +
+        'contract every consumer checks against.',
+    );
+  }
+  const declaredOptional = countDeclaredRows(lines, anchorIndex, /^O\d+$/i);
+  if (optional.length !== declaredOptional && declaredOptional > 0) {
+    throw new Error(
+      `spec-sections: parsed ${optional.length} optional section(s) but the table in ` +
+        `${SKILL_RELATIVE_PATH} declares ${declaredOptional}. A partial parse silently shrinks the ` +
+        'contract every consumer checks against.',
     );
   }
   if (optional.length === 0) {

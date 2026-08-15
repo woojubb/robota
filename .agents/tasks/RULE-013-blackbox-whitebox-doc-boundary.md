@@ -67,7 +67,10 @@ Plan: [`.agents/spec-docs/todo/RULE-013-blackbox-whitebox-doc-boundary.md`](../s
       스크롤된다(property 4). 기준을 읽지 못하면 **exit 1**(Silence is not success)
 - [x] **T-10** (TC-04) 단위 테스트 — 회수 전 스냅샷 고정 픽스처. **정정된 기대값**을 쓰고
       깨진 측정(203/203, 210/210)을 동결하지 않는다. 진짜 변형 케이스를 별도로 포함
-- [x] **T-11** (TC-16) 스캔이 `::examined::`로 검사 파일 수 보고, 값 ≥87 (중첩 패키지 회귀 방지)
+- [x] **T-11** (TC-16) 스캔이 `::examined::`로 검사 파일 수를 보고하고, `--all` 출력에
+      `packages/dag-nodes/` 항목이 20건 나타난다. **총계는 단정하지 않는다** — 손 집계 87은
+      `packages/dag-nodes/docs/SPEC.md`(package.json 없는 컨테이너)를 잘못 포함한 값이었고,
+      SSOT 열거기 기준은 86이다. 막을 회귀는 중첩 그룹 누락이지 특정 총계가 아니다
 - [x] **T-12** (TC-13) `check-design-doc-completeness.mjs`에 SPEC→design 역방향 링크 warning 추가
 - [x] **T-13** (TC-13) `run-all-scans.mjs`에 신규 스캔 등록
 
@@ -95,7 +98,10 @@ Plan: [`.agents/spec-docs/todo/RULE-013-blackbox-whitebox-doc-boundary.md`](../s
       정규화 시 **6,774 / 17,139 = 39.5%**, `apps/www` 210→9, `agent-transport` 203→6이며 임계
       `≥300 AND ≥40%`의 적발 집합은 **불변**(여전히 `agent-framework`·`agent-cli` 2건). TC-12 임계는
       바꿀 필요 없다 — 잔여 ≈3,319 = 24.3%로 ≤3,600·≤30% 안이고 여유가 늘어난다. **인용 수치만** 이동
-- [x] **T-19** (TC-11, TC-13) `pnpm harness:scan` exit 0 + 신규 단위 테스트 green
+- [x] **T-19** (TC-11, TC-13) `pnpm harness:scan`이 **깨끗한 트리 기준선과 동일**(사전 존재하는
+      `dist` 1건만 실패 — `pnpm build` 미실행 때문이며 스태시 대조로 확인), `pnpm harness:cleanup`
+      exit 0, 신규 단위 테스트 green. 이 트리에서 `harness:scan` exit 0은 성립하지 않으므로
+      초안의 그 단정은 폐기한다
 
 ---
 

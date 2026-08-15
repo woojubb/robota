@@ -69,9 +69,12 @@ async function checkStaleDesignDocs(findings) {
 }
 
 async function checkSpecQuality(findings) {
-  // Fail-closed: an unreadable section contract throws rather than letting the loop below report a
-  // clean tree against an empty list (enforcement-architecture.md, "Silence is not success").
-  const specSections = readSpecSectionContract(WORKSPACE_ROOT);
+  // Fail-closed, but only where it can matter: the contract is read on the FIRST SPEC.md found, so a
+  // root with no SPEC to judge does not throw (there is nothing to report silently), while a root
+  // that HAS SPECs and no readable contract refuses rather than reporting them all complete
+  // (enforcement-architecture.md, "Silence is not success").
+  let specSections;
+  const sectionContract = () => (specSections ??= readSpecSectionContract(WORKSPACE_ROOT));
   const scopes = await listWorkspaceScopes();
 
   for (const scope of scopes) {
@@ -95,10 +98,11 @@ async function checkSpecQuality(findings) {
     // RULE-013: the required list is parsed from its owning skill, not copied here, and headings
     // are matched by the shared normalizer (`## 1. Scope` counts as Scope). Substring matching used
     // to accept `## Scope Notes` as `Scope` and to reject every ordinal-prefixed SPEC.
+    const contract = sectionContract();
     const presentRequired = new Set(
-      sections.map(normalizeSpecHeading).filter((name) => specSections.required.includes(name)),
+      sections.map(normalizeSpecHeading).filter((name) => contract.required.includes(name)),
     );
-    const missingSections = specSections.required.filter((name) => !presentRequired.has(name));
+    const missingSections = contract.required.filter((name) => !presentRequired.has(name));
 
     if (missingSections.length > 0) {
       findings.push({

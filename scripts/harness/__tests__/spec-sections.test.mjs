@@ -18,6 +18,10 @@
  * from one that never fires, which is the vacuous-green class this backlog item exists to remove.
  */
 
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -78,6 +82,56 @@ describe('the section contract is parsed from its owner, not copied', () => {
     expect(() => readSpecSectionContract('/nonexistent-root-for-this-test')).toThrow(
       /cannot read the section contract/,
     );
+  });
+});
+
+describe('the parser refuses a bad parse instead of shrinking the contract', () => {
+  const writeSkill = (body) => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'spec-contract-'));
+    mkdirSync(path.join(dir, '.agents/skills/spec-writing-standard'), { recursive: true });
+    writeFileSync(path.join(dir, '.agents/skills/spec-writing-standard/SKILL.md'), body, 'utf8');
+    return dir;
+  };
+
+  const TABLES = [
+    '## Required Sections Reference',
+    '',
+    '| #   | Section | Purpose |',
+    '| --- | ------- | ------- |',
+    '| 1   | Scope   | a       |',
+    '| 2   | Boundaries | b    |',
+    '',
+    '| #   | Optional section | Include when |',
+    '| --- | ---------------- | ------------ |',
+    '| O1  | Configuration    | c            |',
+    '',
+  ];
+
+  it('does not let the optional table bleed into the required set', () => {
+    // Without the ordinal-cell check the required parse ran on into the next table, so
+    // `Optional section` and `Configuration` entered the REQUIRED set — the collapse the module
+    // header says must not happen.
+    const dir = writeSkill(TABLES.filter((line) => line !== '').join('\n'));
+    try {
+      const parsed = readSpecSectionContract(dir);
+      expect(parsed.required).toEqual(['scope', 'boundaries']);
+      expect(isRequiredSpecSection('## Configuration', parsed)).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('throws on a partial parse rather than returning a short list', () => {
+    // A single unexpected line inside the table used to end the loop and return a SHORT contract
+    // with no throw, silently retiring every section after it.
+    const broken = [...TABLES];
+    broken.splice(5, 0, '<!-- a comment mid-table -->');
+    const dir = writeSkill(broken.join('\n'));
+    try {
+      expect(() => readSpecSectionContract(dir)).toThrow(/partial parse|declares/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
