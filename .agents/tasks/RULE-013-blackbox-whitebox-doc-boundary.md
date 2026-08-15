@@ -324,6 +324,31 @@ Evidence Log 라운드 5·6 항목과 `## Problem` §2, TC-12에 이미 있으�
 `WU-B 구현` 항목에는 시점 스냅샷 헤더를 달았다(GATE-WRITE 재실행 항목이 쓴 것과 같은 형태) —
 기록을 소급 수정하지 않는 것은 라운드마다 무엇을 알고 있었는지가 이 항목의 증거이기 때문이다.
 
-### Round 8
+### Round 8 — `REVIEW VERDICT: REVISE` | 2026-08-16
 
-7라운드 접기 완료 후 재심사 대기.
+**수치 스윕이 clean으로 닫혔다** — 심사자가 요청받은 대로 명시했다: _"No stale figure remains."_
+동결 구역도 sha256 대조로 승인 당시(그리고 WU-B 이전 모든 시점)와 **byte 동일** 확인:
+129줄 / `39e37e1a…`. frontmatter도 `96728940c`와 동일하므로 **GATE-APPROVAL 기준 3이 조건 없이 참**이
+됐다. 설계·배치·도구는 다섯 라운드 연속 이견 없음.
+
+남은 것은 **낡은 참조** 둘 — 수치가 아니라 명령과 경로다. 둘 다 같은 부류(기록된 것이 실물과 다름):
+
+- **TC-03의 명령이 exit 1인데 `[x]`가 붙어 있었다.** `rg "New or changed externally observable
+behavior"`로 적었으나 실제 행은 `New or changed **externally observable** behavior or semantics`라
+  굵게 표시가 검색 문자열 안에 들어가 리터럴이 영원히 매치되지 않는다. Phase 4 변경 자체는 착지했으나
+  그것을 증명하는 명령이 통과할 수 없었다. **이 문서에서 같은 결함의 세 번째 사례다**(3라운드 TC-05
+  자리표시자, 4라운드 TC-12 미실행 추정치). `rg -q "externally observable"`로 교체, exit 0 확인
+- **테스트 파일 경로가 실물과 다르다.** `__tests__/spec-whitebox-leakage.test.mjs`로 두 곳(Affected
+  Files · Test Plan)에 적혀 있으나 WU-A는 `check-` 접두로 배치했다. Evidence Log의 두 건은 당시
+  **부재를 기록한 NON-COMPLIANCE 관측**이라 손대지 않았다
+- Affected Files의 `agent-framework/docs/design/*.md` 행이 바로 위 행("이 항목에서 변경하지 않는다")과
+  모순이라 함께 `DOCS-025` 이관으로 정정
+
+**후속으로 분류된 것 중 둘은 같은 부류라 즉시 고쳤다** — §2의 "재현 조건"이 손 명령 4개를 지시하고
+있었고(같은 절이 두 문단 위에서 손 집계가 전부 틀렸다고 적으면서), TC-15의 `rg -c … → 0`은 실제로
+`rg -c`가 0건일 때 아무것도 출력하지 않고 exit 1이라 검증자가 보는 것과 달랐다. 나머지 둘(스냅샷
+헤더의 409 vs 408, TC-16 순서)은 각각 이미 superseded 표시된 값이고 표시 순서 문제라 그대로 둔다.
+
+### Round 9
+
+8라운드 접기 완료 후 재심사 대기.

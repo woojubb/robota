@@ -74,8 +74,11 @@ required?"는 _존재 여부_ 판단만 다루고 *내용 배치*는 다루지 �
    갱신을 요구하게 되어 준수 비용이 폭증한다. 이것이 만성 drift의 원인이다 — `HARNESS-003`(agent-cli
    SPEC이 삭제된 startup 모듈 7개를 몇 주간 참조), `SPEC-MIGRATION-001`(전 패키지 일괄 catch-up).
 
-**재현 조건:** 위 명령 4개(`find`, `wc -l`, `rg -n "^## "`, 표준 섹션 줄 수 집계)를 저장소 루트에서
-실행하면 항상 동일하게 관측된다. 특정 브랜치·환경 의존성 없음.
+**재현 조건:** 기준 ref `96728940c`에서
+`node scripts/harness/check-spec-whitebox-leakage.mjs --all` 한 번이면 위 수치가 전부 나온다.
+**초안이 적었던 손 명령 4개(`find`, `wc -l`, `rg -n "^## "`, 수동 집계)는 폐기한다** — 같은 절이 두
+문단 위에서 손 집계가 전부 틀렸다고 적고 있으면서 재현 방법으로 손 집계를 지시하고 있었다.
+특정 브랜치·환경 의존성 없음.
 
 ## Prior Art Research
 
@@ -406,9 +409,9 @@ semantics`** 로 좁히고, 내부 동작 변경은 design doc으로 라우팅�
 | `scripts/harness/check-document-authority.mjs`                                | **범위 확대** — `isDesignDoc()`이 `packages/*/docs/design/`를 인식하도록 확장                                                                                                                                                                                |
 | `scripts/harness/workspace-packages.mjs`                                      | 소비 (신규 글롭 금지 — `listWorkspacePackageDirs()` 사용)                                                                                                                                                                                                    |
 | `scripts/harness/run-all-scans.mjs`                                           | 신규 스캔 등록                                                                                                                                                                                                                                               |
-| `scripts/harness/__tests__/spec-whitebox-leakage.test.mjs`                    | 신규 스캔 단위 테스트                                                                                                                                                                                                                                        |
+| `scripts/harness/__tests__/check-spec-whitebox-leakage.test.mjs`              | 신규 스캔 단위 테스트 (WU-A 착지 시 `check-` 접두로 배치됐고 이 행이 따라가지 않았다)                                                                                                                                                                        |
 | `packages/agent-framework/docs/SPEC.md`                                       | **이 항목에서 변경하지 않는다** — L695–2,649 추출은 `DOCS-025`로 이관(부록 Pilot 2가 분류만 남긴다). 초안의 `line 668–2593`은 두 끝이 모두 틀린 값이었다                                                                                                     |
-| `packages/agent-framework/docs/design/*.md`                                   | 신규 (추출분 수용)                                                                                                                                                                                                                                           |
+| `packages/agent-framework/docs/design/*.md`                                   | **이 항목에서 만들지 않는다** — 바로 위 행과 함께 `DOCS-025`로 이관. 디렉터리는 존재하지 않으며 이 항목이 만들지 않는다                                                                                                                                      |
 | `packages/agent-cli/docs/SPEC.md`                                             | whitebox 섹션 추출 (사용자 계약 잔류)                                                                                                                                                                                                                        |
 | `packages/agent-cli/docs/design/*.md`                                         | 신규 (추출분 수용)                                                                                                                                                                                                                                           |
 
@@ -423,7 +426,12 @@ semantics`** 로 좁히고, 내부 동작 변경은 design doc으로 라우팅�
       규칙과 어긋났다. 검증 대상은 기준의 존재이지 그것을 적은 언어가 아니다
 - [x] TC-02: `rg -c "design-doc-authoring" .agents/skills/spec-writing-standard/SKILL.md` → 1 이상
       (배치 기준 owner로의 링크가 존재하고, 기준 본문 복사본은 없음)
-- [x] TC-03: `rg "New or changed externally observable behavior" .agents/rules/spec-workflow.md` → exit 0
+- [x] TC-03: `rg -q "externally observable" .agents/rules/spec-workflow.md` → exit 0.
+      **초안 문구 `rg "New or changed externally observable behavior"`는 exit 1이었다** — 실제 행이
+      `New or changed **externally observable** behavior or semantics`라 굵게 표시가 검색 문자열 안에
+      들어가 리터럴이 영원히 매치되지 않는다. Phase 4 변경 자체는 착지했으나 그것을 증명하는 명령이
+      통과할 수 없었고, `[x]`가 붙어 있었다. 이 문서에서 같은 결함의 **세 번째** 사례다(3라운드 TC-05
+      자리표시자, 4라운드 TC-12 미실행 추정치)
 - [x] TC-04: `node scripts/harness/check-spec-whitebox-leakage.mjs` 가 Phase 2 **이전** 스냅샷에서
       `agent-framework`·`agent-cli` 정확히 2건을 finding으로 보고 (단위 테스트 픽스처로 고정)
 - [x] TC-05: **회수량과 무손실을 직접 단정한다.** (a) 아래 `### TC-05 검증 명령`의 블록을 그대로
@@ -480,7 +488,8 @@ semantics`** 로 좁히고, 내부 동작 변경은 design doc으로 라우팅�
       → 두 파일 모두 hit, 그리고 `rg "^## User-Facing Contract" packages/agent-cli/docs/SPEC.md` → exit 0
       (슬롯이 정의되고 파일럿에서 실제로 사용됨)
 - [x] TC-15: 표준 섹션 목록 SSOT — `rg -c "SPEC_REQUIRED_SECTIONS = \[" scripts/harness/cleanup-drift.mjs`
-      → 0 (자체 복사본 제거됨) AND 단위 테스트가 파서 결과와 `spec-writing-standard/SKILL.md`의
+      → **매치 없음(exit 1)**, 즉 자체 복사본이 제거됐다. (`rg -c`는 0건일 때 `0`을 출력하지 않고
+      아무것도 찍지 않은 채 exit 1이므로, "→ 0"이라 적으면 검증자가 보는 것과 다르다) AND 단위 테스트가 파서 결과와 `spec-writing-standard/SKILL.md`의
       Required Sections Reference 표 사이의 **집합 동등성**을 단정한다. 길이 검사가 아니다 — 길이는
       이름이 하나 바뀌어도 통과하므로 이 항목이 고치려는 드리프트를 못 잡는다. 필수/선택은 **구별
       가능하게** 반환되어야 하고(`cleanup-drift`는 필수만, 유출 지표는 필수 ∪ 선택), 동등성 단정은
@@ -513,24 +522,24 @@ node scripts/harness/verify-doc-split-preservation.mjs \
 프로세스 스폰/stdout 단정. 문서·프로세스 백로그이므로 `manual` 대신 command-form / `rg` 패턴 /
 `pnpm harness:*` 스모크를 기본으로 삼는다.
 
-| TC-ID | Test Type | Tool / Approach                                                          | Notes                                                                                          |
-| ----- | --------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| TC-01 | command   | `rg` 패턴 2건 (`consumer-impact test`, `End-user-facing contract`)       | 배치 기준 + 사용자 계약 예외가 owner 문서에 존재                                               |
-| TC-02 | command   | `rg` 링크 존재 + 기준 본문 미복제 확인                                   | Non-Duplication 확인                                                                           |
-| TC-03 | command   | `rg` mandate 행 문구                                                     | Phase 4 반영 여부                                                                              |
-| TC-04 | unit      | `scripts/harness/__tests__/spec-whitebox-leakage.test.mjs` + 고정 픽스처 | 임계(≥300 AND ≥40%) 정확도. 오탐 픽스처(203/203, 210/210) 포함                                 |
-| TC-05 | CI smoke  | `verify-doc-split-preservation.mjs` exit 0 + design 본문 줄 합계 ≥200    | 무손실 + 실물 회수량. **지표가 아니라 목적지를 잰다** — 헤딩 강등으로 만족 불가                |
-| TC-06 | command   | `isStandardSpecSection()` 로 잔류 `##` 전수 판정                         | **관측 기록**(수용 기준 아님) — 강등으로 만족되므로 배치의 증거가 아니다                       |
-| TC-07 | command   | 분류표의 원본 `##` 귀속 전수 확인 (62건)                                 | 분류 완결성 — 이 항목에서 유일하게 배치를 직접 재는 기준                                       |
-| TC-08 | command   | `find … \| wc -l`                                                        | design doc 실물 존재                                                                           |
-| TC-09 | CI smoke  | `node scripts/harness/check-design-doc-completeness.mjs` exit code       | vacuous green 해소 — 대상이 0이 아닌 상태에서 통과                                             |
-| TC-10 | command   | `rg` 양방향 링크                                                         | 발견 가능성                                                                                    |
-| TC-11 | command   | `rg`                                                                     | 최종 사용자 계약 잔류 회귀 방지                                                                |
-| TC-12 | command   | `check-spec-whitebox-leakage.mjs` `::examined::` stdout 기록             | **관측 기록**. 기준선 6,675줄/38.4%(86개 전수) → 회수 후 값. 헤딩 적합성 지표라 수용 기준 아님 |
-| TC-13 | CI smoke  | `pnpm harness:scan` exit code                                            | 전체 하네스 무회귀                                                                             |
-| TC-14 | command   | `rg` 3건 (스킬·템플릿·파일럿 SPEC)                                       | `User-Facing Contract` 슬롯이 정의되고 실제 사용됨                                             |
-| TC-15 | unit      | `rg` 복사본 부재 + vitest 로 파서 결과와 스킬 표의 **집합 동등성** 단정  | 표준 섹션 목록 3중 복제 방지 + 기존 8개 누락 교정. 길이 검사는 이름 변경을 못 잡음             |
-| TC-16 | CI smoke  | `--all` 출력의 `dag-nodes/` 항목 수 == 20 단정                           | 중첩 워크스페이스 패키지 누락 회귀 방지 (HARNESS-057 준수)                                     |
+| TC-ID | Test Type | Tool / Approach                                                                | Notes                                                                                          |
+| ----- | --------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| TC-01 | command   | `rg` 패턴 2건 (`consumer-impact test`, `End-user-facing contract`)             | 배치 기준 + 사용자 계약 예외가 owner 문서에 존재                                               |
+| TC-02 | command   | `rg` 링크 존재 + 기준 본문 미복제 확인                                         | Non-Duplication 확인                                                                           |
+| TC-03 | command   | `rg` mandate 행 문구                                                           | Phase 4 반영 여부                                                                              |
+| TC-04 | unit      | `scripts/harness/__tests__/check-spec-whitebox-leakage.test.mjs` + 고정 픽스처 | 임계(≥300 AND ≥40%) 정확도. 오탐 픽스처(203/203, 210/210) 포함                                 |
+| TC-05 | CI smoke  | `verify-doc-split-preservation.mjs` exit 0 + design 본문 줄 합계 ≥200          | 무손실 + 실물 회수량. **지표가 아니라 목적지를 잰다** — 헤딩 강등으로 만족 불가                |
+| TC-06 | command   | `isStandardSpecSection()` 로 잔류 `##` 전수 판정                               | **관측 기록**(수용 기준 아님) — 강등으로 만족되므로 배치의 증거가 아니다                       |
+| TC-07 | command   | 분류표의 원본 `##` 귀속 전수 확인 (62건)                                       | 분류 완결성 — 이 항목에서 유일하게 배치를 직접 재는 기준                                       |
+| TC-08 | command   | `find … \| wc -l`                                                              | design doc 실물 존재                                                                           |
+| TC-09 | CI smoke  | `node scripts/harness/check-design-doc-completeness.mjs` exit code             | vacuous green 해소 — 대상이 0이 아닌 상태에서 통과                                             |
+| TC-10 | command   | `rg` 양방향 링크                                                               | 발견 가능성                                                                                    |
+| TC-11 | command   | `rg`                                                                           | 최종 사용자 계약 잔류 회귀 방지                                                                |
+| TC-12 | command   | `check-spec-whitebox-leakage.mjs` `::examined::` stdout 기록                   | **관측 기록**. 기준선 6,675줄/38.4%(86개 전수) → 회수 후 값. 헤딩 적합성 지표라 수용 기준 아님 |
+| TC-13 | CI smoke  | `pnpm harness:scan` exit code                                                  | 전체 하네스 무회귀                                                                             |
+| TC-14 | command   | `rg` 3건 (스킬·템플릿·파일럿 SPEC)                                             | `User-Facing Contract` 슬롯이 정의되고 실제 사용됨                                             |
+| TC-15 | unit      | `rg` 복사본 부재 + vitest 로 파서 결과와 스킬 표의 **집합 동등성** 단정        | 표준 섹션 목록 3중 복제 방지 + 기존 8개 누락 교정. 길이 검사는 이름 변경을 못 잡음             |
+| TC-16 | CI smoke  | `--all` 출력의 `dag-nodes/` 항목 수 == 20 단정                                 | 중첩 워크스페이스 패키지 누락 회귀 방지 (HARNESS-057 준수)                                     |
 
 ## Tasks
 
@@ -1497,3 +1506,36 @@ TC-12에 이미 있고 뒤의 둘은 스캔 출처까지 달고 있다. 그리�
 않는 영수증. 같은 항목의 다른 수치들(`1,731줄`, `409줄`, `111 passed`, 폐기된 `≤150` 기준)은 시점
 스냅샷으로서 정당하므로 소급 수정하지 않고 **헤더로 그 사실을 명시**했다. 라운드마다 무엇을 알고
 있었는지가 이 항목의 증거다.
+
+### WU-B Recommendation Gate Round 8 — 2026-08-16
+
+**수치 스윕이 clean으로 닫혔다.** 심사자가 요청받은 문장을 명시했다 — _"No stale figure remains."_
+동결 구역은 sha256 대조로 승인 당시와, 그리고 WU-B 이전 모든 시점(`96728940c` 포함)과 **byte 동일**임이
+확인됐다(129줄 / `39e37e1a…`; 라운드 5·6에 137 → 145로 늘었던 것이 원복). frontmatter도 동일하므로
+**GATE-APPROVAL 기준 3이 조건 없이 참**이 됐다. 설계·배치·도구는 다섯 라운드 연속 이견 없음.
+
+남은 둘은 수치가 아니라 **참조**였고, 성격은 같다 — 기록된 것이 실물과 다르다.
+
+**1. TC-03의 명령이 exit 1인데 `[x]`가 붙어 있었다.** 기록된 문자열은
+`rg "New or changed externally observable behavior"`인데 `spec-workflow.md:24`의 실제 행은
+`New or changed **externally observable** behavior or semantics`다. 굵게 표시가 검색 문자열 **안에**
+들어가 리터럴은 영원히 매치되지 않는다. Phase 4의 변경 자체는 설계대로 착지했으나 그것을 증명하는
+명령이 통과할 수 없었다.
+
+**이 문서에서 같은 결함의 세 번째 사례다** — 3라운드가 TC-05의 자리표시자를, 4라운드가 TC-12의 미실행
+추정치를 같은 이유로 잡았다. 이 문서 자신이 그 기준을 적어두고 있다: _"기록된 기준과 실제로 돌린
+명령이 다른 것은 이 백로그가 다루는 바로 그 병(일하지 않고 통과하는 기준)의 다른 형태다."_
+`rg -q "externally observable"`로 교체하고 exit 0을 확인했다.
+
+**2. 테스트 파일 경로가 실물과 다르다.** `__tests__/spec-whitebox-leakage.test.mjs`로 적힌 두 곳
+(`## Affected Files`, `## Test Plan` TC-04 행)이 있으나 WU-A는 `check-spec-whitebox-leakage.test.mjs`로
+배치했다. `## Tasks`의 25 → 26과 구조적으로 같은 누락이다. **Evidence Log의 두 건은 고치지 않았다** —
+그것은 당시 그 경로가 **부재했음을 기록한 NON-COMPLIANCE 관측**이라 소급 수정하면 증거가 망가진다.
+같은 편집에서 `agent-framework/docs/design/*.md` 행이 바로 위 행("이 항목에서 변경하지 않는다")과
+모순이던 것도 `DOCS-025` 이관으로 맞췄다.
+
+**후속으로 분류된 preference 중 둘은 같은 부류라 즉시 고쳤다.** §2의 "재현 조건"이 손 명령 4개를
+지시하고 있었다 — 같은 절이 두 문단 위에서 "손으로 센 앞선 값 셋은 모두 틀렸다"고 적으면서. 스캔
+한 번으로 교체했다. TC-15의 `rg -c … → 0`도 실제로는 `rg -c`가 0건일 때 아무것도 출력하지 않고
+exit 1이라 검증자가 보는 것과 달랐다. 나머지 둘(스냅샷 헤더의 409 vs 408, TC-16 배치 순서)은 각각
+이미 superseded로 표시된 값이고 순서 문제라 그대로 둔다.
