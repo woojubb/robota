@@ -14,18 +14,25 @@ governing `docs/SPEC.md` in the same PR. **This table is the single owner of the
 [`spec-writing-standard`](../skills/spec-writing-standard/SKILL.md) applies it when authoring the edit
 and does not carry its own copy of these rows.
 
-| What changed                                   | SPEC section to update                  |
-| ---------------------------------------------- | --------------------------------------- |
-| New or removed public export                   | Public API Surface                      |
-| New or changed type or interface               | Type Ownership                          |
-| New class or `implements`/`extends` relation   | Class Contract Registry                 |
-| New or changed error type or code              | Error Taxonomy                          |
-| New or changed lifecycle event                 | State Lifecycle / Event Architecture    |
-| New or changed behavior or semantics           | Architecture Overview, relevant section |
-| New extension point (abstract class, callback) | Extension Points                        |
+| What changed                                                   | SPEC section to update                  |
+| -------------------------------------------------------------- | --------------------------------------- |
+| New or removed public export                                   | Public API Surface                      |
+| New or changed type or interface                               | Type Ownership                          |
+| New class or `implements`/`extends` relation                   | Class Contract Registry                 |
+| New or changed error type or code                              | Error Taxonomy                          |
+| New or changed lifecycle event                                 | State Lifecycle / Event Architecture    |
+| New or changed **externally observable** behavior or semantics | Architecture Overview, relevant section |
+| New extension point (abstract class, callback)                 | Extension Points                        |
 
 A PR that changes package behavior without updating the SPEC is an **incomplete change** — treated
 the same as a missing test or a build failure.
+
+**Internal behavior is out of scope for this mandate.** A change no consumer outside the package can
+observe belongs in the component's design document, not in the contract — see the consumer-impact test
+owned by [`design-doc-authoring`](../skills/design-doc-authoring/SKILL.md) > "Placement criterion".
+Routing it there is what keeps this mandate affordable enough to actually hold: when every internal
+refactor obliged a SPEC edit, the mandate was skipped instead, and skipping it is what produced the
+drift the policy below calls a process violation.
 
 **Incremental evolution.** Only the sections affected by a change need to be updated. Never
 rewrite the whole document for a localized change. Add, edit, or remove only the rows, paragraphs,
@@ -222,7 +229,8 @@ is incomplete when durable content is left only in the wrong document class.
 | Document class                                                                                                                               | Authority                                                                                  | Must contain                                                                                                                                               | Must not contain                                                                                               |
 | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | Architecture documents: `.agents/specs/ARCHITECTURE-MAP.md`, `.agents/specs/architecture-map/*.md`, package-local `docs/ARCHITECTURE-MAP.md` | Stable structural boundaries, owner placement, dependency direction, layer rules, topology | Package ownership, allowed/forbidden dependency edges, product-shell boundaries, cross-package topology, update requirements                               | Package-local public API detail, implementation plans, option analysis, transient backlog, marketing prose     |
-| Design documents: `.design/**/*.md`, `docs/plans/*-design.md`, `docs/superpowers/**/*design*.md`                                             | Planning and decision rationale before the accepted contract is updated                    | Problem statement, alternatives, recommendation, tradeoffs, research notes, implementation phases, affected files, test strategy                           | Final package contract truth, stable dependency rules, API source of truth after implementation                |
+| Design / LLD documents: `packages/*/docs/design/**/*.md` ([RULE-009](../spec-docs/done/RULE-009-design-doc-type.md))                         | A component's internal realization — the whitebox behind the contract                      | Internal structure and module decomposition, key flows, the motivation for the decomposition, local trade-offs, internal state transitions, test approach  | Anything a consumer outside the package depends on — that is the owning SPEC's, per the placement criterion    |
+| Planning documents: `.design/**/*.md` (except `.design/decisions/`), `docs/plans/*-design.md`, `docs/superpowers/**/*design*.md`             | Planning and decision rationale before the accepted contract is updated                    | Problem statement, alternatives, recommendation, tradeoffs, research notes, implementation phases, affected files, test strategy                           | Final package contract truth, stable dependency rules, API source of truth after implementation                |
 | Package/app SPEC files: `packages/*/docs/SPEC.md`, `apps/*/docs/SPEC.md` where present                                                       | Owner contract for one package or app                                                      | Scope, owned responsibilities, non-goals, public API, class/interface contracts, lifecycle/events, persistence/protocol details, verification requirements | Cross-repository topology owned by the architecture map, implementation diary, details owned by other packages |
 | Cross-cutting specs under `.agents/specs/*.md`                                                                                               | Shared contract truth when no single package owns the whole contract                       | Protocols, shared lifecycle models, command/background/verification contracts, reusable policy spanning packages                                           | Package-local API inventories that belong in package SPEC files                                                |
 | Public docs and READMEs                                                                                                                      | User-facing explanation and usage guidance                                                 | Supported behavior, setup instructions, examples, migration notes, package overview                                                                        | Hidden contracts that are not represented in SPEC/API/architecture docs                                        |
@@ -238,6 +246,13 @@ Authority order by question:
 - Cross-package ownership, dependency direction, product-shell boundaries, and deployment topology
   are owned by architecture documents.
 - HTTP/API wire contracts are owned by the relevant API specification.
+- A cross-cutting design document under `.agents/specs/` is governed by the _Cross-cutting specs_ row
+  below, not by the Design / LLD row — that glob has one owner, and naming it in two rows with
+  opposite "must contain" columns is the contradiction this table exists to prevent.
+- The split between a package SPEC and its `docs/design/` documents is decided by the consumer-impact
+  test in [`design-doc-authoring`](../skills/design-doc-authoring/SKILL.md) > "Placement criterion",
+  which owns that fact. It is linked, never copied — a second copy is the drift this table exists to
+  prevent.
 - Design documents, task files, backlog files, PR notes, and chat history do not override accepted
   SPEC, API, or architecture documents.
 

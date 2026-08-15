@@ -89,6 +89,26 @@ export function findDesignDocFindings(target, root = WORKSPACE_ROOT) {
     }
     if (!SPEC_LINK.test(text)) {
       warnings.push({ file: rel, detail: 'no link to the owning SPEC.md — recommended' });
+    } else {
+      // RULE-013 (T-12): the link must be bidirectional. A design doc that points at its SPEC while
+      // the SPEC does not point back is unreachable from the contract a reader starts at — the whole
+      // reason the whitebox material sat inside SPEC.md in the first place was that no other
+      // location was discoverable from there.
+      // Walk up to the `docs/` directory rather than assuming two levels: `walkMarkdown` recurses,
+      // so a doc at `docs/design/<topic>/<file>.md` would otherwise resolve to a non-existent
+      // `docs/design/SPEC.md` and the check would silently no-op — fail-open, the shape this change
+      // exists to remove.
+      let docsDir = path.dirname(file);
+      while (path.basename(docsDir) !== 'docs' && path.dirname(docsDir) !== docsDir) {
+        docsDir = path.dirname(docsDir);
+      }
+      const owningSpec = path.join(docsDir, 'SPEC.md');
+      if (existsSync(owningSpec) && !/docs\/design\//.test(readFileSync(owningSpec, 'utf8'))) {
+        warnings.push({
+          file: path.relative(WORKSPACE_ROOT, owningSpec),
+          detail: 'owns a docs/design/ document but does not link to it — link is one-way',
+        });
+      }
     }
   }
   return { blocking, warnings, examined, searched };

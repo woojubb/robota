@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import {
+  copyFileSync,
   chmodSync,
   mkdirSync,
   mkdtempSync,
@@ -121,8 +122,17 @@ describe('cleanup-drift publishes its verdict (HARNESS-069)', () => {
     dirs.push(root);
     mkdirSync(path.join(root, 'packages'), { recursive: true });
     writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
-    mkdirSync(path.join(root, '.agents/skills'), { recursive: true });
-    writeFileSync(path.join(root, '.agents/skills/index.md'), '# Skills\n');
+    mkdirSync(path.join(root, '.agents/skills/spec-writing-standard'), { recursive: true });
+    writeFileSync(
+      path.join(root, '.agents/skills/index.md'),
+      '# Skills\n\n- [spec-writing-standard](spec-writing-standard/SKILL.md)\n',
+    );
+    // RULE-013: a root carrying a SPEC.md needs the section contract, or the scan refuses to judge
+    // it rather than reporting every section present.
+    copyFileSync(
+      path.join(ROOT, '.agents/skills/spec-writing-standard/SKILL.md'),
+      path.join(root, '.agents/skills/spec-writing-standard/SKILL.md'),
+    );
     const baseline = path.join(root, 'b.json');
     writeFileSync(baseline, JSON.stringify({ 'blind-assertion-any': 3 }));
 
@@ -138,6 +148,64 @@ describe('cleanup-drift publishes its verdict (HARNESS-069)', () => {
     // Against the defect: stdout said "no drift detected." while the run failed.
     expect(result.stdout).toMatch(/verdict FAILED/);
     expect(result.stdout).not.toMatch(/^no drift detected\.$/m);
+  });
+
+  it('reports Class Contract Registry as missing — the section the local copy never checked', () => {
+    // RULE-013 red-proof. `cleanup-drift.mjs` carried its own 8-entry required list missing
+    // `Class Contract Registry`, so no run ever reported a SPEC lacking it. Without this case,
+    // re-introducing that array leaves every other test green — which is how the defect survived.
+    const root = mkdtempSync(path.join(tmpdir(), 'cleanup-drift-ccr-'));
+    dirs.push(root);
+    mkdirSync(path.join(root, 'packages/widget/docs'), { recursive: true });
+    writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+    writeFileSync(
+      path.join(root, 'packages/widget/package.json'),
+      JSON.stringify({ name: '@x/widget', version: '0.0.0' }),
+    );
+    mkdirSync(path.join(root, '.agents/skills/spec-writing-standard'), { recursive: true });
+    writeFileSync(
+      path.join(root, '.agents/skills/index.md'),
+      '# Skills\n\n- [spec-writing-standard](spec-writing-standard/SKILL.md)\n',
+    );
+    // The section contract is parsed from its owner, so the fixture must carry it.
+    copyFileSync(
+      path.join(ROOT, '.agents/skills/spec-writing-standard/SKILL.md'),
+      path.join(root, '.agents/skills/spec-writing-standard/SKILL.md'),
+    );
+    // Eight of the nine required sections — everything except Class Contract Registry.
+    writeFileSync(
+      path.join(root, 'packages/widget/docs/SPEC.md'),
+      [
+        '## Scope',
+        'a',
+        '## Boundaries',
+        'a',
+        '## Architecture Overview',
+        'a',
+        '## Type Ownership',
+        'a',
+        '## Public API Surface',
+        'a',
+        '## Extension Points',
+        'a',
+        '## Error Taxonomy',
+        'a',
+        '## Test Strategy',
+        'a',
+        '',
+      ].join('\n'),
+    );
+    const baseline = path.join(root, 'b.json');
+    writeFileSync(baseline, JSON.stringify({ 'spec-missing-sections': 99 }));
+
+    const result = spawnSync('node', [path.join(ROOT, 'scripts/harness/cleanup-drift.mjs')], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120_000,
+      env: { ...process.env, CLEANUP_DRIFT_BASELINE: baseline },
+    });
+
+    expect(result.stdout).toMatch(/class contract registry/i);
   });
 
   it('the frozen baseline is the one the script actually measures', () => {
@@ -232,8 +300,17 @@ describe('a freeze cannot bake in a clock-derived number (HARNESS-069)', () => {
     // The three things the script's other checks need, so the run reaches the freeze.
     mkdirSync(path.join(root, 'packages'), { recursive: true });
     writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
-    mkdirSync(path.join(root, '.agents/skills'), { recursive: true });
-    writeFileSync(path.join(root, '.agents/skills/index.md'), '# Skills\n');
+    mkdirSync(path.join(root, '.agents/skills/spec-writing-standard'), { recursive: true });
+    writeFileSync(
+      path.join(root, '.agents/skills/index.md'),
+      '# Skills\n\n- [spec-writing-standard](spec-writing-standard/SKILL.md)\n',
+    );
+    // RULE-013: a root carrying a SPEC.md needs the section contract, or the scan refuses to judge
+    // it rather than reporting every section present.
+    copyFileSync(
+      path.join(ROOT, '.agents/skills/spec-writing-standard/SKILL.md'),
+      path.join(root, '.agents/skills/spec-writing-standard/SKILL.md'),
+    );
 
     // A package with a stub SPEC.md, so the freeze has a NON-clock finding to write. Round 6 found
     // the first version asserting "stale-tmp-doc is absent" against a baseline that was literally

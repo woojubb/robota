@@ -376,6 +376,9 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
     }
   });
 
+  // Each case spawns the hook in a subprocess and this loop runs a dozen of them, so the real
+  // cost is ~10s. The default timeout cut it off under parallel load and the file read as a
+  // failure on a green tree — a check that fires on correct work gets switched off.
   it('refuses every OTHER way to disable the hooks, not just the flag', () => {
     // The first version of this ban closed ONE spelling. Measured immediately after: six other
     // routes walked straight through — which is the instance-not-class mistake this file's own
@@ -471,8 +474,11 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
         `a hook kill switch was allowed: ${command}`,
       ).not.toBe(0);
     }
-  });
+  }, 60_000);
 
+  // Each case spawns the hook in a subprocess and this loop runs a dozen of them, so the real
+  // cost is ~10s. The default timeout cut it off under parallel load and the file read as a
+  // failure on a green tree — a check that fires on correct work gets switched off.
   it('leaves ordinary work with those words in it alone', () => {
     // A guard that fires on correct work gets switched off, and these are the shapes that would.
     const dir = scratchRepo('feat/probe');
@@ -529,7 +535,7 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       const { status, output } = run('branch-guard.sh', command, dir);
       expect(status, `ordinary work was refused: ${command} -> ${output}`).toBe(0);
     }
-  });
+  }, 60_000);
 
   it('refuses to skip the push hooks', () => {
     const dir = scratchRepo('feat/probe');

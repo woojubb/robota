@@ -28,6 +28,41 @@ Skip it for simple components whose `SPEC.md` already says enough — a box-tick
 The completeness gate validates the _structure_ of design docs that exist; it does not force one to
 exist (that judgment is yours).
 
+## Placement criterion — the consumer-impact test (owner of this fact)
+
+"When is a design doc required?" above decides **whether** to write one. This section decides **what
+goes in it** versus what belongs in the owning `SPEC.md`. This skill is the single owner of the
+criterion; `spec-writing-standard` and `spec-workflow.md` link here and carry no copy.
+
+> **Ask: if this fact changed, would code outside this package — or an end user — have to change?**
+> **Yes → `SPEC.md` (the contract). No → `docs/design/` (the secret).**
+
+Do not use "what versus how". That test is unusable here, because one level's _how_ is the next
+level's _what_ — the boundary is relative, so it decides nothing. Consumer impact is absolute: it
+asks who is forced to change, which is answerable for any given fact.
+
+| Fact                                                                             | Impact | Goes in                   |
+| -------------------------------------------------------------------------------- | ------ | ------------------------- |
+| Exported signatures, SSOT types                                                  | yes    | `SPEC.md`                 |
+| Error codes, categories, recoverability                                          | yes    | `SPEC.md`                 |
+| Externally observable event names and payloads                                   | yes    | `SPEC.md`                 |
+| Extension points (abstract classes, callback signatures)                         | yes    | `SPEC.md`                 |
+| **End-user-facing contract** (key bindings, terminal visual grammar, exit codes) | yes    | **`SPEC.md`** — see below |
+| Module decomposition, file layout, internal helpers                              | no     | `docs/design/`            |
+| _Internal_ state-machine transitions (observable states are contract)            | no     | `docs/design/`            |
+| Render pipeline, caching strategy, algorithm choice                              | no     | `docs/design/`            |
+| Why this decomposition was chosen (its motivation)                               | —      | `docs/design/`            |
+| One architecturally-significant decision + rejected alternatives                 | —      | ADR                       |
+
+**The consumer is not only code.** A terminal application's key bindings and visual grammar are a
+contract whose consumer is a person. They read like presentation detail and are easy to mistake for
+whitebox material, but changing them breaks someone — so they stay in `SPEC.md`, under the optional
+`User-Facing Contract` section. Reading "consumer" as "calling code" is the mistake this row exists
+to prevent.
+
+**Recursion.** The test applies at whatever decomposition level you are documenting: a nested package
+is a consumer boundary of its own, so a fact internal to a parent may be contract for a child.
+
 ## Location
 
 - **Package-local:** `packages/<pkg>/docs/design/<topic>.md` (English, beside the SPEC it realizes).
