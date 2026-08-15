@@ -196,3 +196,53 @@ describe('validateAgainstJsonSchema — union nodes (CORE-039)', () => {
     ]);
   });
 });
+
+/**
+ * CORE-039 — `additionalProperties` declares closure RELATIVE TO a declared `properties` set.
+ *
+ * The convention ("omitted rejects extras") was authored for a tool's `parameters` root, where
+ * `properties` is structurally always present. A nested node can omit it, and carrying the root's
+ * phrasing there unchanged would give omitted `additionalProperties` a second meaning — "the empty
+ * object only" — that contradicts both JSON Schema and the document forwarded to the provider.
+ */
+describe('validateAgainstJsonSchema — closure is relative to declared properties (CORE-039)', () => {
+  it('permits any properties on a node that declares none', () => {
+    // This is the shape a hand-written schema uses for a free-form object field, and it is what the
+    // provider is told: `{"type":"object"}` with no properties permits any properties.
+    expect(validateAgainstJsonSchema({ type: 'object' }, { key: 'val' }, '$')).toEqual([]);
+  });
+
+  it('closes a node that declares an EMPTY properties set', () => {
+    // Presence of the member, not its emptiness, is what declares closure — a no-argument tool root
+    // still rejects every argument.
+    expect(
+      validateAgainstJsonSchema({ type: 'object', properties: {} }, { key: 'val' }, '$'),
+    ).toEqual(['$.key: unexpected additional property']);
+  });
+
+  it('closes a node that declares properties, as before', () => {
+    expect(
+      validateAgainstJsonSchema(
+        { type: 'object', properties: { a: { type: 'string' } } },
+        { a: 'x', b: 1 },
+        '$',
+      ),
+    ).toEqual(['$.b: unexpected additional property']);
+  });
+
+  it('honours an explicit additionalProperties false even with no properties declared', () => {
+    expect(
+      validateAgainstJsonSchema(
+        { type: 'object', additionalProperties: false },
+        { key: 'val' },
+        '$',
+      ),
+    ).toEqual(['$.key: unexpected additional property']);
+  });
+
+  it('validates extras against a schema-valued additionalProperties (record types)', () => {
+    const schema = { type: 'object' as const, additionalProperties: { type: 'number' as const } };
+    expect(validateAgainstJsonSchema(schema, { a: 1 }, '$')).toEqual([]);
+    expect(validateAgainstJsonSchema(schema, { a: 'x' }, '$').join(' ')).toContain('expected number');
+  });
+});

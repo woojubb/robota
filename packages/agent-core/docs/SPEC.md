@@ -906,10 +906,22 @@ no separate nested form. Splitting the two is what let a nested object be emitte
   `anyOf` INSTEAD of a type; emitting both is invalid JSON Schema, because a provider applies the
   two constraints together and rejects whichever branch does not match the type. A node with
   neither is refused by every walk rather than passed silently.
-- **`additionalProperties` omitted means CLOSED.** `true` and the object form accept extra
-  properties; `false` and omitted reject them. This holds identically at the root and at every
-  nested level, and the Anthropic seam applies the same reading when it closes object nodes for
-  that provider's structured-output surface.
+- **`additionalProperties` declares closure RELATIVE TO a declared `properties` set.** A node that
+  declares `properties` — including an empty `properties: {}` — is closed unless
+  `additionalProperties` says otherwise: `true` and the object form accept extras, `false` and
+  omitted reject them. A node that declares **no** `properties` declares no closure and permits any
+  properties, as JSON Schema itself says and as every provider reads the document we forward them.
+  An explicit `additionalProperties: false` closes a node either way.
+
+  The presence of the member, not its emptiness, is what decides. This definition is keyed that way
+  because the convention was authored for a tool's `parameters` root, where `properties` is
+  structurally always present, so "omitted rejects extras" could only ever mean "nothing beyond the
+  declared set". A nested node can omit `properties` entirely — the free-form object field — and
+  carrying the root's phrasing there unchanged would silently give omitted `additionalProperties` a
+  second meaning ("the empty object only") that no producer intends and that contradicts the schema
+  we ship. The Anthropic seam still materialises `additionalProperties: false` on every object node
+  for that provider's structured-output surface, which is a provider requirement, not this rule.
+
 - **One walk owns depth.** `validateAgainstJsonSchema` is the complete traversal.
   `FunctionTool`'s tool-INPUT validation keeps its caller-facing leaf messages
   (`Parameter "x" must be a string`) and delegates everything with depth — a nested object's own

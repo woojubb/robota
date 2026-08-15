@@ -128,7 +128,7 @@ export function validateAgainstJsonSchema(
         }
       }
       const additional = schema.additionalProperties;
-      if (additional === undefined || additional === false) {
+      if (isClosed(schema)) {
         for (const key of Object.keys(record)) {
           if (!(key in properties)) {
             issues.push(`${path}.${key}: unexpected additional property`);
@@ -211,6 +211,33 @@ export function validateAgainstJsonSchema(
         ? [`${path}: schema node declares neither a type nor anyOf`]
         : [`${path}: unsupported schema type ${String(kind)}`];
   }
+}
+
+/**
+ * Whether an object node is closed to properties it does not declare.
+ *
+ * `additionalProperties` declares closure **relative to a declared `properties` set**. A node that
+ * declares no `properties` declares no closure and permits any properties, exactly as JSON Schema
+ * says — and exactly as every provider reads the document we forward them. A node that DOES declare
+ * `properties`, including an empty `properties: {}`, is closed unless `additionalProperties` says
+ * otherwise.
+ *
+ * This is the convention's definition at a position it was never written for, not an exception to
+ * it. The rule was authored for a tool's `parameters` root, where `properties` is structurally
+ * always present, so "omitted rejects extras" could only ever mean "nothing beyond the declared
+ * set". A nested node can omit `properties` entirely; carrying the root's phrasing there unchanged
+ * would give omitted `additionalProperties` a second meaning — "the empty object only" — that no
+ * producer intends, that contradicts the schema we ship to the provider, and that is the same
+ * root-versus-nested divergence this item exists to remove.
+ *
+ * An explicit `additionalProperties: false` closes the node either way; that is a producer saying so.
+ */
+function isClosed(schema: IParameterSchema): boolean {
+  const additional = schema.additionalProperties;
+  if (additional === false) {
+    return true;
+  }
+  return additional === undefined && schema.properties !== undefined;
 }
 
 /**

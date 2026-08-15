@@ -1,5 +1,6 @@
 import type { TUniversalMessage, IToolCall } from './messages';
 import type { IProviderCapabilities, IProviderNativeWebToolRequest } from './provider-capabilities';
+import type { IToolSchema } from './tool-schema';
 
 export type {
   IProviderCapabilities,
@@ -24,84 +25,17 @@ export {
  */
 export type TProviderConfigValue = string | number | boolean;
 
-/**
- * JSON Schema parameter default value type
- * Used for default values in parameter schemas
- */
-export type TParameterDefaultValue = string | number | boolean | null;
-
-/**
- * JSON Schema primitive types
- */
-export type TJSONSchemaKind =
-  'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object' | 'null';
-
-/**
- * JSON Schema enum values
- */
-export type TJSONSchemaEnum = string[] | number[] | boolean[] | (string | number | boolean)[];
-
-/**
- * Tool schema definition
- */
-export interface IToolSchema {
-  name: string;
-  description: string;
-  parameters: IObjectParameterSchema;
-  /**
-   * SELFHOST-005: optional schema the tool's OUTPUT (`result.data`) must match. When present, the
-   * tool-registry validates the returned value against it in `FunctionTool.execute` (beside the
-   * tool-INPUT `parameter-validator`) and throws on mismatch before the result returns. Absent =
-   * no output validation (backward-compatible). Model-output validation is separate (CORE-015).
-   *
-   * An object output is declared as an {@link IObjectParameterSchema} (so it names its properties);
-   * a non-object output is a bare {@link IParameterSchema}. Both are the same subset — CORE-039
-   * removed the second, structurally identical root shape that used to be spelled out here purely
-   * to regain `required`, which `IParameterSchema` now carries at every level.
-   */
-  outputSchema?: IParameterSchema;
-}
-
-/**
- * Parameter schema for tools — the universal JSON-schema subset (CORE-039 SSOT).
- *
- * The same shape describes a root object and every node inside it: `required` and `anyOf` are
- * members at every level, so a nested object states its own requirements rather than losing them.
- * Splitting root from nested is what let a nested object be treated as a leaf.
- *
- * `type` is optional because a union node carries `anyOf` INSTEAD of a type — emitting both is
- * invalid JSON Schema (a provider applies the two constraints together and rejects the branch that
- * does not match the type). A node with neither is not valid: every walk over this subset rejects
- * it rather than passing it silently.
- *
- * `additionalProperties` omitted means CLOSED, by convention — see agent-core `docs/SPEC.md`
- * § Universal JSON-Schema Subset. Producers that mean "open" say so with `true`.
- */
-export interface IParameterSchema {
-  type?: TJSONSchemaKind;
-  description?: string;
-  enum?: TJSONSchemaEnum;
-  items?: IParameterSchema;
-  properties?: Record<string, IParameterSchema>;
-  required?: string[];
-  /** Union node: the value must match at least one member. Carried instead of `type`. */
-  anyOf?: IParameterSchema[];
-  additionalProperties?: boolean | IParameterSchema;
-  minimum?: number;
-  maximum?: number;
-  pattern?: string;
-  format?: string;
-  default?: TParameterDefaultValue;
-}
-
-/**
- * An {@link IParameterSchema} narrowed to an object node that names its properties — the shape a
- * tool's `parameters` root must take.
- */
-export interface IObjectParameterSchema extends IParameterSchema {
-  type: 'object';
-  properties: Record<string, IParameterSchema>;
-}
+// The universal JSON-schema subset moved to `./tool-schema` (CORE-039): it is its own concept,
+// reached by producers, validators and four provider adapters, and `provider.ts` was over its
+// frozen size baseline. Re-exported here so every existing `from './provider'` import resolves.
+export type {
+  IObjectParameterSchema,
+  IParameterSchema,
+  IToolSchema,
+  TJSONSchemaEnum,
+  TJSONSchemaKind,
+  TParameterDefaultValue,
+} from './tool-schema';
 
 /**
  * Token usage statistics
