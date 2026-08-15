@@ -361,7 +361,7 @@ process.exit(fails.length === 0 ? 0 : 1);
   `"action": { "type": "object", "description": … }` and `"items": { "type": "object" }` — every nested
   field absent.
 - Cleanup: `rm -f src/core-039-s1.ts` from `scratch/`.
-- Evidence (2026-08-16, re-run against the completed implementation at `afd397c10`, after step 6c's closure rule landed; an earlier run at `54886a665` gave the same result): **`SCENARIO 1 PASS`,
+- Evidence (2026-08-16, re-run against the completed implementation at `e2aa9ad75`, after step 6c's closure rule landed; an earlier run at `54886a665` gave the same result. The commit was first cited as `afd397c10`, which a later history correction made unreachable; `e2aa9ad75` is that commit, tree-identical.): **`SCENARIO 1 PASS`,
   `EXIT:0`**, eight `PASS` lines. `Computer.act` printed
   `action.properties.type.enum = ["click","double_click","type","keypress","scroll","drag","wait","takeover"]`,
   `action.required = ["type"]`, and `action.properties.path.items = { type: 'object', properties: { x:
@@ -452,7 +452,7 @@ process.exit(fails.length === 0 ? 0 : 1);
   (`["$.report.score: unexpected additional property", "$.report.notes: unexpected additional property"]`)
   and the input walk falsely accepts the invalid one (`input walk bad => success=true`, handler ran).
 - Cleanup: `rm -f src/core-039-s2.ts` from `scratch/`.
-- Evidence (2026-08-16, re-run against the completed implementation at `afd397c10`, after step 6c's closure rule landed; an earlier run at `54886a665` gave the same result): **`SCENARIO 2 PASS`,
+- Evidence (2026-08-16, re-run against the completed implementation at `e2aa9ad75`, after step 6c's closure rule landed; an earlier run at `54886a665` gave the same result. The commit was first cited as `afd397c10`, which a later history correction made unreachable; `e2aa9ad75` is that commit, tree-identical.): **`SCENARIO 2 PASS`,
   `EXIT:0`**, six `PASS` lines. The emitted schema carried
   `report.required = ["score","notes"]` with the optional `tag` present in `properties` and absent from
   `required`. `input walk good => success=true`; `input walk bad  => threw Validation Error: Invalid
@@ -562,7 +562,7 @@ process.exit(fails.length === 0 ? 0 : 1);
   capability: it fails if `anyOf` is emitted but not honoured on the input path, which is the failure
   mode that would turn the import-time crash into runtime uncallability of the same tool.
 - Cleanup: `rm -f src/core-039-s3.ts` from `scratch/`.
-- Evidence (2026-08-16, re-run against the completed implementation at `afd397c10`, after step 6c's closure rule landed; an earlier run at `54886a665` gave the same result): **`SCENARIO 3 PASS`,
+- Evidence (2026-08-16, re-run against the completed implementation at `e2aa9ad75`, after step 6c's closure rule landed; an earlier run at `54886a665` gave the same result. The commit was first cited as `afd397c10`, which a later history correction made unreachable; `e2aa9ad75` is that commit, tree-identical.): **`SCENARIO 3 PASS`,
   `EXIT:0`**, seven `PASS` lines. The emitted schema carried `choice.anyOf` with a `string` branch and
   an object branch (`required: ["label"]`), and `mode.anyOf` with both discriminated branches, each
   rendering its discriminator as `kind: { type: 'string', enum: ['fast'] }` / `['safe']`. Neither union
@@ -718,3 +718,101 @@ executable by a reader who has never seen the original script. Inlining the lite
 be an improvement — it would pin the harness strings (`SCENARIO N PASS`, the PASS-line counts) that a
 reconstruction may word differently — and is recommended for Stage 2, but it is not required to pass
 this criterion.
+
+---
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** todo → the Done Gate's `status: done` precondition is satisfied. Setting the status,
+adding `completed:`, and the `git mv` to `completed/` are Completion Steps owned by the orchestrator, not
+outputs of this gate.
+
+**Ordering check — passed.** `DONE-GATE-STAGE-1` shows a recorded PASS for this document (run 2,
+2026-08-16, committed in `33293045f`, which touched only this file, `74 ++++` append-only). The run-1
+NON-COMPLIANCE entry is still present and was not edited away. Expected input state ("scenarios written,
+implementation complete") holds: the three scenarios are written above, and the implementation is
+committed — `git log --oneline origin/develop..HEAD` carries `54886a665`, `3f071bc7a`, `e2aa9ad75`,
+`89dfedda6`, `c9731cc97`. Direction steps spot-checked as landed, not assumed: step 7 (`'integer'` at
+`tool-registry.ts:17` with the CORE-039 comment at `:10`), step 8 (`unsupported schema type` default at
+`parameter-validator.ts:82`), step 9 (Gemini `required`/`anyOf` at `tool-schema-converter.ts:83-87`;
+Anthropic `anyOf` recursion at `anthropic/output-schema.ts:55-56`; OpenAI limitation recorded at
+`packages/agent-provider-openai/docs/SPEC.md:74-88`), step 10 (`agent-tools/src/__tests__/builtin-schema-depth.test.ts`).
+All three named follow-ups exist: `CORE-040-…md`, `CORE-041-…md`, `PROV-007-…md` under `.agents/tasks/`.
+
+**Evidence-tree correspondence — verified, not accepted on report.** The evidence cites `afd397c10`.
+That SHA is **not reachable from HEAD** (`git merge-base --is-ancestor afd397c10 HEAD` → false; no branch
+contains it) — the branch was rewritten after the evidence was recorded. It is not a superseded tree,
+and this is why: `git diff --stat afd397c10 e2aa9ad75` is **empty**, so the cited commit is tree-identical
+to `e2aa9ad75`, which is on the branch. And `git diff --stat afd397c10 HEAD -- packages apps` is two
+files, both tests — a Prettier reflow in `structured-output.test.ts:246` and a `as unknown as` cast in
+`agent-tools/src/__tests__/tool-registry.test.ts:116`. No product source differs between the tree the
+scenarios were run against and HEAD, so criterion 1's "against the completed implementation" holds.
+Recommendation (not a failure): repoint the three evidence fields at `e2aa9ad75`, since an unreachable
+SHA is gc-eligible.
+
+**Reproducibility from the document alone — verified.** `scratch/src` is gitignored
+(`scratch/.gitignore:2` — `src/*`), so the inlined scripts are their only durable home. The three
+` ```ts ` blocks were extracted programmatically from this file and diffed against the surviving
+`scratch/src/core-039-s{1,2,3}.ts`: **byte-identical apart from the added `// scratch/src/…` path
+comment on line 1**. The extracted copies were then run at HEAD from `scratch/` with the documented
+invocation `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/<file>.ts; echo "EXIT:$?"`.
+
+**Criterion 1 — every scenario directly executed against the completed implementation: MET.** All three
+re-executed by this guardian at HEAD. Scenario 1 → `SCENARIO 1 PASS`, 8 `PASS` lines, `EXIT:0`.
+Scenario 2 → `SCENARIO 2 PASS`, 6 `PASS` lines, `EXIT:0`. Scenario 3 → `SCENARIO 3 PASS`, 7 `PASS`
+lines, `EXIT:0`. Counts and terminal strings match the stated expected observables exactly.
+
+**Criterion 2 — observed matched expected for every scenario: MET**, checked against the recorded detail
+rather than the headline:
+
+- S1: `action.properties.type.enum` = the 8 values `click…takeover`; `action.required` = `["type"]` with
+  optional `x` absent; `action.properties.path.items` = `{ type:'object', properties:{x:{number},y:{number}},
+required:['x','y'] }` (the 3-level-deep drag point); `questions.items.properties` =
+  `question`/`header`/`options`/`multiSelect`/`allowFreeText`; `questions.items.required` = `["question"]`;
+  `options.items.anyOf` = string branch + `{label,description}` object branch with `required:["label"]`.
+  The import completing at all — the module-level `askUserQuestionTool` construction — is part of the
+  observable and did complete.
+- S2: emitted `report.required` = `["score","notes"]` with optional `tag` in `properties` and absent from
+  `required`; `input walk good => success=true`; `input walk bad => threw Validation Error: Invalid
+parameters for tool "report-tool": Parameter "report".score: required property missing` — character-for-character
+  the string recorded in the evidence field, and the step-6b path-root evidence.
+- S3: `choice.anyOf` = string branch + object branch (`required:["label"]`); `mode.anyOf` = both
+  discriminated branches with `kind: {type:'string', enum:['fast']}` / `['safe']`; neither union node
+  carried a `type` beside its `anyOf` (confirmed in the printed schema); both branches accepted by the
+  input walk; `AskUserQuestion data = "{\"success\":true,\"output\":\"{\\\"unavailable\\\":true,\\\"reason\\\":\\\"no interactive user attached\\\"}\"}"`
+  — identical to the recorded string.
+
+**Criterion 3 — concrete evidence recorded under each scenario's evidence field: MET.** Each of the three
+scenarios carries an `Evidence (2026-08-16, re-run … at afd397c10 …)` bullet holding the terminal string,
+the exit code, the PASS-line count, and quoted schema/message fragments — not a bare "passed".
+
+**FAIL-trigger check — engineering verification cited as evidence: not triggered.** No evidence field
+cites build, typecheck, lint, unit tests, harness, CI, `rg`, or document inspection. All three observables
+are public SDK entry points (`@robota-sdk/agent-tools`, `@robota-sdk/agent-core`). Engineering
+verification is quarantined in `## Test Plan`, and §"Stated coverage limit" explicitly declares the
+Gemini forwarding gap engineering-test-only and **not** user-execution evidence rather than smuggling it
+in.
+
+**FAIL-trigger check — unprobed capability-absence claim: not triggered.** The only absence claim is the
+provider-credential probe, and it was re-run here: `env | grep -iE
+"OPENAI|ANTHROPIC|GOOGLE|GEMINI|BYTEDANCE|API_KEY"` matches only `PATH`; `.env` does not exist,
+`.env.example` does. The prerequisite block's `make`/`g++` claim also reproduces (both `ABSENT`). No
+scenario needs a credential, so no exception rests on the claim in any case.
+
+**Durable-artifact rule: MET.** `node scripts/harness/check-done-evidence.mjs` exits 0 ("done-evidence
+scan passed (14 superseded reference(s))") with no CORE-039 finding;
+`node scripts/harness/check-backlog-placement.mjs` exits 0. The scripts themselves are durable in this
+committed document (verified byte-identical to the gitignored originals above), and the item's pinning
+tests exist at `packages/agent-tools/src/__tests__/builtin-schema-depth.test.ts`,
+`packages/agent-core/src/schema/zod-to-json-schema.real-zod.test.ts`,
+`packages/agent-core/src/tool-registry/parameter-validator.depth.test.ts`.
+
+**Exception clause: N/A.** No scenario is `manual-only` and none went unexecuted, so the
+genuinely-impossible exception is not invoked.
+
+**Stage-1 carried weakness: cured.** Run 2 recommended inlining the literal scripts to pin the harness
+strings a reconstruction might word differently. All three are now inlined verbatim, and the extraction
+diff above is the proof that the recommendation was met rather than claimed.
+
+**Cleanup performed by this guardian:** the three extracted `scratch/src/guard-core-039-s*.ts` copies
+were removed after the runs; the item's own `scratch/src/core-039-s*.ts` were left untouched.
