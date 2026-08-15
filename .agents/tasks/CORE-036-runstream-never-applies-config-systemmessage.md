@@ -1,5 +1,5 @@
 ---
-title: "CORE-036: runStream() never applies config.systemMessage — the streaming path builds provider messages straight off the conversation store and skips the session initialization that the round path uses to attach the system prompt, so the same agent obeys its persona through run() and ignores it through runStream()"
+title: 'CORE-036: runStream() never applies config.systemMessage — the streaming path builds provider messages straight off the conversation store and skips the session initialization that the round path uses to attach the system prompt, so the same agent obeys its persona through run() and ignores it through runStream()'
 status: todo
 created: 2026-08-16
 priority: high
@@ -26,13 +26,18 @@ instructions, which reads as a model-quality problem rather than a dropped promp
 
 - `packages/agent-core/src/services/execution-service-helpers.ts:189-192` — the round path's
   `initializeConversationStore()` attaches the prompt:
-  `const hasSystemMessage = session.getMessages().some((m) => m.role === 'system'); if
-  (config.systemMessage && !hasSystemMessage) { session.setSystemPrompt(config.systemMessage, {
-  executionId }); }`
+
+  ```ts
+  const hasSystemMessage = session.getMessages().some((m) => m.role === 'system');
+  if (config.systemMessage && !hasSystemMessage) {
+    session.setSystemPrompt(config.systemMessage, { executionId });
+  }
+  ```
+
 - `packages/agent-core/src/services/execution-stream.ts:72` — the streaming path never calls that
   helper; it goes straight to `conversationHistory.getConversationStore(context.conversationId)`.
 - `packages/agent-core/src/services/execution-stream.ts:106-114` — provider messages are the store's
-  messages plus, optionally, the *ephemeral* per-run block only:
+  messages plus, optionally, the _ephemeral_ per-run block only:
   `const conversationMessages = conversationStore.getMessages(); … ephemeralSystemContext …`
 - `grep -n "systemMessage" packages/agent-core/src/services/execution-stream.ts` returns no hit —
   the only system-message reference on that path is `ephemeralSystemContext` (SELFHOST-008 P3).
@@ -47,7 +52,7 @@ returns that string from `run('hi')` and an unrelated greeting from `runStream('
 
 Any streaming agent whose behavior is defined by a system prompt behaves as if unconfigured. The
 reporter's multi-agent app renders every persona through `runStream()`; it also explains a workaround
-they had accumulated — duplicating behavioral rules into the *user* prompt because
+they had accumulated — duplicating behavioral rules into the _user_ prompt because
 "system-message-only instructions didn't stick".
 
 `runStream()` is the default surface for interactive/TUI usage, so this is a correctness defect on

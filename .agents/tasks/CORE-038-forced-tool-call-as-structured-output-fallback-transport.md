@@ -1,5 +1,5 @@
 ---
-title: "CORE-038: the structured-output fallback transport re-asks for JSON in prose, which is the path every provider without a native responseFormat surface takes — and, because a native surface is detected per PROVIDER PACKAGE rather than per endpoint, an OpenAI-compatible gateway serving a non-OpenAI model is silently on the prompt path while the enforcement loop believes it enforced early"
+title: 'CORE-038: the structured-output fallback transport re-asks for JSON in prose, which is the path every provider without a native responseFormat surface takes — and, because a native surface is detected per PROVIDER PACKAGE rather than per endpoint, an OpenAI-compatible gateway serving a non-OpenAI model is silently on the prompt path while the enforcement loop believes it enforced early'
 status: todo
 created: 2026-08-16
 priority: medium
@@ -38,11 +38,11 @@ Two things make this worth changing rather than accepting:
    `responseFormat` mapping exists in three provider packages and in neither of the other two
    text-generation packages:
 
-   | provider package                   | native structured-output surface | evidence |
-   | ---------------------------------- | -------------------------------- | -------- |
-   | `agent-provider-anthropic`         | yes — `output_config.format`     | `src/anthropic/provider.ts:349-356` |
+   | provider package                   | native structured-output surface | evidence                                  |
+   | ---------------------------------- | -------------------------------- | ----------------------------------------- |
+   | `agent-provider-anthropic`         | yes — `output_config.format`     | `src/anthropic/provider.ts:349-356`       |
    | `agent-provider-gemini`            | yes — `responseSchema`           | `src/gemini/execution-helpers.ts:142-145` |
-   | `agent-provider-openai`            | yes — `response_format`          | `src/openai/chat-completions-chat.ts` |
+   | `agent-provider-openai`            | yes — `response_format`          | `src/openai/chat-completions-chat.ts`     |
    | `agent-provider-openai-compatible` | **no** — prompt fallback         | `grep -rn responseFormat …/src` → no hits |
    | `agent-provider-bytedance`         | **no** — prompt fallback         | `grep -rn responseFormat …/src` → no hits |
 
@@ -110,7 +110,7 @@ The issue also asks that `llms.txt` mention structured output. On `develop` it a
   returns a validated typed object with provider-native mapping + bounded retry".
 
 So the gap the reporter hit is closed. What is worth checking as part of this Task is whether that
-line conveys the *guarantee* strongly enough for an agent reading `llms.txt` to choose robota's path
+line conveys the _guarantee_ strongly enough for an agent reading `llms.txt` to choose robota's path
 over its own SDK's helper, and whether it should state that non-native providers go through the
 bounded loop rather than degrading silently. Reply to the issue with the correction either way.
 

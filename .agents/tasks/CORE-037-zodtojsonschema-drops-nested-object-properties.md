@@ -21,7 +21,7 @@ so only **nested** objects lose their `properties`/`required`. The model therefo
 is an object" with no indication of what belongs in it.
 
 ```ts
-zodToJsonSchema(z.object({ inner: z.object({ s: z.string() }) }))
+zodToJsonSchema(z.object({ inner: z.object({ s: z.string() }) }));
 // → { type: 'object', properties: { inner: { type: 'object' } }, required: ['inner'] }
 //                                            ^^^^^^^^^^^^^^^^^^ shape discarded
 ```
@@ -41,11 +41,11 @@ Reporter's measured downstream effect (forced tool call, `toolChoice: { tool: na
 
 | tool input schema                                    | handler invoked |
 | ---------------------------------------------------- | --------------- |
-| `{ a: string, b: string }`                            | yes |
-| `{ items: string[] }`                                 | yes |
-| `{ items: string[] }` with `.max(2)`                  | yes |
-| `{ delivery: { score, evidence[], suggestions[] } }`  | no |
-| 5 × the above nested object + `summary: string`       | no |
+| `{ a: string, b: string }`                           | yes             |
+| `{ items: string[] }`                                | yes             |
+| `{ items: string[] }` with `.max(2)`                 | yes             |
+| `{ delivery: { score, evidence[], suggestions[] } }` | no              |
+| 5 × the above nested object + `summary: string`      | no              |
 
 Flat schemas including arrays and constraints work; one level of nesting is enough to break it.
 
