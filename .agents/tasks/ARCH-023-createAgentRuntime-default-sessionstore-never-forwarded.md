@@ -5,7 +5,7 @@ created: 2026-08-13
 priority: medium
 urgency: soon
 area: packages/agent-framework
-depends_on: []
+depends_on: [ARCH-015]
 ---
 
 # ARCH-023: the runtime-level sessionStore is never inherited

@@ -31,24 +31,22 @@ args.provider })` BEFORE building the profile (`agent-cli/src/cli.ts:262-265`), 
 
 ## Direction
 
-- `providerOverride`: remove it from `IProductProfile` (the shell-side resolution is the actual
-  design), or fold it into `assembleProduct`'s provider resolution and document it in the SPEC's
-  precedence chain. (Contract removal is a published-surface change — semver/changeset gate.)
-- `ICapabilityPack.id`: either implement duplicate-pack detection / add pack provenance to
-  `IRejectedCapability`, or correct the field's doc to "diagnostics" (not duplicate-detection).
+Remove `IProductProfile.providerOverride`: the shell owns provider-name selection and passes already
+resolved `providerSettings` into product composition. Preserve the existing shell override behavior and
+record the published-contract removal with the required changeset. Make `ICapabilityPack.id` effective:
+reject a later duplicate pack as a whole before merging any of its capabilities, and attach `packId`
+provenance to capability-collision diagnostics.
 
 ## Test Plan
 
-- Red-first (providerOverride, if folded): a profile with `providerOverride` set selects that provider;
-  (if removed) the field no longer exists on the contract.
-- Red-first (id, if implemented): merging two packs with the same id produces a rejection naming the
-  duplicate id; (if doc-only) the field's TSDoc no longer claims duplicate detection.
+- Red-first type test asserts `providerOverride` is absent while CLI/shell override behavior remains.
+- Red-first merge tests assert a later duplicate pack is rejected atomically and capability collisions
+  include `packId` provenance.
 - `pnpm harness:verify -- --scope packages/agent-product` and `--scope packages/agent-capability-pack`
   green; changeset present if the profile contract changes.
 
 ## User Execution Test Scenarios
 
-**Applies to providerOverride only if folded** (product assembly is public SDK usage): a scratch
-product profile setting `providerOverride` selects that provider at assembly. If both fields are
-resolved by removal/doc-correction: Not applicable — record the contract change + changeset in the
-Test Plan.
+Not applicable — this item removes a dead profile field and strengthens composition diagnostics without
+changing the shell's already-resolved provider-selection behavior. Record the contract test, regression
+test, and changeset as engineering evidence.

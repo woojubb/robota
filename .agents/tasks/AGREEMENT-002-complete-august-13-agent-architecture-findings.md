@@ -1,6 +1,6 @@
 ---
 title: 'AGREEMENT-002: complete the 2026-08-13 agent architecture findings'
-status: todo
+status: in-progress
 created: 2026-08-15
 priority: critical
 urgency: now
@@ -33,19 +33,31 @@ Track the fourteen open agent-architecture findings created on 2026-08-13 as one
 initiative. The source Task files remain authoritative for each problem and its implementation
 evidence; the paired agreement owns the proposed integration order and assembled completion gate.
 
-This record does not grant implementation approval. The paired spec remains `review-ready`, and work
-must not begin until GATE-APPROVAL records the user's explicit approval.
+The paired spec passed GATE-APPROVAL on 2026-08-15. The user's instruction
+“ARCH-014~028 을 모두 진행해줘.” authorizes implementation of the complete child set.
 
 ## Spec
 
-`.agents/spec-docs/backlog/AGREEMENT-002-complete-august-13-agent-architecture-findings.md`
+`.agents/spec-docs/active/AGREEMENT-002-complete-august-13-agent-architecture-findings.md`
 
 ## Plan
 
-- [ ] Obtain explicit user approval for the paired agreement before implementation.
-- [ ] Apply the agreement's foundational scope corrections before running the affected child gates.
-- [ ] Execute every child through its own implementation and verification lifecycle in dependency order.
-- [ ] Run the initiative-level architecture conformance and CI-equivalent assembled-base gates.
+- [ ] TC-01 — preserve full-fidelity external session payloads in ARCH-014.
+- [ ] TC-02 — preserve unknown session-record fields and reconcile the canonical store port in ARCH-015.
+- [ ] TC-03 — unify the session-log vocabulary and compact trigger in ARCH-016.
+- [ ] TC-04 — remove obsolete permission/ask seams and retain the prompt-registry SSOT in ARCH-017.
+- [ ] TC-05 — make the interaction-channel charter and implementer set agree in ARCH-018.
+- [ ] TC-06 — implement the complete committed checkpoint/branch transition matrix in ARCH-020.
+- [ ] TC-07 — deliver the shared event contract through exhaustive TUI/protocol mappings in ARCH-028.
+- [ ] TC-08 — preserve live product composition through a parent-side worker broker in ARCH-021.
+- [ ] TC-09 — forward runtime-owned default session persistence in ARCH-023.
+- [ ] TC-10 — inject semantic command roles from composition in ARCH-024.
+- [ ] TC-11 — remove the dead provider override and add whole-pack duplicate diagnostics in ARCH-027.
+- [ ] TC-12 — remove framework public-surface laundering and recursively enforce the boundary in ARCH-022.
+- [ ] TC-13 — make executor projections total and mechanically exhaustive in ARCH-025.
+- [ ] TC-14 — share one shell executable/argument-family resolver in ARCH-026.
+- [ ] TC-15 — run every child done gate and archive all fourteen Task records atomically.
+- [ ] TC-16 — pass assembled conformance, scoped verification, and the CI-equivalent gate.
 
 These Plan rows are initiative-level work, not a second child lifecycle ledger. The canonical child
 projection is the section below.
@@ -87,16 +99,19 @@ user-execution scenario owned by its source child Task.
 - The paired agreement passed GATE-WRITE and independent proposal review.
 - Finding-depth review classified all fourteen proposed child scopes as LOCAL after incorporating four
   foundational scope corrections.
-- Explicit implementation approval remains pending.
+- GATE-APPROVAL passed with the user's explicit instruction to proceed with all fourteen children.
+- GATE-IMPLEMENT passed; the paired spec is active and the initiative Task tracks TC-01 through TC-16.
+- Foundational scopes for ARCH-020/021/025/028 and current-SSOT decisions for ARCH-017/027 were
+  recorded before any child recommendation gate.
 
 ## Decisions
 
-- Preserve the paired spec at `review-ready` until the user explicitly approves implementation.
+- Advance the paired spec to `approved` and execute on a dedicated integration base.
 - Keep child behavior, test, and evidence ownership in the source Task records.
 
 ## Blockers
 
-- GATE-APPROVAL requires explicit user approval before implementation begins.
+- None.
 
 ## Result
 

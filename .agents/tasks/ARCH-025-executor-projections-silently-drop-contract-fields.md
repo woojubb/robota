@@ -5,7 +5,7 @@ created: 2026-08-13
 priority: medium
 urgency: soon
 area: packages/agent-executor, packages/agent-framework
-depends_on: []
+depends_on: [ARCH-024, ARCH-027]
 ---
 
 # ARCH-025: executor facade projections lose contract fields
@@ -41,21 +41,17 @@ projections that should carry them, so a caller who sets them gets a no-op with 
 
 ## Direction
 
-1. Map `usage` in `SubagentManager.wait()` (`...(result.usage ? { usage: result.usage } : {})`),
-   mirroring `toBackgroundResult`.
-2. Either thread `providerProfile` through `ISubagentSpawnRequest`/`toSubagentStartRequest`, or
-   retire/annotate the request field as unused (a forward-provisioned field must not be silently
-   dropped by the one bridging projection — owner decision).
-3. Export `IScheduleEditPatch` from agent-executor's public index, document it in the SPEC, and make
-   agent-framework import it instead of re-declaring.
+Create one canonical total mapper for the public task/request/result projection seam. Every public key
+must be mechanically classified as mapped, deliberately derived, or explicitly rejected; adding a key
+must fail a fixture until classified. Preserve `usage`, `providerProfile`, permission policy, schedule
+patch fields, and future public fields rather than relying on recurring hand-written partial objects.
+Export one `IScheduleEditPatch` owner from agent-executor and consume it from agent-framework.
 
 ## Test Plan
 
-- Red-first: an orchestration step whose subagent reports token usage asserts
-  `IOrchestrationStepResult.usage` is populated (fails today).
-- Red-first (if providerProfile is threaded): a background agent task with a `providerProfile` reaches
-  the worker with that profile; (if retired) a scan asserting the field has no setter.
-- Typecheck asserts `agent-framework` imports `IScheduleEditPatch` (no inline duplicate).
+- Red-first projection tests preserve usage, provider profile, permission policy, and schedule edits.
+- A public-key exhaustiveness fixture fails whenever a new field is unclassified.
+- Typecheck asserts `agent-framework` consumes the exported `IScheduleEditPatch` owner.
 - `pnpm harness:verify -- --scope packages/agent-executor` green.
 
 ## User Execution Test Scenarios
