@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-030: outbound protocol replies bypass the carrier delivery boundary'
-status: todo
+status: done
 created: 2026-08-16
+completed: 2026-08-16
 priority: critical
 urgency: now
 area: packages/agent-transport-protocol, packages/agent-transport-ws, packages/agent-transport-webrtc
@@ -325,12 +326,34 @@ supporting narrative; the verdict rests on the GREEN run above.
       regression.
 - [x] Synchronize package SPECs, README/content guidance, and changesets — the three transport SPECs and
       `.changeset/arch-030-outbound-delivery-boundary.md` (protocol `major`, ws/webrtc `patch`).
-- [ ] Pass completion gates, archive the Task, and close issue #1734.
+- [x] Pass completion gates, archive the Task, and close issue #1734.
 
 ## Blockers
 
-- ARCH-020 and ARCH-028 must land so the carrier failure lifecycle being unified is stable.
+- None. ARCH-020 and ARCH-028 both landed (PR #1735) before this item started, so the carrier failure
+  lifecycle being unified was already stable.
 
 ## Result
 
-Pending.
+One connection-scoped outbound delivery boundary now carries every outbound `TServerMessage` on a
+connection — the session-event fan-out and all eleven reply families alike. The **carrier** builds it
+from its own sink and its own failure policy and passes it down; `TOutboundDeliver` is branded and
+`createOutboundDelivery` is its only producer, so a raw `send` is refused by the compiler wherever a
+boundary is required, and `WsSessionDelivery`'s raw sink is private with `deliver` as its only public
+exit. A reply that resolves after a disconnect is now reported once through the carrier's own cleanup
+instead of escaping as an unhandled rejection.
+
+Two corrections to this item's own text, both confirmed by independent review: the WebRTC path named
+here was already guarded through `SessionResumeBridge` — the unguarded WebRTC exposure was the bare
+`createWsHandler` the pairing gate and transport build when no resume bridge is supplied; and six
+SYNCHRONOUS reply families escaped too, throwing into the carrier's inbound listener rather than as
+rejections, so guarding only the five Promise continuations the title names would have left them.
+
+Verification: `harness:verify-like-ci` PASS (12/12 stages), transport suites 204 green, the
+user-execution scenario green with both done-gate stages independently PASSed, and the pre-PR review's
+own worktree run at the merge base reproducing the RED baseline byte for byte.
+
+Three review findings were upheld and fixed rather than argued away — the bridge held its channel in a
+closure `dispose()` never cleared, the scenario's latch observable measured a property the cleanup had
+already nulled, and no commit was typed `fix:` so the repository's regression red-proof floor had never
+evaluated this defect fix. The floor now runs and returns `red-proof-ok`.
