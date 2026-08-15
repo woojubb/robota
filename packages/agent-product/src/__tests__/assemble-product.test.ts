@@ -60,6 +60,34 @@ describe('assembleProduct — capability fold', () => {
     expectTypeOf<TProviderOverrideAbsent>().toEqualTypeOf<true>();
   });
 
+  it('surfaces identity and injected runtime plumbing without changing object identity', () => {
+    const backgroundTaskRunner = { kind: 'process', start: () => undefined } as never;
+    const subagentRunnerFactory = (() => ({ run: async () => undefined })) as never;
+    const transportRegistry = { marker: 'transport-registry' } as never;
+    let transportFactoryCalls = 0;
+
+    const product = assembleProduct({
+      id: 'acme',
+      agentName: 'Acme Agent',
+      version: '1.2.3',
+      providerDefinitions: [],
+      backgroundTaskRunners: [backgroundTaskRunner],
+      subagentRunnerFactory,
+      transports: () => {
+        transportFactoryCalls += 1;
+        return transportRegistry;
+      },
+    });
+
+    expect(product.agentName).toBe('Acme Agent');
+    expect(product.version).toBe('1.2.3');
+    expect(product.backgroundTaskRunners).toEqual([backgroundTaskRunner]);
+    expect(product.backgroundTaskRunners[0]).toBe(backgroundTaskRunner);
+    expect(product.subagentRunnerFactory).toBe(subagentRunnerFactory);
+    expect(transportFactoryCalls).toBe(1);
+    expect(product.transports).toBe(transportRegistry);
+  });
+
   it('folds base ⊕ pack command modules, pack tools, and pack subagents', () => {
     const profile: IProductProfile = {
       id: 'acme',

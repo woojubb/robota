@@ -72,6 +72,15 @@ function main(): void {
     !subagentNames.includes('DuplicateAgentMustNotLand');
   const followingUniquePackMerged = commandNames.includes('following-command');
   const collisionPackIds = product.rejectedCapabilities.map((entry) => entry.packId);
+  const expectedAcceptedPacks = [
+    { id: 'first', title: 'First Pack', description: 'Accepted metadata' },
+    { id: 'collision-source' },
+    { id: 'following', title: 'Following Pack' },
+  ];
+  const expectedRejectedPacks = [
+    { packId: 'first', reason: 'duplicate pack id' },
+    { packId: 'first', reason: 'duplicate pack id' },
+  ];
   const losslessProjection =
     JSON.stringify(product.acceptedPacks) === JSON.stringify(merged.acceptedPacks) &&
     JSON.stringify(product.rejectedPacks) === JSON.stringify(merged.rejectedPacks) &&
@@ -79,6 +88,14 @@ function main(): void {
 
   assertCondition(rejectedPackCapabilitiesAbsent, 'duplicate pack contributed a capability');
   assertCondition(followingUniquePackMerged, 'following unique pack did not merge');
+  assertCondition(
+    JSON.stringify(product.acceptedPacks) === JSON.stringify(expectedAcceptedPacks),
+    'accepted pack metadata or order changed',
+  );
+  assertCondition(
+    JSON.stringify(product.rejectedPacks) === JSON.stringify(expectedRejectedPacks),
+    'duplicate pack rejection count or order changed',
+  );
   assertCondition(
     collisionPackIds.length === 4 &&
       collisionPackIds.every((packId) => packId === 'collision-source'),
