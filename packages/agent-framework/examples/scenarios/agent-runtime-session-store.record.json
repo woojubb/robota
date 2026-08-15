@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "recordType": "scenario-record",
+  "scope": "packages/agent-framework",
+  "packageName": "@robota-sdk/agent-framework",
+  "command": {
+    "executable": "pnpm",
+    "args": ["scenario:verify"],
+    "rendered": "pnpm scenario:verify"
+  },
+  "cwd": "<cwd>",
+  "status": 0,
+  "stdout": {
+    "raw": "\n> @robota-sdk/agent-framework@3.0.0-beta.79 scenario:verify /private/tmp/robota-agreement-002-volume/worktree/packages/agent-framework\n> pnpm exec tsx --conditions=source examples/verify-agent-runtime-session-store.ts\n\n{\"scenario\":\"ARCH-023\",\"firstResponse\":\"ARCH-023 stored runtime-default-store\",\"resumedResponse\":\"ARCH-023 restored runtime-default-store\",\"sameSessionId\":true,\"resumedProviderRequest\":{\"priorUserPromptPresent\":true,\"priorAssistantReplyPresent\":true,\"currentPromptPresent\":true},\"resumedHistory\":{\"messageCount\":4,\"roles\":[\"user\",\"assistant\",\"user\",\"assistant\"]},\"cleanupRemoved\":true}\n",
+    "normalized": "{\"scenario\":\"ARCH-023\",\"firstResponse\":\"ARCH-023 stored runtime-default-store\",\"resumedResponse\":\"ARCH-023 restored runtime-default-store\",\"sameSessionId\":true,\"resumedProviderRequest\":{\"priorUserPromptPresent\":true,\"priorAssistantReplyPresent\":true,\"currentPromptPresent\":true},\"resumedHistory\":{\"messageCount\":4,\"roles\":[\"user\",\"assistant\",\"user\",\"assistant\"]},\"cleanupRemoved\":true}",
+    "sha256": "cfea513dc6152d1d9e0416115a9181f0ff4670916efa1f870923e01100f6be20"
+  },
+  "stderr": {
+    "raw": "",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

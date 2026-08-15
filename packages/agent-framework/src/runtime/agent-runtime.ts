@@ -23,7 +23,8 @@ export interface IAgentRuntimeConfig {
   commandHostAdapters?: ICommandHostAdapters;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
-  sessionStore?: IInteractiveSessionStore;
+  /** Runtime default; explicit undefined disables persistence for sessions that omit an override. */
+  sessionStore?: IInteractiveSessionStore | undefined;
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   orgPolicy?: IOrgPolicy;
@@ -35,7 +36,8 @@ export interface IAgentRuntimeConfig {
 export interface IHeadlessSessionOptions {
   permissionMode?: TPermissionMode;
   maxTurns?: number;
-  sessionStore?: IInteractiveSessionStore;
+  /** Omitted inherits the runtime store; explicit undefined disables persistence for this session. */
+  sessionStore?: IInteractiveSessionStore | undefined;
   sessionName?: string;
   bare?: boolean;
   allowedTools?: string[];
@@ -96,6 +98,7 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
     transportRegistry: config.transportRegistry,
     reloadPluginCommandSource: config.reloadPluginCommandSource ?? (() => {}),
     createSession(opts: IHeadlessSessionOptions): InteractiveSession {
+      const effectiveSessionStore = 'sessionStore' in opts ? opts.sessionStore : sessionStore;
       return new InteractiveSession({
         cwd: config.cwd,
         provider: config.provider,
@@ -105,7 +108,7 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
         commandHostAdapters,
         permissionMode: opts.permissionMode,
         maxTurns: opts.maxTurns,
-        sessionStore: opts.sessionStore,
+        sessionStore: effectiveSessionStore,
         sessionName: opts.sessionName,
         bare: opts.bare,
         allowedTools: opts.allowedTools,

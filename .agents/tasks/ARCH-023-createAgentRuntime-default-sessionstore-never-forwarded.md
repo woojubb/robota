@@ -75,13 +75,37 @@ after the tri-state types and complete stateless matrix were added, it returned
 - Pass package test/build/typecheck/lint, SPEC conformance, functional-coverage where applicable, and
   `pnpm harness:verify -- --scope packages/agent-framework --include-scenarios --base-ref origin/develop`.
 
+RED proof (2026-08-15):
+`volta run --node 22.14.0 pnpm --filter @robota-sdk/agent-framework exec vitest run src/runtime/__tests__/agent-runtime-session-store.test.ts`
+failed 1/5 with exit code 1 on the pre-fix factory because the default-runtime session file did not
+exist after shutdown; the other four matrix cases passed.
+
 ## Implementation Tasks
 
-- [ ] Update the public tri-state option contracts, runtime inheritance logic, JSDoc, and framework SPEC.
-- [ ] Add the complete RED-first runtime/store precedence and resume regression matrix.
-- [ ] Add the maintained public-SDK example, package scenario commands, and scenario record.
-- [ ] Add the framework behavior changeset and any required durable functional-coverage registration.
-- [ ] Run focused, scoped, SPEC, scenario, and done-gate verification with exact evidence.
+- [x] Update the public tri-state option contracts, runtime inheritance logic, JSDoc, and framework SPEC.
+- [x] Add the complete RED-first runtime/store precedence and resume regression matrix.
+- [x] Add the maintained public-SDK example, package scenario commands, and scenario record.
+- [x] Add the framework behavior changeset and any required durable functional-coverage registration.
+- [x] Run focused, scoped, SPEC, scenario, and done-gate verification with exact evidence.
+
+## Verification Evidence
+
+- Focused GREEN: the runtime/store regression matrix passed 5/5. The full `agent-framework` package
+  suite passed 163/163 files and 1,340/1,340 tests.
+- Static/build gates: package build and typecheck passed. Lint completed with zero errors and 153
+  existing warnings. Prettier and `git diff --check` passed.
+- SPEC conformance: the public-surface and package-SPEC scans passed; package-SPEC coverage remained
+  86/86. The changed runtime factory options, tri-state precedence, stateless behavior, and resume
+  path are documented in the framework SPEC and match the implementation and executable matrix.
+- Functional coverage: the registry scan passed with all 12 declared capabilities covered. No new
+  CLI manifest row was added because this change is a public SDK runtime-factory behavior; the
+  maintained public-SDK scenario directly exercises it, while the existing multi-session capability
+  continues to own the underlying resume behavior.
+- Scoped harness evidence is composite and change-complete. The full command reached the repository
+  harness tier and passed 3,362/3,364 tests; two unrelated process-heavy harness cases exceeded the
+  shared 30-second timeout. Immediate isolation of both files passed 59/59 in 22.65 seconds, including
+  the formerly timed-out cases in 859 ms and 2 ms. All ARCH-023 focused, package, build, typecheck,
+  lint, SPEC, functional-coverage, and recorded-scenario checks passed independently.
 
 ## User Execution Test Scenarios
 
@@ -176,9 +200,14 @@ after the tri-state types and complete stateless matrix were added, it returned
   recursive deletion is restricted to the one `mkdtemp` result; the success output is emitted only
   after `existsSync(cwd) === false`. No user config, repository file, or shared session directory is
   changed.
-- **Evidence (fill after implementation):** _Pending. Record the execution date and commit, exact
-  command, exit code, emitted JSON, and the durable example/scenario-record paths after running this
-  scenario against the completed implementation._
+- **Evidence (2026-08-15):** the exact command exited `0` and printed the expected ARCH-023 JSON:
+  both response sentinels matched, `sameSessionId` and all three resumed-provider-request flags were
+  `true`, the resumed history contained four messages in `user, assistant, user, assistant` order,
+  and `cleanupRemoved` was `true`. A second captured execution compared against
+  `packages/agent-framework/examples/scenarios/agent-runtime-session-store.record.json`: stdout
+  SHA-256 `cfea513dc6152d1d9e0416115a9181f0ff4670916efa1f870923e01100f6be20`, empty-stderr SHA-256
+  `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`, differences `[]`. Durable
+  execution lives in `packages/agent-framework/examples/verify-agent-runtime-session-store.ts`.
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-15
 
@@ -208,3 +237,28 @@ after the tri-state types and complete stateless matrix were added, it returned
   external service, provider credential, environment variable, or seeded user data. It creates a unique
   OS-temporary directory, shuts down both sessions, removes only that exact directory on success and
   failure paths, proves its absence, and does not mutate user config or repository state.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-15
+
+**Status upgrade:** scenario written → scenario executed and verified
+
+- Ordering: PASS — `DONE-GATE-STAGE-1` has a recorded PASS above, the Task remains `in-progress`, and
+  its implementation tasks and engineering evidence record the completed implementation before this
+  independent execution gate.
+- Direct execution: PASS — the guardian ran Scenario `ARCH-023-S1` twice with the exact public-SDK
+  command `volta run --node 22.14.0 pnpm --filter @robota-sdk/agent-framework scenario:verify`; both
+  executions exited `0` against the current implementation.
+- Expected observable: PASS — each run emitted the two expected response sentinels,
+  `sameSessionId: true`, all three resumed-provider-request flags as `true`, four public-history
+  messages in `user, assistant, user, assistant` order, and `cleanupRemoved: true`.
+- Concrete recorded evidence: PASS — the scenario evidence field above records the command result and
+  names the durable executable artifact
+  `packages/agent-framework/examples/verify-agent-runtime-session-store.ts` and canonical record
+  `packages/agent-framework/examples/scenarios/agent-runtime-session-store.record.json`. Independent
+  record validation returned `[]`; comparison returned differences `[]`, stdout SHA-256
+  `cfea513dc6152d1d9e0416115a9181f0ff4670916efa1f870923e01100f6be20`, and empty-stderr SHA-256
+  `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+- Evidence quality and cleanup: PASS — the verdict relies on the public SDK scenario output, not
+  build/test/lint/harness/CI results. A post-run probe found no remaining `arch-023-example-*`
+  directory under the operating-system temporary root, consistent with the emitted cleanup proof;
+  the scenario introduced no additional repository change.
