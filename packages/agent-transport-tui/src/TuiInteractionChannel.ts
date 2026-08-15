@@ -60,8 +60,8 @@ export class TuiInteractionChannel {
 
   private submitHandler: ((text: string) => Promise<void>) | null = null;
 
-  // CMD-004 unified ask path. Backs askHandler → InteractiveSession; rendered by App's
-  // PendingActionPrompt.
+  // CMD-004 unified ask path. Handles `ask_request` from InteractiveSession and is rendered by
+  // App's PendingActionPrompt.
   private userActionQueue: Array<{
     request: IActionRequest;
     resolve: (response: TUserActionResponse) => void;
@@ -484,12 +484,14 @@ export class TuiInteractionChannel {
       toolName,
       toolArgs,
     }) => {
-      void this.handlePermissionRequest(toolName, toolArgs, id).then((result) =>
-        session.resolvePermission(id, result),
-      );
+      void this.handlePermissionRequest(toolName, toolArgs, id)
+        .then((result) => session.resolvePermission(id, result))
+        .catch(() => session.resolvePermission(id, false));
     };
     const onAskRequest: IInteractiveSessionEvents['ask_request'] = ({ id, request }) => {
-      void this.askUser(request, id).then((response) => session.resolveAsk(id, response));
+      void this.askUser(request, id)
+        .then((response) => session.resolveAsk(id, response))
+        .catch(() => session.resolveAsk(id, { type: 'cancelled' }));
     };
     const onPromptResolved: IInteractiveSessionEvents['prompt_resolved'] = ({ id }) => {
       this.dismissPromptById(id);

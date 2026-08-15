@@ -34,6 +34,7 @@ import type { ICommandResult } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IContextFileEntry } from '../context/context-loader.js';
 import type { IContextWindowState, TToolArgs, TUniversalMessage } from '@robota-sdk/agent-core';
+import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 
 export type {
@@ -42,7 +43,6 @@ export type {
   TInteractiveSessionOptions,
   IInitOptions,
 } from './interactive-session-options.js';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 export { injectSavedMessage, loadSessionRecord } from './interactive-session-restore.js';
 
 /** Return value of createInteractiveSession — session plus staleness tracking data. */
@@ -163,6 +163,9 @@ export interface IAsyncInitDeps {
   resumeSessionId: string | undefined;
   /** Messages deferred until the session is created (set during restore). */
   pendingRestoreMessages: TUniversalMessage[] | null;
+  /** Registry-backed internal prompt handlers; never public InteractiveSession options. */
+  permissionHandler: IInitOptions['permissionHandler'];
+  askHandler: IInitOptions['askHandler'];
   /** Callbacks for handling events during initialization. */
   onTextDelta: (delta: string) => void;
   onContextUpdate: (state: IContextWindowState) => void;
@@ -213,8 +216,8 @@ export async function initializeInteractiveSessionAsync(
     config,
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,
-    permissionHandler: options.permissionHandler,
-    ...(options.askHandler ? { askHandler: options.askHandler } : {}),
+    permissionHandler: deps.permissionHandler,
+    ...(deps.askHandler ? { askHandler: deps.askHandler } : {}),
     resumeSessionId: deps.resumeSessionId,
     forkSession: options.forkSession,
     onTextDelta: deps.onTextDelta,

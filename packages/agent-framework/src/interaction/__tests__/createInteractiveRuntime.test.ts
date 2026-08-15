@@ -291,6 +291,45 @@ describe('createInteractiveRuntime', () => {
     expect(session.off).toHaveBeenCalledTimes(7);
   });
 
+  it('settles ask_request through resolveAsk instead of a session option callback', async () => {
+    channel.setActionResponse({ type: 'answer', values: ['canonical'] });
+    const runtime = createInteractiveRuntime({
+      channel,
+      commandModules: [],
+      _testSession: session,
+    });
+    await runtime.start();
+
+    session.emitEvent('ask_request', {
+      id: 'ask-1',
+      request: { id: 'request-1', title: 'Choose' },
+    });
+    await vi.waitFor(() => {
+      expect(session.resolveAsk).toHaveBeenCalledWith('ask-1', {
+        type: 'answer',
+        values: ['canonical'],
+      });
+    });
+  });
+
+  it('fails ask_request closed when the leaf channel callback rejects', async () => {
+    channel.askUser.mockRejectedValueOnce(new Error('surface failed'));
+    const runtime = createInteractiveRuntime({
+      channel,
+      commandModules: [],
+      _testSession: session,
+    });
+    await runtime.start();
+
+    session.emitEvent('ask_request', {
+      id: 'ask-2',
+      request: { id: 'request-2', title: 'Choose' },
+    });
+    await vi.waitFor(() => {
+      expect(session.resolveAsk).toHaveBeenCalledWith('ask-2', { type: 'cancelled' });
+    });
+  });
+
   it('Given user message submitted When complete emitted Then setBusy called true then false', async () => {
     const busyCalls: boolean[] = [];
     const originalSetBusy = channel.setBusy.bind(channel);

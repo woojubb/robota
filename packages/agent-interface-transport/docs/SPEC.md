@@ -176,6 +176,11 @@ contract. The TUI owns an `IInteractiveSession` and subscribes to its full event
 headless and remote transports use the session capability/configurable-transport families. A surface
 must not nominally implement `IInteractionChannel` while making its central `write()` operation a no-op.
 
+Prompt settlement belongs to the interactive-session event/capability family, not `InteractionEvent`:
+surfaces receive `permission_request` / `ask_request`, answer through `resolvePermission` /
+`resolveAsk`, and dismiss on the single canonical `prompt_resolved` event. The obsolete
+`permission-resolved` interaction variant is not part of the contract.
+
 ### Interactive session persistence
 
 `IInteractiveSessionRecord` is the complete resumable-record SSOT and

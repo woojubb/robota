@@ -341,9 +341,14 @@ The internal assembly factory `createSession()` accepts custom `IHookTypeExecuto
 
 `BundlePluginLoader`/`BundlePluginInstaller` provide a plugin system where reusable extensions (tools, hooks, permissions, system prompt additions) can be packaged as installable bundles under `~/.robota/plugins/` (user) or `.robota/plugins/` (project).
 
-### Permission Handler
+### Prompt request and settlement
 
-Consumers provide a `permissionHandler` callback (`TInteractivePermissionHandler`) to `InteractiveSession` options to intercept tool permission requests with custom UI instead of the built-in terminal prompt.
+`InteractiveSession` exposes no session-level `permissionHandler` or `askHandler` option. It emits
+transport-neutral `permission_request` / `ask_request` events, and attached surfaces settle them through
+`resolvePermission` / `resolveAsk`. The first settlement wins and emits exactly one `prompt_resolved`;
+there is no `permission-resolved` interaction event or second settlement path. Leaf convenience factories
+may retain callback ergonomics by subscribing to a request event and resolving through this registry;
+callback rejection must fail closed (deny/cancel).
 
 ### Subagent Runner Factory (`TSubagentRunnerFactory`)
 
@@ -381,24 +386,26 @@ interface IInteractionChannel {
 
 **`InteractionEvent`** — one-way display events pushed by the framework to the channel:
 
-| Event type            | When emitted                       |
-| --------------------- | ---------------------------------- |
-| `user-message`        | User text submitted                |
-| `assistant-chunk`     | AI token delta                     |
-| `assistant-done`      | Streaming complete, with full text |
-| `tool-call`           | Tool invocation started            |
-| `tool-result`         | Tool invocation finished           |
-| `permission-resolved` | Permission granted or denied       |
-| `command-result`      | Slash command executed             |
-| `error`               | Session error                      |
+| Event type        | When emitted                       |
+| ----------------- | ---------------------------------- |
+| `user-message`    | User text submitted                |
+| `assistant-chunk` | AI token delta                     |
+| `assistant-done`  | Streaming complete, with full text |
+| `tool-call`       | Tool invocation started            |
+| `tool-result`     | Tool invocation finished           |
+| `command-result`  | Slash command executed             |
+| `error`           | Session error                      |
 
-**`askUser(IActionRequest)` (CMD-004)** — the sole "ask the user" seam. The unified action contract (`IActionRequest`/`TActionResponse`) is owned by `agent-core` and reaches both command execution and tool execution. The channel renders the request per-environment (Ink dialog, web modal, programmatic preset) and resolves when the user answers or cancels. `createInteractiveRuntime` injects it into the session as `askHandler`, so a command reaches it via `context.getUserInteraction()?.ask(request)`; the runtime itself does **not** disambiguate commands — each command solicits any input it needs.
+**`askUser(IActionRequest)` (CMD-004)** — the channel renders a request per environment.
+`createInteractiveRuntime` adapts it by subscribing to `ask_request` and settling via `resolveAsk`; it
+does not inject a session option. The runtime itself does **not** disambiguate commands — each command
+solicits any input it needs.
 
 **`createInteractiveRuntime`** — factory that wires a channel to a session:
 
 - Registers command modules and exposes their commands via `setAvailableCommands`
 - Routes user messages → `session.submit()`
-- Routes slash commands → `session.executeCommand()` (commands self-ask via the injected `askHandler`)
+- Routes slash commands → `session.executeCommand()` (commands self-ask through the subscribed request/resolve registry)
 - Forwards session events → `channel.write(InteractionEvent)`
 - Calls `setBusy(true/false)` around AI completions
 
@@ -440,9 +447,8 @@ dependency cycle). Fields and the group each drives:
 `applyCommandModuleSelection?(enabled, disabled)`, `applySelfVerification?(enabled)`,
 `getUserInteraction?()`.
 
-**Ask seam (CMD-004)**: consumers provide an `askHandler` callback (`IUserInteraction['ask']`, SSOT in
-`@robota-sdk/agent-core`) to `InteractiveSession` options — the interaction sibling of
-`permissionHandler`. The session exposes it to command modules as a narrow capability via
+**Ask seam (CMD-004)**: the session exposes transport-neutral request/resolve events to attached
+surfaces. Internally it exposes the registry-backed ask function to command modules as a narrow capability via
 `ICommandHostContext.getUserInteraction(): IUserInteraction | undefined`, which returns `undefined`
 when no interactive renderer is attached (headless/automation) — a command treats absence as "no human
 available", never a silent guess. `createUserInteractionPort()`
@@ -451,7 +457,7 @@ command invoked by the model runs inside an executing turn, so the port resolves
 blocking on a human prompt. Transports render the `IActionRequest` per-environment; the contract carries
 no function-valued fields (serialization-safe for remote transports).
 
-**Model-question seam (CMD-005)**: the same `askHandler` is additionally threaded — session assembly
+**Model-question seam (CMD-005)**: the same registry-backed ask function is additionally threaded — session assembly
 (`createSession` `ask` option) → agent-session `ISessionOptions.ask` → `IAgentConfig.ask` — into every
 per-tool-call `IToolExecutionContext.ask`, which the `AskUserQuestion` built-in tool (agent-tools)
 consumes to let the model ask the user structured questions mid-turn (the channel's queued ask renderer
@@ -870,7 +876,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Terminal prompt**: `agent-framework/src/permissions/permission-prompt.ts` is the SSOT implementation of the terminal approval prompt. Used by both `InteractiveSession`/`createQuery()` and `agent-cli` (which imports from `@robota-sdk/agent-framework`). Presents 3 options: **Allow once** (returns `true`), **Allow for this session** (returns `'allow-session'`), **Deny** (returns `false`).
 - **Session-level allow**: `PermissionEnforcer` maintains an in-memory `sessionAllowedTools` set. When a permission handler or `promptForApprovalFn` returns `'allow-session'`, the tool name is added to this set and all future calls for that tool in the same session are auto-approved without prompting. The set is cleared by `clearSessionAllowedTools()` and discarded on session end (never persisted).
 - **Project-level allow**: When a handler returns `'allow-project'`, `PermissionEnforcer` adds the tool to `sessionAllowedTools` (same-session convenience) and calls `onProjectAllowTool(toolName)`. The `createSession()` factory wires `onProjectAllowTool` to append `ToolName(*)` to `.robota/settings.local.json` permissions.allow.
-- **TUI permission prompt**: `PermissionPrompt.tsx` in `agent-transport` presents 4 options: **Allow** (once), **Allow always (this session)** (`a` shortcut), **Allow always (this project)** (`p` shortcut), **Deny** (`n`/`d` shortcut). The TUI uses `permissionHandler` (React async queue) rather than `promptForApprovalFn`.
+- **TUI permission prompt**: `PermissionPrompt.tsx` in `agent-transport-tui` presents 4 options: **Allow** (once), **Allow always (this session)** (`a` shortcut), **Allow always (this project)** (`p` shortcut), **Deny** (`n`/`d` shortcut). The TUI subscribes to `permission_request`, renders its async queue, and answers through `resolvePermission`.
 - **Default allow patterns**: `createSession()` automatically adds allow patterns for config folder access: `Read(.agents/**)`, `Read(.claude/**)`, `Read(.robota/**)`, `Glob(.agents/**)`, `Glob(.claude/**)`, `Glob(.robota/**)`. These are merged with user-configured permissions.
 
 ### Hooks System

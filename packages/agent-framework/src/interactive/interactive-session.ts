@@ -157,11 +157,8 @@ export class InteractiveSession
     this.sessionName = options.sessionName;
     this.terminalHandoff = options.terminalHandoff;
 
-    // REMOTE-007: the framework OWNS the permission/ask handlers — event-emitting defaults bound to
-    // this session's emitter, replacing any injected `askHandler`/`permissionHandler` AT THEIR SOURCE
-    // so BOTH ask seams (the command port + the tool `setAskHandler` seam) and the permission seam are
-    // fed from one transport-neutral value. Attached surfaces subscribe to the events and answer via
-    // `resolvePermission`/`resolveAsk`; with none subscribed the registry fails closed (deny/cancel).
+    // REMOTE-007: the framework owns one event-emitting prompt registry. Attached surfaces subscribe
+    // to requests and answer through resolvePermission/resolveAsk; with none subscribed it fails closed.
     this.promptRegistry = new SessionPromptRegistry({
       emitPermissionRequest: (event) => this.emit('permission_request', event),
       emitAskRequest: (event) => this.emit('ask_request', event),
@@ -172,15 +169,6 @@ export class InteractiveSession
       backstopMs: PROMPT_BACKSTOP_MS,
     });
     this.askHandler = (request) => this.promptRegistry.requestAsk(request);
-    // Feed the underlying session (enforcer + tool `ask` seam) the same event-emitting defaults. The
-    // injected-session path never runs init and ignores these; the standard path reads them at init.
-    if (!('session' in options && options.session)) {
-      const stdOptions = options as IInteractiveSessionStandardOptions;
-      stdOptions.permissionHandler = (toolName, toolArgs) =>
-        this.promptRegistry.requestPermission(toolName, toolArgs);
-      // The tool `ask` seam (CMD-005 model questions) is fed the same event-emitting default.
-      stdOptions.askHandler = this.askHandler;
-    }
 
     this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
     this.resumeSessionId = options.resumeSessionId;
@@ -354,6 +342,9 @@ export class InteractiveSession
       sandboxSnapshotId: this.sandboxSnapshotId,
       resumeSessionId: this.resumeSessionId,
       pendingRestoreMessages: this.pendingRestoreMessages,
+      permissionHandler: (toolName, toolArgs) =>
+        this.promptRegistry.requestPermission(toolName, toolArgs),
+      askHandler: this.askHandler,
       onTextDelta: (delta) => this.execCtrl.handleTextDelta(delta),
       onContextUpdate: (state) => this.emit('context_update', state),
       onCompactEvent: (event) => this.execCtrl.handleCompactEvent(event),

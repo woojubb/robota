@@ -41,6 +41,8 @@ vi.mock('@robota-sdk/agent-framework', async () => {
         getPendingPrompt: vi.fn().mockReturnValue(null),
         abort: vi.fn(),
         cancelQueue: vi.fn(),
+        resolvePermission: vi.fn(),
+        resolveAsk: vi.fn(),
         getContextState: vi.fn().mockReturnValue({
           usedPercentage: 0,
           usedTokens: 0,
@@ -81,6 +83,8 @@ type MockSession = {
   on: ReturnType<typeof vi.fn>;
   off: ReturnType<typeof vi.fn>;
   shutdown: ReturnType<typeof vi.fn>;
+  resolvePermission: ReturnType<typeof vi.fn>;
+  resolveAsk: ReturnType<typeof vi.fn>;
   emit: (event: string, ...args: unknown[]) => void;
   _listenerCount: () => number;
 };
@@ -413,5 +417,43 @@ describe('Group D — teardown hygiene (CLI-075)', () => {
     await vi.advanceTimersByTimeAsync(5_000);
     await done;
     expect(resolved).toBe(true);
+  });
+});
+
+describe('Group E — canonical prompt request settlement (ARCH-017)', () => {
+  it('E1: permission_request renders locally and settles through resolvePermission', async () => {
+    const channel = makeChannel();
+    await channel.start();
+    const session = getMockSession(channel);
+
+    emitSessionEvent(channel, 'permission_request', {
+      id: 'permission-1',
+      toolName: 'Bash',
+      toolArgs: { command: 'pwd' },
+    });
+    expect(channel.permissionRequest).toMatchObject({ toolName: 'Bash' });
+    channel.permissionRequest!.resolve(true);
+
+    await vi.waitFor(() => {
+      expect(session.resolvePermission).toHaveBeenCalledWith('permission-1', true);
+    });
+    await channel.stop();
+  });
+
+  it('E2: ask_request callback rejection settles cancelled through resolveAsk', async () => {
+    const channel = makeChannel();
+    await channel.start();
+    const session = getMockSession(channel);
+    vi.spyOn(channel, 'askUser').mockRejectedValueOnce(new Error('render failed'));
+
+    emitSessionEvent(channel, 'ask_request', {
+      id: 'ask-1',
+      request: { id: 'request-1', title: 'Choose' },
+    });
+
+    await vi.waitFor(() => {
+      expect(session.resolveAsk).toHaveBeenCalledWith('ask-1', { type: 'cancelled' });
+    });
+    await channel.stop();
   });
 });

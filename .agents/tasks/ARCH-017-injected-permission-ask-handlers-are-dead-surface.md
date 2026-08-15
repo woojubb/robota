@@ -92,5 +92,5 @@ DONE-GATE-STAGE-1: PASS
   canonical `permission_request`, `ask_request`, and `prompt_resolved` surface only.
 - **Cleanup:** the example shuts down the session and recursively removes its temporary workspace in
   `finally`.
-- **Evidence (fill after implementation):** _pending — paste the exact JSON stdout and exit code from
-  the command above._
+- **Evidence (2026-08-15):** exit `0`; stdout
+  `{"scenario":"ARCH-017","requestEvents":["permission_request","ask_request","prompt_resolved"],"permissionRequestCount":1,"askRequestCount":1,"resolvedRequestIds":["p1","a2"],"allowedToolResult":"ARCH_017_ALLOWED","askAnswer":["registry"],"responses":["permission complete","ask complete"],"cleanupRemoved":true}`.

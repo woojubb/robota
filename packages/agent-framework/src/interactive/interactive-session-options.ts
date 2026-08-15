@@ -44,7 +44,6 @@ export interface IInteractiveSessionStandardOptions {
   provider: IAIProvider;
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
-  permissionHandler?: TInteractivePermissionHandler;
   sessionStore?: IInteractiveSessionStore;
   sessionName?: string;
   resumeSessionId?: string;
@@ -98,12 +97,6 @@ export interface IInteractiveSessionStandardOptions {
    * `canHandoffTerminal === false` for transports with no interactive TTY (headless).
    */
   terminalHandoff?: ITerminalHandoff;
-  /**
-   * CMD-004: transport-provided "ask the user" handler. When present, commands can solicit a
-   * structured answer (confirm/select/multi/text) through the interaction channel. Absent for
-   * non-interactive transports — the session then treats an ask as `cancelled`, never a silent guess.
-   */
-  askHandler?: IUserInteraction['ask'];
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
   /** Provider definitions for hot-swap via /provider switch. */
@@ -170,7 +163,6 @@ export interface IInteractiveSessionInjectedOptions {
   provider?: IAIProvider;
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
-  permissionHandler?: TInteractivePermissionHandler;
   sessionStore?: IInteractiveSessionStore;
   sessionName?: string;
   resumeSessionId?: string;
@@ -181,8 +173,6 @@ export interface IInteractiveSessionInjectedOptions {
   commandHostAdapters?: ICommandHostAdapters;
   /** TERM-001: transport-provided terminal-handoff capability (see standard options). */
   terminalHandoff?: ITerminalHandoff;
-  /** CMD-004: transport-provided "ask the user" handler (see standard options). */
-  askHandler?: IUserInteraction['ask'];
 }
 
 /** Union of standard and injected construction options. */
