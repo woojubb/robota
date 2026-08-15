@@ -5,18 +5,24 @@ import { join } from 'node:path';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { FunctionTool } from '@robota-sdk/agent-core';
 import {
-  DuplicateSystemCommandSemanticRoleError,
   InteractiveSession,
   SystemCommandExecutor,
-  createSession,
-  createSubagentSession,
   deriveContextCapacityHint,
   storeAgentToolDeps,
   type ICommandModule,
-  type IResolvedConfig,
-  type ISystemCommand,
-  type ISystemCommandSemanticRoles,
 } from '@robota-sdk/agent-framework';
+
+import {
+  assertCondition,
+  command,
+  createTrackedSubagent,
+  hasProjectedSpawnTool,
+  readSystemMessage,
+  verifyDuplicateRoleRejections,
+  verifyOmissionBehaviors,
+  type TDirectSession,
+  type TSubagentSession,
+} from './semantic-command-role-scenario-helpers.js';
 
 import {
   createAgentCommandModule,
@@ -24,94 +30,12 @@ import {
   createSkillsCommandModule,
 } from '../src/index.js';
 
-function assertCondition(condition: boolean, message: string): asserts condition {
-  if (!condition) throw new Error(message);
-}
-
-function command(name: string, semanticRole?: ISystemCommand['semanticRole']): ISystemCommand {
-  return {
-    name,
-    ...(semanticRole ? { semanticRole } : {}),
-    description: name,
-    modelInvocable: true,
-    execute: () => ({ success: true, message: '' }),
-  };
-}
-
-const config: IResolvedConfig = {
-  defaultTrustLevel: 'moderate',
-  provider: { name: 'scripted-test-provider', apiKey: 'offline', model: 'scripted' },
-  permissions: { allow: [], deny: [] },
-  language: 'en',
-  env: {},
-};
-
-const terminal = {
-  write: () => {},
-  writeLine: () => {},
-  spinner: () => ({ stop: () => {} }),
-};
-
-function readSystemMessage(
-  cwd: string,
-  commandName: string,
-  sessions: Array<ReturnType<typeof createSession>['session']>,
-  commandSemanticRoles?: { skillActivation?: string },
-): string {
-  const scripted = createScriptedProvider([]);
-  const created = createSession({
-    config,
-    cwd,
-    context: { agentsMd: '', projectNotesMd: '' },
-    terminal: terminal as never,
-    provider: scripted.provider,
-    commandDescriptors: [
-      {
-        name: commandName,
-        kind: 'builtin-command',
-        description: 'Activate a skill',
-        modelInvocable: true,
-      },
-    ],
-    ...(commandSemanticRoles ? { commandSemanticRoles } : {}),
-  });
-  sessions.push(created.session);
-  return created.session.getSystemMessage();
-}
-
-function createTrackedSubagent(
-  cwd: string,
-  projectedSpawnTool: FunctionTool,
-  sessions: Array<ReturnType<typeof createSubagentSession>>,
-  commandSemanticRoles?: ISystemCommandSemanticRoles,
-): ReturnType<typeof createSubagentSession> {
-  const session = createSubagentSession({
-    agentDefinition: { name: 'worker', description: 'Worker', systemPrompt: 'Work' },
-    parentConfig: config,
-    parentContext: { agentsMd: '', projectNotesMd: '' },
-    parentTools: [projectedSpawnTool],
-    provider: createScriptedProvider([]).provider,
-    terminal: terminal as never,
-    cwd,
-    ...(commandSemanticRoles ? { commandSemanticRoles } : {}),
-  });
-  sessions.push(session);
-  return session;
-}
-
-function hasProjectedSpawnTool(session: ReturnType<typeof createSubagentSession>): boolean {
-  return session
-    .getToolSchemas()
-    .some((schema) => schema.name === 'robota_command_spawn-subagent-alt');
-}
-
 async function main(): Promise<void> {
   const cwd = mkdtempSync(join(tmpdir(), 'arch-024-semantic-roles-'));
   let cleanupRemoved = false;
   let interactive: InteractiveSession | undefined;
-  let unannotatedInteractive: InteractiveSession | undefined;
-  const directSessions: Array<ReturnType<typeof createSession>['session']> = [];
-  const subagentSessions: Array<ReturnType<typeof createSubagentSession>> = [];
+  const directSessions: TDirectSession[] = [];
+  const subagentSessions: TSubagentSession[] = [];
   let scenarioResult: Record<string, unknown> | undefined;
   try {
     try {
@@ -219,42 +143,7 @@ async function main(): Promise<void> {
         'alternate spawn command was not filtered',
       );
 
-      const original = command('original', 'subagentSpawn');
-      const atomicExecutor = new SystemCommandExecutor([original]);
-      const duplicate = command('duplicate', 'subagentSpawn');
-      const duplicateRoleRejections = { constructor: false, register: false, replace: false };
-      try {
-        new SystemCommandExecutor([original, duplicate]);
-      } catch (error) {
-        duplicateRoleRejections.constructor =
-          error instanceof DuplicateSystemCommandSemanticRoleError;
-      }
-      try {
-        atomicExecutor.register(duplicate);
-      } catch (error) {
-        duplicateRoleRejections.register = error instanceof DuplicateSystemCommandSemanticRoleError;
-      }
-      const registerPreserved =
-        JSON.stringify(atomicExecutor.listCommands().map(({ name }) => name)) ===
-          JSON.stringify(['original']) &&
-        JSON.stringify(atomicExecutor.getSemanticRoles()) ===
-          JSON.stringify({ subagentSpawn: 'original' });
-      try {
-        atomicExecutor.replaceCommands([original, duplicate]);
-      } catch (error) {
-        duplicateRoleRejections.replace = error instanceof DuplicateSystemCommandSemanticRoleError;
-      }
-      const replacePreserved =
-        JSON.stringify(atomicExecutor.listCommands().map(({ name }) => name)) ===
-          JSON.stringify(['original']) &&
-        JSON.stringify(atomicExecutor.getSemanticRoles()) ===
-          JSON.stringify({ subagentSpawn: 'original' });
-      assertCondition(
-        Object.values(duplicateRoleRejections).every(Boolean) &&
-          registerPreserved &&
-          replacePreserved,
-        'duplicate rejection was untyped or mutated the selected set',
-      );
+      const duplicateRoleRejections = verifyDuplicateRoleRejections();
 
       const ownerDeclarations = {
         skills: createSkillsCommandModule({ cwd }).systemCommands?.[0]?.semanticRole,
@@ -268,144 +157,16 @@ async function main(): Promise<void> {
         'shipped owner declarations were incomplete',
       );
 
-      const singleRoleOmissionRoles = {
-        skillActivation: new SystemCommandExecutor(alternate.slice(1)).getSemanticRoles(),
-        contextReduction: new SystemCommandExecutor([
-          alternate[0]!,
-          alternate[2]!,
-        ]).getSemanticRoles(),
-        subagentSpawn: new SystemCommandExecutor(alternate.slice(0, 2)).getSemanticRoles(),
-      };
-      assertCondition(
-        singleRoleOmissionRoles.skillActivation.skillActivation === undefined &&
-          singleRoleOmissionRoles.skillActivation.contextReduction === 'reduce-context-alt' &&
-          singleRoleOmissionRoles.skillActivation.subagentSpawn === 'spawn-subagent-alt' &&
-          singleRoleOmissionRoles.contextReduction.skillActivation === 'activate-skill-alt' &&
-          singleRoleOmissionRoles.contextReduction.contextReduction === undefined &&
-          singleRoleOmissionRoles.contextReduction.subagentSpawn === 'spawn-subagent-alt' &&
-          singleRoleOmissionRoles.subagentSpawn.skillActivation === 'activate-skill-alt' &&
-          singleRoleOmissionRoles.subagentSpawn.contextReduction === 'reduce-context-alt' &&
-          singleRoleOmissionRoles.subagentSpawn.subagentSpawn === undefined,
-        'omitting one role changed another role or retained the omitted role',
-      );
-
-      const skillOmittedPrompt = readSystemMessage(
-        cwd,
-        'activate-skill-alt',
-        directSessions,
-        singleRoleOmissionRoles.skillActivation,
-      );
-      const contextOmittedPrompt = readSystemMessage(
-        cwd,
-        'activate-skill-alt',
-        directSessions,
-        singleRoleOmissionRoles.contextReduction,
-      );
-      const spawnOmittedPrompt = readSystemMessage(
-        cwd,
-        'activate-skill-alt',
-        directSessions,
-        singleRoleOmissionRoles.subagentSpawn,
-      );
-      const skillOmittedSubagent = createTrackedSubagent(
-        cwd,
-        projectedSpawnTool,
-        subagentSessions,
-        singleRoleOmissionRoles.skillActivation,
-      );
-      const contextOmittedSubagent = createTrackedSubagent(
-        cwd,
-        projectedSpawnTool,
-        subagentSessions,
-        singleRoleOmissionRoles.contextReduction,
-      );
-      const spawnOmittedSubagent = createTrackedSubagent(
-        cwd,
-        projectedSpawnTool,
-        subagentSessions,
-        singleRoleOmissionRoles.subagentSpawn,
-      );
-      const singleRoleOmission = {
-        skillActivation: {
-          omitted: !skillOmittedPrompt.includes('## Skills'),
-          contextReductionActive:
-            deriveContextCapacityHint(singleRoleOmissionRoles.skillActivation.contextReduction) ===
-            'Run /reduce-context-alt and retry.',
-          subagentSpawnActive: !hasProjectedSpawnTool(skillOmittedSubagent),
-        },
-        contextReduction: {
-          skillActivationActive: contextOmittedPrompt.includes('## Skills'),
-          omitted:
-            deriveContextCapacityHint(singleRoleOmissionRoles.contextReduction.contextReduction) ===
-            undefined,
-          subagentSpawnActive: !hasProjectedSpawnTool(contextOmittedSubagent),
-        },
-        subagentSpawn: {
-          skillActivationActive: spawnOmittedPrompt.includes('## Skills'),
-          contextReductionActive:
-            deriveContextCapacityHint(singleRoleOmissionRoles.subagentSpawn.contextReduction) ===
-            'Run /reduce-context-alt and retry.',
-          omitted: hasProjectedSpawnTool(spawnOmittedSubagent),
-        },
-      };
-      assertCondition(
-        Object.values(singleRoleOmission).every((result) => Object.values(result).every(Boolean)),
-        'single-role omission did not preserve the other two behaviors',
-      );
-
-      const unannotatedCommands = [command('skills'), command('compact'), command('agent')];
-      const unannotatedModule: ICommandModule = {
-        name: 'unannotated-coincidental-names',
-        systemCommands: unannotatedCommands,
-      };
-      const unannotatedRoles = new SystemCommandExecutor(unannotatedCommands).getSemanticRoles();
-      assertCondition(
-        Object.keys(unannotatedRoles).length === 0,
-        'unannotated coincidental commands gained a role projection',
-      );
-      unannotatedInteractive = new InteractiveSession({
-        session: injectedSession as never,
-        cwd,
-        commandModules: [unannotatedModule],
-      });
-      const unannotatedSkillFallback = await unannotatedInteractive.executeCommand(
-        'audit',
-        'src/index.ts',
-      );
-      const unannotatedPrompt = readSystemMessage(cwd, 'skills', directSessions, unannotatedRoles);
-      const unannotatedAgentSubagent = createTrackedSubagent(
-        cwd,
-        projectedSpawnTool,
-        subagentSessions,
-        unannotatedRoles,
-      );
-      const unannotatedCoincidentalNames = {
-        skills: unannotatedSkillFallback === null && !unannotatedPrompt.includes('## Skills'),
-        compact: deriveContextCapacityHint(unannotatedRoles.contextReduction) === undefined,
-        agent: hasProjectedSpawnTool(unannotatedAgentSubagent),
-      };
-      assertCondition(
-        Object.values(unannotatedCoincidentalNames).every(Boolean),
-        'an unannotated coincidental command name gained semantic behavior',
-      );
-
-      const directOmissionSubagent = createTrackedSubagent(
-        cwd,
-        projectedSpawnTool,
-        subagentSessions,
-      );
-      const directOmissionBehavior = {
-        skillActivationAbsent: !coincidentalPrompt.includes('## Skills'),
-        contextReductionAbsent: deriveContextCapacityHint(undefined) === undefined,
-        subagentSpawnAbsent: hasProjectedSpawnTool(directOmissionSubagent),
-      };
-      assertCondition(
-        Object.values(directOmissionBehavior).every(Boolean),
-        'direct session creation without roles gained semantic behavior',
-      );
-      const directCreateSessionOmission = {
-        allRolesAbsent: Object.values(directOmissionBehavior).every(Boolean),
-      };
+      const { unannotatedCoincidentalNames, singleRoleOmission, directCreateSessionOmission } =
+        await verifyOmissionBehaviors({
+          cwd,
+          alternate,
+          injectedSession,
+          projectedSpawnTool,
+          directSessions,
+          subagentSessions,
+          directPromptWithoutRoles: coincidentalPrompt,
+        });
 
       const alternateBehaviors = {
         skillFallback: true,
@@ -428,14 +189,10 @@ async function main(): Promise<void> {
         unannotatedCoincidentalNames,
         singleRoleOmission,
         directCreateSessionOmission,
-        duplicateRoleRejections: {
-          ...duplicateRoleRejections,
-          preservedCommands: registerPreserved && replacePreserved,
-        },
+        duplicateRoleRejections,
         ownerDeclarations,
       };
     } finally {
-      await unannotatedInteractive?.shutdown();
       await interactive?.shutdown();
       for (const session of [...subagentSessions, ...directSessions].reverse()) {
         await session.shutdown();
