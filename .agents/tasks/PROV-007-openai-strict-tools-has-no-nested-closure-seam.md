@@ -10,7 +10,7 @@ depends_on: [CORE-039]
 
 # PROV-007: `strictTools` has no nested-closure seam
 
-Filed by [CORE-039](CORE-039-universal-schema-subset-treats-object-as-a-leaf.md), which made nested
+Filed by [CORE-039](completed/CORE-039-universal-schema-subset-treats-object-as-a-leaf.md), which made nested
 object schemas actually reach providers and therefore made this gap reachable for the first time.
 
 ## Problem

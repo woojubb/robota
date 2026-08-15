@@ -10,7 +10,7 @@ depends_on: [CORE-039]
 
 # CORE-041: the converter's unsupported-Zod-construct tail
 
-Filed by [CORE-039](CORE-039-universal-schema-subset-treats-object-as-a-leaf.md), which absorbed the
+Filed by [CORE-039](completed/CORE-039-universal-schema-subset-treats-object-as-a-leaf.md), which absorbed the
 constructs with a defect behind them and deferred the ones without.
 
 ## Problem

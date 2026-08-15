@@ -1,7 +1,8 @@
 ---
 title: "CORE-039: the universal JSON-schema subset treats an object as a leaf — `IParameterSchema` can express a nested object's fields but not its `required` and not a union, and seven independent walks over the same subset each re-decide what a node means, so a nested object loses its shape in the converter, its requirements in the Gemini adapter, and its validation on the tool-input path"
-status: todo
+status: done
 created: 2026-08-16
+completed: 2026-08-16
 priority: critical
 urgency: now
 area: packages/agent-core, packages/agent-tools, packages/agent-provider-gemini, packages/agent-provider-anthropic, packages/agent-provider-openai
@@ -10,7 +11,7 @@ depends_on: []
 
 # CORE-039: the universal schema subset treats an object as a leaf
 
-Root item filed under [finding-depth.md](../rules/finding-depth.md) for the `DEPTH: FOUNDATIONAL`
+Root item filed under [finding-depth.md](../../rules/finding-depth.md) for the `DEPTH: FOUNDATIONAL`
 verdict on [CORE-037](CORE-037-zodtojsonschema-drops-nested-object-properties.md) (2026-08-16).
 Registered as [issue #1743](https://github.com/woojubb/robota/issues/1743); the symptom it was raised
 from is [issue #1737](https://github.com/woojubb/robota/issues/1737). Disposition: **re-plan** — the

@@ -10,7 +10,7 @@ depends_on: [CORE-039]
 
 # CORE-040: the two MCP tool validators bypass the subset validator
 
-Filed by [CORE-039](CORE-039-universal-schema-subset-treats-object-as-a-leaf.md), whose thesis is
+Filed by [CORE-039](completed/CORE-039-universal-schema-subset-treats-object-as-a-leaf.md), whose thesis is
 "one walk owns what a node means". CORE-039 unifies the walks it can reach; these two it names and
 leaves standing, so the claim is not overstated.
 
