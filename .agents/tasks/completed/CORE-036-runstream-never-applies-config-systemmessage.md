@@ -1,7 +1,8 @@
 ---
 title: 'CORE-036: runStream() never applies config.systemMessage — the streaming path builds provider messages straight off the conversation store and skips the session initialization that the round path uses to attach the system prompt, so the same agent obeys its persona through run() and ignores it through runStream()'
-status: todo
+status: done
 created: 2026-08-16
+completed: 2026-08-16
 priority: high
 urgency: now
 area: packages/agent-core
@@ -55,7 +56,7 @@ the most-used path, not an edge case.
 
 ## Direction
 
-> **Contained — [CORE-042](CORE-042-the-execution-turn-is-implemented-twice.md)
+> **Contained — [CORE-042](../CORE-042-the-execution-turn-is-implemented-twice.md)
 > ([#1748](https://github.com/woojubb/robota/issues/1748)).** `finding-depth-triager` returned
 > `DEPTH: FOUNDATIONAL` on this item's problem statement (2026-08-16). The cause is that agent-core
 > implements one declared execution-turn contract twice: `executeStream` re-derives store setup,
@@ -130,10 +131,16 @@ change actually alters.
 
 **Invocation.** Scripts live in `scratch/src/` (the repo's sanctioned home for disposable
 live-verification scripts) and are reproduced in full below, because that directory is gitignored and
-the item is therefore their only durable home. `pnpm run run` is broken in this environment —
-`scratch/node_modules/.bin` was never linked, because `pnpm install` aborted on `better-sqlite3`'s
-native build (`make`/`g++` absent) and the workspace was installed with `--ignore-scripts`. Every
-command below uses `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-036-<n>.ts`, run from `scratch/`.
+the item is therefore their only durable home. Every command below uses
+`node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-036-<n>.ts`, run from `scratch/`.
+
+> **Correction (2026-08-16, raised by the stage-2 gate).** An earlier draft of this section said
+> `pnpm run run` was broken here because `scratch/node_modules/.bin` had never been linked — true when
+> the scenarios were authored, and stale by the time they were executed: a later
+> `pnpm install --frozen-lockfile --ignore-scripts` created the link. `pnpm run run src/core-036-s1.ts`
+> now works and produces identical output. The explicit `tsx` invocation is kept because it is what
+> every recorded run used, and re-recording evidence to match a tidier command would be changing the
+> record to fit the story. No observable depends on which of the two is used.
 
 **Stated limitation.** `--conditions=source` exercises the TypeScript sources, not `dist/`. That is a
 real gap versus what a package consumer installs, and it is forced here by the same missing native
@@ -593,3 +600,106 @@ revision 1 of 2). The scenarios correctly verify the contained fix's observable 
 root cause. The `Deliberately not covered` note (the `agent-session` persistence leg) is a stated
 non-coverage decision with a reason, not an unwritten scenario, so the Stage-1 exception clause is
 not invoked.
+
+---
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** `todo` → `done` is now unblocked (Done Gate Stage 2 was the remaining bar). This
+gate did **not** apply it: the frontmatter change, the `completed:` date, the `git mv` into
+`.agents/tasks/completed/` and any declaring-initiative projection are the orchestrator's completion
+act, not a guardian output.
+
+**Ordering check — passed.** Prior gate `DONE-GATE-STAGE-1` shows `✅ PASS | 2026-08-16` in this same
+section (immediately above), with per-criterion evidence, not a bare verdict. Expected input state
+("scenarios written, implementation complete") verified rather than accepted: branch
+`fix/core-036-runstream-system-prompt`; `git diff --name-only origin/develop..699c39ad4` (the
+scenario-authoring commit) returns **only** the two `.agents/tasks/` files, so no implementation
+preceded the Stage-1 verdict; the fix landed after it in `40cd8915a` (`execution-stream.ts` now calls
+`initializeConversationStore` with the `messages` parameter it previously ignored, plus 103 lines of
+table-driven tests in `packages/agent-core/src/core/robota.test.ts`) and `8e557fbed`. Working tree
+carries no uncommitted `packages/` or `apps/` change (only two pre-existing auto-generated
+`.agents/evals/lessons/` files). Frontmatter is still `status: todo` — `done` was not pre-set.
+
+**Per criterion:**
+
+- **Every scenario directly executed against the completed implementation** — met, and re-executed by
+  this gate rather than accepted from the record. All 4 scenarios were run at `HEAD` (`8e557fbed`)
+  from `scratch/`: `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-036-s<n>.ts`.
+  Results: S1 `SCENARIO 1 PASS` / `EXIT:0` (6 PASS lines), S2 `SCENARIO 2 PASS` / `EXIT:0` (12 PASS
+  lines), S3 `SCENARIO 3 PASS` / `EXIT:0` (5 PASS lines), S4 `SCENARIO 4 PASS` / `EXIT:0` (6 PASS
+  lines). Recorded as an audit fact, not a defect: the evidence text was committed in `40cd8915a`,
+  while `8e557fbed` afterwards edited the same file (`execution-stream.ts` — debug-logging collapse
+  and a comment rewrite, no change to the store-initialization call). The recorded observations are
+  therefore verified as true of the **final** implementation by this gate's own re-run, not by the
+  author's earlier run.
+- **Observed result matched the expected observable, per scenario** — met, verbatim. S1: both
+  requests now open with
+  `{"role":"system","content":"Reply with exactly the string OK-APPLIED and nothing else."}` and are
+  byte-identical to each other, as claimed. S2: provider calls 1, 2 and 3 each open with
+  `{"role":"system","content":"You are PERSONA-ALPHA."}` — the two streaming turns included — and
+  `getHistory()` holds exactly one system message at the head. S3: reproduced exactly the recorded
+  array
+  `[{"role":"system","content":"You are PERSONA-ALPHA."},{"role":"user","content":"hi"},{"role":"system","content":"RECALLED-MEMORY-BLOCK-XYZ"}]`
+  with `getHistory()` carrying no trace of the ephemeral block. S4: `BETA` on call 1, `GAMMA` on call
+  2, one system message in `getHistory()` (`GAMMA`) — reproducing the pre-fix output as required. No
+  expected result was rewritten to match an observation: the expectations are the ones Stage 1
+  already gated, unchanged since `699c39ad4` (`git diff 699c39ad4..HEAD` on this file adds only
+  evidence lines and gate entries).
+- **Concrete evidence recorded under each scenario's evidence field** — met for all 4. Each scenario
+  carries an `Evidence (2026-08-16, run against the completed implementation on this branch)` bullet
+  naming the terminal line, the exit code, and the actual provider-request arrays — not a "verified"
+  assertion.
+- **Engineering verification cited as evidence (FAIL trigger)** — not triggered. No scenario's
+  evidence cites a build, typecheck, lint, unit-test, harness, CI run, or repository-text inspection.
+  The only two `pnpm`/harness tokens in the whole scenario section are `pnpm build` inside the
+  `--conditions=source` limitation note (a remedy for a stronger future run, not evidence) and the
+  words "Shared harness" as a script label. The engineering plan stays in `## Test Plan`, unmixed.
+- **Unprobed capability-absence claim (FAIL trigger)** — not triggered, and moot: no scenario is
+  skipped for a missing capability. The recorded probe was re-run and holds — no
+  `OPENAI_*`/`ANTHROPIC_*`/`GOOGLE_*`/`GEMINI_*` variable is set in the environment, and
+  `find . -maxdepth 3 -name ".env*"` returns only `.env.example` files. The scenarios were then
+  designed provider-free, so the absence gates nothing.
+- **Durable-artifact evidence for a code-changing item** — met, and this was the specific risk in this
+  item's design, so it was tested rather than argued. The 5 fenced `ts` blocks were extracted from
+  this document **alone** into a fresh directory and executed there: all four reconstructed scenarios
+  produced `SCENARIO <n> PASS` / `EXIT:0`, output-identical to the on-disk runs. `diff` against
+  `scratch/src/core-036-{lib,s1,s2,s3,s4}.ts` shows the only difference is the added
+  `// scratch/src/<file>` header line. The gitignored `scratch/src/` copies are therefore disposable,
+  not load-bearing, and this tracked item is a sufficient durable home. Independently, the durable
+  code artifacts referenced by the work exist and are tracked:
+  `packages/agent-core/src/services/execution-stream.ts` and
+  `packages/agent-core/src/core/robota.test.ts` (§ `system prompt parity (CORE-036)`, line 736).
+  `node scripts/harness/check-done-evidence.mjs` exits 0.
+- **Stage-1's binding constraint on Scenario 4** — honoured, checked as a text obligation and as a
+  behavioural one. Textually, S4's evidence states "this scenario is **not** cited as evidence the
+  change landed — scenarios 1–3 carry that"; no other passage cites S4 as fix evidence.
+  Behaviourally, S4's post-fix run reproduces `SCENARIO 4 PASS` / `EXIT:0` as the binding requires,
+  and S1–S3 — each of which is recorded failing pre-fix and each of which I observed passing at HEAD
+  — carry the fix-landed burden on their own.
+- **Containment scoping honest, not overclaimed** — met. Every evidence line is confined to the
+  observable this containment actually changes: which `system` messages reach the provider and the
+  store. Nothing in the evidence claims the execution turn stopped being implemented twice, and the
+  code confirms the restraint is accurate — `8e557fbed`'s comment states provider resolution, chat
+  options, validation and commit "are still re-derived below, so the turn is still implemented
+  twice", with the seam left to `CORE-042`
+  (`.agents/tasks/CORE-042-the-execution-turn-is-implemented-twice.md`, present). Scoping the
+  scenarios to the contained fix's observable behaviour is correct, not a gap.
+- **`Deliberately not covered` (the `agent-session` persistence leg)** — N/A to this gate's three
+  criteria, and correctly so: it is a named non-coverage decision, not a written scenario, so there
+  is nothing for Stage 2 to execute. Whether it needed a scenario is a Stage-1 completeness question
+  that Stage 1 adjudicated on the record; Stage 2 does not re-open it. Noted for the reader: S2 does
+  observe the head's presence and singularity through the public `getHistory()`, so what is uncovered
+  is only the `agent-session` store/resume leg, which lives outside this item's changed package.
+- **Accuracy note (not a criterion, not a failure)** — the section states "`pnpm run run` is broken in
+  this environment — `scratch/node_modules/.bin` was never linked". That is stale:
+  `scratch/node_modules/.bin/tsx` exists (mtime 07:36, before the scenario commit at 08:11), and
+  `pnpm run run --conditions=source src/core-036-s1.ts` executed successfully during this gate with
+  output identical to the direct `tsx` invocation. The claim explains an invocation choice rather
+  than supporting an observable, both invocations yield the same evidence, and no criterion turns on
+  it — recorded so the next reader is not misled by it.
+
+**Verdict:** PASS. All three Stage-2 criteria hold under independent re-execution, neither FAIL
+trigger fires, and Stage-1's Scenario-4 binding is honoured in both letter and behaviour. The
+temporary reconstruction directory used for the durable-artifact check was removed; the working tree
+is as it was found.

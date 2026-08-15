@@ -11,11 +11,12 @@ depends_on: []
 # CORE-042: the execution turn is implemented twice
 
 Root item filed under [finding-depth.md](../rules/finding-depth.md) for the `DEPTH: FOUNDATIONAL`
-verdict on [CORE-036](CORE-036-runstream-never-applies-config-systemmessage.md) (2026-08-16).
+verdict on [CORE-036](completed/CORE-036-runstream-never-applies-config-systemmessage.md) (2026-08-16).
 Registered as [issue #1748](https://github.com/woojubb/robota/issues/1748); the symptom it was raised
 from is [issue #1736](https://github.com/woojubb/robota/issues/1736).
-Disposition: **containment** — CORE-036 is a live correctness defect in a published beta and lands
-its minimal fix now under a label naming this item; the cause is not patched in place.
+Disposition: **containment** — CORE-036 was a live correctness defect in a published beta and landed
+its minimal fix under a label naming this item (`services/execution-stream.ts`, `Contained — CORE-042.`);
+the cause is not patched in place and remains this item's work.
 
 ## Problem
 
