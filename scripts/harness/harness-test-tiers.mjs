@@ -14,6 +14,7 @@ import {
 import path from 'node:path';
 
 import { canonicalTemporaryDirectory } from './canonical-temporary-directory.mjs';
+import { envWithoutGitVars } from './shared.mjs';
 
 const DEFAULT_ROOT = path.resolve(import.meta.dirname, '../..');
 const TEST_DIR = 'scripts/harness/__tests__';
@@ -156,8 +157,13 @@ function vitestInvocation(root, files, cwd = root, config = undefined) {
   return spawnSync(process.execPath, args, {
     cwd,
     encoding: 'utf8',
-    env: { ...process.env, TMPDIR: canonicalTemporaryDirectory() },
+    env: harnessTestEnvironment(),
   });
+}
+
+/** Keep fixture git commands rooted at their explicit cwd, including when a git hook launches us. */
+export function harnessTestEnvironment(base = process.env) {
+  return { ...envWithoutGitVars(base), TMPDIR: canonicalTemporaryDirectory() };
 }
 
 /**

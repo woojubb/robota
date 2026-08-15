@@ -51,6 +51,9 @@ existing fail-closed witness, locking, and complete harness-test contracts.
 - `volta run --node 22.14.0 pnpm harness:verify -- --scope packages/agent-provider-replay
 --include-scenarios` exits 0 without a caller `TMPDIR`, including the complete harness tests,
   repository build, dependent typecheck, package test/lint/typecheck, and canonical scenario match.
+- A pre-push reproduction exposed hook-inherited `GIT_DIR`/`GIT_INDEX_FILE` contaminating stripped
+  fixture repositories. The tier runner now reuses the existing `envWithoutGitVars()` SSOT before
+  launching Vitest, and the injected-hook-context hermetic run leaves all repository refs unchanged.
 
 ## Decisions
 

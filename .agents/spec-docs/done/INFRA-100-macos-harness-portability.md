@@ -117,7 +117,9 @@ None
 
 1. Add one shared `canonicalTemporaryDirectory()` helper and use it in both scoped repository-check
    dispatch and the direct harness-test tier runner, so every child and stripped-tree fixture receives
-   the same realpath-canonical temporary root; test the identity and command contracts.
+   the same realpath-canonical temporary root. The tier runner also strips hook-inherited Git context
+   through the existing `envWithoutGitVars()` SSOT before launching fixture tests; test both environment
+   contracts.
 2. Replace the Bash-4-only xtrace prelude with a Bash-3-compatible, out-of-band `DEBUG`-trap recorder on
    a dedicated descriptor, explicitly enabling inheritance. Keep the existing trace syntax consumed by
    `parseXtrace`.

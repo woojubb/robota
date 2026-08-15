@@ -10,6 +10,22 @@ async function loadTierOwner() {
 }
 
 describe('harness test tiers', () => {
+  it('strips hook-inherited git context before launching fixture tests', async () => {
+    const { harnessTestEnvironment } = await loadTierOwner();
+    const environment = harnessTestEnvironment({
+      PATH: '/fixture/bin',
+      GIT_DIR: '/outer/.git',
+      GIT_INDEX_FILE: '/outer/.git/index',
+      GIT_WORK_TREE: '/outer',
+    });
+
+    expect(environment.PATH).toBe('/fixture/bin');
+    expect(environment.TMPDIR).toBeTruthy();
+    expect(environment.GIT_DIR).toBeUndefined();
+    expect(environment.GIT_INDEX_FILE).toBeUndefined();
+    expect(environment.GIT_WORK_TREE).toBeUndefined();
+  });
+
   it('partitions the complete harness test directory without overlap', async () => {
     const { classifyHarnessTestFiles } = await loadTierOwner();
     const tiers = classifyHarnessTestFiles(REPO_ROOT);
