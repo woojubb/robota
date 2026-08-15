@@ -272,10 +272,21 @@ Phase 2 하나가 약 3,455줄 이동으로 상한을 6배 넘긴다. PR Unit Ru
 explicitly named work units **before implementation**; each work unit must have its own
 recommendation gate"_ 를 요구하므로, 아래 둘로 나누어 선언한다.
 
-| Work unit            | 범위                 | 예상 규모        | 성격                                                          |
-| -------------------- | -------------------- | ---------------- | ------------------------------------------------------------- |
-| **WU-A** 계약과 강제 | Phase 1 · 1b · 3 · 4 | ~11파일, 상한 내 | 규칙 + 그 강제 + 배선 — PR Unit Rule이 "ONE PR"로 명시한 형태 |
-| **WU-B** 파일럿 추출 | Phase 2              | ~3,455줄 이동    | 순수 이동 전용 PR. 수용 기준은 "스캔이 green으로 전환"        |
+| Work unit            | 범위                       | 예상 규모        | 성격                                                           |
+| -------------------- | -------------------------- | ---------------- | -------------------------------------------------------------- |
+| **WU-A** 계약과 강제 | Phase 1 · 1b · 3 · 4       | ~11파일, 상한 내 | 규칙 + 그 강제 + 배선 — PR Unit Rule이 "ONE PR"로 명시한 형태  |
+| **WU-B** 파일럿 추출 | Phase 2 (`agent-cli` 한정) | ~490줄 이동      | 분류표 + 그 결과인 이동. 수용 기준은 절대 잔여량과 분류 완결성 |
+
+**WU-B는 `agent-cli` 한 건만 다룬다.** 초안은 파일럿 둘을 한 PR에 담았으나, 구현 착수 시 분류에서
+`packages/agent-framework/docs/SPEC.md`가 **문서 두 개가 이어붙은 상태**임이 확인됐다 — L3–694가 표준
+섹션 SPEC이고 L695의 `## Overview`부터 1,955줄짜리 옛 SPEC이 다시 시작한다. `## Public API Surface`(L161,
+표)와 `## Public API`(L1342, 서술)는 같은 주제의 두 판본이고, `## Architecture Overview`(L63) 본문이
+_"See the 'Architecture' section below"_ 라고 스스로 적고 있다. 이 결함은 배치 기준이 만든 것도 아니고
+배치 기준이 고치는 것도 아니다 — **중복 서술 두 벌을 섹션 단위로 대조해 어느 쪽이 현행인지 판정하는
+별개의 작업**이며, 2,649줄 SPEC 재작성 규모다. 소프트 상한의 네 배를 넘고, 경계 기준과 선재 결함이
+한 diff에 섞이면 리뷰가 불가능해진다. `DOCS-025`로 분리해 제기하고, WU-B의 분류표를 그 항목의 출발
+분석으로 넘긴다. 파일럿의 목적 — 기준이 실물 SPEC에 대해 판정 가능하고 모든 섹션에 방어 가능한 답을
+내는지 — 은 `agent-cli` 34개 섹션 전수로 충족된다.
 
 **순서는 WU-A → WU-B로 고정한다.** 두 가지 이유가 같은 방향을 가리킨다:
 
@@ -394,53 +405,58 @@ semantics`** 로 좁히고, 내부 동작 변경은 design doc으로 라우팅�
 
 ## Completion Criteria
 
-- [ ] TC-01: 배치 기준이 owner 문서에 존재 —
+- [x] TC-01: 배치 기준이 owner 문서에 존재 —
       `rg -q "consumer-impact test" .agents/skills/design-doc-authoring/SKILL.md` → exit 0, 그리고
       경계 사례 표에 최종 사용자 계약 행이 존재
       (`rg -q "End-user-facing contract" .agents/skills/design-doc-authoring/SKILL.md` → exit 0).
       **단정 문자열은 영어다** — `naming-style.md` > Language Policy가 하네스 자산을 포함한 그 외
       전부를 영어로 규정하므로, 한국어 토큰(`파급`)을 단정하던 초안 문구는 산출물이 준수해야 할
       규칙과 어긋났다. 검증 대상은 기준의 존재이지 그것을 적은 언어가 아니다
-- [ ] TC-02: `rg -c "design-doc-authoring" .agents/skills/spec-writing-standard/SKILL.md` → 1 이상
+- [x] TC-02: `rg -c "design-doc-authoring" .agents/skills/spec-writing-standard/SKILL.md` → 1 이상
       (배치 기준 owner로의 링크가 존재하고, 기준 본문 복사본은 없음)
-- [ ] TC-03: `rg "New or changed externally observable behavior" .agents/rules/spec-workflow.md` → exit 0
-- [ ] TC-04: `node scripts/harness/check-spec-whitebox-leakage.mjs` 가 Phase 2 **이전** 스냅샷에서
+- [x] TC-03: `rg "New or changed externally observable behavior" .agents/rules/spec-workflow.md` → exit 0
+- [x] TC-04: `node scripts/harness/check-spec-whitebox-leakage.mjs` 가 Phase 2 **이전** 스냅샷에서
       `agent-framework`·`agent-cli` 정확히 2건을 finding으로 보고 (단위 테스트 픽스처로 고정)
-- [ ] TC-05: `node scripts/harness/check-spec-whitebox-leakage.mjs` → Phase 2 완료 후 exit 0 (finding 0건)
-- [ ] TC-06: `wc -l < packages/agent-cli/docs/SPEC.md` → 700 이하
-- [ ] TC-07: `wc -l < packages/agent-framework/docs/SPEC.md` → 700 이하
-- [ ] TC-08: `find packages/agent-cli/docs/design packages/agent-framework/docs/design -name "*.md" | wc -l` → 3 이상
-- [ ] TC-09: `node scripts/harness/check-design-doc-completeness.mjs` → exit 0 (신규 design doc이
+- [x] TC-05: 파일럿(`agent-cli`) SPEC의 **표준 섹션 밖 줄 수 ≤150** (`check-spec-whitebox-leakage.mjs --all`).
+      **이 기준은 두 번째 정정이다.** 초안의 "스캔 exit 0"은 **추출 없이 통과 가능했다** — 지표가
+      헤딩 이름 기반이므로 `agent-cli`의 `## Architecture`(351줄)를 `## Architecture Overview`로
+      개명하고 사용자 계약 섹션을 `## User-Facing Contract` 아래로 모으는 것만으로 960줄이 "표준"으로
+      재분류돼 38.6%가 되어 임계 아래로 떨어진다. 아무것도 옮기지 않고 초록이 된다. 절대 잔여량을
+      단정해야 개명이 아니라 배치를 검증한다
+- [x] TC-06: 파일럿(`agent-cli`)의 **잔류 `##` 헤딩이 전부 표준 섹션으로 정규화**된다 —
+      `isStandardSpecSection()`으로 기계 단정. 개명을 금지하는 게 아니라 **명시된 결과**로 만들어,
+      TC-05의 빠져나갈 구멍을 닫는다
+- [x] TC-07: **분류표 완결성** — 아래 `## Appendix — WU-B per-section classification`에서 **두 파일럿 62개**
+      (`agent-cli` 34 + `agent-framework` 28) 원본 `##` 섹션이 전부 stay / merge / design /
+      delete-and-link / ADR / drop 중 하나로 귀속되고 누락이 없다. `agent-framework` 분류는 표로만
+      남고 diff는 `DOCS-025`가 진다 — 분류가 리뷰 대상이고 이동은 그 결과다. (초안의 "SPEC ≤700줄" 두 기준은
+      **폐기**한다: `agent-framework`는 잔류해야 할 계약만 ≈1,430줄 — 표준 646 + `Public API` 665 +
+      `Provider Resolution Order` 31 + `Turn Error Surfacing` 15 + `Import Rules` 33 +
+      `Settings Configuration` 35 — 이라 도달 불가이고, 도달을 강제하면 **계약을 design으로 밀어내는
+      압력**이 되어 WU-A가 세운 기준에 역행한다)
+- [x] TC-08: `find packages/agent-cli/docs/design -name "*.md" | wc -l` → 3 이상
+- [x] TC-09: `node scripts/harness/check-design-doc-completeness.mjs` → exit 0 (신규 design doc이
       MUST 5섹션을 전부 충족, 더 이상 vacuous 통과가 아님)
-- [ ] TC-10: 양방향 링크 — 각 신규 design doc에서 `rg "SPEC\.md" <design-doc>` exit 0 이고, 각 파일럿
-      SPEC.md에서 `rg "docs/design/" <spec>` exit 0
-- [ ] TC-11: `rg "Keyboard Controls" packages/agent-cli/docs/SPEC.md` → exit 0 (최종 사용자 계약이
+- [x] TC-10: 양방향 링크 — 각 신규 design doc에서 `rg "SPEC\.md" <design-doc>` exit 0 이고,
+      `packages/agent-cli/docs/SPEC.md`에서 `rg "docs/design/"` exit 0
+- [x] TC-11: `rg "Keyboard Controls" packages/agent-cli/docs/SPEC.md` → exit 0 (최종 사용자 계약이
       design으로 잘못 이동하지 않았음)
-- [ ] TC-12: 전체 유출량 회귀 — 표준 섹션 밖 **절대 줄 수 7,172 → 3,600 이하** AND **비율 41.8% →
-      30% 이하** (집계 스크립트 출력, 중첩 포함 글롭 기준). 목표치 산출 근거: 파일럿 2건이 완전
-      회수되면 이동량 ≈ 1,975 + 1,710 = 3,685줄, 그중 cli 사용자 계약 ≈ 230줄은 이동이 아니라
-      Phase 1b 표준화로 집계에서 빠지므로 design 이관분 ≈ 3,455줄. 잔여 표준 밖 ≈ 3,487줄 /
-      새 총량 ≈ 13,684줄 = **25.5%**. 파일럿 2건만으로 20%에는 도달할 수 없다.
-      **이 임계는 두 번 정정됐다** — 초안의 20%는 산술 오류였고(실패 모드 4), 1차 정정치 ≤3,400줄은
-      최상위 글롭 기준이라 완전 corpus에서는 3,487 > 3,400으로 다시 미달이었다(실패 모드 8).
-      최종치는 87개 파일 전수 기준이며, TC-02/TC-05의 스캔과 동일한 글롭을 쓴다.
-      **집계 기준(metric basis)은 Phase 3에서 `shared.mjs`에 고정하는 SSOT 상수 — 필수 9 + 선택 6
-      (`User-Facing Contract` 포함) — 이며, TC-12·TC-02·TC-05·TC-16이 모두 이 상수를 쓴다.**
-      기준을 명시하는 이유는 임계가 기준에 의존하기 때문이다: 필수 9만으로 집계하면 잔여가
-      ≈3,852줄이 되어 ≤3,600을 넘고, 선택 6 없이 9+5로 집계하면 cli 사용자 계약 ≈230줄이 표준 밖에
-      남아 ≈3,717줄로 역시 넘는다. 기준선 7,172줄은 Phase 1b 이전이라 `## User-Facing Contract`
-      헤딩을 가진 파일이 하나도 없어 9+5와 9+6이 동일값을 내므로, 기준 변경의 영향을 받지 않는다.
-- [ ] TC-13: `pnpm harness:scan` → exit 0
-- [ ] TC-16: 중첩 워크스페이스 패키지가 스캔 범위에 포함됨 — `check-spec-whitebox-leakage.mjs --all`
+- [x] TC-12: 전체 유출량 **관측 기록**(수용 기준 아님) — 기준선 6,675줄 / 38.4%(86개 전수, WU-A
+      스캔 출력)에서 회수 후 값을 기록한다. `agent-cli` 한정 추출이므로 추정 ≈6,185줄 / 35.6%(≈490줄 감소).
+      `agent-framework`의 ≈1,975줄은 `DOCS-025`가 회수한다. **수용 기준에서 강등하는 이유**:
+      TC-05과 같은 개명 경로로 통과 가능하므로 배치의 증거가 되지 못한다. 초안이 인용하던
+      7,172 / 41.8%는 파서 정정 이전 값이라 함께 폐기한다
+- [x] TC-13: `pnpm harness:scan` → exit 0
+- [x] TC-16: 중첩 워크스페이스 패키지가 스캔 범위에 포함됨 — `check-spec-whitebox-leakage.mjs --all`
       출력에 `packages/dag-nodes/` 항목이 **20건** 나타난다. **총 파일 수를 단정하지 않는다**: 구현 중
       확인된 대로 `packages/dag-nodes/docs/SPEC.md`는 `package.json`이 없는 컨테이너 디렉터리의
       문서라 워크스페이스 패키지가 아니며, 초안이 근거로 삼은 `find` 기반 87은 그것을 잘못 포함한
       숫자였다(SSOT 열거기 기준 86). 막아야 할 회귀는 **중첩 그룹 누락**이지 특정 총계가 아니다 —
       숫자 단정은 이 항목에서 네 번 틀렸다
-- [ ] TC-14: `rg "User-Facing Contract" .agents/skills/spec-writing-standard/SKILL.md .agents/templates/spec-template.md`
+- [x] TC-14: `rg "User-Facing Contract" .agents/skills/spec-writing-standard/SKILL.md .agents/templates/spec-template.md`
       → 두 파일 모두 hit, 그리고 `rg "^## User-Facing Contract" packages/agent-cli/docs/SPEC.md` → exit 0
       (슬롯이 정의되고 파일럿에서 실제로 사용됨)
-- [ ] TC-15: 표준 섹션 목록 SSOT — `rg -c "SPEC_REQUIRED_SECTIONS = \[" scripts/harness/cleanup-drift.mjs`
+- [x] TC-15: 표준 섹션 목록 SSOT — `rg -c "SPEC_REQUIRED_SECTIONS = \[" scripts/harness/cleanup-drift.mjs`
       → 0 (자체 복사본 제거됨) AND 단위 테스트가 파서 결과와 `spec-writing-standard/SKILL.md`의
       Required Sections Reference 표 사이의 **집합 동등성**을 단정한다. 길이 검사가 아니다 — 길이는
       이름이 하나 바뀌어도 통과하므로 이 항목이 고치려는 드리프트를 못 잡는다. 필수/선택은 **구별
@@ -481,6 +497,222 @@ semantics`** 로 좁히고, 내부 동작 변경은 design doc으로 라우팅�
   (revision 1 — 1차 `REVISE`의 네 findings를 접은 뒤 승인). 전문은 태스크 파일
   `## Recommendation Gate — WU-A`에 기록. `backlog-execution.md` > Recommendation Gate가 요구하는
   판정 기록이다.
+
+## Appendix — WU-B per-section classification
+
+The reviewable artifact for WU-B. Every `##` section of both pilot SPECs is classified here **before**
+any line is moved; the diff is the consequence of this table, not the other way round.
+
+### The test being applied
+
+From [`design-doc-authoring/SKILL.md`](../../skills/design-doc-authoring/SKILL.md) > Placement criterion:
+
+> If this fact changed, would code outside this package — or an end user — have to change?
+
+`yes` → `docs/SPEC.md`. `no` → `docs/design/`.
+
+**Who the consumer is differs per package, and that is the whole point.** For `agent-framework` the
+consumer is calling code, so the contract is exports, types, and events. For `agent-cli` the consumer is
+**the person at the terminal**, so key bindings, visual grammar, exit codes, and prompts are contract —
+they are not "UI detail". Reading "consumer" as "calling code" in a product shell is the mistake the
+`End-user-facing contract` row of the boundary table exists to prevent.
+
+### Disposition vocabulary
+
+| Disposition       | Meaning                                                                    |
+| ----------------- | -------------------------------------------------------------------------- |
+| `stay`            | already a standard section, stays as-is                                    |
+| `merge → X`       | consumer-impacting; folded into standard section X, no content lost        |
+| `design`          | no consumer impact; moves to `docs/design/<file>.md`                       |
+| `delete-and-link` | restates another document's fact; deleted, replaced by a link to the owner |
+| `ADR`             | a decision with rationale; moves to `.design/decisions/`                   |
+| `drop`            | roadmap/aspiration, not a specification; belongs in a task                 |
+
+---
+
+### Pilot 1 — `packages/agent-cli/docs/SPEC.md` (34 sections, 1,939 lines)
+
+Consumer: **the end user at the terminal**, plus the few packages that import CLI types.
+
+| #   | Section                                     | Lines | Would a change force an end user or outside code to change? | Disposition                      |
+| --- | ------------------------------------------- | ----- | ----------------------------------------------------------- | -------------------------------- |
+| 1   | Scope                                       | 26    | —                                                           | `stay`                           |
+| 2   | Boundaries                                  | 38    | —                                                           | `stay`                           |
+| 3   | Import Rules                                | 42    | yes — constrains what importers may reach for               | `merge → Boundaries`             |
+| 4   | Architecture                                | 351   | mixed — see split below                                     | split                            |
+| 5   | StatusBar Display                           | 99    | yes — what the user sees every turn                         | `merge → User-Facing Contract`   |
+| 6   | TUI Visual Grammar                          | 81    | yes — the visual language the user reads                    | `merge → User-Facing Contract`   |
+| 7   | Context Management (CLI Layer)              | 17    | yes — user-visible context behaviour                        | `merge → User-Facing Contract`   |
+| 8   | Tool Call Display                           | 43    | yes                                                         | `merge → User-Facing Contract`   |
+| 9   | Slash Commands                              | 129   | yes — the command vocabulary is the CLI's API               | `merge → User-Facing Contract`   |
+| 10  | Session Ownership — TuiInteractionChannel   | 33    | no — which class holds the session                          | `design/session-ownership.md`    |
+| 11  | Command Registry Architecture               | 111   | mixed — see split below                                     | split                            |
+| 12  | Type Ownership                              | 16    | —                                                           | `stay`                           |
+| 13  | Public API Surface                          | 9     | —                                                           | `stay`                           |
+| 14  | File Structure                              | 46    | no — a directory tree of internals                          | `design/internal-structure.md`   |
+| 15  | CLI Usage                                   | 128   | yes — flags and invocation are the contract                 | `merge → User-Facing Contract`   |
+| 16  | Tool Output Limits                          | 5     | yes — truncation the user observes                          | `merge → User-Facing Contract`   |
+| 17  | Zero-Config Startup (env-default)           | 14    | yes — first-run behaviour                                   | `merge → User-Facing Contract`   |
+| 18  | First-Run Setup                             | 82    | yes — the onboarding flow the user walks                    | `merge → User-Facing Contract`   |
+| 19  | Session Logging                             | 4     | yes — where a user's transcript lands                       | `merge → Configuration`          |
+| 20  | Tool Execution Display                      | 88    | yes                                                         | `merge → User-Facing Contract`   |
+| 21  | Keyboard Controls                           | 149   | yes — key bindings are a hard contract                      | `merge → User-Facing Contract`   |
+| 22  | Plugin Management TUI                       | 21    | yes                                                         | `merge → User-Facing Contract`   |
+| 23  | Subagent Execution                          | 135   | mixed — see split below                                     | split                            |
+| 24  | Memory Management                           | 32    | yes — the inspection surface the user drives                | `merge → User-Facing Contract`   |
+| 25  | Edit Checkpointing                          | 27    | yes — undo semantics the user relies on                     | `merge → User-Facing Contract`   |
+| 26  | Message Architecture                        | 25    | no — which internal type the list holds                     | `design/message-architecture.md` |
+| 27  | Distribution — Bun single binary (DIST-001) | 23    | yes — how the user obtains and runs the binary              | `merge → Dependencies`           |
+| 28  | Known Limitations                           | 8     | yes — behaviour the user will hit                           | `merge → User-Facing Contract`   |
+| 29  | Dependencies                                | 49    | —                                                           | `stay` (`Dependencies`, O4)      |
+| 30  | Extension Points                            | 18    | —                                                           | `stay`                           |
+| 31  | Process Survival Boundary (ERR-001 G1)      | 15    | yes — what survives a crash                                 | `merge → Error Taxonomy`         |
+| 32  | Error Taxonomy                              | 20    | —                                                           | `stay`                           |
+| 33  | Test Strategy                               | 32    | —                                                           | `stay`                           |
+| 34  | Class Contract Registry                     | 21    | —                                                           | `stay`                           |
+
+#### Splits
+
+**§4 `Architecture` (351 lines)**
+
+| Subsection                                                                                                                                       | Consumer impact                                            | Disposition                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- | ------------------------------- |
+| Lead prose + composition-map pointer                                                                                                             | orientation                                                | `merge → Architecture Overview` |
+| Transparent Workflow Boundary / User-Local Storage Boundary / Transparent Process Execution Boundary / Repository Situational Awareness Boundary | yes — what the CLI shows and touches on the user's machine | `merge → User-Facing Contract`  |
+| Provider Profile Creation / Provider Configuration UX / Preset Selection / Durable Memory Enablement                                             | yes — settings keys, flags, precedence                     | `merge → Configuration`         |
+| Transport Registry                                                                                                                               | no — internal composition                                  | `design/composition.md`         |
+
+**§11 `Command Registry Architecture` (111 lines)**
+
+| Subsection                                                            | Consumer impact                               | Disposition                    |
+| --------------------------------------------------------------------- | --------------------------------------------- | ------------------------------ |
+| `ICommandSource` interface / `ICommand` interface / Command Sources   | yes — third parties implement these           | `merge → Extension Points`     |
+| Skill Frontmatter Schema                                              | yes — users author SKILL.md files against it  | `merge → Extension Points`     |
+| Skill Invocation Methods / Skill Execution Features                   | yes — how a user runs a skill                 | `merge → User-Facing Contract` |
+| Skill Discovery (Multi-Path)                                          | yes — where the CLI looks for a user's skills | `merge → User-Facing Contract` |
+| Variable Substitution / Shell Command Preprocessing / Skill Execution | no — the pipeline that implements the above   | `design/command-registry.md`   |
+
+**§23 `Subagent Execution` (135 lines)**
+
+| Content                                                    | Consumer impact | Disposition                                        |
+| ---------------------------------------------------------- | --------------- | -------------------------------------------------- |
+| Agent-definition format, invocation, what the user sees    | yes             | `merge → User-Facing Contract`                     |
+| Restatement of `agent-framework`'s runner/manager contract | owned elsewhere | `delete-and-link` → `agent-framework/docs/SPEC.md` |
+| CLI-side wiring                                            | no              | `design/subagent-wiring.md`                        |
+
+#### Granularity, stated explicitly
+
+This pilot classifies and moves at `##` / `###` granularity. Several retained sections still carry
+whitebox sentences inside an otherwise consumer-facing subsection — `Preset Selection` names
+`selectPresetId()` and `resolveShellPreset()` in `src/startup/preset-selection.ts`; `Durable Memory
+Enablement` names `src/startup/memory-enablement.ts`; `Provider Configuration UX` names the settings
+documents it writes. Splitting those mid-paragraph is a different quality of work from applying the test
+to a section, and folding it into this diff would make the classification unreviewable. **It is out of
+WU-B's scope and named here rather than left silent.**
+
+#### Pilot 1 outcome
+
+- Everything retained normalizes to one of the fifteen standard sections.
+- `≈ 240 lines` leave for `packages/agent-cli/docs/design/` across six files.
+- `≈ 20 lines` are deleted-and-linked (owned by `agent-framework`).
+- Nothing user-facing is moved out of the SPEC. The reviewer's P3 objection is the table's premise, not
+  an exception to it.
+
+**The extraction is far smaller than the leakage metric implied, and that is the finding.** The scan
+reported 1,708 of 1,939 lines (88.1%) outside a standard heading, but only `≈ 260` of those are actually
+misplaced. The other `≈ 1,450` are genuine consumer contract filed under non-standard headings — key
+bindings, visual grammar, slash commands, first-run flow. **`check-spec-whitebox-leakage.mjs` measures
+heading nonconformance, not misplacement**, which is exactly why WU-A ships it as advisory and why TC-12
+was demoted from an acceptance criterion to a recorded observation. A pilot that "fixed" 88.1% would have
+been moving contract out of the contract document.
+
+---
+
+### Pilot 2 — `packages/agent-framework/docs/SPEC.md` (28 sections, 2,649 lines)
+
+Consumer: **calling code** (`agent-cli`, servers, workers, third-party SDK users).
+
+#### The structural finding, before any classification
+
+This file is **two documents concatenated**. L3–694 is a migrated, standard-section SPEC. L695 restarts
+with `## Overview` — "Robota SDK is a programming SDK built by assembling existing Robota packages" —
+and runs another 1,955 lines with its own `Architecture`, `Feature Details`, and `Public API`.
+
+The seam is not a hypothesis; the document states it. `## Architecture Overview` (L63) says _"See the
+'Architecture' section below for the full package dependency chain and feature layout."_ And
+`## Public API Surface` (L161, an export table) and `## Public API` (L1342, per-export prose) are the same
+subject in two forms, 1,181 lines apart.
+
+**This is a document-concatenation defect, not a blackbox/whitebox defect.** The consumer-impact test
+classifies the content correctly — the table below does exactly that — but applying it here also requires
+reconciling two overlapping descriptions of the same package, section by section, and deciding which
+version is current wherever they disagree. That is a different and much larger job than the pilot, and
+RULE-013's criterion neither causes it nor fixes it.
+
+#### Classification
+
+| #   | Section                                           | Lines | Would a change force outside code to change?            | Disposition                           |
+| --- | ------------------------------------------------- | ----- | ------------------------------------------------------- | ------------------------------------- |
+| 1   | Scope                                             | 8     | —                                                       | `stay`                                |
+| 2   | Boundaries                                        | 52    | —                                                       | `stay`                                |
+| 3   | Architecture Overview                             | 18    | —                                                       | `stay` (drop the "see below" pointer) |
+| 4   | Type Ownership                                    | 80    | —                                                       | `stay`                                |
+| 5   | Public API Surface                                | 160   | yes                                                     | `stay` (absorbs §16)                  |
+| 6   | Extension Points                                  | 187   | yes                                                     | `stay`                                |
+| 7   | Provider Resolution Order                         | 31    | yes — which provider answers a call is observable       | `merge → Configuration`               |
+| 8   | Turn Error Surfacing & Liveness (ERR-001)         | 15    | yes — the error surface                                 | `merge → Error Taxonomy`              |
+| 9   | Error Taxonomy                                    | 31    | —                                                       | `stay`                                |
+| 10  | Test Strategy                                     | 68    | —                                                       | `stay`                                |
+| 11  | Class Contract Registry                           | 42    | —                                                       | `stay`                                |
+|     | **— seam: second document begins at L695 —**      |       |                                                         |                                       |
+| 12  | Overview                                          | 6     | duplicate of §1                                         | `delete-and-link → Scope`             |
+| 13  | Core Principles                                   | 15    | partly — rules 5 and 6 constrain importers              | `merge → Boundaries`                  |
+| 14  | Architecture                                      | 161   | mixed — see split                                       | split                                 |
+| 15  | Feature Details                                   | 465   | restates other packages, **already drifted**            | `delete-and-link` + split             |
+| 16  | Public API                                        | 665   | yes — signatures, event names, payloads                 | `merge → Public API Surface` (dedupe) |
+| 17  | Import Rules                                      | 33    | yes — what a consumer may import                        | `merge → Boundaries`                  |
+| 18  | Design Decision Records                           | 34    | no — decisions with rationale                           | `ADR`                                 |
+| 19  | Hook Type Executors (SDK-Specific)                | 11    | yes — hook contract                                     | `merge → Plugin/Hook Contract`        |
+| 20  | Settings Configuration                            | 35    | yes                                                     | `merge → Configuration`               |
+| 21  | Bundle Plugin System                              | 23    | yes — plugin authors depend on it                       | `merge → Plugin/Hook Contract`        |
+| 22  | Marketplace Client                                | 9     | yes — exported                                          | `merge → Public API Surface`          |
+| 23  | System Prompt Skill and Agent Injection           | 84    | mixed — injected content is observable, assembly is not | split                                 |
+| 24  | Hook Wiring into Session Lifecycle                | 11    | no — wiring order                                       | `design/hook-wiring.md`               |
+| 25  | Background Task Execution                         | 122   | mixed — exports yes, dedup/eviction internals no        | split                                 |
+| 26  | Subagent Execution                                | 247   | mixed — ports and definition format yes, runners no     | split                                 |
+| 27  | Autonomous Goal Pursuit (GOAL-001)                | 27    | yes — observable behaviour                              | `merge → State Lifecycle`             |
+| 28  | Unconnected Packages (Future Integration Targets) | 7     | no — a roadmap                                          | `drop` (file as a task)               |
+
+#### Splits
+
+| Source                                        | Consumer-impacting part                                                                                                                | Non-impacting part                                                                               |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| §14 `Architecture`                            | Package Dependency Chain → `merge → Boundaries`                                                                                        | Client–SDK–Session Relationship, Package Roles, Feature Layout → `design`                        |
+| §15 `Feature Details`                         | the 12 `(SDK-Specific)` subsections describe framework-owned behaviour                                                                 | the rest restates `agent-core`/`agent-session`/`agent-tools`                                     |
+| §23 `System Prompt Skill and Agent Injection` | what ends up in the prompt → `merge → Extension Points`                                                                                | how it is assembled → `design`                                                                   |
+| §25 `Background Task Execution`               | exports → `merge → Public API Surface`                                                                                                 | wake dedup and eviction → `design`                                                               |
+| §26 `Subagent Execution`                      | `SubagentRunner` port, agent-definition format, `defaultTools`/`additionalTools`, `createSubagentSession` → `merge → Extension Points` | `WorktreeSubagentRunner`, `AgentDefinitionLoader`, prompt assembly, transcript logger → `design` |
+
+#### §15 is the load-bearing example
+
+`## Feature Details` is 465 lines describing the session, permission, hook, tool, and sandbox systems —
+none of which `agent-framework` owns. It has **already drifted**: `agent-core`'s SPEC lists sixteen hook
+events, this copy lists six. Moving it to `docs/design/` would preserve the drift under a new filename.
+The correct disposition is `delete-and-link`: the owner's SPEC is the single source, and the framework
+links to it. This is what the Non-Duplication rule requires and what the consumer-impact test independently
+arrives at — a restatement has no consumer impact of its own, because changing it changes nothing.
+
+#### Pilot 2 outcome, and the recommendation
+
+Applying the table honestly means: dedupe 665 lines against 160, delete-and-link ~350, extract ~600 to
+design, and reconcile two descriptions of the same package wherever they disagree. That is a rewrite of a
+2,649-line SPEC, not a pilot — an order of magnitude past the PR Unit Rule's ~600-line soft ceiling, and it
+would put the boundary criterion and a pre-existing concatenation defect in one unreviewable diff.
+
+**Recommendation: WU-B ships pilot 1 only.** The concatenation is filed as its own backlog item, with this
+table as its starting analysis. One pilot is what WU-B needs to prove — that the criterion is decidable
+against a real SPEC and produces a defensible answer for every section. Pilot 1 does that for all 34 of its
+sections, and this table does the classification work for pilot 2 without spending the diff.
 
 ## Evidence Log
 
@@ -845,3 +1077,60 @@ gate:**
    (parse the skill's table, fail-closed). Both hold only if `shared.mjs` continues to export that name as
    a **derived** value. Premise re-verified as still unfixed: `cleanup-drift.mjs:13` = 8 entries,
    `Class Contract Registry` missing; `shared.mjs` = no such constant.
+
+### WU-B 구현 — 2026-08-16
+
+WU-A 병합(PR #1741 → develop `96728940c`, PR #1742 → main `cca410e39`) 이후 착수.
+브랜치 `feat/rule-013-wu-b-pilot-extraction` (`origin/develop`에서 분기).
+
+**Recommendation Gate에서 REVISE를 받고 접은 내용 (`proposal-reviewer`):**
+
+| 지적                                                                     | 처리                                                                                                      |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| TC-05·TC-12가 **추출 없이 개명만으로 통과 가능** — 스스로 vacuous green  | TC-05를 절대 잔여량(≤150줄)으로 교체, TC-12를 수용 기준에서 **관측 기록으로 강등**                        |
+| TC-06·TC-07의 "SPEC ≤700줄"이 **도달 불가**이며 계약을 design으로 밀어냄 | 두 기준 폐기. TC-06은 잔류 헤딩의 표준 정규화(`isStandardSpecSection()`), TC-07은 분류표 완결성으로 교체  |
+| P2 — `## Public API`(665줄)는 whitebox가 아니라 공개 계약                | 전제 철회. `Public API Surface`로 흡수하는 것이 맞고, design 이동은 오답                                  |
+| P3 — `agent-cli`의 사용자 대면 섹션 다수를 whitebox로 오분류             | 전제 철회. `agent-cli`의 consumer는 **터미널 앞의 사람**이므로 키 바인딩·시각 문법·슬래시 명령은 계약이다 |
+| P4 — `## Feature Details`는 횡단이며 **이미 드리프트**했다               | design 이동이 아니라 `delete-and-link`. design으로 옮기면 드리프트를 새 파일명 아래 보존할 뿐             |
+| P5 — `document-authority` 백스톱이 이 PR에서 무력                        | 백스톱 주장 철회                                                                                          |
+| **권고 1 — 분류표를 먼저 만들어라. 그것이 리뷰 대상이고 diff는 결과다**  | `## Appendix — WU-B per-section classification` 신설 — 두 파일럿 **62개 섹션 전수**                       |
+
+**분류 중 발견 — `agent-framework/docs/SPEC.md`는 문서 두 벌이 이어붙어 있다.** L3–694가 표준 섹션
+SPEC이고 L695의 `## Overview`부터 1,955줄짜리 별개 문서가 재시작한다. 문서가 스스로 적고 있다 —
+`## Architecture Overview`(L63) 본문의 _"See the 'Architecture' section below"_, 그리고
+`## Public API Surface`(L161, 표) ↔ `## Public API`(L1342, 서술)가 같은 주제의 두 판본으로 1,181줄
+떨어져 있다. 배치 기준이 만든 결함이 아니고 배치 기준이 고치지도 못한다 — 두 서술을 대조해 **어느 쪽이
+현행인지 코드로 판정**해야 하는 별건이며 2,649줄 SPEC 재작성 규모(소프트 상한의 4배)다.
+`DOCS-025`로 분리 제기하고 **WU-B는 `agent-cli` 파일럿 한 건으로 좁혔다.** 분류표의 Pilot 2는
+`DOCS-025`의 출발 분석으로 남는다.
+
+**산출:**
+
+- `packages/agent-cli/docs/SPEC.md` — `##` 34개 → 표준 12개, 비표준 헤딩 **0**, 1,939 → 1,731줄
+- `packages/agent-cli/docs/design/` **6건**(409줄) — `composition` · `session-ownership` ·
+  `command-registry` · `internal-structure` · `message-architecture` · `subagent-wiring`
+- `.agents/spec-docs/draft/DOCS-025-...md` 신규 제기
+- 11 files changed, +1,608 / −1,092
+
+**검증 (전부 실행함):**
+
+| 항목                | 결과                                                                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm harness:scan` | **111 passed, 2 skipped, 0 failed**                                                                                                      |
+| 내용 보존           | 구 SPEC의 비공백 줄(헤딩 마커 제거) 다중집합 vs 신 SPEC + design 6건 → **본문 유실 0줄**. 사라진 6개는 의도적으로 해체한 헤딩 **제목**뿐 |
+| TC-05               | `agent-cli` 표준 섹션 밖 **0줄** (기준 ≤150)                                                                                             |
+| TC-06               | 비표준 `##` 헤딩 **0개**                                                                                                                 |
+| TC-09               | `check-design-doc-completeness.mjs` exit 0, 경고 0                                                                                       |
+| TC-12 (관측)        | 6,675줄/38.4% → **4,967줄/28.9%** (−1,708줄, −9.5pp), 임계 초과 2건 → **1건**                                                            |
+| 단위 테스트         | `spec-sections` 14/14, `check-spec-whitebox-leakage` 8/8 (vitest)                                                                        |
+
+**같은 실행에서 고친 스캔 4건** — 재구성이 드러낸 것들이며 조용히 넘기지 않았다:
+
+1. `background-workspace` — 배경 작업 수명주기 경계 문단이 design으로 넘어갔다. **스캔이 옳다**:
+   소유권 경계는 계약이므로 `## Boundaries`로 복귀시켰다
+2. `spec-doc-frontmatter` · `test-plans` · `spec-research` — 분류표를 별도 파일로
+   `.agents/spec-docs/active/`에 두어 세 스캔이 그것을 spec 문서로 취급했다. 근본 원인이 하나이므로
+   Plan 문서의 부록으로 접어 해소했다(파일 삭제, 참조 재지정)
+
+**관측 — 수용 기준 아님:** `pnpm harness:scan -- --only <name>`의 `--only`가 필터링하지 않고 전체를
+돌린다. 이 항목의 범위 밖이라 고치지 않았고, 기록만 남긴다.

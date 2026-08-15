@@ -107,16 +107,26 @@ Plan: [`.agents/spec-docs/todo/RULE-013-blackbox-whitebox-doc-boundary.md`](../s
 
 ## WU-B — 파일럿 추출 (Phase 2) — WU-A 병합 후 착수
 
-- [ ] **T-20** (TC-07) `agent-framework/docs/SPEC.md` L668–2593을 `docs/design/` 하위 2–3개 주제
-      문서로 분할 (순수 이동)
-- [ ] **T-21** (TC-06, TC-11) `agent-cli/docs/SPEC.md`의 whitebox 섹션을 `docs/design/`로 이동.
-      **`Keyboard Controls`·`TUI Visual Grammar`는 SPEC 잔류**하되 Phase 1b의
-      `## User-Facing Contract` 아래로 재배치
-- [ ] **T-22** (TC-08, TC-09) 각 design doc이 MUST 5섹션(Context & Goal / Constraints / Internal
-      Structure / Key Flows / Test Approach)을 충족
-- [ ] **T-23** (TC-10) SPEC↔design 양방향 링크
-- [ ] **T-24** (TC-12) 전체 유출량 회귀 확인 — T-18이 확정한 기준 대비
-- [ ] **T-25** (TC-05) 회수 후 유출 스캔 exit 0
+- [x] **T-20** (TC-07) 두 파일럿 **62개 `##` 섹션 전수 분류표** 작성 — `agent-cli` 34 +
+      `agent-framework` 28, 각 섹션마다 consumer-impact 답 1줄과 stay / merge / design /
+      delete-and-link / ADR / drop 귀속. Plan 문서의 `## Appendix — WU-B per-section classification`.
+      **초안의 "L668–2593을 2–3개 문서로 분할"은 폐기했다** — 그 줄 범위는 이제 L695–2649이고,
+      더 중요하게는 `agent-framework/docs/SPEC.md`가 **문서 두 벌이 이어붙은 상태**임이 분류 중
+      확인됐다(`## Overview` L695부터 재시작, `Public API Surface` L161 ↔ `Public API` L1342).
+      순수 이동으로 풀리는 문제가 아니라 두 서술을 대조해 현행을 판정해야 하는 별건이라 `DOCS-025`로
+      분리 제기했다. 분류표는 그 항목의 출발 분석으로 넘긴다
+- [x] **T-21** (TC-06, TC-11) `agent-cli/docs/SPEC.md` 재구성 — 34개 `##` 섹션을 표준 15슬롯으로
+      정규화, 비표준 헤딩 **0개**(`isStandardSpecSection()` 단정). `Keyboard Controls` ·
+      `TUI Visual Grammar` · `StatusBar Display` · `Slash Commands` · `CLI Usage` · `First-Run Setup`
+      등 최종 사용자 계약은 **SPEC 잔류**, `## User-Facing Contract` 아래로 재배치
+- [x] **T-22** (TC-08, TC-09) design doc **6건** 신설(`composition` · `session-ownership` ·
+      `command-registry` · `internal-structure` · `message-architecture` · `subagent-wiring`), 전부
+      MUST 5섹션 충족 — `check-design-doc-completeness.mjs` exit 0, 경고 0
+- [x] **T-23** (TC-10) SPEC↔design 양방향 링크 — SPEC에 `docs/design/` 7회, 6개 design doc 전부
+      `../SPEC.md` 역참조
+- [x] **T-24** (TC-12) 전체 유출량 관측 — 6,675줄/38.4% → **4,967줄/28.9%**(-1,708줄, -9.5pp),
+      임계 초과 2건 → **1건**(`agent-framework`, `DOCS-025`가 회수)
+- [x] **T-25** (TC-05) `agent-cli` 표준 섹션 밖 잔여 **0줄** (기준 ≤150)
 
 **절차:** 추출은 Mode C drift recovery와 동일하게 **전용 PR, 기능 작업과 혼합 금지**.
 
