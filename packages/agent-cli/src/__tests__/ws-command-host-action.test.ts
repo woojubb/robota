@@ -17,7 +17,7 @@ import {
   createLanguageCommandModule,
   createSettingsCommandModule,
 } from '@robota-sdk/agent-command';
-import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
+import { createOutboundDelivery, createWsHandler } from '@robota-sdk/agent-transport-protocol';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
@@ -52,7 +52,11 @@ function setup(adapters: ICommandHostAdapters): {
     commandHostAdapters: adapters,
   });
   const sent: TServerMessage[] = [];
-  const { onMessage } = createWsHandler({ session, deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()), driverId: 'device-e2e-1' });
+  const { onMessage } = createWsHandler({
+    session,
+    deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()),
+    driverId: 'device-e2e-1',
+  });
   return { sent, onMessage };
 }
 

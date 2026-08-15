@@ -49,8 +49,16 @@ function setupTwoSurfaces(): {
   const session = createMockSession();
   const sentA: TServerMessage[] = [];
   const sentB: TServerMessage[] = [];
-  createWsHandler({ session, deliver: createOutboundDelivery((m) => sentA.push(m), vi.fn()), driverId: 'device-A' });
-  createWsHandler({ session, deliver: createOutboundDelivery((m) => sentB.push(m), vi.fn()), driverId: 'device-B' });
+  createWsHandler({
+    session,
+    deliver: createOutboundDelivery((m) => sentA.push(m), vi.fn()),
+    driverId: 'device-A',
+  });
+  createWsHandler({
+    session,
+    deliver: createOutboundDelivery((m) => sentB.push(m), vi.fn()),
+    driverId: 'device-B',
+  });
   return { session, sentA, sentB };
 }
 

@@ -114,7 +114,10 @@ describe('WebSocket Transport Handler', () => {
   function setup() {
     const session = createMockSession();
     const sent: TServerMessage[] = [];
-    const { onMessage, cleanup } = createWsHandler({ session, deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()) });
+    const { onMessage, cleanup } = createWsHandler({
+      session,
+      deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()),
+    });
     return { session, sent, onMessage, cleanup };
   }
 
@@ -315,7 +318,11 @@ describe('WebSocket Transport Handler', () => {
   it('command carries the SERVER-ASSIGNED driver id as the command origin (CMD-004 Phase 2)', async () => {
     const session = createMockSession();
     const sent: TServerMessage[] = [];
-    const { onMessage } = createWsHandler({ session, deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()), driverId: 'device-7' });
+    const { onMessage } = createWsHandler({
+      session,
+      deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()),
+      driverId: 'device-7',
+    });
     onMessage(JSON.stringify({ type: 'command', name: 'settings' }));
     await new Promise((r) => setTimeout(r, 10));
     expect(
@@ -326,7 +333,11 @@ describe('WebSocket Transport Handler', () => {
   it('forwards ui_intent session events to the requesting client (CMD-004 Phase 2)', () => {
     const session = createMockSession();
     const sent: TServerMessage[] = [];
-    createWsHandler({ session, deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()), driverId: 'device-7' });
+    createWsHandler({
+      session,
+      deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()),
+      driverId: 'device-7',
+    });
     session._emit('ui_intent', {
       intent: { type: 'show-settings' },
       requesterDriverId: 'device-7',
@@ -348,8 +359,16 @@ describe('WebSocket Transport Handler', () => {
       const session = createMockSession();
       const sentA: TServerMessage[] = [];
       const sentB: TServerMessage[] = [];
-      createWsHandler({ session, deliver: createOutboundDelivery((msg) => sentA.push(msg), vi.fn()), driverId: 'device-A' });
-      createWsHandler({ session, deliver: createOutboundDelivery((msg) => sentB.push(msg), vi.fn()), driverId: 'device-B' });
+      createWsHandler({
+        session,
+        deliver: createOutboundDelivery((msg) => sentA.push(msg), vi.fn()),
+        driverId: 'device-A',
+      });
+      createWsHandler({
+        session,
+        deliver: createOutboundDelivery((msg) => sentB.push(msg), vi.fn()),
+        driverId: 'device-B',
+      });
       return { session, sentA, sentB };
     }
 

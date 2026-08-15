@@ -36,7 +36,11 @@ function mockSession(activeDriverId: string | null) {
 describe('ws-handler E5 driver attribution (REMOTE-014)', () => {
   it('TC-05: injects the SERVER-ASSIGNED driver id into submit + prompt-response (client cannot forge it)', () => {
     const session = mockSession(null);
-    const { onMessage } = createWsHandler({ session, deliver: createOutboundDelivery(() => {}, vi.fn()), driverId: 'device-42' });
+    const { onMessage } = createWsHandler({
+      session,
+      deliver: createOutboundDelivery(() => {}, vi.fn()),
+      driverId: 'device-42',
+    });
     // A client submit frame carries NO driverId field (structurally — TClientMessage has none); the handler
     // injects the bound server id.
     onMessage(JSON.stringify({ type: 'submit', prompt: 'hi', driverId: 'spoofed' }));

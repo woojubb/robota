@@ -190,7 +190,10 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
   it('regression: the WS createWsHandler path stamps NO seq', () => {
     const { session, fire } = fakeSession();
     const sent: unknown[] = [];
-    const { cleanup } = createWsHandler({ session, deliver: createOutboundDelivery((m) => sent.push(m), vi.fn()) });
+    const { cleanup } = createWsHandler({
+      session,
+      deliver: createOutboundDelivery((m) => sent.push(m), vi.fn()),
+    });
     fire('text_delta', 'a');
     expect(sent).toEqual([{ type: 'text_delta', delta: 'a' }]); // no `seq` field
     cleanup();
@@ -221,5 +224,92 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
     expect(failures).toEqual([{ message: 'data channel closed', event: 'branch_event' }]);
     expect(bridge.lastSeq).toBe(1); // retained for replay after the carrier reconnects
     bridge.dispose();
+  });
+
+  // ARCH-030: the bridge's own string-level try/catch is gone; its only guard is the per-attachment
+  // outbound boundary. These three pin the semantics that used to be side effects of `detach()`.
+  describe('the attachment boundary (ARCH-030)', () => {
+    it('reports ONCE across a failing multi-frame replay, and the dropped frames survive', () => {
+      const { session, fire } = fakeSession();
+      const failures: Array<{ message: string; event: string }> = [];
+      const bridge = new SessionResumeBridge({ session });
+
+      // Three frames buffered while no channel is attached — the reconnect gap.
+      fire('text_delta', 'a');
+      fire('text_delta', 'b');
+      fire('text_delta', 'c');
+      expect(bridge.lastSeq).toBe(3);
+
+      bridge.attach(
+        () => {
+          throw new Error('data channel closed');
+        },
+        {
+          awaitResume: true,
+          onDeliveryError: (error, event) => failures.push({ message: error.message, event }),
+        },
+      );
+      bridge.onClientMessage(JSON.stringify({ type: 'resume', lastSeq: 0 }));
+
+      // One report for the whole tail. Before the boundary this was one only because
+      // `reportDeliveryError` happened to `detach()` mid-loop; now it is the stated contract.
+      expect(failures).toEqual([{ message: 'data channel closed', event: 'text_delta' }]);
+
+      // Nothing was acked, so every frame is still replayable on the NEXT sink.
+      const healthy = sink();
+      bridge.attach(healthy, { awaitResume: true, onDeliveryError: vi.fn() });
+      bridge.onClientMessage(JSON.stringify({ type: 'resume', lastSeq: 0 }));
+      expect(frames(healthy).map((f) => f.seq)).toEqual([1, 2, 3]);
+      expect(frames(healthy).map((f) => f.delta)).toEqual(['a', 'b', 'c']);
+      bridge.dispose();
+    });
+
+    it('a fresh attach un-latches the connection, and seq stays continuous across the failure', () => {
+      const { session, fire } = fakeSession();
+      const bridge = new SessionResumeBridge({ session });
+      bridge.attach(
+        () => {
+          throw new Error('data channel closed');
+        },
+        { onDeliveryError: vi.fn() },
+      );
+      fire('text_delta', 'a');
+
+      const second = sink();
+      const secondFailures: string[] = [];
+      bridge.attach(second, { onDeliveryError: (error) => secondFailures.push(error.message) });
+      fire('text_delta', 'b');
+
+      // The new attachment delivers: a latched boundary is not carried across `attach`.
+      expect(frames(second).map((f) => f.seq)).toEqual([2]);
+      expect(secondFailures).toEqual([]);
+      expect(bridge.lastSeq).toBe(2); // the failed frame still consumed its seq
+      bridge.dispose();
+    });
+
+    it('routes a reply to an inbound frame through the same boundary as the event fan-out', () => {
+      const handlers = new Map<string, (arg: unknown) => void>();
+      const session = createTestInteractiveSession({
+        on: ((event: string, handler: (arg: unknown) => void) =>
+          handlers.set(event, handler)) as IInteractiveSession['on'],
+        off: ((event: string) => {
+          handlers.delete(event);
+        }) as IInteractiveSession['off'],
+      });
+      const failures: Array<{ message: string; event: string }> = [];
+      const bridge = new SessionResumeBridge({ session });
+      bridge.attach(
+        () => {
+          throw new Error('data channel closed');
+        },
+        { onDeliveryError: (error, event) => failures.push({ message: error.message, event }) },
+      );
+
+      // A synchronous query reply — before ARCH-030 the bridge guarded this at the string level, and
+      // the handler path next to it did not guard it at all.
+      expect(() => bridge.onClientMessage(JSON.stringify({ type: 'get-executing' }))).not.toThrow();
+      expect(failures).toEqual([{ message: 'data channel closed', event: 'executing' }]);
+      bridge.dispose();
+    });
   });
 });

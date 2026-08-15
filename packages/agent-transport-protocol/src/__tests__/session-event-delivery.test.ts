@@ -31,7 +31,10 @@ function createSession(): TEmittingSession {
 describe('protocol session-event delivery policy (ARCH-020/ARCH-028)', () => {
   it('mechanically matches every surface classification to an actual subscription', () => {
     const session = createSession();
-    const { cleanup } = createWsHandler({ session, deliver: createOutboundDelivery(vi.fn(), vi.fn()) });
+    const { cleanup } = createWsHandler({
+      session,
+      deliver: createOutboundDelivery(vi.fn(), vi.fn()),
+    });
     const classifiedForSubscription = Object.entries(PROTOCOL_SESSION_EVENT_CLASSIFICATION)
       .filter(([, classification]) => classification !== 'non-surface')
       .map(([event]) => event)
@@ -50,7 +53,10 @@ describe('protocol session-event delivery policy (ARCH-020/ARCH-028)', () => {
   it('forwards plan, context refresh, and branch events as typed protocol frames', () => {
     const session = createSession();
     const sent: TServerMessage[] = [];
-    createWsHandler({ session, deliver: createOutboundDelivery((message) => sent.push(message), vi.fn()) });
+    createWsHandler({
+      session,
+      deliver: createOutboundDelivery((message) => sent.push(message), vi.fn()),
+    });
 
     session.emitForTest('plan_event', { type: 'plan_created', plan: { id: 'plan-1' } });
     session.emitForTest('context_file_refreshed', { filePath: '/repo/AGENTS.md' });
@@ -70,12 +76,18 @@ describe('protocol session-event delivery policy (ARCH-020/ARCH-028)', () => {
   it('isolates a carrier send failure and reports its owning session event', () => {
     const session = createSession();
     const failures: Array<{ message: string; event: string }> = [];
-    createWsHandler({ session, deliver: createOutboundDelivery(() => {
-        throw new Error('socket closed');
-      }, (error, event) => {
-        failures.push({ message: error.message, event });
-        throw new Error('diagnostic callback failed');
-      }) });
+    createWsHandler({
+      session,
+      deliver: createOutboundDelivery(
+        () => {
+          throw new Error('socket closed');
+        },
+        (error, event) => {
+          failures.push({ message: error.message, event });
+          throw new Error('diagnostic callback failed');
+        },
+      ),
+    });
 
     expect(() =>
       session.emitForTest('branch_event', {
