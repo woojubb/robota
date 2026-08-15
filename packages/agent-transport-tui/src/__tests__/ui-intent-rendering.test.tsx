@@ -17,6 +17,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { useSideEffects } from '../hooks/useSideEffects.js';
 import { useStatusLineSettings } from '../hooks/useStatusLineSettings.js';
 import { TuiCliAdapterProvider } from '../tui-cli-adapter-context.js';
+import { TUI_SESSION_EVENT_CLASSIFICATION } from '../tui-session-events.js';
 
 import type { IUseSideEffectsOptions, IUseSideEffectsResult } from '../hooks/side-effects-types.js';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
@@ -55,6 +56,10 @@ class FakeSessionEmitter {
 
   listenerCount(event: string): number {
     return this.listeners.get(event)?.size ?? 0;
+  }
+
+  subscribedEvents(): string[] {
+    return [...this.listeners].filter(([, handlers]) => handlers.size > 0).map(([event]) => event);
   }
 
   setName = vi.fn();
@@ -207,17 +212,13 @@ describe('ui_intent → TUI screens (requester-routed, CMD-004 Stage C)', () => 
 
   it('unmounting unsubscribes the ui_intent and session_renamed listeners', async () => {
     const h = mountHarness();
-    await waitUntil(
-      () =>
-        h.session.listenerCount('ui_intent') === 1 &&
-        h.session.listenerCount('session_renamed') === 1,
-    );
+    const expected = Object.entries(TUI_SESSION_EVENT_CLASSIFICATION)
+      .filter(([, classification]) => classification === 'react-side-effect')
+      .map(([event]) => event)
+      .sort();
+    await waitUntil(() => h.session.subscribedEvents().sort().join() === expected.join());
     h.unmount();
-    await waitUntil(
-      () =>
-        h.session.listenerCount('ui_intent') === 0 &&
-        h.session.listenerCount('session_renamed') === 0,
-    );
+    await waitUntil(() => h.session.subscribedEvents().length === 0);
   });
 });
 

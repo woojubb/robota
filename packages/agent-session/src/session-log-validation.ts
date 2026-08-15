@@ -1,3 +1,5 @@
+import { isValidSessionLogExternalPayloadReference } from './external-payload-file-reader.js';
+
 import type { ISessionLogEntry } from './session-log-replay.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 
@@ -7,7 +9,8 @@ export interface ISessionReplayValidationIssue {
     | 'PROVIDER_NATIVE_RAW_PAYLOAD_MISSING'
     | 'PROVIDER_RESPONSE_NORMALIZED_MISSING'
     | 'TOOL_RESULT_MISSING'
-    | 'PAYLOAD_REFERENCE_INVALID';
+    | 'PAYLOAD_REFERENCE_INVALID'
+    | 'UNRESOLVED_REPLAY_PAYLOAD';
   message: string;
   eventIndex?: number;
   executionId?: string;
@@ -29,6 +32,7 @@ export function validateSessionReplayLogEntries(
 
   entries.forEach((entry, index) => {
     collectPayloadReferenceIssues(entry, index, issues);
+    collectUnresolvedReplayPayloadIssue(entry, index, issues);
     collectProviderReplayEvent(providerEvents, entry, index);
     collectToolReplayEvent(toolEvents, entry, index);
   });
@@ -102,9 +106,33 @@ function collectProviderReplayEvent(
   ) {
     events.nativeRawPayloads.add(key.key);
   }
-  if (entry.event === 'provider_response_normalized') {
+  if (
+    entry.event === 'provider_response_normalized' &&
+    !containsExternalPayloadReference(entry.response)
+  ) {
     events.normalizedResponses.add(key.key);
   }
+}
+
+function collectUnresolvedReplayPayloadIssue(
+  entry: ISessionLogEntry,
+  eventIndex: number,
+  issues: ISessionReplayValidationIssue[],
+): void {
+  const replayValue =
+    entry.event === 'history_mutation'
+      ? entry.message
+      : entry.event === 'provider_response_normalized'
+        ? entry.response
+        : undefined;
+  if (!containsExternalPayloadReference(replayValue)) return;
+  issues.push({
+    code: 'UNRESOLVED_REPLAY_PAYLOAD',
+    message: `Replay substrate ${entry.event} contains an unresolved external payload.`,
+    eventIndex,
+    executionId: typeof entry.executionId === 'string' ? entry.executionId : undefined,
+    round: typeof entry.round === 'number' ? entry.round : undefined,
+  });
 }
 
 function collectToolReplayEvent(
@@ -212,12 +240,7 @@ function collectPayloadReferenceIssues(
   }
   if (!isRecord(value)) return;
   if (value.kind === 'external-payload') {
-    if (
-      value.encoding !== 'json' ||
-      typeof value.sha256 !== 'string' ||
-      typeof value.relativePath !== 'string' ||
-      typeof value.byteLength !== 'number'
-    ) {
+    if (!isValidSessionLogExternalPayloadReference(value)) {
       issues.push({
         code: 'PAYLOAD_REFERENCE_INVALID',
         message: 'External payload reference is missing required replay fields.',
@@ -227,6 +250,15 @@ function collectPayloadReferenceIssues(
     return;
   }
   Object.values(value).forEach((child) => collectPayloadReferenceIssues(child, eventIndex, issues));
+}
+
+function containsExternalPayloadReference(value: TUniversalValue): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) => containsExternalPayloadReference(item));
+  }
+  if (!isRecord(value)) return false;
+  if (value.kind === 'external-payload') return true;
+  return Object.values(value).some((child) => containsExternalPayloadReference(child));
 }
 
 function isRecord(value: TUniversalValue): value is Record<string, TUniversalValue> {

@@ -136,11 +136,11 @@ describe('createSubagentSession', () => {
     expect(toolNames).toEqual(['Read', 'Grep']);
   });
 
-  it('should always exclude agent-spawning tools', () => {
+  it('excludes the legacy Agent tool and an alternate semantic spawn-command tool', () => {
     const tools = [
       makeTool('Read'),
       makeTool('Agent'),
-      makeTool('robota_command_agent'),
+      makeTool('robota_command_spawn-subagent-alt'),
       makeTool('Grep'),
     ];
     const agent = makeAgentDef();
@@ -153,6 +153,7 @@ describe('createSubagentSession', () => {
       provider: mockProvider,
       terminal: makeTerminal(),
       cwd: SUBAGENT_ROOT,
+      commandSemanticRoles: { subagentSpawn: 'spawn-subagent-alt' },
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -160,7 +161,24 @@ describe('createSubagentSession', () => {
     const toolNames = passedTools.map((t) => t.getName());
     expect(toolNames).toEqual(['Read', 'Grep']);
     expect(toolNames).not.toContain('Agent');
-    expect(toolNames).not.toContain('robota_command_agent');
+    expect(toolNames).not.toContain('robota_command_spawn-subagent-alt');
+  });
+
+  it('keeps an unannotated coincidental projected agent command when the role is absent', () => {
+    createSubagentSession({
+      agentDefinition: makeAgentDef(),
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: [makeTool('Agent'), makeTool('robota_command_agent')],
+      provider: mockProvider,
+      terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
+    });
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    const toolNames = (passedOptions['tools'] as IToolWithEventService[]).map((tool) =>
+      tool.getName(),
+    );
+    expect(toolNames).toEqual(['robota_command_agent']);
   });
 
   it('should resolve model shortcut "haiku"', () => {
@@ -563,6 +581,7 @@ describe('createSubagentSession', () => {
       provider: mockProvider,
       terminal: makeTerminal(),
       cwd: SUBAGENT_ROOT,
+      commandSemanticRoles: { subagentSpawn: 'agent' },
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;

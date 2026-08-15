@@ -7,9 +7,12 @@
 
 export type {
   ICapabilityPack,
+  ICapabilityPackMetadata,
   IMergedCapabilities,
   IRejectedCapability,
+  IRejectedCapabilityPack,
   TCapabilityKind,
+  TCompositionFieldPolicy,
 } from './capability-pack-types.js';
 
 export { mergeCapabilityPacks } from './merge-capability-packs.js';

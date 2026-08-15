@@ -2,7 +2,9 @@
 
 Composable runtime primitives for Robota background tasks and subagent orchestration.
 
-This package owns lifecycle/state/port contracts that are reused by SDK assembly, transports, and runtime shells. It does not create providers, sessions, child processes, Git worktrees, or UI state directly.
+This package owns lifecycle/state/port contracts reused by SDK assembly, transports, and runtime shells.
+Its two concrete command runners spawn child processes; provider/session creation, Git worktrees, and UI
+state remain outside this package.
 
 Background task handles may expose `logPath` and `transcriptPath` for append-only diagnostic streams. The runtime projects those paths into task state so SDK/CLI layers can persist resumable snapshots while high-frequency output stays in JSONL logs.
 
@@ -12,6 +14,9 @@ Background task handles may expose `logPath` and `transcriptPath` for append-onl
 - Own subagent manager contracts used by SDK `/agent` command execution and CLI background work display.
 - Keep process execution, provider calls, Git worktree I/O, and UI rendering outside the runtime boundary.
 - Surface `logPath` and `transcriptPath` so session records can store resumable references while logs remain append-only.
+- Resolve managed and scheduled command requests through one `resolveBackgroundTaskShellCommand` adapter.
+  The adapter returns an executable together with its matching `sh`/`bash`, PowerShell/`pwsh`, or `cmd`
+  arguments and rejects unknown explicit shells before spawn.
 
 ## Subagent Orchestration
 

@@ -55,6 +55,19 @@ const runtime = createAgentRuntime({
 const session = runtime.createSession({});
 ```
 
+The runtime creates a project-local session store by default, so sessions persist and
+`resumeSessionId` works without re-passing a store on every call. A per-session `sessionStore`
+replaces that runtime default; an explicit `sessionStore: undefined` disables persistence for one
+session. `createStatelessRuntime()` uses that explicit-undefined contract as its default, while still
+allowing a caller to opt one session into a supplied store.
+
+The maintained offline example verifies the runtime-default persist→resume path with two real
+sessions and no provider credentials:
+
+```bash
+pnpm --filter @robota-sdk/agent-framework scenario:verify
+```
+
 ### Runtime host (`robota --serve`)
 
 `buildRuntimeSession()` is the single session-construction seam: every presentation — the TUI channel
@@ -440,6 +453,17 @@ Background subagent lifecycle events are persisted through `InteractiveSession` 
 `Session.run()` forwards core execution events through the session logger. Current events include provider request envelopes, provider-native raw request/response/stream payloads, provider-normalized responses, assistant message commits, tool batch starts, tool execution requests, and tool execution results.
 
 Provider-native payload events are emitted by concrete provider packages through `IChatOptions.onProviderNativeRawPayload`, then redacted and externalized by the session logger before they are written to disk. The SDK exposes session command APIs so command modules such as `/validate-session` can validate replay coverage without adding file-log logic to CLI/TUI hosts.
+
+## Interactive Prompt Settlement
+
+`InteractiveSession` emits transport-neutral `permission_request` and `ask_request` events. Attached
+surfaces answer through `resolvePermission()` and `resolveAsk()`; the first answer wins and produces one
+`prompt_resolved` event. Session construction does not expose parallel `permissionHandler` or `askHandler`
+options, so local and remote surfaces share the same request/settlement path.
+
+Persisted checkpoint operations emit `branch_event` only after the transition and session save succeed.
+Transport-owned listeners must isolate their own delivery failures without changing arbitrary SDK listener
+exception behavior.
 
 ## Hook Executors (SDK-Specific)
 

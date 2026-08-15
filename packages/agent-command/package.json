@@ -30,6 +30,9 @@
     "typecheck": "tsgo --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "scenario:verify": "pnpm scenario:verify:semantic-command-roles",
+    "scenario:verify:semantic-command-roles": "pnpm exec tsx --conditions=source examples/verify-semantic-command-roles.ts",
+    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-command --output examples/scenarios/semantic-command-roles.record.json -- pnpm scenario:verify",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },

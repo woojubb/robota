@@ -1,5 +1,5 @@
 /**
- * TuiInteractionChannel — implements IInteractionChannel for the Ink TUI.
+ * TuiInteractionChannel — session-owning presentation surface for the Ink TUI.
  *
  * Moves session lifecycle (InteractiveSession, CommandRegistry, TuiStateManager)
  * out of React hooks and into a plain TypeScript class.
@@ -18,12 +18,14 @@ import {
 
 import { createSessionInitPoller } from './flows/session-init-poller.js';
 import { applySystemCommandResult } from './hooks/command-result-handler.js';
+import { bindTuiSessionEvent, bindTuiSessionNoticeEvents } from './tui-session-binding.js';
 import { buildTuiSessionOptions } from './tui-session-options.js';
 import { TuiStateManager } from './tui-state-manager.js';
 
 import type { ISessionInitPoller, TSessionInitFailure } from './flows/session-init-poller.js';
 import type { TerminalHandoffController } from './terminal-handoff-controller.js';
 import type { ITuiInteractionChannelOptions } from './tui-channel-options.js';
+import type { ITuiSessionEventBinding } from './tui-session-binding.js';
 import type { IPendingPermissionRequest } from './types.js';
 import type { TSessionEndReason } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
@@ -38,9 +40,7 @@ import type {
   IExecutionDetailPage,
   IExecutionResult,
   IExecutionWorkspaceEvent,
-  IInteractionChannel,
   IInteractiveSessionEvents,
-  InteractionEvent,
   TInteractiveEventName,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-transport';
@@ -53,7 +53,7 @@ const SHUTDOWN_TIMEOUT_MS = 5000;
 
 export type { ITuiInteractionChannelOptions } from './tui-channel-options.js';
 
-export class TuiInteractionChannel implements IInteractionChannel {
+export class TuiInteractionChannel {
   readonly stateManager: TuiStateManager;
 
   private readonly interactiveSession: InteractiveSession;
@@ -62,8 +62,8 @@ export class TuiInteractionChannel implements IInteractionChannel {
 
   private submitHandler: ((text: string) => Promise<void>) | null = null;
 
-  // CMD-004 unified ask path. Backs askHandler → InteractiveSession; rendered by App's
-  // PendingActionPrompt.
+  // CMD-004 unified ask path. Handles `ask_request` from InteractiveSession and is rendered by
+  // App's PendingActionPrompt.
   private userActionQueue: Array<{
     request: IActionRequest;
     resolve: (response: TUserActionResponse) => void;
@@ -97,10 +97,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
   private processingPermission = false;
 
   /** Retained session-event bindings so stop() can unwire every listener (CLI-075 RUNTIME-31). */
-  private sessionEventBindings: Array<{
-    event: TInteractiveEventName;
-    handler: (...args: never[]) => void;
-  }> = [];
+  private sessionEventBindings: ITuiSessionEventBinding[] = [];
   /** Idempotency guard for the full channel teardown (CLI-075). */
   private stopped = false;
 
@@ -130,17 +127,8 @@ export class TuiInteractionChannel implements IInteractionChannel {
     return registry;
   }
 
-  // ── IInteractionChannel ──────────────────────────────────────
-
   onSubmit(handler: (text: string) => Promise<void>): void {
     this.submitHandler = handler;
-  }
-
-  write(_event: InteractionEvent): void {
-    // Intentionally unused in TUI direct-wiring mode.
-    // TuiInteractionChannel subscribes to session events directly via start() →
-    // wireSessionEvents(), not through the IInteractionChannel event protocol used
-    // by createInteractiveRuntime. The two paths are mutually exclusive.
   }
 
   setAvailableCommands(commands: ICommandInfo[]): void {
@@ -471,7 +459,6 @@ export class TuiInteractionChannel implements IInteractionChannel {
     const onHistoryCleared = (): void => {
       manager.clearHistory();
     };
-
     this.bindSession('user_message', onUserMessage);
     this.bindSession('text_delta', manager.onTextDelta);
     this.bindSession('tool_start', manager.onToolStart);
@@ -486,6 +473,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
     this.bindSession('memory_event', onMemoryEvent);
     this.bindSession('execution_workspace_event', onExecutionWorkspaceEvent);
     this.bindSession('history_cleared', onHistoryCleared);
+    bindTuiSessionNoticeEvents(this.bindSession.bind(this), manager);
 
     // REMOTE-007: the TUI is a subscribed surface for the transport-neutral permission/ask events. It
     // renders each through its existing Ink queues and answers via `resolvePermission`/`resolveAsk`; a
@@ -495,12 +483,14 @@ export class TuiInteractionChannel implements IInteractionChannel {
       toolName,
       toolArgs,
     }) => {
-      void this.handlePermissionRequest(toolName, toolArgs, id).then((result) =>
-        session.resolvePermission(id, result),
-      );
+      void this.handlePermissionRequest(toolName, toolArgs, id)
+        .then((result) => session.resolvePermission(id, result))
+        .catch(() => session.resolvePermission(id, false));
     };
     const onAskRequest: IInteractiveSessionEvents['ask_request'] = ({ id, request }) => {
-      void this.askUser(request, id).then((response) => session.resolveAsk(id, response));
+      void this.askUser(request, id)
+        .then((response) => session.resolveAsk(id, response))
+        .catch(() => session.resolveAsk(id, { type: 'cancelled' }));
     };
     const onPromptResolved: IInteractiveSessionEvents['prompt_resolved'] = ({ id }) => {
       this.dismissPromptById(id);
@@ -515,8 +505,17 @@ export class TuiInteractionChannel implements IInteractionChannel {
     event: E,
     handler: IInteractiveSessionEvents[E],
   ): void {
-    this.interactiveSession.on(event, handler);
-    this.sessionEventBindings.push({ event, handler: handler as (...args: never[]) => void });
+    bindTuiSessionEvent(
+      this.interactiveSession,
+      event,
+      handler,
+      (error) => {
+        const report = this.opts.onSessionEventDeliveryError;
+        if (report) report(error, event);
+        else this.stateManager.addSessionEventDeliveryError(error, event);
+      },
+      this.sessionEventBindings,
+    );
   }
 
   /** Detach every session listener registered by `wireSessionEvents()` (CLI-075 RUNTIME-31). */

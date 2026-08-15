@@ -1,6 +1,12 @@
+import { createHash } from 'node:crypto';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, it, expect } from 'vitest';
 
 import { ReplayProvider } from '../replay-provider.js';
+import { SessionLogPayloadResolutionError } from '@robota-sdk/agent-session';
 
 import type { ISessionLogLine } from '@robota-sdk/agent-session';
 
@@ -99,5 +105,78 @@ describe('ReplayProvider (INFRA-017)', () => {
     for await (const chunk of provider.chatStream([])) chunks.push(chunk);
     expect(chunks).toHaveLength(1);
     expect(chunks[0]!.content).toBe('streamed');
+  });
+
+  it('ARCH-014: direct construction rejects an unresolved consumed response', () => {
+    const entries: ISessionLogLine[] = [
+      line('provider_response_normalized', {
+        executionId: 'e1',
+        round: 0,
+        response: {
+          kind: 'external-payload',
+          encoding: 'json',
+          sha256: 'a'.repeat(64),
+          byteLength: 10,
+          relativePath: 's1.payloads/response.json',
+        },
+      }),
+    ];
+
+    expect(() => new ReplayProvider({ entries })).toThrowError(
+      expect.objectContaining<Partial<SessionLogPayloadResolutionError>>({
+        code: 'UNRESOLVED_REFERENCE',
+      }),
+    );
+  });
+
+  it('ARCH-014: direct construction hydrates nested response references with an explicit base', async () => {
+    const baseDirectory = mkdtempSync(join(tmpdir(), 'robota-replay-provider-'));
+    try {
+      const serialized = JSON.stringify('hydrated content');
+      const sha256 = createHash('sha256').update(serialized).digest('hex');
+      writeFileSync(join(baseDirectory, 'content.json'), serialized);
+      const entries: ISessionLogLine[] = [
+        line('provider_response_normalized', {
+          executionId: 'e1',
+          round: 0,
+          response: {
+            role: 'assistant',
+            id: 'a1',
+            timestamp: '2026-08-15T00:00:00.000Z',
+            content: {
+              kind: 'external-payload',
+              encoding: 'json',
+              sha256,
+              byteLength: Buffer.byteLength(serialized),
+              relativePath: 'content.json',
+            },
+          },
+        }),
+      ];
+
+      const provider = new ReplayProvider({ entries, externalPayloadBaseDirectory: baseDirectory });
+
+      await expect(provider.chat([])).resolves.toEqual(
+        expect.objectContaining({ role: 'assistant', content: 'hydrated content' }),
+      );
+    } finally {
+      rmSync(baseDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('ARCH-014: ignores unresolved references outside normalized response events', () => {
+    const entries: ISessionLogLine[] = [
+      line('tool_execution_result', {
+        result: {
+          kind: 'external-payload',
+          encoding: 'json',
+          sha256: 'a'.repeat(64),
+          byteLength: 10,
+          relativePath: 'missing.json',
+        },
+      }),
+    ];
+
+    expect(new ReplayProvider({ entries }).recordedResponseCount).toBe(0);
   });
 });

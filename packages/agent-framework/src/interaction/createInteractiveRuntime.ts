@@ -76,9 +76,9 @@ function wireSessionEvents(session: IInteractiveSession, channel: IInteractionCh
   // (CMD-004) reach the channel exactly as before. (This runtime injects no permission surface, so
   // permission prompts fail closed just as they did without a permissionHandler.)
   const onAskRequest: IInteractiveSessionEvents['ask_request'] = ({ id, request }) => {
-    void Promise.resolve(channel.askUser(request)).then((response) =>
-      session.resolveAsk(id, response),
-    );
+    void Promise.resolve(channel.askUser(request))
+      .then((response) => session.resolveAsk(id, response))
+      .catch(() => session.resolveAsk(id, { type: 'cancelled' }));
   };
 
   session.on('text_delta', onDelta);

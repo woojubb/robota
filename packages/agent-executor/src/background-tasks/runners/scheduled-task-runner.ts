@@ -23,6 +23,7 @@ import {
   type IScheduleEditPatch,
   type TBackgroundTaskRunnerEvent,
 } from '../types.js';
+import { resolveBackgroundTaskShellCommand } from './shell-command-resolution.js';
 
 const DEFAULT_OUTPUT_LIMIT_BYTES = 30_000;
 
@@ -67,6 +68,11 @@ function startScheduledTask(
   emit: (event: TBackgroundTaskRunnerEvent) => void,
   options: IScheduledTaskRunnerOptions,
 ): IBackgroundTaskHandle {
+  // Fail closed synchronously before registering a schedule whose explicit executable is unsupported.
+  if (request.command !== undefined) {
+    resolveBackgroundTaskShellCommand({ ...request, command: request.command });
+  }
+
   let resolveResult!: (result: IBackgroundTaskResult) => void;
   const resultPromise = new Promise<IBackgroundTaskResult>((resolve) => {
     resolveResult = resolve;
@@ -168,8 +174,8 @@ function runOneFire(state: IScheduledTaskState): void {
     limitBytes: state.request.outputLimitBytes ?? DEFAULT_OUTPUT_LIMIT_BYTES,
   });
 
-  const shell = state.request.shell ?? 'sh';
-  const child = spawn(shell, ['-c', command], {
+  const shell = resolveBackgroundTaskShellCommand({ ...state.request, command });
+  const child = spawn(shell.executable, shell.args, {
     cwd: state.request.cwd,
     env: { ...process.env, ...(state.request.env ?? {}) },
     stdio: ['ignore', 'pipe', 'pipe'],

@@ -79,6 +79,35 @@ describe('ResponderGate (REMOTE-009 — browser pairing responder, fail-closed)'
     expect(JSON.parse(channelSends.at(-1)!)).toEqual({ type: 'submit', prompt: 'go' });
   });
 
+  it.each([
+    {
+      type: 'plan_event',
+      event: {
+        type: 'plan_created',
+        plan: {
+          id: 'plan-1',
+          objective: 'verify delivery',
+          steps: [],
+          phase: 'planning',
+          createdAt: '2026-08-15T00:00:00.000Z',
+        },
+      },
+    },
+    { type: 'context_file_refreshed', event: { filePath: '/repo/AGENTS.md' } },
+    {
+      type: 'branch_event',
+      event: { kind: 'branch_switched', checkpointId: 'turn-0002', branchId: 'branch-2' },
+    },
+  ] satisfies TServerMessage[])('post-accept delivers the $type frame unchanged', async (frame) => {
+    const { gate, hs, onMessage } = makeGate();
+    hs.accept();
+    await Promise.resolve();
+
+    gate.onInbound(JSON.stringify(frame));
+
+    expect(onMessage).toHaveBeenCalledWith(frame);
+  });
+
   it('send is a no-op before accept (nothing leaks pre-pairing)', () => {
     const { gate, channelSends } = makeGate();
     const before = channelSends.length;

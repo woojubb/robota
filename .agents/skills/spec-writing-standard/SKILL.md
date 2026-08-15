@@ -49,6 +49,9 @@ Use when no `docs/SPEC.md` exists for the package.
    - **State Lifecycle** — if the package manages stateful objects with transitions.
    - **Dependencies** — production dependencies and key peer contracts.
    - **Configuration** — required and optional configuration options.
+   - **User-Facing Contract** — if an end user (not calling code) directly observes and depends on
+     the package's surface: key bindings, terminal visual grammar, exit codes. See the placement
+     criterion in [`design-doc-authoring`](../design-doc-authoring/SKILL.md).
 
 4. **Verify consistency**: Every type name, export symbol, and error class referenced in the spec
    must exist in source.
@@ -133,6 +136,10 @@ Drift recovery is a dedicated PR. Do not mix drift recovery with feature work.
 
 ## Required Sections Reference
 
+**What goes in SPEC.md versus `docs/design/`** is decided by the consumer-impact test, owned by
+[`design-doc-authoring`](../design-doc-authoring/SKILL.md) > "Placement criterion". It is not
+restated here — read it before deciding where a fact belongs.
+
 All nine sections below are mandatory in every complete SPEC.md:
 
 | #   | Section                 | Purpose                            |
@@ -146,6 +153,18 @@ All nine sections below are mandatory in every complete SPEC.md:
 | 7   | Error Taxonomy          | Error types and codes              |
 | 8   | Test Strategy           | Coverage and gaps                  |
 | 9   | Class Contract Registry | implements/extends inventory       |
+
+Optional sections — include only when they apply. This table is the machine-readable enumeration;
+the prose in Mode A step 3 describes when each applies:
+
+| #   | Optional section     | Include when                                             |
+| --- | -------------------- | -------------------------------------------------------- |
+| O1  | Plugin/Hook Contract | the package has a plugin or hook system                  |
+| O2  | Event Architecture   | the package emits or consumes events                     |
+| O3  | State Lifecycle      | the package manages stateful objects with transitions    |
+| O4  | Dependencies         | production dependencies and key peer contracts matter    |
+| O5  | Configuration        | the package takes required or optional configuration     |
+| O6  | User-Facing Contract | an end user directly observes and depends on the surface |
 
 ---
 

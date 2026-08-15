@@ -255,7 +255,6 @@ export type {
   IContextFileRefreshedEvent,
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-  IResumableSessionSummary,
   IBranchEvent,
   IActiveBranchPointer,
   IGoalState,
@@ -268,6 +267,7 @@ export type {
   TPlanPhase,
   IPlanArtifact,
 } from './session-contracts.js';
+export type { IResumableSessionSummary } from './session-summary-contracts.js';
 
 // SEC-008: the SHAPE of an admission decision. The machinery that produces it lives in
 // @robota-sdk/agent-transport-protocol — an interface package carries no runtime dependency edge.

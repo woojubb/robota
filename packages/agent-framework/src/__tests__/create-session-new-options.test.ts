@@ -341,7 +341,7 @@ describe('createSession — command descriptor tool guidance', () => {
     }
   });
 
-  it('exposes skill metadata when the skills command is model-invocable', async () => {
+  it('exposes skill metadata for an alternate model-invocable skill-activation command id', async () => {
     const { createSession } = await import('../assembly/create-session.js');
     const cwd = mkdtempSync(join(tmpdir(), 'robota-create-session-skills-visible-'));
     mkdirSync(join(cwd, '.agents', 'skills', 'audit'), { recursive: true });
@@ -360,7 +360,7 @@ describe('createSession — command descriptor tool guidance', () => {
         provider: createMockProvider(),
         commandDescriptors: [
           {
-            name: 'skills',
+            name: 'activate-skill-alt',
             kind: 'builtin-command',
             description: 'Skill discovery command.',
             userInvocable: true,
@@ -368,6 +368,7 @@ describe('createSession — command descriptor tool guidance', () => {
             safety: 'read-only',
           },
         ],
+        commandSemanticRoles: { skillActivation: 'activate-skill-alt' },
         modelCommandExecutor: vi.fn(),
         isModelCommandInvocable: () => true,
       });
@@ -376,6 +377,38 @@ describe('createSession — command descriptor tool guidance', () => {
       const systemMessage = opts.systemMessage as string;
       expect(systemMessage).toContain('## Skills');
       expect(systemMessage).toContain('- audit: Audit code');
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('does not infer skill activation from an unannotated coincidental command name', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-create-session-skills-unannotated-'));
+    mkdirSync(join(cwd, '.agents', 'skills', 'audit'), { recursive: true });
+    writeFileSync(
+      join(cwd, '.agents', 'skills', 'audit', 'SKILL.md'),
+      ['---', 'name: audit', 'description: Audit code', '---', 'Audit'].join('\n'),
+      'utf-8',
+    );
+    try {
+      createSession({
+        config: baseConfig(),
+        cwd,
+        context: { agentsMd: '', projectNotesMd: '' },
+        terminal: MOCK_TERMINAL,
+        provider: createMockProvider(),
+        commandDescriptors: [
+          {
+            name: 'skills',
+            kind: 'builtin-command',
+            description: 'Coincidental name.',
+            userInvocable: true,
+            modelInvocable: true,
+          },
+        ],
+      });
+      expect(sessionCtorCalls[0]!.systemMessage as string).not.toContain('## Skills');
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }

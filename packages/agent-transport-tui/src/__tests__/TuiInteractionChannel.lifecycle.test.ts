@@ -41,6 +41,8 @@ vi.mock('@robota-sdk/agent-framework', async () => {
         getPendingPrompt: vi.fn().mockReturnValue(null),
         abort: vi.fn(),
         cancelQueue: vi.fn(),
+        resolvePermission: vi.fn(),
+        resolveAsk: vi.fn(),
         getContextState: vi.fn().mockReturnValue({
           usedPercentage: 0,
           usedTokens: 0,
@@ -64,12 +66,14 @@ vi.mock('@robota-sdk/agent-framework', async () => {
 });
 
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
+import { TUI_SESSION_EVENT_CLASSIFICATION } from '../tui-session-events.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type {
   IExecutionResult,
   IInteractiveSession,
   ITransportRegistryView,
+  TInteractiveEventName,
 } from '@robota-sdk/agent-interface-transport';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -81,6 +85,8 @@ type MockSession = {
   on: ReturnType<typeof vi.fn>;
   off: ReturnType<typeof vi.fn>;
   shutdown: ReturnType<typeof vi.fn>;
+  resolvePermission: ReturnType<typeof vi.fn>;
+  resolveAsk: ReturnType<typeof vi.fn>;
   emit: (event: string, ...args: unknown[]) => void;
   _listenerCount: () => number;
 };
@@ -122,6 +128,7 @@ function makeMockTransportRegistry(): {
 
 function makeChannel(opts?: {
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
+  onSessionEventDeliveryError?: (error: Error, event: TInteractiveEventName) => void;
 }): TuiInteractionChannel {
   return new TuiInteractionChannel({
     cwd: '/tmp/test',
@@ -413,5 +420,127 @@ describe('Group D — teardown hygiene (CLI-075)', () => {
     await vi.advanceTimersByTimeAsync(5_000);
     await done;
     expect(resolved).toBe(true);
+  });
+});
+
+describe('Group E — canonical prompt request settlement (ARCH-017)', () => {
+  it('E1: permission_request renders locally and settles through resolvePermission', async () => {
+    const channel = makeChannel();
+    await channel.start();
+    const session = getMockSession(channel);
+
+    emitSessionEvent(channel, 'permission_request', {
+      id: 'permission-1',
+      toolName: 'Bash',
+      toolArgs: { command: 'pwd' },
+    });
+    expect(channel.permissionRequest).toMatchObject({ toolName: 'Bash' });
+    channel.permissionRequest!.resolve(true);
+
+    await vi.waitFor(() => {
+      expect(session.resolvePermission).toHaveBeenCalledWith('permission-1', true);
+    });
+    await channel.stop();
+  });
+
+  it('E2: ask_request callback rejection settles cancelled through resolveAsk', async () => {
+    const channel = makeChannel();
+    await channel.start();
+    const session = getMockSession(channel);
+    vi.spyOn(channel, 'askUser').mockRejectedValueOnce(new Error('render failed'));
+
+    emitSessionEvent(channel, 'ask_request', {
+      id: 'ask-1',
+      request: { id: 'request-1', title: 'Choose' },
+    });
+
+    await vi.waitFor(() => {
+      expect(session.resolveAsk).toHaveBeenCalledWith('ask-1', { type: 'cancelled' });
+    });
+    await channel.stop();
+  });
+});
+
+describe('Group F — total session-event surface delivery (ARCH-020/ARCH-028)', () => {
+  it('F1: actual channel subscriptions exactly match the exhaustive channel classification', async () => {
+    const channel = makeChannel();
+    await channel.start();
+    const session = getMockSession(channel);
+    const expected = Object.entries(TUI_SESSION_EVENT_CLASSIFICATION)
+      .filter(([, classification]) => classification === 'channel')
+      .map(([event]) => event)
+      .sort();
+    const onCalls = session.on.mock.calls as Array<[string, (...args: unknown[]) => void]>;
+    expect(onCalls.map(([event]) => event).sort()).toEqual(expected);
+
+    await channel.stop();
+    const offCalls = session.off.mock.calls as Array<[string, (...args: unknown[]) => void]>;
+    expect(offCalls.map(([event]) => event).sort()).toEqual(expected);
+    for (const [event, handler] of onCalls) expect(offCalls).toContainEqual([event, handler]);
+  });
+
+  it('F2: plan, context refresh, and branch events append deterministic render notices', async () => {
+    const channel = makeChannel();
+    await channel.start();
+
+    emitSessionEvent(channel, 'plan_event', { type: 'plan_created', plan: { id: 'plan-1' } });
+    emitSessionEvent(channel, 'context_file_refreshed', { filePath: '/repo/AGENTS.md' });
+    emitSessionEvent(channel, 'branch_event', {
+      kind: 'branch_switched',
+      checkpointId: 'turn-0002',
+      branchId: 'branch-2',
+    });
+
+    expect(channel.stateManager.sessionEventNotices.map((notice) => notice.message)).toEqual([
+      'Plan plan created',
+      'Context refreshed: /repo/AGENTS.md',
+      'Branch branch switched: branch-2 @ turn-0002',
+    ]);
+    await channel.stop();
+  });
+
+  it('F3: a render handler failure is isolated and reported to the TUI owner callback', async () => {
+    const onDeliveryError = vi.fn(() => {
+      throw new Error('diagnostic callback failed');
+    });
+    const channel = makeChannel({ onSessionEventDeliveryError: onDeliveryError });
+    await channel.start();
+    vi.spyOn(channel.stateManager, 'addSessionEventNotice').mockImplementation(() => {
+      throw new Error('render projection failed');
+    });
+
+    expect(() =>
+      emitSessionEvent(channel, 'plan_event', {
+        type: 'plan_created',
+        plan: { id: 'plan-1' },
+      }),
+    ).not.toThrow();
+    expect(onDeliveryError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'render projection failed' }),
+      'plan_event',
+    );
+    await channel.stop();
+  });
+
+  it('F4: a render handler failure becomes a visible notice when no observer is injected', async () => {
+    const channel = makeChannel();
+    await channel.start();
+    vi.spyOn(channel.stateManager, 'addSessionEventNotice').mockImplementation(() => {
+      throw new Error('render projection failed');
+    });
+
+    expect(() =>
+      emitSessionEvent(channel, 'plan_event', {
+        type: 'plan_created',
+        plan: { id: 'plan-1' },
+      }),
+    ).not.toThrow();
+    expect(channel.stateManager.sessionEventNotices).toContainEqual(
+      expect.objectContaining({
+        event: 'delivery-error',
+        message: 'Session event delivery failed (plan_event): render projection failed',
+      }),
+    );
+    await channel.stop();
   });
 });

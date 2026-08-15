@@ -25,7 +25,7 @@
   },
   "packages/agent-core/src/utils/platform-shell.ts": {
     "count": 3,
-    "hashes": ["40d51af82f93", "757a8fad0315", "804cac6ceb9e"]
+    "hashes": ["40d51af82f93", "757a8fad0315", "f7d4d1c79eb6"]
   },
   "packages/agent-framework/src/agents/built-in-agents.ts": {
     "count": 3,

@@ -287,7 +287,6 @@ export abstract class InteractiveSessionBase {
       origin,
     );
   }
-
   listAgentDefinitions(): Array<{ name: string; description: string }> {
     return listAgentDefinitionsFromSession(this.getSessionOrThrow());
   }
@@ -301,6 +300,7 @@ export abstract class InteractiveSessionBase {
       input,
       this.getCwd(),
       this.skillRouter.getCommandInvocationSource(),
+      this.skillRouter.commandExecutor.getSemanticRoles().subagentSpawn,
     );
   }
   async waitAgentJob(jobId: string): Promise<ISubagentJobResult> {

@@ -151,6 +151,12 @@ Single root entry point: `import { ... } from '@robota-sdk/agent-command'`
 
 ## Extension Points
 
+The shipped executable commands declare framework-owned semantic roles beside their owner ids:
+`skills` declares `skillActivation`, `compact` declares `contextReduction`, and `agent` declares
+`subagentSpawn`. These declarations are metadata on the actual `ISystemCommand` values; this package
+does not maintain a parallel role-to-name registry. Renaming an owner command therefore changes only
+that command value, while the framework projection follows the declaration.
+
 - **`ICommandModule`** (from `agent-framework`): every command domain creates one via its factory function. Consumers can create additional `ICommandModule` values and register them alongside the defaults.
 - **`ICommandSource`** (from `agent-framework`): each `*CommandSource` class implements `ICommandSource`. The skills module pushes a second source (`SkillCommandSource` from `agent-framework`) to expose file-based skills loaded from `cwd`.
 - **`ICommandPluginAdapter`** (from `agent-framework`): `createDefaultPluginCommandAdapter` returns a production implementation. Consumers may supply a different adapter (e.g., in tests) that satisfies the same interface.
@@ -180,6 +186,13 @@ This package does not define custom error classes. All execution errors surface 
 The `plugins/default-plugin-command-adapter.ts` allows fallback on marketplace manifest fetch failure (non-fatal, returns empty list). This is marked `// allow-fallback` inline.
 
 ## Test Strategy
+
+The maintained public-SDK scenario
+`examples/verify-semantic-command-roles.ts` verifies the three shipped declarations, alternate command
+ids, unannotated coincidental names, independent role omission, direct `createSession()` omission, and
+typed duplicate rejection with atomic preservation. `scenario:verify:semantic-command-roles` runs it
+offline and `scenario:record` owns
+`examples/scenarios/semantic-command-roles.record.json` as its canonical observable.
 
 Test files: 22 (one per command module plus extras for `model-pricing`, `org-policy`, and `provider-setup-flow`).
 

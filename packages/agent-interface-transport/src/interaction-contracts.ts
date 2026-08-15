@@ -15,7 +15,6 @@ export type InteractionEvent =
   | { type: 'assistant-done'; fullText: string }
   | { type: 'tool-call'; id: string; name: string; args: unknown }
   | { type: 'tool-result'; id: string; name: string; result: unknown }
-  | { type: 'permission-resolved'; id: string; granted: boolean }
   | { type: 'command-result'; name: string; output: string }
   | { type: 'error'; error: Error };
 

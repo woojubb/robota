@@ -94,11 +94,9 @@ export class SessionSkillRouter {
     this.skillCommandSource = new SkillCommandSource(cwd);
     this.commandHostAdapters = commandHostAdapters;
   }
-
   /**
-   * PRESET-015 — re-filter the session's command modules and rebuild the executor live. INFRA-032:
-   * also returns any `enabled`/`disabled` names that matched no live command module, so the
-   * `/preset` command can surface them as a non-fatal notice instead of dropping them silently.
+   * PRESET-015 — re-filter the session's command modules and rebuild the executor live. INFRA-032 also
+   * returns unmatched `enabled`/`disabled` names so `/preset` can report them instead of dropping them.
    */
   reapplyCommandModuleSelection(
     enabled: readonly string[] | undefined,
@@ -158,7 +156,9 @@ export class SessionSkillRouter {
     const commandArgs = args.trim();
     if (!command) {
       const skill = this.findSkillCommand(normalizedName);
-      const skillsCommand = this.commandExecutor.getCommand('skills');
+      const skillsCommand = this.commandExecutor.getCommand(
+        this.commandExecutor.getSemanticRoles().skillActivation ?? '',
+      );
       if (!skill || !skillsCommand) return null;
       return this.executeCommandWithSource(
         source,

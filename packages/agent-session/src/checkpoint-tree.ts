@@ -3,7 +3,7 @@
  *
  * A pure, I/O-free branch-tree over opaque checkpoint-node ids — git-for-a-session with no file I/O,
  * no persistence, and no retention/prune policy. It lives beside the storage-neutral persistence
- * primitive (`SessionStore`/`ISessionRecord`): same neutral-mechanism class (opaque payloads, no
+ * primitive (`SessionStore`/`IInteractiveSessionRecord`): same neutral-mechanism class (opaque payloads, no
  * product policy). The agent-framework checkpoint store consumes it over the existing one-way
  * `agent-framework → agent-session` edge; the reverse edge would be a cycle and is forbidden.
  *

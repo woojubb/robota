@@ -53,6 +53,7 @@ export function createAgentSystemCommand(): ISystemCommand {
   const entry = createAgentCommandEntry();
   return {
     name: entry.name,
+    semanticRole: 'subagentSpawn',
     ...(entry.displayName !== undefined ? { displayName: entry.displayName } : {}),
     description: entry.description,
     requiresPermission: false,

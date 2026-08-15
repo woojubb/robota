@@ -10,7 +10,6 @@ import { runHooks, createLogger } from '@robota-sdk/agent-core';
 import type { CompactionOrchestrator } from './compaction-orchestrator.js';
 import type { ContextWindowTracker } from './context-window-tracker.js';
 import type { TSessionLogData } from './session-logger.js';
-import type { ISessionRecord, ISessionStore } from './session-store.js';
 import type { ICompactEvent, TCompactTrigger } from './session-types.js';
 import type { IToolSchema } from '@robota-sdk/agent-core';
 import type { Robota } from '@robota-sdk/agent-core';
@@ -20,6 +19,10 @@ import type {
   IHookInput,
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
+import type {
+  IInteractiveSessionRecord,
+  IInteractiveSessionStore,
+} from '@robota-sdk/agent-interface-transport';
 
 const logger = createLogger('SessionHistoryOps');
 
@@ -93,6 +96,7 @@ export async function compact(
     nonSystemHistory,
     instructions,
     signal,
+    ctx.trigger,
   );
 
   // Clear history, re-inject system message, then inject summary.
@@ -139,7 +143,7 @@ export interface IPersistContext {
   cwd: string;
   systemPrompt: string;
   toolSchemas: IToolSchema[];
-  sessionStore: ISessionStore;
+  sessionStore: IInteractiveSessionStore;
   robota: Robota;
   getFullHistory: () => Array<{
     id: string;
@@ -157,7 +161,8 @@ export function persistSession(ctx: IPersistContext): void {
 
   const existing = ctx.sessionStore.load(ctx.sessionId);
 
-  const record: ISessionRecord = {
+  const record: IInteractiveSessionRecord = {
+    ...existing,
     id: ctx.sessionId,
     name: existing?.name,
     cwd: ctx.cwd,

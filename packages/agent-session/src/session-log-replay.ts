@@ -1,7 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 import { messageToHistoryEntry } from '@robota-sdk/agent-core';
 
+import { resolveSessionLogExternalPayloads } from './external-payload-resolver.js';
+
+import type { ISessionLogPayloadResolutionOptions } from './external-payload-resolver.js';
 import type { IHistoryEntry, TUniversalMessage, TUniversalValue } from '@robota-sdk/agent-core';
 
 export interface ISessionLogEntry extends Record<string, TUniversalValue> {
@@ -22,21 +26,29 @@ export interface ISessionReplayRecord {
   memoryEvents: object[];
 }
 
+export type ISessionLogLoadOptions = Omit<ISessionLogPayloadResolutionOptions, 'baseDirectory'>;
+
 export { validateSessionReplayLogEntries } from './session-log-validation.js';
 export type {
   ISessionReplayValidationIssue,
   ISessionReplayValidationResult,
 } from './session-log-validation.js';
 
-export function loadSessionLogEntries(logFile: string): ISessionLogEntry[] {
-  if (!existsSync(logFile)) {
-    return [];
-  }
-  return readFileSync(logFile, 'utf-8')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((line) => JSON.parse(line) as ISessionLogEntry);
+export function loadSessionLogEntries(
+  logFile: string,
+  options: ISessionLogLoadOptions = {},
+): ISessionLogEntry[] {
+  const entries = existsSync(logFile)
+    ? readFileSync(logFile, 'utf-8')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .map((line) => JSON.parse(line) as unknown)
+    : [];
+  return resolveSessionLogExternalPayloads(entries, {
+    baseDirectory: dirname(logFile),
+    ...options,
+  }) as ISessionLogEntry[];
 }
 
 export function replaySessionLogEntries(

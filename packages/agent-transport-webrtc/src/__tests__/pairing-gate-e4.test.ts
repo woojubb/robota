@@ -1,7 +1,7 @@
 import { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { PairingGate } from '../pairing-gate.js';
 
@@ -68,7 +68,7 @@ describe('PairingGate E4 resume bridge (REMOTE-013)', () => {
 
     // Re-attach a new channel + resume → the gap frame replays with its ORIGINAL seq 2 (continuity).
     const sent2: string[] = [];
-    bridge.attach((d) => sent2.push(d));
+    bridge.attach((d) => sent2.push(d), { onDeliveryError: vi.fn() });
     bridge.onClientMessage(JSON.stringify({ type: 'resume', lastSeq: 1 }));
     expect(sent2.map((s) => JSON.parse(s).seq)).toEqual([2]);
     bridge.dispose();

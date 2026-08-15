@@ -339,12 +339,7 @@ export class EditCheckpointStore {
     return { branchId: this.activeBranch.get(sessionId) ?? DEFAULT_BRANCH_ID, checkpointId };
   }
 
-  /**
-   * SELFHOST-007: restore the active branch from a persisted pointer (on `--resume`). GRACEFUL
-   * DEGRADATION: if the pointer's checkpoint is absent from this session's manifest store (the two
-   * stores can drift — pointer in `~/.robota/sessions`, tree in `projectPaths.checkpoints`), it is
-   * ignored and the store keeps its linear-HEAD default (`resolveActiveHead`), never throwing.
-   */
+  /** Restore a persisted pointer; absent checkpoint-tree state degrades to the linear HEAD. */
   restoreActiveBranch(sessionId: string, pointer: IActiveBranchPointer | undefined): void {
     if (pointer === undefined) return;
     if (!this.buildTree(sessionId).has(pointer.checkpointId)) return; // drift → keep linear HEAD
@@ -360,7 +355,6 @@ export class EditCheckpointStore {
     }));
     return CheckpointTree.fromNodes(nodes, this.activeHead.get(sessionId));
   }
-
   private nextSequence(sessionId: string): number {
     const last = this.list(sessionId).at(-1);
     return (last?.sequence ?? 0) + 1;

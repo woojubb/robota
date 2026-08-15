@@ -95,6 +95,44 @@ const VIOLATING_ARCH_DOC =
   '# Capability Placement\n\n## Implementation Plan\n\n1. Build this later.\n';
 
 describe('findDocumentAuthorityFindings', () => {
+  // RULE-013: two classification changes to a BLOCKING gate, each pinned so it cannot regress.
+  const DESIGN_DOC_WITH_CONTRACT = ['# Renderer', '', '## Public API', '', '`render()`', ''].join(
+    '\n',
+  );
+
+  it('classifies a package design document as a design doc, including nested packages', async () => {
+    // Before RULE-013 this location was invisible to this gate, so the placement criterion the
+    // skill states was not in force anywhere a machine could see.
+    const root = await createFixture({
+      'packages/dag-nodes/tool/docs/design/renderer.md': DESIGN_DOC_WITH_CONTRACT,
+    });
+
+    const findings = await findDocumentAuthorityFindings({
+      root,
+      changedFiles: ['packages/dag-nodes/tool/docs/design/renderer.md'],
+    });
+
+    expect(findings.map((finding) => finding.file)).toContain(
+      'packages/dag-nodes/tool/docs/design/renderer.md',
+    );
+  });
+
+  it('does not classify an ADR as a design document', async () => {
+    // `.design/decisions/` is the ADR location the taxonomy declares and RULE-010's gate owns.
+    // Worse than a mislabel: the escape hatch derives from a packages|apps scope that a
+    // `.design/**` path cannot produce, so a finding here could not be cleared by any change.
+    const root = await createFixture({
+      '.design/decisions/ADR-002-auth-credits-package-boundaries.md': DESIGN_DOC_WITH_CONTRACT,
+    });
+
+    const findings = await findDocumentAuthorityFindings({
+      root,
+      changedFiles: ['.design/decisions/ADR-002-auth-credits-package-boundaries.md'],
+    });
+
+    expect(findings).toEqual([]);
+  });
+
   it('flags an architecture map containing an implementation plan section', async () => {
     const root = await createFixture({
       '.agents/specs/architecture-map/capability-placement.md': VIOLATING_ARCH_DOC,

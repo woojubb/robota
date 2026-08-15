@@ -10,7 +10,11 @@
  * (agent-session) is guaranteed to carry a response for every recorded provider call.
  */
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
-import { SESSION_LOG_EVENT } from '@robota-sdk/agent-session';
+import {
+  resolveSessionLogExternalPayloads,
+  SESSION_LOG_EVENT,
+  SessionLogPayloadResolutionError,
+} from '@robota-sdk/agent-session';
 
 import type { IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { ISessionLogLine } from '@robota-sdk/agent-session';
@@ -22,6 +26,12 @@ export interface IReplayProviderOptions {
   readonly name?: string;
   /** Provider version (default `1.0.0`). */
   readonly version?: string;
+  /** Base directory used only to resolve external payloads in consumed normalized responses. */
+  readonly externalPayloadBaseDirectory?: string;
+  /** Maximum nested external-payload references for direct construction or file loading. */
+  readonly maxExternalPayloadDepth?: number;
+  /** Aggregate external-payload byte limit for direct construction or file loading. */
+  readonly maxExternalPayloadTotalBytes?: number;
 }
 
 /** A provider that replays recorded `provider_response_normalized` responses from a session log. */
@@ -35,7 +45,7 @@ export class ReplayProvider extends AbstractAIProvider {
     super();
     this.name = options.name ?? 'replay';
     this.version = options.version ?? '1.0.0';
-    this.responses = extractRecordedResponses(options.entries);
+    this.responses = extractRecordedResponses(options);
   }
 
   /** Number of recorded provider responses available to replay. */
@@ -75,14 +85,65 @@ export class ReplayProvider extends AbstractAIProvider {
 }
 
 /** Pull the normalized provider responses out of recorded session-log lines, in order. */
-function extractRecordedResponses(entries: readonly ISessionLogLine[]): TUniversalMessage[] {
-  const responses: TUniversalMessage[] = [];
-  for (const entry of entries) {
+function extractRecordedResponses(options: IReplayProviderOptions): TUniversalMessage[] {
+  const recordedValues: unknown[] = [];
+  for (const entry of options.entries) {
     if (entry.event !== SESSION_LOG_EVENT.providerResponseNormalized) continue;
-    const normalized = normalizeRecordedMessage((entry as { response?: unknown }).response);
+    recordedValues.push((entry as { response?: unknown }).response);
+  }
+  const resolvedValues = resolveRecordedResponsePayloads(recordedValues, options);
+  const responses: TUniversalMessage[] = [];
+  for (const value of resolvedValues) {
+    const normalized = normalizeRecordedMessage(value);
     if (normalized) responses.push(normalized);
   }
   return responses;
+}
+
+function resolveRecordedResponsePayloads(
+  recordedValues: readonly unknown[],
+  options: IReplayProviderOptions,
+): readonly unknown[] {
+  const referencedIndexes: number[] = [];
+  const referencedValues: unknown[] = [];
+  recordedValues.forEach((value, index) => {
+    if (!containsExternalPayloadReference(value)) return;
+    referencedIndexes.push(index);
+    referencedValues.push(value);
+  });
+  if (referencedValues.length === 0) return recordedValues;
+  if (options.externalPayloadBaseDirectory === undefined) {
+    throw new SessionLogPayloadResolutionError(
+      'UNRESOLVED_REFERENCE',
+      'ReplayProvider received an unresolved external payload without a base directory.',
+    );
+  }
+  const hydrated = resolveSessionLogExternalPayloads(referencedValues, {
+    baseDirectory: options.externalPayloadBaseDirectory,
+    maxDepth: options.maxExternalPayloadDepth,
+    maxTotalBytes: options.maxExternalPayloadTotalBytes,
+  });
+  if (!Array.isArray(hydrated) || hydrated.length !== referencedValues.length) {
+    throw new SessionLogPayloadResolutionError(
+      'INVALID_JSON',
+      'Resolved replay responses did not preserve their array envelope.',
+    );
+  }
+  const resolvedValues = [...recordedValues];
+  referencedIndexes.forEach((recordedIndex, hydratedIndex) => {
+    resolvedValues[recordedIndex] = hydrated[hydratedIndex];
+  });
+  return resolvedValues;
+}
+
+function containsExternalPayloadReference(value: unknown, seen = new WeakSet<object>()): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  if (seen.has(value)) return false;
+  seen.add(value);
+  if (!Array.isArray(value) && 'kind' in value && value.kind === 'external-payload') return true;
+  return Array.isArray(value)
+    ? value.some((child) => containsExternalPayloadReference(child, seen))
+    : Object.values(value).some((child) => containsExternalPayloadReference(child, seen));
 }
 
 /** Coerce a JSON-roundtripped recorded message back into a `TUniversalMessage` (Date timestamp etc.). */

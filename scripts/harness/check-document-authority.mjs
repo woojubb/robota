@@ -66,8 +66,23 @@ function isArchitectureDoc(filePath) {
 }
 
 function isDesignDoc(filePath) {
+  // RULE-013 (T-17): `.design/decisions/` is the ADR location the taxonomy declares, and RULE-010's
+  // `adr` gate already owns it — one finding per defect, reported by its owner. Classifying ADRs as
+  // design docs is worse than a mislabel: `hasMatchingOwnerDocument()` derives its escape hatch from
+  // a `packages|apps` scope, which a `.design/**` path can never produce, so a finding there could
+  // not be cleared by ANY change, including the correct one. ADRs are immutable-then-superseded, so
+  // "update it alongside the SPEC" is not an action an ADR has.
+  if (filePath.startsWith('.design/decisions/')) return false;
   return (
     filePath.startsWith('.design/') ||
+    // RULE-013 (T-16): the location RULE-009 defined for design/LLD documents. Its absence here is
+    // why the placement criterion was not in force — the one blocking gate that judges content
+    // placement could not see the documents the criterion routes content into.
+    // Nesting-aware and apps-inclusive on purpose: a depth-1 glob would leave the 20 nested
+    // `packages/dag-nodes/*` packages invisible to this blocking gate — the HARNESS-052/INFRA-021
+    // defect the sibling scans in this same change explicitly avoid. `getPackageScope()` already
+    // handles `apps/`, and apps own SPECs, so they are in scope too.
+    /^(?:packages|apps)\/(?:[^/]+\/)?[^/]+\/docs\/design\/.+\.md$/.test(filePath) ||
     /^docs\/plans\/.+-design\.md$/.test(filePath) ||
     /^docs\/superpowers\/.*design.*\.md$/.test(filePath)
   );

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { formatCommandHelpMessage } from '../../command-api/help/help-command-api.js';
+import { DuplicateSystemCommandSemanticRoleError } from '../../command-api/contracts.js';
 import { BuiltinCommandSource, createBuiltinCommandModule } from '../builtin-source.js';
 import { SystemCommandExecutor, createSystemCommands } from '../system-command.js';
 
@@ -219,6 +220,77 @@ describe('SystemCommandExecutor', () => {
 
     expect(executor.listCommands()).toEqual([cmdA]);
     expect(executor.hasCommand('old')).toBe(false);
+  });
+
+  it('projects alternate command ids by semantic role', () => {
+    const executor = new SystemCommandExecutor([
+      {
+        name: 'activate-skill-alt',
+        semanticRole: 'skillActivation',
+        description: 'Activate a skill',
+        execute: () => ({ success: true, message: '' }),
+      },
+      {
+        name: 'reduce-context-alt',
+        semanticRole: 'contextReduction',
+        description: 'Reduce context',
+        execute: () => ({ success: true, message: '' }),
+      },
+    ]);
+    expect(executor.getSemanticRoles()).toEqual({
+      skillActivation: 'activate-skill-alt',
+      contextReduction: 'reduce-context-alt',
+    });
+  });
+
+  it('rejects duplicate semantic roles in constructor and register without mutation', () => {
+    const first: ISystemCommand = {
+      name: 'first',
+      semanticRole: 'skillActivation',
+      description: 'First',
+      execute: () => ({ success: true, message: '' }),
+    };
+    const duplicate: ISystemCommand = {
+      name: 'duplicate',
+      semanticRole: 'skillActivation',
+      description: 'Duplicate',
+      execute: () => ({ success: true, message: '' }),
+    };
+    expect(() => new SystemCommandExecutor([first, duplicate])).toThrow(
+      DuplicateSystemCommandSemanticRoleError,
+    );
+    const executor = new SystemCommandExecutor([first]);
+    expect(() => executor.register(duplicate)).toThrow(DuplicateSystemCommandSemanticRoleError);
+    expect(executor.listCommands()).toEqual([first]);
+    expect(executor.getSemanticRoles()).toEqual({ skillActivation: 'first' });
+  });
+
+  it('rejects duplicate semantic roles on replace atomically', () => {
+    const original: ISystemCommand = {
+      name: 'original',
+      semanticRole: 'subagentSpawn',
+      description: 'Original',
+      execute: () => ({ success: true, message: '' }),
+    };
+    const executor = new SystemCommandExecutor([original]);
+    expect(() =>
+      executor.replaceCommands([
+        {
+          name: 'first',
+          semanticRole: 'contextReduction',
+          description: 'First',
+          execute: () => ({ success: true, message: '' }),
+        },
+        {
+          name: 'second',
+          semanticRole: 'contextReduction',
+          description: 'Second',
+          execute: () => ({ success: true, message: '' }),
+        },
+      ]),
+    ).toThrow(DuplicateSystemCommandSemanticRoleError);
+    expect(executor.listCommands()).toEqual([original]);
+    expect(executor.getSemanticRoles()).toEqual({ subagentSpawn: 'original' });
   });
 
   it('executes arbitrary injected command modules without knowing their names in SDK core', async () => {

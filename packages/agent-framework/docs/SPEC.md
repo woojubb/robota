@@ -41,7 +41,11 @@ This package does NOT own: provider implementations, generic session run loop, t
 - Update check: `checkForCliUpdate()`, related helpers
 - Git utilities: `resolveGitBranch()`
 - Semver utilities: `compareSemverVersions()`, `isNewerSemverVersion()`
-- Runtime re-exports: NONE for contract types (INFRA-025) — background-task/subagent data contracts live in `@robota-sdk/agent-interface-transport` and are not re-exported here; the internal `background-tasks/`/`subagents/` barrels re-export only executor runtime SPI for intra-package organization.
+- Runtime contract facades (INFRA-025): background-task/subagent data contracts live in
+  `@robota-sdk/agent-interface-transport` and are not duplicated here. The two explicit
+  `background-tasks/` and `subagents/` facades intentionally narrow and re-export executor runtime SPI;
+  the top-level framework entry may surface those framework-documented facades and no other
+  `agent-executor` path.
 
 ### What does NOT live here
 
@@ -65,85 +69,94 @@ Key design rules:
 - **Assembly first**: all features are implemented by composing existing packages.
 - **Provider-neutral**: the consumer (CLI, server, worker) creates the provider and passes it in.
 - **React-free**: no React or Ink dependency; those belong in `agent-cli`.
-- **No pass-through re-exports** (INFRA-025): the public index exposes framework-OWNED symbols only. Interface-transport-owned contract names (78 removed 2026-07-04) must be imported from `@robota-sdk/agent-interface-transport`; the `interface-imports` scan also catches `export … from` pass-throughs.
+- **No pass-through re-exports** (INFRA-025, ARCH-022): every public source root declared by the package
+  `exports` map, and every local re-export reachable from those roots, exposes framework-owned symbols
+  only. General-purpose env helpers, session-id guards, and tool APIs are imported directly from
+  `@robota-sdk/agent-core`, `@robota-sdk/agent-session`, and `@robota-sdk/agent-tools`. The only lower
+  contract types re-exported through the framework are the documented `agent-executor` facades in
+  `background-tasks/index.ts` and `subagents/index.ts`; concrete runtime values remain owner-direct
+  imports from `@robota-sdk/agent-executor`. The public-surface guard follows the complete cycle-safe
+  local export graph and fails closed on an unresolved local edge.
 
 ## Type Ownership
 
-| Type                                                                  | Location                                                                                               | Purpose                                                                                                               |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `IInteractiveSession` + named `ISession*` roles                       | `@robota-sdk/agent-interface-transport` (SSOT; ARCH-012)                                               | Legacy full session interface plus capability-scoped consumer ports; framework supplies the full implementation       |
-| `TInteractiveSessionOptions`                                          | `src/interactive/interactive-session-options.ts`                                                       | Constructor options for `InteractiveSession`                                                                          |
-| `IInteractiveSessionShutdownOptions`                                  | `src/interactive/interactive-session.ts`                                                               | Options for graceful session shutdown                                                                                 |
-| `IInteractiveSessionEvents`                                           | `src/interactive/types.ts`                                                                             | Event map for all session events                                                                                      |
-| `IInteractiveSessionRecord`                                           | `@robota-sdk/agent-interface-transport` (SSOT; DATA-001 — framework only imports + locally re-exports) | Persisted session record shape                                                                                        |
-| `IInteractiveSessionStore`                                            | `@robota-sdk/agent-interface-transport` (SSOT; DATA-001 — framework only imports + locally re-exports) | Session persistence adapter interface                                                                                 |
-| `IResumableSessionSummary`                                            | `@robota-sdk/agent-interface-transport` (SSOT; DATA-001 — framework only imports + locally re-exports) | Lightweight session summary for session picker                                                                        |
-| `IToolState`                                                          | `src/interactive/types.ts`                                                                             | Tool execution state visible to clients                                                                               |
-| `IDiffLine`                                                           | `src/interactive/types.ts`                                                                             | One diff line for Edit tool display metadata                                                                          |
-| `IExecutionResult`                                                    | `src/interactive/types.ts`                                                                             | Result of a completed prompt execution                                                                                |
-| `IToolSummary`                                                        | `src/interactive/types.ts`                                                                             | Summary of a tool call extracted from history                                                                         |
-| `IUsageSnapshot`                                                      | `src/interactive/types.ts`                                                                             | Provider-neutral execution usage record                                                                               |
-| `TPermissionResultValue`                                              | `src/interactive/types.ts`                                                                             | Permission handler result: `true`, `false`, `'allow-session'`, `'allow-project'`                                      |
-| `TInteractivePermissionHandler`                                       | `src/interactive/types.ts`                                                                             | Client-provided permission approval callback                                                                          |
-| `TInteractiveEventName`                                               | `src/interactive/types.ts`                                                                             | Union of all event names                                                                                              |
-| `IContextFileRefreshedEvent`                                          | `src/interactive/types.ts`                                                                             | Event emitted when a context file is refreshed                                                                        |
-| `ITransportAdapter`                                                   | `@robota-sdk/agent-interface-transport` (import from SSOT; no longer re-exported)                      | Common interface for transport adapters                                                                               |
-| `IConfigurableTransport`                                              | `@robota-sdk/agent-interface-transport` (no longer re-exported — import from SSOT)                     | Transport with configurable options                                                                                   |
-| `ITransportConfig`                                                    | `@robota-sdk/agent-interface-transport` (no longer re-exported — import from SSOT)                     | Transport configuration shape                                                                                         |
-| `ISkillActivationEvent`                                               | `src/commands/skill-activation-events.ts`                                                              | Structured skill activation record                                                                                    |
-| `ISystemCommand`                                                      | `src/command-api/contracts.ts`                                                                         | Command metadata and execute contract                                                                                 |
-| `ICommandModule`                                                      | `src/command-api/command-module.ts`                                                                    | Composition unit for command modules                                                                                  |
-| `ICommandHostContext`                                                 | `src/command-api/host-context.ts`                                                                      | Narrow facade for command module implementations                                                                      |
-| `ICommandHostAdapters`                                                | `src/command-api/host-adapters.ts`                                                                     | Host-provided adapter bag                                                                                             |
-| `ICommandResult`                                                      | `src/command-api/contracts.ts`                                                                         | Command output and typed host effects                                                                                 |
-| `TCommandHostAction` / `TCommandUiIntent`                             | `@robota-sdk/agent-interface-transport` (re-exported via `src/command-api/effects.ts`)                 | CMD-004 Phase 2 split contract: host-executed actions vs surface-rendered UI intents                                  |
-| `IPresetApplicationOptions`                                           | `src/command-api/preset/preset-application.ts`                                                         | Framework-owned resolved-preset option subset re-applied to a live session (PRESET-011~017)                           |
-| `IPresetApplicationResult`                                            | `src/command-api/preset/preset-application.ts`                                                         | `{ applied, skipped }` report from `applyPresetToSession`                                                             |
-| `IModelReapplyOptions`                                                | `src/command-api/host-context.ts`                                                                      | Live model group (`model`/`effort`/`temperature`/`maxOutputTokens`) re-applied via `applyModelOptions` (PRESET-013)   |
-| `TSystemPromptSectionSource`                                          | `src/context/system-prompt-types.ts`                                                                   | Source tag for a system-prompt section (`framework`, `persona`, `self-verification`, `runtime`, …)                    |
-| `ICapabilityDescriptor`                                               | `src/capabilities/types.ts`                                                                            | Model-visible command descriptor                                                                                      |
-| `TCapabilityKind`                                                     | `src/capabilities/types.ts`                                                                            | Capability kind union                                                                                                 |
-| `TCapabilitySafety`                                                   | `src/capabilities/types.ts`                                                                            | Capability safety level                                                                                               |
-| `IOrgPolicy`                                                          | `src/command-api/org-policy/`                                                                          | Org-level policy constraints                                                                                          |
-| `IAgentRuntimeConfig`                                                 | `src/runtime/agent-runtime.ts`                                                                         | Configuration for `createAgentRuntime()`                                                                              |
-| `IAgentRuntime`                                                       | `src/runtime/agent-runtime.ts`                                                                         | Runtime composition factory interface                                                                                 |
-| `IHeadlessSessionOptions`                                             | `src/runtime/agent-runtime.ts`                                                                         | Per-session options for headless/multi-session use                                                                    |
-| `IAgentDefinition`                                                    | `src/agents/index.ts`                                                                                  | Agent definition shape (name, description, systemPrompt, tools)                                                       |
-| `IEditCheckpointSummary`                                              | `src/checkpoints/index.ts`                                                                             | Checkpoint summary for list/inspect                                                                                   |
-| `IEditCheckpointInspection`                                           | `src/checkpoints/index.ts`                                                                             | Full checkpoint inspection with file list                                                                             |
-| `IEditCheckpointRecorder`                                             | `src/checkpoints/index.ts`                                                                             | Port for checkpoint capture integration                                                                               |
-| `IReversibleExecutionOptions`                                         | `src/reversible-execution/index.ts`                                                                    | Options for reversible execution mode                                                                                 |
-| `IReversibleToolSafetyReport`                                         | `src/reversible-execution/index.ts`                                                                    | Classification report for a tool call                                                                                 |
-| `ISelfHostingVerificationPlan`                                        | `src/self-hosting/index.ts`                                                                            | Ordered verification step plan                                                                                        |
-| `TSelfHostingLoopState`                                               | `src/self-hosting/index.ts`                                                                            | Self-hosting lifecycle state                                                                                          |
-| `IMetric` / `IEvalCase` / `IEvalDefinition`                           | `src/evals/eval-types.ts`                                                                              | SELFHOST-011: eval metric (pure fn over `IExecutionResult`), case, and definition (cases × metrics × threshold)       |
-| `IEvalReport` / `IEvalCaseResult` / `IEvalMetricScore` / `TEvalRunFn` | `src/evals/eval-types.ts`                                                                              | SELFHOST-011: eval report/per-case result/per-metric score + the injected run-function type                           |
-| `IBundlePluginManifest`                                               | `src/plugins/index.ts`                                                                                 | Plugin metadata: name, version, description                                                                           |
-| `ILoadedBundlePlugin`                                                 | `src/plugins/index.ts`                                                                                 | Full bundle: manifest + tools, hooks, permissions, systemPrompt                                                       |
-| `IPluginSettings`                                                     | `src/plugins/index.ts`                                                                                 | Plugin enable/disable settings                                                                                        |
-| `IResolvedConfig`                                                     | `src/config/config-types.ts`                                                                           | Fully resolved SDK configuration                                                                                      |
-| `TSettingsData`                                                       | `src/config/settings-io.ts`                                                                            | Generic settings document shape                                                                                       |
-| `TSettingsScope`                                                      | `src/config/settings-io.ts`                                                                            | `'user'` or `'project-local'`                                                                                         |
-| `IResetUserConfigResult`                                              | `src/config/reset-user-config.ts`                                                                      | Result of resetting user configuration                                                                                |
-| `ITaskContextFile`                                                    | `src/context/task-context.ts`                                                                          | Discovered task file shape                                                                                            |
-| `TTaskFileStatus`                                                     | `src/context/task-context.ts`                                                                          | Task status union                                                                                                     |
-| `IPromptFileReferenceRecord`                                          | `src/context/prompt-file-references.ts`                                                                | Resolved prompt file reference metadata                                                                               |
-| `TPromptFileReferenceDiagnosticCode`                                  | `src/context/prompt-file-references.ts`                                                                | Diagnostic code for reference errors                                                                                  |
-| `IUserLocalStorageInspection`                                         | `src/user-local/index.ts`                                                                              | User-local storage inspection projection                                                                              |
-| `IUserLocalMemoryItemProjection`                                      | `src/user-local/index.ts`                                                                              | Memory item with display/navigation metadata                                                                          |
-| `TUserLocalMemoryCategory`                                            | `src/user-local/index.ts`                                                                              | Allowed user-local memory category union                                                                              |
-| `IMemoryStore`                                                        | `src/memory/types.ts`                                                                                  | Neutral **async** durable-memory DIP port — composition of the four role interfaces below (SELFHOST-008 P1R)          |
-| `IDurableMemoryReader`                                                | `src/memory/types.ts`                                                                                  | Read role — `loadStartupMemory`/`list`/`readTopic` (async)                                                            |
-| `IMemoryWriter`                                                       | `src/memory/types.ts`                                                                                  | Write role — `append` (async)                                                                                         |
-| `IMemoryRecaller`                                                     | `src/memory/types.ts`                                                                                  | Recall role — `recall(query, IMemoryBudget)` (async)                                                                  |
-| `IMemoryCurationQueue`                                                | `src/memory/types.ts`                                                                                  | Curation-queue role — `getPending`/`listPending`/`markPending`/`upsertPending` (async)                                |
-| `IMemoryBudget`                                                       | `src/memory/types.ts`                                                                                  | Recall budget (`maxTopics`/`maxTopicChars`)                                                                           |
-| `IPerTurnRecallConfig`                                                | `src/memory/types.ts`                                                                                  | SELFHOST-008 P3: surface-supplied per-turn recall policy (`budget`); presence enables per-turn recall (adapter-gated) |
-| `ISemanticMemoryAdapter`                                              | `src/memory/types.ts`                                                                                  | Duck-typed semantic/vector memory backend port (P4); consumed by `SemanticMemoryStore`                                |
-| `ISemanticMemoryQueryResult`                                          | `src/memory/types.ts`                                                                                  | A semantic recall hit                                                                                                 |
-| `ISkillPromptContext`                                                 | `src/utils/skill-prompt.ts`                                                                            | Variable substitution context for skill prompts                                                                       |
-| `ICliUpdateNotice`                                                    | `src/update-check/update-check.ts`                                                                     | CLI update notification data                                                                                          |
-| `TCliUpdateCheckResult`                                               | `src/update-check/update-check.ts`                                                                     | Result of a CLI update check                                                                                          |
+| Type                                                                  | Location                                                                                               | Purpose                                                                                                                 |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `IInteractiveSession` + named `ISession*` roles                       | `@robota-sdk/agent-interface-transport` (SSOT; ARCH-012)                                               | Legacy full session interface plus capability-scoped consumer ports; framework supplies the full implementation         |
+| `TInteractiveSessionOptions`                                          | `src/interactive/interactive-session-options.ts`                                                       | Constructor options for `InteractiveSession`                                                                            |
+| `IInteractiveSessionShutdownOptions`                                  | `src/interactive/interactive-session.ts`                                                               | Options for graceful session shutdown                                                                                   |
+| `IInteractiveSessionEvents`                                           | `src/interactive/types.ts`                                                                             | Event map for all session events                                                                                        |
+| `IInteractiveSessionRecord`                                           | `@robota-sdk/agent-interface-transport` (SSOT; DATA-001 — framework only imports + locally re-exports) | Persisted session record shape                                                                                          |
+| `IInteractiveSessionStore`                                            | `@robota-sdk/agent-interface-transport` (SSOT; DATA-001 — framework only imports + locally re-exports) | Session persistence adapter interface                                                                                   |
+| `IResumableSessionSummary`                                            | `@robota-sdk/agent-interface-transport` (SSOT; DATA-001 — framework only imports + locally re-exports) | Lightweight session summary for session picker                                                                          |
+| `IToolState`                                                          | `src/interactive/types.ts`                                                                             | Tool execution state visible to clients                                                                                 |
+| `IDiffLine`                                                           | `src/interactive/types.ts`                                                                             | One diff line for Edit tool display metadata                                                                            |
+| `IExecutionResult`                                                    | `src/interactive/types.ts`                                                                             | Result of a completed prompt execution                                                                                  |
+| `IToolSummary`                                                        | `src/interactive/types.ts`                                                                             | Summary of a tool call extracted from history                                                                           |
+| `IUsageSnapshot`                                                      | `src/interactive/types.ts`                                                                             | Provider-neutral execution usage record                                                                                 |
+| `TPermissionResultValue`                                              | `src/interactive/types.ts`                                                                             | Permission handler result: `true`, `false`, `'allow-session'`, `'allow-project'`                                        |
+| `TInteractivePermissionHandler`                                       | `src/interactive/types.ts`                                                                             | Client-provided permission approval callback                                                                            |
+| `TInteractiveEventName`                                               | `src/interactive/types.ts`                                                                             | Union of all event names                                                                                                |
+| `IContextFileRefreshedEvent`                                          | `src/interactive/types.ts`                                                                             | Event emitted when a context file is refreshed                                                                          |
+| `ITransportAdapter`                                                   | `@robota-sdk/agent-interface-transport` (import from SSOT; no longer re-exported)                      | Common interface for transport adapters                                                                                 |
+| `IConfigurableTransport`                                              | `@robota-sdk/agent-interface-transport` (no longer re-exported — import from SSOT)                     | Transport with configurable options                                                                                     |
+| `ITransportConfig`                                                    | `@robota-sdk/agent-interface-transport` (no longer re-exported — import from SSOT)                     | Transport configuration shape                                                                                           |
+| `ISkillActivationEvent`                                               | `src/commands/skill-activation-events.ts`                                                              | Structured skill activation record                                                                                      |
+| `ISystemCommand`                                                      | `src/command-api/contracts.ts`                                                                         | Command metadata and execute contract                                                                                   |
+| `TSystemCommandSemanticRole` / `ISystemCommandSemanticRoles`          | `src/command-api/contracts.ts`                                                                         | Closed command-owner semantic roles and the optional role-to-command-id projection resolved from a composed command set |
+| `DuplicateSystemCommandSemanticRoleError`                             | `src/command-api/contracts.ts`                                                                         | Typed composition failure for two selected commands claiming the same semantic role                                     |
+| `ICommandModule`                                                      | `src/command-api/command-module.ts`                                                                    | Composition unit for command modules                                                                                    |
+| `ICommandHostContext`                                                 | `src/command-api/host-context.ts`                                                                      | Narrow facade for command module implementations                                                                        |
+| `ICommandHostAdapters`                                                | `src/command-api/host-adapters.ts`                                                                     | Host-provided adapter bag                                                                                               |
+| `ICommandResult`                                                      | `src/command-api/contracts.ts`                                                                         | Command output and typed host effects                                                                                   |
+| `TCommandHostAction` / `TCommandUiIntent`                             | `@robota-sdk/agent-interface-transport` (re-exported via `src/command-api/effects.ts`)                 | CMD-004 Phase 2 split contract: host-executed actions vs surface-rendered UI intents                                    |
+| `IPresetApplicationOptions`                                           | `src/command-api/preset/preset-application.ts`                                                         | Framework-owned resolved-preset option subset re-applied to a live session (PRESET-011~017)                             |
+| `IPresetApplicationResult`                                            | `src/command-api/preset/preset-application.ts`                                                         | `{ applied, skipped }` report from `applyPresetToSession`                                                               |
+| `IModelReapplyOptions`                                                | `src/command-api/host-context.ts`                                                                      | Live model group (`model`/`effort`/`temperature`/`maxOutputTokens`) re-applied via `applyModelOptions` (PRESET-013)     |
+| `TSystemPromptSectionSource`                                          | `src/context/system-prompt-types.ts`                                                                   | Source tag for a system-prompt section (`framework`, `persona`, `self-verification`, `runtime`, …)                      |
+| `ICapabilityDescriptor`                                               | `src/capabilities/types.ts`                                                                            | Model-visible command descriptor                                                                                        |
+| `TCapabilityKind`                                                     | `src/capabilities/types.ts`                                                                            | Capability kind union                                                                                                   |
+| `TCapabilitySafety`                                                   | `src/capabilities/types.ts`                                                                            | Capability safety level                                                                                                 |
+| `IOrgPolicy`                                                          | `src/command-api/org-policy/`                                                                          | Org-level policy constraints                                                                                            |
+| `IAgentRuntimeConfig`                                                 | `src/runtime/agent-runtime.ts`                                                                         | Configuration for `createAgentRuntime()`                                                                                |
+| `IAgentRuntime`                                                       | `src/runtime/agent-runtime.ts`                                                                         | Runtime composition factory interface                                                                                   |
+| `IHeadlessSessionOptions`                                             | `src/runtime/agent-runtime.ts`                                                                         | Per-session options for headless/multi-session use                                                                      |
+| `IAgentDefinition`                                                    | `src/agents/index.ts`                                                                                  | Agent definition shape (name, description, systemPrompt, tools)                                                         |
+| `IEditCheckpointSummary`                                              | `src/checkpoints/index.ts`                                                                             | Checkpoint summary for list/inspect                                                                                     |
+| `IEditCheckpointInspection`                                           | `src/checkpoints/index.ts`                                                                             | Full checkpoint inspection with file list                                                                               |
+| `IEditCheckpointRecorder`                                             | `src/checkpoints/index.ts`                                                                             | Port for checkpoint capture integration                                                                                 |
+| `IReversibleExecutionOptions`                                         | `src/reversible-execution/index.ts`                                                                    | Options for reversible execution mode                                                                                   |
+| `IReversibleToolSafetyReport`                                         | `src/reversible-execution/index.ts`                                                                    | Classification report for a tool call                                                                                   |
+| `ISelfHostingVerificationPlan`                                        | `src/self-hosting/index.ts`                                                                            | Ordered verification step plan                                                                                          |
+| `TSelfHostingLoopState`                                               | `src/self-hosting/index.ts`                                                                            | Self-hosting lifecycle state                                                                                            |
+| `IMetric` / `IEvalCase` / `IEvalDefinition`                           | `src/evals/eval-types.ts`                                                                              | SELFHOST-011: eval metric (pure fn over `IExecutionResult`), case, and definition (cases × metrics × threshold)         |
+| `IEvalReport` / `IEvalCaseResult` / `IEvalMetricScore` / `TEvalRunFn` | `src/evals/eval-types.ts`                                                                              | SELFHOST-011: eval report/per-case result/per-metric score + the injected run-function type                             |
+| `IBundlePluginManifest`                                               | `src/plugins/index.ts`                                                                                 | Plugin metadata: name, version, description                                                                             |
+| `ILoadedBundlePlugin`                                                 | `src/plugins/index.ts`                                                                                 | Full bundle: manifest + tools, hooks, permissions, systemPrompt                                                         |
+| `IPluginSettings`                                                     | `src/plugins/index.ts`                                                                                 | Plugin enable/disable settings                                                                                          |
+| `IResolvedConfig`                                                     | `src/config/config-types.ts`                                                                           | Fully resolved SDK configuration                                                                                        |
+| `TSettingsData`                                                       | `src/config/settings-io.ts`                                                                            | Generic settings document shape                                                                                         |
+| `TSettingsScope`                                                      | `src/config/settings-io.ts`                                                                            | `'user'` or `'project-local'`                                                                                           |
+| `IResetUserConfigResult`                                              | `src/config/reset-user-config.ts`                                                                      | Result of resetting user configuration                                                                                  |
+| `ITaskContextFile`                                                    | `src/context/task-context.ts`                                                                          | Discovered task file shape                                                                                              |
+| `TTaskFileStatus`                                                     | `src/context/task-context.ts`                                                                          | Task status union                                                                                                       |
+| `IPromptFileReferenceRecord`                                          | `src/context/prompt-file-references.ts`                                                                | Resolved prompt file reference metadata                                                                                 |
+| `TPromptFileReferenceDiagnosticCode`                                  | `src/context/prompt-file-references.ts`                                                                | Diagnostic code for reference errors                                                                                    |
+| `IUserLocalStorageInspection`                                         | `src/user-local/index.ts`                                                                              | User-local storage inspection projection                                                                                |
+| `IUserLocalMemoryItemProjection`                                      | `src/user-local/index.ts`                                                                              | Memory item with display/navigation metadata                                                                            |
+| `TUserLocalMemoryCategory`                                            | `src/user-local/index.ts`                                                                              | Allowed user-local memory category union                                                                                |
+| `IMemoryStore`                                                        | `src/memory/types.ts`                                                                                  | Neutral **async** durable-memory DIP port — composition of the four role interfaces below (SELFHOST-008 P1R)            |
+| `IDurableMemoryReader`                                                | `src/memory/types.ts`                                                                                  | Read role — `loadStartupMemory`/`list`/`readTopic` (async)                                                              |
+| `IMemoryWriter`                                                       | `src/memory/types.ts`                                                                                  | Write role — `append` (async)                                                                                           |
+| `IMemoryRecaller`                                                     | `src/memory/types.ts`                                                                                  | Recall role — `recall(query, IMemoryBudget)` (async)                                                                    |
+| `IMemoryCurationQueue`                                                | `src/memory/types.ts`                                                                                  | Curation-queue role — `getPending`/`listPending`/`markPending`/`upsertPending` (async)                                  |
+| `IMemoryBudget`                                                       | `src/memory/types.ts`                                                                                  | Recall budget (`maxTopics`/`maxTopicChars`)                                                                             |
+| `IPerTurnRecallConfig`                                                | `src/memory/types.ts`                                                                                  | SELFHOST-008 P3: surface-supplied per-turn recall policy (`budget`); presence enables per-turn recall (adapter-gated)   |
+| `ISemanticMemoryAdapter`                                              | `src/memory/types.ts`                                                                                  | Duck-typed semantic/vector memory backend port (P4); consumed by `SemanticMemoryStore`                                  |
+| `ISemanticMemoryQueryResult`                                          | `src/memory/types.ts`                                                                                  | A semantic recall hit                                                                                                   |
+| `ISkillPromptContext`                                                 | `src/utils/skill-prompt.ts`                                                                            | Variable substitution context for skill prompts                                                                         |
+| `ICliUpdateNotice`                                                    | `src/update-check/update-check.ts`                                                                     | CLI update notification data                                                                                            |
+| `TCliUpdateCheckResult`                                               | `src/update-check/update-check.ts`                                                                     | Result of a CLI update check                                                                                            |
 
 ## Public API Surface
 
@@ -152,8 +165,6 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | Export                                      | Kind     | Description                                                                                                                                                                                                                                                                          |
 | ------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `InteractiveSession`                        | class    | Primary SDK entry point; event-driven session wrapper                                                                                                                                                                                                                                |
-| `isSafeSessionId`                           | function | SEC-006: whether a session id is safe as a filesystem path component; re-exported from `agent-session` so a consumer holding an id from an untrusted source can reject it without skipping a layer                                                                                   |
-| `assertSafeSessionId`                       | function | SEC-006: throwing form of `isSafeSessionId`                                                                                                                                                                                                                                          |
 | `resolveRoleModel`                          | function | SELFHOST-006: resolve a role's PRIMARY `IModelRef` from a `TRoleModelMap` (opaque key; undefined if unmapped)                                                                                                                                                                        |
 | `resolveRoleFallbackChain`                  | function | SELFHOST-006: the role's full ordered fallback chain (primary first); empty if unmapped                                                                                                                                                                                              |
 | `runWithRoleFallback`                       | function | SELFHOST-006: walk a role's fallback chain, trying each `IModelRef` over the provider DIP until one succeeds (alternate provider+model on error)                                                                                                                                     |
@@ -173,7 +184,8 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `BuiltinCommandSource`                      | class    | SDK core compatibility command source (currently empty)                                                                                                                                                                                                                              |
 | `SkillCommandSource`                        | class    | Discovers SKILL.md files for virtual skill palette metadata                                                                                                                                                                                                                          |
 | `PluginCommandSource`                       | class    | Discovers commands exposed by installed bundle plugins                                                                                                                                                                                                                               |
-| `SystemCommandExecutor`                     | class    | Registry and executor for `ISystemCommand` instances                                                                                                                                                                                                                                 |
+| `SystemCommandExecutor`                     | class    | Registry and executor for `ISystemCommand` instances; atomically maintains the semantic-role projection and rejects duplicate role owners                                                                                                                                            |
+| `DuplicateSystemCommandSemanticRoleError`   | class    | Typed composition error naming the duplicated role and both claiming command ids                                                                                                                                                                                                     |
 | `createSystemCommands`                      | function | SDK core command factory (returns empty list; built-ins are in command modules)                                                                                                                                                                                                      |
 | `createBuiltinCommandModule`                | function | SDK core compatibility module factory                                                                                                                                                                                                                                                |
 | `applyPresetToSession`                      | function | Live preset-switching engine: re-applies a resolved preset's option groups to a running session, records the active preset id, returns `{ applied, skipped }` (PRESET-011~017)                                                                                                       |
@@ -341,9 +353,14 @@ The internal assembly factory `createSession()` accepts custom `IHookTypeExecuto
 
 `BundlePluginLoader`/`BundlePluginInstaller` provide a plugin system where reusable extensions (tools, hooks, permissions, system prompt additions) can be packaged as installable bundles under `~/.robota/plugins/` (user) or `.robota/plugins/` (project).
 
-### Permission Handler
+### Prompt request and settlement
 
-Consumers provide a `permissionHandler` callback (`TInteractivePermissionHandler`) to `InteractiveSession` options to intercept tool permission requests with custom UI instead of the built-in terminal prompt.
+`InteractiveSession` exposes no session-level `permissionHandler` or `askHandler` option. It emits
+transport-neutral `permission_request` / `ask_request` events, and attached surfaces settle them through
+`resolvePermission` / `resolveAsk`. The first settlement wins and emits exactly one `prompt_resolved`;
+there is no `permission-resolved` interaction event or second settlement path. Leaf convenience factories
+may retain callback ergonomics by subscribing to a request event and resolving through this registry;
+callback rejection must fail closed (deny/cancel).
 
 ### Subagent Runner Factory (`TSubagentRunnerFactory`)
 
@@ -361,7 +378,11 @@ When `sandboxClient` is provided to `InteractiveSession`, Bash, Read, Write, and
 
 ### Interaction Channel Contract (`IInteractionChannel`)
 
-`agent-framework` defines the channel abstraction that decouples session I/O from transport implementations. Transport packages implement `IInteractionChannel`; `createInteractiveRuntime` wires them to a session.
+`agent-interface-transport` defines `IInteractionChannel`, and `agent-framework` consumes it only through
+`createInteractiveRuntime`. The port describes that in-process runtime wiring; it is not a universal
+transport abstraction. `ProgrammaticInteractionChannel` is the current production implementation. The
+session-owning TUI and headless/remote transports use the full `IInteractiveSession` event/capability
+surface instead and do not nominally implement a port whose `write()` path they do not consume.
 
 ```typescript
 interface IInteractionChannel {
@@ -377,24 +398,26 @@ interface IInteractionChannel {
 
 **`InteractionEvent`** — one-way display events pushed by the framework to the channel:
 
-| Event type            | When emitted                       |
-| --------------------- | ---------------------------------- |
-| `user-message`        | User text submitted                |
-| `assistant-chunk`     | AI token delta                     |
-| `assistant-done`      | Streaming complete, with full text |
-| `tool-call`           | Tool invocation started            |
-| `tool-result`         | Tool invocation finished           |
-| `permission-resolved` | Permission granted or denied       |
-| `command-result`      | Slash command executed             |
-| `error`               | Session error                      |
+| Event type        | When emitted                       |
+| ----------------- | ---------------------------------- |
+| `user-message`    | User text submitted                |
+| `assistant-chunk` | AI token delta                     |
+| `assistant-done`  | Streaming complete, with full text |
+| `tool-call`       | Tool invocation started            |
+| `tool-result`     | Tool invocation finished           |
+| `command-result`  | Slash command executed             |
+| `error`           | Session error                      |
 
-**`askUser(IActionRequest)` (CMD-004)** — the sole "ask the user" seam. The unified action contract (`IActionRequest`/`TActionResponse`) is owned by `agent-core` and reaches both command execution and tool execution. The channel renders the request per-environment (Ink dialog, web modal, programmatic preset) and resolves when the user answers or cancels. `createInteractiveRuntime` injects it into the session as `askHandler`, so a command reaches it via `context.getUserInteraction()?.ask(request)`; the runtime itself does **not** disambiguate commands — each command solicits any input it needs.
+**`askUser(IActionRequest)` (CMD-004)** — the channel renders a request per environment.
+`createInteractiveRuntime` adapts it by subscribing to `ask_request` and settling via `resolveAsk`; it
+does not inject a session option. The runtime itself does **not** disambiguate commands — each command
+solicits any input it needs.
 
 **`createInteractiveRuntime`** — factory that wires a channel to a session:
 
 - Registers command modules and exposes their commands via `setAvailableCommands`
 - Routes user messages → `session.submit()`
-- Routes slash commands → `session.executeCommand()` (commands self-ask via the injected `askHandler`)
+- Routes slash commands → `session.executeCommand()` (commands self-ask through the subscribed request/resolve registry)
 - Forwards session events → `channel.write(InteractionEvent)`
 - Calls `setBusy(true/false)` around AI completions
 
@@ -436,9 +459,8 @@ dependency cycle). Fields and the group each drives:
 `applyCommandModuleSelection?(enabled, disabled)`, `applySelfVerification?(enabled)`,
 `getUserInteraction?()`.
 
-**Ask seam (CMD-004)**: consumers provide an `askHandler` callback (`IUserInteraction['ask']`, SSOT in
-`@robota-sdk/agent-core`) to `InteractiveSession` options — the interaction sibling of
-`permissionHandler`. The session exposes it to command modules as a narrow capability via
+**Ask seam (CMD-004)**: the session exposes transport-neutral request/resolve events to attached
+surfaces. Internally it exposes the registry-backed ask function to command modules as a narrow capability via
 `ICommandHostContext.getUserInteraction(): IUserInteraction | undefined`, which returns `undefined`
 when no interactive renderer is attached (headless/automation) — a command treats absence as "no human
 available", never a silent guess. `createUserInteractionPort()`
@@ -447,7 +469,7 @@ command invoked by the model runs inside an executing turn, so the port resolves
 blocking on a human prompt. Transports render the `IActionRequest` per-environment; the contract carries
 no function-valued fields (serialization-safe for remote transports).
 
-**Model-question seam (CMD-005)**: the same `askHandler` is additionally threaded — session assembly
+**Model-question seam (CMD-005)**: the same registry-backed ask function is additionally threaded — session assembly
 (`createSession` `ask` option) → agent-session `ISessionOptions.ask` → `IAgentConfig.ask` — into every
 per-tool-call `IToolExecutionContext.ask`, which the `AskUserQuestion` built-in tool (agent-tools)
 consumes to let the model ask the user structured questions mid-turn (the channel's queued ask renderer
@@ -531,6 +553,11 @@ transport, and process survival in the product assembly.
 
 ## Error Taxonomy
 
+- `DuplicateSystemCommandSemanticRoleError` (`code: 'DUPLICATE_SYSTEM_COMMAND_SEMANTIC_ROLE'`) is
+  thrown when the selected command set contains two different commands that claim one closed semantic
+  role. Constructor, `register()`, and `replaceCommands()` use the same validation; failed registration
+  or replacement is atomic and preserves the previously selected command set and role projection.
+
 The package defines two named `Error` subclasses: `ProviderConfigError` (missing/unusable
 provider configuration at session start — thrown by `readProviderSettings` and by
 `agent-command`'s `ensureProviderConfig`; the CLI maps it to a distinct exit code in print
@@ -551,7 +578,7 @@ packages and from SDK assembly validation:
 | Reversible execution          | thrown `Error`              | Local-first mode blocks a tool that lacks required isolation                                                                                                                                                                                                                                                                                                                                                                |
 | Checkpoint restore            | thrown `Error`              | Restore attempted while a prompt is running                                                                                                                                                                                                                                                                                                                                                                                 |
 | User-local storage            | thrown `Error`              | Empty root, relative root, root equal to the active repository, or root inside the active repository                                                                                                                                                                                                                                                                                                                        |
-| `BackgroundTaskManager`       | `BackgroundTaskError`       | Typed error with category and recoverability (re-exported from `agent-executor`)                                                                                                                                                                                                                                                                                                                                            |
+| `BackgroundTaskManager`       | `BackgroundTaskError`       | Typed error with category and recoverability (owner-direct value from `agent-executor`)                                                                                                                                                                                                                                                                                                                                     |
 
 All errors from `session.run()` are caught by `InteractiveSession` and emitted as an `error` event rather than thrown from `submit()`.
 
@@ -705,7 +732,7 @@ agent-framework      ← InteractiveSession (single entry point)
   ├── common API: skill discovery, skill metadata, and skill activation host context
   ├── extension: ICommandModule command/source/session-requirement injection
   ├── optional: agent runtime deps + AgentDefinitionLoader when a module requests agent-executor
-  ├── composed: agent-executor BackgroundTaskManager, SubagentManager, runner ports
+  ├── composed: agent-executor manager/runner ports plus SDK-owned orchestration
   ├── internal: createSession(), createDefaultTools(), loadConfig(), loadContext()
   ├── optional: sandboxClient injection for sandbox-aware built-in tool execution
   ├── optional: workspaceManifest application through agent-tools sandbox ports
@@ -781,8 +808,8 @@ agent-core
 └── (existing) Robota, execution, providers, plugins
 
 agent-executor (reusable runtime primitives — depends on agent-core, agent-interface-transport, agent-process)
-├── src/background-tasks/     ← BackgroundTaskManager, state machine, task runner ports
-└── src/subagents/            ← SubagentManager, subagent runner port, worktree runner decorator
+├── src/background-tasks/     ← SDK-owned orchestration + type-only executor manager/runner ports
+└── src/subagents/            ← in-process runner factory + type-only executor subagent/worktree ports
 
 agent-tools
 ├── src/builtins/             ← bash, read, write, edit, glob, grep, web-fetch, web-search tools
@@ -866,7 +893,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Terminal prompt**: `agent-framework/src/permissions/permission-prompt.ts` is the SSOT implementation of the terminal approval prompt. Used by both `InteractiveSession`/`createQuery()` and `agent-cli` (which imports from `@robota-sdk/agent-framework`). Presents 3 options: **Allow once** (returns `true`), **Allow for this session** (returns `'allow-session'`), **Deny** (returns `false`).
 - **Session-level allow**: `PermissionEnforcer` maintains an in-memory `sessionAllowedTools` set. When a permission handler or `promptForApprovalFn` returns `'allow-session'`, the tool name is added to this set and all future calls for that tool in the same session are auto-approved without prompting. The set is cleared by `clearSessionAllowedTools()` and discarded on session end (never persisted).
 - **Project-level allow**: When a handler returns `'allow-project'`, `PermissionEnforcer` adds the tool to `sessionAllowedTools` (same-session convenience) and calls `onProjectAllowTool(toolName)`. The `createSession()` factory wires `onProjectAllowTool` to append `ToolName(*)` to `.robota/settings.local.json` permissions.allow.
-- **TUI permission prompt**: `PermissionPrompt.tsx` in `agent-transport` presents 4 options: **Allow** (once), **Allow always (this session)** (`a` shortcut), **Allow always (this project)** (`p` shortcut), **Deny** (`n`/`d` shortcut). The TUI uses `permissionHandler` (React async queue) rather than `promptForApprovalFn`.
+- **TUI permission prompt**: `PermissionPrompt.tsx` in `agent-transport-tui` presents 4 options: **Allow** (once), **Allow always (this session)** (`a` shortcut), **Allow always (this project)** (`p` shortcut), **Deny** (`n`/`d` shortcut). The TUI subscribes to `permission_request`, renders its async queue, and answers through `resolvePermission`.
 - **Default allow patterns**: `createSession()` automatically adds allow patterns for config folder access: `Read(.agents/**)`, `Read(.claude/**)`, `Read(.robota/**)`, `Glob(.agents/**)`, `Glob(.claude/**)`, `Glob(.robota/**)`. These are merged with user-configured permissions.
 
 ### Hooks System
@@ -902,7 +929,8 @@ agent-cli (Ink TUI — CLI-specific)
 - **Turn model**: Every cwd-backed `InteractiveSession.submit()` prompt starts a turn-level checkpoint. The checkpoint is finalized after the run finishes, even when no file was edited, so prompt turns can be listed consistently. Injected sessions without `cwd` do not implicitly create project checkpoints; they must provide `cwd` or use explicit checkpoint APIs.
 - **Capture model**: `Write` and `Edit` tools are wrapped during `createSession()` assembly when an `IEditCheckpointRecorder` is present. A file is captured once per turn before the first tool mutation. Repeated edits to the same file in the same turn reuse the first pre-image.
 - **Inspection model**: `inspect(sessionId, checkpointId)` returns captured files, workspace-relative display paths, snapshot availability, and the restore/rollback checkpoint ranges before a caller mutates the workspace.
-- **Restore model**: `restoreToCheckpoint(sessionId, checkpointId)` rolls back later checkpoints in reverse sequence order, restores copied pre-images, deletes files that did not exist at capture time, and removes later checkpoint directories. This provides code-only rewind to the selected prompt turn.
+- **Restore model**: `restoreToCheckpoint(sessionId, checkpointId)` rolls back later checkpoints in reverse sequence order, restores copied pre-images, and deletes files that did not exist at capture time. Later checkpoint directories remain as a reachable sibling branch; restore and rollback are non-destructive branch transitions.
+- **Branch-event matrix**: after mutation and session persistence succeed, create emits `checkpoint_created`, explicit fork emits `branch_forked`, switch emits `branch_switched`, restore emits `checkpoint_restored`, and rollback emits `checkpoint_rolled_back`. Resume-pointer hydration is explicitly a non-event because it restores persisted state rather than performing a user-visible transition. Transport-owned handlers isolate their own delivery failures; the framework does not change arbitrary SDK listener exception semantics.
 - **Boundary**: `agent-tools` does not know about sessions, prompts, `.robota`, or checkpoints. CLI/TUI does not implement checkpoint algorithms; it only exposes SDK command output and future picker UI.
 - **Current scope**: `Write` and `Edit` mutations are tracked. Shell-side filesystem changes from `Bash` are not tracked by this layer.
 
@@ -938,6 +966,21 @@ agent-cli (Ink TUI — CLI-specific)
 - **Implementation**: `TTextDeltaCallback` type (IChatOptions in agent-core)
 - **Behavior**: AnthropicProvider uses the streaming API, returning the completed message while calling the callback for each text delta
 - **UI connection**: Session → onTextDelta → InteractiveSession `text_delta` event → client
+
+### Agent Runtime Factory
+
+- **Runtime persistence default**: `createAgentRuntime({ cwd, provider })` owns a project session store
+  for that `cwd` and passes it to every created session unless the call supplies its own
+  `sessionStore` property.
+- **Tri-state precedence**: an omitted per-session `sessionStore` inherits the runtime store; an
+  explicit store replaces it for that session; an explicit `sessionStore: undefined` disables
+  persistence for that session. The exported runtime and per-session option types both admit the
+  explicit-`undefined` case under `exactOptionalPropertyTypes`.
+- **Stateless runtime**: `createStatelessRuntime()` constructs its base runtime with an explicit
+  undefined store, so omission remains filesystem-free. A caller may still supply a per-session store
+  to deliberately enable persistence for one stateless session.
+- **Resume**: `resumeSessionId` uses the same effective store. A normal runtime therefore persists and
+  resumes across runtime instances without requiring callers to re-forward `runtime.sessionStore`.
 
 ### InteractiveSession (SDK-Specific)
 
@@ -991,7 +1034,7 @@ agent-cli (Ink TUI — CLI-specific)
   - `ICommandResult` — command output, structured diagnostics, and typed host effects.
   - `TCommandHostAction` / `TCommandUiIntent` — the CMD-004 split contract: host-executed actions (model/language change, restart, exit, rename, statusline patch, remote-control) vs surface-rendered UI intents (settings/plugin-manager/session-picker/agent-switcher screens).
   - User-facing prompts are not part of `ICommandResult`. A command that needs input asks for it inline via `context.getUserInteraction()?.ask(IActionRequest)` (CMD-004), the unified action seam owned by `agent-core`.
-- **Provider common APIs**: `agent-framework/command-api/provider/` owns provider settings document types, provider profile merge/validation/delete helpers, environment reference helpers, setup-flow primitives including fixed-profile edit defaults, provider-owned setup help link projection, provider profile name suggestion helpers, provider command settings adapter contracts, and provider probe defaults. `provider` command behavior lives in `@robota-sdk/agent-command` and consumes these APIs as an external command module.
+- **Provider common APIs**: `agent-framework/command-api/provider/` owns provider settings document types, provider profile merge/validation/delete helpers, setup-flow primitives including fixed-profile edit defaults, provider-owned setup help link projection, provider profile name suggestion helpers, provider command settings adapter contracts, and provider probe defaults. Environment-reference formatting and resolution remain owned and publicly exported by `@robota-sdk/agent-core`; provider common APIs consume them directly and do not re-export them. `provider` command behavior lives in `@robota-sdk/agent-command` and consumes these APIs as an external command module.
 - **Org-policy common APIs**: `agent-framework/command-api/org-policy/` owns `IOrgPolicy` (allowedProviders, blockedCommands, requireApiKeyFromEnv, adminContact), `loadOrgPolicy()` (reads `~/.robota/org-policy.json`), `formatOrgPolicyViolationMessage()`, and `isApiKeyPlaintext()`. Enforcement is split: `InteractiveSession.executeCommand()` blocks `blockedCommands` before dispatch and blocks `allowedProviders` violations after a `provider-hot-swap-requested` effect is observed. `IProviderCommandModuleOptions.orgPolicy` passes the policy to provider command module so `buildProviderSwitch` and `completeProviderEdit` can enforce `allowedProviders` and `requireApiKeyFromEnv` within command boundaries. `IAgentRuntimeConfig.orgPolicy` carries the policy through runtime construction to session creation.
 - **Context/compact common APIs**: `agent-framework/command-api/context/` owns command-facing context-state reads, automatic compact policy reads, active-session policy updates, settings-adapter persistence helpers, and manual compact host-facade helpers. `context` and `compact` command behavior lives in `@robota-sdk/agent-command` and `@robota-sdk/agent-command`; both consume these APIs as external command modules.
 - **Language common APIs**: `agent-framework/command-api/language/` owns language-command metadata constants, recommended subcommands, argument parsing, and usage formatting. `language` command behavior lives in `@robota-sdk/agent-command` and consumes these APIs as an external command module.
@@ -1132,7 +1175,8 @@ reusing broad context-loading internals for repository interpretation.
 - **Product-composed built-in command modules**: `plugin` and `reload-plugins` are provided by `@robota-sdk/agent-command`. They reuse SDK plugin command common APIs, send host UI opening through `plugin-tui-requested`, refresh host plugin command sources through `plugin-registry-reload-requested`, and perform install/uninstall/enable/disable/marketplace/reload operations through a host-provided `ICommandPluginAdapter`.
 - **Model-invocable built-ins**: Product-composed command modules such as `skills`, `agent`, `memory`, and `compact` expose descriptors so explicit user/model requests can execute through SDK-projected provider-safe command tools such as `robota_command_skills`. The descriptor owns usage metadata and autonomous-use guidance; the system prompt composer must not add separate behavior instructions.
 - **`rewind`**: User-invocable product-composed code checkpoint command. `rewind list` lists prompt-turn checkpoints; `rewind inspect <checkpoint-id>` shows captured files plus restore/rollback ranges; `rewind restore <checkpoint-id>` and `rewind code <checkpoint-id>` restore files to the selected checkpoint. It is not model-invocable by default.
-- **Command modules**: Optional `ICommandModule` instances may contribute `ICommandSource` palette metadata, `ISystemCommand` handlers, model-visible descriptors, and session requirements. The SDK does not know command names contributed by modules in advance. Product assemblies can inject host-owned built-ins such as plugin and product-composed command packages such as exit and statusline without adding CLI-specific code to SDK core.
+- **Command modules**: Optional `ICommandModule` instances may contribute `ICommandSource` palette metadata, `ISystemCommand` handlers, model-visible descriptors, and session requirements. The SDK does not know command ids contributed by modules in advance. Instead, an executable command may declare one optional framework-owned semantic role: `skillActivation`, `contextReduction`, or `subagentSpawn`. `SystemCommandExecutor` resolves the typed role-to-command-id projection from the currently selected executable command set; command descriptors are presentation metadata and never a semantic source. Product assemblies can inject host-owned built-ins such as plugin and product-composed command packages such as exit and statusline without adding CLI-specific code to SDK core.
+- **Semantic-role propagation and absence**: the resolved projection is threaded without name inference through `IInitOptions` → `ICreateSessionOptions` → agent-runtime/subagent-session construction. A public direct `createSession()` call that omits it means all roles are absent. Absence is independent: no `skillActivation` disables virtual-skill fallback and model-visible skill enrichment; no `contextReduction` leaves the neutral capacity hint; no `subagentSpawn` skips only the projected spawn-command tool filter while the legacy framework `Agent` tool remains filtered. Coincidentally named unannotated commands receive no special behavior, and a role-bearing alternate id receives the behavior. A successful empty command result remains a present role result, not absence.
 
 ### Slash Command Registry (SDK-Specific)
 
@@ -1506,7 +1550,11 @@ interface ITransportAdapter<TSession = unknown> {
 
 ### Background and Subagent Runtime Exports
 
-`BackgroundTaskManager` is re-exported from `agent-executor` as the generic runtime registry for long-running work. It owns task IDs, queueing, bounded concurrency, lifecycle events, targeted cancellation, shutdown, terminal close/dismiss, optional send/log controls, watchdogs, and immutable state snapshots.
+`BackgroundTaskManager` is an owner-direct `agent-executor` value and is not re-exported by the
+framework. It is the generic runtime registry for long-running work and owns task IDs, queueing, bounded
+concurrency, lifecycle events, targeted cancellation, shutdown, terminal close/dismiss, optional send/log
+controls, watchdogs, and immutable state snapshots. Framework consumers compose it through the
+type-only `IBackgroundTaskManager` facade and SDK-owned orchestration helpers.
 
 Runner adapters receive `IBackgroundTaskStart.emit(event)` for progress reporting. The manager stamps task IDs onto runner events, updates `currentAction` for tool start/end events, and forwards the resulting `TBackgroundTaskEvent` to subscribers.
 
@@ -1865,8 +1913,9 @@ Allowed public classes:
   memory, checkpoints, reversible execution, plugin management, and task context helpers.
 - SDK facades: project session store helpers, subagent assembly helpers, agent/background process
   tools, and command host/common APIs that narrow lower-level behavior through SDK contracts.
-- Explicit runtime facades: background-task and subagent lifecycle contracts re-exported through
-  `src/background-tasks/index.ts` and `src/subagents/index.ts`.
+- Explicit runtime facades: type-only background-task and subagent lifecycle contracts re-exported
+  through `src/background-tasks/index.ts` and `src/subagents/index.ts`; concrete executor classes remain
+  owner-direct values.
 
 Owner-direct APIs:
 
@@ -1961,15 +2010,15 @@ These rules define which packages each layer is allowed to import from. Violatio
 
 ### CLI (`agent-cli`)
 
-| Source             | Allowed                       | Notes                                                                     |
-| ------------------ | ----------------------------- | ------------------------------------------------------------------------- |
-| `agent-framework`  | All SDK-owned public APIs     | InteractiveSession, createQuery, runtime contracts re-exported by SDK     |
-| `agent-executor`   | ❌ Direct import discouraged  | CLI should receive runtime ports through SDK composition/re-exports       |
-| `agent-core`       | Public types + utilities only | TUniversalMessage, TPermissionMode, createSystemMessage, getModelName     |
-| `agent-core`       | ❌ Internal engine classes    | Robota, ExecutionService, ConversationStore are forbidden                 |
-| `agent-session`    | ❌ Forbidden                  | SDK provides its own session types; CLI must not import sessions directly |
-| `agent-tools`      | ❌ Forbidden                  | SDK assembles tools internally                                            |
-| `agent-provider-*` | Provider creation only        | AnthropicProvider, GeminiProvider (CLI picks which to use)                |
+| Source             | Allowed                       | Notes                                                                                  |
+| ------------------ | ----------------------------- | -------------------------------------------------------------------------------------- |
+| `agent-framework`  | All SDK-owned public APIs     | InteractiveSession, createQuery, SDK-owned orchestration, runtime contract types       |
+| `agent-executor`   | Concrete runtime values       | BackgroundTaskManager/SubagentManager and other executor-owned classes import directly |
+| `agent-core`       | Public types + utilities only | TUniversalMessage, TPermissionMode, createSystemMessage, getModelName                  |
+| `agent-core`       | ❌ Internal engine classes    | Robota, ExecutionService, ConversationStore are forbidden                              |
+| `agent-session`    | ❌ Forbidden                  | SDK provides its own session types; CLI must not import sessions directly              |
+| `agent-tools`      | ❌ Forbidden                  | SDK assembles tools internally                                                         |
+| `agent-provider-*` | Provider creation only        | AnthropicProvider, GeminiProvider (CLI picks which to use)                             |
 
 ### SDK (`agent-framework`)
 
@@ -2197,7 +2246,10 @@ During `createSession()`, hooks from the merged settings configuration are wired
 
 ## Background Task Execution
 
-`BackgroundTaskManager` is owned by `agent-executor` and re-exported by `agent-framework` through the explicit runtime facade. It is the generic lifecycle layer for foreground/background agent and process jobs. It is provider-neutral and depends only on injected runner ports.
+`BackgroundTaskManager` is owned and exported as a value only by `agent-executor`; the framework's
+explicit runtime facade re-exports its contract types, not the class. It is the generic lifecycle layer
+for foreground/background agent and process jobs. It is provider-neutral and depends only on injected
+runner ports.
 
 Responsibilities:
 
@@ -2318,7 +2370,10 @@ The product-composed `/background` command module maps to these APIs:
 
 ### SubagentManager
 
-`SubagentManager` is owned by `agent-executor` and re-exported by `agent-framework` through the explicit runtime facade. It is the managed subagent facade. It depends on an injected `ISubagentRunner` port or an injected `IBackgroundTaskManager` and maps subagent jobs to `BackgroundTaskManager` agent tasks.
+`SubagentManager` is owned and exported as a value only by `agent-executor`; the framework's explicit
+runtime facade re-exports its contract types, not the class. It is the managed subagent facade. It depends
+on an injected `ISubagentRunner` port or an injected `IBackgroundTaskManager` and maps subagent jobs to
+`BackgroundTaskManager` agent tasks.
 
 Responsibilities:
 

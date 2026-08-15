@@ -141,6 +141,7 @@ describe('Subagent integration', () => {
       provider: mockProvider,
       terminal,
       cwd: SUBAGENT_ROOT,
+      commandSemanticRoles: { subagentSpawn: 'agent' },
     });
 
     expect(mockSessionConstructor).toHaveBeenCalledTimes(1);
@@ -172,6 +173,7 @@ describe('Subagent integration', () => {
       provider: mockProvider,
       terminal: makeTerminal(),
       cwd: SUBAGENT_ROOT,
+      commandSemanticRoles: { subagentSpawn: 'agent' },
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -211,6 +213,7 @@ describe('Subagent integration', () => {
       provider: mockProvider,
       terminal: makeTerminal(),
       cwd: SUBAGENT_ROOT,
+      commandSemanticRoles: { subagentSpawn: 'agent' },
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -240,6 +243,7 @@ describe('Subagent integration', () => {
         provider: mockProvider,
         terminal: makeTerminal(),
         cwd: SUBAGENT_ROOT,
+        commandSemanticRoles: { subagentSpawn: 'agent' },
       });
 
       const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;

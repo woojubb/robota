@@ -1,12 +1,15 @@
 import type { ISessionConversationRead, TDriverId } from '@robota-sdk/agent-interface-transport';
 import type {
   IAskRequestEvent,
+  IBranchEvent,
   IBackgroundJobGroupState,
   ICommandResult,
   IExecutionResult,
   IExecutionWorkspaceSnapshot,
+  IContextFileRefreshedEvent,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
+  IPlanApprovalEvent,
   ISessionRenamedEvent,
   IToolState,
   IUiIntentEvent,
@@ -87,6 +90,9 @@ export type TServerMessage =
   | { type: 'execution_workspace_event'; snapshot: IExecutionWorkspaceSnapshot }
   | { type: 'background_task_event'; event: TBackgroundTaskEvent }
   | { type: 'background_job_group_event'; event: TBackgroundJobGroupEvent }
+  | { type: 'plan_event'; event: IPlanApprovalEvent }
+  | { type: 'context_file_refreshed'; event: IContextFileRefreshedEvent }
+  | { type: 'branch_event'; event: IBranchEvent }
   | { type: 'background_tasks'; tasks: IBackgroundTaskState[] }
   | { type: 'background_task'; taskId: string; task: IBackgroundTaskState | null }
   | { type: 'background_job_groups'; groups: IBackgroundJobGroupState[] }

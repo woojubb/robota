@@ -12,6 +12,12 @@ npm install @robota-sdk/agent-interface-transport
 
 This package defines the standard protocol for transport adapters (headless, HTTP, WebSocket, MCP, WebRTC). TUI is a session-owning presentation channel rather than a borrowed-session adapter. Transport implementations depend on this package, not on `agent-framework`, for interface types.
 
+`IInteractionChannel` is the narrower in-process port used by `createInteractiveRuntime`; it is not the
+universal transport contract. Full session surfaces consume the shared interactive event vocabulary
+directly. Prompt surfaces receive `permission_request` / `ask_request`, settle through the corresponding
+`resolve*` capability, and dismiss on the single canonical `prompt_resolved` event. Checkpoint transitions
+are represented by serializable `branch_event` payloads after persistence succeeds.
+
 ## Public API
 
 ```typescript

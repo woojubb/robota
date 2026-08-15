@@ -27,6 +27,12 @@ describe('CLI-tier context-capacity hint (NEUT-005)', () => {
 
   it('derives the actionable /compact hint from the CLI-built command set', () => {
     const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, {}, '0.0.0-test');
-    expect(deriveContextCapacityHint(setup.baseCommandModules)).toBe('Run /compact and retry.');
+    const contextReductionCommand = setup.baseCommandModules
+      .flatMap((module) => module.systemCommands ?? [])
+      .find((command) => command.semanticRole === 'contextReduction');
+
+    expect(deriveContextCapacityHint(contextReductionCommand?.name)).toBe(
+      'Run /compact and retry.',
+    );
   });
 });

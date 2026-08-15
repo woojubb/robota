@@ -13,6 +13,7 @@ import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
 
 import { WebRtcTransport } from '../webrtc-transport.js';
 import { createInMemorySignalingPair, type ISignalingClient } from '../signaling.js';
+import { WebRtcDeliveryLifecycle } from '../webrtc-delivery-lifecycle.js';
 
 /** Minimal stub session — only `getMessages` + no-op `on`/`off` are exercised by the get-messages round-trip. */
 function createStubSession(): IInteractiveSession {
@@ -99,20 +100,27 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
     });
   });
 
-  it('resets pairing and drop guards for every restart generation', async () => {
-    const sent: Array<{ readonly kind: string }> = [];
-    const signaling: ISignalingClient = {
-      send: (message) => sent.push(message),
-      onSignal: () => () => {},
-      close: () => {},
-    };
+  it('unpaired send failure closes the carrier and reports without escaping the session event', async () => {
+    const handlers = new Map<string, (value: unknown) => void>();
+    const session = createTestInteractiveSession({
+      on: ((event: string, handler: (value: unknown) => void) => {
+        handlers.set(event, handler);
+      }) as IInteractiveSession['on'],
+      off: ((event: string) => {
+        handlers.delete(event);
+      }) as IInteractiveSession['off'],
+    });
+    const closeChannel = vi.fn();
     const fakeWerift = {
       RTCPeerConnection: function () {
         return {
           onIceCandidate: { subscribe: () => {} },
           createDataChannel: () => ({
             onMessage: { subscribe: () => {} },
-            send: () => {},
+            send: () => {
+              throw new Error('unpaired channel closed');
+            },
+            close: closeChannel,
           }),
           createOffer: async () => ({ type: 'offer', sdp: 'a=fingerprint:sha-256 AA' }),
           setLocalDescription: async () => {},
@@ -121,30 +129,59 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
         };
       },
     } as unknown as import('../werift-loader.js').IWeriftModule;
+    const onDeliveryError = vi.fn();
+    const onDropped = vi.fn();
     const transport = new WebRtcTransport({
-      signaling,
+      signaling: { send: () => {}, onSignal: () => () => {}, close: () => {} },
       open: true,
-      openReason: 'restart generation regression',
+      openReason: 'delivery lifecycle regression',
+      onDeliveryError,
+      onDropped,
       loadWerift: () => fakeWerift,
     });
-    const internal = transport as unknown as { paired: boolean; dropped: boolean };
-    internal.paired = true;
-    internal.dropped = true;
-
-    transport.attach(createStubSession());
+    transport.attach(session);
     await transport.start();
-    expect(internal.paired).toBe(false);
-    expect(internal.dropped).toBe(false);
-    await transport.stop();
 
-    internal.paired = true;
-    internal.dropped = true;
-    transport.attach(createStubSession());
-    await transport.start();
-    expect(internal.paired).toBe(false);
-    expect(internal.dropped).toBe(false);
+    expect(() =>
+      handlers.get('branch_event')?.({
+        kind: 'checkpoint_created',
+        checkpointId: 'turn-0001',
+        branchId: 'main',
+      }),
+    ).not.toThrow();
+    expect(closeChannel).toHaveBeenCalledTimes(1);
+    expect(onDeliveryError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'unpaired channel closed' }),
+      'branch_event',
+    );
+    expect(onDropped).not.toHaveBeenCalled();
+    expect(handlers.size).toBe(0);
     await transport.stop();
-    expect(sent.filter(({ kind }) => kind === 'offer')).toHaveLength(2);
+  });
+
+  it('resets pairing and drop guards for every restart generation', () => {
+    const cleanup = vi.fn();
+    const onDropped = vi.fn();
+    const lifecycle = new WebRtcDeliveryLifecycle({
+      cleanup,
+      onDropped,
+      onDeliveryError: vi.fn(),
+    });
+
+    lifecycle.reset(1);
+    lifecycle.accept(1);
+    lifecycle.handleDrop(1);
+    lifecycle.handleDrop(1);
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(onDropped).toHaveBeenCalledTimes(1);
+
+    lifecycle.reset(2);
+    lifecycle.handleDrop(2);
+    lifecycle.accept(2);
+    lifecycle.handleDrop(1);
+    lifecycle.handleDrop(2);
+    expect(cleanup).toHaveBeenCalledTimes(2);
+    expect(onDropped).toHaveBeenCalledTimes(2);
   });
 
   it('ignores queued signaling, ICE, and channel callbacks from an older generation', async () => {
@@ -153,6 +190,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
     const iceHandlers: Array<(candidate: { toJSON(): object }) => void> = [];
     const stateHandlers: Array<(state: string) => void> = [];
     const setRemoteDescription = vi.fn().mockResolvedValue(undefined);
+    const onDropped = vi.fn();
     const signaling: ISignalingClient = {
       send: (message) => sent.push(message),
       onSignal: (handler) => {
@@ -188,6 +226,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
     const transport = new WebRtcTransport({
       signaling,
       secret: 'pairing-secret',
+      onDropped,
       loadWerift: () => fakeWerift,
     });
     transport.attach(createStubSession());
@@ -200,15 +239,13 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
     await transport.stop();
     transport.attach(createStubSession());
     await transport.start();
-    const internal = transport as unknown as { paired: boolean; dropped: boolean };
-    internal.paired = true;
     oldIce({ toJSON: () => ({ candidate: 'stale' }) });
     oldState('closed');
     await Promise.resolve();
 
     expect(setRemoteDescription).not.toHaveBeenCalled();
     expect(sent.filter(({ kind }) => kind === 'ice')).toEqual([]);
-    expect(internal.dropped).toBe(false);
+    expect(onDropped).not.toHaveBeenCalled();
     await transport.stop();
   });
 

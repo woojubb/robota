@@ -165,6 +165,11 @@ Key responsibilities:
 
 `agent-transport-tui`'s `TuiInteractionChannel` owns the session lifecycle and subscribes to these events, translating them into channel state via `TuiStateManager`. The `useTuiChannel` React hook bridges channel state into `App.tsx`. `InteractiveSession` itself has no React dependency.
 
+The shared event vocabulary also includes prompt request/settlement, plan lifecycle, context-file refresh,
+and checkpoint/branch transitions. Each presentation or protocol layer owns an exhaustive classification
+of that vocabulary. Transport delivery failures are isolated at the carrier boundary, so a broken socket
+or renderer cannot turn an already-persisted session operation into a domain failure.
+
 ## Transport Layer
 
 The transport layer exposes `InteractiveSession` over various protocols. Each transport is a thin adapter that bridges the protocol to the session's `submit` / `abort` / event API.

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "recordType": "scenario-record",
+  "scope": "packages/agent-framework",
+  "packageName": "@robota-sdk/agent-framework",
+  "command": {
+    "executable": "pnpm",
+    "args": ["scenario:verify"],
+    "rendered": "pnpm scenario:verify"
+  },
+  "cwd": "<cwd>",
+  "status": 0,
+  "stdout": {
+    "raw": "\n> @robota-sdk/agent-framework@3.0.0-beta.79 scenario:verify /private/tmp/robota-agreement-002-volume/worktree/packages/agent-framework\n> pnpm scenario:verify:external-payload && pnpm scenario:verify:runtime-session-store && pnpm scenario:verify:prompt-resolution\n\n\n> @robota-sdk/agent-framework@3.0.0-beta.79 scenario:verify:external-payload /private/tmp/robota-agreement-002-volume/worktree/packages/agent-framework\n> pnpm exec tsx --conditions=source examples/verify-session-log-external-payload-replay.ts\n\n{\n  \"externalPayload\": {\n    \"present\": true,\n    \"relativePath\": \"arch-014-source.payloads/f41be56583d387c7fd3a79676507aea00115f6d3809e3eb8fd49bd3bc39a2879.json\",\n    \"sidecarExists\": true\n  },\n  \"largeResponse\": {\n    \"byteLength\": 40975,\n    \"sha256\": \"42bc9897b0c5ebe94994f5ef0b494461e1133116821ed9141c0d2043a0168193\",\n    \"matchesOriginal\": true\n  },\n  \"sentinel\": {\n    \"callIndex\": 2,\n    \"value\": \"ARCH_014_SENTINEL\",\n    \"aligned\": true\n  },\n  \"cleanup\": {\n    \"sourceWorkspaceRemoved\": true,\n    \"replayWorkspaceRemoved\": true\n  }\n}\n\n> @robota-sdk/agent-framework@3.0.0-beta.79 scenario:verify:runtime-session-store /private/tmp/robota-agreement-002-volume/worktree/packages/agent-framework\n> pnpm exec tsx --conditions=source examples/verify-agent-runtime-session-store.ts\n\n{\"scenario\":\"ARCH-023\",\"firstResponse\":\"ARCH-023 stored runtime-default-store\",\"resumedResponse\":\"ARCH-023 restored runtime-default-store\",\"sameSessionId\":true,\"resumedProviderRequest\":{\"priorUserPromptPresent\":true,\"priorAssistantReplyPresent\":true,\"currentPromptPresent\":true},\"resumedHistory\":{\"messageCount\":4,\"roles\":[\"user\",\"assistant\",\"user\",\"assistant\"]},\"cleanupRemoved\":true}\n\n> @robota-sdk/agent-framework@3.0.0-beta.79 scenario:verify:prompt-resolution /private/tmp/robota-agreement-002-volume/worktree/packages/agent-framework\n> pnpm exec tsx --conditions=source examples/verify-prompt-request-resolution.ts\n\n{\"scenario\":\"ARCH-017\",\"requestEvents\":[\"permission_request\",\"ask_request\",\"prompt_resolved\"],\"permissionRequestCount\":1,\"askRequestCount\":1,\"resolvedRequestIds\":[\"p1\",\"a2\"],\"allowedToolResult\":\"ARCH_017_ALLOWED\",\"askAnswer\":[\"registry\"],\"responses\":[\"permission complete\",\"ask complete\"],\"cleanupRemoved\":true}\n",
+    "normalized": "{\n  \"externalPayload\": {\n    \"present\": true,\n    \"relativePath\": \"arch-014-source.payloads/f41be56583d387c7fd3a79676507aea00115f6d3809e3eb8fd49bd3bc39a2879.json\",\n    \"sidecarExists\": true\n  },\n  \"largeResponse\": {\n    \"byteLength\": 40975,\n    \"sha256\": \"42bc9897b0c5ebe94994f5ef0b494461e1133116821ed9141c0d2043a0168193\",\n    \"matchesOriginal\": true\n  },\n  \"sentinel\": {\n    \"callIndex\": 2,\n    \"value\": \"ARCH_014_SENTINEL\",\n    \"aligned\": true\n  },\n  \"cleanup\": {\n    \"sourceWorkspaceRemoved\": true,\n    \"replayWorkspaceRemoved\": true\n  }\n}\n\n{\"scenario\":\"ARCH-023\",\"firstResponse\":\"ARCH-023 stored runtime-default-store\",\"resumedResponse\":\"ARCH-023 restored runtime-default-store\",\"sameSessionId\":true,\"resumedProviderRequest\":{\"priorUserPromptPresent\":true,\"priorAssistantReplyPresent\":true,\"currentPromptPresent\":true},\"resumedHistory\":{\"messageCount\":4,\"roles\":[\"user\",\"assistant\",\"user\",\"assistant\"]},\"cleanupRemoved\":true}\n\n{\"scenario\":\"ARCH-017\",\"requestEvents\":[\"permission_request\",\"ask_request\",\"prompt_resolved\"],\"permissionRequestCount\":1,\"askRequestCount\":1,\"resolvedRequestIds\":[\"p1\",\"a2\"],\"allowedToolResult\":\"ARCH_017_ALLOWED\",\"askAnswer\":[\"registry\"],\"responses\":[\"permission complete\",\"ask complete\"],\"cleanupRemoved\":true}",
+    "sha256": "7fe4da6529cc4dbde3b5b49ff1b557101d4402c09a382d59c75e2c5b5c3092d6"
+  },
+  "stderr": {
+    "raw": "",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

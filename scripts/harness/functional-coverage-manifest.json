@@ -56,6 +56,11 @@
       "id": "editor-command",
       "description": "TERM-004: /editor opens $EDITOR via the terminal handoff, captures the saved text round-trip, and is unavailable with no interactive terminal.",
       "test": "packages/agent-command/src/editor/__tests__/editor-command-functional.test.ts"
+    },
+    {
+      "id": "session-log-external-payload-replay",
+      "description": "ARCH-014: a real InteractiveSession log externalizes a large response, and a second real session replays it byte-exactly without shifting the next response.",
+      "test": "packages/agent-framework/src/testing/__tests__/session-log-external-payload-replay-functional.test.ts"
     }
   ]
 }

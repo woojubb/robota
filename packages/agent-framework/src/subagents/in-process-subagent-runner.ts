@@ -6,6 +6,7 @@ import { createSubagentSession } from '../assembly/create-subagent-session.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ISubagentOptions } from '../assembly/create-subagent-session.js';
+import type { ISystemCommandSemanticRoles } from '../command-api/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
@@ -54,6 +55,7 @@ export interface IInProcessSubagentRunnerDeps {
    * built-ins. Omitted keeps the documented default three.
    */
   builtInAgents?: readonly IAgentDefinition[];
+  commandSemanticRoles?: ISystemCommandSemanticRoles;
 }
 
 export type TSubagentRunnerFactory = (deps: IInProcessSubagentRunnerDeps) => ISubagentRunner;
@@ -143,6 +145,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
         // to pass it to, so the child session read `process.cwd()` — the PARENT's directory.
         cwd: subagentExecutionRoot(job.request),
         permissionMode: deps.permissionMode,
+        ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
         // CORE-025: carry the task's permission policy + its own tool lists so the child session gates tool
         // calls by policy BEFORE the inherited session mode (deny/preapproved bind even under bypass).
         ...(job.request.permissionPolicy !== undefined

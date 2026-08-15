@@ -1,9 +1,9 @@
 {
   "@robota-sdk/agent-cli": 1,
   "@robota-sdk/agent-command": 140,
-  "@robota-sdk/agent-core": 148,
+  "@robota-sdk/agent-core": 147,
   "@robota-sdk/agent-executor": 1,
-  "@robota-sdk/agent-framework": 160,
+  "@robota-sdk/agent-framework": 157,
   "@robota-sdk/agent-interface-transport": 2,
   "@robota-sdk/agent-playground": 26,
   "@robota-sdk/agent-plugin": 29,

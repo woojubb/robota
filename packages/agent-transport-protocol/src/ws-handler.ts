@@ -15,6 +15,7 @@ import {
 import { subscribeSessionEvents } from './ws-session-events.js';
 
 import type { IProtocolSession } from './protocol-session.js';
+import type { ISubscribeSessionEventsOptions } from './ws-session-events.js';
 import type { TClientMessage, TServerMessage } from './ws-protocol.js';
 import type { TDriverId } from '@robota-sdk/agent-interface-transport';
 
@@ -34,6 +35,8 @@ export interface IWsHandlerOptions {
    * a client-supplied driver id is NEVER trusted. Absent → unattributed (the session defaults to the owner).
    */
   driverId?: TDriverId;
+  /** Observe a failed outbound session-event delivery and close/clean up the owning carrier. */
+  onDeliveryError: ISubscribeSessionEventsOptions['onDeliveryError'];
 }
 
 /**
@@ -48,6 +51,7 @@ export interface IWsHandlerOptions {
  * const { onMessage, cleanup } = createWsHandler({
  *   session: interactiveSession,
  *   send: (msg) => ws.send(JSON.stringify(msg)),
+ *   onDeliveryError: (error) => ws.close(1011, error.message),
  * });
  *
  * ws.on('message', (data) => onMessage(String(data)));
@@ -60,7 +64,9 @@ export function createWsHandler(options: IWsHandlerOptions): {
 } {
   const cleanup = subscribeSessionEvents(options.session, options.send, {
     getSurfaceDriverId: () => options.driverId,
+    onDeliveryError: options.onDeliveryError,
   });
+  // Contained — ARCH-030. Inbound replies still use the raw send until one outbound boundary owns both paths.
   const onMessage = createWsMessageHandler(options.session, options.send, options.driverId);
 
   return { onMessage, cleanup };

@@ -19,6 +19,7 @@ import type {
   ICommandModule,
   ICommandResult,
   IRemoteCommandPolicy,
+  ISystemCommandSemanticRoles,
 } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
@@ -44,7 +45,6 @@ export interface IInteractiveSessionStandardOptions {
   provider: IAIProvider;
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
-  permissionHandler?: TInteractivePermissionHandler;
   sessionStore?: IInteractiveSessionStore;
   sessionName?: string;
   resumeSessionId?: string;
@@ -98,12 +98,6 @@ export interface IInteractiveSessionStandardOptions {
    * `canHandoffTerminal === false` for transports with no interactive TTY (headless).
    */
   terminalHandoff?: ITerminalHandoff;
-  /**
-   * CMD-004: transport-provided "ask the user" handler. When present, commands can solicit a
-   * structured answer (confirm/select/multi/text) through the interaction channel. Absent for
-   * non-interactive transports — the session then treats an ask as `cancelled`, never a silent guess.
-   */
-  askHandler?: IUserInteraction['ask'];
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
   /** Provider definitions for hot-swap via /provider switch. */
@@ -170,7 +164,6 @@ export interface IInteractiveSessionInjectedOptions {
   provider?: IAIProvider;
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
-  permissionHandler?: TInteractivePermissionHandler;
   sessionStore?: IInteractiveSessionStore;
   sessionName?: string;
   resumeSessionId?: string;
@@ -181,8 +174,6 @@ export interface IInteractiveSessionInjectedOptions {
   commandHostAdapters?: ICommandHostAdapters;
   /** TERM-001: transport-provided terminal-handoff capability (see standard options). */
   terminalHandoff?: ITerminalHandoff;
-  /** CMD-004: transport-provided "ask the user" handler (see standard options). */
-  askHandler?: IUserInteraction['ask'];
 }
 
 /** Union of standard and injected construction options. */
@@ -243,6 +234,8 @@ export interface IInitOptions {
   commandModules?: readonly ICommandModule[];
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
+  /** Role projection resolved once from the selected executable commands. */
+  commandSemanticRoles?: ISystemCommandSemanticRoles;
   /** Model command execution bridge. */
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */

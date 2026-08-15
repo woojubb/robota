@@ -34,6 +34,7 @@ import type { ICommandResult } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IContextFileEntry } from '../context/context-loader.js';
 import type { IContextWindowState, TToolArgs, TUniversalMessage } from '@robota-sdk/agent-core';
+import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 
 export type {
@@ -42,7 +43,6 @@ export type {
   TInteractiveSessionOptions,
   IInitOptions,
 } from './interactive-session-options.js';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 export { injectSavedMessage, loadSessionRecord } from './interactive-session-restore.js';
 
 /** Return value of createInteractiveSession — session plus staleness tracking data. */
@@ -133,7 +133,9 @@ export async function createInteractiveSession(
   // NEUT-005: the core hard-capacity notice is product-neutral; derive an actionable remediation
   // hint from THIS surface's registered command set (e.g. a `/compact` command) so the notice
   // regains a concrete next step without baking product vocabulary into the neutral core.
-  const contextCapacityHint = deriveContextCapacityHint(options.commandModules);
+  const contextCapacityHint = deriveContextCapacityHint(
+    options.commandSemanticRoles?.contextReduction,
+  );
 
   const { session, rebuildSystemMessage } = createSession(
     buildCreateSessionOptions(options, {
@@ -163,6 +165,9 @@ export interface IAsyncInitDeps {
   resumeSessionId: string | undefined;
   /** Messages deferred until the session is created (set during restore). */
   pendingRestoreMessages: TUniversalMessage[] | null;
+  /** Registry-backed internal prompt handlers; never public InteractiveSession options. */
+  permissionHandler: IInitOptions['permissionHandler'];
+  askHandler: IInitOptions['askHandler'];
   /** Callbacks for handling events during initialization. */
   onTextDelta: (delta: string) => void;
   onContextUpdate: (state: IContextWindowState) => void;
@@ -178,6 +183,7 @@ export interface IAsyncInitDeps {
   executeModelCommand: (command: string, args: string) => Promise<ICommandResult | null>;
   isModelCommandInvocable: (command: string) => boolean;
   commandDescriptors: readonly ICapabilityDescriptor[];
+  commandSemanticRoles: IInitOptions['commandSemanticRoles'];
   setEditCheckpointStore: (store: EditCheckpointStore) => void;
 }
 
@@ -213,8 +219,8 @@ export async function initializeInteractiveSessionAsync(
     config,
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,
-    permissionHandler: options.permissionHandler,
-    ...(options.askHandler ? { askHandler: options.askHandler } : {}),
+    permissionHandler: deps.permissionHandler,
+    ...(deps.askHandler ? { askHandler: deps.askHandler } : {}),
     resumeSessionId: deps.resumeSessionId,
     forkSession: options.forkSession,
     onTextDelta: deps.onTextDelta,
@@ -254,6 +260,7 @@ export async function initializeInteractiveSessionAsync(
     ...(options.defaultTools ? { defaultTools: options.defaultTools } : {}), // ARCH-006
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
     commandDescriptors: deps.commandDescriptors,
+    ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
     ...(deps.commandDescriptors.length > 0
       ? {
           modelCommandExecutor: deps.executeModelCommand,

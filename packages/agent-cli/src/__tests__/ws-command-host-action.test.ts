@@ -56,6 +56,7 @@ function setup(adapters: ICommandHostAdapters): {
     session,
     send: (msg) => sent.push(msg),
     driverId: 'device-e2e-1',
+    onDeliveryError: vi.fn(),
   });
   return { sent, onMessage };
 }

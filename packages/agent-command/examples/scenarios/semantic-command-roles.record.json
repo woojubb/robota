@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "recordType": "scenario-record",
+  "scope": "packages/agent-command",
+  "packageName": "@robota-sdk/agent-command",
+  "command": {
+    "executable": "pnpm",
+    "args": ["scenario:verify"],
+    "rendered": "pnpm scenario:verify"
+  },
+  "cwd": "<cwd>",
+  "status": 0,
+  "stdout": {
+    "raw": "\n> @robota-sdk/agent-command@3.0.0-beta.79 scenario:verify /private/tmp/robota-agreement-002-volume/worktree/packages/agent-command\n> pnpm scenario:verify:semantic-command-roles\n\n\n> @robota-sdk/agent-command@3.0.0-beta.79 scenario:verify:semantic-command-roles /private/tmp/robota-agreement-002-volume/worktree/packages/agent-command\n> pnpm exec tsx --conditions=source examples/verify-semantic-command-roles.ts\n\n{\"alternateRoleIds\":{\"skillActivation\":\"activate-skill-alt\",\"contextReduction\":\"reduce-context-alt\",\"subagentSpawn\":\"spawn-subagent-alt\"},\"alternateBehaviors\":{\"skillFallback\":true,\"modelVisibleSkillEnrichment\":true,\"contextCapacityHint\":true,\"agentJobCommandProvenance\":true,\"subagentSpawnCommandFiltering\":true,\"emptyCommandResultIsPresent\":true},\"unannotatedCoincidentalNames\":{\"skills\":true,\"compact\":true,\"agent\":true},\"singleRoleOmission\":{\"skillActivation\":{\"omitted\":true,\"contextReductionActive\":true,\"subagentSpawnActive\":true},\"contextReduction\":{\"skillActivationActive\":true,\"omitted\":true,\"subagentSpawnActive\":true},\"subagentSpawn\":{\"skillActivationActive\":true,\"contextReductionActive\":true,\"omitted\":true}},\"directCreateSessionOmission\":{\"allRolesAbsent\":true},\"duplicateRoleRejections\":{\"constructor\":true,\"register\":true,\"replace\":true,\"preservedCommands\":true},\"ownerDeclarations\":{\"skills\":\"skillActivation\",\"compact\":\"contextReduction\",\"agent\":\"subagentSpawn\"},\"cleanupRemoved\":true}\n",
+    "normalized": "{\"alternateRoleIds\":{\"skillActivation\":\"activate-skill-alt\",\"contextReduction\":\"reduce-context-alt\",\"subagentSpawn\":\"spawn-subagent-alt\"},\"alternateBehaviors\":{\"skillFallback\":true,\"modelVisibleSkillEnrichment\":true,\"contextCapacityHint\":true,\"agentJobCommandProvenance\":true,\"subagentSpawnCommandFiltering\":true,\"emptyCommandResultIsPresent\":true},\"unannotatedCoincidentalNames\":{\"skills\":true,\"compact\":true,\"agent\":true},\"singleRoleOmission\":{\"skillActivation\":{\"omitted\":true,\"contextReductionActive\":true,\"subagentSpawnActive\":true},\"contextReduction\":{\"skillActivationActive\":true,\"omitted\":true,\"subagentSpawnActive\":true},\"subagentSpawn\":{\"skillActivationActive\":true,\"contextReductionActive\":true,\"omitted\":true}},\"directCreateSessionOmission\":{\"allRolesAbsent\":true},\"duplicateRoleRejections\":{\"constructor\":true,\"register\":true,\"replace\":true,\"preservedCommands\":true},\"ownerDeclarations\":{\"skills\":\"skillActivation\",\"compact\":\"contextReduction\",\"agent\":\"subagentSpawn\"},\"cleanupRemoved\":true}",
+    "sha256": "70935e4fba9cd2c433ae2c6880a57d608a2b770cee8e5f27e1b924c554b1e1e0"
+  },
+  "stderr": {
+    "raw": "",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

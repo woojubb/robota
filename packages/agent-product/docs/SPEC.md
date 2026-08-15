@@ -85,28 +85,34 @@ Merged pack **subagents** reach the runtime through `agent-framework`'s `agentDe
 lowest: discovered project/user definitions > injected `agentDefinitions` > `BUILT_IN_AGENTS`. The overlay
 leaves `agentDefinitions` UNSET when no pack contributes one, so the framework default is untouched.
 
+`PRODUCT_PROFILE_FIELD_POLICIES satisfies Record<keyof IProductProfile, TCompositionFieldPolicy>` is the
+total classification for the product fold. Every profile field is consumed, surfaced, or both; adding a
+public key fails compilation until classified and behaviorally covered. Provider-name selection is not a
+profile field: the shell applies its CLI override while resolving `providerSettings` before assembly.
+
 ## Type Ownership
 
-| Type                 | Location             | Purpose                                                                           |
-| -------------------- | -------------------- | --------------------------------------------------------------------------------- |
-| `IProductProfile`    | `product-profile.ts` | The declarative product object — identity + provider + presets + packs + plumbing |
-| `IAssembledProduct`  | `product-profile.ts` | The neutral runtime materials `assembleProduct` produces                          |
-| `IBuildRuntimeInput` | `product-profile.ts` | The shell-supplied session options `buildRuntime` overlays materials onto         |
+| Type                 | Location             | Purpose                                                                                    |
+| -------------------- | -------------------- | ------------------------------------------------------------------------------------------ |
+| `IProductProfile`    | `product-profile.ts` | The declarative product object — identity + provider + presets + packs + plumbing          |
+| `IAssembledProduct`  | `product-profile.ts` | Neutral runtime materials plus lossless accepted-pack metadata and both rejection channels |
+| `IBuildRuntimeInput` | `product-profile.ts` | The shell-supplied session options `buildRuntime` overlays materials onto                  |
 
 ## Public API Surface
 
-| Export               | Kind      | Description                                                                                                                                   |
-| -------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `assembleProduct`    | Function  | `(profile: IProductProfile) => IAssembledProduct`; the pure, IO-free product-composition fold                                                 |
-| `IProductProfile`    | Interface | Declarative product object (identity, provider, presets, packs, injected plumbing)                                                            |
-| `IAssembledProduct`  | Interface | Neutral runtime materials + `resolvePreset` (instance-scoped) + `buildRuntimeOptions` (pure overlay) + `buildRuntime` (delegates to the seam) |
-| `IBuildRuntimeInput` | Interface | `{ session: TInteractiveSessionOptions }` — the shell input `buildRuntime` overlays assembled materials onto                                  |
+| Export               | Kind      | Description                                                                                                                  |
+| -------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `assembleProduct`    | Function  | `(profile: IProductProfile) => IAssembledProduct`; the pure, IO-free product-composition fold                                |
+| `IProductProfile`    | Interface | Declarative product object (identity, provider, presets, packs, injected plumbing)                                           |
+| `IAssembledProduct`  | Interface | Neutral runtime materials + lossless `acceptedPacks`, `rejectedCapabilities`, and `rejectedPacks` + runtime/preset delegates |
+| `IBuildRuntimeInput` | Interface | `{ session: TInteractiveSessionOptions }` — the shell input `buildRuntime` overlays assembled materials onto                 |
 
 ## Merge & precedence semantics
 
 - **Capability merge:** `assembleProduct` calls `mergeCapabilityPacks(profile.baseCommandModules ?? [],
-profile.packs ?? [])`. Precedence: base < packs in profile order; a colliding later id is rejected and
-  surfaced in `IAssembledProduct.rejectedCapabilities`, never silently overridden. The merged command
+profile.packs ?? [])`. It projects `acceptedPacks`, capability `rejected` as
+  `IAssembledProduct.rejectedCapabilities`, and `rejectedPacks` losslessly. Duplicate pack ids are rejected
+  atomically before capability folding; precedence is base < accepted packs in profile order. The merged command
   modules are the base ⊕ pack superset; a preset's `enabledCommandModules`/`disabledCommandModules` delta
   is applied AFTER this merge by the shell's command-setup (they compose — this widens, the preset delta
   filters).
@@ -122,7 +128,8 @@ profile.packs ?? [])`. Precedence: base < packs in profile order; a colliding la
 - **Provider resolution:** `profile.provider` (injected override) > `createProviderFromConfig(
 profile.providerSettings, profile.providerDefinitions)` > `undefined` (the consumer supplies one at
   `buildRuntime` time). An unknown provider `name` THROWS naming the supported types — never a silent
-  no-provider.
+  no-provider. `IProductProfile` has no `providerOverride`; CLI/provider-name selection remains shell-owned
+  and is already reflected in the resolved `providerSettings` passed here.
 
 ## Extension Points
 
@@ -137,8 +144,9 @@ profile.providerSettings, profile.providerDefinitions)` > `undefined` (the consu
 
 ## Test Strategy
 
-`src/__tests__/assemble-product.test.ts` (vitest) covers: the capability fold (base ⊕ pack command
-modules, pack tools, pack subagents) and surfaced rejections; instance-scoped preset resolution honoring
+`src/__tests__/assemble-product.test.ts` (vitest) covers every classified product-profile field, the
+capability fold and lossless accepted metadata/capability rejection/pack rejection projection; compile-time
+absence of `providerOverride`; instance-scoped preset resolution honoring
 `defaultPresetId` with no module-global cross-contamination across two calls (R8); adoption of a
 caller-supplied `presetRegistry` (identity-asserted, and winning over `presets`) plus `presetContext`
 replay into `defaultPreset` and the runtime overlay (ARCH-008); and runtime-construction

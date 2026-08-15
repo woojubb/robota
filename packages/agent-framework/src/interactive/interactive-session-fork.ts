@@ -56,6 +56,7 @@ export async function runSkillInFork(
     cwd: parentSession.getCwd(),
     isForkWorker: true,
     permissionMode: deps.permissionMode,
+    ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
     permissionHandler: deps.permissionHandler,
     hooks: deps.hooks,
     hookTypeExecutors: deps.hookTypeExecutors,

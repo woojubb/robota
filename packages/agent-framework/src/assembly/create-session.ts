@@ -112,7 +112,7 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     : undefined;
   const modelVisibleSkills = hasModelInvocableCommandDescriptor(
     modelInvocableCommandDescriptors,
-    'skills',
+    options.commandSemanticRoles?.skillActivation ?? '',
   )
     ? skillCommandSource.getModelInvocableSkills()
     : [];

@@ -49,14 +49,17 @@ The honest safety property is not "inert JSON" but three invariants:
 agent-core        ← FunctionTool contract (tool object SSOT)
 agent-framework   ← ICommandModule / IAgentDefinition contracts
   └── agent-capability-pack   ← this package: ICapabilityPack contract + mergeCapabilityPacks
-        ├── capability-pack-types.ts   ← ICapabilityPack / IMergedCapabilities / IRejectedCapability (SSOT for the pack shape)
+        ├── capability-pack-types.ts   ← pack input, metadata, rejection, merged-result, and field-policy contracts
         └── merge-capability-packs.ts  ← the pure additive fold (analog of resolvePreset)
 ```
 
-`mergeCapabilityPacks(baseCommandModules, packs)` produces the `base ⊕ pack` superset and a
-`{ merged, rejected }` result (mirroring `IPresetRegistrationResult`). **ONE precedence order, no silent
-override:** `baseCommandModules` < packs in profile order. A later contribution whose id duplicates an
-already-claimed id is REJECTED and reported in `rejected` — never silently overridden. Ids are claimed per
+`mergeCapabilityPacks(baseCommandModules, packs)` produces the `base ⊕ pack` superset plus accepted pack
+metadata, capability rejections, and pack-level rejections. Before any capability bucket is folded, pack
+ids are scanned in profile order: first id wins; every later duplicate pack is rejected atomically on
+`rejectedPacks`, even when empty, and contributes nothing to any bucket. Following unique packs continue
+normally. **ONE precedence order, no silent override:** `baseCommandModules` < accepted packs in profile
+order. A later contribution whose id duplicates an already-claimed capability id is REJECTED and reported
+in `rejected` with its contributing `packId`. Ids are claimed per
 bucket: command modules by `ICommandModule.name`, tools by `FunctionTool.getName()`, subagents by
 `IAgentDefinition.name`. The merger produces only the superset; a preset's
 `enabledCommandModules`/`disabledCommandModules` delta is applied AFTER this merge by the product shell —
@@ -66,22 +69,28 @@ this widens, the preset delta filters, they compose.
 
 Types owned by this package (SSOT):
 
-| Type                  | Location                   | Purpose                                                                              |
-| --------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
-| `ICapabilityPack`     | `capability-pack-types.ts` | Additive bundle: identity triple + optional `commandModules` / `tools` / `subagents` |
-| `IMergedCapabilities` | `capability-pack-types.ts` | `{ merged: { commandModules, tools, subagents }; rejected }` fold result             |
-| `IRejectedCapability` | `capability-pack-types.ts` | `{ kind, id, reason }` — a contribution dropped for a colliding id                   |
-| `TCapabilityKind`     | `capability-pack-types.ts` | `'commandModule' \| 'tool' \| 'subagent'`                                            |
+| Type                      | Location                   | Purpose                                                                                                   |
+| ------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `ICapabilityPack`         | `capability-pack-types.ts` | Additive bundle: identity metadata + optional `commandModules` / `tools` / `subagents`                    |
+| `ICapabilityPackMetadata` | `capability-pack-types.ts` | Lossless accepted-pack discovery metadata: `id`, optional `title`, optional `description`                 |
+| `IMergedCapabilities`     | `capability-pack-types.ts` | Merged buckets plus `acceptedPacks`, capability `rejected`, and atomic duplicate `rejectedPacks` channels |
+| `IRejectedCapability`     | `capability-pack-types.ts` | `{ packId, kind, id, reason }` — a contribution dropped for a colliding capability id                     |
+| `IRejectedCapabilityPack` | `capability-pack-types.ts` | `{ packId, reason }` — a whole later pack rejected atomically for a duplicate pack id                     |
+| `TCapabilityKind`         | `capability-pack-types.ts` | `'commandModule' \| 'tool' \| 'subagent'`                                                                 |
+| `TCompositionFieldPolicy` | `capability-pack-types.ts` | Shared exhaustive-fold classification: consumed, surfaced, consumed-and-surfaced, or explicitly-rejected  |
 
 ## Public API Surface
 
-| Export                 | Kind      | Description                                                                                                                              |
-| ---------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `ICapabilityPack`      | Interface | Additive capability bundle (identity triple + optional command-module/tool/subagent buckets)                                             |
-| `IMergedCapabilities`  | Interface | `{ merged: { commandModules, tools, subagents }; rejected }` — the pure merge result                                                     |
-| `IRejectedCapability`  | Interface | `{ kind, id, reason }` — a contribution rejected for a colliding id                                                                      |
-| `TCapabilityKind`      | Type      | `'commandModule' \| 'tool' \| 'subagent'`                                                                                                |
-| `mergeCapabilityPacks` | Function  | `(baseCommandModules, packs) => IMergedCapabilities`; pure additive fold, deterministic profile-order precedence, `{ merged, rejected }` |
+| Export                    | Kind      | Description                                                                                                             |
+| ------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `ICapabilityPack`         | Interface | Additive capability bundle (identity metadata + optional command-module/tool/subagent buckets)                          |
+| `ICapabilityPackMetadata` | Interface | Accepted pack discovery metadata preserving `id`, `title`, and `description`                                            |
+| `IMergedCapabilities`     | Interface | Merged buckets plus accepted metadata, capability rejections, and pack-level rejections                                 |
+| `IRejectedCapability`     | Interface | `{ packId, kind, id, reason }` — one capability rejected for a collision                                                |
+| `IRejectedCapabilityPack` | Interface | `{ packId, reason }` — a duplicate pack rejected atomically before bucket folding                                       |
+| `TCapabilityKind`         | Type      | `'commandModule' \| 'tool' \| 'subagent'`                                                                               |
+| `TCompositionFieldPolicy` | Type      | Exhaustive fold-field classification shared with `agent-product`                                                        |
+| `mergeCapabilityPacks`    | Function  | Pure additive fold with deterministic first-pack-wins atomicity, accepted metadata, and two distinct rejection channels |
 
 ## Merge Semantics — conflict resolution (R5)
 
@@ -89,8 +98,12 @@ Types owned by this package (SSOT):
 
 - **Precedence:** `baseCommandModules` (command modules only) claim the namespace first, then packs in
   profile order. First registration wins.
+- **Pack identity:** pack ids are claimed before any bucket fold. A later duplicate is reported once as
+  `{ packId, reason: 'duplicate pack id' }`, contributes nothing across every bucket, and does not stop a
+  following unique pack. Accepted metadata preserves each accepted pack's `id`, `title`, and `description`
+  in profile order.
 - **Rejection channel:** a contribution whose id is already claimed is dropped from `merged` and reported
-  in `rejected` with a `kind`, `id`, and `reason`. Reasons distinguish a base collision from a
+  in `rejected` with the rejected contributor's `packId`, `kind`, `id`, and `reason`. Reasons distinguish a base collision from a
   pack-vs-pack duplicate:
   - `'collides with base command module'` / `'collides with base tool'` / `'collides with base subagent'`
     — the base already owns this id (tools/subagents have no base in the current profile shape, so these
@@ -99,6 +112,9 @@ Types owned by this package (SSOT):
     already claimed this id.
 - **Purity:** the merger reads only its arguments and returns fresh arrays; it mutates neither
   `baseCommandModules` nor any pack, and executes no contributed code.
+- **Total field policy:** `CAPABILITY_PACK_FIELD_POLICIES satisfies Record<keyof ICapabilityPack,
+TCompositionFieldPolicy>` classifies every public pack key. Adding a key fails compilation until the
+  fold classifies it, and behavior tests exercise every consumed or surfaced field.
 
 ## Extension Points
 
@@ -113,10 +129,11 @@ the `IMergedCapabilities.rejected` channel, never as a thrown exception.
 
 ## Test Strategy
 
-`src/__tests__/merge-capability-packs.test.ts` (vitest) covers: additive merge of a pack command module
-on top of base modules; additive pack tools and subagents; deterministic profile-order precedence across
-multiple packs; the `{ merged, rejected }` conflict contract (base collision, pack-vs-pack duplicate for
-command modules, tools, and subagents); and input immutability (purity). The `test` script runs
+`src/__tests__/merge-capability-packs.test.ts` (vitest) covers every classified pack field, accepted
+metadata, atomic duplicate-pack rejection (including an empty duplicate), following-pack continuation,
+base and earlier-pack collision `packId` provenance, additive buckets, deterministic order, and input
+immutability. A compile-time `satisfies Record<keyof ICapabilityPack, ...>` fixture makes new unclassified
+fields fail. The `test` script runs
 `vitest run --passWithNoTests`.
 
 ## Class Contract Registry

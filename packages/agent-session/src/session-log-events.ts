@@ -19,6 +19,7 @@ export const SESSION_LOG_EVENT = {
   // Session lifecycle / context
   sessionInit: 'session_init',
   sessionShutdown: 'session_shutdown',
+  sessionShutdownStepError: 'session_shutdown_step_error',
   context: 'context',
   contextCompact: 'context_compact',
   error: 'error',
@@ -29,12 +30,21 @@ export const SESSION_LOG_EVENT = {
   // Provider replay substrate (keyed by executionId + round).
   providerRequest: 'provider_request',
   providerNativeRawPayload: 'provider_native_raw_payload',
+  providerStreamRawDelta: 'provider_stream_raw_delta',
   providerResponseRaw: 'provider_response_raw',
   providerResponseNormalized: 'provider_response_normalized',
+  assistantMessageCommitted: 'assistant_message_committed',
 
   // Tool replay substrate (keyed by executionId + toolCallId).
   toolExecutionRequest: 'tool_execution_request',
   toolExecutionResult: 'tool_execution_result',
+  toolBatchStarted: 'tool_batch_started',
+  toolMessageCommitted: 'tool_message_committed',
+
+  // Runtime state persisted beside the conversation substrate.
+  backgroundTaskEvent: 'background_task_event',
+  backgroundJobGroupEvent: 'background_job_group_event',
+  memoryEvent: 'memory_event',
 
   // Observability (display/debug; not the replay substrate).
   user: 'user',

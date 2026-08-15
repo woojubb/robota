@@ -19,30 +19,10 @@ import { join } from 'path';
 
 import { assertSafeSessionId } from './session-id.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
-
-/**
- * A persisted session record.
- *
- * TYPE-003: alias of the typed resumable-session contract (`IInteractiveSessionRecord`,
- * `@robota-sdk/agent-interface-transport` — DATA-001 SSOT). This used to be a relaxed
- * `unknown[]`-payload mirror of that contract, which drifted (it silently lacked the later
- * `plan`/`activeBranch` fields) and forced an `as unknown as` bridge in `agent-framework`'s
- * store facade. The store itself stays payload-agnostic: it never inspects the fields it
- * persists, and `load`/`list` keep the honest `JSON.parse(...) as ISessionRecord` trust
- * boundary (no runtime validation is added or removed by the alias).
- */
-export type ISessionRecord = IInteractiveSessionRecord;
-
-/** Minimal persistence port consumed by Session. */
-export interface ISessionStore {
-  save(session: ISessionRecord): void;
-  load(id: string): ISessionRecord | undefined;
-  list(): ISessionRecord[];
-  delete(id: string): void;
-  /** Return the absolute file path for a session file, if the store is file-backed. */
-  getFilePath?(id: string): string;
-}
+import type {
+  IInteractiveSessionRecord,
+  IInteractiveSessionStore,
+} from '@robota-sdk/agent-interface-transport';
 
 /**
  * Return the current user home directory.
@@ -57,7 +37,7 @@ function getHomeDir(): string {
  *
  * Construct with a custom `baseDir` to redirect storage (useful in tests).
  */
-export class SessionStore implements ISessionStore {
+export class SessionStore implements IInteractiveSessionStore {
   private readonly baseDir: string;
 
   constructor(baseDir?: string) {
@@ -82,7 +62,7 @@ export class SessionStore implements ISessionStore {
     return join(this.baseDir, `${id}.json`);
   }
 
-  /** Return the absolute file path for a session — implements ISessionStore.getFilePath */
+  /** Return the absolute file path for a session — implements IInteractiveSessionStore.getFilePath */
   getFilePath(id: string): string {
     return this.filePath(id);
   }
@@ -95,7 +75,7 @@ export class SessionStore implements ISessionStore {
    * a crash mid-write can therefore never leave a truncated JSON where the previous
    * record used to be. Same-directory is load-bearing: cross-device rename is a copy.
    */
-  save(session: ISessionRecord): void {
+  save(session: IInteractiveSessionRecord): void {
     this.ensureDir();
     const finalPath = this.filePath(session.id);
     const tempPath = `${finalPath}.${process.pid}.tmp`;
@@ -113,14 +93,14 @@ export class SessionStore implements ISessionStore {
    * Load a session by its ID.
    * Returns `undefined` when the session file does not exist or is corrupt.
    */
-  load(id: string): ISessionRecord | undefined {
+  load(id: string): IInteractiveSessionRecord | undefined {
     const path = this.filePath(id);
     if (!existsSync(path)) {
       return undefined;
     }
     try {
       const raw = readFileSync(path, 'utf-8');
-      return JSON.parse(raw) as ISessionRecord;
+      return JSON.parse(raw) as IInteractiveSessionRecord;
     } catch {
       // allow-fallback: corrupt session file is unrecoverable; treat as missing to avoid crash on --continue/--resume
       return undefined;
@@ -130,18 +110,18 @@ export class SessionStore implements ISessionStore {
   /**
    * List all persisted sessions, sorted by `updatedAt` descending (most recent first).
    */
-  list(): ISessionRecord[] {
+  list(): IInteractiveSessionRecord[] {
     if (!existsSync(this.baseDir)) {
       return [];
     }
 
     const files = readdirSync(this.baseDir).filter((f) => f.endsWith('.json'));
-    const sessions: ISessionRecord[] = [];
+    const sessions: IInteractiveSessionRecord[] = [];
 
     for (const file of files) {
       try {
         const raw = readFileSync(join(this.baseDir, file), 'utf-8');
-        const record = JSON.parse(raw) as ISessionRecord;
+        const record = JSON.parse(raw) as IInteractiveSessionRecord;
         sessions.push(record);
       } catch {
         // Skip malformed files

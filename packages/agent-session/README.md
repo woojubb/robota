@@ -77,26 +77,29 @@ await session.compact('Focus on the API changes');
 
 ## Public API Surface
 
-| Export                   | Kind      | Description                                                  |
-| ------------------------ | --------- | ------------------------------------------------------------ |
-| `Session`                | Class     | Wraps Robota with permissions, hooks, streaming, persistence |
-| `PermissionEnforcer`     | Class     | Tool permission checking, hook execution, output truncation  |
-| `ContextWindowTracker`   | Class     | Effective token usage tracking and auto-compact threshold    |
-| `CompactionOrchestrator` | Class     | Conversation compaction via LLM summary                      |
-| `SessionStore`           | Class     | JSON file persistence for session records                    |
-| `FileSessionLogger`      | Class     | JSONL file-based session event logger                        |
-| `SilentSessionLogger`    | Class     | No-op session logger                                         |
-| `ISessionOptions`        | Interface | Constructor options for Session                              |
-| `TAutoCompactThreshold`  | Type      | Auto-compact threshold fraction, or `false` to disable       |
-| `TPermissionHandler`     | Type      | Custom permission approval callback                          |
-| `TPermissionResult`      | Type      | Permission decision result (`boolean \| 'allow-session'`)    |
-| `ITerminalOutput`        | Interface | Terminal I/O abstraction (write, prompt, select, spinner)    |
-| `ISpinner`               | Interface | Spinner handle                                               |
-| `ISessionLogger`         | Interface | Pluggable session event logger interface                     |
-| `TSessionLogData`        | Type      | Structured log event data                                    |
-| `ISessionRecord`         | Interface | Persisted session record shape (includes `history` field)    |
-| `ISessionStore`          | Interface | Minimal persistence port implemented by `SessionStore`       |
-| `IContextWindowState`    | Type      | Context window usage state (re-exported from agent-core)     |
+| Export                              | Kind      | Description                                                             |
+| ----------------------------------- | --------- | ----------------------------------------------------------------------- |
+| `Session`                           | Class     | Wraps Robota with permissions, hooks, streaming, persistence            |
+| `PermissionEnforcer`                | Class     | Tool permission checking, hook execution, output truncation             |
+| `ContextWindowTracker`              | Class     | Effective token usage tracking and auto-compact threshold               |
+| `CompactionOrchestrator`            | Class     | Conversation compaction via LLM summary                                 |
+| `SessionStore`                      | Class     | JSON file persistence for session records                               |
+| `FileSessionLogger`                 | Class     | JSONL file-based session event logger                                   |
+| `SilentSessionLogger`               | Class     | No-op session logger                                                    |
+| `ISessionOptions`                   | Interface | Constructor options for Session                                         |
+| `TAutoCompactThreshold`             | Type      | Auto-compact threshold fraction, or `false` to disable                  |
+| `TPermissionHandler`                | Type      | Custom permission approval callback                                     |
+| `TPermissionResult`                 | Type      | Permission decision result (`boolean \| 'allow-session'`)               |
+| `ITerminalOutput`                   | Interface | Terminal I/O abstraction (write, prompt, select, spinner)               |
+| `ISpinner`                          | Interface | Spinner handle                                                          |
+| `ISessionLogger`                    | Interface | Pluggable session event logger interface                                |
+| `TSessionLogData`                   | Type      | Structured log event data                                               |
+| `resolveSessionLogExternalPayloads` | Function  | Bounded, integrity-checked hydration of JSON sidecar references         |
+| `SessionLogPayloadResolutionError`  | Class     | Typed sidecar resolution failure with a stable error code               |
+| `IInteractiveSessionRecord`         | Interface | Canonical persisted session record (owned by agent-interface-transport) |
+| `IInteractiveSessionStore`          | Interface | Canonical persistence port implemented by `SessionStore`                |
+| `ISessionRecord` / `ISessionStore`  | Type      | Compatibility-only renamed re-exports of the canonical contracts        |
+| `IContextWindowState`               | Type      | Context window usage state (re-exported from agent-core)                |
 
 Note: `IPermissionEnforcerOptions` is an internal type and is not exported from the public API.
 
@@ -113,9 +116,9 @@ Note: `IPermissionEnforcerOptions` is an internal type and is not exported from 
 - **`Robota`** (agent-core): Raw agent — conversation + tools + plugins. No permissions, no hooks.
 - **`Session`** (this package): Wraps Robota with permissions, hooks, compaction, and persistence. Used by the CLI and SDK.
 
-### ISessionRecord
+### Interactive session record
 
-`ISessionRecord` includes a required `history` field (`IHistoryEntry[]`) that stores the full conversation timeline for session persistence, resume, and fork operations. It may also include `backgroundTasks` and `backgroundTaskEvents` so background work can be restored and debugged alongside the conversation. When a session is resumed, history entries are replayed via `Session.injectMessage()`.
+`IInteractiveSessionRecord` is owned by `@robota-sdk/agent-interface-transport` and carries the full conversation and resumable state. `SessionStore` persists this record without inspecting its payload. When a raw `Session` re-saves an existing record, it preserves fields it does not own and refreshes only its live conversation, history, prompt, schema, path, and timestamp fields.
 
 Streaming text deltas are written to append-only JSONL session logs as `text_delta` events. Consumers should store high-frequency streaming chunks in JSONL logs/transcripts and keep session JSON focused on resumable snapshots and references.
 
@@ -135,7 +138,22 @@ Streaming text deltas are written to append-only JSONL session logs as `text_del
 - `tool_message_committed`
 - `history_mutation`
 
-`FileSessionLogger` redacts common secret fields before writing logs and stores large fields as content-addressed JSON payload references under `{sessionId}.payloads/`. `session-log-replay` exports replay readers and validators that reconstruct chat history from `history_mutation` and report missing provider/tool terminal events. Replay validation now also requires provider-native raw response or stream payload coverage for each `provider_request`.
+`SESSION_LOG_EVENT` is the complete production and replay-reader vocabulary. Direct logger calls and core
+execution-event literals must be members of that shared list, and the coverage test scans every source so a
+new event cannot silently become writer-only or reader-only.
+
+Manual and automatic compaction also share one session-owned trigger value. The same `manual` or `auto`
+value reaches PreCompact, PostCompact, the `context_compact` log entry, and `onCompactEvent`; instructions
+do not cause the compaction orchestrator to reclassify the trigger.
+
+`FileSessionLogger` redacts common secret fields before writing logs and stores large fields as
+content-addressed JSON payload references under `{sessionId}.payloads/`. `loadSessionLogEntries()`
+hydrates those sidecars before replay and fails closed on malformed references, path/symlink escape,
+missing or unreadable files, byte-length/hash mismatch, invalid JSON, cycles, or configured depth/byte
+limits. `session-log-replay` exports replay readers and validators that reconstruct chat history from
+`history_mutation` and report missing provider/tool terminal events; an unresolved history message or
+normalized provider response is replay-incomplete. Replay validation also requires provider-native raw
+response or stream payload coverage for each `provider_request`.
 
 A migration script is available for upgrading session records from older formats. See the package source for details.
 

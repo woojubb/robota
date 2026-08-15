@@ -83,6 +83,7 @@ groups, each in its own file (all re-exported from `src/index.ts`):
 | Background job-group contracts         | `background-group-contracts.ts` | `IBackgroundJobGroupState`/`Summary`/`CreateRequest`, `IBackgroundJobResultEnvelope`, job-group event + status/wait contracts                                                                                                                                                                                                                                                       |
 | Execution-workspace contracts          | `workspace-contracts.ts`        | `IExecutionWorkspaceEntry`/`Snapshot`/`Event`/`Filter`, execution-detail page/record contracts, and their enum kinds                                                                                                                                                                                                                                                                |
 | Interactive-session contracts          | `session-contracts.ts`          | `IInteractiveSession` (whose `executeCommand` carries the optional CMD-004 command-origin driver id), `IInteractiveSessionEvents` (incl. the CMD-004 `ui_intent` + `session_renamed` + `history_cleared` events), `IExecutionResult`, `IToolState`/`Summary`, `IInteractiveSessionStore`                                                                                            |
+| Resume-summary projection              | `session-summary-contracts.ts`  | `IResumableSessionSummary`, the display projection used by resume pickers                                                                                                                                                                                                                                                                                                           |
 | Payload-agnostic channel contracts     | `channel-contracts.ts`          | TRANS-001: `IBinaryFrame` (opaque bytes + per-channel `seq`), `IChannelEventFrame` (consumer-declared structured event), `TChannelFrame`, `TChannelEventMap`, `IChannelDescriptor`, `IPayloadChannel`, `IPayloadChannelHost`, `TChannelReceiveResult`. Content-neutral carrier mechanics — no payload domain (audio/file/image) appears here                                        |
 | Driver identity + driver-routed events | `driver-contracts.ts`           | REMOTE-014 E5 co-drive attribution: `TDriverId`, `ISubmitOptions`, and the runtime driver-id constants `OWNER_DRIVER_ID` / `AGENT_DRIVER_ID` (display-only attribution, never authorization — OWNER PRINCIPLE); CMD-004 Phase 2 driver-routed events `IUiIntentEvent` (requester-routed UI intents) + `ISessionRenamedEvent` (broadcast title update)                               |
 
@@ -162,9 +163,36 @@ are type-only except for the four pure accessor functions re-exported from `inte
 | Background job-group (`background-group-contracts`)                                                  | `IBackgroundJobGroupState`/`Summary`/`CreateRequest`, `IBackgroundJobResultEnvelope`, event + status/wait contracts                                                                                                                                                                                                                                                                      |
 | Execution workspace (`workspace-contracts`)                                                          | `IExecutionWorkspaceEntry`/`Snapshot`/`Event`/`Filter`, execution-detail page/record contracts, and their enum kinds                                                                                                                                                                                                                                                                     |
 | Interactive session (`session-contracts`, `session-capability-contracts`, `session-capability-host`) | 16 named `ISession*` role ports, `ISessionCapabilityMap`/`ISessionCapabilityHost`, flattened `TSessionCapabilityHost`, `createSessionCapabilityHost`/`readSessionCapability`, compatibility aggregate `IInteractiveSession`, `IInteractiveSessionEvents` (incl. `ui_intent`/`session_renamed`/`history_cleared`), `IExecutionResult`, `IToolState`/`Summary`, `IInteractiveSessionStore` |
+| Resume picker summary (`session-summary-contracts`)                                                  | `IResumableSessionSummary`                                                                                                                                                                                                                                                                                                                                                               |
 | Driver identity (`driver-contracts`)                                                                 | `TDriverId`, `ISubmitOptions`, `OWNER_DRIVER_ID`/`AGENT_DRIVER_ID`, `IUiIntentEvent`, `ISessionRenamedEvent`                                                                                                                                                                                                                                                                             |
 
 ## Interface Contracts
+
+### Interaction channel scope
+
+`IInteractionChannel` is the in-process port consumed by `createInteractiveRuntime`; today
+`ProgrammaticInteractionChannel` is its production implementation. It is not the universal transport
+contract. The TUI owns an `IInteractiveSession` and subscribes to its full event map directly, while
+headless and remote transports use the session capability/configurable-transport families. A surface
+must not nominally implement `IInteractionChannel` while making its central `write()` operation a no-op.
+
+Prompt settlement belongs to the interactive-session event/capability family, not `InteractionEvent`:
+surfaces receive `permission_request` / `ask_request`, answer through `resolvePermission` /
+`resolveAsk`, and dismiss on the single canonical `prompt_resolved` event. The obsolete
+`permission-resolved` interaction variant is not part of the contract.
+
+Checkpoint surfaces consume `branch_event` after a transition is persisted. Its kinds cover checkpoint
+creation, restoration, rollback, explicit branch fork, and branch switch. Resume-pointer hydration is
+not an event. Shared keys and serializable payloads live here; subscription, rendering, delivery-failure
+isolation, and fan-out policy remain owned by transport implementations.
+
+### Interactive session persistence
+
+`IInteractiveSessionRecord` is the complete resumable-record SSOT and
+`IInteractiveSessionStore` is its canonical persistence port. The port owns CRUD plus optional
+`getFilePath(id)`, which file-backed stores implement when consumers need the absolute transcript path;
+non-file-backed stores may omit it. A writer that updates only part of a loaded record must preserve every
+field it does not own before overwriting its authoritative fields.
 
 ### Session role contracts and explicit capability presence (ARCH-012)
 
