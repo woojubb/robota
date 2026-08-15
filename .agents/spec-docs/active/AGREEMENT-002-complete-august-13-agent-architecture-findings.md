@@ -265,7 +265,7 @@ adversarial review before code changes.
 
 ## Completion Criteria
 
-- [ ] TC-01: ARCH-014 recursively replays session values externalized beyond 32 KiB and rejects unresolved direct-provider values, cycles, configured depth or aggregate-byte overflow, malformed JSON, declared-length mismatch, sha256 mismatch, lexical escape, and real-path/symlink escape before provider normalization.
+- [x] TC-01: ARCH-014 recursively replays session values externalized beyond 32 KiB and rejects unresolved direct-provider values, cycles, configured depth or aggregate-byte overflow, malformed JSON, declared-length mismatch, sha256 mismatch, lexical escape, and real-path/symlink escape before provider normalization.
 - [ ] TC-02: ARCH-015 persists an existing interactive-session record through the agent-session writer without deleting any field the writer does not own, and one canonical store-port relationship is documented and type-checked.
 - [ ] TC-03: ARCH-016 admits every production session-log event through one declared vocabulary and reports the same explicit `TCompactTrigger` to the session hook and compaction orchestrator for one manual compact operation.
 - [ ] TC-04: ARCH-017 removes obsolete session-level permission/ask handler options and stale `InteractionEvent.permission-resolved`, preserves leaf callback convenience through a prompt-registry adapter, and records all settlement/dismissal through canonical `prompt_resolved` without a second settlement path.
@@ -307,7 +307,7 @@ adversarial review before code changes.
 
 Active initiative Task: `.agents/tasks/AGREEMENT-002-complete-august-13-agent-architecture-findings.md`.
 
-- [ ] ARCH-014 — todo — `.agents/tasks/ARCH-014-session-log-external-payloads-have-no-dereferencer.md`
+- [x] ARCH-014 — done — `.agents/tasks/completed/ARCH-014-session-log-external-payloads-have-no-dereferencer.md`
 - [ ] ARCH-015 — todo — `.agents/tasks/ARCH-015-two-writers-one-record-contract-session-save-destroys-fields.md`
 - [ ] ARCH-016 — todo — `.agents/tasks/ARCH-016-session-log-event-vocabulary-and-compaction-trigger-split-brain.md`
 - [ ] ARCH-017 — todo — `.agents/tasks/ARCH-017-injected-permission-ask-handlers-are-dead-surface.md`
@@ -323,6 +323,16 @@ Active initiative Task: `.agents/tasks/AGREEMENT-002-complete-august-13-agent-ar
 - [ ] ARCH-028 — todo — `.agents/tasks/ARCH-028-plan-and-context-refresh-events-emitted-into-a-contract-no-transport-consumes.md`
 
 ## Evidence Log
+
+### [CHILD-COMPLETE: ARCH-014] — ✅ PASS | 2026-08-15
+
+- The endorsed external-payload resolver, loader, validator, and replay-provider changes are committed
+  with package SPECs and a two-package minor changeset.
+- Engineering verification passed: agent-session 207/207, provider-replay 8/8, package typechecks,
+  lint with zero errors, spec public-surface/coverage scans, dependency conformance, and the complete
+  scoped harness path with 3364/3364 repository tests.
+- `DONE-GATE-STAGE-2` independently reran the public-SDK standalone scenario and matched the canonical
+  sidecar path, 40975-byte payload hash, call-2 sentinel alignment, and cleanup output exactly.
 
 ### [GATE-WRITE] — ✅ PASS | 2026-08-15
 
