@@ -139,22 +139,6 @@ what/how는 상대적이고 판정 불능이다. 네 출처가 공통으로 제�
 
 ## Architecture Review
 
-> **DISCLOSED POST-APPROVAL EDIT — this note is itself an addition to a frozen section.**
-> `gate-catalogue.md` GATE-IMPLEMENT requires that no `## Architecture Review` content change after
-> approval. These eight lines were added anyway, deliberately and disclosed here rather than quietly:
-> they add a navigational pointer only — no alternative, decision, trade-off, or figure inside the
-> section is altered, and the approval stands. **The section's line span moved by 8 lines**, so a
-> guardian re-checking anchors sees a shift with a stated cause instead of an undisclosed edit. If a
-> guardian judges even this too much, the correct remedy is to delete these lines and keep the same
-> pointer in the Evidence Log round-5 entry, where it already exists.
->
-> **Superseded figures — do not read numbers out of this section.** Its body text is left as written. Several corpus figures in it (7,172줄 / 41.8%, 그리고 파일별
-> 76.1% · 88.2% · 427줄) predate the parser corrections and the nested-package glob fix. **Where this
-> section and `## Problem` §2 / `## Completion Criteria` TC-12 disagree on a figure, those govern** —
-> they are scan output, this is not. The conclusions drawn here do not turn on the exact values:
-> `agent-framework` and `agent-cli` are still the only two files over threshold, and `agent-core`
-> still sits under the 40% gate (32.2%).
-
 ### Affected Scope
 
 **하네스 규칙·스킬 (배치 기준 owner):**
@@ -551,7 +535,8 @@ node scripts/harness/verify-doc-split-preservation.mjs \
 ## Tasks
 
 - [x] [`.agents/tasks/RULE-013-blackbox-whitebox-doc-boundary.md`](../../tasks/RULE-013-blackbox-whitebox-doc-boundary.md) — 생성 완료 (2026-08-16). TC-01~TC-16
-      전부에 대응하는 태스크 25건(WU-A 19 · WU-B 6)과 `## Test Plan` 포함.
+      전부에 대응하는 태스크 **26건**(WU-A 19: T-01…T-19 · WU-B 7: T-20…T-26)과 `## Test Plan` 포함.
+      (`T-26`은 2라운드 접기에서 추가됐는데 이 줄을 따라 고치지 않아 7라운드에서 잡혔다.)
 - **WU-A Recommendation Gate:** `REVIEW VERDICT: ENDORSE` | 2026-08-16 | `proposal-reviewer`
   (revision 1 — 1차 `REVISE`의 네 findings를 접은 뒤 승인). 전문은 태스크 파일
   `## Recommendation Gate — WU-A`에 기록. `backlog-execution.md` > Recommendation Gate가 요구하는
@@ -1205,6 +1190,12 @@ gate:**
 
 ### WU-B 구현 — 2026-08-16
 
+> **시점 스냅샷 (라운드 1 접기 시점).** 이 항목의 수치는 그때 실행에서 나온 값이며 이후 라운드에서
+> 여러 개가 바뀌었다(`1,939 → 1,731줄`은 현재 1,744; `design 6건(409줄)`은 현재 426 raw / 300 body;
+> `harness:scan 111 passed, 2 skipped`는 현재 112/1; `TC-05 … 기준 ≤150`은 2라운드에 폐기된 기준).
+> **아래 라운드 2–6 항목과 이 항목이 어긋나는 수치는 뒤쪽이 통치한다.** 기록을 소급 수정하지 않는 것은
+> 라운드마다 무엇을 알고 있었는지가 이 항목의 증거이기 때문이다.
+
 WU-A 병합(PR #1741 → develop `96728940c`, PR #1742 → main `cca410e39`) 이후 착수.
 브랜치 `feat/rule-013-wu-b-pilot-extraction` (`origin/develop`에서 분기).
 
@@ -1235,7 +1226,9 @@ SPEC이고 L695의 `## Overview`부터 1,955줄짜리 별개 문서가 재시작
 - `packages/agent-cli/docs/design/` **6건**(409줄) — `composition` · `session-ownership` ·
   `command-registry` · `internal-structure` · `message-architecture` · `subagent-wiring`
 - `.agents/spec-docs/draft/DOCS-025-...md` 신규 제기
-- 11 files changed, +1,608 / −1,092
+- **10 files changed, +1,693 / −1,101** (`git show --stat 690c1e964`). 앞서 적었던
+  `11 files / +1,608 / −1,092`는 분류표를 별도 파일로 두었던 **중간 작업 트리**를 잰 값이고, 커밋된
+  상태가 아니었다 — 커밋을 서술하지 않는 수치라 7라운드가 잡았다
 
 **검증 (전부 실행함):**
 
@@ -1467,3 +1460,40 @@ entry 12가 형제의 링크에 얹혔던 것과 **구조적으로 같은 구멍
 증명하지 못하지만, delete-and-link는 "목적지에서 Non-Duplication이 성립한다"는 주장이라 기존 링크로도
 충족된다. `countLinks`(줄 단위)와 `countOccurrences`(다중도)의 비대칭은 전자가 **더 엄격한** 쪽이라
 악용 불가이므로 그대로 둔다.
+
+### WU-B Recommendation Gate Round 7 — 2026-08-16
+
+일곱 번째 **REVISE**. 설계·배치·도구는 **네 라운드 연속 이견 없음**. 남은 셋은 전부 수치이고, 그중
+하나는 6라운드를 닫으려고 쓴 공개 문구 **안에** 있었다.
+
+**1. 동결 구역 표시가 자기 이동량을 절반으로 적고 있었다.** "8줄 이동"이라 썼지만 실제는 **16줄**이다 —
+5라운드에 8줄, 6라운드에 다시 8줄을 넣어 `## Architecture Review` span이 129 → 137 → 145로 늘었다.
+그 표시의 유일한 기능이 "가디언의 앵커 검사가 **원인이 명시된** 이동을 보게 하는 것"인데, 16 중 8만
+설명하면 나머지 8줄은 여전히 원인 불명이다. **감사 가능하게 만들려던 도구가 정확히 그만큼 감사
+불가능하게 만들고 있었다.** 6라운드 결함과 같은 모양이 한 겹 더 재귀한 것이다.
+
+**표시는 통째로 지웠다.** 유지 여부를 심사자에게 직접 물었고 답이 명확했다 —
+[`backlog-execution.md`](../../rules/backlog-execution.md) L62 **"Disclosure is not approval"**:
+_"Mentioning a policy-file change … does not substitute for asking first. A change disclosed but not
+approved is a change that has to be reviewed again after it landed, which is the expensive order to do
+it in."_ GATE-APPROVAL 기준(`gate-catalogue.md`)은 내용 중립성이 아니라 **수정 여부**를 이진으로 묻고,
+16줄 삽입은 수정이다. 공개해도 기준은 여전히 FALSE다. 16줄을 삭제해 섹션을 승인 당시와 **byte 동일**
+(129줄)로 복원했다.
+
+잃는 것이 없다는 점이 결정적이다 — 통치 수치 안내는 Evidence Log 라운드 5·6 항목과 `## Problem` §2,
+TC-12에 이미 있고 뒤의 둘은 스캔 출처까지 달고 있다. 그리고 **삭제 하나로 위 이동량 결함도 함께
+사라지며**, GATE-IMPLEMENT 항목이 앵커로 잡아둔 129줄 산술도 다시 참이 된다. 승인 기록은 **낡아가는
+것이 정상**이다 — 그 섹션은 지금 무엇이 참인지가 아니라 무엇이 승인됐는지를 기록한다. 현재를 반영하도록
+주석을 다는 것은 범주 착오였고, 낡은 수치를 누가 인용할 위험은 GATE-APPROVAL이 불변 승인 기록의
+대가로 **의도적으로 감수하는** 위험이다.
+
+**2. `## Tasks`가 `25건(WU-A 19 · WU-B 6)`.** 실제 `T-01`…`T-26` = 26건(WU-B 7). `T-26`은 2라운드
+접기에서 추가됐는데 이 줄을 따라 고치지 않았다. GATE-IMPLEMENT 기준 2와 GATE-VERIFY가 읽는 섹션이라
+다음 게이트에서 불일치로 걸릴 값이었다.
+
+**3. `WU-B 구현` 항목의 diffstat이 커밋된 적 없는 상태를 서술했다.** `11 files / +1,608 / −1,092`는
+분류표를 별도 파일로 두었던 **중간 작업 트리**를 잰 값이다. 실측(`git show --stat 690c1e964`)은
+10 files / +1,693 / −1,101. 6라운드 커밋 메시지에 내가 쓴 문장이 그대로 적용된다 — 자기를 서술하지
+않는 영수증. 같은 항목의 다른 수치들(`1,731줄`, `409줄`, `111 passed`, 폐기된 `≤150` 기준)은 시점
+스냅샷으로서 정당하므로 소급 수정하지 않고 **헤더로 그 사실을 명시**했다. 라운드마다 무엇을 알고
+있었는지가 이 항목의 증거다.
