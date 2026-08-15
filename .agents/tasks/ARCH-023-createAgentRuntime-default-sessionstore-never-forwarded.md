@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-023: createAgentRuntime computes a default sessionStore it never forwards to createSession — the runtime store is dead, stateless and default runtimes persist identically, and resume via the runtime default silently cannot restore'
-status: todo
+status: in-progress
 created: 2026-08-13
 priority: medium
 urgency: soon
@@ -42,24 +42,169 @@ factory auto-forwarding rule) — OR stop computing/exposing the runtime default
 headless runtime sessions are unpersisted unless a store is passed per call. Pick one; today the field
 is a promise the code does not keep.
 
+## Endorsed Recommendation
+
+Keep the runtime-owned default project store and make `createSession()` resolve one effective store by
+property presence: omission inherits the runtime store, an explicit store overrides it, and explicit
+`undefined` disables persistence. Encode that tri-state public contract in both
+`IAgentRuntimeConfig.sessionStore` and `IHeadlessSessionOptions.sessionStore` as optional properties whose
+value type also includes `undefined`, so consumers using `exactOptionalPropertyTypes` can express the
+disable case. Pass only the resolved store into `InteractiveSession`.
+
+Preserve `createStatelessRuntime` semantics: an omitted per-session store inherits the runtime's explicit
+`undefined`, while a caller-supplied per-session store can deliberately re-enable persistence. Update the
+framework SPEC and JSDoc with this precedence. Prove RED first, then cover default inheritance, custom
+override, explicit disablement, stateless default disablement, stateless per-session re-enablement, and a
+real public `createAgentRuntime` persist→resume round trip. The public scenario is deterministic,
+provider-key-free, isolated under a temporary cwd, and cleans up. Add the framework behavior changeset.
+
+Depth review on 2026-08-15 classified the defect `LOCAL` (0 foundational): the factory already owns the
+canonical store and drops only that context field. Independent proposal review first returned `REVISE`
+because the public option types did not express explicit `undefined` under `exactOptionalPropertyTypes`;
+after the tri-state types and complete stateless matrix were added, it returned
+`REVIEW VERDICT: ENDORSE` on 2026-08-15.
+
 ## Test Plan
 
-- Red-first: a `createAgentRuntime({ cwd })` whose `createSession()` (no per-call store) then
-  `resumeSessionId` restores a prior session — fails today, passes after forwarding; OR (if the
-  remove-the-default option is taken) a test asserting the stateless and default runtimes are
-  documented as equivalent and the dead default is gone.
-- `pnpm harness:verify -- --scope packages/agent-framework` green.
+- Red-first: prove that `createAgentRuntime({ cwd }).createSession({})` receives no effective store and
+  cannot persist/resume before the fix.
+- Cover the complete precedence matrix: omitted inherits runtime default, explicit custom store wins,
+  explicit `undefined` disables, stateless omission stays disabled, and a stateless per-session store
+  re-enables persistence.
+- Run the maintained public SDK persist→resume scenario and record its deterministic output.
+- Pass package test/build/typecheck/lint, SPEC conformance, functional-coverage where applicable, and
+  `pnpm harness:verify -- --scope packages/agent-framework --include-scenarios --base-ref origin/develop`.
+
+## Implementation Tasks
+
+- [ ] Update the public tri-state option contracts, runtime inheritance logic, JSDoc, and framework SPEC.
+- [ ] Add the complete RED-first runtime/store precedence and resume regression matrix.
+- [ ] Add the maintained public-SDK example, package scenario commands, and scenario record.
+- [ ] Add the framework behavior changeset and any required durable functional-coverage registration.
+- [ ] Run focused, scoped, SPEC, scenario, and done-gate verification with exact evidence.
 
 ## User Execution Test Scenarios
 
-**Applies** (via the public `createAgentRuntime` SDK surface).
+**Applies — this changes persistence and resume behavior reachable through the public
+`@robota-sdk/agent-framework` SDK surface.**
 
-- Prerequisites: built workspace; a scratch SDK consumer using `createAgentRuntime`.
-- Steps: create a runtime with a cwd, run a session that produces history, then create a session with
-  `resumeSessionId` pointing at it — without passing a per-call `sessionStore`.
-- Expected (after the "forward" fix): the prior session's history is restored.
-- Expected (before fix, contrast): resume finds nothing (the runtime default was never used to
-  persist).
-- Cleanup: delete the scratch store dir.
-- Evidence (fill in after implementation): the resumed session's restored history, or (remove-default
-  option) the doc/test asserting non-persistence.
+### Scenario ARCH-023-S1 — the runtime default store persists and resumes across runtime instances
+
+- **Agent executability:** `agent-executable`. The scenario is a non-interactive public-SDK example
+  driven by the deterministic scripted provider. It needs no TTY, network, external service, provider
+  key, or seeded user data.
+- **Surface choice:** preference level 1, a self-contained product observable. The maintained example
+  imports `createAgentRuntime` from the package's public barrel and `createScriptedProvider` from the
+  public `@robota-sdk/agent-core/testing` subpath, drives two real `InteractiveSession` instances, and
+  prints deterministic JSON to stdout. The second provider's captured public request is the direct
+  observable that the earlier user/assistant context reached the resumed model call. Every mismatch
+  throws, so the process exits non-zero instead of printing a false success. No lower-preference
+  fixture server or credential-backed run is warranted.
+- **Executability probe (2026-08-15):** the package-local source runner and both public imports were
+  probed with
+  `volta run --node 22.14.0 pnpm --filter @robota-sdk/agent-framework exec tsx --conditions=source -e "..."`.
+  It returned exit code `0` and printed
+  `{"createAgentRuntime":"function","providerName":"scripted-test-provider","requestsArray":true}`.
+  The exact planned command below was also attempted; package selection resolved, but pnpm reported
+  `None of the selected packages has a "scenario:verify" script`. Therefore the runner/import surface
+  exists while the maintained example and package scripts do not yet exist. They are explicitly part
+  of this backlog's implementation scope; the absent-script probe is not user-execution evidence.
+- **Prerequisites:** Node 22.14.0 through Volta and installed workspace dependencies. The implementation
+  adds the maintained standalone example
+  `packages/agent-framework/examples/verify-agent-runtime-session-store.ts`
+  <!-- allow-missing-artifact: ARCH-023 implementation scope creates this planned scenario artifact -->
+  and a package-owned `scenario:verify` script that runs it with
+  `pnpm exec tsx --conditions=source`. It also adds the matching `scenario:record` command and
+  `packages/agent-framework/examples/scenarios/agent-runtime-session-store.record.json`
+  <!-- allow-missing-artifact: ARCH-023 implementation scope creates this planned scenario record -->
+  so scoped scenario verification can compare the maintained observable. The example itself creates
+  all runtime state in a unique operating-system temporary directory.
+- **Fixture/setup and ordered behavior performed by the example:**
+
+  1. Create one isolated temporary `cwd` and a first scripted provider whose sole reply is
+     `ARCH-023 stored runtime-default-store`.
+  2. Construct the first public runtime with only `{ cwd, provider }`, call its public
+     `createSession({})`, submit `ARCH-023 remember runtime-default-store`, await that real turn's
+     `completed` promise, capture the session id, and await `shutdown()` so the production persistence
+     path flushes the record. Do not pass a session store to the session call.
+  3. Construct a second public runtime over the same `cwd` with a fresh scripted provider whose sole
+     reply is `ARCH-023 restored runtime-default-store`. Create its session with exactly
+     `{ resumeSessionId }` — specifically no per-call `sessionStore` — submit
+     `ARCH-023 recall runtime-default-store`, and await the turn's `completed` promise.
+  4. Assert the resumed session id equals the first id; the second provider received both the prior
+     user prompt and prior assistant reply before the current prompt; the resumed public message
+     history contains the two prior and two current messages in `user, assistant, user, assistant`
+     order; and both scripted responses match their sentinels.
+  5. Await the second session's shutdown, remove only the exact temporary directory created by this
+     process, assert that it no longer exists, and then print the success JSON. A `finally` path repeats
+     bounded shutdown/removal for failures without touching any pre-existing path.
+
+- **Exact command:**
+
+  ```bash
+  volta run --node 22.14.0 pnpm --filter @robota-sdk/agent-framework scenario:verify
+  ```
+
+- **Expected observable:** exit code `0`, with the example printing this JSON document after the package
+  script header (object whitespace is not contractual):
+
+  ```json
+  {
+    "scenario": "ARCH-023",
+    "firstResponse": "ARCH-023 stored runtime-default-store",
+    "resumedResponse": "ARCH-023 restored runtime-default-store",
+    "sameSessionId": true,
+    "resumedProviderRequest": {
+      "priorUserPromptPresent": true,
+      "priorAssistantReplyPresent": true,
+      "currentPromptPresent": true
+    },
+    "resumedHistory": {
+      "messageCount": 4,
+      "roles": ["user", "assistant", "user", "assistant"]
+    },
+    "cleanupRemoved": true
+  }
+  ```
+
+  Before the fix, the first session receives no effective store, so no record is available to the
+  second runtime and at least the prior-context assertions fail with a non-zero exit. After the fix,
+  this output proves the runtime-created default store was used by both sessions and the second
+  session restored context using `resumeSessionId` alone.
+
+- **Cleanup/reset:** cleanup is owned by the example. Both sessions are shut down if constructed;
+  recursive deletion is restricted to the one `mkdtemp` result; the success output is emitted only
+  after `existsSync(cwd) === false`. No user config, repository file, or shared session directory is
+  changed.
+- **Evidence (fill after implementation):** _Pending. Record the execution date and commit, exact
+  command, exit code, emitted JSON, and the durable example/scenario-record paths after running this
+  scenario against the completed implementation._
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-15
+
+**Status upgrade:** scenario drafted → scenario written
+
+- Ordering: PASS — `DONE-GATE-STAGE-1` is an entry gate with no predecessor. The current factory still
+  forwards `sessionStore: opts.sessionStore`, while the maintained example, package scripts, and scenario
+  record are absent, so the ARCH-023 implementation has not preceded this written-scenario gate.
+- Scenario `ARCH-023-S1`: PASS — it records the explicit `agent-executable` decision, Node/workspace
+  prerequisites, ordered fixture behavior, the exact Bash command, exit-code and JSON observables,
+  bounded cleanup, and a separate pending evidence field for the post-implementation run.
+- Public reachability: PASS — the scenario drives `createAgentRuntime` from the public
+  `@robota-sdk/agent-framework` barrel and `createScriptedProvider` from the public
+  `@robota-sdk/agent-core/testing` subpath through two real `InteractiveSession` turns. It observes the
+  resumed provider request and public message history rather than substituting build, typecheck, lint,
+  tests, harness/CI output, or repository-text inspection for the SDK behavior.
+- Invocation and fixture readiness: PASS — an independent source-runner probe on 2026-08-15 exited `0`
+  with `{"createAgentRuntime":"function","providerName":"scripted-test-provider","requestsArray":true}`.
+  The exact planned command currently reports that `scenario:verify` is absent; the plan explicitly folds
+  that package script, the maintained example, `scenario:record`, and the scenario-record artifact into
+  ARCH-023 implementation scope with `allow-missing-artifact` markers.
+- Expected observable: PASS — the plan requires exit `0` and deterministic JSON naming both scripted
+  responses, equal session identity, all three resumed-request sentinels, four messages in
+  `user, assistant, user, assistant` order, and `cleanupRemoved: true`. Every mismatch is specified to
+  throw before success output, so a missing restore cannot produce a false pass.
+- Credentials, external services, and cleanup: PASS — the scenario explicitly requires no TTY, network,
+  external service, provider credential, environment variable, or seeded user data. It creates a unique
+  OS-temporary directory, shuts down both sessions, removes only that exact directory on success and
+  failure paths, proves its absence, and does not mutate user config or repository state.

@@ -72,7 +72,7 @@ projection is the section below.
 - [ ] ARCH-020 — todo — `.agents/tasks/ARCH-020-branch-event-is-declared-and-emitted-by-nothing.md`
 - [ ] ARCH-021 — todo — `.agents/tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`
 - [ ] ARCH-022 — todo — `.agents/tasks/ARCH-022-framework-pass-through-re-export-evades-public-surface-guard.md`
-- [ ] ARCH-023 — todo — `.agents/tasks/ARCH-023-createAgentRuntime-default-sessionstore-never-forwarded.md`
+- [ ] ARCH-023 — in-progress — `.agents/tasks/ARCH-023-createAgentRuntime-default-sessionstore-never-forwarded.md`
 - [ ] ARCH-024 — todo — `.agents/tasks/ARCH-024-framework-hardcodes-module-owned-command-ids.md`
 - [ ] ARCH-025 — todo — `.agents/tasks/ARCH-025-executor-projections-silently-drop-contract-fields.md`
 - [ ] ARCH-026 — todo — `.agents/tasks/ARCH-026-scheduled-task-runner-bypasses-shell-resolution-ssot.md`
