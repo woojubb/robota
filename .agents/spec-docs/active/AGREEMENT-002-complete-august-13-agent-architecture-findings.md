@@ -273,7 +273,7 @@ adversarial review before code changes.
 - [ ] TC-06: ARCH-020 defines and tests the complete checkpoint/branch transition matrix, emits successful transitions only after mutation/history/persistence complete, keeps committed operations successful when a subscriber throws, and surfaces that delivery failure through the TUI or protocol adapter's owned error lifecycle.
 - [ ] TC-07: ARCH-028 owns shared event keys/payloads in the interface package and mechanically-total but separate TUI/protocol implementation mappings, making branch, plan, and context-refresh events observable through protocol fan-out/client acceptance and deterministic TUI rendering without executable transport policy in the interface package.
 - [ ] TC-08: ARCH-021 selects a per-request `providerProfile` through an injected parent resolver (or the invoking provider when absent), keeps credentials parent-side, and brokers provider streaming/cancellation/errors plus tool calls whose context round-trips ownership fields and tagged nested `Date`/`Error`/`undefined` values; every top-level context key and wire variant is mechanically classified, while unsupported/cyclic/over-limit values and unavailable capabilities fail explicitly without reconstructing Robota defaults.
-- [ ] TC-09: ARCH-023 forwards the runtime-owned default session store into created sessions unless an explicit per-session override is supplied, and resume restores through that default.
+- [x] TC-09: ARCH-023 forwards the runtime-owned default session store into created sessions unless an explicit per-session override is supplied, and resume restores through that default.
 - [ ] TC-10: ARCH-024 removes framework knowledge of module-owned command IDs by receiving the required IDs from composition and preserves behavior when the contributing module is absent.
 - [ ] TC-11: ARCH-027 removes `IProductProfile.providerOverride` while preserving shell-owned override behavior, rejects a later duplicate `ICapabilityPack.id` as one unit, and includes `packId` provenance in capability-collision diagnostics.
 - [ ] TC-12: ARCH-022 removes owner-package helper laundering from the framework public graph and a red-first recursive public-barrel guard rejects the same pattern at any reachable barrel depth.
@@ -315,7 +315,7 @@ Active initiative Task: `.agents/tasks/AGREEMENT-002-complete-august-13-agent-ar
 - [ ] ARCH-020 — todo — `.agents/tasks/ARCH-020-branch-event-is-declared-and-emitted-by-nothing.md`
 - [ ] ARCH-021 — todo — `.agents/tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`
 - [ ] ARCH-022 — todo — `.agents/tasks/ARCH-022-framework-pass-through-re-export-evades-public-surface-guard.md`
-- [ ] ARCH-023 — in-progress — `.agents/tasks/ARCH-023-createAgentRuntime-default-sessionstore-never-forwarded.md`
+- [x] ARCH-023 — done — `.agents/tasks/completed/ARCH-023-createAgentRuntime-default-sessionstore-never-forwarded.md`
 - [ ] ARCH-024 — todo — `.agents/tasks/ARCH-024-framework-hardcodes-module-owned-command-ids.md`
 - [ ] ARCH-025 — todo — `.agents/tasks/ARCH-025-executor-projections-silently-drop-contract-fields.md`
 - [ ] ARCH-026 — todo — `.agents/tasks/ARCH-026-scheduled-task-runner-bypasses-shell-resolution-ssot.md`

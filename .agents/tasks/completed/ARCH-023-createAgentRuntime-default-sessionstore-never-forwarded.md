@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-023: createAgentRuntime computes a default sessionStore it never forwards to createSession — the runtime store is dead, stateless and default runtimes persist identically, and resume via the runtime default silently cannot restore'
-status: in-progress
+status: done
+completed: 2026-08-15
 created: 2026-08-13
 priority: medium
 urgency: soon
