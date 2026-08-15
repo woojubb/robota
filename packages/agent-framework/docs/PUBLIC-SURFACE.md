@@ -12,7 +12,7 @@ therefore attached to the published graph rather than to one hard-coded entry fi
 | ----------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | SDK-owned API           | Implemented or semantically owned by `agent-framework`                     | `InteractiveSession`, `createQuery`, command contracts, skill activation events/tools, model command catalog common APIs, prompt/context file references, project memory, checkpoints |
 | SDK facade              | SDK narrows or assembles lower-level behavior behind an SDK contract       | project session store helpers, command host/common APIs, subagent assembly helpers, execution workspace projection                                                                    |
-| Explicit runtime facade | Runtime lifecycle contracts intentionally re-exported for SDK hosts        | `BackgroundTaskManager`, `SubagentManager`, log pagination helpers                                                                                                                    |
+| Explicit runtime facade | Runtime lifecycle contract types intentionally re-exported for SDK hosts   | `IBackgroundTaskManager`, `ISubagentManager`, runner and worktree adapter types                                                                                                       |
 | Owner-direct API        | General-purpose lower package surface that consumers import from the owner | history helpers from `agent-core`, tool exports from `agent-tools`, generic session APIs from `agent-session`                                                                         |
 
 ## Allowed SDK Facade Barrels
@@ -45,10 +45,13 @@ Use `@robota-sdk/agent-framework` for interactive assembly and SDK-owned facades
 ```typescript
 import { InteractiveSession, createQuery } from '@robota-sdk/agent-framework';
 import {
-  BackgroundTaskManager,
-  SubagentManager,
   createExecutionWorkspaceSnapshot,
+  createInProcessSubagentRunner,
 } from '@robota-sdk/agent-framework';
+import type { IBackgroundTaskManager, ISubagentManager } from '@robota-sdk/agent-framework';
+
+// Concrete runtime classes remain owner-direct values.
+import { BackgroundTaskManager, SubagentManager } from '@robota-sdk/agent-executor';
 ```
 
 Command packages may also consume framework-owned command common APIs from

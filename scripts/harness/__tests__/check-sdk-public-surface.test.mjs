@@ -260,4 +260,27 @@ export { readTool } from '@robota-sdk/agent-tools/builtins';
       },
     ]);
   });
+
+  it('traverses a local import that a public root exports in a separate declaration', async () => {
+    const root = await createFixture({
+      'packages/agent-framework/src/index.ts': [
+        "import { owned } from './local-barrel.js';",
+        'export { owned };',
+        '',
+      ].join('\n'),
+      'packages/agent-framework/src/local-barrel.ts':
+        "export { readTool as owned } from '@robota-sdk/agent-tools';\n",
+    });
+
+    const findings = await findSdkPublicSurfaceFindings(root);
+
+    expect(findings).toEqual([
+      {
+        file: 'packages/agent-framework/src/local-barrel.ts',
+        type: 'sdk-public-owner-pass-through',
+        detail:
+          'Public agent-framework export graph must not pass through @robota-sdk/agent-tools; import from the owning package or add an explicit SDK-owned facade.',
+      },
+    ]);
+  });
 });

@@ -577,7 +577,7 @@ packages and from SDK assembly validation:
 | Reversible execution          | thrown `Error`              | Local-first mode blocks a tool that lacks required isolation                                                                                                                                                                                                                                                                                                                                                                |
 | Checkpoint restore            | thrown `Error`              | Restore attempted while a prompt is running                                                                                                                                                                                                                                                                                                                                                                                 |
 | User-local storage            | thrown `Error`              | Empty root, relative root, root equal to the active repository, or root inside the active repository                                                                                                                                                                                                                                                                                                                        |
-| `BackgroundTaskManager`       | `BackgroundTaskError`       | Typed error with category and recoverability (re-exported from `agent-executor`)                                                                                                                                                                                                                                                                                                                                            |
+| `BackgroundTaskManager`       | `BackgroundTaskError`       | Typed error with category and recoverability (owner-direct value from `agent-executor`)                                                                                                                                                                                                                                                                                                                                     |
 
 All errors from `session.run()` are caught by `InteractiveSession` and emitted as an `error` event rather than thrown from `submit()`.
 
@@ -731,7 +731,7 @@ agent-framework      ← InteractiveSession (single entry point)
   ├── common API: skill discovery, skill metadata, and skill activation host context
   ├── extension: ICommandModule command/source/session-requirement injection
   ├── optional: agent runtime deps + AgentDefinitionLoader when a module requests agent-executor
-  ├── composed: agent-executor BackgroundTaskManager, SubagentManager, runner ports
+  ├── composed: agent-executor manager/runner ports plus SDK-owned orchestration
   ├── internal: createSession(), createDefaultTools(), loadConfig(), loadContext()
   ├── optional: sandboxClient injection for sandbox-aware built-in tool execution
   ├── optional: workspaceManifest application through agent-tools sandbox ports
@@ -807,8 +807,8 @@ agent-core
 └── (existing) Robota, execution, providers, plugins
 
 agent-executor (reusable runtime primitives — depends on agent-core, agent-interface-transport, agent-process)
-├── src/background-tasks/     ← BackgroundTaskManager, state machine, task runner ports
-└── src/subagents/            ← SubagentManager, subagent runner port, worktree runner decorator
+├── src/background-tasks/     ← SDK-owned orchestration + type-only executor manager/runner ports
+└── src/subagents/            ← in-process runner factory + type-only executor subagent/worktree ports
 
 agent-tools
 ├── src/builtins/             ← bash, read, write, edit, glob, grep, web-fetch, web-search tools
@@ -1549,7 +1549,11 @@ interface ITransportAdapter<TSession = unknown> {
 
 ### Background and Subagent Runtime Exports
 
-`BackgroundTaskManager` is re-exported from `agent-executor` as the generic runtime registry for long-running work. It owns task IDs, queueing, bounded concurrency, lifecycle events, targeted cancellation, shutdown, terminal close/dismiss, optional send/log controls, watchdogs, and immutable state snapshots.
+`BackgroundTaskManager` is an owner-direct `agent-executor` value and is not re-exported by the
+framework. It is the generic runtime registry for long-running work and owns task IDs, queueing, bounded
+concurrency, lifecycle events, targeted cancellation, shutdown, terminal close/dismiss, optional send/log
+controls, watchdogs, and immutable state snapshots. Framework consumers compose it through the
+type-only `IBackgroundTaskManager` facade and SDK-owned orchestration helpers.
 
 Runner adapters receive `IBackgroundTaskStart.emit(event)` for progress reporting. The manager stamps task IDs onto runner events, updates `currentAction` for tool start/end events, and forwards the resulting `TBackgroundTaskEvent` to subscribers.
 
@@ -1908,8 +1912,9 @@ Allowed public classes:
   memory, checkpoints, reversible execution, plugin management, and task context helpers.
 - SDK facades: project session store helpers, subagent assembly helpers, agent/background process
   tools, and command host/common APIs that narrow lower-level behavior through SDK contracts.
-- Explicit runtime facades: background-task and subagent lifecycle contracts re-exported through
-  `src/background-tasks/index.ts` and `src/subagents/index.ts`.
+- Explicit runtime facades: type-only background-task and subagent lifecycle contracts re-exported
+  through `src/background-tasks/index.ts` and `src/subagents/index.ts`; concrete executor classes remain
+  owner-direct values.
 
 Owner-direct APIs:
 
@@ -2004,15 +2009,15 @@ These rules define which packages each layer is allowed to import from. Violatio
 
 ### CLI (`agent-cli`)
 
-| Source             | Allowed                       | Notes                                                                     |
-| ------------------ | ----------------------------- | ------------------------------------------------------------------------- |
-| `agent-framework`  | All SDK-owned public APIs     | InteractiveSession, createQuery, runtime contracts re-exported by SDK     |
-| `agent-executor`   | ❌ Direct import discouraged  | CLI should receive runtime ports through SDK composition/re-exports       |
-| `agent-core`       | Public types + utilities only | TUniversalMessage, TPermissionMode, createSystemMessage, getModelName     |
-| `agent-core`       | ❌ Internal engine classes    | Robota, ExecutionService, ConversationStore are forbidden                 |
-| `agent-session`    | ❌ Forbidden                  | SDK provides its own session types; CLI must not import sessions directly |
-| `agent-tools`      | ❌ Forbidden                  | SDK assembles tools internally                                            |
-| `agent-provider-*` | Provider creation only        | AnthropicProvider, GeminiProvider (CLI picks which to use)                |
+| Source             | Allowed                       | Notes                                                                                  |
+| ------------------ | ----------------------------- | -------------------------------------------------------------------------------------- |
+| `agent-framework`  | All SDK-owned public APIs     | InteractiveSession, createQuery, SDK-owned orchestration, runtime contract types       |
+| `agent-executor`   | Concrete runtime values       | BackgroundTaskManager/SubagentManager and other executor-owned classes import directly |
+| `agent-core`       | Public types + utilities only | TUniversalMessage, TPermissionMode, createSystemMessage, getModelName                  |
+| `agent-core`       | ❌ Internal engine classes    | Robota, ExecutionService, ConversationStore are forbidden                              |
+| `agent-session`    | ❌ Forbidden                  | SDK provides its own session types; CLI must not import sessions directly              |
+| `agent-tools`      | ❌ Forbidden                  | SDK assembles tools internally                                                         |
+| `agent-provider-*` | Provider creation only        | AnthropicProvider, GeminiProvider (CLI picks which to use)                             |
 
 ### SDK (`agent-framework`)
 
@@ -2240,7 +2245,10 @@ During `createSession()`, hooks from the merged settings configuration are wired
 
 ## Background Task Execution
 
-`BackgroundTaskManager` is owned by `agent-executor` and re-exported by `agent-framework` through the explicit runtime facade. It is the generic lifecycle layer for foreground/background agent and process jobs. It is provider-neutral and depends only on injected runner ports.
+`BackgroundTaskManager` is owned and exported as a value only by `agent-executor`; the framework's
+explicit runtime facade re-exports its contract types, not the class. It is the generic lifecycle layer
+for foreground/background agent and process jobs. It is provider-neutral and depends only on injected
+runner ports.
 
 Responsibilities:
 
@@ -2361,7 +2369,10 @@ The product-composed `/background` command module maps to these APIs:
 
 ### SubagentManager
 
-`SubagentManager` is owned by `agent-executor` and re-exported by `agent-framework` through the explicit runtime facade. It is the managed subagent facade. It depends on an injected `ISubagentRunner` port or an injected `IBackgroundTaskManager` and maps subagent jobs to `BackgroundTaskManager` agent tasks.
+`SubagentManager` is owned and exported as a value only by `agent-executor`; the framework's explicit
+runtime facade re-exports its contract types, not the class. It is the managed subagent facade. It depends
+on an injected `ISubagentRunner` port or an injected `IBackgroundTaskManager` and maps subagent jobs to
+`BackgroundTaskManager` agent tasks.
 
 Responsibilities:
 

@@ -10,8 +10,8 @@ import path from 'node:path';
 import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = process.cwd();
-const SDK_PACKAGE_DIR = 'packages/agent-framework';
-const SDK_PACKAGE_JSON = `${SDK_PACKAGE_DIR}/package.json`;
+const SDK_PACKAGE_JSON = 'packages/agent-framework/package.json';
+const SDK_PACKAGE_DIR = path.posix.dirname(SDK_PACKAGE_JSON);
 const SDK_SRC_DIR = 'packages/agent-framework/src';
 const SDK_RUNTIME_FACADE_FILES = new Set([
   'packages/agent-framework/src/background-tasks/index.ts',
@@ -22,6 +22,7 @@ const FORBIDDEN_TOP_LEVEL_OWNER_PACKAGES = [
   '@robota-sdk/agent-session',
   '@robota-sdk/agent-tools',
 ];
+const EXECUTOR_PACKAGE = '@robota-sdk/agent-executor';
 
 function isForbiddenTopLevelOwnerPackage(source) {
   return FORBIDDEN_TOP_LEVEL_OWNER_PACKAGES.some(
@@ -202,14 +203,18 @@ async function collectReachableFindings(root, file, visited, findings) {
   findings.push(...findOwnerPassThroughFindings(file, content));
   findings.push(...findUnexpectedRuntimeFacadeFindings(file, content));
 
-  for (const declaration of extractReExportDeclarations(content)) {
-    if (!declaration.source.startsWith('.')) continue;
-    const target = await resolveLocalReExport(root, file, declaration.source);
+  const reachableSources = new Set([
+    ...extractReExportDeclarations(content).map((declaration) => declaration.source),
+    ...extractPassThroughSources(content),
+  ]);
+  for (const source of reachableSources) {
+    if (!source.startsWith('.')) continue;
+    const target = await resolveLocalReExport(root, file, source);
     if (target === undefined) {
       findings.push({
         file,
         type: 'sdk-public-unresolved-local-re-export',
-        detail: `Public local re-export ${declaration.source} does not resolve to a TypeScript source file.`,
+        detail: `Public local re-export ${source} does not resolve to a TypeScript source file.`,
       });
       continue;
     }
@@ -220,10 +225,7 @@ async function collectReachableFindings(root, file, visited, findings) {
 function findUnexpectedRuntimeFacadeFindings(file, content) {
   if (SDK_RUNTIME_FACADE_FILES.has(file)) return [];
   return extractPassThroughSources(content)
-    .filter(
-      (source) =>
-        source === '@robota-sdk/agent-executor' || source.startsWith('@robota-sdk/agent-executor/'),
-    )
+    .filter((source) => source === EXECUTOR_PACKAGE || source.startsWith(`${EXECUTOR_PACKAGE}/`))
     .map(() => ({
       file,
       type: 'sdk-runtime-facade-location',
