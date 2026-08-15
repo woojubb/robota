@@ -33,6 +33,8 @@ export class WebRtcDeliveryLifecycle {
 
   handleFailure(channel: RTCDataChannel, generation: number, error: Error, event: string): void {
     if (generation !== this.generation || this.dropped) return;
+    const notifyDrop = this.paired;
+    if (notifyDrop) this.dropped = true;
     try {
       this.options.onDeliveryError(error, event);
     } catch {
@@ -44,8 +46,6 @@ export class WebRtcDeliveryLifecycle {
     } catch {
       // already closing/closed
     }
-    if (!this.paired) return;
-    this.dropped = true;
-    this.options.onDropped();
+    if (notifyDrop) this.options.onDropped();
   }
 }

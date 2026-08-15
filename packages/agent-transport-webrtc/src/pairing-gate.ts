@@ -29,7 +29,7 @@ import {
 } from '@robota-sdk/agent-remote-pairing';
 
 import type { IProtocolSession, TServerMessage } from '@robota-sdk/agent-transport-protocol';
-import { tryClosePairingChannel, trySendPairingFrame } from './pairing-channel-lifecycle.js';
+import { pairingChannel } from './pairing-channel-lifecycle.js';
 
 /** The minimal data-channel surface the gate drives (a werift `RTCDataChannel` satisfies it). */
 export interface IPairingChannel {
@@ -197,7 +197,7 @@ export class PairingGate {
       role: this.options.role,
       localFingerprint: this.options.localFingerprint,
       remoteFingerprint: this.options.remoteFingerprint,
-      send: (frame) => trySendPairingFrame(this.options.channel, JSON.stringify(frame)),
+      send: (frame) => pairingChannel.send(this.options.channel, JSON.stringify(frame)),
       ...(this.options.timeoutMs !== undefined ? { timeoutMs: this.options.timeoutMs } : {}),
     });
     this.pairingController = controller;
@@ -219,7 +219,7 @@ export class PairingGate {
       remoteFingerprint: this.options.remoteFingerprint,
       hostPrivateKey: cfg.hostPrivateKey,
       resolveDevicePublicKey: cfg.resolveDevicePublicKey,
-      send: (frame) => trySendPairingFrame(this.options.channel, JSON.stringify(frame)),
+      send: (frame) => pairingChannel.send(this.options.channel, JSON.stringify(frame)),
       ...(this.options.timeoutMs !== undefined ? { timeoutMs: this.options.timeoutMs } : {}),
     });
     this.reconnectController = controller;
@@ -240,7 +240,7 @@ export class PairingGate {
     }
     // E3 enrollment: advertise the host public key; the peer's `enroll-key` completes it (then expose).
     this.state = 'enrolling';
-    trySendPairingFrame(
+    pairingChannel.send(
       this.options.channel,
       JSON.stringify({ t: 'enroll-key', spki: cfg.hostPublicSpki } satisfies IEnrollFrame),
     );
@@ -297,7 +297,7 @@ export class PairingGate {
   private rejectAndClose(): void {
     if (this.state === 'closed') return;
     this.state = 'closed';
-    tryClosePairingChannel(this.options.channel);
+    pairingChannel.close(this.options.channel);
     this.options.onReject?.();
   }
 
@@ -307,7 +307,7 @@ export class PairingGate {
     this.handlerCleanup?.();
     this.handlerCleanup = undefined;
     this.onSessionMessage = undefined;
-    tryClosePairingChannel(this.options.channel);
-    this.options.onDeliveryError?.(error, event);
+    pairingChannel.reportDeliveryError(this.options.onDeliveryError, error, event);
+    pairingChannel.close(this.options.channel);
   }
 }
