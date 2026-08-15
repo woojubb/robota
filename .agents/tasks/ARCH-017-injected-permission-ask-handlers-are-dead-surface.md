@@ -94,3 +94,17 @@ DONE-GATE-STAGE-1: PASS
   `finally`.
 - **Evidence (2026-08-15):** exit `0`; stdout
   `{"scenario":"ARCH-017","requestEvents":["permission_request","ask_request","prompt_resolved"],"permissionRequestCount":1,"askRequestCount":1,"resolvedRequestIds":["p1","a2"],"allowedToolResult":"ARCH_017_ALLOWED","askAnswer":["registry"],"responses":["permission complete","ask complete"],"cleanupRemoved":true}`.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-15
+
+**Status upgrade:** scenario-written → scenario-verified
+
+- Direct execution: the exact scenario command above ran twice against the completed implementation;
+  both runs exited `0` and produced the same JSON object.
+- Expected result: each run observed one `permission_request`, one `ask_request`, exactly two matching
+  `prompt_resolved` request ids (`p1`, `a2`), `ARCH_017_ALLOWED`, the `registry` answer, and the two
+  expected provider responses.
+- Cleanup: each run reported `cleanupRemoved: true`; no scenario workspace remained.
+- Durable evidence: `packages/agent-framework/examples/verify-prompt-request-resolution.ts` exists and
+  the package-owned scenario output matched
+  `packages/agent-framework/examples/scenarios/framework-offline-scenarios.record.json`.
