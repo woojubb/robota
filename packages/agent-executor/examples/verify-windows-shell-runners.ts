@@ -2,7 +2,7 @@ import { createHook } from 'node:async_hooks';
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 
-import { UnsupportedShellError } from '@robota-sdk/agent-core';
+import { UnsupportedShellError, resolvePlatformShell } from '@robota-sdk/agent-core';
 import {
   createManagedShellProcessRunner,
   createScheduledTaskRunner,
@@ -12,7 +12,8 @@ import {
 
 interface IShellCase {
   name: string;
-  expectedBasename: string;
+  expectedObservedBasename: string;
+  expectedRequestedBasename: string;
   executable?: string;
   command: string;
   sentinel: string;
@@ -43,7 +44,8 @@ function observedExecutableBasename(output: string, caseName: string): string {
     marker !== undefined && marker.length > 0,
     `${caseName} executable marker missing`,
   );
-  return executableBasename(marker);
+  const basename = executableBasename(marker);
+  return basename === 'sh' || basename === 'bash' ? `${basename}.exe` : basename;
 }
 
 function installedExecutable(name: string): string {
@@ -85,7 +87,7 @@ async function managedResult(shellCase: IShellCase): Promise<IRunnerResult> {
   );
   const basename = observedExecutableBasename(result.output ?? '', `${shellCase.name} managed`);
   assertCondition(
-    basename === shellCase.expectedBasename,
+    basename === shellCase.expectedObservedBasename,
     `${shellCase.name} managed executable basename was ${basename}`,
   );
   return { success: true, executableBasename: basename, output: shellCase.sentinel };
@@ -126,7 +128,7 @@ async function scheduledResult(
   assertCondition(fires === 1, `${shellCase.name} scheduled fire count was ${fires}`);
   const basename = observedExecutableBasename(output, `${shellCase.name} scheduled`);
   assertCondition(
-    basename === shellCase.expectedBasename,
+    basename === shellCase.expectedObservedBasename,
     `${shellCase.name} scheduled executable basename was ${basename}`,
   );
   return {
@@ -140,7 +142,8 @@ async function scheduledResult(
 async function assertUnknownShellRejected(): Promise<number> {
   const unknown: IShellCase = {
     name: 'unknown',
-    expectedBasename: 'arch-026-unknown-shell.exe',
+    expectedObservedBasename: 'arch-026-unknown-shell.exe',
+    expectedRequestedBasename: 'arch-026-unknown-shell.exe',
     executable: 'arch-026-unknown-shell.exe',
     command: 'must-not-spawn',
     sentinel: 'must-not-spawn',
@@ -189,28 +192,32 @@ async function main(): Promise<void> {
     const cases: IShellCase[] = [
       {
         name: 'default',
-        expectedBasename: 'powershell.exe',
+        expectedObservedBasename: 'powershell.exe',
+        expectedRequestedBasename: 'powershell.exe',
         command:
           "$arch026Path=(Get-Process -Id $PID).Path; Write-Output ('ARCH026_EXECUTABLE:' + [IO.Path]::GetFileName($arch026Path)); Write-Output 'arch026-default'",
         sentinel: 'arch026-default',
       },
       {
         name: 'sh',
-        expectedBasename: 'sh.exe',
+        expectedObservedBasename: 'bash.exe',
+        expectedRequestedBasename: 'sh.exe',
         executable: installedExecutable('sh.exe'),
         command: `printf 'ARCH026_EXECUTABLE:%s\\n' "$(basename "$0")"; printf 'arch026-sh\\n'`,
         sentinel: 'arch026-sh',
       },
       {
         name: 'bash',
-        expectedBasename: 'bash.exe',
+        expectedObservedBasename: 'bash.exe',
+        expectedRequestedBasename: 'bash.exe',
         executable: installedExecutable('bash.exe'),
         command: `printf 'ARCH026_EXECUTABLE:%s\\n' "$(basename "$0")"; printf 'arch026-bash\\n'`,
         sentinel: 'arch026-bash',
       },
       {
         name: 'powershell',
-        expectedBasename: 'powershell.exe',
+        expectedObservedBasename: 'powershell.exe',
+        expectedRequestedBasename: 'powershell.exe',
         executable: installedExecutable('powershell.exe'),
         command:
           "$arch026Path=(Get-Process -Id $PID).Path; Write-Output ('ARCH026_EXECUTABLE:' + [IO.Path]::GetFileName($arch026Path)); Write-Output 'arch026-powershell'",
@@ -218,7 +225,8 @@ async function main(): Promise<void> {
       },
       {
         name: 'pwsh',
-        expectedBasename: 'pwsh.exe',
+        expectedObservedBasename: 'pwsh.exe',
+        expectedRequestedBasename: 'pwsh.exe',
         executable: installedExecutable('pwsh.exe'),
         command:
           "$arch026Path=(Get-Process -Id $PID).Path; Write-Output ('ARCH026_EXECUTABLE:' + [IO.Path]::GetFileName($arch026Path)); Write-Output 'arch026-pwsh'",
@@ -226,7 +234,8 @@ async function main(): Promise<void> {
       },
       {
         name: 'cmd',
-        expectedBasename: 'cmd.exe',
+        expectedObservedBasename: 'cmd.exe',
+        expectedRequestedBasename: 'cmd.exe',
         executable: installedExecutable('cmd.exe'),
         command: 'echo ARCH026_EXECUTABLE:%COMSPEC%&& echo arch026-cmd',
         sentinel: 'arch026-cmd',
@@ -234,8 +243,16 @@ async function main(): Promise<void> {
     ];
     rows = [];
     for (const shellCase of cases) {
+      const requestedExecutableBasename = executableBasename(
+        shellCase.executable ?? resolvePlatformShell().command,
+      );
+      assertCondition(
+        requestedExecutableBasename === shellCase.expectedRequestedBasename,
+        `${shellCase.name} requested executable basename was ${requestedExecutableBasename}`,
+      );
       rows.push({
         name: shellCase.name,
+        requestedExecutableBasename,
         managed: await managedResult(shellCase),
         scheduled: await scheduledResult(shellCase, schedules),
       });

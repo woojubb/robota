@@ -5,9 +5,17 @@ if (!artifactPath) throw new Error('Usage: assert-windows-shell-scenario.mjs <ar
 
 const value = JSON.parse(readFileSync(artifactPath, 'utf8'));
 const expectedNames = ['default', 'sh', 'bash', 'powershell', 'pwsh', 'cmd'];
-const expectedBasenames = [
+const expectedRequestedBasenames = [
   'powershell.exe',
   'sh.exe',
+  'bash.exe',
+  'powershell.exe',
+  'pwsh.exe',
+  'cmd.exe',
+];
+const expectedObservedBasenames = [
+  'powershell.exe',
+  'bash.exe',
   'bash.exe',
   'powershell.exe',
   'pwsh.exe',
@@ -28,6 +36,9 @@ if (
   throw new Error('ARCH-026 artifact shell rows are missing or out of order');
 }
 for (const [index, row] of value.rows.entries()) {
+  if (row.requestedExecutableBasename !== expectedRequestedBasenames[index]) {
+    throw new Error(`ARCH-026 requested executable mismatch for ${row.name}`);
+  }
   if (
     row.managed?.success !== true ||
     row.scheduled?.success !== true ||
@@ -36,8 +47,8 @@ for (const [index, row] of value.rows.entries()) {
     throw new Error(`ARCH-026 runner evidence failed for ${row.name}`);
   }
   if (
-    row.managed.executableBasename !== expectedBasenames[index] ||
-    row.scheduled.executableBasename !== expectedBasenames[index]
+    row.managed.executableBasename !== expectedObservedBasenames[index] ||
+    row.scheduled.executableBasename !== expectedObservedBasenames[index]
   ) {
     throw new Error(`ARCH-026 observed executable mismatch for ${row.name}`);
   }
