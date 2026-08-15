@@ -31,23 +31,23 @@ Plan: [`.agents/spec-docs/todo/RULE-013-blackbox-whitebox-doc-boundary.md`](../s
 
 ### Phase 1 — 배치 기준 명문화
 
-- [ ] **T-01** (TC-01) `design-doc-authoring/SKILL.md`에 배치 기준 섹션 신설 — 소비자 파급 테스트 + 경계 사례 표. **최종 사용자 대상 계약 행을 반드시 포함**(키 바인딩·시각 문법은 whitebox가
+- [x] **T-01** (TC-01) `design-doc-authoring/SKILL.md`에 배치 기준 섹션 신설 — 소비자 파급 테스트 + 경계 사례 표. **최종 사용자 대상 계약 행을 반드시 포함**(키 바인딩·시각 문법은 whitebox가
       아니라 사람이 소비자인 blackbox 계약)
-- [ ] **T-02** (TC-02) `spec-writing-standard/SKILL.md`와 `spec-workflow.md`에서 배치 기준으로
+- [x] **T-02** (TC-02) `spec-writing-standard/SKILL.md`와 `spec-workflow.md`에서 배치 기준으로
       **링크만** 건다. 기준 본문 복사 금지 (Non-Duplication)
 
 ### Phase 1b — `User-Facing Contract` 슬롯 + 표 정정 (Phase 3의 선결 조건)
 
-- [ ] **T-03** (TC-14) `spec-writing-standard/SKILL.md` 선택 섹션에 `User-Facing Contract` 추가
-- [ ] **T-04** (TC-14) `.agents/templates/spec-template.md`에 대응 섹션 반영
-- [ ] **T-05** (TC-15 선결) 같은 스킬의 "Required Sections Reference" 표에 **선택 섹션을 열거**한다.
+- [x] **T-03** (TC-14) `spec-writing-standard/SKILL.md` 선택 섹션에 `User-Facing Contract` 추가
+- [x] **T-04** (TC-14) `.agents/templates/spec-template.md`에 대응 섹션 반영
+- [x] **T-05** (TC-15 선결) 같은 스킬의 "Required Sections Reference" 표에 **선택 섹션을 열거**한다.
       현재 필수 9만 있고 선택 5는 Mode A 절차문(L46-51)에만 있어 발견 불가 — GATE-WRITE 가디언이
       실제로 "열거된 곳이 없다"고 결론냈다. Phase 3이 이 표를 **파싱**하므로 이 항목은 정정이 아니라
       **선결 조건**이다
 
 ### Phase 3 — 강제 (스캔·SSOT·테스트)
 
-- [ ] **T-06** (TC-15) 표준 섹션 SSOT를 **문서 쪽에 둔다** — `spec-writing-standard/SKILL.md`의
+- [x] **T-06** (TC-15) 표준 섹션 SSOT를 **문서 쪽에 둔다** — `spec-writing-standard/SKILL.md`의
       Required Sections Reference 표(+ Phase 1b 선택 표)를 **파싱**하고, 읽기 실패·빈 표에는
       **fail-closed**. `scan-doc-folder-status-agreement.mjs` 선례를 그대로 따른다.
       `shared.mjs`에 하드코딩 배열을 두지 않는다.
@@ -55,47 +55,47 @@ Plan: [`.agents/spec-docs/todo/RULE-013-blackbox-whitebox-doc-boundary.md`](../s
       단정하는데 유출 지표는 *필수 ∪ 선택*을 덮는다. 하나로 뭉치면 `## Configuration`이 있다는 이유로
       `Class Contract Registry` 누락 보고가 사라진다. 표를 각각 앵커링하고, TC-15의 집합 동등성
       단정은 **필수 표에 한정**한다
-- [ ] **T-07** (TC-15) `cleanup-drift.mjs`의 자체 8개 복사본 제거 → 공유 matcher 소비.
+- [x] **T-07** (TC-15) `cleanup-drift.mjs`의 자체 8개 복사본 제거 → 공유 matcher 소비.
       누락된 `Class Contract Registry`가 이 과정에서 교정된다
-- [ ] **T-08** (TC-04) **헤딩 normalizer/matcher** 구현 — `normalizeSpecHeading()` +
+- [x] **T-08** (TC-04) **헤딩 normalizer/matcher** 구현 — `normalizeSpecHeading()` +
       `isStandardSpecSection()`. 서수 접두사(`^\d+[.)]\s*`), 대소문자, 후행 괄호를 흡수한다.
       공유 단위는 이름 배열이 아니라 **matcher**다
-- [ ] **T-09** (TC-04) `check-spec-whitebox-leakage.mjs` 신규 (**advisory**) —
+- [x] **T-09** (TC-04) `check-spec-whitebox-leakage.mjs` 신규 (**advisory**) —
       `listWorkspacePackageDirs()` 소비(신규 글롭 금지). **기본 출력은 임계 이상 finding +
       `::examined::` 한 줄뿐**이고, 87행 순위표는 플래그 또는 `--report-file` 뒤에 둔다
       (`harness:review`·`harness:run-context` 관례) — 매 실행마다 서사를 뿜는 가드는 거부까지 함께
       스크롤된다(property 4). 기준을 읽지 못하면 **exit 1**(Silence is not success)
-- [ ] **T-10** (TC-04) 단위 테스트 — 회수 전 스냅샷 고정 픽스처. **정정된 기대값**을 쓰고
+- [x] **T-10** (TC-04) 단위 테스트 — 회수 전 스냅샷 고정 픽스처. **정정된 기대값**을 쓰고
       깨진 측정(203/203, 210/210)을 동결하지 않는다. 진짜 변형 케이스를 별도로 포함
-- [ ] **T-11** (TC-16) 스캔이 `::examined::`로 검사 파일 수 보고, 값 ≥87 (중첩 패키지 회귀 방지)
-- [ ] **T-12** (TC-13) `check-design-doc-completeness.mjs`에 SPEC→design 역방향 링크 warning 추가
-- [ ] **T-13** (TC-13) `run-all-scans.mjs`에 신규 스캔 등록
+- [x] **T-11** (TC-16) 스캔이 `::examined::`로 검사 파일 수 보고, 값 ≥87 (중첩 패키지 회귀 방지)
+- [x] **T-12** (TC-13) `check-design-doc-completeness.mjs`에 SPEC→design 역방향 링크 warning 추가
+- [x] **T-13** (TC-13) `run-all-scans.mjs`에 신규 스캔 등록
 
 ### Phase 4 — mandate 범위 조정 + 모순 스윕 (범위 확대, 2026-08-16 승인)
 
-- [ ] **T-14** (TC-03) `spec-workflow.md` Live Spec Policy mandate 행을
+- [x] **T-14** (TC-03) `spec-workflow.md` Live Spec Policy mandate 행을
       `New or changed externally observable behavior or semantics`로 좁히고 내부 동작 변경의
       design doc 라우팅 문장 추가. 나머지 6행 불변
-- [ ] **T-15** (TC-03) **모순 스윕** — 같은 파일 § Document Authority and Content Placement의
+- [x] **T-15** (TC-03) **모순 스윕** — 같은 파일 § Document Authority and Content Placement의
       Design documents 행을 `packages/*/docs/design/` + 횡단 `.agents/specs/`로 정정. SPEC↔design
       내용 분할은 배치 기준으로 **링크 위임**(복사 금지). 현재 그 행은 `.design/**`를 가리켜
       `design-doc-authoring/SKILL.md:35`("NOT `.design/`")와 정면 모순이고, blocking 스캔
       `document-authority`로 기계화돼 있다
-- [ ] **T-16** (TC-03) `check-document-authority.mjs::isDesignDoc()`이 `packages/*/docs/design/`를
+- [x] **T-16** (TC-03) `check-document-authority.mjs::isDesignDoc()`이 `packages/*/docs/design/`를
       인식하도록 확장. 스윕 결과를 Evidence Log에 기록 (`learning-loop.md`: "A MUST is not in force
       while another document permits its negation")
-- [ ] **T-17** (TC-03) `isDesignDoc()`에서 **`.design/decisions/` 제외** — 같은 함수를 두 번 건드리지
+- [x] **T-17** (TC-03) `isDesignDoc()`에서 **`.design/decisions/` 제외** — 같은 함수를 두 번 건드리지
       않도록 T-16과 함께. 근거: 타이포노미가 그 경로를 ADR 위치로 선언했고 RULE-010의 `adr` 게이트가
       이미 소유한다("one finding per defect, reported by its owner"). 더 중요한 건 **현재 그 경로에서
       finding이 뜨면 해소가 구조적으로 불가능**하다는 것 — `hasMatchingOwnerDocument()`의 탈출구가
       `^(packages|apps)/([^/]+)/` 스코프에서 파생되는데 `.design/**`는 그 스코프를 만들 수 없다.
       `ADR-002`는 헤딩 하나 이름만 바뀌면 해소 불가 블록에 걸린다
-- [ ] **T-18** (TC-05, TC-12) **기준선 재도출을 WU-A 안에서 수행** — 파서가 착지한 직후 `## Problem`의
+- [x] **T-18** (TC-05, TC-12) **기준선 재도출을 WU-A 안에서 수행** — 파서가 착지한 직후 `## Problem`의
       인용 수치를 갱신한다. `## Problem`은 GATE-APPROVAL 보호 대상이 아니다. 심사자 실측:
       정규화 시 **6,774 / 17,139 = 39.5%**, `apps/www` 210→9, `agent-transport` 203→6이며 임계
       `≥300 AND ≥40%`의 적발 집합은 **불변**(여전히 `agent-framework`·`agent-cli` 2건). TC-12 임계는
       바꿀 필요 없다 — 잔여 ≈3,319 = 24.3%로 ≤3,600·≤30% 안이고 여유가 늘어난다. **인용 수치만** 이동
-- [ ] **T-19** (TC-11, TC-13) `pnpm harness:scan` exit 0 + 신규 단위 테스트 green
+- [x] **T-19** (TC-11, TC-13) `pnpm harness:scan` exit 0 + 신규 단위 테스트 green
 
 ---
 
