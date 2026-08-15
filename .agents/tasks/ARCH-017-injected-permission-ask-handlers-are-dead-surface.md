@@ -5,7 +5,7 @@ created: 2026-08-13
 priority: high
 urgency: soon
 area: packages/agent-framework, packages/agent-interface-transport
-depends_on: []
+depends_on: [ARCH-018]
 ---
 
 # ARCH-017: permission/ask handler seams are dead
@@ -40,36 +40,26 @@ says is emitted has no emitter, so a channel that renders it gets nothing.
 
 ## Direction
 
-Decide (one design fact, both symptoms):
-
-- **Honor injection:** make the prompt registry fall back to a caller-supplied `permissionHandler`/
-  `askHandler` when one is provided (both paths), OR
-- **Remove the dead fields** from `TInteractiveSessionOptions`/`IInteractiveSessionInjectedOptions`
-  and rewrite the SPEC's Extension Points / ask-seam / Permission System sections around the real
-  mechanism (`permission_request`/`ask_request` + `resolvePermission`/`resolveAsk`).
-
-Then either emit `permission-resolved` from the prompt-registry settle path (it carries exactly
-`id`/`granted`) or remove the union member and the SPEC row. Today both halves are false.
+Remove `permissionHandler` and `askHandler` from the session option contracts and remove the stale
+`InteractionEvent.permission-resolved` member. REMOTE-007's prompt registry is the sole settlement
+owner: requests are `permission_request` / `ask_request`, drivers settle them through
+`resolvePermission` / `resolveAsk`, and `prompt_resolved` is the only settlement event. Leaf convenience
+factories may preserve callback ergonomics by subscribing to request events and resolving through that
+same registry; they must not introduce a second session-level settlement path.
 
 ## Test Plan
 
-- Red-first: a session constructed with a custom `permissionHandler` — assert it is invoked on a tool
-  permission request (fails today; the registry default runs instead). If the remove-fields option is
-  chosen, a typecheck asserting the fields are gone + SPEC updated.
-- Red-first: assert `permission-resolved` is either emitted on resolution or absent from the union.
+- Red-first type tests assert the obsolete session option fields and `permission-resolved` event are gone.
+- Prompt-registry integration asserts leaf callback convenience subscribes to a request and settles it
+  through `resolvePermission` / `resolveAsk`, producing exactly one `prompt_resolved` event.
 - `pnpm harness:verify -- --scope packages/agent-framework` green.
 
 ## User Execution Test Scenarios
 
-**Applies** (via the public SDK — a consumer supplying a custom permission handler).
+**Applies** through the documented prompt-request SDK surface.
 
-- Prerequisites: built workspace; a scratch SDK consumer constructing an interactive session with a
-  custom `permissionHandler` that auto-denies a specific tool.
-- Steps: run a turn that triggers that tool.
-- Expected (after the "honor" fix): the custom handler decides (the tool is denied by it).
-- Expected (before fix, contrast): the custom handler never runs; the built-in registry prompt (or
-  fail-closed deny) applies instead.
-- If "remove fields" is chosen: Not applicable — record the API removal + SPEC rewrite in the Test
-  Plan; the scenario becomes "consumer uses the documented `permission_request` path".
-- Evidence (fill in after implementation): the consumer source + turn transcript showing which handler
-  decided.
+- Prerequisites: built workspace; a deterministic consumer subscribed to `permission_request`.
+- Steps: trigger a permission request, resolve it with `resolvePermission`, and observe session events.
+- Expected: the consumer receives the request and exactly one canonical `prompt_resolved` settlement;
+  no legacy handler or `permission-resolved` path exists.
+- Evidence (fill in after implementation): the deterministic consumer transcript.

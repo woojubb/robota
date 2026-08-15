@@ -5,7 +5,7 @@ created: 2026-08-13
 priority: medium
 urgency: soon
 area: packages/agent-interface-transport, packages/agent-framework, packages/agent-transport-tui, packages/agent-transport-protocol, packages/agent-transport
-depends_on: []
+depends_on: [ARCH-016]
 ---
 
 # ARCH-028: emitted session events no transport consumes
@@ -36,17 +36,18 @@ notifications fire and reach no surface — TUI, WS bridge, or headless.
 
 ## Direction
 
-Decide per member (same shape as ARCH-020): wire a consumer — a TUI notice and/or WS-bridge forwarding
-so a GUI/monitor can render plan-mode transitions and context-file refreshes — or strike the "consumed
-by transports" charter clause for these members and mark them forward-provisioned. Coordinate with
-ARCH-020 (branch_event) and ARCH-016 (session-log vocabulary) so the plan/branch/context event family
-is resolved consistently across emit, transport-forward, and log-record.
+Execute with ARCH-020 as one named event-delivery work unit. Own shared event keys and payloads in
+`agent-interface-transport`, but keep executable subscription and fan-out policy out of that interface
+package. Add separate mechanically-total `Record<event, classification>` mappings in the TUI and protocol
+implementation packages so branch, plan, and context-refresh events are either deterministically rendered,
+forwarded/accepted by clients, or explicitly classified as non-surface events. Delivery failures use each
+transport's existing injected terminal/logger or client error/disconnect lifecycle and are never swallowed.
 
 ## Test Plan
 
-- Red-first: subscribe a transport (TUI channel binding or WS bridge fan-out) to `plan_event` and
-  `context_file_refreshed`, drive a plan-mode transition and a context-file refresh, assert the surface
-  receives them. Fails today.
+- Red-first exhaustive-map fixtures fail when a shared event key has no TUI/protocol classification.
+- Drive plan transitions and context refreshes and assert deterministic TUI rendering plus protocol
+  fan-out/client observation; include owned delivery-failure assertions.
 - `pnpm harness:verify -- --scope packages/agent-transport-tui` (and the WS bridge scope) green.
 
 ## User Execution Test Scenarios
