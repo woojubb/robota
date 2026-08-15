@@ -126,7 +126,11 @@ Plan: [`.agents/spec-docs/todo/RULE-013-blackbox-whitebox-doc-boundary.md`](../s
       `../SPEC.md` 역참조
 - [x] **T-24** (TC-12) 전체 유출량 관측 — 6,675줄/38.4% → **4,967줄/28.9%**(-1,708줄, -9.5pp),
       임계 초과 2건 → **1건**(`agent-framework`, `DOCS-025`가 회수)
-- [x] **T-25** (TC-05) `agent-cli` 표준 섹션 밖 잔여 **0줄** (기준 ≤150)
+- [x] **T-25** (TC-05) 회수량과 무손실을 직접 단정 — `verify-doc-split-preservation.mjs` exit 0
+      (허용 11건 명시: 해체·개명된 헤딩 제목 9 + 줄바꿈이 바뀐 문장 2), design 본문 **297줄**(기준 ≥200).
+      **초안의 "표준 섹션 밖 ≤150줄"은 폐기했다** — 스캔이 `##`만 마크하므로 강등으로 만족된다
+      (`HARNESS-052` G8). 세 번째 정정이며 이번엔 임계가 아니라 대상을 바꿨다
+- [x] **T-26** (Round 2) 계약 3건 SPEC 복귀 + whitebox 5건 추출 + 분류표 부록에 8건 등재
 
 **절차:** 추출은 Mode C drift recovery와 동일하게 **전용 PR, 기능 작업과 혼합 금지**.
 
@@ -167,3 +171,37 @@ WU-A 안에서)과 `.design/decisions/` 제외 판단은 위 태스크에 반영
   `packages/*/docs/design/`가 인식되는 순간 `document-authority`가 배치 기준의 **두 번째, blocking
   강제**가 된다 — 공개 계약 내용을 담은 파일럿 design doc은 게이트에서 실패한다. Finding 4를 접는
   비용이 아니라 이득이다.
+
+## Recommendation Gate — WU-B
+
+`backlog-execution.md` > Recommendation Gate. 판정자 `proposal-reviewer`(독립 에이전트), 2라운드.
+
+### Round 1 — `REVIEW VERDICT: REVISE` | 2026-08-16
+
+착수 전 판정. 지적과 처리는 Plan 문서
+[`## Evidence Log` > WU-B 구현](../spec-docs/active/RULE-013-blackbox-whitebox-doc-boundary.md)의 표에
+기록. 요지: TC-05·TC-12가 개명만으로 통과 가능(스스로 vacuous green), "SPEC ≤700줄" 도달 불가,
+P2~P5 전제 오류, **분류표를 먼저 만들라**.
+
+### Round 2 — `REVIEW VERDICT: REVISE` | 2026-08-16
+
+1라운드 접기 결과를 재심사. 세 가지는 clean(범위 축소의 정당성, design doc의 실질성, 내용 무손실 —
+심사자가 `comm -23`으로 독립 재현), 두 가지는 불통과. **두 지적 모두 맞았고 직접 검증했다:**
+
+| 지적                                                                                                                                                           | 검증                                                                                                                           | 처리                                                                                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **TC-05의 "0"은 허상.** 스캔이 `##`만 마크하므로 `##`→`###` **강등**으로 한 줄도 안 옮기고 0이 된다. 그리고 TC-06은 그 구멍의 봉인이 아니라 **구멍 그 자체**다 | `check-spec-whitebox-leakage.mjs:62`의 `/^##\s+/` 확인. 이 PR이 실제로 비표준 `##` 20개를 `###`로 내려 88.1% → 0.0%를 만들었다 | TC-05를 **지표에서 떼어냈다** — `verify-doc-split-preservation.mjs`(무손실) + design 본문 ≥200줄(회수량). TC-06은 관측 기록으로 강등. 지표 결함은 `HARNESS-052` **G8**로 등재하고 스캔 헤더에 사각지대 명시 |
+| **계약 3건이 SPEC 밖으로 나갔다** — 변수 치환 토큰 · `/background` 명령 문법 · `transports` settings 키. 반대로 whitebox 5건이 표준 헤딩 아래 세탁됐다         | `rg`로 3건 부재, 5건 존재 전부 확인                                                                                            | 3건 복귀(`Extension Points` · `User-Facing Contract` · `Configuration`), 5건 추출(`message-architecture` · `composition` · `Test Strategy`). 8건 전부 분류표 부록에 등재                                    |
+
+부수 정정: `design/composition.md`가 존재하지 않는 `check-composition-neutrality.mjs`를 인용
+(실제는 `scan-composition-neutrality.mjs`) → 수정. Test Plan의 TC-05/06/07/12/15 행이 폐기된 기준을
+가리키고 있던 것 → 갱신.
+
+**심사자가 별건으로 분리하라고 한 것(접지 않음):** `## User-Facing Contract`가 1,017줄 · 4단 헤딩으로
+"찾을 수 있으나 그 안에서 길을 잃는" 상태다. 제품 셸에는 슬롯 하나가 부족할 수 있고(`Invocation
+Surface` vs `Terminal Display Contract` 분리, 또는 하위 구조 규정), 이는 표준 섹션 목록의 문제이지
+이 파일럿의 문제가 아니다. WU-B에 접지 않는다.
+
+### Round 3
+
+2라운드 접기 완료 후 재심사 대기.

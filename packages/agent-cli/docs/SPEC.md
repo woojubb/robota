@@ -250,6 +250,28 @@ interface ICommand {
 | Skills   | `SkillCommandSource`   | `@robota-sdk/agent-framework` | SDK common API used by `agent-command-skills` for virtual skill palette entries      |
 | Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-framework` | Skills provided by installed bundle plugins                                          |
 
+### Skill Body Syntax
+
+A user authors these tokens inside their own `SKILL.md`; renaming one breaks every existing skill
+file. The pipeline that performs the substitution is
+[`docs/design/command-registry.md`](design/command-registry.md).
+
+Skill content supports variable substitution before injection:
+
+| Variable               | Description                               |
+| ---------------------- | ----------------------------------------- |
+| `$ARGUMENTS`           | User-provided arguments after the command |
+| `${CLAUDE_SESSION_ID}` | Current session identifier                |
+| `${CLAUDE_MODEL}`      | Current model identifier                  |
+| `${PROJECT_DIR}`       | Project root directory path               |
+| `${USER_HOME}`         | User home directory path                  |
+
+Variables are substituted at invocation time, not at discovery time.
+
+#### Inline shell execution
+
+Skill content supports inline shell command execution using the `` !`command` `` syntax. The shell command is executed and its stdout replaces the markup in the skill content before injection. This enables dynamic content like file listings or environment values.
+
 ### Skill Frontmatter Schema
 
 Each `SKILL.md` may contain YAML frontmatter with the following fields:
@@ -527,6 +549,12 @@ prompt, or content (HARNESS-029 memory-neutrality).
   inspectable via the existing `/memory` command (list / pending / approve); recalled memory is rendered
   into the turn as a distinct `<recalled-memory>` block (P3).
 
+### Transport Settings
+
+Transport enabled/disabled state and options are persisted in `settings.json` under the `transports`
+key. Which registry constructs them, and when, is
+[`docs/design/composition.md`](design/composition.md).
+
 ### Session Logging
 
 Session logging is an SDK-internal concern. The CLI does not configure or manage log files. For logging details (JSONL format, log paths, event types), see the agent-framework SPEC.
@@ -669,6 +697,12 @@ Testing rules:
 - Provider is always injected via `IProviderDefinition[]`; tests must not call real AI endpoints.
 - File I/O in startup modules is tested with temp directories; no cross-test side effects.
 - Telemetry has been removed; there must be no telemetry-related test files or stubs.
+
+### Display formatting test requirements
+
+- Pure formatting helpers must have unit tests for status markers, truncation, omitted-line counts, and narrow-output labels.
+- Ink components must have render tests for the same states using representative structured data.
+- Changes that add a new output surface must update this section or explain why an existing surface owns the behavior.
 
 ## User-Facing Contract
 
@@ -1055,6 +1089,22 @@ Skills are discovered at session start from directories scanned by `SkillCommand
 | `context: agent` | Agent context  | Skill runs as a sub-agent with its own isolated session       |
 | `allowed-tools`  | Tool whitelist | Restricts which tools the skill can use during execution      |
 
+### Background Work Controls
+
+The always-visible background panel must not expose raw task IDs; task IDs remain available through
+`/background list` and `/background read`. User controls are routed through
+`@robota-sdk/agent-command`:
+
+| Command                               | Behavior                       |
+| ------------------------------------- | ------------------------------ |
+| `/background` or `/background list`   | List current background tasks  |
+| `/background read <task-id> [offset]` | Read stdout/stderr log lines   |
+| `/background cancel <task-id>`        | Cancel one queued/running task |
+| `/background close <task-id>`         | Dismiss one terminal task      |
+
+The Node process adapters behind these are
+[`docs/design/subagent-wiring.md`](design/subagent-wiring.md).
+
 ### Keyboard Controls
 
 #### Message Display Order (fixed)
@@ -1276,12 +1326,6 @@ Colors remain renderer-owned: green for success/healthy state, yellow for warnin
 - Place active state in the primary scan path. Passive metadata may remain dim or right-aligned, but model/tool/background activity must be visible without scanning the far edge of the terminal.
 - Keep code/diff colorization centralized through markdown rendering or dedicated formatting helpers, not ad hoc line coloring in each component.
 
-#### Testing Requirements
-
-- Pure formatting helpers must have unit tests for status markers, truncation, omitted-line counts, and narrow-output labels.
-- Ink components must have render tests for the same states using representative structured data.
-- Changes that add a new output surface must update this section or explain why an existing surface owns the behavior.
-
 #### Command Output Summary Rendering
 
 Command-like tool summaries render a compact command row plus a bounded output preview. The contract is:
@@ -1369,31 +1413,6 @@ TUI interaction behaviors (picker overlays, confirm dialogs) are not registered 
 - `{ onMissingArgs: 'picker', getItems }` — opens a picker overlay
 - `{ onMissingArgs: 'confirm', message }` — opens a yes/no confirm dialog
 - no interaction — existing insert/submit behavior (intentional, no dialog needed)
-
-#### Command Module Composition
-
-Built-in commands are represented as `ICommandModule` instances injected into `InteractiveSession`. Command modules own command metadata and structured command results; the CLI hook layer owns rendering generic interactions and applying typed SDK command effects.
-
-**Composition order (ARCH-005 S2).** The base set (`createDefaultCommandModules`, minus the pack-supplied
-names) is merged with the profile's capability packs by `assembleProduct` — additively, with a rejection
-channel, never a silent override. The preset's `enabledCommandModules`/`disabledCommandModules` delta is
-applied to that merged SUPERSET afterwards: the capability merge widens, the preset delta narrows. The
-`/shell` and `/editor` modules are supplied by `@robota-sdk/pack-coding`, not by the base set — dropping
-the pack from the profile drops those commands from the product.
-
-**The tool axis, on the same terms (ARCH-006).** `robota`'s packs also own its TOOL surface: the shell
-passes `ROBOTA_PACKS_OWN_TOOL_SURFACE` (an empty `defaultTools`) into the kernel's runtime seam, which
-REPLACES `agent-framework`'s `createDefaultTools()` tier — so every tool the session runs arrives from a
-pack through `additionalTools`, and dropping a pack drops its tools. Because the pack's file tools are
-scoped to the `cwd` they are built with, the shell builds the packs (`createRobotaPacks({ cwd })`) before
-command setup and passes the instances into the profile; a context-free pack would carry a disarmed
-working-directory path guard.
-
-The CLI slash router must not own command-specific switch cases for built-ins when an injected command module can own the command. It may still own slash-prefix parsing, skill/plugin fallback lookup, result projection, and unknown-command rendering.
-
-`/plugin` and `/reload-plugins` are provided by `@robota-sdk/agent-command`. The CLI owns only the local `ICommandPluginAdapter` implementation. It opens `PluginTUI` from the requester-routed `show-plugin-manager` `ui_intent` event and reloads the registry's plugin command source from the `data.pluginRegistryReloaded` result hint.
-
-`/exit` is provided by `@robota-sdk/agent-command`. The command package owns command metadata and emits `session-exit-requested`; the CLI applies that typed effect by gracefully shutting down the session and terminal UI.
 
 #### Session Name Display
 
@@ -1616,17 +1635,11 @@ Supported SDK-owned edit checkpoint commands exposed through the CLI:
 
 Future Esc Esc or picker UI is terminal chrome only. The picker must call SDK APIs or commands; it must not duplicate checkpoint storage or restore algorithms.
 
-#### Message Windowing
+### Transcript Retention
 
-`TuiStateManager` keeps only the most recent 100 entries (`MAX_RENDERED_MESSAGES`) in `history: IHistoryEntry[]`. Older entries are dropped from the render tree to prevent unbounded memory growth. Full conversation history is preserved in the session store on disk.
-
-#### Tool State Cleanup
-
-Completed tool execution states are trimmed to the most recent 50 entries (`MAX_COMPLETED_TOOLS`). Running tools are always kept. This prevents `activeTools` array from growing unbounded during tool-heavy responses.
-
-#### React.memo
-
-`MessageItem` component uses `React.memo` to skip re-renders when message props are unchanged, reducing CPU and indirect memory pressure from Ink's full-tree reconciliation.
+The render tree is windowed; the transcript is not. The full conversation is preserved in the session
+store on disk regardless of what the terminal currently shows. The windowing mechanism is
+[`docs/design/message-architecture.md`](design/message-architecture.md).
 
 ### Plugin Management TUI
 

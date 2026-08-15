@@ -81,16 +81,8 @@ SDK/runtime projections before TUI components display them.
 by `Background work`. Each child row is built by the pure `formatBackgroundTaskRow` formatter from
 `IExecutionWorkspaceEntry` data and contains a compact status marker, human-readable task label,
 secondary metadata such as task kind/status/attention, and a short whitespace-normalized preview.
-The always-visible panel must not expose raw task IDs; task IDs remain available through
-`/background list` and `/background read`. User controls are routed through
-`@robota-sdk/agent-command`:
-
-| Command                               | Behavior                       |
-| ------------------------------------- | ------------------------------ |
-| `/background` or `/background list`   | List current background tasks  |
-| `/background read <task-id> [offset]` | Read stdout/stderr log lines   |
-| `/background cancel <task-id>`        | Cancel one queued/running task |
-| `/background close <task-id>`         | Dismiss one terminal task      |
+Task-ID exposure and the `/background` command grammar are contract — see
+[`../SPEC.md`](../SPEC.md) under `User-Facing Contract`.
 
 For implementation details of subagent/background execution (`/agent`, `context: fork` skills, background task manager, agent definition scanning), see the agent-framework and agent-executor SPEC files.
 

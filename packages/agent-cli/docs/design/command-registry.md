@@ -19,24 +19,6 @@ runs behind them.
 
 ## Internal Structure
 
-### Variable Substitution
-
-Skill content supports variable substitution before injection:
-
-| Variable               | Description                               |
-| ---------------------- | ----------------------------------------- |
-| `$ARGUMENTS`           | User-provided arguments after the command |
-| `${CLAUDE_SESSION_ID}` | Current session identifier                |
-| `${CLAUDE_MODEL}`      | Current model identifier                  |
-| `${PROJECT_DIR}`       | Project root directory path               |
-| `${USER_HOME}`         | User home directory path                  |
-
-Variables are substituted at invocation time, not at discovery time.
-
-### Shell Command Preprocessing
-
-Skill content supports inline shell command execution using the `` !`command` `` syntax. The shell command is executed and its stdout replaces the markup in the skill content before injection. This enables dynamic content like file listings or environment values.
-
 ### Skill Execution
 
 When a skill slash command is selected, the CLI calls `interactiveSession.executeCommand(name, args)`

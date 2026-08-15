@@ -55,6 +55,12 @@ const MIN_RATIO = 0.4;
 /**
  * Line span of every `##` section, split by whether its heading names a standard section.
  * Content before the first `##` (title, intro) counts as standard — it is not a leaked section.
+ *
+ * BLIND SPOT (HARNESS-052 G8): only `##` creates a span, so every `###` is attributed to its enclosing
+ * `##`. Demoting a non-standard `##` to `###` under a standard one drives the residual to zero WITHOUT
+ * moving a line. This measures heading conformance, not placement — which is why it is advisory, and
+ * why no acceptance criterion should be written against its number alone. To prove a split actually
+ * moved content, use `verify-doc-split-preservation.mjs` and assert on the destination documents.
  */
 export function measure(content, contract) {
   const lines = content.split(/\r?\n/);

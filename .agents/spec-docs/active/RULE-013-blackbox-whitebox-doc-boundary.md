@@ -417,15 +417,23 @@ semantics`** 로 좁히고, 내부 동작 변경은 design doc으로 라우팅�
 - [x] TC-03: `rg "New or changed externally observable behavior" .agents/rules/spec-workflow.md` → exit 0
 - [x] TC-04: `node scripts/harness/check-spec-whitebox-leakage.mjs` 가 Phase 2 **이전** 스냅샷에서
       `agent-framework`·`agent-cli` 정확히 2건을 finding으로 보고 (단위 테스트 픽스처로 고정)
-- [x] TC-05: 파일럿(`agent-cli`) SPEC의 **표준 섹션 밖 줄 수 ≤150** (`check-spec-whitebox-leakage.mjs --all`).
-      **이 기준은 두 번째 정정이다.** 초안의 "스캔 exit 0"은 **추출 없이 통과 가능했다** — 지표가
-      헤딩 이름 기반이므로 `agent-cli`의 `## Architecture`(351줄)를 `## Architecture Overview`로
-      개명하고 사용자 계약 섹션을 `## User-Facing Contract` 아래로 모으는 것만으로 960줄이 "표준"으로
-      재분류돼 38.6%가 되어 임계 아래로 떨어진다. 아무것도 옮기지 않고 초록이 된다. 절대 잔여량을
-      단정해야 개명이 아니라 배치를 검증한다
-- [x] TC-06: 파일럿(`agent-cli`)의 **잔류 `##` 헤딩이 전부 표준 섹션으로 정규화**된다 —
-      `isStandardSpecSection()`으로 기계 단정. 개명을 금지하는 게 아니라 **명시된 결과**로 만들어,
-      TC-05의 빠져나갈 구멍을 닫는다
+- [x] TC-05: **회수량과 무손실을 직접 단정한다** — (a)
+      `node scripts/harness/verify-doc-split-preservation.mjs --ref <분할 직전 ref>
+    --source packages/agent-cli/docs/SPEC.md --target <신 SPEC> --target <design 6건>` exit 0,
+      (b) `packages/agent-cli/docs/design/*.md`의 본문 줄 합계 **≥200**.
+      **이 기준은 세 번째 정정이며, 이번엔 임계값이 아니라 대상을 바꿨다.** 초안의 "스캔 exit 0"은
+      개명으로, 2차 정정의 "표준 섹션 밖 ≤150줄"은 **강등**으로 각각 추출 없이 통과했다 —
+      `check-spec-whitebox-leakage.mjs:62`가 `/^##\s+/`로 **`##`만** 마크하므로 비표준 `##` 20개를
+      `###`로 내리면 잔여량이 0이 된다. 실제로 이 PR이 그렇게 해서 0을 만들었다. 두 번의 실패가
+      모두 "지표가 배치가 아니라 헤딩 적합성을 잰다"는 같은 원인이므로, 임계를 다시 조정하는 대신
+      **지표에서 벗어나** 목적지 쪽 실물 분량과 무손실을 단정한다. 강등은 (b)를 만족시킬 수 없다
+
+- [x] TC-06: 파일럿(`agent-cli`)의 잔류 `##` 헤딩이 전부 표준 섹션으로 정규화된다 —
+      `isStandardSpecSection()` 단정, 비표준 0개. **수용 기준이 아니라 관측 기록으로 강등한다.**
+      TC-05의 빠져나갈 구멍을 닫는다고 적었던 것은 **거꾸로였다** — 20개 섹션을 표준 `##` 하나 아래로
+      모으는 강등이 바로 TC-06을 만족시키는 방법이고, 그 강등이 TC-05의 구멍이었다. 정규화 자체는
+      찾기 쉬워지는 실익이 있으므로 기록하되, 배치의 증거로는 쓰지 않는다
+
 - [x] TC-07: **분류표 완결성** — 아래 `## Appendix — WU-B per-section classification`에서 **두 파일럿 62개**
       (`agent-cli` 34 + `agent-framework` 28) 원본 `##` 섹션이 전부 stay / merge / design /
       delete-and-link / ADR / drop 중 하나로 귀속되고 누락이 없다. `agent-framework` 분류는 표로만
@@ -470,24 +478,24 @@ semantics`** 로 좁히고, 내부 동작 변경은 design doc으로 라우팅�
 프로세스 스폰/stdout 단정. 문서·프로세스 백로그이므로 `manual` 대신 command-form / `rg` 패턴 /
 `pnpm harness:*` 스모크를 기본으로 삼는다.
 
-| TC-ID | Test Type | Tool / Approach                                                          | Notes                                                                             |
-| ----- | --------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| TC-01 | command   | `rg` 패턴 2건 (`consumer-impact test`, `End-user-facing contract`)       | 배치 기준 + 사용자 계약 예외가 owner 문서에 존재                                  |
-| TC-02 | command   | `rg` 링크 존재 + 기준 본문 미복제 확인                                   | Non-Duplication 확인                                                              |
-| TC-03 | command   | `rg` mandate 행 문구                                                     | Phase 4 반영 여부                                                                 |
-| TC-04 | unit      | `scripts/harness/__tests__/spec-whitebox-leakage.test.mjs` + 고정 픽스처 | 임계(≥300 AND ≥40%) 정확도. 오탐 픽스처(203/203, 210/210) 포함                    |
-| TC-05 | CI smoke  | `node scripts/harness/check-spec-whitebox-leakage.mjs` exit code         | 회수 완료 판정                                                                    |
-| TC-06 | command   | `wc -l`                                                                  | 계약 문서 크기 회귀                                                               |
-| TC-07 | command   | `wc -l`                                                                  | 계약 문서 크기 회귀                                                               |
-| TC-08 | command   | `find … \| wc -l`                                                        | design doc 실물 존재                                                              |
-| TC-09 | CI smoke  | `node scripts/harness/check-design-doc-completeness.mjs` exit code       | vacuous green 해소 — 대상이 0이 아닌 상태에서 통과                                |
-| TC-10 | command   | `rg` 양방향 링크                                                         | 발견 가능성                                                                       |
-| TC-11 | command   | `rg`                                                                     | 최종 사용자 계약 잔류 회귀 방지                                                   |
-| TC-12 | command   | 표준 섹션 밖 절대량·비율 집계 스크립트 stdout 단정                       | 기준선 7,172줄/41.8%(87개 전수). 목표 ≤3,600줄/≤30% — 파일럿 2건 범위의 산술 상한 |
-| TC-13 | CI smoke  | `pnpm harness:scan` exit code                                            | 전체 하네스 무회귀                                                                |
-| TC-14 | command   | `rg` 3건 (스킬·템플릿·파일럿 SPEC)                                       | `User-Facing Contract` 슬롯이 정의되고 실제 사용됨                                |
-| TC-15 | unit      | `rg` 복사본 부재 + `node -e` 로 SSOT 상수 길이 9 단정                    | 표준 섹션 목록 3중 복제 방지 + 기존 8개 누락 교정                                 |
-| TC-16 | CI smoke  | `--all` 출력의 `dag-nodes/` 항목 수 == 20 단정                           | 중첩 워크스페이스 패키지 누락 회귀 방지 (HARNESS-057 준수)                        |
+| TC-ID | Test Type | Tool / Approach                                                          | Notes                                                                                          |
+| ----- | --------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| TC-01 | command   | `rg` 패턴 2건 (`consumer-impact test`, `End-user-facing contract`)       | 배치 기준 + 사용자 계약 예외가 owner 문서에 존재                                               |
+| TC-02 | command   | `rg` 링크 존재 + 기준 본문 미복제 확인                                   | Non-Duplication 확인                                                                           |
+| TC-03 | command   | `rg` mandate 행 문구                                                     | Phase 4 반영 여부                                                                              |
+| TC-04 | unit      | `scripts/harness/__tests__/spec-whitebox-leakage.test.mjs` + 고정 픽스처 | 임계(≥300 AND ≥40%) 정확도. 오탐 픽스처(203/203, 210/210) 포함                                 |
+| TC-05 | CI smoke  | `verify-doc-split-preservation.mjs` exit 0 + design 본문 줄 합계 ≥200    | 무손실 + 실물 회수량. **지표가 아니라 목적지를 잰다** — 헤딩 강등으로 만족 불가                |
+| TC-06 | command   | `isStandardSpecSection()` 로 잔류 `##` 전수 판정                         | **관측 기록**(수용 기준 아님) — 강등으로 만족되므로 배치의 증거가 아니다                       |
+| TC-07 | command   | 분류표의 원본 `##` 귀속 전수 확인 (62건)                                 | 분류 완결성 — 이 항목에서 유일하게 배치를 직접 재는 기준                                       |
+| TC-08 | command   | `find … \| wc -l`                                                        | design doc 실물 존재                                                                           |
+| TC-09 | CI smoke  | `node scripts/harness/check-design-doc-completeness.mjs` exit code       | vacuous green 해소 — 대상이 0이 아닌 상태에서 통과                                             |
+| TC-10 | command   | `rg` 양방향 링크                                                         | 발견 가능성                                                                                    |
+| TC-11 | command   | `rg`                                                                     | 최종 사용자 계약 잔류 회귀 방지                                                                |
+| TC-12 | command   | `check-spec-whitebox-leakage.mjs` `::examined::` stdout 기록             | **관측 기록**. 기준선 6,675줄/38.4%(86개 전수) → 회수 후 값. 헤딩 적합성 지표라 수용 기준 아님 |
+| TC-13 | CI smoke  | `pnpm harness:scan` exit code                                            | 전체 하네스 무회귀                                                                             |
+| TC-14 | command   | `rg` 3건 (스킬·템플릿·파일럿 SPEC)                                       | `User-Facing Contract` 슬롯이 정의되고 실제 사용됨                                             |
+| TC-15 | unit      | `rg` 복사본 부재 + vitest 로 파서 결과와 스킬 표의 **집합 동등성** 단정  | 표준 섹션 목록 3중 복제 방지 + 기존 8개 누락 교정. 길이 검사는 이름 변경을 못 잡음             |
+| TC-16 | CI smoke  | `--all` 출력의 `dag-nodes/` 항목 수 == 20 단정                           | 중첩 워크스페이스 패키지 누락 회귀 방지 (HARNESS-057 준수)                                     |
 
 ## Tasks
 
@@ -600,10 +608,43 @@ Consumer: **the end user at the terminal**, plus the few packages that import CL
 | Restatement of `agent-framework`'s runner/manager contract | owned elsewhere | `delete-and-link` → `agent-framework/docs/SPEC.md` |
 | CLI-side wiring                                            | no              | `design/subagent-wiring.md`                        |
 
+#### Deep subsections — classified in the second pass
+
+The first pass classified whole `##` sections and sent a mixed subsection wherever its bulk pointed.
+That was wrong in **both** directions, and the review caught both. These eight are `###`/`####`
+sections of the original — inside the granularity this table claims to operate at — so they are
+classified here rather than covered by a disclaimer.
+
+**Contract that had wrongly left the SPEC (returned):**
+
+| Source                                                                            | Why it is contract                                                                          | Now                                                     |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `### Variable Substitution` (`$ARGUMENTS`, `${PROJECT_DIR}`, `${CLAUDE_MODEL}` …) | a user types these into their own `SKILL.md`; renaming one breaks every existing skill file | `Extension Points` → `### Skill Body Syntax`            |
+| `### Shell Command Preprocessing` (`` !`command` ``)                              | same file, same author, same breakage                                                       | `Extension Points` → `#### Inline shell execution`      |
+| `/background` subcommand + argument table, and "must not expose raw task IDs"     | command grammar the user types, and a rule about what the panel may show                    | `User-Facing Contract` → `### Background Work Controls` |
+| `transports` key in `settings.json`                                               | a settings key the user edits                                                               | `Configuration` → `### Transport Settings`              |
+
+The first two are the sharpest error: the table kept `### Skill Frontmatter Schema` as contract on the
+grounds that _"users author SKILL.md files against it"_, then sent the **body syntax of the same
+user-authored file** to design. The frontmatter of a file being contract while its body is not is not a
+boundary — it is an inconsistency.
+
+**Whitebox that had stayed, laundered under a standard heading (extracted):**
+
+| Source                            | Why it is not contract                                                                                               | Now                              |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `#### React.memo`                 | a render optimisation — the boundary table's own `Render pipeline` row                                               | `design/message-architecture.md` |
+| `#### Message Windowing`          | `MAX_RENDERED_MESSAGES`, the in-memory render tree                                                                   | `design/message-architecture.md` |
+| `#### Tool State Cleanup`         | `MAX_COMPLETED_TOOLS`, the `activeTools` array                                                                       | `design/message-architecture.md` |
+| `#### Command Module Composition` | `assembleProduct`, base ⊕ packs merge order — and it was parented under `StatusBar Display`, where it never belonged | `design/composition.md`          |
+| `#### Testing Requirements`       | a test instruction, 640 lines away from `## Test Strategy`                                                           | SPEC `## Test Strategy`          |
+
+The windowing left one consumer-facing residue behind, kept as `### Transcript Retention`: the render
+tree is windowed, the transcript on disk is not. That sentence is the promise; the numbers are not.
+
 #### Granularity, stated explicitly
 
-This pilot classifies and moves at `##` / `###` granularity. Several retained sections still carry
-whitebox sentences inside an otherwise consumer-facing subsection — `Preset Selection` names
+What remains unclassified is **sentence-level**, not section-level: `Preset Selection` names
 `selectPresetId()` and `resolveShellPreset()` in `src/startup/preset-selection.ts`; `Durable Memory
 Enablement` names `src/startup/memory-enablement.ts`; `Provider Configuration UX` names the settings
 documents it writes. Splitting those mid-paragraph is a different quality of work from applying the test
@@ -613,10 +654,17 @@ WU-B's scope and named here rather than left silent.**
 #### Pilot 1 outcome
 
 - Everything retained normalizes to one of the fifteen standard sections.
-- `≈ 240 lines` leave for `packages/agent-cli/docs/design/` across six files.
+- **297 body lines** live in `packages/agent-cli/docs/design/` across six files.
 - `≈ 20 lines` are deleted-and-linked (owned by `agent-framework`).
-- Nothing user-facing is moved out of the SPEC. The reviewer's P3 objection is the table's premise, not
-  an exception to it.
+- **Zero body lines lost**, proved mechanically rather than by reading a reordered diff:
+  `verify-doc-split-preservation.mjs` compares the multiset of body lines at the pre-split ref against
+  the new SPEC plus all six design docs. Eleven allowances are named explicitly on the command line —
+  nine dissolved or renamed heading titles, two re-wrapped sentences whose words survive.
+- The claim that **"nothing user-facing is moved out of the SPEC" was false on the first pass** and is
+  what the second pass fixed. Four contract facts had left; they are back, and the eight sections
+  involved are classified above. The reviewer's P3 objection is this table's premise, and the first pass
+  still violated it in the opposite direction — which is why the table, not the diff, is the artifact
+  under review.
 
 **The extraction is far smaller than the leakage metric implied, and that is the finding.** The scan
 reported 1,708 of 1,939 lines (88.1%) outside a standard heading, but only `≈ 260` of those are actually
@@ -625,6 +673,15 @@ bindings, visual grammar, slash commands, first-run flow. **`check-spec-whitebox
 heading nonconformance, not misplacement**, which is exactly why WU-A ships it as advisory and why TC-12
 was demoted from an acceptance criterion to a recorded observation. A pilot that "fixed" 88.1% would have
 been moving contract out of the contract document.
+
+**And the same diagnosis disqualifies the metric as an acceptance criterion at all — a point this
+document initially made and then failed to act on.** `check-spec-whitebox-leakage.mjs:62` marks a span
+only on `/^##\s+/`, so every `###` is attributed to its enclosing `##`. Demoting a non-standard `##` to
+`###` under a standard one drives the residual to zero **without moving a line**, which is exactly what
+this pilot did: 20 non-standard `##` became `###`, and `agent-cli` reported `0/1731`. TC-05 was rewritten
+to assert destination volume and losslessness instead, and TC-06 — which a demotion _satisfies_ — was
+demoted to an observation. The metric's blind spot is filed against `HARNESS-052` (second axis, sub-shape
+**A**: a check that measures something other than what its name claims).
 
 ---
 
@@ -1134,3 +1191,49 @@ SPEC이고 L695의 `## Overview`부터 1,955줄짜리 별개 문서가 재시작
 
 **관측 — 수용 기준 아님:** `pnpm harness:scan -- --only <name>`의 `--only`가 필터링하지 않고 전체를
 돌린다. 이 항목의 범위 밖이라 고치지 않았고, 기록만 남긴다.
+
+### WU-B Recommendation Gate Round 2 — 2026-08-16
+
+`proposal-reviewer` 재심사 결과 다시 **REVISE**. clean 3건(범위 축소의 정당성, design doc 실질성,
+내용 무손실 — 심사자가 `comm -23`으로 독립 재현), 불통과 2건. **둘 다 맞았고 직접 검증한 뒤 접었다.**
+
+**1. TC-05의 "0"은 허상이었다 — 같은 실패의 세 번째 반복.**
+`check-spec-whitebox-leakage.mjs:62`가 `/^##\s+/`로 **`##`만** 마크한다. 비표준 `##`을 표준 `##`
+아래 `###`로 내리면 한 줄도 옮기지 않고 잔여량이 0이 된다. 이 PR이 정확히 그렇게 했다 — 비표준 `##`
+20개 강등, 88.1% → **0.0%**. 그리고 TC-06("잔류 헤딩이 전부 표준으로 정규화")을 "TC-05의 구멍을
+닫는다"고 적었던 것은 거꾸로였다. 20개를 표준 헤딩 하나 아래로 모으는 강등이 **바로 TC-06을 만족시키는
+방법**이다. TC-06은 봉인이 아니라 구멍이었다.
+
+이 문서는 같은 진단을 이미 내려놓고("지표는 배치가 아니라 헤딩 적합성을 잰다") TC-12만 강등하고
+TC-05·TC-06은 같은 지표 위에 남겨두었다. 처리:
+
+- **TC-05를 지표에서 분리** — `scripts/harness/verify-doc-split-preservation.mjs`(신규)로 무손실을
+  단정하고, `packages/agent-cli/docs/design/*.md` 본문 줄 합계 ≥200으로 회수량을 단정한다. 강등은
+  둘 다 만족시킬 수 없다. 세 번의 정정 중 **처음으로 임계값이 아니라 대상을 바꿨다**
+- **TC-06을 관측 기록으로 강등**
+- **지표 결함을 `HARNESS-052` G8로 등재**(second axis, sub-shape A: 이름이 약속한 것과 다른 것을
+  재는 검사)하고, 스캔 헤더 주석에 사각지대를 명시했다
+
+**2. 계약 3건이 SPEC 밖으로 나갔고, whitebox 5건이 표준 헤딩 아래 세탁됐다.** 1차 분류가 `##` 단위로만
+판정하고 혼합 `###`은 덩치가 큰 쪽으로 통째로 보낸 결과다. `rg`로 8건 전부 확인했다.
+
+- **복귀:** 스킬 변수 치환 토큰(`$ARGUMENTS`·`${PROJECT_DIR}` …)과 `` !`command` `` → `Extension Points`;
+  `/background` 하위명령·인자 표와 "raw task ID 노출 금지" → `User-Facing Contract`;
+  `transports` settings 키 → `Configuration`
+- **추출:** `React.memo`·`Message Windowing`·`Tool State Cleanup` → `design/message-architecture.md`;
+  `Command Module Composition` → `design/composition.md`(`StatusBar Display` 아래 있던 것도 바로잡음);
+  `Testing Requirements` → SPEC `## Test Strategy`
+
+가장 날카로운 지적은 첫 두 건이다. 1차 분류는 `### Skill Frontmatter Schema`를 "사용자가 그것에 맞춰
+`SKILL.md`를 작성하므로 계약"이라며 남겨두고, **같은 사용자 작성 파일의 본문 문법**은 design으로 보냈다.
+frontmatter는 계약인데 본문은 아니라는 것은 경계가 아니라 모순이다.
+
+**부수 정정:** `design/composition.md`가 존재하지 않는 `check-composition-neutrality.mjs`를 인용했다
+(실제 `scan-composition-neutrality.mjs`) — 새 문서가 첫날부터 깨진 참조를 싣는 것은 A3가 막으려던 바로
+그것이라 즉시 고쳤다. Test Plan의 TC-05/06/07/12/15 행이 폐기된 기준을 가리키던 것도 갱신했다.
+
+**별건으로 남긴 것:** `## User-Facing Contract`가 1,017줄·4단 헤딩이다. 제품 셸의 계약이 곧 UX인
+경우 슬롯 하나로는 부족할 수 있다(`Invocation Surface` vs `Terminal Display Contract` 분리, 또는 하위
+구조 규정). 표준 섹션 목록의 문제이지 이 파일럿의 문제가 아니므로 접지 않는다. 파일럿은 `agent-cli`를
+"whitebox 사이에서 계약을 찾을 수 없음"에서 "범주로는 찾히나 그 안에서 길을 잃음"으로 옮겼다 — 진전이지
+종착점은 아니다.

@@ -40,6 +40,23 @@ The CLI uses `IHistoryEntry` from `@robota-sdk/agent-core` as the primary messag
 
 Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.name`.
 
+### Render windowing and memoization
+
+How many entries the render tree holds, and which component skips a re-render, is invisible to the
+user — the transcript on disk is the contract, and it is stated in [`../SPEC.md`](../SPEC.md).
+
+### Message Windowing
+
+`TuiStateManager` keeps only the most recent 100 entries (`MAX_RENDERED_MESSAGES`) in `history: IHistoryEntry[]`. Older entries are dropped from the render tree to prevent unbounded memory growth. Full conversation history is preserved in the session store on disk.
+
+### Tool State Cleanup
+
+Completed tool execution states are trimmed to the most recent 50 entries (`MAX_COMPLETED_TOOLS`). Running tools are always kept. This prevents `activeTools` array from growing unbounded during tool-heavy responses.
+
+### React.memo
+
+`MessageItem` component uses `React.memo` to skip re-renders when message props are unchanged, reducing CPU and indirect memory pressure from Ink's full-tree reconciliation.
+
 ## Key Flows
 
 SDK event → history entry → type guard narrows to a tool/assistant/user variant → the matching
