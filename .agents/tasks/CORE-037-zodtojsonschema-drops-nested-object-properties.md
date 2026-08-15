@@ -21,7 +21,7 @@ so only **nested** objects lose their `properties`/`required`. The model therefo
 is an object" with no indication of what belongs in it.
 
 ```ts
-zodToJsonSchema(z.object({ inner: z.object({ s: z.string() }) }))
+zodToJsonSchema(z.object({ inner: z.object({ s: z.string() }) }));
 // → { type: 'object', properties: { inner: { type: 'object' } }, required: ['inner'] }
 //                                            ^^^^^^^^^^^^^^^^^^ shape discarded
 ```
@@ -41,11 +41,11 @@ Reporter's measured downstream effect (forced tool call, `toolChoice: { tool: na
 
 | tool input schema                                    | handler invoked |
 | ---------------------------------------------------- | --------------- |
-| `{ a: string, b: string }`                            | yes |
-| `{ items: string[] }`                                 | yes |
-| `{ items: string[] }` with `.max(2)`                  | yes |
-| `{ delivery: { score, evidence[], suggestions[] } }`  | no |
-| 5 × the above nested object + `summary: string`       | no |
+| `{ a: string, b: string }`                           | yes             |
+| `{ items: string[] }`                                | yes             |
+| `{ items: string[] }` with `.max(2)`                 | yes             |
+| `{ delivery: { score, evidence[], suggestions[] } }` | no              |
+| 5 × the above nested object + `summary: string`      | no              |
 
 Flat schemas including arrays and constraints work; one level of nesting is enough to break it.
 
@@ -84,11 +84,11 @@ descriptions name parameters the schema rejects).
 > **Re-planned — [CORE-039](CORE-039-universal-schema-subset-treats-object-as-a-leaf.md)
 > ([#1743](https://github.com/woojubb/robota/issues/1743)).** `finding-depth-triager` returned
 > `DEPTH: FOUNDATIONAL` on this item's problem statement (2026-08-16): the cause is that the universal
-> schema subset treats an object as a leaf and four independent walks each re-decide what `object`
-> means. The Direction below is the in-place patch [finding-depth.md](../rules/finding-depth.md)
+> schema subset treats an object as a leaf and independent walks over it each re-decide what
+> `object` means (seven, once counted). The Direction below is the in-place patch [finding-depth.md](../rules/finding-depth.md)
 > forbids — applied alone it makes `packages/agent-tools/src/builtins/ask-user-question-tool.ts:169`
 > throw at **import time** (its nested `z.union` reaches the converter's `default:` throw, which the
-> early return currently makes unreachable), while three of the four walks stay wrong. This item is
+> early return currently makes unreachable), while every other walk stays wrong. This item is
 > delivered by CORE-039's change; the paragraph below is kept as the original report.
 
 Recurse for `ZodObject`, mirroring `ZodArray`. `zodToJsonSchema` already contains the

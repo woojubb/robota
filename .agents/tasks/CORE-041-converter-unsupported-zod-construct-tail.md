@@ -1,5 +1,5 @@
 ---
-title: "CORE-041: the hand-rolled Zod converter throws on ZodTuple, ZodDate, ZodIntersection, ZodLazy and ZodNativeEnum, so a tool or structured-output schema using any of them fails at construction rather than converting — a recurring coverage tail that a maintained library would not have"
+title: 'CORE-041: the hand-rolled Zod converter throws on ZodTuple, ZodDate, ZodIntersection, ZodLazy and ZodNativeEnum, so a tool or structured-output schema using any of them fails at construction rather than converting — a recurring coverage tail that a maintained library would not have'
 status: todo
 created: 2026-08-16
 priority: low

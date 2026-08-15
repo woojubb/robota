@@ -243,6 +243,8 @@ describe('validateAgainstJsonSchema — closure is relative to declared properti
   it('validates extras against a schema-valued additionalProperties (record types)', () => {
     const schema = { type: 'object' as const, additionalProperties: { type: 'number' as const } };
     expect(validateAgainstJsonSchema(schema, { a: 1 }, '$')).toEqual([]);
-    expect(validateAgainstJsonSchema(schema, { a: 'x' }, '$').join(' ')).toContain('expected number');
+    expect(validateAgainstJsonSchema(schema, { a: 'x' }, '$').join(' ')).toContain(
+      'expected number',
+    );
   });
 });

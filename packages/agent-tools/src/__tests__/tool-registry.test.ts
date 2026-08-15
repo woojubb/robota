@@ -113,7 +113,9 @@ describe('ToolRegistry', () => {
 
     it('should throw when parameters type is not "object"', () => {
       const schema = buildSchema();
-      (schema.parameters as Record<string, unknown>).type = 'array';
+      // Same two-step form as the sibling case above: naming the subset's object root as an
+      // interface (CORE-039) means TypeScript no longer grants it an implicit index signature.
+      (schema.parameters as unknown as Record<string, unknown>).type = 'array';
       const tool = createMockTool(schema);
 
       expect(() => registry.register(tool)).toThrow(ValidationError);

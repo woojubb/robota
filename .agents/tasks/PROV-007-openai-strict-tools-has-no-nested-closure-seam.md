@@ -1,5 +1,5 @@
 ---
-title: "PROV-007: strictTools forwards tool schemas to OpenAI unchanged, but strict mode requires every object node — nested included — to close additionalProperties and list all properties in required, and the OpenAI adapter has no seam that does this while the Anthropic adapter does"
+title: 'PROV-007: strictTools forwards tool schemas to OpenAI unchanged, but strict mode requires every object node — nested included — to close additionalProperties and list all properties in required, and the OpenAI adapter has no seam that does this while the Anthropic adapter does'
 status: todo
 created: 2026-08-16
 priority: medium
