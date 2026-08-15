@@ -56,7 +56,12 @@ two implementations.
 
 ## Divergences still live, and unfiled
 
-Found while checking whether `config.systemMessage` was the only one. None of these has a task:
+Found while checking whether `config.systemMessage` was the only one. None of these has a task, and
+they are enumerated here so a scoping decision cannot silently drop them: **none may be dropped from
+this item's scope without being filed as its own task.** They are not filed separately today on
+purpose — five tasks each named after one dropped clause would be five items whose correct fix is the
+same seam, which is the fix-it-where-it-surfaced failure mode `finding-depth.md` exists to prevent,
+and would invite five more copy-in patches.
 
 - **`beforeProviderCall` / `afterProviderCall` never fire on streaming.** They are dispatched only at
   `execution-round.ts:93,185`, so a plugin that inspects or rewrites provider traffic is blind on
@@ -84,17 +89,26 @@ Found while checking whether `config.systemMessage` was the only one. None of th
   construction site.
 - **CORE-034** (interrupted-message annotation is dead code) is unreachable on streaming for this reason.
 
-## Why nothing in the repo catches it
+## Why the repeat is not caught structurally
 
-There is **no reusable streaming test double**. `createScriptedProvider`
-(`packages/agent-core/src/testing/scripted-provider.ts`, exported from the `./testing` subpath)
-implements `chat()` and records `requests`, but has **no `chatStream`** — so it cannot drive
-`runStream()` at all. The only streaming double in the repo is a one-off class defined inside a single
-test file (`services/__tests__/ephemeral-system-context.test.ts:78-88`).
+The **sanctioned** shared test double covers one of the two implementations. `createScriptedProvider`
+(`packages/agent-core/src/testing/scripted-provider.ts`, exported from the published `./testing`
+subpath) implements `chat()` and records `requests`, but has **no `chatStream`** — so the surface the
+repo blesses for exercising a turn cannot drive `runStream()` at all. `createReplayProvider` in the
+same module has none either.
 
-So the shared, sanctioned way to exercise a turn end-to-end covers exactly one of the two
-implementations. That is not a coincidence next to the table above; it is why six copies of the same
-patch were needed and why the seventh reached a published beta.
+Every streaming double in agent-core is therefore **per-file**: `core/robota.test.ts:14-53`
+(`TrackingProvider`, which does record both entry points and is the double behind the CORE-016/017/018
+parity pairs), plus separate ones in `services/__tests__/ephemeral-system-context.test.ts:78-88`,
+`execution-service.test.ts`, `agents/robota.test.ts`, `local-executor.test.ts`,
+`agent-factory.test.ts` and `ai-provider-manager.test.ts`. `ReplayProvider`
+(`packages/agent-provider-replay/src/replay-provider.ts:73-80`) is a shared streaming double but is
+unreachable from agent-core by dependency direction.
+
+**Stated precisely, because the weaker claim is the true one:** streaming is not untestable — the
+parity pairs above exist and pass. What is missing is a _shared_ seam for it, so each parity check is
+written from scratch by whoever remembers to write it, which is the same reviewer-memory mechanism
+that let six copies of this patch be needed and the seventh reach a published beta.
 
 ## Direction
 
@@ -111,8 +125,9 @@ CORE-032 would re-derive the same seam twice. Whether the three are executed as 
 ordered initiative is the first decision the spec-doc must make.
 
 **A prerequisite, not an afterthought:** give the shared test double a `chatStream`, so a streaming
-turn can be exercised from the sanctioned surface. Without it the seam's own regression tests would
-have to hand-roll a provider per test file — which is the state that let this happen.
+turn can be exercised from the sanctioned surface rather than from a double re-written per test file
+— the state that let this happen. This is **this item's** work, not a contained fix's: it widens a
+published `./testing` export, which `backlog-execution.md` § Agent Decision Authority reserves.
 
 ## Test Plan
 

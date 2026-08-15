@@ -71,6 +71,24 @@ the most-used path, not an edge case.
 > streaming path through the helper that already exists. The seam itself is CORE-042's work, planned
 > with CORE-032 and CORE-033.
 
+**Recommendation gate:** `proposal-reviewer` → `REVIEW VERDICT: ENDORSE`, 2026-08-16 (revision 1 of 2;
+`REVISE` on v1). The revision withdrew a claim of mine the reviewer falsified — that no reusable
+streaming test double existed, and that the shared `./testing` surface therefore had to gain a
+`chatStream`. `packages/agent-core/src/core/robota.test.ts:14-53` already records both entry points
+into one array and is the double behind the CORE-016/017/018 parity pairs, so no new test
+infrastructure is added here and the published-export question does not arise; that work belongs to
+CORE-042.
+
+Two effects are observable, not one: the streaming turn gains its system head, and `getHistory()`
+therefore carries that head on a streaming-only agent, which reaches `agent-session` persistence.
+It is benign — SPEC § System Prompt's resume semantics do not restore persisted `system` messages —
+but it is public and is recorded rather than left to be discovered.
+
+**Deliberate deviation from the Test Plan below:** it asks for a SPEC sentence saying the guarantee
+"holds for both paths". None is written. § System Prompt is already unconditional and already names
+`initializeConversationStore`; per-path wording would institutionalise exactly the parity framing
+CORE-042 was filed against.
+
 Do not add a second copy of the prompt-injection logic to `execution-stream.ts` — that is exactly how
 the two paths drifted. Route the streaming path through the same session initialization the round
 path uses (`initializeConversationStore`, or a shared extraction of it), so `config.systemMessage`,
