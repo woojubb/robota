@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-014: the session logger externalizes payloads over 32KiB to sidecar files, but no reader dereferences them — large messages/responses are corrupted or silently dropped on replay, and the validator passes the broken log'
 status: done
+completed: 2026-08-15
 created: 2026-08-13
 priority: high
 urgency: now
