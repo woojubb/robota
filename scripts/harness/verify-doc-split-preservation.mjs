@@ -29,6 +29,10 @@
  * Only an entry naming neither is taken on the author's word, and it has to say why in writing. A
  * deletion is kept distinguishable from a rename on purpose — conflating them is how a real loss hides.
  *
+ * Known and deferred: nothing asserts that `lost` is actually missing (a stale allowance is accepted
+ * silently), and `excused` is keyed by line text, so one allowance covers every occurrence of a
+ * duplicated line. Both are recorded here rather than left for the next reader to discover.
+ *
  * Usage:
  *   node scripts/harness/verify-doc-split-preservation.mjs \
  *     --ref <git-ref> --source <path> --target <path> [--target <path> …] \
@@ -88,19 +92,32 @@ export function findMissingLines(source, destinations) {
  * An entry naming `survivesAs` is only honoured when that replacement is really present in a
  * destination — otherwise the allowance is itself the finding.
  */
-export function collectAllowanceFindings(entries, destinations) {
+export function collectAllowanceFindings(entries, destinations, source = new Map()) {
   const excused = new Set();
   const findings = [];
   const present = (line) => destinations.some((dest) => dest.has(line));
+  // Each delete-and-link must be backed by its OWN link occurrence. Without this, one link anywhere in
+  // the destination union satisfies every entry naming that owner — which is how a second entry rode
+  // the first entry's link past the check.
+  const claimedLinks = new Map();
   // A delete-and-link is only honoured when a destination really points at the owner. The workspace
   // prefix is dropped so a relative path (`../../agent-framework/docs/SPEC.md`) still counts, but the
   // OWNER's own name is kept: matching on a trailing `docs/SPEC.md` alone would accept a link to any
   // package's SPEC, which is how a delete-and-link to the wrong owner would pass.
-  const linksTo = (dest, owner) => {
-    const needle = owner.replace(/^(?:\.{1,2}\/)+/, '').replace(/^(?:packages|apps)\//, '');
-    if (needle === '') return false;
-    for (const line of dest.keys()) if (line.includes(needle)) return true;
-    return false;
+  const ownerNeedle = (owner) => {
+    // The owner must be named from the workspace root. A relative or bare path (`docs/SPEC.md`) drops
+    // the owning-package segment and would then match EVERY package's SPEC — the same defect as
+    // matching on a bare basename. Reject it rather than accept a link to just anyone.
+    const match = /^(?:packages|apps)\/(.+)$/.exec(owner.replace(/^(?:\.{1,2}\/)+/, ''));
+    return match !== null && match[1].includes('/') ? match[1] : null;
+  };
+  const countLinks = (owner) => {
+    const needle = ownerNeedle(owner);
+    if (needle === null) return 0;
+    let n = 0;
+    for (const dest of destinations)
+      for (const line of dest.keys()) if (line.includes(needle)) n += 1;
+    return n;
   };
   entries.forEach((entry, index) => {
     const where = `allowance[${index}]`;
@@ -127,15 +144,31 @@ export function collectAllowanceFindings(entries, destinations) {
         );
         return;
       }
-    }
-    if (entry.deletedAndLinkedTo !== undefined) {
-      const owner = entry.deletedAndLinkedTo;
-      if (typeof owner !== 'string' || !destinations.some((dest) => linksTo(dest, owner))) {
+      // A line that already existed in the SOURCE proves nothing about the lost one — the rename would
+      // be "verified" against something that was never the replacement.
+      if (source.has(entry.survivesAs)) {
         findings.push(
-          `${where} ("${entry.lost}"): claims delete-and-link to "${owner}", but no destination links there`,
+          `${where} ("${entry.lost}"): claims it survives as "${entry.survivesAs}", which already existed in the source — a pre-existing line is not a replacement`,
         );
         return;
       }
+    }
+    if (entry.deletedAndLinkedTo !== undefined) {
+      const owner = entry.deletedAndLinkedTo;
+      if (typeof owner !== 'string' || ownerNeedle(owner) === null) {
+        findings.push(
+          `${where} ("${entry.lost}"): "deletedAndLinkedTo" must name an owning package path, got "${owner}"`,
+        );
+        return;
+      }
+      const used = (claimedLinks.get(owner) ?? 0) + 1;
+      if (used > countLinks(owner)) {
+        findings.push(
+          `${where} ("${entry.lost}"): claims delete-and-link to "${owner}", but the destinations carry only ${countLinks(owner)} link(s) there and ${used} entr(y/ies) claim them`,
+        );
+        return;
+      }
+      claimedLinks.set(owner, used);
     }
     excused.add(entry.lost);
   });
@@ -202,7 +235,7 @@ export function main(argv = process.argv) {
   }
 
   const src = collectBodyLines(before);
-  const { excused, findings: allowanceFindings } = collectAllowanceFindings(entries, dests);
+  const { excused, findings: allowanceFindings } = collectAllowanceFindings(entries, dests, src);
   const lost = findMissingLines(src, dests).filter(([line]) => !excused.has(line));
 
   const srcTotal = examinedBodyLineCount(before);

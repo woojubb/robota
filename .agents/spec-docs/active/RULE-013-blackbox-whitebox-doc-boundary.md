@@ -24,8 +24,10 @@ required?"는 _존재 여부_ 판단만 다루고 *내용 배치*는 다루지 �
    횡단 위치인 `.agents/specs/*.md` 20개 중 design MUST 5섹션(Context & Goal / Constraints /
    Internal Structure / Key Flows / Test Approach)을 가진 문서도 0개.
 
-2. **그 내용은 `SPEC.md` 안에 있다.** 워크스페이스 패키지 `SPEC.md` **86개** 총 **17,270줄** 중
-   표준 섹션(필수 9 + 선택 6) **밖**의 내용이 **6,654줄 = 38.5%**.
+2. **그 내용은 `SPEC.md` 안에 있다.** 워크스페이스 패키지 `SPEC.md` **86개** 총 **17,369줄** 중
+   표준 섹션(필수 9 + 선택 6) **밖**의 내용이 **6,675줄 = 38.4%**. (이 수치는 TC-12의 기준선과 같은
+   실행에서 나온 것이다 — 앞서 적혀 있던 6,654 / 17,270 / 38.5%는 스캔이 완성되기 전 중간 상태의
+   출력이라 TC-12와 어긋났고, 4라운드 심사가 그 불일치를 잡았다.)
 
    이 수치는 WU-A가 만든 `check-spec-whitebox-leakage.mjs`의 `::examined::` 출력이며, 손 집계가
    아니다. 손으로 센 앞선 값 셋은 모두 틀렸다 — 43.5%(최상위 1단 글롭이 중첩 20개 누락),
@@ -417,36 +419,17 @@ semantics`** 로 좁히고, 내부 동작 변경은 design doc으로 라우팅�
 - [x] TC-03: `rg "New or changed externally observable behavior" .agents/rules/spec-workflow.md` → exit 0
 - [x] TC-04: `node scripts/harness/check-spec-whitebox-leakage.mjs` 가 Phase 2 **이전** 스냅샷에서
       `agent-framework`·`agent-cli` 정확히 2건을 finding으로 보고 (단위 테스트 픽스처로 고정)
-- [x] TC-05: **회수량과 무손실을 직접 단정한다.** 아래 명령을 그대로 실행해 exit 0이고, (b)
-      `packages/agent-cli/docs/design/*.md`의 본문 줄 합계 **≥200**(실측 300):
-
-      ```bash
-              node scripts/harness/verify-doc-split-preservation.mjs \
-                --ref 96728940c \
-                --source packages/agent-cli/docs/SPEC.md \
-                --target packages/agent-cli/docs/SPEC.md \
-                --target packages/agent-cli/docs/design/command-registry.md \
-                --target packages/agent-cli/docs/design/composition.md \
-                --target packages/agent-cli/docs/design/internal-structure.md \
-                --target packages/agent-cli/docs/design/message-architecture.md \
-                --target packages/agent-cli/docs/design/session-ownership.md \
-                --target packages/agent-cli/docs/design/subagent-wiring.md \
-                --allowances packages/agent-cli/docs/design/.split-allowances.json
-              ```
-
-              **자리표시자를 쓰지 않는다** — 3라운드 심사에서 잡혔다. 앞선 문구는 `<분할 직전 ref>` 같은
-              자리표시자에 `--allowances`도 빠져 있어 **문자 그대로 실행하면 exit 1**이었다. 기록된 기준과
-              실제로 돌린 명령이 다른 것은, 이 백로그가 다루는 바로 그 병(일하지 않고 통과하는 기준)의
-              다른 형태다. 허용 목록도 명령줄이 아니라 저장소에 커밋된
-              `.split-allowances.json`에 있고, 13건 중 11건은 도구가 검증한다 —
-              개명 9건은 대체 문자열이 실제로 목적지에 있는지, delete-and-link 2건은 소유 문서로의 링크가
-              실재하는지. 나머지 2건(줄바꿈 재배치)만 서면 사유로 받는다.
-
-              **(a)는 배치를 재지 않는다** — 목적지 집합이 `신 SPEC ∪ design 전부`이므로 계약이 design으로
-              가도 그대로 통과한다. 무손실은 **필요조건이지 충분조건이 아니며**, 배치의 증거는 TC-07의
-              분류표다. 이 기준은 세 번째 정정이고, 앞의 두 번(개명·강등으로 통과)과 달리 임계값이 아니라
-              대상을 바꿨다
-
+- [x] TC-05: **회수량과 무손실을 직접 단정한다.** (a) 아래 `### TC-05 검증 명령`의 블록을 그대로
+      실행해 exit 0, (b) `packages/agent-cli/docs/design/*.md`의 본문 줄 합계 **≥200**(실측 300).
+      **자리표시자를 쓰지 않는다** — 3라운드 심사에서 잡혔다. 앞선 문구는 `<분할 직전 ref>` 같은
+      자리표시자에 `--allowances`도 빠져 있어 문자 그대로 실행하면 exit 1이었다. 기록된 기준과 실제로
+      돌린 명령이 다른 것은 이 백로그가 다루는 바로 그 병(일하지 않고 통과하는 기준)의 다른 형태다.
+      허용 목록도 명령줄이 아니라 저장소에 커밋된 `.split-allowances.json`에 있고, 13건 중 11건은
+      도구가 검증한다 — 개명 9건은 대체 문자열이 실제로 목적지에 있는지, delete-and-link 2건은 소유
+      문서로의 링크가 실재하는지. 나머지 2건(줄바꿈 재배치)만 서면 사유로 받는다.
+      **(a)는 배치를 재지 않는다** — 목적지 집합이 `신 SPEC ∪ design 전부`이므로 계약이 design으로
+      가도 통과한다. 무손실은 **필요조건이지 충분조건이 아니며**, 배치의 증거는 TC-07의 분류표다.
+      이 기준은 세 번째 정정이고, 앞의 두 번(개명·강등으로 통과)과 달리 임계값이 아니라 대상을 바꿨다
 - [x] TC-06: 파일럿(`agent-cli`)의 잔류 `##` 헤딩이 전부 표준 섹션으로 정규화된다 —
       `isStandardSpecSection()` 단정, 비표준 0개. **수용 기준이 아니라 관측 기록으로 강등한다.**
       TC-05의 빠져나갈 구멍을 닫는다고 적었던 것은 **거꾸로였다** — 20개 섹션을 표준 `##` 하나 아래로
@@ -468,11 +451,16 @@ semantics`** 로 좁히고, 내부 동작 변경은 design doc으로 라우팅�
       `packages/agent-cli/docs/SPEC.md`에서 `rg "docs/design/"` exit 0
 - [x] TC-11: `rg "Keyboard Controls" packages/agent-cli/docs/SPEC.md` → exit 0 (최종 사용자 계약이
       design으로 잘못 이동하지 않았음)
-- [x] TC-12: 전체 유출량 **관측 기록**(수용 기준 아님) — 기준선 6,675줄 / 38.4%(86개 전수, WU-A
-      스캔 출력)에서 회수 후 값을 기록한다. `agent-cli` 한정 추출이므로 추정 ≈6,185줄 / 35.6%(≈490줄 감소).
-      `agent-framework`의 ≈1,975줄은 `DOCS-025`가 회수한다. **수용 기준에서 강등하는 이유**:
-      TC-05과 같은 개명 경로로 통과 가능하므로 배치의 증거가 되지 못한다. 초안이 인용하던
-      7,172 / 41.8%는 파서 정정 이전 값이라 함께 폐기한다
+- [x] TC-12: 전체 유출량 **관측 기록**(수용 기준 아님). 두 끝점 모두 스캔을 **실행해서** 얻었다 —
+      기준선 `96728940c`에서 표준 섹션 밖 **6,675 / 17,369줄 = 38.4%**, 임계 초과 **2건**;
+      회수 후 **4,967 / 17,174줄 = 28.9%**, 임계 초과 **1건**(`agent-framework`, `DOCS-025`가 회수).
+      **경고 — `agent-cli`의 1,708 → 0은 대부분 배치가 아니라 강등이다.** 실제로 파일을 떠난 것은
+      ~195줄이고 나머지는 비표준 `##`을 표준 `##` 아래 `###`로 내린 결과다. 지표가 볼 수 없는
+      변화이며, 이 항목이 수용 기준이 아닌 이유 그 자체다.
+      **앞선 문구는 추정치 ≈6,185줄 / 35.6%를 적고 체크했다 — 실측과 1,218줄 어긋난다.** 4라운드
+      심사가 잡았다. "기록한다"고 써놓은 자리에 실행하지 않은 추정을 적고 `[x]`를 친 것은, 기록된
+      수치는 그것을 만든 실행에서 나와야 한다는 이 백로그의 논지를 정면으로 어긴 것이다. 초안이
+      인용하던 7,172 / 41.8%는 파서 정정 이전 값이라 함께 폐기한다
 - [x] TC-13: `pnpm harness:scan` → exit 0
 - [x] TC-16: 중첩 워크스페이스 패키지가 스캔 범위에 포함됨 — `check-spec-whitebox-leakage.mjs --all`
       출력에 `packages/dag-nodes/` 항목이 **20건** 나타난다. **총 파일 수를 단정하지 않는다**: 구현 중
@@ -490,6 +478,26 @@ semantics`** 로 좁히고, 내부 동작 변경은 design doc으로 라우팅�
       가능하게** 반환되어야 하고(`cleanup-drift`는 필수만, 유출 지표는 필수 ∪ 선택), 동등성 단정은
       **필수 표에 한정**한다. 표를 읽지 못하면 **fail-closed**(exit 1). `shared.mjs`에 하드코딩
       배열을 두지 않으므로 상수 길이를 단정하던 초안 문구는 폐기한다
+
+### TC-05 검증 명령
+
+체크리스트 항목 **안에** 펜스를 두지 않는다 — 리스트 안의 코드 블록은 들여쓰기가 어긋나기 쉽고,
+4라운드 심사에서 실제로 닫는 펜스가 여는 펜스보다 8칸 깊어져 블록이 닫히지 않았고 `format-check`이
+red가 됐다. 아래 블록은 그대로 복사해 실행할 수 있으며, 문서에서 추출해 실행한 결과가 exit 0이다.
+
+```bash
+node scripts/harness/verify-doc-split-preservation.mjs \
+--ref 96728940c \
+--source packages/agent-cli/docs/SPEC.md \
+--target packages/agent-cli/docs/SPEC.md \
+--target packages/agent-cli/docs/design/command-registry.md \
+--target packages/agent-cli/docs/design/composition.md \
+--target packages/agent-cli/docs/design/internal-structure.md \
+--target packages/agent-cli/docs/design/message-architecture.md \
+--target packages/agent-cli/docs/design/session-ownership.md \
+--target packages/agent-cli/docs/design/subagent-wiring.md \
+--allowances packages/agent-cli/docs/design/.split-allowances.json
+```
 
 ## Test Plan
 
@@ -622,11 +630,11 @@ Consumer: **the end user at the terminal**, plus the few packages that import CL
 
 **§23 `Subagent Execution` (135 lines)**
 
-| Content                                                    | Consumer impact | Disposition                                                                                                                                                                                                                                                                                                                       |
-| ---------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Agent-definition format, invocation, what the user sees    | yes             | `merge → User-Facing Contract`                                                                                                                                                                                                                                                                                                    |
-| Restatement of `agent-framework`'s runner/manager contract | owned elsewhere | `delete-and-link` → `agent-framework/docs/SPEC.md` — **executed**: two paraphrase paragraphs deleted from `design/subagent-wiring.md`, replaced by the link. The round-3 review caught that the first two passes had moved them into the design doc instead, which is the drift-preservation this document criticises for Pilot 2 |
-| CLI-side wiring                                            | no              | `design/subagent-wiring.md`                                                                                                                                                                                                                                                                                                       |
+| Content                                                    | Consumer impact | Disposition                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agent-definition format, invocation, what the user sees    | yes             | `merge → User-Facing Contract`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Restatement of `agent-framework`'s runner/manager contract | owned elsewhere | `delete-and-link` → `agent-framework/docs/SPEC.md` — **executed**, one paragraph: the subagent-lifecycle restatement, deleted from `design/subagent-wiring.md` and replaced by the link. A second paragraph was deleted alongside it but is **not** this row: the round-4 review found it was an in-package duplicate of `agent-cli`'s own `## Boundaries` (base ref line 52), not an `agent-framework` restatement. The round-3 review had caught that the first two passes moved both into the design doc instead — the drift-preservation this document criticises for Pilot 2 |
+| CLI-side wiring                                            | no              | `design/subagent-wiring.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 #### Deep subsections — classified in the second pass
 
@@ -1309,3 +1317,48 @@ frontmatter는 계약인데 본문은 아니라는 것은 경계가 아니라 �
 - **`RULE-014`** — `## User-Facing Contract`가 1,017줄·4단 헤딩(문서의 58%)으로 섹션이 아니라
   컨테이너다. 표준 섹션 목록이 라이브러리 패키지를 전제로 설계된 결과이며, 파일럿의 결함이 아니라
   목록의 결함이다
+
+### WU-B Recommendation Gate Round 4 — 2026-08-16
+
+네 번째 **REVISE**. 설계는 승인받았다 — "Architecture-placement verdict: correct", "설계 관점에서는
+승인하겠다". 남은 넷은 전부 **증거 기록의 결함**이고, 그것이 이 항목이 없애려는 두 실패 모드가
+`RULE-013` 자신의 기록 안에 남아 있다는 뜻이었다.
+
+**1. TC-05의 펜스가 깨져 `format-check`이 red였다.** 닫는 펜스가 여는 펜스보다 8칸 깊어 블록이 닫히지
+않았고, 코드 블록이 자기 뒤의 설명 문단까지 삼켰다. 변경 18파일 중 유일하게 prettier가 거부했다.
+**내 커밋 메시지의 검증 목록에 `format-check`이 없었다** — 기록된 검증이 실제로 통치하는 검증이 아닌 것,
+바로 3라운드에서 고친 결함과 같은 형태다. 명령 블록을 체크리스트 밖 `### TC-05 검증 명령`으로 분리해
+구조적으로 안정시켰다(리스트 안의 펜스는 들여쓰기가 깨지기 쉽다). 문서에서 추출해 실행 → exit 0.
+
+**2. allowance entry 12의 소유자가 자기 사유와 모순이었고, 형제 항목의 링크에 얹혀 통과했다.**
+`deletedAndLinkedTo`는 `agent-framework`를 가리키는데 사유는 `agent-command`를 말하고 있었다. 확인해
+보니 더 근본적인 오분류였다 — 그 문단이 담은 사실은 **`agent-cli` 자신의 `## Boundaries`에 이미 있었다**
+(기준 ref L52: _"Does NOT own user-local command behavior — `@robota-sdk/agent-command` owns the …"_).
+cross-package `delete-and-link`가 아니라 **in-package 중복**이었다. 재분류하고 근거를 사유에 적었으며,
+두 문단을 모두 `agent-framework` 재서술로 귀속시키던 §23 표 행도 정정했다.
+
+**3. 도구에 구멍이 셋 남아 있었다.** 셋 다 재현하고 막았다:
+
+- **링크가 항목에 묶여 있지 않았다** — `destinations.some(...)`이라 소유자를 명시한 **모든** 항목이
+  링크 하나로 만족됐다. entry 12가 정확히 그렇게 통과했다. 이제 항목마다 별개의 링크 발생을 요구한다
+- **`survivesAs`가 원본에 이미 있어도 통과했다** — 대체가 아닌 줄로 개명이 "검증"된다. 원본에 존재하면
+  거부한다(현재 9건은 전부 통과)
+- **패키지 세그먼트 없는 경로가 여전히 통했다** — `docs/SPEC.md`는 모든 패키지의 SPEC에 매치된다.
+  3라운드에서 고쳤다고 한 버그가 다른 입력으로 살아 있었다. 소유 경로는 `packages/`·`apps/` 앵커를
+  요구한다
+
+남은 두 구멍(사용되지 않은 stale allowance가 조용히 통과, 중복 줄의 다중도 미반영)은 헤더 주석에
+**known and deferred**로 명시했다.
+
+**4. TC-12가 추정치를 적고 `[x]` 처리돼 있었다.** "기록한다"고 써놓은 자리에 실행하지 않은 추정
+(≈6,185줄 / 35.6%)을 적었고, 실측(4,967 / 28.9%)과 **1,218줄** 어긋났다. 기록된 수치는 그것을 만든
+실행에서 나와야 한다는 이 백로그의 논지를 정면으로 어긴 것이다. 두 끝점을 다시 실행해 표로 기록하고,
+`agent-cli`의 1,708 → 0 중 실제 이동은 ~195줄뿐이라는 경고를 함께 적었다. Problem §2의
+6,654 / 38.5%도 TC-12와 같은 기준(6,675 / 38.4%)으로 맞췄다.
+
+**verify-like-ci는 이미 이것을 잡고 있었는데 내가 exit code를 잘못 읽었다.** 백그라운드 실행을
+`cmd > log 2>&1; echo exit=$?; tail log`로 감쌌더니 알림이 보고한 exit 0은 마지막 `tail`의 것이었다.
+로그 안에는 `FAIL — 2 of 12 stage(s) failed: format-check, harness-self-test`가 있었다. **성공을 관측된
+효과가 아니라 exit code로 판정하지 말 것** — `.agents/memory/bound-every-wait-and-solve-it-yourself.md`에
+적어둔 항목을 그대로 반복했다. `harness-self-test` 쪽은 재구성으로 `spec-missing-sections`가 47 → 46이
+된 것이라 지시대로 같은 변경에서 `--write-baseline`으로 재freeze했다.

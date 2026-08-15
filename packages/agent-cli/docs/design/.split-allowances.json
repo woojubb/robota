@@ -63,8 +63,7 @@
     },
     {
       "lost": "Agent command behavior is not owned by the TUI. The Robota binary composes `@robota-sdk/agent-command` as a default command module, but reusable CLI UI code only handles generic command modules.",
-      "deletedAndLinkedTo": "packages/agent-framework/docs/SPEC.md",
-      "reason": "Same disposition, same reason: an ownership fact belonging to `@robota-sdk/agent-command`, restated here. Replaced by the link in the same paragraph."
+      "reason": "NOT a cross-package delete-and-link — the round-4 review caught that this was misclassified. The fact was already in agent-cli's OWN `## Boundaries` at the base ref (`git show 96728940c:packages/agent-cli/docs/SPEC.md` line 52: \"Does NOT own user-local command behavior — `@robota-sdk/agent-command` owns the …\"), so the deleted paragraph was an in-package duplicate of a boundary the SPEC already states, not a restatement of another package's contract. Deleted as a duplicate; the surviving statement is the SPEC's own Boundaries entry. No `deletedAndLinkedTo` is claimed because no new link was needed — and the earlier entry pointed at `agent-framework`, which its own reason contradicted and which only passed because a sibling entry's link to that owner existed somewhere in the destination union."
     }
   ]
 }

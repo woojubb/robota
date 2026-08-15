@@ -165,7 +165,7 @@ describe('collectAllowanceFindings — the guard on the escape hatch', () => {
       [dest],
     );
     expect(bad.findings).toHaveLength(1);
-    expect(bad.findings[0]).toContain('no destination links there');
+    expect(bad.findings[0]).toContain('carry only 0 link(s)');
     expect(bad.excused.size).toBe(0);
   });
 
@@ -205,6 +205,44 @@ describe('collectAllowanceFindings — the guard on the escape hatch', () => {
     const { findings } = collectAllowanceFindings([{ reason: 'no lost line' }, null], [dest]);
     expect(findings).toHaveLength(2);
     expect(findings.every((f) => f.includes('no "lost" line'))).toBe(true);
+  });
+
+  it("refuses a second delete-and-link riding the first entry's single link", () => {
+    const entry = (lost) => ({
+      lost,
+      deletedAndLinkedTo: 'packages/agent-framework/docs/SPEC.md',
+      reason: 'owned elsewhere',
+    });
+    const one = collectAllowanceFindings([entry('first')], [dest]);
+    expect(one.findings).toEqual([]);
+
+    const two = collectAllowanceFindings([entry('first'), entry('second')], [dest]);
+    expect(two.findings).toHaveLength(1);
+    expect(two.findings[0]).toContain('carry only 1 link(s) there and 2 entr');
+    expect([...two.excused]).toEqual(['first']);
+  });
+
+  it('refuses an owner path with no package segment, which would match every SPEC', () => {
+    const { excused, findings } = collectAllowanceFindings(
+      [{ lost: 'x', deletedAndLinkedTo: 'docs/SPEC.md', reason: 'owned elsewhere' }],
+      [dest],
+    );
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toContain('must name an owning package path');
+    expect(excused.size).toBe(0);
+  });
+
+  it('refuses a rename whose survivor already existed in the source', () => {
+    const source = collectBodyLines('Architecture Overview');
+    const entries = [
+      { lost: 'Architecture', survivesAs: 'Architecture Overview', reason: 'renamed' },
+    ];
+    // Without the source it passes; with the source it is caught.
+    expect(collectAllowanceFindings(entries, [dest]).findings).toEqual([]);
+    const { excused, findings } = collectAllowanceFindings(entries, [dest], source);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toContain('already existed in the source');
+    expect(excused.size).toBe(0);
   });
 
   it('excuses nothing when given no allowances', () => {

@@ -224,6 +224,29 @@ delete-and-link 2건은 소유 문서로의 링크가 실재하는지. 나머지
 기계 검사 하나면 자동으로 걸렸을 것), `RULE-014`(`User-Facing Contract` 1,017줄·4단 = 컨테이너,
 제품 셸에는 슬롯 하나로 부족).
 
-### Round 4
+### Round 4 — `REVIEW VERDICT: REVISE` | 2026-08-16
 
-3라운드 접기 완료 후 재심사 대기.
+네 번째. 심사자가 설계는 승인("Architecture-placement verdict: correct", "I would endorse it on design
+grounds")했고, 남은 것은 전부 **증거 기록의 결함**이다. 넷 다 검증하고 접었다.
+
+| 지적                                                                                                                                       | 검증                                                                              | 처리                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **TC-05 펜스가 깨져 CI가 red.** 닫는 펜스가 여는 펜스보다 8칸 깊어 블록이 닫히지 않았다                                                    | `npx prettier --check` red. 변경 18파일 중 유일                                   | 명령을 체크리스트 밖 `### TC-05 검증 명령`으로 분리. 문서에서 추출 실행 → exit 0                                                                                |
+| **allowance entry 12의 소유자가 사유와 모순.** `agent-framework`를 가리키는데 사유는 `agent-command`를 말한다. entry 11의 링크에 얹혀 통과 | 구 SPEC L52 확인 — 그 사실은 **`agent-cli` 자신의 `## Boundaries`에 이미 있었다** | cross-package가 아니라 **in-package 중복**으로 재분류. `deletedAndLinkedTo` 제거하고 근거를 사유에 기록. §23 표 행도 정정                                       |
+| **`collectAllowanceFindings`에 구멍 셋**                                                                                                   | 셋 다 재현                                                                        | delete-and-link는 **항목별 링크 1개**를 요구; `survivesAs`가 원본에 이미 있으면 거부; 소유 경로는 `packages/`·`apps/` 앵커 필수. red 픽스처 3건 추가(23 테스트) |
+| **TC-12가 추정치를 적고 `[x]` 처리**                                                                                                       | 실측 4,967 / 28.9% vs 기록 ≈6,185 / 35.6% — **1,218줄 차이**                      | 두 끝점을 실행해 표로 기록. Problem §2의 6,654 / 38.5%도 같은 기준으로 정합                                                                                     |
+
+**verify-like-ci는 이미 잡고 있었는데 내가 exit code를 잘못 읽었다.** 백그라운드 실행을
+`cmd > log; echo exit=$?; tail log` 형태로 감싸서 알림이 보고한 exit 0은 `tail`의 것이었다. 로그에는
+`FAIL — 2 of 12 stage(s) failed: format-check, harness-self-test`가 있었다. **관측된 효과가 아니라
+exit code로 성공을 판정하지 말 것** — `.agents/memory/bound-every-wait-and-solve-it-yourself.md`에
+적어둔 그대로를 반복했다. `harness-self-test`의 `cleanup-drift`는 재구성으로 `spec-missing-sections`가
+47 → 46이 된 것이었고, 지시대로 같은 변경에서 `--write-baseline`으로 재freeze했다.
+
+**후속 파일 정정:** `HARNESS-094`의 TC-05가 62개 행 전수를 요구해 **통과 불가능**했다(Pilot 2의 28개는
+의도적 미실행). Pilot 1의 34개로 좁혔다 — 통과할 수 없는 수용 기준을 싣는 것이 이 계열이 막으려는
+것이다. `RULE-014`의 60%/58% 불일치도 58%로 통일했다.
+
+### Round 5
+
+4라운드 접기 완료 후 재심사 대기.
