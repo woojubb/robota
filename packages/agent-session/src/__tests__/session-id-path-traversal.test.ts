@@ -21,7 +21,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FileSessionLogger } from '../session-logger.js';
 import { SessionStore } from '../session-store.js';
 
-import type { ISessionRecord } from '../session-store.js';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
 
 const TRAVERSAL_IDS = [
   '../escaped',
@@ -32,13 +32,13 @@ const TRAVERSAL_IDS = [
   '/absolute',
 ];
 
-function makeRecord(id: string): ISessionRecord {
+function makeRecord(id: string): IInteractiveSessionRecord {
   return {
     id,
     messages: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  } as unknown as ISessionRecord;
+  } as unknown as IInteractiveSessionRecord;
 }
 
 describe('SessionStore — session id path traversal (SEC-006)', () => {

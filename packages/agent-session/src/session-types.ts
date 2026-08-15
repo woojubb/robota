@@ -10,7 +10,6 @@ import type {
   ISpinner,
 } from './permission-types.js';
 import type { ISessionLogger } from './session-logger.js';
-import type { ISessionStore } from './session-store.js';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -23,11 +22,13 @@ import type {
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
-
-export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
+import type {
+  ICompactEvent,
+  IInteractiveSessionStore,
+} from '@robota-sdk/agent-interface-transport';
 
 export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface-transport';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
+export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 
 /** Options for graceful session shutdown. */
 export interface ISessionShutdownOptions {
@@ -92,7 +93,7 @@ export interface ISessionOptions {
   /** Maximum number of agentic turns per run() call. Undefined = unlimited. */
   maxTurns?: number;
   /** Optional session store for persistence */
-  sessionStore?: ISessionStore;
+  sessionStore?: IInteractiveSessionStore;
   /** Override session ID (used when resuming a session to reuse the original ID) */
   sessionId?: string;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */
