@@ -417,16 +417,35 @@ semantics`** 로 좁히고, 내부 동작 변경은 design doc으로 라우팅�
 - [x] TC-03: `rg "New or changed externally observable behavior" .agents/rules/spec-workflow.md` → exit 0
 - [x] TC-04: `node scripts/harness/check-spec-whitebox-leakage.mjs` 가 Phase 2 **이전** 스냅샷에서
       `agent-framework`·`agent-cli` 정확히 2건을 finding으로 보고 (단위 테스트 픽스처로 고정)
-- [x] TC-05: **회수량과 무손실을 직접 단정한다** — (a)
-      `node scripts/harness/verify-doc-split-preservation.mjs --ref <분할 직전 ref>
-    --source packages/agent-cli/docs/SPEC.md --target <신 SPEC> --target <design 6건>` exit 0,
-      (b) `packages/agent-cli/docs/design/*.md`의 본문 줄 합계 **≥200**.
-      **이 기준은 세 번째 정정이며, 이번엔 임계값이 아니라 대상을 바꿨다.** 초안의 "스캔 exit 0"은
-      개명으로, 2차 정정의 "표준 섹션 밖 ≤150줄"은 **강등**으로 각각 추출 없이 통과했다 —
-      `check-spec-whitebox-leakage.mjs:62`가 `/^##\s+/`로 **`##`만** 마크하므로 비표준 `##` 20개를
-      `###`로 내리면 잔여량이 0이 된다. 실제로 이 PR이 그렇게 해서 0을 만들었다. 두 번의 실패가
-      모두 "지표가 배치가 아니라 헤딩 적합성을 잰다"는 같은 원인이므로, 임계를 다시 조정하는 대신
-      **지표에서 벗어나** 목적지 쪽 실물 분량과 무손실을 단정한다. 강등은 (b)를 만족시킬 수 없다
+- [x] TC-05: **회수량과 무손실을 직접 단정한다.** 아래 명령을 그대로 실행해 exit 0이고, (b)
+      `packages/agent-cli/docs/design/*.md`의 본문 줄 합계 **≥200**(실측 300):
+
+      ```bash
+              node scripts/harness/verify-doc-split-preservation.mjs \
+                --ref 96728940c \
+                --source packages/agent-cli/docs/SPEC.md \
+                --target packages/agent-cli/docs/SPEC.md \
+                --target packages/agent-cli/docs/design/command-registry.md \
+                --target packages/agent-cli/docs/design/composition.md \
+                --target packages/agent-cli/docs/design/internal-structure.md \
+                --target packages/agent-cli/docs/design/message-architecture.md \
+                --target packages/agent-cli/docs/design/session-ownership.md \
+                --target packages/agent-cli/docs/design/subagent-wiring.md \
+                --allowances packages/agent-cli/docs/design/.split-allowances.json
+              ```
+
+              **자리표시자를 쓰지 않는다** — 3라운드 심사에서 잡혔다. 앞선 문구는 `<분할 직전 ref>` 같은
+              자리표시자에 `--allowances`도 빠져 있어 **문자 그대로 실행하면 exit 1**이었다. 기록된 기준과
+              실제로 돌린 명령이 다른 것은, 이 백로그가 다루는 바로 그 병(일하지 않고 통과하는 기준)의
+              다른 형태다. 허용 목록도 명령줄이 아니라 저장소에 커밋된
+              `.split-allowances.json`에 있고, 13건 중 11건은 도구가 검증한다 —
+              개명 9건은 대체 문자열이 실제로 목적지에 있는지, delete-and-link 2건은 소유 문서로의 링크가
+              실재하는지. 나머지 2건(줄바꿈 재배치)만 서면 사유로 받는다.
+
+              **(a)는 배치를 재지 않는다** — 목적지 집합이 `신 SPEC ∪ design 전부`이므로 계약이 design으로
+              가도 그대로 통과한다. 무손실은 **필요조건이지 충분조건이 아니며**, 배치의 증거는 TC-07의
+              분류표다. 이 기준은 세 번째 정정이고, 앞의 두 번(개명·강등으로 통과)과 달리 임계값이 아니라
+              대상을 바꿨다
 
 - [x] TC-06: 파일럿(`agent-cli`)의 잔류 `##` 헤딩이 전부 표준 섹션으로 정규화된다 —
       `isStandardSpecSection()` 단정, 비표준 0개. **수용 기준이 아니라 관측 기록으로 강등한다.**
@@ -592,21 +611,22 @@ Consumer: **the end user at the terminal**, plus the few packages that import CL
 
 **§11 `Command Registry Architecture` (111 lines)**
 
-| Subsection                                                            | Consumer impact                               | Disposition                    |
-| --------------------------------------------------------------------- | --------------------------------------------- | ------------------------------ |
-| `ICommandSource` interface / `ICommand` interface / Command Sources   | yes — third parties implement these           | `merge → Extension Points`     |
-| Skill Frontmatter Schema                                              | yes — users author SKILL.md files against it  | `merge → Extension Points`     |
-| Skill Invocation Methods / Skill Execution Features                   | yes — how a user runs a skill                 | `merge → User-Facing Contract` |
-| Skill Discovery (Multi-Path)                                          | yes — where the CLI looks for a user's skills | `merge → User-Facing Contract` |
-| Variable Substitution / Shell Command Preprocessing / Skill Execution | no — the pipeline that implements the above   | `design/command-registry.md`   |
+| Subsection                                                          | Consumer impact                                        | Disposition                                               |
+| ------------------------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------- |
+| `ICommandSource` interface / `ICommand` interface / Command Sources | yes — third parties implement these                    | `merge → Extension Points`                                |
+| Skill Frontmatter Schema                                            | yes — users author SKILL.md files against it           | `merge → Extension Points`                                |
+| Skill Invocation Methods / Skill Execution Features                 | yes — how a user runs a skill                          | `merge → User-Facing Contract`                            |
+| Skill Discovery (Multi-Path)                                        | yes — where the CLI looks for a user's skills          | `merge → User-Facing Contract`                            |
+| Skill Execution (the resolution + submission pipeline)              | no — the pipeline behind the syntax                    | `design/command-registry.md`                              |
+| Variable Substitution / Shell Command Preprocessing                 | **yes** — a user types these into their own `SKILL.md` | `merge → Extension Points` (corrected in the second pass) |
 
 **§23 `Subagent Execution` (135 lines)**
 
-| Content                                                    | Consumer impact | Disposition                                        |
-| ---------------------------------------------------------- | --------------- | -------------------------------------------------- |
-| Agent-definition format, invocation, what the user sees    | yes             | `merge → User-Facing Contract`                     |
-| Restatement of `agent-framework`'s runner/manager contract | owned elsewhere | `delete-and-link` → `agent-framework/docs/SPEC.md` |
-| CLI-side wiring                                            | no              | `design/subagent-wiring.md`                        |
+| Content                                                    | Consumer impact | Disposition                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agent-definition format, invocation, what the user sees    | yes             | `merge → User-Facing Contract`                                                                                                                                                                                                                                                                                                    |
+| Restatement of `agent-framework`'s runner/manager contract | owned elsewhere | `delete-and-link` → `agent-framework/docs/SPEC.md` — **executed**: two paraphrase paragraphs deleted from `design/subagent-wiring.md`, replaced by the link. The round-3 review caught that the first two passes had moved them into the design doc instead, which is the drift-preservation this document criticises for Pilot 2 |
+| CLI-side wiring                                            | no              | `design/subagent-wiring.md`                                                                                                                                                                                                                                                                                                       |
 
 #### Deep subsections — classified in the second pass
 
@@ -654,12 +674,23 @@ WU-B's scope and named here rather than left silent.**
 #### Pilot 1 outcome
 
 - Everything retained normalizes to one of the fifteen standard sections.
-- **297 body lines** live in `packages/agent-cli/docs/design/` across six files.
-- `≈ 20 lines` are deleted-and-linked (owned by `agent-framework`).
+- **300 body lines** live in `packages/agent-cli/docs/design/` across six files.
+- **Two paragraphs** are deleted-and-linked — both paraphrases of what `agent-framework` owns, replaced
+  by a link to the owner in `design/subagent-wiring.md`. **The earlier "`≈ 20 lines`" was an estimate
+  that was never executed and the author's own tool refutes it**: `verify-doc-split-preservation.mjs`
+  reported zero deletions for two passes, which is only consistent with `delete-and-link` having been
+  applied to nothing. The round-3 review caught it. The paragraphs had instead been _moved into_ the
+  design doc — preserving another package's contract as a paraphrase under a new filename, which is
+  precisely what this document argues against for Pilot 2's `## Feature Details`.
 - **Zero body lines lost**, proved mechanically rather than by reading a reordered diff:
   `verify-doc-split-preservation.mjs` compares the multiset of body lines at the pre-split ref against
-  the new SPEC plus all six design docs. Eleven allowances are named explicitly on the command line —
-  nine dissolved or renamed heading titles, two re-wrapped sentences whose words survive.
+  the new SPEC plus all six design docs. Thirteen allowances live in a committed file,
+  `packages/agent-cli/docs/design/.split-allowances.json`, each with a written reason, and **eleven of
+  them are checked by the tool rather than trusted**: nine renames must name a replacement line that is
+  really present in a destination, and two delete-and-links must name an owner a destination really
+  links to. Only two — sentences whose line breaks moved — rest on the reason alone. An allowance list
+  passed on the command line, as the first attempt did, leaves no artifact a reviewer can audit; that is
+  the same disease this item is about, in a new shape.
 - The claim that **"nothing user-facing is moved out of the SPEC" was false on the first pass** and is
   what the second pass fixed. Four contract facts had left; they are back, and the eight sections
   involved are classified above. The reviewer's P3 objection is this table's premise, and the first pass
@@ -1237,3 +1268,44 @@ frontmatter는 계약인데 본문은 아니라는 것은 경계가 아니라 �
 구조 규정). 표준 섹션 목록의 문제이지 이 파일럿의 문제가 아니므로 접지 않는다. 파일럿은 `agent-cli`를
 "whitebox 사이에서 계약을 찾을 수 없음"에서 "범주로는 찾히나 그 안에서 길을 잃음"으로 옮겼다 — 진전이지
 종착점은 아니다.
+
+### WU-B Recommendation Gate Round 3 — 2026-08-16
+
+세 번째 **REVISE**. 방향은 승인받았고("지표를 재조정하는 대신 떠난 것이 옳은 세 번째 정정"), 세 건이
+불통과. 셋 다 검증하고 접었다.
+
+**1. TC-05가 실행 불가능한 상태로 기록돼 있었다.** `<분할 직전 ref>` 같은 자리표시자 셋에
+`--allowances`도 빠져 있어 **문자 그대로 실행하면 exit 1**이었다. 그리고 허용 11건은
+`rg -c "allow-lost" .agents/` → **0**, 즉 저장소 어디에도 없었다. 기록된 기준과 실제로 돌린 명령이
+다른 것은 이 백로그가 다루는 바로 그 병 — 일하지 않고 통과하는 기준 — 의 다른 형태다.
+
+- ref를 `96728940c`로 고정하고 `--target` 7개를 전부 적은 **복사-실행 가능한 명령**으로 교체했다.
+  문서에서 그 블록을 그대로 뽑아 실행해 exit 0을 확인했다
+- 허용 목록을 커밋되는 `packages/agent-cli/docs/design/.split-allowances.json`으로 옮기고,
+  **13건 중 11건을 도구가 검증하게 했다** — 개명 9건은 `survivesAs`가 실제로 목적지에 있는지,
+  delete-and-link 2건은 `deletedAndLinkedTo`가 가리키는 소유 문서로의 링크가 실재하는지.
+  나머지 2건(줄바꿈이 바뀐 문장)만 서면 사유로 받는다. 사유 없는 허용, 존재하지 않는 대체 문자열,
+  없는 허용 파일 — 전부 red로 재현 확인했다
+
+**2. §23의 `delete-and-link`가 실행되지 않았다 — 그리고 결론 문장이 거짓이었다.** 분류표는
+`agent-framework` 계약의 재서술을 `delete-and-link`로 처분했는데, 실제 diff는 그것을
+`design/subagent-wiring.md`로 **옮겼다**. 축자 중복은 0이지만 두 문단이 소유 패키지의 계약을
+**말바꿈**으로 서술하고 있었다 — 사본보다 조용히 드리프트하는 형태다. 이 문서가 Pilot 2의
+`## Feature Details`에 대해 "design으로 옮기면 드리프트를 새 파일명 아래 보존할 뿐"이라고 적어둔
+바로 그 오류를, Pilot 1이 `delete-and-link`로 분류한 유일한 행에서 저질렀다.
+
+결정적으로, **내 도구가 이미 그 증거를 내놓고 있었다** — 두 라운드 내내 "유실 0"이라고 보고했고, 그것은
+`delete-and-link`가 아무것도 삭제하지 않았다는 뜻이다. 결론 문장의 "≈20줄 delete-and-link"는 실행된
+적 없는 추정치였고 도구가 그것을 반증하고 있었는데 대조하지 않았다. 두 문단을 삭제하고 링크로 대체했으며,
+결론을 실측("2개 문단")으로 정정하고 추정치가 미실행이었음을 명기했다.
+
+**3. §11 split 행이 부록과 모순이었다.** 같은 내용(`Variable Substitution`)에 대해 표는
+`design/command-registry.md`, 부록은 `Extension Points`라고 적고 있었다. 행을 둘로 쪼개 정정했다.
+
+**후속으로 분리 제기(드롭 아님, 심사자 요구):**
+
+- **`HARNESS-094`** — 분류표를 검사하는 것이 사람 눈뿐이다. 위 결함 2·3은 **표를 파싱해 처분별로
+  단정하는 스캔 하나면 자동으로 걸렸을 것**이다. TC-07은 완결성만 요구하고 정합성은 요구하지 않는다
+- **`RULE-014`** — `## User-Facing Contract`가 1,017줄·4단 헤딩(문서의 58%)으로 섹션이 아니라
+  컨테이너다. 표준 섹션 목록이 라이브러리 패키지를 전제로 설계된 결과이며, 파일럿의 결함이 아니라
+  목록의 결함이다

@@ -19,11 +19,29 @@
  * a specific split knows. It is a criterion-verification tool, run once per split and quoted in the
  * evidence log.
  *
+ * A split legitimately renames a heading, so some allowance is unavoidable. An UNCHECKED allowance is
+ * the vacuous-green pattern in a new shape, though — a future author could whitelist a deleted contract
+ * line and no artifact would show it. So allowances are not command-line flags: they live in a
+ * committed JSON file, every entry needs a `reason`, and an entry that names a consequence is VERIFIED:
+ *   - `survivesAs`         — the named replacement line must be present in a destination (a rename);
+ *   - `deletedAndLinkedTo` — the content was deliberately removed because another document owns it, and
+ *                            a link to that owner must be present in a destination (Non-Duplication).
+ * Only an entry naming neither is taken on the author's word, and it has to say why in writing. A
+ * deletion is kept distinguishable from a rename on purpose — conflating them is how a real loss hides.
+ *
  * Usage:
  *   node scripts/harness/verify-doc-split-preservation.mjs \
- *     --ref <git-ref> --source <path> --target <path> [--target <path> …] [--allow-lost <title>]
+ *     --ref <git-ref> --source <path> --target <path> [--target <path> …] \
+ *     [--allowances <path.json>]
  *
- * Exit 0 when every source body line survives (modulo `--allow-lost` titles), 1 otherwise.
+ * Allowance file shape:
+ *   { "reason": "<why this split needs allowances at all>",
+ *     "entries": [ { "lost": "<exact source line>",
+ *                    "survivesAs": "<exact line now in a destination>",       // optional, VERIFIED
+ *                    "deletedAndLinkedTo": "<owner path linked to>",          // optional, VERIFIED
+ *                    "reason": "<why this is not a loss>" } ] }
+ *
+ * Exit 0 when every source body line survives and every allowance holds, 1 otherwise.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -65,15 +83,74 @@ export function findMissingLines(source, destinations) {
   return lost;
 }
 
+/**
+ * Split an allowance list into the lines it excuses and the findings it produces.
+ * An entry naming `survivesAs` is only honoured when that replacement is really present in a
+ * destination — otherwise the allowance is itself the finding.
+ */
+export function collectAllowanceFindings(entries, destinations) {
+  const excused = new Set();
+  const findings = [];
+  const present = (line) => destinations.some((dest) => dest.has(line));
+  // A delete-and-link is only honoured when a destination really points at the owner. The workspace
+  // prefix is dropped so a relative path (`../../agent-framework/docs/SPEC.md`) still counts, but the
+  // OWNER's own name is kept: matching on a trailing `docs/SPEC.md` alone would accept a link to any
+  // package's SPEC, which is how a delete-and-link to the wrong owner would pass.
+  const linksTo = (dest, owner) => {
+    const needle = owner.replace(/^(?:\.{1,2}\/)+/, '').replace(/^(?:packages|apps)\//, '');
+    if (needle === '') return false;
+    for (const line of dest.keys()) if (line.includes(needle)) return true;
+    return false;
+  };
+  entries.forEach((entry, index) => {
+    const where = `allowance[${index}]`;
+    if (typeof entry?.lost !== 'string' || entry.lost.trim() === '') {
+      findings.push(`${where}: no "lost" line`);
+      return;
+    }
+    if (typeof entry.reason !== 'string' || entry.reason.trim() === '') {
+      findings.push(
+        `${where} ("${entry.lost}"): no "reason" — an unexplained allowance is a deletion`,
+      );
+      return;
+    }
+    if (entry.survivesAs !== undefined && entry.deletedAndLinkedTo !== undefined) {
+      findings.push(
+        `${where} ("${entry.lost}"): claims both a rename and a delete-and-link — it can only be one`,
+      );
+      return;
+    }
+    if (entry.survivesAs !== undefined) {
+      if (typeof entry.survivesAs !== 'string' || !present(entry.survivesAs)) {
+        findings.push(
+          `${where} ("${entry.lost}"): claims it survives as "${entry.survivesAs}", which is in no destination`,
+        );
+        return;
+      }
+    }
+    if (entry.deletedAndLinkedTo !== undefined) {
+      const owner = entry.deletedAndLinkedTo;
+      if (typeof owner !== 'string' || !destinations.some((dest) => linksTo(dest, owner))) {
+        findings.push(
+          `${where} ("${entry.lost}"): claims delete-and-link to "${owner}", but no destination links there`,
+        );
+        return;
+      }
+    }
+    excused.add(entry.lost);
+  });
+  return { excused, findings };
+}
+
 function parseArgs(argv) {
-  const out = { targets: [], allowLost: [] };
+  const out = { targets: [] };
   for (let i = 2; i < argv.length; i += 1) {
     const flag = argv[i];
     const value = argv[i + 1];
     if (flag === '--ref') ((out.ref = value), (i += 1));
     else if (flag === '--source') ((out.source = value), (i += 1));
     else if (flag === '--target') (out.targets.push(value), (i += 1));
-    else if (flag === '--allow-lost') (out.allowLost.push(value), (i += 1));
+    else if (flag === '--allowances') ((out.allowances = value), (i += 1));
     else throw new Error(`unknown argument: ${flag}`);
   }
   if (!out.ref || !out.source || out.targets.length === 0) {
@@ -83,7 +160,7 @@ function parseArgs(argv) {
 }
 
 export function main(argv = process.argv) {
-  const { ref, source, targets, allowLost } = parseArgs(argv);
+  const { ref, source, targets, allowances } = parseArgs(argv);
 
   let before;
   try {
@@ -105,14 +182,42 @@ export function main(argv = process.argv) {
     dests.push(collectBodyLines(readFileSync(target, 'utf8')));
   }
 
+  let entries = [];
+  if (allowances !== undefined) {
+    if (!existsSync(allowances)) {
+      // Fail closed: a named allowance file that is not there means the run is unverified.
+      console.error(`allowance file does not exist: ${allowances}`);
+      process.exitCode = 1;
+      return;
+    }
+    try {
+      const parsed = JSON.parse(readFileSync(allowances, 'utf8'));
+      entries = Array.isArray(parsed?.entries) ? parsed.entries : null;
+      if (entries === null) throw new Error('no "entries" array');
+    } catch (error) {
+      console.error(`cannot read allowance file ${allowances}: ${error.message}`);
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   const src = collectBodyLines(before);
-  const allowed = new Set(allowLost);
-  const lost = findMissingLines(src, dests).filter(([line]) => !allowed.has(line));
+  const { excused, findings: allowanceFindings } = collectAllowanceFindings(entries, dests);
+  const lost = findMissingLines(src, dests).filter(([line]) => !excused.has(line));
 
   const srcTotal = examinedBodyLineCount(before);
   console.log(
     `::examined:: ${srcTotal} distinct-counted body line(s) of ${source}@${ref} against ${targets.length} destination document(s)`,
   );
+
+  if (allowanceFindings.length > 0) {
+    console.error(
+      `doc-split preservation FAILED — ${allowanceFindings.length} unsound allowance(s):`,
+    );
+    for (const finding of allowanceFindings) console.error(`  - ${finding}`);
+    process.exitCode = 1;
+    return;
+  }
 
   if (lost.length > 0) {
     console.error(`doc-split preservation FAILED — ${lost.length} body line(s) lost:`);
@@ -124,7 +229,13 @@ export function main(argv = process.argv) {
     return;
   }
 
-  const note = allowed.size > 0 ? ` (${allowed.size} title(s) explicitly allowed to dissolve)` : '';
+  const renamed = entries.filter((entry) => entry.survivesAs !== undefined).length;
+  const relinked = entries.filter((entry) => entry.deletedAndLinkedTo !== undefined).length;
+  const onTrust = entries.length - renamed - relinked;
+  const note =
+    entries.length > 0
+      ? ` (${entries.length} allowance(s): ${renamed} rename(s) verified against a named survivor, ${relinked} delete-and-link(s) verified against a live link, ${onTrust} on a written reason)`
+      : '';
   console.log(`doc-split preservation passed — no body line lost${note}.`);
 }
 

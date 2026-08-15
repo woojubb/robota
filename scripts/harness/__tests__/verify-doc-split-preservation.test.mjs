@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  collectAllowanceFindings,
   collectBodyLines,
   examinedBodyLineCount,
   findMissingLines,
@@ -112,5 +113,103 @@ describe('findMissingLines', () => {
     expect(second).toEqual(first);
     // and the source counter itself is unchanged by having been read twice
     expect(total(src)).toBe(8);
+  });
+});
+
+describe('collectAllowanceFindings — the guard on the escape hatch', () => {
+  const dest = collectBodyLines(
+    ['## Architecture Overview', 'see ../../agent-framework/docs/SPEC.md for the owner'].join('\n'),
+  );
+
+  it('excuses a rename whose named survivor is really present', () => {
+    const { excused, findings } = collectAllowanceFindings(
+      [{ lost: 'Architecture', survivesAs: 'Architecture Overview', reason: 'renamed' }],
+      [dest],
+    );
+    expect(findings).toEqual([]);
+    expect([...excused]).toEqual(['Architecture']);
+  });
+
+  it('refuses a rename whose named survivor is in no destination — and excuses nothing', () => {
+    const { excused, findings } = collectAllowanceFindings(
+      [{ lost: 'Architecture', survivesAs: 'Nowhere At All', reason: 'renamed' }],
+      [dest],
+    );
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toContain('is in no destination');
+    expect(excused.size).toBe(0);
+  });
+
+  it('excuses a delete-and-link only when a destination really links to the owner', () => {
+    const good = collectAllowanceFindings(
+      [
+        {
+          lost: 'a paraphrase of the owner',
+          deletedAndLinkedTo: 'packages/agent-framework/docs/SPEC.md',
+          reason: 'owned elsewhere',
+        },
+      ],
+      [dest],
+    );
+    expect(good.findings).toEqual([]);
+    expect(good.excused.size).toBe(1);
+
+    const bad = collectAllowanceFindings(
+      [
+        {
+          lost: 'a paraphrase of the owner',
+          deletedAndLinkedTo: 'packages/agent-session/docs/SPEC.md',
+          reason: 'owned elsewhere',
+        },
+      ],
+      [dest],
+    );
+    expect(bad.findings).toHaveLength(1);
+    expect(bad.findings[0]).toContain('no destination links there');
+    expect(bad.excused.size).toBe(0);
+  });
+
+  it('refuses an allowance with no written reason — an unexplained allowance is a deletion', () => {
+    const { excused, findings } = collectAllowanceFindings([{ lost: 'Architecture' }], [dest]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toContain('no "reason"');
+    expect(excused.size).toBe(0);
+  });
+
+  it('refuses an entry claiming both a rename and a delete-and-link', () => {
+    const { findings } = collectAllowanceFindings(
+      [
+        {
+          lost: 'Architecture',
+          survivesAs: 'Architecture Overview',
+          deletedAndLinkedTo: 'packages/agent-framework/docs/SPEC.md',
+          reason: 'both',
+        },
+      ],
+      [dest],
+    );
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toContain('can only be one');
+  });
+
+  it('excuses an entry that names neither, on its written reason alone', () => {
+    const { excused, findings } = collectAllowanceFindings(
+      [{ lost: 'a re-wrapped sentence', reason: 'line breaks moved; the words survive' }],
+      [dest],
+    );
+    expect(findings).toEqual([]);
+    expect(excused.size).toBe(1);
+  });
+
+  it('reports a malformed entry rather than skipping it silently', () => {
+    const { findings } = collectAllowanceFindings([{ reason: 'no lost line' }, null], [dest]);
+    expect(findings).toHaveLength(2);
+    expect(findings.every((f) => f.includes('no "lost" line'))).toBe(true);
+  });
+
+  it('excuses nothing when given no allowances', () => {
+    const { excused, findings } = collectAllowanceFindings([], [dest]);
+    expect(excused.size).toBe(0);
+    expect(findings).toEqual([]);
   });
 });

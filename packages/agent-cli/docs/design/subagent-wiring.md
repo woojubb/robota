@@ -21,7 +21,11 @@ the process adapter, which no consumer observes.
 
 ## Internal Structure
 
-Subagent execution (`/agent` command module, fork sessions, agent definition loading) is managed by `@robota-sdk/agent-framework` internally. The CLI does not own subagent lifecycle state — `InteractiveSession` handles subagent and background task lifecycle.
+What `agent-framework` owns is not restated here — subagent lifecycle, the runner port, agent
+definition loading, and `InteractiveSession`'s handling of both are specified in
+[`../../../agent-framework/docs/SPEC.md`](../../../agent-framework/docs/SPEC.md), and agent command
+behaviour in `@robota-sdk/agent-command`. A paraphrase of an owner's contract drifts more quietly
+than a copy of it. What follows is only what the CLI itself owns: the Node process adapters.
 
 The CLI owns Node runtime process adapters. It injects `createManagedShellProcessRunner()` into `InteractiveSession` as a `kind: 'process'` background task runner. SDK composition then exposes the separate `BackgroundProcess` tool; the existing foreground `Bash` tool remains unchanged.
 
@@ -32,8 +36,6 @@ projection, and cursor-based log pagination come from runtime-owned helpers re-e
 The CLI also injects `createChildProcessSubagentRunnerFactory()` into `InteractiveSession` as the production subagent runner factory. The factory receives SDK-assembled subagent dependencies, but the runner starts a child Node worker and sends only serializable config/context/provider/agent-definition data over IPC. The worker reconstructs its provider inside the child process using the same concrete provider profile the CLI used for the parent session.
 
 `child-process-subagent-runner-result.ts` owns child-worker result orchestration for the adapter: IPC message validation, timeout timer cleanup, early-exit errors, and transcript metadata projection. `child-process-subagent-runner.ts` remains the process factory and payload composer.
-
-Agent command behavior is not owned by the TUI. The Robota binary composes `@robota-sdk/agent-command` as a default command module, but reusable CLI UI code only handles generic command modules.
 
 Child-process subagent runner responsibilities:
 
