@@ -135,7 +135,10 @@ describe('PairingGate bare-handler branch + the outbound boundary (ARCH-030)', (
     expect(channelClose).toHaveBeenCalledTimes(1);
   });
 
-  it('latches: a burst of replies after the drop reports once', async () => {
+  // As on the WS side, this is not the boundary latch's own proof — `PairingGate.handleSessionDeliveryError`
+  // returns early once its state is `closed`, so the single report predates ARCH-030. It pins that the
+  // boundary above it did not change what the gate observes. The latch is red-proved in the protocol suite.
+  it('reports once for a burst of replies after the drop', async () => {
     const session = createTestInteractiveSession();
     const { gate, drop, deliveryErrors } = await acceptedGate(session);
     drop();

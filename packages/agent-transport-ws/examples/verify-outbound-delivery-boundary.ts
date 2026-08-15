@@ -158,7 +158,17 @@ async function runObservableCarrierPhase(markerPath: string): Promise<Record<str
   transport.attach(gated.session);
   try {
     await transport.start();
-    transport.onMessage?.(JSON.stringify({ type: 'command', name: 'status' }));
+    // Captured BEFORE the failure, deliberately. The carrier's cleanup nulls `transport.onMessage`, so
+    // reading it afterwards yields null and pushing a frame through it would exercise nothing — the
+    // observable would report a pass it never measured. Review caught exactly that: `latchThrew` was
+    // unconditionally null because it re-read the property the cleanup had just cleared.
+    const retainedHandler = transport.onMessage;
+    assertCondition(
+      retainedHandler !== null,
+      'the transport exposed no inbound handler after start()',
+    );
+
+    retainedHandler(JSON.stringify({ type: 'command', name: 'status' }));
 
     socketOpen = false;
     gated.release();
@@ -167,12 +177,12 @@ async function runObservableCarrierPhase(markerPath: string): Promise<Record<str
     const committed = existsSync(markerPath) && readFileSync(markerPath, 'utf8').includes('status');
     const cleanupObserved = transport.onMessage === null;
 
-    // The latch, from outside: a further inbound frame after the failure is dropped — neither a
-    // second delivery error nor a synchronous throw out of the handler.
+    // The latch, from outside: a further frame pushed through the RETAINED handler after the failure is
+    // dropped — neither a second delivery error nor a synchronous throw. Pre-ARCH-030 this threw
+    // `WebSocket is not open` straight out of the handler.
     let latchThrew: string | null = null;
-    const retained = transport.onMessage as ((data: string) => void) | null;
     try {
-      retained?.(JSON.stringify({ type: 'get-messages' }));
+      retainedHandler(JSON.stringify({ type: 'get-messages' }));
     } catch (error) {
       latchThrew = error instanceof Error ? error.message : String(error);
     }

@@ -59,17 +59,22 @@ export class SessionResumeBridge {
   private driverId?: TDriverId;
   private readonly unsubscribe: () => void;
   private onDeliveryError?: IAttachOptions['onDeliveryError'];
-  private sink?: TResumeSink;
   /**
-   * ARCH-030: the attachment's outbound boundary. Built per `attach` because a boundary LATCHES on its
-   * first failure — a fresh one is exactly what un-latches the session for the next channel. The single
-   * try/catch for this whole class lives inside it; there is no second guard at the string level.
+   * ARCH-030: the attachment's outbound boundary — and the only reference this class keeps to the current
+   * channel, which is why `dispose()` goes through `detach()` rather than clearing a separate field.
+   * Built per `attach` because a boundary LATCHES on its first failure, so a fresh one is exactly what
+   * un-latches the session for the next channel. It holds the only try/catch on the frame path.
    */
   private outbound?: TOutboundDeliver;
   /**
    * The session-lifetime entry every frame takes — event fan-out AND every reply to an inbound frame —
    * before it is seq-stamped and buffered by {@link emit}. Distinct from {@link outbound}, which is the
    * per-attachment exit to the current channel; this one outlives channels because the subscription does.
+   *
+   * It guards the BUFFERING step, not a carrier, and it latches for the life of the session on purpose: a
+   * resume buffer that cannot accept a frame cannot honour a later `resume` either, so there is nothing a
+   * reconnect could recover. That is the opposite of {@link outbound}, where the next channel is exactly
+   * what recovery looks like — the two scopes differ because the failures do.
    */
   private readonly emitBoundary: TOutboundDeliver;
   private disposed = false;
@@ -102,7 +107,6 @@ export class SessionResumeBridge {
   /** Set the current channel sink (on connect / reconnect). Live messages reach the client; replay is `resume`-driven. */
   public attach(sink: TResumeSink, options: IAttachOptions): void {
     if (this.disposed) return;
-    this.sink = sink;
     this.onDeliveryError = options.onDeliveryError;
     this.outbound = createOutboundDelivery(
       (message) => sink(JSON.stringify(message)),
@@ -114,7 +118,6 @@ export class SessionResumeBridge {
 
   /** Clear the sink (channel drop). Buffering continues so gap output is retained for the next `resume`. */
   public detach(): void {
-    this.sink = undefined;
     this.outbound = undefined;
     this.onDeliveryError = undefined;
   }
@@ -149,7 +152,9 @@ export class SessionResumeBridge {
   public dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.sink = undefined;
+    // Through `detach`, not a field assignment: the boundary's closure is what holds the channel, so
+    // clearing anything else released nothing and left teardown documented but not performed.
+    this.detach();
     this.unsubscribe();
   }
 

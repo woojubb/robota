@@ -175,7 +175,8 @@ subscriptions and teardown handlers with the exhaustive classification, verifies
 fan-out, and proves a throwing carrier is reported without escaping the session listener.
 `src/__tests__/session-resume-bridge.test.ts` proves sink failure detaches while retaining the frame, and
 (ARCH-030) that a failing multi-frame replay reports once, its frames replay on the next sink, and a fresh
-`attach` un-latches the connection. `src/__tests__/outbound-delivery.test.ts` covers the boundary itself:
+`attach` un-latches the connection. Those three pass against the PRE-ARCH-030 bridge too and are recorded
+as such: the bridge path was already guarded, so they guard the restructure rather than red-prove a defect. `src/__tests__/outbound-delivery.test.ts` covers the boundary itself:
 all eleven reply families after a disconnect (five Promise continuations asserting zero unhandled
 rejections, six synchronous ones asserting nothing escapes `onMessage`), the latch, observer isolation,
 and a `@ts-expect-error` case that fails typecheck if the brand is ever dropped.

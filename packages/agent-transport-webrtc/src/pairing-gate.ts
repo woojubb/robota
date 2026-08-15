@@ -16,25 +16,22 @@
  * `pair-nonce`, no enrollment, no reconnect) — preserving existing behavior.
  */
 
-import { createWsHandler, type SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
-
-import { createChannelDelivery } from './channel-delivery.js';
-import { isEnrollFrame, isPairingFrame, isReconnectFrame } from './pairing-frames.js';
-
-import type { IEnrollFrame } from './pairing-frames.js';
 import {
   deriveIdentityId,
   importPublicKey,
   startHostReconnect,
   startPairingHandshake,
   type IPairingResult,
-  type TPairingFrame,
   type TPairingRole,
-  type TReconnectFrame,
 } from '@robota-sdk/agent-remote-pairing';
+import { createWsHandler, type SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
 
-import type { IProtocolSession, TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import { createChannelDelivery } from './channel-delivery.js';
 import { pairingChannel } from './pairing-channel-lifecycle.js';
+import { isEnrollFrame, isPairingFrame, isReconnectFrame } from './pairing-frames.js';
+
+import type { IEnrollFrame } from './pairing-frames.js';
+import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
 
 /** The minimal data-channel surface the gate drives (a werift `RTCDataChannel` satisfies it). */
 export interface IPairingChannel {

@@ -96,7 +96,11 @@ describe('WsSessionDelivery + the outbound boundary (ARCH-030)', () => {
     expect(detachSink).toHaveBeenCalledTimes(1);
   });
 
-  it('reports the closing socket exactly once for a burst of outbound frames', () => {
+  // NOT a proof of the boundary latch — `WsSessionDelivery.closed` already made this cleanup idempotent
+  // before ARCH-030, so this case would pass either way. It pins that the boundary sitting ABOVE that
+  // latch did not change the carrier's observable behaviour. The latch itself is red-proved in the
+  // protocol suite (`outbound-delivery.test.ts` → 'latches: a connection reports at most one …').
+  it('runs the carrier cleanup once for a burst of outbound frames after the close', () => {
     const { socket, close } = createControllableSocket();
     const delivery = new WsSessionDelivery(socket);
     const cleanup = vi.fn();
