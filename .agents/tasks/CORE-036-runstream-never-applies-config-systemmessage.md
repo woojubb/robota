@@ -113,19 +113,391 @@ whether the two are better delivered together against one shared session-prepara
 
 ## User Execution Test Scenarios
 
-Applies — this changes observable SDK behavior.
+Applies — this changes observable behavior of the published `@robota-sdk/agent-core` SDK surface.
 
-**Scenario 1 — the same system prompt survives streaming**
+**Surface: provider-free, public extension point.** The scenarios drive the SDK exactly as a
+third-party integrator does — a user-written provider implementing `AbstractAIProvider` (exported
+from `@robota-sdk/agent-core`) whose `chat`/`chatStream` record the `TUniversalMessage[]` the SDK
+hands them. **No API key, no network.**
 
-- Prerequisites: a provider API key (or an OpenAI-compatible gateway `baseURL`) exported in the
-  environment; a workspace build (`pnpm build`).
-- Environment: uses the existing examples surface — no new fixture required. Confirm at implementation
-  time which example under `apps/`/`examples/` is the shortest streaming path; if none exists, the
-  work adds a minimal script under the examples surface.
-- Steps: construct one `Robota` with
-  `systemMessage: 'Reply with exactly the string OK-APPLIED and nothing else.'`; call `run('hi')`,
-  print the result; construct an identical agent, iterate `runStream('hi')`, concatenate the chunks,
-  print the result.
-- Expected observable result: both prints are `OK-APPLIED`. (Before the fix, only the first is.)
-- Cleanup: none — no state is persisted.
-- Evidence: _to be filled after implementation_ (paste both printed outputs).
+The live-provider draft this section replaces was rejected on two independent grounds. It is
+unrunnable here — probe recorded 2026-08-16: no `OPENAI_API_KEY`/`ANTHROPIC_API_KEY`/`GOOGLE_*` is
+set, and `find . -maxdepth 3 -name ".env*"` returns only `.env.example` files, none populated. More
+importantly it was the _weaker_ observable even with a key: "the model replied `OK-APPLIED`" is
+probabilistic evidence about model compliance, while "the provider received a `system` message whose
+content is `config.systemMessage`, at index 0" is a deterministic observation of the thing this
+change actually alters.
+
+**Invocation.** Scripts live in `scratch/src/` (the repo's sanctioned home for disposable
+live-verification scripts) and are reproduced in full below, because that directory is gitignored and
+the item is therefore their only durable home. `pnpm run run` is broken in this environment —
+`scratch/node_modules/.bin` was never linked, because `pnpm install` aborted on `better-sqlite3`'s
+native build (`make`/`g++` absent) and the workspace was installed with `--ignore-scripts`. Every
+command below uses `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-036-<n>.ts`, run from `scratch/`.
+
+**Stated limitation.** `--conditions=source` exercises the TypeScript sources, not `dist/`. That is a
+real gap versus what a package consumer installs, and it is forced here by the same missing native
+toolchain. Where a working toolchain exists, dropping the flag after `pnpm build` strengthens every
+scenario below at no cost to its design.
+
+**Shared harness**
+
+```ts
+// scratch/src/core-036-lib.ts
+/**
+ * CORE-036 shared harness for the user-execution scenarios.
+ *
+ * RecordingProvider is written against the PUBLIC extension point (`AbstractAIProvider`,
+ * exported from `@robota-sdk/agent-core`) exactly as a third-party integrator would write a
+ * provider. It records the message array the SDK hands it, so the scenarios observe the real
+ * provider request with no API key and no network.
+ */
+import { AbstractAIProvider } from '@robota-sdk/agent-core';
+
+import type { IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
+
+export class RecordingProvider extends AbstractAIProvider {
+  readonly name = 'recording-provider';
+  readonly version = '1.0.0';
+  /** One entry per provider call: the message array the SDK sent. */
+  readonly received: TUniversalMessage[][] = [];
+
+  async chat(messages: TUniversalMessage[], _options?: IChatOptions): Promise<TUniversalMessage> {
+    this.received.push([...messages]);
+    return {
+      id: `chat-${this.received.length}`,
+      role: 'assistant',
+      content: 'ack',
+      state: 'complete' as const,
+      timestamp: new Date(),
+    };
+  }
+
+  override async *chatStream(
+    messages: TUniversalMessage[],
+    _options?: IChatOptions,
+  ): AsyncIterable<TUniversalMessage> {
+    this.received.push([...messages]);
+    yield {
+      id: `stream-${this.received.length}`,
+      role: 'assistant',
+      content: 'ack',
+      state: 'complete' as const,
+      timestamp: new Date(),
+    };
+  }
+}
+
+export const systemContents = (msgs: TUniversalMessage[]): string[] =>
+  msgs.filter((m) => m.role === 'system').map((m) => String(m.content));
+
+export const show = (label: string, msgs: TUniversalMessage[]): void => {
+  console.log(
+    `${label}: ${JSON.stringify(msgs.map((m) => ({ role: m.role, content: m.content })))}`,
+  );
+};
+
+export const drain = async (it: AsyncIterable<string>): Promise<string> => {
+  let out = '';
+  for await (const c of it) out += c;
+  return out;
+};
+
+const fails: string[] = [];
+
+export const check = (label: string, ok: boolean): void => {
+  console.log(`${ok ? 'PASS' : 'FAIL'} ${label}`);
+  if (!ok) fails.push(label);
+};
+
+export const finish = (scenario: string): never => {
+  console.log(
+    fails.length === 0
+      ? `${scenario} PASS`
+      : `${scenario} FAIL (${fails.length}): ${fails.join(' | ')}`,
+  );
+  process.exit(fails.length === 0 ? 0 : 1);
+};
+```
+
+---
+
+**Scenario 1 — `config.systemMessage` reaches the provider on `runStream()`, identically to `run()`**
+
+- Agent-executability decision: `agent-executable`.
+- Prerequisites: workspace installed; no services, credentials, or environment variables.
+- Steps (from `scratch/`): write the harness and the script below, then run
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-036-s1.ts; echo "EXIT:$?"`.
+
+```ts
+// scratch/src/core-036-s1.ts
+/**
+ * CORE-036 Scenario 1 — the configured system message reaches the provider on runStream(),
+ * identically to run().
+ */
+import { Robota } from '@robota-sdk/agent-core';
+
+import { RecordingProvider, check, drain, finish, show, systemContents } from './core-036-lib';
+
+const SYS = 'Reply with exactly the string OK-APPLIED and nothing else.';
+
+const makeAgent = (provider: RecordingProvider, name: string): Robota =>
+  new Robota({
+    name,
+    aiProviders: [provider],
+    defaultModel: { provider: 'recording-provider', model: 'test-model' },
+    systemMessage: SYS,
+  });
+
+async function main(): Promise<void> {
+  const runProvider = new RecordingProvider();
+  await makeAgent(runProvider, 'run-agent').run('hi');
+  const runMessages = runProvider.received[0] ?? [];
+
+  const streamProvider = new RecordingProvider();
+  await drain(makeAgent(streamProvider, 'stream-agent').runStream('hi'));
+  const streamMessages = streamProvider.received[0] ?? [];
+
+  show('run() provider request', runMessages);
+  show('runStream() provider request', streamMessages);
+
+  check('run(): exactly one system message', systemContents(runMessages).length === 1);
+  check('run(): it is config.systemMessage', systemContents(runMessages)[0] === SYS);
+  check('runStream(): exactly one system message', systemContents(streamMessages).length === 1);
+  check('runStream(): it is config.systemMessage', systemContents(streamMessages)[0] === SYS);
+  check('runStream(): it is the head (index 0)', streamMessages[0]?.role === 'system');
+  check(
+    'both paths sent an identical system head',
+    JSON.stringify(systemContents(runMessages)) === JSON.stringify(systemContents(streamMessages)),
+  );
+
+  finish('SCENARIO 1');
+}
+
+void main();
+```
+
+- Expected observable result: `SCENARIO 1 PASS`, `EXIT:0`. `run()` and `runStream()` each recorded
+  **exactly one** `system` message; its content equals `config.systemMessage`; on the streaming path
+  it is at index 0; and the two paths' system heads are identical. The printed
+  `runStream() provider request` opens with
+  `{"role":"system","content":"Reply with exactly the string OK-APPLIED and nothing else."}`.
+  Measured pre-fix (2026-08-16, unfixed `e07593977`): `SCENARIO 1 FAIL (4)`, `EXIT:1` —
+  `run() provider request` carried the system head while
+  `runStream() provider request: [{"role":"user","content":"hi"}]` carried no system message at all.
+- Cleanup: none — nothing is persisted and `git status --porcelain scratch/` stays empty.
+- Evidence: _to be filled after implementation._
+
+---
+
+**Scenario 2 — exactly one system head, ever**
+
+- Agent-executability decision: `agent-executable`.
+- Prerequisites: as scenario 1.
+- Steps (from `scratch/`): run
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-036-s2.ts; echo "EXIT:$?"`.
+  One agent drives `runStream('turn one')` → `runStream('turn two')` → `run('turn three')`.
+
+```ts
+// scratch/src/core-036-s2.ts
+/**
+ * CORE-036 Scenario 2 — exactly one system head, ever. A second streaming turn, and a run()
+ * after a runStream() on the same agent, must not add a second system message.
+ */
+import { Robota } from '@robota-sdk/agent-core';
+
+import { RecordingProvider, check, drain, finish, show, systemContents } from './core-036-lib';
+
+const SYS = 'You are PERSONA-ALPHA.';
+
+async function main(): Promise<void> {
+  const provider = new RecordingProvider();
+  const agent = new Robota({
+    name: 'idempotence-agent',
+    aiProviders: [provider],
+    defaultModel: { provider: 'recording-provider', model: 'test-model' },
+    systemMessage: SYS,
+  });
+
+  await drain(agent.runStream('turn one'));
+  await drain(agent.runStream('turn two'));
+  await agent.run('turn three');
+
+  provider.received.forEach((msgs, i) => show(`provider call ${i + 1}`, msgs));
+  const history = agent.getHistory();
+  show('getHistory()', history);
+
+  check('provider was called three times', provider.received.length === 3);
+  provider.received.forEach((msgs, i) => {
+    check(`call ${i + 1}: exactly one system message`, systemContents(msgs).length === 1);
+    check(`call ${i + 1}: it is config.systemMessage`, systemContents(msgs)[0] === SYS);
+    check(`call ${i + 1}: it is the head (index 0)`, msgs[0]?.role === 'system');
+  });
+  check('getHistory(): exactly one system message', systemContents(history).length === 1);
+  check('getHistory(): it is the head (index 0)', history[0]?.role === 'system');
+
+  finish('SCENARIO 2');
+}
+
+void main();
+```
+
+- Expected observable result: `SCENARIO 2 PASS`, `EXIT:0`. Each of the three provider calls carries
+  exactly one `system` message equal to `'You are PERSONA-ALPHA.'` at index 0 — the second streaming
+  turn adds no second head, and neither does the trailing `run()`. `getHistory()` holds exactly one
+  `system` message, at the head. This is SPEC § System Prompt's "exactly one, at the head" asserted
+  through the public surface.
+  Measured pre-fix: `SCENARIO 2 FAIL (6)`, `EXIT:1` — neither streaming call carried a system
+  message, and `provider call 3` (the `run()`) was the first to carry one, injected at the head
+  **mid-conversation**. That is the user-visible shape of the defect: an agent used through both
+  entry points only acquires its persona from the first non-streaming turn onward.
+- Cleanup: none.
+- Evidence: _to be filled after implementation._
+
+---
+
+**Scenario 3 — `ephemeralSystemContext` still reaches the request and still never reaches the store**
+
+- Agent-executability decision: `agent-executable`.
+- Prerequisites: as scenario 1.
+- Steps (from `scratch/`): run
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-036-s3.ts; echo "EXIT:$?"`.
+
+```ts
+// scratch/src/core-036-s3.ts
+/**
+ * CORE-036 Scenario 3 — with a real system head now on the streaming path,
+ * IRunOptions.ephemeralSystemContext still reaches the provider request and is still never
+ * written to the conversation store.
+ */
+import { Robota } from '@robota-sdk/agent-core';
+
+import { RecordingProvider, check, drain, finish, show, systemContents } from './core-036-lib';
+
+const SYS = 'You are PERSONA-ALPHA.';
+const EPHEMERAL = 'RECALLED-MEMORY-BLOCK-XYZ';
+
+async function main(): Promise<void> {
+  const provider = new RecordingProvider();
+  const agent = new Robota({
+    name: 'ephemeral-agent',
+    aiProviders: [provider],
+    defaultModel: { provider: 'recording-provider', model: 'test-model' },
+    systemMessage: SYS,
+  });
+
+  await drain(agent.runStream('hi', { ephemeralSystemContext: EPHEMERAL }));
+
+  const sent = provider.received[0] ?? [];
+  const history = agent.getHistory();
+  show('provider request', sent);
+  show('getHistory()', history);
+
+  check('provider request carries config.systemMessage', systemContents(sent).includes(SYS));
+  check('provider request carries the ephemeral block', systemContents(sent).includes(EPHEMERAL));
+  check(
+    'config.systemMessage is the head (index 0)',
+    sent[0]?.role === 'system' && String(sent[0]?.content) === SYS,
+  );
+  check('store carries config.systemMessage', systemContents(history).includes(SYS));
+  check(
+    'store does NOT carry the ephemeral block',
+    !history.some((m) => String(m.content).includes(EPHEMERAL)),
+  );
+
+  finish('SCENARIO 3');
+}
+
+void main();
+```
+
+- Expected observable result: `SCENARIO 3 PASS`, `EXIT:0`. The provider request carries **both**
+  system blocks — `'You are PERSONA-ALPHA.'` at index 0 and `'RECALLED-MEMORY-BLOCK-XYZ'` present —
+  while `getHistory()` carries the configured system message and **no trace** of the ephemeral block.
+  This proves the SELFHOST-008 P3 contract survives the new store initialization rather than being
+  flattened into it.
+  Measured pre-fix: `SCENARIO 3 FAIL (3)`, `EXIT:1` — the ephemeral block was the _only_ system
+  message in the request and the configured one was absent. The two contract-preservation checks
+  (request carries the ephemeral block; store does not) already passed and must continue to.
+- Cleanup: none.
+- Evidence: _to be filled after implementation._
+
+---
+
+**Scenario 4 — `updateSystemPrompt()` still wins on the streaming path (regression guard)**
+
+- Agent-executability decision: `agent-executable`.
+- **This scenario passes on the unfixed code** (measured: `EXIT:0`), so it is _not_ evidence the
+  change landed — scenarios 1–3 are. It is here because the Direction requires confirming the
+  `Robota.updateSystemPrompt` interaction is unchanged, and because this fix introduces the risk:
+  routing the streaming path through `initializeConversationStore` runs the `hasSystemMessage` guard
+  and `setSystemPrompt(config.systemMessage)`, so a mis-ordered implementation could revert a
+  live-updated head to `config.systemMessage`, or append a second one. Scenarios 1–3 would not see
+  either.
+- Prerequisites: as scenario 1.
+- Steps (from `scratch/`): run
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-036-s4.ts; echo "EXIT:$?"`.
+
+```ts
+// scratch/src/core-036-s4.ts
+/**
+ * CORE-036 Scenario 4 (regression guard) — Robota.updateSystemPrompt() keeps winning on the
+ * streaming path after it is routed through initializeConversationStore. The live-updated head
+ * must NOT be reverted to config.systemMessage, and must not be joined by a second head.
+ */
+import { Robota } from '@robota-sdk/agent-core';
+
+import { RecordingProvider, check, drain, finish, show, systemContents } from './core-036-lib';
+
+async function main(): Promise<void> {
+  const provider = new RecordingProvider();
+  const agent = new Robota({
+    name: 'update-prompt-agent',
+    aiProviders: [provider],
+    defaultModel: { provider: 'recording-provider', model: 'test-model' },
+    systemMessage: 'ALPHA',
+  });
+
+  agent.updateSystemPrompt('BETA');
+  await drain(agent.runStream('one'));
+  agent.updateSystemPrompt('GAMMA');
+  await drain(agent.runStream('two'));
+
+  provider.received.forEach((msgs, i) => show(`provider call ${i + 1}`, msgs));
+  const history = agent.getHistory();
+  show('getHistory()', history);
+
+  const first = provider.received[0] ?? [];
+  const second = provider.received[1] ?? [];
+
+  check('call 1: exactly one system message', systemContents(first).length === 1);
+  check('call 1: it is the updated BETA, not ALPHA', systemContents(first)[0] === 'BETA');
+  check('call 2: exactly one system message', systemContents(second).length === 1);
+  check('call 2: it is the updated GAMMA, not ALPHA/BETA', systemContents(second)[0] === 'GAMMA');
+  check('call 2: it is still the head (index 0)', second[0]?.role === 'system');
+  check(
+    'getHistory(): exactly one system message, GAMMA',
+    systemContents(history).join('|') === 'GAMMA',
+  );
+
+  finish('SCENARIO 4');
+}
+
+void main();
+```
+
+- Expected observable result: `SCENARIO 4 PASS`, `EXIT:0`. Provider call 1 carries exactly one system
+  message, `'BETA'` (not `'ALPHA'`); call 2 carries exactly one, `'GAMMA'`, still at index 0;
+  `getHistory()` holds exactly one, `'GAMMA'`. `'ALPHA'` never reappears and there are never two
+  heads. The post-fix run must reproduce the pre-fix output.
+- Cleanup: none.
+- Evidence: _to be filled after implementation._
+
+---
+
+**Deliberately not covered.** The `agent-session` persistence leg of the second observable effect —
+that a streaming-only agent's `getHistory()` now carries a system head, which reaches persistence.
+Scenario 2 observes the head's presence and singularity through `getHistory()`, but the
+persistence/resume leg needs an `agent-session` store fixture. It is documented as benign (SPEC
+§ System Prompt resume semantics do not restore persisted `system` messages) and outside this item's
+blast radius; named here so the omission is a decision rather than an oversight.
