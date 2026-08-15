@@ -161,13 +161,42 @@ therefore authored against observed-failing behavior, not back-fitted to output.
   listener; the client socket is terminated), so no port stays bound and the process exits on its own.
 - Nothing is written inside the repository. No manual reset step is required.
 
-**Evidence (fill in after implementation, before `status: done`):**
+**Evidence (2026-08-16):**
 
-- Command run:
-- Exit code:
-- stdout JSON line:
-- Canonical record path + `stdout.sha256`:
-- Date / branch / commit:
+- **Command run:** `cd packages/agent-transport-ws && pnpm scenario:verify`
+- **Exit code:** `0`
+- **stdout JSON line:**
+
+  ```json
+  {
+    "scenario": "ARCH-030-outbound-delivery-boundary",
+    "realCarrier": {
+      "carrier": "WsTransport(real ws socket)",
+      "operationCommitted": true,
+      "cleanupRuns": 1,
+      "unhandledRejections": 0
+    },
+    "observedCarrier": {
+      "carrier": "createWsTransport(observable delivery callbacks)",
+      "operationCommitted": true,
+      "cleanupObserved": true,
+      "deliveryErrors": [{ "message": "WebSocket is not open", "event": "command_result" }],
+      "latchThrew": null,
+      "unhandledRejections": 0
+    },
+    "cleanupRemoved": true
+  }
+  ```
+
+- **Every expected observable matched**, each against the RED value recorded before implementation:
+  `realCarrier.unhandledRejections` `1 → 0`; `observedCarrier.deliveryErrors` `[] →` exactly one entry
+  naming `command_result`; `observedCarrier.cleanupObserved` `false → true`;
+  `observedCarrier.latchThrew` `"WebSocket is not open" → null`;
+  `observedCarrier.unhandledRejections` `2 → 0`. No expectation was rewritten after the run.
+- **Canonical record:** `packages/agent-transport-ws/examples/scenarios/outbound-delivery-boundary.record.json`
+  — `status: 0`, `stdout.sha256: 26bbc66703bdc9ba2e7b76d28ca893866ff7c8f380d27d2a7eca3a97491f3bed`,
+  `command.rendered: pnpm scenario:verify`.
+- **Date / branch:** 2026-08-16 / `fix/arch-030-outbound-delivery-boundary`.
 
 ## Plan
 
