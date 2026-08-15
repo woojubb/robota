@@ -432,7 +432,6 @@ function AppInner(
     sessionId = session.getSessionId();
   } catch {
     // allow-fallback: session initializes asynchronously; use defaults until ready
-    // Not yet initialized
   }
 
   // SCREEN-010: banner + append-only conversation history are committed to the terminal scrollback

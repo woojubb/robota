@@ -1,5 +1,3 @@
-/** Owns InteractiveSession history, checkpoints, memory, context references, and skill events. */
-
 import { randomUUID } from 'node:crypto';
 
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
