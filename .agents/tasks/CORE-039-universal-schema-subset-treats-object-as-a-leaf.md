@@ -30,15 +30,15 @@ field that accepts either of two shapes cannot be expressed at all.
 
 Seven independent walks traverse that subset, each deciding on its own what a node means:
 
-| Walk                                                                  | What it does with a nested object                                                        |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `schema/zod-to-json-schema.ts:96-97` (produce)                          | returns `{ type: 'object' }` — the shape is discarded (CORE-037)                          |
-| `schema/structured-output.ts:110` (validate)                            | reads `'required' in schema`, a branch that is **statically dead** at every nested level  |
-| `tool-registry/parameter-validator.ts:50-54` (validate)                 | `case 'object'` stops at `typeof` — no `properties`, no nested `required`                 |
-| `agent-provider-gemini/.../tool-schema-converter.ts:61-95` (emit)       | rebuilds each node and forwards `properties`, but has no `required` to forward            |
-| `agent-provider-anthropic/src/anthropic/provider.ts:369-397` (emit)     | `closeObjectSchemas` recurses `properties`/`items`/object-valued `additionalProperties` only |
+| Walk                                                                                       | What it does with a nested object                                                                     |
+| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `schema/zod-to-json-schema.ts:96-97` (produce)                                             | returns `{ type: 'object' }` — the shape is discarded (CORE-037)                                      |
+| `schema/structured-output.ts:110` (validate)                                               | reads `'required' in schema`, a branch that is **statically dead** at every nested level              |
+| `tool-registry/parameter-validator.ts:50-54` (validate)                                    | `case 'object'` stops at `typeof` — no `properties`, no nested `required`                             |
+| `agent-provider-gemini/.../tool-schema-converter.ts:61-95` (emit)                          | rebuilds each node and forwards `properties`, but has no `required` to forward                        |
+| `agent-provider-anthropic/src/anthropic/provider.ts:369-397` (emit)                        | `closeObjectSchemas` recurses `properties`/`items`/object-valued `additionalProperties` only          |
 | `tool-registry/tool-registry.ts:130-167` (`validateToolSchema`, run on every `register()`) | requires every top-level property to carry a `type`, and its `validTypes` list omits `integer`/`null` |
-| `agent-tool-mcp/src/{mcp-tool.ts:125-139, relay-mcp-tool.ts:102-118}`   | two hand-rolled top-level-`required`-presence checks that never enter a nested object     |
+| `agent-tool-mcp/src/{mcp-tool.ts:125-139, relay-mcp-tool.ts:102-118}`                      | two hand-rolled top-level-`required`-presence checks that never enter a nested object                 |
 
 The two core validators are called **37 lines apart** on the same schema by the same method
 (`tool-registry/function-tool.ts:65` for input, `:102` for output) and disagree about how deep
@@ -58,14 +58,14 @@ owns what `object` means" must say which walks it is leaving standing.
   `agent-tools/src/computer-use/computer-tool.ts:50-53` documents flattening a discriminated union
   "so it converts to JSON schema". And `SELFHOST-005`
   (`.agents/spec-docs/done/SELFHOST-005-guardrails-structured-output.md:45,119`) records the decision
-  to add the deep output validator *beside* the shallow input one rather than unify them — the same
+  to add the deep output validator _beside_ the shallow input one rather than unify them — the same
   "object is a leaf" defect was present, seen, and built next to.
 - **Two shipped built-in tools are already broken by it** (measured on `develop`, 2026-08-16, via
   `scratch/src/core-037-repro.ts`): `Computer`'s `act` tool emits
   `action: { type: 'object' }` with all 13 action fields absent, and `AskUserQuestion` emits
   `questions: { type: 'array', items: { type: 'object' } }` with every question field absent.
 - **The naive fix breaks the second one harder.** `zod-to-json-schema.ts:143` throws on an
-  unsupported Zod type. Because `ZodObject` returns early today, nothing *inside* a nested object is
+  unsupported Zod type. Because `ZodObject` returns early today, nothing _inside_ a nested object is
   ever visited, so that throw is unreachable one level down. Recursing without adding union support
   makes `packages/agent-tools/src/builtins/ask-user-question-tool.ts:169` — a **module-level**
   `export const askUserQuestionTool = createAskUserQuestionTool()` whose nested
@@ -107,12 +107,12 @@ an object, matching the file's throw-not-fallback posture. **Share the unwrap wi
 recreate this item's thesis violation for a different construct.
 
 **3. Stop conflating three `unknownKeys` meanings into two emissions.** `zod-to-json-schema.ts:50` tests
-only `=== 'passthrough'`, so Zod's default **`strip`** and explicit **`strict`** both emit *omitted* —
+only `=== 'passthrough'`, so Zod's default **`strip`** and explicit **`strict`** both emit _omitted_ —
 wrong in opposite directions under the subset's declared convention. Emit `passthrough → true`,
 `strict → false`, **`strip → true`**. `strip` means "extras accepted at the boundary, then dropped", and
 the drop provably happens: `FunctionTool.execute` validates at `:64-72` and only then calls the wrapper,
 whose `safeParse` strips (`agent-tools/src/implementations/function-tool.ts:55-60`). After this,
-*omitted* appears only on hand-written schemas. This step is what makes step 6 safe.
+_omitted_ appears only on hand-written schemas. This step is what makes step 6 safe.
 
 **4. Close the coverage limit the recursion exposes.** Add `ZodUnion` and `ZodDiscriminatedUnion` →
 `anyOf`, and `ZodLiteral` → single-value `enum`. `ZodUnion` is forced by the import-time crash above.
@@ -140,11 +140,14 @@ all in this change:
 - Gemini's `convertParameterSchema` maps `anyOf` and tolerates an absent `type`.
 - The member and its `type` semantics go into agent-core's SPEC.
 
-**6. One validation walk for depth — no special case.** `parameter-validator.ts`'s `case 'object'` keeps
-its `typeof` check and message, then delegates depth to `validateAgainstJsonSchema` **unconditionally**.
-No "property-less objects stay open" guard: that would contradict the owning document.
-`docs/SPEC.md:363` already declares the convention (`true`/object-form accept extra props;
-**`false`/omitted reject**), and `closeObjectSchemas` reads it the same way at the Anthropic seam. The
+**6. One validation walk for depth.** `parameter-validator.ts`'s `case 'object'` keeps its `typeof`
+check and message, then delegates depth to `validateAgainstJsonSchema` — with closure evaluated per
+step 6c, which was added during implementation after the reviewer's own blast-radius claim was
+falsified (`REVISE`, 2026-08-16: its v1 sweep had excluded test files, and
+`agent-tools/src/__tests__/function-tool.test.ts:225` declares a bare nested `{ type: 'object' }` and
+asserts a populated payload is accepted). `docs/SPEC.md:363` declares the convention
+(`true`/object-form accept extra props; **`false`/omitted reject**), and `closeObjectSchemas` reads it
+the same way at the Anthropic seam. The
 four pinned root messages (`Unknown parameter:`, `Missing required parameter:`, `must be a string`,
 `must be an object`) live outside the delegated region — `parameter-validator.ts:92`, `:108`, `:19`,
 `:52` — and are preserved unchanged; only the previously-unreachable nested depth gains messages.
@@ -156,6 +159,22 @@ twice in two dialects.
 After step 6 one `validateParameters()` result carries root-dialect and depth-dialect messages in one
 string, and that string is what reaches the user through `ValidationError` at `function-tool.ts:71`.
 The message shape at depth is this item's user-facing surface and is a stated choice, not a leftover.
+
+**6c. Closure is relative to a declared `properties` set.** A node that declares `properties` —
+including an empty `properties: {}` — is closed unless `additionalProperties` says otherwise; a node
+that declares **none** permits any properties, as JSON Schema says and as every provider reads the
+document forwarded to it. An explicit `additionalProperties: false` closes either way. Keyed on the
+member's presence, not its emptiness, so a no-argument tool root still rejects every argument.
+
+This completes the convention at a position it was never written for rather than carving an exception
+out of it: `SPEC.md:363` was authored for a tool's `parameters` root, where `properties` is
+structurally always present, so "omitted rejects extras" could only ever mean "nothing beyond the
+declared set". A nested node can omit the member entirely — the free-form object field — and carrying
+the root's phrasing there unchanged gives omitted `additionalProperties` a second meaning that
+contradicts the schema we ship. It lives inside `validateAgainstJsonSchema`, not at the delegation
+site, so the tool-input and structured-output paths cannot diverge on it. Step 3 is unaffected: the
+converter emits `properties` on every object node, so no Zod-derived schema changes under either
+reading.
 
 **7. Absorb the seventh walk's own defects while editing it.** `validateToolSchema`'s `validTypes` list
 (`tool-registry.ts:160`) omits `'integer'` and `'null'`, both members of `TJSONSchemaKind`
@@ -202,7 +221,7 @@ Its real advantage, stated rather than omitted: it would dissolve CORE-041 perma
 item like it. Rejected anyway — it emits **full** JSON Schema with `$ref`/`definitions`/`allOf`, and
 every downstream mapper here is **field-enumerated**: Gemini's `convertParameterSchema` copies a fixed
 key list and would emit `{}` for any node it does not recognise, and `validateAgainstJsonSchema`'s
-switch ends in `default: return [unsupported schema type …]`. That is a *worse, quieter* failure than
+switch ends in `default: return [unsupported schema type …]`. That is a _worse, quieter_ failure than
 today's. Adopting it means either widening the subset to all of JSON Schema — a published-contract
 redesign spanning agent-core, four adapters and three validators, which `backlog-execution.md`
 § Agent Decision Authority puts with the user, not the agent — or post-processing its output back down
@@ -228,6 +247,7 @@ it, which is why step 5 can specify it into all of them in one change.
   `packages/agent-provider-gemini`; `pnpm harness:verify-like-ci` before the branch is reported green.
 - `packages/agent-core/docs/SPEC.md` § Schema / § Structured Output Contract state the supported Zod
   construct set and the subset's members, so the coverage limit is declared.
+
 ## User Execution Test Scenarios
 
 Applies — this changes the schema a shipped, publicly exported tool advertises, and the validation a
@@ -341,14 +361,14 @@ process.exit(fails.length === 0 ? 0 : 1);
   `"action": { "type": "object", "description": … }` and `"items": { "type": "object" }` — every nested
   field absent.
 - Cleanup: `rm -f src/core-039-s1.ts` from `scratch/`.
-- Evidence (2026-08-16, run against the completed implementation at `54886a665`): **`SCENARIO 1 PASS`,
+- Evidence (2026-08-16, re-run against the completed implementation at `afd397c10`, after step 6c's closure rule landed; an earlier run at `54886a665` gave the same result): **`SCENARIO 1 PASS`,
   `EXIT:0`**, eight `PASS` lines. `Computer.act` printed
   `action.properties.type.enum = ["click","double_click","type","keypress","scroll","drag","wait","takeover"]`,
   `action.required = ["type"]`, and `action.properties.path.items = { type: 'object', properties: { x:
-  { type: 'number' }, y: { type: 'number' } }, required: ['x','y'] }` — the three-level-deep drag
+{ type: 'number' }, y: { type: 'number' } }, required: ['x','y'] }` — the three-level-deep drag
   point. `AskUserQuestion` printed `questions.items.properties` =
   `question`/`header`/`options`/`multiSelect`/`allowFreeText` with `questions.items.required =
-  ["question"]`, and `questions.items.properties.options.items.anyOf` carrying the string branch and
+["question"]`, and `questions.items.properties.options.items.anyOf` carrying the string branch and
   the `{ label, description }` object branch with `required: ["label"]`.
 
 ---
@@ -432,11 +452,11 @@ process.exit(fails.length === 0 ? 0 : 1);
   (`["$.report.score: unexpected additional property", "$.report.notes: unexpected additional property"]`)
   and the input walk falsely accepts the invalid one (`input walk bad => success=true`, handler ran).
 - Cleanup: `rm -f src/core-039-s2.ts` from `scratch/`.
-- Evidence (2026-08-16, run against the completed implementation at `54886a665`): **`SCENARIO 2 PASS`,
+- Evidence (2026-08-16, re-run against the completed implementation at `afd397c10`, after step 6c's closure rule landed; an earlier run at `54886a665` gave the same result): **`SCENARIO 2 PASS`,
   `EXIT:0`**, six `PASS` lines. The emitted schema carried
   `report.required = ["score","notes"]` with the optional `tag` present in `properties` and absent from
   `required`. `input walk good => success=true`; `input walk bad  => threw Validation Error: Invalid
-  parameters for tool "report-tool": Parameter "report".score: required property missing`. That message
+parameters for tool "report-tool": Parameter "report".score: required property missing`. That message
   is also the evidence for the path-root decision (step 6b): one `ValidationError` string, one dialect,
   the nested field named.
 
@@ -542,7 +562,7 @@ process.exit(fails.length === 0 ? 0 : 1);
   capability: it fails if `anyOf` is emitted but not honoured on the input path, which is the failure
   mode that would turn the import-time crash into runtime uncallability of the same tool.
 - Cleanup: `rm -f src/core-039-s3.ts` from `scratch/`.
-- Evidence (2026-08-16, run against the completed implementation at `54886a665`): **`SCENARIO 3 PASS`,
+- Evidence (2026-08-16, re-run against the completed implementation at `afd397c10`, after step 6c's closure rule landed; an earlier run at `54886a665` gave the same result): **`SCENARIO 3 PASS`,
   `EXIT:0`**, seven `PASS` lines. The emitted schema carried `choice.anyOf` with a `string` branch and
   an object branch (`required: ["label"]`), and `mode.anyOf` with both discriminated branches, each
   rendering its discriminator as `kind: { type: 'string', enum: ['fast'] }` / `['safe']`. Neither union
@@ -576,7 +596,7 @@ already carries Direction steps 1 and 1b, uncommitted:
 Timeline: task document last written 06:00:56 → scenario commit `9e2feebd9` 06:01:12 → source edits
 06:01:44 and 06:01:55 → this gate run. The scenario section therefore did exist before the first source
 edit, so the item satisfies `backlog-execution.md` § User Execution Test Scenario Rule's "before
-implementation starts" ordering on the *section*; what was bypassed is the gate verdict that
+implementation starts" ordering on the _section_; what was bypassed is the gate verdict that
 `user-execution-scenario` step 4 requires between the two. `git log --oneline origin/develop..HEAD`
 carries only `docs(tasks):` commits, so the implementation is visible only in the uncommitted tree.
 
@@ -654,8 +674,8 @@ edits (06:01:44/06:01:55) and has not been touched since, so no expected result 
 output (`backlog-execution.md` § Evidence forbids exactly that); and with the diff out of the tree, a
 FAIL again costs real work.
 
-**Discriminating-power check (executed by this guardian).** A script reconstructed *from this
-document's enumerated assertions alone* was run against the restored tree
+**Discriminating-power check (executed by this guardian).** A script reconstructed _from this
+document's enumerated assertions alone_ was run against the restored tree
 (`node ../node_modules/tsx/dist/cli.mjs --conditions=source` from `scratch/`, script since deleted):
 
 ```
