@@ -73,6 +73,13 @@ export async function* executeStream(
   eventEmitter.prepareOwnerPathBases(streamingConversationId);
 
   try {
+    // `messages` is a synchronous snapshot of THIS store (`robotaRunStream` passes
+    // `deps.getHistory()`, same `conversationId`, no await before the generator's first `next()`),
+    // so the helper's restore branch cannot fire here: either the store already holds that content
+    // or the snapshot is empty. That is a property of the caller, not of this call — a future
+    // caller passing a foreign array would resurrect a cleared history, with `parts` stripped by
+    // `robota-history.ts`'s projection.
+    //
     // Contained — CORE-042. Entering the round path's own session initialization is what makes
     // `config.systemMessage` and the inject-once rule (CORE-009/CORE-010) reach this path at all;
     // reading the store directly here is why an agent obeyed its persona through `run()` and
@@ -81,7 +88,7 @@ export async function* executeStream(
     // turn is still implemented twice. The shared seam is CORE-042's work.
     const conversationStore = initializeConversationStore(
       conversationHistory,
-      context.conversationId,
+      streamingConversationId,
       messages,
       config,
       executionId,
@@ -129,8 +136,10 @@ export async function* executeStream(
         ? [...conversationMessages, createSystemMessage(ephemeralSystemContext)]
         : conversationMessages;
 
-    // One line, not four: these were four debug calls reporting one fact — how many tools there
-    // are — in four phrasings, plus two variables that existed only to feed them.
+    // One call, not six: six debug calls reported one fact — how many tools this turn has — in six
+    // phrasings, with four variables that existed only to feed them. The two dropped
+    // `Final chatOptions…` lines are derivable from the pair below, since `chatOptions.tools` is
+    // `tools.getTools()` gated on `config.tools.length > 0`.
     logger.debug('[EXECUTION-SERVICE] stream tool inventory', {
       configured: Array.isArray(config.tools) ? config.tools.length : undefined,
       registered: tools.getTools().length,

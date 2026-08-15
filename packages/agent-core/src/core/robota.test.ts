@@ -732,7 +732,7 @@ describe('Robota Core', () => {
   // one clause across. Asserting one entry point at a time is what let that repeat; a table fails
   // when the two diverge instead of when someone remembers to look.
   //
-  // Contained -- CORE-042: the duplication itself is that item's work.
+  // Contained — CORE-042. The duplication itself is that item's work.
   describe('system prompt parity (CORE-036)', () => {
     const SYSTEM = 'You are PERSONA-ALPHA.';
 
@@ -780,14 +780,22 @@ describe('Robota Core', () => {
     );
 
     it('a run() after a runStream() does not add a second system head', async () => {
-      // The mixed case is the one the defect was reported from: before CORE-036 the streaming turns
+      // The mixed case is the one the defect was reported from: before CORE-036 the streaming turn
       // carried no system message and the first run() injected one MID-CONVERSATION.
+      //
+      // The assertion is on the STREAMING turn's own request. Asserting only the later run() or the
+      // final getHistory() is accidental-green: `setSystemPrompt` normalizes to exactly one head
+      // unconditionally, so both counts read 1 on the buggy code too. Measured -- an earlier
+      // version of this case passed pre-fix.
       const provider = new TrackingProvider();
       const robota = new Robota(createConfig({ aiProviders: [provider], systemMessage: SYSTEM }));
 
       await drive.runStream(robota);
       await drive.run(robota);
 
+      const streamed = provider.chatCalls[0]?.messages ?? [];
+      expect(streamed.filter((m) => m.role === 'system')).toHaveLength(1);
+      expect(streamed[0]?.role).toBe('system');
       expect(provider.chatCalls[1]?.messages.filter((m) => m.role === 'system')).toHaveLength(1);
       expect(robota.getHistory().filter((m) => m.role === 'system')).toHaveLength(1);
     });
