@@ -9,12 +9,12 @@ export * from './abstracts';
 export * from './utils';
 
 // Schema utilities: Zod→JSON-schema conversion (SSOT) + structured output (CORE-015)
+export { zodToJsonSchema } from './schema/zod-to-json-schema';
 export {
-  zodToJsonSchema,
   extractEnumValues,
-  hasValidationConstraints,
   getSchemaTypeName,
-} from './schema/zod-to-json-schema';
+  hasValidationConstraints,
+} from './schema/zod-schema-inspect';
 export type {
   IZodSchema,
   IZodSchemaDef,
