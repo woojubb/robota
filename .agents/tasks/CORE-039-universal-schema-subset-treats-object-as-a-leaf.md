@@ -1,10 +1,10 @@
 ---
-title: "CORE-039: the universal JSON-schema subset treats an object as a leaf — `IParameterSchema` can express a nested object's fields but not its `required` and not a union, and four independent walks over the same subset each re-decide what `object` means, so a nested object loses its shape in the converter, its requirements in the Gemini adapter, and its validation on the tool-input path"
+title: "CORE-039: the universal JSON-schema subset treats an object as a leaf — `IParameterSchema` can express a nested object's fields but not its `required` and not a union, and seven independent walks over the same subset each re-decide what a node means, so a nested object loses its shape in the converter, its requirements in the Gemini adapter, and its validation on the tool-input path"
 status: todo
 created: 2026-08-16
 priority: critical
 urgency: now
-area: packages/agent-core, packages/agent-tools, packages/agent-provider-gemini
+area: packages/agent-core, packages/agent-tools, packages/agent-provider-gemini, packages/agent-provider-anthropic, packages/agent-provider-openai
 depends_on: []
 ---
 
@@ -18,7 +18,7 @@ cause is being fixed rather than contained, so CORE-037 is delivered by this ite
 CORE-037 reports one symptom of this — `convertZodTypeToProperty` returning a bare
 `{ type: 'object' }` — and its stated Direction ("recurse for `ZodObject`") is the in-place patch this
 rule forbids: applied alone it turns a silent field loss into an **import-time crash of a shipped
-built-in tool**, and leaves three of the four walks still wrong.
+built-in tool**, and leaves every other walk still wrong.
 
 ## Problem
 
@@ -28,18 +28,27 @@ It carries `properties`, `items` and `additionalProperties` — but no `required
 an object node in the subset can name its fields and cannot state which of them are mandatory, and a
 field that accepts either of two shapes cannot be expressed at all.
 
-Four independent walks traverse that subset, each deciding on its own what an `object` node means:
+Seven independent walks traverse that subset, each deciding on its own what a node means:
 
-| Walk                                                              | What it does with a nested object                                                            |
-| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `schema/zod-to-json-schema.ts:96-97` (produce)                    | returns `{ type: 'object' }` — the shape is discarded (CORE-037)                              |
-| `schema/structured-output.ts:110` (validate)                      | reads `'required' in schema`, a branch that is **statically dead** at every nested level      |
-| `tool-registry/parameter-validator.ts:50-54` (validate)           | `case 'object'` stops at `typeof` — no `properties`, no nested `required`                     |
-| `agent-provider-gemini/.../tool-schema-converter.ts:61-95` (emit) | rebuilds each node and forwards `properties`, but has no `required` to forward                |
+| Walk                                                                  | What it does with a nested object                                                        |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `schema/zod-to-json-schema.ts:96-97` (produce)                          | returns `{ type: 'object' }` — the shape is discarded (CORE-037)                          |
+| `schema/structured-output.ts:110` (validate)                            | reads `'required' in schema`, a branch that is **statically dead** at every nested level  |
+| `tool-registry/parameter-validator.ts:50-54` (validate)                 | `case 'object'` stops at `typeof` — no `properties`, no nested `required`                 |
+| `agent-provider-gemini/.../tool-schema-converter.ts:61-95` (emit)       | rebuilds each node and forwards `properties`, but has no `required` to forward            |
+| `agent-provider-anthropic/src/anthropic/provider.ts:369-397` (emit)     | `closeObjectSchemas` recurses `properties`/`items`/object-valued `additionalProperties` only |
+| `tool-registry/tool-registry.ts:130-167` (`validateToolSchema`, run on every `register()`) | requires every top-level property to carry a `type`, and its `validTypes` list omits `integer`/`null` |
+| `agent-tool-mcp/src/{mcp-tool.ts:125-139, relay-mcp-tool.ts:102-118}`   | two hand-rolled top-level-`required`-presence checks that never enter a nested object     |
 
-The first two are called **twelve lines apart** on the same schema by the same method
+The two core validators are called **37 lines apart** on the same schema by the same method
 (`tool-registry/function-tool.ts:65` for input, `:102` for output) and disagree about how deep
 `object` goes.
+
+The last two are **named, not fixed, by this item** — they live in a different package, have no
+measured defect behind them, and absorbing them would require newly exporting `validateToolParameters`
+from agent-core's barrel (only `validateAgainstJsonSchema` is exported today, at
+`agent-core/src/index.ts:26`). They are filed as CORE-040, because an item whose thesis is "one walk
+owns what `object` means" must say which walks it is leaving standing.
 
 ## Evidence this is the cause and not the symptom
 
@@ -65,37 +74,141 @@ The first two are called **twelve lines apart** on the same schema by the same m
 
 ## Direction
 
+**Recommendation gate:** `proposal-reviewer` → `REVIEW VERDICT: ENDORSE`, 2026-08-16 (revision 2 of 2;
+`REVISE` on v1 and v2). Endorsed with three binding pre-merge conditions, folded in below as steps 6a,
+6b and 7. `finding-depth-triager` → `DEPTH: FOUNDATIONAL`, 2026-08-16.
+
 Make the subset able to express an object, then make one walk own what that means.
 
-1. **Widen the subset** — `IParameterSchema` gains `required?: string[]` and `anyOf?: IParameterSchema[]`.
-   Both are additive and optional, so no existing producer or consumer breaks. `required` is what makes
-   `structured-output.ts:110`'s existing nested branch reachable instead of dead; `anyOf` is what lets a
-   union be expressed rather than flattened or thrown on.
-2. **One object walk in the converter** — extract the `shape → properties/required` walk now living only
-   inside `zodToJsonSchema` and call it from both the root and the nested `ZodObject` case. Do not copy
-   it: a second copy is how the two levels drifted in the first place.
-3. **Close the coverage limit the recursion exposes** — add `ZodUnion` / `ZodDiscriminatedUnion` (→ `anyOf`)
-   and `ZodLiteral` (→ single-value `enum`). The repo-wide inventory of Zod constructs reaching this
-   converter is small (`z.string`, `z.object`, `z.number`, `z.array`, `z.enum`, `z.union`, `z.record`,
-   `z.boolean`), so this is a bounded set, not an open-ended Zod reimplementation. Anything still
-   unsupported keeps throwing — loudly, per "Silence is not success" — and the supported set is written
-   into the SPEC so the limit is declared rather than discovered.
-4. **One validation walk** — `parameter-validator.ts` delegates the nested case to the existing
-   recursive `validateAgainstJsonSchema` instead of being a second, shallower implementation. Otherwise
-   the tool schema advertises a contract the tool-input path does not check.
-5. **Forward the widened fields in the one adapter that rebuilds nodes** — Gemini's
-   `convertParameterSchema` gains `required` and `anyOf` (`@google/genai`'s `Schema` carries both:
-   `genai.d.ts:9670,9708`). Anthropic (`message-converter.ts:139`), OpenAI (`responses-converter.ts:29`)
-   and openai-compatible (`shared/openai-compatible/message-converter.ts:27`) forward `tool.parameters`
-   verbatim and need no change.
+**1. Complete the subset type.** `IParameterSchema` gains `required?: string[]` and
+`anyOf?: IParameterSchema[]`; `additionalProperties` widens to `boolean | IParameterSchema` to match
+the root (`provider.ts:54`, `:70`); and **`type` becomes optional**. The last one is forced, not
+chosen: a correct `anyOf` node carries no `type`, and emitting one beside `anyOf` is invalid JSON
+Schema — a provider applies both constraints and rejects the non-matching branch.
+
+**1b. Collapse the duplicated root shape.** `IToolSchema['parameters']` is an inline object literal
+written twice (`provider.ts:50-55`, `:66-71`) and referenced from seven sites. Introduce
+`IObjectParameterSchema extends IParameterSchema { type: 'object'; properties: Record<string,
+IParameterSchema> }` and use it for `parameters` and `outputSchema`. Consequence to land in the same
+change, not discover later: `structured-output.ts:97`'s `IToolSchema['parameters'] | IParameterSchema`
+then collapses to `IParameterSchema`, making the `in`-guards at `:110`, `:143`, `:156`, `:161`, `:175`,
+`:178`, `:181` vestigial — remove them.
+
+**2. One object walk in the converter, no silent root fallthrough, unwrap shared with the nested path.**
+Extract the `shape → properties/required` walk that lives only inside `zodToJsonSchema` (`:31-44`) into
+one helper called from both the root and the nested `ZodObject` case — not copied, since a second copy
+is how the two levels drifted. Absorb the adjacent same-class defect: `:31` guards
+`if (typeName === 'ZodObject' && shape)` with no `else`, so a non-`ZodObject` root falls through to
+`:46-53` and returns `{ type: 'object', properties: {}, required: [] }` — `z.object({...}).refine(...)`
+is `ZodEffects`, so it silently produces an empty schema, this item's own symptom at the root of the
+function being rewritten. Unwrap `ZodEffects`/`ZodOptional`/`ZodDefault` and throw on anything still not
+an object, matching the file's throw-not-fallback posture. **Share the unwrap with
+`convertZodTypeToProperty`** so a nested `.refine()` behaves as the root does; a root-only unwrap would
+recreate this item's thesis violation for a different construct.
+
+**3. Stop conflating three `unknownKeys` meanings into two emissions.** `zod-to-json-schema.ts:50` tests
+only `=== 'passthrough'`, so Zod's default **`strip`** and explicit **`strict`** both emit *omitted* —
+wrong in opposite directions under the subset's declared convention. Emit `passthrough → true`,
+`strict → false`, **`strip → true`**. `strip` means "extras accepted at the boundary, then dropped", and
+the drop provably happens: `FunctionTool.execute` validates at `:64-72` and only then calls the wrapper,
+whose `safeParse` strips (`agent-tools/src/implementations/function-tool.ts:55-60`). After this,
+*omitted* appears only on hand-written schemas. This step is what makes step 6 safe.
+
+**4. Close the coverage limit the recursion exposes.** Add `ZodUnion` and `ZodDiscriminatedUnion` →
+`anyOf`, and `ZodLiteral` → single-value `enum`. `ZodUnion` is forced by the import-time crash above.
+`ZodDiscriminatedUnion`/`ZodLiteral` have no in-repo user and are justified on a different defect:
+`computer-tool.ts:50-53` documents a **shipped tool whose schema was distorted** ("a flat object (not a
+discriminated union) so it converts to JSON schema") to dodge exactly this gap. A work-around in shipped
+code is the defect behind them — the same absorb criterion applied consistently.
+
+**5. Specify `anyOf` into every walk that must see it.** Adding the member to the type and the converter
+alone would trade the import-time crash for runtime uncallability of the very tool this item exists for:
+an `anyOf` node has no `type`, so `validateAgainstJsonSchema`'s `switch` falls to
+`default: return [unsupported schema type undefined]` (`structured-output.ts:201-202`), and
+`AskUserQuestion`'s `questions.items → options → items` would reject **every** option value. Required,
+all in this change:
+
+- `validateAgainstJsonSchema` gains an `anyOf` branch **before** the type switch (valid if the value
+  matches ≥1 member).
+- `parameter-validator.validateParameterType` gains the same pre-switch delegation — an `anyOf` node can
+  sit at any property position, not only inside an object.
+- `tool-registry.ts:130-167` (`validateToolSchema`, run on every `register()`) must accept a top-level
+  `anyOf` property. Otherwise `z.object({ value: z.union([...]) })` converts fine and then throws
+  `Parameter "value" must have a type` at registration — the crash relocated, not removed.
+- Anthropic's `closeObjectSchemas` recurses `anyOf` members; today it spreads `{...record}`, so objects
+  inside a union branch would stay open — precisely what that seam exists to prevent.
+- Gemini's `convertParameterSchema` maps `anyOf` and tolerates an absent `type`.
+- The member and its `type` semantics go into agent-core's SPEC.
+
+**6. One validation walk for depth — no special case.** `parameter-validator.ts`'s `case 'object'` keeps
+its `typeof` check and message, then delegates depth to `validateAgainstJsonSchema` **unconditionally**.
+No "property-less objects stay open" guard: that would contradict the owning document.
+`docs/SPEC.md:363` already declares the convention (`true`/object-form accept extra props;
+**`false`/omitted reject**), and `closeObjectSchemas` reads it the same way at the Anthropic seam. The
+four pinned root messages (`Unknown parameter:`, `Missing required parameter:`, `must be a string`,
+`must be an object`) live outside the delegated region — `parameter-validator.ts:92`, `:108`, `:19`,
+`:52` — and are preserved unchanged; only the previously-unreachable nested depth gains messages.
+
+**6a. Return early on the `typeof` failure, then delegate**, or a non-object payload reports the defect
+twice in two dialects.
+
+**6b. Pass a caller-shaped path root to the delegated call** (`Parameter "<key>"`, not a bare `$`).
+After step 6 one `validateParameters()` result carries root-dialect and depth-dialect messages in one
+string, and that string is what reaches the user through `ValidationError` at `function-tool.ts:71`.
+The message shape at depth is this item's user-facing surface and is a stated choice, not a leftover.
+
+**7. Absorb the seventh walk's own defects while editing it.** `validateToolSchema`'s `validTypes` list
+(`tool-registry.ts:160`) omits `'integer'` and `'null'`, both members of `TJSONSchemaKind`
+(`provider.ts:36-37`), so a top-level `integer` property is rejected today. Pre-existing, in the lines
+being edited, so it is absorbed rather than left.
+
+**8. Give `parameter-validator`'s switch a `default` that errors.** `validateParameterType`
+(`:16-55`) has no `default`; an unmatched `type` falls through to the enum check and returns
+`undefined` — accepted. That is unreachable while `type` is mandatory and becomes a silently-accepted
+node the moment step 1 lands, which is a "Silence is not success" violation created by this change.
+Mirror `validateAgainstJsonSchema`'s `default: return [unsupported schema type …]`.
+
+**9. The two adapter seams, and the one that has no seam.** Gemini gains `required` and `anyOf`
+(`@google/genai@1.52.0`'s `Schema` carries both). Anthropic gains step 5's `anyOf` recursion plus a
+comment recording that its `else if (record.type === 'object')` overwrite of an explicit
+`additionalProperties: true` is deliberate at that seam — step 3 makes that overwrite fire routinely, so
+an unexplained one reads as a bug. **OpenAI strict mode has no equivalent seam**:
+`responses-converter.ts:30` sends `strict: strictTools ?? false`, and strict requires every object node,
+nested included, to carry `additionalProperties: false` and list all properties in `required`. Not a
+regression, but this item's headline claim would be false for `strictTools: true` users — recorded where
+a user meets it (`packages/agent-provider-openai/docs/SPEC.md` and the `strictTools` JSDoc at
+`openai/types.ts:150`, **not** agent-core's SPEC, which does not own that option) and filed as PROV-007.
+
+**10. No change to the two built-ins' schemas.** Once the converter recurses and expresses unions the
+flattening work-around's premise is gone, but changing a shipped tool's argument shape is a user-facing
+contract change with no defect left to justify it. Pin both emitted schemas with tests instead.
+
+## Scope boundary — absorbed here, filed as follow-ups
+
+Absorb where a **defect** sits behind it; file where only coverage does (`code-quality.md:51`).
+
+- **CORE-040** — the two `agent-tool-mcp` validators bypass the subset validator entirely. Different
+  package, no measured defect, and absorbing would require newly exporting `validateToolParameters` from
+  agent-core's barrel (only `validateAgainstJsonSchema` is exported today, `agent-core/src/index.ts:26`).
+- **CORE-041** — the converter's remaining unsupported constructs (`ZodTuple`, `ZodDate`,
+  `ZodIntersection`, `ZodLazy`, `ZodNativeEnum`). Zero in-repo users, no defect behind them.
+- **PROV-007** — OpenAI strict mode's missing nested-closure seam (step 9).
 
 **Rejected alternative — adopt the `zod-to-json-schema` npm package** (already a dependency of
-`packages/dag-node`, `dag-core` and `agent-cli`). It emits full JSON Schema with `$ref`/`definitions`/
-`allOf`, which is not the narrow universal subset the provider adapters map from — Gemini's converter
-walks `IParameterSchema` node by node and has no `$ref` resolution. Adopting it would mean either
-widening the subset to all of JSON Schema (a far larger blast radius across every adapter) or
-post-processing its output back down into the subset, which is the same walk this item is unifying.
-The narrow subset is deliberate; the defect is that it is missing two members, not that it exists.
+`packages/dag-node`, `packages/dag-core` and `packages/agent-cli`, used at
+`dag-node/src/utils/node-descriptor.ts:1`).
+
+Its real advantage, stated rather than omitted: it would dissolve CORE-041 permanently, and the next
+item like it. Rejected anyway — it emits **full** JSON Schema with `$ref`/`definitions`/`allOf`, and
+every downstream mapper here is **field-enumerated**: Gemini's `convertParameterSchema` copies a fixed
+key list and would emit `{}` for any node it does not recognise, and `validateAgainstJsonSchema`'s
+switch ends in `default: return [unsupported schema type …]`. That is a *worse, quieter* failure than
+today's. Adopting it means either widening the subset to all of JSON Schema — a published-contract
+redesign spanning agent-core, four adapters and three validators, which `backlog-execution.md`
+§ Agent Decision Authority puts with the user, not the agent — or post-processing its output back down
+into the subset, which is the same walk this item is unifying, plus a dependency. `anyOf` is not that
+redesign: it is leaf-recursive, needs no resolution machinery, and every walk already has the shape for
+it, which is why step 5 can specify it into all of them in one change.
 
 ## Test Plan
 
