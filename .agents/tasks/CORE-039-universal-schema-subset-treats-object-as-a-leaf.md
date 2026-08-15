@@ -231,40 +231,141 @@ it, which is why step 5 can specify it into all of them in one change.
 
 ## User Execution Test Scenarios
 
-Applies — this changes observable SDK behavior on a shipped product surface.
+Applies — this changes the schema a shipped, publicly exported tool advertises, and the validation a
+shipped tool applies to its inputs. Both are observable from the public SDK entry point with no
+provider and no network.
 
-**Scenario 1 — a built-in tool's advertised schema carries its nested fields**
+**Environment probe (recorded 2026-08-16, before authoring):** no provider credential is present in
+this environment — `env | grep -iE "OPENAI|ANTHROPIC|GOOGLE|GEMINI|BYTEDANCE|API_KEY"` returns only
+`PATH`, and there is no `.env` (only `.env.example`). No scenario below needs one; this is recorded so
+the provider-free choice is a measurement, not an assumption.
+
+**Stated coverage limit.** `convertToolsToGeminiFormat`
+(`packages/agent-provider-gemini/src/gemini/tool-schema-converter.ts`) is not re-exported from that
+package's barrel, `GeminiProvider` constructs `new GoogleGenAI({ apiKey })` with no `baseUrl`
+passthrough (`provider.ts:53`), and the executor seam receives the universal `IToolSchema[]` rather
+than the Gemini-mapped form — so Gemini's `required`/`anyOf` forwarding has **no** provider-free user
+observable and is covered by the engineering test plan only, which is not user-execution evidence.
+The other three adapters forward `tool.parameters` verbatim (Anthropic `message-converter.ts:139`,
+OpenAI `responses-converter.ts:29`, openai-compatible `message-converter.ts:27`), so what Scenario 1
+prints **is** the payload those three send. Widening the Gemini package's public surface purely for
+observability is out of this item's endorsed scope; it is recorded here rather than papered over.
+
+**Common prerequisites for all three scenarios**
+
+- Workspace installed (`pnpm install --frozen-lockfile`); already satisfied in this checkout.
+- Working directory `scratch/` — the repo's sanctioned home for disposable live-verification scripts
+  (`.agents/rules/backlog-execution.md` § Script home). `scratch/src` is gitignored.
+- No build step: `--conditions=source` resolves `@robota-sdk/*` to package source.
+- Invocation note: `pnpm run run` fails in this environment (`scratch/node_modules/.bin` is not
+  linked). The proven invocation is
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/<file>.ts` executed from `scratch/`.
+- No fixture, service, seed data, or credential is required, and no new one is introduced.
+- All three scripts were executed verbatim against unfixed code while authoring, and all three failed
+  with the stated pre-fix output — each is discriminating, not vacuous.
+
+---
+
+**Scenario 1 — the two shipped built-in tools advertise their nested fields**
 
 - Agent-executability decision: `agent-executable`.
-- Prerequisites: `pnpm install --frozen-lockfile` (workspace already installed). No provider API key
-  and no network: the observable is the schema the SDK hands the provider, read from the public
-  product surface, so the gate is machine-executable in any environment.
-- Environment: `scratch/` (the repo's sanctioned home for disposable live-verification scripts). No new
-  fixture is required.
-- Steps: `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-039-schema.ts` from
-  `scratch/`, where the script imports `createComputerTool` and `askUserQuestionTool` from the public
-  `@robota-sdk/agent-tools` entry point and prints `tool.schema.parameters` for each.
-- Expected observable result: `Computer`'s `act` schema shows `action.properties.type` with its 8-value
-  `enum` plus the coordinate/key/text fields, and `action.required` containing `type`;
-  `AskUserQuestion`'s schema shows `questions.items.properties.question` and
-  `questions.items.required` containing `question`. (Before the fix both print
-  `{ "type": "object" }` with no fields.)
-- Cleanup: none — `scratch/src` is gitignored and nothing is persisted.
-- Evidence: _to be filled after implementation_ (paste both printed schemas).
+- Prerequisites: the common prerequisites above. Nothing else.
+- Steps (from `scratch/`): write `src/core-039-s1.ts` importing `askUserQuestionTool` and
+  `createComputerTool` from `@robota-sdk/agent-tools`, print
+  `createComputerTool()[1].schema.parameters` and `askUserQuestionTool.schema.parameters`, then assert
+  eight checks and `process.exit(fails ? 1 : 0)`:
+  1. `properties.action.properties.type.enum` has 8 values;
+  2. that enum includes `takeover`;
+  3. `properties.action.required` includes `type`;
+  4. `properties.action.required` omits the optional `x`;
+  5. `properties.action.properties.path.items.properties.x.type === 'number'` (three levels deep);
+  6. `properties.questions.items.properties.question.type === 'string'`;
+  7. `properties.questions.items.required` includes `question`;
+  8. `properties.questions.items.properties.options.items.anyOf` has 2 branches.
+  Then run `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-039-s1.ts; echo "EXIT:$?"`.
+  The exact script is reproduced in the PR description so the run is replayable verbatim.
+- Expected observable result: `SCENARIO 1 PASS`, eight `PASS` lines, `EXIT:0`. The printed schemas show
+  `properties.action.properties` populated (its `type` enum plus
+  `x`/`y`/`button`/`text`/`keys`/`deltaX`/`deltaY`/`path`/`ms`/`reason`) with
+  `properties.action.required` present, and `properties.questions.items.properties` populated with
+  `properties.questions.items.required`. **The import completing at all is part of the observable** —
+  `askUserQuestionTool` is a module-level construction, so a converter that throws on its nested union
+  takes the whole `@robota-sdk/agent-tools` entry point down on load and the command cannot reach its
+  first check.
+  Measured pre-fix (2026-08-16, unfixed code): `SCENARIO 1 FAIL (8)`, `EXIT:1`, with
+  `"action": { "type": "object", "description": … }` and `"items": { "type": "object" }` — every nested
+  field absent.
+- Cleanup: `rm -f src/core-039-s1.ts` from `scratch/`.
+- Evidence: _to be filled after implementation_ (paste the two printed schemas, the eight check lines,
+  and the `EXIT:` line).
 
-**Scenario 2 — a tool with a nested-object input is actually invoked end to end**
+---
+
+**Scenario 2 — a tool enforces the nested schema it advertises, and both walks agree**
+
+Isolates the walk under change. The tool is built with `createFunctionTool` over the schema the product
+itself emitted — deliberately **not** `createZodFunctionTool`, whose wrapper re-validates with Zod
+inside the executor (`packages/agent-tools/src/implementations/function-tool.ts:55-58`) and would mask
+the schema walk entirely. An earlier draft of this scenario used `createZodFunctionTool` and was
+rejected for exactly that: it passed on unfixed code, observing Zod rather than the walk under change.
 
 - Agent-executability decision: `agent-executable`.
-- Prerequisites: as above; additionally probe for a provider key
-  (`OPENAI_API_KEY`/`ANTHROPIC_API_KEY`/`GOOGLE_API_KEY` in the environment and `.env`) and record the
-  probe result. The scenario's primary observable does not need one.
-- Environment: `scratch/`.
-- Steps: build a tool with `createZodFunctionTool` over
-  `z.object({ report: z.object({ score: z.number(), notes: z.array(z.string()) }) })` whose handler
-  prints its argument; call `tool.execute({ report: { score: 4, notes: ['a'] } })`, then call
-  `tool.execute({ report: { notes: ['a'] } })`.
-- Expected observable result: the first call prints the fully populated `report` and returns
-  `success: true`; the second is rejected naming the missing nested required field `score`. (Before the
-  fix the second call is accepted, because the tool-input walk never enters the nested object.)
-- Cleanup: none.
-- Evidence: _to be filled after implementation_ (paste both outcomes and the key probe result).
+- Prerequisites: the common prerequisites above. Nothing else.
+- Steps (from `scratch/`): write `src/core-039-s2.ts` that emits the schema for
+  `z.object({ report: z.object({ score: z.number(), notes: z.array(z.string()), tag: z.string().optional() }) })`
+  via `createZodFunctionTool(...).schema.parameters`, prints it, then with
+  `good = { report: { score: 4, notes: ['a'] } }` and `bad = { report: { notes: ['a'] } }`:
+  1. `validateAgainstJsonSchema(emitted, good, '$')` returns `[]`;
+  2. the same call on `bad` returns at least one issue;
+  3. that issue text contains `score`;
+  4. `createFunctionTool('report-tool', …, emitted, handler).execute(good)` → `success=true`;
+  5. the same tool's `.execute(bad)` throws;
+  6. that throw's message contains `score`.
+  Then run it with the invocation above and `echo "EXIT:$?"`. The exact script is reproduced in the PR
+  description.
+- Expected observable result: `SCENARIO 2 PASS`, six `PASS` lines, `EXIT:0` — the deep walk returns `[]`
+  for the conforming payload and an issue naming `score` for the non-conforming one; the tool-input walk
+  prints `input walk good => success=true` and `input walk bad  => threw …score…`. The optional `tag`
+  being absent must not be reported by either walk. The error text is asserted by the substring `score`,
+  not by an exact message: a rejection that does not name the offending nested field is unusable to a
+  model or a user, while the surrounding phrasing is deliberately unpinned.
+  Measured pre-fix (2026-08-16, unfixed code): `SCENARIO 2 FAIL (4)`, `EXIT:1` — the two walks disagree
+  in **both** directions on the same emitted schema. The deep walk falsely rejects the valid payload
+  (`["$.report.score: unexpected additional property", "$.report.notes: unexpected additional property"]`)
+  and the input walk falsely accepts the invalid one (`input walk bad => success=true`, handler ran).
+- Cleanup: `rm -f src/core-039-s2.ts` from `scratch/`.
+- Evidence: _to be filled after implementation_ (paste the emitted schema, both walk outcome lines, the
+  six check lines, and the `EXIT:` line).
+
+---
+
+**Scenario 3 — a union-typed field is expressible and stays usable**
+
+- Agent-executability decision: `agent-executable`.
+- Prerequisites: the common prerequisites above. Nothing else.
+- Steps (from `scratch/`): write `src/core-039-s3.ts` that builds a tool over
+  `z.object({ choice: z.union([z.string(), z.object({ label: z.string() })]), mode: z.discriminatedUnion('kind', [z.object({ kind: z.literal('fast'), ms: z.number() }), z.object({ kind: z.literal('safe'), retries: z.number() })]) })`,
+  prints the emitted schema, and asserts:
+  1. `createZodFunctionTool` does not throw;
+  2. `properties.choice.anyOf` has 2 branches;
+  3. `properties.mode.anyOf` has 2 branches;
+  4. `properties.mode.anyOf[0].properties.kind.enum` is `["fast"]`;
+  5. a `createFunctionTool` built from that emitted schema accepts the string branch;
+  6. it accepts the object branch;
+  7. the shipped `askUserQuestionTool.execute({ questions: [{ question: 'Which?', options: ['plain string', { label: 'object option' }] }] })` returns `success=true`.
+  Then run it with the invocation above and `echo "EXIT:$?"`. The exact script is reproduced in the PR
+  description.
+- Expected observable result: `SCENARIO 3 PASS`, seven `PASS` lines, `EXIT:0`. The printed schema shows
+  `choice.anyOf` and `mode.anyOf` each with two members and the discriminator rendered as
+  `"enum": ["fast"]`; both union branches are accepted by the tool-input walk built from that same
+  schema; and `AskUserQuestion` still executes (headless, so its data reports `unavailable: true` —
+  the observable is that the call is accepted, not what it returns).
+  Measured pre-fix (2026-08-16, unfixed code):
+  `FAIL createZodFunctionTool accepts a union-typed field -- saw "Unsupported Zod type: ZodUnion"`,
+  `EXIT:1` — a union field cannot be turned into a tool at all today. Check 7 run standalone **passes**
+  today (`success= true`, `unavailable: true`), so it is a regression guard rather than a new
+  capability: it fails if `anyOf` is emitted but not honoured on the input path, which is the failure
+  mode that would turn the import-time crash into runtime uncallability of the same tool.
+- Cleanup: `rm -f src/core-039-s3.ts` from `scratch/`.
+- Evidence: _to be filled after implementation_ (paste the emitted schema, both branch outcome lines,
+  the `AskUserQuestion data =` line, the seven check lines, and the `EXIT:` line).
