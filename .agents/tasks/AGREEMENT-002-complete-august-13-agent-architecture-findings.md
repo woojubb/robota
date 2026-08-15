@@ -43,7 +43,7 @@ The paired spec passed GATE-APPROVAL on 2026-08-15. The user's instruction
 ## Plan
 
 - [x] TC-01 — preserve full-fidelity external session payloads in ARCH-014.
-- [ ] TC-02 — preserve unknown session-record fields and reconcile the canonical store port in ARCH-015.
+- [x] TC-02 — preserve unknown session-record fields and reconcile the canonical store port in ARCH-015.
 - [ ] TC-03 — unify the session-log vocabulary and compact trigger in ARCH-016.
 - [ ] TC-04 — remove obsolete permission/ask seams and retain the prompt-registry SSOT in ARCH-017.
 - [ ] TC-05 — make the interaction-channel charter and implementer set agree in ARCH-018.
@@ -65,7 +65,7 @@ projection is the section below.
 ## Children
 
 - [x] ARCH-014 — done — `.agents/tasks/completed/ARCH-014-session-log-external-payloads-have-no-dereferencer.md`
-- [ ] ARCH-015 — todo — `.agents/tasks/ARCH-015-two-writers-one-record-contract-session-save-destroys-fields.md`
+- [x] ARCH-015 — done — `.agents/tasks/completed/ARCH-015-two-writers-one-record-contract-session-save-destroys-fields.md`
 - [ ] ARCH-016 — todo — `.agents/tasks/ARCH-016-session-log-event-vocabulary-and-compaction-trigger-split-brain.md`
 - [ ] ARCH-017 — todo — `.agents/tasks/ARCH-017-injected-permission-ask-handlers-are-dead-surface.md`
 - [ ] ARCH-018 — todo — `.agents/tasks/ARCH-018-interaction-channel-charter-is-unsatisfiable-as-written.md`

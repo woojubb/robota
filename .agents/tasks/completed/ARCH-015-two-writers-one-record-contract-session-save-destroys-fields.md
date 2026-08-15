@@ -1,6 +1,6 @@
 ---
 title: "ARCH-015: agent-session's persistSession rebuilds the record from nine fields and destroys every other contract field on re-save — a latent public-API data-loss hazard against interactive records, plus a near-duplicate store port"
-status: in-progress
+status: done
 created: 2026-08-13
 priority: medium
 urgency: soon

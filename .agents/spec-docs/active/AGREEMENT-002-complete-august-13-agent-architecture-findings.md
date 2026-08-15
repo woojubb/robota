@@ -266,7 +266,7 @@ adversarial review before code changes.
 ## Completion Criteria
 
 - [x] TC-01: ARCH-014 recursively replays session values externalized beyond 32 KiB and rejects unresolved direct-provider values, cycles, configured depth or aggregate-byte overflow, malformed JSON, declared-length mismatch, sha256 mismatch, lexical escape, and real-path/symlink escape before provider normalization.
-- [ ] TC-02: ARCH-015 persists an existing interactive-session record through the agent-session writer without deleting any field the writer does not own, and one canonical store-port relationship is documented and type-checked.
+- [x] TC-02: ARCH-015 persists an existing interactive-session record through the agent-session writer without deleting any field the writer does not own, and one canonical store-port relationship is documented and type-checked.
 - [ ] TC-03: ARCH-016 admits every production session-log event through one declared vocabulary and reports the same explicit `TCompactTrigger` to the session hook and compaction orchestrator for one manual compact operation.
 - [ ] TC-04: ARCH-017 removes obsolete session-level permission/ask handler options and stale `InteractionEvent.permission-resolved`, preserves leaf callback convenience through a prompt-registry adapter, and records all settlement/dismissal through canonical `prompt_resolved` without a second settlement path.
 - [ ] TC-05: ARCH-018 makes the documented `IInteractionChannel` charter, its implementer set, and runtime wiring agree; no production implementer retains a central no-op member solely for nominal conformance.
@@ -308,7 +308,7 @@ adversarial review before code changes.
 Active initiative Task: `.agents/tasks/AGREEMENT-002-complete-august-13-agent-architecture-findings.md`.
 
 - [x] ARCH-014 — done — `.agents/tasks/completed/ARCH-014-session-log-external-payloads-have-no-dereferencer.md`
-- [ ] ARCH-015 — todo — `.agents/tasks/ARCH-015-two-writers-one-record-contract-session-save-destroys-fields.md`
+- [x] ARCH-015 — done — `.agents/tasks/completed/ARCH-015-two-writers-one-record-contract-session-save-destroys-fields.md`
 - [ ] ARCH-016 — todo — `.agents/tasks/ARCH-016-session-log-event-vocabulary-and-compaction-trigger-split-brain.md`
 - [ ] ARCH-017 — todo — `.agents/tasks/ARCH-017-injected-permission-ask-handlers-are-dead-surface.md`
 - [ ] ARCH-018 — todo — `.agents/tasks/ARCH-018-interaction-channel-charter-is-unsatisfiable-as-written.md`
