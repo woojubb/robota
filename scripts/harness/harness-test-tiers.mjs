@@ -11,8 +11,9 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
+
+import { canonicalTemporaryDirectory } from './canonical-temporary-directory.mjs';
 
 const DEFAULT_ROOT = path.resolve(import.meta.dirname, '../..');
 const TEST_DIR = 'scripts/harness/__tests__';
@@ -23,6 +24,7 @@ const TEST_DIR = 'scripts/harness/__tests__';
  */
 export const HERMETIC_TEST_FILES = Object.freeze([
   'scripts/harness/__tests__/api-pagination.test.mjs',
+  'scripts/harness/__tests__/canonical-temporary-directory.test.mjs',
   'scripts/harness/__tests__/check-adr-completeness.test.mjs',
   'scripts/harness/__tests__/check-agent-server-boundary.test.mjs',
   'scripts/harness/__tests__/check-architecture-map-completeness.test.mjs',
@@ -151,7 +153,11 @@ function vitestInvocation(root, files, cwd = root, config = undefined) {
     '--testTimeout=30000',
     '--reporter=dot',
   ];
-  return spawnSync(process.execPath, args, { cwd, encoding: 'utf8' });
+  return spawnSync(process.execPath, args, {
+    cwd,
+    encoding: 'utf8',
+    env: { ...process.env, TMPDIR: canonicalTemporaryDirectory() },
+  });
 }
 
 /**
@@ -160,7 +166,7 @@ function vitestInvocation(root, files, cwd = root, config = undefined) {
  * and spawned-script closure; only runtime dependencies are linked from the installed repository.
  */
 export function runHermeticTestsInStrippedRepository(root = DEFAULT_ROOT) {
-  const stage = mkdtempSync(path.join(tmpdir(), 'robota-harness-hermetic-'));
+  const stage = mkdtempSync(path.join(canonicalTemporaryDirectory(), 'robota-harness-hermetic-'));
   try {
     cpSync(path.join(root, 'scripts', 'harness'), path.join(stage, 'scripts', 'harness'), {
       recursive: true,

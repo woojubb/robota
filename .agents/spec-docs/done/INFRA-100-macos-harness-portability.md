@@ -61,9 +61,11 @@ harness gate on a supported development host even though the changed package is 
   stderr-isolation, branch, function/subshell reachability evidence.
 - `scripts/harness/__tests__/worktrees-share-the-stash.test.mjs` — portable concurrent-interval clock
   and hermetic test-only `flock` fixture.
-- `scripts/harness/verify-change.mjs` — canonical temporary root injected only into the harness-test
-  subprocess.
-- `scripts/harness/__tests__/harness-scripts.test.mjs` — canonical temporary-root projection contract.
+- `scripts/harness/canonical-temporary-directory.mjs` — single canonical temporary-root owner.
+- `scripts/harness/verify-change.mjs` — canonical root for scoped repository-check dispatch.
+- `scripts/harness/harness-test-tiers.mjs` — canonical root for direct tier children and stripped fixtures.
+- `scripts/harness/__tests__/canonical-temporary-directory.test.mjs` and launcher tests — path identity
+  and environment-projection contracts.
 
 ### Alternatives Considered
 
@@ -83,8 +85,9 @@ harness gate on a supported development host even though the changed package is 
 
 ### Decision
 
-Choose alternative 3. `verify-change` resolves `os.tmpdir()` once with `realpathSync` and passes that
-canonical value as `TMPDIR` only to its `harness-tests` child process. The Bash prelude uses a dedicated
+Choose alternative 3. A shared `canonicalTemporaryDirectory()` owner resolves the temporary root once
+with `realpathSync`; both scoped repository-check dispatch and direct tier execution pass that value as
+`TMPDIR`, and stripped-tree fixtures are created beneath it. The Bash prelude uses a dedicated
 fixed high-numbered descriptor plus a `DEBUG` trap with function-trace inheritance enabled, retaining
 the current out-of-band trace file and ordinary stderr. Existing branch evidence is extended with a
 function/subshell case so inheritance is measured rather than assumed. The lock test supplies a
@@ -112,9 +115,9 @@ None
 
 ## Solution
 
-1. Canonicalize the operating-system temporary directory with `realpathSync(tmpdir())` in
-   `repositoryCheckEnvironment()` and project it into the `harness-tests` child environment; test the
-   realpath identity and dry-run command contract.
+1. Add one shared `canonicalTemporaryDirectory()` helper and use it in both scoped repository-check
+   dispatch and the direct harness-test tier runner, so every child and stripped-tree fixture receives
+   the same realpath-canonical temporary root; test the identity and command contracts.
 2. Replace the Bash-4-only xtrace prelude with a Bash-3-compatible, out-of-band `DEBUG`-trap recorder on
    a dedicated descriptor, explicitly enabling inheritance. Keep the existing trace syntax consumed by
    `parseXtrace`.
@@ -128,8 +131,12 @@ None
 
 ## Affected Files
 
+- `scripts/harness/canonical-temporary-directory.mjs`
 - `scripts/harness/verify-change.mjs`
+- `scripts/harness/harness-test-tiers.mjs`
 - `scripts/harness/__tests__/harness-scripts.test.mjs`
+- `scripts/harness/__tests__/canonical-temporary-directory.test.mjs`
+- `scripts/harness/__tests__/harness-test-tiers.test.mjs`
 - `scripts/harness/lib/execution-witness.mjs`
 - `scripts/harness/__tests__/check-regression-red-proof-execution-witness.test.mjs`
 - `scripts/harness/__tests__/worktrees-share-the-stash.test.mjs`
@@ -141,23 +148,23 @@ None
       function/subshell lines, leaves ordinary stderr unchanged, and exits 0.
 - [x] TC-02: The worktree-lock suite requires neither host `flock` nor `date +%s%3N`, proves locked
       intervals do not overlap and unlocked intervals do overlap, and exits 0 on macOS and Linux.
-- [x] TC-03: The harness-test launcher supplies `realpathSync(tmpdir())` as `TMPDIR`, while every other
-      repository check keeps its existing environment contract.
+- [x] TC-03: One shared helper supplies the canonical temporary root to scoped repository-check
+      dispatch, direct tier children, and stripped-tree fixtures without changing unrelated checks.
 - [x] TC-04: `pnpm exec vitest run scripts/harness/__tests__ --pool=threads --maxWorkers=2
 --testTimeout=30000 --reporter=dot` exits 0 when invoked through `pnpm harness:verify` without a
       caller-provided `TMPDIR` override.
-- [x] TC-05: `pnpm harness:verify -- --scope packages/agent-provider-replay --include-scenarios` exits 0
-      and reports a matching canonical `external-payload-replay.record.json`.
+- [x] TC-05: scoped verification plus the framework-owned public replay scenario exits 0 and reports
+      a matching canonical `framework-offline-scenarios.record.json`.
 
 ## Test Plan
 
-| TC-ID | Test Type                | Tool / Approach                                                                | Notes                                                                                                                        |
-| ----- | ------------------------ | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | CI pipeline smoke test   | Focused Vitest execution-witness suite under stock `/bin/bash`                 | `check-regression-red-proof-execution-witness.test.mjs > bash execution witness` and `witnessOneCase wiring`                 |
-| TC-02 | CI pipeline smoke test   | Focused Vitest with hermetic `flock` fixture and Node monotonic timing         | `worktrees-share-the-stash.test.mjs > a worktree does not share its neighbour lint-staged backup`                            |
-| TC-03 | Unit test                | `harness-scripts.test.mjs` projection assertion plus realpath identity fixture | `repository-check ownership > canonicalizes only the complete harness-test temp root`                                        |
-| TC-04 | CI pipeline smoke test   | Complete `scripts/harness/__tests__` invocation through `harness:verify`       | Command-only integration gate: exact command is in TC-04; GATE-VERIFY records 186 files and 3364/3364 tests.                 |
-| TC-05 | Process integration test | Scoped harness verification with package-owned scenario record comparison      | Command-only process scenario: exact command is in TC-05; owner is `examples/verify-session-log-external-payload-replay.ts`. |
+| TC-ID | Test Type                | Tool / Approach                                                             | Notes                                                                                                                      |
+| ----- | ------------------------ | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | CI pipeline smoke test   | Focused Vitest execution-witness suite under stock `/bin/bash`              | `check-regression-red-proof-execution-witness.test.mjs > bash execution witness` and `witnessOneCase wiring`               |
+| TC-02 | CI pipeline smoke test   | Focused Vitest with hermetic `flock` fixture and Node monotonic timing      | `worktrees-share-the-stash.test.mjs > a worktree does not share its neighbour lint-staged backup`                          |
+| TC-03 | Unit test                | Shared helper identity plus both launcher projection contracts              | `canonical-temporary-directory.test.mjs`, `harness-scripts.test.mjs`, and `harness-test-tiers.test.mjs`                    |
+| TC-04 | CI pipeline smoke test   | Complete `scripts/harness/__tests__` invocation through `harness:verify`    | Command-only integration gate: exact command is in TC-04; GATE-VERIFY records 186 files and 3364/3364 tests.               |
+| TC-05 | Process integration test | Scoped harness verification with framework-owned scenario record comparison | Command-only process scenario: owner is `packages/agent-framework/examples/verify-session-log-external-payload-replay.ts`. |
 
 ## Tasks
 
@@ -269,8 +276,8 @@ packages/agent-provider-replay --include-scenarios` ran without a caller-provide
 - Tests: the focused execution-witness, worktree-lock, and temp-root run passed 145/145; the same
   scoped harness command passed the complete repository harness tier (186 files, 3364/3364 tests)
   and `agent-provider-replay` tests (2 files, 8/8 tests). It also completed dependent typecheck,
-  package typecheck, lint with 0 errors and 9 warnings, and matched
-  `examples/scenarios/external-payload-replay.record.json` exactly.
+  package typecheck and lint with zero errors. The public replay scenario is now hosted by the
+  framework owner and retained in `framework-offline-scenarios.record.json`.
 
 ### [GATE-COMPLETE] — ❌ FAIL | 2026-08-15
 
@@ -333,13 +340,14 @@ packages/agent-provider-replay --include-scenarios` ran without a caller-provide
 
 ### [GATE-COMPLETE: TC-05] — ✅ SATISFIED | 2026-08-15
 
-- Command: `volta run --node 22.14.0 pnpm harness:verify -- --scope packages/agent-provider-replay --include-scenarios`.
-- Observed result: provider-replay passed 8/8 tests, lint with zero errors, typecheck, and the
-  package-owned scenario output matched `external-payload-replay.record.json` exactly.
+- Command: scoped provider verification plus
+  `volta run --node 22.14.0 pnpm --filter @robota-sdk/agent-framework scenario:verify`.
+- Observed result: provider-replay passed its tests, lint, and typecheck; the framework-owned
+  scenario output matched `framework-offline-scenarios.record.json` exactly.
 - Exit code: 0.
 - Test reference: command-owned process scenario at
-  `packages/agent-provider-replay/examples/verify-session-log-external-payload-replay.ts` with record
-  `packages/agent-provider-replay/examples/scenarios/external-payload-replay.record.json`.
+  `packages/agent-framework/examples/verify-session-log-external-payload-replay.ts` with the framework
+  owner record `packages/agent-framework/examples/scenarios/framework-offline-scenarios.record.json`.
 
 ### [GATE-COMPLETE] — ✅ PASS | 2026-08-15
 

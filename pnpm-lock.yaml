@@ -1422,6 +1422,9 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
     devDependencies:
+      '@robota-sdk/agent-provider-replay':
+        specifier: workspace:*
+        version: link:../agent-provider-replay
       '@robota-sdk/agent-session-analytics':
         specifier: workspace:*
         version: link:../agent-session-analytics
@@ -1431,6 +1434,9 @@ importers:
       tsdown:
         specifier: ^0.22.14
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+      tsx:
+        specifier: ^4.23.1
+        version: 4.23.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1863,9 +1869,6 @@ importers:
         specifier: workspace:*
         version: link:../agent-session
     devDependencies:
-      '@robota-sdk/agent-framework':
-        specifier: workspace:*
-        version: link:../agent-framework
       '@types/node':
         specifier: ^20.19.43
         version: 20.19.43
@@ -1875,9 +1878,6 @@ importers:
       tsdown:
         specifier: ^0.22.14
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      tsx:
-        specifier: ^4.23.1
-        version: 4.23.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

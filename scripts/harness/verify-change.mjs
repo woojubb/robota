@@ -1,7 +1,7 @@
-import { promises as fs, realpathSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
+import { canonicalTemporaryDirectory } from './canonical-temporary-directory.mjs';
 import { createVerificationPlan, renderScopeCoverageLine } from './check-plan.mjs';
 import {
   compareScenarioRecordArtifact,
@@ -55,7 +55,7 @@ export function selectRepositoryChecks(repositoryChecks, omittedNames) {
 }
 
 export function repositoryCheckEnvironment(check) {
-  return check === 'harness-tests' ? { TMPDIR: realpathSync(tmpdir()) } : {};
+  return check === 'harness-tests' ? { TMPDIR: canonicalTemporaryDirectory() } : {};
 }
 
 function inferReportFormat(reportFile, explicitFormat) {

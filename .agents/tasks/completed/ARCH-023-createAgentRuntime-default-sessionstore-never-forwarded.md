@@ -91,8 +91,9 @@ exist after shutdown; the other four matrix cases passed.
 
 ## Verification Evidence
 
-- Focused GREEN: the runtime/store regression matrix passed 5/5. The full `agent-framework` package
-  suite passed 163/163 files and 1,340/1,340 tests.
+- Focused GREEN: the runtime/store regression matrix passed 5/5. The final `agent-framework` package
+  suite passed 164/164 files and 1,341/1,341 tests, including the ARCH-014 real-session replay
+  functional test hosted at the framework layer.
 - Static/build gates: package build and typecheck passed. Lint completed with zero errors and 153
   existing warnings. Prettier and `git diff --check` passed.
 - SPEC conformance: the public-surface and package-SPEC scans passed; package-SPEC coverage remained
@@ -138,9 +139,10 @@ exist after shutdown; the other four matrix cases passed.
   adds the maintained standalone example
   `packages/agent-framework/examples/verify-agent-runtime-session-store.ts`
   <!-- allow-missing-artifact: ARCH-023 implementation scope creates this planned scenario artifact -->
-  and a package-owned `scenario:verify` script that runs it with
-  `pnpm exec tsx --conditions=source`. It also adds the matching `scenario:record` command and
-  `packages/agent-framework/examples/scenarios/agent-runtime-session-store.record.json`
+  and a package-owned `scenario:verify:runtime-session-store` script that runs it with
+  `pnpm exec tsx --conditions=source`. The aggregate `scenario:verify` command and matching
+  `scenario:record` command retain one authoritative owner record at
+  `packages/agent-framework/examples/scenarios/framework-offline-scenarios.record.json`
   <!-- allow-missing-artifact: ARCH-023 implementation scope creates this planned scenario record -->
   so scoped scenario verification can compare the maintained observable. The example itself creates
   all runtime state in a unique operating-system temporary directory.
@@ -167,7 +169,7 @@ exist after shutdown; the other four matrix cases passed.
 - **Exact command:**
 
   ```bash
-  volta run --node 22.14.0 pnpm --filter @robota-sdk/agent-framework scenario:verify
+  volta run --node 22.14.0 pnpm --filter @robota-sdk/agent-framework scenario:verify:runtime-session-store
   ```
 
 - **Expected observable:** exit code `0`, with the example printing this JSON document after the package
@@ -205,10 +207,12 @@ exist after shutdown; the other four matrix cases passed.
   both response sentinels matched, `sameSessionId` and all three resumed-provider-request flags were
   `true`, the resumed history contained four messages in `user, assistant, user, assistant` order,
   and `cleanupRemoved` was `true`. A second captured execution compared against
-  `packages/agent-framework/examples/scenarios/agent-runtime-session-store.record.json`: stdout
-  SHA-256 `cfea513dc6152d1d9e0416115a9181f0ff4670916efa1f870923e01100f6be20`, empty-stderr SHA-256
-  `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`, differences `[]`. Durable
-  execution lives in `packages/agent-framework/examples/verify-agent-runtime-session-store.ts`.
+  `packages/agent-framework/examples/scenarios/framework-offline-scenarios.record.json`: the combined
+  owner record exited `0`, has stdout SHA-256
+  `ea318cf61d89a68db6f8d00e2034340e146f7a2875d77ad5f609f64806f71ced`, empty-stderr SHA-256
+  `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`, and retains this exact JSON
+  after the ARCH-014 observable. Durable execution lives in
+  `packages/agent-framework/examples/verify-agent-runtime-session-store.ts`.
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-15
 
@@ -246,18 +250,21 @@ exist after shutdown; the other four matrix cases passed.
 - Ordering: PASS — `DONE-GATE-STAGE-1` has a recorded PASS above, the Task remains `in-progress`, and
   its implementation tasks and engineering evidence record the completed implementation before this
   independent execution gate.
-- Direct execution: PASS — the guardian ran Scenario `ARCH-023-S1` twice with the exact public-SDK
-  command `volta run --node 22.14.0 pnpm --filter @robota-sdk/agent-framework scenario:verify`; both
-  executions exited `0` against the current implementation.
+- Direct execution: PASS — the guardian ran Scenario `ARCH-023-S1` twice with the then-current
+  public-SDK command `volta run --node 22.14.0 pnpm --filter @robota-sdk/agent-framework
+scenario:verify`; both executions exited `0`. After framework scenarios were consolidated under one
+  owner record, the same executable moved behind `scenario:verify:runtime-session-store` and passed
+  the aggregate record comparison.
 - Expected observable: PASS — each run emitted the two expected response sentinels,
   `sameSessionId: true`, all three resumed-provider-request flags as `true`, four public-history
   messages in `user, assistant, user, assistant` order, and `cleanupRemoved: true`.
-- Concrete recorded evidence: PASS — the scenario evidence field above records the command result and
-  names the durable executable artifact
-  `packages/agent-framework/examples/verify-agent-runtime-session-store.ts` and canonical record
-  `packages/agent-framework/examples/scenarios/agent-runtime-session-store.record.json`. Independent
-  record validation returned `[]`; comparison returned differences `[]`, stdout SHA-256
-  `cfea513dc6152d1d9e0416115a9181f0ff4670916efa1f870923e01100f6be20`, and empty-stderr SHA-256
+- Concrete recorded evidence: PASS — the scenario evidence field above records the original command
+  result and names the durable executable artifact
+  `packages/agent-framework/examples/verify-agent-runtime-session-store.ts`. Its former single-scenario
+  record was superseded by
+  `packages/agent-framework/examples/scenarios/framework-offline-scenarios.record.json`; independent
+  validation of the combined owner record returned `[]`, with stdout SHA-256
+  `ea318cf61d89a68db6f8d00e2034340e146f7a2875d77ad5f609f64806f71ced` and empty-stderr SHA-256
   `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
 - Evidence quality and cleanup: PASS — the verdict relies on the public SDK scenario output, not
   build/test/lint/harness/CI results. A post-run probe found no remaining `arch-023-example-*`

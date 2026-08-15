@@ -3,11 +3,11 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { scriptedSession, type ScriptedSessionHarness } from '@robota-sdk/agent-framework/testing';
+import { createReplayProviderFromLogFile } from '@robota-sdk/agent-provider-replay';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createReplayProviderFromLogFile } from '../index.js';
+import { InteractiveSession } from '../../index.js';
+import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 
 const LARGE_RESPONSE = `ARCH_014_LARGE:${'x'.repeat(40 * 1024)}`;
 const SENTINEL_RESPONSE = 'ARCH_014_SENTINEL';

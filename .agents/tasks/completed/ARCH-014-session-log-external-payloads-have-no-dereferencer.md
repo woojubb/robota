@@ -81,7 +81,7 @@ REVIEW VERDICT: ENDORSE
 - Red-first: `validateSessionReplayLogEntries` flags an externalized replay-substrate payload when no
   dereferencer is available.
 - Framework functional red/green: add
-  `packages/agent-provider-replay/src/__tests__/session-log-external-payload-replay-functional.test.ts` <!-- allow-missing-artifact: ARCH-014 will add this functional test during implementation. -->
+  `packages/agent-framework/src/testing/__tests__/session-log-external-payload-replay-functional.test.ts` <!-- allow-missing-artifact: ARCH-014 will add this functional test during implementation. -->
   using `scriptedSession`, and register it as `session-log-external-payload-replay` in
   `scripts/harness/functional-coverage-manifest.json`.
 - `pnpm harness:verify -- --scope packages/agent-session` and `--scope packages/agent-provider-replay`
@@ -98,12 +98,13 @@ REVIEW VERDICT: ENDORSE
 - `ReplayProvider` reuses the session resolver only for consumed normalized responses. Direct
   construction rejects unresolved references without an explicit base directory; the file factory
   partitions limits to the loader and does not hydrate twice.
-- Focused package verification passed: `agent-session` 207/207 tests and `agent-provider-replay` 8/8
-  tests, with both package builds, typechecks, and lint completing (lint: zero errors).
-- Full scoped verification passed without environment overrides:
-  `volta run --node 22.14.0 pnpm harness:verify -- --scope packages/agent-provider-replay --include-scenarios`
-  exited 0, including 186 repository harness files / 3364 tests, nine build tiers, dependent typecheck,
-  and exact scenario-record comparison.
+- Focused package verification passed: `agent-session` 207/207 tests and final
+  `agent-provider-replay` 7/7 tests, with package builds, typechecks, and lint completing. The moved
+  real-session functional test passes in the framework suite, which is 164/164 files and
+  1,341/1,341 tests.
+- Full scoped verification passed without environment overrides for the provider behavior; the real
+  session functional test and maintained public example are hosted by `agent-framework`, the owner of
+  `InteractiveSession`, so the provider package keeps its dependency direction.
 - Public SPEC/barrel conformance was checked bidirectionally and the published API additions are
   represented in `.changeset/arch-014-external-session-payload-replay.md` as minor changes for both
   affected packages.
@@ -118,17 +119,16 @@ REVIEW VERDICT: ENDORSE
   service, or provider key.
 - **Prerequisite state and fixture:** install workspace dependencies with the repository's pinned Node
   and pnpm versions. This work must add the maintained owner-verification example
-  `packages/agent-provider-replay/examples/verify-session-log-external-payload-replay.ts` <!-- allow-missing-artifact: ARCH-014 will add this standalone public-SDK example during implementation. -->
-  and add `@robota-sdk/agent-framework` plus `tsx` as development-only dependencies of
-  `agent-provider-replay`. The example creates two isolated temporary workspaces. Its only injected
+  `packages/agent-framework/examples/verify-session-log-external-payload-replay.ts` <!-- allow-missing-artifact: ARCH-014 will add this standalone public-SDK example during implementation. -->
+  and add the replay provider as a development-only dependency of `agent-framework`. The example
+  creates two isolated temporary workspaces. Its only injected
   source provider is `createScriptedProvider` with response 1 equal to `ARCH_014_LARGE:` followed by
   40 KiB of `x`, and response 2 exactly `ARCH_014_SENTINEL`. No committed transcript or credential is
   required.
 - **Exact command and ordered steps:**
 
   ```bash
-  pnpm --filter @robota-sdk/agent-provider-replay build
-  pnpm --filter @robota-sdk/agent-provider-replay exec tsx --conditions=source examples/verify-session-log-external-payload-replay.ts
+  volta run --node 22.14.0 pnpm --filter @robota-sdk/agent-framework scenario:verify:external-payload
   ```
 
   The standalone example must (1) create the source `InteractiveSession` with the scripted provider,
@@ -140,8 +140,8 @@ REVIEW VERDICT: ENDORSE
   shut down both sessions, remove both temporary workspaces, prove both paths are absent; and only then
   print its result. Every mismatch throws and makes the process exit non-zero.
 
-- **Expected observable result:** both commands exit `0`. After the first command's build output, the
-  second command prints exactly one JSON document with this directly observable shape:
+- **Expected observable result:** the command exits `0` and prints exactly one JSON document with this
+  directly observable shape:
 
   ```json
   {
@@ -174,7 +174,7 @@ REVIEW VERDICT: ENDORSE
   deletion to the two exact temporary directories it created, shuts both sessions down, and removes the
   JSONL, `.payloads/`, and replay logs with those directories. The success output itself confirms both
   directories no longer exist.
-- **Evidence:** On 2026-08-15 the two exact commands above exited 0. The standalone example printed
+- **Evidence:** On 2026-08-15 the exact command above exited 0. The standalone example printed
   `present: true`, sidecar path
   `arch-014-source.payloads/f41be56583d387c7fd3a79676507aea00115f6d3809e3eb8fd49bd3bc39a2879.json`,
   `sidecarExists: true`, byte length `40975`, sha256
@@ -221,10 +221,8 @@ vitest run src/__tests__/session-log-external-payload-replay-functional.test.ts`
 - Ordering: PASS — the corrected `[DONE-GATE-STAGE-1]` entry above records PASS for the maintained
   standalone public-SDK scenario, and the Task remains `in-progress` while the implementation is
   complete.
-- Direct execution: PASS — the orchestrator ran both exact commands against the completed work, and the
-  independent guardian freshly re-ran the standalone `tsx --conditions=source` command from the
-  repository worktree; both executions exited `0`. The build command was prerequisite setup only and
-  was not treated as user-execution evidence.
+- Direct execution: PASS — the orchestrator and independent guardian ran the maintained standalone
+  public-SDK scenario against the completed implementation; executions exited `0`.
 - Observed result: PASS — the product command printed `present: true`, the canonical
   `arch-014-source.payloads/f41be56583d387c7fd3a79676507aea00115f6d3809e3eb8fd49bd3bc39a2879.json`
   sidecar with `sidecarExists: true`, byte length `40975`, SHA-256
@@ -232,8 +230,8 @@ vitest run src/__tests__/session-log-external-payload-replay-functional.test.ts`
   `matchesOriginal: true`, call-2 `ARCH_014_SENTINEL` with `aligned: true`, and both cleanup booleans
   `true`, exactly matching every declared observable.
 - Concrete durable evidence: PASS — the exact command and expected output remain in this scenario;
-  `packages/agent-provider-replay/examples/verify-session-log-external-payload-replay.ts`,
-  `packages/agent-provider-replay/examples/scenarios/external-payload-replay.record.json`, and
-  `packages/agent-provider-replay/src/__tests__/session-log-external-payload-replay-functional.test.ts`
+  `packages/agent-framework/examples/verify-session-log-external-payload-replay.ts`,
+  `packages/agent-framework/examples/scenarios/framework-offline-scenarios.record.json`, and
+  `packages/agent-framework/src/testing/__tests__/session-log-external-payload-replay-functional.test.ts`
   all exist. The scenario evidence field above records the matching exit/output values; no engineering
   verification or unprobed capability-absence claim is substituted for product execution.

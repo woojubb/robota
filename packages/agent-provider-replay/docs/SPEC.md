@@ -92,7 +92,7 @@ Vitest unit/integration tests cover ordered replay + exhaustion (TC-03), tool-ca
 (TC-04), non-substrate isolation, direct-construction unresolved/base-directory behavior, nested sidecar
 hydration, corruption/containment/bounds failures, and `chatStream`. A real `InteractiveSession` scripted
 functional test records and replays a response over 32 KiB followed by a sentinel and is registered as
-`session-log-external-payload-replay` in the functional-coverage manifest. The maintained standalone
-`examples/verify-session-log-external-payload-replay.ts` drives the same public SDK surface without a
-test runner and prints byte/hash/alignment/cleanup evidence. Dependency direction (core + session only at
-runtime; framework and `tsx` development-only for verification) is enforced by `pnpm harness:scan`.
+`session-log-external-payload-replay` in the functional-coverage manifest. That real-session test and its
+maintained standalone example live in `agent-framework`, which owns `InteractiveSession`; they consume
+this provider through its public barrel and print byte/hash/alignment/cleanup evidence. The replay
+provider itself retains only core + session dependencies, preserving provider-layer direction.

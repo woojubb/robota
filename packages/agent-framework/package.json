@@ -48,8 +48,10 @@
     "build:types": "tsdown --dts",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-agent-runtime-session-store.ts",
-    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-framework --output examples/scenarios/agent-runtime-session-store.record.json -- pnpm scenario:verify",
+    "scenario:verify": "pnpm scenario:verify:external-payload && pnpm scenario:verify:runtime-session-store",
+    "scenario:verify:external-payload": "pnpm exec tsx --conditions=source examples/verify-session-log-external-payload-replay.ts",
+    "scenario:verify:runtime-session-store": "pnpm exec tsx --conditions=source examples/verify-agent-runtime-session-store.ts",
+    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-framework --output examples/scenarios/framework-offline-scenarios.record.json -- pnpm scenario:verify",
     "typecheck": "tsgo --noEmit",
     "lint": "eslint src/ --ext .ts",
     "clean": "rimraf dist",
@@ -64,9 +66,11 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@robota-sdk/agent-provider-replay": "workspace:*",
     "@robota-sdk/agent-session-analytics": "workspace:*",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",
+    "tsx": "^4.23.1",
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
   },

@@ -4,8 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createReplayProviderFromLogFile } from '@robota-sdk/agent-provider-replay';
+
+import { InteractiveSession } from '../src/index.js';
 
 const LARGE_RESPONSE = `ARCH_014_LARGE:${'x'.repeat(40 * 1024)}`;
 const SENTINEL_RESPONSE = 'ARCH_014_SENTINEL';
