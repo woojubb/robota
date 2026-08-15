@@ -77,6 +77,8 @@
     "typecheck": "tsgo --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
+    "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-session-event-delivery.ts",
+    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-transport --output examples/scenarios/session-event-delivery.record.json -- pnpm scenario:verify",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },

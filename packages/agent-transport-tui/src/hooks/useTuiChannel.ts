@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
+import type { ITuiSessionEventNotice } from '../tui-session-events.js';
 import type { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 import type { IPendingPermissionRequest } from '../types.js';
 import type { IActionRequest, IHistoryEntry, TSessionEndReason } from '@robota-sdk/agent-core';
@@ -30,6 +31,7 @@ export interface IInteractiveSessionState {
   lastErrorMessage: string | null;
   /** ERR-001 G3: no provider activity for a while during a turn — connection may be stalled. */
   isStalled: boolean;
+  sessionEventNotices: readonly ITuiSessionEventNotice[];
   isShuttingDown: boolean;
   pendingPrompt: string | null;
   /** REMOTE-014 E5: total queued turns across all drivers (owner + co-drivers); >1 means a co-driver is queued. */
@@ -99,6 +101,7 @@ export function useTuiChannel(channel: TuiInteractionChannel): IInteractiveSessi
     isAborting: manager.isAborting,
     lastErrorMessage: manager.lastErrorMessage,
     isStalled: manager.isStalled,
+    sessionEventNotices: manager.sessionEventNotices,
     isShuttingDown: channel.isShuttingDown,
     pendingPrompt: manager.pendingPrompt,
     // Read live from the session — the co-drive queue is session-owned. ARCH-012 made the getter

@@ -277,13 +277,13 @@ export interface IPromptResolvedEvent {
 export interface IContextFileRefreshedEvent {
   filePath: string;
 }
-
 /** Origin of a turn — distinguishes a human prompt from an agent-wakeup re-entry (FLOW-002). */
 export type TTurnSource = 'user' | 'agent-wakeup';
-
 /** SELFHOST-007: a checkpoint/branch lifecycle transition a surface renders. */
+type TCheckpointEventKind = `checkpoint_${'created' | 'restored' | 'rolled_back'}`;
+type TBranchEventKind = `branch_${'forked' | 'switched'}`;
 export interface IBranchEvent {
-  kind: 'checkpoint_created' | 'branch_forked' | 'branch_switched';
+  kind: TCheckpointEventKind | TBranchEventKind;
   /** The checkpoint id the transition concerns. */
   checkpointId: string;
   /** The branch the checkpoint belongs to (or was switched/forked to). */
@@ -327,7 +327,7 @@ export interface IInteractiveSessionEvents {
   goal_event: (event: IGoalEvent) => void;
   /** Emitted on every plan-mode lifecycle transition (created, approved, reverted) — SELFHOST-002. */
   plan_event: (event: IPlanApprovalEvent) => void;
-  /** Emitted on every checkpoint/branch transition (created, forked, switched) — SELFHOST-007. */
+  /** Emitted after every persisted checkpoint/branch transition — SELFHOST-007. */
   branch_event: (event: IBranchEvent) => void;
   /** REMOTE-007: a tool call awaits a permission decision; answer via `resolvePermission(id, …)`. */
   permission_request: (event: IPermissionRequestEvent) => void;

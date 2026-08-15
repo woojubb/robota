@@ -17,6 +17,8 @@ import type { IProtocolSession, TServerMessage } from '@robota-sdk/agent-transpo
 export interface IWsTransportOptions {
   /** Send a JSON message to the connected WebSocket client. */
   send: (message: TServerMessage) => void;
+  /** Owning socket lifecycle callback for outbound session-event delivery failures. */
+  onDeliveryError?: (error: Error, event: string) => void;
 }
 
 export interface IWsTransport extends ITransportAdapter<IInteractiveSession> {
@@ -34,7 +36,7 @@ export function createWsTransport(options: IWsTransportOptions): IWsTransport {
       transportName: 'ws',
     });
 
-  return {
+  const transport: IWsTransport = {
     name: 'ws',
     lifecycle: Object.freeze({ kind: 'service' }),
     onMessage: null,
@@ -44,7 +46,16 @@ export function createWsTransport(options: IWsTransportOptions): IWsTransport {
     async start() {
       if (!session) throw lifecycleError('not-attached');
       if (cleanup) throw lifecycleError('already-started');
-      const handler = createWsHandler({ session, send: options.send });
+      const handler = createWsHandler({
+        session,
+        send: options.send,
+        onDeliveryError: (error, event) => {
+          handler.cleanup();
+          cleanup = null;
+          transport.onMessage = null;
+          options.onDeliveryError?.(error, event);
+        },
+      });
       cleanup = handler.cleanup;
       this.onMessage = handler.onMessage;
     },
@@ -55,4 +66,5 @@ export function createWsTransport(options: IWsTransportOptions): IWsTransport {
       session = null;
     },
   };
+  return transport;
 }

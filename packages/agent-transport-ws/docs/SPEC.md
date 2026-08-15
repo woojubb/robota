@@ -136,12 +136,20 @@ unroutable channel frame surfaces as a `protocol_error` frame carrying the regis
 misuse of a channel handle (undeclared event, binary on a text-only channel, duplicate name, closed
 channel) throws a plain `Error` at the call site.
 
+Session-event delivery failures are carrier lifecycle failures, not session-operation failures.
+The configurable server treats a non-open socket as a failed send, routes synchronous and asynchronous
+`ws.send` errors through one idempotent connection cleanup/close path, and supplies that path as the
+protocol handler's `onDeliveryError`. `WsTransport` applies the same rule to its single attached socket
+and exposes an optional observer callback after internal cleanup.
+
 ## Test Strategy
 
 Protocol + handler unit tests under `src/__tests__`. TRANS-001 adds `payload-channels.test.ts`
 (registry declare/route/reject) and `ws-payload-channel.e2e.test.ts` — an end-to-end run over a real
 WebSocket server proving interleaved text deltas, opaque binary frames, and a custom event share one
-connection, with byte-identical ordered reassembly in both directions.
+connection, with byte-identical ordered reassembly in both directions. Carrier tests additionally prove
+that closed-socket and asynchronous send failures trigger the same idempotent cleanup lifecycle rather
+than escaping into the session event emitter.
 
 ## Dependencies
 

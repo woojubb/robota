@@ -18,6 +18,7 @@ import type {
   IInteractiveSession,
   IInteractiveSessionStore,
   ITransportRegistryView,
+  TInteractiveEventName,
 } from '@robota-sdk/agent-interface-transport';
 
 /**
@@ -90,4 +91,6 @@ export interface ITuiInteractionChannelOptions {
   automaticMemory?: IAutomaticMemoryConfig;
   /** SELFHOST-008 P6: optional per-turn recall policy (absent ⇒ recall OFF, startup-only injection). */
   recallMemory?: IPerTurnRecallConfig;
+  /** Observe TUI-owned session-event rendering failures without failing the committed operation. */
+  onSessionEventDeliveryError?: (error: Error, event: TInteractiveEventName) => void;
 }

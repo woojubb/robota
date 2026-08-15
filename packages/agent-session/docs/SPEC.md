@@ -185,7 +185,7 @@ intra-package for internal use, but they are not surfaced on the public `src/ind
 
 `ISessionOptions.autoCompactThreshold` controls the initial automatic compaction trigger as a `0 < value <= 1` fraction. The default is `0.835`. Set it to `false` when an embedding runtime manages compaction externally. `Session.setAutoCompactThreshold()` may change this policy after construction; subsequent `run()` calls use the new policy immediately.
 
-`ISessionOptions.onCompactEvent` receives structured compaction metadata with `trigger`, `before`, and `after` context-window states. Manual `Session.compact()` calls report `trigger: "manual"` by default; auto-compaction from `Session.run()` reports `trigger: "auto"`. The session logger also writes a `context_compact` event with the same before/after state so headless transports and logs can explain what happened without streaming compaction summary text into the normal answer path.
+`ISessionOptions.onCompactEvent` receives structured compaction metadata with `trigger`, `before`, and `after` context-window states. Manual `Session.compact()` calls report `trigger: "manual"` by default; auto-compaction from `Session.run()` reports `trigger: "auto"`. The session-owned `TCompactTrigger` is passed unchanged into `CompactionOrchestrator`, so PreCompact, PostCompact, `context_compact`, and `onCompactEvent` observe one value; the orchestrator never re-derives it from the presence of instructions. The session logger also writes a `context_compact` event with the same before/after state so headless transports and logs can explain what happened without streaming compaction summary text into the normal answer path.
 
 `ISessionOptions.activePresetId` is the runtime active-preset id selected at startup. It is pure
 state surfaced through `getActivePresetId()`/`setActivePresetId()` and is not used to re-apply any
@@ -269,6 +269,11 @@ The repo-root `./scripts/migrate-session-history.mjs` backfills the `history` fi
 ## Session Logging
 
 The session log records structured events to a JSONL file for diagnostics and replay. Logs must preserve enough raw data to reconstruct what was sent to the model and what came back:
+
+`SESSION_LOG_EVENT` is the complete declared vocabulary for every production session-log event. Direct
+logger calls, `onExecutionEvent` literals emitted by agent-core, and replay-reader-only recognized
+events must all be members; adding a production literal without adding it to this vocabulary is a
+contract violation. The event-name coverage test mechanically scans all three sources.
 
 - **`session_init` event** -- Recorded when a session is constructed. Includes `systemPrompt`, `systemPromptLength`, provider/model, cwd, and registered `toolSchemas`.
 - **`server_tool` event** -- Recorded when a server-managed tool (e.g., web search) executes during streaming. Includes the tool name and query.

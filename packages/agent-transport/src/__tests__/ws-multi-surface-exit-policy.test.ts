@@ -63,6 +63,7 @@ function setupSharedHost(adapters: ICommandHostAdapters): {
       session,
       send: (msg) => sent.push(msg),
       driverId,
+      onDeliveryError: vi.fn(),
     });
     return { sent, onMessage };
   };

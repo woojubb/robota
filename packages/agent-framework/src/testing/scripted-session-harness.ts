@@ -216,9 +216,9 @@ export class ScriptedSessionHarness {
     if (options.askHandler) {
       const askHandler = options.askHandler;
       this.session.on('ask_request', ({ id, request }) => {
-        void Promise.resolve(askHandler(request)).then((response) =>
-          this.session.resolveAsk(id, response),
-        );
+        void Promise.resolve(askHandler(request))
+          .then((response) => this.session.resolveAsk(id, response))
+          .catch(() => this.session.resolveAsk(id, { type: 'cancelled' }));
       });
     }
   }

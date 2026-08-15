@@ -416,6 +416,11 @@ different: `renderApp` and
 `TuiInteractionChannel` own their session instead of pretending to implement the borrowed-session
 adapter contract.
 
+`IInteractionChannel` is only the in-process `createInteractiveRuntime` port. Full session surfaces use
+the shared event/capability contract directly: `permission_request` and `ask_request` are settled through
+`resolvePermission` and `resolveAsk`, and exactly one `prompt_resolved` event closes the request. Persisted
+checkpoint transitions emit `branch_event` after the state change is saved.
+
 `agent-remote-client` is a companion package that provides an HTTP client for calling an agent exposed via `agent-transport-http`. It has no dependency on `agent-framework`.
 
 ## Assembly vs Direct Usage

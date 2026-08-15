@@ -96,6 +96,7 @@ export async function compact(
     nonSystemHistory,
     instructions,
     signal,
+    ctx.trigger,
   );
 
   // Clear history, re-inject system message, then inject summary.

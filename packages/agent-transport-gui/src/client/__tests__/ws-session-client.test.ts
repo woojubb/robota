@@ -66,6 +66,38 @@ describe('createWsSessionClient (WEBUI-002)', () => {
     expect(messages).toEqual([{ type: 'thinking', isThinking: true }]);
   });
 
+  it.each([
+    {
+      type: 'plan_event',
+      event: {
+        type: 'plan_created',
+        plan: {
+          id: 'plan-1',
+          objective: 'verify delivery',
+          steps: [],
+          phase: 'planning',
+          createdAt: '2026-08-15T00:00:00.000Z',
+        },
+      },
+    },
+    { type: 'context_file_refreshed', event: { filePath: '/repo/AGENTS.md' } },
+    {
+      type: 'branch_event',
+      event: { kind: 'branch_switched', checkpointId: 'turn-0002', branchId: 'branch-2' },
+    },
+  ] satisfies TServerMessage[])('accepts the $type event frame unchanged', (frame) => {
+    const messages: TServerMessage[] = [];
+    const client = createWsSessionClient('ws://localhost:7070', {
+      onMessage: (message) => messages.push(message),
+      onStatusChange: () => {},
+    });
+    client.connect();
+
+    lastSocket!.onmessage?.({ data: JSON.stringify(frame) });
+
+    expect(messages).toEqual([frame]);
+  });
+
   it('schedules a reconnect after an unintentional close (WEBUI-001)', () => {
     vi.useFakeTimers();
     try {

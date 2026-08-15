@@ -59,7 +59,7 @@ describe('driver attribution is a declared capability, not an optional call (ARC
   it('stamps the active driver onto a turn-authored event', () => {
     const send = vi.fn();
     const session = hostWithAttribution('driver-7');
-    subscribeSessionEvents(session, send);
+    subscribeSessionEvents(session, send, { onDeliveryError: vi.fn() });
 
     const handler = vi.mocked(session.on).mock.calls.find(([name]) => name === 'user_message')?.[1];
     (handler as (content: string) => void)('hello');
@@ -72,7 +72,7 @@ describe('driver attribution is a declared capability, not an optional call (ARC
     // "this host cannot answer the question".
     const send = vi.fn();
     const session = hostWithAttribution(null);
-    subscribeSessionEvents(session, send);
+    subscribeSessionEvents(session, send, { onDeliveryError: vi.fn() });
 
     const handler = vi.mocked(session.on).mock.calls.find(([name]) => name === 'user_message')?.[1];
     (handler as (content: string) => void)('hello');

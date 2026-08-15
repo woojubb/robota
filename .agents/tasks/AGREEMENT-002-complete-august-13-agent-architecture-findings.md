@@ -44,11 +44,11 @@ The paired spec passed GATE-APPROVAL on 2026-08-15. The user's instruction
 
 - [x] TC-01 — preserve full-fidelity external session payloads in ARCH-014.
 - [x] TC-02 — preserve unknown session-record fields and reconcile the canonical store port in ARCH-015.
-- [ ] TC-03 — unify the session-log vocabulary and compact trigger in ARCH-016.
-- [ ] TC-04 — remove obsolete permission/ask seams and retain the prompt-registry SSOT in ARCH-017.
-- [ ] TC-05 — make the interaction-channel charter and implementer set agree in ARCH-018.
-- [ ] TC-06 — implement the complete committed checkpoint/branch transition matrix in ARCH-020.
-- [ ] TC-07 — deliver the shared event contract through exhaustive TUI/protocol mappings in ARCH-028.
+- [x] TC-03 — unify the session-log vocabulary and compact trigger in ARCH-016.
+- [x] TC-04 — remove obsolete permission/ask seams and retain the prompt-registry SSOT in ARCH-017.
+- [x] TC-05 — make the interaction-channel charter and implementer set agree in ARCH-018.
+- [x] TC-06 — implement the complete committed checkpoint/branch transition matrix in ARCH-020.
+- [x] TC-07 — deliver the shared event contract through exhaustive TUI/protocol mappings in ARCH-028.
 - [ ] TC-08 — preserve live product composition through a parent-side worker broker in ARCH-021.
 - [x] TC-09 — forward runtime-owned default session persistence in ARCH-023.
 - [ ] TC-10 — inject semantic command roles from composition in ARCH-024.
@@ -66,10 +66,10 @@ projection is the section below.
 
 - [x] ARCH-014 — done — `.agents/tasks/completed/ARCH-014-session-log-external-payloads-have-no-dereferencer.md`
 - [x] ARCH-015 — done — `.agents/tasks/completed/ARCH-015-two-writers-one-record-contract-session-save-destroys-fields.md`
-- [ ] ARCH-016 — todo — `.agents/tasks/ARCH-016-session-log-event-vocabulary-and-compaction-trigger-split-brain.md`
-- [ ] ARCH-017 — todo — `.agents/tasks/ARCH-017-injected-permission-ask-handlers-are-dead-surface.md`
-- [ ] ARCH-018 — todo — `.agents/tasks/ARCH-018-interaction-channel-charter-is-unsatisfiable-as-written.md`
-- [ ] ARCH-020 — todo — `.agents/tasks/ARCH-020-branch-event-is-declared-and-emitted-by-nothing.md`
+- [x] ARCH-016 — done — `.agents/tasks/completed/ARCH-016-session-log-event-vocabulary-and-compaction-trigger-split-brain.md`
+- [x] ARCH-017 — done — `.agents/tasks/completed/ARCH-017-injected-permission-ask-handlers-are-dead-surface.md`
+- [x] ARCH-018 — done — `.agents/tasks/completed/ARCH-018-interaction-channel-charter-is-unsatisfiable-as-written.md`
+- [x] ARCH-020 — done — `.agents/tasks/completed/ARCH-020-branch-event-is-declared-and-emitted-by-nothing.md`
 - [ ] ARCH-021 — todo — `.agents/tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`
 - [ ] ARCH-022 — todo — `.agents/tasks/ARCH-022-framework-pass-through-re-export-evades-public-surface-guard.md`
 - [x] ARCH-023 — done — `.agents/tasks/completed/ARCH-023-createAgentRuntime-default-sessionstore-never-forwarded.md`
@@ -77,7 +77,7 @@ projection is the section below.
 - [ ] ARCH-025 — todo — `.agents/tasks/ARCH-025-executor-projections-silently-drop-contract-fields.md`
 - [ ] ARCH-026 — todo — `.agents/tasks/ARCH-026-scheduled-task-runner-bypasses-shell-resolution-ssot.md`
 - [ ] ARCH-027 — todo — `.agents/tasks/ARCH-027-dead-composition-contract-fields.md`
-- [ ] ARCH-028 — todo — `.agents/tasks/ARCH-028-plan-and-context-refresh-events-emitted-into-a-contract-no-transport-consumes.md`
+- [x] ARCH-028 — done — `.agents/tasks/completed/ARCH-028-plan-and-context-refresh-events-emitted-into-a-contract-no-transport-consumes.md`
 
 ## Test Plan
 
@@ -103,6 +103,13 @@ user-execution scenario owned by its source child Task.
 - GATE-IMPLEMENT passed; the paired spec is active and the initiative Task tracks TC-01 through TC-16.
 - Foundational scopes for ARCH-020/021/025/028 and current-SSOT decisions for ARCH-017/027 were
   recorded before any child recommendation gate.
+
+### 2026-08-16
+
+- ARCH-016, ARCH-017, ARCH-018, and the combined ARCH-020+ARCH-028 event-delivery work unit passed
+  their independent completion gates and were archived with durable scenario/engineering evidence.
+- The batch passed the affected scoped harnesses, canonical scenario comparisons, conformance, and
+  the repository scan (`110` passed, `2` intentionally skipped).
 
 ## Decisions
 

@@ -168,6 +168,24 @@ are type-only except for the four pure accessor functions re-exported from `inte
 
 ## Interface Contracts
 
+### Interaction channel scope
+
+`IInteractionChannel` is the in-process port consumed by `createInteractiveRuntime`; today
+`ProgrammaticInteractionChannel` is its production implementation. It is not the universal transport
+contract. The TUI owns an `IInteractiveSession` and subscribes to its full event map directly, while
+headless and remote transports use the session capability/configurable-transport families. A surface
+must not nominally implement `IInteractionChannel` while making its central `write()` operation a no-op.
+
+Prompt settlement belongs to the interactive-session event/capability family, not `InteractionEvent`:
+surfaces receive `permission_request` / `ask_request`, answer through `resolvePermission` /
+`resolveAsk`, and dismiss on the single canonical `prompt_resolved` event. The obsolete
+`permission-resolved` interaction variant is not part of the contract.
+
+Checkpoint surfaces consume `branch_event` after a transition is persisted. Its kinds cover checkpoint
+creation, restoration, rollback, explicit branch fork, and branch switch. Resume-pointer hydration is
+not an event. Shared keys and serializable payloads live here; subscription, rendering, delivery-failure
+isolation, and fan-out policy remain owned by transport implementations.
+
 ### Interactive session persistence
 
 `IInteractiveSessionRecord` is the complete resumable-record SSOT and

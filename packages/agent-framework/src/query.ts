@@ -50,10 +50,18 @@ export function createQuery(options: ICreateQueryOptions): (prompt: string) => P
     provider: options.provider,
     permissionMode: options.permissionMode ?? 'bypassPermissions',
     maxTurns: options.maxTurns,
-    permissionHandler: options.permissionHandler,
     additionalTools: options.additionalTools,
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
   });
+
+  if (options.permissionHandler) {
+    const permissionHandler = options.permissionHandler;
+    session.on('permission_request', ({ id, toolName, toolArgs }) => {
+      void Promise.resolve(permissionHandler(toolName, toolArgs))
+        .then((result) => session.resolvePermission(id, result))
+        .catch(() => session.resolvePermission(id, false));
+    });
+  }
 
   if (options.onTextDelta) {
     session.on('text_delta', options.onTextDelta);

@@ -2,18 +2,12 @@
  * Pairing gate for the WebRTC data channel (REMOTE-008 Stage B4-2b; extended for REMOTE-012 Stage E3 TOFU
  * reconnect).
  *
- * The data channel is **phase-separated**: pre-accept it carries ONLY pairing/reconnect frames, post-accept
- * ONLY session messages. A single eager `onMessage` subscription (werift drops inbound frames received before
- * a subscription exists) feeds {@link PairingGate.onInbound}, which SWITCHES routing on accept — it never
- * defers the subscription. Until accept, the session bridge (`createWsHandler`) is not even built, so nothing
- * a peer sends can reach the live session.
+ * The data channel is phase-separated: pre-accept it carries pairing/reconnect frames, post-accept only
+ * session messages. An eager subscription feeds {@link PairingGate.onInbound}; the session bridge is not
+ * built until acceptance, so no pre-accept peer frame can reach the live session.
  *
- * Two admission modes (E3), decided by the client's FIRST frame:
- * - **first-pair** (`pair-nonce`): the B3 directional-HMAC handshake, then — when E3 `reconnect` config is
- *   present — a mutual identity-key **enrollment** exchange (each side sends its ECDSA public key over the
- *   just-confirmed channel; the host pins the device key) before the session is exposed;
- * - **reconnect** (`rc-hello`): the mutual {@link startHostReconnect} handshake against the pinned device +
- *   host identity keys — no re-pair, exposes the session only on mutual accept.
+ * E3 selects first-pair (`pair-nonce`, then identity-key enrollment) or reconnect (`rc-hello`, pinned
+ * identities) from the client's first frame and exposes the session only after mutual acceptance.
  *
  * Fail-closed: a non-admission frame pre-accept is DROPPED; the handshake `result` is the ONLY accept signal;
  * on reject/timeout the channel is closed and no session bridge is ever created; a post-close frame is ignored.
@@ -34,7 +28,8 @@ import {
   type TReconnectFrame,
 } from '@robota-sdk/agent-remote-pairing';
 
-import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
+import type { IProtocolSession, TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import { pairingChannel } from './pairing-channel-lifecycle.js';
 
 /** The minimal data-channel surface the gate drives (a werift `RTCDataChannel` satisfies it). */
 export interface IPairingChannel {
@@ -83,6 +78,8 @@ export interface IPairingGateOptions {
    * (never disposes — the bridge is owned by the transport across reconnects).
    */
   readonly resumeBridge?: SessionResumeBridge;
+  /** Post-accept session-frame delivery failure; owning transport performs drop cleanup. */
+  readonly onDeliveryError?: (error: Error, event: TServerMessage['type'] | string) => void;
   /** Injection seams (default to the real implementations). */
   readonly startHandshake?: typeof startPairingHandshake;
   readonly createHandler?: typeof createWsHandler;
@@ -200,7 +197,7 @@ export class PairingGate {
       role: this.options.role,
       localFingerprint: this.options.localFingerprint,
       remoteFingerprint: this.options.remoteFingerprint,
-      send: (frame) => this.safeSend(JSON.stringify(frame)),
+      send: (frame) => pairingChannel.send(this.options.channel, JSON.stringify(frame)),
       ...(this.options.timeoutMs !== undefined ? { timeoutMs: this.options.timeoutMs } : {}),
     });
     this.pairingController = controller;
@@ -222,7 +219,7 @@ export class PairingGate {
       remoteFingerprint: this.options.remoteFingerprint,
       hostPrivateKey: cfg.hostPrivateKey,
       resolveDevicePublicKey: cfg.resolveDevicePublicKey,
-      send: (frame) => this.safeSend(JSON.stringify(frame)),
+      send: (frame) => pairingChannel.send(this.options.channel, JSON.stringify(frame)),
       ...(this.options.timeoutMs !== undefined ? { timeoutMs: this.options.timeoutMs } : {}),
     });
     this.reconnectController = controller;
@@ -243,7 +240,8 @@ export class PairingGate {
     }
     // E3 enrollment: advertise the host public key; the peer's `enroll-key` completes it (then expose).
     this.state = 'enrolling';
-    this.safeSend(
+    pairingChannel.send(
+      this.options.channel,
       JSON.stringify({ t: 'enroll-key', spki: cfg.hostPublicSpki } satisfies IEnrollFrame),
     );
   }
@@ -276,14 +274,18 @@ export class PairingGate {
       // REMOTE-013 E4: route the session through the persistent bridge. Attach this channel as the sink; on a
       // RECONNECT, hold live forwarding until the client's `resume` replays the buffered tail (ordering fix).
       // post-accept inbound frames (incl. resume/ack) go to the bridge; cleanup DETACHES (session survives).
-      bridge.attach((data) => this.safeSend(data), { awaitResume: viaReconnect });
+      bridge.attach((data) => this.options.channel.send(data), {
+        awaitResume: viaReconnect,
+        onDeliveryError: (error, event) => this.handleSessionDeliveryError(error, event),
+      });
       this.onSessionMessage = (data) => bridge.onClientMessage(data);
       this.handlerCleanup = () => bridge.detach();
     } else {
       const create = this.options.createHandler ?? createWsHandler;
       const { onMessage, cleanup } = create({
         session: this.options.session,
-        send: (serverMessage) => this.safeSend(JSON.stringify(serverMessage)),
+        send: (serverMessage) => this.options.channel.send(JSON.stringify(serverMessage)),
+        onDeliveryError: (error, event) => this.handleSessionDeliveryError(error, event),
       });
       this.onSessionMessage = onMessage;
       this.handlerCleanup = cleanup;
@@ -295,19 +297,17 @@ export class PairingGate {
   private rejectAndClose(): void {
     if (this.state === 'closed') return;
     this.state = 'closed';
-    try {
-      this.options.channel.close();
-    } catch {
-      // already closing/closed
-    }
+    pairingChannel.close(this.options.channel);
     this.options.onReject?.();
   }
 
-  private safeSend(data: string): void {
-    try {
-      this.options.channel.send(data);
-    } catch {
-      // Channel is closing/closed — the peer is gone; the frame cannot be delivered (matches WS semantics).
-    }
+  private handleSessionDeliveryError(error: Error, event: string): void {
+    if (this.state === 'closed') return;
+    this.state = 'closed';
+    this.handlerCleanup?.();
+    this.handlerCleanup = undefined;
+    this.onSessionMessage = undefined;
+    pairingChannel.reportDeliveryError(this.options.onDeliveryError, error, event);
+    pairingChannel.close(this.options.channel);
   }
 }

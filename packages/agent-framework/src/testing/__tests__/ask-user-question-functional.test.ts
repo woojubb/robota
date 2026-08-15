@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 
 import type { IActionRequest } from '@robota-sdk/agent-core';
+import type { IPromptResolvedEvent } from '@robota-sdk/agent-interface-transport';
 
 const TEST_TIMEOUT = 20_000;
 
@@ -45,6 +46,7 @@ describe('AskUserQuestion tool (CMD-005) — functional, via the scripted-sessio
     'routes a model-issued question to the askHandler and returns the answer as the tool result',
     async () => {
       const seen: IActionRequest[] = [];
+      const resolved: IPromptResolvedEvent[] = [];
       harness = scriptedSession({
         askHandler: (request) => {
           seen.push(request);
@@ -69,6 +71,7 @@ describe('AskUserQuestion tool (CMD-005) — functional, via the scripted-sessio
           { text: 'building with React' },
         ],
       });
+      harness.session.on('prompt_resolved', (event) => resolved.push(event));
 
       await harness.submit('set up the frontend');
 
@@ -80,6 +83,8 @@ describe('AskUserQuestion tool (CMD-005) — functional, via the scripted-sessio
       expect(result).toEqual({
         answers: [{ question: 'Which framework?', values: ['React'] }],
       });
+      expect(resolved).toHaveLength(1);
+      expect(resolved[0]?.id).toMatch(/^a\d+$/);
     },
     TEST_TIMEOUT,
   );

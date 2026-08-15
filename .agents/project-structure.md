@@ -278,12 +278,17 @@ same-PR doc updates, document-role sync — live in
 `agent-framework` owns the `createInteractiveRuntime` factory that wires it. Together they define
 the contract between the session runtime and transport implementations.
 
-- `IInteractionChannel` — the interface that all interactive transports implement (TUI, headless, future web/remote); SSOT in `agent-interface-transport`
+- `IInteractionChannel` — the in-process channel port wired by `createInteractiveRuntime`; its current
+  production implementation is `ProgrammaticInteractionChannel`; SSOT in `agent-interface-transport`
 - `InteractionEvent` — the union type of one-way display events emitted by the runtime to the channel
 - `TActionRequest` / `TActionResponse` — the disambiguation dialog protocol (permission prompts)
 - `createInteractiveRuntime` — the factory that wires `IInteractionChannel` ↔ `InteractiveSession`
 
-The transport packages own concrete implementations: `TuiInteractionChannel` (TUI mode, in `agent-transport-tui`) and `HeadlessInteractionChannel` (print mode, in `agent-transport` core). `TuiInteractionChannel` implements `IInteractionChannel` directly; `HeadlessInteractionChannel` does not, because doing so would lose access to session events outside the `InteractionEvent` union.
+`ProgrammaticInteractionChannel` (in `agent-transport`) is the concrete production implementation.
+`TuiInteractionChannel` is instead a session-owning presentation surface that subscribes to the full
+`IInteractiveSessionEvents` map; it does not implement this narrower port. Headless, WS, HTTP, MCP, and
+WebRTC surfaces likewise operate on `IInteractiveSession`/capability or configurable-transport contracts,
+because reducing them to `InteractionEvent` would discard session events they consume.
 
 ## Command Package Rule
 

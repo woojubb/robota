@@ -47,6 +47,16 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
   operator (local == remote); the first answer wins and `prompt_resolved` dismisses it on co-drive. A client
   disconnect (`cleanup` → `session.off`) drops the prompt listeners, and the session's reconcile-on-detach
   fails the prompt closed (deny/cancel) so a mid-prompt disconnect cannot hang the awaiting tool.
+- **ARCH-020/028 total session-event delivery.**
+  `PROTOCOL_SESSION_EVENT_CLASSIFICATION` is an exhaustive
+  `Record<TInteractiveEventName, 'forwarded' | 'requester-routed' | 'non-surface'>`. The actual
+  `subscribeSessionEvents` registrations are mechanically compared with every non-`non-surface`
+  entry. `plan_event`, `context_file_refreshed`, and `branch_event` are forwarded as identically named
+  `TServerMessage` variants. Each transport-owned listener catches an outbound `send` failure and
+  reports it through the required `onDeliveryError(error, event)` carrier callback without reversing the already-committed session
+  operation; a diagnostic callback failure is isolated too. `SessionResumeBridge` applies the same
+  rule per attachment: `attach` requires the current carrier's callback, and a failure detaches the
+  broken sink while preserving the buffered frame for replay.
 - **CMD-004 Phase 2 host-action/UI-intent split.** An inbound `command` verb passes the handler's
   SERVER-ASSIGNED `driverId` (REMOTE-014 E5 — never a client-sent one) into
   `session.executeCommand(name, args, 'remote', driverId)` so the session executes host actions
@@ -89,31 +99,32 @@ they do not rebuild anonymous intersections or require the unrelated lifecycle/g
 
 ## Public API Surface
 
-| Export                        | Kind      |
-| ----------------------------- | --------- |
-| `resolveAdmission`            | Function  | SEC-008: the one place a transport asks what credential it requires (secure by default) |
-| `mintTransportToken`          | Function  | SEC-008: mint a per-launch credential; throws rather than returning a weak one          |
-| `credentialMatches`           | Function  | SEC-008: constant-time comparison of a presented credential against the required one    |
-| `bearerCredential`            | Function  | SEC-008: extract a bearer credential from an `Authorization` header value               |
-| `createWsHandler`             | function  |
-| `IWsHandlerOptions`           | interface |
-| `TClientMessage`              | type      |
-| `TServerMessage`              | type      |
-| `TSeqServerMessage`           | type      |
-| `ResumeBuffer`                | class     |
-| `IResumeBufferOptions`        | interface |
-| `IBufferedFrame`              | interface |
-| `TResumeTail`                 | type      |
-| `SessionResumeBridge`         | class     |
-| `ISessionResumeBridgeOptions` | interface |
-| `TResumeSink`                 | type      |
-| `IAttachOptions`              | interface |
-| `encodeBinaryFrame`           | function  |
-| `encodeChannelEventFrame`     | function  |
-| `decodeChannelFrame`          | function  |
-| `isChannelFrame`              | function  |
-| `CHANNEL_FRAME_MAGIC`         | constant  |
-| `CHANNEL_FRAME_VERSION`       | constant  |
+| Export                                  | Kind      |
+| --------------------------------------- | --------- |
+| `resolveAdmission`                      | Function  | SEC-008: the one place a transport asks what credential it requires (secure by default) |
+| `mintTransportToken`                    | Function  | SEC-008: mint a per-launch credential; throws rather than returning a weak one          |
+| `credentialMatches`                     | Function  | SEC-008: constant-time comparison of a presented credential against the required one    |
+| `bearerCredential`                      | Function  | SEC-008: extract a bearer credential from an `Authorization` header value               |
+| `createWsHandler`                       | function  |
+| `IWsHandlerOptions`                     | interface |
+| `PROTOCOL_SESSION_EVENT_CLASSIFICATION` | constant  | Exhaustive protocol surface policy for every shared session-event key                   |
+| `TClientMessage`                        | type      |
+| `TServerMessage`                        | type      |
+| `TSeqServerMessage`                     | type      |
+| `ResumeBuffer`                          | class     |
+| `IResumeBufferOptions`                  | interface |
+| `IBufferedFrame`                        | interface |
+| `TResumeTail`                           | type      |
+| `SessionResumeBridge`                   | class     |
+| `ISessionResumeBridgeOptions`           | interface |
+| `TResumeSink`                           | type      |
+| `IAttachOptions`                        | interface |
+| `encodeBinaryFrame`                     | function  |
+| `encodeChannelEventFrame`               | function  |
+| `decodeChannelFrame`                    | function  |
+| `isChannelFrame`                        | function  |
+| `CHANNEL_FRAME_MAGIC`                   | constant  |
+| `CHANNEL_FRAME_VERSION`                 | constant  |
 
 ## Type Ownership
 
@@ -132,6 +143,10 @@ The TRANS-001 channel frame codec owns the ENVELOPE only; the frame/channel CONT
 `src/__tests__/ws-handler.test.ts` (moved from `agent-transport-ws`) covers the session-event → `TServerMessage`
 subscription and inbound `TClientMessage` dispatch with a stubbed session (no socket, no real provider),
 including the REMOTE-007 prompt-event forwarding and the `permission-response` / `ask-response` → `resolve*`
-dispatch (TC-06). `src/__tests__/channel-frames.test.ts` (TRANS-001) covers the channel codec: opaque
+dispatch (TC-06). `src/__tests__/session-event-delivery.test.ts` mechanically compares the real
+subscriptions and teardown handlers with the exhaustive classification, verifies plan/context/branch
+fan-out, and proves a throwing carrier is reported without escaping the session listener.
+`src/__tests__/session-resume-bridge.test.ts` proves sink failure detaches while retaining the frame.
+`src/__tests__/channel-frames.test.ts` (TRANS-001) covers the channel codec: opaque
 round-trip integrity (including non-UTF-8 bytes), chunked reassembly by `seq` from out-of-order delivery,
 multi-byte channel names, encoder input validation, and every malformed-input error result.

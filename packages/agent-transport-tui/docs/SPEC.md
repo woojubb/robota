@@ -26,17 +26,33 @@ to this package and never enter the dependency graph of non-TUI consumers.
 ```
 agent-transport-tui
   ├── renderApp              ← mounts the Ink <App/>
-  ├── TuiInteractionChannel  ← IInteractionChannel for TUI mode
+  ├── TuiInteractionChannel  ← session-owning TUI presentation surface
   └── createDefaultTuiCliAdapter ← wires command/provider UX into the renderer
 ```
+
+`TuiInteractionChannel` does not implement `IInteractionChannel`. It owns the real interactive session
+and subscribes to `IInteractiveSessionEvents` directly, because the narrower `InteractionEvent` stream
+cannot carry the full TUI state. `IInteractionChannel` remains the port for
+`createInteractiveRuntime`-wired in-process channels such as `ProgrammaticInteractionChannel`.
+
+Plan lifecycle, context-file refresh, and checkpoint/branch events are projected by the pure
+`createTuiSessionEventNotice` function into a bounded, append-only notice list owned by
+`TuiStateManager`. `<SessionEventNotices>` renders that list separately from canonical conversation
+history, so history synchronization cannot erase operational notices. Every channel-owned listener
+isolates projection/render-state failures and reports them through
+`onSessionEventDeliveryError(error, event)` without reversing a committed session operation; a
+diagnostic callback failure is isolated too. When an embedding owner does not inject that optional
+observer, the channel appends a visible `delivery-error` notice instead of failing silently.
 
 ## Channel Lifecycle & Teardown
 
 `TuiInteractionChannel` owns the interactive session and its render state; its teardown contract is
 authoritative for how the TUI releases resources on session switch and process exit.
 
-- **`start()`** wires the session event listeners (13 `session.on(...)` bindings) and begins the
-  init poller. It is idempotent (a `sessionStarted` guard).
+- **`start()`** wires the session event listeners selected by the exhaustive
+  `TUI_SESSION_EVENT_CLASSIFICATION` map (currently 20 channel-owned bindings) and begins the init
+  poller. It is idempotent (a `sessionStarted` guard). Tests compare the actual `on`/`off` keys and
+  handler identities with the map so a new shared event cannot silently miss the TUI.
 - **`stop()`** is the full, idempotent channel teardown (a `stopped` guard makes repeat calls
   no-ops). It **unwires every session listener** it registered (each binding is retained and removed
   with `session.off(...)` — no handler may stay bound to a discarded session), drains the permission
@@ -102,14 +118,15 @@ convenience at the transport boundary.
 
 ## Public API Surface
 
-| Export                                                                      | Kind     | Description                                                             |
-| --------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------- |
-| `renderApp`                                                                 | function | Mount the Ink application                                               |
-| `createDefaultTuiCliAdapter`                                                | function | Default CLI adapter for the renderer                                    |
-| `ITuiCliAdapter` + option types                                             | types    | Adapter contracts                                                       |
-| `ITuiPickerItem`                                                            | type     | One selectable item in a TUI picker interaction                         |
-| `ITuiCommandInteraction`, `ITuiPickerInteraction`, `ITuiConfirmInteraction` | types    | Command/picker/confirm interaction contracts (`command-interaction.ts`) |
-| `TAnyTuiCommandInteraction`, `TOnMissingArgsAction`                         | types    | Union of interaction contracts; missing-args action discriminator       |
+| Export                                                                      | Kind        | Description                                                             |
+| --------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------- |
+| `renderApp`                                                                 | function    | Mount the Ink application                                               |
+| `createDefaultTuiCliAdapter`                                                | function    | Default CLI adapter for the renderer                                    |
+| `TuiInteractionChannel` + option types                                      | class/types | Session-owning TUI surface and its delivery-error callback seam         |
+| `ITuiCliAdapter` + option types                                             | types       | Adapter contracts                                                       |
+| `ITuiPickerItem`                                                            | type        | One selectable item in a TUI picker interaction                         |
+| `ITuiCommandInteraction`, `ITuiPickerInteraction`, `ITuiConfirmInteraction` | types       | Command/picker/confirm interaction contracts (`command-interaction.ts`) |
+| `TAnyTuiCommandInteraction`, `TOnMissingArgsAction`                         | types       | Union of interaction contracts; missing-args action discriminator       |
 
 ## Interaction Affordance Contract (SCREEN-005)
 
@@ -212,8 +229,10 @@ command/provider UX without the transport knowing CLI specifics.
 
 ## Error Taxonomy
 
-Rendering/runtime errors surface through the interactive-session event stream; this package adds no
-new error classes.
+Provider/runtime errors surface through the interactive-session event stream. A TUI-owned event
+projection failure is reported through `onSessionEventDeliveryError`; it never mutates the canonical
+turn-error state and never escapes back into the already-committed domain operation. This package adds
+no new error classes.
 
 ## Test Strategy
 
@@ -224,6 +243,10 @@ binary boundary with representative supported-default, Terminal.app-default-off,
 Terminal.app-force-on, and supported-force-off cells, both viewport geometries when positioning is
 enabled, plus the dedicated real-tmux suite; it does not repeat every pure capability cell through a
 fresh process.
+
+`TuiInteractionChannel.lifecycle.test.ts` mechanically compares actual listener registration and
+teardown with the exhaustive classification and forces a notice projection failure. The notice
+component suite proves deterministic plan/context/branch rendering independently of canonical history.
 
 ## Dependencies
 

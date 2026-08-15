@@ -47,8 +47,11 @@ trickle candidates that precede the remote description), creates the `robota-ses
 SDP offer. The data channel is wired **eagerly at creation** (not on `open`): `createWsHandler({ session, send })`
 is built immediately and `onMessage` subscribed at once, because werift does not buffer inbound frames that
 arrive before a subscription and the remote can send its first `TClientMessage` before the host's channel opens.
-Outbound `send` runs under try/catch (werift buffers sends while `connecting`; only a `closing`/`closed` channel
-throws). `stop()` tears down the handler, signal subscription, and peer.
+Outbound session-event delivery is owned by the carrier. The protocol handler's `onDeliveryError`
+callback routes a data-channel send failure through one idempotent channel/handler cleanup path and an
+optional owner observer; it never escapes back into the committed session operation. The pairing gate
+uses the same rule after acceptance, and a reconnect attachment detaches its failed sink while retaining
+the frame in the resume buffer. `stop()` tears down the handler, signal subscription, and peer.
 
 ARCH-011 classifies this as a frozen `service` lifecycle. Its readiness boundary is publication of
 the local offer/signaling state; it deliberately does not wait for an external answer, data-channel
@@ -117,8 +120,9 @@ reserved for E4). Without `reconnect`, the gate is exactly the B4 first-pair-onl
 - `werift` absent → `loadWerift` throws `WebRTC transport unavailable — install the optional peer dependency
 "werift" …` at point-of-use (never a silent degrade).
 - `start()` before `attach()` → throws `WebRtcTransport: attach() must be called before start()`.
-- A `send` on a `closing`/`closed` channel is dropped (the peer is gone) — matching WebSocket send-after-close
-  semantics; it is never a partial/duplicated frame.
+- A session-event `send` failure on a closing/closed channel closes and detaches that carrier, reports
+  `onDeliveryError`, and leaves the committed session operation successful. It is never silently dropped
+  or partially retried.
 
 ## Test Strategy
 
@@ -131,6 +135,8 @@ throws the explicit "unavailable" error (via an injected throwing resolver) when
 `src/__tests__/pairing-gate.test.ts` (REMOTE-008 Step 1): the fail-closed routing switch with a stub channel +
 injected handshake/handler — session exposed ONLY post-accept, non-pairing frames dropped pre-accept, channel closed
 on reject, frames ignored post-close.
+The transport and pairing-gate suites also force post-accept send failures and assert channel cleanup,
+owner callback delivery, and non-propagation into the session emitter.
 
 ## Dependencies
 

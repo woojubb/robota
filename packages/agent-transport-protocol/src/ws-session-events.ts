@@ -8,19 +8,54 @@
 
 import type { IProtocolSession } from './protocol-session.js';
 import type { TServerMessage } from './ws-protocol.js';
-import type { TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId, TInteractiveEventName } from '@robota-sdk/agent-interface-transport';
 import type {
   IAskRequestEvent,
+  IBranchEvent,
+  IContextFileRefreshedEvent,
   IExecutionResult,
   IExecutionWorkspaceEvent,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
+  IPlanApprovalEvent,
   ISessionRenamedEvent,
   IToolState,
   IUiIntentEvent,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
 } from '@robota-sdk/agent-interface-transport';
+
+export type TProtocolSessionEventClassification = 'forwarded' | 'requester-routed' | 'non-surface';
+
+/** Exhaustive protocol-owner policy over the shared session-event vocabulary. */
+export const PROTOCOL_SESSION_EVENT_CLASSIFICATION = {
+  text_delta: 'forwarded',
+  tool_start: 'forwarded',
+  tool_end: 'forwarded',
+  thinking: 'forwarded',
+  complete: 'forwarded',
+  error: 'forwarded',
+  context_update: 'non-surface',
+  compact: 'non-surface',
+  interrupted: 'forwarded',
+  skill_activation: 'non-surface',
+  background_task_event: 'forwarded',
+  background_job_group_event: 'forwarded',
+  execution_workspace_event: 'forwarded',
+  user_message: 'forwarded',
+  turn_source: 'non-surface',
+  context_file_refreshed: 'forwarded',
+  memory_event: 'non-surface',
+  goal_event: 'non-surface',
+  plan_event: 'forwarded',
+  branch_event: 'forwarded',
+  permission_request: 'forwarded',
+  ask_request: 'forwarded',
+  prompt_resolved: 'forwarded',
+  ui_intent: 'requester-routed',
+  session_renamed: 'forwarded',
+  history_cleared: 'forwarded',
+} as const satisfies Record<TInteractiveEventName, TProtocolSessionEventClassification>;
 
 /** Options for {@link subscribeSessionEvents}. */
 export interface ISubscribeSessionEventsOptions {
@@ -29,6 +64,8 @@ export interface ISubscribeSessionEventsOptions {
    * requester-routed against it (lazy because the resume bridge binds the id only after pairing).
    */
   getSurfaceDriverId?: () => TDriverId | undefined;
+  /** Carrier-owned send failures; the handler is isolated from the committed session operation. */
+  onDeliveryError: (error: Error, event: TInteractiveEventName) => void;
 }
 
 /**
@@ -39,8 +76,20 @@ export interface ISubscribeSessionEventsOptions {
 export function subscribeSessionEvents(
   session: IProtocolSession,
   send: (message: TServerMessage) => void,
-  options?: ISubscribeSessionEventsOptions,
+  options: ISubscribeSessionEventsOptions,
 ): () => void {
+  const deliver = (event: TInteractiveEventName, message: TServerMessage): void => {
+    try {
+      send(message);
+    } catch (error) {
+      const normalized = error instanceof Error ? error : new Error(String(error));
+      try {
+        options.onDeliveryError(normalized, event);
+      } catch {
+        // The transport-owned diagnostic callback cannot make a committed session operation fail.
+      }
+    }
+  };
   // REMOTE-014 E5: stamp the ACTIVE turn's driver id onto TURN-AUTHORED events (co-drive authorship,
   // display-only), read at emit time. Only these events — background/goal/memory/execution-workspace events
   // are NOT authored by a driver turn and carry no `driverId`. `undefined` when idle or unattributed.
@@ -51,48 +100,61 @@ export function subscribeSessionEvents(
     return driverId ? { driverId } : {};
   };
   const onUserMessage = (content: string): void =>
-    send({ type: 'user_message', content, ...attr() });
-  const onTextDelta = (delta: string): void => send({ type: 'text_delta', delta, ...attr() });
-  const onToolStart = (state: IToolState): void => send({ type: 'tool_start', state, ...attr() });
-  const onToolEnd = (state: IToolState): void => send({ type: 'tool_end', state, ...attr() });
+    deliver('user_message', { type: 'user_message', content, ...attr() });
+  const onTextDelta = (delta: string): void =>
+    deliver('text_delta', { type: 'text_delta', delta, ...attr() });
+  const onToolStart = (state: IToolState): void =>
+    deliver('tool_start', { type: 'tool_start', state, ...attr() });
+  const onToolEnd = (state: IToolState): void =>
+    deliver('tool_end', { type: 'tool_end', state, ...attr() });
   const onThinking = (isThinking: boolean): void =>
-    send({ type: 'thinking', isThinking, ...attr() });
+    deliver('thinking', { type: 'thinking', isThinking, ...attr() });
   const onComplete = (result: IExecutionResult): void =>
-    send({ type: 'complete', result, ...attr() });
+    deliver('complete', { type: 'complete', result, ...attr() });
   const onInterrupted = (result: IExecutionResult): void =>
-    send({ type: 'interrupted', result, ...attr() });
+    deliver('interrupted', { type: 'interrupted', result, ...attr() });
   const onError = (error: Error): void =>
-    send({ type: 'error', message: error.message, ...attr() });
+    deliver('error', { type: 'error', message: error.message, ...attr() });
   const onBackgroundTaskEvent = (event: TBackgroundTaskEvent): void =>
-    send({ type: 'background_task_event', event });
+    deliver('background_task_event', { type: 'background_task_event', event });
   const onBackgroundJobGroupEvent = (event: TBackgroundJobGroupEvent): void =>
-    send({ type: 'background_job_group_event', event });
+    deliver('background_job_group_event', { type: 'background_job_group_event', event });
   const onExecutionWorkspace = (event: IExecutionWorkspaceEvent): void =>
-    send({ type: 'execution_workspace_event', snapshot: event.snapshot });
+    deliver('execution_workspace_event', {
+      type: 'execution_workspace_event',
+      snapshot: event.snapshot,
+    });
+  const onPlanEvent = (event: IPlanApprovalEvent): void =>
+    deliver('plan_event', { type: 'plan_event', event });
+  const onContextFileRefreshed = (event: IContextFileRefreshedEvent): void =>
+    deliver('context_file_refreshed', { type: 'context_file_refreshed', event });
+  const onBranchEvent = (event: IBranchEvent): void =>
+    deliver('branch_event', { type: 'branch_event', event });
   // REMOTE-007: forward the transport-neutral prompt events so a remote surface can render + answer the
   // SAME permission/ask prompt; `prompt_resolved` dismisses it when another surface answered first.
   const onPermissionRequest = (event: IPermissionRequestEvent): void =>
-    send({ type: 'permission_request', event });
-  const onAskRequest = (event: IAskRequestEvent): void => send({ type: 'ask_request', event });
+    deliver('permission_request', { type: 'permission_request', event });
+  const onAskRequest = (event: IAskRequestEvent): void =>
+    deliver('ask_request', { type: 'ask_request', event });
   const onPromptResolved = (event: IPromptResolvedEvent): void =>
-    send({ type: 'prompt_resolved', event });
+    deliver('prompt_resolved', { type: 'prompt_resolved', event });
   // CMD-004 Stage D: `ui_intent` is REQUESTER-ROUTED — delivered only to the surface whose
   // server-assigned driver id issued the command. An UNATTRIBUTED intent (no requester id, e.g. an
   // idle model-invoked command) is unroutable and reaches every surface — never a silent drop.
   const onUiIntent = (event: IUiIntentEvent): void => {
     if (
       event.requesterDriverId !== undefined &&
-      event.requesterDriverId !== options?.getSurfaceDriverId?.()
+      event.requesterDriverId !== options.getSurfaceDriverId?.()
     ) {
       return; // another surface's intent — this surface never sees it (and never buffers it)
     }
-    send({ type: 'ui_intent', event });
+    deliver('ui_intent', { type: 'ui_intent', event });
   };
   // CMD-004 Stage E: BROADCAST session-state events — the host executed the rename/clear; EVERY
   // attached surface (co-driving included) reflects it. Never requester-filtered, unlike `ui_intent`.
   const onSessionRenamed = (event: ISessionRenamedEvent): void =>
-    send({ type: 'session_renamed', event });
-  const onHistoryCleared = (): void => send({ type: 'history_cleared' });
+    deliver('session_renamed', { type: 'session_renamed', event });
+  const onHistoryCleared = (): void => deliver('history_cleared', { type: 'history_cleared' });
 
   session.on('user_message', onUserMessage);
   session.on('text_delta', onTextDelta);
@@ -105,6 +167,9 @@ export function subscribeSessionEvents(
   session.on('background_task_event', onBackgroundTaskEvent);
   session.on('background_job_group_event', onBackgroundJobGroupEvent);
   session.on('execution_workspace_event', onExecutionWorkspace);
+  session.on('plan_event', onPlanEvent);
+  session.on('context_file_refreshed', onContextFileRefreshed);
+  session.on('branch_event', onBranchEvent);
   session.on('permission_request', onPermissionRequest);
   session.on('ask_request', onAskRequest);
   session.on('prompt_resolved', onPromptResolved);
@@ -124,6 +189,9 @@ export function subscribeSessionEvents(
     session.off('background_task_event', onBackgroundTaskEvent);
     session.off('background_job_group_event', onBackgroundJobGroupEvent);
     session.off('execution_workspace_event', onExecutionWorkspace);
+    session.off('plan_event', onPlanEvent);
+    session.off('context_file_refreshed', onContextFileRefreshed);
+    session.off('branch_event', onBranchEvent);
     session.off('permission_request', onPermissionRequest);
     session.off('ask_request', onAskRequest);
     session.off('prompt_resolved', onPromptResolved);

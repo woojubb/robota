@@ -454,6 +454,17 @@ Background subagent lifecycle events are persisted through `InteractiveSession` 
 
 Provider-native payload events are emitted by concrete provider packages through `IChatOptions.onProviderNativeRawPayload`, then redacted and externalized by the session logger before they are written to disk. The SDK exposes session command APIs so command modules such as `/validate-session` can validate replay coverage without adding file-log logic to CLI/TUI hosts.
 
+## Interactive Prompt Settlement
+
+`InteractiveSession` emits transport-neutral `permission_request` and `ask_request` events. Attached
+surfaces answer through `resolvePermission()` and `resolveAsk()`; the first answer wins and produces one
+`prompt_resolved` event. Session construction does not expose parallel `permissionHandler` or `askHandler`
+options, so local and remote surfaces share the same request/settlement path.
+
+Persisted checkpoint operations emit `branch_event` only after the transition and session save succeed.
+Transport-owned listeners must isolate their own delivery failures without changing arbitrary SDK listener
+exception behavior.
+
 ## Hook Executors (SDK-Specific)
 
 `agent-framework` provides two `IHookTypeExecutor` implementations beyond the `command` and `http` executors in `agent-core`:

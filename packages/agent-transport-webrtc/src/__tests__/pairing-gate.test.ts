@@ -3,10 +3,12 @@ import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transp
 import { describe, expect, it, vi } from 'vitest';
 
 import { PairingGate, type IPairingGateOptions } from '../pairing-gate.js';
+import { WebRtcDeliveryLifecycle } from '../webrtc-delivery-lifecycle.js';
 
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
 import type { createWsHandler } from '@robota-sdk/agent-transport-protocol';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { RTCDataChannel } from 'werift';
 
 /**
  * REMOTE-008 Step 1 (SECURITY milestone) — the pairing gate's fail-closed routing switch, driven with a stub
@@ -143,5 +145,117 @@ describe('PairingGate (REMOTE-008 Step 1 — fail-closed routing switch)', () =>
     await Promise.resolve();
     gate.cleanup();
     expect(handlerCleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it('post-accept send failure closes the carrier and reports without escaping the session event', async () => {
+    const handlers = new Map<string, (value: unknown) => void>();
+    const session = createTestInteractiveSession({
+      on: ((event: string, handler: (value: unknown) => void) => {
+        handlers.set(event, handler);
+      }) as IInteractiveSession['on'],
+      off: ((event: string) => {
+        handlers.delete(event);
+      }) as IInteractiveSession['off'],
+    });
+    let failSend = false;
+    const channel = {
+      send: vi.fn(() => {
+        if (failSend) throw new Error('paired channel closed');
+      }),
+      close: vi.fn(),
+    };
+    const onDeliveryError = vi.fn();
+    const hs = makeHandshakeStub();
+    new PairingGate({
+      channel,
+      session,
+      secret: 's',
+      role: 'initiator',
+      localFingerprint: 'AA',
+      remoteFingerprint: 'BB',
+      startHandshake: hs.start,
+      onDeliveryError,
+    });
+    hs.accept();
+    await Promise.resolve();
+    failSend = true;
+
+    expect(() =>
+      handlers.get('branch_event')?.({
+        kind: 'checkpoint_created',
+        checkpointId: 'turn-0001',
+        branchId: 'main',
+      }),
+    ).not.toThrow();
+    expect(channel.close).toHaveBeenCalledTimes(1);
+    expect(onDeliveryError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'paired channel closed' }),
+      'branch_event',
+    );
+    expect(handlers.size).toBe(0);
+  });
+
+  it('reports a paired delivery failure before a synchronous closing transition drops the carrier', async () => {
+    const handlers = new Map<string, (value: unknown) => void>();
+    const session = createTestInteractiveSession({
+      on: ((event: string, handler: (value: unknown) => void) => {
+        handlers.set(event, handler);
+      }) as IInteractiveSession['on'],
+      off: ((event: string) => {
+        handlers.delete(event);
+      }) as IInteractiveSession['off'],
+    });
+    const cleanup = vi.fn();
+    const onDropped = vi.fn();
+    const onDeliveryError = vi.fn();
+    let gate!: PairingGate;
+    let lifecycle!: WebRtcDeliveryLifecycle;
+    let failSend = false;
+    const channel = {
+      send: vi.fn(() => {
+        if (failSend) throw new Error('paired channel closed synchronously');
+      }),
+      close: vi.fn(() => lifecycle.handleDrop(1)),
+    };
+    lifecycle = new WebRtcDeliveryLifecycle({
+      cleanup: () => {
+        cleanup();
+        gate.cleanup();
+      },
+      onDropped,
+      onDeliveryError,
+    });
+    lifecycle.reset(1);
+    const hs = makeHandshakeStub();
+    gate = new PairingGate({
+      channel,
+      session,
+      secret: 's',
+      role: 'initiator',
+      localFingerprint: 'AA',
+      remoteFingerprint: 'BB',
+      startHandshake: hs.start,
+      onAccept: () => lifecycle.accept(1),
+      onDeliveryError: (error, event) =>
+        lifecycle.handleFailure(channel as unknown as RTCDataChannel, 1, error, event),
+    });
+    hs.accept();
+    await Promise.resolve();
+    failSend = true;
+
+    expect(() =>
+      handlers.get('branch_event')?.({
+        kind: 'checkpoint_created',
+        checkpointId: 'turn-0001',
+        branchId: 'main',
+      }),
+    ).not.toThrow();
+    expect(onDeliveryError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'paired channel closed synchronously' }),
+      'branch_event',
+    );
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(onDropped).toHaveBeenCalledTimes(1);
+    expect(handlers.size).toBe(0);
   });
 });

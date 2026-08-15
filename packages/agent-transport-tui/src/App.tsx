@@ -22,6 +22,7 @@ import { EntryItem } from './MessageList.js';
 import PendingActionPrompt from './PendingActionPrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import PluginTUI from './PluginTUI.js';
+import SessionEventNotices from './SessionEventNotices.js';
 import SessionPicker from './SessionPicker.js';
 import SessionStatusBar from './SessionStatusBar.js';
 import { handleInterrupt } from './shutdown-signal.js';
@@ -94,8 +95,6 @@ export default function App(props: IProps): React.ReactElement {
         resumeSessionId={sessionState.sessionId}
         onSessionSwitch={(sessionId) => {
           setShowInitialSessionPicker(false);
-          // Stop the old channel BEFORE the new one becomes active so it can
-          // never receive events addressed to the new session (CLI-B12).
           void sessionState.channel.stop();
           setSessionState({ channel: props.createChannel(sessionId), sessionId });
         }}
@@ -125,6 +124,7 @@ function AppInner(
     isThinking,
     lastErrorMessage,
     isStalled,
+    sessionEventNotices,
     isAborting,
     isShuttingDown,
     pendingPrompt,
@@ -432,7 +432,6 @@ function AppInner(
     sessionId = session.getSessionId();
   } catch {
     // allow-fallback: session initializes asynchronously; use defaults until ready
-    // Not yet initialized
   }
 
   // SCREEN-010: banner + append-only conversation history are committed to the terminal scrollback
@@ -471,6 +470,7 @@ function AppInner(
       {!handoffSuspended && (
         <>
           {updateNotice && <UpdateNotice message={updateNotice} />}
+          <SessionEventNotices notices={sessionEventNotices} />
           <Box flexDirection="column" paddingX={1} flexGrow={1}>
             {selectedExecutionEntry && selectedExecutionEntry.kind !== 'main_thread' && (
               <ExecutionWorkspaceDetailPane
