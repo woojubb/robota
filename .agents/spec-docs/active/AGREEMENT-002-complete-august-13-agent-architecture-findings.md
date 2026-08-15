@@ -283,11 +283,11 @@ adversarial review before code changes.
 - [x] TC-07: ARCH-028 owns shared event keys/payloads in the interface package and mechanically-total but separate TUI/protocol implementation mappings, making branch, plan, and context-refresh events observable through protocol fan-out/client acceptance and deterministic TUI rendering without executable transport policy in the interface package.
 - [ ] TC-08: ARCH-021 selects a per-request `providerProfile` through an injected parent resolver (or the invoking provider when absent), keeps credentials parent-side, and brokers provider streaming/cancellation/errors plus tool calls whose context round-trips ownership fields and tagged nested `Date`/`Error`/`undefined` values; every top-level context key and wire variant is mechanically classified, while unsupported/cyclic/over-limit values and unavailable capabilities fail explicitly without reconstructing Robota defaults.
 - [x] TC-09: ARCH-023 forwards the runtime-owned default session store into created sessions unless an explicit per-session override is supplied, and resume restores through that default.
-- [ ] TC-10: ARCH-024 removes framework knowledge of module-owned command IDs through owner-declared semantic command roles, rejects duplicate role owners, preserves alternate-ID behavior, and gives each absent role explicit independent semantics.
-- [ ] TC-11: ARCH-027 exhaustively classifies every product/pack composition field; removes `IProductProfile.providerOverride` while preserving shell-owned override behavior; rejects a later duplicate `ICapabilityPack.id` atomically on a separate pack channel; includes `packId` provenance in capability-collision diagnostics; and surfaces accepted pack title/description metadata.
-- [ ] TC-12: ARCH-022 removes owner-package laundering from every package-declared framework public source root and a red-first cycle-safe recursive graph guard rejects value/type pass-through at any reachable depth plus unresolved local re-export edges.
+- [x] TC-10: ARCH-024 removes framework knowledge of module-owned command IDs through owner-declared semantic command roles, rejects duplicate role owners, preserves alternate-ID behavior, and gives each absent role explicit independent semantics.
+- [x] TC-11: ARCH-027 exhaustively classifies every product/pack composition field; removes `IProductProfile.providerOverride` while preserving shell-owned override behavior; rejects a later duplicate `ICapabilityPack.id` atomically on a separate pack channel; includes `packId` provenance in capability-collision diagnostics; and surfaces accepted pack title/description metadata.
+- [x] TC-12: ARCH-022 removes owner-package laundering from every package-declared framework public source root and a red-first cycle-safe recursive graph guard rejects value/type pass-through at any reachable depth plus unresolved local re-export edges.
 - [ ] TC-13: ARCH-025 makes one canonical task/result projection classify every public contract key as mapped, derived, or rejected; preserves usage, provider profile, and permission policy; exports one `IScheduleEditPatch` owner; and fails a mechanical fixture when any new field is unclassified.
-- [ ] TC-14: ARCH-026 makes managed and scheduled command runners consume one executable-aware shell resolver with request-override precedence and matching argument families for `sh`, `bash`, PowerShell/`pwsh`, and `cmd.exe` on simulated platforms plus real Windows default-PowerShell evidence.
+- [x] TC-14: ARCH-026 makes managed and scheduled command runners consume one executable-aware shell resolver with request-override precedence and matching argument families for `sh`, `bash`, PowerShell/`pwsh`, and `cmd.exe` on simulated platforms plus real Windows default-PowerShell evidence.
 - [ ] TC-15: all fourteen child Task records contain current engineering and scenario evidence, reach `done`, and move atomically to `.agents/tasks/completed/` with the agreement projections updated.
 - [ ] TC-16: the assembled integration base passes `pnpm harness:conformance`, affected scoped harness verification, and `pnpm harness:verify-like-ci`, with exact commands and exit evidence recorded.
 
@@ -323,15 +323,26 @@ Active initiative Task: `.agents/tasks/AGREEMENT-002-complete-august-13-agent-ar
 - [x] ARCH-018 — done — `.agents/tasks/completed/ARCH-018-interaction-channel-charter-is-unsatisfiable-as-written.md`
 - [x] ARCH-020 — done — `.agents/tasks/completed/ARCH-020-branch-event-is-declared-and-emitted-by-nothing.md`
 - [ ] ARCH-021 — todo — `.agents/tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`
-- [ ] ARCH-022 — todo — `.agents/tasks/ARCH-022-framework-pass-through-re-export-evades-public-surface-guard.md`
+- [x] ARCH-022 — done — `.agents/tasks/completed/ARCH-022-framework-pass-through-re-export-evades-public-surface-guard.md`
 - [x] ARCH-023 — done — `.agents/tasks/completed/ARCH-023-createAgentRuntime-default-sessionstore-never-forwarded.md`
-- [ ] ARCH-024 — todo — `.agents/tasks/ARCH-024-framework-hardcodes-module-owned-command-ids.md`
+- [x] ARCH-024 — done — `.agents/tasks/completed/ARCH-024-framework-hardcodes-module-owned-command-ids.md`
 - [ ] ARCH-025 — todo — `.agents/tasks/ARCH-025-executor-projections-silently-drop-contract-fields.md`
-- [ ] ARCH-026 — todo — `.agents/tasks/ARCH-026-scheduled-task-runner-bypasses-shell-resolution-ssot.md`
-- [ ] ARCH-027 — todo — `.agents/tasks/ARCH-027-dead-composition-contract-fields.md`
+- [x] ARCH-026 — done — `.agents/tasks/completed/ARCH-026-scheduled-task-runner-bypasses-shell-resolution-ssot.md`
+- [x] ARCH-027 — done — `.agents/tasks/completed/ARCH-027-dead-composition-contract-fields.md`
 - [x] ARCH-028 — done — `.agents/tasks/completed/ARCH-028-plan-and-context-refresh-events-emitted-into-a-contract-no-transport-consumes.md`
 
 ## Evidence Log
+
+### [BATCH-3-COMPLETE] — ✅ PASS | 2026-08-16
+
+- ARCH-022 retained a valid runtime `NOT-APPLICABLE` classification and passed its recursive public-surface
+  guard/fixture verification.
+- ARCH-024 and ARCH-027 exact public-SDK scenarios each ran twice, produced deterministic output, and
+  matched their owner canonical records with independent guardian verdicts.
+- ARCH-026's exact-head Windows run `31902814337` passed job `95056073552`; artifact id `9251559101`
+  independently validated all twelve real runner cases, requested/observed shell identities, zero unknown
+  spawns, and cleanup.
+- Batch guardian reported `Actionable findings: 0` and `BATCH GATE VERDICT: PASS`.
 
 ### [CHILD-COMPLETE: ARCH-014] — ✅ PASS | 2026-08-15
 

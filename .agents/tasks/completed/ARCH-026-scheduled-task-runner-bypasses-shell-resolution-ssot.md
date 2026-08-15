@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-026: executor command runners do not share one executable-aware shell resolution contract — scheduled tasks hard-code `sh -c`, while managed tasks can pair an explicit executable with the wrong argument family'
-status: todo
+status: done
 created: 2026-08-13
+completed: 2026-08-16
 priority: medium
 urgency: soon
 area: packages/agent-executor, packages/agent-core
@@ -150,9 +151,103 @@ examples/verify-windows-shell-runners.ts`). It also adds the cross-platform dete
   the required product-surface observable.
 - **Cleanup:** in `finally`, cancel the scheduled handle, await cancellation, remove any temporary files,
   restore both shell environment variables, and fail if cancellation or restoration cannot be confirmed.
-- **Evidence (fill after implementation):** record the workflow run URL, `windows-shell` job/step name,
-  command exit code, and the downloaded artifact's exact JSON. Local deterministic resolver/runner tests
-  remain engineering evidence only and do not replace this real-Windows run.
+- **Evidence (2026-08-16):** exact-head CI run
+  `https://github.com/woojubb/robota/actions/runs/31902814337` completed its `windows-shell` job
+  (`95056073552`) successfully. The `Verify executor runners use default PowerShell` and
+  `Upload ARCH-026 Windows scenario evidence` steps both passed. Artifact
+  `arch-026-windows-shell-31902814337` was downloaded and the exact assertion command exited `0` with:
+
+  ```json
+  {
+    "rows": [
+      {
+        "name": "default",
+        "requestedExecutableBasename": "powershell.exe",
+        "managed": {
+          "success": true,
+          "executableBasename": "powershell.exe",
+          "output": "arch026-default"
+        },
+        "scheduled": {
+          "success": true,
+          "fires": 1,
+          "executableBasename": "powershell.exe",
+          "output": "arch026-default"
+        }
+      },
+      {
+        "name": "sh",
+        "requestedExecutableBasename": "sh.exe",
+        "managed": { "success": true, "executableBasename": "bash.exe", "output": "arch026-sh" },
+        "scheduled": {
+          "success": true,
+          "fires": 1,
+          "executableBasename": "bash.exe",
+          "output": "arch026-sh"
+        }
+      },
+      {
+        "name": "bash",
+        "requestedExecutableBasename": "bash.exe",
+        "managed": { "success": true, "executableBasename": "bash.exe", "output": "arch026-bash" },
+        "scheduled": {
+          "success": true,
+          "fires": 1,
+          "executableBasename": "bash.exe",
+          "output": "arch026-bash"
+        }
+      },
+      {
+        "name": "powershell",
+        "requestedExecutableBasename": "powershell.exe",
+        "managed": {
+          "success": true,
+          "executableBasename": "powershell.exe",
+          "output": "arch026-powershell"
+        },
+        "scheduled": {
+          "success": true,
+          "fires": 1,
+          "executableBasename": "powershell.exe",
+          "output": "arch026-powershell"
+        }
+      },
+      {
+        "name": "pwsh",
+        "requestedExecutableBasename": "pwsh.exe",
+        "managed": { "success": true, "executableBasename": "pwsh.exe", "output": "arch026-pwsh" },
+        "scheduled": {
+          "success": true,
+          "fires": 1,
+          "executableBasename": "pwsh.exe",
+          "output": "arch026-pwsh"
+        }
+      },
+      {
+        "name": "cmd",
+        "requestedExecutableBasename": "cmd.exe",
+        "managed": { "success": true, "executableBasename": "cmd.exe", "output": "arch026-cmd" },
+        "scheduled": {
+          "success": true,
+          "fires": 1,
+          "executableBasename": "cmd.exe",
+          "output": "arch026-cmd"
+        }
+      }
+    ],
+    "summary": {
+      "runnerCases": 12,
+      "unknownShellZeroSpawns": true,
+      "unknownShellSpawnAttempts": 0,
+      "scheduledHandlesCancelled": true,
+      "environmentRestored": true
+    }
+  }
+  ```
+
+  Durable executables are `packages/agent-executor/examples/verify-windows-shell-runners.ts` and
+  `packages/agent-executor/scripts/assert-windows-shell-scenario.mjs`. The downloaded temporary artifact
+  directory was removed after validation.
 
 ## Scenario Plan Gate
 
@@ -174,3 +269,21 @@ Windows default PowerShell`: the scenario has explicit external-service/auth pre
   cleanup, and package-owned durable scenario evidence.
 
 DONE-GATE-STAGE-1: PASS
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** scenario-written → scenario-verified
+
+- **Direct execution:** exact-head pull-request run `31902814337` executed the real Windows scenario;
+  `windows-shell` job `95056073552`, the runner verification step, and artifact upload all succeeded.
+- **Expected observable:** the independently downloaded artifact proved six requested shell families and
+  twelve managed/scheduled runs, including `sh.exe` requesting the Git-for-Windows `bash.exe` process,
+  exact sentinels, one scheduled fire, zero unknown-shell spawn attempts, handle cancellation, and
+  environment restoration.
+- **Fail-closed comparison:** the repository assertion script exited `0`; it rejects any missing,
+  reordered, or mismatched row, basename, sentinel, fire count, or summary value. The independent
+  guardian downloaded artifact id `9251559101` again, obtained the same result, and removed its temp dir.
+- **Durable evidence:** `packages/agent-executor/examples/verify-windows-shell-runners.ts`,
+  `packages/agent-executor/scripts/assert-windows-shell-scenario.mjs`, and
+  `packages/agent-executor/examples/scenarios/shell-resolution-contract.record.json` exist.
+- **Guardian verdict:** `GATE VERDICT: PASS`.

@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-022: agent-framework launders owner-package runtime values through reachable public barrels — the guard checks only one root file instead of the package export graph'
-status: todo
+status: done
 created: 2026-08-13
+completed: 2026-08-16
 priority: medium
 urgency: soon
 area: packages/agent-framework, scripts/harness/check-sdk-public-surface.mjs
@@ -97,3 +98,22 @@ SCENARIO DRAFTED: not-applicable | 0
   runtime behavior is correctly retained as engineering evidence rather than a fabricated product scenario.
 
 DONE-GATE-STAGE-1: PASS
+
+## Completion Evidence
+
+- 2026-08-16 — applicability was re-checked against the completed diff: it changes compile-time export
+  ownership, consumer import paths, and the repository public-surface guard, with no changed runtime
+  command or SDK result. The recorded `Not applicable` classification therefore still holds.
+- Durable engineering evidence is owned by
+  `scripts/harness/__tests__/check-sdk-public-surface.test.mjs` and
+  `scripts/harness/check-sdk-public-surface.mjs`. The graph fixtures, framework/server checks, and final
+  repository scan passed; the public-surface narrowing is recorded by
+  `.changeset/arch-022-owner-direct-public-surface.md`.
+
+### [COMPLETION-APPLICABILITY] — ✅ PASS / NOT-APPLICABLE | 2026-08-16
+
+- Independent guardian re-checked the completed diff and upheld the recorded N/A classification: no
+  runnable product behavior changed, so a Stage-2 product scenario would be fabricated.
+- The owner Vitest graph suite passed `14/14`; the live public-surface scan passed; the durable guard,
+  fixture, and changeset paths above all exist.
+- **Guardian verdict:** `COMPLETION APPLICABILITY VERDICT: PASS — NOT-APPLICABLE VALID`.

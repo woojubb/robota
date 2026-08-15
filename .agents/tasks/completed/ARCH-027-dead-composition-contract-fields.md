@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-027: public product/pack composition fields have no exhaustive fold policy — providerOverride, pack id, title, and description can compile as silent no-ops'
-status: todo
+status: done
 created: 2026-08-13
+completed: 2026-08-16
 priority: medium
 urgency: later
 area: packages/agent-product, packages/agent-capability-pack
@@ -111,7 +112,11 @@ REVIEW VERDICT: ENDORSE
   non-zero and writes a diagnostic to stderr rather than printing a success object.
 - **Cleanup:** none required; the example is a pure in-memory fold and creates no files, sessions,
   processes, timers, or process-global registrations.
-- **Evidence (fill after implementation):** record the exact exit code and stdout JSON, then regenerate
+- **Evidence (2026-08-16):** the exact command ran against the completed implementation and exited `0`.
+  Stdout was
+  `{"acceptedPacks":[{"id":"first","title":"First Pack","description":"Accepted metadata"},{"id":"collision-source"},{"id":"following","title":"Following Pack"}],"rejectedPacks":[{"packId":"first","reason":"duplicate pack id"},{"packId":"first","reason":"duplicate pack id"}],"rejectedCapabilities":[{"packId":"collision-source","kind":"commandModule","id":"base-collision","reason":"collides with base command module"},{"packId":"collision-source","kind":"commandModule","id":"shared-command","reason":"duplicate commandModule id"},{"packId":"collision-source","kind":"tool","id":"SharedTool","reason":"duplicate tool id"},{"packId":"collision-source","kind":"subagent","id":"SharedAgent","reason":"duplicate subagent id"}],"commandNames":["base-collision","shared-command","following-command"],"toolNames":["SharedTool"],"subagentNames":["SharedAgent"],"rejectedPackCapabilitiesAbsent":true,"followingUniquePackMerged":true,"collisionPackIds":["collision-source","collision-source","collision-source","collision-source"],"losslessProjection":true}`.
+  The maintained executable is `packages/agent-product/examples/verify-composition-contract.ts`, and its
+  output matched `packages/agent-product/examples/scenarios/composition-contract.record.json`. Regenerate
   the canonical record with
   `volta run --node 22.14.0 pnpm --dir packages/agent-product run scenario:record`.
 
@@ -132,3 +137,19 @@ composition results`: the public-SDK scenario has complete prerequisites, exact 
   recommendation; the type-only removal remains correctly assigned to engineering evidence.
 
 DONE-GATE-STAGE-1: PASS
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** scenario-written → scenario-verified
+
+- **Direct execution:** the exact public-SDK scenario ran twice against the completed implementation;
+  both runs exited `0` and emitted byte-identical normalized JSON.
+- **Expected observable:** accepted metadata order/content, two atomic duplicate-pack rejections,
+  rejected duplicate capabilities, following-pack continuation, four collision `packId` values, and
+  lossless product projection all matched the planned output.
+- **Canonical comparison:** owner aggregate verification reported validation findings `[]` and execution
+  differences `[]`; scenario and canonical stdout SHA-256 were
+  `c32dfd2597ddad0387fb79e3601df70b7ba20acf21a74891efa4e80497031b5a`.
+- **Durable evidence:** `packages/agent-product/examples/verify-composition-contract.ts` and
+  `packages/agent-product/examples/scenarios/composition-contract.record.json` exist.
+- **Guardian verdict:** `GATE VERDICT: PASS`.

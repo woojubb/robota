@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-024: agent-framework hard-codes command ids owned by command modules (skills, compact, agent) in its routing/assembly while its SPEC claims "the SDK does not know command names contributed by modules in advance"'
-status: todo
+status: done
 created: 2026-08-13
+completed: 2026-08-16
 priority: medium
 urgency: later
 area: packages/agent-framework, packages/agent-command
@@ -104,8 +105,11 @@ REVIEW VERDICT: ENDORSE
   non-zero rather than printing a success object.
 - **Cleanup:** the example shuts down every session and recursively removes its temporary project/session
   directories in `finally`; it restores any process state it changed.
-- **Evidence (fill after implementation):** record the exact exit code and stdout JSON. The package's
-  canonical record is
+- **Evidence (2026-08-16):** the exact command ran against the completed implementation and exited `0`.
+  Stdout was
+  `{"alternateRoleIds":{"skillActivation":"activate-skill-alt","contextReduction":"reduce-context-alt","subagentSpawn":"spawn-subagent-alt"},"alternateBehaviors":{"skillFallback":true,"modelVisibleSkillEnrichment":true,"contextCapacityHint":true,"agentJobCommandProvenance":true,"subagentSpawnCommandFiltering":true,"emptyCommandResultIsPresent":true},"unannotatedCoincidentalNames":{"skills":true,"compact":true,"agent":true},"singleRoleOmission":{"skillActivation":{"omitted":true,"contextReductionActive":true,"subagentSpawnActive":true},"contextReduction":{"skillActivationActive":true,"omitted":true,"subagentSpawnActive":true},"subagentSpawn":{"skillActivationActive":true,"contextReductionActive":true,"omitted":true}},"directCreateSessionOmission":{"allRolesAbsent":true},"duplicateRoleRejections":{"constructor":true,"register":true,"replace":true,"preservedCommands":true},"ownerDeclarations":{"skills":"skillActivation","compact":"contextReduction","agent":"subagentSpawn"},"cleanupRemoved":true}`.
+  The maintained executable is
+  `packages/agent-command/examples/verify-semantic-command-roles.ts`; its output matched
   `packages/agent-command/examples/scenarios/semantic-command-roles.record.json`; regenerate it
   with `volta run --node 22.14.0 pnpm --dir packages/agent-command run scenario:record` after the
   aggregate scenario includes this example.
@@ -127,3 +131,19 @@ command ids`: the owner-package public-SDK scenario has complete prerequisites, 
   runtime recommendation.
 
 DONE-GATE-STAGE-1: PASS
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** scenario-written → scenario-verified
+
+- **Direct execution:** the exact public-SDK scenario ran twice against the completed implementation;
+  both runs exited `0` and emitted byte-identical normalized JSON.
+- **Expected observable:** alternate role ids drove all five behaviors; unannotated coincidental names
+  remained inactive; independent omissions, typed atomic duplicate rejection, owner declarations, and
+  `cleanupRemoved: true` all matched the planned output.
+- **Canonical comparison:** owner aggregate verification reported validation findings `[]` and execution
+  differences `[]`; scenario and canonical stdout SHA-256 were
+  `70935e4fba9cd2c433ae2c6880a57d608a2b770cee8e5f27e1b924c554b1e1e0`.
+- **Durable evidence:** `packages/agent-command/examples/verify-semantic-command-roles.ts` and
+  `packages/agent-command/examples/scenarios/semantic-command-roles.record.json` exist.
+- **Guardian verdict:** `GATE VERDICT: PASS`.
