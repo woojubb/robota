@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-028: plan_event and context_file_refreshed are emitted by the framework into an event contract whose charter says transports consume it, but every transport in every cluster ignores them — two shipped features (SELFHOST-002 plan lifecycle, context-file staleness) are invisible on every surface'
-status: todo
+status: done
+completed: 2026-08-16
 created: 2026-08-13
 priority: medium
 urgency: soon
@@ -100,5 +101,82 @@ DONE-GATE-STAGE-1: PASS
   observed through the TUI-owned error callback. Both outputs report `cleanupRemoved: true`.
 - **Cleanup:** both examples stop their channel/bridge, shut down the session, and recursively remove
   their temporary project in `finally`.
-- **Evidence (fill after implementation):** _pending — paste both exact JSON stdout objects and exit
-  codes from the commands above._
+- **Evidence (2026-08-15):** both exact commands exited `0`. Protocol stdout:
+
+  ```json
+  {
+    "scenario": "ARCH-020+ARCH-028-protocol",
+    "planEvents": ["plan_created", "plan_approved"],
+    "contextRefreshFiles": ["<cwd>/AGENTS.md"],
+    "branchEvents": [
+      { "kind": "checkpoint_created", "checkpointId": "turn-0001", "branchId": "main" },
+      { "kind": "checkpoint_created", "checkpointId": "turn-0002", "branchId": "main" },
+      { "kind": "branch_forked", "checkpointId": "turn-0001", "branchId": "branch-1" },
+      { "kind": "branch_switched", "checkpointId": "turn-0002", "branchId": "branch-2" }
+    ],
+    "finalActiveBranch": { "branchId": "branch-2", "checkpointId": "turn-0002" },
+    "deliveryFailure": {
+      "message": "forced protocol send failure",
+      "event": "branch_event",
+      "operationCommitted": true
+    },
+    "cleanupRemoved": true
+  }
+  ```
+
+  TUI stdout:
+
+  ```json
+  {
+    "scenario": "ARCH-028-tui",
+    "notices": [
+      "Plan plan created",
+      "Plan plan approved",
+      "Context refreshed: <cwd>/AGENTS.md",
+      "Branch checkpoint created: main @ turn-0001"
+    ],
+    "deliveryFailure": {
+      "message": "forced TUI render projection failure",
+      "event": "plan_event",
+      "operationCommitted": true
+    },
+    "cleanupRemoved": true
+  }
+  ```
+
+  The official owner `scenario:record` commands wrote matching normalized records under each
+  package's `examples/scenarios/` directory.
+
+## Conformance Evidence
+
+- 2026-08-15 — bidirectional SPEC/code comparison: code→SPEC `68` items and SPEC→code `68`
+  items checked (`6` operation-matrix rows, `5` branch kinds, both exhaustive `26`-event surface
+  maps, and `5` carrier/error seams); discrepancies `0` after the required carrier callback and TUI
+  visible fallback were made explicit.
+- Regression: affected `10` packages built and typechecked; full suites passed, including framework
+  `167/1349`, protocol `10/93`, WS `6/45`, WebRTC `10/40`, TUI `73/568`, transport `17/81`, GUI
+  `4/21`, WebRTC-web `8/48`, interface-transport `10/44`, and CLI `39/291`.
+- RED proof: the new post-accept WS/WebRTC carrier tests failed against the pre-fix tree because the
+  failed channels were not closed/cleaned, then passed against the completed implementation.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** scenario-written → scenario-verified
+
+- **Direct execution:** both exact public-SDK commands above ran twice against the completed
+  implementation; all four invocations exited `0`, and each command's two normalized JSON outputs
+  were identical.
+- **Expected observable:** protocol output contained `plan_created`, `plan_approved`, and the
+  `<cwd>/AGENTS.md` context refresh; TUI output exposed the four deterministic notices. Protocol and
+  TUI forced-delivery records both reported their owner callback, event name, and
+  `operationCommitted: true`.
+- **Cleanup:** every run reported `cleanupRemoved: true` after stopping its bridge/channel, shutting
+  down the session, and removing the temporary project.
+- **Durable evidence:** owner scenario verification matched both outputs against
+  `packages/agent-transport/examples/scenarios/session-event-delivery.record.json` and
+  `packages/agent-transport-tui/examples/scenarios/session-event-rendering.record.json`.
+- **Surface verification:** exact TUI scoped verification passed `73` test files / `568` tests,
+  typecheck, and canonical scenario comparison; exact WS scoped verification passed `6` test files /
+  `45` tests and typecheck. The React side-effect test derives its expected keys from the exhaustive
+  classification map and compares actual subscribe/unsubscribe state, while TUI tests cover both the
+  owner callback and the visible no-observer delivery-error fallback.

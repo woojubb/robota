@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-020: the session event branch_event is documented as "emitted on every checkpoint/branch transition" but has zero emit sites — checkpoint fork/switch/restore run and surface nothing'
-status: todo
+status: done
+completed: 2026-08-16
 created: 2026-08-13
 priority: medium
 urgency: soon
@@ -95,5 +96,57 @@ DONE-GATE-STAGE-1: PASS
   `cleanupRemoved` is `true`.
 - **Cleanup:** the example calls the protocol cleanup function, shuts down the session, and
   recursively removes its temporary project in `finally`.
-- **Evidence (fill after implementation):** _pending — paste the exact JSON stdout and exit code from
-  the command above._
+- **Evidence (2026-08-15):** exact command exited `0` and printed:
+
+  ```json
+  {
+    "scenario": "ARCH-020+ARCH-028-protocol",
+    "planEvents": ["plan_created", "plan_approved"],
+    "contextRefreshFiles": ["<cwd>/AGENTS.md"],
+    "branchEvents": [
+      { "kind": "checkpoint_created", "checkpointId": "turn-0001", "branchId": "main" },
+      { "kind": "checkpoint_created", "checkpointId": "turn-0002", "branchId": "main" },
+      { "kind": "branch_forked", "checkpointId": "turn-0001", "branchId": "branch-1" },
+      { "kind": "branch_switched", "checkpointId": "turn-0002", "branchId": "branch-2" }
+    ],
+    "finalActiveBranch": { "branchId": "branch-2", "checkpointId": "turn-0002" },
+    "deliveryFailure": {
+      "message": "forced protocol send failure",
+      "event": "branch_event",
+      "operationCommitted": true
+    },
+    "cleanupRemoved": true
+  }
+  ```
+
+  The official package `scenario:record` command wrote the same normalized output to
+  `packages/agent-transport/examples/scenarios/session-event-delivery.record.json`.
+
+## Conformance Evidence
+
+- 2026-08-15 — bidirectional SPEC/code comparison: code→SPEC `68` items and SPEC→code `68`
+  items checked (`6` operation-matrix rows, `5` branch kinds, both exhaustive `26`-event surface
+  maps, and `5` carrier/error seams); discrepancies `0` after the required carrier callback and TUI
+  visible fallback were made explicit.
+- Regression: affected `10` packages built and typechecked; full suites passed, including framework
+  `167/1349`, protocol `10/93`, WS `6/45`, WebRTC `10/40`, TUI `73/568`, transport `17/81`, GUI
+  `4/21`, WebRTC-web `8/48`, interface-transport `10/44`, and CLI `39/291`.
+- RED proof: the new post-accept WS/WebRTC carrier tests failed against the pre-fix tree because the
+  failed channels were not closed/cleaned, then passed against the completed implementation.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** scenario-written → scenario-verified
+
+- **Direct execution:** the exact public-SDK protocol command above ran twice against the completed
+  implementation; both invocations exited `0` and emitted byte-identical normalized JSON.
+- **Expected observable:** the transcript contained two committed `checkpoint_created` events plus
+  the requested `branch_forked` and `branch_switched` events, ended at
+  `{"branchId":"branch-2","checkpointId":"turn-0002"}`, and reported the forced
+  `branch_event` delivery failure with `operationCommitted: true`.
+- **Cleanup:** both runs reported `cleanupRemoved: true` after unsubscribing the bridge, shutting down
+  the session, and removing the temporary project.
+- **Durable evidence:** the owner scenario verification matched the observed output against
+  `packages/agent-transport/examples/scenarios/session-event-delivery.record.json`. The exact
+  framework scoped harness verification also passed build, tests, lint, typecheck, and its canonical
+  scenarios; the exhaustive protocol policy retains required `onDeliveryError` handling.

@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-017: the documented permissionHandler/askHandler injection seams on session options are dead surface (silently discarded on every construction path), and the permission-resolved InteractionEvent it should feed has zero emitters'
-status: todo
+status: done
+completed: 2026-08-16
 created: 2026-08-13
 priority: high
 urgency: soon

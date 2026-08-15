@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createWsHandler } from '../ws-handler.js';
 import { SessionResumeBridge } from '../session-resume-bridge.js';
@@ -39,13 +39,14 @@ function sink(): TResumeSinkStub {
   return Object.assign((data: string) => void calls.push(data), { calls });
 }
 type TResumeSinkStub = ((data: string) => void) & { calls: string[] };
+const TEST_ATTACH_OPTIONS = { onDeliveryError: vi.fn() };
 
 describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
   it('stamps a monotonic seq and forwards live to the attached sink', () => {
     const { session, fire } = fakeSession();
     const bridge = new SessionResumeBridge({ session });
     const s = sink();
-    bridge.attach(s);
+    bridge.attach(s, TEST_ATTACH_OPTIONS);
     fire('text_delta', 'a');
     fire('text_delta', 'b');
     expect(frames(s).map((f) => f.seq)).toEqual([1, 2]);
@@ -58,7 +59,7 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
     const bridge = new SessionResumeBridge({ session });
 
     const s1 = sink();
-    bridge.attach(s1);
+    bridge.attach(s1, TEST_ATTACH_OPTIONS);
     fire('text_delta', 'a'); // seq 1 → s1
     expect(frames(s1).map((f) => f.seq)).toEqual([1]);
 
@@ -70,7 +71,7 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
 
     // New channel after reconnect. The client last applied seq 1 → asks for the tail.
     const s2 = sink();
-    bridge.attach(s2);
+    bridge.attach(s2, TEST_ATTACH_OPTIONS);
     expect(s2.calls).toHaveLength(0); // attach does NOT auto-replay
     bridge.onClientMessage(JSON.stringify({ type: 'resume', lastSeq: 1 }));
 
@@ -85,7 +86,7 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
     const { session, fire } = fakeSession();
     const bridge = new SessionResumeBridge({ session });
     const s1 = sink();
-    bridge.attach(s1);
+    bridge.attach(s1, TEST_ATTACH_OPTIONS);
     fire('text_delta', 'a'); // seq 1 → client applies through 1
 
     // Drop; gap frames buffered.
@@ -95,7 +96,7 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
 
     // Reconnect attach with awaitResume → live forwarding is HELD until resume flushes the tail.
     const s2 = sink();
-    bridge.attach(s2, { awaitResume: true });
+    bridge.attach(s2, { ...TEST_ATTACH_OPTIONS, awaitResume: true });
     fire('text_delta', 'd'); // seq 4 — emitted BEFORE the client's resume arrives; must NOT be sent yet
     expect(s2.calls).toHaveLength(0); // held
 
@@ -114,7 +115,7 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
     const { session, fire } = fakeSession();
     const bridge = new SessionResumeBridge({ session });
     const s = sink();
-    bridge.attach(s);
+    bridge.attach(s, TEST_ATTACH_OPTIONS);
     fire('text_delta', 'a'); // 1
     fire('text_delta', 'b'); // 2
     fire('text_delta', 'c'); // 3
@@ -122,7 +123,7 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
 
     const s2 = sink();
     bridge.detach();
-    bridge.attach(s2);
+    bridge.attach(s2, TEST_ATTACH_OPTIONS);
     bridge.onClientMessage(JSON.stringify({ type: 'resume', lastSeq: 2 }));
     expect(frames(s2).map((f) => f.seq)).toEqual([3]); // only the un-acked tail
     bridge.dispose();
@@ -132,13 +133,13 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
     const { session, fire } = fakeSession();
     const bridge = new SessionResumeBridge({ session, buffer: { maxFrames: 2 } });
     const s = sink();
-    bridge.attach(s);
+    bridge.attach(s, TEST_ATTACH_OPTIONS);
     fire('text_delta', 'a'); // 1 (evicted)
     fire('text_delta', 'b'); // 2
     fire('text_delta', 'c'); // 3 → buffer holds [2,3]
     const s2 = sink();
     bridge.detach();
-    bridge.attach(s2);
+    bridge.attach(s2, TEST_ATTACH_OPTIONS);
     bridge.onClientMessage(JSON.stringify({ type: 'resume', lastSeq: 0 })); // saw nothing, 1 is gone
     expect(frames(s2)).toEqual([{ type: 'resume_gap' }]);
     bridge.dispose();
@@ -151,7 +152,7 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
     const { session, fire } = fakeSession();
     const bridge = new SessionResumeBridge({ session });
     const s = sink();
-    bridge.attach(s);
+    bridge.attach(s, TEST_ATTACH_OPTIONS);
 
     // Not paired yet (no driver id): an intent attributed to another surface is skipped.
     fire('ui_intent', { intent: { type: 'show-settings' }, requesterDriverId: 'device-9' });
@@ -171,7 +172,7 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
     fire('ui_intent', { intent: { type: 'show-plugin-manager' }, requesterDriverId: 'device-2' });
     const s2 = sink();
     bridge.detach();
-    bridge.attach(s2);
+    bridge.attach(s2, TEST_ATTACH_OPTIONS);
     bridge.onClientMessage(JSON.stringify({ type: 'resume', lastSeq: 0 }));
     expect(frames(s2).filter((f) => f.type === 'ui_intent')).toHaveLength(1); // only device-9's own
 
@@ -188,9 +189,40 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
   it('regression: the WS createWsHandler path stamps NO seq', () => {
     const { session, fire } = fakeSession();
     const sent: unknown[] = [];
-    const { cleanup } = createWsHandler({ session, send: (m) => sent.push(m) });
+    const { cleanup } = createWsHandler({
+      session,
+      send: (m) => sent.push(m),
+      onDeliveryError: vi.fn(),
+    });
     fire('text_delta', 'a');
     expect(sent).toEqual([{ type: 'text_delta', delta: 'a' }]); // no `seq` field
     cleanup();
+  });
+
+  it('reports a WebRTC sink failure and detaches instead of swallowing it', () => {
+    const { session, fire } = fakeSession();
+    const failures: Array<{ message: string; event: string }> = [];
+    const bridge = new SessionResumeBridge({ session });
+    bridge.attach(
+      () => {
+        throw new Error('data channel closed');
+      },
+      {
+        onDeliveryError: (error, event) => {
+          failures.push({ message: error.message, event });
+          throw new Error('diagnostic callback failed');
+        },
+      },
+    );
+
+    fire('branch_event', {
+      kind: 'checkpoint_created',
+      checkpointId: 'turn-0001',
+      branchId: 'main',
+    });
+
+    expect(failures).toEqual([{ message: 'data channel closed', event: 'branch_event' }]);
+    expect(bridge.lastSeq).toBe(1); // retained for replay after the carrier reconnects
+    bridge.dispose();
   });
 });

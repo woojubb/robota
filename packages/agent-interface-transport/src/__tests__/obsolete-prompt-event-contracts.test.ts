@@ -11,5 +11,5 @@ const legacySettlement: InteractionEvent = {
 void legacySettlement;
 
 it('keeps the obsolete prompt settlement display event rejected by the public type contract', () => {
-  expect(true).toBe(true);
+  expect(Object.keys(legacySettlement)).toContain('type');
 });

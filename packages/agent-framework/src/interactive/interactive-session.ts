@@ -204,6 +204,7 @@ export class InteractiveSession
       (event) => this.emit('skill_activation', event),
       (event) => this.emit('memory_event', event),
       initCheckpointStore,
+      (event) => this.emit('branch_event', event),
     );
 
     const commandModules = [...('commandModules' in options ? (options.commandModules ?? []) : [])];

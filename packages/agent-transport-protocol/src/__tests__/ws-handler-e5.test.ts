@@ -39,6 +39,7 @@ describe('ws-handler E5 driver attribution (REMOTE-014)', () => {
       session,
       send: () => {},
       driverId: 'device-42',
+      onDeliveryError: vi.fn(),
     });
     // A client submit frame carries NO driverId field (structurally — TClientMessage has none); the handler
     // injects the bound server id.
@@ -66,7 +67,7 @@ describe('ws-handler E5 driver attribution (REMOTE-014)', () => {
   it('TC-03: SELECTIVELY stamps turn-authored events with the active driver; background events carry none', () => {
     const session = mockSession('driver-A');
     const sent: TServerMessage[] = [];
-    createWsHandler({ session, send: (m) => sent.push(m) });
+    createWsHandler({ session, send: (m) => sent.push(m), onDeliveryError: vi.fn() });
 
     session._emit('user_message', 'hello');
     session._emit('text_delta', 'chunk');
@@ -83,7 +84,7 @@ describe('ws-handler E5 driver attribution (REMOTE-014)', () => {
   it('TC-03: an unattributed (idle) turn stamps no driverId', () => {
     const session = mockSession(null); // getActiveDriverId → null
     const sent: TServerMessage[] = [];
-    createWsHandler({ session, send: (m) => sent.push(m) });
+    createWsHandler({ session, send: (m) => sent.push(m), onDeliveryError: vi.fn() });
     session._emit('user_message', 'hi');
     expect((sent[0] as { driverId?: string }).driverId).toBeUndefined();
   });

@@ -17,6 +17,7 @@ import {
   tokenMatches,
 } from './ws-connection-guards.js';
 import { toBytes } from './ws-message-data.js';
+import { WsSessionDelivery } from './ws-session-delivery.js';
 import { DEFAULT_MAX_RETRIES, DEFAULT_PORT } from './ws-transport-config.js';
 
 import type { IWsTransportConfig } from './ws-transport-config.js';
@@ -30,7 +31,7 @@ import type {
   IPayloadChannelHost,
   TChannelEventMap,
 } from '@robota-sdk/agent-interface-transport';
-import type { IProtocolSession, TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
 import type { RawData } from 'ws';
 
 /**
@@ -239,36 +240,36 @@ export class WsTransport
             return;
           }
 
-          const send = (message: TServerMessage): void => {
-            if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
-          };
-
-          const { onMessage, cleanup } = createWsHandler({ session, send });
-
-          const detachSink = channels.addSink((frame: Uint8Array) => {
-            if (ws.readyState === WebSocket.OPEN) ws.send(frame, { binary: true });
+          const delivery = new WsSessionDelivery(ws);
+          const handler = createWsHandler({
+            session,
+            send: delivery.send,
+            onDeliveryError: delivery.close,
           });
-          const closeConnection = (): void => {
-            detachSink();
-            cleanup();
-          };
+          delivery.bindProtocolCleanup(handler.cleanup);
+
+          delivery.bindSinkDetach(
+            channels.addSink((frame: Uint8Array) => {
+              if (ws.readyState === WebSocket.OPEN) ws.send(frame, { binary: true });
+            }),
+          );
 
           // Route by frame opcode: TEXT → the text-agent protocol profile, BINARY → the
           // payload-agnostic channels. An unroutable channel frame is answered with an explicit
           // `protocol_error` rather than silently dropped.
           ws.on('message', (data: RawData, isBinary: boolean) => {
             if (!isBinary) {
-              onMessage(String(data));
+              handler.onMessage(String(data));
               return;
             }
             const result = channels.receive(toBytes(data));
-            if (!result.ok) send({ type: 'protocol_error', message: result.error });
+            if (!result.ok) delivery.send({ type: 'protocol_error', message: result.error });
           });
-          ws.on('close', closeConnection);
-          ws.on('error', closeConnection);
+          ws.on('close', delivery.close);
+          ws.on('error', delivery.close);
 
-          send({ type: 'messages', messages: session.getMessages() });
-          send({
+          delivery.send({ type: 'messages', messages: session.getMessages() });
+          delivery.send({
             type: 'execution_workspace_event',
             snapshot: session.getExecutionWorkspaceSnapshot(),
           });

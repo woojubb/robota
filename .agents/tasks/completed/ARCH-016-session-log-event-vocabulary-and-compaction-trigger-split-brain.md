@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-016: the "canonical" session-log event vocabulary omits eight real events, and one manual /compact reports two different triggers to its own hooks'
-status: todo
+status: done
+completed: 2026-08-16
 created: 2026-08-13
 priority: medium
 urgency: soon
@@ -107,5 +108,21 @@ DONE-GATE-STAGE-1: PASS
   `memory_event` through the exported session-log vocabulary, and `cleanupRemoved` is `true`.
 - **Cleanup:** the example shuts down both sessions and recursively removes its temporary directory
   in `finally`; no repository or home-directory state remains.
-- **Evidence (fill after implementation):** _pending — paste the exact JSON stdout and exit code from
-  the command above._
+- **Evidence (2026-08-15):** exact command exited `0`; the ARCH-016 stdout object was
+  `{"manualCompaction":{"hookTriggers":["manual","manual"]},"autoCompaction":{"hookTriggers":["auto","auto"]},"vocabulary":{"unrecognizedEvents":[]},"cleanupRemoved":true}`.
+  The official owner `scenario:record` command wrote the matching aggregate output to
+  `packages/agent-session/examples/scenarios/offline-verify.record.json`.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-15
+
+**Status upgrade:** scenario-written → scenario-verified
+
+- **Direct execution:** the exact public-SDK command above ran twice against the completed
+  implementation; both invocations exited `0` and emitted the same JSON object.
+- **Expected observable:** manual hooks were exactly `["manual","manual"]`, auto hooks were exactly
+  `["auto","auto"]`, `vocabulary.unrecognizedEvents` was `[]`, and `cleanupRemoved` was `true`.
+- **Cleanup:** both runs shut down their sessions and removed their temporary session directories;
+  neither run left repository or home-directory state.
+- **Durable evidence:** `packages/agent-session/examples/verify-compaction-contract.ts` remains the
+  executable scenario, and the owner scenario verification matched its output against
+  `packages/agent-session/examples/scenarios/offline-verify.record.json`.

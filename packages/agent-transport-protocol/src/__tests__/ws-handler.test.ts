@@ -6,6 +6,7 @@ import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transp
 
 import { describe, it, expect, vi } from 'vitest';
 import { createWsHandler } from '../ws-handler.js';
+import { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from '../ws-session-events.js';
 import type { TServerMessage } from '../ws-protocol.js';
 import type {
   IBackgroundJobGroupState,
@@ -115,6 +116,7 @@ describe('WebSocket Transport Handler', () => {
     const { onMessage, cleanup } = createWsHandler({
       session,
       send: (msg) => sent.push(msg),
+      onDeliveryError: vi.fn(),
     });
     return { session, sent, onMessage, cleanup };
   }
@@ -320,6 +322,7 @@ describe('WebSocket Transport Handler', () => {
       session,
       send: (msg) => sent.push(msg),
       driverId: 'device-7',
+      onDeliveryError: vi.fn(),
     });
     onMessage(JSON.stringify({ type: 'command', name: 'settings' }));
     await new Promise((r) => setTimeout(r, 10));
@@ -335,6 +338,7 @@ describe('WebSocket Transport Handler', () => {
       session,
       send: (msg) => sent.push(msg),
       driverId: 'device-7',
+      onDeliveryError: vi.fn(),
     });
     session._emit('ui_intent', {
       intent: { type: 'show-settings' },
@@ -361,11 +365,13 @@ describe('WebSocket Transport Handler', () => {
         session,
         send: (msg) => sentA.push(msg),
         driverId: 'device-A',
+        onDeliveryError: vi.fn(),
       });
       createWsHandler({
         session,
         send: (msg) => sentB.push(msg),
         driverId: 'device-B',
+        onDeliveryError: vi.fn(),
       });
       return { session, sentA, sentB };
     }
@@ -573,8 +579,11 @@ describe('WebSocket Transport Handler', () => {
   it('cleanup unsubscribes from all events', () => {
     const { session, cleanup } = setup();
     cleanup();
-    // 11 base events + 3 REMOTE-007 prompt events (permission_request/ask_request/prompt_resolved)
-    // + 3 CMD-004 Phase 2 events (ui_intent + the session_renamed/history_cleared broadcasts).
-    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(17);
+    const subscribedEventCount = Object.values(PROTOCOL_SESSION_EVENT_CLASSIFICATION).filter(
+      (classification) => classification !== 'non-surface',
+    ).length;
+    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(
+      subscribedEventCount,
+    );
   });
 });

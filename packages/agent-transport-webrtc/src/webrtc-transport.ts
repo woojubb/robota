@@ -12,6 +12,7 @@ import type { IProtocolSession, SessionResumeBridge } from '@robota-sdk/agent-tr
 import { loadWerift } from './werift-loader.js';
 import { PairingGate, type IHostReconnectConfig } from './pairing-gate.js';
 import { createTransportLifecycleError } from './transport-lifecycle-error.js';
+import { WebRtcDeliveryLifecycle } from './webrtc-delivery-lifecycle.js';
 import type { ISignalingClient } from './signaling.js';
 import type { IWeriftModule } from './werift-loader.js';
 
@@ -68,6 +69,8 @@ export interface IWebRtcTransportOptions {
   readonly resumeBridge?: SessionResumeBridge;
   /** REMOTE-013 E4: fired when a PAIRED data channel drops (so the controller can run the reconnect loop). Not fired for a pre-accept failure (that is `onPairingFailed`). */
   readonly onDropped?: () => void;
+  /** Observe an outbound session-event delivery failure before the carrier drops. */
+  readonly onDeliveryError?: (error: Error, event: string) => void;
   /** Test seam: inject the werift module (defaults to the real lazy loader). */
   readonly loadWerift?: () => IWeriftModule;
 }
@@ -89,18 +92,23 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
   private peer?: RTCPeerConnection;
   private unsubscribeSignal?: () => void;
   private cleanupHandler?: () => void;
-  /** REMOTE-013 E4: true once the pairing gate accepted; a channel close after this is a DROP, not a failure. */
-  private paired = false;
-  /** Guards `onDropped` to fire at most once per transport instance. */
-  private dropped = false;
   /** Invalidates pending async startup work and scopes pairing/drop state to one start generation. */
   private generation = 0;
   /** Local DTLS fingerprint captured for pairing channel binding. */
   private localFingerprint?: string;
   /** Pairing gate for the current channel. */
   private pairingGate?: PairingGate;
+  private readonly deliveryLifecycle: WebRtcDeliveryLifecycle;
 
   public constructor(private readonly options: IWebRtcTransportOptions) {
+    this.deliveryLifecycle = new WebRtcDeliveryLifecycle({
+      cleanup: () => {
+        this.cleanupHandler?.();
+        this.pairingGate?.cleanup();
+      },
+      onDropped: () => this.options.onDropped?.(),
+      onDeliveryError: (error, event) => this.options.onDeliveryError?.(error, event),
+    });
     // A pairing secret and explicit open admission are contradictory, so fail before signaling.
     if (this.options.secret && this.options.open === true) {
       throw new Error(
@@ -184,8 +192,7 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     if (!session) throw createTransportLifecycleError('not-attached');
     if (this.peer) throw createTransportLifecycleError('already-started');
     const generation = ++this.generation;
-    this.paired = false;
-    this.dropped = false;
+    this.deliveryLifecycle.reset(generation);
 
     const peer = this.createPeer();
     this.peer = peer;
@@ -226,12 +233,14 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
       remoteFingerprint: extractDtlsFingerprint(sdp),
       onAccept: (result) => {
         if (generation !== this.generation) return;
-        this.paired = true;
+        this.deliveryLifecycle.accept(generation);
         this.options.onPaired?.(result);
       },
       ...(this.options.onPairingFailed ? { onReject: this.options.onPairingFailed } : {}),
       ...(this.options.reconnect ? { reconnect: this.options.reconnect } : {}),
       ...(this.options.resumeBridge ? { resumeBridge: this.options.resumeBridge } : {}),
+      onDeliveryError: (error, event) =>
+        this.deliveryLifecycle.handleFailure(channel, generation, error, event),
     });
   }
 
@@ -250,28 +259,18 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
       // A post-accept close detaches the resume bridge and starts reconnect without ending the session.
       channel.stateChanged.subscribe((state) => {
         if (generation !== this.generation) return;
-        if ((state === 'closed' || state === 'closing') && this.paired && !this.dropped) {
-          this.dropped = true;
-          this.pairingGate?.cleanup(); // detaches the resume bridge (keeps buffering); session survives
-          this.options.onDropped?.();
-        }
+        if (state === 'closed' || state === 'closing')
+          this.deliveryLifecycle.handleDrop(generation);
       });
       this.cleanupHandler = () => this.pairingGate?.cleanup();
       return;
     }
 
-    // Unpaired (Stage-A loopback / tests): `channel.send` runs under try/catch because werift buffers sends while
-    // the channel is `connecting` and only throws once `closing`/`closed` — the terminal case we drop, matching
-    // WebSocket semantics where a send after close cannot carry the frame.
     const { onMessage, cleanup } = createWsHandler({
       session,
-      send: (serverMessage) => {
-        try {
-          channel.send(JSON.stringify(serverMessage));
-        } catch {
-          // Channel is closing/closed — the peer is gone; the frame cannot be delivered.
-        }
-      },
+      send: (serverMessage) => channel.send(JSON.stringify(serverMessage)),
+      onDeliveryError: (error, event) =>
+        this.deliveryLifecycle.handleFailure(channel, generation, error, event),
     });
     this.cleanupHandler = cleanup;
     channel.onMessage.subscribe((data) => {
@@ -288,8 +287,7 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     this.unsubscribeSignal = undefined;
     this.pairingGate = undefined;
     this.localFingerprint = undefined;
-    this.paired = false;
-    this.dropped = false;
+    this.deliveryLifecycle.reset(this.generation);
     if (this.peer) {
       await this.peer.close();
       this.peer = undefined;

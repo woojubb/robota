@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-018: the IInteractionChannel charter ("all interactive transports implement it") is false for three of its four named cases — and the flagship implementer no-ops the contract''s central member'
-status: todo
+status: done
+completed: 2026-08-16
 created: 2026-08-13
 priority: medium
 urgency: soon
@@ -83,3 +84,19 @@ public SDK result, rendered UI state, or workflow behavior that a user can execu
 typecheck, and conformance evidence belong in `## Test Plan`; inventing a product run would not exercise
 this work. Option (b), if separately approved later, is a runtime transport migration and must define its
 own user-execution scenario before implementation.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** planned-not-applicable → verified-not-applicable
+
+- **Applicability re-check:** the completed change narrows the architecture charter and removes only
+  `TuiInteractionChannel`'s nominal `IInteractionChannel` conformance and unused no-op `write()` path;
+  its session ownership, subscriptions, rendering, and runtime workflow remain unchanged.
+- **Contract evidence:** the project structure and interface/framework/TUI SPECs consistently name
+  `ProgrammaticInteractionChannel` as the `createInteractiveRuntime` port implementation, while the
+  charter test mechanically rejects the former universal-transport claim and nominal TUI conformance.
+- **Engineering verification:** the exact TUI scoped harness verification passed build, all `73` test
+  files / `568` tests, typecheck, and its dependent CLI typecheck. The repository `harness:scan`
+  completed with `110` scans passed and `2` intentionally skipped.
+- **Scenario outcome:** `NOT-APPLICABLE` is upheld; no product scenario was invented for a change with
+  no runtime observable.

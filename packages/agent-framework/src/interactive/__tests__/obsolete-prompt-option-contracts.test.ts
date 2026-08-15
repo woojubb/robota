@@ -38,5 +38,6 @@ const injectedAsk: IInteractiveSessionInjectedOptions = {
 void [standardPermission, standardAsk, injectedPermission, injectedAsk];
 
 it('keeps obsolete prompt options rejected by the public type contract', () => {
-  expect(true).toBe(true);
+  expect(standardPermission.cwd).toBe('/tmp/arch-017');
+  expect(injectedPermission.session).toBe(session);
 });

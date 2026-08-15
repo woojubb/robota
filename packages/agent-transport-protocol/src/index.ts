@@ -1,5 +1,10 @@
 export { createWsHandler } from './ws-handler.js';
 export type { IWsHandlerOptions } from './ws-handler.js';
+export { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from './ws-session-events.js';
+export type {
+  ISubscribeSessionEventsOptions,
+  TProtocolSessionEventClassification,
+} from './ws-session-events.js';
 export type { IProtocolSession } from './protocol-session.js';
 export type { TClientMessage, TServerMessage, TSeqServerMessage } from './ws-protocol.js';
 export { ResumeBuffer } from './resume-buffer.js';

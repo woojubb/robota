@@ -40,6 +40,8 @@ export interface IAttachOptions {
    * un-holds. First-pair attach does NOT hold (the client starts at seq 0, frames arrive in order).
    */
   readonly awaitResume?: boolean;
+  /** Sink/carrier-owned failure lifecycle for this attachment only. */
+  readonly onDeliveryError: (error: Error, event: string) => void;
 }
 
 export interface ISessionResumeBridgeOptions {
@@ -54,6 +56,7 @@ export class SessionResumeBridge {
   private readonly buffer: ResumeBuffer;
   private driverId?: TDriverId;
   private readonly unsubscribe: () => void;
+  private onDeliveryError?: IAttachOptions['onDeliveryError'];
   private sink?: TResumeSink;
   private disposed = false;
   /** REMOTE-013 E4: while true, live emits are buffered but NOT forwarded — released by `replay()` on reconnect. */
@@ -69,13 +72,15 @@ export class SessionResumeBridge {
     // consumes no seq and can never leak through a later `resume` replay.
     this.unsubscribe = subscribeSessionEvents(this.session, (message) => this.emit(message), {
       getSurfaceDriverId: () => this.driverId,
+      onDeliveryError: (error, event) => this.reportDeliveryError(error, event),
     });
   }
 
   /** Set the current channel sink (on connect / reconnect). Live messages reach the client; replay is `resume`-driven. */
-  public attach(sink: TResumeSink, options: IAttachOptions = {}): void {
+  public attach(sink: TResumeSink, options: IAttachOptions): void {
     if (this.disposed) return;
     this.sink = sink;
+    this.onDeliveryError = options.onDeliveryError;
     // On a reconnect, hold live forwarding until `resume` flushes the buffered tail (avoids the live-vs-replay race).
     this.holding = options.awaitResume === true;
   }
@@ -83,6 +88,7 @@ export class SessionResumeBridge {
   /** Clear the sink (channel drop). Buffering continues so gap output is retained for the next `resume`. */
   public detach(): void {
     this.sink = undefined;
+    this.onDeliveryError = undefined;
   }
 
   /**
@@ -139,7 +145,7 @@ export class SessionResumeBridge {
   private replay(lastSeq: number): void {
     const tail = this.buffer.tailAfter(lastSeq);
     if (tail.kind === 'overrun') {
-      this.rawSend(JSON.stringify({ type: 'resume_gap' }));
+      this.rawSend(JSON.stringify({ type: 'resume_gap' }), 'resume_gap');
       this.holding = false; // client will full-refresh via get-messages; let live frames flow
       return;
     }
@@ -150,14 +156,26 @@ export class SessionResumeBridge {
   }
 
   private send(message: TSeqServerMessage): void {
-    this.rawSend(JSON.stringify(message));
+    this.rawSend(JSON.stringify(message), message.type);
   }
 
-  private rawSend(data: string): void {
+  private rawSend(data: string, event: TServerMessage['type']): void {
     try {
       this.sink?.(data);
+    } catch (error) {
+      const normalized = error instanceof Error ? error : new Error(String(error));
+      this.reportDeliveryError(normalized, event);
+    }
+  }
+
+  /** Detach the failed sink but retain the frame, then notify its attachment owner. */
+  private reportDeliveryError(error: Error, event: string): void {
+    const onDeliveryError = this.onDeliveryError;
+    this.detach();
+    try {
+      onDeliveryError?.(error, event);
     } catch {
-      // The channel is closing/closed — the frame stays in the buffer for the next resume.
+      // Carrier diagnostics cannot corrupt the retained buffer or the committed operation.
     }
   }
 }

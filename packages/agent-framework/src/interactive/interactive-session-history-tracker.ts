@@ -1,7 +1,4 @@
-/**
- * SessionHistoryTracker — manages history, edit checkpoints, memory events,
- * context references, and skill activation events for an InteractiveSession.
- */
+/** Owns InteractiveSession history, checkpoints, memory, context references, and skill events. */
 
 import { randomUUID } from 'node:crypto';
 
@@ -12,6 +9,7 @@ import {
   createSystemContextReferenceItems,
   recordInteractiveContextReferences,
 } from './interactive-session-context-references.js';
+import { SessionBranchEvents } from './session-branch-events.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import { formatSkillActivationMessage } from '../commands/skill-activation-events.js';
 import {
@@ -23,6 +21,7 @@ import {
   formatMemoryEventMessage,
 } from '../memory/memory-event-format.js';
 
+import type { IHistoryTrackerState } from './session-history-state.js';
 import type {
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
@@ -39,19 +38,14 @@ import type {
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { IHistoryEntry, TUniversalValue } from '@robota-sdk/agent-core';
-import type { IActiveBranchPointer } from '@robota-sdk/agent-interface-transport';
-
-export interface IHistoryTrackerState {
-  history: IHistoryEntry[];
-  memoryEvents: IMemoryEvent[];
-  usedMemoryReferences: IMemoryReference[];
-  contextReferences: IContextReferenceItem[];
-  skillActivationEvents: ISkillActivationEvent[];
-}
+import type { IActiveBranchPointer, IBranchEvent } from '@robota-sdk/agent-interface-transport';
+export { BRANCH_OPERATION_EVENT_MATRIX } from './session-branch-events.js';
+export type { IHistoryTrackerState } from './session-history-state.js';
 
 export class SessionHistoryTracker {
   private history: IHistoryEntry[] = [];
   private editCheckpointStore: EditCheckpointStore | null = null;
+  private readonly branchEvents: SessionBranchEvents;
   /**
    * SELFHOST-007: a persisted active-branch pointer restored (in the constructor) BEFORE the checkpoint
    * store exists on the standard/async construction path — stashed here and applied the moment the
@@ -72,8 +66,19 @@ export class SessionHistoryTracker {
     private readonly emitSkillActivation: (event: ISkillActivationEvent) => void,
     private readonly emitMemoryEvent: (event: IMemoryEvent) => void,
     editCheckpointStore: EditCheckpointStore | null = null,
+    emitBranchEvent: (event: IBranchEvent) => void = () => undefined,
   ) {
     this.editCheckpointStore = editCheckpointStore;
+    this.branchEvents = new SessionBranchEvents(
+      () => this.getCheckpointStore(),
+      getSessionId,
+      persistSession,
+      emitBranchEvent,
+      (error) =>
+        this.history.push(
+          messageToHistoryEntry(createSystemMessage(`Checkpoint error: ${error.message}`)),
+        ),
+    );
   }
 
   restoreState(state: IHistoryTrackerState): void {
@@ -150,6 +155,7 @@ export class SessionHistoryTracker {
       messageToHistoryEntry(createSystemMessage(`Restored edit checkpoint: ${checkpointId}`)),
     );
     this.persistSession();
+    this.branchEvents.emit('restore', checkpointId);
     return result;
   }
 
@@ -165,6 +171,7 @@ export class SessionHistoryTracker {
       messageToHistoryEntry(createSystemMessage(`Rolled back edit checkpoint: ${checkpointId}`)),
     );
     this.persistSession();
+    this.branchEvents.emit('rollback', checkpointId);
     return result;
   }
 
@@ -189,6 +196,7 @@ export class SessionHistoryTracker {
       ),
     );
     this.persistSession();
+    this.branchEvents.emit('fork', checkpointId);
     return result;
   }
 
@@ -201,6 +209,7 @@ export class SessionHistoryTracker {
       messageToHistoryEntry(createSystemMessage(`Switched to checkpoint branch: ${checkpointId}`)),
     );
     this.persistSession();
+    this.branchEvents.emit('switch', checkpointId);
   }
 
   /** SELFHOST-007: the active-branch pointer to persist (so a branch survives --resume). */
@@ -242,16 +251,7 @@ export class SessionHistoryTracker {
   }
 
   async finalizeEditCheckpointTurn(): Promise<void> {
-    if (!this.editCheckpointStore) return;
-    try {
-      await this.editCheckpointStore.finalizeTurn();
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      this.history.push(
-        messageToHistoryEntry(createSystemMessage(`Checkpoint error: ${err.message}`)),
-      );
-      throw err;
-    }
+    if (this.editCheckpointStore) await this.branchEvents.finalize();
   }
 
   setEditCheckpointStore(store: EditCheckpointStore): void {

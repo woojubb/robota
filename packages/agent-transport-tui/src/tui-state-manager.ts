@@ -1,18 +1,19 @@
 /**
  * TuiStateManager — pure TypeScript rendering state manager.
  *
- * Converts InteractiveSession events into rendering state.
- * No React dependency. Fully unit-testable.
- *
- * React hook (useTuiChannel) subscribes to onChange
- * and reads state for rendering.
+ * Converts InteractiveSession events into rendering state without a React dependency.
+ * The React hook subscribes to onChange and reads state for rendering.
  */
 
+import { TuiSessionNoticeStore } from './tui-session-notice-store.js';
+
+import type { TTuiNoticeInput } from './tui-session-events.js';
 import type { IContextWindowState, IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IExecutionResult,
   IExecutionWorkspaceSnapshot,
   IToolState,
+  TInteractiveEventName,
 } from '@robota-sdk/agent-interface-transport';
 
 /** Debounce interval for streaming text notify (limits renderMarkdown frequency) */
@@ -69,6 +70,9 @@ export class TuiStateManager {
   lastErrorMessage: string | null = null;
   /** ERR-001 G3: no stream/tool activity for STALL_HINT_MS while thinking. */
   isStalled = false;
+  private readonly sessionNoticeStore = new TuiSessionNoticeStore();
+  /** Bounded render-only projection; never merged into canonical session history. */
+  readonly sessionEventNotices = this.sessionNoticeStore.notices;
 
   /** Called after any state change. React hook sets this to trigger re-render. */
   onChange: (() => void) | null = null;
@@ -242,6 +246,16 @@ export class TuiStateManager {
   /** Update context state */
   setContextState(state: TContextState): void {
     this.contextState = state;
+    this.notify();
+  }
+
+  addSessionEventNotice(input: TTuiNoticeInput): void {
+    this.sessionNoticeStore.add(input);
+    this.notify();
+  }
+
+  addSessionEventDeliveryError(error: Error, event: TInteractiveEventName): void {
+    this.sessionNoticeStore.addDeliveryError(error, event);
     this.notify();
   }
 

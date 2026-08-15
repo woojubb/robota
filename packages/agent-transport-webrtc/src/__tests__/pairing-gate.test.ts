@@ -144,4 +144,52 @@ describe('PairingGate (REMOTE-008 Step 1 — fail-closed routing switch)', () =>
     gate.cleanup();
     expect(handlerCleanup).toHaveBeenCalledTimes(1);
   });
+
+  it('post-accept send failure closes the carrier and reports without escaping the session event', async () => {
+    const handlers = new Map<string, (value: unknown) => void>();
+    const session = createTestInteractiveSession({
+      on: ((event: string, handler: (value: unknown) => void) => {
+        handlers.set(event, handler);
+      }) as IInteractiveSession['on'],
+      off: ((event: string) => {
+        handlers.delete(event);
+      }) as IInteractiveSession['off'],
+    });
+    let failSend = false;
+    const channel = {
+      send: vi.fn(() => {
+        if (failSend) throw new Error('paired channel closed');
+      }),
+      close: vi.fn(),
+    };
+    const onDeliveryError = vi.fn();
+    const hs = makeHandshakeStub();
+    new PairingGate({
+      channel,
+      session,
+      secret: 's',
+      role: 'initiator',
+      localFingerprint: 'AA',
+      remoteFingerprint: 'BB',
+      startHandshake: hs.start,
+      onDeliveryError,
+    });
+    hs.accept();
+    await Promise.resolve();
+    failSend = true;
+
+    expect(() =>
+      handlers.get('branch_event')?.({
+        kind: 'checkpoint_created',
+        checkpointId: 'turn-0001',
+        branchId: 'main',
+      }),
+    ).not.toThrow();
+    expect(channel.close).toHaveBeenCalledTimes(1);
+    expect(onDeliveryError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'paired channel closed' }),
+      'branch_event',
+    );
+    expect(handlers.size).toBe(0);
+  });
 });

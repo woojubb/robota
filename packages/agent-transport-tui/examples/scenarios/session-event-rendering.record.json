@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "recordType": "scenario-record",
+  "scope": "packages/agent-transport-tui",
+  "packageName": "@robota-sdk/agent-transport-tui",
+  "command": {
+    "executable": "pnpm",
+    "args": ["scenario:verify"],
+    "rendered": "pnpm scenario:verify"
+  },
+  "cwd": "<cwd>",
+  "status": 0,
+  "stdout": {
+    "raw": "\n> @robota-sdk/agent-transport-tui@3.0.0-beta.79 scenario:verify /private/tmp/robota-agreement-002-volume/worktree/packages/agent-transport-tui\n> pnpm exec tsx --conditions=source examples/verify-session-event-rendering.ts\n\n{\"scenario\":\"ARCH-028-tui\",\"notices\":[\"Plan plan created\",\"Plan plan approved\",\"Context refreshed: <cwd>/AGENTS.md\",\"Branch checkpoint created: main @ turn-0001\"],\"deliveryFailure\":{\"message\":\"forced TUI render projection failure\",\"event\":\"plan_event\",\"operationCommitted\":true},\"cleanupRemoved\":true}\n",
+    "normalized": "{\"scenario\":\"ARCH-028-tui\",\"notices\":[\"Plan plan created\",\"Plan plan approved\",\"Context refreshed: <cwd>/AGENTS.md\",\"Branch checkpoint created: main @ turn-0001\"],\"deliveryFailure\":{\"message\":\"forced TUI render projection failure\",\"event\":\"plan_event\",\"operationCommitted\":true},\"cleanupRemoved\":true}",
+    "sha256": "a11828f3be13da0e788b319a6cda47f6aa892f1dfde91388f2ec6a0707e8d292"
+  },
+  "stderr": {
+    "raw": "",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

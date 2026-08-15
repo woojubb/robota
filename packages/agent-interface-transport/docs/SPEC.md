@@ -181,6 +181,11 @@ surfaces receive `permission_request` / `ask_request`, answer through `resolvePe
 `resolveAsk`, and dismiss on the single canonical `prompt_resolved` event. The obsolete
 `permission-resolved` interaction variant is not part of the contract.
 
+Checkpoint surfaces consume `branch_event` after a transition is persisted. Its kinds cover checkpoint
+creation, restoration, rollback, explicit branch fork, and branch switch. Resume-pointer hydration is
+not an event. Shared keys and serializable payloads live here; subscription, rendering, delivery-failure
+isolation, and fan-out policy remain owned by transport implementations.
+
 ### Interactive session persistence
 
 `IInteractiveSessionRecord` is the complete resumable-record SSOT and

@@ -18,12 +18,14 @@ import {
 
 import { createSessionInitPoller } from './flows/session-init-poller.js';
 import { applySystemCommandResult } from './hooks/command-result-handler.js';
+import { bindTuiSessionEvent, bindTuiSessionNoticeEvents } from './tui-session-binding.js';
 import { buildTuiSessionOptions } from './tui-session-options.js';
 import { TuiStateManager } from './tui-state-manager.js';
 
 import type { ISessionInitPoller, TSessionInitFailure } from './flows/session-init-poller.js';
 import type { TerminalHandoffController } from './terminal-handoff-controller.js';
 import type { ITuiInteractionChannelOptions } from './tui-channel-options.js';
+import type { ITuiSessionEventBinding } from './tui-session-binding.js';
 import type { IPendingPermissionRequest } from './types.js';
 import type { TSessionEndReason } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
@@ -95,10 +97,7 @@ export class TuiInteractionChannel {
   private processingPermission = false;
 
   /** Retained session-event bindings so stop() can unwire every listener (CLI-075 RUNTIME-31). */
-  private sessionEventBindings: Array<{
-    event: TInteractiveEventName;
-    handler: (...args: never[]) => void;
-  }> = [];
+  private sessionEventBindings: ITuiSessionEventBinding[] = [];
   /** Idempotency guard for the full channel teardown (CLI-075). */
   private stopped = false;
 
@@ -460,7 +459,6 @@ export class TuiInteractionChannel {
     const onHistoryCleared = (): void => {
       manager.clearHistory();
     };
-
     this.bindSession('user_message', onUserMessage);
     this.bindSession('text_delta', manager.onTextDelta);
     this.bindSession('tool_start', manager.onToolStart);
@@ -475,6 +473,7 @@ export class TuiInteractionChannel {
     this.bindSession('memory_event', onMemoryEvent);
     this.bindSession('execution_workspace_event', onExecutionWorkspaceEvent);
     this.bindSession('history_cleared', onHistoryCleared);
+    bindTuiSessionNoticeEvents(this.bindSession.bind(this), manager);
 
     // REMOTE-007: the TUI is a subscribed surface for the transport-neutral permission/ask events. It
     // renders each through its existing Ink queues and answers via `resolvePermission`/`resolveAsk`; a
@@ -506,8 +505,17 @@ export class TuiInteractionChannel {
     event: E,
     handler: IInteractiveSessionEvents[E],
   ): void {
-    this.interactiveSession.on(event, handler);
-    this.sessionEventBindings.push({ event, handler: handler as (...args: never[]) => void });
+    bindTuiSessionEvent(
+      this.interactiveSession,
+      event,
+      handler,
+      (error) => {
+        const report = this.opts.onSessionEventDeliveryError;
+        if (report) report(error, event);
+        else this.stateManager.addSessionEventDeliveryError(error, event);
+      },
+      this.sessionEventBindings,
+    );
   }
 
   /** Detach every session listener registered by `wireSessionEvents()` (CLI-075 RUNTIME-31). */
