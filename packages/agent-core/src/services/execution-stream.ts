@@ -73,17 +73,12 @@ export async function* executeStream(
   eventEmitter.prepareOwnerPathBases(streamingConversationId);
 
   try {
-    // CORE-036: enter the SAME session initialization the round path enters
-    // (`execution-service.ts` → `initializeConversationStore`), so `config.systemMessage`, the
-    // inject-once rule (CORE-009/CORE-010) and the restore branch are owned in one place. Reading
-    // the store directly here is why an agent obeyed its persona through `run()` and ignored it
-    // through `runStream()` — silently, on the default interactive surface.
-    //
-    // Contained — CORE-042. This makes the streaming path CALL one shared helper; it remains a
-    // second implementation of the turn. Provider resolution, chat options, validation, commit and
-    // error classification are still re-derived below, so the next turn capability still has to be
-    // built twice. The seam both entry points enter is CORE-042's work, planned with CORE-032 and
-    // CORE-033.
+    // Contained — CORE-042. Entering the round path's own session initialization is what makes
+    // `config.systemMessage` and the inject-once rule (CORE-009/CORE-010) reach this path at all;
+    // reading the store directly here is why an agent obeyed its persona through `run()` and
+    // ignored it through `runStream()`. It only makes the streaming path CALL one shared helper —
+    // provider resolution, chat options, validation and commit are still re-derived below, so the
+    // turn is still implemented twice. The shared seam is CORE-042's work.
     const conversationStore = initializeConversationStore(
       conversationHistory,
       context.conversationId,
@@ -134,20 +129,11 @@ export async function* executeStream(
         ? [...conversationMessages, createSystemMessage(ephemeralSystemContext)]
         : conversationMessages;
 
-    const configToolsLength = Array.isArray(config.tools) ? config.tools.length : undefined;
-    logger.debug('[EXECUTION-SERVICE] config.tools:', {
-      length: configToolsLength,
-    });
-    const toolSchemas = tools.getTools();
-    const toolSchemasLength = Array.isArray(toolSchemas) ? toolSchemas.length : undefined;
-    logger.debug('[EXECUTION-SERVICE] this.tools.getTools():', {
-      length: toolSchemasLength,
-    });
-    logger.debug('[EXECUTION-SERVICE] config.tools exists:', {
-      exists: !!config.tools,
-    });
-    logger.debug('[EXECUTION-SERVICE] config.tools.length > 0:', {
-      hasTools: config.tools && config.tools.length > 0,
+    // One line, not four: these were four debug calls reporting one fact — how many tools there
+    // are — in four phrasings, plus two variables that existed only to feed them.
+    logger.debug('[EXECUTION-SERVICE] stream tool inventory', {
+      configured: Array.isArray(config.tools) ? config.tools.length : undefined,
+      registered: tools.getTools().length,
     });
 
     // CORE-016/017: the streaming path must carry the same model options as the round path —
@@ -169,16 +155,6 @@ export async function* executeStream(
       })(),
     };
     assertToolChoiceValid(chatOptions.toolChoice, chatOptions.tools);
-
-    logger.debug('[EXECUTION-SERVICE] Final chatOptions has tools:', {
-      hasTools: !!chatOptions.tools,
-    });
-    const chatOptionsToolsLength = Array.isArray(chatOptions.tools)
-      ? chatOptions.tools.length
-      : undefined;
-    logger.debug('[EXECUTION-SERVICE] Final chatOptions.tools length:', {
-      length: chatOptionsToolsLength,
-    });
 
     const chatStream = provider.chatStream;
     if (!chatStream) {
