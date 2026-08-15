@@ -3,9 +3,13 @@ export {
   createDefaultBackgroundTaskRunners,
   createManagedShellProcessRunner,
   createScheduledTaskRunner,
+  resolveBackgroundTaskShellCommand,
 } from './runners/index.js';
 export type {
+  IBackgroundTaskShellCommand,
+  IBackgroundTaskShellResolutionOptions,
   IManagedShellProcessRunnerOptions,
+  IResolvedBackgroundTaskShellCommand,
   IScheduledTaskRunnerOptions,
 } from './runners/index.js';
 export {

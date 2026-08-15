@@ -812,11 +812,11 @@ jobs:
         if: env.PRODUCT_APPLICABLE == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Build agent-core + agent-process for dependent tests
+      - name: Build agent-core + agent-process + agent-executor for dependent tests
         if: env.PRODUCT_APPLICABLE == 'true'
         # CORE-023: shell-tool now imports @robota-sdk/agent-process (killProcessTree); this
         # minimal job resolves workspace deps from built dist, so agent-process must be built too.
-        run: pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-process build
+        run: pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-process --filter @robota-sdk/agent-executor build
 
       # INFRA-058: `pnpm exec vitest`, NOT `pnpm ... test -- --run <pattern>`. Both packages' `test`
       # script is `vitest run --passWithNoTests`, and a name-FILTERED run through it reports success on
@@ -850,6 +850,22 @@ jobs:
         # The genuinely win32-only half: it SPAWNS a real shell and asserts PowerShell answers. No
         # Linux or macOS runner can execute this, which is what buys the runner the job runs on.
         run: pnpm --filter @robota-sdk/agent-tools exec vitest run shell-tool
+
+      - name: Verify executor runners use default PowerShell
+        if: env.PRODUCT_APPLICABLE == 'true'
+        shell: pwsh
+        run: |
+          $env:ROBOTA_SCENARIO_OUTPUT = "$env:RUNNER_TEMP\arch-026-windows-shell.json"
+          pnpm --dir packages/agent-executor run scenario:verify:windows-shell
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload ARCH-026 Windows scenario evidence
+        if: env.PRODUCT_APPLICABLE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: arch-026-windows-shell-${{ github.run_id }}
+          path: ${{ runner.temp }}/arch-026-windows-shell.json
+          if-no-files-found: error
 
       - name: Product verification not applicable
         if: env.PRODUCT_APPLICABLE != 'true'

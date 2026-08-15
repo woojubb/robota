@@ -410,20 +410,30 @@ canonical location for env-ref logic; all higher layers import from here.
 | `resolveEnvReference`      | function | Resolve `$ENV:<name>` → `process.env[name]`; return value or `undefined`  |
 | `hasUsableSecretReference` | function | Return true when the value is a non-empty string that resolves to a value |
 
-### Cross-platform Shell Resolution
+### Cross-platform Shell Resolution Public API
 
-Zero-dependency SSOT (TERM-008) for "which shell to spawn, and how". Pure function of `(env, platform)`
-so every per-OS branch is testable without touching the host. Consumed by every shell-running site:
-the `Shell`/`Bash` tool (agent-tools), the hook `command` executor, and the interactive drop-to-shell
-(agent-command). Resolution: `ROBOTA_SHELL` override wins on any platform; **win32** → PowerShell (cmd
-via override); **posix** → `$SHELL` else `/bin/sh`. The returned `syntaxHint`/`label` name the OS family
-(macOS BSD vs Linux GNU vs Windows PowerShell) so an LLM authoring commands avoids cross-OS flag mistakes.
+Zero-dependency SSOT (TERM-008) for "which shell to spawn, and how". Pure function of one
+`IPlatformShellResolutionRequest`, so every executable/host combination is testable without touching the
+host. Precedence is non-blank request `executable` > non-blank `ROBOTA_SHELL` > `$SHELL`/platform default.
+Basenames are classified case-insensitively across `/` and `\\`, with optional `.exe`, for `sh`, `bash`,
+PowerShell/`pwsh`, and `cmd`; the returned command and `commandArgs()` always belong to the same family,
+while `platform` remains the actual requested host platform. A non-blank request or `ROBOTA_SHELL`
+executable outside those families throws `UnsupportedShellError` instead of guessing an argument family.
+Blank request overrides are absent. A POSIX `$SHELL` remains the host-declared POSIX family, including
+shells outside the explicit override classifier.
 
-| Export                 | Kind      | Description                                                                                 |
-| ---------------------- | --------- | ------------------------------------------------------------------------------------------- |
-| `resolvePlatformShell` | function  | Resolve the active shell for `(env, platform)` → `IPlatformShell`                           |
-| `IPlatformShell`       | interface | `command`, `kind`, `platform`, `commandArgs(cmd)`, `interactiveArgs`, `label`, `syntaxHint` |
-| `TShellKind`           | type      | `'bash' \| 'sh' \| 'powershell' \| 'cmd'`                                                   |
+Consumed by every shell-running site: the `Shell`/`Bash` tool (agent-tools), hook `command` executor,
+interactive drop-to-shell (agent-command), and both managed-process and scheduled-command runners through
+agent-executor's shared request adapter. The returned `syntaxHint`/`label` names both command family and
+host so an LLM authoring commands avoids cross-family syntax mistakes.
+
+| Export                            | Kind      | Description                                                                            |
+| --------------------------------- | --------- | -------------------------------------------------------------------------------------- |
+| `resolvePlatformShell`            | function  | Resolve one request to an executable and its matching argument family                  |
+| `IPlatformShellResolutionRequest` | interface | Optional `executable`, `env`, and `platform` inputs with explicit precedence semantics |
+| `IPlatformShell`                  | interface | `command`, `kind`, actual host `platform`, args, label, and syntax guidance            |
+| `TShellKind`                      | type      | `'bash' \| 'sh' \| 'powershell' \| 'cmd'`                                              |
+| `UnsupportedShellError`           | class     | Typed fail-closed error for an unclassified explicit executable                        |
 
 ### Hooks
 
@@ -1101,6 +1111,7 @@ All errors extend `RobotaError` with `code`, `category`, and `recoverable` prope
 | `CircuitBreakerOpenError` | `CIRCUIT_BREAKER_OPEN` | system   | yes         |
 | `PluginError`             | `PLUGIN_ERROR`         | system   | no          |
 | `StorageError`            | `STORAGE_ERROR`        | system   | yes         |
+| `UnsupportedShellError`   | `UNSUPPORTED_SHELL`    | user     | no          |
 
 `ErrorUtils` provides `isRecoverable()`, `getErrorCode()`, `fromUnknown()`, and `wrapProviderError()`.
 
@@ -1259,14 +1270,15 @@ cassettePath, recordCwd? })` wraps a real provider and writes each interaction t
 
 ### Current Coverage
 
-| Layer         | Test Files                                                                              | Coverage                                       |
-| ------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Core (Robota) | `robota.test.ts`                                                                        | Core flow                                      |
-| Executors     | `local-executor.test.ts`                                                                | Local execution                                |
-| Managers      | `agent-factory.test.ts`, `tool-manager.test.ts`, `conversation-history-manager.test.ts` | Creation, tools, history                       |
-| Plugins       | `event-emitter-plugin.test.ts`                                                          | Event coordination                             |
-| Providers     | `provider-capabilities.test.ts`                                                         | Default capabilities and native web validation |
-| Services      | `event-service.test.ts`, `execution-service.test.ts`                                    | Events, execution                              |
+| Layer          | Test Files                                                                              | Coverage                                                                                          |
+| -------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Core (Robota)  | `robota.test.ts`                                                                        | Core flow                                                                                         |
+| Executors      | `local-executor.test.ts`                                                                | Local execution                                                                                   |
+| Managers       | `agent-factory.test.ts`, `tool-manager.test.ts`, `conversation-history-manager.test.ts` | Creation, tools, history                                                                          |
+| Plugins        | `event-emitter-plugin.test.ts`                                                          | Event coordination                                                                                |
+| Providers      | `provider-capabilities.test.ts`                                                         | Default capabilities and native web validation                                                    |
+| Services       | `event-service.test.ts`, `execution-service.test.ts`                                    | Events, execution                                                                                 |
+| Shell resolver | `platform-shell.test.ts`                                                                | Precedence, cross-platform executable families, path/case handling, typed unknown-shell rejection |
 
 ### Scenario Verification
 

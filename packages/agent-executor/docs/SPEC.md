@@ -45,6 +45,7 @@ agent-executor
   │   ├── background-task-watchdogs.ts          -- idle/max-runtime/output watchdog controller
   │   ├── log-pages.ts                          -- output capture and cursor-based log page helpers
   │   ├── runners/
+  │   │   ├── shell-command-resolution.ts        -- pure request → executable/argument-family adapter
   │   │   ├── managed-shell-process-runner.ts   -- child_process.spawn-based runner
   │   │   └── scheduled-task-runner.ts          -- croner-based scheduled runner
   │   └── types.ts                              -- task requests, state, result, runner ports
@@ -86,30 +87,33 @@ Design rules:
 
 ### Background Task Interface Types
 
-| Type                                 | Location                                                       | Purpose                                                                                                       |
-| ------------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `IBackgroundTaskError`               | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Structured error shape with category and recoverability                                                       |
-| `ISerializableProviderProfile`       | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Provider profile handoff for background workers, including credential references and provider-owned `options` |
-| `IBaseBackgroundTaskRequest`         | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Common fields for all task request variants                                                                   |
-| `IAgentBackgroundTaskRequest`        | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Agent task request (`kind: 'agent'`)                                                                          |
-| `IProcessBackgroundTaskRequest`      | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Shell process task request (`kind: 'process'`)                                                                |
-| `IScheduledBackgroundTaskRequest`    | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Cron-scheduled task request (`kind: 'scheduled'`)                                                             |
-| `TBackgroundTaskRequest`             | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Union of all three task request variants                                                                      |
-| `IBackgroundTaskResult`              | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Completed task output and metadata                                                                            |
-| `IBackgroundTaskState`               | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Immutable task state snapshot shape                                                                           |
-| `IBackgroundTaskInput`               | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Input sent to a running task via `send()`                                                                     |
-| `IBackgroundTaskLogCursor`           | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Cursor for paginated log reads                                                                                |
-| `IBackgroundTaskLogPage`             | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Paginated log page result                                                                                     |
-| `IBackgroundTaskListFilter`          | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Filter shape for `list()` queries                                                                             |
-| `IBackgroundTaskStart`               | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Argument passed from manager to runner `start()` call                                                         |
-| `IBackgroundTaskHandle`              | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Cancellable handle returned by `IBackgroundTaskRunner.start()`                                                |
-| `IBackgroundTaskRunner`              | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Port for executing one task kind                                                                              |
-| `IBackgroundTaskManager`             | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Generic background task registry API                                                                          |
-| `IBackgroundTaskManagerOptions`      | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Constructor options for `BackgroundTaskManager`                                                               |
-| `IManagedShellProcessRunnerOptions`  | `src/background-tasks/runners/managed-shell-process-runner.ts` | Options for the shell process runner factory                                                                  |
-| `IScheduledTaskRunnerOptions`        | `src/background-tasks/runners/scheduled-task-runner.ts`        | Options for the scheduled task runner factory                                                                 |
-| `ILimitedOutputCapture`              | `src/background-tasks/log-pages.ts`                            | UTF-8-safe bounded output capture used by process-like adapters                                               |
-| `ICreateLimitedOutputCaptureOptions` | `src/background-tasks/log-pages.ts`                            | Options for `createLimitedOutputCapture()`                                                                    |
+| Type                                    | Location                                                       | Purpose                                                                                                       |
+| --------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `IBackgroundTaskError`                  | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Structured error shape with category and recoverability                                                       |
+| `ISerializableProviderProfile`          | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Provider profile handoff for background workers, including credential references and provider-owned `options` |
+| `IBaseBackgroundTaskRequest`            | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Common fields for all task request variants                                                                   |
+| `IAgentBackgroundTaskRequest`           | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Agent task request (`kind: 'agent'`)                                                                          |
+| `IProcessBackgroundTaskRequest`         | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Shell process task request (`kind: 'process'`)                                                                |
+| `IScheduledBackgroundTaskRequest`       | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Cron-scheduled task request (`kind: 'scheduled'`)                                                             |
+| `TBackgroundTaskRequest`                | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Union of all three task request variants                                                                      |
+| `IBackgroundTaskResult`                 | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Completed task output and metadata                                                                            |
+| `IBackgroundTaskState`                  | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Immutable task state snapshot shape                                                                           |
+| `IBackgroundTaskInput`                  | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Input sent to a running task via `send()`                                                                     |
+| `IBackgroundTaskLogCursor`              | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Cursor for paginated log reads                                                                                |
+| `IBackgroundTaskLogPage`                | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Paginated log page result                                                                                     |
+| `IBackgroundTaskListFilter`             | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Filter shape for `list()` queries                                                                             |
+| `IBackgroundTaskStart`                  | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Argument passed from manager to runner `start()` call                                                         |
+| `IBackgroundTaskHandle`                 | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Cancellable handle returned by `IBackgroundTaskRunner.start()`                                                |
+| `IBackgroundTaskRunner`                 | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Port for executing one task kind                                                                              |
+| `IBackgroundTaskManager`                | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Generic background task registry API                                                                          |
+| `IBackgroundTaskManagerOptions`         | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Constructor options for `BackgroundTaskManager`                                                               |
+| `IManagedShellProcessRunnerOptions`     | `src/background-tasks/runners/managed-shell-process-runner.ts` | Options for the shell process runner factory                                                                  |
+| `IScheduledTaskRunnerOptions`           | `src/background-tasks/runners/scheduled-task-runner.ts`        | Options for the scheduled task runner factory                                                                 |
+| `IBackgroundTaskShellCommand`           | `src/background-tasks/runners/shell-command-resolution.ts`     | Minimal command/request-shell projection consumed identically by both command runners                         |
+| `IBackgroundTaskShellResolutionOptions` | `src/background-tasks/runners/shell-command-resolution.ts`     | Pure simulated `env`/`platform` inputs for deterministic resolver matrices                                    |
+| `IResolvedBackgroundTaskShellCommand`   | `src/background-tasks/runners/shell-command-resolution.ts`     | One inseparable executable plus matching argument array                                                       |
+| `ILimitedOutputCapture`                 | `src/background-tasks/log-pages.ts`                            | UTF-8-safe bounded output capture used by process-like adapters                                               |
+| `ICreateLimitedOutputCaptureOptions`    | `src/background-tasks/log-pages.ts`                            | Options for `createLimitedOutputCapture()`                                                                    |
 
 ### Subagent Types
 
@@ -154,10 +158,16 @@ The following are concrete `IBackgroundTaskRunner` implementations provided by t
 They depend on Node.js `child_process`. CLI and SDK shells use them as default runners;
 test environments may substitute no-op runners through the `IBackgroundTaskRunner` port.
 
-| Export                            | Kind     | Description                                                                          |
-| --------------------------------- | -------- | ------------------------------------------------------------------------------------ |
-| `createManagedShellProcessRunner` | function | Spawns a shell command via `node:child_process.spawn`; streams stdout/stderr as logs |
-| `createScheduledTaskRunner`       | function | Schedules cron-pattern tasks via `croner`; triggers a child runner on each firing    |
+| Export                              | Kind     | Description                                                                                                |
+| ----------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| `createManagedShellProcessRunner`   | function | Spawns a shell command via `node:child_process.spawn`; streams stdout/stderr as logs                       |
+| `createScheduledTaskRunner`         | function | Schedules cron-pattern tasks via `croner`; triggers a child runner on each firing                          |
+| `resolveBackgroundTaskShellCommand` | function | Pure shared request adapter; applies core precedence/classification and returns executable + matching args |
+
+Both concrete runners call `resolveBackgroundTaskShellCommand` and pass its `executable` and `args`
+directly to `spawn`. Neither runner may replace one half after resolution. Blank request shells are absent;
+unknown non-blank explicit shells propagate agent-core's typed `UnsupportedShellError` synchronously before
+any spawn attempt. Scheduled agent-wake-only requests do not resolve or spawn a shell.
 
 **`croner` production dependency**: `croner@^10.0.1` is used by `createScheduledTaskRunner`
 to parse cron expressions and fire scheduled background tasks. It has no Node.js native
@@ -289,6 +299,8 @@ a status that restarts or resumes execution.
 | `process`    | yes         | Shell/process task failure projected by a runner                      |
 
 Adapters may map external failures into `BackgroundTaskError` categories, but they must not expose vendor-specific error objects through public runtime state.
+Shell request validation is the exception to runner error mapping: `UnsupportedShellError` is owned by
+agent-core and propagates unchanged before spawn so callers can identify and correct the invalid executable.
 
 ## Event Architecture
 
@@ -356,11 +368,19 @@ Unit tests cover:
 - background task manager lifecycle, queueing, cancellation, progress, metadata projection, watchdogs, and shutdown
 - bounded output capture and cursor-based log pagination helpers
 - managed shell process runner and scheduled task runner (unit-level with mock child process)
+- the shared pure shell adapter's POSIX/Windows defaults, override precedence, cross-family executable and
+  argument matrices, blank overrides, path/case variants, and typed unknown-shell failure; runner tests
+  assert both spawn paths consume the pair and unknown shells record zero spawn attempts
 - subagent manager lifecycle facade behavior
 - worktree runner clean/dirty/failure/delegation/hook behavior with fake adapters
 - provider factory: `normalizeProviderConfig`, `resolveProfileApiKey`, `createProviderFromConfig`, `createProviderFromProfile`
 
 Adapter packages or shells must add integration tests for concrete side effects such as local Git or child processes.
+
+The package-owned deterministic scenario `pnpm scenario:verify` records the shared resolver/runner contract
+under `examples/scenarios/shell-resolution-contract.record.json`. The Windows-only
+`scenario:verify:windows-shell` executes real managed and scheduled default-PowerShell paths in CI job
+`windows-shell` and writes the downloadable ARCH-026 JSON artifact; simulated platforms do not replace it.
 
 ## Class Contract Registry
 

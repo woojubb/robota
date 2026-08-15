@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "recordType": "scenario-record",
+  "scope": "packages/agent-executor",
+  "packageName": "@robota-sdk/agent-executor",
+  "command": {
+    "executable": "pnpm",
+    "args": ["scenario:verify"],
+    "rendered": "pnpm scenario:verify"
+  },
+  "cwd": "<cwd>",
+  "status": 0,
+  "stdout": {
+    "raw": "\n> @robota-sdk/agent-executor@3.0.0-beta.79 scenario:verify /private/tmp/robota-agreement-002-volume/worktree/packages/agent-executor\n> pnpm exec tsx --conditions=source examples/verify-shell-resolution-contract.ts\n\n{\"rows\":[{\"name\":\"posix-default\",\"executable\":\"/bin/sh\",\"args\":[\"-c\",\"sentinel-posix\"]},{\"name\":\"windows-default\",\"executable\":\"powershell.exe\",\"args\":[\"-NoProfile\",\"-Command\",\"sentinel-powershell\"]},{\"name\":\"windows-bash\",\"executable\":\"C:\\\\Git\\\\bin\\\\BASH.EXE\",\"args\":[\"-c\",\"sentinel-bash\"]},{\"name\":\"posix-pwsh\",\"executable\":\"/opt/microsoft/pwsh\",\"args\":[\"-NoProfile\",\"-Command\",\"sentinel-pwsh\"]},{\"name\":\"posix-cmd\",\"executable\":\"/windows/System32/CMD.exe\",\"args\":[\"/d\",\"/s\",\"/c\",\"sentinel-cmd\"]},{\"name\":\"blank-request\",\"executable\":\"/bin/bash\",\"args\":[\"-c\",\"sentinel-blank\"]}],\"unknownShellZeroSpawns\":true}\n",
+    "normalized": "{\"rows\":[{\"name\":\"posix-default\",\"executable\":\"/bin/sh\",\"args\":[\"-c\",\"sentinel-posix\"]},{\"name\":\"windows-default\",\"executable\":\"powershell.exe\",\"args\":[\"-NoProfile\",\"-Command\",\"sentinel-powershell\"]},{\"name\":\"windows-bash\",\"executable\":\"C:\\\\Git\\\\bin\\\\BASH.EXE\",\"args\":[\"-c\",\"sentinel-bash\"]},{\"name\":\"posix-pwsh\",\"executable\":\"/opt/microsoft/pwsh\",\"args\":[\"-NoProfile\",\"-Command\",\"sentinel-pwsh\"]},{\"name\":\"posix-cmd\",\"executable\":\"/windows/System32/CMD.exe\",\"args\":[\"/d\",\"/s\",\"/c\",\"sentinel-cmd\"]},{\"name\":\"blank-request\",\"executable\":\"/bin/bash\",\"args\":[\"-c\",\"sentinel-blank\"]}],\"unknownShellZeroSpawns\":true}",
+    "sha256": "8dbdf8ccaa0baf2b5cdd0fee373584606f17a7f3fa12d6f9dc0f21265f0239bb"
+  },
+  "stderr": {
+    "raw": "",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}
