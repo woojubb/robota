@@ -1,5 +1,5 @@
 ---
-title: "CORE-036: runStream() never applies config.systemMessage — the streaming path builds provider messages straight off the conversation store and skips the session initialization that the round path uses to attach the system prompt, so the same agent obeys its persona through run() and ignores it through runStream()"
+title: 'CORE-036: runStream() never applies config.systemMessage — the streaming path builds provider messages straight off the conversation store and skips the session initialization that the round path uses to attach the system prompt, so the same agent obeys its persona through run() and ignores it through runStream()'
 status: todo
 created: 2026-08-16
 priority: high
@@ -27,12 +27,12 @@ instructions, which reads as a model-quality problem rather than a dropped promp
 - `packages/agent-core/src/services/execution-service-helpers.ts:189-192` — the round path's
   `initializeConversationStore()` attaches the prompt:
   `const hasSystemMessage = session.getMessages().some((m) => m.role === 'system'); if
-  (config.systemMessage && !hasSystemMessage) { session.setSystemPrompt(config.systemMessage, {
-  executionId }); }`
+(config.systemMessage && !hasSystemMessage) { session.setSystemPrompt(config.systemMessage, {
+executionId }); }`
 - `packages/agent-core/src/services/execution-stream.ts:72` — the streaming path never calls that
   helper; it goes straight to `conversationHistory.getConversationStore(context.conversationId)`.
 - `packages/agent-core/src/services/execution-stream.ts:106-114` — provider messages are the store's
-  messages plus, optionally, the *ephemeral* per-run block only:
+  messages plus, optionally, the _ephemeral_ per-run block only:
   `const conversationMessages = conversationStore.getMessages(); … ephemeralSystemContext …`
 - `grep -n "systemMessage" packages/agent-core/src/services/execution-stream.ts` returns no hit —
   the only system-message reference on that path is `ephemeralSystemContext` (SELFHOST-008 P3).
@@ -47,13 +47,29 @@ returns that string from `run('hi')` and an unrelated greeting from `runStream('
 
 Any streaming agent whose behavior is defined by a system prompt behaves as if unconfigured. The
 reporter's multi-agent app renders every persona through `runStream()`; it also explains a workaround
-they had accumulated — duplicating behavioral rules into the *user* prompt because
+they had accumulated — duplicating behavioral rules into the _user_ prompt because
 "system-message-only instructions didn't stick".
 
 `runStream()` is the default surface for interactive/TUI usage, so this is a correctness defect on
 the most-used path, not an edge case.
 
 ## Direction
+
+> **Contained — [CORE-042](CORE-042-the-execution-turn-is-implemented-twice.md)
+> ([#1748](https://github.com/woojubb/robota/issues/1748)).** `finding-depth-triager` returned
+> `DEPTH: FOUNDATIONAL` on this item's problem statement (2026-08-16). The cause is that agent-core
+> implements one declared execution-turn contract twice: `executeStream` re-derives store setup,
+> provider resolution, chat options, validation, commit and error classification inline instead of
+> entering a shared seam, so every turn capability must be built twice and the forgotten copy fails
+> silently. **This is the seventh instance** — six earlier commits are the identical "streaming
+> dropped X, copy X in" patch (CORE-016, CORE-017, CORE-018, CORE-020, BEHAVIOR-005,
+> SELFHOST-008 P3), two of them external reports against published betas.
+>
+> The Direction below is nevertheless what lands, as **labelled containment** rather than a fix for
+> the cause: this is a live correctness defect in a published beta, so it must land first, it is the
+> smallest change that keeps the tree honest, and it introduces no new abstraction — it routes the
+> streaming path through the helper that already exists. The seam itself is CORE-042's work, planned
+> with CORE-032 and CORE-033.
 
 Do not add a second copy of the prompt-injection logic to `execution-stream.ts` — that is exactly how
 the two paths drifted. Route the streaming path through the same session initialization the round
