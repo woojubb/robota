@@ -73,9 +73,10 @@ Key design rules:
   `exports` map, and every local re-export reachable from those roots, exposes framework-owned symbols
   only. General-purpose env helpers, session-id guards, and tool APIs are imported directly from
   `@robota-sdk/agent-core`, `@robota-sdk/agent-session`, and `@robota-sdk/agent-tools`. The only lower
-  runtime values re-exported through the framework are the documented `agent-executor` facades in
-  `background-tasks/index.ts` and `subagents/index.ts`. The public-surface guard follows the complete
-  cycle-safe local export graph and fails closed on an unresolved local edge.
+  contract types re-exported through the framework are the documented `agent-executor` facades in
+  `background-tasks/index.ts` and `subagents/index.ts`; concrete runtime values remain owner-direct
+  imports from `@robota-sdk/agent-executor`. The public-surface guard follows the complete cycle-safe
+  local export graph and fails closed on an unresolved local edge.
 
 ## Type Ownership
 

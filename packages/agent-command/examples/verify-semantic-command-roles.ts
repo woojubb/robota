@@ -15,6 +15,7 @@ import {
   type ICommandModule,
   type IResolvedConfig,
   type ISystemCommand,
+  type ISystemCommandSemanticRoles,
 } from '@robota-sdk/agent-framework';
 
 import {
@@ -54,6 +55,7 @@ const terminal = {
 function readSystemMessage(
   cwd: string,
   commandName: string,
+  sessions: Array<ReturnType<typeof createSession>['session']>,
   commandSemanticRoles?: { skillActivation?: string },
 ): string {
   const scripted = createScriptedProvider([]);
@@ -73,14 +75,42 @@ function readSystemMessage(
     ],
     ...(commandSemanticRoles ? { commandSemanticRoles } : {}),
   });
+  sessions.push(created.session);
   return created.session.getSystemMessage();
+}
+
+function createTrackedSubagent(
+  cwd: string,
+  projectedSpawnTool: FunctionTool,
+  sessions: Array<ReturnType<typeof createSubagentSession>>,
+  commandSemanticRoles?: ISystemCommandSemanticRoles,
+): ReturnType<typeof createSubagentSession> {
+  const session = createSubagentSession({
+    agentDefinition: { name: 'worker', description: 'Worker', systemPrompt: 'Work' },
+    parentConfig: config,
+    parentContext: { agentsMd: '', projectNotesMd: '' },
+    parentTools: [projectedSpawnTool],
+    provider: createScriptedProvider([]).provider,
+    terminal: terminal as never,
+    cwd,
+    ...(commandSemanticRoles ? { commandSemanticRoles } : {}),
+  });
+  sessions.push(session);
+  return session;
+}
+
+function hasProjectedSpawnTool(session: ReturnType<typeof createSubagentSession>): boolean {
+  return session
+    .getToolSchemas()
+    .some((schema) => schema.name === 'robota_command_spawn-subagent-alt');
 }
 
 async function main(): Promise<void> {
   const cwd = mkdtempSync(join(tmpdir(), 'arch-024-semantic-roles-'));
   let cleanupRemoved = false;
   let interactive: InteractiveSession | undefined;
-  let subagent: ReturnType<typeof createSubagentSession> | undefined;
+  const directSessions: Array<ReturnType<typeof createSession>['session']> = [];
+  const subagentSessions: Array<ReturnType<typeof createSubagentSession>> = [];
   let scenarioResult: Record<string, unknown> | undefined;
   try {
     try {
@@ -159,10 +189,10 @@ async function main(): Promise<void> {
         'agent job provenance omitted the alternate semantic command id',
       );
 
-      const alternatePrompt = readSystemMessage(cwd, 'activate-skill-alt', {
+      const alternatePrompt = readSystemMessage(cwd, 'activate-skill-alt', directSessions, {
         skillActivation: 'activate-skill-alt',
       });
-      const coincidentalPrompt = readSystemMessage(cwd, 'skills');
+      const coincidentalPrompt = readSystemMessage(cwd, 'skills', directSessions);
       assertCondition(
         alternatePrompt.includes('## Skills'),
         'alternate role omitted skill metadata',
@@ -180,16 +210,7 @@ async function main(): Promise<void> {
         },
         async () => ({ success: true }),
       );
-      subagent = createSubagentSession({
-        agentDefinition: { name: 'worker', description: 'Worker', systemPrompt: 'Work' },
-        parentConfig: config,
-        parentContext: { agentsMd: '', projectNotesMd: '' },
-        parentTools: [projectedSpawnTool],
-        provider: createScriptedProvider([]).provider,
-        terminal: terminal as never,
-        cwd,
-        commandSemanticRoles: roles,
-      });
+      const subagent = createTrackedSubagent(cwd, projectedSpawnTool, subagentSessions, roles);
       assertCondition(
         subagent
           .getToolSchemas()
@@ -235,7 +256,7 @@ async function main(): Promise<void> {
         'shipped owner declarations were incomplete',
       );
 
-      const singleRoleOmission = {
+      const singleRoleOmissionRoles = {
         skillActivation: new SystemCommandExecutor(alternate.slice(1)).getSemanticRoles(),
         contextReduction: new SystemCommandExecutor([
           alternate[0]!,
@@ -244,44 +265,148 @@ async function main(): Promise<void> {
         subagentSpawn: new SystemCommandExecutor(alternate.slice(0, 2)).getSemanticRoles(),
       };
       assertCondition(
-        singleRoleOmission.skillActivation.skillActivation === undefined &&
-          singleRoleOmission.skillActivation.contextReduction === 'reduce-context-alt' &&
-          singleRoleOmission.skillActivation.subagentSpawn === 'spawn-subagent-alt' &&
-          singleRoleOmission.contextReduction.skillActivation === 'activate-skill-alt' &&
-          singleRoleOmission.contextReduction.contextReduction === undefined &&
-          singleRoleOmission.contextReduction.subagentSpawn === 'spawn-subagent-alt' &&
-          singleRoleOmission.subagentSpawn.skillActivation === 'activate-skill-alt' &&
-          singleRoleOmission.subagentSpawn.contextReduction === 'reduce-context-alt' &&
-          singleRoleOmission.subagentSpawn.subagentSpawn === undefined,
+        singleRoleOmissionRoles.skillActivation.skillActivation === undefined &&
+          singleRoleOmissionRoles.skillActivation.contextReduction === 'reduce-context-alt' &&
+          singleRoleOmissionRoles.skillActivation.subagentSpawn === 'spawn-subagent-alt' &&
+          singleRoleOmissionRoles.contextReduction.skillActivation === 'activate-skill-alt' &&
+          singleRoleOmissionRoles.contextReduction.contextReduction === undefined &&
+          singleRoleOmissionRoles.contextReduction.subagentSpawn === 'spawn-subagent-alt' &&
+          singleRoleOmissionRoles.subagentSpawn.skillActivation === 'activate-skill-alt' &&
+          singleRoleOmissionRoles.subagentSpawn.contextReduction === 'reduce-context-alt' &&
+          singleRoleOmissionRoles.subagentSpawn.subagentSpawn === undefined,
         'omitting one role changed another role or retained the omitted role',
+      );
+
+      const skillOmittedPrompt = readSystemMessage(
+        cwd,
+        'activate-skill-alt',
+        directSessions,
+        singleRoleOmissionRoles.skillActivation,
+      );
+      const contextOmittedPrompt = readSystemMessage(
+        cwd,
+        'activate-skill-alt',
+        directSessions,
+        singleRoleOmissionRoles.contextReduction,
+      );
+      const spawnOmittedPrompt = readSystemMessage(
+        cwd,
+        'activate-skill-alt',
+        directSessions,
+        singleRoleOmissionRoles.subagentSpawn,
+      );
+      const skillOmittedSubagent = createTrackedSubagent(
+        cwd,
+        projectedSpawnTool,
+        subagentSessions,
+        singleRoleOmissionRoles.skillActivation,
+      );
+      const contextOmittedSubagent = createTrackedSubagent(
+        cwd,
+        projectedSpawnTool,
+        subagentSessions,
+        singleRoleOmissionRoles.contextReduction,
+      );
+      const spawnOmittedSubagent = createTrackedSubagent(
+        cwd,
+        projectedSpawnTool,
+        subagentSessions,
+        singleRoleOmissionRoles.subagentSpawn,
+      );
+      const singleRoleOmission = {
+        skillActivation: {
+          omitted: !skillOmittedPrompt.includes('## Skills'),
+          contextReductionActive:
+            deriveContextCapacityHint(singleRoleOmissionRoles.skillActivation.contextReduction) ===
+            'Run /reduce-context-alt and retry.',
+          subagentSpawnActive: !hasProjectedSpawnTool(skillOmittedSubagent),
+        },
+        contextReduction: {
+          skillActivationActive: contextOmittedPrompt.includes('## Skills'),
+          omitted:
+            deriveContextCapacityHint(singleRoleOmissionRoles.contextReduction.contextReduction) ===
+            undefined,
+          subagentSpawnActive: !hasProjectedSpawnTool(contextOmittedSubagent),
+        },
+        subagentSpawn: {
+          skillActivationActive: spawnOmittedPrompt.includes('## Skills'),
+          contextReductionActive:
+            deriveContextCapacityHint(singleRoleOmissionRoles.subagentSpawn.contextReduction) ===
+            'Run /reduce-context-alt and retry.',
+          omitted: hasProjectedSpawnTool(spawnOmittedSubagent),
+        },
+      };
+      assertCondition(
+        Object.values(singleRoleOmission).every((result) => Object.values(result).every(Boolean)),
+        'single-role omission did not preserve the other two behaviors',
+      );
+
+      const unannotatedAgentRoles = new SystemCommandExecutor([
+        command('agent'),
+      ]).getSemanticRoles();
+      const unannotatedAgentSubagent = createTrackedSubagent(
+        cwd,
+        projectedSpawnTool,
+        subagentSessions,
+        unannotatedAgentRoles,
+      );
+      const unannotatedCoincidentalNames = {
+        skills: !coincidentalPrompt.includes('## Skills'),
+        compact: deriveContextCapacityHint(undefined) === undefined,
+        agent: hasProjectedSpawnTool(unannotatedAgentSubagent),
+      };
+      assertCondition(
+        Object.values(unannotatedCoincidentalNames).every(Boolean),
+        'an unannotated coincidental command name gained semantic behavior',
+      );
+
+      const directOmissionSubagent = createTrackedSubagent(
+        cwd,
+        projectedSpawnTool,
+        subagentSessions,
+      );
+      const directOmissionBehavior = {
+        skillActivationAbsent: !coincidentalPrompt.includes('## Skills'),
+        contextReductionAbsent: deriveContextCapacityHint(undefined) === undefined,
+        subagentSpawnAbsent: hasProjectedSpawnTool(directOmissionSubagent),
+      };
+      assertCondition(
+        Object.values(directOmissionBehavior).every(Boolean),
+        'direct session creation without roles gained semantic behavior',
+      );
+      const directCreateSessionOmission = {
+        allRolesAbsent: Object.values(directOmissionBehavior).every(Boolean),
+      };
+
+      const alternateBehaviors = {
+        skillFallback: true,
+        modelVisibleSkillEnrichment: alternatePrompt.includes('## Skills'),
+        contextCapacityHint:
+          deriveContextCapacityHint(roles.contextReduction) ===
+          'Run /reduce-context-alt and retry.',
+        agentJobCommandProvenance: agentJobCommandProvenance === 'spawn-subagent-alt',
+        subagentSpawnCommandFiltering: !hasProjectedSpawnTool(subagent),
+        emptyCommandResultIsPresent:
+          emptyFallbackResult?.success === true && emptyFallbackResult.message === '',
+      };
+      assertCondition(
+        Object.values(alternateBehaviors).every(Boolean),
+        'an alternate semantic role did not drive its behavior',
       );
       scenarioResult = {
         alternateRoleIds: roles,
-        alternateBehaviors: {
-          skillFallback: true,
-          modelVisibleSkillEnrichment: true,
-          contextCapacityHint:
-            deriveContextCapacityHint(roles.contextReduction) ===
-            'Run /reduce-context-alt and retry.',
-          agentJobCommandProvenance: agentJobCommandProvenance === 'spawn-subagent-alt',
-          subagentSpawnCommandFiltering: true,
-          emptyCommandResultIsPresent: true,
-        },
-        unannotatedCoincidentalNames: {
-          skills: !coincidentalPrompt.includes('## Skills'),
-          compact: deriveContextCapacityHint(undefined) === undefined,
-          agent:
-            new SystemCommandExecutor([command('agent')]).getSemanticRoles().subagentSpawn ===
-            undefined,
-        },
+        alternateBehaviors,
+        unannotatedCoincidentalNames,
         singleRoleOmission,
-        directCreateSessionOmission: { allRolesAbsent: !coincidentalPrompt.includes('## Skills') },
+        directCreateSessionOmission,
         duplicateRoleRejections: { ...duplicateRoleRejections, preservedCommands: true },
         ownerDeclarations,
       };
     } finally {
       await interactive?.shutdown();
-      subagent?.abort();
+      for (const session of [...subagentSessions, ...directSessions].reverse()) {
+        await session.shutdown();
+      }
       rmSync(cwd, { recursive: true, force: true });
       cleanupRemoved = !existsSync(cwd);
     }
