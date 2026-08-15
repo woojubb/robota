@@ -20,12 +20,15 @@ forwards `tool.parameters` verbatim and sets `strict: strictTools ?? false`.
 
 OpenAI strict mode does not accept an arbitrary JSON Schema. It requires **every** object node — nested
 ones included — to carry `additionalProperties: false` and to list **all** of its properties in
-`required`. The universal subset leaves `additionalProperties` unset (closed by convention) and lists only
-genuinely-required fields, so a schema that is correct for this repo is rejected by OpenAI under
-`strictTools: true`.
+`required`. The universal subset does neither: a Zod-derived schema emits `additionalProperties: true`
+for Zod's default `strip` and for `.passthrough()` and `false` only for `.strict()`, a hand-written one
+may omit the member, and `required` lists only genuinely-required fields. So a schema that is correct
+for this repo is rejected by OpenAI under `strictTools: true` — and not only when it nests: an
+`additionalProperties: true` root is refused by strict mode exactly as an absent member is, which makes
+**every** `createZodFunctionTool` tool affected, flat ones included.
 
 The sibling adapter already solves this at its own seam: Anthropic's `closeObjectSchemas`
-(`packages/agent-provider-anthropic/src/anthropic/provider.ts:369-397`) recursively closes every object
+(`packages/agent-provider-anthropic/src/anthropic/output-schema.ts`) recursively closes every object
 node on the way out. OpenAI has no equivalent, on either the tool seam or the structured-output seam.
 
 ## Not a regression, and why it still matters now

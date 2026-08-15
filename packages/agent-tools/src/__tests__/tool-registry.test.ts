@@ -166,7 +166,7 @@ describe('ToolRegistry', () => {
       const tool = createMockTool(schema);
 
       expect(() => registry.register(tool)).toThrow(ValidationError);
-      expect(() => registry.register(tool)).toThrow('must have a type');
+      expect(() => registry.register(tool)).toThrow('must declare a type or anyOf');
     });
 
     it('should throw when required fields are not defined in properties', () => {

@@ -1,7 +1,7 @@
 import { ValidationError } from '../utils/errors';
 import { logger } from '../utils/logger';
 
-import type { IToolSchema, TJSONSchemaKind } from '../interfaces/provider';
+import type { IParameterSchema, IToolSchema, TJSONSchemaKind } from '../interfaces/provider';
 import type { ITool, IToolRegistry } from '../interfaces/tool';
 
 /**
@@ -166,29 +166,12 @@ export class ToolRegistry implements IToolRegistry {
       throw new ValidationError('Tool parameters type must be "object"');
     }
 
-    // Validate parameter properties
+    // Validate parameter properties, at every depth. Checking only the top level let a nested node
+    // declaring neither `type` nor `anyOf` register cleanly and then fail on EVERY invocation --
+    // newly constructible once `type` became optional (CORE-039).
     if (schema.parameters.properties) {
-      for (const propName of Object.keys(schema.parameters.properties)) {
-        const propSchema = schema.parameters.properties[propName];
-        // CORE-039: a union node carries `anyOf` INSTEAD of `type`, so demanding a type here would
-        // reject every tool with a union-typed argument at registration — the converter would emit
-        // it correctly and this check would throw on it.
-        if (propSchema?.anyOf) {
-          if (propSchema.anyOf.length === 0) {
-            throw new ValidationError(`Parameter "${propName}" declares an empty anyOf`);
-          }
-          continue;
-        }
-
-        if (!propSchema?.type) {
-          throw new ValidationError(`Parameter "${propName}" must have a type`);
-        }
-
-        if (!VALID_PARAMETER_TYPES.includes(propSchema.type)) {
-          throw new ValidationError(
-            `Parameter "${propName}" has invalid type "${propSchema.type}"`,
-          );
-        }
+      for (const [propName, propSchema] of Object.entries(schema.parameters.properties)) {
+        assertParameterNodeValid(propName, propSchema);
       }
     }
 
@@ -203,5 +186,44 @@ export class ToolRegistry implements IToolRegistry {
         }
       }
     }
+  }
+}
+
+/**
+ * Assert one subset node is one this runtime can act on, recursively.
+ *
+ * A node declares EITHER a `type` from the subset's kinds OR an `anyOf` of alternatives. Both walks
+ * that read it at run time refuse anything else, so accepting it at registration only moves the
+ * failure to every later invocation.
+ */
+function assertParameterNodeValid(path: string, node: IParameterSchema | undefined): void {
+  // CORE-039: a union node carries `anyOf` INSTEAD of `type`, so demanding a type here would reject
+  // every tool with a union-typed argument at registration -- the converter would emit it correctly
+  // and this check would throw on it.
+  if (node?.anyOf) {
+    if (node.anyOf.length === 0) {
+      throw new ValidationError(`Parameter "${path}" declares an empty anyOf`);
+    }
+    node.anyOf.forEach((member, index) =>
+      assertParameterNodeValid(`${path}|anyOf[${index}]`, member),
+    );
+    return;
+  }
+
+  if (!node?.type) {
+    throw new ValidationError(`Parameter "${path}" must declare a type or anyOf`);
+  }
+
+  if (!VALID_PARAMETER_TYPES.includes(node.type)) {
+    throw new ValidationError(`Parameter "${path}" has invalid type "${node.type}"`);
+  }
+
+  if (node.properties) {
+    for (const [key, child] of Object.entries(node.properties)) {
+      assertParameterNodeValid(`${path}.${key}`, child);
+    }
+  }
+  if (node.items) {
+    assertParameterNodeValid(`${path}[]`, node.items);
   }
 }

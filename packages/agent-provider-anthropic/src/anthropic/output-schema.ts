@@ -1,5 +1,5 @@
-import type { IChatOptions } from '@robota-sdk/agent-core';
 import type Anthropic from '@anthropic-ai/sdk';
+import type { IChatOptions } from '@robota-sdk/agent-core';
 
 /**
  * Map a `json_schema` response format onto Anthropic's native structured-output
@@ -25,9 +25,10 @@ export function buildOutputConfig(
 /**
  * Anthropic's structured-output surface rejects open-world objects: every
  * `object` node must carry an explicit `additionalProperties: false`. The
- * universal schema subset leaves it unset (closed by convention), so close
- * every object node recursively at this SDK seam. The consumer's original
- * schema still governs core-side validation.
+ * universal schema subset does not guarantee that member is present or false --
+ * a Zod-derived node emits `true` for `strip`/`passthrough`, and a hand-written
+ * one may omit it -- so close every object node recursively at this SDK seam.
+ * The consumer's original schema still governs core-side validation.
  */
 function closeObjectSchemas(node: unknown): unknown {
   if (Array.isArray(node)) {

@@ -135,7 +135,7 @@ describe('zodToJsonSchema', () => {
     expect(result.properties.nickname.type).toBe('string');
   });
 
-  it('should handle nullable fields as not required', () => {
+  it('should handle nullable fields as not required, keeping the null branch', () => {
     const schema = mockObjectSchema({
       value: mockZodSchema({
         typeName: 'ZodNullable',
@@ -146,7 +146,11 @@ describe('zodToJsonSchema', () => {
     const result = zodToJsonSchema(schema);
 
     expect(result.required).not.toContain('value');
-    expect(result.properties.value.type).toBe('number');
+    // CORE-039: this case used to assert `type === 'number'`, pinning a LOSS — the null half of
+    // what the field accepts was dropped. That was invisible while nested nodes were opaque; once
+    // depth is enforced it becomes a rejection of a payload the author's own Zod schema accepts.
+    expect(result.properties.value.anyOf).toEqual([{ type: 'number' }, { type: 'null' }]);
+    expect(result.properties.value.type).toBeUndefined();
   });
 
   it('should handle default fields as not required', () => {

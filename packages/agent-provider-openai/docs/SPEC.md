@@ -79,14 +79,20 @@ verbatim, and sets `strict: strictTools ?? false`.
 
 **Known limitation.** OpenAI strict mode does not accept an arbitrary JSON Schema. It requires
 **every** object node, nested ones included, to carry `additionalProperties: false` and to list
-**all** of its properties in `required`. The universal subset does neither: it leaves
-`additionalProperties` unset (closed by convention) and lists only the genuinely required fields.
+**all** of its properties in `required`. The universal subset does neither. A Zod-derived schema
+emits `additionalProperties: true` for Zod's default `strip` and for `.passthrough()`, and `false`
+only for `.strict()`; a hand-written one may omit the member, which the subset reads as closed
+relative to its declared properties. Either way `required` lists only the genuinely required
+fields.
 This adapter has no seam that rewrites the schema for strict mode — the Anthropic adapter has the
 analogous `closeObjectSchemas`, and there is no OpenAI equivalent on either the tool seam or the
 structured-output seam.
 
-Consequence: with `strictTools: true`, a tool whose input contains a nested object is rejected by
-OpenAI, even though the same tool is invoked correctly on every other provider. This is not a
-regression introduced by CORE-039 — a bare nested object failed strict mode before it too — but
-CORE-039 is what made nested schemas reach providers intact, so the exception is worth stating
-rather than leaving to be discovered. Leave `strictTools` off until PROV-007 lands.
+Consequence: with `strictTools: true`, **every** `createZodFunctionTool` tool is rejected by
+OpenAI — flat ones included, since `additionalProperties: true` is as unacceptable to strict mode as
+omitting it — and any tool with a nested object is rejected regardless of how its schema was
+authored. The same tools are invoked correctly on every other provider. Neither half is a
+regression introduced by CORE-039 (a bare nested object failed strict mode before it too, and a
+`strip` object was rejected for listing no `additionalProperties`), but CORE-039 is what made nested
+schemas reach providers intact, so the exception is worth stating rather than leaving to be
+discovered. Leave `strictTools` off until PROV-007 lands.

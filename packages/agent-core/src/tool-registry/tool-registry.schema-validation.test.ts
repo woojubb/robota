@@ -57,8 +57,49 @@ describe('ToolRegistry.register — subset conformance', () => {
   it('still refuses a property that declares neither a type nor anyOf', () => {
     const registry = new ToolRegistry();
     expect(() => registry.register(toolWith({ type: 'object', properties: { odd: {} } }))).toThrow(
-      'must have a type',
+      'must declare a type or anyOf',
     );
+  });
+
+  it('refuses a NESTED node that declares neither, naming its path', () => {
+    // Checking only the top level let such a node register cleanly and then fail on every
+    // invocation instead — newly constructible once `type` became optional.
+    const registry = new ToolRegistry();
+    expect(() =>
+      registry.register(
+        toolWith({
+          type: 'object',
+          properties: { outer: { type: 'object', properties: { inner: {} } } },
+        }),
+      ),
+    ).toThrow('"outer.inner" must declare a type or anyOf');
+  });
+
+  it('refuses an invalid type inside an array item', () => {
+    const registry = new ToolRegistry();
+    expect(() =>
+      registry.register(
+        toolWith({
+          type: 'object',
+          properties: { list: { type: 'array', items: { type: 'decimal' as never } } },
+        }),
+      ),
+    ).toThrow('"list[]" has invalid type');
+  });
+
+  it('accepts a valid nested node', () => {
+    const registry = new ToolRegistry();
+    expect(() =>
+      registry.register(
+        toolWith({
+          type: 'object',
+          properties: {
+            outer: { type: 'object', properties: { inner: { type: 'integer' } } },
+            list: { type: 'array', items: { anyOf: [{ type: 'string' }, { type: 'null' }] } },
+          },
+        }),
+      ),
+    ).not.toThrow();
   });
 
   it('refuses an empty anyOf rather than treating it as satisfiable', () => {

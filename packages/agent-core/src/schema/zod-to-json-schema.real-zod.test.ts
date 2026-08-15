@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 
+import { validateAgainstJsonSchema } from './structured-output';
 import { zodToJsonSchema } from './zod-to-json-schema';
 
 import type { IZodSchema } from './zod-schema-types';
@@ -204,5 +205,57 @@ describe('zodToJsonSchema with real Zod — effects and rejected roots', () => {
     expect(() => zodToJsonSchema(asZod(z.object({ outer: z.object({ when: z.date() }) })))).toThrow(
       'Unsupported Zod type: ZodDate',
     );
+  });
+});
+
+describe('zodToJsonSchema with real Zod — nullable, literal null, and wrapper depth', () => {
+  it('keeps the null branch of a nested nullable field', () => {
+    const result = zodToJsonSchema(
+      asZod(z.object({ n: z.object({ s: z.string().nullable(), t: z.string() }) })),
+    );
+
+    const s = result.properties['n']?.properties?.['s'];
+    expect(s?.anyOf).toEqual([{ type: 'string' }, { type: 'null' }]);
+    expect(s?.type).toBeUndefined();
+  });
+
+  it('accepts a null payload for a nested nullable field, as Zod itself does', () => {
+    const schema = zodToJsonSchema(
+      asZod(z.object({ n: z.object({ s: z.string().nullable(), t: z.string() }) })),
+    );
+    expect(validateAgainstJsonSchema(schema, { n: { s: null, t: 'x' } }, '$')).toEqual([]);
+    expect(validateAgainstJsonSchema(schema, { n: { s: 'y', t: 'x' } }, '$')).toEqual([]);
+    expect(validateAgainstJsonSchema(schema, { n: { s: 1, t: 'x' } }, '$').join(' ')).toContain(
+      'matches none',
+    );
+  });
+
+  it('reports an optional field as optional through several refine wrappers', () => {
+    const twice = z.object({ a: z.string().optional().refine(Boolean).refine(Boolean) });
+    // A single unwrap reported this as required, so the model was told an optional field was
+    // mandatory and the input validator demanded it.
+    expect(zodToJsonSchema(asZod(twice)).required).toEqual([]);
+  });
+
+  it('emits a null literal as the null type rather than throwing', () => {
+    const result = zodToJsonSchema(asZod(z.object({ nothing: z.literal(null) })));
+    expect(result.properties['nothing']).toEqual({ type: 'null' });
+  });
+
+  it('refuses a cyclic wrapper chain instead of hanging', () => {
+    // `IZodSchema` is a structural stand-in at a public boundary, so a hand-built cycle is
+    // reachable even though real Zod never produces one.
+    const cyclic: {
+      parse: (v: unknown) => unknown;
+      safeParse: (v: unknown) => never;
+      _def: unknown;
+    } = {
+      parse: (v) => v,
+      safeParse: (() => ({ success: true })) as never,
+      _def: { typeName: 'ZodOptional' },
+    };
+    (cyclic._def as { innerType?: unknown }).innerType = cyclic;
+
+    expect(() => zodToJsonSchema(asZod(cyclic))).toThrow(/exceeds 64 levels/);
   });
 });

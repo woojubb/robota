@@ -21,6 +21,9 @@ import type {
 } from '../interfaces/provider';
 import type { TUniversalValue } from '../interfaces/types';
 
+/** Guard for the structural stand-in: real Zod wrapper chains are nowhere near this deep. */
+const MAX_WRAPPER_DEPTH = 64;
+
 /**
  * Convert a Zod schema to the universal JSON-schema subset.
  *
@@ -55,11 +58,12 @@ function convertObjectShape(
   const properties: Record<string, IParameterSchema> = {};
   const required: string[] = [];
 
-  // Zod v3 exposes `shape` as a property; older/structural stand-ins expose it as a function.
+  // Zod v3's `_def.shape` is a FUNCTION (the property form is the `ZodObject.shape` getter);
+  // structural stand-ins supply it directly. Accept both.
   const shape = typeof objectDef.shape === 'function' ? objectDef.shape() : objectDef.shape;
 
   for (const [key, typeObj] of Object.entries(shape ?? {})) {
-    properties[key] = convertZodTypeToProperty(typeObj);
+    properties[key] = convertZodTypeToProperty(typeObj, allowAdditionalProperties);
     if (isRequiredField(typeObj)) {
       required.push(key);
     }
@@ -113,8 +117,11 @@ function unwrapToObjectDef(typeDef: IZodSchemaDef): IZodSchemaDef | undefined {
  */
 function unwrapTransparent(typeDef: IZodSchemaDef): IZodSchemaDef {
   let current = typeDef;
-  // Bounded by the wrapper chain's own depth; each step strictly descends into an inner schema.
-  for (;;) {
+  // Real Zod builds wrapper chains acyclically, but `IZodSchema` is a structural stand-in and
+  // `zodToJsonSchema` is exported — so this loop is reachable with a hand-built `_def` whose
+  // `innerType` points at itself. The cap turns that into the file's usual loud failure instead of
+  // a hang.
+  for (let depth = 0; depth <= MAX_WRAPPER_DEPTH; depth += 1) {
     const inner =
       current.typeName === 'ZodEffects'
         ? current.schema
@@ -128,6 +135,9 @@ function unwrapTransparent(typeDef: IZodSchemaDef): IZodSchemaDef {
     }
     current = requireDef(inner, `${String(current.typeName)} inner type`);
   }
+  throw new Error(
+    `Zod wrapper chain exceeds ${MAX_WRAPPER_DEPTH} levels; refusing to unwrap further (cyclic schema?).`,
+  );
 }
 
 function requireDef(schema: IZodSchema, label: string): IZodSchemaDef {
@@ -141,7 +151,10 @@ function requireDef(schema: IZodSchema, label: string): IZodSchemaDef {
 /**
  * Convert an individual Zod type to a subset node.
  */
-function convertZodTypeToProperty(typeObj: IZodSchema): IParameterSchema {
+function convertZodTypeToProperty(
+  typeObj: IZodSchema,
+  allowAdditionalProperties?: boolean,
+): IParameterSchema {
   const typeDef = requireDef(typeObj, 'Zod type');
 
   const base: Partial<IParameterSchema> = {};
@@ -163,12 +176,16 @@ function convertZodTypeToProperty(typeObj: IZodSchema): IParameterSchema {
       if (!typeDef.type) {
         throw new Error('ZodArray is missing item type; cannot convert to JSON schema.');
       }
-      return { type: 'array', items: convertZodTypeToProperty(typeDef.type), ...base };
+      return {
+        type: 'array',
+        items: convertZodTypeToProperty(typeDef.type, allowAdditionalProperties),
+        ...base,
+      };
     }
 
     case 'ZodObject':
       // The nested case delegates to the SAME walk the root uses, so the two cannot drift again.
-      return { ...convertObjectShape(typeDef), ...base };
+      return { ...convertObjectShape(typeDef, allowAdditionalProperties), ...base };
 
     case 'ZodEnum': {
       const enumValues = typeDef.values;
@@ -190,32 +207,53 @@ function convertZodTypeToProperty(typeObj: IZodSchema): IParameterSchema {
         );
       }
       // A union node carries `anyOf` INSTEAD of `type` — emitting both is invalid JSON Schema.
-      return { anyOf: members.map(convertZodTypeToProperty), ...base };
+      return {
+        anyOf: members.map((member) => convertZodTypeToProperty(member, allowAdditionalProperties)),
+        ...base,
+      };
     }
 
     case 'ZodEffects': {
       if (!typeDef.schema) {
         throw new Error('ZodEffects is missing schema; cannot convert to JSON schema.');
       }
-      return { ...convertZodTypeToProperty(typeDef.schema), ...base };
+      return { ...convertZodTypeToProperty(typeDef.schema, allowAdditionalProperties), ...base };
+    }
+
+    case 'ZodNullable': {
+      if (!typeDef.innerType) {
+        throw new Error('ZodNullable is missing innerType; cannot convert to JSON schema.');
+      }
+      // The null branch is part of what the field accepts, so it has to survive into the schema.
+      // Dropping it was harmless only while nested nodes were opaque; now that depth is enforced,
+      // an advertised `{type:'string'}` would reject a `null` the author's own Zod schema accepts.
+      return {
+        anyOf: [
+          convertZodTypeToProperty(typeDef.innerType, allowAdditionalProperties),
+          { type: 'null' },
+        ],
+        ...base,
+      };
     }
 
     case 'ZodOptional':
-    case 'ZodNullable':
     case 'ZodDefault': {
       if (!typeDef.innerType) {
         throw new Error(
           `${String(typeDef.typeName)} is missing innerType; cannot convert to JSON schema.`,
         );
       }
-      return { ...convertZodTypeToProperty(typeDef.innerType), ...base };
+      return { ...convertZodTypeToProperty(typeDef.innerType, allowAdditionalProperties), ...base };
     }
 
     case 'ZodRecord':
       if (typeDef.valueType) {
         return {
           type: 'object',
-          additionalProperties: convertZodTypeToProperty(typeDef.valueType),
+          additionalProperties: convertZodTypeToProperty(
+            typeDef.valueType,
+            allowAdditionalProperties,
+          ),
           ...base,
         };
       }
@@ -234,13 +272,16 @@ function convertLiteral(value: TUniversalValue | undefined): IParameterSchema {
       `ZodLiteral value ${String(value)} is not a JSON primitive; cannot convert to JSON schema.`,
     );
   }
-  return { type: kind, enum: [value] as TJSONSchemaEnum };
+  // `TJSONSchemaEnum` has no null member, and a null literal needs none: `type: 'null'` already
+  // admits exactly one value.
+  return kind === 'null' ? { type: 'null' } : { type: kind, enum: [value] as TJSONSchemaEnum };
 }
 
 function literalKind(value: TUniversalValue | undefined): TJSONSchemaKind | undefined {
   if (typeof value === 'string') return 'string';
   if (typeof value === 'number') return 'number';
   if (typeof value === 'boolean') return 'boolean';
+  if (value === null) return 'null';
   return undefined;
 }
 
@@ -254,10 +295,18 @@ function isRequiredField(typeObj: IZodSchema): boolean {
     throw new Error('Zod schema is missing _def; cannot determine required fields.');
   }
 
-  const resolved =
-    typeDef.typeName === 'ZodEffects' && typeDef.schema
-      ? requireDef(typeDef.schema, 'ZodEffects inner type')
-      : typeDef;
+  // Loop, do not peel one level: `.optional().refine(f).refine(f)` is two ZodEffects deep, and a
+  // single unwrap reported that field as required -- the model then being told an optional field is
+  // mandatory. A partial copy of the unwrap is the same divergence this file exists to remove.
+  let resolved = typeDef;
+  for (
+    let depth = 0;
+    resolved.typeName === 'ZodEffects' && depth <= MAX_WRAPPER_DEPTH;
+    depth += 1
+  ) {
+    if (!resolved.schema) break;
+    resolved = requireDef(resolved.schema, 'ZodEffects inner type');
+  }
 
   return (
     resolved.typeName !== 'ZodOptional' &&

@@ -7,109 +7,94 @@ import type { TUniversalValue } from '../interfaces/types';
 /**
  * Validate one parameter against its schema node. Returns the issues found; empty means valid.
  *
- * CORE-039: the LEAF checks and their messages live here because callers depend on them
- * (`Parameter "x" must be a string`). Everything with DEPTH — a nested object's own properties and
- * requirements, a union's branches — is delegated to `validateAgainstJsonSchema`, the single
- * complete walk over the subset. A second, shallower copy of that walk is what let a tool advertise
- * a nested contract that nothing on the input path checked.
+ * CORE-039: exactly ONE thing lives here — the leaf TYPE mismatch and its caller-facing wording
+ * (`Parameter "x" must be a string`), which callers depend on. Everything else — enum, numeric
+ * bounds, pattern, a nested object's own properties and requirements, a union's branches — is
+ * `validateAgainstJsonSchema`'s, the single complete walk over the subset.
+ *
+ * The split is by CONCERN, not by kind. Delegating only some kinds is what made constraint
+ * enforcement depend on where a node sat: a `minimum` was checked inside a nested object and
+ * ignored at the top level, and two message dialects appeared at the same position depending on the
+ * declared type. That is the divergence this item exists to remove, so the boundary is drawn once
+ * and applies to every node.
  */
 function validateParameterType(
   key: string,
   value: TUniversalValue,
   schema: IParameterSchema,
 ): string[] {
-  // A union node carries `anyOf` instead of `type`, so it is answered before the type switch — and
-  // by the deep walk, since deciding which branch matched is exactly what that walk does.
-  if (schema.anyOf) {
-    return delegateDeep(key, value, schema);
+  const mismatch = leafTypeMismatch(key, value, schema);
+  if (mismatch) {
+    // Return rather than fall through: the deep walk would otherwise report the same defect a
+    // second time in its own dialect, inside one ValidationError message.
+    return [mismatch];
   }
-
-  const expectedType = schema['type'];
-
-  switch (expectedType) {
-    case 'string':
-      if (typeof value !== 'string') {
-        return [`Parameter "${key}" must be a string, got ${typeof value}`];
-      }
-      break;
-
-    case 'number':
-      if (typeof value !== 'number' || isNaN(value)) {
-        return [`Parameter "${key}" must be a number, got ${typeof value}`];
-      }
-      break;
-
-    case 'boolean':
-      if (typeof value !== 'boolean') {
-        return [`Parameter "${key}" must be a boolean, got ${typeof value}`];
-      }
-      break;
-
-    case 'array': {
-      if (!Array.isArray(value)) {
-        return [`Parameter "${key}" must be an array, got ${typeof value}`];
-      }
-      // Check array items if specified
-      if (schema.items) {
-        const itemSchema = schema.items;
-        for (let i = 0; i < value.length; i++) {
-          const itemErrors = validateParameterType(`${key}[${i}]`, value[i], itemSchema);
-          if (itemErrors.length > 0) {
-            return itemErrors;
-          }
-        }
-      }
-      break;
-    }
-
-    case 'object':
-      if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-        // Return here rather than falling through: the deep walk would report the same defect a
-        // second time in its own dialect.
-        return [`Parameter "${key}" must be an object, got ${typeof value}`];
-      }
-      return delegateDeep(key, value, schema);
-
-    case 'integer':
-    case 'null':
-      // No leaf message of their own is depended on, so the deep walk owns them outright.
-      return delegateDeep(key, value, schema);
-
-    case undefined:
-      return [`Parameter "${key}" declares neither a type nor anyOf`];
-
-    default:
-      return [`Parameter "${key}" has unsupported schema type "${String(expectedType)}"`];
-  }
-
-  // Check enum constraints
-  if (schema.enum && schema.enum.length > 0) {
-    const enumValues = schema.enum;
-    let isValidEnum = false;
-
-    // Type-safe enum checking based on JSONSchemaEnum type
-    for (const enumValue of enumValues) {
-      if (value === enumValue) {
-        isValidEnum = true;
-        break;
-      }
-    }
-
-    if (!isValidEnum) {
-      return [`Parameter "${key}" must be one of: ${enumValues.join(', ')}, got ${value}`];
-    }
-  }
-
-  return [];
+  return validateAgainstJsonSchema(schema, value, `Parameter "${key}"`);
 }
 
 /**
- * Hand a parameter to the one complete walk. The path root is the caller-facing
- * `Parameter "<key>"` rather than a bare `$`, so a single `ValidationError` message does not mix two
- * dialects for the same argument.
+ * The caller-facing type check. `undefined` means "no leaf mismatch to report" — either the value
+ * matches the declared kind, or the node is one the deep walk answers on its own (a union, or a
+ * kind with no caller-facing wording of its own).
  */
-function delegateDeep(key: string, value: TUniversalValue, schema: IParameterSchema): string[] {
-  return validateAgainstJsonSchema(schema, value, `Parameter "${key}"`);
+function leafTypeMismatch(
+  key: string,
+  value: TUniversalValue,
+  schema: IParameterSchema,
+): string | undefined {
+  if (schema.anyOf) {
+    // A union node carries `anyOf` instead of `type`; deciding which branch matched is precisely
+    // what the deep walk does, and no single leaf message can describe the failure.
+    return undefined;
+  }
+
+  const expectedType = schema['type'];
+  switch (expectedType) {
+    case 'string':
+      return typeof value === 'string'
+        ? undefined
+        : `Parameter "${key}" must be a string, got ${describeValue(value)}`;
+
+    case 'number':
+    case 'integer':
+      return typeof value === 'number' && !isNaN(value)
+        ? undefined
+        : `Parameter "${key}" must be a number, got ${describeValue(value)}`;
+
+    case 'boolean':
+      return typeof value === 'boolean'
+        ? undefined
+        : `Parameter "${key}" must be a boolean, got ${describeValue(value)}`;
+
+    case 'array':
+      return Array.isArray(value)
+        ? undefined
+        : `Parameter "${key}" must be an array, got ${describeValue(value)}`;
+
+    case 'object':
+      return typeof value === 'object' && value !== null && !Array.isArray(value)
+        ? undefined
+        : `Parameter "${key}" must be an object, got ${describeValue(value)}`;
+
+    case 'null':
+      // No caller-facing wording of its own; the deep walk reports it.
+      return undefined;
+
+    case undefined:
+      // Reachable since `type` became optional for union nodes. A node with neither is not a valid
+      // subset node, and accepting it silently is the failure class this item removes.
+      return `Parameter "${key}" declares neither a type nor anyOf`;
+
+    default:
+      return `Parameter "${key}" has unsupported schema type "${String(expectedType)}"`;
+  }
+}
+
+/** `typeof null` is `'object'`, which makes the leaf message actively misleading for a null. */
+function describeValue(value: TUniversalValue): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
 }
 
 /**

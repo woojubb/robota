@@ -933,8 +933,20 @@ no separate nested form. Splitting the two is what let a nested object be emitte
 `zodToJsonSchema` supports: `ZodString`, `ZodNumber`, `ZodBoolean`, `ZodArray`, `ZodObject`,
 `ZodEnum`, `ZodLiteral`, `ZodUnion`, `ZodDiscriminatedUnion`, `ZodRecord`, `ZodOptional`,
 `ZodNullable`, `ZodDefault`, and `ZodEffects` (`.refine()` / `.transform()`, unwrapped at the root
-and at every nested level). `ZodUnion`/`ZodDiscriminatedUnion` become `anyOf`; `ZodLiteral` becomes
-a single-value `enum`.
+and at every nested level).
+
+- `ZodUnion` / `ZodDiscriminatedUnion` → `anyOf`.
+- `ZodLiteral` → a single-value `enum` of the literal's own primitive type; `z.literal(null)` →
+  `{ type: 'null' }`, which already admits exactly one value.
+- `ZodNullable` → `anyOf: [<inner>, { type: 'null' }]`. The null half of what the field accepts is
+  part of the contract: dropping it was invisible while nested nodes were opaque, and once depth is
+  enforced it becomes a rejection of a payload the author's own Zod schema accepts.
+- `ZodOptional` / `ZodDefault` are transparent — optionality is carried by the enclosing object's
+  `required` list, not by the property's own shape.
+
+A wrapper chain deeper than 64 levels is refused rather than followed. Real Zod never builds one,
+but `IZodSchema` is a structural stand-in at an exported boundary, so a hand-built cycle is
+reachable and hanging is not an acceptable answer to it.
 
 Anything else throws `Unsupported Zod type: <name>` at conversion — the limit is declared here
 rather than discovered at tool-construction time. `ZodTuple`, `ZodDate`, `ZodIntersection`,

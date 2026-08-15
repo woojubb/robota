@@ -151,9 +151,11 @@ export interface IOpenAIProviderOptions {
    * additionally requires EVERY object node — nested ones included — to carry
    * `additionalProperties: false` and to list ALL of its properties in `required`. The universal
    * schema subset does neither, and this adapter has no seam that rewrites the schema for strict
-   * mode (the Anthropic adapter has the analogous `closeObjectSchemas`). So a tool whose input
-   * contains a nested object is rejected by OpenAI when this flag is on, even though the same tool
-   * works on every other provider. Leave it off until PROV-007 lands.
+   * mode (the Anthropic adapter has the analogous `closeObjectSchemas`). So with this flag on,
+   * every `createZodFunctionTool` tool is rejected — Zod's default `strip` emits
+   * `additionalProperties: true`, which strict mode refuses just as it refuses the member being
+   * absent — as is any tool carrying a nested object. The same tools work on every other provider.
+   * Leave it off until PROV-007 lands.
    */
   strictTools?: boolean;
 
