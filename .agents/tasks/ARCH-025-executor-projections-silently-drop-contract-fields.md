@@ -39,6 +39,37 @@ projections that should carry them, so a caller who sets them gets a no-op with 
   (`agent-framework/src/interactive/interactive-session-base.ts:381`), which `code-quality.md:15`
   bans.
 
+## Finding-depth verdict and containment (2026-08-16)
+
+`finding-depth-triager`: **FOUNDATIONAL**. The three fields named below are instances; the cause is that
+this seam has no owner — one field family is declared three times as independent shapes and carried by
+hand-written literals that nothing checks for totality. Filed as the root item
+**[ARCH-031](ARCH-031-subagent-background-task-seam-has-no-owner.md)** / issue
+[#1747](https://github.com/woojubb/robota/issues/1747), per `finding-depth.md`'s requirement that a
+foundational cause is never patched in place.
+
+A recommendation that proposed solving the cause under this item returned `REVIEW VERDICT: REJECT`
+(2026-08-16). Three reasons, each independently sufficient, and they are recorded because the next reader
+should not have to rediscover them:
+
+1. A FOUNDATIONAL verdict routes to re-plan or labelled containment — never a third option, and "solve it
+   here with a widened package set" is that third option.
+2. The plan would have added a public optional field to `IAgentBackgroundTaskRequest`, a published export of
+   a package this item does not name — a public-contract change the Agent Authority rule reserves for the
+   owner.
+3. **Its worktree diagnosis was inverted.** It read `worktreePath`/`branchName` as caller fields dropped by
+   `toBackgroundRequest`, and proposed deleting
+   `agent-executor/src/subagents/worktree-subagent-runner.ts:117-122` as a "workaround". Those lines are the
+   ONLY producer of those fields — the worktree does not exist at spawn time — and deleting them would have
+   severed `subagentExecutionRoot`'s "the worktree wins when present" branch, which guards a measured
+   containment breach. The invariant is **runner-produced, never caller-supplied**, and it is recorded in
+   ARCH-031 so the mistake is not made twice.
+
+**This item's remaining scope is therefore the two repairs that are LOCAL and inside its declared area** —
+`usage` and `IScheduleEditPatch` below. `providerProfile` moves to ARCH-031: it is a dead contract field
+whose disposition belongs with the seam, and it is what ARCH-021 actually needs, so ARCH-021 is unblocked by
+ARCH-031 rather than by this item.
+
 ## Direction
 
 Create one canonical total mapper for the public task/request/result projection seam. Every public key
