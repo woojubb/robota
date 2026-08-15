@@ -1,8 +1,11 @@
+import { createHook } from 'node:async_hooks';
+
 import { UnsupportedShellError } from '@robota-sdk/agent-core';
 import {
   createManagedShellProcessRunner,
   createScheduledTaskRunner,
   resolveBackgroundTaskShellCommand,
+  type IBackgroundTaskHandle,
   type IBackgroundTaskStart,
 } from '@robota-sdk/agent-executor';
 
@@ -64,35 +67,76 @@ function unknownTask(kind: 'process' | 'scheduled'): IBackgroundTaskStart {
   };
 }
 
-function assertUnknownShellZeroSpawns(): void {
-  for (const runner of [createManagedShellProcessRunner(), createScheduledTaskRunner()]) {
-    let error: unknown;
-    try {
-      runner.start(unknownTask(runner.kind === 'process' ? 'process' : 'scheduled'));
-    } catch (caught) {
-      error = caught;
+async function assertUnknownShellZeroSpawns(): Promise<number> {
+  let spawnAttempts = 0;
+  const hook = createHook({
+    init(_asyncId, type) {
+      if (type === 'PROCESSWRAP') spawnAttempts += 1;
+    },
+  });
+  hook.enable();
+  try {
+    for (const runner of [createManagedShellProcessRunner(), createScheduledTaskRunner()]) {
+      let error: unknown;
+      let handle: IBackgroundTaskHandle | undefined;
+      try {
+        handle = runner.start(unknownTask(runner.kind === 'process' ? 'process' : 'scheduled'));
+      } catch (caught) {
+        error = caught;
+      } finally {
+        await handle?.cancel();
+      }
+      assertCondition(
+        error instanceof UnsupportedShellError,
+        `${runner.kind} accepted unknown shell`,
+      );
     }
-    assertCondition(
-      error instanceof UnsupportedShellError,
-      `${runner.kind} accepted unknown shell`,
-    );
+  } finally {
+    hook.disable();
   }
+  assertCondition(spawnAttempts === 0, `Unknown shell caused ${spawnAttempts} spawn attempts`);
+  return spawnAttempts;
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const rows = matrix.map(({ name, command, options, ...request }) => ({
     name,
     ...resolveBackgroundTaskShellCommand({ command, ...request }, options),
   }));
-  assertUnknownShellZeroSpawns();
-  process.stdout.write(`${JSON.stringify({ rows, unknownShellZeroSpawns: true })}\n`);
+  const expectedRows = [
+    { name: 'posix-default', executable: '/bin/sh', args: ['-c', 'sentinel-posix'] },
+    {
+      name: 'windows-default',
+      executable: 'powershell.exe',
+      args: ['-NoProfile', '-Command', 'sentinel-powershell'],
+    },
+    {
+      name: 'windows-bash',
+      executable: 'C:\\Git\\bin\\BASH.EXE',
+      args: ['-c', 'sentinel-bash'],
+    },
+    {
+      name: 'posix-pwsh',
+      executable: '/opt/microsoft/pwsh',
+      args: ['-NoProfile', '-Command', 'sentinel-pwsh'],
+    },
+    {
+      name: 'posix-cmd',
+      executable: '/windows/System32/CMD.exe',
+      args: ['/d', '/s', '/c', 'sentinel-cmd'],
+    },
+    { name: 'blank-request', executable: '/bin/bash', args: ['-c', 'sentinel-blank'] },
+  ];
+  assertCondition(JSON.stringify(rows) === JSON.stringify(expectedRows), 'Shell matrix drifted');
+  const unknownShellSpawnAttempts = await assertUnknownShellZeroSpawns();
+  process.stdout.write(
+    `${JSON.stringify({ rows, unknownShellZeroSpawns: unknownShellSpawnAttempts === 0, unknownShellSpawnAttempts })}\n`,
+  );
 }
 
-try {
-  main();
-} catch (error) {
+main().catch((error: unknown) => {
   process.stderr.write(
     `${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,
   );
   process.exitCode = 1;
-}
+});

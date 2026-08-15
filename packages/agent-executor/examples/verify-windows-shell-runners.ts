@@ -1,7 +1,8 @@
+import { createHook } from 'node:async_hooks';
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 
-import { UnsupportedShellError, resolvePlatformShell } from '@robota-sdk/agent-core';
+import { UnsupportedShellError } from '@robota-sdk/agent-core';
 import {
   createManagedShellProcessRunner,
   createScheduledTaskRunner,
@@ -22,12 +23,27 @@ interface ITrackedSchedule {
   cancelled: boolean;
 }
 
+interface IRunnerResult {
+  success: true;
+  executableBasename: string;
+  output: string;
+}
+
 function assertCondition(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
 function executableBasename(executable: string): string {
   return executable.split(/[\\/]/).at(-1)?.toLowerCase() ?? executable.toLowerCase();
+}
+
+function observedExecutableBasename(output: string, caseName: string): string {
+  const marker = output.match(/ARCH026_EXECUTABLE:([^\r\n]+)/)?.[1]?.trim();
+  assertCondition(
+    marker !== undefined && marker.length > 0,
+    `${caseName} executable marker missing`,
+  );
+  return executableBasename(marker);
 }
 
 function installedExecutable(name: string): string {
@@ -59,7 +75,7 @@ function requestFor(shellCase: IShellCase, kind: 'process' | 'scheduled'): IBack
   };
 }
 
-async function managedResult(shellCase: IShellCase): Promise<{ success: true; output: string }> {
+async function managedResult(shellCase: IShellCase): Promise<IRunnerResult> {
   const handle = createManagedShellProcessRunner().start(requestFor(shellCase, 'process'));
   const result = await handle.result;
   assertCondition(result.exitCode === 0, `${shellCase.name} managed exit was ${result.exitCode}`);
@@ -67,17 +83,23 @@ async function managedResult(shellCase: IShellCase): Promise<{ success: true; ou
     result.output?.includes(shellCase.sentinel) === true,
     `${shellCase.name} managed sentinel missing`,
   );
-  return { success: true, output: shellCase.sentinel };
+  const basename = observedExecutableBasename(result.output ?? '', `${shellCase.name} managed`);
+  assertCondition(
+    basename === shellCase.expectedBasename,
+    `${shellCase.name} managed executable basename was ${basename}`,
+  );
+  return { success: true, executableBasename: basename, output: shellCase.sentinel };
 }
 
 async function waitForScheduledSentinel(
   handle: IBackgroundTaskHandle,
   sentinel: string,
-): Promise<void> {
+): Promise<string> {
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     const page = await handle.readLog?.({ offset: 0 });
-    if (page?.lines.join('\n').includes(sentinel)) return;
+    const output = page?.lines.join('\n') ?? '';
+    if (output.includes(sentinel)) return output;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error(`Scheduled sentinel timed out: ${sentinel}`);
@@ -86,7 +108,7 @@ async function waitForScheduledSentinel(
 async function scheduledResult(
   shellCase: IShellCase,
   schedules: ITrackedSchedule[],
-): Promise<{ success: true; fires: 1; output: string }> {
+): Promise<IRunnerResult & { fires: 1 }> {
   let fires = 0;
   let handle: IBackgroundTaskHandle | undefined;
   const task = requestFor(shellCase, 'scheduled');
@@ -98,14 +120,24 @@ async function scheduledResult(
   handle = createScheduledTaskRunner().start(task);
   const tracked = { handle, cancelled: false };
   schedules.push(tracked);
-  await waitForScheduledSentinel(handle, shellCase.sentinel);
+  const output = await waitForScheduledSentinel(handle, shellCase.sentinel);
   await handle.cancel();
   tracked.cancelled = true;
   assertCondition(fires === 1, `${shellCase.name} scheduled fire count was ${fires}`);
-  return { success: true, fires: 1, output: shellCase.sentinel };
+  const basename = observedExecutableBasename(output, `${shellCase.name} scheduled`);
+  assertCondition(
+    basename === shellCase.expectedBasename,
+    `${shellCase.name} scheduled executable basename was ${basename}`,
+  );
+  return {
+    success: true,
+    fires: 1,
+    executableBasename: basename,
+    output: shellCase.sentinel,
+  };
 }
 
-function assertUnknownShellRejected(): void {
+async function assertUnknownShellRejected(): Promise<number> {
   const unknown: IShellCase = {
     name: 'unknown',
     expectedBasename: 'arch-026-unknown-shell.exe',
@@ -113,17 +145,33 @@ function assertUnknownShellRejected(): void {
     command: 'must-not-spawn',
     sentinel: 'must-not-spawn',
   };
-  for (const kind of ['process', 'scheduled'] as const) {
-    const runner =
-      kind === 'process' ? createManagedShellProcessRunner() : createScheduledTaskRunner();
-    let error: unknown;
-    try {
-      runner.start(requestFor(unknown, kind));
-    } catch (caught) {
-      error = caught;
+  let spawnAttempts = 0;
+  const hook = createHook({
+    init(_asyncId, type) {
+      if (type === 'PROCESSWRAP') spawnAttempts += 1;
+    },
+  });
+  hook.enable();
+  try {
+    for (const kind of ['process', 'scheduled'] as const) {
+      const runner =
+        kind === 'process' ? createManagedShellProcessRunner() : createScheduledTaskRunner();
+      let error: unknown;
+      let handle: IBackgroundTaskHandle | undefined;
+      try {
+        handle = runner.start(requestFor(unknown, kind));
+      } catch (caught) {
+        error = caught;
+      } finally {
+        await handle?.cancel();
+      }
+      assertCondition(error instanceof UnsupportedShellError, `${kind} accepted unknown shell`);
     }
-    assertCondition(error instanceof UnsupportedShellError, `${kind} accepted unknown shell`);
+  } finally {
+    hook.disable();
   }
+  assertCondition(spawnAttempts === 0, `Unknown shell caused ${spawnAttempts} spawn attempts`);
+  return spawnAttempts;
 }
 
 async function main(): Promise<void> {
@@ -133,69 +181,66 @@ async function main(): Promise<void> {
   const schedules: ITrackedSchedule[] = [];
   let failure: unknown;
   let rows: Array<Record<string, unknown>> = [];
+  let unknownShellSpawnAttempts = -1;
   let environmentRestored = false;
   try {
     delete process.env['ROBOTA_SHELL'];
     delete process.env['SHELL'];
-    const defaultExecutable = resolvePlatformShell().command;
     const cases: IShellCase[] = [
       {
         name: 'default',
         expectedBasename: 'powershell.exe',
-        command: "Write-Output 'arch026-default'",
+        command:
+          "$arch026Path=(Get-Process -Id $PID).Path; Write-Output ('ARCH026_EXECUTABLE:' + [IO.Path]::GetFileName($arch026Path)); Write-Output 'arch026-default'",
         sentinel: 'arch026-default',
       },
       {
         name: 'sh',
         expectedBasename: 'sh.exe',
         executable: installedExecutable('sh.exe'),
-        command: "printf 'arch026-sh'",
+        command: `printf 'ARCH026_EXECUTABLE:%s\\n' "$(basename "$0")"; printf 'arch026-sh\\n'`,
         sentinel: 'arch026-sh',
       },
       {
         name: 'bash',
         expectedBasename: 'bash.exe',
         executable: installedExecutable('bash.exe'),
-        command: "printf 'arch026-bash'",
+        command: `printf 'ARCH026_EXECUTABLE:%s\\n' "$(basename "$0")"; printf 'arch026-bash\\n'`,
         sentinel: 'arch026-bash',
       },
       {
         name: 'powershell',
         expectedBasename: 'powershell.exe',
         executable: installedExecutable('powershell.exe'),
-        command: "Write-Output 'arch026-powershell'",
+        command:
+          "$arch026Path=(Get-Process -Id $PID).Path; Write-Output ('ARCH026_EXECUTABLE:' + [IO.Path]::GetFileName($arch026Path)); Write-Output 'arch026-powershell'",
         sentinel: 'arch026-powershell',
       },
       {
         name: 'pwsh',
         expectedBasename: 'pwsh.exe',
         executable: installedExecutable('pwsh.exe'),
-        command: "Write-Output 'arch026-pwsh'",
+        command:
+          "$arch026Path=(Get-Process -Id $PID).Path; Write-Output ('ARCH026_EXECUTABLE:' + [IO.Path]::GetFileName($arch026Path)); Write-Output 'arch026-pwsh'",
         sentinel: 'arch026-pwsh',
       },
       {
         name: 'cmd',
         expectedBasename: 'cmd.exe',
         executable: installedExecutable('cmd.exe'),
-        command: 'echo arch026-cmd',
+        command: 'echo ARCH026_EXECUTABLE:%COMSPEC%&& echo arch026-cmd',
         sentinel: 'arch026-cmd',
       },
     ];
     rows = [];
     for (const shellCase of cases) {
-      const actualBasename = executableBasename(shellCase.executable ?? defaultExecutable);
-      assertCondition(
-        actualBasename === shellCase.expectedBasename,
-        `${shellCase.name} executable basename was ${actualBasename}`,
-      );
       rows.push({
         name: shellCase.name,
-        executableBasename: actualBasename,
         managed: await managedResult(shellCase),
         scheduled: await scheduledResult(shellCase, schedules),
       });
     }
-    assertUnknownShellRejected();
+    unknownShellSpawnAttempts = await assertUnknownShellRejected();
   } catch (error) {
     failure = error;
   } finally {
@@ -219,7 +264,8 @@ async function main(): Promise<void> {
     rows,
     summary: {
       runnerCases: rows.length * 2,
-      unknownShellZeroSpawns: true,
+      unknownShellZeroSpawns: unknownShellSpawnAttempts === 0,
+      unknownShellSpawnAttempts,
       scheduledHandlesCancelled: schedules.every((entry) => entry.cancelled),
       environmentRestored,
     },
