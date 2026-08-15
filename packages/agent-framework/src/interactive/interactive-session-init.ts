@@ -133,7 +133,9 @@ export async function createInteractiveSession(
   // NEUT-005: the core hard-capacity notice is product-neutral; derive an actionable remediation
   // hint from THIS surface's registered command set (e.g. a `/compact` command) so the notice
   // regains a concrete next step without baking product vocabulary into the neutral core.
-  const contextCapacityHint = deriveContextCapacityHint(options.commandModules);
+  const contextCapacityHint = deriveContextCapacityHint(
+    options.commandSemanticRoles?.contextReduction,
+  );
 
   const { session, rebuildSystemMessage } = createSession(
     buildCreateSessionOptions(options, {
@@ -181,6 +183,7 @@ export interface IAsyncInitDeps {
   executeModelCommand: (command: string, args: string) => Promise<ICommandResult | null>;
   isModelCommandInvocable: (command: string) => boolean;
   commandDescriptors: readonly ICapabilityDescriptor[];
+  commandSemanticRoles: IInitOptions['commandSemanticRoles'];
   setEditCheckpointStore: (store: EditCheckpointStore) => void;
 }
 
@@ -257,6 +260,7 @@ export async function initializeInteractiveSessionAsync(
     ...(options.defaultTools ? { defaultTools: options.defaultTools } : {}), // ARCH-006
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
     commandDescriptors: deps.commandDescriptors,
+    ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
     ...(deps.commandDescriptors.length > 0
       ? {
           modelCommandExecutor: deps.executeModelCommand,

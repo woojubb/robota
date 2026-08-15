@@ -4,6 +4,7 @@ export {
   createDefaultBackgroundTaskRunners,
   createManagedShellProcessRunner,
   createScheduledTaskRunner,
+  resolveBackgroundTaskShellCommand,
   getBackgroundTaskTransitions,
   isTerminalBackgroundTaskStatus,
   transitionBackgroundTaskStatus,
@@ -14,11 +15,14 @@ export {
 } from './background-tasks/index.js';
 export type {
   IBackgroundTaskHandle,
+  IBackgroundTaskShellCommand,
+  IBackgroundTaskShellResolutionOptions,
   IBackgroundTaskManager,
   IBackgroundTaskManagerOptions,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
   IManagedShellProcessRunnerOptions,
+  IResolvedBackgroundTaskShellCommand,
   IScheduledTaskRunnerOptions,
   TBackgroundTaskIdFactory,
   TBackgroundTaskRunnerEvent,

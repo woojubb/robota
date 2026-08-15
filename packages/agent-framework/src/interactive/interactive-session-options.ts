@@ -19,6 +19,7 @@ import type {
   ICommandModule,
   ICommandResult,
   IRemoteCommandPolicy,
+  ISystemCommandSemanticRoles,
 } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
@@ -233,6 +234,8 @@ export interface IInitOptions {
   commandModules?: readonly ICommandModule[];
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
+  /** Role projection resolved once from the selected executable commands. */
+  commandSemanticRoles?: ISystemCommandSemanticRoles;
   /** Model command execution bridge. */
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */

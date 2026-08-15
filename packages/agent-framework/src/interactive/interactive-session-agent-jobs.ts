@@ -73,6 +73,7 @@ export async function spawnAgentJobFromSession(
   input: ISpawnAgentJobInput,
   cwd: string | undefined,
   invocationSource: TCommandInvocationSource,
+  subagentSpawnCommandName: string | undefined,
 ): Promise<ISubagentJobState> {
   const deps = getAgentToolDepsOrThrow(session);
   const definition = resolveAgentDefinition(input.agentType, deps);
@@ -93,7 +94,7 @@ export async function spawnAgentJobFromSession(
     metadata: createExecutionOriginMetadata({
       kind: invocationSource === 'model' ? 'model_command' : 'slash_command',
       sessionId,
-      commandName: 'agent',
+      commandName: subagentSpawnCommandName,
       label: input.label,
     }),
   });

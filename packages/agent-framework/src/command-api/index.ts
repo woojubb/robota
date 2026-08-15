@@ -6,7 +6,13 @@ export {
 } from './org-policy/index.js';
 export type { ICommand, ICommandSource } from './types.js';
 export type { ICommandModule, TCommandModuleSessionRequirement } from './command-module.js';
-export type { ISystemCommand, TSystemCommandLifecycle } from './contracts.js';
+export { DuplicateSystemCommandSemanticRoleError } from './contracts.js';
+export type {
+  ISystemCommand,
+  ISystemCommandSemanticRoles,
+  TSystemCommandLifecycle,
+  TSystemCommandSemanticRole,
+} from './contracts.js';
 export type { TCommandHostAction, TCommandUiIntent } from './effects.js';
 export type { ICommandResult, TCommandResultDataValue } from './command-result.js';
 export type {
@@ -84,12 +90,6 @@ export type {
   IProviderProfileNameSuggestionInput,
   IProviderProfileNameSuggestionOptions,
 } from './provider/provider-profile-names.js';
-export {
-  formatEnvReference,
-  hasUsableSecretReference,
-  isEnvReference,
-  resolveEnvReference,
-} from '@robota-sdk/agent-core';
 export {
   probeProviderProfile,
   testProviderProfileCommand,

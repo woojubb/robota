@@ -21,6 +21,7 @@ export type {
   ICommandSkillListEntry,
   ICommandSource,
   ISystemCommand,
+  ISystemCommandSemanticRoles,
   TAutoCompactThresholdSource,
   TCommandInvocationSource,
   TCommandHostAction,
@@ -29,7 +30,9 @@ export type {
   TCommandResultDataValue,
   TRemoteControlStatus,
   TSystemCommandLifecycle,
+  TSystemCommandSemanticRole,
 } from '../command-api/index.js';
+export { DuplicateSystemCommandSemanticRoleError } from '../command-api/index.js';
 export { CommandRegistry } from './command-registry.js';
 export { BuiltinCommandSource, createBuiltinCommandModule } from './builtin-source.js';
 export {
@@ -124,12 +127,6 @@ export type {
   IProviderProfileNameSuggestionInput,
   IProviderProfileNameSuggestionOptions,
 } from '../command-api/provider/provider-profile-names.js';
-export {
-  formatEnvReference,
-  hasUsableSecretReference,
-  isEnvReference,
-  resolveEnvReference,
-} from '@robota-sdk/agent-core';
 export {
   formatCommandHelpMessage,
   HELP_COMMAND_DESCRIPTION,

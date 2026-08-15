@@ -337,7 +337,6 @@ export class InteractiveSession
     const stdOpts = options as IInteractiveSessionStandardOptions;
     this.initPromise = this.initializeAsync(stdOpts);
   }
-
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
     const result = await initializeInteractiveSessionAsync(options, {
       sandboxSnapshotId: this.sandboxSnapshotId,
@@ -354,6 +353,7 @@ export class InteractiveSession
       isModelCommandInvocable: (command) =>
         this.skillRouter.commandExecutor.isModelInvocable(command),
       commandDescriptors: this.skillRouter.commandExecutor.listModelInvocableCommands(),
+      commandSemanticRoles: this.skillRouter.commandExecutor.getSemanticRoles(),
       setEditCheckpointStore: (store) => this.histTracker.setEditCheckpointStore(store),
     });
     this.session = result.session;

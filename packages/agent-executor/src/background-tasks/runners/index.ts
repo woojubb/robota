@@ -8,6 +8,12 @@ export type { IManagedShellProcessRunnerOptions } from './managed-shell-process-
 
 export { createScheduledTaskRunner } from './scheduled-task-runner.js';
 export type { IScheduledTaskRunnerOptions } from './scheduled-task-runner.js';
+export { resolveBackgroundTaskShellCommand } from './shell-command-resolution.js';
+export type {
+  IBackgroundTaskShellCommand,
+  IBackgroundTaskShellResolutionOptions,
+  IResolvedBackgroundTaskShellCommand,
+} from './shell-command-resolution.js';
 
 export function createDefaultBackgroundTaskRunners(): IBackgroundTaskRunner[] {
   return [createManagedShellProcessRunner(), createScheduledTaskRunner()];

@@ -1,10 +1,11 @@
 /**
  * TERM-008: cross-platform shell resolution (SSOT).
  *
- * Single source of truth for "which shell do we spawn, and how", shared by every shell-running site
- * (the Shell tool, the hook `command` executor, and the interactive drop-to-shell). Resolution is a
- * pure function of `(env, platform)` so every branch is testable without touching the host shell.
+ * Single source of truth for "which shell do we spawn, and how", shared by every shell-running site.
+ * Resolution is a pure function of one request so every branch is testable without the host shell.
  */
+
+import { RobotaError } from './errors.js';
 
 /** Shell family — drives non-interactive arg shape, quoting, and LLM syntax guidance. */
 export type TShellKind = 'bash' | 'sh' | 'powershell' | 'cmd';
@@ -27,6 +28,27 @@ export interface IPlatformShell {
   readonly syntaxHint: string;
 }
 
+/** Pure inputs for resolving one executable together with its command argument family. */
+export interface IPlatformShellResolutionRequest {
+  /** Request-local executable. A non-blank value has the highest precedence. */
+  readonly executable?: string;
+  /** Environment used for ROBOTA_SHELL and SHELL resolution. */
+  readonly env?: NodeJS.ProcessEnv;
+  /** Actual host platform retained in the resolved metadata. */
+  readonly platform?: NodeJS.Platform;
+}
+
+/** An explicit executable whose basename has no supported command argument family. */
+export class UnsupportedShellError extends RobotaError {
+  readonly code = 'UNSUPPORTED_SHELL';
+  readonly category = 'user' as const;
+  readonly recoverable = false;
+
+  constructor(public readonly executable: string) {
+    super(`Unsupported shell executable: ${executable}`, { executable });
+  }
+}
+
 /** Explicit override env var — point at any shell executable to force it on any platform. */
 const SHELL_OVERRIDE_ENV = 'ROBOTA_SHELL';
 
@@ -42,11 +64,11 @@ function posixSyntaxHint(platform: NodeJS.Platform): string {
   if (platform === 'linux') {
     return 'Host OS: Linux (POSIX, usually GNU coreutils, but distro/user setup varies). Prefer portable POSIX flags; do not assume a specific distro, and probe with `command -v` before relying on a non-standard tool.';
   }
-  return `Host OS: ${platform} (POSIX). Write portable POSIX sh/bash syntax; avoid OS-specific flags.`;
+  return `Host OS: ${platform}; active shell family: POSIX sh/bash. Write portable POSIX syntax and avoid host-specific flags.`;
 }
 
 function posixShell(command: string, platform: NodeJS.Platform): IPlatformShell {
-  const isBash = /(^|\/)bash$/.test(command);
+  const isBash = shellBasename(command) === 'bash';
   const kind: TShellKind = isBash ? 'bash' : 'sh';
   return {
     command,
@@ -59,56 +81,77 @@ function posixShell(command: string, platform: NodeJS.Platform): IPlatformShell 
   };
 }
 
-function powerShell(command: string): IPlatformShell {
+function powerShell(command: string, platform: NodeJS.Platform): IPlatformShell {
   return {
     command,
     kind: 'powershell',
-    platform: 'win32',
+    platform,
     commandArgs: (cmd: string): string[] => ['-NoProfile', '-Command', cmd],
     interactiveArgs: ['-NoProfile'],
-    label: 'PowerShell (Windows)',
+    label: `PowerShell on ${platform}`,
     syntaxHint:
-      'Write PowerShell syntax (not bash): e.g. `Get-ChildItem` not `ls -la`, `$env:VAR` not `$VAR`.',
+      `Host OS: ${platform}; active shell family: PowerShell. Write PowerShell syntax (not bash): e.g. ` +
+      '`Get-ChildItem` not `ls -la`, `$env:VAR` not `$VAR`.',
   };
+}
+
+function cmdShell(command: string, platform: NodeJS.Platform): IPlatformShell {
+  return {
+    command,
+    kind: 'cmd',
+    platform,
+    commandArgs: (cmd: string): string[] => ['/d', '/s', '/c', cmd],
+    interactiveArgs: [],
+    label: `cmd.exe on ${platform}`,
+    syntaxHint: `Host OS: ${platform}; active shell family: Windows cmd.exe. Write cmd.exe syntax.`,
+  };
+}
+
+function shellBasename(command: string): string {
+  const basename = command.split(/[\\/]/).at(-1)?.toLowerCase() ?? '';
+  return basename.replace(/\.exe$/i, '');
+}
+
+function explicitShell(command: string, platform: NodeJS.Platform): IPlatformShell {
+  switch (shellBasename(command)) {
+    case 'sh':
+    case 'bash':
+      return posixShell(command, platform);
+    case 'powershell':
+    case 'pwsh':
+      return powerShell(command, platform);
+    case 'cmd':
+      return cmdShell(command, platform);
+    default:
+      throw new UnsupportedShellError(command);
+  }
+}
+
+function nonBlank(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed === undefined || trimmed.length === 0 ? undefined : trimmed;
 }
 
 /**
  * Resolve the shell to spawn for the current (or a given) platform.
  *
- * - `ROBOTA_SHELL` (if set) wins on every platform.
+ * - request `executable` wins when non-blank.
+ * - `ROBOTA_SHELL` is next and wins on every platform.
  * - **win32:** PowerShell.
  * - **posix:** `$SHELL` if set, else `/bin/sh`.
- *
- * @param env - Environment to read overrides from. Defaults to `process.env`.
- * @param platform - Platform to resolve for. Defaults to `process.platform`. Pass explicitly in tests.
  */
 export function resolvePlatformShell(
-  env: NodeJS.ProcessEnv = process.env,
-  platform: NodeJS.Platform = process.platform,
+  request: IPlatformShellResolutionRequest = {},
 ): IPlatformShell {
-  const override = env[SHELL_OVERRIDE_ENV]?.trim();
+  const env = request.env ?? process.env;
+  const platform = request.platform ?? process.platform;
+  const requestedExecutable = nonBlank(request.executable);
+  if (requestedExecutable !== undefined) return explicitShell(requestedExecutable, platform);
 
-  if (platform === 'win32') {
-    if (override !== undefined && override.length > 0) {
-      // An override on Windows is assumed PowerShell-compatible unless it is clearly cmd.
-      return /(^|\\)cmd(\.exe)?$/i.test(override)
-        ? {
-            command: override,
-            kind: 'cmd',
-            platform,
-            commandArgs: (cmd: string): string[] => ['/d', '/s', '/c', cmd],
-            interactiveArgs: [],
-            label: 'cmd.exe (Windows)',
-            syntaxHint: 'Write Windows cmd.exe syntax (not bash).',
-          }
-        : powerShell(override);
-    }
-    return powerShell('powershell.exe');
-  }
+  const environmentOverride = nonBlank(env[SHELL_OVERRIDE_ENV]);
+  if (environmentOverride !== undefined) return explicitShell(environmentOverride, platform);
 
-  if (override !== undefined && override.length > 0) {
-    return posixShell(override, platform);
-  }
-  const fromEnv = env['SHELL']?.trim();
-  return posixShell(fromEnv !== undefined && fromEnv.length > 0 ? fromEnv : '/bin/sh', platform);
+  if (platform === 'win32') return powerShell('powershell.exe', platform);
+
+  return posixShell(nonBlank(env['SHELL']) ?? '/bin/sh', platform);
 }

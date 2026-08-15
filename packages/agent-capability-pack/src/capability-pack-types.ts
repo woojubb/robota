@@ -43,6 +43,17 @@ export interface ICapabilityPack {
   subagents?: readonly IAgentDefinition[];
 }
 
+/** Exhaustive classification used by pure public-contract folds. */
+export type TCompositionFieldPolicy =
+  'consumed' | 'surfaced' | 'consumed-and-surfaced' | 'explicitly-rejected';
+
+/** Discovery/UX metadata retained for every accepted pack in profile order. */
+export interface ICapabilityPackMetadata {
+  id: string;
+  title?: string;
+  description?: string;
+}
+
 /** The `kind` of a rejected capability contribution. */
 export type TCapabilityKind = 'commandModule' | 'tool' | 'subagent';
 
@@ -52,9 +63,16 @@ export type TCapabilityKind = 'commandModule' | 'tool' | 'subagent';
  * reported here, never silently overridden.
  */
 export interface IRejectedCapability {
+  packId: string;
   kind: TCapabilityKind;
   id: string;
   reason: string;
+}
+
+/** A whole pack rejected before bucket folding because an earlier pack claimed its id. */
+export interface IRejectedCapabilityPack {
+  packId: string;
+  reason: 'duplicate pack id';
 }
 
 /**
@@ -68,5 +86,7 @@ export interface IMergedCapabilities {
     tools: readonly FunctionTool[];
     subagents: readonly IAgentDefinition[];
   };
+  acceptedPacks: readonly ICapabilityPackMetadata[];
   rejected: readonly IRejectedCapability[];
+  rejectedPacks: readonly IRejectedCapabilityPack[];
 }

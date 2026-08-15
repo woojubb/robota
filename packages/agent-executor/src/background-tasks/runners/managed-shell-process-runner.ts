@@ -1,6 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
-import { resolvePlatformShell } from '@robota-sdk/agent-core';
 import { DEFAULT_KILL_GRACE_MS, killProcessTree } from '@robota-sdk/agent-process';
 
 import {
@@ -22,6 +21,7 @@ import {
   type TBackgroundTaskRunnerEvent,
 } from '../types.js';
 import { createLineWakeMatcher, type ILineWakeMatcher } from './line-wake-matcher.js';
+import { resolveBackgroundTaskShellCommand } from './shell-command-resolution.js';
 
 const DEFAULT_OUTPUT_LIMIT_BYTES = 30_000;
 
@@ -56,30 +56,6 @@ function createWakeMatcher(
     agentInstruction: request.agentInstruction,
     emit: (instruction) => emit({ type: 'background_task_waking', instruction }),
   });
-}
-
-/**
- * Resolve the shell executable + arg shape through the agent-core SSOT (`resolvePlatformShell`),
- * the same resolver the Shell tool and the hook command executor use.
- *
- * Two defects this closes over the previous `{ command: request.shell ?? 'sh', args: ['-c', …] }`:
- *  1. The bare name `sh` was looked up in the child's `PATH` — and the child env is
- *     `{ ...process.env, ...request.env }`, so a request supplying `env: { PATH: … }` chose which
- *     `sh` binary ran. Resolution reads the HOST env only (`resolvePlatformShell()` defaults to
- *     `process.env`), never `request.env`, and its POSIX default is an ABSOLUTE `/bin/sh`.
- *  2. POSIX `-c` was hardcoded, so the Windows branch spawned PowerShell with POSIX args.
- *
- * An explicit `request.shell` is still honoured as the executable to spawn (it is a deliberate
- * caller choice, not an environment lookup); the arg shape follows the host platform's shell family.
- */
-function resolveShell(request: IProcessBackgroundTaskRequest): { command: string; args: string[] } {
-  const platformShell = resolvePlatformShell();
-  const requestedShell = request.shell?.trim();
-  const command =
-    requestedShell !== undefined && requestedShell.length > 0
-      ? requestedShell
-      : platformShell.command;
-  return { command, args: platformShell.commandArgs(request.command) };
 }
 
 function sendInput(child: ChildProcessWithoutNullStreams, input: string): Promise<void> {
@@ -118,12 +94,12 @@ function startProcessTask(
   killGraceMs: number,
   emit: ((event: TBackgroundTaskRunnerEvent) => void) | undefined,
 ): IBackgroundTaskHandle {
-  const shell = resolveShell(request);
+  const shell = resolveBackgroundTaskShellCommand(request);
   const wakeMatcher = createWakeMatcher(request, emit);
   const runtime: IProcessTaskRuntime = {
     taskId,
     request,
-    child: spawn(shell.command, shell.args, {
+    child: spawn(shell.executable, shell.args, {
       cwd: request.cwd,
       env: { ...process.env, ...(request.env ?? {}) },
       stdio: ['pipe', 'pipe', 'pipe'],

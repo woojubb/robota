@@ -86,6 +86,7 @@ describe('createCompactCommandModule', () => {
     expect(command).toEqual(
       expect.objectContaining({
         name: 'compact',
+        semanticRole: 'contextReduction',
         lifecycle: 'blocking',
         modelInvocable: true,
         safety: 'write',

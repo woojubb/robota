@@ -81,6 +81,7 @@ describe('agent command module', () => {
       .map((command) => command.name);
 
     const module = createAgentCommandModule();
+    expect(module.systemCommands?.[0]?.semanticRole).toBe('subagentSpawn');
     const executor = new SystemCommandExecutor([
       ...createSystemCommands(),
       ...(module.systemCommands ?? []),

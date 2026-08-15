@@ -1,4 +1,9 @@
-import type { ICapabilityPack, IRejectedCapability } from '@robota-sdk/agent-capability-pack';
+import type {
+  ICapabilityPack,
+  ICapabilityPackMetadata,
+  IRejectedCapability,
+  IRejectedCapabilityPack,
+} from '@robota-sdk/agent-capability-pack';
 import type {
   FunctionTool,
   IAIProvider,
@@ -64,9 +69,6 @@ export interface IProductProfile {
    * provider answers from a recorded log instead of a vendor definition.
    */
   provider?: IAIProvider;
-  /** Active-provider override id (data). */
-  providerOverride?: string;
-
   // (3) behavior axis — external presets to register + the default id
   /**
    * External presets to register into a PER-CALL instance-scoped registry (R8). Ignored when
@@ -150,6 +152,10 @@ export interface IAssembledProduct {
   subagents: readonly IAgentDefinition[];
   /** Contributions the merge rejected for a colliding id (surfaced, never silently dropped). */
   rejectedCapabilities: readonly IRejectedCapability[];
+  /** Discovery metadata for accepted packs, preserved in profile order. */
+  acceptedPacks: readonly ICapabilityPackMetadata[];
+  /** Later duplicate pack ids rejected atomically before capability folding. */
+  rejectedPacks: readonly IRejectedCapabilityPack[];
 
   /**
    * The per-call instance-scoped preset registry (R8 — no module-global mutation). This is the SAME

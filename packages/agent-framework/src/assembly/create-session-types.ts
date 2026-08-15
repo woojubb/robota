@@ -2,6 +2,7 @@ import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
+import type { ISystemCommandSemanticRoles } from '../command-api/index.js';
 import type { ICommandResult } from '../commands/system-command.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
@@ -185,6 +186,8 @@ export interface ICreateSessionOptions {
   isModelCommandInvocable?: (command: string) => boolean;
   /** Model-visible command descriptors. */
   commandDescriptors?: ICapabilityDescriptor[];
+  /** Semantic roles resolved from the selected executable command set. Omitted means all absent. */
+  commandSemanticRoles?: ISystemCommandSemanticRoles;
   /** Recorder used to snapshot files before Write/Edit tools mutate them. */
   editCheckpointRecorder?: IEditCheckpointRecorder;
   /** Opt-in local-first reversible execution policy for write/shell tools. */

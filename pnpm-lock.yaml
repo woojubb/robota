@@ -224,6 +224,9 @@ importers:
       '@robota-sdk/agent-playground':
         specifier: workspace:*
         version: link:../../packages/agent-playground
+      '@robota-sdk/agent-session':
+        specifier: workspace:*
+        version: link:../../packages/agent-session
       '@robota-sdk/agent-provider-anthropic':
         specifier: workspace:*
         version: link:../../packages/agent-provider-anthropic

@@ -4,6 +4,7 @@ import { buildRuntimeSession } from '@robota-sdk/agent-framework';
 import { createPresetRegistry } from '@robota-sdk/agent-preset';
 
 import type { IAssembledProduct, IBuildRuntimeInput, IProductProfile } from './product-profile.js';
+import type { TCompositionFieldPolicy } from '@robota-sdk/agent-capability-pack';
 import type {
   FunctionTool,
   IAIProvider,
@@ -16,6 +17,24 @@ import type {
   TInteractiveSessionOptions,
 } from '@robota-sdk/agent-framework';
 import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+
+export const PRODUCT_PROFILE_FIELD_POLICIES = {
+  id: 'surfaced',
+  agentName: 'surfaced',
+  version: 'surfaced',
+  providerDefinitions: 'consumed-and-surfaced',
+  providerSettings: 'consumed',
+  provider: 'consumed-and-surfaced',
+  presets: 'consumed',
+  presetRegistry: 'consumed-and-surfaced',
+  defaultPresetId: 'consumed-and-surfaced',
+  presetContext: 'consumed',
+  packs: 'consumed',
+  baseCommandModules: 'consumed',
+  backgroundTaskRunners: 'surfaced',
+  subagentRunnerFactory: 'surfaced',
+  transports: 'consumed-and-surfaced',
+} as const satisfies Record<keyof IProductProfile, TCompositionFieldPolicy>;
 
 /** The product-owned materials the assembler overlays onto the shell-supplied session options. */
 interface IOverlayMaterials {
@@ -122,7 +141,7 @@ export function assembleProduct(profile: IProductProfile): IAssembledProduct {
       : undefined;
 
   // (2) Additive capability merge — base ⊕ packs, deterministic, with a rejection channel.
-  const { merged, rejected } = mergeCapabilityPacks(
+  const { merged, acceptedPacks, rejected, rejectedPacks } = mergeCapabilityPacks(
     profile.baseCommandModules ?? [],
     profile.packs ?? [],
   );
@@ -158,7 +177,9 @@ export function assembleProduct(profile: IProductProfile): IAssembledProduct {
     commandModules: merged.commandModules,
     tools: merged.tools,
     subagents: merged.subagents,
+    acceptedPacks,
     rejectedCapabilities: rejected,
+    rejectedPacks,
     presets,
     resolvePreset: (id, context) => presets.resolvePreset(id, context),
     ...(profile.defaultPresetId !== undefined ? { defaultPresetId: profile.defaultPresetId } : {}),

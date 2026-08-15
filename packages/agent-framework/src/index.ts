@@ -2,7 +2,7 @@
 // Provider-neutral. InteractiveSession is the single entry point.
 
 // ── InteractiveSession (primary API) ────────────────────────
-export { InteractiveSession, assertSafeSessionId, isSafeSessionId } from './interactive/index.js';
+export { InteractiveSession } from './interactive/index.js';
 
 // ── Autonomous goal pursuit (GOAL-001) ──────────────────────
 export {
@@ -39,7 +39,6 @@ export type {
 export { createQuery } from './query.js';
 export type { ICreateQueryOptions, TQueryFunction } from './query.js';
 
-// ── Command system (managed by InteractiveSession) ──────────
 export {
   CommandRegistry,
   BuiltinCommandSource,
@@ -54,6 +53,7 @@ export {
   selectCommandModules,
   findUnknownModuleNames,
   createDefaultRemoteCommandPolicy,
+  DuplicateSystemCommandSemanticRoleError,
 } from './commands/index.js';
 export type {} from './capabilities/types.js';
 export type { IOrgPolicy } from './command-api/org-policy/index.js';
@@ -77,7 +77,9 @@ export type {
   ICommandSettingsDocument,
   ICommandSkillListEntry,
   ISystemCommand,
+  ISystemCommandSemanticRoles,
   TSystemCommandLifecycle,
+  TSystemCommandSemanticRole,
   ICommandPermissionModeAdapter,
   ICommandRemoteControlAdapter,
   TRemoteControlStatus,
@@ -127,13 +129,9 @@ export {
   resolveEnvDefaultProvider,
   clearCommandContextReferences,
   deleteProviderProfile,
-  formatEnvReference,
-  hasUsableSecretReference,
-  isEnvReference,
   mergeProviderPatch,
   probeProviderProfile,
   listCommandContextReferences,
-  resolveEnvReference,
   sanitizeProviderProfileName,
   setCurrentProvider,
   suggestProviderProfileName,
@@ -401,12 +399,11 @@ export type {
   TEnabledPlugins,
 } from './plugins/index.js';
 
-// ── Agent definitions ───────────────────────────────────────
 export type { IAgentDefinition } from './agents/index.js';
 export { BUILT_IN_AGENTS, getBuiltInAgent } from './agents/index.js';
 
-// ── Subagent (SDK-internal, exported for CLI fork execution) ─
 export {
+  createSession,
   createDefaultTools,
   getSubagentSuffix,
   getForkWorkerSuffix,
@@ -662,7 +659,6 @@ export {
 
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):
-//   createSession()        — assembly factory
 //   createProvider()       — REMOVED (provider comes from consumer)
 //   loadConfig()           — config loading (used by InteractiveSession internally)
 //   loadContext()          — context loading (used by InteractiveSession internally)

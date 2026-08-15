@@ -29,12 +29,16 @@ const product = assembleProduct({
 
 // The external repo binds product.buildRuntime(...) to ITS OWN presentation/transport.
 const session = product.buildRuntime({ session: { cwd, provider } });
+void product.acceptedPacks;
+void product.rejectedCapabilities;
+void product.rejectedPacks;
 void session;
 ```
 
 `assembleProduct` hard-codes no product's choices — everything product-specific arrives as `profile` data.
 It resolves presets via a per-call instance-scoped registry (never mutating a global), merges additive
-capability packs, and **delegates runtime construction** to `agent-framework`'s `buildRuntimeSession` seam
+capability packs while preserving accepted metadata and both rejection channels, and **delegates runtime
+construction** to `agent-framework`'s `buildRuntimeSession` seam
 — it never re-implements runtime assembly, and never imports a concrete transport, the TUI, or the CLI
 (those are injected via the profile). See [`docs/SPEC.md`](./docs/SPEC.md).
 
