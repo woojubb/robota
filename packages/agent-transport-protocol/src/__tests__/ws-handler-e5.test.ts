@@ -2,6 +2,7 @@ import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transp
 
 import { describe, it, expect, vi } from 'vitest';
 
+import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createWsHandler } from '../ws-handler.js';
 import type { TServerMessage } from '../ws-protocol.js';
 import type {
@@ -35,12 +36,7 @@ function mockSession(activeDriverId: string | null) {
 describe('ws-handler E5 driver attribution (REMOTE-014)', () => {
   it('TC-05: injects the SERVER-ASSIGNED driver id into submit + prompt-response (client cannot forge it)', () => {
     const session = mockSession(null);
-    const { onMessage } = createWsHandler({
-      session,
-      send: () => {},
-      driverId: 'device-42',
-      onDeliveryError: vi.fn(),
-    });
+    const { onMessage } = createWsHandler({ session, deliver: createOutboundDelivery(() => {}, vi.fn()), driverId: 'device-42' });
     // A client submit frame carries NO driverId field (structurally — TClientMessage has none); the handler
     // injects the bound server id.
     onMessage(JSON.stringify({ type: 'submit', prompt: 'hi', driverId: 'spoofed' }));
@@ -67,7 +63,7 @@ describe('ws-handler E5 driver attribution (REMOTE-014)', () => {
   it('TC-03: SELECTIVELY stamps turn-authored events with the active driver; background events carry none', () => {
     const session = mockSession('driver-A');
     const sent: TServerMessage[] = [];
-    createWsHandler({ session, send: (m) => sent.push(m), onDeliveryError: vi.fn() });
+    createWsHandler({ session, deliver: createOutboundDelivery((m) => sent.push(m), vi.fn()) });
 
     session._emit('user_message', 'hello');
     session._emit('text_delta', 'chunk');
@@ -84,7 +80,7 @@ describe('ws-handler E5 driver attribution (REMOTE-014)', () => {
   it('TC-03: an unattributed (idle) turn stamps no driverId', () => {
     const session = mockSession(null); // getActiveDriverId → null
     const sent: TServerMessage[] = [];
-    createWsHandler({ session, send: (m) => sent.push(m), onDeliveryError: vi.fn() });
+    createWsHandler({ session, deliver: createOutboundDelivery((m) => sent.push(m), vi.fn()) });
     session._emit('user_message', 'hi');
     expect((sent[0] as { driverId?: string }).driverId).toBeUndefined();
   });

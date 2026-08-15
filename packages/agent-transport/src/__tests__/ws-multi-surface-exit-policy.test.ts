@@ -59,12 +59,7 @@ function setupSharedHost(adapters: ICommandHostAdapters): {
   });
   const attach = (driverId: string): ISurface => {
     const sent: TServerMessage[] = [];
-    const { onMessage } = createWsHandler({
-      session,
-      send: (msg) => sent.push(msg),
-      driverId,
-      onDeliveryError: vi.fn(),
-    });
+    const { onMessage } = createWsHandler({ session, deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()), driverId });
     return { sent, onMessage };
   };
   return { session, surfaceA: attach('device-A'), surfaceB: attach('device-B') };

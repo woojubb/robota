@@ -1,10 +1,14 @@
 export { createWsHandler } from './ws-handler.js';
 export type { IWsHandlerOptions } from './ws-handler.js';
+// ARCH-030: the connection-scoped outbound delivery boundary every carrier builds and passes down.
+export { createOutboundDelivery } from './outbound-delivery.js';
+export type { TDeliveryErrorHandler, TOutboundDeliver } from './outbound-delivery.js';
 export { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from './ws-session-events.js';
-export type {
-  ISubscribeSessionEventsOptions,
-  TProtocolSessionEventClassification,
-} from './ws-session-events.js';
+// `ISubscribeSessionEventsOptions` is NOT here (ARCH-030): it is the options bag of
+// `subscribeSessionEvents`, which is package-internal, and a barrel that exports the options of a
+// function it does not export is the "internal implementation detail through the barrel" the
+// version-management skill bans. It was also absent from the SPEC's Public API Surface table.
+export type { TProtocolSessionEventClassification } from './ws-session-events.js';
 export type { IProtocolSession } from './protocol-session.js';
 export type { TClientMessage, TServerMessage, TSeqServerMessage } from './ws-protocol.js';
 export { ResumeBuffer } from './resume-buffer.js';

@@ -44,11 +44,7 @@ describe('WsSessionDelivery', () => {
     const detachSink = vi.fn();
     delivery.bindSinkDetach(detachSink);
     const harness = createSessionHarness();
-    const handler = createWsHandler({
-      session: harness.session,
-      send: delivery.send,
-      onDeliveryError: delivery.close,
-    });
+    const handler = createWsHandler({ session: harness.session, deliver: createOutboundDelivery(delivery.send, delivery.close) });
     delivery.bindProtocolCleanup(handler.cleanup);
 
     expect(harness.fireBranchEvent).not.toThrow();

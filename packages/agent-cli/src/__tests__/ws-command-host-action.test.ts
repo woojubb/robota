@@ -52,12 +52,7 @@ function setup(adapters: ICommandHostAdapters): {
     commandHostAdapters: adapters,
   });
   const sent: TServerMessage[] = [];
-  const { onMessage } = createWsHandler({
-    session,
-    send: (msg) => sent.push(msg),
-    driverId: 'device-e2e-1',
-    onDeliveryError: vi.fn(),
-  });
+  const { onMessage } = createWsHandler({ session, deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()), driverId: 'device-e2e-1' });
   return { sent, onMessage };
 }
 

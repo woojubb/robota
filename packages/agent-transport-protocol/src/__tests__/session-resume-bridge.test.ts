@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createWsHandler } from '../ws-handler.js';
 import { SessionResumeBridge } from '../session-resume-bridge.js';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
@@ -189,11 +190,7 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
   it('regression: the WS createWsHandler path stamps NO seq', () => {
     const { session, fire } = fakeSession();
     const sent: unknown[] = [];
-    const { cleanup } = createWsHandler({
-      session,
-      send: (m) => sent.push(m),
-      onDeliveryError: vi.fn(),
-    });
+    const { cleanup } = createWsHandler({ session, deliver: createOutboundDelivery((m) => sent.push(m), vi.fn()) });
     fire('text_delta', 'a');
     expect(sent).toEqual([{ type: 'text_delta', delta: 'a' }]); // no `seq` field
     cleanup();

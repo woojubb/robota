@@ -42,11 +42,7 @@ async function main(): Promise<void> {
   });
   const transcript: TServerMessage[] = [];
   const deliveryErrors: Array<{ message: string; event: string }> = [];
-  const primary = createWsHandler({
-    session,
-    send: (message) => transcript.push(message),
-    onDeliveryError: (error, event) => deliveryErrors.push({ message: error.message, event }),
-  });
+  const primary = createWsHandler({ session, deliver: createOutboundDelivery((message) => transcript.push(message), (error, event) => deliveryErrors.push({ message: error.message, event })) });
   let failureCleanup: (() => void) | undefined;
   let result: Record<string, unknown> | undefined;
 
@@ -60,13 +56,9 @@ async function main(): Promise<void> {
     assertCondition(first !== undefined && second !== undefined, 'expected two checkpoints');
 
     const forcedFailures: Array<{ message: string; event: string }> = [];
-    const failureCarrier = createWsHandler({
-      session,
-      send: (message) => {
+    const failureCarrier = createWsHandler({ session, deliver: createOutboundDelivery((message) => {
         if (message.type === 'branch_event') throw new Error('forced protocol send failure');
-      },
-      onDeliveryError: (error, event) => forcedFailures.push({ message: error.message, event }),
-    });
+      }, (error, event) => forcedFailures.push({ message: error.message, event })) });
     failureCleanup = failureCarrier.cleanup;
     await session.forkCheckpointBranch(first.id);
     const forkRecord = store.load(session.getSession().getSessionId());
