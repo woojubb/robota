@@ -53,9 +53,121 @@ mistake.
 
 ## User Execution Test Scenarios
 
-Applies. At scenario planning, author a maintained public-SDK example that starts a deterministic delayed
-remote command, disconnects its local carrier, resolves the command, and prints structured evidence for
-exactly one delivery error, committed operation success, cleanup, and zero unhandled rejections.
+**Applies.** The change alters runnable behavior of a published SDK surface — `WsTransport` and
+`createWsTransport` from `@robota-sdk/agent-transport-ws` — so the gate is a public-SDK example run, not
+an engineering check.
+
+**Scenario home decision.** The scenario lives in **`packages/agent-transport-ws`**, which owns the real
+`WsSessionDelivery` carrier and a real `ws` socket and currently has **no** scenario script.
+`scripts/harness/scenario-owner-map.mjs` takes the FIRST matching script name per package, and
+`@robota-sdk/agent-transport` already owns `scenario:verify` for ARCH-020/028
+(`examples/verify-session-event-delivery.ts`). Extending that script was rejected: it would re-record
+ARCH-028's canonical `examples/scenarios/session-event-delivery.record.json`, replacing evidence for a
+completed item with evidence for this one. Adding a second owner package leaves ARCH-020/028's record
+untouched and puts the scenario in the package that holds the carrier.
+
+**Surface preference level 1 (self-contained product observables).** No credentials, no external service,
+no provider call, no SQLite: the scenario starts a loopback WS server the product itself owns, connects a
+real client, and reads exit code plus one JSON line from stdout. Levels 2 and 3 were not needed.
+
+### Scenario 1 — a reply that resolves after the carrier disconnected is reported, not thrown
+
+**Agent-executability decision:** `agent-executable`. Non-interactive, no TTY, no network beyond
+`127.0.0.1`. The invocation shape was executed against current `develop` before this section was written
+(see RED baseline below), so the command, the module resolution, and the observables are proven real —
+only the values change once the boundary lands.
+
+**Prerequisites**
+
+- Node ≥ 22 and `pnpm install` completed at the repo root. `volta` is not required.
+- No provider credentials, no `.env`, no network egress. The WS transport auto-mints its own admission
+  token (`WsTransport.resolvedToken`) — the scenario reads it from the object it just constructed.
+- Loopback TCP ports `43117`–`43142` available (the scenario binds `43117` with `maxRetries: 25`).
+- Artifacts this backlog must create as part of the implementation slice:
+  - `packages/agent-transport-ws/examples/verify-outbound-delivery-boundary.ts` — the maintained example.
+  - `packages/agent-transport-ws/examples/scenarios/outbound-delivery-boundary.record.json` — canonical
+    record, produced by `pnpm scenario:record`.
+  - `packages/agent-transport-ws/package.json` scripts:
+    - `"scenario:verify": "pnpm exec tsx --conditions=source examples/verify-outbound-delivery-boundary.ts"`
+    - `"scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-transport-ws --output examples/scenarios/outbound-delivery-boundary.record.json -- pnpm scenario:verify"`
+  - **Dependency to ADD (stated, not discovered later):** `tsx: "^4.23.1"` in
+    `packages/agent-transport-ws` `devDependencies`. It currently resolves only by root hoisting;
+    `@robota-sdk/agent-transport` declares it explicitly and this package must too. **No other dependency
+    is added and no new package edge is created** — `ws`, `@types/ws`,
+    `@robota-sdk/agent-interface-transport` (for the `./testing` conformant double) and
+    `@robota-sdk/agent-transport-protocol` are already declared. The example imports the package under its
+    own name (`@robota-sdk/agent-transport-ws`) via Node self-referencing through `exports`, which is
+    verified working under `--conditions=source`; it does not need a self-dependency entry.
+- Fixture shape the example must build (no live model, no session store): the conformant
+  `createTestInteractiveSession` double from `@robota-sdk/agent-interface-transport/testing`, overriding
+  `executeCommand` to (1) signal that it started, (2) await a release gate the scenario controls,
+  (3) write a "committed" marker file, (4) resolve — and counting `on`/`off` calls so carrier cleanup is
+  externally countable.
+
+**Exact Bash command**
+
+```bash
+cd /home/ubunutu/dev/robota-2/packages/agent-transport-ws && pnpm scenario:verify
+```
+
+(equivalently, without the package script: `pnpm exec tsx --conditions=source examples/verify-outbound-delivery-boundary.ts`)
+
+**Expected observable result**
+
+- Exit code `0`.
+- stdout contains exactly one JSON line. Required substrings:
+  - `"scenario":"ARCH-030-outbound-delivery-boundary"`
+  - Phase A — real carrier (`WsTransport`, real `ws` server + real client socket, real
+    `WsSessionDelivery`): `"carrier":"WsTransport(real ws socket)"`, `"operationCommitted":true`,
+    `"cleanupRuns":1`, **`"unhandledRejections":0`**.
+  - Phase B — observable carrier (`createWsTransport`, whose `send`/`onDeliveryError` are public options):
+    `"carrier":"createWsTransport(observable delivery callbacks)"`,
+    **`"deliveryErrors":[{"message":"WebSocket is not open","event":"command_result"}]`** (exactly one
+    entry), `"operationCommitted":true`, `"cleanupObserved":true`, **`"latchThrew":null`**,
+    `"unhandledRejections":0`.
+  - `"cleanupRemoved":true`.
+- stderr empty apart from pnpm's own banner.
+- Assertion failures are fatal: any mismatch throws with a named message and exits non-zero. The example
+  must not soften an assertion to make the run pass.
+
+The four claims map to the four observables: (a) exactly one delivery error → Phase B `deliveryErrors`
+length 1 with `event: "command_result"`; (b) the committed operation survives → both phases'
+`operationCommitted` (the marker file written by the command after the disconnect);
+(c) cleanup exactly once → Phase A `cleanupRuns` from the `on`/`off` listener balance and Phase B
+`cleanupObserved` (`transport.onMessage === null`); (d) zero unhandled rejections → both phases'
+`unhandledRejections`. `latchThrew: null` additionally pins the §2 latch: a further frame pushed through
+the retained `onMessage` after the failure must be dropped silently — neither a second `onDeliveryError`
+nor a synchronous throw out of `onMessage`.
+
+**RED baseline captured before implementation (2026-08-16, `main` @ `e828a2925`, same command with the
+assertions temporarily relaxed so both phases run to completion):**
+
+```
+{"scenario":"ARCH-030-outbound-delivery-boundary",
+ "realCarrier":{"carrier":"WsTransport(real ws socket)","operationCommitted":true,"cleanupRuns":1,"unhandledRejections":1},
+ "observedCarrier":{"carrier":"createWsTransport(observable delivery callbacks)","latchThrew":"WebSocket is not open","cleanupObserved":false,"operationCommitted":true,"deliveryErrors":[],"cleanupRuns":1,"unhandledRejections":2},
+ "cleanupRemoved":true}
+```
+
+With the assertions as specified above, the same run on current code exits `1` with
+`Error: real carrier produced unhandled rejections: ["WebSocket is not open"]`. Every expected value was
+therefore authored against observed-failing behavior, not back-fitted to output.
+
+**Cleanup / reset**
+
+- The example removes its own `mkdtemp` directory in a `finally` block and asserts the directory is gone
+  (`"cleanupRemoved":true`).
+- Both transports are stopped in `finally` (`WsTransport.stop()` closes the WS server and the HTTP
+  listener; the client socket is terminated), so no port stays bound and the process exits on its own.
+- Nothing is written inside the repository. No manual reset step is required.
+
+**Evidence (fill in after implementation, before `status: done`):**
+
+- Command run:
+- Exit code:
+- stdout JSON line:
+- Canonical record path + `stdout.sha256`:
+- Date / branch / commit:
 
 ## Plan
 
