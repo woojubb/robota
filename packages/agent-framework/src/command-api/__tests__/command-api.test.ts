@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { formatEnvReference } from '@robota-sdk/agent-core';
 
 import {
   buildProviderProfile,
-  formatEnvReference,
   suggestProviderProfileName,
   validateProviderProfile,
 } from '../index.js';

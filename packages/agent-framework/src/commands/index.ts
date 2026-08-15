@@ -125,12 +125,6 @@ export type {
   IProviderProfileNameSuggestionOptions,
 } from '../command-api/provider/provider-profile-names.js';
 export {
-  formatEnvReference,
-  hasUsableSecretReference,
-  isEnvReference,
-  resolveEnvReference,
-} from '@robota-sdk/agent-core';
-export {
   formatCommandHelpMessage,
   HELP_COMMAND_DESCRIPTION,
 } from '../command-api/help/help-command-api.js';

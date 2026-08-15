@@ -85,12 +85,6 @@ export type {
   IProviderProfileNameSuggestionOptions,
 } from './provider/provider-profile-names.js';
 export {
-  formatEnvReference,
-  hasUsableSecretReference,
-  isEnvReference,
-  resolveEnvReference,
-} from '@robota-sdk/agent-core';
-export {
   probeProviderProfile,
   testProviderProfileCommand,
 } from './provider/provider-command-probe.js';

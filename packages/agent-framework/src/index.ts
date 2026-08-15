@@ -2,7 +2,7 @@
 // Provider-neutral. InteractiveSession is the single entry point.
 
 // ── InteractiveSession (primary API) ────────────────────────
-export { InteractiveSession, assertSafeSessionId, isSafeSessionId } from './interactive/index.js';
+export { InteractiveSession } from './interactive/index.js';
 
 // ── Autonomous goal pursuit (GOAL-001) ──────────────────────
 export {
@@ -127,13 +127,9 @@ export {
   resolveEnvDefaultProvider,
   clearCommandContextReferences,
   deleteProviderProfile,
-  formatEnvReference,
-  hasUsableSecretReference,
-  isEnvReference,
   mergeProviderPatch,
   probeProviderProfile,
   listCommandContextReferences,
-  resolveEnvReference,
   sanitizeProviderProfileName,
   setCurrentProvider,
   suggestProviderProfileName,
