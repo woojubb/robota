@@ -73,19 +73,16 @@ export async function* executeStream(
   eventEmitter.prepareOwnerPathBases(streamingConversationId);
 
   try {
-    // `messages` is a synchronous snapshot of THIS store (`robotaRunStream` passes
-    // `deps.getHistory()`, same `conversationId`, no await before the generator's first `next()`),
-    // so the helper's restore branch cannot fire here: either the store already holds that content
-    // or the snapshot is empty. That is a property of the caller, not of this call — a future
-    // caller passing a foreign array would resurrect a cleared history, with `parts` stripped by
-    // `robota-history.ts`'s projection.
-    //
     // Contained — CORE-042. Entering the round path's own session initialization is what makes
-    // `config.systemMessage` and the inject-once rule (CORE-009/CORE-010) reach this path at all;
-    // reading the store directly here is why an agent obeyed its persona through `run()` and
-    // ignored it through `runStream()`. It only makes the streaming path CALL one shared helper —
-    // provider resolution, chat options, validation and commit are still re-derived below, so the
-    // turn is still implemented twice. The shared seam is CORE-042's work.
+    // `config.systemMessage` and the inject-once rule (CORE-009/CORE-010) reach this path at all —
+    // reading the store directly is why an agent obeyed its persona through `run()` and ignored it
+    // through `runStream()`. It only makes this path CALL one shared helper: provider resolution,
+    // chat options, validation and commit are still re-derived below, so the turn is still
+    // implemented twice. The shared seam is CORE-042's work.
+    //
+    // The helper's restore branch cannot fire here, by a property of the CALLER not of this call:
+    // `messages` is a synchronous snapshot of this same store. A caller passing a foreign array
+    // would resurrect a cleared history with `parts` stripped by `robota-history.ts`'s projection.
     const conversationStore = initializeConversationStore(
       conversationHistory,
       streamingConversationId,
@@ -243,12 +240,6 @@ export async function* executeStream(
                 toolCalls[currentToolCallIndex].function.arguments +=
                   chunkToolCall.function!.arguments;
               }
-              const fragmentPreview = hasArgumentsFragment
-                ? chunkToolCall.function!.arguments
-                : chunkToolCall.function!.name;
-              logger.debug(
-                `[TOOL-STREAM] Adding fragment to tool ${toolCalls[currentToolCallIndex].id}: "${fragmentPreview}"`,
-              );
             }
           }
         }
