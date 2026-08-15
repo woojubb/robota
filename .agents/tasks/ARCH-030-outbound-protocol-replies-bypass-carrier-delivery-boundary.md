@@ -198,13 +198,133 @@ therefore authored against observed-failing behavior, not back-fitted to output.
   `command.rendered: pnpm scenario:verify`.
 - **Date / branch:** 2026-08-16 / `fix/arch-030-outbound-delivery-boundary`.
 
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** `todo` → `todo` (Stage 1 authorizes implementation to begin; it transitions no
+frontmatter status — the terminal status change belongs to Completion Steps after Stage 2).
+
+**Ordering check:** exempt — the gate catalogue's prior-gate map records no prior gate for
+`DONE-GATE-STAGE-1`. Write-order was nonetheless confirmed: the scenario section was authored in
+`aac4f983d` ("docs(tasks): plan the ARCH-030 delayed-reply scenario"), which precedes every
+implementation commit on this branch (`235f4e1cc`, `be8ae6288`, `4555962f9`, `874e793fe`, `c7b3fbfc0`,
+`1da64b66c`, `30a2ac51a`), with the evidence field present and empty at write time. No prior
+`DONE-GATE-STAGE-1` entry exists in this section — this is the first run.
+
+**Per-criterion evidence:**
+
+- **Fields complete (exact commands, prerequisites, expected observable, evidence field)** — Scenario 1
+  carries all four. Command: `cd .../packages/agent-transport-ws && pnpm scenario:verify` (plus the
+  script-free equivalent). Prerequisites: Node ≥ 22 + `pnpm install`, no credentials/`.env`/egress,
+  loopback ports `43117`–`43142`, the three artifacts to be created, the `tsx: "^4.23.1"` devDependency
+  to add, and the `createTestInteractiveSession` fixture shape. Expected observable: exit code `0` and
+  one stdout JSON line with named required substrings per phase (`unhandledRejections:0`, a single
+  `deliveryErrors` entry for `command_result`, `cleanupObserved:true`, `latchThrew:null`,
+  `cleanupRemoved:true`). Evidence field present (authored empty; filled 2026-08-16). A cleanup/reset
+  step is also present.
+- **Executability decision** — `agent-executable`, stated explicitly with its justification
+  (non-interactive, no TTY, no network beyond `127.0.0.1`). Verified by the guard, not taken on claim:
+  `pnpm scenario:verify` ran to completion here with `EXIT_CODE=0` and printed exactly the JSON line the
+  document records. No `manual-only` label is claimed, so the specific-technical-reason requirement is
+  N/A.
+- **Drives a product surface** — PASS, not an engineering check. The scenario executes
+  `packages/agent-transport-ws/examples/verify-outbound-delivery-boundary.ts`, which imports the
+  published entry point `@robota-sdk/agent-transport-ws` by package name (`WsTransport`,
+  `createWsTransport`) and drives a real `ws` server + client socket. Confirmed by reading the example's
+  imports — no deep internal path, and the observable is product behavior over a live carrier, not a
+  build, typecheck, lint, vitest run, `harness:scan`, CI check, or inspection of repository text.
+- **Credential / external-service prerequisite stated** — N/A-with-reason, stated explicitly rather than
+  left to the executor: "No provider credentials, no `.env`, no network egress", with the admission token
+  auto-minted via `WsTransport.resolvedToken`. The one genuine environmental prerequisite (loopback TCP
+  `43117`–`43142`) is named up front, so an executor learns the requirement from the scenario.
+- **Exception clause** — N/A: no scenario is left unwritten, so the write-is-impossible exception is not
+  invoked.
+
+**Notes carried forward (not Stage-1 failures):** (a) the evidence field is already filled, including a
+canonical record at `packages/agent-transport-ws/examples/scenarios/outbound-delivery-boundary.record.json`
+whose `stdout.sha256` recomputes to the recorded
+`26bbc66703bdc9ba2e7b76d28ca893866ff7c8f380d27d2a7eca3a97491f3bed`; the guard's own run reproduced that
+output, so the recorded evidence is genuine and not fabricated — judging it remains Stage 2's call.
+(b) Scenario 1 covers the WS carrier only; the WebRTC carrier named in `## Direction` is covered by the
+engineering `## Test Plan`, which Stage 1 does not gate.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** `todo` → `todo` (Stage 2 authorizes Completion Steps to run; it sets no frontmatter
+status itself — the terminal status change and the archival move belong to Completion Steps).
+
+**Ordering check:** PASS. `[DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-16` is recorded in this section with
+per-criterion evidence. Expected input state per the gate catalogue's prior-gate map ("scenarios written,
+implementation complete") holds: `## User Execution Test Scenarios` carries a fully written Scenario 1,
+and `## Plan` has every implementation item `[x]` with only the completion-gate item open. Frontmatter is
+`status: todo` in `.agents/tasks/` root — status has not been pre-set to `done` ahead of this gate.
+
+**Per-criterion evidence:**
+
+- **Every scenario directly executed against the completed implementation** — PASS, executed by the guard,
+  not accepted on claim. `cd packages/agent-transport-ws && pnpm scenario:verify` was run at current HEAD
+  `30a2ac51a`, which is two commits AFTER the record was committed (`c7b3fbfc0`), so the run also proves the
+  later `1da64b66c`/`30a2ac51a` refactors did not regress the observable. `EXIT_CODE=0`. Scenario 1 is the
+  only scenario in this section; there is no unexecuted scenario.
+- **Observed result matched the expected observable result** — PASS, every named observable, not a summary.
+  Exactly one stdout JSON line; `realCarrier`: `"carrier":"WsTransport(real ws socket)"`,
+  `operationCommitted:true`, `cleanupRuns:1`, `unhandledRejections:0`; `observedCarrier`:
+  `"carrier":"createWsTransport(observable delivery callbacks)"`, `operationCommitted:true`,
+  `cleanupObserved:true`, `deliveryErrors` exactly one entry
+  `{"message":"WebSocket is not open","event":"command_result"}`, `latchThrew:null`,
+  `unhandledRejections:0`; `cleanupRemoved:true`. stderr held only pnpm's own `pnpm.overrides` banner, as
+  the scenario allows. The guard's normalized stdout is **byte-identical** to the recorded
+  `stdout.normalized`, and `sha256(stdout.normalized)` recomputes to the recorded
+  `26bbc66703bdc9ba2e7b76d28ca893866ff7c8f380d27d2a7eca3a97491f3bed` — the recorded evidence is reproducible,
+  not transcribed. Expectation-rewriting was checked and not found: assertions in
+  `examples/verify-outbound-delivery-boundary.ts` are fatal `throw`s pinning the exact values
+  (`rejections.length === 0`, `deliveryErrors.length === 1`, `deliveryErrors[0].event === 'command_result'`,
+  `cleanupObserved`, `latchThrew === null`), so a mismatch exits non-zero rather than printing a softer line.
+- **Concrete evidence recorded under the scenario's evidence field** — PASS. The `**Evidence (2026-08-16):**`
+  block under Scenario 1 carries the command run, exit code `0`, the full stdout JSON line, the per-value
+  RED→GREEN deltas (`unhandledRejections` `1→0` and `2→0`, `deliveryErrors` `[]→` one `command_result` entry,
+  `cleanupObserved` `false→true`, `latchThrew` `"WebSocket is not open"→null`), the canonical record path,
+  and date/branch.
+- **Engineering verification cited as evidence (FAIL check)** — clean. The evidence block cites only the
+  product-surface run and its canonical record. No build, typecheck, lint, vitest, `harness:scan`,
+  `harness:verify-like-ci`, or CI output appears as gate evidence; those remain confined to the engineering
+  `## Test Plan`, where they belong.
+- **Unprobed capability-absence claim (FAIL check)** — N/A, and not by omission: no capability-absence
+  exception is invoked anywhere in the section. The prerequisite statement is affirmative ("no provider
+  credentials, no `.env`, no network egress"; admission token auto-minted via `WsTransport.resolvedToken`)
+  and was proven by execution — the guard's run succeeded with no credentials supplied.
+- **Durable repository artifacts (code-changing item)** — PASS, each referenced path verified present:
+  `packages/agent-transport-ws/examples/verify-outbound-delivery-boundary.ts`,
+  `packages/agent-transport-ws/examples/scenarios/outbound-delivery-boundary.record.json`,
+  `packages/agent-transport-protocol/docs/SPEC.md`,
+  `.changeset/arch-030-outbound-delivery-boundary.md`, and the declared
+  `scenario:verify` / `scenario:record` scripts plus `tsx: "^4.23.1"` in
+  `packages/agent-transport-ws/package.json`.
+- **Exception clause** — N/A: execution was possible and performed, no scenario is labeled `manual-only`,
+  so the execution-is-impossible exception is not invoked.
+- **Mechanical floors** — all three green at HEAD: `check-done-evidence.mjs` exit `0`
+  ("done-evidence scan passed (14 superseded reference(s))"), `check-backlog-placement.mjs` exit `0`,
+  `scan-capability-reachability.mjs` exit `0`.
+
+**Not verified (out of this gate's reach, not counted as evidence):** the RED baseline attributed to `main`
+@ `e828a2925` was not reproduced — doing so needs a working-tree checkout the guard may not perform. It is
+supporting narrative; the verdict rests on the GREEN run above.
+
 ## Plan
 
-- [ ] Author and approve a BEHAVIOR spec for the single outbound delivery boundary.
-- [ ] Plan and gate the public-SDK delayed-reply scenario.
-- [ ] Add the protocol RED proof and implement the shared delivery boundary.
-- [ ] Wire WS, WebRTC, and resume paths through the boundary with lifecycle regressions.
-- [ ] Synchronize package SPECs, README/content guidance, and changesets.
+- [x] Author and approve a BEHAVIOR spec for the single outbound delivery boundary — the recommendation
+      went through two independent review rounds (`REVISE` → `ENDORSE`, 2026-08-16); the boundary's
+      contract now lives in `packages/agent-transport-protocol/docs/SPEC.md`.
+- [x] Plan and gate the public-SDK delayed-reply scenario — written before implementation
+      (`aac4f983d`), `DONE-GATE-STAGE-1` PASS 2026-08-16.
+- [x] Add the protocol RED proof and implement the shared delivery boundary — `createOutboundDelivery`
+      plus `src/__tests__/outbound-delivery.test.ts` covering all eleven reply families, the latch, and
+      the `@ts-expect-error` type floor.
+- [x] Wire WS, WebRTC, and resume paths through the boundary with lifecycle regressions —
+      `WsSessionDelivery` (raw sink now private), `createWsTransport`, `PairingGate`,
+      `WebRtcTransport`, and `SessionResumeBridge` (per-attachment boundary), each with a carrier
+      regression.
+- [x] Synchronize package SPECs, README/content guidance, and changesets — the three transport SPECs and
+      `.changeset/arch-030-outbound-delivery-boundary.md` (protocol `major`, ws/webrtc `patch`).
 - [ ] Pass completion gates, archive the Task, and close issue #1734.
 
 ## Blockers
