@@ -362,7 +362,11 @@ process.exit(fails.length === 0 ? 0 : 1);
   `"action": { "type": "object", "description": … }` and `"items": { "type": "object" }` — every nested
   field absent.
 - Cleanup: `rm -f src/core-039-s1.ts` from `scratch/`.
-- Evidence (2026-08-16, re-run against the completed implementation at `b33811569`, after step 6c's closure rule landed; earlier runs at `54886a665` and `e2aa9ad75` gave the same result. The reference has moved with the implementation: evidence recorded against a tree that was later changed is evidence for a different implementation, and this branch was changed twice after the first run -- once for the closure rule, once for the round-A review findings.): **`SCENARIO 1 PASS`,
+- Evidence (2026-08-16, re-run against the completed implementation on this branch, after step 6c's closure
+  rule and the round-A review findings both landed. Earlier runs against the intermediate trees gave
+  the same result. Deliberately no commit SHA: this branch's history was corrected twice, so a hash
+  cited here is a citation the next reader cannot follow -- the same defect the repo's commitlint
+  rule refuses in a commit message.): **`SCENARIO 1 PASS`,
   `EXIT:0`**, eight `PASS` lines. `Computer.act` printed
   `action.properties.type.enum = ["click","double_click","type","keypress","scroll","drag","wait","takeover"]`,
   `action.required = ["type"]`, and `action.properties.path.items = { type: 'object', properties: { x:
@@ -453,7 +457,11 @@ process.exit(fails.length === 0 ? 0 : 1);
   (`["$.report.score: unexpected additional property", "$.report.notes: unexpected additional property"]`)
   and the input walk falsely accepts the invalid one (`input walk bad => success=true`, handler ran).
 - Cleanup: `rm -f src/core-039-s2.ts` from `scratch/`.
-- Evidence (2026-08-16, re-run against the completed implementation at `b33811569`, after step 6c's closure rule landed; earlier runs at `54886a665` and `e2aa9ad75` gave the same result. The reference has moved with the implementation: evidence recorded against a tree that was later changed is evidence for a different implementation, and this branch was changed twice after the first run -- once for the closure rule, once for the round-A review findings.): **`SCENARIO 2 PASS`,
+- Evidence (2026-08-16, re-run against the completed implementation on this branch, after step 6c's closure
+  rule and the round-A review findings both landed. Earlier runs against the intermediate trees gave
+  the same result. Deliberately no commit SHA: this branch's history was corrected twice, so a hash
+  cited here is a citation the next reader cannot follow -- the same defect the repo's commitlint
+  rule refuses in a commit message.): **`SCENARIO 2 PASS`,
   `EXIT:0`**, six `PASS` lines. The emitted schema carried
   `report.required = ["score","notes"]` with the optional `tag` present in `properties` and absent from
   `required`. `input walk good => success=true`; `input walk bad  => threw Validation Error: Invalid
@@ -563,7 +571,11 @@ process.exit(fails.length === 0 ? 0 : 1);
   capability: it fails if `anyOf` is emitted but not honoured on the input path, which is the failure
   mode that would turn the import-time crash into runtime uncallability of the same tool.
 - Cleanup: `rm -f src/core-039-s3.ts` from `scratch/`.
-- Evidence (2026-08-16, re-run against the completed implementation at `b33811569`, after step 6c's closure rule landed; earlier runs at `54886a665` and `e2aa9ad75` gave the same result. The reference has moved with the implementation: evidence recorded against a tree that was later changed is evidence for a different implementation, and this branch was changed twice after the first run -- once for the closure rule, once for the round-A review findings.): **`SCENARIO 3 PASS`,
+- Evidence (2026-08-16, re-run against the completed implementation on this branch, after step 6c's closure
+  rule and the round-A review findings both landed. Earlier runs against the intermediate trees gave
+  the same result. Deliberately no commit SHA: this branch's history was corrected twice, so a hash
+  cited here is a citation the next reader cannot follow -- the same defect the repo's commitlint
+  rule refuses in a commit message.): **`SCENARIO 3 PASS`,
   `EXIT:0`**, seven `PASS` lines. The emitted schema carried `choice.anyOf` with a `string` branch and
   an object branch (`required: ["label"]`), and `mode.anyOf` with both discriminated branches, each
   rendering its discriminator as `kind: { type: 'string', enum: ['fast'] }` / `['safe']`. Neither union
@@ -817,3 +829,12 @@ diff above is the proof that the recommendation was met rather than claimed.
 
 **Cleanup performed by this guardian:** the three extracted `scratch/src/guard-core-039-s*.ts` copies
 were removed after the runs; the item's own `scratch/src/core-039-s*.ts` were left untouched.
+
+---
+
+**Note on the commit SHAs quoted in the gate entries above (2026-08-16).** This branch's history was
+corrected twice after those entries were written — once so every commit message satisfied the
+conventional-commit rules, once so no message cited a hash that the first correction had rewritten
+away. The guardians' verdicts are kept verbatim, including the SHAs they observed, because editing a
+recorded verdict to tidy it is worse than a stale citation. What they verified is unchanged: the
+trees were identical, and every scenario was re-run afterwards against the final implementation.
