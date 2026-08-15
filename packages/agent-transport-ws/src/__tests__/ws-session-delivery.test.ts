@@ -44,7 +44,8 @@ describe('WsSessionDelivery', () => {
     const detachSink = vi.fn();
     delivery.bindSinkDetach(detachSink);
     const harness = createSessionHarness();
-    const handler = createWsHandler({ session: harness.session, deliver: createOutboundDelivery(delivery.send, delivery.close) });
+    // ARCH-030: the carrier's own boundary is what the handler receives — there is no raw sink to pass.
+    const handler = createWsHandler({ session: harness.session, deliver: delivery.deliver });
     delivery.bindProtocolCleanup(handler.cleanup);
 
     expect(harness.fireBranchEvent).not.toThrow();
@@ -70,7 +71,7 @@ describe('WsSessionDelivery', () => {
     delivery.bindProtocolCleanup(cleanup);
     delivery.bindSinkDetach(detachSink);
 
-    delivery.send({ type: 'history_cleared' });
+    delivery.deliver({ type: 'history_cleared' });
     expect(sendCallback).toBeDefined();
     sendCallback?.(new Error('asynchronous send failed'));
     sendCallback?.(new Error('duplicate callback'));

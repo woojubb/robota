@@ -1,4 +1,8 @@
-import { createWsHandler, resolveAdmission } from '@robota-sdk/agent-transport-protocol';
+import {
+  createOutboundDelivery,
+  createWsHandler,
+  resolveAdmission,
+} from '@robota-sdk/agent-transport-protocol';
 import { extractDtlsFingerprint } from '@robota-sdk/agent-remote-pairing';
 import type {
   IConfigurableTransport,
@@ -266,11 +270,14 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
       return;
     }
 
+    // ARCH-030: the transport is the carrier on the no-secret branch — it builds the connection's
+    // outbound boundary from its own data-channel sink and its own delivery lifecycle.
     const { onMessage, cleanup } = createWsHandler({
       session,
-      send: (serverMessage) => channel.send(JSON.stringify(serverMessage)),
-      onDeliveryError: (error, event) =>
-        this.deliveryLifecycle.handleFailure(channel, generation, error, event),
+      deliver: createOutboundDelivery(
+        (serverMessage) => channel.send(JSON.stringify(serverMessage)),
+        (error, event) => this.deliveryLifecycle.handleFailure(channel, generation, error, event),
+      ),
     });
     this.cleanupHandler = cleanup;
     channel.onMessage.subscribe((data) => {

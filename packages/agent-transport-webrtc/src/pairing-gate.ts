@@ -16,7 +16,11 @@
  * `pair-nonce`, no enrollment, no reconnect) — preserving existing behavior.
  */
 
-import { createWsHandler, type SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
+import {
+  createOutboundDelivery,
+  createWsHandler,
+  type SessionResumeBridge,
+} from '@robota-sdk/agent-transport-protocol';
 import {
   deriveIdentityId,
   importPublicKey,
@@ -78,8 +82,13 @@ export interface IPairingGateOptions {
    * (never disposes — the bridge is owned by the transport across reconnects).
    */
   readonly resumeBridge?: SessionResumeBridge;
-  /** Post-accept session-frame delivery failure; owning transport performs drop cleanup. */
-  readonly onDeliveryError?: (error: Error, event: TServerMessage['type'] | string) => void;
+  /**
+   * Post-accept session-frame delivery failure; owning transport performs drop cleanup.
+   *
+   * ARCH-030: was `TServerMessage['type'] | string`, which is just `string` — a union that reads as a
+   * narrowing and is not one. Stated as what it is.
+   */
+  readonly onDeliveryError?: (error: Error, event: string) => void;
   /** Injection seams (default to the real implementations). */
   readonly startHandshake?: typeof startPairingHandshake;
   readonly createHandler?: typeof createWsHandler;
@@ -282,10 +291,14 @@ export class PairingGate {
       this.handlerCleanup = () => bridge.detach();
     } else {
       const create = this.options.createHandler ?? createWsHandler;
+      // ARCH-030: the gate is the carrier on this branch, so it builds the connection's outbound
+      // boundary from its own channel sink and its own failure policy and passes it down.
       const { onMessage, cleanup } = create({
         session: this.options.session,
-        send: (serverMessage) => this.options.channel.send(JSON.stringify(serverMessage)),
-        onDeliveryError: (error, event) => this.handleSessionDeliveryError(error, event),
+        deliver: createOutboundDelivery(
+          (serverMessage) => this.options.channel.send(JSON.stringify(serverMessage)),
+          (error, event) => this.handleSessionDeliveryError(error, event),
+        ),
       });
       this.onSessionMessage = onMessage;
       this.handlerCleanup = cleanup;
