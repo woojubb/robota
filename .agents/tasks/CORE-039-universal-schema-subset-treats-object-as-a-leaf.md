@@ -442,3 +442,77 @@ one the item's three "Measured pre-fix (unfixed code)" claims were taken against
 reproducible again and the gate's ordering invariant holds. The work was not discarded — the diff is
 retained outside the repository and is re-applied only after this gate returns `PASS`. This entry is
 kept rather than replaced: a guardian's verdict that disappears once it is inconvenient is not a gate.
+
+---
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-16 (run 2, after remediation)
+
+**Status upgrade:** todo → scenarios written; `user-execution-scenario` PLAN step 4 authorizes
+implementation to begin.
+
+**Prior finding cured.** The run-1 NON-COMPLIANCE was ordering, not content. Remediation verified
+independently, not accepted on report:
+
+- `git status --short --untracked-files=all` shows **no** modified or untracked path under `packages/`
+  (only two harness-generated `.agents/evals/lessons/` files). The run-1 files are at committed state:
+  `provider.ts:79` is `type: TJSONSchemaKind;` again (mandatory), with no `IObjectParameterSchema` and
+  no `anyOf`; the `required?: string[]` at `:53`/`:69` is the pre-existing duplicated root shape this
+  item's step 1b exists to remove, not implementation.
+- `zod-to-json-schema.ts:96` is `case 'ZodObject': return { type: 'object', ...base };` — the defect is
+  present again, i.e. genuinely unfixed code.
+- `git diff --name-only origin/develop...HEAD` lists only `.agents/tasks/*`, and `7463493fe` touched
+  only this document, so no implementation was smuggled into a commit.
+- `git diff --numstat 9e2feebd9 7463493fe` on this file is `73 0` — strictly append-only. The scenario
+  text is byte-identical to what run 1 reviewed, and the run-1 verdict entry was not edited.
+
+That last point is what makes the cure genuine rather than cosmetic. The invariant PLAN step 4 protects
+is that the scenario is authored independently of the implementation and that the verdict can still
+change what happens next. Both hold: the scenario commit (`9e2feebd9`, 06:01:12) predates the reverted
+edits (06:01:44/06:01:55) and has not been touched since, so no expected result was fitted to observed
+output (`backlog-execution.md` § Evidence forbids exactly that); and with the diff out of the tree, a
+FAIL again costs real work.
+
+**Discriminating-power check (executed by this guardian).** A script reconstructed *from this
+document's enumerated assertions alone* was run against the restored tree
+(`node ../node_modules/tsx/dist/cli.mjs --conditions=source` from `scratch/`, script since deleted):
+
+```
+action = {"type":"object","description":"The single mutating action to perform."}
+questions.items = {"type":"object"}
+FAIL 1 action.properties.type.enum has 8   FAIL 3 action.required includes type
+FAIL 5 action.properties.path.items.properties.x.type
+FAIL 7 questions.items.required includes question   FAIL 8 options.items.anyOf has 2
+SCENARIO 1 FAIL (5)   EXIT:1
+```
+
+This reproduces Scenario 1's stated pre-fix observable exactly, confirming three things: the tree is
+unfixed in behavior and not merely in `git status`; Scenario 1 is discriminating, not vacuous; and the
+document's prose specification was sufficient for an independent reader to build a script that
+reproduces the stated observable.
+
+**Criteria (all four met, re-checked against unchanged scenario text):**
+
+- Field completeness — met for all three scenarios: prerequisites, an exact invocation
+  (`node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-039-s<N>.ts; echo "EXIT:$?"`),
+  an expected observable, a cleanup line, and an unfilled `Evidence:` field.
+- Executability decision — met; all three are `agent-executable`, so the `manual-only`
+  specific-reason requirement is N/A.
+- Product surface — met; all three drive public SDK exports of `@robota-sdk/agent-tools` /
+  `@robota-sdk/agent-core`. No observable is a build, typecheck, lint, test, harness, CI, or
+  repository-text check. The §"Stated coverage limit" paragraph declares the Gemini forwarding gap as
+  engineering-test-only and does not offer it as user-execution evidence.
+- Credential / external-service prerequisite — met; re-probed at run 1 (env grep matches only `PATH`;
+  `.env.example` present, no `.env`), and no scenario requires a credential or external service.
+
+**Carried weakness, deliberately not failed (unchanged from run 1).** The scenario scripts are specified
+as enumerated assertions with exact property paths and expected values rather than literal source, with
+"the exact script is reproduced in the PR description" pointing at an artifact that does not yet exist.
+This was re-examined rather than reaffirmed by habit, and the criterion asks for exact commands,
+prerequisites, an expected observable and an evidence field — all four are present, the invocation is
+exact, and the substantive observables (the 10 named `action` fields, `action.required`,
+`options.items.anyOf` with 2 branches, the two walks agreeing on `score`) are stated exactly and do not
+depend on the script's phrasing. The probe above is direct evidence that the specification is
+executable by a reader who has never seen the original script. Inlining the literal scripts would still
+be an improvement — it would pin the harness strings (`SCENARIO N PASS`, the PASS-line counts) that a
+reconstruction may word differently — and is recommended for Stage 2, but it is not required to pass
+this criterion.
