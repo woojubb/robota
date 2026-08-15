@@ -2,9 +2,9 @@ import { FunctionTool } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createPresetRegistry, getPreset, resolvePreset } from '@robota-sdk/agent-preset';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
-import { assembleProduct } from '../assemble-product.js';
+import { PRODUCT_PROFILE_FIELD_POLICIES, assembleProduct } from '../assemble-product.js';
 
 import type { IProductProfile } from '../product-profile.js';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
@@ -38,6 +38,28 @@ function subagent(name: string): IAgentDefinition {
 }
 
 describe('assembleProduct — capability fold', () => {
+  it('classifies every profile field and excludes the obsolete providerOverride key', () => {
+    expect(PRODUCT_PROFILE_FIELD_POLICIES).toEqual({
+      id: 'surfaced',
+      agentName: 'surfaced',
+      version: 'surfaced',
+      providerDefinitions: 'consumed-and-surfaced',
+      providerSettings: 'consumed',
+      provider: 'consumed-and-surfaced',
+      presets: 'consumed',
+      presetRegistry: 'consumed-and-surfaced',
+      defaultPresetId: 'consumed-and-surfaced',
+      presetContext: 'consumed',
+      packs: 'consumed',
+      baseCommandModules: 'consumed',
+      backgroundTaskRunners: 'surfaced',
+      subagentRunnerFactory: 'surfaced',
+      transports: 'consumed-and-surfaced',
+    });
+    type TProviderOverrideAbsent = 'providerOverride' extends keyof IProductProfile ? false : true;
+    expectTypeOf<TProviderOverrideAbsent>().toEqualTypeOf<true>();
+  });
+
   it('folds base ⊕ pack command modules, pack tools, and pack subagents', () => {
     const profile: IProductProfile = {
       id: 'acme',
@@ -62,6 +84,37 @@ describe('assembleProduct — capability fold', () => {
     expect(product.rejectedCapabilities).toEqual([]);
   });
 
+  it('projects accepted metadata and atomic duplicate-pack rejections losslessly', () => {
+    const product = assembleProduct({
+      id: 'acme',
+      providerDefinitions: [],
+      provider: testProvider(),
+      packs: [
+        {
+          id: 'accepted',
+          title: 'Accepted Pack',
+          description: 'Visible metadata',
+          commandModules: [commandModule('accepted-command')],
+        },
+        {
+          id: 'accepted',
+          commandModules: [commandModule('must-not-land')],
+        },
+        { id: 'following', commandModules: [commandModule('following-command')] },
+      ],
+    });
+
+    expect(product.acceptedPacks).toEqual([
+      { id: 'accepted', title: 'Accepted Pack', description: 'Visible metadata' },
+      { id: 'following' },
+    ]);
+    expect(product.rejectedPacks).toEqual([{ packId: 'accepted', reason: 'duplicate pack id' }]);
+    expect(product.commandModules.map((entry) => entry.name)).toEqual([
+      'accepted-command',
+      'following-command',
+    ]);
+  });
+
   it('surfaces capability rejections from the merge (no silent override)', () => {
     const profile: IProductProfile = {
       id: 'acme',
@@ -75,6 +128,7 @@ describe('assembleProduct — capability fold', () => {
 
     expect(product.commandModules.map((m) => m.name)).toEqual(['shell']);
     expect(product.rejectedCapabilities).toContainEqual({
+      packId: 'p',
       kind: 'commandModule',
       id: 'shell',
       reason: 'collides with base command module',

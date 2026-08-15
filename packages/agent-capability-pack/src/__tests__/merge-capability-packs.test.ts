@@ -1,7 +1,7 @@
 import { FunctionTool } from '@robota-sdk/agent-core';
 import { describe, expect, it } from 'vitest';
 
-import { mergeCapabilityPacks } from '../merge-capability-packs.js';
+import { CAPABILITY_PACK_FIELD_POLICIES, mergeCapabilityPacks } from '../merge-capability-packs.js';
 
 import type { ICapabilityPack } from '../capability-pack-types.js';
 import type { IAgentDefinition, ICommandModule } from '@robota-sdk/agent-framework';
@@ -28,6 +28,36 @@ function subagent(name: string): IAgentDefinition {
 }
 
 describe('mergeCapabilityPacks — additive merge', () => {
+  it('classifies and behaviorally covers every public pack field', () => {
+    expect(CAPABILITY_PACK_FIELD_POLICIES).toEqual({
+      id: 'consumed-and-surfaced',
+      title: 'surfaced',
+      description: 'surfaced',
+      commandModules: 'consumed',
+      tools: 'consumed',
+      subagents: 'consumed',
+    });
+    const result = mergeCapabilityPacks(
+      [],
+      [
+        {
+          id: 'complete',
+          title: 'Complete Pack',
+          description: 'Every field is observable',
+          commandModules: [commandModule('complete-command')],
+          tools: [tool('CompleteTool')],
+          subagents: [subagent('CompleteAgent')],
+        },
+      ],
+    );
+    expect(result.acceptedPacks).toEqual([
+      { id: 'complete', title: 'Complete Pack', description: 'Every field is observable' },
+    ]);
+    expect(result.merged.commandModules.map((entry) => entry.name)).toEqual(['complete-command']);
+    expect(result.merged.tools.map((entry) => entry.getName())).toEqual(['CompleteTool']);
+    expect(result.merged.subagents.map((entry) => entry.name)).toEqual(['CompleteAgent']);
+  });
+
   it('contributes a pack command module on top of the base modules', () => {
     const base = [commandModule('shell')];
     const pack: ICapabilityPack = { id: 'p1', commandModules: [commandModule('jira')] };
@@ -62,6 +92,36 @@ describe('mergeCapabilityPacks — additive merge', () => {
 });
 
 describe('mergeCapabilityPacks — conflict rejection channel (R5)', () => {
+  it('rejects a duplicate pack atomically, including an empty duplicate, and continues', () => {
+    const result = mergeCapabilityPacks(
+      [],
+      [
+        { id: 'duplicate', commandModules: [commandModule('first-command')] },
+        {
+          id: 'duplicate',
+          title: 'Rejected Duplicate',
+          commandModules: [commandModule('must-not-land')],
+          tools: [tool('MustNotLand')],
+          subagents: [subagent('MustNotLandAgent')],
+        },
+        { id: 'duplicate' },
+        { id: 'following', commandModules: [commandModule('following-command')] },
+      ],
+    );
+
+    expect(result.merged.commandModules.map((entry) => entry.name)).toEqual([
+      'first-command',
+      'following-command',
+    ]);
+    expect(result.merged.tools).toEqual([]);
+    expect(result.merged.subagents).toEqual([]);
+    expect(result.acceptedPacks).toEqual([{ id: 'duplicate' }, { id: 'following' }]);
+    expect(result.rejectedPacks).toEqual([
+      { packId: 'duplicate', reason: 'duplicate pack id' },
+      { packId: 'duplicate', reason: 'duplicate pack id' },
+    ]);
+  });
+
   it('rejects a pack command module colliding with a base module — never silently overrides', () => {
     const base = [commandModule('shell')];
     const collidingBaseModule = { name: 'shell', tag: 'from-pack' } as unknown as ICommandModule;
@@ -73,6 +133,7 @@ describe('mergeCapabilityPacks — conflict rejection channel (R5)', () => {
     expect(result.merged.commandModules).toHaveLength(1);
     expect(result.merged.commandModules[0]).toBe(base[0]);
     expect(result.rejected).toContainEqual({
+      packId: 'p1',
       kind: 'commandModule',
       id: 'shell',
       reason: 'collides with base command module',
@@ -88,6 +149,7 @@ describe('mergeCapabilityPacks — conflict rejection channel (R5)', () => {
     expect(result.merged.commandModules.map((m) => m.name)).toEqual(['dup']);
     expect(result.merged.commandModules[0]).toBe(packA.commandModules?.[0]);
     expect(result.rejected).toContainEqual({
+      packId: 'b',
       kind: 'commandModule',
       id: 'dup',
       reason: 'duplicate commandModule id',
@@ -111,11 +173,13 @@ describe('mergeCapabilityPacks — conflict rejection channel (R5)', () => {
     expect(result.merged.tools.map((t) => t.getName())).toEqual(['Read']);
     expect(result.merged.subagents.map((a) => a.name)).toEqual(['Plan']);
     expect(result.rejected).toContainEqual({
+      packId: 'b',
       kind: 'tool',
       id: 'Read',
       reason: 'duplicate tool id',
     });
     expect(result.rejected).toContainEqual({
+      packId: 'b',
       kind: 'subagent',
       id: 'Plan',
       reason: 'duplicate subagent id',

@@ -1,11 +1,52 @@
 import type {
   ICapabilityPack,
+  ICapabilityPackMetadata,
   IMergedCapabilities,
   IRejectedCapability,
+  IRejectedCapabilityPack,
   TCapabilityKind,
+  TCompositionFieldPolicy,
 } from './capability-pack-types.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 import type { IAgentDefinition, ICommandModule } from '@robota-sdk/agent-framework';
+
+export const CAPABILITY_PACK_FIELD_POLICIES = {
+  id: 'consumed-and-surfaced',
+  title: 'surfaced',
+  description: 'surfaced',
+  commandModules: 'consumed',
+  tools: 'consumed',
+  subagents: 'consumed',
+} as const satisfies Record<keyof ICapabilityPack, TCompositionFieldPolicy>;
+
+function toPackMetadata(pack: ICapabilityPack): ICapabilityPackMetadata {
+  return {
+    id: pack.id,
+    ...(pack.title !== undefined ? { title: pack.title } : {}),
+    ...(pack.description !== undefined ? { description: pack.description } : {}),
+  };
+}
+
+function selectUniquePacks(packs: readonly ICapabilityPack[]): {
+  accepted: readonly ICapabilityPack[];
+  acceptedPacks: readonly ICapabilityPackMetadata[];
+  rejectedPacks: readonly IRejectedCapabilityPack[];
+} {
+  const claimedPackIds = new Set<string>();
+  const accepted: ICapabilityPack[] = [];
+  const acceptedPacks: ICapabilityPackMetadata[] = [];
+  const rejectedPacks: IRejectedCapabilityPack[] = [];
+  for (const pack of packs) {
+    if (claimedPackIds.has(pack.id)) {
+      rejectedPacks.push({ packId: pack.id, reason: 'duplicate pack id' });
+      continue;
+    }
+    claimedPackIds.add(pack.id);
+    accepted.push(pack);
+    acceptedPacks.push(toPackMetadata(pack));
+  }
+  return { accepted, acceptedPacks, rejectedPacks };
+}
 
 /**
  * Merge capability packs additively into the product's base command modules.
@@ -33,11 +74,13 @@ export function mergeCapabilityPacks(
   packs: readonly ICapabilityPack[],
 ): IMergedCapabilities {
   const rejected: IRejectedCapability[] = [];
+  const { accepted, acceptedPacks, rejectedPacks } = selectUniquePacks(packs);
 
   const commandModules = mergeBucket<ICommandModule>({
     kind: 'commandModule',
     base: baseCommandModules,
-    contributions: packs.map((pack) => pack.commandModules ?? []),
+    packs: accepted,
+    contributionsOf: (pack) => pack.commandModules ?? [],
     idOf: (module) => module.name,
     baseCollisionReason: 'collides with base command module',
     duplicateReason: 'duplicate commandModule id',
@@ -47,7 +90,8 @@ export function mergeCapabilityPacks(
   const tools = mergeBucket<FunctionTool>({
     kind: 'tool',
     base: [],
-    contributions: packs.map((pack) => pack.tools ?? []),
+    packs: accepted,
+    contributionsOf: (pack) => pack.tools ?? [],
     idOf: (tool) => tool.getName(),
     baseCollisionReason: 'collides with base tool',
     duplicateReason: 'duplicate tool id',
@@ -57,22 +101,29 @@ export function mergeCapabilityPacks(
   const subagents = mergeBucket<IAgentDefinition>({
     kind: 'subagent',
     base: [],
-    contributions: packs.map((pack) => pack.subagents ?? []),
+    packs: accepted,
+    contributionsOf: (pack) => pack.subagents ?? [],
     idOf: (agent) => agent.name,
     baseCollisionReason: 'collides with base subagent',
     duplicateReason: 'duplicate subagent id',
     rejected,
   });
 
-  return { merged: { commandModules, tools, subagents }, rejected };
+  return {
+    merged: { commandModules, tools, subagents },
+    acceptedPacks,
+    rejected,
+    rejectedPacks,
+  };
 }
 
 interface IMergeBucketArgs<T> {
   kind: TCapabilityKind;
   /** Already-present base entries (own the namespace first). */
   base: readonly T[];
-  /** Per-pack contributions, in profile order. */
-  contributions: readonly (readonly T[])[];
+  /** Accepted packs in profile order and the bucket projection for each pack. */
+  packs: readonly ICapabilityPack[];
+  contributionsOf: (pack: ICapabilityPack) => readonly T[];
   idOf: (entry: T) => string;
   baseCollisionReason: string;
   duplicateReason: string;
@@ -85,25 +136,36 @@ interface IMergeBucketArgs<T> {
  * duplicate carry distinct reasons) and dropped from the merged output. First registration always wins.
  */
 function mergeBucket<T>(args: IMergeBucketArgs<T>): readonly T[] {
-  const { kind, base, contributions, idOf, baseCollisionReason, duplicateReason, rejected } = args;
+  const {
+    kind,
+    base,
+    packs,
+    contributionsOf,
+    idOf,
+    baseCollisionReason,
+    duplicateReason,
+    rejected,
+  } = args;
   const claimed = new Set<string>();
+  const baseIds = new Set<string>();
   const merged: T[] = [];
 
   for (const entry of base) {
     const id = idOf(entry);
     claimed.add(id);
+    baseIds.add(id);
     merged.push(entry);
   }
 
-  for (const contribution of contributions) {
-    for (const entry of contribution) {
+  for (const pack of packs) {
+    for (const entry of contributionsOf(pack)) {
       const id = idOf(entry);
       if (claimed.has(id)) {
-        const isBaseCollision = base.some((baseEntry) => idOf(baseEntry) === id);
         rejected.push({
+          packId: pack.id,
           kind,
           id,
-          reason: isBaseCollision ? baseCollisionReason : duplicateReason,
+          reason: baseIds.has(id) ? baseCollisionReason : duplicateReason,
         });
         continue;
       }

@@ -21,15 +21,21 @@ const jiraPack: ICapabilityPack = {
   commandModules: [], // their /jira command module
 };
 
-const { merged, rejected } = mergeCapabilityPacks(baseCommandModules, [jiraPack]);
+const { merged, acceptedPacks, rejected, rejectedPacks } = mergeCapabilityPacks(
+  baseCommandModules,
+  [jiraPack],
+);
 void merged;
+void acceptedPacks;
 void rejected;
+void rejectedPacks;
 ```
 
 `mergeCapabilityPacks` is a **pure, deterministic, IO-free fold**. It produces the `base ⊕ pack` superset
-and a `{ merged, rejected }` result: a contribution whose id collides with an already-claimed id is
-reported in `rejected` — never silently overridden. See [`docs/SPEC.md`](./docs/SPEC.md) for the full
-contract.
+plus accepted pack metadata and distinct capability/pack rejection channels. A later duplicate pack id is
+rejected atomically in `rejectedPacks`; a capability whose id collides with an already-claimed id is
+reported with its contributor `packId` in `rejected` — never silently overridden. See
+[`docs/SPEC.md`](./docs/SPEC.md) for the full contract.
 
 A pack carries **executable code objects** (command handlers, tool `execute` functions), not serialized
 JSON. Packs are opt-in (present only when a product profile lists them), the merge is pure, and any

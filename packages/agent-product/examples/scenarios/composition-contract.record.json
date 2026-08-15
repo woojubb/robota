@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "recordType": "scenario-record",
+  "scope": "packages/agent-product",
+  "packageName": "@robota-sdk/agent-product",
+  "command": {
+    "executable": "pnpm",
+    "args": ["scenario:verify"],
+    "rendered": "pnpm scenario:verify"
+  },
+  "cwd": "<cwd>",
+  "status": 0,
+  "stdout": {
+    "raw": "\n> @robota-sdk/agent-product@3.0.0-beta.79 scenario:verify /private/tmp/robota-agreement-002-volume/worktree/packages/agent-product\n> pnpm scenario:verify:composition-contract\n\n\n> @robota-sdk/agent-product@3.0.0-beta.79 scenario:verify:composition-contract /private/tmp/robota-agreement-002-volume/worktree/packages/agent-product\n> pnpm exec tsx --conditions=source examples/verify-composition-contract.ts\n\n{\"acceptedPacks\":[{\"id\":\"first\",\"title\":\"First Pack\",\"description\":\"Accepted metadata\"},{\"id\":\"collision-source\"},{\"id\":\"following\",\"title\":\"Following Pack\"}],\"rejectedPacks\":[{\"packId\":\"first\",\"reason\":\"duplicate pack id\"},{\"packId\":\"first\",\"reason\":\"duplicate pack id\"}],\"rejectedCapabilities\":[{\"packId\":\"collision-source\",\"kind\":\"commandModule\",\"id\":\"base-collision\",\"reason\":\"collides with base command module\"},{\"packId\":\"collision-source\",\"kind\":\"commandModule\",\"id\":\"shared-command\",\"reason\":\"duplicate commandModule id\"},{\"packId\":\"collision-source\",\"kind\":\"tool\",\"id\":\"SharedTool\",\"reason\":\"duplicate tool id\"},{\"packId\":\"collision-source\",\"kind\":\"subagent\",\"id\":\"SharedAgent\",\"reason\":\"duplicate subagent id\"}],\"commandNames\":[\"base-collision\",\"shared-command\",\"following-command\"],\"toolNames\":[\"SharedTool\"],\"subagentNames\":[\"SharedAgent\"],\"rejectedPackCapabilitiesAbsent\":true,\"followingUniquePackMerged\":true,\"collisionPackIds\":[\"collision-source\",\"collision-source\",\"collision-source\",\"collision-source\"],\"losslessProjection\":true}\n",
+    "normalized": "{\"acceptedPacks\":[{\"id\":\"first\",\"title\":\"First Pack\",\"description\":\"Accepted metadata\"},{\"id\":\"collision-source\"},{\"id\":\"following\",\"title\":\"Following Pack\"}],\"rejectedPacks\":[{\"packId\":\"first\",\"reason\":\"duplicate pack id\"},{\"packId\":\"first\",\"reason\":\"duplicate pack id\"}],\"rejectedCapabilities\":[{\"packId\":\"collision-source\",\"kind\":\"commandModule\",\"id\":\"base-collision\",\"reason\":\"collides with base command module\"},{\"packId\":\"collision-source\",\"kind\":\"commandModule\",\"id\":\"shared-command\",\"reason\":\"duplicate commandModule id\"},{\"packId\":\"collision-source\",\"kind\":\"tool\",\"id\":\"SharedTool\",\"reason\":\"duplicate tool id\"},{\"packId\":\"collision-source\",\"kind\":\"subagent\",\"id\":\"SharedAgent\",\"reason\":\"duplicate subagent id\"}],\"commandNames\":[\"base-collision\",\"shared-command\",\"following-command\"],\"toolNames\":[\"SharedTool\"],\"subagentNames\":[\"SharedAgent\"],\"rejectedPackCapabilitiesAbsent\":true,\"followingUniquePackMerged\":true,\"collisionPackIds\":[\"collision-source\",\"collision-source\",\"collision-source\",\"collision-source\"],\"losslessProjection\":true}",
+    "sha256": "c32dfd2597ddad0387fb79e3601df70b7ba20acf21a74891efa4e80497031b5a"
+  },
+  "stderr": {
+    "raw": "",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}
