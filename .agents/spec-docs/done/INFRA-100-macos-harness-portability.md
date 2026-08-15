@@ -119,7 +119,7 @@ None
    dispatch and the direct harness-test tier runner, so every child and stripped-tree fixture receives
    the same realpath-canonical temporary root. The tier runner also strips hook-inherited Git context
    through the existing `envWithoutGitVars()` SSOT before launching fixture tests; test both environment
-   contracts.
+   contracts through the real child-process boundary.
 2. Replace the Bash-4-only xtrace prelude with a Bash-3-compatible, out-of-band `DEBUG`-trap recorder on
    a dedicated descriptor, explicitly enabling inheritance. Keep the existing trace syntax consumed by
    `parseXtrace`.
@@ -160,13 +160,13 @@ None
 
 ## Test Plan
 
-| TC-ID | Test Type                | Tool / Approach                                                             | Notes                                                                                                                      |
-| ----- | ------------------------ | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | CI pipeline smoke test   | Focused Vitest execution-witness suite under stock `/bin/bash`              | `check-regression-red-proof-execution-witness.test.mjs > bash execution witness` and `witnessOneCase wiring`               |
-| TC-02 | CI pipeline smoke test   | Focused Vitest with hermetic `flock` fixture and Node monotonic timing      | `worktrees-share-the-stash.test.mjs > a worktree does not share its neighbour lint-staged backup`                          |
-| TC-03 | Unit test                | Shared helper identity plus both launcher projection contracts              | `canonical-temporary-directory.test.mjs`, `harness-scripts.test.mjs`, and `harness-test-tiers.test.mjs`                    |
-| TC-04 | CI pipeline smoke test   | Complete `scripts/harness/__tests__` invocation through `harness:verify`    | Command-only integration gate: exact command is in TC-04; GATE-VERIFY records 186 files and 3364/3364 tests.               |
-| TC-05 | Process integration test | Scoped harness verification with framework-owned scenario record comparison | Command-only process scenario: owner is `packages/agent-framework/examples/verify-session-log-external-payload-replay.ts`. |
+| TC-ID | Test Type                | Tool / Approach                                                             | Notes                                                                                                                                                                             |
+| ----- | ------------------------ | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | CI pipeline smoke test   | Focused Vitest execution-witness suite under stock `/bin/bash`              | `check-regression-red-proof-execution-witness.test.mjs > bash execution witness` and `witnessOneCase wiring`                                                                      |
+| TC-02 | CI pipeline smoke test   | Focused Vitest with hermetic `flock` fixture and Node monotonic timing      | `worktrees-share-the-stash.test.mjs > a worktree does not share its neighbour lint-staged backup`                                                                                 |
+| TC-03 | Process integration test | Shared helper identity plus both launcher projection contracts              | `canonical-temporary-directory.test.mjs`, `harness-scripts.test.mjs`, and `harness-test-tiers.test.mjs > does not forward hook git context across the Vitest subprocess boundary` |
+| TC-04 | CI pipeline smoke test   | Complete `scripts/harness/__tests__` invocation through `harness:verify`    | Command-only integration gate: exact command is in TC-04; GATE-VERIFY records 186 files and 3364/3364 tests.                                                                      |
+| TC-05 | Process integration test | Scoped harness verification with framework-owned scenario record comparison | Command-only process scenario: owner is `packages/agent-framework/examples/verify-session-log-external-payload-replay.ts`.                                                        |
 
 ## Tasks
 
@@ -373,3 +373,14 @@ packages/agent-provider-replay --include-scenarios` ran without a caller-provide
 - Changeset applicability: N/A — INFRA-100 changes harness scripts/tests and planning artifacts only,
   not a publishable package; unrelated package changes in the shared initiative worktree are outside
   this gate.
+
+### [POST-COMPLETE REVIEW: subprocess environment boundary] — ✅ SATISFIED | 2026-08-15
+
+- Finding: the helper-only assertion would remain green if `vitestInvocation()` stopped applying the
+  sanitized environment at the actual child-process boundary.
+- RED command: `volta run --node 22.14.0 pnpm exec vitest run scripts/harness/__tests__/harness-test-tiers.test.mjs --pool=threads --maxWorkers=2`; observed 1/6 failed because the new integration
+  test could not yet call the launcher seam (`vitestInvocation is not a function`).
+- GREEN command: the same focused Vitest command; observed 1/1 file and 6/6 tests passed, exit 0.
+- Durable proof: `harness-test-tiers.test.mjs` test `does not forward hook git context across the
+Vitest subprocess boundary` injects `GIT_DIR`, `GIT_INDEX_FILE`, and `GIT_WORK_TREE`, invokes the
+  real `spawnSync` launcher against a fixture child, and asserts the child receives none of them.

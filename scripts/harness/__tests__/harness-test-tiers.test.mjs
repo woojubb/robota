@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -10,6 +11,49 @@ async function loadTierOwner() {
 }
 
 describe('harness test tiers', () => {
+  it('does not forward hook git context across the Vitest subprocess boundary', async () => {
+    const { vitestInvocation } = await loadTierOwner();
+    const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'robota-harness-tier-environment-'));
+    const capturePath = path.join(fixtureRoot, 'environment.json');
+    const previousEnvironment = {
+      GIT_DIR: process.env.GIT_DIR,
+      GIT_INDEX_FILE: process.env.GIT_INDEX_FILE,
+      GIT_WORK_TREE: process.env.GIT_WORK_TREE,
+      HARNESS_ENV_CAPTURE_PATH: process.env.HARNESS_ENV_CAPTURE_PATH,
+    };
+
+    try {
+      mkdirSync(path.join(fixtureRoot, 'node_modules', 'vitest'), { recursive: true });
+      writeFileSync(path.join(fixtureRoot, 'package.json'), '{"type":"module"}\n');
+      writeFileSync(
+        path.join(fixtureRoot, 'node_modules', 'vitest', 'vitest.mjs'),
+        [
+          "import { writeFileSync } from 'node:fs';",
+          'writeFileSync(process.env.HARNESS_ENV_CAPTURE_PATH, JSON.stringify({',
+          '  gitDir: process.env.GIT_DIR,',
+          '  gitIndexFile: process.env.GIT_INDEX_FILE,',
+          '  gitWorkTree: process.env.GIT_WORK_TREE,',
+          '}));',
+        ].join('\n'),
+      );
+      process.env.GIT_DIR = '/outer/.git';
+      process.env.GIT_INDEX_FILE = '/outer/.git/index';
+      process.env.GIT_WORK_TREE = '/outer';
+      process.env.HARNESS_ENV_CAPTURE_PATH = capturePath;
+
+      const result = vitestInvocation(fixtureRoot, ['fixture.test.mjs']);
+
+      expect(result.status).toBe(0);
+      expect(JSON.parse(readFileSync(capturePath, 'utf8'))).toEqual({});
+    } finally {
+      for (const [name, value] of Object.entries(previousEnvironment)) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
   it('strips hook-inherited git context before launching fixture tests', async () => {
     const { harnessTestEnvironment } = await loadTierOwner();
     const environment = harnessTestEnvironment({

@@ -53,7 +53,8 @@ existing fail-closed witness, locking, and complete harness-test contracts.
   repository build, dependent typecheck, package test/lint/typecheck, and canonical scenario match.
 - A pre-push reproduction exposed hook-inherited `GIT_DIR`/`GIT_INDEX_FILE` contaminating stripped
   fixture repositories. The tier runner now reuses the existing `envWithoutGitVars()` SSOT before
-  launching Vitest, and the injected-hook-context hermetic run leaves all repository refs unchanged.
+  launching Vitest. A subprocess-boundary regression proves the real launcher strips all three Git
+  context variables, and the injected-hook-context hermetic run leaves all repository refs unchanged.
 
 ## Decisions
 

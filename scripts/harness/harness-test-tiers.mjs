@@ -134,7 +134,7 @@ export function classifyHarnessTestFiles(root = DEFAULT_ROOT) {
   return { all, contract, hermetic };
 }
 
-function vitestInvocation(root, files, cwd = root, config = undefined) {
+export function vitestInvocation(root, files, cwd = root, config = undefined) {
   const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
   const vitestPackage = path.join(root, 'node_modules', 'vitest', 'vitest.mjs');
   if (!existsSync(vitestPackage) || packageJson.type !== 'module') {
