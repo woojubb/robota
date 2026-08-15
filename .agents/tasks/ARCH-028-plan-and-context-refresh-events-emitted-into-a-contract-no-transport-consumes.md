@@ -40,26 +40,65 @@ Execute with ARCH-020 as one named event-delivery work unit. Own shared event ke
 `agent-interface-transport`, but keep executable subscription and fan-out policy out of that interface
 package. Add separate mechanically-total `Record<event, classification>` mappings in the TUI and protocol
 implementation packages so branch, plan, and context-refresh events are either deterministically rendered,
-forwarded/accepted by clients, or explicitly classified as non-surface events. Delivery failures use each
-transport's existing injected terminal/logger or client error/disconnect lifecycle and are never swallowed.
+forwarded/accepted by clients, or explicitly classified as non-surface events. Each map must drive listener
+registration or be mechanically compared with the actual subscribed keys. TUI/protocol delivery handlers
+catch their own failures and call an explicit owner callback; the protocol carrier connects
+`onDeliveryError(error, event)` to its client error/disconnect lifecycle, and WebRTC may not swallow it.
+Arbitrary SDK listener exception semantics remain unchanged.
+
+## Recommendation Gate
+
+- 2026-08-15 — `DEPTH: LOCAL` as the combined ARCH-020+ARCH-028 work unit; shared keys alone cannot
+  repair the absent transport delivery paths.
+- 2026-08-15 — independent round-2 review endorsed mechanically coupled per-transport maps and
+  explicit owner delivery-error callbacks without moving executable policy into the interface package.
+
+REVIEW VERDICT: ENDORSE
+
+## Scenario Plan Gate
+
+- 2026-08-15 — the combined work unit's protocol and real TUI-channel scenarios were reviewed as
+  executable and cover successful delivery plus both owner error callbacks.
+
+DONE-GATE-STAGE-1: PASS
 
 ## Test Plan
 
 - Red-first exhaustive-map fixtures fail when a shared event key has no TUI/protocol classification.
 - Drive plan transitions and context refreshes and assert deterministic TUI rendering plus protocol
-  fan-out/client observation; include owned delivery-failure assertions.
+  fan-out/client observation; include owned delivery-failure assertions and a mechanical comparison of
+  classifications with actual subscribed keys.
 - `pnpm harness:verify -- --scope packages/agent-transport-tui` (and the WS bridge scope) green.
 
 ## User Execution Test Scenarios
 
-**Applies** (plan mode and context-file refresh are user-facing behaviors).
+### Scenario: plan and context-refresh events reach protocol and TUI surfaces
 
-- Prerequisites: built CLI + provider key; a project with an AGENTS.md/CLAUDE.md; a plan-mode-capable
-  session.
-- Steps: enter/exit plan mode, and edit the project's context file mid-session to trigger a refresh;
-  observe whether the TUI (or GUI monitor) reflects either transition.
-- Expected (after fix): plan-mode transitions and the context-file refresh are visible on the surface.
-- Expected (before fix, contrast): neither is shown despite the events firing internally.
-- Cleanup: none.
-- Evidence (fill in after implementation): the surface reflecting a plan transition and a context
-  refresh.
+- **Agent executability:** `agent-executable`. The ARCH-020+ARCH-028 event-delivery work unit authors a
+  non-interactive public-SDK example backed by the deterministic scripted provider and an in-memory
+  protocol client; it requires no live key, network listener, browser, or TTY.
+- **Prerequisites:** Node.js 22.14.0 and the workspace dependencies installed. The work unit authors
+  `packages/agent-transport/examples/verify-session-event-delivery.ts`; the example creates a
+  temporary project with an `AGENTS.md`, connects `createWsHandler` to a real
+  `InteractiveSession`, and captures outbound protocol frames as structured data. It also authors
+  `packages/agent-transport-tui/examples/verify-session-event-rendering.ts`, which drives a real
+  `TuiInteractionChannel` and reads the channel's public render state without mounting a TTY.
+- **Commands:**
+
+  ```bash
+  volta run --node 22.14.0 pnpm exec tsx --conditions=source packages/agent-transport/examples/verify-session-event-delivery.ts
+  volta run --node 22.14.0 pnpm exec tsx --conditions=source packages/agent-transport-tui/examples/verify-session-event-rendering.ts
+  ```
+
+- **Expected observable:** both commands exit `0` and each prints one JSON object. The protocol output
+  contains `plan_event` frames for `plan_created` and `plan_approved`, followed after the example
+  edits `AGENTS.md` and submits another turn by one `context_file_refreshed` frame naming that file;
+  the transcript also reports the related branch delivery assertions and an explicit
+  `deliveryFailure` record from a throwing protocol send through the carrier-owned callback, with the
+  corresponding session operation still committed. The TUI output reports deterministic rendered
+  notices for the same plan lifecycle and context refresh, plus a forced render-handler failure
+  observed through the TUI-owned error callback. Both outputs report `cleanupRemoved: true`.
+- **Cleanup:** both examples stop their channel/bridge, shut down the session, and recursively remove
+  their temporary project in `finally`.
+- **Evidence (fill after implementation):** _pending — paste both exact JSON stdout objects and exit
+  codes from the commands above._

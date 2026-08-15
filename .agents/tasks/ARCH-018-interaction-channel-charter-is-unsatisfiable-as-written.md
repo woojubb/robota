@@ -53,6 +53,21 @@ Decide and document the seam's real charter (one design fact, three symptoms):
 
 Recommendation: (a) now; note (b) as the ARCH-012-adjacent long-term question.
 
+## Recommendation Gate
+
+- 2026-08-15 — `DEPTH: LOCAL`; the universal charter and nominal TUI conformance are the defect.
+- 2026-08-15 — independent review endorsed narrowing the charter to the
+  `createInteractiveRuntime`/programmatic family and removing the TUI's no-op nominal implementation.
+
+REVIEW VERDICT: ENDORSE
+
+## Scenario Plan Gate
+
+- 2026-08-15 — `NOT-APPLICABLE` accepted because the selected change is documentation plus nominal
+  TypeScript conformance removal with no runtime observable.
+
+DONE-GATE-STAGE-1: PASS
+
 ## Test Plan
 
 - (a): revised project-structure section and interface SPEC agree with the code (both implementer
@@ -62,5 +77,9 @@ Recommendation: (a) now; note (b) as the ARCH-012-adjacent long-term question.
 
 ## User Execution Test Scenarios
 
-Not applicable for option (a) — contract-charter documentation (plus an optional type-declaration
-removal) with no observable behavior change. Option (b) would be respecified under its own plan.
+**Not applicable.** The recommended option (a) changes the architecture charter and, if needed, removes
+only the TUI's nominal TypeScript `implements` declaration; it does not change any runtime command,
+public SDK result, rendered UI state, or workflow behavior that a user can execute. Documentation,
+typecheck, and conformance evidence belong in `## Test Plan`; inventing a product run would not exercise
+this work. Option (b), if separately approved later, is a runtime transport migration and must define its
+own user-execution scenario before implementation.

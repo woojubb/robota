@@ -157,10 +157,11 @@ The child decisions are:
   packages; no executable subscriber or fan-out policy moves into the interface package. Branch creation,
   fork, switch, restore, rollback, and resume-pointer operations are assigned an exact declared event
   kind/payload or explicitly classified as non-events. Emission occurs only after checkpoint mutation,
-  history replacement, and persistence succeed. A subscriber failure cannot retroactively fail committed
-  state: the operation remains successful, while the TUI reports through its injected terminal/logger
-  error sink and the protocol adapter uses its existing client error/disconnect lifecycle. Tests must
-  observe both the committed state and the owned delivery failure; nothing is swallowed.
+  history replacement, and persistence succeed. TUI/protocol delivery handlers catch their own failures
+  so committed operations remain successful and report through explicit owner callbacks; arbitrary SDK
+  listener exception semantics remain unchanged. The protocol carrier accepts
+  `onDeliveryError(error, event)` and connects it to its client error/disconnect lifecycle; WebRTC may not
+  swallow delivery failure. Tests observe both committed state and the owned delivery failure.
 - ARCH-024 injects typed semantic command roles—skill activation, context reduction, and subagent
   spawn—from composition, each with explicit absence semantics.
 - ARCH-027 removes `IProductProfile.providerOverride` because provider-profile selection belongs to the
@@ -267,10 +268,10 @@ adversarial review before code changes.
 
 - [x] TC-01: ARCH-014 recursively replays session values externalized beyond 32 KiB and rejects unresolved direct-provider values, cycles, configured depth or aggregate-byte overflow, malformed JSON, declared-length mismatch, sha256 mismatch, lexical escape, and real-path/symlink escape before provider normalization.
 - [x] TC-02: ARCH-015 persists an existing interactive-session record through the agent-session writer without deleting any field the writer does not own, and one canonical store-port relationship is documented and type-checked.
-- [ ] TC-03: ARCH-016 admits every production session-log event through one declared vocabulary and reports the same explicit `TCompactTrigger` to the session hook and compaction orchestrator for one manual compact operation.
+- [ ] TC-03: ARCH-016 admits every production session-log event—including direct logger calls, `onExecutionEvent` literals, and replay-reader-only keys—through one declared vocabulary and reports the same explicit `TCompactTrigger` to the session hook and compaction orchestrator for one manual compact operation.
 - [ ] TC-04: ARCH-017 removes obsolete session-level permission/ask handler options and stale `InteractionEvent.permission-resolved`, preserves leaf callback convenience through a prompt-registry adapter, and records all settlement/dismissal through canonical `prompt_resolved` without a second settlement path.
 - [ ] TC-05: ARCH-018 makes the documented `IInteractionChannel` charter, its implementer set, and runtime wiring agree; no production implementer retains a central no-op member solely for nominal conformance.
-- [ ] TC-06: ARCH-020 defines and tests the complete checkpoint/branch transition matrix, emits successful transitions only after mutation/history/persistence complete, keeps committed operations successful when a subscriber throws, and surfaces that delivery failure through the TUI or protocol adapter's owned error lifecycle.
+- [ ] TC-06: ARCH-020 defines and tests the complete checkpoint/branch transition matrix, emits successful transitions only after mutation/history/persistence complete, keeps committed operations successful when a TUI/protocol delivery handler throws, and surfaces that delivery failure through the adapter's explicit owner callback without changing arbitrary SDK listener semantics.
 - [ ] TC-07: ARCH-028 owns shared event keys/payloads in the interface package and mechanically-total but separate TUI/protocol implementation mappings, making branch, plan, and context-refresh events observable through protocol fan-out/client acceptance and deterministic TUI rendering without executable transport policy in the interface package.
 - [ ] TC-08: ARCH-021 selects a per-request `providerProfile` through an injected parent resolver (or the invoking provider when absent), keeps credentials parent-side, and brokers provider streaming/cancellation/errors plus tool calls whose context round-trips ownership fields and tagged nested `Date`/`Error`/`undefined` values; every top-level context key and wire variant is mechanically classified, while unsupported/cyclic/over-limit values and unavailable capabilities fail explicitly without reconstructing Robota defaults.
 - [x] TC-09: ARCH-023 forwards the runtime-owned default session store into created sessions unless an explicit per-session override is supplied, and resume restores through that default.
@@ -288,7 +289,7 @@ adversarial review before code changes.
 | ----- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
 | TC-01 | Agreement / persistence         | agent-session and replay-provider Vitest fixtures with nested real sidecars, configurable bounds, integrity, direct-constructor, and real-path containment cases                                                                                      | ARCH-014             |
 | TC-02 | Agreement / data contract       | agent-session round-trip integration plus type-level store-port conformance                                                                                                                                                                           | ARCH-015             |
-| TC-03 | Agreement / observability       | event-name enumeration guard and manual-compaction hook integration test                                                                                                                                                                              | ARCH-016             |
+| TC-03 | Agreement / observability       | direct logger + `onExecutionEvent` + replay-reader event-name enumeration guard and manual-compaction hook integration test                                                                                                                           | ARCH-016             |
 | TC-04 | Agreement / auth interaction    | prompt-registry adapter integration, settlement-event assertion, removed-option type tests, and zero stale-event scan                                                                                                                                 | ARCH-017             |
 | TC-05 | Agreement / contract            | exact implementer/wiring tests plus architecture documentation conformance                                                                                                                                                                            | ARCH-018             |
 | TC-06 | Agreement / observability       | post-persistence transition matrix plus throwing-subscriber tests asserting committed success and owned delivery-error observation                                                                                                                    | ARCH-020             |

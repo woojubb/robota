@@ -1,5 +1,5 @@
 ---
-title: 'ARCH-016: the "canonical" session-log event vocabulary omits seven real events, and one manual /compact reports two different triggers to its own hooks'
+title: 'ARCH-016: the "canonical" session-log event vocabulary omits eight real events, and one manual /compact reports two different triggers to its own hooks'
 status: todo
 created: 2026-08-13
 priority: medium
@@ -15,7 +15,7 @@ depends_on: []
 Two same-subsystem contradictions in agent-session's event story:
 
 1. `SESSION_LOG_EVENT` claims to be the canonical, type-safe schema "the writer, the replay
-   validator, and the session-log replay provider share" — but at least seven event names the system
+   validator, and the session-log replay provider share" — but at least eight event names the system
    actually writes and reads are outside it, three of them documented in the package's own SPEC.
 2. A single bare `/compact` invocation reports `trigger: 'auto'` to the PreCompact hook and
    `trigger: 'manual'` to PostCompact and every session-level event — two derivations of one fact
@@ -28,7 +28,8 @@ Vocabulary (CONTRACT↔CONTRACT):
 - `packages/agent-session/src/session-log-events.ts:1-49` — "Canonical session-log event names …
   one type-safe schema."
 - Outside the enum, written/read in production: `provider_stream_raw_delta`
-  (`agent-core/src/services/execution-round-streaming.ts:28`), `tool_batch_started` and
+  (`agent-core/src/services/execution-round-streaming.ts:28`), `assistant_message_committed`
+  (`agent-core/src/services/execution-round.ts:223`), `tool_batch_started` and
   `tool_message_committed` (`execution-round-tools.ts:113,182`), `session_shutdown_step_error`
   (`agent-session/src/session.ts:233`), and `background_task_event` / `background_job_group_event` /
   `memory_event`, which the package's own reader matches as raw strings
@@ -51,29 +52,60 @@ Compaction trigger (CONTRACT↔IMPLEMENTATION):
 
 1. Complete `SESSION_LOG_EVENT` with the missing names — or explicitly scope the enum's claim to the
    replay substrate and introduce a second named group (used by `session-log-replay.ts`) so no
-   production writer/reader uses a string the vocabulary does not know. A test should enumerate all
-   `logger.log(`-style call sites' event names and assert membership.
+   production writer/reader uses a string the vocabulary does not know. A test must enumerate direct
+   logger calls, `onExecutionEvent` literals, and replay-reader-only recognized keys and assert
+   membership.
 2. Thread the session-level `TCompactTrigger` into `CompactionOrchestrator.compact()` and delete the
    instructions-based inference.
 
+## Recommendation Gate
+
+- 2026-08-15 — `DEPTH: LOCAL`; the vocabulary owner and trigger re-derivation are the defects.
+- 2026-08-15 — independent round-2 review endorsed the eight-event enumeration and explicit trigger
+  threading after adding `assistant_message_committed` and all three discovery sources.
+
+REVIEW VERDICT: ENDORSE
+
+## Scenario Plan Gate
+
+- 2026-08-15 — standalone public-SDK compaction/vocabulary scenario reviewed as executable and
+  complete, including all eight previously omitted events.
+
+DONE-GATE-STAGE-1: PASS
+
 ## Test Plan
 
-- Red-first: a scan/test collecting every literal event name passed to the session logger across
-  agent-core/agent-session/agent-framework fails today for the seven names; green after.
+- Red-first: a scan/test collecting direct logger calls, `onExecutionEvent` literals, and
+  replay-reader-only recognized keys across agent-core/agent-session/agent-framework fails today for
+  the eight names; green after.
 - Red-first: bare manual `compact()` → PreCompact and PostCompact hook inputs carry the same
   `trigger: 'manual'`; auto-compaction path still reports `'auto'` on both.
 - `pnpm harness:verify -- --scope packages/agent-session` green.
 
 ## User Execution Test Scenarios
 
-**Applies** (hooks are user-configurable behavior).
+### Scenario: public SDK exposes one log vocabulary and one compaction trigger
 
-- Prerequisites: built CLI; a project with a PreCompact and PostCompact `command` hook that echoes
-  the received `trigger` to a file (hook config exists as a product surface; the fixture hook will be
-  authored by this work).
-- Steps: start the TUI, produce a short conversation, run `/compact` with no arguments, inspect the
-  two hook outputs.
-- Expected (after fix): both hooks record `trigger: manual`.
-- Expected (before fix, contrast): PreCompact records `auto`, PostCompact records `manual`.
-- Cleanup: remove the fixture hooks.
-- Evidence (fill in after implementation): the two hook output files.
+- **Agent executability:** `agent-executable`. This is a non-interactive public-SDK example; it uses
+  an offline provider and an in-process hook executor, with no live key, network service, browser, or
+  TTY.
+- **Prerequisites:** Node.js 22.14.0 and the workspace dependencies installed. This work authors the
+  maintained example `packages/agent-session/examples/verify-compaction-contract.ts`; the example
+  creates its own temporary session directory and fixture history.
+- **Command:**
+
+  ```bash
+  volta run --node 22.14.0 pnpm exec tsx --conditions=source packages/agent-session/examples/verify-compaction-contract.ts
+  ```
+
+- **Expected observable:** exit code `0` and one JSON object on stdout. Its
+  `manualCompaction.hookTriggers` is exactly `["manual","manual"]` for PreCompact then PostCompact,
+  its `autoCompaction.hookTriggers` is exactly `["auto","auto"]`, its
+  `vocabulary.unrecognizedEvents` is `[]` after checking
+  `provider_stream_raw_delta`, `assistant_message_committed`, `tool_batch_started`, `tool_message_committed`,
+  `session_shutdown_step_error`, `background_task_event`, `background_job_group_event`, and
+  `memory_event` through the exported session-log vocabulary, and `cleanupRemoved` is `true`.
+- **Cleanup:** the example shuts down both sessions and recursively removes its temporary directory
+  in `finally`; no repository or home-directory state remains.
+- **Evidence (fill after implementation):** _pending — paste the exact JSON stdout and exit code from
+  the command above._

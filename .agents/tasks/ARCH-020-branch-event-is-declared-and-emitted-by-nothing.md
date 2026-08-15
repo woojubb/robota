@@ -39,27 +39,61 @@ edit-checkpoint-store.ts:77-101` (createCheckpoint), `:156-199` (restore→forkF
 Execute with ARCH-028 as one named event-delivery work unit. Define an exhaustive checkpoint/branch
 operation matrix covering create, fork, switch, restore, rollback, and resume-pointer updates. Assign
 each operation one exact declared event kind and payload, or explicitly classify it as a non-event.
-Emit only after checkpoint mutation, history replacement, and persistence succeed. A subscriber failure
-must not retroactively fail committed state: the operation remains successful while the owning TUI or
-protocol adapter reports the delivery failure through its injected error lifecycle. Shared keys and
-payloads belong to `agent-interface-transport`; executable fan-out policy remains in transport packages.
+Emit only after checkpoint mutation, history replacement, and persistence succeed. TUI/protocol delivery
+handlers must catch their own render/send failures so a committed operation remains successful, and report
+them through an explicit owner callback. Arbitrary SDK listener exceptions retain their current semantics.
+The protocol carrier supplies `onDeliveryError(error, event)` and connects it to its existing
+connection cleanup/error lifecycle; WebRTC may not swallow the failure. Shared keys and payloads belong
+to `agent-interface-transport`; executable fan-out policy remains in transport packages.
+
+## Recommendation Gate
+
+- 2026-08-15 — `DEPTH: LOCAL` as the combined ARCH-020+ARCH-028 work unit; producer completeness,
+  consumer completeness, and owned delivery failures are one event-delivery defect.
+- 2026-08-15 — independent round-2 review endorsed transport-owned handler isolation with explicit
+  carrier error callbacks, while arbitrary SDK listener semantics remain unchanged.
+
+REVIEW VERDICT: ENDORSE
+
+## Scenario Plan Gate
+
+- 2026-08-15 — the combined protocol scenario covers branch delivery, deterministic send failure,
+  the carrier error callback, and committed operation state.
+
+DONE-GATE-STAGE-1: PASS
 
 ## Test Plan
 
 - Red-first: drive every matrix row and assert its exact post-persistence event or explicit non-event.
-- Throwing-subscriber tests assert committed state remains successful and the transport-owned error sink
-  observes the delivery failure.
+- Throwing TUI/protocol delivery-handler tests assert committed state remains successful and the explicit
+  transport-owned error callback observes the failure. The exhaustive classification maps must drive
+  registration or be mechanically compared with the actual subscribed keys.
 - `pnpm harness:verify -- --scope packages/agent-framework` green.
 
 ## User Execution Test Scenarios
 
-**Applies** (checkpoint branching is user-invocable via `/rewind`-family commands, and a hook can
-observe the event).
+### Scenario: checkpoint branch changes reach a protocol client
 
-- Prerequisites: built CLI + provider key; a session with an edit checkpoint; a hook or GUI surface
-  subscribed to branch changes (fixture hook authored by this work).
-- Steps: fork/switch a checkpoint branch via the command surface.
-- Expected (after fix): the subscriber records a `branch_event` for the fork/switch.
-- Expected (before fix, contrast): no event fires despite the branch changing.
-- Cleanup: remove the fixture hook.
-- Evidence (fill in after implementation): the subscriber's recorded event.
+- **Agent executability:** `agent-executable`. The ARCH-020+ARCH-028 event-delivery work unit authors a
+  non-interactive public-SDK example backed by the deterministic scripted provider and an in-memory
+  protocol client; it requires no live key, network listener, browser, or TTY.
+- **Prerequisites:** Node.js 22.14.0 and the workspace dependencies installed. The work unit authors
+  `packages/agent-transport/examples/verify-session-event-delivery.ts`; the example creates its own
+  temporary project, edit file, context file, session, and protocol bridge.
+- **Command:**
+
+  ```bash
+  volta run --node 22.14.0 pnpm exec tsx --conditions=source packages/agent-transport/examples/verify-session-event-delivery.ts
+  ```
+
+- **Expected observable:** exit code `0` and one JSON object on stdout. Its protocol transcript
+  contains `branch_event` frames whose payload kinds include `checkpoint_created`, `branch_forked`,
+  and `branch_switched`; the fork and switch frame checkpoint ids match the public SDK operations,
+  the resulting active-branch pointer matches the last successful operation. A second carrier whose
+  send function throws reports `deliveryFailure.event: "branch_event"` through its explicit owner
+  callback while `deliveryFailure.operationCommitted` remains `true`, and
+  `cleanupRemoved` is `true`.
+- **Cleanup:** the example calls the protocol cleanup function, shuts down the session, and
+  recursively removes its temporary project in `finally`.
+- **Evidence (fill after implementation):** _pending — paste the exact JSON stdout and exit code from
+  the command above._
