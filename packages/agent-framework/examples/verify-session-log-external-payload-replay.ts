@@ -86,7 +86,7 @@ try {
   rmSync(sourceWorkspacePath, { recursive: true, force: true });
   sourceWorkspace = undefined;
 
-  const sourceWorkspaceRemoved = !existsSync(sourceWorkspace);
+  const sourceWorkspaceRemoved = !existsSync(sourceWorkspacePath);
   const replayWorkspaceRemoved = !existsSync(replayWorkspacePath);
   if (!sourceWorkspaceRemoved || !replayWorkspaceRemoved) {
     throw new Error('Scenario cleanup did not remove both temporary workspaces.');
