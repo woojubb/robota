@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "recordType": "scenario-record",
+  "scope": "packages/agent-transport-ws",
+  "packageName": "@robota-sdk/agent-transport-ws",
+  "command": {
+    "executable": "pnpm",
+    "args": ["scenario:verify"],
+    "rendered": "pnpm scenario:verify"
+  },
+  "cwd": "<cwd>",
+  "status": 0,
+  "stdout": {
+    "raw": "\n> @robota-sdk/agent-transport-ws@3.0.0-beta.79 scenario:verify /home/ubunutu/dev/robota-2/packages/agent-transport-ws\n> pnpm exec tsx --conditions=source examples/verify-outbound-delivery-boundary.ts\n\n{\"scenario\":\"ARCH-030-outbound-delivery-boundary\",\"realCarrier\":{\"carrier\":\"WsTransport(real ws socket)\",\"operationCommitted\":true,\"cleanupRuns\":1,\"unhandledRejections\":0},\"observedCarrier\":{\"carrier\":\"createWsTransport(observable delivery callbacks)\",\"operationCommitted\":true,\"cleanupObserved\":true,\"deliveryErrors\":[{\"message\":\"WebSocket is not open\",\"event\":\"command_result\"}],\"latchThrew\":null,\"unhandledRejections\":0},\"cleanupRemoved\":true}\n",
+    "normalized": "{\"scenario\":\"ARCH-030-outbound-delivery-boundary\",\"realCarrier\":{\"carrier\":\"WsTransport(real ws socket)\",\"operationCommitted\":true,\"cleanupRuns\":1,\"unhandledRejections\":0},\"observedCarrier\":{\"carrier\":\"createWsTransport(observable delivery callbacks)\",\"operationCommitted\":true,\"cleanupObserved\":true,\"deliveryErrors\":[{\"message\":\"WebSocket is not open\",\"event\":\"command_result\"}],\"latchThrew\":null,\"unhandledRejections\":0},\"cleanupRemoved\":true}",
+    "sha256": "26bbc66703bdc9ba2e7b76d28ca893866ff7c8f380d27d2a7eca3a97491f3bed"
+  },
+  "stderr": {
+    "raw": "",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

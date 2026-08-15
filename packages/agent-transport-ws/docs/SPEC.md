@@ -136,11 +136,14 @@ unroutable channel frame surfaces as a `protocol_error` frame carrying the regis
 misuse of a channel handle (undeclared event, binary on a text-only channel, duplicate name, closed
 channel) throws a plain `Error` at the call site.
 
-Session-event delivery failures are carrier lifecycle failures, not session-operation failures.
-The configurable server treats a non-open socket as a failed send, routes synchronous and asynchronous
-`ws.send` errors through one idempotent connection cleanup/close path, and supplies that path as the
-protocol handler's `onDeliveryError`. `WsTransport` applies the same rule to its single attached socket
-and exposes an optional observer callback after internal cleanup.
+Outbound delivery failures are carrier lifecycle failures, not session-operation failures — and since
+ARCH-030 that covers EVERY outbound frame, replies included, not only the session-event fan-out.
+`WsSessionDelivery` owns the connection's boundary: its raw sink is PRIVATE and `deliver` is the only
+public way onto the socket, so nothing can bypass the guard. It treats a non-open socket as a failed send,
+routes synchronous and asynchronous `ws.send` errors through one idempotent cleanup/close path, and passes
+the boundary DOWN into `createWsHandler`. `WsTransport` applies the same rule to its single attached socket
+and exposes an optional observer callback after internal cleanup. The boundary latches, so a burst of
+frames after the socket closes runs that cleanup once.
 
 ## Test Strategy
 

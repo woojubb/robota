@@ -54,7 +54,6 @@
   "packages/agent-transport-tui/src/InputArea.tsx": 318,
   "packages/agent-transport-tui/src/TuiInteractionChannel.ts": 616,
   "packages/agent-transport-webrtc-web/src/client/rtc-session-client.ts": 399,
-  "packages/agent-transport-webrtc/src/pairing-gate.ts": 314,
   "packages/dag-builder/src/dag-workflow-converter.ts": 312,
   "packages/dag-cli/src/commands/benchmark.ts": 908,
   "packages/dag-cli/src/commands/build.ts": 531,

@@ -241,11 +241,7 @@ export class WsTransport
           }
 
           const delivery = new WsSessionDelivery(ws);
-          const handler = createWsHandler({
-            session,
-            send: delivery.send,
-            onDeliveryError: delivery.close,
-          });
+          const handler = createWsHandler({ session, deliver: delivery.deliver });
           delivery.bindProtocolCleanup(handler.cleanup);
 
           delivery.bindSinkDetach(
@@ -263,13 +259,13 @@ export class WsTransport
               return;
             }
             const result = channels.receive(toBytes(data));
-            if (!result.ok) delivery.send({ type: 'protocol_error', message: result.error });
+            if (!result.ok) delivery.deliver({ type: 'protocol_error', message: result.error });
           });
           ws.on('close', delivery.close);
           ws.on('error', delivery.close);
 
-          delivery.send({ type: 'messages', messages: session.getMessages() });
-          delivery.send({
+          delivery.deliver({ type: 'messages', messages: session.getMessages() });
+          delivery.deliver({
             type: 'execution_workspace_event',
             snapshot: session.getExecutionWorkspaceSnapshot(),
           });

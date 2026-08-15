@@ -1,21 +1,41 @@
+import { createOutboundDelivery } from '@robota-sdk/agent-transport-protocol';
 import { WebSocket } from 'ws';
 
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TOutboundDeliver, TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
-/** Connection-scoped session delivery lifecycle shared by sync and async WebSocket failures. */
+/**
+ * Connection-scoped session delivery lifecycle shared by sync and async WebSocket failures.
+ *
+ * ARCH-030: {@link deliver} is the ONLY way out of this class. The raw sink — the `readyState` check
+ * plus `socket.send` — is private, so no caller can put a frame on this socket outside the connection's
+ * one outbound boundary. That is not stylistic: the previous shape exposed a public `send` that threw
+ * on a closed socket, and every reply the protocol handler produced went through it unguarded.
+ */
 export class WsSessionDelivery {
   private cleanupProtocol = (): void => undefined;
   private detachSink = (): void => undefined;
   private closed = false;
 
-  constructor(private readonly socket: WebSocket) {}
+  /**
+   * The connection's outbound boundary. Built here, from this class's own sink and its own `close`
+   * policy, and passed DOWN into `createWsHandler` — the carrier owns both halves, so it builds the
+   * boundary rather than handing the protocol layer a raw sink to wrap.
+   */
+  readonly deliver: TOutboundDeliver;
 
-  readonly send = (message: TServerMessage): void => {
+  constructor(private readonly socket: WebSocket) {
+    this.deliver = createOutboundDelivery(
+      (message) => this.rawSend(message),
+      () => this.close(),
+    );
+  }
+
+  private rawSend(message: TServerMessage): void {
     if (this.socket.readyState !== WebSocket.OPEN) throw new Error('WebSocket is not open');
     this.socket.send(JSON.stringify(message), (error) => {
       if (error) this.close();
     });
-  };
+  }
 
   bindProtocolCleanup(cleanup: () => void): void {
     this.cleanupProtocol = cleanup;

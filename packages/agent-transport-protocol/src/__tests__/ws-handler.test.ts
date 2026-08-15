@@ -5,6 +5,7 @@
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
 
 import { describe, it, expect, vi } from 'vitest';
+import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createWsHandler } from '../ws-handler.js';
 import { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from '../ws-session-events.js';
 import type { TServerMessage } from '../ws-protocol.js';
@@ -115,8 +116,7 @@ describe('WebSocket Transport Handler', () => {
     const sent: TServerMessage[] = [];
     const { onMessage, cleanup } = createWsHandler({
       session,
-      send: (msg) => sent.push(msg),
-      onDeliveryError: vi.fn(),
+      deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()),
     });
     return { session, sent, onMessage, cleanup };
   }
@@ -320,9 +320,8 @@ describe('WebSocket Transport Handler', () => {
     const sent: TServerMessage[] = [];
     const { onMessage } = createWsHandler({
       session,
-      send: (msg) => sent.push(msg),
+      deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()),
       driverId: 'device-7',
-      onDeliveryError: vi.fn(),
     });
     onMessage(JSON.stringify({ type: 'command', name: 'settings' }));
     await new Promise((r) => setTimeout(r, 10));
@@ -336,9 +335,8 @@ describe('WebSocket Transport Handler', () => {
     const sent: TServerMessage[] = [];
     createWsHandler({
       session,
-      send: (msg) => sent.push(msg),
+      deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()),
       driverId: 'device-7',
-      onDeliveryError: vi.fn(),
     });
     session._emit('ui_intent', {
       intent: { type: 'show-settings' },
@@ -363,15 +361,13 @@ describe('WebSocket Transport Handler', () => {
       const sentB: TServerMessage[] = [];
       createWsHandler({
         session,
-        send: (msg) => sentA.push(msg),
+        deliver: createOutboundDelivery((msg) => sentA.push(msg), vi.fn()),
         driverId: 'device-A',
-        onDeliveryError: vi.fn(),
       });
       createWsHandler({
         session,
-        send: (msg) => sentB.push(msg),
+        deliver: createOutboundDelivery((msg) => sentB.push(msg), vi.fn()),
         driverId: 'device-B',
-        onDeliveryError: vi.fn(),
       });
       return { session, sentA, sentB };
     }
