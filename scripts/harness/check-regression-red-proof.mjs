@@ -102,6 +102,18 @@ export function isSourceFile(filePath) {
  * execution. Comments likewise have no runtime observable. Treating either as an executable mutant
  * manufactures an accidental-green failure that only typecheck or a documentation scan can settle.
  */
+/** An emit that is empty, or only the `export {};` module marker, carries no runtime behaviour. */
+const EMPTY_MODULE_EMIT_RE = /^(?:export\s*\{\s*\}\s*;?)?$/;
+
+/**
+ * The synthetic base for an ADDED file: an empty MODULE, not an empty file.
+ *
+ * An empty file has no import or export, so it is emitted as a script and carries a `"use strict";`
+ * prologue the module form does not — a difference of framing, not of behaviour, which would read
+ * as a runtime mutation for a file that has none.
+ */
+export const EMPTY_MODULE_SOURCE = 'export {};\n';
+
 export function hasRuntimeSemanticChange(filePath, fixedText, reversedText) {
   if (/\.sh$/.test(filePath)) return fixedText !== reversedText;
   if (!/\.[cm]?[jt]sx?$/.test(filePath)) return fixedText !== reversedText;
@@ -139,7 +151,13 @@ export function hasRuntimeSemanticChange(filePath, fixedText, reversedText) {
     const emitted = (prefix) => {
       const output = outputs.find((name) => name.startsWith(`${prefix}.`));
       if (!output) throw new Error(`red-proof native emit produced no ${prefix} output`);
-      return readFileSync(path.join(outDir, output), 'utf8').trim();
+      const text = readFileSync(path.join(outDir, output), 'utf8').trim();
+      // A module with nothing but types still emits `export {};` — the marker that keeps it a
+      // module after every type is erased. Two files whose emit differs only by that marker run
+      // identically, and an ADDED type-only module is exactly that case against an empty base.
+      // Without this, such a file could never reach the "type/comment-only" verdict its siblings
+      // get, and was reported as an accidental-green regression test instead.
+      return EMPTY_MODULE_EMIT_RE.test(text) ? '' : text;
     };
     return emitted('fixed') !== emitted('reversed');
   } finally {
@@ -732,10 +750,17 @@ export async function runRegressionRedProof(io = {}) {
           const reversedText = fileExists(sourceAbs) ? readText(sourceAbs) : null;
           // Injected orchestration fixtures may model reverseApply without mutating the real tree;
           // identical text in that seam must preserve their declared test-run outcome.
+          //
+          // An ADDED file has no base text, and `null` used to short-circuit straight to "this is a
+          // runtime mutation". That assumes a deletion always changes runtime behaviour, which is
+          // false for a file that emits no runtime JS: a new TYPE-ONLY module is erased at
+          // transpile, so reversing it can never fail a test, and the gate called that
+          // accidental-green — a verdict its own sibling files reach as "type/comment-only change;
+          // runtime red proof is not applicable". Comparing against an empty base asks the question
+          // the gate actually means: does this file emit any runtime JS at all?
           runtimeMutation =
-            reversedText === null ||
             fixedText === reversedText ||
-            hasRuntimeSemanticChange(source, fixedText, reversedText);
+            hasRuntimeSemanticChange(source, fixedText, reversedText ?? EMPTY_MODULE_SOURCE);
           if (runtimeMutation) {
             const vitestJson = await runVitest(pair.pkg, testsForSource);
             outcome = classifyVitestOutcome(vitestJson, testsForSource, addedCases);

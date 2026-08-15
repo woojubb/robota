@@ -60,7 +60,7 @@ function convertParameterProperties(
 
 function convertParameterSchema(schema: IParameterSchema): Schema {
   const convertedSchema: Schema = {};
-  const schemaType = convertSchemaKind(schema.type);
+  const schemaType = schema.type ? convertSchemaKind(schema.type) : undefined;
   if (schemaType) {
     convertedSchema.type = schemaType;
   }
@@ -75,6 +75,16 @@ function convertParameterSchema(schema: IParameterSchema): Schema {
   }
   if (schema.properties) {
     convertedSchema.properties = convertParameterProperties(schema.properties);
+  }
+  // CORE-039: this mapper rebuilds every node from a fixed key list, so a subset member it does not
+  // copy is silently dropped. `required` below a nested object, and `anyOf` anywhere, are members
+  // Gemini's own Schema carries — omitting them told the model every nested field was optional and
+  // erased union branches entirely.
+  if (schema.required) {
+    convertedSchema.required = schema.required;
+  }
+  if (schema.anyOf) {
+    convertedSchema.anyOf = schema.anyOf.map(convertParameterSchema);
   }
   if (typeof schema.minimum === 'number') {
     convertedSchema.minimum = schema.minimum;

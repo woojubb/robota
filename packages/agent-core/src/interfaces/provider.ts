@@ -1,5 +1,6 @@
 import type { TUniversalMessage, IToolCall } from './messages';
 import type { IProviderCapabilities, IProviderNativeWebToolRequest } from './provider-capabilities';
+import type { IToolSchema } from './tool-schema';
 
 export type {
   IProviderCapabilities,
@@ -24,70 +25,17 @@ export {
  */
 export type TProviderConfigValue = string | number | boolean;
 
-/**
- * JSON Schema parameter default value type
- * Used for default values in parameter schemas
- */
-export type TParameterDefaultValue = string | number | boolean | null;
-
-/**
- * JSON Schema primitive types
- */
-export type TJSONSchemaKind =
-  'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object' | 'null';
-
-/**
- * JSON Schema enum values
- */
-export type TJSONSchemaEnum = string[] | number[] | boolean[] | (string | number | boolean)[];
-
-/**
- * Tool schema definition
- */
-export interface IToolSchema {
-  name: string;
-  description: string;
-  parameters: {
-    type: 'object';
-    properties: Record<string, IParameterSchema>;
-    required?: string[];
-    additionalProperties?: boolean | IParameterSchema;
-  };
-  /**
-   * SELFHOST-005: optional schema the tool's OUTPUT (`result.data`) must match. When present, the
-   * tool-registry validates the returned value against it in `FunctionTool.execute` (beside the
-   * tool-INPUT `parameter-validator`) and throws on mismatch before the result returns. Absent =
-   * no output validation (backward-compatible). Model-output validation is separate (CORE-015).
-   *
-   * Accepts the same object-root shape as `parameters` (so object outputs can declare `required`
-   * fields and strict `additionalProperties`) OR a bare `IParameterSchema` for a non-object output.
-   */
-  outputSchema?:
-    | {
-        type: 'object';
-        properties: Record<string, IParameterSchema>;
-        required?: string[];
-        additionalProperties?: boolean | IParameterSchema;
-      }
-    | IParameterSchema;
-}
-
-/**
- * Parameter schema for tools
- */
-export interface IParameterSchema {
-  type: TJSONSchemaKind;
-  description?: string;
-  enum?: TJSONSchemaEnum;
-  items?: IParameterSchema;
-  properties?: Record<string, IParameterSchema>;
-  additionalProperties?: IParameterSchema;
-  minimum?: number;
-  maximum?: number;
-  pattern?: string;
-  format?: string;
-  default?: TParameterDefaultValue;
-}
+// The universal JSON-schema subset moved to `./tool-schema` (CORE-039): it is its own concept,
+// reached by producers, validators and four provider adapters, and `provider.ts` was over its
+// frozen size baseline. Re-exported here so every existing `from './provider'` import resolves.
+export type {
+  IObjectParameterSchema,
+  IParameterSchema,
+  IToolSchema,
+  TJSONSchemaEnum,
+  TJSONSchemaKind,
+  TParameterDefaultValue,
+} from './tool-schema';
 
 /**
  * Token usage statistics

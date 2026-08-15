@@ -19,6 +19,7 @@ import {
   decidePairVerdict,
   defaultReverseApply,
   filesForDefectFixCommits,
+  EMPTY_MODULE_SOURCE,
   hasRuntimeSemanticChange,
   isDefectFixRange,
   isSourceFile,
@@ -60,6 +61,32 @@ describe('HARNESS-041 file classification', () => {
         'scripts/harness/check.mjs',
         'export function value() { return 2; }',
         'export function value() { return 1; }',
+      ),
+    ).toBe(true);
+  });
+
+  it('treats an ADDED type-only module as no runtime mutation', () => {
+    // The base of an added file is an empty MODULE, not an empty file: an empty file has no
+    // import or export, so it is emitted as a script with a `"use strict";` prologue the module
+    // form lacks -- a difference of framing, not behaviour. Without that, a new file holding
+    // nothing but interfaces read as a runtime mutation, was run against the reversed tree, passed
+    // (because types are erased), and was reported ACCIDENTAL_GREEN -- a verdict its already-
+    // existing siblings correctly reach as "type/comment-only change".
+    expect(
+      hasRuntimeSemanticChange(
+        'packages/example/src/contracts.ts',
+        'export interface Added { a: string; }\nexport type Kind = "x" | "y";\n',
+        EMPTY_MODULE_SOURCE,
+      ),
+    ).toBe(false);
+  });
+
+  it('still sees an ADDED module that emits runtime code as a mutation', () => {
+    expect(
+      hasRuntimeSemanticChange(
+        'packages/example/src/added.ts',
+        'export const value = 1;\n',
+        EMPTY_MODULE_SOURCE,
       ),
     ).toBe(true);
   });

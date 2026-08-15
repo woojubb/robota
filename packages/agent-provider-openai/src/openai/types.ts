@@ -146,6 +146,16 @@ export interface IOpenAIProviderOptions {
 
   /**
    * Opt into strict custom function parameter validation where supported.
+   *
+   * **Known limitation (PROV-007).** Tool schemas are forwarded to OpenAI unchanged. Strict mode
+   * additionally requires EVERY object node — nested ones included — to carry
+   * `additionalProperties: false` and to list ALL of its properties in `required`. The universal
+   * schema subset does neither, and this adapter has no seam that rewrites the schema for strict
+   * mode (the Anthropic adapter has the analogous `closeObjectSchemas`). So with this flag on,
+   * every `createZodFunctionTool` tool is rejected — Zod's default `strip` emits
+   * `additionalProperties: true`, which strict mode refuses just as it refuses the member being
+   * absent — as is any tool carrying a nested object. The same tools work on every other provider.
+   * Leave it off until PROV-007 lands.
    */
   strictTools?: boolean;
 

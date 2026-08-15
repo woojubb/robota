@@ -113,7 +113,9 @@ describe('ToolRegistry', () => {
 
     it('should throw when parameters type is not "object"', () => {
       const schema = buildSchema();
-      (schema.parameters as Record<string, unknown>).type = 'array';
+      // Same two-step form as the sibling case above: naming the subset's object root as an
+      // interface (CORE-039) means TypeScript no longer grants it an implicit index signature.
+      (schema.parameters as unknown as Record<string, unknown>).type = 'array';
       const tool = createMockTool(schema);
 
       expect(() => registry.register(tool)).toThrow(ValidationError);
@@ -125,7 +127,10 @@ describe('ToolRegistry', () => {
         parameters: {
           type: 'object',
           properties: {
-            badField: { type: 'integer' as 'string' },
+            // CORE-039: this case used to be spelled `integer`, which pinned a defect rather than a
+            // rule — `integer` is a member of `TJSONSchemaKind`, and registration was refusing a
+            // type the subset itself defines. The case now uses a type that genuinely is not one.
+            badField: { type: 'decimal' as 'string' },
           },
         },
       });
@@ -133,6 +138,20 @@ describe('ToolRegistry', () => {
 
       expect(() => registry.register(tool)).toThrow(ValidationError);
       expect(() => registry.register(tool)).toThrow('invalid type');
+    });
+
+    it('should accept integer and null parameter properties (CORE-039)', () => {
+      const schema = buildSchema({
+        parameters: {
+          type: 'object',
+          properties: {
+            count: { type: 'integer' as 'number' },
+            nothing: { type: 'null' as 'string' },
+          },
+        },
+      });
+
+      expect(() => registry.register(createMockTool(schema))).not.toThrow();
     });
 
     it('should throw when a parameter property is missing its type', () => {
@@ -147,7 +166,7 @@ describe('ToolRegistry', () => {
       const tool = createMockTool(schema);
 
       expect(() => registry.register(tool)).toThrow(ValidationError);
-      expect(() => registry.register(tool)).toThrow('must have a type');
+      expect(() => registry.register(tool)).toThrow('must declare a type or anyOf');
     });
 
     it('should throw when required fields are not defined in properties', () => {
