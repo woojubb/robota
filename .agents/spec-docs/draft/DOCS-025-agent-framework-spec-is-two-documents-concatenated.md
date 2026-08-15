@@ -12,7 +12,7 @@ tags: [docs, infra]
 벌이 물리적으로 이어붙어 있다.**
 
 ```
-L3   ## Scope … L694  ## Class Contract Registry 끝     ← 문서 1: 표준 섹션 SPEC, 646줄
+L3   ## Scope … L694  ## Class Contract Registry 끝     ← 문서 1: 표준 섹션 SPEC, L3–694 (692줄)
 L695 ## Overview                                        ← 문서 2 시작, 1,955줄
      "Robota SDK is a programming SDK built by assembling existing Robota packages."
 ```

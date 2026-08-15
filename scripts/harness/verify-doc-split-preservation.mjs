@@ -37,6 +37,11 @@
  * REJECTED rather than normalised: the allowance file is repository-level metadata, not a document, so
  * there is no base directory to resolve `../` against.
  *
+ * `survivesAs` is rejected when the named line ALREADY existed in the source; `deletedAndLinkedTo` has
+ * no equivalent guard, deliberately. The two claims differ: a rename asserts "this line became that
+ * one", so a pre-existing target proves nothing — while a delete-and-link asserts "Non-Duplication
+ * holds in the destination", which a pre-existing link satisfies just as well as a new one.
+ *
  * Usage:
  *   node scripts/harness/verify-doc-split-preservation.mjs \
  *     --ref <git-ref> --source <path> --target <path> [--target <path> …] \

@@ -1,6 +1,6 @@
 ---
 title: 'RULE-013: SPEC/design 배치 기준과 whitebox 유출 회수 — 계약·강제(WU-A) 및 파일럿 추출(WU-B)'
-status: todo
+status: in-progress
 created: 2026-08-16
 priority: high
 urgency: soon
@@ -10,8 +10,8 @@ depends_on: []
 
 # RULE-013: SPEC/design 배치 기준과 whitebox 유출 회수
 
-Plan: [`.agents/spec-docs/todo/RULE-013-blackbox-whitebox-doc-boundary.md`](../spec-docs/active/RULE-013-blackbox-whitebox-doc-boundary.md)
-(status `approved`; GATE-WRITE ×2 · GATE-APPROVAL PASS)
+Plan: [`.agents/spec-docs/active/RULE-013-blackbox-whitebox-doc-boundary.md`](../spec-docs/active/RULE-013-blackbox-whitebox-doc-boundary.md)
+(status `in-progress`; GATE-WRITE ×2 · GATE-APPROVAL · GATE-IMPLEMENT PASS)
 
 ## Problem
 
@@ -122,12 +122,13 @@ Plan: [`.agents/spec-docs/todo/RULE-013-blackbox-whitebox-doc-boundary.md`](../s
 - [x] **T-22** (TC-08, TC-09) design doc **6건** 신설(`composition` · `session-ownership` ·
       `command-registry` · `internal-structure` · `message-architecture` · `subagent-wiring`), 전부
       MUST 5섹션 충족 — `check-design-doc-completeness.mjs` exit 0, 경고 0
-- [x] **T-23** (TC-10) SPEC↔design 양방향 링크 — SPEC에 `docs/design/` 7회, 6개 design doc 전부
+- [x] **T-23** (TC-10) SPEC↔design 양방향 링크 — SPEC에 `docs/design/` **11회**, 6개 design doc 전부
       `../SPEC.md` 역참조
 - [x] **T-24** (TC-12) 전체 유출량 관측 — 6,675줄/38.4% → **4,967줄/28.9%**(-1,708줄, -9.5pp),
       임계 초과 2건 → **1건**(`agent-framework`, `DOCS-025`가 회수)
 - [x] **T-25** (TC-05) 회수량과 무손실을 직접 단정 — `verify-doc-split-preservation.mjs` exit 0
-      (허용 11건 명시: 해체·개명된 헤딩 제목 9 + 줄바꿈이 바뀐 문장 2), design 본문 **297줄**(기준 ≥200).
+      허용 **13건**(도구 stdout에서: 개명 9 · delete-and-link 1 · 서면 사유 3), design 본문 **300줄**
+      (기준 ≥200). 앞서 적어둔 `11건 / 9+2 / 297줄`은 3·4라운드 접기 이전 값이라 6라운드에서 잡혔다.
       **초안의 "표준 섹션 밖 ≤150줄"은 폐기했다** — 스캔이 `##`만 마크하므로 강등으로 만족된다
       (`HARNESS-052` G8). 세 번째 정정이며 이번엔 임계가 아니라 대상을 바꿨다
 - [x] **T-26** (Round 2) 계약 3건 SPEC 복귀 + whitebox 5건 추출 + 분류표 부록에 8건 등재
@@ -145,8 +146,12 @@ Plan: [`.agents/spec-docs/todo/RULE-013-blackbox-whitebox-doc-boundary.md`](../s
 신규 스캔의 단위 테스트(임계 정확도 + 정규화 + 오탐 픽스처), 그리고 `pnpm harness:scan` exit 0으로
 판정한다. 특히 **T-10의 red-prove가 필수**다 — 회수 전 상태에서 스캔이 `agent-framework`·`agent-cli`
 2건을 실제로 잡지 못하면 이 스캔 자체가 vacuous green이 되며, 그것은 이 백로그가 없애려는 결함과 같은
-부류다. **WU-B**는 스캔이 green으로 전환되는 것과 SPEC 크기 회귀(각 700줄 이하), design doc 실물 존재,
-양방향 링크로 판정한다. `manual` 검증 항목은 없다.
+부류다. **WU-B**는 **무손실**(`verify-doc-split-preservation.mjs` exit 0), **목적지 실물 분량**(design 본문
+≥200줄), **분류 완결성**(원본 `##` 전수 귀속), design doc 실물 존재와 양방향 링크로 판정한다.
+초안이 적었던 두 기준 — "스캔이 green으로 전환"과 "SPEC 각 700줄 이하" — 은 **폐기됐다.** 전자는
+헤딩 강등만으로 만족되고(2라운드), 후자는 도달 불가이며 계약을 design으로 밀어내는 압력이 된다
+(1라운드). 이 게이트 기록이 폐기된 기준을 판정 근거로 계속 적고 있던 것을 6라운드가 잡았다.
+`manual` 검증 항목은 없다.
 
 ## Recommendation Gate — WU-A
 
@@ -264,6 +269,34 @@ exit code로 성공을 판정하지 말 것** — `.agents/memory/bound-every-wa
 `ownerNeedle`의 주석이 코드를 잘못 말하던 것(상대 경로를 받는다고 적혀 있으나 실제로는 거부)도 함께
 고쳤다 — 기록된 주장이 실행과 일치해야 한다는 이 도구의 논지 자체를 어긴 것이라서.
 
-### Round 6
+### Round 6 — `REVIEW VERDICT: REVISE` | 2026-08-16
 
-5라운드 접기 완료 후 재심사 대기.
+설계는 다시 승인("Approve the design as-is"), 도구는 clean 판정("No sixth input shape" — 입력 공간
+5가지를 열거해 닫힘 확인). 남은 것은 전부 기록이고, **다섯 라운드를 살아남은 같은 부류**다 — 한
+아티팩트에서 고친 수치를 다른 아티팩트에서 안 고쳤다.
+
+| 지적                                                                                                                      | 처리                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Plan의 `line 668–2593`이 두 곳에 생존. 두 끝 다 틀렸고(실측 2,649, 이음매 L695) **태스크 파일 T-20은 이미 고쳐져 있었다** | `L695–2,649` + `DOCS-025` 이관으로 교체. Affected Files 행도 "이 항목에서 변경하지 않는다"로 정정 |
+| **T-25(체크된 증거 줄)가 3라운드 이전 개수**(`11건 / 9+2 / 297줄`)                                                        | 도구 stdout 기준 `13건(9·1·3) / 300줄`. T-23의 `7회`도 실측 `11회`로                              |
+| Test Plan이 **폐기된 두 기준**("스캔 green 전환", "SPEC 각 700줄 이하")을 WU-B 판정 근거로 계속 명시                      | 실제로 통치하는 셋(무손실·목적지 분량·분류 완결성)으로 교체하고 왜 폐기됐는지 함께 기록           |
+| Plan 링크 텍스트가 `todo/`, status가 `approved`, 태스크 frontmatter가 `todo`                                              | `active/` · `in-progress`로 정정, GATE-IMPLEMENT 반영                                             |
+| Plan 본문의 `line 667/668` 이음매                                                                                         | `L694/L695`로 정정                                                                                |
+| `DOCS-025` 다이어그램의 `646줄`(실제 692 — 646은 `stay` 행 합계)                                                          | `L3–694 (692줄)`로 정정                                                                           |
+
+**가장 아픈 지적은 따로 있다 — 동결 구역을 건드려놓고 안 건드렸다고 적었다.** 5라운드에서
+`## Architecture Review`에 superseded 표시를 달면서 "GATE-APPROVAL 동결 구역이라 편집하지 않았다"고
+기록했는데, 그 표시 자체가 섹션 **안에** 8줄을 추가한 것이다. 본문 한 줄도 고치지 않은 건 사실이지만
+섹션을 만진 것은 맞고, 기록은 안 만졌다고 말했다. **동결 구역을 만지고 안 만졌다고 적는 것은 이
+백로그가 없애려는 결함 그 자체이며, 그것을 닫으려던 접기 안에서 저질렀다.** 표시는 유지하되(내용
+변경이 없고 다음 독자가 어느 수치를 믿을지 알아야 하므로) 그것이 **공개된 승인 후 편집**임을 표시
+안에 명시하고 줄 범위가 8줄 이동한 사실도 적었다. 가디언이 그마저 과하다고 판정하면 표시를 지우고
+같은 내용을 Evidence Log에만 남기는 것이 올바른 대안임도 함께 남겼다.
+
+**영수증도 정정한다.** `cbb4107e8`의 커밋 메시지가 `c3f122b1b` 기준 verify-like-ci 결과를 인용했는데,
+그 사이에 하네스 스크립트와 테스트가 바뀌었다. 자기를 서술하지 않는 영수증을 근거로 다는 것은
+measurement-provenance 위반이라, 이번 접기 HEAD에서 다시 돌린다.
+
+### Round 7
+
+6라운드 접기 완료 후 재심사 대기.

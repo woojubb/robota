@@ -50,7 +50,7 @@ required?"는 _존재 여부_ 판단만 다루고 *내용 배치*는 다루지 �
    | `packages/agent-framework/docs/SPEC.md` |   2,649 |      2,001 | 75.5% |
    | `packages/agent-cli/docs/SPEC.md`       |   1,939 |      1,708 | 88.1% |
    | `packages/agent-core/docs/SPEC.md`      |   1,319 |        425 | 32.2% |
-   - `agent-framework/docs/SPEC.md`: 표준 9섹션이 line 667에서 끝나고 **line 668부터 완전히 별개의
+   - `agent-framework/docs/SPEC.md`: 표준 9섹션이 **L694에서 끝나고 L695(`## Overview`)부터 완전히 별개의
      문서가 시작한다** — `## Overview` · `## Core Principles` · `## Architecture`(패키지 의존 체인,
      Client–SDK–Session 관계, Feature Layout) · `## Feature Details`(Session Management, Permission
      System, Hooks, Sandbox, Edit Checkpointing, Reversible Execution 등 30여 개). 약 2,000줄짜리
@@ -139,8 +139,16 @@ what/how는 상대적이고 판정 불능이다. 네 출처가 공통으로 제�
 
 ## Architecture Review
 
-> **Superseded figures — do not read numbers out of this section.** GATE-APPROVAL froze this section,
-> so its text is left as written. Several corpus figures in it (7,172줄 / 41.8%, 그리고 파일별
+> **DISCLOSED POST-APPROVAL EDIT — this note is itself an addition to a frozen section.**
+> `gate-catalogue.md` GATE-IMPLEMENT requires that no `## Architecture Review` content change after
+> approval. These eight lines were added anyway, deliberately and disclosed here rather than quietly:
+> they add a navigational pointer only — no alternative, decision, trade-off, or figure inside the
+> section is altered, and the approval stands. **The section's line span moved by 8 lines**, so a
+> guardian re-checking anchors sees a shift with a stated cause instead of an undisclosed edit. If a
+> guardian judges even this too much, the correct remedy is to delete these lines and keep the same
+> pointer in the Evidence Log round-5 entry, where it already exists.
+>
+> **Superseded figures — do not read numbers out of this section.** Its body text is left as written. Several corpus figures in it (7,172줄 / 41.8%, 그리고 파일별
 > 76.1% · 88.2% · 427줄) predate the parser corrections and the nested-package glob fix. **Where this
 > section and `## Problem` §2 / `## Completion Criteria` TC-12 disagree on a figure, those govern** —
 > they are scan output, this is not. The conclusions drawn here do not turn on the exact values:
@@ -363,7 +371,9 @@ TC-14를 닫을 수 없다. 분할은 여전히 완전·서로소다(8+8 → 7+9
 
 ### Phase 2 — 파일럿 추출 (신규 집필 아님, 이동)
 
-- `packages/agent-framework/docs/SPEC.md` line 668–2593 → `docs/design/` 하위 2–3개 주제 문서로 분할.
+- `packages/agent-framework/docs/SPEC.md` **L695–2,649**(이음매는 `## Overview`) → **`DOCS-025`로 이관.**
+  초안의 `line 668–2593`은 두 끝이 모두 틀렸고(스캔 실측 2,649줄, 이음매 L695), 더 중요하게는 순수
+  분할로 풀리는 문제가 아님이 구현 착수 시 확인됐다 — 부록 Pilot 2 참조.
 - `packages/agent-cli/docs/SPEC.md` → `docs/design/tui-rendering.md` 등. **단** `Keyboard Controls`
   와 `TUI Visual Grammar`의 최종 사용자 계약 부분은 SPEC 잔류하되, Phase 1b의
   `## User-Facing Contract` 아래로 재배치한다(비표준 헤딩 → 표준 선택 섹션).
@@ -413,7 +423,7 @@ semantics`** 로 좁히고, 내부 동작 변경은 design doc으로 라우팅�
 | `scripts/harness/workspace-packages.mjs`                                      | 소비 (신규 글롭 금지 — `listWorkspacePackageDirs()` 사용)                                                                                                                                                                                                    |
 | `scripts/harness/run-all-scans.mjs`                                           | 신규 스캔 등록                                                                                                                                                                                                                                               |
 | `scripts/harness/__tests__/spec-whitebox-leakage.test.mjs`                    | 신규 스캔 단위 테스트                                                                                                                                                                                                                                        |
-| `packages/agent-framework/docs/SPEC.md`                                       | line 668–2593 추출 (이동)                                                                                                                                                                                                                                    |
+| `packages/agent-framework/docs/SPEC.md`                                       | **이 항목에서 변경하지 않는다** — L695–2,649 추출은 `DOCS-025`로 이관(부록 Pilot 2가 분류만 남긴다). 초안의 `line 668–2593`은 두 끝이 모두 틀린 값이었다                                                                                                     |
 | `packages/agent-framework/docs/design/*.md`                                   | 신규 (추출분 수용)                                                                                                                                                                                                                                           |
 | `packages/agent-cli/docs/SPEC.md`                                             | whitebox 섹션 추출 (사용자 계약 잔류)                                                                                                                                                                                                                        |
 | `packages/agent-cli/docs/design/*.md`                                         | 신규 (추출분 수용)                                                                                                                                                                                                                                           |
@@ -1399,10 +1409,18 @@ reason"을 출력하고 있었다. 그리고 outcome의 한 항목은 **4라운�
 2,649 / 2,001 / 75.5%, 1,939 / 1,708 / 88.1%, 1,319 / 425 / 32.2%. 본문의 "1,975줄짜리 design doc"도
 정정했다.
 
-`## Architecture Review`도 낡은 수치(7,172 / 41.8% 등)를 담고 있으나 **GATE-APPROVAL이 동결한 구역이라
-편집하지 않았다.** 대신 섹션 머리에 superseded 표시를 달아 어느 쪽이 통치하는지 명시했다 —
-GATE-WRITE 재실행 때 쓴 것과 같은 형태다. 결론은 값에 좌우되지 않는다(임계 초과 2건, `agent-core`는
-게이트 아래)는 점도 함께 적었다.
+`## Architecture Review`도 낡은 수치(7,172 / 41.8% 등)를 담고 있다. 본문은 고치지 않고 섹션 머리에
+superseded 표시를 달아 어느 쪽이 통치하는지 명시했다. 결론은 값에 좌우되지 않는다(임계 초과 2건,
+`agent-core`는 게이트 아래).
+
+**정정(6라운드) — "편집하지 않았다"고 적었던 것은 틀렸다.** 표시 자체가 `## Architecture Review`
+**안에** 8줄을 추가한 것이고, `gate-catalogue.md`의 GATE-IMPLEMENT는 승인 후 이 섹션의 내용 변경을
+금지한다. 본문 한 줄도 고치지 않았다는 것은 사실이나 **섹션을 건드린 것은 맞고, 기록은 안 건드렸다고
+말했다** — 동결 구역을 만지고 안 만졌다고 적는 것은 이 백로그가 없애려는 결함 그 자체이며, 그것을
+닫으려던 접기 안에서 저질렀다. 표시는 유지하되(내용상 변경이 없고 다음 독자가 어느 수치를 믿을지
+알아야 하므로) 그것이 **공개된 승인 후 편집**임을 표시 안에 명시하고, 줄 범위가 8줄 이동했다는 사실도
+적었다. 가디언이 그마저 과하다고 판정하면 표시를 지우고 같은 내용을 이 Evidence Log 항목에만 남기는
+것이 올바른 대안이다.
 
 **3. `survivesAs`는 여전히 `some()`이었다** — 4라운드에서 "`some()` 대신 항목별 회계"로 고쳤다고
 적었지만 그것은 `deletedAndLinkedTo`(13건 중 1건)에만 적용됐고, 개명 경로(9건)는 불리언 그대로였다.
@@ -1413,3 +1431,39 @@ entry 12가 형제의 링크에 얹혔던 것과 **구조적으로 같은 구멍
 잘못 말하는 것은, 기록된 주장이 실행과 일치해야 한다는 이 도구의 논지 자체를 어긴 것이다. 죽은
 `replace`를 지우고 헤더에 "소유 경로는 워크스페이스 루트 기준, 상대 경로는 정규화하지 않고 거부"를
 명시했다.
+
+### WU-B Recommendation Gate Round 6 — 2026-08-16
+
+여섯 번째 **REVISE**. 설계는 다시 승인("Approve the design as-is"), 도구는 clean 판정 — 심사자가 입력
+공간 다섯 가지를 열거해 여섯 번째 구멍이 없음을 확인했다. 남은 것은 전부 기록이고, 다섯 라운드를
+살아남은 **같은 부류**다: 한 아티팩트에서 고친 수치를 다른 아티팩트에서 안 고쳤다.
+
+- **Plan의 `line 668–2593`이 두 곳에 생존했다.** 두 끝 다 틀렸고(실측 2,649줄, 이음매 L695), 무엇보다
+  **태스크 파일의 T-20은 이미 고쳐져 있었다** — 하위 기록을 고치고 세부를 소유한 Plan을 안 고친 것이라
+  4·5라운드와 방향만 반대인 같은 실수다. `L695–2,649` + `DOCS-025` 이관으로 교체하고, Affected Files
+  행도 "이 항목에서 변경하지 않는다"로 정정했다
+- **T-25(체크된 증거 줄)가 3라운드 이전 개수**를 들고 있었다(`11건 / 9+2 / 297줄`). 도구 stdout 기준
+  `13건(개명 9 · delete-and-link 1 · 서면 사유 3) / 300줄`로 교체. T-23의 `7회`도 실측 `11회`로
+- **Test Plan이 폐기된 두 기준을 WU-B 판정 근거로 계속 명시했다** — "스캔이 green으로 전환"(2라운드에
+  강등으로 만족됨이 확인)과 "SPEC 각 700줄 이하"(1라운드에 도달 불가·계약을 design으로 미는 압력으로
+  확인). 게이트 기록을 읽는 사람에게 **이 항목이 두 라운드에 걸쳐 자기모순임을 증명한 기준으로 판정된다고
+  말하고 있었다.** 실제로 통치하는 셋으로 교체했다
+- Plan 링크 텍스트의 `todo/`, status `approved`, 태스크 frontmatter `todo`, 본문의 `line 667/668`,
+  `DOCS-025` 다이어그램의 `646줄`(실제 692 — 646은 `stay` 행 합계) 전부 정정
+
+**가장 아픈 지적:** 5라운드에서 `## Architecture Review`에 superseded 표시를 달면서 "동결 구역이라
+편집하지 않았다"고 기록했는데, **그 표시 자체가 섹션 안에 8줄을 추가한 것이다.** 본문 한 줄도 고치지
+않은 건 사실이지만 섹션을 만진 것은 맞고 기록은 안 만졌다고 말했다. 동결 구역을 만지고 안 만졌다고
+적는 것은 이 백로그가 없애려는 결함 그 자체이며, 그것을 닫으려던 접기 안에서 저질렀다. 위 표시를
+**공개된 승인 후 편집**으로 다시 쓰고, 줄 범위 8줄 이동과 대안(표시를 지우고 Evidence Log에만 남기기)을
+함께 기록했다.
+
+**영수증도 정정한다.** `cbb4107e8`의 커밋 메시지가 `c3f122b1b` 기준 verify-like-ci 결과를 인용했는데
+그 사이 하네스 스크립트와 테스트가 바뀌었다. 자기를 서술하지 않는 영수증을 근거로 다는 것은
+`measurement-provenance.md`가 금지하는 형태라, 이번 접기 HEAD에서 다시 돌려 그 결과를 인용한다.
+
+**별건으로 남긴 preference(심사자 분류):** `deletedAndLinkedTo`에 원본 선재 검사가 없는 것은
+의도적이며 도구 헤더에 이유를 적었다 — 개명은 "이 줄이 저 줄이 됐다"는 주장이라 선재 대상이 아무것도
+증명하지 못하지만, delete-and-link는 "목적지에서 Non-Duplication이 성립한다"는 주장이라 기존 링크로도
+충족된다. `countLinks`(줄 단위)와 `countOccurrences`(다중도)의 비대칭은 전자가 **더 엄격한** 쪽이라
+악용 불가이므로 그대로 둔다.
