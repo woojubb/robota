@@ -41,16 +41,21 @@ required?"는 _존재 여부_ 판단만 다루고 *내용 배치*는 다루지 �
    16,017줄/43.5%로 집계된다 — 초안이 실제로 그 오류를 범했고 GATE-WRITE 관측에서 잡혔다.
    Phase 3의 유출 스캔은 반드시 중첩을 포함한 글롭을 써야 한다(아래 실패 모드 8).
 
+   아래 표도 **스캔 출력이다**(기준 ref `96728940c`에서 `--all` 실행). 손 집계였던 앞선 값
+   (2,594 / 1,975 / 76.1%, 1,710 / 88.2%, 1,307 / 427 / 32.7%)은 폐기한다 — 손 집계가 틀렸다고 적어둔
+   문단 바로 아래에 손 집계 표를 두고 있었고, 5라운드 심사가 그 모순을 잡았다.
+
    | 파일                                    | 전체 줄 | 표준 밖 줄 |  비율 |
    | --------------------------------------- | ------: | ---------: | ----: |
-   | `packages/agent-framework/docs/SPEC.md` |   2,594 |      1,975 | 76.1% |
-   | `packages/agent-cli/docs/SPEC.md`       |   1,939 |      1,710 | 88.2% |
-   | `packages/agent-core/docs/SPEC.md`      |   1,307 |        427 | 32.7% |
+   | `packages/agent-framework/docs/SPEC.md` |   2,649 |      2,001 | 75.5% |
+   | `packages/agent-cli/docs/SPEC.md`       |   1,939 |      1,708 | 88.1% |
+   | `packages/agent-core/docs/SPEC.md`      |   1,319 |        425 | 32.2% |
    - `agent-framework/docs/SPEC.md`: 표준 9섹션이 line 667에서 끝나고 **line 668부터 완전히 별개의
      문서가 시작한다** — `## Overview` · `## Core Principles` · `## Architecture`(패키지 의존 체인,
      Client–SDK–Session 관계, Feature Layout) · `## Feature Details`(Session Management, Permission
-     System, Hooks, Sandbox, Edit Checkpointing, Reversible Execution 등 30여 개). 1,975줄짜리
-     design doc이 SPEC 뒤에 붙어 있는 형태.
+     System, Hooks, Sandbox, Edit Checkpointing, Reversible Execution 등 30여 개). 약 2,000줄짜리
+     design doc이 SPEC 뒤에 붙어 있는 형태. (이음매는 구현 착수 시 L695로 확인됐다 — 아래 부록
+     Pilot 2 참조.)
    - `agent-cli/docs/SPEC.md`: `## Public API Surface`가 **9줄**(line 989–998). 1,939줄 문서에서
      공개 계약이 **0.5%**다. 나머지는 StatusBar Display, TUI Visual Grammar, Tool Call Display,
      Keyboard Controls(149줄), Plugin Management TUI, Subagent Execution, Message Architecture,
@@ -133,6 +138,14 @@ what/how는 상대적이고 판정 불능이다. 네 출처가 공통으로 제�
 "소비자"에 사람을 포함하지 않으면 이 항목들을 design으로 잘못 옮기게 된다.
 
 ## Architecture Review
+
+> **Superseded figures — do not read numbers out of this section.** GATE-APPROVAL froze this section,
+> so its text is left as written. Several corpus figures in it (7,172줄 / 41.8%, 그리고 파일별
+> 76.1% · 88.2% · 427줄) predate the parser corrections and the nested-package glob fix. **Where this
+> section and `## Problem` §2 / `## Completion Criteria` TC-12 disagree on a figure, those govern** —
+> they are scan output, this is not. The conclusions drawn here do not turn on the exact values:
+> `agent-framework` and `agent-cli` are still the only two files over threshold, and `agent-core`
+> still sits under the 40% gate (32.2%).
 
 ### Affected Scope
 
@@ -424,9 +437,10 @@ semantics`** 로 좁히고, 내부 동작 변경은 design doc으로 라우팅�
       **자리표시자를 쓰지 않는다** — 3라운드 심사에서 잡혔다. 앞선 문구는 `<분할 직전 ref>` 같은
       자리표시자에 `--allowances`도 빠져 있어 문자 그대로 실행하면 exit 1이었다. 기록된 기준과 실제로
       돌린 명령이 다른 것은 이 백로그가 다루는 바로 그 병(일하지 않고 통과하는 기준)의 다른 형태다.
-      허용 목록도 명령줄이 아니라 저장소에 커밋된 `.split-allowances.json`에 있고, 13건 중 11건은
-      도구가 검증한다 — 개명 9건은 대체 문자열이 실제로 목적지에 있는지, delete-and-link 2건은 소유
-      문서로의 링크가 실재하는지. 나머지 2건(줄바꿈 재배치)만 서면 사유로 받는다.
+      허용 목록도 명령줄이 아니라 저장소에 커밋된 `.split-allowances.json`에 있다. **개수는 도구
+      stdout에서 옮긴다** — 13건 중 개명 9건과 delete-and-link 1건을 도구가 검증하고, 3건이 서면
+      사유다. (4라운드에서 entry 12를 in-package 중복으로 재분류하면서 11/2가 10/1로 바뀌었는데
+      이 문장을 따라 고치지 않아 5라운드에서 잡혔다. 수치를 두 곳에 적으면 한 곳이 낡는다.)
       **(a)는 배치를 재지 않는다** — 목적지 집합이 `신 SPEC ∪ design 전부`이므로 계약이 design으로
       가도 통과한다. 무손실은 **필요조건이지 충분조건이 아니며**, 배치의 증거는 TC-07의 분류표다.
       이 기준은 세 번째 정정이고, 앞의 두 번(개명·강등으로 통과)과 달리 임계값이 아니라 대상을 바꿨다
@@ -683,20 +697,25 @@ WU-B's scope and named here rather than left silent.**
 
 - Everything retained normalizes to one of the fifteen standard sections.
 - **300 body lines** live in `packages/agent-cli/docs/design/` across six files.
-- **Two paragraphs** are deleted-and-linked — both paraphrases of what `agent-framework` owns, replaced
-  by a link to the owner in `design/subagent-wiring.md`. **The earlier "`≈ 20 lines`" was an estimate
-  that was never executed and the author's own tool refutes it**: `verify-doc-split-preservation.mjs`
-  reported zero deletions for two passes, which is only consistent with `delete-and-link` having been
-  applied to nothing. The round-3 review caught it. The paragraphs had instead been _moved into_ the
-  design doc — preserving another package's contract as a paraphrase under a new filename, which is
-  precisely what this document argues against for Pilot 2's `## Feature Details`.
+- **Two paragraphs were deleted, and they are not the same disposition.** One is a `delete-and-link`:
+  a paraphrase of what `agent-framework` owns, replaced by a link to the owner in
+  `design/subagent-wiring.md`. The other is an **in-package duplicate** — the round-4 review found it
+  restated a boundary this SPEC already carried at the base ref (line 52), so it was deleted with no
+  link needed. **The earlier "`≈ 20 lines` deleted-and-linked" was an estimate that was never executed,
+  and the author's own tool refuted it**: `verify-doc-split-preservation.mjs` reported zero deletions
+  for two passes, which is only consistent with `delete-and-link` having been applied to nothing. The
+  round-3 review caught it. Both paragraphs had instead been _moved into_ the design doc — preserving
+  another package's contract as a paraphrase under a new filename, which is precisely what this
+  document argues against for Pilot 2's `## Feature Details`.
 - **Zero body lines lost**, proved mechanically rather than by reading a reordered diff:
   `verify-doc-split-preservation.mjs` compares the multiset of body lines at the pre-split ref against
   the new SPEC plus all six design docs. Thirteen allowances live in a committed file,
-  `packages/agent-cli/docs/design/.split-allowances.json`, each with a written reason, and **eleven of
-  them are checked by the tool rather than trusted**: nine renames must name a replacement line that is
-  really present in a destination, and two delete-and-links must name an owner a destination really
-  links to. Only two — sentences whose line breaks moved — rest on the reason alone. An allowance list
+  `packages/agent-cli/docs/design/.split-allowances.json`, each with a written reason, and **ten of them
+  are checked by the tool rather than trusted**: nine renames must name a replacement line really
+  present in a destination, and one delete-and-link must name an owner a destination really links to.
+  Three rest on the reason alone — two sentences whose line breaks moved, and the in-package duplicate,
+  which has no replacement and needs no link. **These counts are copied from the tool's stdout**, after
+  round 5 caught this bullet still asserting the pre-round-4 figures. An allowance list
   passed on the command line, as the first attempt did, leaves no artifact a reviewer can audit; that is
   the same disease this item is about, in a new shape.
 - The claim that **"nothing user-facing is moved out of the SPEC" was false on the first pass** and is
@@ -1362,3 +1381,35 @@ cross-package `delete-and-link`가 아니라 **in-package 중복**이었다. 재
 효과가 아니라 exit code로 판정하지 말 것** — `.agents/memory/bound-every-wait-and-solve-it-yourself.md`에
 적어둔 항목을 그대로 반복했다. `harness-self-test` 쪽은 재구성으로 `spec-missing-sections`가 47 → 46이
 된 것이라 지시대로 같은 변경에서 `--write-baseline`으로 재freeze했다.
+
+### WU-B Recommendation Gate Round 5 — 2026-08-16
+
+다섯 번째 **REVISE**, 그리고 지적은 하나의 부류다 — **여러 곳에 적은 수치를 4라운드에서 일부만 고쳤다.**
+설계에는 새 이견이 없다("The design remains correct and I have nothing new against it").
+
+**1. 4라운드가 entry 12를 재분류하면서 검증 개수가 11/2 → 10/1로 바뀌었는데, 세 곳을 안 고쳤다.**
+TC-05(체크된 수용 기준)와 Pilot 1 outcome 두 항목이 "13건 중 11건 검증 / delete-and-link 2건 /
+서면 사유 2건"을 계속 주장했고, 도구는 60줄 아래에서 "9 renames, 1 delete-and-link, 3 on a written
+reason"을 출력하고 있었다. 그리고 outcome의 한 항목은 **4라운드가 반증한 문장 그대로** — "두 문단 모두
+`agent-framework` 재서술" — 을 유지했다. §23 표 행과 JSON 사유는 고쳤는데 그 결론을 적은 항목은 안 고친
+것이다. 세 곳 전부 도구 stdout에서 옮겨 적었고, 왜 낡았는지도 함께 남겼다.
+
+**2. Problem §2의 파일별 표가 손 집계였다** — "손으로 센 앞선 값 셋은 모두 틀렸다"고 굵게 적어둔 문단
+바로 아래에서. 기준 ref `96728940c`에 detached worktree를 만들어 스캔을 실행하고 실측으로 교체했다:
+2,649 / 2,001 / 75.5%, 1,939 / 1,708 / 88.1%, 1,319 / 425 / 32.2%. 본문의 "1,975줄짜리 design doc"도
+정정했다.
+
+`## Architecture Review`도 낡은 수치(7,172 / 41.8% 등)를 담고 있으나 **GATE-APPROVAL이 동결한 구역이라
+편집하지 않았다.** 대신 섹션 머리에 superseded 표시를 달아 어느 쪽이 통치하는지 명시했다 —
+GATE-WRITE 재실행 때 쓴 것과 같은 형태다. 결론은 값에 좌우되지 않는다(임계 초과 2건, `agent-core`는
+게이트 아래)는 점도 함께 적었다.
+
+**3. `survivesAs`는 여전히 `some()`이었다** — 4라운드에서 "`some()` 대신 항목별 회계"로 고쳤다고
+적었지만 그것은 `deletedAndLinkedTo`(13건 중 1건)에만 적용됐고, 개명 경로(9건)는 불리언 그대로였다.
+entry 12가 형제의 링크에 얹혔던 것과 **구조적으로 같은 구멍**이다. 두 경로를 하나의 `claimOne()`
+회계로 통일하고 red 픽스처를 붙였다(25 테스트).
+
+부수: `ownerNeedle`의 주석이 "상대 경로도 통한다"고 적혀 있는데 실제 코드는 거부한다 — 주석이 코드를
+잘못 말하는 것은, 기록된 주장이 실행과 일치해야 한다는 이 도구의 논지 자체를 어긴 것이다. 죽은
+`replace`를 지우고 헤더에 "소유 경로는 워크스페이스 루트 기준, 상대 경로는 정규화하지 않고 거부"를
+명시했다.

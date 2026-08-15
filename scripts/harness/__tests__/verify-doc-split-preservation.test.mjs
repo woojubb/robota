@@ -218,8 +218,35 @@ describe('collectAllowanceFindings — the guard on the escape hatch', () => {
 
     const two = collectAllowanceFindings([entry('first'), entry('second')], [dest]);
     expect(two.findings).toHaveLength(1);
-    expect(two.findings[0]).toContain('carry only 1 link(s) there and 2 entr');
+    expect(two.findings[0]).toContain('carry only 1 link(s) there and more entr');
     expect([...two.excused]).toEqual(['first']);
+  });
+
+  it("refuses a second rename riding the first entry's single survivor occurrence", () => {
+    const entry = (lost) => ({ lost, survivesAs: 'Architecture Overview', reason: 'renamed' });
+    const one = collectAllowanceFindings([entry('Architecture')], [dest]);
+    expect(one.findings).toEqual([]);
+
+    const two = collectAllowanceFindings([entry('Architecture'), entry('Composition')], [dest]);
+    expect(two.findings).toHaveLength(1);
+    expect(two.findings[0]).toContain('carry only 1 occurrence(s)');
+    expect([...two.excused]).toEqual(['Architecture']);
+  });
+
+  it('refuses a relative owner path rather than normalising it', () => {
+    const { excused, findings } = collectAllowanceFindings(
+      [
+        {
+          lost: 'x',
+          deletedAndLinkedTo: '../../agent-framework/docs/SPEC.md',
+          reason: 'owned elsewhere',
+        },
+      ],
+      [dest],
+    );
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toContain('must name an owning package path');
+    expect(excused.size).toBe(0);
   });
 
   it('refuses an owner path with no package segment, which would match every SPEC', () => {
