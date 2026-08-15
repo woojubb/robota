@@ -109,6 +109,7 @@ async function main(): Promise<void> {
   const cwd = mkdtempSync(join(tmpdir(), 'arch-024-semantic-roles-'));
   let cleanupRemoved = false;
   let interactive: InteractiveSession | undefined;
+  let unannotatedInteractive: InteractiveSession | undefined;
   const directSessions: Array<ReturnType<typeof createSession>['session']> = [];
   const subagentSessions: Array<ReturnType<typeof createSubagentSession>> = [];
   let scenarioResult: Record<string, unknown> | undefined;
@@ -164,7 +165,7 @@ async function main(): Promise<void> {
       );
       let agentJobCommandProvenance: string | undefined;
       storeAgentToolDeps(injectedSession, {
-        backgroundTaskManager: { shutdown: async () => {} },
+        backgroundTaskManager: { subscribe: () => () => {}, shutdown: async () => {} },
         subagentManager: {
           spawn: async (request: { metadata?: Record<string, unknown> }) => {
             agentJobCommandProvenance = request.metadata?.['executionOriginCommandName'] as
@@ -233,14 +234,25 @@ async function main(): Promise<void> {
       } catch (error) {
         duplicateRoleRejections.register = error instanceof DuplicateSystemCommandSemanticRoleError;
       }
+      const registerPreserved =
+        JSON.stringify(atomicExecutor.listCommands().map(({ name }) => name)) ===
+          JSON.stringify(['original']) &&
+        JSON.stringify(atomicExecutor.getSemanticRoles()) ===
+          JSON.stringify({ subagentSpawn: 'original' });
       try {
         atomicExecutor.replaceCommands([original, duplicate]);
       } catch (error) {
         duplicateRoleRejections.replace = error instanceof DuplicateSystemCommandSemanticRoleError;
       }
+      const replacePreserved =
+        JSON.stringify(atomicExecutor.listCommands().map(({ name }) => name)) ===
+          JSON.stringify(['original']) &&
+        JSON.stringify(atomicExecutor.getSemanticRoles()) ===
+          JSON.stringify({ subagentSpawn: 'original' });
       assertCondition(
         Object.values(duplicateRoleRejections).every(Boolean) &&
-          atomicExecutor.listCommands()[0]?.name === 'original',
+          registerPreserved &&
+          replacePreserved,
         'duplicate rejection was untyped or mutated the selected set',
       );
 
@@ -341,18 +353,35 @@ async function main(): Promise<void> {
         'single-role omission did not preserve the other two behaviors',
       );
 
-      const unannotatedAgentRoles = new SystemCommandExecutor([
-        command('agent'),
-      ]).getSemanticRoles();
+      const unannotatedCommands = [command('skills'), command('compact'), command('agent')];
+      const unannotatedModule: ICommandModule = {
+        name: 'unannotated-coincidental-names',
+        systemCommands: unannotatedCommands,
+      };
+      const unannotatedRoles = new SystemCommandExecutor(unannotatedCommands).getSemanticRoles();
+      assertCondition(
+        Object.keys(unannotatedRoles).length === 0,
+        'unannotated coincidental commands gained a role projection',
+      );
+      unannotatedInteractive = new InteractiveSession({
+        session: injectedSession as never,
+        cwd,
+        commandModules: [unannotatedModule],
+      });
+      const unannotatedSkillFallback = await unannotatedInteractive.executeCommand(
+        'audit',
+        'src/index.ts',
+      );
+      const unannotatedPrompt = readSystemMessage(cwd, 'skills', directSessions, unannotatedRoles);
       const unannotatedAgentSubagent = createTrackedSubagent(
         cwd,
         projectedSpawnTool,
         subagentSessions,
-        unannotatedAgentRoles,
+        unannotatedRoles,
       );
       const unannotatedCoincidentalNames = {
-        skills: !coincidentalPrompt.includes('## Skills'),
-        compact: deriveContextCapacityHint(undefined) === undefined,
+        skills: unannotatedSkillFallback === null && !unannotatedPrompt.includes('## Skills'),
+        compact: deriveContextCapacityHint(unannotatedRoles.contextReduction) === undefined,
         agent: hasProjectedSpawnTool(unannotatedAgentSubagent),
       };
       assertCondition(
@@ -399,10 +428,14 @@ async function main(): Promise<void> {
         unannotatedCoincidentalNames,
         singleRoleOmission,
         directCreateSessionOmission,
-        duplicateRoleRejections: { ...duplicateRoleRejections, preservedCommands: true },
+        duplicateRoleRejections: {
+          ...duplicateRoleRejections,
+          preservedCommands: registerPreserved && replacePreserved,
+        },
         ownerDeclarations,
       };
     } finally {
+      await unannotatedInteractive?.shutdown();
       await interactive?.shutdown();
       for (const session of [...subagentSessions, ...directSessions].reverse()) {
         await session.shutdown();
