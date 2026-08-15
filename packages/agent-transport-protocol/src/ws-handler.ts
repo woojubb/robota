@@ -66,6 +66,7 @@ export function createWsHandler(options: IWsHandlerOptions): {
     getSurfaceDriverId: () => options.driverId,
     onDeliveryError: options.onDeliveryError,
   });
+  // Contained — ARCH-030. Inbound replies still use the raw send until one outbound boundary owns both paths.
   const onMessage = createWsMessageHandler(options.session, options.send, options.driverId);
 
   return { onMessage, cleanup };
