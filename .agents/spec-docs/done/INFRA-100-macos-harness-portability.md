@@ -112,8 +112,9 @@ None
 
 ## Solution
 
-1. Add a pure `canonicalTemporaryDirectory()` helper in `verify-change.mjs` and project its result into
-   the `harness-tests` child environment; test the realpath identity and dry-run command contract.
+1. Canonicalize the operating-system temporary directory with `realpathSync(tmpdir())` in
+   `repositoryCheckEnvironment()` and project it into the `harness-tests` child environment; test the
+   realpath identity and dry-run command contract.
 2. Replace the Bash-4-only xtrace prelude with a Bash-3-compatible, out-of-band `DEBUG`-trap recorder on
    a dedicated descriptor, explicitly enabling inheritance. Keep the existing trace syntax consumed by
    `parseXtrace`.
