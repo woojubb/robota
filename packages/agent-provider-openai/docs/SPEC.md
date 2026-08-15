@@ -70,3 +70,23 @@ the framework→provider seam). Each provider's request builder handles it as fo
 
 No-op providers must never throw on a populated `effort`; they simply omit it from the
 outgoing request so an effort-setting preset degrades gracefully.
+
+## Tool Schema Forwarding and `strictTools` (PROV-007)
+
+Tool schemas reach OpenAI unchanged: `convertToOpenAIResponsesTools` forwards `tool.parameters` —
+the universal JSON-schema subset owned by agent-core (see its SPEC § Universal JSON-Schema Subset) —
+verbatim, and sets `strict: strictTools ?? false`.
+
+**Known limitation.** OpenAI strict mode does not accept an arbitrary JSON Schema. It requires
+**every** object node, nested ones included, to carry `additionalProperties: false` and to list
+**all** of its properties in `required`. The universal subset does neither: it leaves
+`additionalProperties` unset (closed by convention) and lists only the genuinely required fields.
+This adapter has no seam that rewrites the schema for strict mode — the Anthropic adapter has the
+analogous `closeObjectSchemas`, and there is no OpenAI equivalent on either the tool seam or the
+structured-output seam.
+
+Consequence: with `strictTools: true`, a tool whose input contains a nested object is rejected by
+OpenAI, even though the same tool is invoked correctly on every other provider. This is not a
+regression introduced by CORE-039 — a bare nested object failed strict mode before it too — but
+CORE-039 is what made nested schemas reach providers intact, so the exception is worth stating
+rather than leaving to be discovered. Leave `strictTools` off until PROV-007 lands.

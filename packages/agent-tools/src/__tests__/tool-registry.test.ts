@@ -125,7 +125,10 @@ describe('ToolRegistry', () => {
         parameters: {
           type: 'object',
           properties: {
-            badField: { type: 'integer' as 'string' },
+            // CORE-039: this case used to be spelled `integer`, which pinned a defect rather than a
+            // rule — `integer` is a member of `TJSONSchemaKind`, and registration was refusing a
+            // type the subset itself defines. The case now uses a type that genuinely is not one.
+            badField: { type: 'decimal' as 'string' },
           },
         },
       });
@@ -133,6 +136,20 @@ describe('ToolRegistry', () => {
 
       expect(() => registry.register(tool)).toThrow(ValidationError);
       expect(() => registry.register(tool)).toThrow('invalid type');
+    });
+
+    it('should accept integer and null parameter properties (CORE-039)', () => {
+      const schema = buildSchema({
+        parameters: {
+          type: 'object',
+          properties: {
+            count: { type: 'integer' as 'number' },
+            nothing: { type: 'null' as 'string' },
+          },
+        },
+      });
+
+      expect(() => registry.register(createMockTool(schema))).not.toThrow();
     });
 
     it('should throw when a parameter property is missing its type', () => {

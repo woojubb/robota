@@ -228,7 +228,6 @@ it, which is why step 5 can specify it into all of them in one change.
   `packages/agent-provider-gemini`; `pnpm harness:verify-like-ci` before the branch is reported green.
 - `packages/agent-core/docs/SPEC.md` § Schema / § Structured Output Contract state the supported Zod
   construct set and the subset's members, so the coverage limit is declared.
-
 ## User Execution Test Scenarios
 
 Applies — this changes the schema a shipped, publicly exported tool advertises, and the validation a
@@ -253,16 +252,19 @@ observability is out of this item's endorsed scope; it is recorded here rather t
 
 **Common prerequisites for all three scenarios**
 
-- Workspace installed (`pnpm install --frozen-lockfile`); already satisfied in this checkout.
+- Workspace installed. In this environment `pnpm install --frozen-lockfile` fails at
+  `better-sqlite3`'s native build (`make`/`g++` are absent), which aborts before pnpm links
+  `node_modules/.bin`; `pnpm install --frozen-lockfile --ignore-scripts` completes and is what these
+  runs used.
 - Working directory `scratch/` — the repo's sanctioned home for disposable live-verification scripts
-  (`.agents/rules/backlog-execution.md` § Script home). `scratch/src` is gitignored.
+  (`.agents/rules/backlog-execution.md` § Script home). `scratch/src` is gitignored, which is why each
+  script is reproduced in full below rather than referenced by path.
 - No build step: `--conditions=source` resolves `@robota-sdk/*` to package source.
-- Invocation note: `pnpm run run` fails in this environment (`scratch/node_modules/.bin` is not
-  linked). The proven invocation is
-  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/<file>.ts` executed from `scratch/`.
+- Invocation note: `pnpm run run` fails here for the same missing-`.bin` reason. The proven invocation
+  is `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/<file>.ts` executed from `scratch/`.
 - No fixture, service, seed data, or credential is required, and no new one is introduced.
-- All three scripts were executed verbatim against unfixed code while authoring, and all three failed
-  with the stated pre-fix output — each is discriminating, not vacuous.
+- All three scripts were executed verbatim against unfixed code while being authored, and all three
+  failed with the stated pre-fix output — each is discriminating, not vacuous.
 
 ---
 
@@ -270,20 +272,63 @@ observability is out of this item's endorsed scope; it is recorded here rather t
 
 - Agent-executability decision: `agent-executable`.
 - Prerequisites: the common prerequisites above. Nothing else.
-- Steps (from `scratch/`): write `src/core-039-s1.ts` importing `askUserQuestionTool` and
-  `createComputerTool` from `@robota-sdk/agent-tools`, print
-  `createComputerTool()[1].schema.parameters` and `askUserQuestionTool.schema.parameters`, then assert
-  eight checks and `process.exit(fails ? 1 : 0)`:
-  1. `properties.action.properties.type.enum` has 8 values;
-  2. that enum includes `takeover`;
-  3. `properties.action.required` includes `type`;
-  4. `properties.action.required` omits the optional `x`;
-  5. `properties.action.properties.path.items.properties.x.type === 'number'` (three levels deep);
-  6. `properties.questions.items.properties.question.type === 'string'`;
-  7. `properties.questions.items.required` includes `question`;
-  8. `properties.questions.items.properties.options.items.anyOf` has 2 branches.
-  Then run `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-039-s1.ts; echo "EXIT:$?"`.
-  The exact script is reproduced in the PR description so the run is replayable verbatim.
+- Steps (from `scratch/`): write the script below, then run
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-039-s1.ts; echo "EXIT:$?"`.
+
+```ts
+// scratch/src/core-039-s1.ts
+import { askUserQuestionTool, createComputerTool } from '@robota-sdk/agent-tools';
+
+const fails: string[] = [];
+const check = (label: string, ok: boolean): void => {
+  console.log(`${ok ? 'PASS' : 'FAIL'} ${label}`);
+  if (!ok) fails.push(label);
+};
+const at = (root: unknown, path: string): any =>
+  path.split('.').reduce<any>((node, key) => (node == null ? node : node[key]), root as any);
+
+const act = createComputerTool()[1]!.schema.parameters;
+const ask = askUserQuestionTool.schema.parameters;
+console.log('Computer.act parameters:\n' + JSON.stringify(act, null, 2));
+console.log('AskUserQuestion parameters:\n' + JSON.stringify(ask, null, 2));
+
+check(
+  'act: action.properties.type.enum has 8 values',
+  at(act, 'properties.action.properties.type.enum')?.length === 8,
+);
+check(
+  'act: action.properties.type.enum includes takeover',
+  at(act, 'properties.action.properties.type.enum')?.includes('takeover') === true,
+);
+check(
+  'act: action.required includes type',
+  at(act, 'properties.action.required')?.includes('type') === true,
+);
+check(
+  'act: action.required omits optional x',
+  at(act, 'properties.action.required')?.includes('x') === false,
+);
+check(
+  'act: action.properties.path.items.properties.x is a number (3 levels deep)',
+  at(act, 'properties.action.properties.path.items.properties.x.type') === 'number',
+);
+check(
+  'ask: questions.items.properties.question is a string',
+  at(ask, 'properties.questions.items.properties.question.type') === 'string',
+);
+check(
+  'ask: questions.items.required includes question',
+  at(ask, 'properties.questions.items.required')?.includes('question') === true,
+);
+check(
+  'ask: questions.items.properties.options.items.anyOf has 2 branches',
+  at(ask, 'properties.questions.items.properties.options.items.anyOf')?.length === 2,
+);
+
+console.log(fails.length === 0 ? 'SCENARIO 1 PASS' : `SCENARIO 1 FAIL (${fails.length})`);
+process.exit(fails.length === 0 ? 0 : 1);
+```
+
 - Expected observable result: `SCENARIO 1 PASS`, eight `PASS` lines, `EXIT:0`. The printed schemas show
   `properties.action.properties` populated (its `type` enum plus
   `x`/`y`/`button`/`text`/`keys`/`deltaX`/`deltaY`/`path`/`ms`/`reason`) with
@@ -296,8 +341,15 @@ observability is out of this item's endorsed scope; it is recorded here rather t
   `"action": { "type": "object", "description": … }` and `"items": { "type": "object" }` — every nested
   field absent.
 - Cleanup: `rm -f src/core-039-s1.ts` from `scratch/`.
-- Evidence: _to be filled after implementation_ (paste the two printed schemas, the eight check lines,
-  and the `EXIT:` line).
+- Evidence (2026-08-16, run against the completed implementation at `54886a665`): **`SCENARIO 1 PASS`,
+  `EXIT:0`**, eight `PASS` lines. `Computer.act` printed
+  `action.properties.type.enum = ["click","double_click","type","keypress","scroll","drag","wait","takeover"]`,
+  `action.required = ["type"]`, and `action.properties.path.items = { type: 'object', properties: { x:
+  { type: 'number' }, y: { type: 'number' } }, required: ['x','y'] }` — the three-level-deep drag
+  point. `AskUserQuestion` printed `questions.items.properties` =
+  `question`/`header`/`options`/`multiSelect`/`allowFreeText` with `questions.items.required =
+  ["question"]`, and `questions.items.properties.options.items.anyOf` carrying the string branch and
+  the `{ label, description }` object branch with `required: ["label"]`.
 
 ---
 
@@ -311,18 +363,64 @@ rejected for exactly that: it passed on unfixed code, observing Zod rather than 
 
 - Agent-executability decision: `agent-executable`.
 - Prerequisites: the common prerequisites above. Nothing else.
-- Steps (from `scratch/`): write `src/core-039-s2.ts` that emits the schema for
-  `z.object({ report: z.object({ score: z.number(), notes: z.array(z.string()), tag: z.string().optional() }) })`
-  via `createZodFunctionTool(...).schema.parameters`, prints it, then with
-  `good = { report: { score: 4, notes: ['a'] } }` and `bad = { report: { notes: ['a'] } }`:
-  1. `validateAgainstJsonSchema(emitted, good, '$')` returns `[]`;
-  2. the same call on `bad` returns at least one issue;
-  3. that issue text contains `score`;
-  4. `createFunctionTool('report-tool', …, emitted, handler).execute(good)` → `success=true`;
-  5. the same tool's `.execute(bad)` throws;
-  6. that throw's message contains `score`.
-  Then run it with the invocation above and `echo "EXIT:$?"`. The exact script is reproduced in the PR
-  description.
+- Steps (from `scratch/`): write the script below, then run
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-039-s2.ts; echo "EXIT:$?"`.
+
+```ts
+// scratch/src/core-039-s2.ts
+import { validateAgainstJsonSchema } from '@robota-sdk/agent-core';
+import { createFunctionTool, createZodFunctionTool } from '@robota-sdk/agent-tools';
+import { z } from 'zod';
+
+const fails: string[] = [];
+const check = (label: string, ok: boolean, seen?: unknown): void => {
+  console.log(`${ok ? 'PASS' : 'FAIL'} ${label}${ok ? '' : ` -- saw ${JSON.stringify(seen)}`}`);
+  if (!ok) fails.push(label);
+};
+
+const Reported = z.object({
+  report: z.object({ score: z.number(), notes: z.array(z.string()), tag: z.string().optional() }),
+});
+const emitted = createZodFunctionTool('report', 'report', Reported, async () => 'ok').schema
+  .parameters;
+console.log('emitted schema:\n' + JSON.stringify(emitted, null, 2));
+
+const good = { report: { score: 4, notes: ['a'] } };
+const bad = { report: { notes: ['a'] } };
+
+const deepGood = validateAgainstJsonSchema(emitted, good, '$');
+const deepBad = validateAgainstJsonSchema(emitted, bad, '$');
+check('deep walk accepts the conforming payload', deepGood.length === 0, deepGood);
+check('deep walk rejects the payload missing nested "score"', deepBad.length > 0, deepBad);
+check('deep walk names "score"', deepBad.join(' ').includes('score'), deepBad);
+
+const tool = createFunctionTool('report-tool', 'report-tool', emitted, async () => 'handler-ran');
+let goodOutcome = '';
+let badOutcome = '';
+try {
+  goodOutcome = `success=${(await tool.execute(good)).success}`;
+} catch (error) {
+  goodOutcome = `threw ${(error as Error).message}`;
+}
+try {
+  badOutcome = `success=${(await tool.execute(bad)).success}`;
+} catch (error) {
+  badOutcome = `threw ${(error as Error).message}`;
+}
+console.log('input walk good =>', goodOutcome);
+console.log('input walk bad  =>', badOutcome);
+check('input walk accepts the conforming payload', goodOutcome === 'success=true', goodOutcome);
+check(
+  'input walk rejects the payload missing nested "score"',
+  badOutcome.startsWith('threw'),
+  badOutcome,
+);
+check('input walk names "score"', badOutcome.includes('score'), badOutcome);
+
+console.log(fails.length === 0 ? 'SCENARIO 2 PASS' : `SCENARIO 2 FAIL (${fails.length})`);
+process.exit(fails.length === 0 ? 0 : 1);
+```
+
 - Expected observable result: `SCENARIO 2 PASS`, six `PASS` lines, `EXIT:0` — the deep walk returns `[]`
   for the conforming payload and an issue naming `score` for the non-conforming one; the tool-input walk
   prints `input walk good => success=true` and `input walk bad  => threw …score…`. The optional `tag`
@@ -334,8 +432,13 @@ rejected for exactly that: it passed on unfixed code, observing Zod rather than 
   (`["$.report.score: unexpected additional property", "$.report.notes: unexpected additional property"]`)
   and the input walk falsely accepts the invalid one (`input walk bad => success=true`, handler ran).
 - Cleanup: `rm -f src/core-039-s2.ts` from `scratch/`.
-- Evidence: _to be filled after implementation_ (paste the emitted schema, both walk outcome lines, the
-  six check lines, and the `EXIT:` line).
+- Evidence (2026-08-16, run against the completed implementation at `54886a665`): **`SCENARIO 2 PASS`,
+  `EXIT:0`**, six `PASS` lines. The emitted schema carried
+  `report.required = ["score","notes"]` with the optional `tag` present in `properties` and absent from
+  `required`. `input walk good => success=true`; `input walk bad  => threw Validation Error: Invalid
+  parameters for tool "report-tool": Parameter "report".score: required property missing`. That message
+  is also the evidence for the path-root decision (step 6b): one `ValidationError` string, one dialect,
+  the nested field named.
 
 ---
 
@@ -343,18 +446,90 @@ rejected for exactly that: it passed on unfixed code, observing Zod rather than 
 
 - Agent-executability decision: `agent-executable`.
 - Prerequisites: the common prerequisites above. Nothing else.
-- Steps (from `scratch/`): write `src/core-039-s3.ts` that builds a tool over
-  `z.object({ choice: z.union([z.string(), z.object({ label: z.string() })]), mode: z.discriminatedUnion('kind', [z.object({ kind: z.literal('fast'), ms: z.number() }), z.object({ kind: z.literal('safe'), retries: z.number() })]) })`,
-  prints the emitted schema, and asserts:
-  1. `createZodFunctionTool` does not throw;
-  2. `properties.choice.anyOf` has 2 branches;
-  3. `properties.mode.anyOf` has 2 branches;
-  4. `properties.mode.anyOf[0].properties.kind.enum` is `["fast"]`;
-  5. a `createFunctionTool` built from that emitted schema accepts the string branch;
-  6. it accepts the object branch;
-  7. the shipped `askUserQuestionTool.execute({ questions: [{ question: 'Which?', options: ['plain string', { label: 'object option' }] }] })` returns `success=true`.
-  Then run it with the invocation above and `echo "EXIT:$?"`. The exact script is reproduced in the PR
-  description.
+- Steps (from `scratch/`): write the script below, then run
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-039-s3.ts; echo "EXIT:$?"`.
+
+```ts
+// scratch/src/core-039-s3.ts
+import {
+  askUserQuestionTool,
+  createFunctionTool,
+  createZodFunctionTool,
+} from '@robota-sdk/agent-tools';
+import { z } from 'zod';
+
+const fails: string[] = [];
+const check = (label: string, ok: boolean, seen?: unknown): void => {
+  console.log(`${ok ? 'PASS' : 'FAIL'} ${label}${ok ? '' : ` -- saw ${JSON.stringify(seen)}`}`);
+  if (!ok) fails.push(label);
+};
+const at = (root: unknown, path: string): any =>
+  path.split('.').reduce<any>((node, key) => (node == null ? node : node[key]), root as any);
+
+let emitted: any;
+try {
+  emitted = createZodFunctionTool(
+    'choose',
+    'choose',
+    z.object({
+      choice: z.union([z.string(), z.object({ label: z.string() })]),
+      mode: z.discriminatedUnion('kind', [
+        z.object({ kind: z.literal('fast'), ms: z.number() }),
+        z.object({ kind: z.literal('safe'), retries: z.number() }),
+      ]),
+    }),
+    async () => 'ok',
+  ).schema.parameters;
+  check('createZodFunctionTool accepts a union-typed field', true);
+} catch (error) {
+  check('createZodFunctionTool accepts a union-typed field', false, (error as Error).message);
+  console.log('SCENARIO 3 FAIL (union not expressible)');
+  process.exit(1);
+}
+console.log('emitted schema:\n' + JSON.stringify(emitted, null, 2));
+check('choice emits anyOf with 2 branches', at(emitted, 'properties.choice.anyOf')?.length === 2);
+check('mode emits anyOf with 2 branches', at(emitted, 'properties.mode.anyOf')?.length === 2);
+check(
+  'the discriminator literal becomes a single-value enum',
+  JSON.stringify(at(emitted, 'properties.mode.anyOf.0.properties.kind.enum')) === '["fast"]',
+  at(emitted, 'properties.mode.anyOf.0.properties.kind'),
+);
+
+const tool = createFunctionTool('choose-tool', 'choose-tool', emitted, async () => 'handler-ran');
+for (const [label, payload] of [
+  ['string branch', { choice: 'yes', mode: { kind: 'fast', ms: 10 } }],
+  ['object branch', { choice: { label: 'yes' }, mode: { kind: 'safe', retries: 2 } }],
+] as const) {
+  let outcome = '';
+  try {
+    outcome = `success=${(await tool.execute(payload as never)).success}`;
+  } catch (error) {
+    outcome = `threw ${(error as Error).message}`;
+  }
+  console.log(`input walk ${label} =>`, outcome);
+  check(`input walk accepts the ${label}`, outcome === 'success=true', outcome);
+}
+
+let askOutcome = '';
+try {
+  const r = await askUserQuestionTool.execute({
+    questions: [{ question: 'Which?', options: ['plain string', { label: 'object option' }] }],
+  } as never);
+  askOutcome = `success=${r.success}`;
+  console.log('AskUserQuestion data =', JSON.stringify(r.data));
+} catch (error) {
+  askOutcome = `threw ${(error as Error).message}`;
+}
+check(
+  'AskUserQuestion accepts mixed string/object options',
+  askOutcome === 'success=true',
+  askOutcome,
+);
+
+console.log(fails.length === 0 ? 'SCENARIO 3 PASS' : `SCENARIO 3 FAIL (${fails.length})`);
+process.exit(fails.length === 0 ? 0 : 1);
+```
+
 - Expected observable result: `SCENARIO 3 PASS`, seven `PASS` lines, `EXIT:0`. The printed schema shows
   `choice.anyOf` and `mode.anyOf` each with two members and the discriminator rendered as
   `"enum": ["fast"]`; both union branches are accepted by the tool-input walk built from that same
@@ -367,8 +542,15 @@ rejected for exactly that: it passed on unfixed code, observing Zod rather than 
   capability: it fails if `anyOf` is emitted but not honoured on the input path, which is the failure
   mode that would turn the import-time crash into runtime uncallability of the same tool.
 - Cleanup: `rm -f src/core-039-s3.ts` from `scratch/`.
-- Evidence: _to be filled after implementation_ (paste the emitted schema, both branch outcome lines,
-  the `AskUserQuestion data =` line, the seven check lines, and the `EXIT:` line).
+- Evidence (2026-08-16, run against the completed implementation at `54886a665`): **`SCENARIO 3 PASS`,
+  `EXIT:0`**, seven `PASS` lines. The emitted schema carried `choice.anyOf` with a `string` branch and
+  an object branch (`required: ["label"]`), and `mode.anyOf` with both discriminated branches, each
+  rendering its discriminator as `kind: { type: 'string', enum: ['fast'] }` / `['safe']`. Neither union
+  node carried a `type` beside its `anyOf`. `input walk string branch => success=true`;
+  `input walk object branch => success=true`;
+  `AskUserQuestion data = "{\"success\":true,\"output\":\"{\\\"unavailable\\\":true,\\\"reason\\\":\\\"no interactive user attached\\\"}\"}"`
+  — the mixed string/object `options` array was accepted, so `anyOf` is honoured on the input path and
+  not merely emitted.
 
 ---
 
