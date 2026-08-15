@@ -10,11 +10,11 @@ Owns the **transport-neutral session bridge + wire protocol** shared by transpor
 (`agent-transport-ws`, `agent-transport-webrtc`, …). Extracted from `agent-transport-ws` (REMOTE-002) so a
 non-WebSocket transport can reuse it without a `webrtc → ws` package edge.
 
-- `createWsHandler({ session, send })` — accepts the named `IProtocolSession` role aggregate,
-  subscribes to its events, and pushes them as
-  `TServerMessage`s via the injected `send`; returns `onMessage(data)` (drives `session.submit/executeCommand/
+- `createWsHandler({ session, deliver })` — accepts the named `IProtocolSession` role aggregate and the
+  CARRIER's outbound delivery boundary (ARCH-030), subscribes to the session's events, and pushes them as
+  `TServerMessage`s through that boundary; returns `onMessage(data)` (drives `session.submit/executeCommand/
 abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: works over any byte/string
-  channel via `send`/`onMessage` callbacks — no `ws`, no `node:` sockets.
+  channel via the carrier's `deliver`/`onMessage` callbacks — no `ws`, no `node:` sockets.
 - `TClientMessage` / `TServerMessage` — the JSON wire protocol (inbound client verbs; outbound server events).
 - **TRANS-001 payload-agnostic channel frame codec** (`src/channel-frames.ts`) — `encodeBinaryFrame`,
   `encodeChannelEventFrame`, `decodeChannelFrame`, `isChannelFrame`, plus `CHANNEL_FRAME_MAGIC` /
@@ -52,11 +52,32 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
   `Record<TInteractiveEventName, 'forwarded' | 'requester-routed' | 'non-surface'>`. The actual
   `subscribeSessionEvents` registrations are mechanically compared with every non-`non-surface`
   entry. `plan_event`, `context_file_refreshed`, and `branch_event` are forwarded as identically named
-  `TServerMessage` variants. Each transport-owned listener catches an outbound `send` failure and
-  reports it through the required `onDeliveryError(error, event)` carrier callback without reversing the already-committed session
-  operation; a diagnostic callback failure is isolated too. `SessionResumeBridge` applies the same
-  rule per attachment: `attach` requires the current carrier's callback, and a failure detaches the
-  broken sink while preserving the buffered frame for replay.
+  `TServerMessage` variants.
+- **ARCH-030 one outbound delivery boundary per connection.** Every outbound `TServerMessage` — the
+  session-event fan-out AND every reply to an inbound frame — leaves through one
+  `TOutboundDeliver`, produced by `createOutboundDelivery(send, onDeliveryError)`. The **carrier**
+  builds it, from its own raw sink and its own failure policy, and passes it down as
+  `IWsHandlerOptions.deliver`; the protocol package never receives a raw sink. `TOutboundDeliver` is
+  branded and `createOutboundDelivery` is its only producer, so a plain
+  `(message: TServerMessage) => void` is refused by the compiler wherever a boundary is required —
+  the mechanical floor that keeps a future reply family from reaching the wire unguarded.
+
+  **Semantics.** A carrier failure is reported through `onDeliveryError(error, message.type)` and
+  never thrown at the caller, so a reply resolving after a disconnect cannot escape as an unhandled
+  rejection or out of the carrier's inbound listener, and an already-committed session operation is
+  never reversed. A handler that itself throws is isolated. **The boundary LATCHES:** it reports at
+  most ONE failure, after which every subsequent frame is dropped without a further report — all
+  three carriers treat a delivery failure as terminal and each had grown its own latch to suppress
+  the repeats.
+
+  `SessionResumeBridge` builds a **fresh boundary per `attach`**, which is what un-latches the
+  session after a reconnect; `detach` clears it and buffering continues. A frame is appended to the
+  resume buffer BEFORE the boundary, so a dropped frame stays in the un-acked tail and replays on
+  the next sink, and a failing multi-frame `replay()` reports exactly once.
+
+  Before ARCH-030 the fan-out had its own guard and the eleven reply families had none — five of
+  them resolving from a Promise continuation, which is the shape WS-001 recorded and half-fixed.
+
 - **CMD-004 Phase 2 host-action/UI-intent split.** An inbound `command` verb passes the handler's
   SERVER-ASSIGNED `driverId` (REMOTE-014 E5 — never a client-sent one) into
   `session.executeCommand(name, args, 'remote', driverId)` so the session executes host actions
@@ -107,7 +128,11 @@ they do not rebuild anonymous intersections or require the unrelated lifecycle/g
 | `bearerCredential`                      | Function  | SEC-008: extract a bearer credential from an `Authorization` header value               |
 | `createWsHandler`                       | function  |
 | `IWsHandlerOptions`                     | interface |
+| `createOutboundDelivery`                | function  | ARCH-030: the ONLY producer of a connection's outbound delivery boundary                |
+| `TOutboundDeliver`                      | type      | ARCH-030: the branded boundary a carrier passes down as `IWsHandlerOptions.deliver`     |
+| `TDeliveryErrorHandler`                 | type      | ARCH-030: a carrier's failure policy — required, invoked at most once per boundary      |
 | `PROTOCOL_SESSION_EVENT_CLASSIFICATION` | constant  | Exhaustive protocol surface policy for every shared session-event key                   |
+| `TProtocolSessionEventClassification`   | type      | The classification vocabulary the constant is keyed by                                  |
 | `TClientMessage`                        | type      |
 | `TServerMessage`                        | type      |
 | `TSeqServerMessage`                     | type      |
@@ -128,11 +153,13 @@ they do not rebuild anonymous intersections or require the unrelated lifecycle/g
 
 ## Type Ownership
 
-| Type/Symbol       | Location             | Purpose                                       |
-| ----------------- | -------------------- | --------------------------------------------- |
-| `createWsHandler` | `src/ws-handler.ts`  | Session↔client bridge over `send`/`onMessage` |
-| `TClientMessage`  | `src/ws-protocol.ts` | Inbound client wire messages                  |
-| `TServerMessage`  | `src/ws-protocol.ts` | Outbound server wire messages                 |
+| Type/Symbol              | Location                   | Purpose                                                 |
+| ------------------------ | -------------------------- | ------------------------------------------------------- |
+| `createWsHandler`        | `src/ws-handler.ts`        | Session↔client bridge over `deliver`/`onMessage`        |
+| `createOutboundDelivery` | `src/outbound-delivery.ts` | The one connection-scoped outbound boundary             |
+| `TOutboundDeliver`       | `src/outbound-delivery.ts` | The branded boundary type; only the factory produces it |
+| `TClientMessage`         | `src/ws-protocol.ts`       | Inbound client wire messages                            |
+| `TServerMessage`         | `src/ws-protocol.ts`       | Outbound server wire messages                           |
 
 The TRANS-001 channel frame codec owns the ENVELOPE only; the frame/channel CONTRACT types
 (`IBinaryFrame`, `IChannelEventFrame`, `TChannelReceiveResult`, …) are owned by
@@ -146,7 +173,12 @@ including the REMOTE-007 prompt-event forwarding and the `permission-response` /
 dispatch (TC-06). `src/__tests__/session-event-delivery.test.ts` mechanically compares the real
 subscriptions and teardown handlers with the exhaustive classification, verifies plan/context/branch
 fan-out, and proves a throwing carrier is reported without escaping the session listener.
-`src/__tests__/session-resume-bridge.test.ts` proves sink failure detaches while retaining the frame.
+`src/__tests__/session-resume-bridge.test.ts` proves sink failure detaches while retaining the frame, and
+(ARCH-030) that a failing multi-frame replay reports once, its frames replay on the next sink, and a fresh
+`attach` un-latches the connection. `src/__tests__/outbound-delivery.test.ts` covers the boundary itself:
+all eleven reply families after a disconnect (five Promise continuations asserting zero unhandled
+rejections, six synchronous ones asserting nothing escapes `onMessage`), the latch, observer isolation,
+and a `@ts-expect-error` case that fails typecheck if the brand is ever dropped.
 `src/__tests__/channel-frames.test.ts` (TRANS-001) covers the channel codec: opaque
 round-trip integrity (including non-UTF-8 bytes), chunked reassembly by `seq` from out-of-order delivery,
 multi-byte channel names, encoder input validation, and every malformed-input error result.
