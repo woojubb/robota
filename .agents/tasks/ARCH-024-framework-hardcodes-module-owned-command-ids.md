@@ -20,7 +20,7 @@ presence-conditional sense (no imports, but hard-coded names).
 
 ## Evidence
 
-- `packages/agent-framework/docs/SPEC.md:1110` — "The SDK does not know command names contributed by
+- `packages/agent-framework/docs/SPEC.md:1161` — "The SDK does not know command names contributed by
   modules in advance."; `project-structure.md:127` — "`agent-framework` must not import or
   special-case command packages."
 - Hard-coded ids: `interactive-session-skill-router.ts:161` `getCommand('skills')` (virtual-skill
@@ -31,21 +31,99 @@ presence-conditional sense (no imports, but hard-coded names).
 
 ## Direction
 
-Either amend the SPEC/rule to bless a small registry of "well-known command ids" (they are
-presence-conditional, which is defensible) and state them once, OR inject the ids (skill-activation
-command id, context-reduction command id, agent-spawn command id) as configuration from the
-composition root so the framework does not name them. Recommendation: the injected-ids approach keeps
-the isolation rule literally true; the well-known-registry approach is cheaper — owner's call, but the
-current silent hard-coding beside a contradicting SPEC claim is the wrong state.
+Add framework-owned optional semantic metadata to `ISystemCommand` with the closed roles
+`skillActivation`, `contextReduction`, and `subagentSpawn`. The command-owner packages declare a role on
+the executable command beside its real ID; the framework and CLI must not rebuild a second name registry.
+The framework derives role→command ID from the currently composed command set. Duplicate owners of one
+role fail with a typed composition error, including after `SystemCommandExecutor.replaceCommands()`.
+
+Composition resolves one typed role projection from the actual `ISystemCommand` set and threads it
+without name re-inference through `IInitOptions` → `ICreateSessionOptions` → agent-runtime/subagent-session
+construction. Public direct `createSession()` calls that omit the projection have explicit all-roles-
+absent semantics. The projection, not `commandDescriptors`, is the semantic source; command descriptors
+remain presentation metadata.
+
+Explicit absence semantics apply independently: no skill-activation role disables skill fallback and
+model-visible skill enrichment; no context-reduction role leaves the neutral capacity hint in place; no
+subagent-spawn role skips only projected spawn-command filtering. A coincidentally named
+`skills`/`compact`/`agent` command without role metadata receives no special behavior, while a role-bearing
+alternate ID behaves identically. The framework-owned legacy `Agent` tool filter remains separate.
+`interactive-session-agent-jobs.ts` must also receive/derive the semantic spawn ID rather than embedding
+`'agent'` in its command request. Record the public metadata addition for both framework and command
+packages with a beta-line changeset.
+
+## Recommendation Gate
+
+- 2026-08-16 — `DEPTH: LOCAL`; the defect is framework name knowledge where composition owns the actual
+  executable command set.
+- 2026-08-16 — independent final review endorsed owner-declared closed semantic roles, typed projection
+  threading, duplicate-owner rejection, alternate-ID behavior, and explicit per-role absence semantics.
+
+REVIEW VERDICT: ENDORSE
 
 ## Test Plan
 
-- If injected: a test constructing the framework with alternate command ids routes correctly (the
-  framework names none); if well-known-registry: the SPEC lists the ids and a test pins them.
+- Red-first: alternate role-bearing IDs drive skill fallback, model-visible skill enrichment, the compact
+  hint, agent-job provenance, and subagent projected-tool filtering; same-name commands without metadata
+  do not. Missing roles disable only their own behavior, and empty command results are not absence.
+- Duplicate-role construction/register/replace fails with a typed error; role lookup follows the selected
+  command set after `replaceCommands()`.
+- A zero-hard-coded-ID scan covers all five production occurrences, including
+  `interactive-session-agent-jobs.ts`.
 - `pnpm harness:verify -- --scope packages/agent-framework` green.
 
 ## User Execution Test Scenarios
 
-Not applicable — internal composition/documentation coherence; no user-facing behavior change (the
-commands already work). If the injected-ids path materially changes composition APIs, add an
-SDK-consumer scenario under that option.
+### Scenario: semantic command roles are independent of command ids
+
+- **Agent executability:** `agent-executable`. A maintained public-SDK example uses the deterministic
+  scripted provider and in-process framework surfaces only; it needs no live key, network service,
+  browser, or TTY.
+- **Prerequisites:** Node.js 22.14.0 and workspace dependencies installed. This work authors the
+  command-owner example `packages/agent-command/examples/verify-semantic-command-roles.ts`, adds script
+  `scenario:verify:semantic-command-roles`, adds the package-level aggregate `scenario:verify`, and adds
+  `scenario:record` through the canonical owner recorder. It imports the shipped skills/compact/agent
+  modules from their public owner package and uses framework public/testing surfaces for the session. The
+  example creates its own temporary project/session directories.
+- **Command:**
+
+  ```bash
+  volta run --node 22.14.0 pnpm --dir packages/agent-command run scenario:verify:semantic-command-roles
+  ```
+
+- **Expected observable:** exit code `0` and exactly one deterministic JSON object on stdout. It reports
+  alternate role ids `activate-skill-alt`, `reduce-context-alt`, and `spawn-subagent-alt`; those exact ids
+  drive skill fallback plus model-visible skill enrichment, the context-capacity hint, agent-job command
+  provenance, and subagent spawn-command filtering. Its `unannotatedCoincidentalNames` object reports no
+  special behavior for unannotated commands named `skills`, `compact`, and `agent`. Its
+  `singleRoleOmission` object removes each role separately while leaving the other two behaviors active,
+  `directCreateSessionOmission.allRolesAbsent` is `true`, and `duplicateRoleRejections` records typed
+  failures for constructor, register, and replace without mutating the previously selected commands.
+  `ownerDeclarations` proves the shipped skills, compact, and agent commands declare the three roles.
+  `cleanupRemoved` is `true`. Any mismatch or cleanup failure writes a diagnostic to stderr and exits
+  non-zero rather than printing a success object.
+- **Cleanup:** the example shuts down every session and recursively removes its temporary project/session
+  directories in `finally`; it restores any process state it changed.
+- **Evidence (fill after implementation):** record the exact exit code and stdout JSON. The package's
+  canonical record is
+  `packages/agent-command/examples/scenarios/semantic-command-roles.record.json`; regenerate it
+  with `volta run --node 22.14.0 pnpm --dir packages/agent-command run scenario:record` after the
+  aggregate scenario includes this example.
+
+## Scenario Plan Gate
+
+- 2026-08-16 — revised after guardian review: the command-owner package scenario now covers its three
+  shipped role declarations, alternate ids, coincidental unannotated names, duplicate-role typed failures
+  across constructor/register/replace, three independent omissions, direct-call all-absent semantics,
+  failure exit, cleanup, and the owner package's canonical record. Invocation probing reached the declared
+  package and failed closed with `ERR_PNPM_NO_SCRIPT`; authoring that script/example is therefore an
+  explicit prerequisite inside this work unit, not an assumed fixture.
+
+SCENARIO DRAFTED: automatable | 1
+
+- 2026-08-16 — independent PLAN guardian returned PASS for `semantic command roles are independent of
+command ids`: the owner-package public-SDK scenario has complete prerequisites, exact invocation,
+  observable and failure behavior, cleanup, canonical record ownership, and coverage of every endorsed
+  runtime recommendation.
+
+DONE-GATE-STAGE-1: PASS

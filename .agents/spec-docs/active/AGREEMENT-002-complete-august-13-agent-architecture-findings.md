@@ -162,12 +162,17 @@ The child decisions are:
   listener exception semantics remain unchanged. The protocol carrier accepts
   `onDeliveryError(error, event)` and connects it to its client error/disconnect lifecycle; WebRTC may not
   swallow delivery failure. Tests observe both committed state and the owned delivery failure.
-- ARCH-024 injects typed semantic command roles—skill activation, context reduction, and subagent
-  spawn—from composition, each with explicit absence semantics.
-- ARCH-027 removes `IProductProfile.providerOverride` because provider-profile selection belongs to the
-  shell and `providerSettings` is already resolved. It preserves shell override behavior, rejects a later
-  duplicate capability pack as a unit, and attaches `packId` provenance to capability-collision
-  diagnostics.
+- ARCH-024 adds optional typed semantic roles to executable system commands—skill activation, context
+  reduction, and subagent spawn. Command owners declare them beside their IDs; framework role lookup is
+  derived from the currently composed set, rejects duplicate owners, and gives each absent role explicit
+  independent semantics.
+- ARCH-027 establishes exhaustive `IProductProfile`/`ICapabilityPack` field policies so every public key
+  is consumed, surfaced, or explicitly rejected. It removes `IProductProfile.providerOverride` because
+  provider-profile selection belongs to the shell and `providerSettings` is already resolved; preserves
+  shell override behavior; rejects a later duplicate capability pack as a unit on a separate pack-level
+  rejection channel; attaches `packId` provenance to capability-collision diagnostics; and surfaces
+  accepted pack metadata plus pack-level rejections through `IAssembledProduct` so `title` and
+  `description` are not silent inputs and the second fold cannot re-drop the repaired values.
 - ARCH-025 replaces recurring manual partial projections with one canonical total mapper and a mechanical
   key-classification floor. Usage, provider profile, permission policy, schedule patch, and future public
   fields must be mapped, deliberately derived, or explicitly rejected; none may disappear silently.
@@ -205,13 +210,15 @@ The child decisions are:
   the parent broker is selected because it preserves the exact composed live surface while the worker
   remains product-neutral.
 
-- ARCH-022 removes every laundering re-export reachable from the framework public graph and extends the
-  guard to walk that graph recursively.
+- ARCH-022 removes every owner-package laundering re-export reachable from all package-declared framework
+  public source roots—including env helpers and session-id guards—and extends the guard to walk local
+  re-export edges recursively, cycle-safely, and fail closed on unresolved edges.
 - ARCH-023 forwards the runtime default store unless the caller explicitly provides a per-session value,
   including explicit `undefined` to disable persistence.
-- ARCH-026 replaces executable-only shell selection in both managed and scheduled runners with one
-  resolver that returns the executable and matching argument family together, including explicit `sh`,
-  `bash`, PowerShell, and `cmd.exe` overrides.
+- ARCH-026 closes the shared executor shell-resolution defect: the core resolver accepts an explicit
+  executable and returns its matching argument family, and both managed and scheduled runners consume one
+  pure request adapter. Explicit `sh`, `bash`, PowerShell/`pwsh`, and `cmd.exe` overrides retain the
+  correct family instead of pairing a caller-selected executable with host-default arguments.
 
 The parent-side broker is a new cross-process capability surface but not a new package or product. It
 mirrors the existing `agent-subagent-runner` worker IPC product-family and places neutral wire contracts
@@ -243,8 +250,9 @@ adversarial review before code changes.
 
 ## Solution
 
-1. Amend ARCH-020, ARCH-021, ARCH-025, and ARCH-028 to the foundational scopes recorded in the Decision,
-   and correct ARCH-017/ARCH-027 to the currently selected SSOT boundaries before implementation.
+1. Amend ARCH-020, ARCH-021, ARCH-025, ARCH-026, ARCH-027, and ARCH-028 to the foundational scopes
+   recorded in the Decision, and correct ARCH-017 to the currently selected SSOT boundary before
+   implementation.
 2. Revalidate every child premise against current source and package SPECs; halt rather than silently
    re-scope a stale item.
 3. For each child, update governing SPEC sections first, write the smallest failing contract or
@@ -275,11 +283,11 @@ adversarial review before code changes.
 - [x] TC-07: ARCH-028 owns shared event keys/payloads in the interface package and mechanically-total but separate TUI/protocol implementation mappings, making branch, plan, and context-refresh events observable through protocol fan-out/client acceptance and deterministic TUI rendering without executable transport policy in the interface package.
 - [ ] TC-08: ARCH-021 selects a per-request `providerProfile` through an injected parent resolver (or the invoking provider when absent), keeps credentials parent-side, and brokers provider streaming/cancellation/errors plus tool calls whose context round-trips ownership fields and tagged nested `Date`/`Error`/`undefined` values; every top-level context key and wire variant is mechanically classified, while unsupported/cyclic/over-limit values and unavailable capabilities fail explicitly without reconstructing Robota defaults.
 - [x] TC-09: ARCH-023 forwards the runtime-owned default session store into created sessions unless an explicit per-session override is supplied, and resume restores through that default.
-- [ ] TC-10: ARCH-024 removes framework knowledge of module-owned command IDs by receiving the required IDs from composition and preserves behavior when the contributing module is absent.
-- [ ] TC-11: ARCH-027 removes `IProductProfile.providerOverride` while preserving shell-owned override behavior, rejects a later duplicate `ICapabilityPack.id` as one unit, and includes `packId` provenance in capability-collision diagnostics.
-- [ ] TC-12: ARCH-022 removes owner-package helper laundering from the framework public graph and a red-first recursive public-barrel guard rejects the same pattern at any reachable barrel depth.
+- [ ] TC-10: ARCH-024 removes framework knowledge of module-owned command IDs through owner-declared semantic command roles, rejects duplicate role owners, preserves alternate-ID behavior, and gives each absent role explicit independent semantics.
+- [ ] TC-11: ARCH-027 exhaustively classifies every product/pack composition field; removes `IProductProfile.providerOverride` while preserving shell-owned override behavior; rejects a later duplicate `ICapabilityPack.id` atomically on a separate pack channel; includes `packId` provenance in capability-collision diagnostics; and surfaces accepted pack title/description metadata.
+- [ ] TC-12: ARCH-022 removes owner-package laundering from every package-declared framework public source root and a red-first cycle-safe recursive graph guard rejects value/type pass-through at any reachable depth plus unresolved local re-export edges.
 - [ ] TC-13: ARCH-025 makes one canonical task/result projection classify every public contract key as mapped, derived, or rejected; preserves usage, provider profile, and permission policy; exports one `IScheduleEditPatch` owner; and fails a mechanical fixture when any new field is unclassified.
-- [ ] TC-14: ARCH-026 makes managed and scheduled command runners consume one shell resolver that returns a matching executable/argument-family pair and handles explicit `sh`, `bash`, PowerShell, and `cmd.exe` overrides correctly on simulated supported platforms.
+- [ ] TC-14: ARCH-026 makes managed and scheduled command runners consume one executable-aware shell resolver with request-override precedence and matching argument families for `sh`, `bash`, PowerShell/`pwsh`, and `cmd.exe` on simulated platforms plus real Windows default-PowerShell evidence.
 - [ ] TC-15: all fourteen child Task records contain current engineering and scenario evidence, reach `done`, and move atomically to `.agents/tasks/completed/` with the agreement projections updated.
 - [ ] TC-16: the assembled integration base passes `pnpm harness:conformance`, affected scoped harness verification, and `pnpm harness:verify-like-ci`, with exact commands and exit evidence recorded.
 
@@ -296,11 +304,11 @@ adversarial review before code changes.
 | TC-07 | Agreement / transport           | shared-key and per-implementation exhaustive-map guards plus deterministic TUI, protocol fan-out, and client-observation tests                                                                                                                        | ARCH-028             |
 | TC-08 | Agreement / process integration | forked worker matrix for requested/default/unknown profiles, credential non-serialization, streaming/cancellation/errors, ownership-field round trips, nested tagged extension variants, malformed/cyclic/limit failures, and exhaustiveness fixtures | ARCH-021             |
 | TC-09 | Agreement / persistence         | createAgentRuntime default/override/resume integration matrix                                                                                                                                                                                         | ARCH-023             |
-| TC-10 | Agreement / composition         | command-module presence/absence integration tests and zero hard-coded-ID scan                                                                                                                                                                         | ARCH-024             |
-| TC-11 | Agreement / composition         | removed product-field type test, shell override regression, whole-pack duplicate rejection, and provenance assertions                                                                                                                                 | ARCH-027             |
-| TC-12 | Agreement / public surface      | recursive barrel-graph harness fixture plus affected package build                                                                                                                                                                                    | ARCH-022             |
+| TC-10 | Agreement / composition         | alternate-ID/absence/duplicate-role integration tests, SDK scenario, and zero hard-coded-ID scan                                                                                                                                                      | ARCH-024             |
+| TC-11 | Agreement / composition         | exhaustive product/pack key fixtures, removed product-field type test, shell override regression, accepted metadata, separate whole-pack duplicate rejection, and provenance assertions                                                               | ARCH-027             |
+| TC-12 | Agreement / public surface      | package-export-root recursive barrel-graph fixtures (depth, cycle, unreachable, unresolved, facade) plus affected package/app builds                                                                                                                  | ARCH-022             |
 | TC-13 | Agreement / type contract       | canonical projection tests, public-key exhaustiveness fixture, and shared-type compile assertion                                                                                                                                                      | ARCH-025             |
-| TC-14 | Agreement / platform behavior   | shared executable/argument-family matrix for managed and scheduled runners with explicit overrides                                                                                                                                                    | ARCH-026             |
+| TC-14 | Agreement / platform behavior   | shared executable/argument-family matrix for both runner spawn paths plus real Windows default-PowerShell execution                                                                                                                                   | ARCH-026             |
 | TC-15 | Agreement / governance          | done-gate evidence audit, task-archival scan, and agreement child projection check                                                                                                                                                                    | All children         |
 | TC-16 | Agreement / CI                  | `pnpm harness:conformance`, scoped `pnpm harness:verify`, and `pnpm harness:verify-like-ci`                                                                                                                                                           | Final assembled base |
 

@@ -51,11 +51,11 @@ The paired spec passed GATE-APPROVAL on 2026-08-15. The user's instruction
 - [x] TC-07 — deliver the shared event contract through exhaustive TUI/protocol mappings in ARCH-028.
 - [ ] TC-08 — preserve live product composition through a parent-side worker broker in ARCH-021.
 - [x] TC-09 — forward runtime-owned default session persistence in ARCH-023.
-- [ ] TC-10 — inject semantic command roles from composition in ARCH-024.
-- [ ] TC-11 — remove the dead provider override and add whole-pack duplicate diagnostics in ARCH-027.
-- [ ] TC-12 — remove framework public-surface laundering and recursively enforce the boundary in ARCH-022.
+- [ ] TC-10 — derive owner-declared semantic command roles from composition, including alternate IDs, duplicate rejection, and explicit absence semantics in ARCH-024.
+- [ ] TC-11 — make product/pack field projection exhaustive, remove the dead provider override, surface accepted pack metadata, and add whole-pack duplicate diagnostics in ARCH-027.
+- [ ] TC-12 — remove framework laundering from every package-declared public source root and recursively enforce the reachable graph in ARCH-022.
 - [ ] TC-13 — make executor projections total and mechanically exhaustive in ARCH-025.
-- [ ] TC-14 — share one shell executable/argument-family resolver in ARCH-026.
+- [ ] TC-14 — share one executable-aware shell resolver across both runners, with simulated override matrices and real Windows default execution in ARCH-026.
 - [ ] TC-15 — run every child done gate and archive all fourteen Task records atomically.
 - [ ] TC-16 — pass assembled conformance, scoped verification, and the CI-equivalent gate.
 

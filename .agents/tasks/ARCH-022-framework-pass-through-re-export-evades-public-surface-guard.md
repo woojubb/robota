@@ -1,5 +1,5 @@
 ---
-title: 'ARCH-022: agent-framework tunnels four agent-core runtime helpers through a non-facade barrel — the pass-through ban holds only at src/index.ts, so laundering one hop deeper passes the guard'
+title: 'ARCH-022: agent-framework launders owner-package runtime values through reachable public barrels — the guard checks only one root file instead of the package export graph'
 status: todo
 created: 2026-08-13
 priority: medium
@@ -12,17 +12,23 @@ depends_on: []
 
 ## Problem
 
-`agent-framework`'s public surface re-exports four agent-core runtime values through
-`src/commands/index.ts`, violating the package's own no-pass-through rule (INFRA-025) — and the
-mechanical guard cannot see it, because it checks owner-package sources only in the top-level entry.
-The violation and the blind spot are one item: removing the re-export without widening the guard
-leaves the laundering channel open.
+`agent-framework`'s public surface launders owner-package runtime values through reachable local
+barrels, violating the package's own no-pass-through rule (INFRA-025). The known env helpers travel
+through both `command-api/index.ts` and `commands/index.ts`; the interactive barrel also forwards
+agent-session's session-id guards. The mechanical guard cannot see these paths because it checks
+owner-package sources only in the top-level entry. Removing one finite export list without traversing
+the real public graph leaves the laundering channel open.
 
 ## Evidence
 
 - `packages/agent-framework/src/commands/index.ts:127-132` — `export { formatEnvReference,
 hasUsableSecretReference, isEnvReference, resolveEnvReference } from '@robota-sdk/agent-core';`
   re-surfaced at `src/index.ts:130-136`. SSOT: `agent-core/src/index.ts:155-157`.
+- `packages/agent-framework/src/command-api/index.ts:87-92` repeats the same owner-package re-export on a
+  reachable barrel path.
+- `packages/agent-framework/src/interactive/index.ts:12` forwards `assertSafeSessionId` and
+  `isSafeSessionId` directly from `agent-session`; `apps/agent-server` consumes the latter from the
+  framework instead of its owner.
 - `packages/agent-framework/docs/SPEC.md:67` — "No pass-through re-exports (INFRA-025): the public
   index exposes framework-OWNED symbols only"; `docs/PUBLIC-SURFACE.md:19-26` — runtime re-exports
   allowed only in the named facade barrels, and "must not directly re-export from
@@ -34,20 +40,60 @@ hasUsableSecretReference, isEnvReference, resolveEnvReference } from '@robota-sd
 
 ## Direction
 
-1. Delete the re-export; consumers import the helpers from `@robota-sdk/agent-core` (changeset —
-   this narrows a published surface).
-2. Extend `check-sdk-public-surface.mjs` to flag owner-package re-exports in ANY barrel reachable
-   from the public entry (walk the re-export graph from `src/index.ts`), with a red-first fixture.
-3. Fix `SPEC.md:979` ownership prose.
+1. Remove every owner-package pass-through reachable from the framework's public source entry roots.
+   Consumers import env helpers from `@robota-sdk/agent-core` and session-id guards from
+   `@robota-sdk/agent-session`; the published narrowing receives a beta-line breaking changeset.
+2. Derive public source entry roots from `packages/agent-framework/package.json` exports (currently `.`
+   and `./testing`). Recursively follow local re-export edges with cycle protection, explicit `.js`→`.ts`,
+   extensionless-file, and directory-`index.ts` resolution. An unresolved local re-export is a finding,
+   never a silently ignored edge. Only reachable files are judged; unreachable internal barrels remain
+   internal.
+3. At every reachable file, reject type or value re-exports from forbidden owner packages while retaining
+   the named `agent-executor` runtime-facade exception. Fix the framework SPEC ownership prose and public
+   surface table.
+
+## Recommendation Gate
+
+- 2026-08-16 — `DEPTH: LOCAL`; the defect is the incomplete package-export graph guard and the reachable
+  owner-package laundering it permits.
+- 2026-08-16 — independent final review endorsed the package-declared-root, recursive, cycle-safe,
+  fail-closed graph scan and the complete owner-import migration.
+
+REVIEW VERDICT: ENDORSE
 
 ## Test Plan
 
-- Red-first: guard fixture with a nested pass-through must FAIL before the guard fix.
-- `rg` shows zero `from '@robota-sdk/agent-core'` value re-exports in framework barrels post-change.
-- Build + typecheck green workspace-wide (call sites migrated); changeset present.
+- Red-first: direct, depth-2, and depth-3 owner laundering fail; a cycle terminates safely; unreachable
+  barrels and allowed runtime facades remain clean; type-only pass-through and unresolved local edges
+  fail; both package export roots are traversed.
+- The graph scan reports zero value or type pass-through from every forbidden owner package across every
+  package-declared public source root; an independent `rg` inventory agrees with the reachable findings.
+- Build + typecheck green workspace-wide (including the agent-server owner import); changeset present.
 - `pnpm harness:scan` green.
 
 ## User Execution Test Scenarios
 
-Not applicable — internal surface hygiene + guard hardening; the public-API narrowing is covered by
-the changeset/migration note, and no runnable product behavior changes.
+**Not applicable.** This work delivers no runnable user-facing capability or changed runtime behavior:
+it removes an ownership-violating convenience import and hardens the repository's public-export graph
+guard. The env helpers and session-id guards retain the same runtime behavior at their owner-package
+imports, so inventing a command or SDK run would exercise unchanged owner behavior rather than this
+change.
+
+Engineering evidence substitute: the red-first reachable-graph fixtures cover direct/deep/cyclic/type-only
+laundering and unresolved edges; framework and agent-server typecheck/build prove the owner-import
+migration; the zero-pass-through scan and beta changeset prove the narrowed published surface. These stay
+in `## Test Plan` and are not represented as user-execution evidence.
+
+## Scenario Plan Gate
+
+- 2026-08-16 — author classified the item as `not-applicable`: it changes compile-time export ownership
+  and a repository guard, not a runnable product surface; the concrete engineering substitute is recorded
+  above.
+
+SCENARIO DRAFTED: not-applicable | 0
+
+- 2026-08-16 — independent PLAN guardian reviewed the recorded exception and returned PASS: the work
+  changes only compile-time export ownership and repository enforcement, while the unchanged owner-package
+  runtime behavior is correctly retained as engineering evidence rather than a fabricated product scenario.
+
+DONE-GATE-STAGE-1: PASS
