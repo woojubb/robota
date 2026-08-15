@@ -71,10 +71,13 @@ export class SessionResumeBridge {
    * before it is seq-stamped and buffered by {@link emit}. Distinct from {@link outbound}, which is the
    * per-attachment exit to the current channel; this one outlives channels because the subscription does.
    *
-   * It guards the BUFFERING step, not a carrier, and it latches for the life of the session on purpose: a
-   * resume buffer that cannot accept a frame cannot honour a later `resume` either, so there is nothing a
-   * reconnect could recover. That is the opposite of {@link outbound}, where the next channel is exactly
-   * what recovery looks like — the two scopes differ because the failures do.
+   * It guards the BUFFERING step, not a carrier, and it latches for the life of the session on purpose:
+   * the failure it is placed against is the buffer refusing a frame on capacity, and a resume buffer that
+   * cannot accept frames cannot honour a later `resume` either, so there is nothing a reconnect recovers.
+   * That is the opposite of {@link outbound}, where the next channel IS the recovery — the two scopes
+   * differ because the failures do. (A per-frame serialization failure would leave the buffer intact, but
+   * such a frame is undeliverable on every carrier, since each one stringifies it too; it is reported and
+   * the carrier torn down, never silently dropped.)
    */
   private readonly emitBoundary: TOutboundDeliver;
   private disposed = false;

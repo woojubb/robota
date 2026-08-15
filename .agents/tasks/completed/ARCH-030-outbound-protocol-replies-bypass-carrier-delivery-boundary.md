@@ -74,9 +74,10 @@ real client, and reads exit code plus one JSON line from stdout. Levels 2 and 3 
 ### Scenario 1 — a reply that resolves after the carrier disconnected is reported, not thrown
 
 **Agent-executability decision:** `agent-executable`. Non-interactive, no TTY, no network beyond
-`127.0.0.1`. The invocation shape was executed against current `develop` before this section was written
-(see RED baseline below), so the command, the module resolution, and the observables are proven real —
-only the values change once the boundary lands.
+`127.0.0.1`. The invocation shape was executed against `main` @ `e828a2925` before this section was
+written — it exited `1` with `Error: real carrier produced unhandled rejections: ["WebSocket is not
+open"]` — so the command, the module resolution, and the observables were proven real before any
+expectation was set here; only the values change once the boundary lands.
 
 **Prerequisites**
 
