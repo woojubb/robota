@@ -29,6 +29,8 @@
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "typecheck": "tsgo --noEmit",
     "lint": "eslint src/ --ext .ts",
+    "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-session-log-external-payload-replay.ts",
+    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-provider-replay --output examples/scenarios/external-payload-replay.record.json -- pnpm scenario:verify",
     "clean": "rimraf dist"
   },
   "dependencies": {
@@ -36,9 +38,11 @@
     "@robota-sdk/agent-session": "workspace:*"
   },
   "devDependencies": {
+    "@robota-sdk/agent-framework": "workspace:*",
     "@types/node": "^20.19.43",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",
+    "tsx": "^4.23.1",
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
   },

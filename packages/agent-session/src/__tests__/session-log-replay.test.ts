@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { FileSessionLogger } from '../session-logger.js';
 import {
+  loadSessionLogEntries,
   replaySessionLogEntries,
   validateSessionReplayLogEntries,
   type ISessionLogEntry,
@@ -42,6 +43,28 @@ describe('session log replay support', () => {
     expect(payloadFiles).toHaveLength(1);
     const payload = readFileSync(join(logDir, entry.result.relativePath), 'utf-8');
     expect(JSON.parse(payload)).toBe('x'.repeat(128));
+  });
+
+  it('ARCH-014: loadSessionLogEntries hydrates externalized values before replay', () => {
+    const logDir = mkdtempSync(join(tmpdir(), 'robota-log-hydration-'));
+    const logger = new FileSessionLogger(logDir, { externalPayloadThresholdBytes: 32 });
+
+    logger.log('hydrated_session', 'history_mutation', {
+      mutation: 'append_message',
+      message: {
+        id: 'a1',
+        role: 'assistant',
+        content: 'x'.repeat(128),
+        state: 'complete',
+        timestamp: '2026-08-15T00:00:00.000Z',
+      },
+    });
+
+    const [entry] = loadSessionLogEntries(join(logDir, 'hydrated_session.jsonl'));
+
+    expect(entry?.message).toEqual(
+      expect.objectContaining({ role: 'assistant', content: 'x'.repeat(128) }),
+    );
   });
 
   it('replays append-only history mutation events into messages and chat history', () => {
@@ -150,5 +173,61 @@ describe('session log replay support', () => {
     ]);
 
     expect(result).toEqual({ ok: true, issues: [] });
+  });
+
+  it('ARCH-014: rejects an unresolved normalized response as replay-incomplete', () => {
+    const shared = {
+      timestamp: '2026-08-15T00:00:00.000Z',
+      sessionId: 's1',
+      executionId: 'exec-1',
+      round: 1,
+    };
+    const result = validateSessionReplayLogEntries([
+      { ...shared, event: 'provider_request' },
+      {
+        ...shared,
+        event: 'provider_native_raw_payload',
+        payloadKind: 'response',
+      },
+      { ...shared, event: 'provider_response_raw' },
+      {
+        ...shared,
+        event: 'provider_response_normalized',
+        response: {
+          kind: 'external-payload',
+          encoding: 'json',
+          sha256: 'a'.repeat(64),
+          byteLength: 10,
+          relativePath: 's1.payloads/payload.json',
+        },
+      },
+    ]);
+
+    expect(result.issues.map((issue) => issue.code)).toEqual(
+      expect.arrayContaining(['UNRESOLVED_REPLAY_PAYLOAD', 'PROVIDER_RESPONSE_NORMALIZED_MISSING']),
+    );
+  });
+
+  it('ARCH-014: validator applies the resolver reference-shape contract', () => {
+    const result = validateSessionReplayLogEntries([
+      {
+        timestamp: '2026-08-15T00:00:00.000Z',
+        sessionId: 's1',
+        event: 'history_mutation',
+        mutation: 'append_message',
+        message: {
+          kind: 'external-payload',
+          encoding: 'json',
+          sha256: 'too-short',
+          byteLength: -1,
+          relativePath: '',
+          unexpected: true,
+        },
+      },
+    ]);
+
+    expect(result.issues.map((issue) => issue.code)).toEqual(
+      expect.arrayContaining(['PAYLOAD_REFERENCE_INVALID', 'UNRESOLVED_REPLAY_PAYLOAD']),
+    );
   });
 });

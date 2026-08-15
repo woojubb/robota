@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-014: the session logger externalizes payloads over 32KiB to sidecar files, but no reader dereferences them — large messages/responses are corrupted or silently dropped on replay, and the validator passes the broken log'
-status: todo
+status: in-progress
 created: 2026-08-13
 priority: high
 urgency: now
@@ -66,7 +66,9 @@ never hydrates twice.
   drives the real logger, replays a >32KiB response plus sentinel response, and is registered in the
   functional-coverage manifest.
 - Scenario: deterministic and agent-executable with no network or provider key; the real JSONL artifact
-  and replayed conversation are the observable product outputs.
+  and replayed conversation are the observable product outputs. The source session uses the existing
+  public `resumeSessionId` option with `arch-014-source`, making the canonical owner record deterministic
+  without adding a product API.
 
 REVIEW VERDICT: ENDORSE
 
@@ -83,6 +85,27 @@ REVIEW VERDICT: ENDORSE
   `scripts/harness/functional-coverage-manifest.json`.
 - `pnpm harness:verify -- --scope packages/agent-session` and `--scope packages/agent-provider-replay`
   green.
+
+## Implementation Evidence
+
+- `agent-session` now owns one public recursive resolver and typed error vocabulary. It validates the
+  exact reference shape, lexical and canonical containment, regular-file status, byte length, sha256,
+  JSON compatibility, active cycles, configured depth, and one aggregate byte budget.
+- `loadSessionLogEntries` hydrates every parsed JSONL line relative to the log directory before replay;
+  raw validation rejects unresolved replay-substrate values and does not count an unresolved normalized
+  provider response as complete.
+- `ReplayProvider` reuses the session resolver only for consumed normalized responses. Direct
+  construction rejects unresolved references without an explicit base directory; the file factory
+  partitions limits to the loader and does not hydrate twice.
+- Focused package verification passed: `agent-session` 207/207 tests and `agent-provider-replay` 8/8
+  tests, with both package builds, typechecks, and lint completing (lint: zero errors).
+- Full scoped verification passed without environment overrides:
+  `volta run --node 22.14.0 pnpm harness:verify -- --scope packages/agent-provider-replay --include-scenarios`
+  exited 0, including 186 repository harness files / 3364 tests, nine build tiers, dependent typecheck,
+  and exact scenario-record comparison.
+- Public SPEC/barrel conformance was checked bidirectionally and the published API additions are
+  represented in `.changeset/arch-014-external-session-payload-replay.md` as minor changes for both
+  affected packages.
 
 ## User Execution Test Scenarios
 
@@ -117,14 +140,13 @@ REVIEW VERDICT: ENDORSE
   print its result. Every mismatch throws and makes the process exit non-zero.
 
 - **Expected observable result:** both commands exit `0`. After the first command's build output, the
-  second command prints exactly one JSON document with this directly observable shape (the source
-  session id portion of `relativePath` is dynamic):
+  second command prints exactly one JSON document with this directly observable shape:
 
   ```json
   {
     "externalPayload": {
       "present": true,
-      "relativePath": "<source-session-id>.payloads/f41be56583d387c7fd3a79676507aea00115f6d3809e3eb8fd49bd3bc39a2879.json",
+      "relativePath": "arch-014-source.payloads/f41be56583d387c7fd3a79676507aea00115f6d3809e3eb8fd49bd3bc39a2879.json",
       "sidecarExists": true
     },
     "largeResponse": {
@@ -151,7 +173,13 @@ REVIEW VERDICT: ENDORSE
   deletion to the two exact temporary directories it created, shuts both sessions down, and removes the
   JSONL, `.payloads/`, and replay logs with those directories. The success output itself confirms both
   directories no longer exist.
-- **Evidence:**
+- **Evidence:** On 2026-08-15 the two exact commands above exited 0. The standalone example printed
+  `present: true`, sidecar path
+  `arch-014-source.payloads/f41be56583d387c7fd3a79676507aea00115f6d3809e3eb8fd49bd3bc39a2879.json`,
+  `sidecarExists: true`, byte length `40975`, sha256
+  `42bc9897b0c5ebe94994f5ef0b494461e1133116821ed9141c0d2043a0168193`,
+  `matchesOriginal: true`, call-2 sentinel `ARCH_014_SENTINEL` with `aligned: true`, and both cleanup
+  booleans `true`.
 
 ### [DONE-GATE-STAGE-1] — ❌ FAIL | 2026-08-15
 
@@ -184,3 +212,27 @@ vitest run src/__tests__/session-log-external-payload-replay-functional.test.ts`
 - Expected-value consistency: PASS — independent calculation confirmed the specified 40 KiB payload is
   40975 bytes and has SHA-256
   `42bc9897b0c5ebe94994f5ef0b494461e1133116821ed9141c0d2043a0168193`.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-15
+
+**Status upgrade:** scenario written → scenario verified
+
+- Ordering: PASS — the corrected `[DONE-GATE-STAGE-1]` entry above records PASS for the maintained
+  standalone public-SDK scenario, and the Task remains `in-progress` while the implementation is
+  complete.
+- Direct execution: PASS — the orchestrator ran both exact commands against the completed work, and the
+  independent guardian freshly re-ran the standalone `tsx --conditions=source` command from the
+  repository worktree; both executions exited `0`. The build command was prerequisite setup only and
+  was not treated as user-execution evidence.
+- Observed result: PASS — the product command printed `present: true`, the canonical
+  `arch-014-source.payloads/f41be56583d387c7fd3a79676507aea00115f6d3809e3eb8fd49bd3bc39a2879.json`
+  sidecar with `sidecarExists: true`, byte length `40975`, SHA-256
+  `42bc9897b0c5ebe94994f5ef0b494461e1133116821ed9141c0d2043a0168193`,
+  `matchesOriginal: true`, call-2 `ARCH_014_SENTINEL` with `aligned: true`, and both cleanup booleans
+  `true`, exactly matching every declared observable.
+- Concrete durable evidence: PASS — the exact command and expected output remain in this scenario;
+  `packages/agent-provider-replay/examples/verify-session-log-external-payload-replay.ts`,
+  `packages/agent-provider-replay/examples/scenarios/external-payload-replay.record.json`, and
+  `packages/agent-provider-replay/src/__tests__/session-log-external-payload-replay-functional.test.ts`
+  all exist. The scenario evidence field above records the matching exit/output values; no engineering
+  verification or unprobed capability-absence claim is substituted for product execution.

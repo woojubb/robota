@@ -14,11 +14,20 @@ import type { ISessionLogLine } from '@robota-sdk/agent-session';
 export { ReplayProvider } from './replay-provider.js';
 export type { IReplayProviderOptions } from './replay-provider.js';
 
+export type TReplayProviderFromLogFileOptions = Omit<
+  IReplayProviderOptions,
+  'entries' | 'externalPayloadBaseDirectory'
+>;
+
 /** Convenience: build a {@link ReplayProvider} from a session-log JSONL file. */
 export function createReplayProviderFromLogFile(
   logFile: string,
-  options?: Omit<IReplayProviderOptions, 'entries'>,
+  options: TReplayProviderFromLogFileOptions = {},
 ): ReplayProvider {
-  const entries = loadSessionLogEntries(logFile) as unknown as ISessionLogLine[];
-  return new ReplayProvider({ entries, ...options });
+  const { maxExternalPayloadDepth, maxExternalPayloadTotalBytes, ...providerOptions } = options;
+  const entries = loadSessionLogEntries(logFile, {
+    maxDepth: maxExternalPayloadDepth,
+    maxTotalBytes: maxExternalPayloadTotalBytes,
+  }) as unknown as ISessionLogLine[];
+  return new ReplayProvider({ entries, ...providerOptions });
 }

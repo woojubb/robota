@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "recordType": "scenario-record",
+  "scope": "packages/agent-provider-replay",
+  "packageName": "@robota-sdk/agent-provider-replay",
+  "command": {
+    "executable": "pnpm",
+    "args": ["scenario:verify"],
+    "rendered": "pnpm scenario:verify"
+  },
+  "cwd": "<cwd>",
+  "status": 0,
+  "stdout": {
+    "raw": "\n> @robota-sdk/agent-provider-replay@3.0.0-beta.79 scenario:verify /private/tmp/robota-agreement-002-volume/worktree/packages/agent-provider-replay\n> pnpm exec tsx --conditions=source examples/verify-session-log-external-payload-replay.ts\n\n{\n  \"externalPayload\": {\n    \"present\": true,\n    \"relativePath\": \"arch-014-source.payloads/f41be56583d387c7fd3a79676507aea00115f6d3809e3eb8fd49bd3bc39a2879.json\",\n    \"sidecarExists\": true\n  },\n  \"largeResponse\": {\n    \"byteLength\": 40975,\n    \"sha256\": \"42bc9897b0c5ebe94994f5ef0b494461e1133116821ed9141c0d2043a0168193\",\n    \"matchesOriginal\": true\n  },\n  \"sentinel\": {\n    \"callIndex\": 2,\n    \"value\": \"ARCH_014_SENTINEL\",\n    \"aligned\": true\n  },\n  \"cleanup\": {\n    \"sourceWorkspaceRemoved\": true,\n    \"replayWorkspaceRemoved\": true\n  }\n}\n",
+    "normalized": "{\n  \"externalPayload\": {\n    \"present\": true,\n    \"relativePath\": \"arch-014-source.payloads/f41be56583d387c7fd3a79676507aea00115f6d3809e3eb8fd49bd3bc39a2879.json\",\n    \"sidecarExists\": true\n  },\n  \"largeResponse\": {\n    \"byteLength\": 40975,\n    \"sha256\": \"42bc9897b0c5ebe94994f5ef0b494461e1133116821ed9141c0d2043a0168193\",\n    \"matchesOriginal\": true\n  },\n  \"sentinel\": {\n    \"callIndex\": 2,\n    \"value\": \"ARCH_014_SENTINEL\",\n    \"aligned\": true\n  },\n  \"cleanup\": {\n    \"sourceWorkspaceRemoved\": true,\n    \"replayWorkspaceRemoved\": true\n  }\n}",
+    "sha256": "06da781b8ad62ec295b29890e6c14675dcbeda46f74ec621c28c148ffe00547a"
+  },
+  "stderr": {
+    "raw": "",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

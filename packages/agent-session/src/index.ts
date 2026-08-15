@@ -53,12 +53,22 @@ export type {
   TSessionLogValue,
 } from './session-logger.js';
 export {
+  resolveSessionLogExternalPayloads,
+  SessionLogPayloadResolutionError,
+} from './external-payload-resolver.js';
+export type {
+  ISessionLogPayloadResolutionErrorMetadata,
+  ISessionLogPayloadResolutionOptions,
+  TSessionLogPayloadResolutionErrorCode,
+} from './external-payload-resolver.js';
+export {
   loadSessionLogEntries,
   replaySessionLogEntries,
   validateSessionReplayLogEntries,
 } from './session-log-replay.js';
 export type {
   ISessionLogEntry,
+  ISessionLogLoadOptions,
   ISessionReplayRecord,
   ISessionReplayValidationIssue,
   ISessionReplayValidationResult,
