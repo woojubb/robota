@@ -1,4 +1,5 @@
-import { promises as fs } from 'node:fs';
+import { promises as fs, realpathSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { createVerificationPlan, renderScopeCoverageLine } from './check-plan.mjs';
@@ -53,6 +54,10 @@ export function selectRepositoryChecks(repositoryChecks, omittedNames) {
   return repositoryChecks.filter((check) => !omitted.has(check));
 }
 
+export function repositoryCheckEnvironment(check) {
+  return check === 'harness-tests' ? { TMPDIR: realpathSync(tmpdir()) } : {};
+}
+
 function inferReportFormat(reportFile, explicitFormat) {
   if (explicitFormat) {
     return explicitFormat;
@@ -98,6 +103,7 @@ function runRepositoryCheck(check, dryRun) {
         ],
         WORKSPACE_ROOT,
         dryRun,
+        repositoryCheckEnvironment(check),
       );
       break;
     case 'repository-review':

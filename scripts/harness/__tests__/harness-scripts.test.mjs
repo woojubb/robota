@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 
 import { describe, it, expect } from 'vitest';
 
@@ -19,7 +20,7 @@ import {
   isDeletedRefUpdate,
   parsePrePushUpdates,
 } from '../pre-push-updates.mjs';
-import { selectRepositoryChecks } from '../verify-change.mjs';
+import { repositoryCheckEnvironment, selectRepositoryChecks } from '../verify-change.mjs';
 
 // ---------------------------------------------------------------------------
 // parseScopeArgs
@@ -122,6 +123,13 @@ describe('parseScopeArgs', () => {
 });
 
 describe('repository-check ownership', () => {
+  it('canonicalizes only the complete harness-test temp root', () => {
+    expect(repositoryCheckEnvironment('harness-tests')).toEqual({
+      TMPDIR: realpathSync(tmpdir()),
+    });
+    expect(repositoryCheckEnvironment('task-plan-scan')).toEqual({});
+  });
+
   it('omits only explicitly named checks while preserving the remaining owners', () => {
     expect(selectRepositoryChecks(['harness-tests', 'task-plan-scan'], ['harness-tests'])).toEqual([
       'task-plan-scan',

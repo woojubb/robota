@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { performance } from 'node:perf_hooks';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
@@ -25,32 +26,77 @@ function scratchRepo() {
   return dir;
 }
 
+function hermeticFlockBin(cwd) {
+  const bin = path.join(cwd, '.test-bin');
+  const executable = path.join(bin, 'flock');
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(
+    executable,
+    [
+      '#!/usr/bin/env bash',
+      'set -euo pipefail',
+      'if [[ "${1:-}" == "-w" ]]; then shift 2; fi',
+      'lock_file="$1"',
+      'shift',
+      'lock_dir="${lock_file}.test-lock"',
+      'while ! mkdir "$lock_dir" 2>/dev/null; do sleep 0.01; done',
+      'cleanup() { rmdir "$lock_dir"; }',
+      'trap cleanup EXIT HUP INT TERM',
+      '"$@"',
+      '',
+    ].join('\n'),
+  );
+  chmodSync(executable, 0o755);
+  return bin;
+}
+
 /**
  * Two concurrent runs, each reporting when IT entered and left its critical section.
  *
- * The timestamps come from the CHILD, not from `spawn`/`close` in this process. A first version
- * measured spawn-to-close and failed against a lock that demonstrably worked: the second process is
- * spawned immediately either way and simply waits, so its spawn time precedes the first one's exit
- * whether or not anything is serialised. That is an observable both states share — the accidental-
- * green shape this repository has a floor for — and it was measuring the scheduler, not the lock.
+ * The timestamps are captured when this process observes the CHILD'S explicit IN/OUT markers. A
+ * first version measured spawn-to-close and failed against a lock that demonstrably worked: the
+ * second process is spawned immediately either way and simply waits, so its spawn time precedes the
+ * first one's exit whether or not anything is serialised. The child markers preserve the actual
+ * critical-section boundary while Node's monotonic clock avoids GNU/BSD `date` differences.
  *
  * The property asserted is that the two sections do not OVERLAP. Ordering would be a coin flip;
  * non-overlap is what the lock actually promises.
  */
 function criticalSections(cwd, wrapped) {
-  const command = 'echo IN $(date +%s%3N); sleep 0.2; echo OUT $(date +%s%3N)';
+  const command = 'echo IN; sleep 0.2; echo OUT';
+  const flockBin = wrapped ? hermeticFlockBin(cwd) : null;
   return Promise.all(
     [0, 1].map(
       () =>
         new Promise((resolve) => {
           const argv = wrapped ? [LOCK_WRAPPER, 'bash', '-c', command] : ['-c', command];
-          const child = spawn('bash', argv, { cwd, encoding: 'utf8' });
+          const env = flockBin
+            ? { ...process.env, PATH: `${flockBin}:${process.env.PATH}` }
+            : process.env;
+          const child = spawn('bash', argv, { cwd, encoding: 'utf8', env });
           let out = '';
-          child.stdout.on('data', (d) => (out += d));
+          let buffered = '';
+          let enter = NaN;
+          let leave = NaN;
+          const observe = (chunk) => {
+            buffered += chunk;
+            let newline = buffered.indexOf('\n');
+            while (newline !== -1) {
+              const line = buffered.slice(0, newline).trim();
+              buffered = buffered.slice(newline + 1);
+              const observedAt = performance.now();
+              if (line === 'IN' && !Number.isFinite(enter)) enter = observedAt;
+              if (line === 'OUT' && !Number.isFinite(leave)) leave = observedAt;
+              newline = buffered.indexOf('\n');
+            }
+          };
+          child.stdout.on('data', (d) => {
+            const chunk = String(d);
+            out += chunk;
+            observe(chunk);
+          });
           child.stderr.on('data', (d) => (out += d));
           child.on('close', (code) => {
-            const enter = Number(/IN (\d+)/.exec(out)?.[1] ?? NaN);
-            const leave = Number(/OUT (\d+)/.exec(out)?.[1] ?? NaN);
             resolve({ code, out, enter, leave });
           });
         }),
