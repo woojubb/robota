@@ -93,7 +93,7 @@ Do not add a second copy of the prompt-injection logic to `execution-stream.ts` 
 the two paths drifted. Route the streaming path through the same session initialization the round
 path uses (`initializeConversationStore`, or a shared extraction of it), so `config.systemMessage`,
 the "inject once per session" rule (CORE-009/CORE-010) and the ephemeral-block contract are owned in
-one place. Confirm the interaction with `Robota.updateSystemPrompt` (`core/robota.ts:317`) is
+one place. Confirm the interaction with `Robota.updateSystemPrompt` (`core/robota.ts:315`) is
 unchanged.
 
 Related but distinct: CORE-032 (`runStream` is a single-round engine) covers the same file; check
@@ -286,7 +286,10 @@ void main();
   `run() provider request` carried the system head while
   `runStream() provider request: [{"role":"user","content":"hi"}]` carried no system message at all.
 - Cleanup: none — nothing is persisted and `git status --porcelain scratch/` stays empty.
-- Evidence: _to be filled after implementation._
+- Evidence (2026-08-16, run against the completed implementation on this branch): **`SCENARIO 1 PASS`,
+  `EXIT:0`**, six `PASS` lines. Both requests now open identically:
+  `run() provider request: [{"role":"system","content":"Reply with exactly the string OK-APPLIED and nothing else."},{"role":"user","content":"hi"}]`
+  and `runStream() provider request:` byte-identical to it.
 
 ---
 
@@ -352,7 +355,11 @@ void main();
   **mid-conversation**. That is the user-visible shape of the defect: an agent used through both
   entry points only acquires its persona from the first non-streaming turn onward.
 - Cleanup: none.
-- Evidence: _to be filled after implementation._
+- Evidence (2026-08-16, run against the completed implementation on this branch): **`SCENARIO 2 PASS`,
+  `EXIT:0`**. All three provider calls now open with
+  `{"role":"system","content":"You are PERSONA-ALPHA."}` — including calls 1 and 2, the streaming
+  turns that previously carried none — and `getHistory()` holds exactly one system message, at the
+  head, after two streaming turns and a round turn on one agent.
 
 ---
 
@@ -420,7 +427,13 @@ void main();
   message in the request and the configured one was absent. The two contract-preservation checks
   (request carries the ephemeral block; store does not) already passed and must continue to.
 - Cleanup: none.
-- Evidence: _to be filled after implementation._
+- Evidence (2026-08-16, run against the completed implementation on this branch): **`SCENARIO 3 PASS`,
+  `EXIT:0`**.
+  `provider request: [{"role":"system","content":"You are PERSONA-ALPHA."},{"role":"user","content":"hi"},{"role":"system","content":"RECALLED-MEMORY-BLOCK-XYZ"}]`
+  — both blocks present, the configured one at index 0 — while
+  `getHistory(): [{"role":"system","content":"You are PERSONA-ALPHA."},{"role":"user","content":"hi"},{"role":"assistant","content":"ack"}]`
+  carries no trace of the ephemeral block. The SELFHOST-008 P3 contract survives the new store
+  initialization.
 
 ---
 
@@ -491,7 +504,13 @@ void main();
   `getHistory()` holds exactly one, `'GAMMA'`. `'ALPHA'` never reappears and there are never two
   heads. The post-fix run must reproduce the pre-fix output.
 - Cleanup: none.
-- Evidence: _to be filled after implementation._
+- Evidence (2026-08-16, run against the completed implementation on this branch): **`SCENARIO 4 PASS`,
+  `EXIT:0`**, reproducing the pre-fix output exactly:
+  `provider call 1: [{"role":"system","content":"BETA"},…]`,
+  `provider call 2: [{"role":"system","content":"GAMMA"},…]`, and `getHistory()` holding exactly one
+  system message, `GAMMA`. The live-updated head is neither reverted to `config.systemMessage` nor
+  duplicated. Per the stage-1 gate's binding, this scenario is **not** cited as evidence the change
+  landed — scenarios 1–3 carry that; this one shows the fix introduced no regression here.
 
 ---
 
@@ -501,3 +520,76 @@ Scenario 2 observes the head's presence and singularity through `getHistory()`, 
 persistence/resume leg needs an `agent-session` store fixture. It is documented as benign (SPEC
 § System Prompt resume semantics do not restore persisted `system` messages) and outside this item's
 blast radius; named here so the omission is a decision rather than an oversight.
+
+---
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** none — Stage 1 is not a status transition. `status: todo` is unchanged; the
+routing on this verdict belongs to the orchestrator, not to this gate.
+
+**Ordering check (exempt gate, process precondition verified anyway):** DONE-GATE-STAGE-1 has no
+prior gate (gate catalogue > Prior-gate map). The "scenarios before implementation" precondition of
+`backlog-execution.md` § User Execution Test Scenario Rule was verified rather than assumed on branch
+`fix/core-036-runstream-system-prompt`: `git diff --name-only origin/develop..HEAD` returns only
+`.agents/tasks/CORE-036-*.md` and `.agents/tasks/CORE-042-*.md` across all three commits
+(`9fae91889`, `e07593977`, `699c39ad4`, all `docs(tasks):`); `git status --porcelain` shows nothing
+under `packages/` or `apps/` (only two pre-existing `.agents/evals/lessons/` auto-generated files).
+No implementation preceded this gate.
+
+**Per criterion:**
+
+- **Field completeness (exact steps, prerequisites, expected observable, evidence field)** — met for
+  all 4. Each scenario carries: the exact command
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-036-s<n>.ts; echo "EXIT:$?"`
+  with its working directory (`scratch/`); a prerequisite line (S1 "workspace installed; no services,
+  credentials, or environment variables", S2–S4 "as scenario 1"); an expected observable naming both
+  the exit code and the exact output substring (`SCENARIO <n> PASS`, `EXIT:0`, plus the concrete
+  message shape, e.g. S1's `{"role":"system","content":"Reply with exactly the string OK-APPLIED and
+nothing else."}`); a cleanup line (`none` — verified: `git status --porcelain` is unchanged after a
+  full four-scenario run); and an `Evidence: _to be filled after implementation._` field.
+- **Executability decision on every scenario** — met. All 4 are labelled `agent-executable`; none
+  claims `manual-only`, so no technical-reason bar applies. Verified as true rather than asserted:
+  all four were run from Bash during this gate.
+- **Drives a product surface, not engineering verification** — met. The observable is the
+  `TUniversalMessage[]` the SDK hands a user-written `AbstractAIProvider` (a public export of
+  `@robota-sdk/agent-core`) plus `agent.getHistory()` — public SDK usage, which
+  `backlog-execution.md` names as a product surface for an SDK-only feature. No scenario's observable
+  is a build, typecheck, lint, `pnpm test`, harness, CI, or repository-text inspection; those live
+  separately in `## Test Plan`. Noted, not failed: `--conditions=source` runs the TS sources rather
+  than `dist/`, which the item states explicitly as a limitation with the remedy (drop the flag after
+  `pnpm build` where a native toolchain exists).
+- **Credential / external-service prerequisite stated explicitly** — met affirmatively. The section
+  states "**No API key, no network**", and records the probe that rejected the live-provider draft
+  (no `OPENAI_API_KEY`/`ANTHROPIC_API_KEY`/`GOOGLE_*`; `find . -maxdepth 3 -name ".env*"` yielding
+  only unpopulated `.env.example`). An executor learns from the scenario, not from a failure, that
+  nothing external is required.
+- **Reproducibility of the inlined scripts (checked because `scratch/src/` is gitignored)** — met.
+  The 5 fenced `ts` blocks were extracted from this document alone into a fresh directory and
+  executed: reconstructed Scenario 1 produced `SCENARIO 1 FAIL (4)` and reconstructed Scenario 4
+  produced `SCENARIO 4 PASS`, matching the on-disk runs exactly. The document text is byte-identical
+  to `scratch/src/core-036-{lib,s1,s2,s3,s4}.ts` apart from the added `// scratch/src/<file>` path
+  header. The item is a sufficient durable home for the scripts. Temp reconstruction directory was
+  removed; working tree unchanged.
+- **Recorded pre-fix measurements (verifiable claims, so verified)** — all four reproduce exactly at
+  `e07593977`: S1 `FAIL (4)` `EXIT:1` with `runStream() provider request: [{"role":"user","content":"hi"}]`;
+  S2 `FAIL (6)` `EXIT:1` with calls 1–2 headless and call 3 injecting mid-conversation; S3 `FAIL (3)`
+  `EXIT:1` with the ephemeral block as the only system message; S4 `PASS` `EXIT:0`.
+
+**Ruling on Scenario 4 (a scenario that passes on unfixed code) — admissible.** Stage 1 requires
+completeness, a product surface, and stated prerequisites; it does not require that every scenario
+fail pre-fix. S4 guards a risk this fix introduces (routing through `initializeConversationStore`
+could revert a live-updated head to `config.systemMessage` or append a second one) that scenarios 1–3
+structurally cannot see, and the Direction requires confirming the `updateSystemPrompt` interaction
+is unchanged. Its expectation is derived from the contract and pinned to a measured pre-fix baseline,
+so it cannot be back-fitted to a post-fix observation. The item labels it explicitly as not evidence
+the change landed. **Binding for Stage 2:** S4 alone may not be cited as evidence the fix landed —
+scenarios 1–3 carry that burden; S4's post-fix run must reproduce `SCENARIO 4 PASS` / `EXIT:0`.
+
+**Containment scope** — consistent. `finding-depth-triager` `DEPTH: FOUNDATIONAL` and the root item
+`CORE-042` (`.agents/tasks/CORE-042-the-execution-turn-is-implemented-twice.md`, verified present)
+are recorded in `## Direction`, with `proposal-reviewer` `REVIEW VERDICT: ENDORSE` (2026-08-16,
+revision 1 of 2). The scenarios correctly verify the contained fix's observable behaviour, not the
+root cause. The `Deliberately not covered` note (the `agent-session` persistence leg) is a stated
+non-coverage decision with a reason, not an unwritten scenario, so the Stage-1 exception clause is
+not invoked.

@@ -1,4 +1,8 @@
-import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
+import {
+  assertToolChoiceValid,
+  buildChatResponseFormat,
+  initializeConversationStore,
+} from './execution-service-helpers';
 import { executeStreamToolCalls } from './execution-stream-tools';
 import { collectAssistantUsageMetadata } from './execution-usage';
 import { callPluginHook } from './plugin-hook-dispatcher';
@@ -43,7 +47,7 @@ export interface IStreamDependencies {
  */
 export async function* executeStream(
   input: string,
-  _messages: TUniversalMessage[],
+  messages: TUniversalMessage[],
   config: IAgentConfig,
   context: Partial<IExecutionContext> | undefined,
   deps: IStreamDependencies,
@@ -69,7 +73,24 @@ export async function* executeStream(
   eventEmitter.prepareOwnerPathBases(streamingConversationId);
 
   try {
-    const conversationStore = conversationHistory.getConversationStore(context.conversationId);
+    // CORE-036: enter the SAME session initialization the round path enters
+    // (`execution-service.ts` → `initializeConversationStore`), so `config.systemMessage`, the
+    // inject-once rule (CORE-009/CORE-010) and the restore branch are owned in one place. Reading
+    // the store directly here is why an agent obeyed its persona through `run()` and ignored it
+    // through `runStream()` — silently, on the default interactive surface.
+    //
+    // Contained — CORE-042. This makes the streaming path CALL one shared helper; it remains a
+    // second implementation of the turn. Provider resolution, chat options, validation, commit and
+    // error classification are still re-derived below, so the next turn capability still has to be
+    // built twice. The seam both entry points enter is CORE-042's work, planned with CORE-032 and
+    // CORE-033.
+    const conversationStore = initializeConversationStore(
+      conversationHistory,
+      context.conversationId,
+      messages,
+      config,
+      executionId,
+    );
 
     if (input) {
       conversationStore.addUserMessage(input, { executionId });

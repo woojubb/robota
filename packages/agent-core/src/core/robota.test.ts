@@ -722,6 +722,109 @@ describe('Robota Core', () => {
   });
 
   // ----------------------------------------------------------------
+  // ----------------------------------------------------------------
+  // System prompt parity (CORE-036)
+  // ----------------------------------------------------------------
+  //
+  // Table-driven over BOTH entry points on purpose. `config.systemMessage` was the SEVENTH
+  // capability the streaming path silently dropped -- the six before it are the CORE-016 / CORE-017 /
+  // CORE-018 pairs above and their siblings, each caught after the fact and each patched by copying
+  // one clause across. Asserting one entry point at a time is what let that repeat; a table fails
+  // when the two diverge instead of when someone remembers to look.
+  //
+  // Contained -- CORE-042: the duplication itself is that item's work.
+  describe('system prompt parity (CORE-036)', () => {
+    const SYSTEM = 'You are PERSONA-ALPHA.';
+
+    const drive = {
+      async run(robota: Robota): Promise<void> {
+        await robota.run('hello');
+      },
+      async runStream(robota: Robota): Promise<void> {
+        for await (const _chunk of robota.runStream('hello')) {
+          // consume
+        }
+      },
+    };
+
+    it.each([['run'], ['runStream']] as const)(
+      '%s(): config.systemMessage reaches the provider as the system head',
+      async (entryPoint) => {
+        const provider = new TrackingProvider();
+        const robota = new Robota(createConfig({ aiProviders: [provider], systemMessage: SYSTEM }));
+
+        await drive[entryPoint](robota);
+
+        const sent = provider.chatCalls[0]?.messages ?? [];
+        const systemMessages = sent.filter((m) => m.role === 'system');
+        expect(systemMessages).toHaveLength(1);
+        expect(systemMessages[0]?.content).toBe(SYSTEM);
+        expect(sent[0]?.role).toBe('system');
+      },
+    );
+
+    it.each([['run'], ['runStream']] as const)(
+      '%s(): a second turn does not add a second system head',
+      async (entryPoint) => {
+        const provider = new TrackingProvider();
+        const robota = new Robota(createConfig({ aiProviders: [provider], systemMessage: SYSTEM }));
+
+        await drive[entryPoint](robota);
+        await drive[entryPoint](robota);
+
+        // SPEC § System Prompt: exactly one, at the head -- injected once, then the log is reused.
+        const second = provider.chatCalls[1]?.messages ?? [];
+        expect(second.filter((m) => m.role === 'system')).toHaveLength(1);
+        expect(robota.getHistory().filter((m) => m.role === 'system')).toHaveLength(1);
+      },
+    );
+
+    it('a run() after a runStream() does not add a second system head', async () => {
+      // The mixed case is the one the defect was reported from: before CORE-036 the streaming turns
+      // carried no system message and the first run() injected one MID-CONVERSATION.
+      const provider = new TrackingProvider();
+      const robota = new Robota(createConfig({ aiProviders: [provider], systemMessage: SYSTEM }));
+
+      await drive.runStream(robota);
+      await drive.run(robota);
+
+      expect(provider.chatCalls[1]?.messages.filter((m) => m.role === 'system')).toHaveLength(1);
+      expect(robota.getHistory().filter((m) => m.role === 'system')).toHaveLength(1);
+    });
+
+    it('runStream(): an ephemeral block joins the system head without being stored', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(createConfig({ aiProviders: [provider], systemMessage: SYSTEM }));
+
+      for await (const _chunk of robota.runStream('hello', {
+        ephemeralSystemContext: 'RECALLED-BLOCK',
+      })) {
+        // consume
+      }
+
+      const sent = provider.chatCalls[0]?.messages ?? [];
+      expect(sent[0]?.content).toBe(SYSTEM);
+      expect(sent.some((m) => m.role === 'system' && m.content === 'RECALLED-BLOCK')).toBe(true);
+      // SELFHOST-008 P3: the ephemeral block is appended to the DERIVED array only.
+      expect(robota.getHistory().some((m) => m.content === 'RECALLED-BLOCK')).toBe(false);
+    });
+
+    it('runStream(): updateSystemPrompt still wins over config.systemMessage', async () => {
+      // The regression this fix risks: initializeConversationStore runs setSystemPrompt, so a
+      // mis-ordered implementation could revert a live-updated head or append a second one.
+      const provider = new TrackingProvider();
+      const robota = new Robota(createConfig({ aiProviders: [provider], systemMessage: 'ALPHA' }));
+
+      robota.updateSystemPrompt('BETA');
+      await drive.runStream(robota);
+
+      const sent = provider.chatCalls[0]?.messages ?? [];
+      expect(sent.filter((m) => m.role === 'system')).toHaveLength(1);
+      expect(sent[0]?.content).toBe('BETA');
+    });
+  });
+
+  // ----------------------------------------------------------------
   // Cancellation contract (CORE-018)
   // ----------------------------------------------------------------
   describe('cancellation contract', () => {
