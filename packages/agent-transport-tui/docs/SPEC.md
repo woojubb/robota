@@ -26,9 +26,14 @@ to this package and never enter the dependency graph of non-TUI consumers.
 ```
 agent-transport-tui
   ├── renderApp              ← mounts the Ink <App/>
-  ├── TuiInteractionChannel  ← IInteractionChannel for TUI mode
+  ├── TuiInteractionChannel  ← session-owning TUI presentation surface
   └── createDefaultTuiCliAdapter ← wires command/provider UX into the renderer
 ```
+
+`TuiInteractionChannel` does not implement `IInteractionChannel`. It owns the real interactive session
+and subscribes to `IInteractiveSessionEvents` directly, because the narrower `InteractionEvent` stream
+cannot carry the full TUI state. `IInteractionChannel` remains the port for
+`createInteractiveRuntime`-wired in-process channels such as `ProgrammaticInteractionChannel`.
 
 ## Channel Lifecycle & Teardown
 

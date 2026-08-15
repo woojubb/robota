@@ -168,6 +168,14 @@ are type-only except for the four pure accessor functions re-exported from `inte
 
 ## Interface Contracts
 
+### Interaction channel scope
+
+`IInteractionChannel` is the in-process port consumed by `createInteractiveRuntime`; today
+`ProgrammaticInteractionChannel` is its production implementation. It is not the universal transport
+contract. The TUI owns an `IInteractiveSession` and subscribes to its full event map directly, while
+headless and remote transports use the session capability/configurable-transport families. A surface
+must not nominally implement `IInteractionChannel` while making its central `write()` operation a no-op.
+
 ### Interactive session persistence
 
 `IInteractiveSessionRecord` is the complete resumable-record SSOT and

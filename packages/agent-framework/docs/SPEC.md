@@ -361,7 +361,11 @@ When `sandboxClient` is provided to `InteractiveSession`, Bash, Read, Write, and
 
 ### Interaction Channel Contract (`IInteractionChannel`)
 
-`agent-framework` defines the channel abstraction that decouples session I/O from transport implementations. Transport packages implement `IInteractionChannel`; `createInteractiveRuntime` wires them to a session.
+`agent-interface-transport` defines `IInteractionChannel`, and `agent-framework` consumes it only through
+`createInteractiveRuntime`. The port describes that in-process runtime wiring; it is not a universal
+transport abstraction. `ProgrammaticInteractionChannel` is the current production implementation. The
+session-owning TUI and headless/remote transports use the full `IInteractiveSession` event/capability
+surface instead and do not nominally implement a port whose `write()` path they do not consume.
 
 ```typescript
 interface IInteractionChannel {

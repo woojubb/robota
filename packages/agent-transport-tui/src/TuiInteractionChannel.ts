@@ -1,5 +1,5 @@
 /**
- * TuiInteractionChannel — implements IInteractionChannel for the Ink TUI.
+ * TuiInteractionChannel — session-owning presentation surface for the Ink TUI.
  *
  * Moves session lifecycle (InteractiveSession, CommandRegistry, TuiStateManager)
  * out of React hooks and into a plain TypeScript class.
@@ -38,9 +38,7 @@ import type {
   IExecutionDetailPage,
   IExecutionResult,
   IExecutionWorkspaceEvent,
-  IInteractionChannel,
   IInteractiveSessionEvents,
-  InteractionEvent,
   TInteractiveEventName,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-transport';
@@ -53,7 +51,7 @@ const SHUTDOWN_TIMEOUT_MS = 5000;
 
 export type { ITuiInteractionChannelOptions } from './tui-channel-options.js';
 
-export class TuiInteractionChannel implements IInteractionChannel {
+export class TuiInteractionChannel {
   readonly stateManager: TuiStateManager;
 
   private readonly interactiveSession: InteractiveSession;
@@ -130,17 +128,8 @@ export class TuiInteractionChannel implements IInteractionChannel {
     return registry;
   }
 
-  // ── IInteractionChannel ──────────────────────────────────────
-
   onSubmit(handler: (text: string) => Promise<void>): void {
     this.submitHandler = handler;
-  }
-
-  write(_event: InteractionEvent): void {
-    // Intentionally unused in TUI direct-wiring mode.
-    // TuiInteractionChannel subscribes to session events directly via start() →
-    // wireSessionEvents(), not through the IInteractionChannel event protocol used
-    // by createInteractiveRuntime. The two paths are mutually exclusive.
   }
 
   setAvailableCommands(commands: ICommandInfo[]): void {
