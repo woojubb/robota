@@ -40,6 +40,54 @@ function extractReExportDeclarations(content) {
   }));
 }
 
+function extractNamedBindings(list, useLocalAlias) {
+  return list
+    .split(',')
+    .map((entry) => entry.trim().replace(/^type\s+/, ''))
+    .filter((entry) => entry.length > 0)
+    .map((entry) => {
+      const [original, alias] = entry.split(/\s+as\s+/);
+      return useLocalAlias ? (alias ?? original) : original;
+    });
+}
+
+function extractImportDeclarations(content) {
+  return [...content.matchAll(/\bimport\s+(?:type\s+)?([\s\S]*?)\s+from\s+['"]([^'"]+)['"]/g)].map(
+    (match) => {
+      const clause = match[1].trim();
+      const bindings = [];
+      const named = clause.match(/\{([\s\S]*?)\}/);
+      if (named) bindings.push(...extractNamedBindings(named[1], true));
+      const namespace = clause.match(/\*\s+as\s+(\w+)/);
+      if (namespace) bindings.push(namespace[1]);
+      const defaultBinding = clause.split(',')[0]?.trim();
+      if (defaultBinding && !defaultBinding.startsWith('{') && !defaultBinding.startsWith('*')) {
+        bindings.push(defaultBinding);
+      }
+      return { source: match[2], bindings };
+    },
+  );
+}
+
+function extractLocalExportBindings(content) {
+  const bindings = [];
+  for (const match of content.matchAll(/\bexport\s+(?:type\s+)?\{([\s\S]*?)\}(?!\s*from)/g)) {
+    bindings.push(...extractNamedBindings(match[1], false));
+  }
+  return new Set(bindings);
+}
+
+function extractPassThroughSources(content) {
+  const sources = extractReExportDeclarations(content).map((declaration) => declaration.source);
+  const exportedBindings = extractLocalExportBindings(content);
+  for (const declaration of extractImportDeclarations(content)) {
+    if (declaration.bindings.some((binding) => exportedBindings.has(binding))) {
+      sources.push(declaration.source);
+    }
+  }
+  return sources;
+}
+
 async function pathExists(targetPath) {
   try {
     await fs.access(targetPath);
@@ -126,12 +174,12 @@ function findExportStarFindings(file, content) {
 }
 
 function findOwnerPassThroughFindings(file, content) {
-  return extractReExportDeclarations(content)
-    .filter((declaration) => isForbiddenTopLevelOwnerPackage(declaration.source))
-    .map((declaration) => ({
+  return extractPassThroughSources(content)
+    .filter((source) => isForbiddenTopLevelOwnerPackage(source))
+    .map((source) => ({
       file,
       type: 'sdk-public-owner-pass-through',
-      detail: `Public agent-framework export graph must not pass through ${declaration.source}; import from the owning package or add an explicit SDK-owned facade.`,
+      detail: `Public agent-framework export graph must not pass through ${source}; import from the owning package or add an explicit SDK-owned facade.`,
     }));
 }
 
@@ -171,8 +219,11 @@ async function collectReachableFindings(root, file, visited, findings) {
 
 function findUnexpectedRuntimeFacadeFindings(file, content) {
   if (SDK_RUNTIME_FACADE_FILES.has(file)) return [];
-  return extractReExportDeclarations(content)
-    .filter((declaration) => declaration.source === '@robota-sdk/agent-executor')
+  return extractPassThroughSources(content)
+    .filter(
+      (source) =>
+        source === '@robota-sdk/agent-executor' || source.startsWith('@robota-sdk/agent-executor/'),
+    )
     .map(() => ({
       file,
       type: 'sdk-runtime-facade-location',

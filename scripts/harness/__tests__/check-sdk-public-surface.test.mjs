@@ -219,4 +219,45 @@ export { readTool } from '@robota-sdk/agent-tools/builtins';
 
     await expect(findSdkPublicSurfaceFindings(root)).resolves.toEqual([]);
   });
+
+  it('flags a forbidden owner import that is exported in a separate declaration', async () => {
+    const root = await createFixture({
+      'packages/agent-framework/src/index.ts': "export { owned } from './laundered.js';\n",
+      'packages/agent-framework/src/laundered.ts': [
+        "import type { IHistoryEntry as ImportedHistory } from '@robota-sdk/agent-core';",
+        'export type { ImportedHistory as owned };',
+        '',
+      ].join('\n'),
+    });
+
+    const findings = await findSdkPublicSurfaceFindings(root);
+
+    expect(findings).toEqual([
+      {
+        file: 'packages/agent-framework/src/laundered.ts',
+        type: 'sdk-public-owner-pass-through',
+        detail:
+          'Public agent-framework export graph must not pass through @robota-sdk/agent-core; import from the owning package or add an explicit SDK-owned facade.',
+      },
+    ]);
+  });
+
+  it('flags agent-executor subpath re-exports outside the named facade barrels', async () => {
+    const root = await createFixture({
+      'packages/agent-framework/src/index.ts': "export type { RuntimePort } from './runtime.js';\n",
+      'packages/agent-framework/src/runtime.ts':
+        "export type { RuntimePort } from '@robota-sdk/agent-executor/testing';\n",
+    });
+
+    const findings = await findSdkPublicSurfaceFindings(root);
+
+    expect(findings).toEqual([
+      {
+        file: 'packages/agent-framework/src/runtime.ts',
+        type: 'sdk-runtime-facade-location',
+        detail:
+          'agent-executor public re-exports must stay in SDK runtime facade barrels, not arbitrary SDK files.',
+      },
+    ]);
+  });
 });
