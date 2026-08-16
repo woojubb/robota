@@ -17,6 +17,9 @@
  *      tool-absence) declare a token from the CLOSED vocabulary and their body's output-contract
  *      instructs ending with that exact token (the token string appears in the body).
  *   4. The agent is referenced in `.agents/skills/index.md` (registered, not orphaned).
+ *   5. A FINDING-PRODUCING agent (classified by its `signal:` token) references the finding-depth
+ *      rule, so "is this finding in scope, or a separate root item?" has an owner other than the
+ *      agent that wants to absorb it.
  *
  * Exit code 0 = clean, 1 = findings.
  */
@@ -55,6 +58,21 @@ export const CLOSED_SIGNAL_VOCAB = new Set([
 ]);
 
 const EDIT_TOOLS = ['Edit', 'Write'];
+
+/**
+ * The signals whose bearers PRODUCE FINDINGS — open-ended judgements about a body of work, where
+ * "does this finding belong to the thing under review?" is a live question every time.
+ *
+ * Deliberately excluded, and why, so the set is not widened by reflex:
+ * - `GATE VERDICT` — its bearers (the worktree gates, the backlog gate guard) judge a named gate
+ *   against fixed criteria and answer PASS/FAIL/NON-COMPLIANCE. There is no finding whose scope could
+ *   expand, so requiring the reference would be ceremony. Adding them was this guard's own first
+ *   draft, and it was over-reach of exactly the kind the guard exists to catch.
+ * - `DECOMPOSITION`, `PRIOR_ART_RESEARCH`, `SCENARIO DRAFTED` — produce an artifact, judge nothing.
+ * - `MERGE VERIFIED`, `CI TRIAGE` — report a state.
+ * - `DEPTH` — its bearer IS the depth judge; requiring it to cite the rule it implements is circular.
+ */
+const FINDING_PRODUCING_SIGNALS = new Set(['REVIEW VERDICT', 'ACTIONABLE FINDINGS']);
 
 /**
  * Split a markdown file into its frontmatter map + body. Values are a string (scalar) or a
@@ -124,6 +142,21 @@ export function analyzeAgent(text, { referencedInIndex = true } = {}) {
         `declares signal "${token}" but its body's output-contract does not instruct ending with that token`,
       );
     }
+  }
+
+  // An agent that RETURNS A VERDICT on findings decides, implicitly, which findings belong to the
+  // thing under review and which are separate root items. That is the depth question, and it has its
+  // own owner document. `proposal-reviewer` shipped without referencing it and, across a twelve-round
+  // review, defaulted to absorption every time — growing one item's `area` from three packages to
+  // thirteen with nobody deciding that it should grow. Ten of the eleven finding-producing agents
+  // already carried the reference; the guard is what makes that a floor instead of a habit.
+  if (
+    FINDING_PRODUCING_SIGNALS.has(asScalar(frontmatter.signal) ?? '') &&
+    !/finding-depth/.test(body)
+  ) {
+    findings.push(
+      'produces findings but its body never references the finding-depth rule — a finding-producing agent must say which findings are in scope and which are separate root items, and that convention is owned by finding-depth.md, not by the agent',
+    );
   }
 
   if (!referencedInIndex) {

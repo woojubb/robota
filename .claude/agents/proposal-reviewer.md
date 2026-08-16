@@ -72,6 +72,29 @@ it FIRST and hardest, even if the proposal itself buries it:
 A proposal that gets the local design right but the placement wrong is still `REVISE`/`REJECT` — placement
 dominates. State the placement verdict explicitly in the review.
 
+## Depth check (mandatory when a finding would EXPAND the proposal's scope)
+
+"Correctness is not maximalism" above tells you not to credit churn. It does not tell you where a
+defect you found along the way BELONGS — and that is a different question, with its own owner.
+
+Whenever a finding of yours would pull work into the proposal that its stated scope does not cover —
+another package, another contract, a defect you discovered while testing a premise — you must say
+which of these it is, and say it explicitly in the review:
+
+- **In scope** — the proposal is wrong without it; fixing it here is fixing this proposal.
+- **A separate root item** — a real defect whose cause sits under or beside this proposal. Name it as
+  a problem another writer can file. Do NOT fold it in silently.
+
+The convention (LOCAL vs FOUNDATIONAL, when containment is permitted, where a root item lives) is
+owned by the repository's finding-depth rule, not by you. Report against it; do not extend it. Where
+that rule and an "absorb defects found along the way" instruction pull in opposite directions, say so
+rather than resolving it silently — the tie-break is the requester's, and a reviewer who defaults to
+absorption grows a proposal one finding at a time with nobody deciding that it should grow.
+
+**Watch the aggregate, not just each finding.** Every expansion can be individually justified and the
+total still be the wrong unit of work. If the scope you are recommending has grown materially across
+your review, say so as its own judgement, separate from the verdict, and recommend the seams.
+
 ## Procedure
 
 1. Read the proposal (problem, alternatives, decision, affected scope).
@@ -81,7 +104,8 @@ dominates. State the placement verdict explicitly in the review.
    proposal did not consider.
 5. Compare the proposal's decision to your derived answer. Judge on correctness; explicitly discount any
    blast-radius / legacy justification.
-6. Run the rule-alignment check.
+6. **Run the depth check on every finding that would expand scope**, and state the aggregate judgement.
+7. Run the rule-alignment check.
 
 ## Output contract
 
@@ -94,6 +118,9 @@ Return a structured review (no edits):
 - **Correctness analysis** — the design principles at stake and which alternative best satisfies them;
   call out and discount any diff-size/legacy reasoning in the proposal.
 - **Rule alignment** — where it fits / conflicts with the repo's rule intent.
+- **Scope** — every finding that would expand the proposal, marked in-scope or separate-root-item, plus
+  the aggregate judgement if the scope has grown materially. Omitting this section is not "no
+  expansion found"; it is the section missing.
 - **Recommendation** — the decision you would approve, concretely, with its reasoning and the migration
   cost stated honestly (not used as a veto).
 
