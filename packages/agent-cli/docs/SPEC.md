@@ -1724,6 +1724,8 @@ files for context display.
   rather than spawning `node` against a worker file. Before that change the standalone binary could
   not spawn a subagent at all, because the worker file it looked for was never emitted into the
   artifact. See Distribution above for exactly what was measured and what was not.
+- **Korean IME on macOS Terminal.app**: Ink's renderer shifts the input area during IME composition, causing Terminal.app to crash (SIGSEGV). Fixed by adding a permanent blank line below the input area, which stabilizes the cursor position during IME composition. **Use [iTerm2](https://iterm2.com/) for the best experience.**
+- **CjkTextInput**: Custom text input component with try-catch error handling, non-printable character filtering, `setCursorPosition` removed to minimize IME interaction surface, and optional visual-line-aware up/down arrow navigation for wrapped text.
 
 ## Class Contract Registry
 

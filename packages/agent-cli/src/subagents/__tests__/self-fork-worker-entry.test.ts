@@ -13,23 +13,28 @@ import { resolveSelfForkWorkerEntry } from '../self-fork-worker-entry.js';
  * Windows binary (none available). Recording it here at least makes the intended contract
  * mechanical, so a change to it is deliberate rather than accidental.
  */
-const originalArgv1 = process.argv[1];
+// Snapshot and restore the WHOLE array, not index 1: the no-entry case splices, which shifts every
+// later element down, so an index-wise restore would silently drop one if the runner ever passes a
+// third argv element.
+const originalArgv = [...process.argv];
 const originalExecArgv = [...process.execArgv];
 
+function replaceAll(target: string[], next: readonly string[]): void {
+  target.length = 0;
+  target.push(...next);
+}
+
 function withEntry(entry: string | undefined, execArgv: string[] = []): void {
-  if (entry === undefined) {
-    process.argv.splice(1, 1);
-  } else {
-    process.argv[1] = entry;
-  }
-  process.execArgv.length = 0;
-  process.execArgv.push(...execArgv);
+  replaceAll(
+    process.argv,
+    entry === undefined ? [originalArgv[0] as string] : [originalArgv[0] as string, entry],
+  );
+  replaceAll(process.execArgv, execArgv);
 }
 
 afterEach(() => {
-  process.argv[1] = originalArgv1 as string;
-  process.execArgv.length = 0;
-  process.execArgv.push(...originalExecArgv);
+  replaceAll(process.argv, originalArgv);
+  replaceAll(process.execArgv, originalExecArgv);
 });
 
 describe('resolveSelfForkWorkerEntry', () => {

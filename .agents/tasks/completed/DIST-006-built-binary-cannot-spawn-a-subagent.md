@@ -112,7 +112,7 @@ invisible from source:
 | ------------------------------------------------------------ | ------------------------------- | ----------------------------------- |
 | npm `dist/node/bin.js`                                       | resolver's path `exists: false` | worker handshake `{"type":"ready"}` |
 | Bun single-file `robota-linux-x64` (built with `bun 1.3.14`) | no sibling file can exist       | worker handshake `{"type":"ready"}` |
-| flag typed by hand, no IPC                                   | —                               | loud refusal, exit 2                |
+| flag typed by hand, no IPC — measured on **both** artifacts  | —                               | loud refusal, exit 2                |
 
 The shipped bundle no longer contains the string `child-process-subagent-worker.js`.
 

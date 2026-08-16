@@ -56,7 +56,11 @@ class ChildProcessSubagentResultController {
     private readonly resolve: (result: ISubagentJobResult) => void,
     private readonly reject: (error: Error) => void,
   ) {
-    this.handshakeBudgetMs = options.handshakeBudgetMs ?? DEFAULT_HANDSHAKE_BUDGET_MS;
+    // `?? DEFAULT` would turn `0` — the plausible spelling of "no deadline" — into a timer that
+    // rejects every job on the next tick. A non-positive budget is not a way to opt out.
+    const budget = options.handshakeBudgetMs;
+    this.handshakeBudgetMs =
+      budget !== undefined && budget > 0 ? budget : DEFAULT_HANDSHAKE_BUDGET_MS;
     this.timeoutTimer = createTimeoutTimer(this.options.runtime, (error) => this.rejectOnce(error));
     // DIST-006: a worker that never answers must not hang the parent forever. The old seam failed
     // LOUDLY when the entry was wrong (`Cannot find module`, then exit); this one re-executes the
