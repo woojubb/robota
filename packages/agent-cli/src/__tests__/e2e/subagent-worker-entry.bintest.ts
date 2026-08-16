@@ -84,7 +84,7 @@ describe('DIST-006 — the built binary is its own subagent worker', () => {
       const { message, stderr } = await handshakeWithWorker();
 
       // `ready` is precisely what never arrived: the child died at module load instead.
-      expect(message).toEqual({ type: 'ready' });
+      expect(message).toMatchObject({ type: 'ready' });
       expect(stderr).not.toMatch(/Cannot find module/);
     },
     TEST_TIMEOUT_MS,
@@ -107,6 +107,30 @@ describe('DIST-006 — the built binary is its own subagent worker', () => {
 
       expect(result.code).toBe(MISUSE_EXIT_CODE);
       expect(result.stderr).toMatch(/requires an IPC channel/);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    "ARCH-021: the built binary composes ROBOTA's pack tools, not an imported default set",
+    async () => {
+      // The strongest available real-artifact check, and the one the scratch-pack scenario could not
+      // reach: the built binary composes statically, so there is no runtime pack-injection path. The
+      // child declares what it composed, so the claim is verified per run rather than assumed.
+      //
+      // Red against unfixed code in the direction that matters: before ARCH-021 the child built from
+      // `createDefaultTools()` regardless of the product, so this assertion was about the DEFAULT
+      // tier and said nothing about robota's packs. It now reads the product's own surface.
+      const { message } = await handshakeWithWorker();
+      const names = (message as { composedToolNames?: readonly string[] }).composedToolNames;
+
+      expect(names).toBeDefined();
+      expect(names?.length ?? 0).toBeGreaterThan(0);
+      // ARCH-006's invariant, asserted in the CHILD: these come from `pack-coding`, which the
+      // product profile hands the whole tool surface.
+      expect(names).toEqual(
+        expect.arrayContaining(['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash']),
+      );
     },
     TEST_TIMEOUT_MS,
   );

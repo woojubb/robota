@@ -49,7 +49,7 @@ The paired spec passed GATE-APPROVAL on 2026-08-15. The user's instruction
 - [x] TC-05 — make the interaction-channel charter and implementer set agree in ARCH-018.
 - [x] TC-06 — implement the complete committed checkpoint/branch transition matrix in ARCH-020.
 - [x] TC-07 — deliver the shared event contract through exhaustive TUI/protocol mappings in ARCH-028.
-- [ ] TC-08 — preserve live product composition through a parent-side worker broker in ARCH-021.
+- [x] TC-08 — preserve the product's composition across the subagent process boundary. **Closed by ARCH-021** (`done` 2026-08-16), which delivered a RECIPE rather than the parent-side worker broker this criterion imagined. The broker was rejected on evidence, not size: proxied tools execute in the PARENT, bound to the parent's checkout, while a worktree-isolated child's execution root is a different directory — so it would re-break the ARCH-010 containment it was meant to honour — and a prior-art sweep found **no specification defining a per-call working root for a proxied tool invocation** (MCP roots are session-scoped and pull-based). The composition root now supplies `ISubagentWorkerComposition` and the child builds an equivalent surface at its own root; nothing live crosses the boundary. Projecting genuinely owner-bound capability is ARCH-033 (#1784).
 - [x] TC-09 — forward runtime-owned default session persistence in ARCH-023.
 - [x] TC-10 — derive owner-declared semantic command roles from composition, including alternate IDs, duplicate rejection, and explicit absence semantics in ARCH-024.
 - [x] TC-11 — make product/pack field projection exhaustive, remove the dead provider override, surface accepted pack metadata, and add whole-pack duplicate diagnostics in ARCH-027.
@@ -70,7 +70,7 @@ projection is the section below.
 - [x] ARCH-017 — done — `.agents/tasks/completed/ARCH-017-injected-permission-ask-handlers-are-dead-surface.md`
 - [x] ARCH-018 — done — `.agents/tasks/completed/ARCH-018-interaction-channel-charter-is-unsatisfiable-as-written.md`
 - [x] ARCH-020 — done — `.agents/tasks/completed/ARCH-020-branch-event-is-declared-and-emitted-by-nothing.md`
-- [ ] ARCH-021 — todo — `.agents/tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`
+- [x] ARCH-021 — done — `.agents/tasks/completed/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`
 - [x] ARCH-022 — done — `.agents/tasks/completed/ARCH-022-framework-pass-through-re-export-evades-public-surface-guard.md`
 - [x] ARCH-023 — done — `.agents/tasks/completed/ARCH-023-createAgentRuntime-default-sessionstore-never-forwarded.md`
 - [x] ARCH-024 — done — `.agents/tasks/completed/ARCH-024-framework-hardcodes-module-owned-command-ids.md`

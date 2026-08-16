@@ -24,3 +24,4 @@ export {
   type ISubagentWorkerEntry,
 } from './worker-entry.js';
 export { runSubagentWorkerMain } from './child-process-subagent-worker.js';
+export type { ISubagentWorkerComposition } from './worker-composition.js';

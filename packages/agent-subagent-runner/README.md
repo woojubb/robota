@@ -29,17 +29,29 @@ import {
   isSubagentWorkerModeArgv,
   runSubagentWorkerMain,
 } from '@robota-sdk/agent-subagent-runner';
-import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
+import type {
+  IProviderDefinition,
+  IProviderDefinitionConfig,
+  IToolWithEventService,
+} from '@robota-sdk/agent-core';
 import type { ISubagentWorktreeAdapter } from '@robota-sdk/agent-executor';
 
 declare const providerConfig: IProviderDefinitionConfig;
 // The concrete worktree adapter (git/fs I/O) is owned and injected by the composition root.
 declare const worktreeAdapter: ISubagentWorktreeAdapter;
 
+// ARCH-021: YOUR product's surface, built at the CHILD's execution root. This package composes
+// nothing — an optional parameter falling back to defaults is exactly the defect the port removes.
+declare const createMyTools: (context: { readonly cwd: string }) => IToolWithEventService[];
+declare const myProviderDefinitions: readonly IProviderDefinition[];
+
 // DIST-006: your entry IS the worker. Dispatch before starting your app, so a subagent child
 // re-enters here instead of booting the whole product.
 if (isSubagentWorkerModeArgv(process.argv)) {
-  runSubagentWorkerMain();
+  runSubagentWorkerMain({
+    createTools: createMyTools,
+    providerDefinitions: myProviderDefinitions,
+  });
 }
 
 const factory = createChildProcessSubagentRunnerFactory({
