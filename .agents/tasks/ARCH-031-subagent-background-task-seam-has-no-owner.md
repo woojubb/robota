@@ -457,7 +457,26 @@ node scratch/src/arch-031-subagent-permission-policy.mjs; echo "EXIT=$?"
   scripts per `backlog-execution.md` § Script home. `rm -f scratch/src/arch-031-subagent-permission-policy.mjs`
   if a clean tree is wanted. **The committed heredoc above, not the file it writes, is the durable
   artifact.**
-- **Evidence:** _(to be filled by whoever executes this at the gate)_
+- **Evidence (2026-08-16, `feat/arch-031-derive-subagent-seam`):** the fenced block above was extracted
+  **verbatim** from this file and run. `EXIT=0`, `SCENARIO RESULT: PASS`, all eight assertions green:
+
+  ```
+  PASS  A: subagent task completes                          — completed / no error
+  PASS  A: the subagent really ran two model rounds         — 2
+  PASS  A: the Bash call is DENIED under bypassPermissions  — background_task_tool_end toolName=Bash success=false
+  PASS  A: no file was written                              — BREACH.txt exists=false
+  PASS  B: subagent task completes                          — completed / no error
+  PASS  B: the same Bash call is ALLOWED once the parent allowlist grants it
+                                                            — tool_start + tool_end success=true
+  PASS  B: the file was written                             — exists=true body="BREACHED\n"
+  ```
+
+  The two arms differ only in the parent allowlist, and they genuinely diverge — arm A denies and writes
+  nothing while arm B allows and writes the file — so this measures the policy rather than restating that
+  the command ran. Both arms made exactly two model round-trips to `127.0.0.1` and none to the internet.
+  This is the falsifier for `permissionPolicy` reaching the child: drop the field at any hop of the seam
+  and arm A falls through to `evaluatePermission`, which under `bypassPermissions` returns `auto`, so the
+  breach file appears.
 
   Pre-implementation baseline, recorded at authoring time on branch `feat/arch-031-derive-subagent-seam`
   (worktree at `develop`-equivalent, no ARCH-031 code yet): the command block above was extracted
@@ -762,7 +781,22 @@ node scratch/src/arch-031-subagent-worktree-root.mjs; echo "EXIT=$?"
   removed. Because the repo, its worktrees and its git config all live under the throwaway dir, nothing
   is registered in the user's real git state. Residue:
   `scratch/src/arch-031-subagent-worktree-root.mjs`, gitignored, regenerated verbatim by the heredoc.
-- **Evidence:** _(to be filled by whoever executes this at the gate)_
+- **Evidence (2026-08-16, `feat/arch-031-derive-subagent-seam`):** the fenced block above was extracted
+  **verbatim** from this file and run. `EXIT=0`, `SCENARIO RESULT: PASS`, all assertions green:
+
+  ```
+  PASS  the job completes                                   — completed / no error
+  PASS  the task state carries a worktree path              — /tmp/arch031-wt-…/.robota/worktrees/agent_1-7bc8494f
+  PASS  the task state carries the worktree branch          — robota/agent_1-7bc8494f
+  PASS  the subagent did NOT write into the main checkout   — main EXEC_ROOT.txt exists=false
+  PASS  the subagent executed with the WORKTREE as its root — /tmp/arch031-wt-…/.robota/worktrees/agent_1-7bc8494f
+  PASS  /agent list still renders both worktree= and branch=
+  ```
+
+  This is the one that matters most: it proves the containment ARCH-010 exists to guarantee still holds
+  after the worktree identity moved off the request and onto the runner envelope. The subagent wrote its
+  marker inside the worktree and **not** into the main checkout, and the branch — relocated rather than
+  deleted — still reaches the surface.
 
   Pre-implementation baseline, recorded at authoring time on branch `feat/arch-031-derive-subagent-seam`:
   the command block above was extracted verbatim and run — `EXIT=0`, all seven `PASS` lines,
