@@ -8,11 +8,12 @@ export type {
 export { TRUST_TO_MODE, DEFAULT_BACKGROUND_PERMISSION_POLICY } from './types.js';
 export {
   evaluatePermission,
-  registerToolArgumentKey,
-  clearRegisteredToolArgumentKeys,
+  registerToolPermissionProfile,
+  clearRegisteredToolProfiles,
+  getToolPermissionProfile,
 } from './permission-gate.js';
-export type { TToolArgs, IPermissionLists } from './permission-gate.js';
+export type { TToolArgs, IPermissionLists, IToolPermissionProfile } from './permission-gate.js';
 export { resolvePermissionByPolicy } from './permission-policy.js';
 export type { TPermissionPolicyDecision, IPermissionPolicyContext } from './permission-policy.js';
-export { MODE_POLICY, UNKNOWN_TOOL_FALLBACK } from './permission-mode.js';
-export type { TKnownToolName } from './permission-mode.js';
+export { RISK_CLASS_POLICY, UNCLASSIFIED_TOOL_FALLBACK } from './permission-mode.js';
+export type { TToolRiskClass } from './permission-mode.js';

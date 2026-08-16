@@ -59,6 +59,7 @@
     "task-archival",
     "test-plans",
     "test-selection-tolerance",
+    "tool-classification",
     "transport-admission",
     "transport-conformance",
     "vitest-resource-ceiling",

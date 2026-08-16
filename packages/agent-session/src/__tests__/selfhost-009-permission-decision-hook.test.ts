@@ -4,7 +4,8 @@
  * decision. INFORMATIONAL-ONLY: fire-and-forget, so it cannot change the permission outcome.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { clearRegisteredToolProfiles, registerToolPermissionProfile } from '@robota-sdk/agent-core';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { PermissionEnforcer } from '../permission-enforcer.js';
 
@@ -71,6 +72,20 @@ async function flushMicrotasks(): Promise<void> {
 }
 
 describe('SELFHOST-009 TC-03 — PermissionDecision hook', () => {
+  // CORE-030: a tool's argument key and risk class are declared by the package that DEFINES the
+  // tool, not by a name table in agent-core. This suite exercises `Read` and `Bash` without
+  // importing `@robota-sdk/agent-tools`, so it declares the same two profiles that package does —
+  // otherwise every pattern here is unevaluable and the gate prompts instead of deciding.
+  beforeEach(() => {
+    clearRegisteredToolProfiles();
+    registerToolPermissionProfile('Read', { argumentKey: 'filePath', riskClass: 'inspect' });
+    registerToolPermissionProfile('Bash', { argumentKey: 'command', riskClass: 'execute' });
+  });
+
+  afterEach(() => {
+    clearRegisteredToolProfiles();
+  });
+
   it('fires exactly once after evaluatePermission, carrying the reported decision (auto)', async () => {
     const { executor, inputs } = makeRecordingExecutor();
     const enforcer = makeEnforcer(executor);

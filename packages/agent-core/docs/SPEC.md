@@ -38,7 +38,7 @@ Robota (Facade)
   │     └── EventService            — unified event emission with ownerPath binding
   ├── Permission Layer
   │     ├── permission-gate.ts      — evaluatePermission(): 3-step deterministic policy
-  │     ├── permission-mode.ts      — MODE_POLICY matrix, UNKNOWN_TOOL_FALLBACK
+  │     ├── permission-mode.ts      — RISK_CLASS_POLICY matrix, UNCLASSIFIED_TOOL_FALLBACK
   │     └── types.ts                — TPermissionMode, TTrustLevel, TPermissionDecision
   ├── Hook Layer
   │     ├── hook-runner.ts          — runHooks(): pluggable hook execution engine (strategy pattern)
@@ -116,7 +116,7 @@ This package is the single source of truth (SSOT) for the following types:
 | `TPermissionDecision`                 | `permissions/types.ts`                  | Evaluation outcome: auto, approve, deny                                                                                                                                                                                                                                                                                     |
 | `TToolArgs`                           | `permissions/permission-gate.ts`        | Tool arguments record for permission matching                                                                                                                                                                                                                                                                               |
 | `IPermissionLists`                    | `permissions/permission-gate.ts`        | Allow/deny pattern lists for permission config                                                                                                                                                                                                                                                                              |
-| `TKnownToolName`                      | `permissions/permission-mode.ts`        | Known tool names in the permission system                                                                                                                                                                                                                                                                                   |
+| `TToolRiskClass`                      | `permissions/permission-mode.ts`        | What kind of action a tool performs — `inspect`, `modify` or `execute`. The only distinctions the permission modes make. Replaced a closed union of PRODUCT tool names (CORE-030): the foundation cannot know a product's tool inventory, and the two lists had drifted                                                     |
 | `THookEvent`                          | `hooks/types.ts`                        | Hook lifecycle events (16 events): PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, SessionEnd, Stop, StopFailure, UserPromptSubmit, SubagentStart, SubagentStop, WorktreeCreate, WorktreeRemove, PreModelCall, PostModelCall, PermissionDecision (informational-only). Catalog SSOT: `docs/HOOK-CATALOG.md` |
 | `TSessionEndReason`                   | `hooks/types.ts`                        | Claude Code compatible session end reason union: clear, resume, logout, prompt_input_exit, bypass_permissions_disabled, other                                                                                                                                                                                               |
 | `THooksConfig`                        | `hooks/types.ts`                        | Complete hooks configuration: event to hook groups                                                                                                                                                                                                                                                                          |
@@ -177,10 +177,11 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 
 ## Public API Surface
 
-| Export                                 | Kind     | Description                                                                                                                                                                                                                                                                                                                |
-| -------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DEFAULT_BACKGROUND_PERMISSION_POLICY` | const    | ARCH-031: the one definition of the policy a spawn site states when it has no reason to choose another. Replaced two independent `?? 'inherit-allowlist'` fallbacks in two packages                                                                                                                                        |
-| `clearRegisteredToolArgumentKeys`      | function | Clears the tool-argument key registry. ARCH-031 surfaced it: collapsing the permissions block to `export *` re-exported everything the sub-barrel owns, and the hand-listed block had omitted this one. Documented rather than re-narrowed, because a barrel that cannot drift from its owner is the point of the collapse |
+| Export                                 | Kind     | Description                                                                                                                                                                         |
+| -------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEFAULT_BACKGROUND_PERMISSION_POLICY` | const    | ARCH-031: the one definition of the policy a spawn site states when it has no reason to choose another. Replaced two independent `?? 'inherit-allowlist'` fallbacks in two packages |
+| `clearRegisteredToolProfiles`          | function | Clears the tool permission-profile registry. For tests and for hosts that rebuild a registry                                                                                        |
+| `getToolPermissionProfile`             | function | What a tool's owner has declared about it, or an empty profile when nobody has said                                                                                                 |
 
 <!-- The rows below live under `###` subheadings. `check-spec-public-surface.mjs` stops counting at the
      first non-"Public API" heading, so it reads none of them — which is why this package's undocumented
@@ -284,11 +285,11 @@ the deny lost to any broader allow beside it and the invocation was auto-approve
 A tool's owner declares its key. A deny that cannot be evaluated now prompts (or denies in `plan`
 mode) instead of continuing to the allow list.
 
-| Export                    | Kind     | Description                                                          |
-| ------------------------- | -------- | -------------------------------------------------------------------- |
-| `registerToolArgumentKey` | function | Declare which argument this tool's permission patterns are scoped to |
+| Export                          | Kind     | Description                                                                                                                              |
+| ------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `registerToolPermissionProfile` | function | Declare what the permission system should do with a tool: which argument its patterns are scoped to, and what kind of action it performs |
 
-`clearRegisteredToolArgumentKeys` is public as of ARCH-031 — see its row in the Public API Surface
+`clearRegisteredToolProfiles` is public as of ARCH-031 — see its row in the Public API Surface
 table above. It was in-package until the permissions block collapsed to `export *`; the rationale for
 it (tests, and a host rebuilding a registry) is unchanged, but it is now on the barrel and therefore
 part of the contract, so a consumer may rely on it.
@@ -396,19 +397,20 @@ renderer is attached; a tool treats absence as "no human available" (never a sil
 
 ### Permissions
 
-| Export                      | Kind     | Description                                                                                                                                               |
-| --------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `evaluatePermission`        | function | 4-step deterministic policy: deny list, UNEVALUABLE deny, allow list, mode                                                                                |
-| `resolvePermissionByPolicy` | function | CORE-025: resolve a background/subagent `TBackgroundPermissionPolicy` (+ task/parent allow-deny) to `allow`/`deny`/`prompt`, pre-empting the session mode |
-| `MODE_POLICY`               | const    | Permission mode to tool decision matrix                                                                                                                   |
-| `TRUST_TO_MODE`             | const    | Maps TTrustLevel to TPermissionMode                                                                                                                       |
-| `UNKNOWN_TOOL_FALLBACK`     | const    | Fallback decisions for unknown tools per mode                                                                                                             |
-| `TPermissionMode`           | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'`                                                                                             |
-| `TTrustLevel`               | type     | `'safe' \| 'moderate' \| 'full'`                                                                                                                          |
-| `TPermissionDecision`       | type     | `'auto' \| 'approve' \| 'deny'`                                                                                                                           |
-| `TToolArgs`                 | type     | Tool arguments record for permission matching                                                                                                             |
-| `IPermissionLists`          | type     | Allow/deny pattern lists                                                                                                                                  |
-| `TKnownToolName`            | type     | Known tool names: Shell, Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, AskUserQuestion, ComputerView, Computer                                |
+| Export                       | Kind     | Description                                                                                                                                               |
+| ---------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `evaluatePermission`         | function | 4-step deterministic policy: deny list, UNEVALUABLE deny, allow list, mode                                                                                |
+| `resolvePermissionByPolicy`  | function | CORE-025: resolve a background/subagent `TBackgroundPermissionPolicy` (+ task/parent allow-deny) to `allow`/`deny`/`prompt`, pre-empting the session mode |
+| `RISK_CLASS_POLICY`          | const    | Permission mode → risk class → decision. Names no product tool (CORE-030)                                                                                 |
+| `TRUST_TO_MODE`              | const    | Maps TTrustLevel to TPermissionMode                                                                                                                       |
+| `UNCLASSIFIED_TOOL_FALLBACK` | const    | Fallback per mode for a tool whose owner declared no risk class — prompts, and refuses in plan                                                            |
+| `TPermissionMode`            | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'`                                                                                             |
+| `TTrustLevel`                | type     | `'safe' \| 'moderate' \| 'full'`                                                                                                                          |
+| `TPermissionDecision`        | type     | `'auto' \| 'approve' \| 'deny'`                                                                                                                           |
+| `TToolArgs`                  | type     | Tool arguments record for permission matching                                                                                                             |
+| `IPermissionLists`           | type     | Allow/deny pattern lists                                                                                                                                  |
+| `TToolRiskClass`             | type     | `inspect` \| `modify` \| `execute`                                                                                                                        |
+| `IToolPermissionProfile`     | type     | What a tool's owner declares: `argumentKey` and `riskClass`                                                                                               |
 
 ### Environment Reference Utilities
 
@@ -733,9 +735,16 @@ The permission module (`src/permissions/`) provides a deterministic, four-step p
 ### Evaluation Algorithm (`evaluatePermission`)
 
 1. **Deny list match** -- If any deny pattern matches the tool invocation, return `'deny'`.
-2. **Deny list unevaluable** (CORE-030) -- If a deny pattern is scoped to an ARGUMENT and no owner has declared which argument this tool's patterns are about, the deny cannot be evaluated. Return `'approve'` (prompt), or `'deny'` in `plan` mode. Previously this read as "not denied" and the evaluation continued to step 3, where a broader allow could silently auto-approve it. A tool's owner declares its key with `registerToolArgumentKey(toolName, argumentKey)`; the built-in tools are pre-declared.
+2. **Deny list unevaluable** (CORE-030) -- If a deny pattern is scoped to an ARGUMENT and no owner has declared which argument this tool's patterns are about, the deny cannot be evaluated. Return `'approve'` (prompt), or `'deny'` in `plan` mode. Previously this read as "not denied" and the evaluation continued to step 3, where a broader allow could silently auto-approve it. A tool's owner declares its key with `registerToolPermissionProfile(toolName, { argumentKey })`, from the package that defines the tool.
 3. **Allow list match** -- If any allow pattern matches, return `'auto'` (proceed without prompting).
-4. **Mode policy lookup** -- Look up the tool in `MODE_POLICY[mode]`. If found, return the mapped decision. Otherwise, return `UNKNOWN_TOOL_FALLBACK[mode]`.
+4. **Mode policy lookup** -- Look up the tool's declared `riskClass` and return `RISK_CLASS_POLICY[mode][riskClass]`. A tool whose owner declared no class returns `UNCLASSIFIED_TOOL_FALLBACK[mode]`, which prompts and refuses in `plan`.
+
+   CORE-030: the classification is declared by the package that DEFINES the tool, not by a name table
+   in this package. A hardcoded matrix could not know a product's tool inventory and had drifted from
+   it — `Agent`, `BackgroundProcess`, `CodebaseRetrieval` and `ExecuteCommand` were all produced in
+   the workspace and unknown to it, so a read-only retrieval tool prompted on every call and was
+   refused in plan mode. `scripts/harness/scan-tool-classification.mjs` fails a produced tool that
+   declares nothing.
 
 ### Permission Modes
 

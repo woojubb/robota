@@ -3,6 +3,12 @@
  */
 
 import { evaluatePermission } from '@robota-sdk/agent-core';
+// CORE-030: these decisions are a property of the BUILT-IN TOOLS, which declare their own risk
+// class and argument key. Importing the package that defines them is what registers those
+// declarations — and the import being load-bearing here is the point: without the tools present
+// there is nothing for the modes to decide about, and every row would take the prompt-on-every-call
+// fallback.
+import '@robota-sdk/agent-tools';
 import { describe, it, expect } from 'vitest';
 
 import type { TToolArgs } from '@robota-sdk/agent-core';

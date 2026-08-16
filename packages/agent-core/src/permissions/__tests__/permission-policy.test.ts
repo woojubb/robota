@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { clearRegisteredToolProfiles, registerToolPermissionProfile } from '../permission-gate.js';
 import { resolvePermissionByPolicy } from '../permission-policy.js';
 
 /**
@@ -9,6 +10,19 @@ import { resolvePermissionByPolicy } from '../permission-policy.js';
  */
 describe('resolvePermissionByPolicy (CORE-025)', () => {
   const args = { command: 'ls' };
+
+  // CORE-030: the tool declares which argument its patterns are scoped to, so the cases below
+  // declare it rather than relying on a table in this package.
+  beforeEach(() => {
+    clearRegisteredToolProfiles();
+    registerToolPermissionProfile('Bash', { argumentKey: 'command', riskClass: 'execute' });
+    registerToolPermissionProfile('Shell', { argumentKey: 'command', riskClass: 'execute' });
+    registerToolPermissionProfile('Read', { argumentKey: 'filePath', riskClass: 'inspect' });
+  });
+
+  afterEach(() => {
+    clearRegisteredToolProfiles();
+  });
 
   it('`deny` policy denies every call, absolutely — even an allow-listed tool', () => {
     expect(

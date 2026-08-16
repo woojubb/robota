@@ -87,6 +87,14 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Measured the way this harness calls it — `collectToolClassification(bare)`: throws
+    // `governed tree(s) absent under <root>: packages`.
+    file: 'scan-tool-classification.mjs',
+    finder: 'collectToolClassification',
+    tree: 'packages',
+    why: 'it asks whether every produced tool declares what the permission system should do with it; over a root with no packages there is no tool to ask about, and "no unclassified tool" reads exactly like "every tool is classified" — while an unclassified tool is the one that prompts on every call and is refused in plan mode',
+  },
+  {
     // Measured the way this harness calls it — `collectRows(bare, contract)` cannot even be reached:
     // building `contract` throws `cannot read the section contract — .agents/skills/...` first.
     file: 'check-spec-whitebox-leakage.mjs',
