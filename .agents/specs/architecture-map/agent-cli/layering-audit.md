@@ -61,10 +61,10 @@ Status: resolved.
 | File                                                                          | Classification                                                                                                                                                                      |
 | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `agent-executor/src/background-tasks/runners/managed-shell-process-runner.ts` | Executor adapter — Node spawn, stdin, cancellation (moved from agent-cli)                                                                                                           |
-| `agent-subagent-runner/src/child-process-subagent-runner.ts`                  | Optional package — Node fork, worker path, payload (moved from agent-cli)                                                                                                           |
+| `agent-subagent-runner/src/child-process-subagent-runner.ts`                  | Optional package — Node spawn (self-fork worker entry), payload (moved from agent-cli)                                                                                              |
 | `agent-subagent-runner/src/child-process-subagent-ipc.ts`                     | Optional package — IPC protocol types                                                                                                                                               |
 | `agent-subagent-runner/src/child-process-subagent-worker.ts`                  | Optional package — worker entry point                                                                                                                                               |
-| `agent-subagent-runner/src/worker-path-resolver.ts`                           | Optional package — bundled worker path resolver                                                                                                                                     |
+| `agent-cli/src/subagents/self-fork-worker-entry.ts`                           | Composition root — states how this artifact re-executes itself in worker mode (DIST-006)                                                                                            |
 | `agent-cli/src/subagents/git-worktree-isolation-adapter.ts`                   | CLI host adapter — concrete git-worktree isolation over the `agent-executor` worktree port (CLI keeps concrete local host adapters — CLI-AUDIT-009 / agent-system.md ownership row) |
 | `agent-executor/src/background-tasks/log-pages.ts`                            | Runtime primitive — bounded output + pagination                                                                                                                                     |
 
@@ -271,11 +271,11 @@ Fix: created new package `@robota-sdk/agent-subagent-runner`. Moved to it:
 - `child-process-subagent-worker.ts` (from agent-cli)
 - IPC types (`child-process-subagent-ipc.ts`)
 - Transport/result helpers
-- `getDefaultSubagentWorkerPath()` (new — resolves bundled worker path within the package)
+- `resolveSelfForkWorkerEntry()` (DIST-006 — the composition root states how to start a copy of itself; the old resolver is deleted)
 
 `agent-framework` retains only `TSubagentRunnerFactory` (port type) and `createInProcessSubagentRunner`
 (depends on `InteractiveSession`, cannot leave). `agent-cli` now imports
-`createChildProcessSubagentRunnerFactory` and `getDefaultSubagentWorkerPath` from
+`createChildProcessSubagentRunnerFactory`, `isSubagentWorkerModeArgv` and `runSubagentWorkerMain` from
 `@robota-sdk/agent-subagent-runner`; the manual worker path construction is removed.
 
 ### CLI-AUDIT-023: `plugin-command-adapter` + `plugin-command-source-loader` — plugin bridge owned by agent-cli, belongs in agent-command

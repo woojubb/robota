@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { isAbsolute } from 'node:path';
 
 import {
-  getDefaultSubagentWorkerPath,
+  SUBAGENT_WORKER_MODE_FLAG,
   isSubagentWorkerChildMessage,
+  isSubagentWorkerModeArgv,
   isSubagentWorkerParentMessage,
 } from '../index.js';
 
@@ -141,10 +141,25 @@ describe('isSubagentWorkerChildMessage', () => {
   });
 });
 
-describe('getDefaultSubagentWorkerPath', () => {
-  it('resolves to an absolute path ending in the worker module', () => {
-    const path = getDefaultSubagentWorkerPath();
-    expect(isAbsolute(path)).toBe(true);
-    expect(path.endsWith('child-process-subagent-worker.js')).toBe(true);
+/**
+ * DIST-006. The test that stood here asserted `getDefaultSubagentWorkerPath()` returned "an
+ * absolute path ending in child-process-subagent-worker.js" — and it PASSED for the whole time the
+ * built binary could not spawn a subagent at all, because a string's shape says nothing about
+ * whether the file is there. The resolver is gone; what is left to check is the argv contract.
+ */
+describe('subagent worker mode', () => {
+  it('recognises the flag only when it is actually present', () => {
+    expect(isSubagentWorkerModeArgv(['node', 'bin.js', SUBAGENT_WORKER_MODE_FLAG])).toBe(true);
+    expect(isSubagentWorkerModeArgv(['/opt/robota', SUBAGENT_WORKER_MODE_FLAG])).toBe(true);
+    expect(isSubagentWorkerModeArgv(['node', 'bin.js'])).toBe(false);
+    expect(isSubagentWorkerModeArgv([])).toBe(false);
+  });
+
+  it('uses a flag no user would type, so normal invocations never enter worker mode', () => {
+    // A plausible flag would turn a typo into a silently-started worker.
+    expect(SUBAGENT_WORKER_MODE_FLAG.startsWith('--__')).toBe(true);
+    for (const realistic of ['--help', '--version', '-p', '--print', '--model', '--worker']) {
+      expect(isSubagentWorkerModeArgv(['node', 'bin.js', realistic])).toBe(false);
+    }
   });
 });

@@ -1,4 +1,4 @@
-import { fork } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -21,9 +21,11 @@ import {
 } from './child-process-subagent-runner-result.js';
 import {
   cancelChildProcess,
+  captureChildStderr,
   sendWorkerMessage,
   type IChildProcessRuntime,
 } from './child-process-subagent-transport.js';
+import { SUBAGENT_WORKER_MODE_FLAG, type ISubagentWorkerEntry } from './worker-entry.js';
 
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
 import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
@@ -42,10 +44,20 @@ import type {
 const SPAWN_DETACHED = process.platform !== 'win32';
 
 export interface IChildProcessSubagentRunnerOptions {
-  workerPath: string;
+  /**
+   * DIST-006: how to start a copy of the running artifact in subagent-worker mode, stated by the
+   * composition root. It replaced `workerPath`, which asked this package to locate a file whose
+   * location is a property of the packaging step — a question no library can answer, and one that
+   * was answered wrongly twice.
+   */
+  workerEntry: ISubagentWorkerEntry;
   providerConfig?: IProviderDefinitionConfig;
-  execArgv?: string[];
   killGraceMs?: number;
+  /**
+   * How long a spawned worker may take to signal `ready` before the runner gives up. Injectable so
+   * the branch is reachable in a test; without that it is a fix that ships untested.
+   */
+  handshakeBudgetMs?: number;
   env?: NodeJS.ProcessEnv;
   worktreeIsolation?: boolean;
   worktreeAdapter: ISubagentWorktreeAdapter;
@@ -68,9 +80,9 @@ export function createChildProcessSubagentRunnerFactory(
 }
 
 export class ChildProcessSubagentRunner implements ISubagentRunner {
-  private readonly workerPath: string;
-  private readonly execArgv?: string[];
+  private readonly workerEntry: ISubagentWorkerEntry;
   private readonly killGraceMs: number;
+  private readonly handshakeBudgetMs?: number;
   private readonly providerConfig?: IProviderDefinitionConfig;
   private readonly env?: NodeJS.ProcessEnv;
   private readonly logsDir?: string;
@@ -79,26 +91,37 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     private readonly deps: IInProcessSubagentRunnerDeps,
     options: IChildProcessSubagentRunnerOptions,
   ) {
-    this.workerPath = options.workerPath;
-    this.execArgv = options.execArgv;
+    this.workerEntry = options.workerEntry;
     this.killGraceMs = options.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
+    this.handshakeBudgetMs = options.handshakeBudgetMs;
     this.providerConfig = options.providerConfig;
     this.env = options.env;
     this.logsDir = options.logsDir;
   }
 
   start(job: ISubagentJobStart): ISubagentJobHandle {
-    const child = fork(this.workerPath, [], {
-      // ARCH-010/ARCH-031: the forked process's OS working directory answers the same question as
-      // the session's execution root, so it reads the same rule. Reading `request.cwd` directly was
-      // only ever correct while the worktree runner rewrote that field — this is the second carrier
-      // that removal would have left disagreeing with the first.
-      cwd: subagentExecutionRoot(job),
-      env: { ...process.env, ...(this.env ?? {}) },
-      execArgv: this.execArgv ?? resolveExecArgv(this.workerPath),
-      stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-      detached: SPAWN_DETACHED,
-    });
+    // DIST-006: `spawn` rather than `fork` — `fork` is `spawn(process.execPath, [module, …])` with
+    // an ipc stdio, and the module is exactly the thing that cannot be named for every artifact.
+    // Stating execPath and args outright is the same mechanism without the assumption.
+    const entry = this.workerEntry;
+    const child = spawn(
+      entry.execPath,
+      [...(entry.execArgv ?? []), ...entry.args, SUBAGENT_WORKER_MODE_FLAG],
+      {
+        // ARCH-010/ARCH-031: the forked process's OS working directory answers the same question as
+        // the session's execution root, so it reads the same rule. Reading `request.cwd` directly was
+        // only ever correct while the worktree runner rewrote that field — this is the second carrier
+        // that removal would have left disagreeing with the first.
+        cwd: subagentExecutionRoot(job),
+        env: { ...process.env, ...(this.env ?? {}) },
+        // DIST-006: stderr was `'ignore'`, so a child that died before its first IPC message
+        // reported only `exit code 1`. That is why this defect's second occurrence had to be
+        // diagnosed by hand — the cause was written to a stream nothing was reading.
+        stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+        detached: SPAWN_DETACHED,
+      },
+    );
+    captureChildStderr(child);
     const runtime: IChildProcessRuntime = {
       job,
       child,
@@ -108,6 +131,9 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     const workerResult = createChildProcessSubagentResult({
       runtime,
       payload,
+      ...(this.handshakeBudgetMs !== undefined
+        ? { handshakeBudgetMs: this.handshakeBudgetMs }
+        : {}),
       resolveTranscriptPath: (request) => this.resolveTranscriptPath(request),
     });
     const cancellation = createCancellationResult(job.taskId);
@@ -197,16 +223,6 @@ function createProviderProfile(
     timeout: provider.timeout,
     options: provider.options,
   };
-}
-
-function resolveExecArgv(workerPath: string): string[] {
-  if (!workerPath.endsWith('.ts')) {
-    return process.execArgv;
-  }
-  if (process.execArgv.some((arg) => arg.includes('tsx'))) {
-    return process.execArgv;
-  }
-  return [...process.execArgv, '--import', 'tsx'];
 }
 
 function readTranscriptLog(

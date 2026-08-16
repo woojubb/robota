@@ -48,10 +48,8 @@ import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transpo
 import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
-import {
-  createChildProcessSubagentRunnerFactory,
-  getDefaultSubagentWorkerPath,
-} from '@robota-sdk/agent-subagent-runner';
+import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
+import { resolveSelfForkWorkerEntry } from './subagents/self-fork-worker-entry.js';
 import { createGitWorktreeIsolationAdapter } from './subagents/git-worktree-isolation-adapter.js';
 import { reloadPluginCommandSource } from '@robota-sdk/agent-command';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
@@ -275,7 +273,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
   const paths = projectPaths(cwd);
   const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
-    workerPath: getDefaultSubagentWorkerPath(),
+    workerEntry: resolveSelfForkWorkerEntry(),
     providerConfig: { ...providerSettings, model: modelId },
     logsDir: paths.logs,
     worktreeAdapter: createGitWorktreeIsolationAdapter(),
