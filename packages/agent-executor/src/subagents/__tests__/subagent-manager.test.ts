@@ -135,6 +135,10 @@ describe('SubagentManager', () => {
     expect(result.usage).toEqual(usage);
   });
 
+  // Guards the SHAPE of the fix, not the pre-fix code: this case passes against unfixed `wait()` too
+  // (it returned a three-key literal). It fails on the plausible mutant `usage: result.usage`, which adds
+  // an `undefined`-valued key and compiles because `exactOptionalPropertyTypes` is off. The red-proof is
+  // the case above.
   it('wait() omits usage entirely when the runner reported none', async () => {
     const manager = new SubagentManager({
       runner: createResolvedRunner('done'),

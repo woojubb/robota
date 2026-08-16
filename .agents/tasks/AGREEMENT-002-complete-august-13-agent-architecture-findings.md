@@ -5,7 +5,7 @@ created: 2026-08-15
 priority: critical
 urgency: now
 area: cross-cutting agent architecture initiative
-depends_on: []
+depends_on: [ARCH-031]
 children:
   [
     ARCH-014,

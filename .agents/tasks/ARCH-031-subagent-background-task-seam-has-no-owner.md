@@ -20,10 +20,11 @@ One field family — what a subagent job IS — is declared **three times as ind
 - `ISpawnAgentTaskRequest` (`agent-framework/src/background-tasks/execution-workspace-spawner.ts:21-41`).
 
 Roughly six true cross-family projections carry values between them, each a hand-written object literal
-over a ~20-key family, **none compiler-checked for totality**:
-`toBackgroundRequest` / `toSubagentStartRequest` / `toBackgroundResult` / `toSubagentState` / `wait()`
-(`agent-executor/src/subagents/subagent-manager.ts:109,207,233,136,38`) and the handle literal in
-`createSubagentBackgroundRunner` (same file, `:184`).
+over a ~20-key family, **none compiler-checked for totality** — all in
+`agent-executor/src/subagents/subagent-manager.ts`: `toBackgroundRequest`, `toSubagentStartRequest`,
+`toBackgroundResult`, `toSubagentState`, `wait()`, and the handle literal in
+`createSubagentBackgroundRunner`. (Named by symbol, not by line: the first draft cited line numbers that
+ARCH-025's own three-line change to `wait()` immediately shifted by nine.)
 
 So a field added to either side must be hand-copied at every hop, and a miss **compiles clean as a silent
 no-op**. There is no error, no log, and nothing that tells a caller their field did nothing.
@@ -36,7 +37,7 @@ no-op**. There is no error, no log, and nothing that tells a caller their field 
   silently)"_ — and derived **only the state hop**. That hop is the one hop that has not lost a field since.
 - **CORE-025** then repaired a dropped field at two of the remaining mappers and left the evidence in the
   file: `// CORE-025: carry the permission policy through to the runner (previously dropped here → dead
-field)` (`subagent-manager.ts:219`).
+field)`, in `toSubagentStartRequest`.
 - **ANALYTICS-001 Phase 2** (`34587800e`) added `usage` to `toBackgroundResult` and missed `wait()`
   **in the same one-line commit**. The field ARCH-025 reports was born dropped by the commit that created it.
 - **ARCH-025** is the fourth repair of this class. Its own recommendation gate returned `REJECT` on the
@@ -95,8 +96,9 @@ rather than inventing one for a pure refactor.
 
 ## Plan
 
-- [ ] Owner decision on scope: this item spans four packages by construction (that span is the reason it is
-      filed rather than folded into ARCH-025).
+- [x] Owner decision on scope — **approved 2026-08-16.** This item spans four packages by construction, and
+      that span is the reason it is filed rather than folded into ARCH-025; the owner authorized it
+      explicitly when deciding to land ARCH-025's narrowed scope first.
 - [ ] Move and derive the two data contracts; correct the `subagent-contracts.ts` placement note.
 - [ ] Collapse `ISpawnAgentTaskRequest` into the derivation.
 - [ ] Extend the parity fixture to the request and result hops.
@@ -104,9 +106,16 @@ rather than inventing one for a pure refactor.
 
 ## Blockers
 
-- Needs the owner's authorization for the four-package span. `finding-depth.md` routes a FOUNDATIONAL cause
-  to a filed root item and an owner decision between re-plan and labelled containment — this file is that
-  root item.
+- **None.** The four-package span was authorized by the owner on 2026-08-16, together with the decision to
+  land ARCH-025's narrowed scope first. `finding-depth.md` routes a FOUNDATIONAL cause to a filed root item
+  and an owner decision; this file is that root item and the decision is recorded here, in
+  `.agents/tasks/AGREEMENT-002-…` (TC-13), and in ARCH-025's `## Result`.
+
+  _Recorded because it is the point:_ this file sat for several commits saying it needed an authorization it
+  already had, while three later-written records said the opposite. That is the exact failure mode
+  [`../memory/claims-not-rederived-after-facts-moved.md`](../memory/claims-not-rederived-after-facts-moved.md)
+  names — a claim true when written and not re-derived once the fact under it moved — committed in the same
+  change that added the memory entry, and caught by review rather than by me.
 
 ## Result
 
