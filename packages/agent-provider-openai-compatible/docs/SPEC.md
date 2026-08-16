@@ -78,3 +78,28 @@ dist/
     └── index.js / index.cjs / index.d.ts   # root export
     └── shared ...             # sub-path entry
 ```
+
+## Structured Output — not mapped here (CORE-043)
+
+**`IChatOptions.responseFormat` is not read by any adapter in this package.** `deepseek`, `qwen` and
+`gemma` build their requests without it, so a `run(input, { output })` call against them carries
+**no schema signal on the first attempt at all** — not a native `response_format`, and not a prose
+instruction either. `spec.jsonSchema` reaches the model only through the retry-feedback turn that
+agent-core's enforcement loop sends _after_ a first attempt has already failed validation.
+
+The consequence is worth stating plainly rather than leaving to be measured: a structured run against
+this family costs at least one extra turn by construction, and `outputRetries: 0` can only succeed by
+luck. agent-core's bounded validate-and-retry loop still guarantees the returned object matches the
+schema or throws — the guarantee holds; the cost is real.
+
+**This is a stated gap, not a design.** It is recorded here because a user currently has no way to
+learn it except by measuring: the SPEC's § Structured Output Contract says providers without a native
+surface "ignore it — the core-side enforcement loop is the universal contract either way", which is
+true of the guarantee and silent about the cost. The per-model catalog makes it worse:
+`src/deepseek/model-catalog.ts` declares `'json_schema'` on all three entries, a capability this
+package does not implement, and nothing reads that flag anyway (PROV-006).
+
+Fixing it — threading `responseFormat` through the shared request builder, and deciding where
+capability is represented so the runtime can tell a mapped provider from a discarding one — is
+**CORE-043** (issue #1750), whose load-bearing decisions are reserved for the project owner. PROV-004
+carries the same row. Until then, treat structured output on this family as retry-driven.
