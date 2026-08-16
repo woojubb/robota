@@ -279,17 +279,12 @@ export class ExecutionService {
     messages: TUniversalMessage[],
     config: IAgentConfig,
     context?: Partial<IExecutionContext>,
-  ): AsyncGenerator<{ chunk: string; isComplete: boolean }> {
-    yield* executeStreamFn(input, messages, config, context, {
-      aiProviders: this.aiProviders,
-      tools: this.tools,
-      conversationHistory: this.conversationHistory,
-      toolExecutionService: this.toolExecutionService,
-      plugins: this.plugins,
-      logger: this.logger,
-      eventEmitter: this.eventEmitter,
-      generateExecutionId: () => generateExecutionId(),
-    });
+  ): AsyncGenerator<string, ICoreExecutionResult> {
+    // CORE-042: a streaming ENTRY into `execute`, not a second engine. Everything the turn does is
+    // the turn's; this hands it a delta sink and yields what arrives.
+    return yield* executeStreamFn(input, messages, config, context, (i, m, c, ctx) =>
+      this.execute(i, m, c, ctx),
+    );
   }
 
   /** Get execution statistics from plugins */

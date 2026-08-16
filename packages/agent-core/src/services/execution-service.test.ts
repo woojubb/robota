@@ -777,6 +777,46 @@ describe('ExecutionService', () => {
       expect(chatSpy).toHaveBeenCalledTimes(2);
     });
 
+    it('carries the run cancellation and the effort dial into the forced summary call (CORE-042)', async () => {
+      // The forced summary was the one provider call in the turn assembled by hand, as
+      // `{ model, onTextDelta }`. It therefore ran with no cancellation and no idle timeout, which
+      // the streaming entry turns into a hang: that entry now awaits the turn when its consumer
+      // walks away, and an uncancellable call never returns. `effort` is asserted alongside it
+      // because it was dropped by the same hand-assembly, so this pins the whole options object
+      // rather than the one member that happened to hurt.
+      setupToolMocks();
+      const config = makeConfig();
+      const controller = new AbortController();
+
+      const chatSpy = vi.fn();
+      chatSpy.mockResolvedValueOnce(makeToolCallResponse(1));
+      chatSpy.mockResolvedValueOnce({
+        id: 'msg-summary',
+        role: 'assistant',
+        content: 'Summary.',
+        state: 'complete' as const,
+        timestamp: new Date(),
+      });
+      mockProvider.chat = chatSpy;
+
+      await executionService.execute('Record the decision', [], config, {
+        conversationId: 'test-agent',
+        maxExecutionRounds: 1,
+        signal: controller.signal,
+      });
+
+      expect(chatSpy).toHaveBeenCalledTimes(2);
+      const summaryOptions = chatSpy.mock.calls[1]?.[1] as IChatOptions | undefined;
+      expect(summaryOptions?.effort).toBe('high');
+
+      // Identity is not the assertion: the shared helper hands the provider a linked controller of
+      // its own so it can also fire the idle timeout. What must hold is that the caller's abort
+      // reaches it -- checked while that signal is still attached.
+      const summarySignal = summaryOptions?.signal;
+      expect(summarySignal).toBeDefined();
+      expect(summarySignal?.aborted).toBe(false);
+    });
+
     it('does not enter the forced summary call when the signal is already aborted (CORE-011)', async () => {
       setupToolMocks();
       const config = makeConfig();

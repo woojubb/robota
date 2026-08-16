@@ -6,7 +6,8 @@
 
 import { SilentLogger } from '@robota-sdk/agent-core';
 
-import { executeChatRequest, executeChatStreamRequest } from './chat-http-methods';
+import { executeChatRequest } from './chat-http-methods';
+import { executeChatStreamRequest } from './chat-stream-http-method';
 import { createHttpRequest, createHttpResponse, generateId } from '../utils/transformers';
 
 import type { IHttpRequest, IHttpResponse, TDefaultRequestData } from '../types/http-types';
@@ -73,6 +74,7 @@ export class HttpClient {
     provider: string,
     model: string,
     tools?: IToolSchema[],
+    signal?: AbortSignal,
   ): Promise<IResponseMessage> {
     return executeChatRequest(
       this.config.baseUrl,
@@ -82,6 +84,7 @@ export class HttpClient {
       provider,
       model,
       tools,
+      signal,
     );
   }
 
@@ -93,6 +96,7 @@ export class HttpClient {
     provider: string,
     model: string,
     tools?: IToolSchema[],
+    signal?: AbortSignal,
   ): AsyncGenerator<IResponseMessage> {
     yield* executeChatStreamRequest(
       this.config.baseUrl,
@@ -101,6 +105,7 @@ export class HttpClient {
       provider,
       model,
       tools,
+      signal,
     );
   }
 

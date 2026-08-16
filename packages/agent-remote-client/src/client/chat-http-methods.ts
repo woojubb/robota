@@ -5,14 +5,12 @@
  * These are pure functions that accept the configuration and logger they need.
  */
 
+import { validateToolCallArray } from './chat-tool-call-validation';
 import { createHttpResponse, generateId, toResponseMessage } from '../utils/transformers';
 
 import type { IHttpResponse } from '../types/http-types';
 import type { IBasicMessage, IResponseMessage } from '../types/message-types';
 import type { ILogger, IToolSchema, IToolCall } from '@robota-sdk/agent-core';
-
-const SSE_DATA_PREFIX_LENGTH = 6;
-const CONTENT_PREVIEW_LENGTH = 30;
 
 /** Shape of a message sent in chat request body, including optional tool-related fields */
 export interface IChatRequestMessage {
@@ -33,25 +31,6 @@ export interface IChatResponsePayload {
   timestamp?: string;
   usage?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
-}
-
-/**
- * Validate that an array of unknown values conforms to IToolCall[].
- * Filters out entries that do not have the required shape.
- */
-function validateToolCallArray(items: unknown[]): IToolCall[] {
-  return items.filter(
-    (item): item is IToolCall =>
-      typeof item === 'object' &&
-      item !== null &&
-      'id' in item &&
-      typeof (item as Record<string, unknown>)['id'] === 'string' &&
-      'type' in item &&
-      (item as Record<string, unknown>)['type'] === 'function' &&
-      'function' in item &&
-      typeof (item as Record<string, unknown>)['function'] === 'object' &&
-      (item as Record<string, unknown>)['function'] !== null,
-  );
 }
 
 /**
@@ -93,6 +72,7 @@ export async function executeChatRequest(
   provider: string,
   model: string,
   tools?: IToolSchema[],
+  signal?: AbortSignal,
 ): Promise<IResponseMessage> {
   const mappedMessages = mapMessages(messages);
 
@@ -115,6 +95,12 @@ export async function executeChatRequest(
         ...headers,
       },
       body: JSON.stringify(requestData),
+      // CORE-042: the remote path is a provider call like any other, and it was the one that could
+      // not be cancelled -- `fetch` was called with no `signal`, so an aborted run left the request
+      // in flight and the turn waiting on it. The per-call options the body should also carry are
+      // CORE-044; this is only the half that is client-local and that the cancellation contract
+      // depends on.
+      ...(signal && { signal }),
     });
 
     if (!fetchResponse.ok) {
@@ -156,130 +142,12 @@ export async function executeChatRequest(
 
     return toResponseMessage(assistantMessage, provider, model);
   } catch (error) {
+    // An abort is the caller's own decision, not a transport failure: rewrapping it as
+    // `Request failed` would erase the `AbortError` name every cancellation check reads.
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw error;
+    }
     throw new Error(`Request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
-
-/**
- * Execute a streaming POST to the /stream endpoint, yielding IResponseMessage chunks.
- */
-export async function* executeChatStreamRequest(
-  baseUrl: string,
-  logger: ILogger,
-  messages: IBasicMessage[],
-  provider: string,
-  model: string,
-  tools?: IToolSchema[],
-): AsyncGenerator<IResponseMessage> {
-  const url = `${baseUrl}/stream`;
-  const body = {
-    messages,
-    provider,
-    model,
-    ...(tools && tools.length > 0 && { tools }),
-  };
-
-  logger.debug('HTTP stream request', {
-    toolCount: tools?.length ?? 0,
-    url,
-    provider,
-    model,
-    messagesCount: messages.length,
-  });
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    logger.debug('HTTP response', { status: response.status, statusText: response.statusText });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error('HTTP error response', {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText,
-      });
-      throw new Error(`HTTP ${response.status}: ${response.statusText}\n${errorText}`);
-    }
-
-    if (!response.body) {
-      throw new Error('No response body for streaming');
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.trim() === '') continue;
-
-          if (line.startsWith('data: ')) {
-            const data = line.slice(SSE_DATA_PREFIX_LENGTH);
-            if (data === '[DONE]') {
-              return;
-            }
-
-            try {
-              const parsed = JSON.parse(data) as Record<string, unknown>;
-
-              // The server sends the raw TUniversalMessage; no unwrapping is needed.
-              const responseData = parsed;
-
-              if (responseData && responseData['role'] === 'assistant') {
-                const contentValue =
-                  typeof responseData['content'] === 'string' ? responseData['content'] : '';
-                const toolCalls = responseData['toolCalls'];
-
-                logger.debug('parsed stream chunk', {
-                  role: String(responseData['role']),
-                  content: contentValue.substring(0, CONTENT_PREVIEW_LENGTH),
-                  hasToolCalls: !!toolCalls,
-                  toolCallsLength: Array.isArray(toolCalls) ? toolCalls.length : 0,
-                });
-
-                yield toResponseMessage(
-                  {
-                    role: 'assistant',
-                    content: contentValue,
-                    // Always forward toolCalls when present (including empty id fragments)
-                    ...(Array.isArray(toolCalls) && {
-                      toolCalls: validateToolCallArray(toolCalls),
-                    }),
-                  },
-                  provider,
-                  model,
-                );
-              }
-            } catch (_parseError) {
-              // Skip invalid JSON
-              continue;
-            }
-          }
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
-  } catch (error) {
-    throw new Error(
-      `Streaming request failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    );
   }
 }
 

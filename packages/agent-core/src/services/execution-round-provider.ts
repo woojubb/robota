@@ -114,7 +114,13 @@ export async function callProviderWithCache(
   );
 }
 
-async function callProviderWithIdleTimeout(
+/**
+ * Call a provider honouring the run's cancellation signal and the configured idle timeout.
+ *
+ * Exported so that every provider call in the execution turn goes through one implementation --
+ * CORE-042: the forced-summary call was the last one built by hand, and it silently had neither.
+ */
+export async function callProviderWithIdleTimeout(
   chat: TProviderChat,
   messages: TUniversalMessage[],
   options: IChatOptions,

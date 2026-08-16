@@ -292,10 +292,8 @@ export interface IAgent<
    */
   run(input: string, context?: TContext): Promise<string>;
 
-  /**
-   * Run agent with streaming response and type-safe context
-   */
-  runStream(input: string, context?: TContext): AsyncGenerator<string, void, never>;
+  /** Streams the turn's text deltas and returns its final assistant text (CORE-042). */
+  runStream(input: string, context?: TContext): AsyncGenerator<string, string, never>;
 
   /**
    * Get conversation history with type-safe messages

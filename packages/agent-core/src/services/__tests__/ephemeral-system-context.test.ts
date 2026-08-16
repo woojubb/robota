@@ -1,12 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { AbstractAIProvider } from '../../abstracts/abstract-ai-provider';
 import { Robota } from '../../core/robota';
 import { createScriptedProvider } from '../../testing/scripted-provider';
 
 import type { IAgentConfig } from '../../interfaces/agent';
-import type { TUniversalMessage } from '../../interfaces/messages';
-import type { IChatOptions } from '../../interfaces/provider';
 
 /**
  * SELFHOST-008 P3 — TC-03: the agent-core EPHEMERAL system-context seam.
@@ -75,40 +72,14 @@ describe('SELFHOST-008 P3 TC-03 — ephemeral system-context seam (agent-core)',
   });
 });
 
-/** Streaming provider that captures the messages array each chatStream call received. */
-class CapturingStreamProvider extends AbstractAIProvider {
-  readonly name = 'capturing-stream-provider';
-  readonly version = '1.0.0';
-  streamCalls: TUniversalMessage[][] = [];
-
-  async chat(messages: TUniversalMessage[]): Promise<TUniversalMessage> {
-    return { id: 'x', role: 'assistant', content: 'ok', state: 'complete', timestamp: new Date() };
-  }
-
-  override async *chatStream(
-    messages: TUniversalMessage[],
-    _options?: IChatOptions,
-  ): AsyncIterable<TUniversalMessage> {
-    this.streamCalls.push([...messages]);
-    yield {
-      id: 'c1',
-      role: 'assistant',
-      content: 'streamed',
-      state: 'complete',
-      timestamp: new Date(),
-    };
-  }
-}
-
 describe('SELFHOST-008 P3 — ephemeral seam on the runStream path (review SHOULD)', () => {
   it('runStream honors ephemeralSystemContext identically: reaches the provider, not persisted', async () => {
-    const provider = new CapturingStreamProvider();
-    const robota = new Robota({
-      name: 'Ephemeral Stream Test Agent',
-      aiProviders: [provider],
-      defaultModel: { provider: 'capturing-stream-provider', model: 'test-model' },
-      logging: { level: 'silent', enabled: false },
-    });
+    // CORE-042: this used a one-off double whose data lived on `chatStream()`, because the streaming
+    // entry had its own engine that called that method. There is one turn now, so the streaming case
+    // uses the SAME scripted provider the run() cases above use -- and the symmetry is the point: a
+    // separate double for the streaming path is how the two paths drifted in the first place.
+    const scripted = createScriptedProvider([{ text: 'done' }]);
+    const robota = new Robota(createConfig('scripted-test-provider', scripted.provider));
 
     for await (const _chunk of robota.runStream('rotate the key', {
       ephemeralSystemContext: EPHEMERAL,
@@ -116,10 +87,10 @@ describe('SELFHOST-008 P3 — ephemeral seam on the runStream path (review SHOUL
       // consume
     }
 
-    expect(provider.streamCalls).toHaveLength(1);
-    expect(
-      provider.streamCalls[0].some((m) => m.role === 'system' && m.content === EPHEMERAL),
-    ).toBe(true);
+    expect(scripted.requests).toHaveLength(1);
+    expect(scripted.requests[0].some((m) => m.role === 'system' && m.content === EPHEMERAL)).toBe(
+      true,
+    );
     expect(robota.getHistory().some((m) => (m.content ?? '').includes('recalled-memory'))).toBe(
       false,
     );

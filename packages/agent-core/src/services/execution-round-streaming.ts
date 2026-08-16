@@ -100,6 +100,41 @@ export async function callRoundProviderWithEvents(
         })(),
       },
     );
+    // CORE-042: a provider that returned assembled text without streaming any of it still owes the
+    // caller its deltas — `IChatOptions.onTextDelta`'s contract is what such a provider is violating,
+    // and `run(onTextDelta)` against one emitted nothing at all before this. Routing the assembled
+    // text through the SAME wrapper means both entry points get it, rather than the streaming entry
+    // special-casing it and becoming a second implementation on day one.
+    //
+    // Emitted BEFORE the response events on purpose: every real streaming round delivers its deltas
+    // ahead of the normalized response, and a replay consumer folding deltas until that arrives would
+    // otherwise attribute this one to the next round.
+    //
+    // Stated as the TAIL rather than as "emitted nothing", because history commits the delta buffer
+    // and not the returned message: a provider whose deltas stop short of its own assembled text
+    // truncates the committed assistant message, silently. The no-delta case is that same bug with
+    // an empty buffer. When the buffer is not a prefix of the assembled text the provider has
+    // contradicted itself; that is not repaired here by guessing, but it is not passed over in
+    // silence either.
+    if (typeof response.content === 'string' && response.content.length > 0) {
+      const streamed = conversationStore.getPendingContent();
+      if (response.content.startsWith(streamed)) {
+        const tail = response.content.slice(streamed.length);
+        if (tail.length > 0) {
+          wrappedOnTextDelta(tail);
+        }
+      } else {
+        logger.warn(
+          'Provider deltas are not a prefix of its assembled message — committing the streamed text',
+          {
+            conversationId: fullContext.conversationId,
+            round: currentRound,
+            streamedLength: streamed.length,
+            assembledLength: response.content.length,
+          },
+        );
+      }
+    }
     fullContext.onExecutionEvent?.('provider_response_raw', {
       executionId,
       conversationId: fullContext.conversationId,

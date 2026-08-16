@@ -10,7 +10,12 @@
  * runtime code.
  */
 
-import type { IAIProvider, IRawProviderResponse, TUniversalMessage } from '../index.js';
+import type {
+  IAIProvider,
+  IChatOptions,
+  IRawProviderResponse,
+  TUniversalMessage,
+} from '../index.js';
 
 /** ANALYTICS-001: optional token usage a scripted turn reports, so usage-based tests are possible. */
 export interface IScriptedTurnUsage {
@@ -30,17 +35,26 @@ export interface IScriptedProvider {
   provider: IAIProvider;
   /** Message arrays of every chat() call, in order, for request assertions. */
   requests: TUniversalMessage[][];
+  /**
+   * The `IChatOptions` of every chat() call, in order.
+   *
+   * CORE-042: the two entry points must build the SAME options object, and nothing could assert
+   * that while the double discarded them.
+   */
+  chatOptions: Array<IChatOptions | undefined>;
 }
 
 export function createScriptedProvider(turns: readonly TScriptedTurn[]): IScriptedProvider {
   const requests: TUniversalMessage[][] = [];
+  const chatOptions: Array<IChatOptions | undefined> = [];
   let cursor = 0;
 
   const provider: IAIProvider = {
     name: 'scripted-test-provider',
     version: 'test',
-    async chat(messages: TUniversalMessage[]): Promise<TUniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
       requests.push([...messages]);
+      chatOptions.push(options);
       const turn = turns[cursor];
       if (turn === undefined) {
         throw new Error(
@@ -59,6 +73,15 @@ export function createScriptedProvider(turns: readonly TScriptedTurn[]): IScript
           }
         : {};
       if ('text' in turn) {
+        // CORE-042: `IChatOptions.onTextDelta` requires a provider to stream internally and call
+        // this per chunk WHILE still returning the assembled message. This double returned the text
+        // and emitted nothing, so an agent streaming through it produced no deltas -- the double,
+        // not the product, was the reason a streaming test needed a second engine to observe. The
+        // whole text goes out as one delta: a scripted turn has no chunk boundaries to honour, and
+        // splitting it arbitrarily would invent a fragmentation behaviour no real provider promised.
+        if (turn.text.length > 0) {
+          options?.onTextDelta?.(turn.text);
+        }
         return {
           id: `scripted-${cursor}`,
           role: 'assistant',
@@ -93,5 +116,5 @@ export function createScriptedProvider(turns: readonly TScriptedTurn[]): IScript
     },
   };
 
-  return { provider, requests };
+  return { provider, requests, chatOptions };
 }

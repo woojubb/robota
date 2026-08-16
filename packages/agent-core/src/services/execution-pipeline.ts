@@ -1,6 +1,7 @@
 import { EXECUTION_EVENTS } from './execution-constants';
 import { buildFinalResult } from './execution-failure';
 import { executeRound } from './execution-round';
+import { callProviderWithIdleTimeout } from './execution-round-provider';
 import {
   type IResolvedProviderInfo,
   type IExecutionContext,
@@ -15,6 +16,7 @@ import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
 import type { ToolExecutionService } from './tool-execution-service';
 import type { IAgentConfig } from '../interfaces/agent';
+import type { IChatOptions } from '../interfaces/provider';
 import type { TMetadata } from '../interfaces/types';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 import type { ILogger } from '../utils/logger';
@@ -158,14 +160,31 @@ async function forceSummaryCall(
           ]
         : summaryMessages;
 
-    const chatOptions: { model: string; onTextDelta?: (delta: string) => void } = {
+    // CORE-042: this was the one provider call in the turn built by hand -- `{ model, onTextDelta }`,
+    // carrying no `signal`, no `effort` and no idle timeout. That was survivable while the streaming
+    // path had its own engine; now that the streaming entry awaits the turn when its consumer walks
+    // away, an unabortable call here is a hang on the public streaming API. It goes through the same
+    // helper every round call goes through, so there is one implementation of "call the provider".
+    // Tools stay deliberately absent: this call exists to END the tool loop, not to extend it.
+    const chatOptions: IChatOptions = {
       model: resolved.aiProviderInfo.model,
+      effort: config.defaultModel?.effort ?? 'high',
+      ...(config.defaultModel?.maxTokens !== undefined && {
+        maxTokens: config.defaultModel.maxTokens,
+      }),
+      ...(config.defaultModel?.temperature !== undefined && {
+        temperature: config.defaultModel.temperature,
+      }),
+      ...(fullContext.signal && { signal: fullContext.signal }),
+      ...(fullContext.onTextDelta && { onTextDelta: fullContext.onTextDelta }),
     };
-    if (fullContext.onTextDelta) {
-      chatOptions.onTextDelta = fullContext.onTextDelta;
-    }
 
-    const forceResponse = await resolved.provider.chat(messagesForProvider, chatOptions);
+    const forceResponse = await callProviderWithIdleTimeout(
+      resolved.provider.chat.bind(resolved.provider),
+      messagesForProvider,
+      chatOptions,
+      config.timeout,
+    );
 
     // Remove synthetic message from history to avoid polluting conversation
     const currentMessages = conversationStore.getMessages();
