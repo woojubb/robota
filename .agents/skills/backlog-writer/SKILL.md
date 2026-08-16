@@ -6,11 +6,14 @@ invocable: true
 
 # Backlog Writer
 
-Content authoring guide for spec documents. This skill produces a correctly structured spec document file ready for GATE-WRITE. It does not run gates, judge gate outcomes, or make implementation decisions.
+Content authoring guide for spec documents. This skill produces a correctly structured spec document file
+paired with one Task and ready for GATE-WRITE. A spec-doc is the plan, not a GitHub issue or a replacement
+for the Task problem statement. It does not run gates, judge gate outcomes, or make implementation decisions.
 
 ## Rule Anchor
 
 - `.agents/rules/spec-workflow.md` > HARD GATE: No Immediate Implementation
+- `.agents/tasks/README.md` — Task/spec pairing and Task ownership
 - `backlog-pipeline` skill > State Machine
 
 ## When to Use
