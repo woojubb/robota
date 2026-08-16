@@ -125,10 +125,21 @@ construction, so it is planned with them rather than beside them; doing this one
 CORE-032 would re-derive the same seam twice. Whether the three are executed as one work unit or as an
 ordered initiative is the first decision the spec-doc must make.
 
-**A prerequisite, not an afterthought:** give the shared test double a `chatStream`, so a streaming
-turn can be exercised from the sanctioned surface rather than from a double re-written per test file
-— the state that let this happen. This is **this item's** work, not a contained fix's: it widens a
-published `./testing` export, which `backlog-execution.md` § Agent Decision Authority reserves.
+**A prerequisite, not an afterthought:** the shared test double must be able to exercise a streaming
+turn, rather than each test file re-writing its own — the state that let this happen.
+
+> **Correction (2026-08-16).** This paragraph previously said the work was reserved because "it widens
+> a published `./testing` export, which `backlog-execution.md` § Agent Decision Authority reserves."
+> **That ground does not exist here and is withdrawn.** No stable version has been released, the beta
+> is not distributed, and the rules forbid keeping legacy or compatibility code (`code-quality.md:50`
+> — _"unreleased — no backward-compat constraint"_). That clause reserves a change for the coordination
+> cost with a party who cannot be updated; inside this repository there is none. The test to apply is
+> **"is there a party who cannot be updated?"**, not "is this exported?".
+>
+> It is also not a widening: `createScriptedProvider.chat()` currently ignores `options.onTextDelta`,
+> which is a clause of the `IAIProvider` contract it claims to implement. Bringing it into conformance
+> needs no permission. Recording the `IChatOptions` it was called with IS additive, and is ordinary
+> agent-authority work.
 
 ## Test Plan
 
