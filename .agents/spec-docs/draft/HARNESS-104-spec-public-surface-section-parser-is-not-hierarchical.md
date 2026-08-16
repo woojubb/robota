@@ -218,3 +218,12 @@ None
       record created; implementation begins after GATE-APPROVAL
 
 ## Evidence Log
+
+### [IMPLEMENTED] — ✅ | 2026-08-17
+
+Executed under the owner's standing instruction of this session, recorded verbatim:
+"너가 제안한 1위부터 5위 까지 작업을 모두 진행해서 완료해줘". Each item's premise was
+independently reproduced against the code before any change (see the Problem section's
+measurements), and each change is reversible and internal to this repository.
+
+Section test is now level-relative. Baseline re-derived 567 -> 482; agent-plugin and agent-transport dropped to zero. Making the tables visible surfaced 5 REAL phantom exports, each verified against source and fixed. 4 parser tests, 117 scans.

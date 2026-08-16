@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-102: the Node version is not single-valued across the workspace, so every package tests on an unpinned runtime'
-status: todo
+status: in-progress
 created: 2026-08-17
 priority: high
 urgency: now

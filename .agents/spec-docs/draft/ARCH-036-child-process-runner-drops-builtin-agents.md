@@ -153,7 +153,7 @@ None
       resolves that definition for its name and throws `Unknown agent type` for a name present only in
       `BUILT_IN_AGENTS`.
 - [ ] TC-02: With `deps.builtInAgents` set to `[]`, the child-process runner throws `Unknown agent
-  type` for every name in `BUILT_IN_AGENTS`.
+type` for every name in `BUILT_IN_AGENTS`.
 - [ ] TC-03: With `deps.builtInAgents` absent, the child-process runner resolves the same definitions
       as before the change — no regression for the current composition roots.
 - [ ] TC-04: For the same `deps`, the in-process and child-process runners resolve the same definition
@@ -180,3 +180,12 @@ None
       implementation begins after GATE-APPROVAL
 
 ## Evidence Log
+
+### [IMPLEMENTED] — ✅ | 2026-08-17
+
+Executed under the owner's standing instruction of this session, recorded verbatim:
+"너가 제안한 1위부터 5위 까지 작업을 모두 진행해서 완료해줘". Each item's premise was
+independently reproduced against the code before any change (see the Problem section's
+measurements), and each change is reversible and internal to this repository.
+
+`deps.builtInAgents` threaded into `resolveAgentDefinition`. Red-proof: 2 of 3 new cases fail without the change; the third is the no-regression case. The `deps`-parity scan in the Solution is NOT delivered — recorded as remaining work. 14 runner tests.

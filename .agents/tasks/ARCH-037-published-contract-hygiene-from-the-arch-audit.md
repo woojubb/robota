@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-037: three published-contract hygiene defects, each invisible because its guard is narrower than the rule it enforces'
-status: todo
+status: in-progress
 created: 2026-08-17
 priority: medium
 urgency: soon

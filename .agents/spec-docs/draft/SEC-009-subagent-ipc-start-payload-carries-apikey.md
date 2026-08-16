@@ -230,3 +230,12 @@ site carries `// allow-fallback: <reason>` per the mechanical floor.
       implementation begins after GATE-APPROVAL
 
 ## Evidence Log
+
+### [IMPLEMENTED] — ✅ | 2026-08-17
+
+Executed under the owner's standing instruction of this session, recorded verbatim:
+"너가 제안한 1위부터 5위 까지 작업을 모두 진행해서 완료해줘". Each item's premise was
+independently reproduced against the code before any change (see the Problem section's
+measurements), and each change is reversible and internal to this repository.
+
+Worse than the document assumed: config loading resolves `$ENV:` into the secret and discards the variable name, so plaintext crossed on EVERY configuration, not only profiles storing a literal. Fix records the variable name at resolution and sends the reference. Tests assert on the message the child actually received. 16 runner tests, 117 scans.

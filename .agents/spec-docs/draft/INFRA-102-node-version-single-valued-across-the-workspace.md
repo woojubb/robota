@@ -219,3 +219,12 @@ None
       record created; implementation begins after GATE-APPROVAL
 
 ## Evidence Log
+
+### [IMPLEMENTED] — ✅ | 2026-08-17
+
+Executed under the owner's standing instruction of this session, recorded verbatim:
+"너가 제안한 1위부터 5위 까지 작업을 모두 진행해서 완료해줘". Each item's premise was
+independently reproduced against the code before any change (see the Problem section's
+measurements), and each change is reversible and internal to this repository.
+
+Every workspace manifest resolves to the root pin (66 examined); `node -v` in a package directory is 22.14.0, was 24.19.0. The MEASURED edge was added during implementation because `volta.extends` fixes bare `node` but not what pnpm hands its scripts (volta-cli/volta#1562) — no manifest edit can, so the deliverable is a check that says so with the host remediation. 9 unit tests, 117 scans.

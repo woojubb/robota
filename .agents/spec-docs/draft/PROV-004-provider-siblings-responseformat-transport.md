@@ -231,3 +231,12 @@ not silent: the capability table is the explicit declaration that produced it. T
       divergences remain open there
 
 ## Evidence Log
+
+### [IMPLEMENTED] — ✅ | 2026-08-17
+
+Executed under the owner's standing instruction of this session, recorded verbatim:
+"너가 제안한 1위부터 5위 까지 작업을 모두 진행해서 완료해줘". Each item's premise was
+independently reproduced against the code before any change (see the Problem section's
+measurements), and each change is reversible and internal to this repository.
+
+`response_format` emitted when the resolved model declares `json_schema`. Gated rather than unconditional because deepseek declared the capability with no transport while qwen omits it and gemma publishes no table. 12 builder tests covering both directions and both silence cases, 107 package tests, 117 scans.

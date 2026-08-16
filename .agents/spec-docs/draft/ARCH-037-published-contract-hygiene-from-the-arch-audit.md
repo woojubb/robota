@@ -212,3 +212,12 @@ None
       created; implementation begins after GATE-APPROVAL
 
 ## Evidence Log
+
+### [IMPLEMENTED] — ✅ | 2026-08-17
+
+Executed under the owner's standing instruction of this session, recorded verbatim:
+"너가 제안한 1위부터 5위 까지 작업을 모두 진행해서 완료해줘". Each item's premise was
+independently reproduced against the code before any change (see the Problem section's
+measurements), and each change is reversible and internal to this repository.
+
+Items 2 and 3 delivered. Item 1's proposed fix is REFUTED by implementation: dropping the three re-exports forces `agent-transport-protocol` to import `agent-core`, which project-structure.md forbids for it. The re-exports are the interface hub the layering requires. The guard widening — the issue's own alternative, and the half it called more important — remains. Emptying the allowlist also exposed that the runtime-facade check measured type-only re-exports too; it now measures what its name claims.

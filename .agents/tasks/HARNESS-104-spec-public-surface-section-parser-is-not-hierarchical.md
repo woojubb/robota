@@ -1,6 +1,6 @@
 ---
 title: 'HARNESS-104: the spec public-surface scan stops counting at the first subheading, so a grouped Public API table reads as entirely undocumented'
-status: todo
+status: in-progress
 created: 2026-08-17
 priority: high
 urgency: now

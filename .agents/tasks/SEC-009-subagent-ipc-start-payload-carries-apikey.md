@@ -1,6 +1,6 @@
 ---
 title: 'SEC-009: the subagent IPC start payload carries apiKey'
-status: todo
+status: in-progress
 created: 2026-08-16
 priority: high
 urgency: soon
