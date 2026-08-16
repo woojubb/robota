@@ -14,6 +14,17 @@ a pattern about how a recommendation is produced, not about any of the items.
 | ARCH-025 rev 4 | A sentence concluding `NOT-APPLICABLE`, written when that was true                                                                                 | Survived the revision that made it false, so the document instructed phase 2 twice, contradictorily, **stale instruction first**, with a named downstream consumer                                           |
 | ARCH-030       | The scenario's `latchThrew` observable "pins the latch"                                                                                            | It read a property the carrier cleanup had already nulled, so it pushed nothing and was unconditionally `null`. It measured nothing while the task file and a gate entry both claimed it measured the latch  |
 
+### A sixth, and the purest form
+
+While closing the fifth, review's pointer finding ("this cites a `## Result` section that does not exist")
+uncovered why: the completion edit's `replace` anchor never matched, so the operation **silently did
+nothing** and was not verified. The entire `## Result` block — narrowed-scope statement, three premise
+corrections, verification record, filed follow-ups — was absent from an item that had already passed BOTH
+done gates. No scan caught it: no floor requires a `## Result` section.
+
+That instance is the class stripped to its essentials. The claim was never true, not even once, and the
+operation that should have made it true reported nothing.
+
 ## Why it recurs
 
 Not carelessness about facts — every one of these was checked **once**, when written. The failure is that the
@@ -39,6 +50,10 @@ Two make it worse than untidy prose:
   [[harness-041-accidental-green-floor]].
 - For any observable in a user-execution scenario, prove it flips: measure it against the unfixed code
   before writing the expected value. A green that was already green is the HARNESS-052 class.
+- **Any edit whose anchor might not match must assert.** A scripted `replace`/`sed` that misses its anchor
+  is a no-op that reports success. Use `assert old in s`, or grep the result back — never both write and
+  believe. This is the cheapest of the six to prevent and produced the worst outcome: content missing from
+  a document two independent gates had already passed.
 
 Related: [[claimed-without-reading-back]] — that one is about citing a measurement taken against a different
 setup; this one is about a measurement that was right and then went stale underneath the claim.
