@@ -12,7 +12,8 @@
     "scripts/harness/scan-no-fake-in-src.mjs",
     "scripts/harness/scan-product-identity.mjs",
     "scripts/harness/scan-transport-conformance.mjs",
-    "scripts/harness/scan-workflow-permissions.mjs"
+    "scripts/harness/scan-workflow-permissions.mjs",
+    "scripts/harness/verify-doc-split-preservation.mjs"
   ],
   "pending": [
     "scripts/harness/check-adr-completeness.mjs",

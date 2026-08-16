@@ -9,6 +9,7 @@ import type { RTCDataChannel, RTCPeerConnection } from 'werift';
 import type { IPairingResult } from '@robota-sdk/agent-remote-pairing';
 import type { IProtocolSession, SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
 
+import { createChannelDelivery } from './channel-delivery.js';
 import { loadWerift } from './werift-loader.js';
 import { PairingGate, type IHostReconnectConfig } from './pairing-gate.js';
 import { createTransportLifecycleError } from './transport-lifecycle-error.js';
@@ -266,11 +267,12 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
       return;
     }
 
+    // ARCH-030: the transport is the carrier on the no-secret branch — its own sink, its own lifecycle.
     const { onMessage, cleanup } = createWsHandler({
       session,
-      send: (serverMessage) => channel.send(JSON.stringify(serverMessage)),
-      onDeliveryError: (error, event) =>
+      deliver: createChannelDelivery(channel, (error, event) =>
         this.deliveryLifecycle.handleFailure(channel, generation, error, event),
+      ),
     });
     this.cleanupHandler = cleanup;
     channel.onMessage.subscribe((data) => {

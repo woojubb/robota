@@ -1,0 +1,69 @@
+{
+  "item": "RULE-013 WU-B",
+  "split": "packages/agent-cli/docs/SPEC.md @ 96728940c -> the same SPEC + packages/agent-cli/docs/design/*.md",
+  "reason": "Relocating a section legitimately renames its heading, and re-wrapping a moved paragraph legitimately changes where its lines break. Both make an exact-line comparison report a loss that is not one. Every allowance is recorded here rather than passed on a command line, so a reviewer sees the full list without having to reproduce the failing run — and every entry naming `survivesAs` is checked by the tool, not taken on trust. Two entries are deliberate DELETIONS. ONE of them is a `delete-and-link` under the classification table's disposition — it is marked `deletedAndLinkedTo` and the tool verifies a live link to the owner exists, so a deletion can never be filed as if it were a rename. The OTHER (entry 12) was reclassified in round 4 as an in-package duplicate of a boundary this SPEC already stated, so it carries no owner and no link; it rests on its written reason. The tool's stdout is the authority on these counts: `9 rename(s) ... 1 delete-and-link(s) ... 3 on a written reason`.",
+  "entries": [
+    {
+      "lost": "Architecture",
+      "survivesAs": "Architecture Overview",
+      "reason": "The 351-line `## Architecture` section was dissolved: its lead prose became `## Architecture Overview`, its user-facing subsections moved to `User-Facing Contract` and `Configuration`, and the transport registry moved to design. Only the title disappeared."
+    },
+    {
+      "lost": "Session Ownership — TuiInteractionChannel",
+      "survivesAs": "agent-cli — session ownership in TuiInteractionChannel",
+      "reason": "Section became a design document; the title is now the document title."
+    },
+    {
+      "lost": "Command Registry Architecture",
+      "survivesAs": "agent-cli — command registry execution pipeline",
+      "reason": "Section was split: the interfaces and the frontmatter schema stayed in `Extension Points`, the pipeline became this design document."
+    },
+    {
+      "lost": "File Structure",
+      "survivesAs": "agent-cli — source layout",
+      "reason": "Section became a design document; the title is now the document title."
+    },
+    {
+      "lost": "Subagent Execution",
+      "survivesAs": "agent-cli — subagent and background process wiring",
+      "reason": "Section was split: the `/background` grammar stayed in `User-Facing Contract`, the process adapters became this design document."
+    },
+    {
+      "lost": "Message Architecture",
+      "survivesAs": "agent-cli — message type unification",
+      "reason": "Section became a design document; the title is now the document title."
+    },
+    {
+      "lost": "Variable Substitution",
+      "survivesAs": "Skill Body Syntax",
+      "reason": "Returned to the SPEC under `Extension Points` after the round-2 review: a user types these tokens into their own SKILL.md, so they are contract. Renamed to sit beside `Skill Frontmatter Schema`, which describes the same file."
+    },
+    {
+      "lost": "Shell Command Preprocessing",
+      "survivesAs": "Inline shell execution",
+      "reason": "Returned to the SPEC under `Extension Points` in the same move, as a subsection of `Skill Body Syntax`."
+    },
+    {
+      "lost": "Testing Requirements",
+      "survivesAs": "Display formatting test requirements",
+      "reason": "Moved from inside the display sections to `## Test Strategy`, 640 lines away, and renamed to say which tests it governs."
+    },
+    {
+      "lost": "key. The CLI does not own WebSocket protocol framing or browser monitor UI.",
+      "reason": "Not a heading — a re-wrap. The original line began mid-sentence (`… under the `transports`` / `key. The CLI does not own …`). The `transports` key sentence returned to the SPEC's `Configuration` and the remaining sentence stayed in `composition.md`, so the two halves now live in different documents and no single line matches. Both halves are present; `rg 'does not own WebSocket protocol framing'` finds the survivor. No `survivesAs` is given because the content did not become one replacement line."
+    },
+    {
+      "lost": "The always-visible panel must not expose raw task IDs; task IDs remain available through",
+      "reason": "Not a heading — a re-wrap. The sentence moved from `subagent-wiring.md` to the SPEC's `Background Work Controls` and gained the word `background` for context outside the panel section (`The always-visible background panel must not expose raw task IDs; …`), so the line no longer matches exactly. No `survivesAs` is given because the change is inside the line, not a rename."
+    },
+    {
+      "lost": "Subagent execution (`/agent` command module, fork sessions, agent definition loading) is managed by `@robota-sdk/agent-framework` internally. The CLI does not own subagent lifecycle state — `InteractiveSession` handles subagent and background task lifecycle.",
+      "deletedAndLinkedTo": "packages/agent-framework/docs/SPEC.md",
+      "reason": "Deliberately deleted, not relocated. This describes what agent-framework owns, in agent-cli's own words — a paraphrase of another document's contract, which drifts more quietly than a copy. The classification table assigned this content `delete-and-link`; `subagent-wiring.md` now links to the owner instead of restating it."
+    },
+    {
+      "lost": "Agent command behavior is not owned by the TUI. The Robota binary composes `@robota-sdk/agent-command` as a default command module, but reusable CLI UI code only handles generic command modules.",
+      "reason": "NOT a cross-package delete-and-link — the round-4 review caught that this was misclassified. The fact was already in agent-cli's OWN `## Boundaries` at the base ref (`git show 96728940c:packages/agent-cli/docs/SPEC.md` line 52: \"Does NOT own user-local command behavior — `@robota-sdk/agent-command` owns the …\"), so the deleted paragraph was an in-package duplicate of a boundary the SPEC already states, not a restatement of another package's contract. Deleted as a duplicate; the surviving statement is the SPEC's own Boundaries entry. No `deletedAndLinkedTo` is claimed because no new link was needed — and the earlier entry pointed at `agent-framework`, which its own reason contradicted and which only passed because a sibling entry's link to that owner existed somewhere in the destination union."
+    }
+  ]
+}

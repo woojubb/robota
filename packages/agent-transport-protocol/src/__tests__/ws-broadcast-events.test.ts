@@ -11,6 +11,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createWsHandler } from '../ws-handler.js';
 
 import type { TServerMessage } from '../ws-protocol.js';
@@ -50,15 +51,13 @@ function setupTwoSurfaces(): {
   const sentB: TServerMessage[] = [];
   createWsHandler({
     session,
-    send: (m) => sentA.push(m),
+    deliver: createOutboundDelivery((m) => sentA.push(m), vi.fn()),
     driverId: 'device-A',
-    onDeliveryError: vi.fn(),
   });
   createWsHandler({
     session,
-    send: (m) => sentB.push(m),
+    deliver: createOutboundDelivery((m) => sentB.push(m), vi.fn()),
     driverId: 'device-B',
-    onDeliveryError: vi.fn(),
   });
   return { session, sentA, sentB };
 }

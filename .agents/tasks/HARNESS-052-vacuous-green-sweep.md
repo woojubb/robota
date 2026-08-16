@@ -444,6 +444,16 @@ in `## Test Plan`.
 - [ ] `changes` is a required context, or the three jobs it gates stop depending on it.
 - [ ] `.claude/hooks/check-forbidden-patterns.sh` resolves worktree paths.
 - [ ] `packages/dag-builder` has tests; `--passWithNoTests` is removed where it is load-bearing.
+- [ ] **G8 (sub-shape A) — `check-spec-whitebox-leakage` measures heading conformance, not placement.**
+      `scripts/harness/check-spec-whitebox-leakage.mjs:62` marks a span only on `/^##\s+/`, so every
+      `###` is attributed to its enclosing `##`. Demoting a non-standard `##` to `###` under a standard
+      one drives the reported residual to **zero with no content moved**. Observed live: RULE-013 WU-B
+      demoted 20 non-standard `##` in `packages/agent-cli/docs/SPEC.md` and the scan went from
+      1,708/1,939 (88.1%) to 0/1,731 (0.0%) — the 1,731 is the round-2 reading; later folds took the file to 1,744, and the residual stayed 0. The scan's name promises "whitebox leakage"; what it
+      measures is whether headings match a list. Filed by RULE-013, which routed around it — TC-05 now
+      asserts destination volume plus `verify-doc-split-preservation.mjs`, and TC-06 (which the
+      demotion _satisfies_) was demoted to an observation. Fix is either deep-level attribution or a
+      rename that stops the metric claiming placement.
 
 ## References
 

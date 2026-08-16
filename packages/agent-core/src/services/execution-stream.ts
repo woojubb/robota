@@ -1,4 +1,8 @@
-import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
+import {
+  assertToolChoiceValid,
+  buildChatResponseFormat,
+  initializeConversationStore,
+} from './execution-service-helpers';
 import { executeStreamToolCalls } from './execution-stream-tools';
 import { collectAssistantUsageMetadata } from './execution-usage';
 import { callPluginHook } from './plugin-hook-dispatcher';
@@ -43,7 +47,7 @@ export interface IStreamDependencies {
  */
 export async function* executeStream(
   input: string,
-  _messages: TUniversalMessage[],
+  messages: TUniversalMessage[],
   config: IAgentConfig,
   context: Partial<IExecutionContext> | undefined,
   deps: IStreamDependencies,
@@ -69,7 +73,23 @@ export async function* executeStream(
   eventEmitter.prepareOwnerPathBases(streamingConversationId);
 
   try {
-    const conversationStore = conversationHistory.getConversationStore(context.conversationId);
+    // Contained — CORE-042. Entering the round path's own session initialization is what makes
+    // `config.systemMessage` and the inject-once rule (CORE-009/CORE-010) reach this path at all —
+    // reading the store directly is why an agent obeyed its persona through `run()` and ignored it
+    // through `runStream()`. It only makes this path CALL one shared helper: provider resolution,
+    // chat options, validation and commit are still re-derived below, so the turn is still
+    // implemented twice. The shared seam is CORE-042's work.
+    //
+    // The helper's restore branch cannot fire here, by a property of the CALLER not of this call:
+    // `messages` is a synchronous snapshot of this same store. A caller passing a foreign array
+    // would resurrect a cleared history with `parts` stripped by `robota-history.ts`'s projection.
+    const conversationStore = initializeConversationStore(
+      conversationHistory,
+      streamingConversationId,
+      messages,
+      config,
+      executionId,
+    );
 
     if (input) {
       conversationStore.addUserMessage(input, { executionId });
@@ -113,20 +133,13 @@ export async function* executeStream(
         ? [...conversationMessages, createSystemMessage(ephemeralSystemContext)]
         : conversationMessages;
 
-    const configToolsLength = Array.isArray(config.tools) ? config.tools.length : undefined;
-    logger.debug('[EXECUTION-SERVICE] config.tools:', {
-      length: configToolsLength,
-    });
-    const toolSchemas = tools.getTools();
-    const toolSchemasLength = Array.isArray(toolSchemas) ? toolSchemas.length : undefined;
-    logger.debug('[EXECUTION-SERVICE] this.tools.getTools():', {
-      length: toolSchemasLength,
-    });
-    logger.debug('[EXECUTION-SERVICE] config.tools exists:', {
-      exists: !!config.tools,
-    });
-    logger.debug('[EXECUTION-SERVICE] config.tools.length > 0:', {
-      hasTools: config.tools && config.tools.length > 0,
+    // One call, not six: six debug calls reported one fact — how many tools this turn has — in six
+    // phrasings, with four variables that existed only to feed them. The two dropped
+    // `Final chatOptions…` lines are derivable from the pair below, since `chatOptions.tools` is
+    // `tools.getTools()` gated on `config.tools.length > 0`.
+    logger.debug('[EXECUTION-SERVICE] stream tool inventory', {
+      configured: Array.isArray(config.tools) ? config.tools.length : undefined,
+      registered: tools.getTools().length,
     });
 
     // CORE-016/017: the streaming path must carry the same model options as the round path —
@@ -148,16 +161,6 @@ export async function* executeStream(
       })(),
     };
     assertToolChoiceValid(chatOptions.toolChoice, chatOptions.tools);
-
-    logger.debug('[EXECUTION-SERVICE] Final chatOptions has tools:', {
-      hasTools: !!chatOptions.tools,
-    });
-    const chatOptionsToolsLength = Array.isArray(chatOptions.tools)
-      ? chatOptions.tools.length
-      : undefined;
-    logger.debug('[EXECUTION-SERVICE] Final chatOptions.tools length:', {
-      length: chatOptionsToolsLength,
-    });
 
     const chatStream = provider.chatStream;
     if (!chatStream) {
@@ -237,12 +240,6 @@ export async function* executeStream(
                 toolCalls[currentToolCallIndex].function.arguments +=
                   chunkToolCall.function!.arguments;
               }
-              const fragmentPreview = hasArgumentsFragment
-                ? chunkToolCall.function!.arguments
-                : chunkToolCall.function!.name;
-              logger.debug(
-                `[TOOL-STREAM] Adding fragment to tool ${toolCalls[currentToolCallIndex].id}: "${fragmentPreview}"`,
-              );
             }
           }
         }

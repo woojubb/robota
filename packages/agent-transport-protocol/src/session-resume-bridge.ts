@@ -19,10 +19,12 @@
  * The WS localhost path does NOT use this bridge — it keeps `createWsHandler` unchanged.
  */
 
+import { createOutboundDelivery } from './outbound-delivery.js';
 import { ResumeBuffer, type IResumeBufferOptions } from './resume-buffer.js';
 import { handleClientMessage, parseClientMessage } from './ws-handler.js';
 import { subscribeSessionEvents } from './ws-session-events.js';
 
+import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
 import type { TSeqServerMessage, TServerMessage } from './ws-protocol.js';
 import type { TDriverId } from '@robota-sdk/agent-interface-transport';
@@ -57,7 +59,27 @@ export class SessionResumeBridge {
   private driverId?: TDriverId;
   private readonly unsubscribe: () => void;
   private onDeliveryError?: IAttachOptions['onDeliveryError'];
-  private sink?: TResumeSink;
+  /**
+   * ARCH-030: the attachment's outbound boundary — and the only reference this class keeps to the current
+   * channel, which is why `dispose()` goes through `detach()` rather than clearing a separate field.
+   * Built per `attach` because a boundary LATCHES on its first failure, so a fresh one is exactly what
+   * un-latches the session for the next channel. It holds the only try/catch on the frame path.
+   */
+  private outbound?: TOutboundDeliver;
+  /**
+   * The session-lifetime entry every frame takes — event fan-out AND every reply to an inbound frame —
+   * before it is seq-stamped and buffered by {@link emit}. Distinct from {@link outbound}, which is the
+   * per-attachment exit to the current channel; this one outlives channels because the subscription does.
+   *
+   * It guards the BUFFERING step, not a carrier, and it latches for the life of the session on purpose:
+   * the failure it is placed against is the buffer refusing a frame on capacity, and a resume buffer that
+   * cannot accept frames cannot honour a later `resume` either, so there is nothing a reconnect recovers.
+   * That is the opposite of {@link outbound}, where the next channel IS the recovery — the two scopes
+   * differ because the failures do. (A per-frame serialization failure would leave the buffer intact, but
+   * such a frame is undeliverable on every carrier, since each one stringifies it too; it is reported and
+   * the carrier torn down, never silently dropped.)
+   */
+  private readonly emitBoundary: TOutboundDeliver;
   private disposed = false;
   /** REMOTE-013 E4: while true, live emits are buffered but NOT forwarded — released by `replay()` on reconnect. */
   private holding = false;
@@ -70,24 +92,36 @@ export class SessionResumeBridge {
     // CMD-004 Stage D: `ui_intent` is requester-routed against the LATE-BOUND driver id (bound by
     // `setDriverId` after pairing) — routing happens BEFORE buffering, so a foreign surface's intent
     // consumes no seq and can never leak through a later `resume` replay.
-    this.unsubscribe = subscribeSessionEvents(this.session, (message) => this.emit(message), {
+    //
+    // ARCH-030: built through the factory, never cast — the brand is only worth having if this class
+    // does not spell its way around it. `emit` buffers and then hands the stamped frame to whatever
+    // boundary is currently ATTACHED, so it does not itself throw on a carrier failure; this boundary
+    // exists so that if it ever did, the failure would be reported rather than escaping the session's
+    // event listener.
+    this.emitBoundary = createOutboundDelivery(
+      (message) => this.emit(message),
+      (error, event) => this.reportDeliveryError(error, event),
+    );
+    this.unsubscribe = subscribeSessionEvents(this.session, this.emitBoundary, {
       getSurfaceDriverId: () => this.driverId,
-      onDeliveryError: (error, event) => this.reportDeliveryError(error, event),
     });
   }
 
   /** Set the current channel sink (on connect / reconnect). Live messages reach the client; replay is `resume`-driven. */
   public attach(sink: TResumeSink, options: IAttachOptions): void {
     if (this.disposed) return;
-    this.sink = sink;
     this.onDeliveryError = options.onDeliveryError;
+    this.outbound = createOutboundDelivery(
+      (message) => sink(JSON.stringify(message)),
+      (error, event) => this.reportDeliveryError(error, event),
+    );
     // On a reconnect, hold live forwarding until `resume` flushes the buffered tail (avoids the live-vs-replay race).
     this.holding = options.awaitResume === true;
   }
 
   /** Clear the sink (channel drop). Buffering continues so gap output is retained for the next `resume`. */
   public detach(): void {
-    this.sink = undefined;
+    this.outbound = undefined;
     this.onDeliveryError = undefined;
   }
 
@@ -102,7 +136,7 @@ export class SessionResumeBridge {
   /** Route one inbound channel frame: `resume`/`ack` handled here; everything else → the session. */
   public onClientMessage(data: string): void {
     if (this.disposed) return;
-    const msg = parseClientMessage(data, (m) => this.emit(m));
+    const msg = parseClientMessage(data, this.emitBoundary);
     if (!msg) return;
     if (msg.type === 'resume') {
       this.replay(msg.lastSeq);
@@ -114,14 +148,16 @@ export class SessionResumeBridge {
     }
     // Session control/query/background/prompt-response — responses funnel back through `emit` (seq'd + buffered).
     // REMOTE-014 E5: inject the server-assigned driver id (submit/prompt-response attribution).
-    handleClientMessage(this.session, (m) => this.emit(m), msg, this.driverId);
+    handleClientMessage(this.session, this.emitBoundary, msg, this.driverId);
   }
 
   /** Unsubscribe from the session (host reconnect-window ceiling / teardown). Idempotent. */
   public dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.sink = undefined;
+    // Through `detach`, not a field assignment: the boundary's closure is what holds the channel, so
+    // clearing anything else released nothing and left teardown documented but not performed.
+    this.detach();
     this.unsubscribe();
   }
 
@@ -130,42 +166,47 @@ export class SessionResumeBridge {
     return this.buffer.lastSeq;
   }
 
-  /** Stamp a seq, retain in the buffer, and forward to the current sink — UNLESS holding for a reconnect replay. */
+  /**
+   * Stamp a seq, retain in the buffer, and forward to the current sink — UNLESS holding for a reconnect replay.
+   *
+   * ARCH-030: the `buffer.append` happens BEFORE the boundary, deliberately. The boundary latches on its
+   * first failure and drops everything after it, so a frame appended afterwards would be lost — appending
+   * first means a dropped frame is still in the un-acked tail and still replays on the next `resume`.
+   */
   private emit(message: TServerMessage): void {
     if (this.disposed) return;
     const seq = this.buffer.append(message);
     if (this.holding) return; // buffered only; `replay()` will flush it in order and release the hold
-    this.send({ ...message, seq } as TSeqServerMessage);
+    this.deliverFrame({ ...message, seq } as TSeqServerMessage);
   }
 
   /**
    * Replay the buffered tail after `lastSeq` (or `resume_gap` on overrun), then RELEASE the reconnect hold so
    * subsequent live frames flow in order behind the flushed gap.
+   *
+   * A failing sink reports ONCE across the whole tail: the boundary latches on the first failure and every
+   * remaining frame is dropped silently. Those frames stay un-acked in the buffer and replay on the next
+   * attachment. Before ARCH-030 the single report was a side effect of `detach()` running mid-loop; now it
+   * is the boundary's stated contract.
    */
   private replay(lastSeq: number): void {
     const tail = this.buffer.tailAfter(lastSeq);
     if (tail.kind === 'overrun') {
-      this.rawSend(JSON.stringify({ type: 'resume_gap' }), 'resume_gap');
+      // `resume_gap` is neither stamped nor buffered: the client answers it with a full `get-messages`
+      // refresh, so there is nothing for it to resume from.
+      this.deliverFrame({ type: 'resume_gap' });
       this.holding = false; // client will full-refresh via get-messages; let live frames flow
       return;
     }
     for (const frame of tail.frames) {
-      this.send({ ...frame.message, seq: frame.seq } as TSeqServerMessage);
+      this.deliverFrame({ ...frame.message, seq: frame.seq } as TSeqServerMessage);
     }
     this.holding = false; // gap flushed in order — resume live forwarding
   }
 
-  private send(message: TSeqServerMessage): void {
-    this.rawSend(JSON.stringify(message), message.type);
-  }
-
-  private rawSend(data: string, event: TServerMessage['type']): void {
-    try {
-      this.sink?.(data);
-    } catch (error) {
-      const normalized = error instanceof Error ? error : new Error(String(error));
-      this.reportDeliveryError(normalized, event);
-    }
+  /** The ONE outbound exit from this class. No frame reaches the sink except through the attachment's boundary. */
+  private deliverFrame(message: TServerMessage): void {
+    this.outbound?.(message);
   }
 
   /** Detach the failed sink but retain the frame, then notify its attachment owner. */

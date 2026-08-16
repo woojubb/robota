@@ -1,0 +1,92 @@
+/**
+ * The connection-scoped outbound delivery boundary (ARCH-030).
+ *
+ * Every outbound `TServerMessage` on one connection — session-event fan-out AND every reply to an
+ * inbound frame — goes through ONE boundary that owns carrier-failure containment. Before this
+ * existed, `subscribeSessionEvents` guarded its sends while the reply paths received the raw carrier
+ * `send`, so a reply resolving after a disconnect threw from a Promise continuation, escaped as an
+ * unhandled rejection, and left the carrier's cleanup — written, idempotent, and waiting — unnotified.
+ *
+ * WHO BUILDS IT. The **carrier**, from its own private sink and its own failure policy, and passes the
+ * result down into the protocol handler. Not the other way round: the raw sink and the "what does a
+ * failed send mean for this connection" decision both belong to the carrier, and handing the protocol
+ * layer a raw sink so it can hand a wrapper back leaves the raw sink reachable — which is the hole a
+ * twelfth reply family walks through next year.
+ *
+ * WHY IT IS BRANDED. {@link createOutboundDelivery} is the only producer of {@link TOutboundDeliver}, so
+ * a plain `(message: TServerMessage) => void` is **refused by the compiler** wherever a boundary is
+ * required. That turns "a new raw-send continuation cannot be added silently" from a scan that a rename
+ * defeats into a type error at the call site. `src/__tests__` is inside this package's `tsconfig.json`
+ * `include`, so the `@ts-expect-error` case pinning it is checked by `tsgo --noEmit`.
+ *
+ * IT LATCHES. A boundary reports AT MOST ONE delivery failure; after the first, it is closed and every
+ * subsequent frame is dropped without a further report. All three carriers already treat a delivery
+ * failure as terminal (`WsSessionDelivery.close` → `socket.close(1011)`, `WebRtcDeliveryLifecycle` →
+ * `channel.close()`, `PairingGate` → `pairingChannel.close`) and each had grown its own latch to
+ * suppress the repeats; the latch belongs upstream of all three. `SessionResumeBridge` already behaved
+ * this way, so the handler path converges onto the bridge's semantics rather than the reverse.
+ *
+ * A boundary is not reusable across carriers: a latched one stays latched. `SessionResumeBridge` builds
+ * a fresh boundary per `attach`, which is what un-latches the session after a reconnect.
+ */
+
+import type { TServerMessage } from './ws-protocol.js';
+
+declare const outboundDeliveryBrand: unique symbol;
+
+/**
+ * Deliver one outbound frame on a connection. A carrier failure is REPORTED through the boundary's
+ * error handler, never thrown at the caller — so a reply resolving after a disconnect cannot escape as
+ * an unhandled rejection or out of the carrier's inbound listener.
+ *
+ * Only {@link createOutboundDelivery} produces one. The brand is the mechanism, not decoration: it is
+ * what makes a raw carrier `send` unusable where a boundary is required.
+ */
+export type TOutboundDeliver = ((message: TServerMessage) => void) & {
+  readonly [outboundDeliveryBrand]: true;
+};
+
+/**
+ * Observe THIS connection's first outbound delivery failure. `event` is the `type` of the frame that
+ * could not be delivered — a session event's own name for the fan-out (they are identical), and the
+ * reply's type for a reply (`command_result`, `protocol_error`, …).
+ *
+ * Required, never optional: a carrier that could opt out of observing its own delivery failures is the
+ * silent-failure shape this boundary exists to remove.
+ */
+export type TDeliveryErrorHandler = (error: Error, event: TServerMessage['type']) => void;
+
+/**
+ * Build the outbound delivery boundary for ONE connection from that connection's raw sink and its
+ * failure policy.
+ *
+ * @param send - the carrier's raw sink. May throw; that is what makes it raw.
+ * @param onDeliveryError - the carrier's failure policy, invoked at most once. A handler that itself
+ *   throws is isolated: a diagnostic cannot reverse an already-committed session operation.
+ */
+export function createOutboundDelivery(
+  send: (message: TServerMessage) => void,
+  onDeliveryError: TDeliveryErrorHandler,
+): TOutboundDeliver {
+  let closed = false;
+  const deliver = (message: TServerMessage): void => {
+    if (closed) return;
+    try {
+      send(message);
+    } catch (error) {
+      // allow-fallback: this IS the boundary — a carrier send failure is a CARRIER lifecycle failure,
+      // reported to the carrier's own policy (which closes the connection). It is never swallowed, and
+      // re-throwing it would fail a session operation that has already committed.
+      closed = true;
+      const normalized = error instanceof Error ? error : new Error(String(error));
+      try {
+        onDeliveryError(normalized, message.type);
+      } catch {
+        // allow-fallback: the carrier-owned diagnostic is the LAST step of a failure already being
+        // reported. A throw from it has nowhere left to go, and letting it out would make a committed
+        // session operation fail for the sake of a diagnostic.
+      }
+    }
+  };
+  return deliver as TOutboundDeliver;
+}

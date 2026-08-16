@@ -13,7 +13,7 @@
 
 import { createExitCommandModule, createLanguageCommandModule } from '@robota-sdk/agent-command';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
+import { createOutboundDelivery, createWsHandler } from '@robota-sdk/agent-transport-protocol';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
@@ -61,9 +61,8 @@ function setupSharedHost(adapters: ICommandHostAdapters): {
     const sent: TServerMessage[] = [];
     const { onMessage } = createWsHandler({
       session,
-      send: (msg) => sent.push(msg),
+      deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()),
       driverId,
-      onDeliveryError: vi.fn(),
     });
     return { sent, onMessage };
   };

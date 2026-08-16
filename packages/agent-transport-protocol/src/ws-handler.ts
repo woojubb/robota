@@ -14,9 +14,9 @@ import {
 } from './ws-background-messages.js';
 import { subscribeSessionEvents } from './ws-session-events.js';
 
+import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
-import type { ISubscribeSessionEventsOptions } from './ws-session-events.js';
-import type { TClientMessage, TServerMessage } from './ws-protocol.js';
+import type { TClientMessage } from './ws-protocol.js';
 import type { TDriverId } from '@robota-sdk/agent-interface-transport';
 
 // Outbound session→TServerMessage fan-out (incl. CMD-004 requester-routed `ui_intent`) lives in
@@ -27,16 +27,20 @@ export type { ISubscribeSessionEventsOptions } from './ws-session-events.js';
 export interface IWsHandlerOptions {
   /** IProtocolSession to expose. */
   session: IProtocolSession;
-  /** Send a JSON message to the client. */
-  send: (message: TServerMessage) => void;
+  /**
+   * ARCH-030: the CARRIER's connection-scoped outbound delivery boundary — not a raw `send`, and not a
+   * `send` plus an error callback for this handler to assemble into one. The carrier owns both the sink
+   * and the "what does a failed send mean for this connection" policy, so it builds the boundary and
+   * passes it down; the raw sink never crosses this parameter, which is what stops a future reply family
+   * from reaching the wire unguarded.
+   */
+  deliver: TOutboundDeliver;
   /**
    * REMOTE-014 E5: the SERVER-ASSIGNED driver id for THIS remote surface (the E3 `deviceId`). Injected into
    * every inbound `submit`/`command`/prompt-response so a co-drive turn/answer is attributed to this driver —
    * a client-supplied driver id is NEVER trusted. Absent → unattributed (the session defaults to the owner).
    */
   driverId?: TDriverId;
-  /** Observe a failed outbound session-event delivery and close/clean up the owning carrier. */
-  onDeliveryError: ISubscribeSessionEventsOptions['onDeliveryError'];
 }
 
 /**
@@ -48,11 +52,11 @@ export interface IWsHandlerOptions {
  *
  * Usage:
  * ```typescript
- * const { onMessage, cleanup } = createWsHandler({
- *   session: interactiveSession,
- *   send: (msg) => ws.send(JSON.stringify(msg)),
- *   onDeliveryError: (error) => ws.close(1011, error.message),
- * });
+ * const delivery = createOutboundDelivery(
+ *   (msg) => ws.send(JSON.stringify(msg)),
+ *   (error) => ws.close(1011, error.message),
+ * );
+ * const { onMessage, cleanup } = createWsHandler({ session: interactiveSession, deliver: delivery });
  *
  * ws.on('message', (data) => onMessage(String(data)));
  * ws.on('close', cleanup);
@@ -62,37 +66,35 @@ export function createWsHandler(options: IWsHandlerOptions): {
   onMessage: (data: string) => void;
   cleanup: () => void;
 } {
-  const cleanup = subscribeSessionEvents(options.session, options.send, {
+  const cleanup = subscribeSessionEvents(options.session, options.deliver, {
     getSurfaceDriverId: () => options.driverId,
-    onDeliveryError: options.onDeliveryError,
   });
-  // Contained — ARCH-030. Inbound replies still use the raw send until one outbound boundary owns both paths.
-  const onMessage = createWsMessageHandler(options.session, options.send, options.driverId);
+  const onMessage = createWsMessageHandler(options.session, options.deliver, options.driverId);
 
   return { onMessage, cleanup };
 }
 
 function createWsMessageHandler(
   session: IProtocolSession,
-  send: (message: TServerMessage) => void,
+  deliver: TOutboundDeliver,
   driverId?: TDriverId,
 ): (data: string) => void {
   return (data: string): void => {
-    const msg = parseClientMessage(data, send);
+    const msg = parseClientMessage(data, deliver);
     if (!msg) return;
-    handleClientMessage(session, send, msg, driverId);
+    handleClientMessage(session, deliver, msg, driverId);
   };
 }
 
 /** Parse a client JSON frame; on invalid JSON it emits `protocol_error` and returns null. Exported for E4. */
-export function parseClientMessage(
-  data: string,
-  send: (message: TServerMessage) => void,
-): TClientMessage | null {
+export function parseClientMessage(data: string, deliver: TOutboundDeliver): TClientMessage | null {
   try {
     return JSON.parse(data) as TClientMessage;
   } catch {
-    send({ type: 'protocol_error', message: 'Invalid JSON' });
+    // allow-fallback: a malformed client frame is answered on the wire with `protocol_error`, which is
+    // the protocol's stated response — not a swallowed failure. Nothing upstream can act on the parse
+    // error itself, and throwing here would take down the carrier's inbound listener.
+    deliver({ type: 'protocol_error', message: 'Invalid JSON' });
     return null;
   }
 }
@@ -103,24 +105,24 @@ export function parseClientMessage(
  */
 export function handleClientMessage(
   session: IProtocolSession,
-  send: (message: TServerMessage) => void,
+  deliver: TOutboundDeliver,
   msg: TClientMessage,
   driverId?: TDriverId,
 ): void {
   if (isSessionControlMessage(msg)) {
-    handleSessionControlMessage(session, send, msg, driverId);
+    handleSessionControlMessage(session, deliver, msg, driverId);
     return;
   }
   if (isSessionQueryMessage(msg)) {
-    handleSessionQueryMessage(session, send, msg);
+    handleSessionQueryMessage(session, deliver, msg);
     return;
   }
   if (isBackgroundQueryMessage(msg)) {
-    handleBackgroundQueryMessage(session, send, msg);
+    handleBackgroundQueryMessage(session, deliver, msg);
     return;
   }
   if (isBackgroundControlMessage(msg)) {
-    handleBackgroundControlMessage(session, send, msg);
+    handleBackgroundControlMessage(session, deliver, msg);
     return;
   }
   if (isPromptResponseMessage(msg)) {
@@ -128,7 +130,7 @@ export function handleClientMessage(
     return;
   }
   const unknownType = (msg as { type: string }).type;
-  send({ type: 'protocol_error', message: `Unknown message type: ${unknownType}` });
+  deliver({ type: 'protocol_error', message: `Unknown message type: ${unknownType}` });
 }
 
 function isSessionControlMessage(
@@ -214,31 +216,31 @@ function handlePromptResponseMessage(
 
 function handleSessionControlMessage(
   session: IProtocolSession,
-  send: (message: TServerMessage) => void,
+  deliver: TOutboundDeliver,
   msg: Extract<TClientMessage, { type: 'submit' | 'command' | 'abort' | 'cancel-queue' }>,
   driverId?: TDriverId,
 ): void {
   if (msg.type === 'submit') {
     if (!msg.prompt) {
-      send({ type: 'protocol_error', message: 'prompt is required' });
+      deliver({ type: 'protocol_error', message: 'prompt is required' });
       return;
     }
     // REMOTE-014 E5: attribute this remote turn to the SERVER-ASSIGNED driver id (never a client-sent one).
     session
       .submit(msg.prompt, undefined, undefined, driverId ? { driverId } : undefined)
       .catch((error: Error) => {
-        send({ type: 'protocol_error', message: error.message });
+        deliver({ type: 'protocol_error', message: error.message });
       });
   } else if (msg.type === 'command') {
     if (!msg.name) {
-      send({ type: 'protocol_error', message: 'name is required' });
+      deliver({ type: 'protocol_error', message: 'name is required' });
       return;
     }
     // REMOTE-003: a transport-origin command is tagged `'remote'` (optional policy, allow-by-default;
     // REMOTE-006). CMD-004: the SERVER-ASSIGNED driver id (E5) is the command origin — intents route back here.
     session.executeCommand(msg.name, msg.args ?? '', 'remote', driverId).then(
       (result) => {
-        send({
+        deliver({
           type: 'command_result',
           name: msg.name,
           message: result?.message ?? `Unknown command: ${msg.name}`,
@@ -247,7 +249,7 @@ function handleSessionControlMessage(
         });
       },
       (error: Error) => {
-        send({ type: 'protocol_error', message: error.message });
+        deliver({ type: 'protocol_error', message: error.message });
       },
     );
   } else if (msg.type === 'abort') {
@@ -259,7 +261,7 @@ function handleSessionControlMessage(
 
 function handleSessionQueryMessage(
   session: IProtocolSession,
-  send: (message: TServerMessage) => void,
+  deliver: TOutboundDeliver,
   msg: Extract<
     TClientMessage,
     {
@@ -273,17 +275,17 @@ function handleSessionQueryMessage(
   >,
 ): void {
   if (msg.type === 'get-messages') {
-    send({ type: 'messages', messages: session.getMessages() });
+    deliver({ type: 'messages', messages: session.getMessages() });
   } else if (msg.type === 'get-context') {
-    send({ type: 'context', state: session.getContextState() });
+    deliver({ type: 'context', state: session.getContextState() });
   } else if (msg.type === 'get-executing') {
-    send({ type: 'executing', executing: session.isExecuting() });
+    deliver({ type: 'executing', executing: session.isExecuting() });
   } else if (msg.type === 'get-execution-workspace') {
-    send({
+    deliver({
       type: 'execution_workspace_event',
       snapshot: session.getExecutionWorkspaceSnapshot(),
     });
   } else {
-    send({ type: 'pending', pending: session.getPendingPrompt() });
+    deliver({ type: 'pending', pending: session.getPendingPrompt() });
   }
 }

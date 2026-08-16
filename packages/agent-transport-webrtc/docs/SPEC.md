@@ -47,11 +47,12 @@ trickle candidates that precede the remote description), creates the `robota-ses
 SDP offer. The data channel is wired **eagerly at creation** (not on `open`): `createWsHandler({ session, send })`
 is built immediately and `onMessage` subscribed at once, because werift does not buffer inbound frames that
 arrive before a subscription and the remote can send its first `TClientMessage` before the host's channel opens.
-Outbound session-event delivery is owned by the carrier. The protocol handler's `onDeliveryError`
-callback routes a data-channel send failure through one idempotent channel/handler cleanup path and an
-optional owner observer; it never escapes back into the committed session operation. The pairing gate
-uses the same rule after acceptance, and a reconnect attachment detaches its failed sink while retaining
-the frame in the resume buffer. `stop()` tears down the handler, signal subscription, and peer.
+Outbound delivery is owned by the carrier — ARCH-030: the transport and the pairing gate each BUILD the
+connection's `TOutboundDeliver` boundary from their own channel sink and their own failure policy and pass
+it into `createWsHandler`, so replies and session events share one guard. A data-channel send failure
+routes through one idempotent channel/handler cleanup path and an optional owner observer; it never
+escapes back into the committed session operation, and the boundary reports it once. A reconnect
+attachment detaches its failed sink while retaining the frame in the resume buffer. `stop()` tears down the handler, signal subscription, and peer.
 
 ARCH-011 classifies this as a frozen `service` lifecycle. Its readiness boundary is publication of
 the local offer/signaling state; it deliberately does not wait for an external answer, data-channel
@@ -120,9 +121,10 @@ reserved for E4). Without `reconnect`, the gate is exactly the B4 first-pair-onl
 - `werift` absent → `loadWerift` throws `WebRTC transport unavailable — install the optional peer dependency
 "werift" …` at point-of-use (never a silent degrade).
 - `start()` before `attach()` → throws `WebRtcTransport: attach() must be called before start()`.
-- A session-event `send` failure on a closing/closed channel closes and detaches that carrier, reports
-  `onDeliveryError`, and leaves the committed session operation successful. It is never silently dropped
-  or partially retried.
+- An outbound `send` failure on a closing/closed channel — a session event OR a reply that resolved after
+  the drop (ARCH-030) — closes and detaches that carrier, reports `onDeliveryError` exactly once, and
+  leaves the committed session operation successful. It is never silently dropped or partially retried,
+  and it never surfaces as an unhandled rejection.
 
 ## Test Strategy
 

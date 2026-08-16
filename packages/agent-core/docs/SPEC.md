@@ -348,6 +348,7 @@ is how the third one survived a fix to the first two.
 | `hasValidationConstraints`                                                                                | function | Whether a Zod schema carries validation checks                                                                            |
 | `getSchemaTypeName`                                                                                       | function | Safe Zod type-name extraction                                                                                             |
 | `IZodSchema` / `IZodSchemaDef` / `IZodParseResult` / `ISchemaConversionOptions`                           | types    | Structural Zod compatibility types (no hard Zod version coupling in signatures)                                           |
+| `IParameterSchema` / `IObjectParameterSchema`                                                             | types    | The universal JSON-schema subset, and its object-root narrowing — see § Universal JSON-Schema Subset (CORE-039)           |
 | `normalizeStructuredOutput`                                                                               | function | Normalize `IRunOptions.output` (Zod schema or `IJsonSchemaOutput`) into `IStructuredOutputSpec`                           |
 | `validateAgainstJsonSchema`                                                                               | function | Structural validation of a value against the universal JSON-schema subset                                                 |
 | `parseStructuredResponseText`                                                                             | function | Parse a model's final text into JSON (tolerates one fenced json code block; value is still strictly validated afterwards) |
@@ -889,6 +890,78 @@ When `IToolExecutionBatchContext.mode` is `parallel`, `ToolExecutionService` enf
 ### Partial Content Preservation on Abort
 
 When abort occurs during provider streaming, the provider uses `streamWithAbort` which breaks out of the iteration loop on `signal.aborted`. The provider then returns partial content collected so far with `stopReason: 'aborted'`. `executeRound` commits this partial response via `commitAssistant('interrupted')` through the standard single commit path. The execution loop then exits via the `signal.aborted` check in ExecutionService. `robota.run()` always returns normally on abort — it does not throw.
+
+## Universal JSON-Schema Subset (CORE-039)
+
+`IParameterSchema` is the one shape every tool schema and every structured-output schema in the
+repo is expressed in. **The same shape describes a root object and every node inside it** — there is
+no separate nested form. Splitting the two is what let a nested object be emitted as a bare
+`{ type: 'object' }` while the root named its fields.
+
+- **Members**: `type`, `description`, `enum`, `items`, `properties`, `required`, `anyOf`,
+  `additionalProperties`, `minimum`, `maximum`, `pattern`, `format`, `default`. A tool's
+  `parameters` root is `IObjectParameterSchema` — the same interface narrowed to `type: 'object'`
+  with `properties` required.
+- **`type` is optional, and exactly one of `type` / `anyOf` must be present.** A union node carries
+  `anyOf` INSTEAD of a type; emitting both is invalid JSON Schema, because a provider applies the
+  two constraints together and rejects whichever branch does not match the type. A node with
+  neither is refused by every walk rather than passed silently.
+- **`additionalProperties` declares closure RELATIVE TO a declared `properties` set.** A node that
+  declares `properties` — including an empty `properties: {}` — is closed unless
+  `additionalProperties` says otherwise: `true` and the object form accept extras, `false` and
+  omitted reject them. A node that declares **no** `properties` declares no closure and permits any
+  properties, as JSON Schema itself says and as every provider reads the document we forward them.
+  An explicit `additionalProperties: false` closes a node either way.
+
+  The presence of the member, not its emptiness, is what decides. This definition is keyed that way
+  because the convention was authored for a tool's `parameters` root, where `properties` is
+  structurally always present, so "omitted rejects extras" could only ever mean "nothing beyond the
+  declared set". A nested node can omit `properties` entirely — the free-form object field — and
+  carrying the root's phrasing there unchanged would silently give omitted `additionalProperties` a
+  second meaning ("the empty object only") that no producer intends and that contradicts the schema
+  we ship. The Anthropic seam still materialises `additionalProperties: false` on every object node
+  for that provider's structured-output surface, which is a provider requirement, not this rule.
+
+- **One walk owns depth.** `validateAgainstJsonSchema` is the complete traversal.
+  `FunctionTool`'s tool-INPUT validation keeps its caller-facing leaf messages
+  (`Parameter "x" must be a string`) and delegates everything with depth — a nested object's own
+  properties and requirements, a union's branches — to that function, so the input and output paths
+  cannot disagree about the same schema.
+
+### Zod construct coverage
+
+`zodToJsonSchema` supports: `ZodString`, `ZodNumber`, `ZodBoolean`, `ZodArray`, `ZodObject`,
+`ZodEnum`, `ZodLiteral`, `ZodUnion`, `ZodDiscriminatedUnion`, `ZodRecord`, `ZodOptional`,
+`ZodNullable`, `ZodDefault`, and `ZodEffects` (`.refine()` / `.transform()`, unwrapped at the root
+and at every nested level).
+
+- `ZodUnion` / `ZodDiscriminatedUnion` → `anyOf`.
+- `ZodLiteral` → a single-value `enum` of the literal's own primitive type; `z.literal(null)` →
+  `{ type: 'null' }`, which already admits exactly one value.
+- `ZodNullable` → `anyOf: [<inner>, { type: 'null' }]`. The null half of what the field accepts is
+  part of the contract: dropping it was invisible while nested nodes were opaque, and once depth is
+  enforced it becomes a rejection of a payload the author's own Zod schema accepts.
+- `ZodOptional` / `ZodDefault` are transparent — optionality is carried by the enclosing object's
+  `required` list, not by the property's own shape.
+
+A wrapper chain deeper than 64 levels is refused rather than followed. Real Zod never builds one,
+but `IZodSchema` is a structural stand-in at an exported boundary, so a hand-built cycle is
+reachable and hanging is not an acceptable answer to it.
+
+Anything else throws `Unsupported Zod type: <name>` at conversion — the limit is declared here
+rather than discovered at tool-construction time. `ZodTuple`, `ZodDate`, `ZodIntersection`,
+`ZodLazy` and `ZodNativeEnum` are the known remainder (CORE-041).
+
+Zod's three unknown-key modes map distinctly, which they previously did not: `.passthrough()` and
+the default `strip` both emit `additionalProperties: true`, and `.strict()` emits `false`. `strip`
+means "extra keys are accepted at the boundary, then dropped" — the drop happens in
+`createZodFunctionTool`'s wrapper, which re-parses with Zod after the tool-input validation runs —
+so emitting nothing for it would have told every consumer to reject payloads the author's own
+schema accepts.
+
+The root of a conversion must resolve to an object. A non-object root throws rather than returning
+an empty schema, because an empty schema reaches the model as "an object, contents unspecified" —
+the failure this converter exists to prevent.
 
 ## Structured Output Contract (CORE-015)
 

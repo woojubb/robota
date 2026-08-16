@@ -24,7 +24,13 @@ export function convertToOpenAICompatibleTools(
     function: {
       name: tool.name,
       description: tool.description,
-      parameters: tool.parameters,
+      // OpenAI types `parameters` as `FunctionParameters` (`Record<string, unknown>`). TypeScript
+      // grants an implicit index signature to an anonymous object TYPE but not to an INTERFACE, so
+      // naming the subset's object root (`IObjectParameterSchema`, CORE-039) made this seam need an
+      // explicit widening it did not need while the shape was written inline. The spread is that
+      // widening and it is not a cast: it copies the schema into an anonymous object type, which
+      // does carry the implicit index signature, so the conversion stays type-checked.
+      parameters: { ...tool.parameters },
     },
   }));
 }

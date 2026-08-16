@@ -5,7 +5,7 @@
  * After start(), the consumer must wire onMessage to their WebSocket.
  */
 
-import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
+import { createOutboundDelivery, createWsHandler } from '@robota-sdk/agent-transport-protocol';
 
 import type {
   IInteractiveSession,
@@ -46,16 +46,15 @@ export function createWsTransport(options: IWsTransportOptions): IWsTransport {
     async start() {
       if (!session) throw lifecycleError('not-attached');
       if (cleanup) throw lifecycleError('already-started');
-      const handler = createWsHandler({
-        session,
-        send: options.send,
-        onDeliveryError: (error, event) => {
-          handler.cleanup();
-          cleanup = null;
-          transport.onMessage = null;
-          options.onDeliveryError?.(error, event);
-        },
+      // ARCH-030: this adapter is the carrier here, so it builds the connection's outbound boundary
+      // from its own injected sink and its own failure policy, then passes it down.
+      const deliver = createOutboundDelivery(options.send, (error, event) => {
+        handler.cleanup();
+        cleanup = null;
+        transport.onMessage = null;
+        options.onDeliveryError?.(error, event);
       });
+      const handler = createWsHandler({ session, deliver });
       cleanup = handler.cleanup;
       this.onMessage = handler.onMessage;
     },

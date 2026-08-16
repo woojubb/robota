@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createWsHandler } from '../ws-handler.js';
 import { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from '../ws-session-events.js';
 
@@ -32,8 +33,7 @@ describe('protocol session-event delivery policy (ARCH-020/ARCH-028)', () => {
     const session = createSession();
     const { cleanup } = createWsHandler({
       session,
-      send: vi.fn(),
-      onDeliveryError: vi.fn(),
+      deliver: createOutboundDelivery(vi.fn(), vi.fn()),
     });
     const classifiedForSubscription = Object.entries(PROTOCOL_SESSION_EVENT_CLASSIFICATION)
       .filter(([, classification]) => classification !== 'non-surface')
@@ -55,8 +55,7 @@ describe('protocol session-event delivery policy (ARCH-020/ARCH-028)', () => {
     const sent: TServerMessage[] = [];
     createWsHandler({
       session,
-      send: (message) => sent.push(message),
-      onDeliveryError: vi.fn(),
+      deliver: createOutboundDelivery((message) => sent.push(message), vi.fn()),
     });
 
     session.emitForTest('plan_event', { type: 'plan_created', plan: { id: 'plan-1' } });
@@ -79,13 +78,15 @@ describe('protocol session-event delivery policy (ARCH-020/ARCH-028)', () => {
     const failures: Array<{ message: string; event: string }> = [];
     createWsHandler({
       session,
-      send: () => {
-        throw new Error('socket closed');
-      },
-      onDeliveryError: (error, event) => {
-        failures.push({ message: error.message, event });
-        throw new Error('diagnostic callback failed');
-      },
+      deliver: createOutboundDelivery(
+        () => {
+          throw new Error('socket closed');
+        },
+        (error, event) => {
+          failures.push({ message: error.message, event });
+          throw new Error('diagnostic callback failed');
+        },
+      ),
     });
 
     expect(() =>

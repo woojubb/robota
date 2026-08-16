@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { createProjectSessionStore, InteractiveSession } from '@robota-sdk/agent-framework';
-import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
+import { createOutboundDelivery, createWsHandler } from '@robota-sdk/agent-transport-protocol';
 
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
@@ -44,8 +44,10 @@ async function main(): Promise<void> {
   const deliveryErrors: Array<{ message: string; event: string }> = [];
   const primary = createWsHandler({
     session,
-    send: (message) => transcript.push(message),
-    onDeliveryError: (error, event) => deliveryErrors.push({ message: error.message, event }),
+    deliver: createOutboundDelivery(
+      (message) => transcript.push(message),
+      (error, event) => deliveryErrors.push({ message: error.message, event }),
+    ),
   });
   let failureCleanup: (() => void) | undefined;
   let result: Record<string, unknown> | undefined;
@@ -62,10 +64,12 @@ async function main(): Promise<void> {
     const forcedFailures: Array<{ message: string; event: string }> = [];
     const failureCarrier = createWsHandler({
       session,
-      send: (message) => {
-        if (message.type === 'branch_event') throw new Error('forced protocol send failure');
-      },
-      onDeliveryError: (error, event) => forcedFailures.push({ message: error.message, event }),
+      deliver: createOutboundDelivery(
+        (message) => {
+          if (message.type === 'branch_event') throw new Error('forced protocol send failure');
+        },
+        (error, event) => forcedFailures.push({ message: error.message, event }),
+      ),
     });
     failureCleanup = failureCarrier.cleanup;
     await session.forkCheckpointBranch(first.id);

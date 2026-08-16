@@ -384,6 +384,52 @@ describe('AnthropicProvider', () => {
       );
     });
 
+    it('closes objects inside an anyOf branch too (CORE-039)', async () => {
+      // The seam spreads each node, so before this a union member survived unrecursed and every
+      // object inside a branch reached Anthropic open -- the exact thing this seam exists to
+      // prevent, reached by the one route it did not walk.
+      const apiResponse = makeTextResponse('{"choice": "a"}');
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(apiResponse));
+
+      const messages: TUniversalMessage[] = [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Choose',
+          timestamp: new Date(),
+        },
+      ];
+      const schema = {
+        type: 'object',
+        properties: {
+          choice: {
+            anyOf: [
+              { type: 'string' },
+              { type: 'object', properties: { label: { type: 'string' } }, required: ['label'] },
+            ],
+          },
+        },
+        required: ['choice'],
+      };
+      await provider.chat(messages, {
+        model: 'claude-3-opus-20240229',
+        responseFormat: { type: 'json_schema', name: 'choice', schema },
+      });
+
+      const params = mockClient.messages.create.mock.calls[0][0] as {
+        output_config: { format: { schema: Record<string, unknown> } };
+      };
+      const sent = params.output_config.format.schema;
+      const branches = (sent['properties'] as Record<string, { anyOf: Record<string, unknown>[] }>)[
+        'choice'
+      ]?.anyOf;
+      expect(branches?.[1]?.['additionalProperties']).toBe(false);
+      // The string branch is not an object node, so nothing is forced onto it.
+      expect(branches?.[0]?.['additionalProperties']).toBeUndefined();
+      expect(sent['additionalProperties']).toBe(false);
+    });
+
     it('omits output_config for non-json_schema response formats', async () => {
       const apiResponse = makeTextResponse('plain');
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(apiResponse));

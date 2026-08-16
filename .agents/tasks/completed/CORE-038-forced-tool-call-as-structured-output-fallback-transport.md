@@ -1,11 +1,12 @@
 ---
-title: "CORE-038: the structured-output fallback transport re-asks for JSON in prose, which is the path every provider without a native responseFormat surface takes — and, because a native surface is detected per PROVIDER PACKAGE rather than per endpoint, an OpenAI-compatible gateway serving a non-OpenAI model is silently on the prompt path while the enforcement loop believes it enforced early"
-status: todo
+title: 'CORE-038: the structured-output fallback transport re-asks for JSON in prose, which is the path every provider without a native responseFormat surface takes — and, because a native surface is detected per PROVIDER PACKAGE rather than per endpoint, an OpenAI-compatible gateway serving a non-OpenAI model is silently on the prompt path while the enforcement loop believes it enforced early'
+status: superseded
 created: 2026-08-16
+completed: 2026-08-16
 priority: medium
 urgency: soon
-area: packages/agent-core, packages/agent-provider-openai-compatible, packages/agent-provider-bytedance
-depends_on: [CORE-037]
+area: packages/agent-core, packages/agent-provider-openai, packages/agent-provider-openai-compatible
+depends_on: []
 ---
 
 # CORE-038: forced tool call as the structured-output fallback transport
@@ -13,6 +14,48 @@ depends_on: [CORE-037]
 Proposed by an external user in [issue #1738](https://github.com/woojubb/robota/issues/1738), as a
 follow-up to CORE-015 (first-class structured output). The reporter offered to open a PR for either
 piece if the direction is agreed.
+
+## Outcome
+
+**Superseded by [CORE-043](../CORE-043-structured-output-capability-has-no-runtime-representation.md)
+([#1750](https://github.com/woojubb/robota/issues/1750)).** `finding-depth-triager` returned
+`DEPTH: FOUNDATIONAL` (2026-08-16): the proposal states the problem one layer above its cause.
+
+The transport this item proposes may well be the right one — that is not what was rejected. What the
+verdict found is that a transport chosen without a capability gate replaces one blind emission with
+another, and that this item's own open question ("does the schema tool collide with the agent's own
+tools under `tool_choice: required`?") exists only because nothing in the runtime decides _when_ to
+inject. The cause is that structured-output capability has no representation the runtime reads, and
+is a property of the instantiated package rather than of the endpoint and model actually called.
+
+**The same defect had already been filed twice**, three days earlier, from two internal channels:
+PROV-004 carries this exact symptom with this exact evidence and a direction, and PROV-006 carries
+the missing mechanism. This item is the third filing, from a third channel, reconciled with neither.
+
+**Two factual corrections to the report below**, both verified against `develop` after CORE-039
+landed. They are recorded rather than edited into the text, so the original report stays readable:
+
+1. **There is no first-attempt prose fallback — there is no first-attempt transport at all.**
+   `spec.jsonSchema` has exactly two consumers in the run path (`robota-execution.ts:173` config
+   override, `:186` retry prose). Nothing injects the schema into attempt 1, and the compat adapters
+   never read `responseFormat`, so attempt 1 carries **no schema signal whatsoever**. The reporter's
+   measured 0/4 is therefore not a property of their gateway — in robota it is structurally
+   guaranteed on that family, and `outputRetries: 0` can only succeed there by luck. The Problem
+   section below mis-describes the mechanism; this item's Scenario 1 states it correctly.
+2. **`agent-provider-bytedance` is not a text provider.** `src/bytedance/provider.ts:25` is
+   `class BytedanceProvider implements IVideoGenerationProvider` — no `chat()`, no `IAIProvider`.
+   Structured output never routes through it, so the table row below is wrong and the grep found
+   nothing because there was nothing to find. The frontmatter `area:` has been corrected. Relatedly,
+   "openai-compatible is the path for … any gateway" is wrong in the same direction: that package
+   exports only deepseek/qwen/gemma, and `llms.txt:22` routes gateways through
+   `agent-provider-openai`.
+
+The "Blocked in effect by CORE-037" note below is also cleared: CORE-037 is superseded and CORE-039
+has landed.
+
+**Status is `superseded`, not `done`:** the reported concern is real and is carried forward in full by
+CORE-043, but nothing this item proposed was implemented, and several of the decisions it leaves open
+are reserved for the owner rather than for an agent.
 
 ## Problem
 
@@ -38,11 +81,11 @@ Two things make this worth changing rather than accepting:
    `responseFormat` mapping exists in three provider packages and in neither of the other two
    text-generation packages:
 
-   | provider package                   | native structured-output surface | evidence |
-   | ---------------------------------- | -------------------------------- | -------- |
-   | `agent-provider-anthropic`         | yes — `output_config.format`     | `src/anthropic/provider.ts:349-356` |
+   | provider package                   | native structured-output surface | evidence                                  |
+   | ---------------------------------- | -------------------------------- | ----------------------------------------- |
+   | `agent-provider-anthropic`         | yes — `output_config.format`     | `src/anthropic/provider.ts:349-356`       |
    | `agent-provider-gemini`            | yes — `responseSchema`           | `src/gemini/execution-helpers.ts:142-145` |
-   | `agent-provider-openai`            | yes — `response_format`          | `src/openai/chat-completions-chat.ts` |
+   | `agent-provider-openai`            | yes — `response_format`          | `src/openai/chat-completions-chat.ts`     |
    | `agent-provider-openai-compatible` | **no** — prompt fallback         | `grep -rn responseFormat …/src` → no hits |
    | `agent-provider-bytedance`         | **no** — prompt fallback         | `grep -rn responseFormat …/src` → no hits |
 
@@ -110,7 +153,7 @@ The issue also asks that `llms.txt` mention structured output. On `develop` it a
   returns a validated typed object with provider-native mapping + bounded retry".
 
 So the gap the reporter hit is closed. What is worth checking as part of this Task is whether that
-line conveys the *guarantee* strongly enough for an agent reading `llms.txt` to choose robota's path
+line conveys the _guarantee_ strongly enough for an agent reading `llms.txt` to choose robota's path
 over its own SDK's helper, and whether it should state that non-native providers go through the
 bounded loop rather than degrading silently. Reply to the issue with the correction either way.
 

@@ -3,74 +3,99 @@
  *
  * Owned by agent-core (CORE-015): the structured-output run pipeline and the
  * tools package both convert Zod schemas to the universal JSON-schema subset
- * (`IToolSchema['parameters']`), so the single converter lives at the bottom of
- * the dependency graph. The tools package imports these functions from core.
+ * (`IParameterSchema`), so the single converter lives at the bottom of the
+ * dependency graph. The tools package imports these functions from core.
+ *
+ * CORE-039: the object shape walk is written ONCE and used by both the root and
+ * every nested object. Two copies is how the two levels came to disagree — the
+ * root named its fields while a nested object was emitted as a bare
+ * `{ type: 'object' }`, so a model was told "this is an object" and nothing else.
  */
 
-import type { IZodSchema, ISchemaConversionOptions } from './zod-schema-types';
-import type { IToolSchema, IParameterSchema, TJSONSchemaEnum } from '../interfaces/provider';
+import {
+  isRequiredField,
+  requireDef,
+  literalKind,
+  resolveAdditionalProperties,
+  unwrapToObjectDef,
+} from './zod-schema-inspect';
+
+import type { IZodSchema, IZodSchemaDef, ISchemaConversionOptions } from './zod-schema-types';
+import type {
+  IObjectParameterSchema,
+  IParameterSchema,
+  TJSONSchemaEnum,
+} from '../interfaces/provider';
 import type { TUniversalValue } from '../interfaces/types';
 
 /**
- * Convert Zod schema to JSON Schema format with safe undefined handling
+ * Convert a Zod schema to the universal JSON-schema subset.
+ *
+ * The root must resolve to an object; `.refine()`/`.transform()`/`.optional()`/`.default()`
+ * wrappers around one are unwrapped first. A root that is not an object throws rather than
+ * silently returning an empty schema — an empty schema reaches the model as "an object, contents
+ * unspecified", which is the failure this converter exists to prevent.
  */
 export function zodToJsonSchema(
   schema: IZodSchema,
   options: ISchemaConversionOptions = {},
-): IToolSchema['parameters'] {
+): IObjectParameterSchema {
+  const schemaDef = requireDef(schema, 'Zod schema');
+  const objectDef = unwrapToObjectDef(schemaDef);
+  if (!objectDef) {
+    throw new Error(
+      `Zod schema root must be an object; got ${String(schemaDef.typeName)}. ` +
+        'Wrap the fields in z.object({ … }) before converting.',
+    );
+  }
+  return convertObjectShape(objectDef, options.allowAdditionalProperties);
+}
+
+/**
+ * The one object walk: shape → `properties` + `required` + `additionalProperties`.
+ * Used by the root and by every nested `ZodObject`.
+ */
+function convertObjectShape(
+  objectDef: IZodSchemaDef,
+  allowAdditionalProperties?: boolean,
+): IObjectParameterSchema {
   const properties: Record<string, IParameterSchema> = {};
   const required: string[] = [];
 
-  // Safe access to schema definition (no fallback).
-  const schemaDef = schema._def;
-  if (!schemaDef) {
-    throw new Error('Zod schema is missing _def; cannot convert to JSON schema.');
-  }
+  // Zod v3's `_def.shape` is a FUNCTION (the property form is the `ZodObject.shape` getter);
+  // structural stand-ins supply it directly. Accept both.
+  const shape = typeof objectDef.shape === 'function' ? objectDef.shape() : objectDef.shape;
 
-  // Handle object schemas with shape
-  if (schemaDef.typeName === 'ZodObject' && schemaDef.shape) {
-    // In Zod v3, shape is a property, not a function
-    const shape = typeof schemaDef.shape === 'function' ? schemaDef.shape() : schemaDef.shape;
-
-    for (const [key, typeObj] of Object.entries(shape)) {
-      const property = convertZodTypeToProperty(typeObj);
-      properties[key] = property;
-
-      // Check if field is required (not optional/nullable)
-      if (isRequiredField(typeObj)) {
-        required.push(key);
-      }
+  for (const [key, typeObj] of Object.entries(shape ?? {})) {
+    properties[key] = convertZodTypeToProperty(typeObj, allowAdditionalProperties);
+    if (isRequiredField(typeObj)) {
+      required.push(key);
     }
   }
 
+  const additionalProperties = resolveAdditionalProperties(objectDef, allowAdditionalProperties);
   return {
     type: 'object',
     properties,
     required,
-    ...((options.allowAdditionalProperties || schemaDef.unknownKeys === 'passthrough') && {
-      additionalProperties: true,
-    }),
+    ...(additionalProperties !== undefined && { additionalProperties }),
   };
 }
 
 /**
- * Convert individual Zod type to parameter schema with safe undefined handling
+ * Convert an individual Zod type to a subset node.
  */
-function convertZodTypeToProperty(typeObj: IZodSchema): IParameterSchema {
-  // Safe access to type definition
-  const typeDef = typeObj._def;
-  if (!typeDef) {
-    throw new Error('Zod type is missing _def; cannot convert to JSON schema.');
-  }
+function convertZodTypeToProperty(
+  typeObj: IZodSchema,
+  allowAdditionalProperties?: boolean,
+): IParameterSchema {
+  const typeDef = requireDef(typeObj, 'Zod type');
 
   const base: Partial<IParameterSchema> = {};
-
-  // Add description if available
   if (typeDef.description) {
     base.description = typeDef.description;
   }
 
-  // Handle different Zod types
   switch (typeDef.typeName) {
     case 'ZodString':
       return { type: 'string', ...base };
@@ -85,58 +110,86 @@ function convertZodTypeToProperty(typeObj: IZodSchema): IParameterSchema {
       if (!typeDef.type) {
         throw new Error('ZodArray is missing item type; cannot convert to JSON schema.');
       }
-      const arrayItems = convertZodTypeToProperty(typeDef.type);
       return {
         type: 'array',
-        items: arrayItems,
+        items: convertZodTypeToProperty(typeDef.type, allowAdditionalProperties),
         ...base,
       };
     }
 
     case 'ZodObject':
-      return { type: 'object', ...base };
+      // The nested case delegates to the SAME walk the root uses, so the two cannot drift again.
+      return { ...convertObjectShape(typeDef, allowAdditionalProperties), ...base };
 
     case 'ZodEnum': {
       const enumValues = typeDef.values;
       if (!enumValues || !Array.isArray(enumValues)) {
         throw new Error('ZodEnum is missing enum values; cannot convert to JSON schema.');
       }
+      return { type: 'string', enum: enumValues as TJSONSchemaEnum, ...base };
+    }
+
+    case 'ZodLiteral':
+      return { ...convertLiteral(typeDef.value), ...base };
+
+    case 'ZodUnion':
+    case 'ZodDiscriminatedUnion': {
+      const members = typeDef.options;
+      if (!members || !Array.isArray(members) || members.length === 0) {
+        throw new Error(
+          `${String(typeDef.typeName)} is missing options; cannot convert to JSON schema.`,
+        );
+      }
+      // A union node carries `anyOf` INSTEAD of `type` — emitting both is invalid JSON Schema.
       return {
-        type: 'string',
-        enum: enumValues as TJSONSchemaEnum,
+        anyOf: members.map((member) => convertZodTypeToProperty(member, allowAdditionalProperties)),
+        ...base,
+      };
+    }
+
+    case 'ZodEffects': {
+      if (!typeDef.schema) {
+        throw new Error('ZodEffects is missing schema; cannot convert to JSON schema.');
+      }
+      return { ...convertZodTypeToProperty(typeDef.schema, allowAdditionalProperties), ...base };
+    }
+
+    case 'ZodNullable': {
+      if (!typeDef.innerType) {
+        throw new Error('ZodNullable is missing innerType; cannot convert to JSON schema.');
+      }
+      // The null branch is part of what the field accepts, so it has to survive into the schema.
+      // Dropping it was harmless only while nested nodes were opaque; now that depth is enforced,
+      // an advertised `{type:'string'}` would reject a `null` the author's own Zod schema accepts.
+      return {
+        anyOf: [
+          convertZodTypeToProperty(typeDef.innerType, allowAdditionalProperties),
+          { type: 'null' },
+        ],
         ...base,
       };
     }
 
     case 'ZodOptional':
-      // Handle optional types by recursion
-      if (typeDef.innerType) {
-        const innerProperty = convertZodTypeToProperty(typeDef.innerType);
-        return { ...innerProperty, ...base };
+    case 'ZodDefault': {
+      if (!typeDef.innerType) {
+        throw new Error(
+          `${String(typeDef.typeName)} is missing innerType; cannot convert to JSON schema.`,
+        );
       }
-      throw new Error('ZodOptional is missing innerType; cannot convert to JSON schema.');
-
-    case 'ZodNullable':
-      // Handle nullable types
-      if (typeDef.innerType) {
-        const innerProperty = convertZodTypeToProperty(typeDef.innerType);
-        return { ...innerProperty, ...base };
-      }
-      throw new Error('ZodNullable is missing innerType; cannot convert to JSON schema.');
-
-    case 'ZodDefault':
-      // Handle default values by processing the inner type
-      if (typeDef.innerType) {
-        const innerProperty = convertZodTypeToProperty(typeDef.innerType);
-        return { ...innerProperty, ...base };
-      }
-      throw new Error('ZodDefault is missing innerType; cannot convert to JSON schema.');
+      return { ...convertZodTypeToProperty(typeDef.innerType, allowAdditionalProperties), ...base };
+    }
 
     case 'ZodRecord':
-      // Handle Record<string, T> → JSON Schema additionalProperties
       if (typeDef.valueType) {
-        const valueProperty = convertZodTypeToProperty(typeDef.valueType);
-        return { type: 'object', additionalProperties: valueProperty, ...base };
+        return {
+          type: 'object',
+          additionalProperties: convertZodTypeToProperty(
+            typeDef.valueType,
+            allowAdditionalProperties,
+          ),
+          ...base,
+        };
       }
       return { type: 'object', additionalProperties: { type: 'string' }, ...base };
 
@@ -145,59 +198,15 @@ function convertZodTypeToProperty(typeObj: IZodSchema): IParameterSchema {
   }
 }
 
-/**
- * Check if a Zod field is required (not optional or nullable)
- */
-function isRequiredField(typeObj: IZodSchema): boolean {
-  const typeDef = typeObj._def;
-  if (!typeDef) {
-    throw new Error('Zod schema is missing _def; cannot determine required fields.');
+/** A literal is a one-value enum of its own primitive type. */
+function convertLiteral(value: TUniversalValue | undefined): IParameterSchema {
+  const kind = literalKind(value);
+  if (!kind) {
+    throw new Error(
+      `ZodLiteral value ${String(value)} is not a JSON primitive; cannot convert to JSON schema.`,
+    );
   }
-
-  // Field is optional if it's ZodOptional, ZodNullable, or ZodDefault
-  return (
-    typeDef.typeName !== 'ZodOptional' &&
-    typeDef.typeName !== 'ZodNullable' &&
-    typeDef.typeName !== 'ZodDefault'
-  );
-}
-
-/**
- * Safely extract enum values from Zod schema
- */
-export function extractEnumValues(schema: IZodSchema): TUniversalValue[] {
-  const typeDef = schema._def;
-  if (!typeDef) {
-    throw new Error('Zod schema is missing _def; cannot extract enum values.');
-  }
-  if (!typeDef.values || !Array.isArray(typeDef.values)) {
-    throw new Error('ZodEnum schema is missing enum values; cannot extract enum values.');
-  }
-  return typeDef.values;
-}
-
-/**
- * Check if schema has validation constraints
- */
-export function hasValidationConstraints(schema: IZodSchema): boolean {
-  const typeDef = schema._def;
-  if (!typeDef) {
-    throw new Error('Zod schema is missing _def; cannot determine validation constraints.');
-  }
-
-  return !!(typeDef.checks && typeDef.checks.length > 0);
-}
-
-/**
- * Safe schema type name extraction
- */
-export function getSchemaTypeName(schema: IZodSchema): string {
-  const typeDef = schema._def;
-  if (!typeDef) {
-    throw new Error('Zod schema is missing _def; cannot determine schema type name.');
-  }
-  if (!typeDef.typeName) {
-    throw new Error('Zod schema has empty typeName; cannot determine schema type name.');
-  }
-  return typeDef.typeName;
+  // `TJSONSchemaEnum` has no null member, and a null literal needs none: `type: 'null'` already
+  // admits exactly one value.
+  return kind === 'null' ? { type: 'null' } : { type: kind, enum: [value] as TJSONSchemaEnum };
 }
