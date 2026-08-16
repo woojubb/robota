@@ -58,6 +58,22 @@ lines above the surviving one and applies to it verbatim:
 
 > an allowlist entry with nothing behind it is the next reader's false permission.
 
+## Refuted on implementation — issue #1764 item 3
+
+The item argues the allowlist entry for `packages/agent-framework/src/background-tasks/index.ts` is
+disqualified by its own criterion, because the file's `agent-executor` re-exports are type-only.
+
+Attempting it showed the inference is wrong. `check-sdk-public-surface.mjs`'s
+`sdk-runtime-facade-location` finding is about the LOCATION of an `agent-executor` pass-through, not
+about whether the re-exported symbols are runtime values — its own test asserts that a **type-only**
+`export type { … } from '@robota-sdk/agent-executor/testing'` outside a facade barrel must be
+flagged. Teaching the check to ignore type-only re-exports made that test fail, which is the test
+doing its job.
+
+So the entry is load-bearing and justified. ARCH-031's comment explains why the SIBLING entry went —
+ARCH-031 also removed that file's re-exports — and does not transfer to a file that still has them.
+Item 3 is closed as refuted; the check and the allowlist are unchanged.
+
 ## Not reproducible — issue #1764 item 4 is refuted
 
 Issue #1764's fourth item claims `ISpawnAgentTaskRequest` is "still a hand-written interface plus a

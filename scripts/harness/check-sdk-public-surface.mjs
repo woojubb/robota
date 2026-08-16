@@ -13,19 +13,13 @@ const WORKSPACE_ROOT = process.cwd();
 const SDK_PACKAGE_JSON = 'packages/agent-framework/package.json';
 const SDK_PACKAGE_DIR = path.posix.dirname(SDK_PACKAGE_JSON);
 const SDK_SRC_DIR = 'packages/agent-framework/src';
-// ARCH-031 removed `packages/agent-framework/src/subagents/index.ts` from this set: it held eleven
-// executor pass-throughs that were TYPES ONLY — zero runtime values — so it was never the runtime
-// facade this exception exists for, and an allowlist entry with nothing behind it is the next
-// reader's false permission.
-//
-// ARCH-037 applied that same criterion to the one entry ARCH-031 left behind.
-// `packages/agent-framework/src/background-tasks/index.ts` re-exports exactly ten names from
-// `@robota-sdk/agent-executor`, in a single `export type { … }` block — also zero runtime values.
-// The justification for deleting the sibling was written three lines above the survivor and applied
-// to it verbatim. The set is now empty, and an empty set is the honest state: if a real runtime
-// facade is ever needed, adding it back should be a decision someone makes, not a permission
-// someone inherits.
-const SDK_RUNTIME_FACADE_FILES = new Set([]);
+const SDK_RUNTIME_FACADE_FILES = new Set([
+  'packages/agent-framework/src/background-tasks/index.ts',
+  // ARCH-031 removed `packages/agent-framework/src/subagents/index.ts` from this set. It held eleven
+  // executor pass-throughs that were TYPES ONLY — zero runtime values — so it was never the runtime
+  // facade this exception exists for, and an allowlist entry with nothing behind it is the next
+  // reader's false permission.
+]);
 const FORBIDDEN_TOP_LEVEL_OWNER_PACKAGES = [
   '@robota-sdk/agent-core',
   '@robota-sdk/agent-session',
@@ -47,10 +41,6 @@ function extractReExportDeclarations(content) {
   ].map((match) => ({
     statement: match[0],
     source: match[1],
-    // ARCH-037: whether this declaration moves RUNTIME values or only types. The runtime-facade
-    // finding is named for runtime values, and ARCH-031's criterion for removing an allowlist entry
-    // was precisely that its re-exports were type-only — so the check has to be able to tell.
-    typeOnly: /^export\s+type\b/.test(match[0]),
   }));
 }
 
@@ -91,10 +81,8 @@ function extractLocalExportBindings(content) {
   return new Set(bindings);
 }
 
-function extractPassThroughSources(content, { runtimeOnly = false } = {}) {
-  const sources = extractReExportDeclarations(content)
-    .filter((declaration) => !(runtimeOnly && declaration.typeOnly))
-    .map((declaration) => declaration.source);
+function extractPassThroughSources(content) {
+  const sources = extractReExportDeclarations(content).map((declaration) => declaration.source);
   const exportedBindings = extractLocalExportBindings(content);
   for (const declaration of extractImportDeclarations(content)) {
     if (declaration.bindings.some((binding) => exportedBindings.has(binding))) {
@@ -239,11 +227,7 @@ async function collectReachableFindings(root, file, visited, findings) {
 
 function findUnexpectedRuntimeFacadeFindings(file, content) {
   if (SDK_RUNTIME_FACADE_FILES.has(file)) return [];
-  // ARCH-037: `runtimeOnly` is what lets the allowlist be empty. The check is named for runtime
-  // values; it had been measuring every pass-through, type-only ones included, so the only way to
-  // pass with a type-only re-export was an allowlist entry — and an entry granted for a reason the
-  // check cannot see is the false permission ARCH-031 removed one file over.
-  return extractPassThroughSources(content, { runtimeOnly: true })
+  return extractPassThroughSources(content)
     .filter((source) => source === EXECUTOR_PACKAGE || source.startsWith(`${EXECUTOR_PACKAGE}/`))
     .map(() => ({
       file,
