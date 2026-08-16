@@ -17,6 +17,8 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | [spec-code-conformance](spec-code-conformance/SKILL.md)                     | Verification loop to align code with spec after spec changes                                                                                                                                                           |
 | [tdd-red-green-refactor](tdd-red-green-refactor/SKILL.md)                   | Kent Beck TDD cycle: Red → Green → Refactor                                                                                                                                                                            |
 | [task-tracking](task-tracking/SKILL.md)                                     | Create and update task files in `.agents/tasks/`                                                                                                                                                                       |
+| [find-to-issue](find-to-issue/SKILL.md)                                     | File a mid-task finding as a GitHub issue and keep going — filing is not authorization                                                                                                                                 |
+| [issue-to-backlog](issue-to-backlog/SKILL.md)                               | Convert a filed issue into the Task(s) it actually is, grouped by cause rather than by item count                                                                                                                      |
 | [backlog-execution-orchestrator](backlog-execution-orchestrator/SKILL.md)   | One backlog item end to end: recommendation gate → scenario plan → implement → done gate → completion, with per-phase routing                                                                                          |
 | [user-execution-scenario](user-execution-scenario/SKILL.md)                 | Scenario lifecycle in two modes — PLAN (author + written-stage gate) and GATE (execute + executed-stage gate), with bounded redesign                                                                                   |
 | [multi-backlog-initiative](multi-backlog-initiative/SKILL.md)               | Outer loop for an initiative: base branch → one item pipeline per backlog → final PR left unmerged for the user                                                                                                        |
@@ -74,29 +76,31 @@ Each agent's full policy lives in its definition file (`.claude/agents/<name>.md
 that sequence them are registered in [`orchestration-map.md`](../specs/orchestration-map.md) (SSOT
 for orchestrator/worker/guardian wiring). One-line roles:
 
-| Agent                              | Role                                                                                |
-| ---------------------------------- | ----------------------------------------------------------------------------------- |
-| `architecture-auditor`             | Read-only design-quality audit by universal principles                              |
-| `architecture-conformance-auditor` | Read-only doc↔code sync audit (doc-side / code-side findings)                       |
-| `architecture-fixer`               | Applies doc-side findings (edits docs only)                                         |
-| `architecture-implementer`         | Applies code-side findings (edits code, build/tests green)                          |
-| `finding-depth-triager`            | Guardian: judges a finding LOCAL / FOUNDATIONAL / INVALID / UNDETERMINED (`DEPTH:`) |
-| `proposal-reviewer`                | Skeptical sign-off on a change proposal (ENDORSE/REVISE/REJECT)                     |
-| `merge-verifier`                   | Confirms a merge/PR truly landed on the remote target                               |
-| `capability-scout`                 | Proposes the role decomposition for a described workflow                            |
-| `prior-art-researcher`             | Research worker: prior-art block + evidence-based recommendation                    |
-| `agent-skill-author`               | Authors agent/skill files from an ENDORSE'd decomposition                           |
-| `pr-review-reviewer`               | PR-review guardian: MUST/SHOULD/CONSIDER/NIT + `ACTIONABLE FINDINGS: <n>`           |
-| `pr-review-writer`                 | Posts the reviewer's findings to the PR via `gh`                                    |
-| `pr-review-fixer`                  | Applies minimal verified fixes for MUST/SHOULD findings                             |
-| `doc-auditor`                      | Read-only documentation staleness/quality audit                                     |
-| `doc-fixer`                        | Applies doc findings (edits docs only, verify-before-write)                         |
-| `ci-failure-triager`               | Read-only CI/gate triage: one failure class + the five-field triage note            |
-| `backlog-gate-guard`               | Gate guardian: one gate, one document → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE`    |
-| `worktree-entry-gate`              | Before work starts in a worktree → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE`         |
-| `worktree-exit-gate`               | Before work leaves a worktree → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE`            |
-| `user-execution-scenario-author`   | Authors user-execution scenarios → `SCENARIO DRAFTED: <mode> \| <count>`            |
-| `mechanical-refactor-worker`       | Executes one specified mechanical change to green, or reports the exact blocker     |
+| Agent                              | Role                                                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------------------- |
+| `architecture-auditor`             | Read-only design-quality audit by universal principles                                |
+| `architecture-conformance-auditor` | Read-only doc↔code sync audit (doc-side / code-side findings)                         |
+| `architecture-fixer`               | Applies doc-side findings (edits docs only)                                           |
+| `architecture-implementer`         | Applies code-side findings (edits code, build/tests green)                            |
+| `finding-depth-triager`            | Guardian: judges a finding LOCAL / FOUNDATIONAL / INVALID / UNDETERMINED (`DEPTH:`)   |
+| `proposal-reviewer`                | Skeptical sign-off on a change proposal (ENDORSE/REVISE/REJECT)                       |
+| `merge-verifier`                   | Confirms a merge/PR truly landed on the remote target                                 |
+| `capability-scout`                 | Proposes the role decomposition for a described workflow                              |
+| `prior-art-researcher`             | Research worker: prior-art block + evidence-based recommendation                      |
+| `agent-skill-author`               | Authors agent/skill files from an ENDORSE'd decomposition                             |
+| `pr-review-reviewer`               | PR-review guardian: MUST/SHOULD/CONSIDER/NIT + `ACTIONABLE FINDINGS: <n>`             |
+| `pr-review-writer`                 | Posts the reviewer's findings to the PR via `gh`                                      |
+| `pr-review-fixer`                  | Applies minimal verified fixes for MUST/SHOULD findings                               |
+| `doc-auditor`                      | Read-only documentation staleness/quality audit                                       |
+| `doc-fixer`                        | Applies doc findings (edits docs only, verify-before-write)                           |
+| `ci-failure-triager`               | Read-only CI/gate triage: one failure class + the five-field triage note              |
+| `backlog-gate-guard`               | Gate guardian: one gate, one document → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE`      |
+| `wiring-worker`                    | Wires an authored artifact into every touchpoint; produces only, issues no verdict    |
+| `wiring-guardian`                  | Judges wiring AND whether the registration check could have gone red (`GATE VERDICT`) |
+| `worktree-entry-gate`              | Before work starts in a worktree → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE`           |
+| `worktree-exit-gate`               | Before work leaves a worktree → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE`              |
+| `user-execution-scenario-author`   | Authors user-execution scenarios → `SCENARIO DRAFTED: <mode> \| <count>`              |
+| `mechanical-refactor-worker`       | Executes one specified mechanical change to green, or reports the exact blocker       |
 
 The **agent-definition convention** they follow is a document-type contract in
 [`document-standards/index.md`](../specs/document-standards/index.md), mechanically enforced by
@@ -121,12 +125,14 @@ The **agent-definition convention** they follow is a document-type contract in
 
 ## Build & Repository
 
-| Skill                                               | Description                                                                                     |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [pnpm-monorepo-build](pnpm-monorepo-build/SKILL.md) | pnpm build gotchas: lifecycle pre/post silence + surgical workspace-dep lockfile edits          |
-| [harness-governance](harness-governance/SKILL.md)   | Rule-skill consistency, undefined terminology, mechanical checks                                |
-| [lesson-to-harness](lesson-to-harness/SKILL.md)     | Mine repeated user corrections → approve → institutionalize as neutral repo rules + enforcement |
-| [branch-guard](branch-guard/SKILL.md)               | Pointer: protected-branch policy lives in git-branch.md; hook + husky are the mechanical SSOT   |
+| Skill                                                 | Description                                                                                     |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [pnpm-monorepo-build](pnpm-monorepo-build/SKILL.md)   | pnpm build gotchas: lifecycle pre/post silence + surgical workspace-dep lockfile edits          |
+| [harness-governance](harness-governance/SKILL.md)     | Rule-skill consistency, undefined terminology, mechanical checks                                |
+| [lesson-to-harness](lesson-to-harness/SKILL.md)       | Mine repeated user corrections → approve → institutionalize as neutral repo rules + enforcement |
+| [wiring-orchestration](wiring-orchestration/SKILL.md) | Thin: wiring-worker → wiring-guardian, routes on the verdict; holds no wiring policy            |
+| [contract-disposition](contract-disposition/SKILL.md) | Decide an unconsumed/immovable contract's fate from its ACTUAL state, not a proxy signal        |
+| [branch-guard](branch-guard/SKILL.md)                 | Pointer: protected-branch policy lives in git-branch.md; hook + husky are the mechanical SSOT   |
 
 ## Package-Specific
 

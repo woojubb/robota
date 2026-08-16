@@ -407,6 +407,14 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/check-agent-def-convention.mjs'],
   },
   {
+    name: 'fixture-floor',
+    command: ['node', 'scripts/harness/check-fixture-floor.mjs'],
+  },
+  {
+    name: 'contract-disposition',
+    command: ['node', 'scripts/harness/check-contract-disposition.mjs'],
+  },
+  {
     name: 'design-doc',
     command: ['node', 'scripts/harness/check-design-doc-completeness.mjs'],
   },
