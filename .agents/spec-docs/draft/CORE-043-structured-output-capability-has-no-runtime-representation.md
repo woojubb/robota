@@ -436,9 +436,48 @@ Both helpers are core and exported and operate on plain data —
 `parseStructuredResponseText` and `validateAgainstJsonSchema` (`schema/structured-output.ts:274,99`).
 
 These are **two checks answering two different questions**, not one fact stated twice: the pipeline
-asks "do I need to extract?", the run layer asks "is this the object the caller asked for?". Zod
-refinements beyond the universal subset stay authoritative at the run layer and fall to the existing
-retry loop, unchanged.
+asks "do I need to extract?", the run layer asks "is this the object the caller asked for?".
+
+**Evaluation order matters and is part of the design:** the conjunction is evaluated left to right, so
+`mechanism ≠ response_schema` short-circuits and **the native path never parses at all**. The extra
+work exists only where an extraction might actually be needed, where one `JSON.parse` sits against a
+network round trip.
+
+**The two checks are not equally powerful, and the gap is the normal case — not an edge one.**
+`validateAgainstJsonSchema` checks the universal subset (CORE-039); the run layer runs full Zod
+`safeParse` (`structured-output.ts:66-74`, where `jsonSchema: zodToJsonSchema(output)` and
+`validate: output.safeParse` are built from the same schema but are not the same power).
+`zodToJsonSchema` is lossy in exactly the directions that matter — `.email()`, `.min()`, `.refine()`,
+transforms. So "structural match, Zod reject" is what happens for **any schema with real
+constraints**.
+
+Left there, the consequence is severe: no extraction fires, the run layer burns a full retry run with
+prose feedback, and the same predicate can pass again on the retry — so **the extraction transport
+would be unreachable for precisely the schemas with the tightest constraints**, the ones most likely
+to need it. A `z.string().email()` field on a DeepSeek model would get today's behaviour forever while
+this document claimed to cover it.
+
+**The fix feeds the failure forward, using the carrier that already exists.** The run layer owns
+validation and already builds the retry input (`buildRetryFeedbackInput`,
+`robota-execution.ts:179-188`). It also sets a config override on the next attempt meaning _this
+attempt must use the extraction transport_ — plain data on `IAgentConfig`, the same carrier
+`structuredConfigOverrides` uses, no new field anywhere. So attempt 1 keeps the cheap structural
+predicate as a best-effort fast path, and **every attempt after a validation failure extracts
+unconditionally on a non-native provider**. The authoritative knowledge reaches the pipeline without
+the closure travelling, and the prose retry becomes the last resort this design claims it is rather
+than the default by accident.
+
+**Budget and failure mechanics, stated so they are not left to an implementer's reading:**
+
+- **The extraction does not consume an attempt.** `maxAttempts` is unchanged; attempt 1 is "run plus
+  at most one extraction". With `outputRetries: 0` a failed extraction throws `StructuredOutputError`
+  after one run and one extraction — strictly better than today, where the same call throws having
+  sent no schema at all.
+- **Unparseable `arguments` pass through as the response text**, they do not throw. The run layer then
+  produces precise validation issues and the loop proceeds; throwing at the conversion would turn a
+  recoverable case into a run failure.
+- **At most one extraction per attempt.** The pipeline does not retry its own extraction — a failed
+  one falls to the loop, or "at most one call" quietly becomes an inner loop with no budget.
 
 **The return path, which is load-bearing and was unspecified.** The extraction call comes back as an
 assistant message carrying a tool call whose `arguments` are the schema-conforming object — and, on
@@ -456,6 +495,33 @@ after conversion — and it is stated here rather than left for an implementatio
 **Conditional, so the lucky path pays nothing.** The third revision made the extraction unconditional,
 charging a call to a run whose text already validated. The structural predicate above fires only when
 extraction is actually needed.
+
+**The history contract — the point at which a naive implementation would 400.** The package SSOT
+governs this and no earlier revision cited it. `agent-core/docs/SPEC.md:986-987`:
+
+> **History**: every attempt — including retry feedback turns — is a real conversation turn committed
+> through the standard append-only history path. **Structured output never edits history.**
+
+The extraction call returns an assistant message carrying a tool call and empty content. Committed
+through the standard path, that leaves a **`tool_use` with no matching `tool_result`** in the
+conversation. The Anthropic converter emits a `tool_use` block for every entry in
+`assistantMsg.toolCalls` (`agent-provider-anthropic/src/anthropic/message-converter.ts:63-74`), and
+the Anthropic API rejects an unanswered `tool_use`; OpenAI likewise requires a `tool` message per
+`tool_call_id`. So the **next** provider call on that conversation — a retry attempt under this very
+design, or simply the user's next turn — fails at the API. Not a degradation, a 400.
+
+The obvious workaround collides with the SPEC line: `forceSummaryCall`, the analog this design
+deliberately adopted, already does the edit-history dance — `conversationStore.clear()` and re-add a
+filtered list (`execution-pipeline.ts:170-183`). Taking it as the structural sibling inherits that
+tension.
+
+**The extraction call is therefore out-of-band.** Its request and its raw tool-call response are not
+committed; what is committed is a normal assistant **text** message carrying the converted JSON —
+exactly the response text TC-04b already defines. History stays valid for every provider, no unpaired
+tool call is ever persisted, and "every attempt is a real conversation turn" still holds, because the
+attempt's turn is that assistant text. Nothing is edited, so `SPEC:987` is **satisfied rather than
+worked around** — which is also why the same clause's tension with `forceSummaryCall` is recorded here
+rather than copied.
 
 **And that call is cheaper than the retry it displaces.** An attempt is a whole run, not a call:
 `maxAttempts = (options.outputRetries ?? 2) + 1` and each attempt calls `robotaRun`
@@ -527,7 +593,7 @@ so every producer is updated rather than silently ignoring it.
 
 ### Independent review
 
-Four rounds with `proposal-reviewer`, 2026-08-16. All four returned **`REVIEW VERDICT: REVISE`**;
+Five rounds with `proposal-reviewer`, 2026-08-16. All five returned **`REVIEW VERDICT: REVISE`**;
 all were accepted in full, and in every round each load-bearing finding was independently
 re-checked against the code before revising. No finding was refuted in any round.
 
@@ -552,6 +618,23 @@ attempt is a full round loop and the extraction is one call.
 
 **Rounds 1 and 2** are below. Round 2 (on the first revision):
 the code before revising. No finding was refuted.
+
+**Round 5** (on the fourth revision) confirmed the design's shape as final — the reviewer stated it
+would approve steps 1–6, the pipeline ownership, the predicate's placement, the carrier decision and
+the outcome framing as written — and blocked on three narrow points. Two were the ones this author had
+flagged; the third neither party had looked at, and it is the most serious finding of all five rounds.
+
+| Round-5 finding                                                                                   | Re-checked at                                                                              | Disposition                                            |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| **The extraction leaves an unpaired `tool_use` in history — the next provider call is a 400**     | `SPEC.md:986-987`; `anthropic/message-converter.ts:63-74`; `execution-pipeline.ts:170-183` | Fixed — out-of-band rule, TC-07b                       |
+| Subset-vs-Zod divergence is the NORMAL case, so extraction is unreachable for constrained schemas | `structured-output.ts:66-74` — lossy `zodToJsonSchema` vs. full `safeParse`                | Fixed — failure fed forward, TC-07c                    |
+| Evaluation order unstated, so the double parse reads as a real cost                               | the conjunction itself                                                                     | Fixed — short-circuit stated; native path never parses |
+| Whether a failed extraction consumes the retry budget was unstated                                | `maxAttempts`, `robota-execution.ts:202`                                                   | Fixed — it does not; mechanics named                   |
+
+The history finding is worth naming plainly: this design adopted `forceSummaryCall` as its structural
+analog and inherited a tension with the SPEC clause that `forceSummaryCall` itself resolves by editing
+history — which `SPEC:987` forbids for structured output. The out-of-band rule satisfies both
+constraints instead of choosing between them.
 
 **Round 4** (on the third revision) confirmed the pipeline ownership, the cost argument, the
 conditional trigger and the capability-table posture, and blocked on the two points this author had
@@ -661,7 +744,17 @@ representation is how that continues.
   excluded with the reason recorded — it carries none today, on native providers included.
 - **TC-07** `agent-core/docs/SPEC.md:979` no longer says providers without a native surface "ignore
   it" — PROV-004 classifies that as a violation, so the SPEC currently documents the violation as
-  intent.
+  intent. § Structured Output Contract's **History** clause (`:986-987`) additionally states the
+  out-of-band rule for the extraction call, since that clause is what governs it.
+- **TC-07b** After a structured run that used the extraction transport, the conversation contains **no
+  assistant message with an unanswered tool call**, and a subsequent turn on the same conversation
+  succeeds. This is the criterion that catches the 400 a naive implementation would ship — pinned on
+  a provider whose converter emits `tool_use` blocks, so the failure is reproducible rather than
+  theoretical.
+- **TC-07c** A validation failure on attempt _n_ causes attempt _n+1_ to use the extraction transport
+  on a non-native provider **unconditionally**, without re-consulting the structural predicate — the
+  subset-vs-Zod divergence, pinned with a schema whose constraints live outside the universal subset
+  (`z.string().email()` is the canonical case).
 - **TC-08** PROV-006 is closed: all six `TProviderModelCapability` flags resolve through the step-1
   seam, and the deepseek `supportsTools()`-vs-catalog contradiction is gone as a consequence rather
   than as a separate fix.
