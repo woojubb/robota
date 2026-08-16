@@ -6,11 +6,12 @@
  */
 
 import { validateToolCallArray } from './chat-tool-call-validation';
+import { toWireChatOptions } from './wire-chat-options';
 import { createHttpResponse, generateId, toResponseMessage } from '../utils/transformers';
 
 import type { IHttpResponse } from '../types/http-types';
 import type { IBasicMessage, IResponseMessage } from '../types/message-types';
-import type { ILogger, IToolSchema, IToolCall } from '@robota-sdk/agent-core';
+import type { IChatOptions, ILogger, IToolSchema, IToolCall } from '@robota-sdk/agent-core';
 
 /** Shape of a message sent in chat request body, including optional tool-related fields */
 export interface IChatRequestMessage {
@@ -72,18 +73,27 @@ export async function executeChatRequest(
   provider: string,
   model: string,
   tools?: IToolSchema[],
-  signal?: AbortSignal,
+  options?: IChatOptions,
 ): Promise<IResponseMessage> {
   const mappedMessages = mapMessages(messages);
 
+  // CORE-044: the per-call options travel as ONE object rather than as parallel top-level fields,
+  // so adding an option later is a change to `wire-chat-options.ts` alone. Before this they did not
+  // travel at all: a caller's `toolChoice`, `maxTokens`, `temperature` and `effort` were dropped
+  // between the agent and the model with nothing said.
+  const wireOptions = toWireChatOptions(options);
   const requestData: Record<string, unknown> = {
     messages: mappedMessages,
     provider,
     model,
     ...(tools && tools.length > 0 && { tools }),
+    ...(wireOptions && { options: wireOptions }),
   };
 
-  logger.debug('HTTP non-streaming request', { toolCount: tools?.length ?? 0 });
+  logger.debug('HTTP non-streaming request', {
+    toolCount: tools?.length ?? 0,
+    optionKeys: wireOptions ? Object.keys(wireOptions) : [],
+  });
 
   const url = `${baseUrl}/chat`;
 
@@ -97,10 +107,9 @@ export async function executeChatRequest(
       body: JSON.stringify(requestData),
       // CORE-042: the remote path is a provider call like any other, and it was the one that could
       // not be cancelled -- `fetch` was called with no `signal`, so an aborted run left the request
-      // in flight and the turn waiting on it. The per-call options the body should also carry are
-      // CORE-044; this is only the half that is client-local and that the cancellation contract
-      // depends on.
-      ...(signal && { signal }),
+      // in flight and the turn waiting on it. A signal cannot be serialized, so cancelling the HTTP
+      // request IS the cancellation on this seam.
+      ...(options?.signal && { signal: options.signal }),
     });
 
     if (!fetchResponse.ok) {

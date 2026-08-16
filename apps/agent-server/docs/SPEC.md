@@ -28,7 +28,14 @@ Machine-readable API contract: [`openapi.yaml`](../openapi.yaml) (OpenAPI 3.1).
 ## Boundaries
 
 - Host-level composition only. Core package contracts remain in their respective packages.
-- Provider chat/stream routes are inlined (formerly in `@robota-sdk/agent-remote-server-core`, now deleted).
+- Provider CHAT routes are inlined (formerly in `@robota-sdk/agent-remote-server-core`, now deleted).
+  There is no stream route, and this line used to claim one (CORE-044): the remote client posted to a
+  `/stream` endpoint nobody served while this document said otherwise. Remote streaming is CORE-046.
+- The chat routes forward the caller's `tools` and per-call `options` into `provider.chat`. Both are
+  validated as anonymous network input; a request carrying a recognised option with the wrong type,
+  or a tool schema missing its description, is answered `400` with a `rejected` list naming each one.
+  It is never partially applied — an ignored `toolChoice` produces a plausible answer the caller did
+  not ask for, which is indistinguishable from success.
 - Provider secrets and direct vendor API calls stay server-side in this app.
 - Owns HTTP/WebSocket routing, CORS, rate limiting, and process lifecycle composition, but does not
   own provider semantics, session policy, or Playground UI state.

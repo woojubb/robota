@@ -66,11 +66,48 @@ describe('HttpClient chat methods', () => {
         'openai',
         'gpt-4',
         undefined,
-        controller.signal,
+        { signal: controller.signal },
       );
 
       const init = mockFetch.mock.calls[0]?.[1] as RequestInit | undefined;
       expect(init?.signal).toBe(controller.signal);
+    });
+
+    it('carries the per-call options in the request body (CORE-044)', async () => {
+      // The body was `{ messages, provider, model, tools }`. A caller's toolChoice, maxTokens,
+      // temperature and effort went nowhere, and the model behaved as though nothing had been asked.
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ role: 'assistant', content: 'ok', state: 'complete' }),
+        headers: new Map(),
+      });
+
+      await httpClient.chat(
+        [{ role: 'user' as const, content: 'Hi' }],
+        'openai',
+        'gpt-4',
+        undefined,
+        {
+          maxTokens: 256,
+          temperature: 0.4,
+          effort: 'high',
+          toolChoice: 'required',
+        },
+      );
+
+      const init = mockFetch.mock.calls[0]?.[1] as RequestInit | undefined;
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      expect(body['options']).toEqual({
+        maxTokens: 256,
+        temperature: 0.4,
+        effort: 'high',
+        toolChoice: 'required',
+      });
+      // One object, not parallel top-level fields: adding an option must not mean touching the body
+      // shape, the server destructure and both of their tests.
+      expect(body['toolChoice']).toBeUndefined();
+      expect(body['maxTokens']).toBeUndefined();
     });
 
     it('surfaces an abort as an AbortError rather than a generic request failure (CORE-042)', async () => {
@@ -304,242 +341,8 @@ describe('HttpClient chat methods', () => {
     });
   });
 
-  describe('chatStream', () => {
-    function createReadableStream(chunks: string[]): ReadableStream<Uint8Array> {
-      const encoder = new TextEncoder();
-      let index = 0;
-      return new ReadableStream({
-        pull(controller) {
-          if (index < chunks.length) {
-            controller.enqueue(encoder.encode(chunks[index]));
-            index++;
-          } else {
-            controller.close();
-          }
-        },
-      });
-    }
-
-    it('should yield response messages from SSE stream', async () => {
-      const body = createReadableStream([
-        'data: {"role":"assistant","content":"Hello"}\n\n',
-        'data: {"role":"assistant","content":" world"}\n\n',
-        'data: [DONE]\n\n',
-      ]);
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        body,
-      });
-
-      const chunks = [];
-      for await (const chunk of httpClient.chatStream(
-        [{ role: 'user' as const, content: 'hi' }],
-        'openai',
-        'gpt-4',
-      )) {
-        chunks.push(chunk);
-      }
-
-      expect(chunks).toHaveLength(2);
-      expect(chunks[0].role).toBe('assistant');
-      expect(chunks[0].content).toBe('Hello');
-      expect(chunks[1].content).toBe(' world');
-    });
-
-    it('should include tools in stream request body', async () => {
-      const body = createReadableStream([
-        'data: {"role":"assistant","content":"ok"}\n\n',
-        'data: [DONE]\n\n',
-      ]);
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        body,
-      });
-
-      const tools = [
-        {
-          name: 'test',
-          description: 'Test tool',
-          parameters: { type: 'object' as const, properties: {} },
-        },
-      ];
-      const chunks = [];
-      for await (const chunk of httpClient.chatStream(
-        [{ role: 'user' as const, content: 'test' }],
-        'openai',
-        'gpt-4',
-        tools,
-      )) {
-        chunks.push(chunk);
-      }
-
-      const [, init] = mockFetch.mock.calls[0];
-      const requestBody = JSON.parse(init.body);
-      expect(requestBody.tools).toEqual(tools);
-    });
-
-    it('should throw on HTTP error', async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: 'Server Error',
-        text: vi.fn().mockResolvedValue('error body'),
-      });
-
-      await expect(async () => {
-        for await (const _chunk of httpClient.chatStream(
-          [{ role: 'user' as const, content: 'hi' }],
-          'openai',
-          'gpt-4',
-        )) {
-          // Should not reach here
-        }
-      }).rejects.toThrow('Streaming request failed');
-    });
-
-    it('should throw when response body is missing', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        body: null,
-      });
-
-      await expect(async () => {
-        for await (const _chunk of httpClient.chatStream(
-          [{ role: 'user' as const, content: 'hi' }],
-          'openai',
-          'gpt-4',
-        )) {
-          // Should not reach here
-        }
-      }).rejects.toThrow('No response body for streaming');
-    });
-
-    it('should skip non-assistant role chunks', async () => {
-      const body = createReadableStream([
-        'data: {"role":"system","content":"system msg"}\n\n',
-        'data: {"role":"assistant","content":"valid"}\n\n',
-        'data: [DONE]\n\n',
-      ]);
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        body,
-      });
-
-      const chunks = [];
-      for await (const chunk of httpClient.chatStream(
-        [{ role: 'user' as const, content: 'hi' }],
-        'openai',
-        'gpt-4',
-      )) {
-        chunks.push(chunk);
-      }
-
-      expect(chunks).toHaveLength(1);
-      expect(chunks[0].content).toBe('valid');
-    });
-
-    it('should skip invalid JSON in SSE', async () => {
-      const body = createReadableStream([
-        'data: not-json\n\n',
-        'data: {"role":"assistant","content":"valid"}\n\n',
-        'data: [DONE]\n\n',
-      ]);
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        body,
-      });
-
-      const chunks = [];
-      for await (const chunk of httpClient.chatStream(
-        [{ role: 'user' as const, content: 'hi' }],
-        'openai',
-        'gpt-4',
-      )) {
-        chunks.push(chunk);
-      }
-
-      expect(chunks).toHaveLength(1);
-    });
-
-    it('should preserve toolCalls from stream chunks', async () => {
-      const toolCalls = [
-        {
-          id: 'call_1',
-          type: 'function',
-          function: { name: 'test', arguments: '{}' },
-        },
-      ];
-
-      const body = createReadableStream([
-        `data: {"role":"assistant","content":"","toolCalls":${JSON.stringify(toolCalls)}}\n\n`,
-        'data: [DONE]\n\n',
-      ]);
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        body,
-      });
-
-      const chunks = [];
-      for await (const chunk of httpClient.chatStream(
-        [{ role: 'user' as const, content: 'hi' }],
-        'openai',
-        'gpt-4',
-      )) {
-        chunks.push(chunk);
-      }
-
-      expect(chunks).toHaveLength(1);
-      expect(chunks[0].toolCalls).toHaveLength(1);
-    });
-
-    it('should handle network errors during streaming', async () => {
-      mockFetch.mockRejectedValue(new Error('Network failed'));
-
-      await expect(async () => {
-        for await (const _chunk of httpClient.chatStream(
-          [{ role: 'user' as const, content: 'hi' }],
-          'openai',
-          'gpt-4',
-        )) {
-          // Should not reach here
-        }
-      }).rejects.toThrow('Streaming request failed');
-    });
-
-    it('should handle non-string content in stream chunks', async () => {
-      const body = createReadableStream([
-        'data: {"role":"assistant","content":null}\n\n',
-        'data: [DONE]\n\n',
-      ]);
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        body,
-      });
-
-      const chunks = [];
-      for await (const chunk of httpClient.chatStream(
-        [{ role: 'user' as const, content: 'hi' }],
-        'openai',
-        'gpt-4',
-      )) {
-        chunks.push(chunk);
-      }
-
-      expect(chunks).toHaveLength(1);
-      expect(chunks[0].content).toBe('');
-    });
-  });
+  // CORE-044: the `chatStream` cases were deleted with the method. They asserted that the client
+  // posts to `${baseUrl}/stream` and parses the SSE frames that come back — against an endpoint no
+  // server in this repository serves. They passed because the fetch was mocked, which is what let a
+  // 404-in-production sit behind a green suite; see the note on SimpleRemoteExecutor.
 });

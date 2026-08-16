@@ -39,28 +39,6 @@ export function createChatTransportRequest(request: IChatExecutionRequest): ITra
 }
 
 /**
- * Create transport request for stream execution
- */
-export function createStreamTransportRequest(request: IStreamExecutionRequest): ITransportRequest {
-  return {
-    id: generateRequestId(),
-    url: '/chat/stream',
-    endpoint: '/chat/stream',
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    data: {
-      messages: request.messages.map((msg) => ({
-        role: msg.role,
-        content: msg.content || '',
-      })),
-      provider: request.provider,
-      model: request.model,
-      stream: true,
-    },
-  };
-}
-
-/**
  * Transform transport response to assistant message
  */
 export function transformToAssistantMessage(

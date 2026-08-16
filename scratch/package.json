@@ -2,7 +2,7 @@
   "name": "robota-scratch",
   "version": "0.0.1-beta.2",
   "private": true,
-  "description": "Disposable live-verification (User Execution) scripts. src/ contents are gitignored — nothing here is ever committed or published.",
+  "description": "Disposable live-verification (User Execution) scripts. src/ contents are gitignored \u2014 nothing here is ever committed or published.",
   "type": "module",
   "scripts": {
     "run": "tsx --conditions=source"
@@ -11,6 +11,7 @@
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-provider-defaults": "workspace:*",
+    "@robota-sdk/agent-remote-client": "workspace:*",
     "@robota-sdk/agent-session": "workspace:*",
     "@robota-sdk/agent-testing": "workspace:*",
     "@robota-sdk/agent-tools": "workspace:*",

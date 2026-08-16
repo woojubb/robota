@@ -9,8 +9,8 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 
-import { requireOperatorKeyAuth } from './middleware/require-operator-key-auth.js';
 import { playgroundRouter } from './routes/playground.js';
+import { registerProviderChatRoutes } from './routes/provider-chat.js';
 
 import type { PlaygroundWebSocketServer } from './websocket-server';
 import type { IAIProvider } from '@robota-sdk/agent-core';
@@ -108,88 +108,7 @@ export function createApp(): express.Application {
     });
   }
 
-  // Provider chat/stream routes — inline (formerly in agent-remote-server-core)
-  const providerNames = Object.keys(providers);
-  app.get('/api/v1/remote/health', (_req, res) => {
-    res.json({ status: 'ok', providers: providerNames, timestamp: new Date().toISOString() });
-  });
-  // SEC-008: this route spends the OPERATOR's provider credit (the providers above are built from
-  // the operator's API keys), and it had no authentication — only a global IP rate limiter, which
-  // bounds the rate of anonymous spending rather than preventing it. BYOK below is deliberately not
-  // gated: the caller brings their own key.
-  app.post('/api/v1/remote/chat', requireOperatorKeyAuth, async (req, res) => {
-    try {
-      const { provider: providerName, messages, model } = req.body;
-      if (!providerName || typeof providerName !== 'string') {
-        res.status(400).json({ error: 'Missing or invalid "provider" field' });
-        return;
-      }
-      if (!Array.isArray(messages) || messages.length === 0) {
-        res
-          .status(400)
-          .json({ error: 'Missing or invalid "messages" field: must be a non-empty array' });
-        return;
-      }
-      const provider = providers[providerName];
-      if (!provider) {
-        res.status(400).json({ error: `Unknown provider: ${providerName}` });
-        return;
-      }
-      const response = await provider.chat(messages, { model });
-      res.json(response);
-    } catch (err) {
-      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
-    }
-  });
-
-  // BYOK (Bring Your Own Key) endpoint — creates a per-request provider using the caller's API key.
-  // The apiKey is intentionally never logged to avoid leaking credentials.
-  app.post('/api/v1/byok/chat', async (req, res) => {
-    const { provider: providerName, apiKey, messages, model } = req.body;
-    if (typeof providerName !== 'string' || !providerName) {
-      res.status(400).json({ error: 'Missing or invalid "provider" field' });
-      return;
-    }
-    if (typeof apiKey !== 'string' || !apiKey) {
-      res.status(400).json({ error: 'Missing "apiKey" field' });
-      return;
-    }
-    if (!Array.isArray(messages) || messages.length === 0) {
-      res
-        .status(400)
-        .json({ error: 'Missing or invalid "messages" field: must be a non-empty array' });
-      return;
-    }
-    const modelStr = typeof model === 'string' ? model : undefined;
-    let byokProvider: IAIProvider;
-    switch (providerName) {
-      case 'anthropic':
-        byokProvider = new AnthropicProvider({ apiKey });
-        break;
-      case 'openai':
-        byokProvider = new OpenAIProvider({ apiKey });
-        break;
-      case 'gemini':
-        byokProvider = new GeminiProvider({ apiKey });
-        break;
-      case 'deepseek':
-        byokProvider = new DeepSeekProvider({ apiKey });
-        break;
-      default:
-        res.status(400).json({ error: `Unsupported provider: ${providerName}` });
-        return;
-    }
-    try {
-      const response = await byokProvider.chat(messages, { model: modelStr });
-      res.json(response);
-    } catch (err) {
-      appLogger.error(
-        'BYOK chat failed',
-        new Error(err instanceof Error ? err.message : 'Chat error'),
-      );
-      res.status(500).json({ error: 'Chat request failed' });
-    }
-  });
+  registerProviderChatRoutes(app, providers);
 
   // Root endpoint
   app.get('/', (_req, res) => {
@@ -203,7 +122,7 @@ export function createApp(): express.Application {
         health: '/api/v1/remote/health',
         chat: '/api/v1/remote/chat',
       },
-      providers: providerNames,
+      providers: Object.keys(providers),
     });
   });
 
