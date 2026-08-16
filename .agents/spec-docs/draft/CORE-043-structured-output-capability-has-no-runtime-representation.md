@@ -75,8 +75,7 @@ Four findings, each of which changes something in this document:
    it is "JSON mode, no schema, and the word json must appear in the prompt". A boolean cannot carry
    that, and neither can a two-state enum. This is the strongest external evidence that capability
    must name the **mechanism** — which is what step 2 does, and why the tri-state that first stood
-   here was rejected: it kept provenance and discarded exactly this,
-   and it argues the capability should eventually name the _mechanism_, not just the level.
+   here was rejected: it kept provenance and discarded exactly this.
 3. **A forced tool call is a documented schema-conformance mechanism, not a folk remedy.** Anthropic
    documents `strict: true` for exactly this guarantee and documents forcing via `tool_choice`;
    OpenAI documents strict function calling as one of its two structured-output approaches. CORE-038's
@@ -180,6 +179,29 @@ snapshots appear constantly, and `capabilities` is an optional field, so there a
 | entry present, `capabilities` undefined   | provider vendor-default, `provenance: 'vendor-default'`   |
 | **entry absent** (the common OpenAI case) | provider vendor-default, `provenance: 'undeclared-model'` |
 
+**The table records verified DEVIATIONS from the vendor default — it does not enumerate models.**
+This is the miss policy's payoff and it must be stated, or the natural reading is "list every model"
+and the result is an unmaintained per-model × six-flag matrix. Because a miss resolves safely, the
+table needs only the handful of exception rows that are actually true and dated: OpenAI's
+pre-`2024-08-06` snapshots, `deepseek-reasoner`'s absent `tools`. Everything else is a miss, and a
+miss is correct.
+
+The asymmetry that justifies this: **over-declaration is the only unrecoverable error class.** An
+over-claim sends a parameter the endpoint does not support — a vendor error, or worse, silent
+acceptance with no enforcement, which is precisely today's bug. An under-claim or a miss degrades to a
+transport that works everywhere. So entries are added only against dated vendor documentation, and
+**when in doubt the correct action is to have no entry.**
+
+**Residual risk, named rather than implied away.** No build-time check closes this. TC-03's
+consistency test catches a declaration no adapter implements — the DeepSeek class — but it cannot
+catch a declaration the adapter _does_ implement and the vendor does not support; that same DeepSeek
+entry would pass every check here if the compat builder were also taught to send `json_schema`. A
+staleness scan makes someone re-stamp a date, not re-read the docs, and a re-stamped wrong entry looks
+fresher than a stale one. Only the runtime can observe that a declaration is wrong about the vendor: a
+provider rejecting the structured-output parameter is ground truth arriving, and recording it with the
+provenance that produced the claim is the only feedback path from reality back into the table.
+Whether that lands in this item or a follow-up, it is the known gap.
+
 **Only an explicit declaration may deny a capability. A miss never resolves to a negative.** Without
 this rule, an unrecognised but perfectly real OpenAI model would resolve `tools` absent and have tool
 calling silently disabled — a regression far worse than the one this item exists to fix. This is the
@@ -265,6 +287,22 @@ This requires widening `IResolvedProviderInfo.provider`, which is typed down to 
 (`execution-types.ts:45-47`) and cannot answer a capability question at all. That widening is part of
 this work.
 
+### 4b. The resolved capability is reported, not just consulted
+
+Deciding at the seam and telling nobody would leave **this document's own headline problem open**. The
+Problem section says what is missing is _runtime knowledge_ of "whether the attempt the loop wraps
+carried a schema at all" — and a decision made at `buildChatResponseFormat` and never surfaced is
+still not knowledge anything can read.
+
+So the resolved `mechanism` / `provenance` travels out on `ICoreExecutionResult`, which today carries
+none of it (`execution-types.ts:150-161`). That is what the retry loop, the terminal-extraction
+trigger, and TC-04's "does not report early enforcement" all actually need, and it is how the run
+level gets the fact without being handed a provider. It also has a consumer waiting:
+`agent-session/src/session-run.ts:164-177` already logs capability facts per run
+(`nativeWebSearchSupported`, `nativeWebFetchEnabled`, …) and would log this one the same way — so a
+degraded structured run becomes visible in the session log instead of being inferred from a bad
+answer, which is how the reporter of #1738 had to find it.
+
 ### 5. The endpoint override lands in this change, not later
 
 `'unverified-endpoint'` for every `baseURL` reverses a **correct** behaviour for a large documented
@@ -320,14 +358,48 @@ Task's `depends_on`.
     (`execution-pipeline.ts:120-168`) builds its own options — `{ model, onTextDelta? }` and nothing
     else. No `tools`, no `toolChoice`, no `responseFormat`, no call to `buildChatResponseFormat`.
 
-**Injection is a run-level terminal phase, not a round-level guess.** Selection and injection are
-different decisions and the previous revision conflated them. Transport _selection_ stays at the
-capability seam per step 4. _Injection_ moves to `robotaRunStructured`, which already owns the only
-boundary where convergence is a fact rather than a prediction — `robotaRun` returned. When the
-resolved mechanism is not `response_schema`, the structured turn ends with **one additional
-extraction call carrying the schema tool forced by name and no other tools**. That predicate needs no
-round bookkeeping, and it removes the collision with real tool work by construction rather than by
-ordering.
+**Injection is a terminal extraction call owned by the PIPELINE — the sibling of `forceSummaryCall`.**
+Selection and injection are different decisions and the second revision conflated them; the third put
+injection at the run level, which was also wrong, and step 4 says why three paragraphs above:
+`robotaRunStructured` has no provider. It has two further gaps the third revision did not trace:
+
+- **It cannot learn its own trigger.** The extraction is conditional on the resolved mechanism, which
+  is computed at `buildChatResponseFormat`, and nothing carries it back up. `ICoreExecutionResult`
+  (`execution-types.ts:150-161`) is `response / messages / executionId / duration / tokensUsed /
+toolsExecuted / success / error / interrupted`, and `robotaRun` narrows even that to a `string`.
+- **It cannot add a tool to a call.** The invocation's tool list is not read from config —
+  `execution-service-helpers.ts:105` is `const availableTools = tools.getTools()`, the `IToolManager`.
+  `robotaRunStructured`'s only lever is `configOverrides: Partial<IAgentConfig>`, and `IRunOptions`
+  carries no tools either. Reaching a call from that layer would mean mutating the ToolManager through
+  `robota.registerTool` / `unregisterTool` (`core/robota.ts:324,327`), which are **agent-global**: a
+  register-call-unregister around an `await` is a race, and it makes the schema tool briefly visible
+  to every concurrent run on that instance.
+
+`forceSummaryCall` (`execution-pipeline.ts:120-168`) is already a pipeline-owned terminal provider call
+issued after the loop converges, for the case where the loop ended without the answer the caller needs.
+The schema extraction is **that function's sibling, not a new concept at a different altitude** — same
+trigger shape, same layer, same needs. There it has `resolveProviderAndTools`, the resolved provider,
+the capability seam, and the ability to compose a one-call tool list without touching the ToolManager.
+
+`robotaRunStructured` keeps what it genuinely owns — the spec, validation, and the attempt budget —
+and passes the spec down. With the ownership placed there, step 4 ("decide where the inputs are
+resolved") and step 7 ("inject where convergence is a fact") stop pulling in opposite directions,
+because in the pipeline both facts are present at once.
+
+**The extraction is conditional, not unconditional.** The third revision specified "the structured
+turn ends with one additional extraction call", which makes a run whose text already validates pay a
+call for nothing. Validation is already performed and free (`validateStructuredText`,
+`robota-execution.ts:209`). The trigger is **validation failure inside the first attempt**, so the
+lucky path costs zero extra and the unlucky path costs one call.
+
+**And that call is cheaper than the retry it displaces.** An attempt is a whole run, not a call:
+`maxAttempts = (options.outputRetries ?? 2) + 1` and each attempt calls `robotaRun`
+(`robota-execution.ts:202-208`), which runs the entire round loop with full history. So on the compat
+family — where a prose first response is the structurally guaranteed case, since no schema is sent —
+the extraction replaces a full run with one provider call. Stated honestly: both replay the
+conversation, so the saving is "one history replay instead of one history replay **plus a round
+loop**", not "one call instead of a run's worth of tokens". Step 6's justification is expectational,
+so this cost argument is made explicitly rather than left to be assumed.
 
 **An existing defect this absorbs.** `forceSummaryCall` carries no `responseFormat` on _any_ provider,
 native ones included — so a structured run that exhausts its rounds already ends on a call with no
@@ -390,11 +462,33 @@ so every producer is updated rather than silently ignoring it.
 
 ### Independent review
 
-Two rounds with `proposal-reviewer`, 2026-08-16. Both returned **`REVIEW VERDICT: REVISE`**; both were
-accepted in full, and in both rounds every load-bearing finding was independently re-checked against
+Three rounds with `proposal-reviewer`, 2026-08-16. All three returned **`REVIEW VERDICT: REVISE`**;
+all three were accepted in full, and in every round each load-bearing finding was independently
+re-checked against the code before revising. No finding was refuted in any round.
+
+**Round 3** (on the second revision) settled steps 1–6 — the discovery/capability split, the miss
+policy, mechanism/provenance, the required model argument, the eight-producer enumeration, the
+weakened fallback claim — and blocked on one thing: the new owner for injection.
+
+| Round-3 finding                                                                  | Re-checked at                                       | Disposition                                                      |
+| -------------------------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------- |
+| `robotaRunStructured` cannot learn its own trigger — no capability on the result | `execution-types.ts:150-161`                        | Fixed — step 4b                                                  |
+| It cannot add a tool: the list comes from the ToolManager, not config            | `execution-service-helpers.ts:105`                  | Fixed — owner moved                                              |
+| Mutating it via `registerTool`/`unregisterTool` is agent-global — a race         | `core/robota.ts:324,327`                            | Fixed — owner moved                                              |
+| The document's own Problem is not closed by its own solution                     | Problem § vs. the seam decision                     | Fixed — step 4b                                                  |
+| Steps 4 and 7 asserted opposite things about the same function                   | the two paragraphs                                  | Fixed — step 7 reconciles them                                   |
+| Unconditional extraction charges the lucky path for nothing                      | `validateStructuredText`, `robota-execution.ts:209` | Fixed — conditional; TC-05b                                      |
+| An attempt is a whole RUN, so extraction is cheaper than the retry it replaces   | `robota-execution.ts:202-208`                       | Adopted — the premise is stronger than claimed; stated in step 7 |
+| A static table just relocates staleness unless its purpose changes               | DeepSeek stamped `2026-05-07`, wrong throughout     | Fixed — deviations-not-enumeration, in step 1                    |
+
+The reviewer's correction on cost is worth keeping visible: this design's fallback was defended as
+merely acceptable overhead, and it is in fact **cheaper** than what it displaces, because each retry
+attempt is a full round loop and the extraction is one call.
+
+**Rounds 1 and 2** are below. Round 2 (on the first revision):
 the code before revising. No finding was refuted.
 
-**Round 2** (on the first revision) confirmed the unified-channel direction and steps 2–6, and blocked
+Round 2 confirmed the unified-channel direction and steps 2–6, and blocked
 on two defects that the first revision had _introduced_ — both at the two points this author had
 flagged as uncertain when sending it back:
 
@@ -462,9 +556,14 @@ representation is how that continues.
   silently disable tool calling.
 - **TC-04** A structured run against a non-`response_schema` provider does **not** report early
   enforcement, and carries a schema by the selected transport.
-- **TC-05** With `outputRetries: 0`, attempt 1 carries the schema by the selected transport — a
-  structural property of this repo. (The first draft asserted the run _succeeds_, which is a property
-  of the model, and against a scripted provider would assert only what the fixture was told to return.)
+- **TC-05** With `outputRetries: 0` against a non-`response_schema` provider, a run whose first
+  response is prose still returns a validated object — via the extraction call, and **without a second
+  full run**. Scriptable deterministically against the scripted provider, and it asserts the property
+  this item exists to restore rather than the implementation that delivers it. (The first draft
+  asserted the run _succeeds_, which is a property of the model; the third pinned the unconditional
+  design by asserting attempt 1 always carries the schema.)
+- **TC-05b** A run whose first response already validates issues **no** extraction call — the lucky
+  path pays nothing.
 - **TC-06** The forced-tool rules from step 7 are implemented and tested: named-tool forcing, the
   reserved-prefix collision error raised at registration, and — for a run that also carries real tools
   — the real tool rounds complete first and the schema tool is carried by a **terminal extraction call
