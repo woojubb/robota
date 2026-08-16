@@ -1,7 +1,8 @@
 ---
 title: "ARCH-021: the child-process subagent worker (robota's default runner) hard-codes the default provider set and rebuilds default tools — a product's custom providers and pack-owned tools cannot reach its subagents"
-status: todo
+status: done
 created: 2026-08-13
+completed: 2026-08-16
 priority: high
 urgency: soon
 area: packages/agent-subagent-runner, packages/agent-cli, packages/pack-coding, packages/agent-product
@@ -129,26 +130,26 @@ naming it. Actually projecting live capability is filed separately; it is the ho
 Design document: [`.agents/spec-docs/active/ARCH-021-child-process-subagent-composition.md`](../spec-docs/active/ARCH-021-child-process-subagent-composition.md).
 One task per Completion Criterion.
 
-- [ ] **TC-03** — declare `ISubagentWorkerComposition` in `agent-subagent-runner` (`createTools({ cwd })` + `readonly providerDefinitions`) and change `runSubagentWorkerMain` to take it as a **required**
+- [x] **TC-03** — declare `ISubagentWorkerComposition` in `agent-subagent-runner` (`createTools({ cwd })` + `readonly providerDefinitions`) and change `runSubagentWorkerMain` to take it as a **required**
       parameter; export both from the barrel.
-- [ ] **TC-01** — make the worker build its surface from the injected composition instead of
+- [x] **TC-01** — make the worker build its surface from the injected composition instead of
       `createDefaultTools` / `createDefaultProviderDefinitions`, keeping `createSubagentSession` and the
       CORE-024 / CORE-025 / ARCH-010 wiring where they are. Add the cross-process integration test.
-- [ ] **TC-05** — add `createRobotaSubagentComposition()` in `agent-cli/src/product/` as the single
+- [x] **TC-05** — add `createRobotaSubagentComposition()` in `agent-cli/src/product/` as the single
       source resolving through `createRobotaPacks`, and wire `bin.ts`'s worker branch and `cli.ts`'s
       parent composition through it. Add the tool-name-set parity test.
-- [ ] **TC-04** — delete `@robota-sdk/agent-provider-defaults` from `agent-subagent-runner`'s
+- [x] **TC-04** — delete `@robota-sdk/agent-provider-defaults` from `agent-subagent-runner`'s
       `dependencies`, and add the harness scan that holds the tool axis the manifest cannot cut.
-- [ ] **TC-06** — make robota's parent-side pack context one named value read by both
+- [x] **TC-06** — make robota's parent-side pack context one named value read by both
       `createRobotaPacks` and the runner selection, and refuse the child-process runner when it carries
       a `sandboxClient`. Add the refusal test.
-- [ ] **TC-02** — extend the built-binary bintest so the worker reports its composed tool names in
+- [x] **TC-02** — extend the built-binary bintest so the worker reports its composed tool names in
       `ready` (Alternative 3's parity declaration), asserting robota's pack tool-name set.
-- [ ] Update `.agents/project-structure.md:15`, which records this package as "depends on
+- [x] Update `.agents/project-structure.md:15`, which records this package as "depends on
       agent-framework + agent-provider-defaults" — the manifest is the fact, the document is the drift.
-- [ ] Update `packages/agent-subagent-runner/docs/SPEC.md` for the new port and the removed dependency.
-- [ ] Changeset: `agent-subagent-runner` **major**, `agent-cli` patch.
-- [ ] **TC-07** — `pnpm harness:verify-like-ci` green.
+- [x] Update `packages/agent-subagent-runner/docs/SPEC.md` for the new port and the removed dependency.
+- [x] Changeset: `agent-subagent-runner` **major**, `agent-cli` patch.
+- [x] **TC-07** — `pnpm harness:verify-like-ci` green.
 
 ## Blockers
 
@@ -157,4 +158,47 @@ One task per Completion Criterion.
 
 ## Result
 
-Pending.
+**Delivered.** The child-process subagent worker composes the PRODUCT's surface. `ISubagentWorkerComposition`
+is a port declared by `agent-subagent-runner` and implemented by robota's composition root; the parameter is
+**required**, because an optional one falling back to imported defaults reinstates the exact defect.
+
+**Why a recipe, not the broker this item originally specified.** DIST-006 (#1783) changed the premise
+mid-item: the worker is now robota's own entry, so the product's profile is already compiled into the child.
+And a broker turned out to be _wrong_, not merely larger — proxied tools execute in the PARENT, bound to the
+parent's checkout, while a worktree-isolated child's execution root is a different directory, so it would
+re-break the ARCH-010 containment it was meant to honour. A prior-art sweep found **no specification that
+defines a per-call working root for a proxied tool invocation**; MCP roots are session-scoped and pull-based,
+and the industry answer to "N callers, N roots" is N processes. Recorded in
+`.agents/spec-docs/active/ARCH-021-child-process-subagent-composition.md`, ENDORSE'd after three review rounds.
+
+**Measured on the real artifact**, which is the point — this defect was invisible from in-package tests:
+
+```
+READY: {"type":"ready","composedToolNames":
+  ["Shell","Bash","Read","Write","Edit","Glob","Grep","WebFetch","WebSearch","AskUserQuestion"]}
+```
+
+That is `pack-coding`'s surface, from the product's own packs. Breaking the recipe turns exactly that
+bintest case red.
+
+**The structural guarantee reaches one axis, stated rather than glossed.** Deleting the
+`agent-provider-defaults` manifest edge makes the PROVIDER axis a compile error. The TOOL axis cannot be cut
+the same way — `createDefaultTools` is barrel-exported by `agent-framework`, which this package must keep —
+and that is the axis with the failure history (ARCH-010, ARCH-006). It is held by
+`scan-subagent-runner-composition.mjs` instead; the cause is ARCH-035 (#1787).
+
+**Two of my own checks could not fail, and both were caught.** The first TC-05 compared robota's parent and
+child tool-name sets — but `pack-coding` is pinned by name to `createDefaultTools()`, so that comparison
+passes whether the child composes from packs or from imported defaults. Replaced with a discriminating pair
+(a uniquely-named pack tool must reach the child; dropping a pack must drop its tools), proved red by
+restoring the old behaviour. The harness separately rejected the new scan three times: untested, hardcoded
+npm scope, and unclassified fail-closed behaviour — each a reason it could have passed while measuring
+nothing.
+
+**Verification.** `pnpm harness:verify-like-ci` all 12 stages; 113 scans; `test:bin` 8/8; the composition
+unit suite 8/8; the scan's own suite 6/6. Every fix red-proved against the pre-fix state.
+
+**Filed rather than folded in:** ARCH-033 (#1784) projecting live owner-bound capability, ARCH-034 (#1785)
+in-process vs child-process surface divergence, ARCH-035 (#1787) no defaults-aggregator leaf for the tool
+surface, ARCH-036 (#1788) `deps.builtInAgents` dropped by the child path, SEC-009 (#1786) `apiKey` in the IPC
+start payload.
