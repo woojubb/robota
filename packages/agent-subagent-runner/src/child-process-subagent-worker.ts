@@ -1,11 +1,6 @@
 import { sumHistoryUsage } from '@robota-sdk/agent-core';
 import { createProviderFromProfile, subagentExecutionRoot } from '@robota-sdk/agent-executor';
-import {
-  createDefaultTools,
-  createSubagentLogger,
-  createSubagentSession,
-} from '@robota-sdk/agent-framework';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
+import { createSubagentLogger, createSubagentSession } from '@robota-sdk/agent-framework';
 
 import {
   isSubagentWorkerParentMessage,
@@ -14,6 +9,7 @@ import {
   type TSubagentWorkerWireValue,
 } from './child-process-subagent-ipc.js';
 
+import type { ISubagentWorkerComposition } from './worker-composition.js';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
 const CANCEL_EXIT_CODE = 130;
@@ -84,12 +80,17 @@ function readSessionUsage(
   }
 }
 
-async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<void> {
+async function runInitialPrompt(
+  payload: ISubagentWorkerStartPayload,
+  composition: ISubagentWorkerComposition,
+): Promise<void> {
   try {
+    // ARCH-021: the PRODUCT's registry, not an imported six-vendor default. A custom provider type
+    // used to throw `Unknown provider` here while the parent ran on it perfectly well.
     const provider = createProviderFromProfile(
       payload.providerProfile,
       payload.request.model,
-      createDefaultProviderDefinitions(),
+      composition.providerDefinitions,
     );
     const sessionLogger = payload.logsDir
       ? createSubagentLogger(payload.request.parentSessionId, payload.taskId, payload.logsDir)
@@ -102,7 +103,10 @@ async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<v
       // every tool the child built was unconfined. Same reader as the session root below — the tools
       // and the session being told DIFFERENT roots is the same class of defect as neither being told
       // one.
-      parentTools: createDefaultTools({ cwd: subagentExecutionRoot(payload) }),
+      // ARCH-021: the product's tool surface, built at THIS child's execution root. Previously
+      // `createDefaultTools(...)`, which meant dropping a pack did not drop its tools from a
+      // child-process subagent — ARCH-006's invariant was true in the parent and false here.
+      parentTools: composition.createTools({ cwd: subagentExecutionRoot(payload) }),
       cwd: subagentExecutionRoot(payload),
       provider,
       terminal: NOOP_TERMINAL,
@@ -190,8 +194,12 @@ async function cancelWorker(reason?: string): Promise<void> {
  * These handlers used to run as module top-level side effects, which is what forced the worker to
  * be a separate file that something had to locate on disk. As a function, the composition root's
  * own entry can become the worker — so there is no second artifact and no path to get wrong.
+ *
+ * ARCH-021: `composition` is REQUIRED, deliberately. An optional parameter falling back to imported
+ * defaults would reinstate the exact defect this seam removes — and at this line conventions have a
+ * measured failure rate of 100% (ARCH-010 and ARCH-006 are both findings here).
  */
-export function runSubagentWorkerMain(): void {
+export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): void {
   if (process.send === undefined) {
     // "Silence is not success": a worker without an IPC channel can never report anything, so it
     // must fail where someone can see it rather than sit there looking started.
@@ -209,7 +217,7 @@ export function runSubagentWorkerMain(): void {
 
     switch (message.type) {
       case 'start':
-        running = running.then(() => runInitialPrompt(message.payload));
+        running = running.then(() => runInitialPrompt(message.payload, composition));
         break;
       case 'send':
         runFollowUp(message.prompt);

@@ -50,6 +50,10 @@ import { createRemoteControlController } from './remote-control/index.js';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
 import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import { resolveSelfForkWorkerEntry } from './subagents/self-fork-worker-entry.js';
+import {
+  assertChildProcessSubagentsCanReproduce,
+  type IRobotaPackContext,
+} from './product/robota-subagent-composition.js';
 import { createGitWorktreeIsolationAdapter } from './subagents/git-worktree-isolation-adapter.js';
 import { reloadPluginCommandSource } from '@robota-sdk/agent-command';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
@@ -197,7 +201,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const resolvedPreset = preset.options;
   const selectedPresetId = preset.presetId;
 
-  const packs = createRobotaPacks({ cwd }); // ARCH-006: scoped to the cwd they are built with.
+  // ARCH-021: ONE named pack context, read by both the pack construction below and the
+  // child-process runner selection, so the fail-closed guard cannot read a different value from the
+  // one the packs were actually built with.
+  const packContext: IRobotaPackContext = { cwd };
+  const packs = createRobotaPacks(packContext); // ARCH-006: scoped to the cwd they are built with.
   const packCommandModules = packCommandModuleNames(packs);
   const {
     commandHostAdapters,
@@ -272,6 +280,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
   const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
   const paths = projectPaths(cwd);
+  // ARCH-021: fail closed. A capability the child cannot reproduce must stop the spawn rather than
+  // be silently dropped — a sandboxed parent with a host-tool child is ARCH-010's measured shape.
+  assertChildProcessSubagentsCanReproduce(packContext);
   const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
     workerEntry: resolveSelfForkWorkerEntry(),
     providerConfig: { ...providerSettings, model: modelId },
