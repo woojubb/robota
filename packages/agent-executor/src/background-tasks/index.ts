@@ -43,6 +43,7 @@ export {
   type IBackgroundTaskStart,
   type IBackgroundTaskState,
   type IProcessBackgroundTaskRequest,
+  type IScheduleEditPatch,
   type IScheduledBackgroundTaskRequest,
   type ISerializableProviderProfile,
   type TBackgroundPermissionPolicy,

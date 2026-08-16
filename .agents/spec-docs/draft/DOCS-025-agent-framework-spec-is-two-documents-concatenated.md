@@ -35,7 +35,7 @@ L695 ## Overview                                        ← 문서 2 시작, 1,9
 ### 왜 `RULE-013`이 아닌 별건인가
 
 `RULE-013`이 세운 consumer-impact 기준은 이 문서의 모든 섹션을 정확히 분류한다 — 실제로
-[`RULE-013`](../active/RULE-013-blackbox-whitebox-doc-boundary.md) 부록의 Pilot 2 표가 28개 전수를 분류해 두었다. 그러나 **분류는 이 결함을 고치지 못한다.** 고치려면 같은 대상을 서술하는
+[`RULE-013`](../done/RULE-013-blackbox-whitebox-doc-boundary.md) 부록의 Pilot 2 표가 28개 전수를 분류해 두었다. 그러나 **분류는 이 결함을 고치지 못한다.** 고치려면 같은 대상을 서술하는
 두 벌을 섹션 단위로 대조해 **어느 쪽이 현행인지 판정**해야 하고, 그것은 배치 기준이 답하지 않는 질문이다.
 배치 기준이 이 결함을 만들지도 않았다.
 
@@ -90,4 +90,4 @@ Pilot 2 분류표를 출발점으로 삼되, **선결 단계는 대조다.**
   `agent-cli` 파일럿으로 좁히면서 분리 제기했다. 실측: 2,649줄 / 28섹션, 이음매 L695,
   `Public API Surface` 160줄 ↔ `Public API` 665줄, `Feature Details` 465줄, 훅 이벤트 6 vs
   `agent-core` 16. 분류 근거는
-  [`RULE-013`](../active/RULE-013-blackbox-whitebox-doc-boundary.md) 부록 Pilot 2.
+  [`RULE-013`](../done/RULE-013-blackbox-whitebox-doc-boundary.md) 부록 Pilot 2.

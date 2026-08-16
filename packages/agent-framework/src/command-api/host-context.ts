@@ -27,6 +27,7 @@ import type {
   TPermissionMode,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
+import type { IScheduleEditPatch } from '@robota-sdk/agent-executor';
 import type {
   ICommandListEntry,
   IGoalState,
@@ -259,10 +260,7 @@ export interface IAgentJobHostContext {
   /** SELFHOST-012: resume a paused scheduled task, re-armed with the same identity. */
   resumeSchedule(taskId: string): Promise<void>;
   /** SELFHOST-012: edit a scheduled task's cron / instruction in place (same task id). */
-  editSchedule(
-    taskId: string,
-    patch: { cronExpression?: string; agentInstruction?: string; command?: string },
-  ): Promise<void>;
+  editSchedule(taskId: string, patch: IScheduleEditPatch): Promise<void>;
   /**
    * FLOW-005: monitor a process's output and wake the agent with `agentInstruction` when a
    * line matches `matchPattern` (FLOW-004).

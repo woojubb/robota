@@ -34,8 +34,17 @@ exist (that judgment is yours).
 goes in it** versus what belongs in the owning `SPEC.md`. This skill is the single owner of the
 criterion; `spec-writing-standard` and `spec-workflow.md` link here and carry no copy.
 
-> **Ask: if this fact changed, would code outside this package — or an end user — have to change?**
+> **Ask: is this fact part of what a consumer binds to — such that changing it would force code
+> outside this package, or a person using the product, to change with it?**
 > **Yes → `SPEC.md` (the contract). No → `docs/design/` (the secret).**
+
+**It asks about the surface, not the headcount.** The question is conditional on there being a
+consumer, which is what "contract" means — it is not "did anyone actually get broken". This
+distinction is load-bearing **right now**: the project is pre-release with no published version, so a
+literal "would anyone have to change?" is answered _no_ for every fact in the repository, and the whole
+boundary collapses into `docs/design/`. A key binding is contract because it is the surface a person
+types at, not because a bug report would arrive. Judge the fact's role, and the criterion keeps working
+before the first user and after the millionth.
 
 Do not use "what versus how". That test is unusable here, because one level's _how_ is the next
 level's _what_ — the boundary is relative, so it decides nothing. Consumer impact is absolute: it
@@ -56,9 +65,9 @@ asks who is forced to change, which is answerable for any given fact.
 
 **The consumer is not only code.** A terminal application's key bindings and visual grammar are a
 contract whose consumer is a person. They read like presentation detail and are easy to mistake for
-whitebox material, but changing them breaks someone — so they stay in `SPEC.md`, under the optional
-`User-Facing Contract` section. Reading "consumer" as "calling code" is the mistake this row exists
-to prevent.
+whitebox material, but they are what that person operates the product through — so they stay in
+`SPEC.md`, under the optional `User-Facing Contract` section. Reading "consumer" as "calling code" is
+the mistake this row exists to prevent.
 
 **Recursion.** The test applies at whatever decomposition level you are documenting: a nested package
 is a consumer boundary of its own, so a fact internal to a parent may be contract for a child.

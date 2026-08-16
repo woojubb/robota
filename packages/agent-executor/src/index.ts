@@ -23,6 +23,7 @@ export type {
   IBackgroundTaskStart,
   IManagedShellProcessRunnerOptions,
   IResolvedBackgroundTaskShellCommand,
+  IScheduleEditPatch,
   IScheduledTaskRunnerOptions,
   TBackgroundTaskIdFactory,
   TBackgroundTaskRunnerEvent,
