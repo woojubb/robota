@@ -1,7 +1,4 @@
-import {
-  SUBAGENT_WORKER_MODE_FLAG,
-  type ISubagentWorkerEntry,
-} from '@robota-sdk/agent-subagent-runner';
+import type { ISubagentWorkerEntry } from '@robota-sdk/agent-subagent-runner';
 
 /**
  * DIST-006: how `robota` starts a copy of ITSELF in subagent-worker mode.
@@ -27,8 +24,13 @@ import {
  * never be handed to a new process; re-executing the binary is what re-enters that entry.
  *
  * Deliberately a prefix test rather than an existence test: `existsSync` returns TRUE for an
- * embedded path inside the binary, so it cannot tell the two cases apart. Pinned by a test that
- * runs the real compiled binary.
+ * embedded path inside the binary, so it cannot tell the two cases apart.
+ *
+ * The POSIX prefix was verified against a real `bun --compile` binary. **The Windows prefix is
+ * UNVERIFIED** — no Windows host was available. Measured blast radius if it is wrong: none. A
+ * compiled binary always re-enters its embedded entry, and worker-mode dispatch happens before any
+ * argument parsing, so a missed prefix costs one stray argv element rather than a dead worker
+ * (handshake succeeded 3/3 when an embedded-looking entry arg was passed deliberately).
  */
 function isEmbeddedEntry(entry: string): boolean {
   return entry.startsWith('/$bunfs/') || /^[A-Za-z]:\\~BUN\\/.test(entry);
@@ -56,5 +58,3 @@ export function resolveSelfForkWorkerEntry(): ISubagentWorkerEntry {
     ...(execArgv ? { execArgv } : {}),
   };
 }
-
-export { SUBAGENT_WORKER_MODE_FLAG };

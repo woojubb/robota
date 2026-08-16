@@ -16,6 +16,12 @@ import {
 
 import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
 
+/**
+ * DIST-006: how long a spawned worker may take to say anything at all. Generous — it covers process
+ * start plus module load of a bundled CLI — but finite, because the alternative is a silent hang.
+ */
+const HANDSHAKE_BUDGET_MS = 30_000;
+
 export interface ICancellationResult {
   promise: Promise<ISubagentJobResult>;
   reject(reason?: string): void;
@@ -38,7 +44,9 @@ export function createChildProcessSubagentResult(
 class ChildProcessSubagentResultController {
   private settled = false;
   private started = false;
+  private ready = false;
   private readonly timeoutTimer?: ReturnType<typeof setTimeout>;
+  private readonly handshakeTimer: ReturnType<typeof setTimeout>;
 
   constructor(
     private readonly options: IChildProcessSubagentResultOptions,
@@ -46,6 +54,23 @@ class ChildProcessSubagentResultController {
     private readonly reject: (error: Error) => void,
   ) {
     this.timeoutTimer = createTimeoutTimer(this.options.runtime, (error) => this.rejectOnce(error));
+    // DIST-006: a worker that never answers must not hang the parent forever. The old seam failed
+    // LOUDLY when the entry was wrong (`Cannot find module`, then exit); this one re-executes the
+    // host artifact, so a caller who wires `workerEntry` to something that is not a robota entry
+    // gets a second copy of their app with an IPC channel and no `ready` — and `request.timeoutMs`
+    // is optional, so without this the wait is unbounded. Occurrence #3 self-reports either way.
+    this.handshakeTimer = setTimeout(() => {
+      if (this.ready || this.settled) return;
+      void cancelChildProcess(this.options.runtime, 'Subagent worker never signalled ready');
+      this.rejectOnce(
+        new BackgroundTaskError(
+          'runner',
+          `Subagent worker never signalled ready within ${HANDSHAKE_BUDGET_MS}ms. ` +
+            'Its entry must dispatch worker mode before starting the host application.',
+        ),
+      );
+    }, HANDSHAKE_BUDGET_MS);
+    this.handshakeTimer.unref?.();
   }
 
   start(): void {
@@ -76,6 +101,9 @@ class ChildProcessSubagentResultController {
       );
       return;
     }
+    // Any well-formed child message proves the entry reached worker mode.
+    this.ready = true;
+    clearTimeout(this.handshakeTimer);
     const { job } = this.options.runtime;
     handleWorkerMessage(message, this.startWorker, this.resolveOnce, this.rejectOnce, job.emit);
   };
@@ -86,6 +114,12 @@ class ChildProcessSubagentResultController {
 
   private readonly onExit = (code: number | null, signal: NodeJS.Signals | null): void => {
     if (this.settled) return;
+    // DIST-006: read the tail here, at `'exit'`. Review proposed deferring to `'close'` on the
+    // theory that the pipe has not drained yet; measured, that is not the mechanism. When a child
+    // calls `process.exit()` its pending pipe writes are TRUNCATED, so the last line is never
+    // written at all — lost 10/10 at `'close'` just as at `'exit'`. When a child ends naturally the
+    // tail is already complete — present 40/40 at `'exit'` across 1k–400k lines. Waiting buys
+    // nothing in either case, and a wait whose stated reason is false is worse than no wait.
     this.rejectOnce(
       new BackgroundTaskError(
         'crash',
@@ -113,6 +147,7 @@ class ChildProcessSubagentResultController {
 
   private clearTimers(): void {
     if (this.timeoutTimer) clearTimeout(this.timeoutTimer);
+    clearTimeout(this.handshakeTimer);
   }
 
   private cleanup(): void {

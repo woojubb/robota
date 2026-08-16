@@ -76,7 +76,7 @@ packages/agent-cli/src/bin.ts
    |  `- modelId = resolvedPreset.model ?? providerSettings.model  (preset model override wins)
    |- createDefaultBackgroundTaskRunners()  (agent-executor)
    |- createChildProcessSubagentRunnerFactory()  (agent-subagent-runner)
-   |  `- workerPath = getDefaultSubagentWorkerPath()  (agent-subagent-runner)
+   |  `- workerEntry = resolveSelfForkWorkerEntry()   (agent-cli owns it: DIST-006)
    |- createProjectSessionStore(cwd)  (agent-framework)
    |- if -p print mode
    |  `- runPrintMode(..., presetOptions)  (modes/print-mode.ts)

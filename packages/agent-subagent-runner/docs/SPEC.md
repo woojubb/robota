@@ -17,7 +17,9 @@ Applications that do not use subagents should not carry this dependency.
 - Must NOT import from `@robota-sdk/agent-session` directly — session lifecycle is accessed through
   `agent-framework` facades.
 - Owns the IPC wire protocol between parent runner and child worker.
-- Owns the worker entry point (`child-process-subagent-worker.ts`) and the worker path resolver.
+- Owns the worker entry point (`child-process-subagent-worker.ts`, entered via `runSubagentWorkerMain()`)
+  and the worker-mode argv contract (`worker-entry.ts`). DIST-006: it does NOT own where a worker
+  lives on disk — that is a property of the packaging step, which the composition root states.
 - Does NOT own subagent lifecycle state machines — those live in `agent-executor`.
 - Does NOT own provider creation contracts — `ISerializableProviderProfile` is owned by
   `agent-interface-transport` (`background-task-contracts.ts`); provider config is received as a
@@ -41,7 +43,7 @@ agent-cli / composition root
         │   (when worktreeIsolation !== false)
         ├── createWorktreeSubagentRunner(runner, worktreeAdapter, …)
         │     └── ChildProcessSubagentRunner (ISubagentRunner)  ← inner runner
-        │           ├── fork() → child-process-subagent-worker.ts
+        │           ├── spawn(workerEntry.execPath, […args, --__robota-subagent-worker])
         │           │     ├── ISubagentWorkerStartMessage  (parent → child)
         │           │     ├── ISubagentWorkerSendMessage   (parent → child)
         │           │     ├── ISubagentWorkerCancelMessage (parent → child)
@@ -160,7 +162,7 @@ package carries no concrete git/filesystem dependency.
 | IPC child message fails validation     | `ChildProcessSubagentResultController` rejects with `BackgroundTaskError('runner', 'Received malformed subagent worker message')` — the message is NOT silently dropped                      |
 | IPC parent message fails validation    | Worker sends back `{ type: 'error', message: 'Malformed subagent worker parent message' }` and the parent result rejects                                                                     |
 | Timeout (`timeoutMs` on spawn request) | `ChildProcessSubagentResultController` fires `cancelChildProcess` then rejects with `BackgroundTaskError('timeout', 'Subagent worker timed out')` after `ISubagentSpawnRequest.timeoutMs` ms |
-| Fork failure                           | `child_process.fork()` throws synchronously; `ChildProcessSubagentRunner.start()` propagates the error to the caller                                                                         |
+| Spawn failure                          | `child_process.spawn()` emits `'error'`; the result controller rejects with the child's captured stderr appended, so the cause is in the message                                             |
 | IPC channel closed before send         | `sendWorkerMessage` rejects with `BackgroundTaskError('crash', 'Subagent worker IPC channel is closed')` when `child.connected` is false                                                     |
 
 ## Test Strategy
@@ -186,7 +188,7 @@ package carries no concrete git/filesystem dependency.
 
 | Class                                  | Defined In                                    | Implements        | Notes                                             |
 | -------------------------------------- | --------------------------------------------- | ----------------- | ------------------------------------------------- |
-| `ChildProcessSubagentRunner`           | `src/child-process-subagent-runner.ts`        | `ISubagentRunner` | Main runner; uses `fork()` and IPC                |
+| `ChildProcessSubagentRunner`           | `src/child-process-subagent-runner.ts`        | `ISubagentRunner` | Main runner; uses `spawn()` + IPC (DIST-006)      |
 | `ChildProcessSubagentResultController` | `src/child-process-subagent-runner-result.ts` | (internal)        | Wraps child process lifecycle into result promise |
 
 ### Module-Level Factory Functions

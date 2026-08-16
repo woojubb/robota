@@ -141,6 +141,73 @@ describe('ChildProcessSubagentRunner', () => {
   );
 
   it(
+    "keeps the END of a noisy child's stderr, not its beginning (DIST-006)",
+    async () => {
+      // The tail is bounded, so which END it keeps is the whole question: a subagent worker is
+      // routinely noisy (the CLI installs a `[robota]` stderr sink in it), and the cause of a death
+      // is the LAST thing written, never the first. This child writes ~240 KB of noise before the
+      // line that matters, so a tail that kept the head would hold only warmup.
+      //
+      // Review proposed deferring the read to `'close'` to beat a drain race. Measured, that is not
+      // the mechanism — see the comment at the read site — so this pins the bound's direction
+      // rather than a wait.
+      const noisyWorker = join(mkdtempSync(join(tmpdir(), 'robota-dist-006-noisy-')), 'noisy.mjs');
+      writeFileSync(
+        noisyWorker,
+        [
+          // `process.exit()` truncates pending pipe writes, so the fixture sets `exitCode` and lets
+          // the process end naturally — otherwise the child never writes its last line and the test
+          // measures the fixture rather than the runner.
+          "process.stderr.write('warmup line\\n'.repeat(20000));",
+          "process.stderr.write('FATAL: the cause is the LAST thing written\\n');",
+          'process.exitCode = 1;',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const runner = new ChildProcessSubagentRunner(createDeps(), {
+        workerEntry: { execPath: process.execPath, args: [noisyWorker], execArgv: [] },
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+      });
+
+      const handle = runner.start(createJob());
+
+      await expect(handle.result).rejects.toThrow(/FATAL: the cause is the LAST thing written/);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'refuses an entry that never enters worker mode instead of waiting forever (DIST-006)',
+    async () => {
+      // `startCli` is a public export and the SPEC advertises alternate embeddings, so an embedder
+      // can wire `workerEntry` to an entry that does NOT dispatch worker mode. Self-fork then starts
+      // a second copy of THEIR app with an IPC channel and no `ready`. `request.timeoutMs` is
+      // optional, so without a handshake deadline the parent waits forever — a silent hang, where
+      // the seam this replaced failed loudly.
+      const silentEntry = join(
+        mkdtempSync(join(tmpdir(), 'robota-dist-006-silent-')),
+        'silent.mjs',
+      );
+      writeFileSync(silentEntry, 'setTimeout(() => {}, 60_000);\n', 'utf8');
+
+      const runner = new ChildProcessSubagentRunner(createDeps(), {
+        workerEntry: { execPath: process.execPath, args: [silentEntry], execArgv: [] },
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+      });
+
+      const handle = runner.start({
+        ...createJob(),
+        // The deadline is 30s; this asserts the mechanism, not the production budget.
+        request: { ...createJob().request, timeoutMs: 1500 },
+      });
+
+      await expect(handle.result).rejects.toThrow(/timed out|never signalled ready/);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
     'forks the child into the job worktree, not the request cwd (ARCH-010/ARCH-031)',
     async () => {
       // Before ARCH-031 the worktree runner rewrote `request.cwd` to the worktree path, so forking on

@@ -54,6 +54,9 @@ export function captureChildStderr(child: ChildProcess): void {
   const stream = child.stderr;
   if (!stream) return;
   stream.setEncoding('utf8');
+  // A stream error here is not the subagent's result; without a listener it would reach the
+  // parent's `uncaughtException` handler.
+  stream.on('error', () => {});
   stream.on('data', (chunk: string) => {
     const next = (stderrTails.get(child) ?? '') + chunk;
     stderrTails.set(child, next.slice(-STDERR_TAIL_LIMIT));
