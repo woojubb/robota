@@ -189,17 +189,6 @@ async function cancelWorker(reason?: string): Promise<void> {
 }
 
 /**
- * DIST-006: worker mode is ENTERED, not implied by loading this module.
- *
- * These handlers used to run as module top-level side effects, which is what forced the worker to
- * be a separate file that something had to locate on disk. As a function, the composition root's
- * own entry can become the worker — so there is no second artifact and no path to get wrong.
- *
- * ARCH-021: `composition` is REQUIRED, deliberately. An optional parameter falling back to imported
- * defaults would reinstate the exact defect this seam removes — and at this line conventions have a
- * measured failure rate of 100% (ARCH-010 and ARCH-006 are both findings here).
- */
-/**
  * The names the composition yields at this process's own cwd. Failure to enumerate must not stop the
  * worker — the declaration is verification, not the run itself — but it must not be silent either.
  */
@@ -217,6 +206,17 @@ function composedToolNames(composition: ISubagentWorkerComposition): readonly st
   }
 }
 
+/**
+ * DIST-006: worker mode is ENTERED, not implied by loading this module.
+ *
+ * These handlers used to run as module top-level side effects, which is what forced the worker to
+ * be a separate file that something had to locate on disk. As a function, the composition root's
+ * own entry can become the worker — so there is no second artifact and no path to get wrong.
+ *
+ * ARCH-021: `composition` is REQUIRED, deliberately. An optional parameter falling back to imported
+ * defaults would reinstate the exact defect this seam removes — and at this line conventions have a
+ * measured failure rate of 100% (ARCH-010 and ARCH-006 are both findings here).
+ */
 export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): void {
   if (process.send === undefined) {
     // "Silence is not success": a worker without an IPC channel can never report anything, so it
@@ -254,9 +254,10 @@ export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): 
     void session?.shutdown({ reason: 'other' }).catch(() => undefined); // allow-fallback: cleanup on disconnect — process will exit regardless
   });
 
-  // ARCH-021: declare what this child composed. The runner and the built-binary test read it, which
-  // turns "equivalent by construction" into "verified per run" — worth having at a seam where two
-  // findings have already landed.
+  // ARCH-021: declare what this child composed. This is a VERIFICATION channel — the built-binary
+  // test and the port-level test read it; no production consumer does, and saying otherwise would
+  // stop the next reader asking whether this public wire field has one. It turns "equivalent by
+  // construction" into "verified per run" at a seam where two findings have already landed.
   const names = composedToolNames(composition);
   sendChildMessage({
     type: 'ready',

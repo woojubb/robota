@@ -48,7 +48,11 @@ export function nonReproducibleCapabilities(context: IRobotaPackContext): readon
 /**
  * Fail closed rather than open. A sandboxed parent with a host-tool child is ARCH-010's shape — the
  * measured breach there was a subagent reading outside its root — so a capability the child cannot
- * reproduce must stop the spawn, not be silently dropped.
+ * reproduce must stop the process, not be silently dropped.
+ *
+ * Stated precisely: this runs at composition time inside `startCli`, so the effect is that robota
+ * refuses to START, not that an individual spawn is refused. That is the safe direction and the
+ * message says so — an earlier wording described a spawn refusal that does not exist.
  *
  * Robota supplies no sandbox client today, so this is correct-by-construction now and binds the
  * moment a sandbox input is added. That second reason is why it is worth having.
@@ -57,9 +61,10 @@ export function assertChildProcessSubagentsCanReproduce(context: IRobotaPackCont
   const missing = nonReproducibleCapabilities(context);
   if (missing.length === 0) return;
   throw new Error(
-    `Cannot run child-process subagents: this session composed ${missing.join(', ')}, which a child ` +
-      'cannot reproduce. The subagent would run without it — a sandboxed parent with a host-tool ' +
-      'child. Projecting live capability across the boundary is tracked as ARCH-033 (#1784).',
+    `robota cannot start: this session composed ${missing.join(', ')}, which a child process cannot ` +
+      'reproduce, so its subagents would run without it — a sandboxed parent with a host-tool child. ' +
+      'This is refused at composition time rather than per spawn, so the failure is loud and early. ' +
+      'Projecting live capability across the boundary is tracked as ARCH-033 (#1784).',
   );
 }
 

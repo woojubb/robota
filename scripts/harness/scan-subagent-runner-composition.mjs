@@ -100,12 +100,15 @@ function forbiddenImports(content, fileName) {
       // `import * as fw from …` — the symbol is reached through the namespace, so any later
       // `fw.createDefaultTools(...)` counts. Checked below over the whole file's identifiers.
       if (bindings?.name) namespaceAliases.add(bindings.name.text);
-    } else if (ts.isImportEqualsDeclaration?.(node)) {
+    } else if (ts.isImportEqualsDeclaration(node)) {
       if (node.name) noteBinding(node.name.text);
-    } else if (node.kind === ts.SyntaxKind?.CallExpression) {
-      // `await import('…')` destructured — the binding names appear as identifiers; the property
-      // access sweep below catches the usage either way.
-      void 0;
+    } else if (ts.isExportDeclaration(node)) {
+      // `export { createDefaultTools } from '…'` is not an import declaration, so it evades the
+      // arm above — and this repo has a filed instance of exactly that evasion class (ARCH-022,
+      // "framework pass-through re-export evades public surface guard").
+      for (const element of node.exportClause?.elements ?? []) {
+        noteBinding((element.propertyName ?? element.name).text);
+      }
     }
     ts.forEachChild(node, visit);
   };

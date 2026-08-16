@@ -126,6 +126,20 @@ describe('findSubagentRunnerCompositionFindings', () => {
     expect(findings).toHaveLength(1);
   });
 
+  it('flags a RE-EXPORT, which is not an import declaration', () => {
+    // ARCH-022 is a filed instance of this evasion class: a pass-through re-export slipping past a
+    // guard that only walks imports.
+    const root = createFixture({
+      'packages/agent-subagent-runner/src/worker.ts':
+        "export { createDefaultTools } from '@robota-sdk/agent-framework';\n",
+    });
+
+    const { findings } = findSubagentRunnerCompositionFindings(root);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].detail).toContain('createDefaultTools');
+  });
+
   it('does NOT flag prose that merely names the symbols, even beside a real import', () => {
     // The guarded file's own docblock names both symbols while explaining why it must not import
     // them, and it also has legitimate imports. The first version false-flagged exactly this shape.
