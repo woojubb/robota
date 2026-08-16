@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-025: agent-executor projections silently drop declared contract fields — SubagentManager.wait() strips usage (ANALYTICS-001), the task→runner bridge drops providerProfile, and IScheduleEditPatch is unexported and re-declared inline'
-status: todo
+status: done
 created: 2026-08-13
+completed: 2026-08-16
 priority: medium
 urgency: soon
 area: packages/agent-executor, packages/agent-framework
@@ -493,3 +494,78 @@ ignore`src/_` as claimed). Evidence field: present and populated.
 `scratch/src/arch-025-schedule-edit.mjs`, which is gitignored and self-deleted by the documented cleanup
 step. Whether that satisfies the durable-artifact rule and `check-done-evidence.mjs` is Stage 2's
 criterion to judge, not Stage 1's.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** scenario-executed (Stage 2 passed) → eligible for the Completion Steps
+(`backlog-execution.md` § Completion Steps). Frontmatter `status: todo` left unchanged by this gate — a
+status change follows a verdict and is not part of one.
+
+**Ordering check — PASS.** Prior gate `DONE-GATE-STAGE-1` shows `✅ PASS | 2026-08-16` in this item
+(commit `9b2e73023`), with per-criterion evidence, not a bare verdict. Expected input state per
+`gate-catalogue.md` > Prior-gate map ("scenarios written, implementation complete") holds: S1 is fully
+written, and both in-scope repairs landed in `a0e33e041` (`subagent-manager.ts` `usage` spread;
+`IScheduleEditPatch` exported on both barrels and consumed at the two former re-declaration sites). Item
+sits in `.agents/tasks/` root with a non-terminal `status: todo` — consistent with `backlog-placement`.
+No prior `### [DONE-GATE-STAGE-2]` entry exists, so this is a first run, not a re-run.
+
+**Per-criterion evidence:**
+
+- **Every scenario directly executed by the guardian against the completed implementation** — PASS, and
+  re-executed rather than read. The fenced block was extracted **programmatically and verbatim** from
+  this file (lines 146–313, 5453 bytes) into a scratchpad script and run from the repo root on branch
+  `fix/arch-025-executor-projection-totality` @ `6cf972214`. The recorded run was not relied on.
+- **Observed result matched the expected observable** — PASS. My run produced all five expected `PASS`
+  lines, `SCENARIO RESULT: PASS`, and `EXIT=0`, reproducing the recorded stdout line-for-line:
+  `Scheduled wake (cron \`0 9 * * *\`) … task process_1`/`[sleeping] 0 9 * * *`/`Schedule updated: process_1 (cron \`30 18 * * *\`).`/`[sleeping] 30 18 * * *`with`0 9 * * *`absent /`{"cronExpression":"30 18 * * *","agentInstruction":"run the evening report"}`. The
+clock-relative `next …` timestamps were excluded from the expectation, as the scenario states.
+- **Concrete evidence recorded under the scenario's evidence field** — PASS. Full stdout plus `EXIT=0`
+  are in the S1 **Evidence (2026-08-16, post-implementation …)** bullet above, per scenario, not in a
+  summary elsewhere.
+- **Durable-artifact rule (code-changing item)** — PASS, and the heredoc argument was tested, not
+  granted. Three independent checks: (a) the committed heredoc regenerates the driver **byte-identically**
+  — I extracted the block and diffed its heredoc body against the on-disk driver: 5255 bytes, identical,
+  and `cat >` truncates, so my run executed the committed text by construction; (b) `scratch/src/` is
+  where `backlog-execution.md` § Script home **requires** disposable live-verification scripts to live,
+  and `check-temp-script-placement.mjs` blocks such files under `packages/`, so committing the driver was
+  not an available option — this is rule-following, not an exemption; (c) the mechanical floor is
+  satisfied: `REPO_FILE_PATH_PATTERN` (`cited-paths.mjs`) matches only `packages|apps|scripts` roots, so
+  `scratch/…` is outside `check-done-evidence.mjs`'s scope entirely, and I replayed that scan's
+  evidence-region logic over this file — the 7 repo paths it cites (`subagent-manager.ts`,
+  `orchestration/shared.ts`, `subagent-manager.test.ts`, both `index.ts` barrels, `host-context.ts`,
+  `interactive-session-base.ts`) are all `git ls-files`-tracked, 0 stale. Not special pleading.
+- **Engineering verification cited as user-execution evidence** — PASS (not triggered). The observable is
+  `command_result` / `background_tasks` frames from a live `robota --serve` host built from the product
+  binary. `subagent-manager.test.ts` appears only in the _durable-artifact_ list — which the rule itself
+  defines in terms of "test file paths that exist" — and the item states at the Repair #1 section that
+  its red-first test is engineering evidence "and is not cited as such here". Noted imprecision, not a
+  failure: that test covers repair #1, so it is not an artifact S1's evidence actually rests on; the
+  barrels and the two de-duplicated sites are.
+- **Unprobed capability-absence claim** — PASS (not triggered), probe re-run by this gate:
+  `env | grep -iE 'ANTHROPIC|OPENAI|GEMINI|GOOGLE|BYTEDANCE|API_KEY|ROBOTA'` returns only `PATH` and
+  `PWD`, and `/home/ubunutu/.robota` does not exist. No exception is claimed on credential grounds — S1
+  is credential-free by design, so the claim carries no weight it has not earned.
+- **Behaviour-preservation shape of S1 (deferred to this gate)** — PASS on the catalogue's criteria, with
+  the limit stated rather than glossed. Stage 2's three criteria are about execution fidelity; scenario
+  design is Stage 1's criterion set, which passed. I verified the "matches the pre-fix baseline" claim
+  **deductively from the diff** rather than accepting it: repair #2's entire diff is two `import type`
+  lines and two parameter type annotations (`host-context.ts:260-263`,
+  `interactive-session-base.ts:377-380`), which erase at compile, and repair #1 touches only
+  `SubagentManager.wait()`, off the `/schedule` path — so byte-identical output before and after is a
+  certainty, not a coincidence. `git diff fc9f275be 175d2bd8c` confirms the "Expected observable result"
+  list is untouched between authoring and evidence commits, and the authoring commit already recorded the
+  against-unfixed-code baseline as the pass condition, so nothing was back-fitted. **What this PASS
+  certifies:** the `/schedule edit` surface works end to end through the shipped, de-duplicated
+  `IScheduleEditPatch` signature with both patch fields surviving the hop. **What it does not:** S1 has no
+  runtime discriminating power over repair #2, because the repair has no runtime component to discriminate
+  — a wrongly-typed de-dup would surface at typecheck, and the pass-through body (`editScheduledTask(taskId,
+patch)`) admits no field-drop. The item says exactly this itself, which is why it is a bounded
+  non-regression proof and not an overclaim.
+- **Exception clause (repair #1's unwritten scenario)** — N/A at this stage, deliberately answered rather
+  than skipped. Stage 2's exception governs a _written_ scenario that could not be _executed_; repair #1
+  has no scenario, which is a Stage 1 write-ability question that Stage 1 already passed by exception with
+  a re-verified four-consumer trace. This item contains exactly one scenario (S1), and it was executed.
+- **Observed, not a criterion:** after the edit, `/schedule list` still renders
+  `Scheduled: run the daily report` while `get-background-tasks` reports
+  `agentInstruction: "run the evening report"`. The patch landed; the list's description string is not
+  re-derived. Outside this item's scope and outside this gate's criteria — recorded so it is not lost.
