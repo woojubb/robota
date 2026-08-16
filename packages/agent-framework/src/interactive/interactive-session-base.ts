@@ -59,9 +59,9 @@ import type {
   IContextReferenceRemoveResult,
 } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
-import type { ISubagentJobResult } from '../subagents/index.js';
 import type { IHistoryEntry, TUniversalMessage, IContextWindowState } from '@robota-sdk/agent-core';
 import type { IScheduleEditPatch } from '@robota-sdk/agent-executor';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
 import type {
   IBackgroundTaskInput,
   IBackgroundTaskListFilter,

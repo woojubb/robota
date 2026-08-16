@@ -57,9 +57,9 @@ export class GitWorktreeIsolationAdapter implements ISubagentWorktreeAdapter {
     let lastError: Error | undefined;
     for (let attempt = 0; attempt < this.maxCreateAttempts; attempt += 1) {
       const shortId = normalizeShortId(this.idFactory());
-      const jobId = sanitizePathSegment(request.jobId);
-      const branchName = `${this.branchPrefix}/${jobId}-${shortId}`;
-      const worktreePath = join(worktreeRoot, `${jobId}-${shortId}`);
+      const taskId = sanitizePathSegment(request.taskId);
+      const branchName = `${this.branchPrefix}/${taskId}-${shortId}`;
+      const worktreePath = join(worktreeRoot, `${taskId}-${shortId}`);
       try {
         runGit(repoRoot, ['worktree', 'add', '-b', branchName, worktreePath, 'HEAD']);
         return { repoRoot, worktreePath, branchName, baseRevision, parentStatus };

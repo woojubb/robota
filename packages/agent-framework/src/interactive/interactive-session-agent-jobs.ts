@@ -11,7 +11,7 @@ import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { TCommandInvocationSource } from '../commands/index.js';
-import type { ISubagentJobResult } from '../subagents/index.js';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
 import type {
   ISubagentJobState,
   TBackgroundTaskIsolation,

@@ -7,12 +7,12 @@ import {
 import type { IParallelOrchestrationSpec } from '@robota-sdk/agent-core';
 import { SubagentManager } from '@robota-sdk/agent-executor';
 import type {
-  ISubagentManager,
-  ISubagentJobResult,
-  ISubagentRunner,
-  ISubagentJobStart,
   ISubagentJobHandle,
+  ISubagentJobStart,
+  ISubagentManager,
+  ISubagentRunner,
 } from '@robota-sdk/agent-executor';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
 import { runParallel } from '../parallel';
 import { createInProcessSubagentRunner } from '../../subagents/index';
 import {

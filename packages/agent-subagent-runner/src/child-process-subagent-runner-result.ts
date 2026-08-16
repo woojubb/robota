@@ -1,8 +1,4 @@
-import {
-  BackgroundTaskError,
-  type ISubagentJobResult,
-  type ISubagentJobStart,
-} from '@robota-sdk/agent-executor';
+import { BackgroundTaskError, type ISubagentJobStart } from '@robota-sdk/agent-executor';
 
 import {
   isSubagentWorkerChildMessage,
@@ -16,6 +12,8 @@ import {
   sendWorkerMessage,
   type IChildProcessRuntime,
 } from './child-process-subagent-transport.js';
+
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
 
 export interface ICancellationResult {
   promise: Promise<ISubagentJobResult>;

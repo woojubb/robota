@@ -1,10 +1,10 @@
 import type { IAgentToolDeps } from './agent-tool.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import type { ISubagentManager } from '@robota-sdk/agent-executor';
 import type {
   ISubagentJobResult,
-  ISubagentManager,
   ISubagentSpawnRequest,
-} from '../subagents/index.js';
+} from '@robota-sdk/agent-interface-transport';
 
 export interface IAgentToolBatchJobArgs {
   label?: string;

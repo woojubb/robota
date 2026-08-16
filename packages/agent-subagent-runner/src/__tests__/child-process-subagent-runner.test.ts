@@ -73,8 +73,9 @@ function createDeps(): IInProcessSubagentRunnerDeps {
 
 function createJob(): ISubagentJobStart {
   return {
-    jobId: 'agent_1',
+    taskId: 'agent_1',
     request: {
+      permissionPolicy: 'inherit-allowlist' as const,
       agentType: 'tester',
       label: 'Tester',
       parentSessionId: 'session_1',
@@ -107,7 +108,7 @@ describe('ChildProcessSubagentRunner', () => {
       const result = await handle.result;
 
       expect(handle.pid).toBeGreaterThan(0);
-      expect(result).toEqual({ jobId: 'agent_1', output: 'completed:agent_1' });
+      expect(result).toEqual({ taskId: 'agent_1', output: 'completed:agent_1' });
     },
     TEST_TIMEOUT_MS,
   );
@@ -231,7 +232,7 @@ describe('subagent worker IPC guards', () => {
       isSubagentWorkerParentMessage({
         type: 'start',
         payload: {
-          jobId: 'agent_1',
+          taskId: 'agent_1',
           request: createJob().request,
           agentDefinition: {
             name: 'tester',

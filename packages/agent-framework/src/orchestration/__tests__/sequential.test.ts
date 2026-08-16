@@ -12,12 +12,12 @@ import type {
 } from '@robota-sdk/agent-core';
 import { SubagentManager } from '@robota-sdk/agent-executor';
 import type {
-  ISubagentManager,
-  ISubagentJobResult,
-  ISubagentRunner,
-  ISubagentJobStart,
   ISubagentJobHandle,
+  ISubagentJobStart,
+  ISubagentManager,
+  ISubagentRunner,
 } from '@robota-sdk/agent-executor';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
 import type { ISubagentJobState } from '@robota-sdk/agent-interface-transport';
 import { runSequential } from '../sequential';
 import { createInProcessSubagentRunner } from '../../subagents/index';

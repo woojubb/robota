@@ -12,8 +12,8 @@ import type { ISubagentWorkerStartPayload } from '../index.js';
 /** A minimal but fully-formed start payload that passes the structural guard. */
 function validStartPayload(): ISubagentWorkerStartPayload {
   return {
-    jobId: 'agent_1',
-    request: { type: 'tester', prompt: 'do work' },
+    taskId: 'agent_1',
+    request: { agentType: 'tester', prompt: 'do work' },
     agentDefinition: { name: 'tester', systemPrompt: 'Run tasks.' },
     parentConfig: {},
     parentContext: {},

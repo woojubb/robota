@@ -7,11 +7,11 @@ import {
 import type { IGroupChatOrchestrationSpec } from '@robota-sdk/agent-core';
 import { SubagentManager } from '@robota-sdk/agent-executor';
 import type {
-  ISubagentRunner,
-  ISubagentJobStart,
   ISubagentJobHandle,
-  ISubagentJobResult,
+  ISubagentJobStart,
+  ISubagentRunner,
 } from '@robota-sdk/agent-executor';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
 import { runGroupChat, type SelectNextStep } from '../group-chat';
 import { createInProcessSubagentRunner } from '../../subagents/index';
 import {

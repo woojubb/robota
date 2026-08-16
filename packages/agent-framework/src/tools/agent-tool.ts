@@ -30,13 +30,13 @@ import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-
 import type { IAgentToolBatchJobArgs } from './agent-tool-batch.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IBackgroundTaskManager } from '../background-tasks/index.js';
+import type { IInProcessSubagentRunnerDeps } from '../subagents/index.js';
+import type { IToolExecutionContext } from '@robota-sdk/agent-core';
+import type { ISubagentManager } from '@robota-sdk/agent-executor';
 import type {
-  IInProcessSubagentRunnerDeps,
-  ISubagentManager,
   ISubagentJobResult,
   ISubagentSpawnRequest,
-} from '../subagents/index.js';
-import type { IToolExecutionContext } from '@robota-sdk/agent-core';
+} from '@robota-sdk/agent-interface-transport';
 
 export const AGENT_TOOL_DESCRIPTION = [
   'Creates delegated subagent jobs in isolated contexts.',

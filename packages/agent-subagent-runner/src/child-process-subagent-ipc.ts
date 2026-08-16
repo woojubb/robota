@@ -1,6 +1,6 @@
 import type { ISessionUsageTotals, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
-import type { ISubagentSpawnRequest } from '@robota-sdk/agent-executor';
 import type { IAgentDefinition, IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
+import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface-transport';
 import type { ISerializableProviderProfile } from '@robota-sdk/agent-interface-transport';
 
 export type TSubagentWorkerWireValue = string | number | boolean | null | undefined | object;
