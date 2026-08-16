@@ -19,14 +19,20 @@ import {
 import type { IProviderCapabilityTable } from '@robota-sdk/agent-core';
 
 export const DEEPSEEK_CAPABILITY_TABLE: IProviderCapabilityTable = {
-  vendorDefault: ['tools', 'json_schema', 'streaming'],
+  /**
+   * `json_object`, not `json_schema` (CORE-043). DeepSeek's JSON Output guarantees the response
+   * PARSES; it takes no schema parameter and enforces no shape. The catalog this table was lifted
+   * from claimed `json_schema`, which is why a structured turn against DeepSeek sent a parameter the
+   * endpoint ignored and then spent its whole retry budget discovering the shape was never enforced.
+   */
+  vendorDefault: ['tools', 'json_object', 'streaming'],
   deviations: {
     /**
      * The reasoning model has no function calling. This single line is what
      * `supportsTools() === true` used to contradict, and what nothing could read.
      */
     'deepseek-reasoner': {
-      capabilities: ['reasoning', 'json_schema', 'streaming'],
+      capabilities: ['reasoning', 'json_object', 'streaming'],
       verifiedAt: DEEPSEEK_MODEL_LAST_VERIFIED_AT,
       sourceUrl: DEEPSEEK_MODEL_CATALOG_SOURCE_URL,
     },

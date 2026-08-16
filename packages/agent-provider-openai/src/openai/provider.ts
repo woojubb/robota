@@ -155,6 +155,19 @@ export class OpenAIProvider extends AbstractAIProvider {
     });
   }
 
+  /**
+   * CORE-043: this provider declares no capability table — nobody has verified one for OpenAI, and
+   * inventing one would be a fabricated claim. It can still answer THIS question honestly, which is
+   * why the endpoint signal is not a field on the table.
+   *
+   * It matters most here of all the providers: setting `baseURL` also switches the API surface to
+   * `chat-completions` (see `resolveApiSurface`), so the advertised gateway configuration is exactly
+   * the one where a structured request is least likely to be enforced by whatever is on the far end.
+   */
+  endpointIsVendorDefault(): boolean {
+    return this.options.baseURL === undefined;
+  }
+
   override supportsTools(): boolean {
     return true;
   }

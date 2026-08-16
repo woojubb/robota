@@ -204,3 +204,24 @@ async function* streamWithAbort(
     yield event;
   }
 }
+
+/**
+ * Turn one raw Anthropic stream event into the universal chunks it carries, forwarding the raw
+ * payload on the way past.
+ *
+ * Lives here rather than inline in the provider: shaping a vendor delta into a universal message is
+ * this module's job, and the provider class is orchestration.
+ */
+export function* toUniversalStreamChunks(
+  chunk: Anthropic.MessageStreamEvent,
+): Generator<TUniversalMessage> {
+  if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+    yield {
+      id: randomUUID(),
+      role: 'assistant',
+      content: chunk.delta.text,
+      state: 'complete' as const,
+      timestamp: new Date(),
+    };
+  }
+}

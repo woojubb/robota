@@ -3633,6 +3633,9 @@ importers:
       '@robota-sdk/agent-provider-defaults':
         specifier: workspace:*
         version: link:../packages/agent-provider-defaults
+      '@robota-sdk/agent-provider-openai':
+        specifier: workspace:*
+        version: link:../packages/agent-provider-openai
       '@robota-sdk/agent-remote-client':
         specifier: workspace:*
         version: link:../packages/agent-remote-client

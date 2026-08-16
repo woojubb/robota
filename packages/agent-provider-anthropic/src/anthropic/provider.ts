@@ -1,15 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
 import Anthropic from '@anthropic-ai/sdk';
-import {
-  AbstractAIProvider,
-  RateLimitError,
-  ConfigurationError,
-  ValidationError,
-} from '@robota-sdk/agent-core';
+import { AbstractAIProvider, ConfigurationError, ValidationError } from '@robota-sdk/agent-core';
 
 import { ANTHROPIC_CAPABILITY_TABLE } from './capability-table';
 import { resolveAnthropicMaxTokens } from './claude-models.js';
+import { rethrowAnthropicError } from './errors';
 import {
   convertToAnthropicFormat,
   convertToolsToAnthropicFormat,
@@ -17,7 +13,7 @@ import {
 } from './message-converter';
 import { buildOutputConfig } from './output-schema.js';
 import { anthropicProviderCapabilities } from './provider-capabilities';
-import { streamAndAssemble } from './streaming-handler';
+import { streamAndAssemble, toUniversalStreamChunks } from './streaming-handler';
 
 import type { IAnthropicProviderOptions } from './types';
 import type {
@@ -159,20 +155,7 @@ export class AnthropicProvider extends AbstractAIProvider {
         options?.onProviderNativeRawPayload,
       );
     } catch (error) {
-      // allow-fallback: re-throws original after mapping 429 to RateLimitError
-      const anthropicError = error as {
-        status?: number;
-        error?: { type?: string };
-        message?: string;
-      };
-      if (anthropicError.status === 429 || anthropicError.error?.type === 'rate_limit_error') {
-        throw new RateLimitError(
-          anthropicError.message ?? 'Anthropic rate limit exceeded.',
-          undefined,
-          'anthropic',
-        );
-      }
-      throw error;
+      rethrowAnthropicError(error);
     }
   }
 
@@ -242,20 +225,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     try {
       stream = await this.client.messages.create(requestParams);
     } catch (streamError) {
-      // allow-fallback: re-throws original after mapping 429 to RateLimitError
-      const anthropicError = streamError as {
-        status?: number;
-        error?: { type?: string };
-        message?: string;
-      }; // allow-any: narrowing unknown HTTP error shape from Anthropic SDK
-      if (anthropicError.status === 429 || anthropicError.error?.type === 'rate_limit_error') {
-        throw new RateLimitError(
-          anthropicError.message ?? 'Anthropic rate limit exceeded.',
-          undefined,
-          'anthropic',
-        );
-      }
-      throw streamError;
+      rethrowAnthropicError(streamError);
     }
 
     let sequence = 0;
@@ -268,21 +238,18 @@ export class AnthropicProvider extends AbstractAIProvider {
         payload: chunk,
       });
       sequence++;
-      if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-        yield {
-          id: randomUUID(),
-          role: 'assistant',
-          content: chunk.delta.text,
-          state: 'complete' as const,
-          timestamp: new Date(),
-        };
-      }
+      yield* toUniversalStreamChunks(chunk);
     }
   }
 
   /** What THIS vendor's models can do, per model (PROV-008). */
   capabilityTable(): IProviderCapabilityTable {
     return ANTHROPIC_CAPABILITY_TABLE;
+  }
+
+  /** CORE-043: a configured `baseURL` is a gateway, whose guarantees are not the vendor's. */
+  endpointIsVendorDefault(): boolean {
+    return this.options.baseURL === undefined;
   }
 
   override supportsTools(): boolean {

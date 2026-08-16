@@ -51,7 +51,11 @@ describe('PROV-006 — deepseek stops contradicting its own catalog', () => {
     // and silence is not denial — so the entry has to be populated for the omission to mean anything.
     const table = provider.capabilityTable();
     expect(modelDeclaresCapability(table, 'deepseek-reasoner', 'reasoning')).toBe(true);
-    expect(modelDeclaresCapability(table, 'deepseek-reasoner', 'json_schema')).toBe(true);
+    // CORE-043: `json_object`, not `json_schema`. DeepSeek guarantees the response PARSES; it takes
+    // no schema parameter and enforces no shape, and the old claim is why a structured turn sent an
+    // option the endpoint ignored.
+    expect(modelDeclaresCapability(table, 'deepseek-reasoner', 'json_object')).toBe(true);
+    expect(modelDeclaresCapability(table, 'deepseek-reasoner', 'json_schema')).toBe(false);
     expect(modelDeclaresCapability(table, 'deepseek-reasoner', 'streaming')).toBe(true);
   });
 });

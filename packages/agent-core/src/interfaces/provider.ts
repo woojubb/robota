@@ -221,6 +221,21 @@ export interface IAIProvider {
   capabilityTable?(): IProviderCapabilityTable | undefined;
 
   /**
+   * Whether this provider instance is pointed at its vendor's own endpoint. CORE-043.
+   *
+   * A provider configured with a custom `baseURL` still speaks the vendor's protocol, but the
+   * vendor's guarantees are no longer the ones in force — a gateway can accept a structured-output
+   * parameter and forward a request that ignores it, so the runtime would claim enforcement the
+   * endpoint does not provide.
+   *
+   * Separate from `capabilityTable()` deliberately. Endpoint identity and capability declaration are
+   * independent facts, and coupling them would force a provider with no verified table to invent one
+   * in order to report its endpoint. Silence means the provider did not say, which is not a claim
+   * that the endpoint is the vendor's.
+   */
+  endpointIsVendorDefault?(): boolean;
+
+  /**
    * Optional generic hook for enabling provider-native hosted web behavior.
    */
   configureNativeWebTools?(request: IProviderNativeWebToolRequest): IProviderCapabilities;

@@ -1,6 +1,6 @@
 ---
 title: 'CORE-043: structured-output capability has no representation the runtime reads — agent-core emits `responseFormat` unconditionally, each provider silently maps or discards it, the seam cannot tell which, and the fact is a property of the instantiated PACKAGE rather than the endpoint and model actually called, so the documented gateway configuration reports enforcement it does not have'
-status: todo
+status: in-progress
 created: 2026-08-16
 priority: critical
 urgency: now
@@ -165,13 +165,97 @@ in one place rather than three.
 
 ## Test Plan
 
-To be written once the reserved decisions are settled. It must at minimum pin: a structured run
-against a provider without a native surface does not silently report early enforcement; the
-`'json_schema'` catalog flag is either read or removed; and the deepseek catalog no longer declares a
-capability its adapter does not implement.
+Delivered. The three minimum pins the item named, and where each is enforced:
+
+| Pin                                                                                                     | Where                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A structured run against a provider without a native surface does not silently report early enforcement | `packages/agent-core/src/services/__tests__/structured-output-transport.test.ts` — the `sent` / `schemaInPrompt` outcome, and the `structured_output_transport` event asserted end-to-end in Scenario 2 |
+| The `'json_schema'` catalog flag is either read or removed                                              | READ — `mechanismFor()` in `structured-output-transport.ts` is the only consumer, and `applyStructuredOutputTransport` acts on its answer                                                               |
+| The deepseek catalog no longer declares a capability its adapter does not implement                     | `packages/agent-provider-openai-compatible/src/deepseek/capability-table.ts` now declares `json_object`; asserted both ways in `deepseek/__tests__/model-capabilities.test.ts`                          |
+
+Plus, red-proved by reverting each behaviour in place and re-running:
+
+- reading an absent capability table as a denial (which would strip a working `json_schema` from
+  every provider without a verified table) — 1 test red
+- stating the schema only on the retry turn (the original defect) — 2 tests red
+
+Endpoint provenance is covered on the real provider classes:
+`agent-provider-openai/src/openai/__tests__/endpoint-provenance.test.ts` and
+`agent-provider-anthropic/src/anthropic/__tests__/capability-table.test.ts`.
 
 ## User Execution Test Scenarios
 
-To be authored when this item is picked up. Expected `agent-executable` and provider-free for the
-capability-representation half (observe what the SDK builds and what it reports about enforcement);
-the end-to-end half needs an OpenAI-compatible gateway endpoint the executor supplies.
+Both are `agent-executable` and provider-free — no API key, no network. The end-to-end gateway half
+is deliberately NOT claimed here: Scenario 2 proves the provider reports the gateway honestly, which
+is the part this repository owns; what an arbitrary gateway does with the parameter is not ours to
+assert.
+
+### Scenario 1 — a structured run against a provider with no schema parameter
+
+**Command:** `cd scratch && node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-043-s1.ts`
+
+Runs a real `Robota` agent with a provider declaring DeepSeek's actual capability (`json_object`).
+
+**Evidence:** EXIT:0
+
+```
+validated object: {"name":"Ada","age":36}
+provider calls made: 1
+attempt 1 responseFormat: {"type":"json_object"}
+attempt 1 system instructions: ["Respond with ONLY a JSON object (no prose, no code fences) matching this JSON schema:\n{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"description\":\"The person name\"},\"age\":{\"type\":\"number\",\"description\":\"Age in years\"}},\"required\":[\"name\",\"age\"],\"additionalProperties\":true}"]
+PASS the run resolved to a validated object
+PASS it took exactly ONE provider call — the wasted first attempt is gone
+PASS the wire option was downgraded to what this provider can honour ('json_object'), not the 'json_schema' it would have ignored
+PASS the schema was stated to the model on the FIRST attempt, not only on retry
+SCENARIO 1 PASS
+```
+
+### Scenario 2 — the transport report, and the advertised gateway configuration
+
+**Command:** `cd scratch && node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-043-s2.ts`
+
+Constructs the REAL `OpenAIProvider` (never called — no request is sent) and runs a real agent turn
+against a provider that declares nothing.
+
+**Evidence:** EXIT:0
+
+```
+openai direct  — endpointIsVendorDefault: true
+openai gateway — endpointIsVendorDefault: false
+openai gateway — declares a capability table: false
+transport report: {"executionId":"exec_1786898563479_cl3a0sfa3","conversationId":"conv_1786898563476_didbfv197","round":1,"provider":"fake-undeclared","model":"some-new-model","mechanism":"response_schema","provenance":"undeclared","sent":"json_schema","schemaInPrompt":false,"reason":"the provider declares no capability table, so the request is sent as asked — silence is not a denial"}
+PASS the vendor endpoint is reported as the vendor endpoint
+PASS a configured baseURL is reported as a gateway
+PASS it answers that WITHOUT declaring a capability table — so the signal never required inventing one
+PASS a structured turn now emits a transport report at all
+PASS the report says what the request DID (which transport carried the schema)
+PASS a provider that declares nothing is still sent the schema — silence is not a denial
+SCENARIO 2 PASS
+```
+
+## What this landing delivers, and what it does not
+
+Answering the four restated decisions:
+
+1. **Whether `agent-provider-openai` reports early enforcement when `baseURL` is set** — ANSWERED.
+   It no longer does. `IAIProvider.endpointIsVendorDefault?()` is a separate member from
+   `capabilityTable?()` precisely so this provider, which declares no table by choice, can still
+   report its endpoint without inventing capability claims. `provenance: 'unverified-endpoint'`
+   carries it to the caller.
+2. **Where capability and transport selection live** — ANSWERED. Capability is declared by the
+   provider package (PROV-006's vocabulary, now actually consumed); transport selection happens at
+   the seam that assembles the request, which is the only point holding both the resolved provider
+   and the outgoing messages. Not in `robotaRunStructured`, which has neither.
+3. **The SPEC's "providers without one ignore it" clause** — REWRITTEN, in both
+   `agent-core/docs/SPEC.md` and `agent-provider-openai-compatible/docs/SPEC.md`.
+4. **Whether a synthetic schema tool may be injected into a user's tool set under
+   `tool_choice: required`** — NOT DELIVERED HERE, and deliberately so. It is a behavioural design
+   question (name collision; the model picking a real tool instead), it was answerable only once (2)
+   existed, and it is now answerable. `TStructuredOutputMechanism` carries no `tool_strict` member
+   yet for the same reason: a union member nothing produces is a branch every consumer must handle
+   and no test can reach. Tracked as **CORE-048**.
+
+Also corrected along the way: `execution-round-provider.ts` used the caller's history array as the
+cache key; it now keys on what was actually sent. And the Anthropic 429→`RateLimitError` mapping
+existed character-for-character on both the streaming and non-streaming paths — extracted to
+`anthropic/errors.ts`, since two copies of a taxonomy decision is how PROV-004's drift starts.

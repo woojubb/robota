@@ -11,6 +11,7 @@
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-provider-defaults": "workspace:*",
+    "@robota-sdk/agent-provider-openai": "workspace:*",
     "@robota-sdk/agent-remote-client": "workspace:*",
     "@robota-sdk/agent-session": "workspace:*",
     "@robota-sdk/agent-testing": "workspace:*",

@@ -64,7 +64,21 @@ export interface IProviderSetupHelpLink {
 export type TProviderModelCatalogStatus = 'live' | 'generated' | 'fallback' | 'unavailable';
 export type TProviderModelLifecycle = 'active' | 'preview' | 'deprecated' | 'unavailable';
 export type TProviderModelCapability =
-  'tools' | 'vision' | 'json_schema' | 'reasoning' | 'native_web' | 'streaming';
+  | 'tools'
+  | 'vision'
+  /** A first-class schema parameter the endpoint enforces. */
+  | 'json_schema'
+  /**
+   * JSON is guaranteed, the SHAPE is not (CORE-043).
+   *
+   * Without this DeepSeek is unrepresentable: the vocabulary offered only `json_schema`, which
+   * DeepSeek does not support, so its catalog entry was wrong and DELETING the entry would have left
+   * it wrong in the other direction — silent about a real capability.
+   */
+  | 'json_object'
+  | 'reasoning'
+  | 'native_web'
+  | 'streaming';
 
 export interface IProviderModelCatalogEntry {
   id: string;
