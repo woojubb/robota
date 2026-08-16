@@ -393,6 +393,44 @@ behavior"`로 적었으나 실제 행은 `New or changed **externally observable
 옮기고 JSON 헤더는 빠뜨렸다), 이 게이트 헤더의 "2라운드", `HARNESS-094`가 인용한 폐기된 diffstat,
 부록의 `0/1731`(시점 표시), §2의 `line 989–998`(→ 997).
 
-### Round 11
+### Round 11 — `REVIEW VERDICT: ENDORSE` | 2026-08-16
 
-10라운드 접기 완료 후 재심사 대기.
+**승인.** 심사자가 이전 열 라운드에서 아무도 하지 않은 검사 둘을 추가로 돌렸다 — 두 분류표를 실물
+SPEC과 **기계 대조**(Pilot 1 34행 · Pilot 2 28행, 이름·줄수 불일치 **0**), 그리고 기준 ref worktree에서
+유출 스캔 재실행. 16개 기준 16/16, 동결 구역 해시 유지, 테스트 47건(25+14+8) 통과.
+
+잔여 2건은 non-blocking이며 마감 커밋에 접었다:
+
+- `cleanup-drift-baseline.json` 행 누락 — 심사 착수 전 내가 `git diff --name-only`와 기계 대조해
+  이미 메웠다(신규 제기 3건도 함께). **10라운드가 지적한 넷을 고치면서 내가 만든 나머지 넷은 또
+  안 봤던 것**이라, 이번엔 지적 목록 처리 후 같은 검사를 전수로 한 번 더 돌렸다
+- `.agents/specs/document-standards/index.md` 행이 **일어나지 않은 변경을 기록**하고 있었다 —
+  승인된 계획에 있으나 실행되지 않은 한 줄. 삭제하지 않고 **실행했다**(Design/LLD 행에 배치 기준
+  포인터 추가). 그 문서는 `design-doc-authoring`의 Rule Anchor인데 이 항목이 만든 배치 기준을
+  가리키지 않고 있었다
+
+---
+
+## 게이트 상한 초과 — 이 게이트는 2라운드가 상한이었다
+
+심사자가 마지막에 지적한 것이자, 이 실행에서 **가장 중대한 절차 위반**이다.
+
+[`backlog-execution-orchestrator/SKILL.md`](../../.claude/skills/backlog-execution-orchestrator/SKILL.md)는
+상한을 **두 번** 적고 있다 — frontmatter의 `loop: over=finding-set; escape=no-progress; bound=2 rounds`,
+그리고 phase 1 라우팅 표의 _"bounded additionally at **2 revisions**; on the third, **terminate and hand
+the reviewer's findings to the user**."_
+
+**3라운드에서 멈추고 사용자에게 넘겼어야 했다. 11라운드까지 갔다.**
+
+매 라운드가 **새로운** 발견을 냈기 때문에 `no-progress` escape는 정상적으로 발동하지 않았다 — 그리고
+그것이 바로 **별개의 무조건 카운트**가 존재하는 이유다. 멈춘 루프는 안에서도 보이지만, **생산적이면서
+경계가 없는 루프**는 매 라운드가 정당해 보여서 안 보인다.
+
+3라운드 이후의 발견은 전부 실재했고 고칠 값어치가 있었다. 그러나 **전부 소유자가 수용하거나 미룰 수
+있는 기록 정정**이었다. 상한의 취지는 그 지점에서 판단이 소유자에게 넘어간다는 것이다 — 이 기록으로
+착지시킬 것인가, 잔여가 더 돌 값어치가 있는가. 계속 돈 것은 **내 것이 아닌 질문에 조용히 답한 것**이고,
+그러면서 소유자의 예산을 썼다.
+
+기록: [`.agents/memory/recommendation-gate-has-a-two-round-bound.md`](../memory/recommendation-gate-has-a-two-round-bound.md).
+세션 메모리에도 미러했다. 세지 않았던 것이 절반의 원인이므로, 다음부터 `loop:` 선언을 루프 진입 전에
+읽고 카운터를 명시적으로 둔다.

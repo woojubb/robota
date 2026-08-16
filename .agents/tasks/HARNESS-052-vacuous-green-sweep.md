@@ -449,7 +449,7 @@ in `## Test Plan`.
       `###` is attributed to its enclosing `##`. Demoting a non-standard `##` to `###` under a standard
       one drives the reported residual to **zero with no content moved**. Observed live: RULE-013 WU-B
       demoted 20 non-standard `##` in `packages/agent-cli/docs/SPEC.md` and the scan went from
-      1,708/1,939 (88.1%) to 0/1,731 (0.0%). The scan's name promises "whitebox leakage"; what it
+      1,708/1,939 (88.1%) to 0/1,731 (0.0%) — the 1,731 is the round-2 reading; later folds took the file to 1,744, and the residual stayed 0. The scan's name promises "whitebox leakage"; what it
       measures is whether headings match a list. Filed by RULE-013, which routed around it — TC-05 now
       asserts destination volume plus `verify-doc-split-preservation.mjs`, and TC-06 (which the
       demotion _satisfies_) was demoted to an observation. Fix is either deep-level attribution or a
