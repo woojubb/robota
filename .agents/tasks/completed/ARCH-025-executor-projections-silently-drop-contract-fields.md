@@ -569,3 +569,41 @@ patch)`) admits no field-drop. The item says exactly this itself, which is why i
   `Scheduled: run the daily report` while `get-background-tasks` reports
   `agentInstruction: "run the evening report"`. The patch landed; the list's description string is not
   re-derived. Outside this item's scope and outside this gate's criteria — recorded so it is not lost.
+
+## Result
+
+**Delivered, for the narrowed scope only.** `SubagentManager.wait()` carries the declared `usage`, and
+`IScheduleEditPatch` is exported from both barrels — and documented in the package SPEC's type table, which
+the original problem statement asked for and a first pass missed — with BOTH structural re-declarations in
+`agent-framework` deleted: `IAgentJobHostContext.editSchedule`, which every command module programs
+against, and the class implementing it. `rg` finds zero occurrences of the anonymous literal repo-wide.
+
+**What this item does NOT deliver, and where it went.** The canonical total projection with a mechanical
+exhaustiveness fixture — this item's original Direction and AGREEMENT-002's TC-13 — is **not** here. A
+`FOUNDATIONAL` finding-depth verdict and a `REJECT` at the recommendation gate established that the cause
+spans four packages including the contract owner this item does not name, so a totality mechanism scoped
+here could not be total. It is filed as **ARCH-031** (issue #1747), whose span the owner approved
+(2026-08-16) and whose derivation will subsume the `wait()` repair rather than undo it. `providerProfile`
+went with it — a dead contract field whose disposition belongs with the seam, and what ARCH-021 actually
+needs, so **ARCH-021 is unblocked by ARCH-031, not by this item**. TC-13 is therefore left UNCHECKED in both
+AGREEMENT-002 projections.
+
+**Corrections this item made to its own premises**, recorded because each was wrong in a way a reader would
+otherwise inherit:
+
+- `providerProfile` is not "dropped by a mapper" — `ISubagentSpawnRequest` has no target key, so it is a
+  dead contract field, a different defect.
+- A rejected draft read `worktreePath`/`branchName` as caller fields and proposed deleting their only
+  producer; the correction has its own section in ARCH-031.
+- The `usage` repair is **not** what makes tokens reach `/cost` — that path is fed by the
+  `background_task_completed` event and already worked. The scenario originally recorded here would
+  therefore have passed against unfixed code, and was deleted rather than amended.
+
+**Verification.** Red-proved contract case (`expected undefined to deeply equal { promptTokens: 120, … }`
+against the merge base, re-proved independently by review in an isolated worktree); executor 104 /
+framework 1357 / command 248 green; `harness:verify-like-ci` 12/12; both done-gate stages PASS from
+independent guards, Stage 2 re-executing the scenario itself and reproducing it line-for-line.
+
+**Filed along the way:** `ARCH-031` (the cause), `CMD-009` (after `/schedule edit` changes the instruction,
+`/schedule list` keeps rendering the pre-edit text — observed twice during gating), and
+`.agents/memory/claims-not-rederived-after-facts-moved.md`.

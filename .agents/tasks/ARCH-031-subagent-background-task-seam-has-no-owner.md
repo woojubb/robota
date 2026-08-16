@@ -109,7 +109,7 @@ rather than inventing one for a pure refactor.
 - **None.** The four-package span was authorized by the owner on 2026-08-16, together with the decision to
   land ARCH-025's narrowed scope first. `finding-depth.md` routes a FOUNDATIONAL cause to a filed root item
   and an owner decision; this file is that root item and the decision is recorded here, in
-  `.agents/tasks/AGREEMENT-002-…` (TC-13), and in ARCH-025's `## Result`.
+  `.agents/tasks/AGREEMENT-002-…` (TC-13), and in ARCH-025's `## Result` section.
 
   _Recorded because it is the point:_ this file sat for several commits saying it needed an authorization it
   already had, while three later-written records said the opposite. That is the exact failure mode
