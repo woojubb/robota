@@ -4,9 +4,7 @@ import OpenAI from 'openai';
 import { DEFAULT_DEEPSEEK_PROVIDER_BASE_URL } from './defaults';
 import {
   assembleOpenAICompatibleStream,
-  convertToOpenAICompatibleMessages,
-  convertToOpenAICompatibleTools,
-  toOpenAICompatibleToolChoice,
+  buildOpenAICompatibleRequestParams,
   observeProviderNativeRawPayloadStream,
   OpenAICompatibleResponseParser,
 } from '../shared/openai-compatible/index.js';
@@ -220,21 +218,12 @@ export class DeepSeekProvider extends AbstractAIProvider {
     options: IChatOptions | undefined,
   ): TDeepSeekChatCompletionCreateParamsNonStreaming {
     this.validateTools(options?.tools);
-    const model = options?.model ?? this.options.defaultModel;
-    if (!model) {
-      throw new Error(
-        'Model is required in chat options. Please specify a model in defaultModel configuration.',
-      );
-    }
 
     return {
-      model,
-      messages: convertToOpenAICompatibleMessages(messages),
-      ...(options?.temperature !== undefined && { temperature: options.temperature }),
-      ...(options?.maxTokens !== undefined && { max_tokens: options.maxTokens }),
-      ...(options?.tools && {
-        tools: convertToOpenAICompatibleTools(options.tools),
-        tool_choice: toOpenAICompatibleToolChoice(options.toolChoice),
+      ...buildOpenAICompatibleRequestParams({
+        messages,
+        options,
+        defaultModel: this.options.defaultModel,
       }),
       ...(this.options.thinking !== undefined && {
         thinking: { type: this.options.thinking },
