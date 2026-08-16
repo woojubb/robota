@@ -5,7 +5,7 @@ created: 2026-08-15
 priority: critical
 urgency: now
 area: cross-cutting agent architecture initiative
-depends_on: []
+depends_on: [ARCH-031]
 children:
   [
     ARCH-014,
@@ -54,7 +54,7 @@ The paired spec passed GATE-APPROVAL on 2026-08-15. The user's instruction
 - [x] TC-10 — derive owner-declared semantic command roles from composition, including alternate IDs, duplicate rejection, and explicit absence semantics in ARCH-024.
 - [x] TC-11 — make product/pack field projection exhaustive, remove the dead provider override, surface accepted pack metadata, and add whole-pack duplicate diagnostics in ARCH-027.
 - [x] TC-12 — remove framework laundering from every package-declared public source root and recursively enforce the reachable graph in ARCH-022.
-- [ ] TC-13 — make executor projections total and mechanically exhaustive in ARCH-025.
+- [ ] TC-13 — make executor projections total and mechanically exhaustive. **Re-scoped, not delivered by ARCH-025.** ARCH-025 landed the two LOCAL repairs inside its declared area (`usage` carried by `wait()`; one `IScheduleEditPatch` owner exported, two re-declarations deleted) and is `done`. The totality mechanism itself moved to **ARCH-031** (issue #1747) after a FOUNDATIONAL finding-depth verdict established the cause spans four packages including the contract owner ARCH-025 does not name; the owner approved that span on 2026-08-16. TC-13 closes with ARCH-031, not with ARCH-025.
 - [x] TC-14 — share one executable-aware shell resolver across both runners, with simulated override matrices and real Windows default execution in ARCH-026.
 - [ ] TC-15 — run every child done gate and archive all fourteen Task records atomically.
 - [ ] TC-16 — pass assembled conformance, scoped verification, and the CI-equivalent gate.
@@ -74,7 +74,7 @@ projection is the section below.
 - [x] ARCH-022 — done — `.agents/tasks/completed/ARCH-022-framework-pass-through-re-export-evades-public-surface-guard.md`
 - [x] ARCH-023 — done — `.agents/tasks/completed/ARCH-023-createAgentRuntime-default-sessionstore-never-forwarded.md`
 - [x] ARCH-024 — done — `.agents/tasks/completed/ARCH-024-framework-hardcodes-module-owned-command-ids.md`
-- [ ] ARCH-025 — todo — `.agents/tasks/ARCH-025-executor-projections-silently-drop-contract-fields.md`
+- [x] ARCH-025 — done — `.agents/tasks/completed/ARCH-025-executor-projections-silently-drop-contract-fields.md`
 - [x] ARCH-026 — done — `.agents/tasks/completed/ARCH-026-scheduled-task-runner-bypasses-shell-resolution-ssot.md`
 - [x] ARCH-027 — done — `.agents/tasks/completed/ARCH-027-dead-composition-contract-fields.md`
 - [x] ARCH-028 — done — `.agents/tasks/completed/ARCH-028-plan-and-context-refresh-events-emitted-into-a-contract-no-transport-consumes.md`

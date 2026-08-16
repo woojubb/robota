@@ -24,7 +24,7 @@
   "packages/agent-framework/src/checkpoints/edit-checkpoint-store.ts": 390,
   "packages/agent-framework/src/index.ts": 666,
   "packages/agent-framework/src/interactive/interactive-session-background-tracker.ts": 334,
-  "packages/agent-framework/src/interactive/interactive-session-base.ts": 387,
+  "packages/agent-framework/src/interactive/interactive-session-base.ts": 385,
   "packages/agent-framework/src/interactive/interactive-session-execution-controller.ts": 415,
   "packages/agent-framework/src/interactive/interactive-session-execution.ts": 313,
   "packages/agent-framework/src/interactive/interactive-session-history-tracker.ts": 353,

@@ -37,7 +37,16 @@ export class SubagentManager implements ISubagentManager {
 
   async wait(jobId: string): Promise<ISubagentJobResult> {
     const result = await this.backgroundTaskManager.wait(jobId);
-    return { jobId: result.taskId, output: result.output, metadata: result.metadata };
+    return {
+      jobId: result.taskId,
+      output: result.output,
+      metadata: result.metadata,
+      // ARCH-025: the same conditional spread `toBackgroundResult` uses below, so the two directions of
+      // this hop read identically. `usage` was declared by ANALYTICS-001 and dropped here in the very
+      // commit that added it — this projection is hand-written, and nothing checked it for totality.
+      // ARCH-031 replaces the hand-written hops with derivation and will subsume this line.
+      ...(result.usage ? { usage: result.usage } : {}),
+    };
   }
 
   list(): ISubagentJobState[] {
