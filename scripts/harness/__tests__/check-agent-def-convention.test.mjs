@@ -25,6 +25,8 @@ const GOOD_READONLY_AGENT = [
   '',
   'You are read-only: never run tree-mutating git in the working tree.',
   '',
+  'Whether a finding is in scope or a separate root item is owned by the finding-depth rule.',
+  '',
   'End the report with the exact line `ACTIONABLE FINDINGS: <n>`.',
 ].join('\n');
 
@@ -284,5 +286,57 @@ describe('check-agent-def-convention (HARNESS-046) — prettier-wrapped tools ar
     expect(results[0].findings.some((f) => /carries edit tool\(s\): Edit, Write/.test(f))).toBe(
       true,
     );
+  });
+  it('fails a finding-producing agent whose body never references the finding-depth rule', () => {
+    const agent = [
+      '---',
+      'name: scope-creeping-reviewer',
+      'description: Independent, read-only reviewer of a change proposal.',
+      'tools: Read, Grep',
+      'signal: REVIEW VERDICT',
+      '---',
+      '',
+      '# Body',
+      '',
+      'End with the exact line `REVIEW VERDICT: <ENDORSE|REVISE|REJECT>`.',
+    ].join('\n');
+    const findings = analyzeAgent(agent, { referencedInIndex: true });
+    expect(findings.some((f) => /never references the finding-depth rule/.test(f))).toBe(true);
+  });
+
+  it('passes the same agent once it references the finding-depth rule', () => {
+    const agent = [
+      '---',
+      'name: scoped-reviewer',
+      'description: Independent, read-only reviewer of a change proposal.',
+      'tools: Read, Grep',
+      'signal: REVIEW VERDICT',
+      '---',
+      '',
+      '# Body',
+      '',
+      'Whether a finding is in scope or a separate root item is owned by the finding-depth rule.',
+      '',
+      'End with the exact line `REVIEW VERDICT: <ENDORSE|REVISE|REJECT>`.',
+    ].join('\n');
+    const findings = analyzeAgent(agent, { referencedInIndex: true });
+    expect(findings.some((f) => /never references the finding-depth rule/.test(f))).toBe(false);
+  });
+
+  it('does not require the reference of a gate agent, which judges fixed criteria', () => {
+    const agent = [
+      '---',
+      'name: some-gate',
+      'description: Independent gate, read-only.',
+      'tools: Read, Grep',
+      'signal: GATE VERDICT',
+      '---',
+      '',
+      '# Body',
+      '',
+      'End with the exact line `GATE VERDICT: <PASS|FAIL|NON-COMPLIANCE>`.',
+    ].join('\n');
+    const findings = analyzeAgent(agent, { referencedInIndex: true });
+    expect(findings.some((f) => /never references the finding-depth rule/.test(f))).toBe(false);
   });
 });
