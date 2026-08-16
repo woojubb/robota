@@ -177,9 +177,10 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 
 ## Public API Surface
 
-| Export                                 | Kind  | Description                                                                                                                                                                         |
-| -------------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DEFAULT_BACKGROUND_PERMISSION_POLICY` | const | ARCH-031: the one definition of the policy a spawn site states when it has no reason to choose another. Replaced two independent `?? 'inherit-allowlist'` fallbacks in two packages |
+| Export                                 | Kind     | Description                                                                                                                                                                                                                                                                                                                |
+| -------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEFAULT_BACKGROUND_PERMISSION_POLICY` | const    | ARCH-031: the one definition of the policy a spawn site states when it has no reason to choose another. Replaced two independent `?? 'inherit-allowlist'` fallbacks in two packages                                                                                                                                        |
+| `clearRegisteredToolArgumentKeys`      | function | Clears the tool-argument key registry. ARCH-031 surfaced it: collapsing the permissions block to `export *` re-exported everything the sub-barrel owns, and the hand-listed block had omitted this one. Documented rather than re-narrowed, because a barrel that cannot drift from its owner is the point of the collapse |
 
 <!-- The rows below live under `###` subheadings. `check-spec-public-surface.mjs` stops counting at the
      first non-"Public API" heading, so it reads none of them — which is why this package's undocumented
