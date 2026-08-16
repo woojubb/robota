@@ -1,7 +1,8 @@
 ---
 title: 'RULE-013: SPEC/design 배치 기준과 whitebox 유출 회수 — 계약·강제(WU-A) 및 파일럿 추출(WU-B)'
-status: in-progress
+status: done
 created: 2026-08-16
+completed: 2026-08-16
 priority: high
 urgency: soon
 area: .agents/rules, .agents/skills, .agents/templates, .agents/specs, scripts/harness, packages/agent-cli/docs, packages/agent-framework/docs

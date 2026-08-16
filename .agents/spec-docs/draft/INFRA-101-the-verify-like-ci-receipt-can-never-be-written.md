@@ -76,9 +76,19 @@ Waived: 외부 선행 사례가 필요한 설계 결정이 아니다. **근거�
 부수로, `writeVerificationReceipt()`가 쓰지 못했을 때 **이유를 stdout에 찍어야 한다.** 지금은
 `{written:false}`가 아무 데도 보이지 않는다.
 
-**대안 검토:** lessons를 gitignore로 돌리는 방법은 `pre-push.mjs`의 주석이 이미 기각한다 —
-_"They are tracked deliverables (not gitignore candidates)"_. 스캔이 lessons를 재생성하지 않게 하는
-방법은 lessons 시스템의 목적을 없앤다. 그러므로 예외 목록 공유가 남는 길이다.
+**대안 검토.** `pre-push.mjs`의 주석이 gitignore를 이미 기각해 두었지만, **주석이 그렇게 적혀 있다는
+사실 자체는 근거가 아니다**(`common-mistakes.md` 80 — 기존 구조는 그것이 옳다는 증거가 아니다).
+실질로 판정하면:
+
+- **gitignore.** lessons는 `AGENTS.md`가 "모든 clone이 읽는 지속 학습 자산"으로 열거하는 파일이다.
+  무시하면 새 clone에 그 자산이 없다 — 목적을 없애는 것이므로 기각. 주석의 결론과 같지만 근거는 주석이
+  아니라 이 사실이다
+- **스캔이 재생성하지 않게 한다.** lessons 시스템 자체를 없애는 것과 같다. 기각
+- **커밋한다.** pre-commit이 막고, 그 가드는 regenerated churn을 커밋하지 말라는 별개의 옳은 규칙이다
+
+**셋 다 기각되고 남는 것이 "깨끗함"의 정의를 하나로 만드는 것이다** — 그리고 그것이 회피가 아니라
+올바른 설계다. 정의가 둘이고 하나만 churn을 아는 상태가 결함의 원인이므로, 그 중복을 없애는 것이
+문제의 본체를 정면으로 고치는 유일한 선택지다.
 
 ## Completion Criteria (초안)
 
@@ -93,6 +103,17 @@ _"They are tracked deliverables (not gitignore candidates)"_. 스캔이 lessons�
 - [ ] TC-06: `pnpm harness:scan` exit 0
 
 ## Evidence Log
+
+- **2026-08-16 — 제기 즉시 수정.** 소유자가 _"푸시가 오래걸릴 이유가 없다. 원인을 점검해서 문제가
+  있으면 바로 잡고 진행해"_ 라고 지시해, 제기만 하고 두는 대신 같은 세션에서 고쳤다. 그것이 옳다 —
+  `branch-guard.sh`가 적은 규칙 그대로, **잘못 작동하거나 올바른 작업에 발동하는 검사는 우회가 아니라
+  고치는 것**이다. 수정 내용은 위 Solution 그대로: churn 집합을 `verification-receipt.mjs`가 소유하고
+  `pre-push.mjs`가 import한다. 정의가 셋(그중 하나만 churn을 알았다)에서 하나가 됐다.
+
+  **수정 중 픽스처가 두 번째 버그를 잡았다.** `run()`이 출력을 `.trim()`하는데
+  `git status --porcelain`은 **선행 공백이 staged 열**이라, trim하면 첫 줄이 한 칸 밀리고 `slice(3)`이
+  경로를 잘못 읽는다. churn 인식이 첫 줄에서만 실패하는 형태였다. 전용 경로로 읽게 하고, "trim된 줄은
+  매치되면 안 된다"를 red 픽스처로 고정했다.
 
 - **2026-08-16 — 제기.** `RULE-013` WU-B의 push 중 발견. 실측: `verify-like-ci` 5회 실행, 전부
   `PASS — all 12 stage(s) passed`, `readVerificationReceipt()` 전부 `null`. 그중 한 번은 실행 **직전에**
