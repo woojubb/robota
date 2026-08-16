@@ -953,3 +953,175 @@ void main();
 
 - Cleanup: none.
 - Evidence: _to be filled after implementation._
+
+---
+
+## Done Gate Evidence
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** none — DONE-GATE-STAGE-1 authorizes no status transition. `status: todo` is
+unchanged; `done` remains gated by DONE-GATE-STAGE-2.
+
+**Ordering check.** `gate-catalogue.md` > Prior-gate map records DONE-GATE-STAGE-1 as having **no prior
+gate**, so the prior-PASS half is exempt. The input state was verified rather than accepted:
+`git status --porcelain` shows only `.agents/evals/lessons/auto-lessons.md` and
+`.agents/evals/lessons/weekly-digest.md` (auto-generated), **nothing under `packages/` or `apps/`**;
+`git diff --stat origin/develop..HEAD -- packages/ apps/` is empty; `git log --oneline
+origin/develop..HEAD` is the single commit `34a9b38aa docs(tasks): author CORE-042 user-execution
+scenarios`, touching one file (+799/−5). Implementation has not started; scenarios precede it as
+required.
+
+**Criterion 1 — exact steps, prerequisites, expected observable result, evidence field.** PASS for all
+six. Mechanical field sweep over the section: every scenario carries `Agent-executability decision`,
+`Prerequisites`, `Steps`, `Expected observable result`, `Cleanup` and `Evidence` — 6/6 on each field, no
+scenario missing any. Each `Steps` line is a literal runnable command; the documented form
+`node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-042-s6.ts` was executed verbatim from
+`scratch/` and resolved as written. Evidence fields correctly read `_to be filled after implementation._`
+— the field must exist at Stage 1, and is populated by Stage 2.
+
+**Criterion 1 (reproducibility of the inlined scripts).** PASS — verified by extraction and execution,
+not by inspection. All 7 fenced `ts` blocks were extracted **from this document** into an isolated
+directory outside the repo and run there. They are byte-identical to the author's gitignored
+`scratch/src/` copies (the only diff is the `// scratch/src/<name>.ts` path label used as the extraction
+anchor), so the document alone is a complete and sufficient source. All six ran and reproduced the
+recorded pre-fix measurements exactly:
+
+| Scenario | Recorded pre-fix                                                            | Observed on re-run  |
+| -------- | --------------------------------------------------------------------------- | ------------------- |
+| 1        | `"\n[Tool: get_weather executed successfully]"`, return `undefined`, 1 call | identical, `EXIT:1` |
+| 2        | run 3 calls/2 tool msgs vs stream 1 call/1 tool msg                         | identical, `EXIT:1` |
+| 3        | `{"state":"complete","content":"tick0 tick1 tick2 "}`                       | identical, `EXIT:1` |
+| 4        | `StructuredOutputError … after 1 attempt(s)`, validated `undefined`         | identical, `EXIT:1` |
+| 5        | run 1/1 + six event families vs stream `0/0`, `events=[]`                   | identical, `EXIT:1` |
+| 6        | run `["echo_tool"]` vs stream `[]`                                          | identical, `EXIT:1` |
+
+Every scenario is red pre-fix for the defect it names, and the expected result is the _opposite_ of the
+observed one — the scenarios discriminate, and no expected result was back-fitted to an observation.
+
+**Criterion 2 — executability decision present, with a specific reason for any `manual-only`.** PASS.
+All six declare `agent-executable`; none claims `manual-only`, so the specific-reason requirement is
+N/A by non-invocation. The claim is not merely asserted — this guardian executed all six via Bash, which
+proves agent-executability rather than accepting it. Scenario 3 additionally justifies its decision
+("the abort is driven programmatically through `IRunOptions.signal`, not by a terminal keypress"), which
+is the correct redesign of an otherwise interactive observable.
+
+**Criterion 3 — the scenario drives a product surface.** PASS for all six. No scenario's observable is a
+build, typecheck, lint, test run, harness check, CI check, or an inspection of repository text. Each is a
+standalone script driving the **published SDK surface** of `@robota-sdk/agent-core` (`Robota.run`,
+`Robota.runStream`, `AbstractAIProvider`, `AbstractPlugin`, `AbstractTool`, `FunctionTool`,
+`robota.registerTool()`, `IRunOptions.onExecutionEvent`) — the `public SDK/example usage for SDK-only
+features` surface named in `backlog-execution.md`. No vitest/test runner is involved. The scripted
+provider is a user-supplied extension point, not a test-framework mock, and is the provider-free fixture
+the Scenario Design Preference Order explicitly _prefers_ over a live service. Placement is correct:
+scripts live in `scratch/src/`, never under `packages/`.
+
+**Criterion 4 — live-credential / external-service prerequisites stated explicitly.** PASS. No scenario
+requires credentials or network; the section states "No API key, no network, no live service" up front.
+The recorded probe was re-verified independently: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`,
+`GEMINI_API_KEY`, `BYTEDANCE_API_KEY` all resolve empty, and no `.env` exists at the repo root (only
+`.env.example`, a template). All six scenarios were then run with no credentials present and produced the
+documented results, so the "not needed" half is demonstrated, not claimed.
+
+**Exception clause.** Not invoked — six of six scenarios are written; no unwritten scenario exists.
+
+**Flagged judgement 1 — the dual-entry provider double is justified and contaminates nothing.** The
+stated reasoning holds, and was tested rather than reasoned about. Ablation probe (chatStream deleted
+from the double): `runStream()` throws `ConfigurationError: Provider must have chatStream method to
+support streaming execution` — the exact string at `execution-stream.ts:120`, confirming a `chat()`-only
+double would make every scenario red for the wrong reason. Entry-point trace shows the two halves are
+disjoint: `run()` records `["chat"]` only, `runStream()` records `["chatStream"]` only. The same ablation
+on `run()` leaves it unchanged (answer `"hi there"`, entries `["chat"]`), so the reference arm used by
+Scenarios 1/2/5/6 is unaffected by the presence of `chatStream`. `chatStream?` is optional on
+`IAIProvider`/`AbstractAIProvider`, so implementing both is contract-conformant, not a widening.
+
+**Flagged judgement 2 — Scenario 3's `complete` observation is product-derived, not an artifact of the
+double.** Checked at source because the scenario's whole verdict rests on it. `executeStream` reads only
+`chunk.content`, `chunk.role`, `chunk.toolCalls` and usage from each yielded chunk — it never propagates
+`chunk.state` — and commits via `conversationStore.addAssistantMessage(...)`, which takes no state
+argument. The double's `state: 'complete'` on its yielded chunks is therefore never read. The round path
+derives the state itself at `execution-round.ts:217`
+(`fullContext.signal?.aborted ? 'interrupted' : 'complete'`), and
+`execution-round-streaming.ts:128` already commits `'interrupted'` — so the asserted target is existing
+product behaviour on the round path, not a newly invented contract.
+
+**Flagged judgement 3 — Scenario 3's narrowed assertion is a legitimate scoping decision, not a gap.**
+The criteria require _an_ expected observable result that is stated and checkable, not every possible
+observable. Scenario 3 states one (`state: 'interrupted'`, never `'complete'`) and it discriminates:
+`complete` pre-fix, `interrupted` post-fix. Whether the generator rejects on abort is a genuinely open
+design choice this item has not made; asserting it would either pin a decision at scenario-authoring
+time or produce a red unrelated to the defect. The script still _records_ the behaviour
+(`consumption ended with: (no throw)`) without asserting it — observe-but-do-not-over-assert is the
+correct shape, and the information is preserved for whoever makes the choice.
+
+**Observation carried forward to DONE-GATE-STAGE-2 (not a Stage-1 finding).** The durable-artifact
+evidence rule binds Stage 2, not Stage 1. Because `scratch/src/` is gitignored, Stage-2 evidence must not
+cite `scratch/src/*.ts` paths as durable artifacts — the inlined blocks in this item are their durable
+home, and the Test Plan's committed suite is the durable repository artifact. Recorded so the Stage-2 run
+does not have to rediscover it.
+
+## Implementation Outcome (2026-08-16)
+
+**Delivered.** `packages/agent-core/src/services/execution-stream.ts` is no longer an engine: it is a
+105-line adapter that turns the round path's `onTextDelta` callback into an async generator, and
+`execution-stream-tools.ts` — the second tool-call loop — is deleted. `ExecutionService.executeStream`
+delegates to `execute`, so both public entry points enter one turn.
+
+### What that delivered, and what it revealed
+
+| Capability                                                                                                                           | Before                                                                             | After                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| system prompt, model dials, `toolChoice`, `signal`, `ephemeralSystemContext`, usage, plugin hooks, tool list, tool-schema validation | copied into the second engine one at a time; the system prompt was never copied    | asserted for BOTH entries from one table in `core/__tests__/entry-point-parity.test.ts` |
+| multi-round tool loops on `runStream` (CORE-032)                                                                                     | single round                                                                       | the round loop, unchanged                                                               |
+| `interrupted` message state on `runStream` (CORE-034)                                                                                | unreachable                                                                        | reached through `execution-round.ts:213`                                                |
+| structured output over the streamed text                                                                                             | validated the CONCATENATION of every chunk, so a tool-using turn could never parse | validates the turn's final assistant text, which `robotaRunStream` now returns          |
+| forced-summary provider call                                                                                                         | `{ model, onTextDelta }` — no `signal`, no `effort`, no idle timeout               | goes through the same helper as a round call                                            |
+| remote seam cancellation                                                                                                             | `fetch` called with no `signal`; every rejection rewrapped as `Request failed`     | signal threaded; an abort surfaces as `AbortError`                                      |
+
+### Two defects found while doing it, absorbed rather than reported
+
+- **Silent history truncation.** History commits the delta buffer, not the returned message, so a
+  provider whose deltas stop short of its own assembled text truncated the committed assistant
+  message with nothing said. The turn now emits the missing **tail**, which makes the
+  emitted-nothing case the same code path rather than a special case; a buffer that is not a prefix
+  of the assembled text is a provider contradicting itself, and is logged rather than guessed at.
+  Red-proof recorded: without the tail emission the case commits `'The full answer '` for a provider
+  that returned `'The full answer is 42.'`.
+- **The offline verification scenario encoded the two-engine world.** `examples/verify-offline.ts`'s
+  mock answered `chat()` and `chatStream()` differently (`offline:` vs `stream:`) and the scenario
+  asserted which engine ran. It now implements the `onTextDelta` contract and asserts the property
+  that matters: the same input answers the same through either entry point.
+
+### Deviations from the endorsed plan, stated
+
+- **`createScriptedProvider` did NOT gain `chatStream`**, which this item's own Test Plan asked for.
+  Amendment 7 of the endorsed plan supersedes it: after the change the round path drives streaming
+  through `chat()` + `onTextDelta`, so a `chatStream` half on the shared double would be dead weight
+  the day it was written. The double gained delta emission (conformance with a clause of
+  `IAIProvider` it was violating) and `chatOptions` recording (additive, and what makes the
+  "both entries build the same options" assertion possible).
+- **The remote streaming route was NOT wired**, which the delivery table had listed here. It is
+  [CORE-044](CORE-044-remote-executor-drops-every-per-call-option.md): the route does not exist in
+  this repository under either spelling, so routing to it would turn a working remote `run()` into a 404. Only the client-local `signal` half landed here, which is the half this item's cancellation
+  claim depends on.
+
+### Filed, not fixed here
+
+- **[CORE-045](CORE-045-registertool-throws-on-every-fresh-agent.md)** — `Robota.registerTool()`
+  throws on every freshly constructed agent, because the registry it writes to is initialized only by
+  the first run. Found because the parity suite tried to use it; the suite registers tools through
+  `config.tools` instead. Separate seam, and this PR is already over the size ceiling.
+
+### Verification
+
+- `packages/agent-core`: 1035 tests pass; `pnpm harness:verify --scope packages/agent-core` green
+  including the recorded offline scenario.
+- `packages/agent-remote-client`: 108 tests pass; `pnpm harness:verify` green.
+- Every other workspace package's suite passes. `dag-adapters-sqlite` and `dag-worker` fail locally on
+  a missing `better-sqlite3` native binding (`node_modules/.pnpm/better-sqlite3@11.10.0/.../build`
+  contains only Makefiles, no compiled `.node`) — an environment fault, pre-existing, and outside this
+  change's file set, which touches no `dag-*` package.
+- File-size floor: `execution-stream.ts` and `execution-stream-tools.ts` dropped from the baseline;
+  `robota-execution.ts` split into a structured-output half and `chat-http-methods.ts` split into a
+  streaming half so both stay under the 300-line ceiling; the ratchet re-locked for the three files
+  that shrank.

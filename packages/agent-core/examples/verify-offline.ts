@@ -7,12 +7,22 @@ class MockAIProvider extends AbstractAIProvider {
   override readonly name = 'mock-provider';
   override readonly version = '1.0.0';
 
+  /**
+   * CORE-042: this double used to answer `chat()` and `chatStream()` DIFFERENTLY (`offline:` vs
+   * `stream:`), because the agent had two execution engines and the scenario pinned which one ran.
+   * There is one turn now, so it implements the `IChatOptions.onTextDelta` contract the way a real
+   * provider does -- emit each chunk, and still return the complete assembled message -- and the
+   * scenario below checks the property that actually matters: both entry points answer the same.
+   */
   override async chat(
     messages: TUniversalMessage[],
-    _options?: IChatOptions,
+    options?: IChatOptions,
   ): Promise<TUniversalMessage> {
     const last = messages.at(-1);
     const content = typeof last?.content === 'string' ? last.content : '';
+
+    options?.onTextDelta?.('offline:');
+    options?.onTextDelta?.(content);
 
     return {
       role: 'assistant',
@@ -20,30 +30,11 @@ class MockAIProvider extends AbstractAIProvider {
       timestamp: new Date(),
     };
   }
-
-  override async *chatStream(
-    messages: TUniversalMessage[],
-    _options?: IChatOptions,
-  ): AsyncIterable<TUniversalMessage> {
-    const last = messages.at(-1);
-    const content = typeof last?.content === 'string' ? last.content : '';
-
-    yield {
-      role: 'assistant',
-      content: 'stream:',
-      timestamp: new Date(),
-    };
-    yield {
-      role: 'assistant',
-      content,
-      timestamp: new Date(),
-    };
-  }
 }
 
-async function collectStream(agent: Robota): Promise<string> {
+async function collectStream(agent: Robota, input = 'verify-stream'): Promise<string> {
   let output = '';
-  for await (const chunk of agent.runStream('verify-stream')) {
+  for await (const chunk of agent.runStream(input)) {
     output += chunk;
   }
   return output;
@@ -69,8 +60,16 @@ async function main(): Promise<void> {
   }
 
   const streamed = await collectStream(agent);
-  if (streamed !== 'stream:verify-stream') {
+  if (streamed !== 'offline:verify-stream') {
     throw new Error(`Unexpected stream response: ${streamed}`);
+  }
+
+  // CORE-042: the two entry points are two entries into ONE turn, so the same input must produce
+  // the same answer through either. That is the property six copied capabilities failed to hold.
+  const viaRun = await agent.run('same-input');
+  const viaStream = await collectStream(agent, 'same-input');
+  if (viaRun !== viaStream) {
+    throw new Error(`run and runStream disagree: ${viaRun} vs ${viaStream}`);
   }
 
   await agent.destroy();

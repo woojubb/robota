@@ -1,313 +1,115 @@
-import {
-  assertToolChoiceValid,
-  buildChatResponseFormat,
-  initializeConversationStore,
-} from './execution-service-helpers';
-import { executeStreamToolCalls } from './execution-stream-tools';
-import { collectAssistantUsageMetadata } from './execution-usage';
-import { callPluginHook } from './plugin-hook-dispatcher';
-import { createSystemMessage } from '../managers/conversation-message-factory';
-import { ConfigurationError } from '../utils/errors';
+/**
+ * Streaming ENTRY into the one execution turn (CORE-042).
+ *
+ * This file used to be a second execution engine: it re-derived store setup, provider resolution,
+ * chat options, provider-message derivation, tool execution, validation, commit and error
+ * classification inline, and owned none of them. Every turn capability therefore had to be built
+ * twice, and the forgotten copy failed silently — six commits in a row were the identical
+ * "the streaming path dropped X, copy X in" patch, two of them found by users after publish.
+ *
+ * There is no second engine now. `runStream` runs the SAME `execute()` the round path runs, with a
+ * queue-feeding `onTextDelta`, and yields the deltas as they arrive. Rounds, the post-tool model
+ * call, the round cap, abort state, plugin hooks, replay events, caching and the capacity guard are
+ * not re-implemented here — they are simply what the turn does.
+ *
+ * That the round path streams at all is not incidental: `IChatOptions.onTextDelta` is contractual
+ * ("the provider should use streaming internally and call this for each text chunk, while still
+ * returning the complete assembled message"), and it is the mechanism the shipped product already
+ * renders from — the TUI, headless mode, the ws transport and agent-server all consume deltas fed
+ * through `run()`, not through this entry point.
+ */
 
-import type { ExecutionEventEmitter } from './execution-event-emitter';
-import type { IExecutionContext } from './execution-types';
-import type { TPluginWithHooks } from './plugin-hook-dispatcher';
-import type { IToolExecutionBatchContext } from './tool-execution-service';
-import type { ToolExecutionService } from './tool-execution-service';
-import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
-import type { IAIProviderManager } from '../interfaces/manager';
-import type { IToolManager } from '../interfaces/manager';
-import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
-import type { IChatOptions } from '../interfaces/provider';
-import type { IPluginContext, TMetadata } from '../interfaces/types';
-import type { ConversationHistory } from '../managers/conversation-history-manager';
-import type { ILogger } from '../utils/logger';
+import type { ICoreExecutionResult, IExecutionContext } from './execution-types';
+import type { IAgentConfig } from '../interfaces/agent';
+import type { TUniversalMessage } from '../interfaces/messages';
 
-/** Streaming chunk yielded by executeStream */
-export interface IStreamChunk {
-  chunk: string;
-  isComplete: boolean;
-}
-
-/** Dependencies required by executeStream */
-export interface IStreamDependencies {
-  aiProviders: IAIProviderManager;
-  tools: IToolManager;
-  conversationHistory: ConversationHistory;
-  toolExecutionService: ToolExecutionService;
-  plugins: ReadonlyArray<TPluginWithHooks>;
-  logger: ILogger;
-  eventEmitter: ExecutionEventEmitter;
-  generateExecutionId: () => string;
-}
+/** The turn this entry point streams. Injected so the seam stays one-directional and testable. */
+export type TRunExecute = (
+  input: string,
+  messages: TUniversalMessage[],
+  config: IAgentConfig,
+  context: Partial<IExecutionContext>,
+) => Promise<ICoreExecutionResult>;
 
 /**
- * Execute with streaming response.
- * Extracted from ExecutionService to reduce file size.
+ * Run one turn, yield its text deltas, and return the turn's result.
+ *
+ * The RESULT is returned, not the response string, because `execute()` reports failure by resolving
+ * with `success: false` and an `error` rather than by rejecting (CORE-020). Throwing that here would
+ * put the failure rule in two layers; the caller applies the same check `robotaRun` applies, so one
+ * rule lives in one place.
+ *
+ * The generator OWNS cancellation, not merely draining. A consumer that stops iterating (`break`,
+ * `return`, an exception) must not leave the turn running: `execute()` is an in-flight promise here,
+ * and an abandoned turn would keep writing to the conversation store after `Robota.runStream`'s
+ * `finally` has already released the CORE-012 run slot and reset ephemeral history — interleaving a
+ * dead turn's writes into the next run. So the `finally` aborts the turn and awaits it to settlement
+ * before returning.
  */
 export async function* executeStream(
   input: string,
   messages: TUniversalMessage[],
   config: IAgentConfig,
   context: Partial<IExecutionContext> | undefined,
-  deps: IStreamDependencies,
-): AsyncGenerator<IStreamChunk> {
-  const {
-    aiProviders,
-    tools,
-    conversationHistory,
-    toolExecutionService,
-    plugins,
-    logger,
-    eventEmitter,
-  } = deps;
+  runExecute: TRunExecute,
+): AsyncGenerator<string, ICoreExecutionResult> {
+  const pending: string[] = [];
+  let wake: (() => void) | null = null;
+  let finished = false;
+  let failure: unknown = null;
+  // Boxed rather than a bare `let`: the assignment happens inside a callback, and TypeScript's
+  // control-flow analysis narrows a captured `let` to its initializer at the read site.
+  const settled: { result: ICoreExecutionResult | null } = { result: null };
 
-  logger.debug('ExecutionService.executeStream called');
+  const abandon = new AbortController();
+  const callerSignal = context?.signal;
+  const signal = callerSignal ? AbortSignal.any([callerSignal, abandon.signal]) : abandon.signal;
 
-  const executionId = deps.generateExecutionId();
-  const startTime = Date.now();
-  if (!context?.conversationId || context.conversationId.length === 0) {
-    throw new Error('[EXECUTION] conversationId is required for streaming');
-  }
-  const streamingConversationId = context.conversationId;
-  eventEmitter.prepareOwnerPathBases(streamingConversationId);
+  const callerOnTextDelta = context?.onTextDelta;
+  const onTextDelta = (delta: string): void => {
+    pending.push(delta);
+    // The caller's own callback still fires: `IRunOptions.onTextDelta` reaches this context, and
+    // swallowing it here would be a new instance of the drop this file exists to end.
+    callerOnTextDelta?.(delta);
+    wake?.();
+  };
+
+  const turn = runExecute(input, messages, config, { ...context, signal, onTextDelta })
+    .then(
+      (value) => {
+        settled.result = value;
+      },
+      (error: unknown) => {
+        failure = error;
+      },
+    )
+    .finally(() => {
+      finished = true;
+      wake?.();
+    });
 
   try {
-    // Contained — CORE-042. Entering the round path's own session initialization is what makes
-    // `config.systemMessage` and the inject-once rule (CORE-009/CORE-010) reach this path at all —
-    // reading the store directly is why an agent obeyed its persona through `run()` and ignored it
-    // through `runStream()`. It only makes this path CALL one shared helper: provider resolution,
-    // chat options, validation and commit are still re-derived below, so the turn is still
-    // implemented twice. The shared seam is CORE-042's work.
-    //
-    // The helper's restore branch cannot fire here, by a property of the CALLER not of this call:
-    // `messages` is a synchronous snapshot of this same store. A caller passing a foreign array
-    // would resurrect a cleared history with `parts` stripped by `robota-history.ts`'s projection.
-    const conversationStore = initializeConversationStore(
-      conversationHistory,
-      streamingConversationId,
-      messages,
-      config,
-      executionId,
-    );
-
-    if (input) {
-      conversationStore.addUserMessage(input, { executionId });
-    }
-
-    await callPluginHook(
-      plugins,
-      'beforeRun',
-      {
-        input,
-        ...(context?.metadata ? { metadata: context.metadata as TMetadata } : {}),
-      },
-      logger,
-    );
-
-    const currentInfo = aiProviders.getCurrentProvider();
-    if (!currentInfo) {
-      throw new ConfigurationError('No AI provider configured');
-    }
-
-    const provider = aiProviders.getProvider(currentInfo.provider);
-    if (!provider) {
-      throw new ConfigurationError(`AI provider '${currentInfo.provider}' not found`);
-    }
-
-    if (typeof provider.chatStream !== 'function') {
-      throw new ConfigurationError(
-        'Provider must have chatStream method to support streaming execution',
-      );
-    }
-
-    logger.debug('ExecutionService calling provider.chatStream');
-
-    const conversationMessages = conversationStore.getMessages();
-    // SELFHOST-008 P3: mirror the round path — an EPHEMERAL per-run system block is appended to a DERIVED
-    // provider-message array only (sent to the model, NEVER written to the conversation store), so the
-    // `IRunOptions.ephemeralSystemContext` contract holds identically on the streaming path.
-    const ephemeralSystemContext = context?.ephemeralSystemContext;
-    const providerMessages =
-      ephemeralSystemContext && ephemeralSystemContext.trim().length > 0
-        ? [...conversationMessages, createSystemMessage(ephemeralSystemContext)]
-        : conversationMessages;
-
-    // One call, not six: six debug calls reported one fact — how many tools this turn has — in six
-    // phrasings, with four variables that existed only to feed them. The two dropped
-    // `Final chatOptions…` lines are derivable from the pair below, since `chatOptions.tools` is
-    // `tools.getTools()` gated on `config.tools.length > 0`.
-    logger.debug('[EXECUTION-SERVICE] stream tool inventory', {
-      configured: Array.isArray(config.tools) ? config.tools.length : undefined,
-      registered: tools.getTools().length,
-    });
-
-    // CORE-016/017: the streaming path must carry the same model options as the round path —
-    // defaultModel values first, run-scoped context overrides win.
-    const maxTokens = context?.maxTokens ?? config.defaultModel.maxTokens;
-    const temperature = context?.temperature ?? config.defaultModel.temperature;
-    const toolChoice = context?.toolChoice ?? config.defaultModel.toolChoice;
-    const chatOptions: IChatOptions = {
-      model: config.defaultModel.model,
-      effort: config.defaultModel.effort ?? 'high',
-      ...(context?.signal && { signal: context.signal }),
-      ...(maxTokens !== undefined && { maxTokens }),
-      ...(temperature !== undefined && { temperature }),
-      ...(toolChoice !== undefined && { toolChoice }),
-      ...(config.tools && config.tools.length > 0 && { tools: tools.getTools() }),
-      ...(() => {
-        const responseFormat = buildChatResponseFormat(config.responseFormat);
-        return responseFormat ? { responseFormat } : {};
-      })(),
-    };
-    assertToolChoiceValid(chatOptions.toolChoice, chatOptions.tools);
-
-    const chatStream = provider.chatStream;
-    if (!chatStream) {
-      throw new ConfigurationError('Provider does not support streaming');
-    }
-
-    const stream = chatStream.call(provider, providerMessages, chatOptions);
-    let fullResponse = '';
-    let sawAssistantContent = false;
-    const toolCalls: IToolCall[] = [];
-    let currentToolCallIndex = -1;
-    let usageMetadata: ReturnType<typeof collectAssistantUsageMetadata>;
-
-    for await (const chunk of stream) {
-      // The final usage chunk (stream_options.include_usage) carries token usage; collect it
-      // so the committed assistant message exposes usage like the non-streaming round path.
-      const chunkUsage = collectAssistantUsageMetadata(chunk);
-      if (chunkUsage) {
-        usageMetadata = chunkUsage;
+    for (;;) {
+      while (pending.length > 0) {
+        yield pending.shift() as string;
       }
-      if (typeof chunk.content === 'string') {
-        sawAssistantContent = true;
-      }
-      if (chunk.content) {
-        fullResponse += chunk.content;
-        yield { chunk: chunk.content, isComplete: false };
-      }
-
-      if (chunk.role === 'assistant') {
-        const assistantChunk = chunk as IAssistantMessage;
-        if (Array.isArray(assistantChunk.toolCalls) && assistantChunk.toolCalls.length > 0) {
-          for (const chunkToolCall of assistantChunk.toolCalls) {
-            if (chunkToolCall.id && chunkToolCall.id !== '') {
-              if (!chunkToolCall.type || chunkToolCall.type.length === 0) {
-                throw new Error(
-                  `[EXECUTION] Tool call "${chunkToolCall.id}" missing type in stream`,
-                );
-              }
-              if (!chunkToolCall.function?.name || chunkToolCall.function.name.length === 0) {
-                throw new Error(
-                  `[EXECUTION] Tool call "${chunkToolCall.id}" missing function name in stream`,
-                );
-              }
-              if (typeof chunkToolCall.function.arguments !== 'string') {
-                throw new Error(
-                  `[EXECUTION] Tool call "${chunkToolCall.id}" missing arguments in stream`,
-                );
-              }
-              currentToolCallIndex = toolCalls.length;
-              toolCalls.push({
-                id: chunkToolCall.id,
-                type: chunkToolCall.type,
-                function: {
-                  name: chunkToolCall.function.name,
-                  arguments: chunkToolCall.function.arguments,
-                },
-              });
-              logger.debug(
-                `[TOOL-STREAM] New tool call started: ${chunkToolCall.id} (${chunkToolCall.function?.name})`,
-              );
-            } else if (currentToolCallIndex >= 0) {
-              const hasNameFragment =
-                typeof chunkToolCall.function?.name === 'string' &&
-                chunkToolCall.function.name.length > 0;
-              const hasArgumentsFragment =
-                typeof chunkToolCall.function?.arguments === 'string' &&
-                chunkToolCall.function.arguments.length > 0;
-              if (!hasNameFragment && !hasArgumentsFragment) {
-                throw new Error(
-                  `[EXECUTION] Tool call fragment missing name/arguments for ${toolCalls[currentToolCallIndex].id}`,
-                );
-              }
-              if (hasNameFragment) {
-                toolCalls[currentToolCallIndex].function.name += chunkToolCall.function!.name;
-              }
-              if (hasArgumentsFragment) {
-                toolCalls[currentToolCallIndex].function.arguments +=
-                  chunkToolCall.function!.arguments;
-              }
-            }
-          }
-        }
-      }
+      if (finished) break;
+      await new Promise<void>((resolve) => {
+        wake = (): void => {
+          wake = null;
+          resolve();
+        };
+      });
     }
-
-    logger.debug('[EXECUTION-SERVICE-STREAM] Stream completed, toolCalls detected:', {
-      count: toolCalls.length,
-    });
-
-    if (typeof fullResponse !== 'string') {
-      throw new Error('[EXECUTION] Streaming response content is required');
+    if (failure !== null) {
+      throw failure;
     }
-    // CORE-020: parity with the run-path response validation — a stream that delivered
-    // neither string content nor tool calls is a malformed provider response, not a
-    // silently-complete empty answer (empty-string content remains valid).
-    if (!sawAssistantContent && toolCalls.length === 0) {
-      throw new Error('[EXECUTION] Provider response must have content or tool calls');
+    if (settled.result === null) {
+      throw new Error('[EXECUTION] streaming turn settled without a result');
     }
-    conversationStore.addAssistantMessage(fullResponse, toolCalls, {
-      executionId,
-      ...(usageMetadata ?? {}),
-    });
-
-    if (toolCalls.length > 0) {
-      yield* executeStreamToolCalls(
-        toolCalls,
-        conversationStore,
-        streamingConversationId,
-        executionId,
-        toolExecutionService,
-        eventEmitter,
-        logger,
-        context?.signal,
-      );
-    }
-
-    await callPluginHook(
-      plugins,
-      'afterRun',
-      {
-        input,
-        response: fullResponse,
-        ...(context?.metadata ? { metadata: context.metadata as TMetadata } : {}),
-      },
-      logger,
-    );
-
-    yield { chunk: '', isComplete: true };
-  } catch (error) {
-    logger.error('ExecutionService streaming execution failed', {
-      error: error instanceof Error ? error.message : String(error),
-      executionTime: Date.now() - startTime,
-    });
-
-    await callPluginHook(
-      plugins,
-      'onError',
-      {
-        input,
-        error: error instanceof Error ? error : new Error(String(error)),
-        ...(context?.metadata ? { metadata: context.metadata as TMetadata } : {}),
-      },
-      logger,
-    );
-
-    throw error;
+    return settled.result;
   } finally {
-    eventEmitter.resetOwnerPathBases();
+    abandon.abort();
+    await turn;
   }
 }
