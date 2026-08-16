@@ -39,9 +39,17 @@ no-`tools` model still gets tools and `vision` is never checked before sending i
 
 Either consume the per-model flags — model-aware tool/vision gating in the engine or at
 profile/model-selection time, plus `/model` display — or delete the vocabulary from the catalog
-contract as forward-provisioned-but-unused (a published-contract change, semver/changeset gate).
-Resolve the deepseek `supportsTools()`-vs-catalog self-contradiction either way (make `supportsTools`
-model-aware, or correct one side).
+contract as forward-provisioned-but-unused. Resolve the deepseek `supportsTools()`-vs-catalog
+self-contradiction either way (make `supportsTools` model-aware, or correct one side).
+
+> **Corrected 2026-08-16 (owner directive).** This line previously called deleting the vocabulary
+> "a published-contract change, semver/changeset gate". That gate does not exist: the catalog
+> contract has never shipped in a stable release — `@robota-sdk/agent-core` has 71 versions on npm
+> and zero non-prerelease among them, with the `latest` dist-tag resolving to a `-beta`. Per
+> [code-quality.md](../rules/code-quality.md) `:50`–`:51` (unreleased — no backward-compat
+> constraint; legacy is disposable in service of the correct structure), decide this on
+> architectural grounds alone. CORE-043 depends on the answer and was itself blocked by this
+> framing.
 
 ## Test Plan
 
