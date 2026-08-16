@@ -183,7 +183,7 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 
 <!-- The rows below live under `###` subheadings. `check-spec-public-surface.mjs` stops counting at the
      first non-"Public API" heading, so it reads none of them — which is why this package's undocumented
-     baseline is ~147 phantom entries. Filed as its own item; this table exists so a genuinely new export
+     baseline is ~147 phantom entries. Filed as issue #1765; this table exists so a genuinely new export
      is visible to the scan rather than hidden behind that parser defect. -->
 
 ### Core
