@@ -44,29 +44,71 @@ directly contradicts ARCH-006 ("every tool robota runs comes from a pack").
 
 ## Direction
 
-Treat the process boundary as a serialization boundary. Keep the exact composed provider definitions,
-tool instances, credentials, and live owner-bound services in the parent, and expose them to the neutral
-worker through a versioned correlated capability broker. The worker uses provider/tool proxies and must
-fail startup when the broker handshake is unavailable; it never imports or reconstructs Robota defaults.
+**Root item: #1777.** A `finding-depth-triager` verdict of FOUNDATIONAL routed this item's cause to
+its own issue: _Robota's composition contract is carried by live instances and has no projection
+across a process boundary._ The owner approved re-scoping this item to be that root.
 
-The protocol must preserve provider streaming, cancellation, typed errors, permissions, and settle-once
-lifecycle behavior. Provider profile selection occurs through an injected parent resolver, falling back
-to the invoking runtime provider only when the request omits a profile. Tool calls serialize every
-classifiable `IToolExecutionContext` field, derive `signal`, and reconstruct live event/ask services in
-the parent. Extensions use a bounded recursive tagged codec for `undefined`, finite/special numbers,
-`Date`, `Error`, arrays, and plain records; cycles, invalid dates, unsupported prototypes, malformed tags,
-and depth/byte overflow fail explicitly. Exhaustive fixtures cover every top-level context key and wire
-variant.
+**The Direction below REPLACES the capability-broker design this file previously carried.** That
+design was written when the worker was a standalone neutral module located on disk. DIST-006 (#1783,
+merged 2026-08-16) changed the premise: the worker is now **robota's own entry**, re-executed with
+`--__robota-subagent-worker`, so the product's profile is already compiled into the child.
+
+**The composition contract is expressed as a RECIPE, not as instances.** A composition cannot be
+projected, because it is code: `IProviderDefinition.createProvider` is a function and
+`IToolWithEventService` carries `execute`. There are exactly two structurally sound responses —
+project the instances (a broker) or stop expressing the contract as instances (a recipe). The recipe
+wins, and not because it is smaller:
+
+- **A broker re-breaks ARCH-010 containment.** Proxied tools execute in the PARENT, bound to the
+  parent's checkout. Under worktree isolation the child's execution root is a different directory,
+  so a proxied `Read`/`Write` would touch the wrong tree. The only way a broker avoids this is to
+  build a fresh root-bound tool set per job in the parent — which is this design plus an IPC hop.
+- **A broker's codec is misplaced.** `agent-interface-transport` is mechanically guarded to be
+  runtime-inert (INFRA-035); a tagged serialization codec is runtime behaviour.
+- **A broker inverts assembly ownership.** It routes the product's assembly through a neutral
+  library, which `project-structure.md` § per-product assembly ownership forbids.
+
+So: `agent-subagent-runner` declares a port, robota's composition root implements it, and the
+neutral package **stops importing product defaults at all** — the `@robota-sdk/agent-provider-defaults`
+dependency is removed from its manifest, so the next contributor who reaches for the default registry
+does not compile. This is the sibling of the seam DIST-006 established one level down: _the only party
+that knows what a product composes is that product._
+
+**Fail closed on what the recipe cannot reproduce.** A recipe carries anything that is a pure function
+of (execution root, serialized payload, ambient durable state). It cannot carry a live, unrepeatable
+handle — today `ICodingPackOptions.sandboxClient`. Leaving that silent would re-create ARCH-010's
+fail-open shape (sandboxed parent, host-tool child), and it is reachable with in-repo public code:
+`E2BSandboxClient` and `InMemorySandboxClient` are both exported from `agent-tools`'s barrel. So the
+composition root must REFUSE to select the child-process runner when it composed such a capability,
+naming it. Actually projecting live capability is filed separately; it is the honest residue of #1777.
 
 ## Test Plan
 
-- Red-first: a custom provider and uniquely named pack tool execute through the parent broker without
-  credentials or live instances entering the start payload.
-- Forked-worker tests cover requested/default/unknown profiles, streaming, cancellation, typed errors,
-  ownership-field and tagged-extension round trips, malformed/cyclic/over-limit rejection, missing
-  capabilities, broker handshake failure, and settle-once disconnect/error/exit cleanup.
+> **Rewritten with the Direction.** The plan that stood here tested the **broker** — "execute through
+> the parent broker", "broker handshake failure", tagged-extension round trips, cyclic/over-limit
+> codec rejection. That is Alternative 1, which the approved design rejects; a breakdown written
+> against it would have implemented the rejected design. Keys are the design document's TC-N.
+
+- **TC-01** — cross-process integration in `agent-subagent-runner`: a test entry module calling
+  `runSubagentWorkerMain(scratchComposition)` over a real IPC channel, with a uniquely-named tool and
+  a custom `IProviderDefinition`. Red-first. This is the level at which a scratch composition is
+  constructible at all — the built binary composes statically, there is no runtime pack-injection
+  path, and the worker spawn forwards no user argv.
+- **TC-02** — extend `packages/agent-cli/src/__tests__/e2e/subagent-worker-entry.bintest.ts` so the
+  BUILT binary's worker reports robota's pack tool-name set in `ready`. Needs no model provider and no
+  scratch pack, runs the real artifact, red against unfixed code.
+- **TC-03** — `tsgo --noEmit` against a fixture omitting the composition argument: a required
+  parameter, not optional-with-default.
+- **TC-04** — a `scripts/harness/scan-*.mjs` check in `pnpm harness:scan`, alongside
+  `scan-interface-runtime.mjs`: the manifest edge is gone and `src/` imports neither
+  `createDefaultTools` nor `createDefaultProviderDefinitions`. This is the floor on the TOOL axis,
+  which the manifest edge cannot cut (#1787).
+- **TC-05** — unit: the worker composition and the parent's product composition yield the same
+  tool-name set for the same `cwd`.
+- **TC-06** — unit: given a pack context carrying a `sandboxClient`, the composition root refuses the
+  child-process runner, naming the capability.
+- **TC-07** — `pnpm harness:verify-like-ci` green.
 - Regression: existing in-process subagent tool-surface parity still holds.
-- `pnpm harness:verify -- --scope packages/agent-subagent-runner` green.
 
 ## User Execution Test Scenarios
 
@@ -81,3 +123,38 @@ variant.
   provider).
 - Cleanup: remove the scratch pack/provider.
 - Evidence (fill in after implementation): subagent transcript showing the custom tool call.
+
+## Plan
+
+Design document: [`.agents/spec-docs/active/ARCH-021-child-process-subagent-composition.md`](../spec-docs/active/ARCH-021-child-process-subagent-composition.md).
+One task per Completion Criterion.
+
+- [ ] **TC-03** — declare `ISubagentWorkerComposition` in `agent-subagent-runner` (`createTools({ cwd })` + `readonly providerDefinitions`) and change `runSubagentWorkerMain` to take it as a **required**
+      parameter; export both from the barrel.
+- [ ] **TC-01** — make the worker build its surface from the injected composition instead of
+      `createDefaultTools` / `createDefaultProviderDefinitions`, keeping `createSubagentSession` and the
+      CORE-024 / CORE-025 / ARCH-010 wiring where they are. Add the cross-process integration test.
+- [ ] **TC-05** — add `createRobotaSubagentComposition()` in `agent-cli/src/product/` as the single
+      source resolving through `createRobotaPacks`, and wire `bin.ts`'s worker branch and `cli.ts`'s
+      parent composition through it. Add the tool-name-set parity test.
+- [ ] **TC-04** — delete `@robota-sdk/agent-provider-defaults` from `agent-subagent-runner`'s
+      `dependencies`, and add the harness scan that holds the tool axis the manifest cannot cut.
+- [ ] **TC-06** — make robota's parent-side pack context one named value read by both
+      `createRobotaPacks` and the runner selection, and refuse the child-process runner when it carries
+      a `sandboxClient`. Add the refusal test.
+- [ ] **TC-02** — extend the built-binary bintest so the worker reports its composed tool names in
+      `ready` (Alternative 3's parity declaration), asserting robota's pack tool-name set.
+- [ ] Update `.agents/project-structure.md:15`, which records this package as "depends on
+      agent-framework + agent-provider-defaults" — the manifest is the fact, the document is the drift.
+- [ ] Update `packages/agent-subagent-runner/docs/SPEC.md` for the new port and the removed dependency.
+- [ ] Changeset: `agent-subagent-runner` **major**, `agent-cli` patch.
+- [ ] **TC-07** — `pnpm harness:verify-like-ci` green.
+
+## Blockers
+
+- None. The approved design is `.agents/spec-docs/active/ARCH-021-child-process-subagent-composition.md`;
+  GATE-APPROVAL passed 2026-08-16.
+
+## Result
+
+Pending.
