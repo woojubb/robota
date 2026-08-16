@@ -10,6 +10,18 @@ Design for Task [`.agents/tasks/CORE-043-structured-output-capability-has-no-run
 (issue [#1750](https://github.com/woojubb/robota/issues/1750)), the root item for CORE-038 / issue
 [#1738](https://github.com/woojubb/robota/issues/1738).
 
+> **Citations re-verified 2026-08-16 after CORE-042 landed (#1774).** That change collapsed the
+> duplicated turn: `execution-stream.ts` went from ~400 lines to 115, `execution-stream-tools.ts` was
+> deleted, and `robotaRunStructured` was extracted to `core/robota-execution-structured.ts`. Every
+> load-bearing contract this design rests on still holds — `tools.getTools()`, the `{ chat }`-narrowed
+> resolved provider, the `responseFormat` union, `IProviderCapabilities`, the `validate` closure — but
+> line numbers in `execution-round.ts` and `execution-pipeline.ts` moved and are corrected above.
+>
+> **One argument changes.** Step 4 justified its placement partly as keeping CORE-042 "from claiming
+> an eighth instance" of the twice-implemented turn. CORE-042 has now landed, so the shared seam
+> exists rather than being something this design must avoid worsening. The placement is unchanged and
+> its reasoning is now simpler: the extraction sits inside a seam that is already one.
+
 ## Problem
 
 `run(input, { output })` promises a schema-conforming object. It keeps that promise through a
@@ -541,13 +553,13 @@ Task's `depends_on`.
   it on the **final** call, and the emission seam knows which call that is". **Both halves are
   false**, and review round 2 showed why:
   - **Finality is a posterior fact.** The loop is `while (hasRoundCapacity(...)) { … const shouldBreak
-= await executeRound(…); if (shouldBreak) break; }` (`execution-pipeline.ts:67-83`). It ends
+= await executeRound(…); if (shouldBreak) break; }` (`execution-pipeline.ts:69-85`). It ends
     because the model came back with text and no tool calls. `buildChatResponseFormat` runs _inside_
     the round, before the provider call, where the only decidable predicate is
     `currentRound === maxRounds` — budget exhaustion, which on the happy path never fires. A
     "force when round is last" implementation would force the schema tool essentially never.
   - **The structurally final call bypasses the seam.** `forceSummaryCall`
-    (`execution-pipeline.ts:120-168`) builds its own options — `{ model, onTextDelta? }` and nothing
+    (`execution-pipeline.ts:122-170`) builds its own options — `{ model, onTextDelta? }` and nothing
     else. No `tools`, no `toolChoice`, no `responseFormat`, no call to `buildChatResponseFormat`.
 
 **Injection is a terminal extraction call owned by the PIPELINE — the sibling of `forceSummaryCall`.**
@@ -567,7 +579,7 @@ toolsExecuted / success / error / interrupted`, and `robotaRun` narrows even tha
   register-call-unregister around an `await` is a race, and it makes the schema tool briefly visible
   to every concurrent run on that instance.
 
-`forceSummaryCall` (`execution-pipeline.ts:120-168`) is already a pipeline-owned terminal provider call
+`forceSummaryCall` (`execution-pipeline.ts:122-170`) is already a pipeline-owned terminal provider call
 issued after the loop converges, for the case where the loop ended without the answer the caller needs.
 The schema extraction is **that function's sibling, not a new concept at a different altitude** — same
 trigger shape, same layer, same needs. There it has `resolveProviderAndTools`, the resolved provider,
@@ -677,7 +689,7 @@ design, or simply the user's next turn — fails at the API. Not a degradation, 
 
 The obvious workaround collides with the SPEC line: `forceSummaryCall`, the analog this design
 deliberately adopted, already does the edit-history dance — `conversationStore.clear()` and re-add a
-filtered list (`execution-pipeline.ts:170-183`). Taking it as the structural sibling inherits that
+filtered list (`execution-pipeline.ts:172-185`). Taking it as the structural sibling inherits that
 tension.
 
 **Four constraints, and the rule is their intersection.** This is the third formulation of the history
@@ -719,15 +731,15 @@ listed here because each is a trap an implementer would otherwise hit separately
 
 | Consumer                                                       | What deferral does                                                                                                                                                                                                                                                                                                    |
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `hasTextResponse` (`execution-pipeline.ts:88-94`)              | Last committed message is a user or tool-result turn, so it reads false and **`forceSummaryCall` fires on every non-native structured run** — an extra call, a "Tool round limit reached" prompt on a run that hit no limit, and its `clear()`-and-re-add edit, which is the very edit constraint (d) exists to avoid |
+| `hasTextResponse` (`execution-pipeline.ts:92-98`)              | Last committed message is a user or tool-result turn, so it reads false and **`forceSummaryCall` fires on every non-native structured run** — an extra call, a "Tool round limit reached" prompt on a run that hit no limit, and its `clear()`-and-re-add edit, which is the very edit constraint (d) exists to avoid |
 | `buildFinalResult` (`execution-failure.ts:35-45`)              | Derives `response` from the last committed assistant message with non-empty content; pending is invisible, so `response` becomes the literal `'No response received. The context window may be full.'` and **the validator runs against a sentinel**                                                                  |
-| `history_mutation` emission (`execution-round.ts:222,229-237`) | `getMessages().at(-1)` returns the _preceding_ message — truthy, so the guard passes and an **append event fires for an append that did not happen**, at a wrong index, against `SPEC.md:859`'s append-only replay contract                                                                                           |
+| `history_mutation` emission (`execution-round.ts:218,225-233`) | `getMessages().at(-1)` returns the _preceding_ message — truthy, so the guard passes and an **append event fires for an append that did not happen**, at a wrong index, against `SPEC.md:859`'s append-only replay contract                                                                                           |
 | Abort return (`execution-pipeline.ts:98`)                      | Sits between the round's return and the extraction; an abort landing there leaves a pending assistant neither committed nor discarded, against `SPEC.md:1106` — "Text is ALWAYS preserved"                                                                                                                            |
 
 The correct placement is **inside the converging round, after the response is parsed and before
 `commitAssistant`** — and it is the only point where all four required inputs coexist:
 
-- **finality**, as a local: `assistantToolCalls.length === 0` (`execution-round.ts:241`), computed from
+- **finality**, as a local: `assistantToolCalls.length === 0` (`execution-round.ts:238`), computed from
   the parsed response with no store read — the fact that was unavailable at `buildChatResponseFormat`,
   which runs _before_ the provider call;
 - **the provider and model**, via `resolved`, already `executeRound`'s parameter;
@@ -781,19 +793,19 @@ whatever is convenient on each path and the two entry points diverge again — w
 this document has now corrected three times.
 
 **Two ordering facts, verified rather than assumed.** There is no race with the attempt's own append:
-`commitAssistant` runs **inside** the round (`execution-round.ts:218`), so by the time the loop exits
+`commitAssistant` runs **inside** the round (`execution-round.ts:214`), so by the time the loop exits
 the store already holds the converged assistant message — the same guarantee `hasTextResponse` and
 `forceSummaryCall` already depend on. A post-loop read is sequential and deterministic. And the
 extraction's request is composed **without mutating the store** —
 `[...conversationStore.getMessages(), <trailing user message>]` passed straight to `provider.chat`.
 That is what makes out-of-band implementable, and it is strictly better than `forceSummaryCall`'s
-`clear()`-and-re-add (`execution-pipeline.ts:170-183`), which is the edit that sits in tension with
+`clear()`-and-re-add (`execution-pipeline.ts:172-185`), which is the edit that sits in tension with
 `SPEC:987`. The trailing user message is not decoration: a conversation ending on an assistant message
 is not a valid request shape on every wire, which is why the sibling has one too.
 
 **And that call is cheaper than the retry it displaces.** An attempt is a whole run, not a call:
 `maxAttempts = (options.outputRetries ?? 2) + 1` and each attempt calls `robotaRun`
-(`robota-execution.ts:202-208`), which runs the entire round loop with full history. So on the compat
+(`robota-execution-structured.ts (extracted by CORE-042)`), which runs the entire round loop with full history. So on the compat
 family — where a prose first response is the structurally guaranteed case, since no schema is sent —
 the extraction replaces a full run with one provider call. Stated honestly: both replay the
 conversation, so the saving is "one history replay instead of one history replay **plus a round
@@ -871,16 +883,16 @@ re-checked against the code before revising. No finding was refuted in any round
 policy, mechanism/provenance, the required model argument, the eight-producer enumeration, the
 weakened fallback claim — and blocked on one thing: the new owner for injection.
 
-| Round-3 finding                                                                  | Re-checked at                                       | Disposition                                                      |
-| -------------------------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------- |
-| `robotaRunStructured` cannot learn its own trigger — no capability on the result | `execution-types.ts:150-161`                        | Fixed — step 4b                                                  |
-| It cannot add a tool: the list comes from the ToolManager, not config            | `execution-service-helpers.ts:105`                  | Fixed — owner moved                                              |
-| Mutating it via `registerTool`/`unregisterTool` is agent-global — a race         | `core/robota.ts:324,327`                            | Fixed — owner moved                                              |
-| The document's own Problem is not closed by its own solution                     | Problem § vs. the seam decision                     | Fixed — step 4b                                                  |
-| Steps 4 and 7 asserted opposite things about the same function                   | the two paragraphs                                  | Fixed — step 7 reconciles them                                   |
-| Unconditional extraction charges the lucky path for nothing                      | `validateStructuredText`, `robota-execution.ts:209` | Fixed — conditional; TC-05b                                      |
-| An attempt is a whole RUN, so extraction is cheaper than the retry it replaces   | `robota-execution.ts:202-208`                       | Adopted — the premise is stronger than claimed; stated in step 7 |
-| A static table just relocates staleness unless its purpose changes               | DeepSeek stamped `2026-05-07`, wrong throughout     | Fixed — deviations-not-enumeration, in step 1                    |
+| Round-3 finding                                                                  | Re-checked at                                            | Disposition                                                      |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------- |
+| `robotaRunStructured` cannot learn its own trigger — no capability on the result | `execution-types.ts:150-161`                             | Fixed — step 4b                                                  |
+| It cannot add a tool: the list comes from the ToolManager, not config            | `execution-service-helpers.ts:105`                       | Fixed — owner moved                                              |
+| Mutating it via `registerTool`/`unregisterTool` is agent-global — a race         | `core/robota.ts:324,327`                                 | Fixed — owner moved                                              |
+| The document's own Problem is not closed by its own solution                     | Problem § vs. the seam decision                          | Fixed — step 4b                                                  |
+| Steps 4 and 7 asserted opposite things about the same function                   | the two paragraphs                                       | Fixed — step 7 reconciles them                                   |
+| Unconditional extraction charges the lucky path for nothing                      | `validateStructuredText`, `robota-execution.ts:209`      | Fixed — conditional; TC-05b                                      |
+| An attempt is a whole RUN, so extraction is cheaper than the retry it replaces   | `robota-execution-structured.ts (extracted by CORE-042)` | Adopted — the premise is stronger than claimed; stated in step 7 |
+| A static table just relocates staleness unless its purpose changes               | DeepSeek stamped `2026-05-07`, wrong throughout          | Fixed — deviations-not-enumeration, in step 1                    |
 
 The reviewer's correction on cost is worth keeping visible: this design's fallback was defended as
 merely acceptable overhead, and it is in fact **cheaper** than what it displaces, because each retry
@@ -944,11 +956,11 @@ across the round boundary breaks four consumers, each differently:
 
 | Round-8 finding                                                              | Re-checked at                              | Disposition                      |
 | ---------------------------------------------------------------------------- | ------------------------------------------ | -------------------------------- |
-| `hasTextResponse` reads false → spurious `forceSummaryCall` every run        | `execution-pipeline.ts:88-94`              | Fixed — commit stays in-round    |
+| `hasTextResponse` reads false → spurious `forceSummaryCall` every run        | `execution-pipeline.ts:92-98`              | Fixed — commit stays in-round    |
 | `buildFinalResult` returns the "No response received" sentinel               | `execution-failure.ts:35-45`               | Fixed — same                     |
-| `history_mutation` fires for an append that did not happen, at a wrong index | `execution-round.ts:222,229-237`           | Fixed — same; TC-07e             |
+| `history_mutation` fires for an append that did not happen, at a wrong index | `execution-round.ts:218,225-233`           | Fixed — same; TC-07e             |
 | An abort between round return and extraction loses pending text              | `execution-pipeline.ts:98`; `SPEC.md:1106` | Fixed — same                     |
-| Finality is a free local **after** the response                              | `execution-round.ts:241`                   | Adopted — the placement argument |
+| Finality is a free local **after** the response                              | `execution-round.ts:238`                   | Adopted — the placement argument |
 
 The placement question ran through five positions across eight rounds — `robotaRunStructured`, the
 emission seam, the run-level terminal phase, the pipeline post-loop, and finally inside the converging
@@ -963,11 +975,11 @@ rather than assume:
 | Round-7 finding                                                                                                                    | Re-checked at                                         | Disposition                        |
 | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------- |
 | Committing nothing leaves history on the **rejected** prose, so conversation state again depends on which package was instantiated | the Problem section's own indictment                  | Fixed — pending-then-commit-once   |
-| The pending protocol already exists, and `discardPending()` is already used on a failure path                                      | `execution-round.ts:150,198,218`; `SPEC.md:1104-1108` | Adopted — no new machinery         |
+| The pending protocol already exists, and `discardPending()` is already used on a failure path                                      | `execution-round.ts:150,198,214`; `SPEC.md:1104-1108` | Adopted — no new machinery         |
 | The streaming case would diverge if left unstated                                                                                  | streamed deltas precede extraction                    | Fixed — decided and pinned, TC-07d |
 
 **Round 6** (on the fifth revision) closed the ordering question this author raised — there is no race,
-because `commitAssistant` runs inside the round (`execution-round.ts:218`), so the post-loop read is
+because `commitAssistant` runs inside the round (`execution-round.ts:214`), so the post-loop read is
 sequential — and then found one verified fact that changed two steps, **including a correction to the
 reviewer's own round-5 recommendation**:
 
@@ -975,7 +987,7 @@ reviewer's own round-5 recommendation**:
 | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- | -------------------------------------------------------- |
 | `agent-provider-anthropic` accepts `baseURL` — the gateway defect is not OpenAI-only                               | `anthropic/types.ts:41-48`, `provider.ts:84` | Fixed — step 5 covers both providers                     |
 | Committing the converted text produces **two consecutive assistant messages** — a 400 on a strict-alternation wire | `anthropic/message-converter.ts:56-62`       | Fixed — fully out-of-band; TC-07b now pins both failures |
-| No race, and the request must be composed without mutating the store                                               | `execution-round.ts:218`                     | Adopted — stated as verified                             |
+| No race, and the request must be composed without mutating the store                                               | `execution-round.ts:214`                     | Adopted — stated as verified                             |
 
 The second row is the notable one: the reviewer recommended committing the converted assistant text in
 round 5, this document adopted it, and round 6 falsified it — but only because round 6's _own_ first
@@ -989,7 +1001,7 @@ flagged; the third neither party had looked at, and it is the most serious findi
 
 | Round-5 finding                                                                                   | Re-checked at                                                                              | Disposition                                            |
 | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
-| **The extraction leaves an unpaired `tool_use` in history — the next provider call is a 400**     | `SPEC.md:986-987`; `anthropic/message-converter.ts:63-74`; `execution-pipeline.ts:170-183` | Fixed — out-of-band rule, TC-07b                       |
+| **The extraction leaves an unpaired `tool_use` in history — the next provider call is a 400**     | `SPEC.md:986-987`; `anthropic/message-converter.ts:63-74`; `execution-pipeline.ts:172-185` | Fixed — out-of-band rule, TC-07b                       |
 | Subset-vs-Zod divergence is the NORMAL case, so extraction is unreachable for constrained schemas | `structured-output.ts:66-74` — lossy `zodToJsonSchema` vs. full `safeParse`                | Fixed — failure fed forward, TC-07c                    |
 | Evaluation order unstated, so the double parse reads as a real cost                               | the conjunction itself                                                                     | Fixed — short-circuit stated; native path never parses |
 | Whether a failed extraction consumes the retry budget was unstated                                | `maxAttempts`, `robota-execution.ts:202`                                                   | Fixed — it does not; mechanics named                   |
@@ -1021,8 +1033,8 @@ flagged as uncertain when sending it back:
 
 | Round-2 finding                                                                        | Re-checked at                                                    | Disposition                                                  |
 | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------ |
-| "Force on the final call, the seam knows which" — undecidable; the seam runs mid-round | `execution-pipeline.ts:67-83`                                    | Fixed — step 7 moves injection to a run-level terminal phase |
-| The structurally final call bypasses the seam and carries no schema on any provider    | `execution-pipeline.ts:150-168` — `{ model, onTextDelta? }` only | Fixed — absorbed as an existing defect, TC-06b               |
+| "Force on the final call, the seam knows which" — undecidable; the seam runs mid-round | `execution-pipeline.ts:69-85`                                    | Fixed — step 7 moves injection to a run-level terminal phase |
+| The structurally final call bypasses the seam and carries no schema on any provider    | `execution-pipeline.ts:152-170` — `{ model, onTextDelta? }` only | Fixed — absorbed as an existing defect, TC-06b               |
 | "Catalog declares" has no source for OpenAI; `refreshModelCatalog` invoked by nothing  | `openai/provider-definition.ts:36-40`; no caller in any `src`    | Fixed — step 1 splits discovery from capability              |
 | Catalog-miss semantics undefined, now governing six flags                              | optional `capabilities`, exact-id lookup                         | Fixed — miss policy table, TC-03b                            |
 | Evidence Log still asserted the falsified "four producers"                             | the row itself                                                   | Fixed — the row now reads eight, Gemini's absence included   |
@@ -1218,8 +1230,8 @@ scoped back to 5.
 | `IProviderCapabilities` shape and default           | `agent-core/src/interfaces/provider-capabilities.ts:20-23,33-50`                                                                                                                            |
 | resolver is exported and consumed                   | `agent-core/src/index.ts:91`, `agent-session/src/session-run.ts:164`                                                                                                                        |
 | **eight** capability producers, not four            | `abstract-ai-provider.ts:210`, `openai/provider.ts:162`, `anthropic:284` and `:311`, `deepseek:186`, `qwen/provider-capabilities.ts`, `gemma:185`, and **`agent-provider-gemini` has none** |
-| finality is posterior to the round call             | `execution-pipeline.ts:67-83` — loop ends on `executeRound`'s `shouldBreak`                                                                                                                 |
-| the terminal call bypasses the emission seam        | `execution-pipeline.ts:120-168` — `forceSummaryCall` builds `{ model, onTextDelta? }` only                                                                                                  |
+| finality is posterior to the round call             | `execution-pipeline.ts:69-85` — loop ends on `executeRound`'s `shouldBreak`                                                                                                                 |
+| the terminal call bypasses the emission seam        | `execution-pipeline.ts:122-170` — `forceSummaryCall` builds `{ model, onTextDelta? }` only                                                                                                  |
 | `refreshModelCatalog` is invoked by nothing         | declared in six provider-definitions; no caller and no `modelCatalog.entries` reader in any `src`                                                                                           |
 | OpenAI's catalog declares discovery, not capability | `openai/provider-definition.ts:36-40`; `IOpenAIModelCatalogResource` carries `id` only                                                                                                      |
 | gateway configuration is advertised                 | `llms.txt:22`                                                                                                                                                                               |
