@@ -1,8 +1,15 @@
+import { createLogger } from '@robota-sdk/agent-core';
+
 import { getSession } from '../../session/playground-session-store.js';
 
 import type { IToolState } from '@robota-sdk/agent-interface-transport';
 import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
 import type { Request, Response } from 'express';
+
+// CORE-029: these two sites used raw `console.log` with printf placeholders while every sibling
+// module in this app goes through `createLogger`. An operator who configures diagnostics got the
+// rest of the server and not these; an operator who wants them quiet cannot silence them.
+const logger = createLogger('PlaygroundSessionSubmit');
 
 interface ISessionSubmitBody {
   message?: unknown;
@@ -90,11 +97,10 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
     switch (event.type) {
       case 'background_task_created': {
         pendingBackgroundTasks += 1;
-        console.log(
-          '[SSE] bg_task_created: taskId=%s pendingBg=%d',
-          event.task.id,
+        logger.debug('SSE background task created', {
+          taskId: event.task.id,
           pendingBackgroundTasks,
-        );
+        });
         const originToolCallId = event.task.metadata?.['executionOriginToolCallId'];
         sendEvent(res, {
           type: 'agent_job_created',
@@ -131,11 +137,10 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
         break;
       case 'background_task_completed':
         pendingBackgroundTasks = Math.max(0, pendingBackgroundTasks - 1);
-        console.log(
-          '[SSE] bg_task_completed: taskId=%s pendingBg=%d',
-          event.task.id,
+        logger.debug('SSE background task completed', {
+          taskId: event.task.id,
           pendingBackgroundTasks,
-        );
+        });
         sendEvent(res, {
           type: 'agent_job_completed',
           data: {

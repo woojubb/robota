@@ -10,6 +10,8 @@
 
 import { join } from 'node:path';
 
+import { createLogger } from '@robota-sdk/agent-core';
+
 import {
   parseSkillFrontmatter,
   validateManifest,
@@ -24,6 +26,8 @@ import type {
   TEnabledPlugins,
 } from './bundle-plugin-types.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
+
+const logger = createLogger('BundlePluginLoader');
 
 /** Loader for directory-based bundle plugins from the cache directory. */
 export class BundlePluginLoader {
@@ -84,15 +88,45 @@ export class BundlePluginLoader {
         const manifestPath = join(versionDir, '.claude-plugin', 'plugin.json');
         if (!this.fs.existsSync(manifestPath)) continue;
 
-        const manifest = this.readManifest(manifestPath);
-        if (!manifest) continue;
+        // CORE-029: one broken plugin used to take down ALL of them. `readManifest` throws on
+        // unparseable JSON, that throw escaped `discoverAndLoad`, and the caller answered with a
+        // bare `catch {}` — so a single malformed manifest silently disabled every installed plugin
+        // and the user's hooks just did not run. A plugin that cannot be read is skipped, by name,
+        // out loud; its neighbours still load.
+        let manifest: IBundlePluginManifest | null;
+        try {
+          manifest = this.readManifest(manifestPath);
+        } catch (error) {
+          logger.warn('plugin manifest could not be read — skipping this plugin', {
+            plugin: `${pluginName}@${marketplace}`,
+            manifestPath,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          continue;
+        }
+        if (!manifest) {
+          // A structurally invalid manifest was a silent `continue`, which is the same defect with
+          // a different cause: the plugin is installed, enabled, and does nothing.
+          logger.warn('plugin manifest is not a valid plugin.json — skipping this plugin', {
+            plugin: `${pluginName}@${marketplace}`,
+            manifestPath,
+          });
+          continue;
+        }
 
         // Check enabled/disabled state using pluginName@marketplace key
         const pluginId = `${manifest.name}@${marketplace}`;
         if (this.isDisabled(pluginId, manifest.name)) continue;
 
-        const loaded = this.loadPlugin(versionDir, manifest);
-        results.push(loaded);
+        try {
+          results.push(this.loadPlugin(versionDir, manifest));
+        } catch (error) {
+          logger.warn('plugin failed to load — skipping this plugin', {
+            plugin: pluginId,
+            versionDir,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
     }
 

@@ -1,4 +1,4 @@
-import { runHooks } from '@robota-sdk/agent-core';
+import { createLogger, runHooks } from '@robota-sdk/agent-core';
 
 import type {
   IHookInput,
@@ -7,6 +7,8 @@ import type {
   THookEvent,
 } from '@robota-sdk/agent-core';
 import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
+
+const logger = createLogger('BackgroundTaskHooks');
 
 function getSubagentHookEvent(event: TBackgroundTaskEvent): THookEvent | undefined {
   if (event.type === 'background_task_started' && event.task.kind === 'agent') {
@@ -63,5 +65,12 @@ export function fireSubagentLifecycleHook(
     },
   };
 
-  void runHooks(hooks, hookEventName, input, hookTypeExecutors).catch(() => undefined);
+  void runHooks(hooks, hookEventName, input, hookTypeExecutors).catch((error: unknown) => {
+    // CORE-029: the same discarded rejection as the worktree runner. These are notifications, so
+    // they stay unawaited — but a hook that failed must not look like a hook that ran.
+    logger.warn('background task hook failed', {
+      event: hookEventName,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
 }

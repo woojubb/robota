@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { findNoFallbackFindings, findNoFallbackFindingsInSource } from '../scan-no-fallback.mjs';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
+import {
+  applySwallowBaseline,
+  findNoFallbackFindings,
+  findNoFallbackFindingsInSource,
+} from '../scan-no-fallback.mjs';
 
 /**
  * HARNESS-028 — the No-Fallback mechanical floor.
@@ -9,6 +16,10 @@ import { findNoFallbackFindings, findNoFallbackFindingsInSource } from '../scan-
  * TC-02: no false positives on `??` / defaulting-`||` / rethrow / error-RESULT returns.
  * TC-04: annotation anti-rot (v1 = reason-less-only); stale-detection deferred (inert ≠ stale).
  * TC-06: the live `packages/<pkg>/src` tree is GREEN under v1 semantics.
+ *
+ * CORE-029 adds the two SWALLOW kinds the diagnostics audit actually found — a `catch` that says
+ * nothing, and a discarded promise rejection — behind a burn-down baseline, because the tree already
+ * contained dozens and failing on all of them at once would block unrelated work.
  */
 
 /** Does this source produce a finding of the given kind? */
@@ -135,8 +146,113 @@ describe('HARNESS-028 TC-04 — annotation anti-rot (v1 = reason-less-only)', ()
   });
 });
 
-describe('HARNESS-028 TC-06 — the live source tree is green under v1 semantics', () => {
-  it('packages/<pkg>/src has zero no-fallback findings', () => {
-    expect(findNoFallbackFindings()).toEqual([]);
+describe('CORE-029 — the swallow kinds', () => {
+  it('flags a catch block that says nothing at all', () => {
+    expect(kinds('try {\n  risky();\n} catch {}\n')).toContain('silent-catch');
+    expect(kinds('try {\n  risky();\n} catch (e) {\n  // nothing\n}\n')).toContain('silent-catch');
+  });
+
+  it('does NOT flag a catch that does something — rule (1) judges what', () => {
+    expect(kinds('try {\n  risky();\n} catch (e) {\n  report(e);\n}\n')).not.toContain(
+      'silent-catch',
+    );
+    expect(kinds('try {\n  risky();\n} catch (e) {\n  throw e;\n}\n')).not.toContain(
+      'silent-catch',
+    );
+  });
+
+  it('flags a discarded promise rejection', () => {
+    expect(kinds('void run().catch(() => undefined);')).toContain('discarded-rejection');
+    expect(kinds('void run().catch(() => null);')).toContain('discarded-rejection');
+    expect(kinds('void run().catch(() => {});')).toContain('discarded-rejection');
+    expect(kinds('void run().catch((_e) => undefined);')).toContain('discarded-rejection');
+    // A first cut allowed only `()` and `(_name)`, so the two most common spellings slipped through
+    // the very floor this change adds. What makes it a discard is the body, not the parameter name.
+    expect(kinds('void run().catch((err) => undefined);')).toContain('discarded-rejection');
+    expect(kinds('void run().catch((error: unknown) => undefined);')).toContain(
+      'discarded-rejection',
+    );
+    expect(kinds('void run().catch(err => undefined);')).toContain('discarded-rejection');
+    expect(kinds('void run().catch((error) => null);')).toContain('discarded-rejection');
+    expect(kinds('void run().catch((error: Error) => {});')).toContain('discarded-rejection');
+  });
+
+  it('does NOT flag a rejection handler that reports', () => {
+    expect(kinds('void run().catch((e) => logger.warn("failed", { e }));')).not.toContain(
+      'discarded-rejection',
+    );
+  });
+
+  it('both kinds are suppressed by a reasoned allow-fallback', () => {
+    // Inside the block is the natural placement for an empty catch — a comment-only body is still
+    // "says nothing", so the annotation suppresses without making the block look like it acts.
+    const inside = 'try {\n  risky();\n} catch {\n  // allow-fallback: the caller reports it\n}\n';
+    expect(kinds(inside)).not.toContain('silent-catch');
+    // And the line directly above `catch`, which is the other placement the scan documents.
+    const above = 'try {\n  risky();\n  // allow-fallback: the caller reports it\n} catch {}\n';
+    expect(kinds(above)).not.toContain('silent-catch');
+    const discarded =
+      '// allow-fallback: notification only, failure is logged upstream\nvoid run().catch(() => undefined);';
+    expect(kinds(discarded)).not.toContain('discarded-rejection');
+  });
+});
+
+describe('CORE-029 — the burn-down baseline', () => {
+  it('a frozen swallow does not fail; a NEW one in the same file does', () => {
+    const findings = [
+      { file: 'packages/p/src/a.ts', line: 10, kind: 'silent-catch', text: '' },
+      { file: 'packages/p/src/a.ts', line: 20, kind: 'silent-catch', text: '' },
+    ];
+    expect(
+      applySwallowBaseline(findings, { 'packages/p/src/a.ts::silent-catch': 2 }).failures,
+    ).toEqual([]);
+    expect(
+      applySwallowBaseline(findings, { 'packages/p/src/a.ts::silent-catch': 1 }).failures,
+    ).toHaveLength(1);
+  });
+
+  it('a swallow in a file the baseline never mentioned fails', () => {
+    const findings = [{ file: 'packages/p/src/new.ts', line: 3, kind: 'silent-catch', text: '' }];
+    const { failures } = applySwallowBaseline(findings, {});
+    expect(failures).toHaveLength(1);
+    expect(failures[0].text).toMatch(/a new silent-catch appeared/);
+  });
+
+  it('reports a ratchet when frozen debt is paid down, so the gain gets locked', () => {
+    const { ratchet } = applySwallowBaseline([], { 'packages/p/src/a.ts::silent-catch': 2 });
+    expect(ratchet).toEqual([{ key: 'packages/p/src/a.ts::silent-catch', frozen: 2, count: 0 }]);
+  });
+
+  it('never baselines the kinds that must always fail', () => {
+    // `unannotated-fallback` and `reasonless-annotation` predate this change and stay unforgiving.
+    const findings = [
+      { file: 'packages/p/src/a.ts', line: 1, kind: 'unannotated-fallback', text: '' },
+      { file: 'packages/p/src/a.ts', line: 2, kind: 'reasonless-annotation', text: '' },
+    ];
+    expect(applySwallowBaseline(findings, {}).failures).toHaveLength(2);
+  });
+});
+
+describe('HARNESS-028 TC-06 — the live source tree is green under current semantics', () => {
+  it('packages/<pkg>/src produces no FAILING finding', () => {
+    const baseline = JSON.parse(
+      readFileSync(
+        path.join(import.meta.dirname, '..', 'no-fallback-swallow-baseline.json'),
+        'utf8',
+      ),
+    );
+    expect(applySwallowBaseline(findNoFallbackFindings(), baseline).failures).toEqual([]);
+  });
+
+  it('the baseline is a burn-down list, not a licence — every entry is a real debt', () => {
+    // A baseline that drifts above what the tree contains would quietly permit new swallows.
+    const baseline = JSON.parse(
+      readFileSync(
+        path.join(import.meta.dirname, '..', 'no-fallback-swallow-baseline.json'),
+        'utf8',
+      ),
+    );
+    const { ratchet } = applySwallowBaseline(findNoFallbackFindings(), baseline);
+    expect(ratchet).toEqual([]);
   });
 });

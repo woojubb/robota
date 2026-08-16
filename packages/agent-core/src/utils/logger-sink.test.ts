@@ -72,7 +72,7 @@ describe('global logger sink (CORE-029)', () => {
     const explicit = recordingSink();
     const global = recordingSink();
     setGlobalLoggerSink(global.sink);
-    createLogger('pkg', explicit.sink).error('to the explicit one');
+    createLogger('pkg', { sink: explicit.sink }).error('to the explicit one');
     expect(explicit.lines.some((l) => l.includes('to the explicit one'))).toBe(true);
     expect(global.lines).toHaveLength(0);
   });
