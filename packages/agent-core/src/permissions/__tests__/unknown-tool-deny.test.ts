@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  clearRegisteredToolArgumentKeys,
+  clearRegisteredToolProfiles,
   evaluatePermission,
-  registerToolArgumentKey,
+  registerToolPermissionProfile,
 } from '../permission-gate.js';
 import { resolvePermissionByPolicy } from '../permission-policy.js';
 
@@ -29,7 +29,15 @@ import { resolvePermissionByPolicy } from '../permission-policy.js';
  * these lists, and for any tool the foundation does not know the narrow deny simply vanished.
  */
 describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', () => {
-  afterEach(() => clearRegisteredToolArgumentKeys());
+  // The tools whose argument key `@robota-sdk/agent-tools` declares. These cases are about what
+  // happens for a tool NOBODY has declared, so the contrast needs the declared ones present.
+  beforeEach(() => {
+    clearRegisteredToolProfiles();
+    registerToolPermissionProfile('Shell', { argumentKey: 'command', riskClass: 'execute' });
+    registerToolPermissionProfile('Read', { argumentKey: 'filePath', riskClass: 'inspect' });
+  });
+
+  afterEach(() => clearRegisteredToolProfiles());
 
   const narrowDenyBroadAllow = { deny: ['MyTool(secrets/**)'], allow: ['MyTool'] };
 
@@ -71,7 +79,7 @@ describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', 
   });
 
   it('DENIES once the tool owner declares which argument the pattern is about', () => {
-    registerToolArgumentKey('MyTool', 'path');
+    registerToolPermissionProfile('MyTool', { argumentKey: 'path' });
     expect(
       evaluatePermission('MyTool', { path: 'secrets/key.pem' }, 'default', narrowDenyBroadAllow),
     ).toBe('deny');
@@ -90,7 +98,7 @@ describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', 
    * is a real NON-match: the pattern is about `path`, there is no path, so there is nothing to deny.
    */
   it('a DECLARED key absent from the invocation is a real non-match, not an unevaluable one', () => {
-    registerToolArgumentKey('MyTool', 'path');
+    registerToolPermissionProfile('MyTool', { argumentKey: 'path' });
     // No `path` in the args at all. The deny cannot apply, so the allow list decides.
     expect(evaluatePermission('MyTool', { other: 'x' }, 'default', narrowDenyBroadAllow)).toBe(
       'auto',
@@ -123,8 +131,8 @@ describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', 
     expect(evaluatePermission('Shell', { command: 'ls' }, 'default', lists)).toBe('auto');
   });
 
-  it('a registered key wins over the built-in switch, so an owner can correct it', () => {
-    registerToolArgumentKey('Shell', 'script');
+  it('a later declaration corrects an earlier one, so an owner can fix its own key', () => {
+    registerToolPermissionProfile('Shell', { argumentKey: 'script' });
     expect(
       evaluatePermission('Shell', { script: 'rm -rf /', command: 'ls' }, 'default', {
         deny: ['Shell(rm*)'],
@@ -146,7 +154,13 @@ describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', 
  * the same reasoning the allow step already applies with "unmatched → deny (never prompt)".
  */
 describe('the background/subagent gate has the same rule (CORE-030)', () => {
-  afterEach(() => clearRegisteredToolArgumentKeys());
+  beforeEach(() => {
+    clearRegisteredToolProfiles();
+    registerToolPermissionProfile('Shell', { argumentKey: 'command', riskClass: 'execute' });
+    registerToolPermissionProfile('Read', { argumentKey: 'filePath', riskClass: 'inspect' });
+  });
+
+  afterEach(() => clearRegisteredToolProfiles());
 
   const context = { taskDeny: ['MyTool(secrets/**)'], taskAllow: ['MyTool'] };
 
@@ -172,7 +186,7 @@ describe('the background/subagent gate has the same rule (CORE-030)', () => {
   });
 
   it('ALLOWS once the owner declares the key and the argument does not match the deny', () => {
-    registerToolArgumentKey('MyTool', 'path');
+    registerToolPermissionProfile('MyTool', { argumentKey: 'path' });
     expect(
       resolvePermissionByPolicy('preapproved', 'MyTool', { path: 'public/readme.md' }, context),
     ).toBe('allow');
@@ -193,5 +207,53 @@ describe('the background/subagent gate has the same rule (CORE-030)', () => {
         },
       ),
     ).toBe('allow');
+  });
+});
+
+describe('CORE-030 — a third-party tool can be classified, which is what the union prevented', () => {
+  afterEach(() => {
+    clearRegisteredToolProfiles();
+  });
+
+  it('a custom tool declares its class and is decided by it, not by the fallback', () => {
+    // The union `'Shell' | 'Bash' | 'Read' | …` had no room for a tool the foundation had never
+    // heard of, so no layer above — and no third-party author — could say what their tool does. The
+    // best available answer was the fallback: prompt on every call, refused in plan.
+    clearRegisteredToolProfiles();
+    expect(evaluatePermission('MyTool', {}, 'plan')).toBe('deny');
+    expect(evaluatePermission('MyTool', {}, 'default')).toBe('approve');
+
+    registerToolPermissionProfile('MyTool', { argumentKey: 'path', riskClass: 'inspect' });
+
+    expect(evaluatePermission('MyTool', {}, 'plan')).toBe('auto');
+    expect(evaluatePermission('MyTool', {}, 'default')).toBe('auto');
+  });
+
+  it('its narrow deny beats a broad allow, in default AND acceptEdits', () => {
+    // The item's required regression. Denying a narrow case while allowing the tool broadly is the
+    // ordinary way to write these lists; for a tool the foundation did not know, the narrow deny
+    // simply vanished and the call was auto-approved.
+    clearRegisteredToolProfiles();
+    registerToolPermissionProfile('MyTool', { argumentKey: 'path', riskClass: 'inspect' });
+    const lists = { deny: ['MyTool(secrets/**)'], allow: ['MyTool'] };
+
+    for (const mode of ['default', 'acceptEdits'] as const) {
+      expect(evaluatePermission('MyTool', { path: 'secrets/key.pem' }, mode, lists), mode).toBe(
+        'deny',
+      );
+      // And the allow still works for anything the deny was not about.
+      expect(evaluatePermission('MyTool', { path: 'public/readme.md' }, mode, lists), mode).toBe(
+        'auto',
+      );
+    }
+  });
+
+  it('an owner can classify a tool without giving it an argument key', () => {
+    // The two halves are independent: a tool with no path-like argument is still classifiable, and
+    // requiring both would have pushed such a tool back onto the fallback.
+    clearRegisteredToolProfiles();
+    registerToolPermissionProfile('NoArgsTool', { riskClass: 'execute' });
+    expect(evaluatePermission('NoArgsTool', {}, 'acceptEdits')).toBe('approve');
+    expect(evaluatePermission('NoArgsTool', {}, 'plan')).toBe('deny');
   });
 });

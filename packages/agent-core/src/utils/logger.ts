@@ -87,12 +87,33 @@ class LoggerConfig {
   }
 }
 
+/** How one logger differs from the process-wide defaults. */
+export interface ILoggerOptions {
+  /** Write to this sink instead of the process-wide one. */
+  sink?: ILogger;
+  /**
+   * This logger's own threshold, so a component can be quieter or louder than the process.
+   *
+   * Without it the only knob was `setGlobalLogLevel`, which is why a per-agent `logging` config
+   * ended up silencing the whole process (CORE-029).
+   */
+  level?: TUtilLogLevel;
+}
+
 /**
  * Console logger implementation
  * @internal
  */
 export class ConsoleLogger implements ILogger {
-  private level?: TUtilLogLevel; // undefined means use global level
+  /**
+   * This logger's own threshold. `undefined` means "follow the process-wide level".
+   *
+   * CORE-029: the field existed and nothing ever set it, so the only way to change a level was
+   * `setGlobalLogLevel` — and `Robota`'s constructor called it from `config.logging`, which meant one
+   * agent's per-agent setting silenced every other agent AND every other package in the process.
+   * A per-agent option has to reach a per-agent logger.
+   */
+  private level?: TUtilLogLevel;
   private packageName: string;
   private explicitSink: ILogger | undefined;
 
@@ -108,9 +129,10 @@ export class ConsoleLogger implements ILogger {
    * Resolving late is what makes a host able to turn logging on at all, and it is also why a logger
    * created during module initialisation still honours a sink installed afterwards.
    */
-  constructor(packageName: string, logger?: ILogger) {
+  constructor(packageName: string, options: ILoggerOptions = {}) {
     this.packageName = packageName;
-    this.explicitSink = logger;
+    this.explicitSink = options.sink;
+    this.level = options.level;
   }
 
   private get sinkLogger(): ILogger {
@@ -205,8 +227,8 @@ function isLoggerContext(value: unknown): value is TLoggerData {
  * Create a named logger instance for a package or module.
  * Use this to create loggers with a specific name prefix for easy log filtering.
  */
-export function createLogger(packageName: string, logger?: ILogger): ILogger {
-  return new ConsoleLogger(packageName, logger);
+export function createLogger(packageName: string, options: ILoggerOptions = {}): ILogger {
+  return new ConsoleLogger(packageName, options);
 }
 
 /**

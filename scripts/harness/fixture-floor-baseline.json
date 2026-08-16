@@ -1,0 +1,10 @@
+{
+  "_comment": "HARNESS-098 ratchet. Pre-existing checks without a fixture test. Nothing may be ADDED here — a new check ships with its fixture. An entry that gains a fixture must be removed in the same change, which check-fixture-floor.mjs enforces.",
+  "baselined": [
+    "check-interface-imports",
+    "scan-api-pagination",
+    "scan-consistency",
+    "scan-live-smoke-provider-coverage",
+    "scan-release-verification-gate"
+  ]
+}

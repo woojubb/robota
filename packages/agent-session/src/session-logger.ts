@@ -6,12 +6,52 @@
  * own (e.g., remote, database, silent) and inject via Session constructor.
  */
 
-import { createHash } from 'node:crypto';
-import { mkdirSync, appendFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { isSensitiveKey } from './scrub-sensitive.js';
+import { createLogger } from '@robota-sdk/agent-core';
+
 import { isSafeSessionId } from './session-id.js';
+import { normalizeLogData } from './session-log-payload.js';
+
+const logger = createLogger('FileSessionLogger');
+
+/**
+ * Events that arrive once per streamed token.
+ *
+ * CORE-029: `session-run.ts` logs one of these per text delta and this class answered each with a
+ * blocking `appendFileSync` — a synchronous disk write per token on the streaming hot path. They are
+ * buffered and written in one call; every OTHER event flushes the buffer before writing itself, so
+ * ordering in the file is unchanged and no semantic event is ever delayed behind a stream.
+ */
+const HOT_PATH_EVENTS: ReadonlySet<string> = new Set(['text_delta']);
+
+/** Flush the delta buffer once it reaches this size, so a long stream cannot grow without bound. */
+const HOT_PATH_FLUSH_BYTES = 64 * 1024;
+
+/**
+ * Every logger with something buffered, flushed if the process exits mid-stream.
+ *
+ * Buffering trades a write per token for a write per batch, and the price is a window in which the
+ * tail of a stream exists only in memory. A normal shutdown closes that window by itself — the
+ * `session_shutdown` event is not a hot-path event, so it flushes before writing — but an abnormal
+ * exit would not, and a replay log missing its last exchange is a worse defect than the one being
+ * fixed. `exit` handlers may only do synchronous work, which is exactly what `flush` does.
+ */
+const liveLoggers = new Set<FileSessionLogger>();
+let exitHookInstalled = false;
+
+function ensureExitFlush(loggerInstance: FileSessionLogger): void {
+  liveLoggers.add(loggerInstance);
+  if (exitHookInstalled) return;
+  if (typeof process === 'undefined' || typeof process.on !== 'function') return;
+  exitHookInstalled = true;
+  process.on('exit', () => {
+    for (const live of liveLoggers) {
+      live.flush();
+    }
+  });
+}
 
 /** Session log event data — extensible record of event metadata. */
 export type TSessionLogValue = string | number | boolean | object | null | undefined;
@@ -53,6 +93,13 @@ const OWNER_ONLY_DIR_MODE = 0o700;
 export interface ISessionLogger {
   /** Log a session event with structured data. */
   log(sessionId: string, event: string, data: TSessionLogData): void;
+  /**
+   * Write out anything buffered.
+   *
+   * Optional because an implementation that never buffers has nothing to do. A caller that needs
+   * the log to be complete on disk — session end, or a reader about to parse it — calls this.
+   */
+  flush?(): void;
 }
 
 /**
@@ -64,6 +111,9 @@ export interface ISessionLogger {
 export class FileSessionLogger implements ISessionLogger {
   private readonly logDir: string;
   private readonly options: Required<IFileSessionLoggerOptions>;
+  /** Buffered hot-path lines, per session file. Keyed by session id (CORE-029). */
+  private readonly pending = new Map<string, string[]>();
+  private pendingBytes = 0;
 
   constructor(logDir: string, options: IFileSessionLoggerOptions = {}) {
     this.logDir = logDir;
@@ -74,8 +124,14 @@ export class FileSessionLogger implements ISessionLogger {
     };
     try {
       mkdirSync(logDir, { recursive: true, mode: OWNER_ONLY_DIR_MODE });
-    } catch {
-      // Best-effort: logging disabled if directory cannot be created
+    } catch (error) {
+      // allow-fallback: a log directory that cannot be created disables logging rather than
+      // failing the session — but CORE-029: say so, because "no log file" and "logging was never
+      // attempted" are otherwise the same observation.
+      logger.warn('session log directory could not be created — session logging is disabled', {
+        logDir,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -87,124 +143,75 @@ export class FileSessionLogger implements ISessionLogger {
     if (!isSafeSessionId(sessionId)) return;
     try {
       const normalizedData = normalizeLogData(sessionId, this.logDir, data, this.options);
-      const entry = JSON.stringify({
-        timestamp: new Date().toISOString(),
-        sessionId,
-        event,
-        ...normalizedData,
-      });
-      const logFile = join(this.logDir, `${sessionId}.jsonl`);
-      appendFileSync(logFile, entry + '\n', { mode: OWNER_ONLY_FILE_MODE });
-    } catch {
-      // Logging failure must never break the session
+      const entry =
+        JSON.stringify({
+          timestamp: new Date().toISOString(),
+          sessionId,
+          event,
+          ...normalizedData,
+        }) + '\n';
+
+      if (HOT_PATH_EVENTS.has(event)) {
+        this.buffer(sessionId, entry);
+        return;
+      }
+
+      // Any other event flushes first, so the file's order is the order the events happened in.
+      this.flush();
+      this.write(sessionId, entry);
+    } catch (error) {
+      // allow-fallback: logging must never break a session (SEC-006 states the same rule for a
+      // rejected id). What changed in CORE-029 is that the failure is no longer INVISIBLE — a log
+      // that silently stops writing is indistinguishable from a session that produced no events.
+      this.report(sessionId, event, error);
     }
   }
-}
 
-function normalizeLogData(
-  sessionId: string,
-  logDir: string,
-  data: TSessionLogData,
-  options: Required<IFileSessionLoggerOptions>,
-): TSessionLogData {
-  const normalized: TSessionLogData = {};
-  for (const [key, value] of Object.entries(data)) {
-    normalized[key] = normalizeLogValue(sessionId, logDir, key, value, options);
-  }
-  return normalized;
-}
-
-function normalizeLogValue(
-  sessionId: string,
-  logDir: string,
-  key: string,
-  value: TSessionLogValue,
-  options: Required<IFileSessionLoggerOptions>,
-): TSessionLogValue {
-  if (isSensitiveKey(key)) {
-    return options.redactedValue;
-  }
-  if (
-    value === null ||
-    value === undefined ||
-    typeof value === 'string' ||
-    typeof value === 'number'
-  ) {
-    return maybeExternalizePayload(sessionId, logDir, value, options);
-  }
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (Array.isArray(value)) {
-    const normalizedArray = value.map((item) =>
-      normalizeLogValue(sessionId, logDir, key, item as TSessionLogValue, options),
-    );
-    return maybeExternalizePayload(sessionId, logDir, normalizedArray, options);
-  }
-  if (typeof value === 'object') {
-    const record = value as Record<string, TSessionLogValue>;
-    const normalizedRecord: Record<string, TSessionLogValue> = {};
-    for (const [childKey, childValue] of Object.entries(record)) {
-      normalizedRecord[childKey] = normalizeLogValue(
-        sessionId,
-        logDir,
-        childKey,
-        childValue,
-        options,
-      );
+  /** Write out every buffered hot-path line. Safe to call when nothing is pending. */
+  flush(): void {
+    if (this.pending.size === 0) {
+      liveLoggers.delete(this);
+      return;
     }
-    return maybeExternalizePayload(sessionId, logDir, normalizedRecord, options);
-  }
-  return String(value);
-}
-
-function maybeExternalizePayload(
-  sessionId: string,
-  logDir: string,
-  value: TSessionLogValue,
-  options: Required<IFileSessionLoggerOptions>,
-): TSessionLogValue {
-  const serialized = JSON.stringify(value);
-  if (serialized === undefined) {
-    return value;
-  }
-  const byteLength = Buffer.byteLength(serialized);
-  if (byteLength <= options.externalPayloadThresholdBytes) {
-    return value;
+    const batches = [...this.pending.entries()];
+    this.pending.clear();
+    this.pendingBytes = 0;
+    liveLoggers.delete(this);
+    for (const [sessionId, lines] of batches) {
+      try {
+        this.write(sessionId, lines.join(''));
+      } catch (error) {
+        this.report(sessionId, 'flush', error);
+      }
+    }
   }
 
-  const sha256 = createHash('sha256').update(serialized).digest('hex');
-  const payloadDirName = `${sessionId}.payloads`;
-  const payloadFileName = `${sha256}.json`;
-  const relativePath = join(payloadDirName, payloadFileName);
-  const payloadDir = join(logDir, payloadDirName);
-  const payloadPath = join(logDir, relativePath);
-  mkdirSync(payloadDir, { recursive: true, mode: OWNER_ONLY_DIR_MODE });
-  // The payload is content-addressed by its own sha256, so an existing file necessarily holds
-  // identical bytes. Create it exclusively ('wx') rather than testing existsSync first: the
-  // check-then-write pair is a TOCTOU race between concurrent sessions writing the same payload.
-  try {
-    writeFileSync(payloadPath, serialized, {
-      encoding: 'utf-8',
-      mode: OWNER_ONLY_FILE_MODE,
-      flag: 'wx',
+  private buffer(sessionId: string, entry: string): void {
+    ensureExitFlush(this);
+    const lines = this.pending.get(sessionId) ?? [];
+    lines.push(entry);
+    this.pending.set(sessionId, lines);
+    this.pendingBytes += entry.length;
+    // A stream that never ends must not accumulate without bound; flushing on size keeps the
+    // write count proportional to bytes rather than to tokens, which is the whole point.
+    if (this.pendingBytes >= HOT_PATH_FLUSH_BYTES) {
+      this.flush();
+    }
+  }
+
+  private write(sessionId: string, text: string): void {
+    appendFileSync(join(this.logDir, `${sessionId}.jsonl`), text, { mode: OWNER_ONLY_FILE_MODE });
+  }
+
+  private report(sessionId: string, event: string, error: unknown): void {
+    logger.warn('session log write failed', {
+      sessionId,
+      event,
+      error: error instanceof Error ? error.message : String(error),
     });
-  } catch {
-    // allow-fallback: EEXIST means the identical content-addressed payload is already on disk
   }
-  return {
-    kind: 'external-payload',
-    encoding: 'json',
-    sha256,
-    byteLength,
-    relativePath,
-  } satisfies IExternalPayloadReference;
 }
 
-/** No-op logger — used when logging is disabled. */
 export class SilentSessionLogger implements ISessionLogger {
   log(): void {
     // intentionally empty

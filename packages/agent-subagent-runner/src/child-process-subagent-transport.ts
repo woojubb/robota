@@ -42,6 +42,32 @@ export interface IChildProcessRuntime {
   killGraceMs: number;
 }
 
+/**
+ * DIST-006: the tail of the child's stderr, kept so a death before the first IPC message can say
+ * WHY. Bounded — a runaway child must not be able to grow the parent's memory through this.
+ */
+const STDERR_TAIL_LIMIT = 4096;
+const stderrTails = new WeakMap<ChildProcess, string>();
+
+/** Attach a bounded stderr reader. Without it a failed start reports only an exit code. */
+export function captureChildStderr(child: ChildProcess): void {
+  const stream = child.stderr;
+  if (!stream) return;
+  stream.setEncoding('utf8');
+  // A stream error here is not the subagent's result; without a listener it would reach the
+  // parent's `uncaughtException` handler.
+  stream.on('error', () => {});
+  stream.on('data', (chunk: string) => {
+    const next = (stderrTails.get(child) ?? '') + chunk;
+    stderrTails.set(child, next.slice(-STDERR_TAIL_LIMIT));
+  });
+}
+
+/** What the child wrote to stderr, trimmed; empty when it wrote nothing. */
+export function readChildStderrTail(child: ChildProcess): string {
+  return (stderrTails.get(child) ?? '').trim();
+}
+
 export function handleWorkerMessage(
   message: TSubagentWorkerChildMessage,
   startWorker: () => void,

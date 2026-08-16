@@ -57,7 +57,7 @@ agent-provider
 
 agent-subagent-runner  [OPTIONAL — install only when child-process subagent support is needed]
   owns ChildProcessSubagentRunner, child-process-subagent-worker, IPC types,
-  getDefaultSubagentWorkerPath();
+  resolveSelfForkWorkerEntry();
   depends on: agent-framework + agent-provider
 ```
 
@@ -84,7 +84,7 @@ Target ownership rules:
 | Provider-specific defaults, probes, model fallback data               | `agent-provider` via `agent-core`             | Compose definitions; never branch on provider names in TUI hooks.                |
 | Session persistence facade                                            | `agent-framework`                             | Request project-local store; display framework-owned summaries.                  |
 | Reusable background/subagent state machines and ports                 | `agent-executor`                              | Supply local process/worktree adapters via agent-subagent-runner.                |
-| Child-process subagent runner + worker                                | `agent-subagent-runner` (opt-in)              | Import factory; pass workerPath from getDefaultSubagentWorkerPath().             |
+| Child-process subagent runner + worker                                | `agent-subagent-runner` (opt-in)              | Import factory; dispatch worker mode in bin.ts; pass workerEntry (DIST-006).     |
 | Background task workspace/read model and retention                    | `agent-framework` + `agent-executor`          | Render framework projection; keep only selected-entry UI state.                  |
 | Execution workspace task switching                                    | `agent-framework` read model, `agent-cli` TUI | Framework owns entries/details/events; CLI owns Ctrl+B and selection.            |
 | Preset profile data, `resolvePreset()` merge, external preset loading | `agent-preset`                                | Select preset id + forward CLI overrides; never merge or map posture.            |

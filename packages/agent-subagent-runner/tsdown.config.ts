@@ -6,12 +6,13 @@ const outExtensions = ({ format }: { format: string }) => ({
 });
 
 export default defineConfig({
-  // The worker is a SEPARATE entry, not bundled into index: `getDefaultSubagentWorkerPath()`
-  // forks `dist/node/child-process-subagent-worker.js` at runtime. Without this entry the file
-  // never existed, so the child-process subagent silently failed from any dist build.
+  // DIST-006: the worker is NO LONGER a separate entry. It was one because something had to locate
+  // it on disk at runtime, and that assumption broke twice — first when the file was never emitted,
+  // then when a downstream bundler inlined this package and moved "next to me" one package along.
+  // Worker mode is now entered through `runSubagentWorkerMain()` from the composition root's own
+  // entry, so there is no second artifact and no path to get wrong.
   entry: {
     index: 'src/index.ts',
-    'child-process-subagent-worker': 'src/child-process-subagent-worker.ts',
   },
   format: ['esm', 'cjs'],
   outDir: 'dist/node',

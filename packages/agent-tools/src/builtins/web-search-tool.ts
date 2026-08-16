@@ -18,6 +18,9 @@ import type { IWebSearchProvider, IWebSearchToolProviderOptions } from './web-se
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
+// CORE-030: defining a tool and telling the permission system what it does arrive together.
+import '../tool-permission-profiles.js';
+
 const DEFAULT_LIMIT = 10;
 const DEFAULT_TIMEOUT_MS = 15_000;
 

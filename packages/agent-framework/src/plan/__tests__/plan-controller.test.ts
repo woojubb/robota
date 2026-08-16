@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { evaluatePermission } from '@robota-sdk/agent-core';
+// CORE-030: what plan mode permits is decided by each tool's DECLARED class, and the package that
+// defines the built-ins is what declares them.
+import '@robota-sdk/agent-tools';
 import { PlanController, type IPlanControllerDeps } from '../plan-controller';
 
 /** Deterministic deps so ids/timestamps are stable in assertions. */

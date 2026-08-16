@@ -9,6 +9,8 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+import { createLogger } from '@robota-sdk/agent-core';
+
 import { buildCreateSessionOptions } from './create-session-projection.js';
 import { detectProject } from '../context/project-detector.js';
 import { projectPaths } from '../paths.js';
@@ -18,6 +20,8 @@ import {
 } from './interactive-session-init-workspace.js';
 import { injectSavedMessage } from './interactive-session-restore.js';
 import { deriveContextCapacityHint } from '../assembly/context-capacity-hint.js';
+
+const logger = createLogger('InteractiveSessionInit');
 import { createSession } from '../assembly/index.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import { loadConfig } from '../config/config-loader.js';
@@ -115,8 +119,16 @@ export async function createInteractiveSession(
           ),
         };
       }
-    } catch {
-      // No plugins dir or load failed
+    } catch (error) {
+      // allow-fallback: a plugin problem must not stop the session from starting. CORE-029: what it
+      // must not do is stay invisible — the previous comment ("No plugins dir or load failed")
+      // conflated a normal case with an error, and both produced identical silence, so a user whose
+      // hooks stopped running had nothing to look at. The loader now reports and skips per plugin,
+      // so reaching here at all means discovery itself failed.
+      logger.warn('plugin discovery failed — no bundle plugin hooks are active this session', {
+        pluginsDir,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

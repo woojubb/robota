@@ -8,6 +8,7 @@
  * tsdown.config.ts and runs before any module imports are loaded.
  */
 import { setGlobalLoggerSink } from '@robota-sdk/agent-core';
+import { isSubagentWorkerModeArgv, runSubagentWorkerMain } from '@robota-sdk/agent-subagent-runner';
 
 import { startCli } from './cli.js';
 import { areTuiProcessGuardsActive, classifyUncaughtException } from './process-guards.js';
@@ -59,8 +60,17 @@ process.on('uncaughtException', (err) => {
   throw err;
 });
 
-startCli().catch((err) => {
-  const message = err instanceof Error ? err.message : String(err);
-  process.stderr.write(message + '\n');
-  process.exit(1);
-});
+// DIST-006: this entry IS the subagent worker. Nothing has to find a worker file on disk, because
+// the artifact re-executes itself — which is the only formulation that holds for the npm bundle,
+// a source run, AND the compiled single-file binaries, where there is no sibling file to find.
+// `runSubagentWorkerMain` refuses loudly when there is no IPC channel, so a hand-typed flag fails
+// where someone can see it instead of looking started.
+if (isSubagentWorkerModeArgv(process.argv)) {
+  runSubagentWorkerMain();
+} else {
+  startCli().catch((err) => {
+    const message = err instanceof Error ? err.message : String(err);
+    process.stderr.write(message + '\n');
+    process.exit(1);
+  });
+}

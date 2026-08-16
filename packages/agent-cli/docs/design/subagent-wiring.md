@@ -33,13 +33,13 @@ The CLI owns Node runtime process adapters. It injects `createManagedShellProces
 termination, and process-environment wiring. Bounded output capture, source-prefixed log line
 projection, and cursor-based log pagination come from runtime-owned helpers re-exported by the SDK.
 
-The CLI also injects `createChildProcessSubagentRunnerFactory()` into `InteractiveSession` as the production subagent runner factory. The factory receives SDK-assembled subagent dependencies, but the runner starts a child Node worker and sends only serializable config/context/provider/agent-definition data over IPC. The worker reconstructs its provider inside the child process using the same concrete provider profile the CLI used for the parent session.
+The CLI also injects `createChildProcessSubagentRunnerFactory()` into `InteractiveSession` as the production subagent runner factory. The factory receives SDK-assembled subagent dependencies, but the runner re-executes THIS artifact in worker mode (DIST-006) and sends only serializable config/context/provider/agent-definition data over IPC. The worker reconstructs its provider inside the child process using the same concrete provider profile the CLI used for the parent session.
 
 `child-process-subagent-runner-result.ts` owns child-worker result orchestration for the adapter: IPC message validation, timeout timer cleanup, early-exit errors, and transcript metadata projection. `child-process-subagent-runner.ts` remains the process factory and payload composer.
 
 Child-process subagent runner responsibilities:
 
-- fork one worker process per subagent job
+- spawn one worker process per subagent job — a copy of the running artifact, entered via the worker-mode flag rather than a worker file located on disk (DIST-006)
 - pass `ISubagentSpawnRequest`, agent definition, parent config/context, permission mode, and serialized provider profile over IPC
 - expose child `pid` on the background task state
 - forward worker text/tool IPC messages to `BackgroundTaskManager` progress events

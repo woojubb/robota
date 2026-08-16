@@ -18,6 +18,9 @@ import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
+// CORE-030: defining a tool and telling the permission system what it does arrive together.
+import '../tool-permission-profiles.js';
+
 const DEFAULT_EDIT_DESCRIPTION =
   "Performs exact string replacements in files.\n\noldString must exactly match the file's current content, including whitespace and indentation — reading the file first (e.g. with a file-read tool) is the reliable way to copy exact text.\n\nThe edit will FAIL if old_string is not unique in the file. Either provide more surrounding context to make it unique, or use replace_all to change every instance.";
 

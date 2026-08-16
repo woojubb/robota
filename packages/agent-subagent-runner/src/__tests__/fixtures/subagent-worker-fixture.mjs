@@ -1,4 +1,16 @@
-process.send?.({ type: 'ready' });
+// DIST-006: the runner spawns `execPath args… --__robota-subagent-worker`, so the fixture asserts
+// the same entry contract the real composition root satisfies. Without this it would pass while the
+// flag was never delivered.
+if (!process.argv.includes('--__robota-subagent-worker')) {
+  process.stderr.write('fixture worker started without the worker-mode flag\n');
+  process.exit(2);
+}
+if (process.send === undefined) {
+  process.stderr.write('fixture worker started without an IPC channel\n');
+  process.exit(2);
+}
+
+process.send({ type: 'ready' });
 
 process.on('message', (message) => {
   if (!message || typeof message !== 'object') {

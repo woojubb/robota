@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { evaluatePermission } from '../permission-gate';
-import { MODE_POLICY } from '../permission-mode';
+import {
+  clearRegisteredToolProfiles,
+  evaluatePermission,
+  registerToolPermissionProfile,
+} from '../permission-gate';
+import { RISK_CLASS_POLICY } from '../permission-mode';
 
 import type { TPermissionMode } from '../types';
 
@@ -9,19 +13,40 @@ import type { TPermissionMode } from '../types';
  * SELFHOST-010 TC-02 / TC-07 / TC-08 — decision layer.
  *
  * The computer-use perceive/act split is modeled on the repo's OWN `Read`(auto)-vs-`Shell`(approve)
- * precedent and routes through the EXISTING `evaluatePermission` → `MODE_POLICY` path (no new gate). These
- * assert the decisions AND that they are decided EXACTLY like `Read` / `Shell` in every mode.
+ * precedent and routes through the EXISTING `evaluatePermission` path (no new gate).
+ *
+ * CORE-030: the classification now lives with the tools (`@robota-sdk/agent-tools`), so these
+ * register the same profiles that package declares rather than reading a name table from this one.
+ * "Decided exactly like Read / Shell" is now a statement about the DECLARATION — both are `inspect`,
+ * both are `execute` — and is asserted where the declaration lives; what this file asserts is that
+ * those declarations produce the decisions SELFHOST-010 specified.
  */
 
 const ALL_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
 
 describe('computer-use permission decisions (SELFHOST-010)', () => {
+  beforeEach(() => {
+    clearRegisteredToolProfiles();
+    // Exactly what `@robota-sdk/agent-tools` declares for these four.
+    registerToolPermissionProfile('Read', { argumentKey: 'filePath', riskClass: 'inspect' });
+    registerToolPermissionProfile('Shell', { argumentKey: 'command', riskClass: 'execute' });
+    registerToolPermissionProfile('ComputerView', { riskClass: 'inspect' });
+    registerToolPermissionProfile('Computer', { riskClass: 'execute' });
+    registerToolPermissionProfile('Write', { argumentKey: 'filePath', riskClass: 'modify' });
+  });
+
+  afterEach(() => {
+    clearRegisteredToolProfiles();
+  });
+
   // TC-02 / TC-08: ComputerView is `auto` in EVERY mode (read-only perception, incl. plan).
   it('TC-02/08: ComputerView is auto in every mode, exactly like Read', () => {
     for (const mode of ALL_MODES) {
       expect(evaluatePermission('ComputerView', {}, mode), mode).toBe('auto');
       // decided EXACTLY like Read
-      expect(MODE_POLICY[mode].ComputerView, mode).toBe(MODE_POLICY[mode].Read);
+      expect(evaluatePermission('ComputerView', {}, mode), mode).toBe(
+        evaluatePermission('Read', {}, mode),
+      );
     }
     // Explicitly: read-only inspection runs unapproved even in plan.
     expect(evaluatePermission('ComputerView', {}, 'plan')).toBe('auto');
@@ -36,7 +61,9 @@ describe('computer-use permission decisions (SELFHOST-010)', () => {
   // TC-07: Computer is decided EXACTLY like Shell — never `auto` except under bypassPermissions.
   it('TC-07: Computer mirrors Shell in every mode and never auto-runs except bypassPermissions', () => {
     for (const mode of ALL_MODES) {
-      expect(MODE_POLICY[mode].Computer, mode).toBe(MODE_POLICY[mode].Shell);
+      expect(evaluatePermission('Computer', {}, mode), mode).toBe(
+        evaluatePermission('Shell', {}, mode),
+      );
       const decision = evaluatePermission('Computer', {}, mode);
       if (mode === 'bypassPermissions') {
         expect(decision).toBe('auto');
@@ -61,12 +88,21 @@ describe('computer-use permission decisions (SELFHOST-010)', () => {
     expect(evaluatePermission('Computer', {}, 'plan')).toBe('deny');
   });
 
-  // No new gate: both tools are decided through MODE_POLICY (the known-tool path), not the
-  // UNKNOWN_TOOL_FALLBACK — i.e. they are registered known tools.
-  it('routes through MODE_POLICY (both are registered known tools, not unknown-fallback)', () => {
+  // No new gate: both are decided by their DECLARED class through the shared policy, not by the
+  // unclassified fallback. The distinction matters — the fallback prompts and refuses in plan, so a
+  // tool that reached it would look gated while actually being unclassified.
+  it('is decided by the declared class, not by the unclassified fallback', () => {
     for (const mode of ALL_MODES) {
-      expect(MODE_POLICY[mode].ComputerView, mode).toBeDefined();
-      expect(MODE_POLICY[mode].Computer, mode).toBeDefined();
+      expect(evaluatePermission('ComputerView', {}, mode), mode).toBe(
+        RISK_CLASS_POLICY[mode].inspect,
+      );
+      expect(evaluatePermission('Computer', {}, mode), mode).toBe(RISK_CLASS_POLICY[mode].execute);
     }
+
+    // And with nothing declared, the same call takes the fallback — which is what makes the
+    // assertions above about the declaration rather than about a coincidence.
+    clearRegisteredToolProfiles();
+    expect(evaluatePermission('ComputerView', {}, 'plan')).toBe('deny');
+    expect(evaluatePermission('ComputerView', {}, 'default')).toBe('approve');
   });
 });
