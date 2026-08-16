@@ -1104,17 +1104,15 @@ accept.
       is small. It is because the set is finite, enumerated, and every entry has a compiler-visible home,
       so a map would restate in data what the type system already refuses:
 
-      | Residual key | Disposition | Where it is enforced |
-                                              | --- | --- | --- |
-                                              | `permissionPolicy` | required at the boundary; the default is one named constant owned by `agent-core` | compile error at each producer until stated |
-                                              | `providerProfile` | **carried by derivation; not honored by any runner today — ARCH-021 is the item that honors it.** Not "rejected" and not "dead": for a library, no in-repo consumer is not evidence a contract is dead | `createProviderProfile`, which builds the profile the worker actually reads |
-                                              | `exitCode` / `signalCode` | excluded — process-only, sole producer is the shell runner | named in the `Omit` and its comment |
-                                              | `worktreePath` | moved to the runner envelope — runner-produced, so the request was the wrong owner | compile error if read off the request |
-                                              | `branchName` | **relocated to the envelope, not deleted.** It has no reader in this repository; that is not a reason to drop a legitimate contract | declared on both envelopes and crosses the IPC boundary |
+| Residual key              | Disposition                                                                                                                                                                                            | Where it is enforced                                                        |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| `permissionPolicy`        | required at the boundary; the default is one named constant owned by `agent-core`                                                                                                                      | compile error at each producer until stated                                 |
+| `providerProfile`         | **carried by derivation; not honored by any runner today — ARCH-021 is the item that honors it.** Not "rejected" and not "dead": for a library, no in-repo consumer is not evidence a contract is dead | `createProviderProfile`, which builds the profile the worker actually reads |
+| `exitCode` / `signalCode` | excluded — process-only, sole producer is the shell runner                                                                                                                                             | named in the `Omit` and its comment                                         |
+| `worktreePath`            | moved to the runner envelope — runner-produced, so the request was the wrong owner                                                                                                                     | compile error if read off the request                                       |
+| `branchName`              | **relocated to the envelope, not deleted.** It has no reader in this repository; that is not a reason to drop a legitimate contract                                                                    | declared on both envelopes and crosses the IPC boundary                     |
 
-                                              `TCompositionFieldPolicy` (ARCH-027, `agent-capability-pack`) is therefore left alone rather than
-                                              borrowed or re-spelled. The open question of who should own "exhaustive public-key classification"
-                                              as a domain-free concept is not answered here because nothing in this item now needs it.
+`TCompositionFieldPolicy` (ARCH-027, `agent-capability-pack`) is therefore left alone rather than borrowed or re-spelled. The open question of who should own "exhaustive public-key classification" as a domain-free concept is not answered here because nothing in this item now needs it.
 
 ## Blockers
 
