@@ -31,7 +31,7 @@ the compat family, and they contradict the transport:
   `vendorDefault: ['tools', 'json_schema', 'streaming']`, and a per-model deviation at `:29` also
   declaring `json_schema`. Its own test asserts `modelDeclaresCapability(table, 'deepseek-reasoner',
 'json_schema') === true`.
-- `packages/agent-provider-openai-compatible/src/qwen/capability-table.ts:18` —
+- `packages/agent-provider-openai-compatible/src/qwen/capability-table.ts:17` —
   `vendorDefault: ['tools', 'reasoning', 'native_web', 'streaming']`, no `json_schema`.
 
 So deepseek **declares** a capability whose request field the shared builder never sends. That is no
