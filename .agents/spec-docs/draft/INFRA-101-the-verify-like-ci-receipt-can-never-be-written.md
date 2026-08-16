@@ -104,6 +104,17 @@ Waived: 외부 선행 사례가 필요한 설계 결정이 아니다. **근거�
 
 ## Evidence Log
 
+- **2026-08-16 — 제기 즉시 수정.** 소유자가 _"푸시가 오래걸릴 이유가 없다. 원인을 점검해서 문제가
+  있으면 바로 잡고 진행해"_ 라고 지시해, 제기만 하고 두는 대신 같은 세션에서 고쳤다. 그것이 옳다 —
+  `branch-guard.sh`가 적은 규칙 그대로, **잘못 작동하거나 올바른 작업에 발동하는 검사는 우회가 아니라
+  고치는 것**이다. 수정 내용은 위 Solution 그대로: churn 집합을 `verification-receipt.mjs`가 소유하고
+  `pre-push.mjs`가 import한다. 정의가 셋(그중 하나만 churn을 알았다)에서 하나가 됐다.
+
+  **수정 중 픽스처가 두 번째 버그를 잡았다.** `run()`이 출력을 `.trim()`하는데
+  `git status --porcelain`은 **선행 공백이 staged 열**이라, trim하면 첫 줄이 한 칸 밀리고 `slice(3)`이
+  경로를 잘못 읽는다. churn 인식이 첫 줄에서만 실패하는 형태였다. 전용 경로로 읽게 하고, "trim된 줄은
+  매치되면 안 된다"를 red 픽스처로 고정했다.
+
 - **2026-08-16 — 제기.** `RULE-013` WU-B의 push 중 발견. 실측: `verify-like-ci` 5회 실행, 전부
   `PASS — all 12 stage(s) passed`, `readVerificationReceipt()` 전부 `null`. 그중 한 번은 실행 **직전에**
   `git checkout -- .agents/evals/lessons`로 트리를 비우고 돌렸으나 결과 동일 — 실행 자체가 다시
