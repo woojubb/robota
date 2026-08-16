@@ -61,6 +61,7 @@ import type {
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { ISubagentJobResult } from '../subagents/index.js';
 import type { IHistoryEntry, TUniversalMessage, IContextWindowState } from '@robota-sdk/agent-core';
+import type { IScheduleEditPatch } from '@robota-sdk/agent-executor';
 import type {
   IBackgroundTaskInput,
   IBackgroundTaskListFilter,
@@ -376,10 +377,7 @@ export abstract class InteractiveSessionBase {
     await this.bgTracker.getManagerOrThrow().resumeScheduledTask(taskId);
   }
 
-  async editSchedule(
-    taskId: string,
-    patch: { cronExpression?: string; agentInstruction?: string; command?: string },
-  ): Promise<void> {
+  async editSchedule(taskId: string, patch: IScheduleEditPatch): Promise<void> {
     await this.ensureInitialized();
     await this.bgTracker.getManagerOrThrow().editScheduledTask(taskId, patch);
   }

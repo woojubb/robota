@@ -6,6 +6,7 @@ import type {
   ISubagentJobStart,
   ISubagentRunner,
 } from '../types.js';
+import type { ITokenUsage } from '@robota-sdk/agent-core';
 
 interface ITestDeferred {
   promise: Promise<ISubagentJobResult>;
@@ -69,6 +70,19 @@ function createResolvedRunner(output: string): ISubagentRunner {
   };
 }
 
+/** A runner whose result carries the ANALYTICS-001 `usage` field the contract declares. */
+function createUsageReportingRunner(output: string, usage: ITokenUsage): ISubagentRunner {
+  return {
+    start(job: ISubagentJobStart): ISubagentJobHandle {
+      return {
+        jobId: job.jobId,
+        result: Promise.resolve({ jobId: job.jobId, output, usage }),
+        cancel: () => Promise.resolve(),
+      };
+    },
+  };
+}
+
 function createSpawnRequest(prompt: string) {
   return {
     type: 'general-purpose',
@@ -102,6 +116,36 @@ describe('SubagentManager', () => {
     expect(result.output).toBe('done');
     expect(completed?.status).toBe('completed');
     expect(completed?.result).toBe('done');
+  });
+
+  // ARCH-025: `ISubagentJobResult.usage` is declared (ANALYTICS-001) and populated end to end, but
+  // `wait()` projected `{ jobId, output, metadata }` and dropped it — so its readers saw `undefined`
+  // structurally, always. The field was born dropped: the commit that added `usage` to
+  // `toBackgroundResult` never touched `wait()`.
+  it('wait() carries the declared usage through to its caller', async () => {
+    const usage: ITokenUsage = { promptTokens: 120, completionTokens: 45, totalTokens: 165 };
+    const manager = new SubagentManager({
+      runner: createUsageReportingRunner('done', usage),
+      now: () => '2026-04-30T00:00:00.000Z',
+    });
+
+    const created = await manager.spawn(createSpawnRequest('Summarize the project'));
+    const result = await manager.wait(created.id);
+
+    expect(result.usage).toEqual(usage);
+  });
+
+  it('wait() omits usage entirely when the runner reported none', async () => {
+    const manager = new SubagentManager({
+      runner: createResolvedRunner('done'),
+      now: () => '2026-04-30T00:00:00.000Z',
+    });
+
+    const created = await manager.spawn(createSpawnRequest('Summarize the project'));
+    const result = await manager.wait(created.id);
+
+    // Absent, not `undefined`-valued — the conditional spread mirrors `toBackgroundResult`.
+    expect('usage' in result).toBe(false);
   });
 
   it('moves a failed runner result to failed and stores the error', async () => {

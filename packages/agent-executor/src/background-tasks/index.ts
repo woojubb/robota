@@ -41,6 +41,7 @@ export {
   type IBackgroundTaskResult,
   type IBackgroundTaskRunner,
   type IBackgroundTaskStart,
+  type IScheduleEditPatch,
   type IBackgroundTaskState,
   type IProcessBackgroundTaskRequest,
   type IScheduledBackgroundTaskRequest,
