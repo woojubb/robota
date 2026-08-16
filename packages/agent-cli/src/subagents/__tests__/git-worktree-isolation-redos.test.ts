@@ -54,7 +54,7 @@ describe('SEC-003 alert 34 — git worktree path segment sanitiser', () => {
   function timedPrepare(repo: string, shortId: string): { ms: number; branchName: string } {
     const adapter = new GitWorktreeIsolationAdapter({ idFactory: () => shortId });
     const started = performance.now();
-    const worktree = adapter.prepare({ jobId: 'agent_1', cwd: repo });
+    const worktree = adapter.prepare({ taskId: 'agent_1', cwd: repo });
     const ms = performance.now() - started;
     expect(existsSync(worktree.worktreePath)).toBe(true);
     adapter.remove(worktree);
@@ -81,7 +81,7 @@ describe('SEC-003 alert 34 — git worktree path segment sanitiser', () => {
     () => {
       const repo = createGitRepo();
       const adapter = new GitWorktreeIsolationAdapter({ idFactory: () => '--Robota Agent--' });
-      const worktree = adapter.prepare({ jobId: '  weird/job id  ', cwd: repo });
+      const worktree = adapter.prepare({ taskId: '  weird/job id  ', cwd: repo });
       expect(worktree.branchName).toBe('robota/weird-job-id-Robota-A');
       adapter.remove(worktree);
     },

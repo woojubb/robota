@@ -161,11 +161,13 @@ export type {
   TBackgroundTaskEventListener,
 } from './background-task-contracts.js';
 
-// ── Subagent job data contracts (INFRA-025 SSOT) ─────────────
+// ── Subagent job data contracts (INFRA-025 SSOT; ARCH-031 request/result) ────
 export type {
   TSubagentJobStatus,
   TSubagentJobMode,
   ISubagentJobState,
+  ISubagentJobResult,
+  ISubagentSpawnRequest,
 } from './subagent-contracts.js';
 
 // ── Context-compaction contracts (INFRA-025 SSOT) ────────────

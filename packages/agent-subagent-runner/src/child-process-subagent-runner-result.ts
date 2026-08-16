@@ -1,8 +1,4 @@
-import {
-  BackgroundTaskError,
-  type ISubagentJobResult,
-  type ISubagentJobStart,
-} from '@robota-sdk/agent-executor';
+import { BackgroundTaskError, type ISubagentJobStart } from '@robota-sdk/agent-executor';
 
 import {
   isSubagentWorkerChildMessage,
@@ -16,6 +12,8 @@ import {
   sendWorkerMessage,
   type IChildProcessRuntime,
 } from './child-process-subagent-transport.js';
+
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
 
 export interface ICancellationResult {
   promise: Promise<ISubagentJobResult>;
@@ -119,7 +117,7 @@ class ChildProcessSubagentResultController {
   }
 }
 
-export function createCancellationResult(jobId: string): ICancellationResult {
+export function createCancellationResult(taskId: string): ICancellationResult {
   let settled = false;
   let rejectFn: (error: Error) => void = () => {};
   const promise = new Promise<ISubagentJobResult>((_resolve, reject) => {
@@ -130,7 +128,7 @@ export function createCancellationResult(jobId: string): ICancellationResult {
     reject(reason?: string): void {
       if (settled) return;
       settled = true;
-      rejectFn(new BackgroundTaskError('runner', reason ?? `Subagent job cancelled: ${jobId}`));
+      rejectFn(new BackgroundTaskError('runner', reason ?? `Subagent job cancelled: ${taskId}`));
     },
   };
 }
@@ -153,7 +151,7 @@ function toSubagentResult(
 ): ISubagentJobResult {
   const transcriptPath = resolveTranscriptPath(job);
   return {
-    jobId: job.jobId,
+    taskId: job.taskId,
     output: result.output,
     ...(transcriptPath ? { metadata: { transcriptPath, logPath: transcriptPath } } : {}),
     // ANALYTICS-001 (Phase 2): carry the subagent's forwarded token usage so the background-task

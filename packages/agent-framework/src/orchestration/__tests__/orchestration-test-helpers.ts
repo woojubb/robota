@@ -1,5 +1,6 @@
 import type { IEventService, IBaseEventData, IEventContext } from '@robota-sdk/agent-core';
-import type { ISubagentManager, ISubagentJobResult } from '@robota-sdk/agent-executor';
+import type { ISubagentManager } from '@robota-sdk/agent-executor';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
 import type { ISubagentJobState } from '@robota-sdk/agent-interface-transport';
 
 export const TEST_CONTEXT = { parentSessionId: 'sess-1', cwd: '/tmp/work', depth: 0 };
@@ -44,20 +45,20 @@ export function fakeManager(outputs: string[] | ((spawn: IRecordedSpawn) => stri
       const id = `job-${index}`;
       const recorded: IRecordedSpawn = {
         prompt: request.prompt,
-        type: request.type,
+        type: request.agentType,
         model: request.model,
         allowedTools: request.allowedTools,
         disallowedTools: request.disallowedTools,
       };
       spawns.push(recorded);
       const output = Array.isArray(outputs) ? (outputs[index] ?? '') : outputs(recorded);
-      results.set(id, { jobId: id, output });
+      results.set(id, { taskId: id, output });
       index += 1;
       return jobState(id);
     },
-    async wait(jobId) {
-      const result = results.get(jobId);
-      if (!result) throw new Error(`no result for ${jobId}`);
+    async wait(taskId) {
+      const result = results.get(taskId);
+      if (!result) throw new Error(`no result for ${taskId}`);
       return result;
     },
     list: () => [],

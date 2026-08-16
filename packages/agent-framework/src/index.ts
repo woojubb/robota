@@ -476,21 +476,11 @@ export type {
 
 // ── Subagent process manager contracts ─────────────────────
 export { createInProcessSubagentRunner } from './subagents/index.js';
-export type {
-  IInProcessSubagentRunnerDeps,
-  IPreparedSubagentWorktree,
-  ISubagentJobHandle,
-  ISubagentJobResult,
-  ISubagentJobStart,
-  ISubagentManager,
-  ISubagentManagerOptions,
-  ISubagentRunner,
-  ISubagentSpawnRequest,
-  ISubagentWorktreeAdapter,
-  ISubagentWorktreePrepareRequest,
-  IWorktreeSubagentRunnerOptions,
-  TSubagentRunnerFactory,
-} from './subagents/index.js';
+// ARCH-031: eleven `agent-executor`-owned types used to be republished here. They were TYPES ONLY —
+// zero runtime values — so they bought none of the assembly convenience a runtime facade exists for,
+// while making one field family look like it had three owners. Consumers import from the owner: the
+// SPI from `@robota-sdk/agent-executor`, the data contracts from `@robota-sdk/agent-interface-transport`.
+export type { IInProcessSubagentRunnerDeps, TSubagentRunnerFactory } from './subagents/index.js';
 
 // ── Multi-agent orchestration mechanism (SELFHOST-001) ──────
 export {

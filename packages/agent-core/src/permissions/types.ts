@@ -47,3 +47,18 @@ export type TPermissionDecision = 'auto' | 'approve' | 'deny';
  * - `deny`: deny every privileged call (call-scoped structured deny; does not force-fail the task).
  */
 export type TBackgroundPermissionPolicy = 'inherit-allowlist' | 'preapproved' | 'prompt' | 'deny';
+
+/**
+ * The policy a spawn site gets when it has no reason to choose another (ARCH-031).
+ *
+ * ONE definition, owned by the package that owns {@link TBackgroundPermissionPolicy}. It replaces two
+ * independent `?? 'inherit-allowlist'` fallbacks — one in `agent-executor`'s subagent manager, one in
+ * `agent-framework`'s workspace spawner — which were the default for a security-relevant value declared
+ * twice in two packages, with nothing keeping them equal.
+ *
+ * `permissionPolicy` is REQUIRED on a spawn request, so every site states its policy rather than
+ * inheriting one applied in the middle of a projection. This constant is what they state when the
+ * answer is "the usual one".
+ */
+export const DEFAULT_BACKGROUND_PERMISSION_POLICY: TBackgroundPermissionPolicy =
+  'inherit-allowlist';

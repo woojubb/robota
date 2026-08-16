@@ -90,7 +90,7 @@ async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<v
       createDefaultProviderDefinitions(),
     );
     const sessionLogger = payload.logsDir
-      ? createSubagentLogger(payload.request.parentSessionId, payload.jobId, payload.logsDir)
+      ? createSubagentLogger(payload.request.parentSessionId, payload.taskId, payload.logsDir)
       : undefined;
     session = createSubagentSession({
       agentDefinition: payload.agentDefinition,
@@ -100,11 +100,11 @@ async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<v
       // every tool the child built was unconfined. Same reader as the session root below — the tools
       // and the session being told DIFFERENT roots is the same class of defect as neither being told
       // one.
-      parentTools: createDefaultTools({ cwd: subagentExecutionRoot(payload.request) }),
-      cwd: subagentExecutionRoot(payload.request),
+      parentTools: createDefaultTools({ cwd: subagentExecutionRoot(payload) }),
+      cwd: subagentExecutionRoot(payload),
       provider,
       terminal: NOOP_TERMINAL,
-      sessionId: payload.jobId,
+      sessionId: payload.taskId,
       ...(sessionLogger ? { sessionLogger } : {}),
       permissionMode: payload.permissionMode,
       // CORE-025: enforce the task's permission policy in the child-process subagent too.

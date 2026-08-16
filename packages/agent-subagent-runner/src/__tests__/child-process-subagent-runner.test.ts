@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
@@ -73,9 +73,10 @@ function createDeps(): IInProcessSubagentRunnerDeps {
 
 function createJob(): ISubagentJobStart {
   return {
-    jobId: 'agent_1',
+    taskId: 'agent_1',
     request: {
-      type: 'tester',
+      permissionPolicy: 'inherit-allowlist' as const,
+      agentType: 'tester',
       label: 'Tester',
       parentSessionId: 'session_1',
       mode: 'background',
@@ -107,7 +108,34 @@ describe('ChildProcessSubagentRunner', () => {
       const result = await handle.result;
 
       expect(handle.pid).toBeGreaterThan(0);
-      expect(result).toEqual({ jobId: 'agent_1', output: 'completed:agent_1' });
+      expect(result).toEqual({ taskId: 'agent_1', output: 'completed:agent_1' });
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'forks the child into the job worktree, not the request cwd (ARCH-010/ARCH-031)',
+    async () => {
+      // Before ARCH-031 the worktree runner rewrote `request.cwd` to the worktree path, so forking on
+      // `request.cwd` happened to be correct. The rewrite is gone — the worktree now rides on the
+      // job envelope — and this asserts the fork followed it. `request.cwd` stays at the parent
+      // checkout on purpose: it is the value the child must NOT land in.
+      const worktreePath = realpathSync(mkdtempSync(join(tmpdir(), 'arch-031-worktree-')));
+      const runner = new ChildProcessSubagentRunner(createDeps(), {
+        workerPath: FIXTURE_WORKER,
+        execArgv: [],
+        env: { ROBOTA_FIXTURE_MODE: 'cwd' },
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+      });
+
+      const handle = runner.start({
+        ...createJob(),
+        worktree: { path: worktreePath, branch: 'subagent/arch-031' },
+      });
+      const result = await handle.result;
+
+      expect(result.output).toBe(worktreePath);
+      expect(result.output).not.toBe(process.cwd());
     },
     TEST_TIMEOUT_MS,
   );
@@ -231,7 +259,7 @@ describe('subagent worker IPC guards', () => {
       isSubagentWorkerParentMessage({
         type: 'start',
         payload: {
-          jobId: 'agent_1',
+          taskId: 'agent_1',
           request: createJob().request,
           agentDefinition: {
             name: 'tester',

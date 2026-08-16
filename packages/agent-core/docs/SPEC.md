@@ -177,6 +177,16 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 
 ## Public API Surface
 
+| Export                                 | Kind     | Description                                                                                                                                                                                                                                                                                                                |
+| -------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEFAULT_BACKGROUND_PERMISSION_POLICY` | const    | ARCH-031: the one definition of the policy a spawn site states when it has no reason to choose another. Replaced two independent `?? 'inherit-allowlist'` fallbacks in two packages                                                                                                                                        |
+| `clearRegisteredToolArgumentKeys`      | function | Clears the tool-argument key registry. ARCH-031 surfaced it: collapsing the permissions block to `export *` re-exported everything the sub-barrel owns, and the hand-listed block had omitted this one. Documented rather than re-narrowed, because a barrel that cannot drift from its owner is the point of the collapse |
+
+<!-- The rows below live under `###` subheadings. `check-spec-public-surface.mjs` stops counting at the
+     first non-"Public API" heading, so it reads none of them — which is why this package's undocumented
+     baseline is ~147 phantom entries. Filed as issue #1765; this table exists so a genuinely new export
+     is visible to the scan rather than hidden behind that parser defect. -->
+
 ### Core
 
 | Export                                  | Kind           | Description                                                                                                                                                                                                                                             |
@@ -278,8 +288,10 @@ mode) instead of continuing to the allow list.
 | ------------------------- | -------- | -------------------------------------------------------------------- |
 | `registerToolArgumentKey` | function | Declare which argument this tool's permission patterns are scoped to |
 
-`clearRegisteredToolArgumentKeys` stays in-package: it exists for tests and for a host rebuilding a
-registry, not as part of the contract.
+`clearRegisteredToolArgumentKeys` is public as of ARCH-031 — see its row in the Public API Surface
+table above. It was in-package until the permissions block collapsed to `export *`; the rationale for
+it (tests, and a host rebuilding a registry) is unchanged, but it is now on the barrel and therefore
+part of the contract, so a consumer may rely on it.
 
 ### Model Metadata Registry Public API (NEUT-010)
 

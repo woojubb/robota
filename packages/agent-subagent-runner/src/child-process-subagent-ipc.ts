@@ -1,15 +1,27 @@
 import type { ISessionUsageTotals, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
-import type { ISubagentSpawnRequest } from '@robota-sdk/agent-executor';
 import type { IAgentDefinition, IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
-import type { ISerializableProviderProfile } from '@robota-sdk/agent-interface-transport';
+import type {
+  ISerializableProviderProfile,
+  ISubagentSpawnRequest,
+} from '@robota-sdk/agent-interface-transport';
 
 export type TSubagentWorkerWireValue = string | number | boolean | null | undefined | object;
 
 type TSubagentWorkerWireRecord = Record<string, TSubagentWorkerWireValue>;
 
 export interface ISubagentWorkerStartPayload {
-  jobId: string;
+  taskId: string;
   request: ISubagentSpawnRequest;
+  /**
+   * ARCH-031: the worktree the parent's runner prepared, carried across the fork so the child can
+   * answer `subagentExecutionRoot` the same way the parent would. Runner-produced, so it rides beside
+   * the request rather than on it.
+   *
+   * `branch` crosses the fork too, even though nothing reads it here yet: dropping it at the IPC
+   * boundary would make the child's view of its own isolated run poorer than the parent's, for no
+   * reason other than the absence of a present-day consumer.
+   */
+  worktree?: { readonly path: string; readonly branch?: string };
   agentDefinition: IAgentDefinition;
   parentConfig: IInProcessSubagentRunnerDeps['config'];
   parentContext: IInProcessSubagentRunnerDeps['context'];
@@ -87,8 +99,29 @@ function isRecord(value: TSubagentWorkerWireValue): value is TSubagentWorkerWire
   return typeof value === 'object' && value !== null;
 }
 
+/**
+ * ARCH-031: `key` is `string`, so a renamed contract field compiles clean here and then rejects every
+ * payload at runtime — which is exactly what a `type` → `agentType` rename would have done, silently.
+ * The typed overloads below make the next rename a compile error instead.
+ */
 function hasString(value: TSubagentWorkerWireRecord, key: string): boolean {
   return typeof value[key] === 'string';
+}
+
+/** Assert a key that must exist on the spawn request, so a contract rename is compiler-found. */
+function hasRequestString(
+  value: TSubagentWorkerWireRecord,
+  key: keyof ISubagentSpawnRequest & string,
+): boolean {
+  return hasString(value, key);
+}
+
+/** Assert a key that must exist on the worker start payload, for the same reason. */
+function hasPayloadString(
+  value: TSubagentWorkerWireRecord,
+  key: keyof ISubagentWorkerStartPayload & string,
+): boolean {
+  return hasString(value, key);
 }
 
 /**
@@ -109,10 +142,25 @@ function hasValidOptionalUsage(value: TSubagentWorkerWireRecord): boolean {
 
 function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWorkerStartPayload {
   if (!isRecord(value)) return false;
-  if (!hasString(value, 'jobId')) return false;
+  if (!hasPayloadString(value, 'taskId')) return false;
   if (!isRecord(value.request)) return false;
-  if (!hasString(value.request, 'type')) return false;
-  if (!hasString(value.request, 'prompt')) return false;
+  if (!hasRequestString(value.request, 'agentType')) return false;
+  if (!hasRequestString(value.request, 'prompt')) return false;
+  // ARCH-031: required at the spawn boundary, so the guard asserts it too. Without this a payload
+  // missing the policy passes, and the worker's conditional spread then silently omits it — which is
+  // how CORE-025 lost this exact field once already.
+  if (!hasRequestString(value.request, 'permissionPolicy')) return false;
+  // ARCH-010/ARCH-031: `cwd` is the fallback carrier of the execution root — with no `worktree` on
+  // the payload, `subagentExecutionRoot` returns it verbatim. A payload without it gives the child's
+  // tools `undefined` as their containment root, which is the breach this rule exists to prevent.
+  if (!hasRequestString(value.request, 'cwd')) return false;
+  // …and `worktree.path` is the HIGHER-precedence carrier — `worktree?.path ?? request.cwd` — so
+  // validating `cwd` alone leaves the winning branch unchecked. Before ARCH-031 the runner rewrote
+  // `request.cwd` to the worktree, so one check covered both; now it does not.
+  if (value.worktree !== undefined) {
+    if (!isRecord(value.worktree)) return false;
+    if (!hasString(value.worktree, 'path')) return false;
+  }
   if (!isRecord(value.agentDefinition)) return false;
   if (!hasString(value.agentDefinition, 'name')) return false;
   if (!hasString(value.agentDefinition, 'systemPrompt')) return false;

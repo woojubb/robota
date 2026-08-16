@@ -7,11 +7,11 @@ import {
 import type { IGroupChatOrchestrationSpec } from '@robota-sdk/agent-core';
 import { SubagentManager } from '@robota-sdk/agent-executor';
 import type {
-  ISubagentRunner,
-  ISubagentJobStart,
   ISubagentJobHandle,
-  ISubagentJobResult,
+  ISubagentJobStart,
+  ISubagentRunner,
 } from '@robota-sdk/agent-executor';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
 import { runGroupChat, type SelectNextStep } from '../group-chat';
 import { createInProcessSubagentRunner } from '../../subagents/index';
 import {
@@ -113,10 +113,10 @@ describe('SELFHOST-001 P3 — group-chat orchestration', () => {
     const runner: ISubagentRunner = {
       start(job: ISubagentJobStart): ISubagentJobHandle {
         return {
-          jobId: job.jobId,
+          taskId: job.taskId,
           result: Promise.resolve<ISubagentJobResult>({
-            jobId: job.jobId,
-            output: job.request.type.toUpperCase(),
+            taskId: job.taskId,
+            output: job.request.agentType.toUpperCase(),
           }),
           cancel: async () => {},
         };

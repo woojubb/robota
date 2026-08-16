@@ -17,7 +17,7 @@ import type { TBackgroundPrimitive } from '../background-tasks/index.js';
 const SHORT_REVISION_LENGTH = 12;
 
 export interface ISubagentWorktreePrepareRequest {
-  jobId: string;
+  taskId: string;
   cwd: string;
 }
 
@@ -58,7 +58,7 @@ export class WorktreeSubagentRunner implements ISubagentRunner {
     }
 
     const worktree = this.options.worktreeAdapter.prepare({
-      jobId: job.jobId,
+      taskId: job.taskId,
       cwd: job.request.cwd,
     });
     const lifecycle = createWorktreeLifecycle(this.options, worktree, job);
@@ -88,7 +88,7 @@ export class WorktreeSubagentRunner implements ISubagentRunner {
     lifecycle: IWorktreeLifecycle,
   ): ISubagentJobHandle {
     const wrapped: ISubagentJobHandle = {
-      jobId: handle.jobId,
+      taskId: handle.taskId,
       ...(handle.pid !== undefined ? { pid: handle.pid } : {}),
       result: handle.result
         .then((result) => finalizeWorktreeResult(result, this.options, worktree, lifecycle))
@@ -108,19 +108,30 @@ export class WorktreeSubagentRunner implements ISubagentRunner {
   }
 }
 
+/**
+ * ARCH-031: the worktree identity goes on the ENVELOPE, not back onto the request.
+ *
+ * The request models what the CALLER asked for, and the worktree does not exist when a caller builds
+ * one — `prepare()` creates it here, inside the runner. This function is the ONLY producer of that
+ * identity anywhere in the repo, which is why a rejected draft that read `worktreePath` as a caller
+ * field and proposed deleting these lines would have severed the containment branch
+ * `subagentExecutionRoot` guards.
+ *
+ * `request.cwd` is deliberately NOT rewritten any more. Setting both it and `worktreePath` gave the
+ * execution root two carriers that could disagree, which is the duplication ARCH-010 exists to
+ * prevent; the envelope plus `subagentExecutionRoot` is the single answer.
+ *
+ * The branch RELOCATES rather than disappears. It was on the request, where a caller could not know
+ * it; it is a genuine fact about an isolated run, so it moves to the envelope beside the path. Nothing
+ * in this tree reads it yet, and that is not a reason to drop it — this is a library, and
+ * `project-structure.md` makes removing an unconsumed public surface a product decision rather than a
+ * grep result.
+ */
 function createWorktreeJob(
   job: ISubagentJobStart,
   worktree: IPreparedSubagentWorktree,
 ): ISubagentJobStart {
-  return {
-    ...job,
-    request: {
-      ...job.request,
-      cwd: worktree.worktreePath,
-      worktreePath: worktree.worktreePath,
-      branchName: worktree.branchName,
-    },
-  };
+  return { ...job, worktree: { path: worktree.worktreePath, branch: worktree.branchName } };
 }
 
 function finalizeWorktreeResult(
@@ -228,8 +239,8 @@ function fireWorktreeHook(
     hook_event_name: event,
     tool_name: 'Agent',
     tool_input: {
-      jobId: job.jobId,
-      agentType: job.request.type,
+      taskId: job.taskId,
+      agentType: job.request.agentType,
       worktreePath: worktree.worktreePath,
       branchName: worktree.branchName,
       removed,

@@ -11,6 +11,7 @@
  * multiple concurrent sessions without race conditions.
  */
 
+import { DEFAULT_BACKGROUND_PERMISSION_POLICY } from '@robota-sdk/agent-core';
 import { SubagentManager } from '@robota-sdk/agent-executor';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
@@ -29,13 +30,10 @@ import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-
 import type { IAgentToolBatchJobArgs } from './agent-tool-batch.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IBackgroundTaskManager } from '../background-tasks/index.js';
-import type {
-  IInProcessSubagentRunnerDeps,
-  ISubagentManager,
-  ISubagentJobResult,
-  ISubagentSpawnRequest,
-} from '../subagents/index.js';
+import type { IInProcessSubagentRunnerDeps } from '../subagents/index.js';
 import type { IToolExecutionContext } from '@robota-sdk/agent-core';
+import type { ISubagentManager } from '@robota-sdk/agent-executor';
+import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface-transport';
 
 export const AGENT_TOOL_DESCRIPTION = [
   'Creates delegated subagent jobs in isolated contexts.',
@@ -192,7 +190,9 @@ function createSpawnRequest(
   toolCallId?: string,
 ): ISubagentSpawnRequest {
   return {
-    type: agentType,
+    // ARCH-031: stated, not inherited from a default applied mid-projection.
+    permissionPolicy: DEFAULT_BACKGROUND_PERMISSION_POLICY,
+    agentType,
     label,
     parentSessionId: deps.parentSessionId ?? 'unknown-session',
     mode: 'background',

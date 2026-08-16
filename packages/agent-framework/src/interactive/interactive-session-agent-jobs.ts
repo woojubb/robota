@@ -5,12 +5,14 @@
  * agent jobs. The class delegates to these with thin wrappers.
  */
 
+import { DEFAULT_BACKGROUND_PERMISSION_POLICY } from '@robota-sdk/agent-core';
+
 import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { TCommandInvocationSource } from '../commands/index.js';
-import type { ISubagentJobResult } from '../subagents/index.js';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
 import type {
   ISubagentJobState,
   TBackgroundTaskIsolation,
@@ -80,7 +82,9 @@ export async function spawnAgentJobFromSession(
   const sessionId = session.getSessionId();
   const manager = getSubagentManagerOrThrow(session);
   return manager.spawn({
-    type: input.agentType,
+    agentType: input.agentType,
+    // ARCH-031: stated, not inherited from a default applied mid-projection.
+    permissionPolicy: DEFAULT_BACKGROUND_PERMISSION_POLICY,
     label: input.label,
     parentSessionId: sessionId,
     mode: input.mode,
@@ -103,32 +107,32 @@ export async function spawnAgentJobFromSession(
 /** Wait for an agent job to complete and return its result. */
 export async function waitAgentJobFromSession(
   session: Session,
-  jobId: string,
+  taskId: string,
 ): Promise<ISubagentJobResult> {
-  return getSubagentManagerOrThrow(session).wait(jobId);
+  return getSubagentManagerOrThrow(session).wait(taskId);
 }
 
 /** Send a prompt to a running agent job. */
 export async function sendAgentJobFromSession(
   session: Session,
-  jobId: string,
+  taskId: string,
   prompt: string,
 ): Promise<void> {
-  await getSubagentManagerOrThrow(session).send(jobId, prompt);
+  await getSubagentManagerOrThrow(session).send(taskId, prompt);
 }
 
 /** Cancel a running agent job. */
 export async function cancelAgentJobFromSession(
   session: Session,
-  jobId: string,
+  taskId: string,
   reason?: string,
 ): Promise<void> {
-  await getSubagentManagerOrThrow(session).cancel(jobId, reason);
+  await getSubagentManagerOrThrow(session).cancel(taskId, reason);
 }
 
 /** Close a completed or failed agent job. */
-export async function closeAgentJobFromSession(session: Session, jobId: string): Promise<void> {
-  await getSubagentManagerOrThrow(session).close(jobId);
+export async function closeAgentJobFromSession(session: Session, taskId: string): Promise<void> {
+  await getSubagentManagerOrThrow(session).close(taskId);
 }
 
 /** List all agent jobs in the session. */

@@ -236,9 +236,9 @@ export interface IAgentJobHostContext {
     model?: string;
     isolation?: TBackgroundTaskIsolation;
   }): Promise<ISubagentJobState>;
-  sendAgentJob(jobId: string, prompt: string): Promise<void>;
-  cancelAgentJob(jobId: string, reason?: string): Promise<void>;
-  closeAgentJob(jobId: string): Promise<void>;
+  sendAgentJob(taskId: string, prompt: string): Promise<void>;
+  cancelAgentJob(taskId: string, reason?: string): Promise<void>;
+  closeAgentJob(taskId: string): Promise<void>;
   createBackgroundJobGroup(
     input: Omit<IBackgroundJobGroupCreateRequest, 'parentSessionId'>,
   ): IBackgroundJobGroupState;
