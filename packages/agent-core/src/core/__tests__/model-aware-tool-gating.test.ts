@@ -1,8 +1,8 @@
 /**
  * PROV-006 — a model that declares no tools is not offered any.
  *
- * The catalog carried this answer per MODEL and the execution seam asked a per-PROVIDER boolean, so
- * a reasoning model whose own entry lists no `tools` was handed the whole toolset. Nothing failed
+ * The declaration carries this answer per MODEL and the execution seam asked a per-PROVIDER boolean,
+ * so a reasoning model that verifiably lacks tools was handed the whole toolset. Nothing failed
  * loudly: the model either ignored them or the call errored at the vendor, which is the same
  * silence class as the rest of this audit.
  *
@@ -23,17 +23,17 @@ import { Robota } from '../robota';
 import type { IAgentConfig } from '../../interfaces/agent';
 import type { TUniversalMessage } from '../../interfaces/messages';
 import type { IChatOptions } from '../../interfaces/provider';
-import type { IProviderModelCatalog } from '../../interfaces/provider-definition';
+import type { IProviderCapabilityTable } from '../../interfaces/model-capability';
 import type { IToolResult, TToolParameters } from '../../interfaces/tool';
 import type { IToolSchema } from '../../interfaces/tool-schema';
 
-const CATALOG: IProviderModelCatalog = {
-  status: 'fallback',
-  entries: [
-    { id: 'chat-model', displayName: 'Chat', capabilities: ['tools', 'streaming'] },
-    // The deepseek-reasoner shape: a populated list that deliberately omits `tools`.
-    { id: 'reasoning-model', displayName: 'Reasoner', capabilities: ['reasoning', 'streaming'] },
-  ],
+const TABLE: IProviderCapabilityTable = {
+  vendorDefault: ['tools', 'streaming'],
+  deviations: {
+    // The deepseek-reasoner shape: a model that verifiably lacks its vendor's tool support.
+    'reasoning-model': { capabilities: ['reasoning', 'streaming'], verifiedAt: '2026-08-16' },
+  },
+  verifiedAt: '2026-08-16',
 };
 
 class CatalogProvider extends AbstractAIProvider {
@@ -41,8 +41,8 @@ class CatalogProvider extends AbstractAIProvider {
   readonly version = '1.0.0';
   toolsOffered: Array<string[]> = [];
 
-  modelCatalog(): IProviderModelCatalog | undefined {
-    return CATALOG;
+  capabilityTable(): IProviderCapabilityTable | undefined {
+    return TABLE;
   }
 
   // Provider-granular and TRUE — this vendor does support function calling. The per-model answer is
@@ -67,7 +67,7 @@ class CatalogProvider extends AbstractAIProvider {
 class SilentCatalogProvider extends CatalogProvider {
   override readonly name = 'catalog-provider';
 
-  override modelCatalog(): IProviderModelCatalog | undefined {
+  override capabilityTable(): IProviderCapabilityTable | undefined {
     return undefined;
   }
 }
@@ -125,9 +125,11 @@ describe('PROV-006 — per-model tool gating', () => {
     expect(provider.toolsOffered[0]).toEqual(['echo_tool']);
   });
 
-  it('keeps offering tools for a model the catalog does not list', async () => {
+  it('PROV-008 — a model with no deviation gets the vendor default, not a denial', async () => {
+    // The rule that makes a short table safe. If absence from the deviation list meant "unknown" or
+    // "incapable", every table would have to enumerate every model the vendor will ever ship.
     const provider = new CatalogProvider();
-    await buildAgent(provider, 'a-model-not-in-the-catalog').run('hello');
+    await buildAgent(provider, 'a-model-nobody-listed').run('hello');
 
     expect(provider.toolsOffered[0]).toEqual(['echo_tool']);
   });

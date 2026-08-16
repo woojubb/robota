@@ -30,7 +30,6 @@ describe('createDeepSeekProviderDefinition', () => {
     expect(definition.type).toBe('deepseek');
     expect(definition.requiresApiKey).toBe(true);
     expect(definition.probeProfile).toBeTypeOf('function');
-    expect(definition.refreshModelCatalog).toBeTypeOf('function');
     expect(definition.defaults).toEqual({
       model: DEFAULT_DEEPSEEK_PROVIDER_MODEL,
       apiKey: DEFAULT_DEEPSEEK_PROVIDER_API_KEY_REFERENCE,

@@ -6,7 +6,6 @@ export {
   DEFAULT_DEEPSEEK_PROVIDER_BASE_URL,
   DEFAULT_DEEPSEEK_PROVIDER_MODEL,
 } from './defaults';
-export { refreshDeepSeekModelCatalog } from './model-catalog-refresh';
 export {
   DEEPSEEK_DEPRECATED_ALIAS_RETIREMENT_DATE,
   DEEPSEEK_MODEL_CATALOG_SOURCE_URL,

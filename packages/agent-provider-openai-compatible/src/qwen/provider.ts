@@ -1,6 +1,7 @@
 import { AbstractAIProvider, SilentLogger } from '@robota-sdk/agent-core';
 import OpenAI from 'openai';
 
+import { QWEN_CAPABILITY_TABLE } from './capability-table';
 import {
   DEFAULT_QWEN_PROVIDER_BASE_URL,
   DEFAULT_QWEN_PROVIDER_RESPONSES_BASE_URL,
@@ -18,6 +19,7 @@ import {
 import type { IQwenProviderOptions } from './types';
 import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
 import type {
+  IProviderCapabilityTable,
   IChatOptions,
   IProviderCapabilities,
   TTextDeltaCallback,
@@ -218,6 +220,11 @@ export class QwenProvider extends AbstractAIProvider {
       const errorMessage = qwenError.message || 'Qwen API request failed';
       throw new Error(`Qwen stream failed: ${errorMessage}`);
     }
+  }
+
+  /** What THIS vendor's models can do, per model (PROV-008). */
+  capabilityTable(): IProviderCapabilityTable {
+    return QWEN_CAPABILITY_TABLE;
   }
 
   override supportsTools(): boolean {

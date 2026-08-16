@@ -2,8 +2,8 @@ import { AbstractAIProvider, SilentLogger } from '@robota-sdk/agent-core';
 import OpenAI from 'openai';
 
 import { DEEPSEEK_PROVIDER_CAPABILITIES } from './capabilities';
+import { DEEPSEEK_CAPABILITY_TABLE } from './capability-table';
 import { DEFAULT_DEEPSEEK_PROVIDER_BASE_URL } from './defaults';
-import { DEEPSEEK_MODEL_CATALOG } from './model-catalog';
 import {
   assembleOpenAICompatibleStream,
   buildOpenAICompatibleRequestParams,
@@ -20,7 +20,7 @@ import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.j
 import type {
   IChatOptions,
   IProviderCapabilities,
-  IProviderModelCatalog,
+  IProviderCapabilityTable,
   TTextDeltaCallback,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -186,14 +186,14 @@ export class DeepSeekProvider extends AbstractAIProvider {
    * PROV-006: this answers for the VENDOR — deepseek does support function calling — which is all a
    * provider-granular boolean can honestly say. It used to be the only answer anything read, while
    * this package's own catalog said `deepseek-reasoner` has no `tools`; the per-MODEL question is
-   * now `modelCatalog()`, which the execution seam asks before offering any.
+   * now `capabilityTable()`, which the execution seam asks before offering any.
    */
   override supportsTools(): boolean {
     return true;
   }
 
-  modelCatalog(): IProviderModelCatalog {
-    return DEEPSEEK_MODEL_CATALOG;
+  capabilityTable(): IProviderCapabilityTable {
+    return DEEPSEEK_CAPABILITY_TABLE;
   }
 
   override getCapabilities(): IProviderCapabilities {

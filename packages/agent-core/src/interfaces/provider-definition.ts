@@ -93,14 +93,6 @@ export interface IProviderModelCatalog {
   message?: string;
 }
 
-export interface IProviderModelCatalogRefreshOptions {
-  profile: IProviderProfileConfig;
-}
-
-export type TProviderModelCatalogRefresh = (
-  options: IProviderModelCatalogRefreshOptions,
-) => Promise<IProviderModelCatalog>;
-
 export interface IProviderSetupStepDefinition {
   key: TProviderSetupField;
   title: string;
@@ -137,9 +129,6 @@ export interface IProviderDefinition {
    */
   costPerTokenUsd?: number;
   modelCatalog?: IProviderModelCatalog;
-  refreshModelCatalog?: TProviderModelCatalogRefresh;
-  /** Maximum age in seconds before the model catalog is considered stale and auto-refreshed. */
-  modelCatalogCacheTtlSeconds?: number;
   setupHelpLinks?: readonly IProviderSetupHelpLink[];
   setupSteps?: readonly IProviderSetupStepDefinition[];
   credentialRequirement?: IProviderCredentialRequirement;

@@ -1,7 +1,7 @@
 import { modelDeclaresCapability } from '@robota-sdk/agent-core';
 import { describe, expect, it } from 'vitest';
 
-import { DEEPSEEK_MODEL_CATALOG } from '../model-catalog';
+import { DEEPSEEK_CAPABILITY_TABLE } from '../capability-table';
 import { DeepSeekProvider } from '../provider';
 
 /**
@@ -19,29 +19,39 @@ import { DeepSeekProvider } from '../provider';
 describe('PROV-006 — deepseek stops contradicting its own catalog', () => {
   const provider = new DeepSeekProvider({ apiKey: 'test-key-not-used' });
 
-  it('surfaces its catalog, so the per-model answer is reachable at call time', () => {
-    // It existed before this change too — in `provider-definition.ts`, where the running provider
-    // could not reach it. Being written down somewhere nothing reads is how the two drifted.
-    expect(provider.modelCatalog()).toBe(DEEPSEEK_MODEL_CATALOG);
+  it('surfaces its capability table, so the per-model answer is reachable at call time', () => {
+    // The claims existed before — in the model catalog on `provider-definition.ts`, which the
+    // running provider never holds. Written down somewhere nothing reads is how the two drifted.
+    expect(provider.capabilityTable()).toBe(DEEPSEEK_CAPABILITY_TABLE);
   });
 
   it('the vendor supports function calling — and deepseek-reasoner does not', () => {
     expect(provider.supportsTools()).toBe(true);
-    expect(modelDeclaresCapability(provider.modelCatalog(), 'deepseek-reasoner', 'tools')).toBe(
+    expect(modelDeclaresCapability(provider.capabilityTable(), 'deepseek-reasoner', 'tools')).toBe(
       false,
     );
   });
 
   it('deepseek-chat does, so the distinction is per-model rather than a blanket denial', () => {
-    expect(modelDeclaresCapability(provider.modelCatalog(), 'deepseek-chat', 'tools')).toBe(true);
+    expect(modelDeclaresCapability(provider.capabilityTable(), 'deepseek-chat', 'tools')).toBe(
+      true,
+    );
+  });
+
+  it('PROV-008 — a model nobody listed gets the vendor default, not a denial', () => {
+    // The rule that makes a deviation list safe. Before this, a model absent from the catalog was
+    // indistinguishable from one that declares nothing, so the whole table had to enumerate.
+    expect(
+      modelDeclaresCapability(provider.capabilityTable(), 'deepseek-v9-unreleased', 'tools'),
+    ).toBe(true);
   });
 
   it('the reasoning model still declares what it CAN do', () => {
     // A model that lists nothing would be indistinguishable from one the catalog is silent about,
     // and silence is not denial — so the entry has to be populated for the omission to mean anything.
-    const catalog = provider.modelCatalog();
-    expect(modelDeclaresCapability(catalog, 'deepseek-reasoner', 'reasoning')).toBe(true);
-    expect(modelDeclaresCapability(catalog, 'deepseek-reasoner', 'json_schema')).toBe(true);
-    expect(modelDeclaresCapability(catalog, 'deepseek-reasoner', 'streaming')).toBe(true);
+    const table = provider.capabilityTable();
+    expect(modelDeclaresCapability(table, 'deepseek-reasoner', 'reasoning')).toBe(true);
+    expect(modelDeclaresCapability(table, 'deepseek-reasoner', 'json_schema')).toBe(true);
+    expect(modelDeclaresCapability(table, 'deepseek-reasoner', 'streaming')).toBe(true);
   });
 });

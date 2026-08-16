@@ -46,30 +46,19 @@ describe('provider definition helpers', () => {
     ).toEqual({ anyOf: ['apiKey'] });
   });
 
-  it('allows provider-owned model catalog refresh hooks', async () => {
-    const refreshableDefinition: IProviderDefinition = {
+  it('carries no model-catalog refresh hook — the contract is discovery, not a live fetch', () => {
+    // PROV-008: `refreshModelCatalog` was declared by every provider definition and invoked by
+    // nothing, and its path could not have populated the static payloads anyway — a models-list
+    // endpoint returns ids. A structure with no caller and no reader is dead structure, not a dead
+    // field, so it was removed rather than given a caller nobody asked for.
+    const definition: IProviderDefinition = {
       type: 'openai',
-      refreshModelCatalog: async ({ profile }) => ({
-        status: 'live',
-        entries: [
-          {
-            id: profile.model ?? 'gpt-test',
-            displayName: profile.model ?? 'gpt-test',
-            lifecycle: 'active',
-          },
-        ],
-      }),
       createProvider: () => {
         throw new Error('not used');
       },
     };
 
-    const catalog = await refreshableDefinition.refreshModelCatalog?.({
-      profile: { type: 'openai', model: 'gpt-5.1' },
-    });
-
-    expect(catalog?.status).toBe('live');
-    expect(catalog?.entries?.[0]?.id).toBe('gpt-5.1');
+    expect('refreshModelCatalog' in definition).toBe(false);
   });
 
   it('allows provider-owned setup help links', () => {

@@ -1,76 +1,101 @@
 /**
- * Reading the per-model capability vocabulary. PROV-006.
+ * What a model can do, and where that answer lives. PROV-006 / PROV-008.
  *
- * `IProviderModelCatalogEntry.capabilities` exists precisely to say "this MODEL of this provider
- * cannot do X", and every provider populates it with real per-model distinctions. Nothing read it.
- * Tool gating asked a per-PROVIDER boolean instead, so a model whose catalog entry declares no
- * `tools` was offered tools anyway — and deepseek's `supportsTools()` returned an unconditional
- * `true` while its own catalog said `deepseek-reasoner` has none.
+ * PROV-006 made the per-model capability vocabulary readable: `tools`, `vision`, `json_schema`,
+ * `reasoning`, `native_web`, `streaming`. PROV-008 moved it out of the struct it was sharing.
  *
- * The vocabulary is consumed rather than deleted. Deleting it would leave nothing able to express a
- * per-model answer, and the questions that need one are not going away: CORE-043 has to resolve a
- * structured-output mechanism per (provider, model), and vision gating is the same shape.
+ * `IProviderModelCatalogEntry` carried three payloads with nothing in common — which models EXIST
+ * (dynamic, per-account, refreshable), what a model CAN DO (static, versioned with the adapter), and
+ * what a model COSTS (static, versioned with vendor pricing) — hanging off `IProviderDefinition`, a
+ * registry artifact the provider instance never holds. So nothing at runtime could read any of it,
+ * and the live-refresh path could not have populated the static halves anyway: it builds entries from
+ * a models-list endpoint that returns ids and nothing else.
  *
- * **`undefined` is not `false`.** A catalog with no entry for a model, or an entry whose capability
- * list is absent OR empty, has said NOTHING — which is different from saying the model cannot do it.
- * (An empty list is the case a field-presence check misses, and `[].includes(x)` answers `false`
- * rather than "unknown", so it has to be excluded explicitly.) Treating
- * silence as denial would turn every unlisted model into a crippled one the moment this started
- * being read, so callers decide what to do with silence and the decision is visible at each site.
+ * Capability is therefore its own thing, declared by the package that ships the adapter and reachable
+ * from the provider INSTANCE. Discovery stays where it belongs, on the definition.
+ *
+ * Two rules this file exists to hold:
+ *
+ * 1. **A capability table states the VENDOR DEFAULT plus verified deviations** — not an enumeration
+ *    of every model. An enumeration is a per-model × six-flag matrix nobody maintains and that
+ *    silently rots; a deviation list is short, and each entry is something somebody checked.
+ * 2. **A miss resolves to the vendor default, never to a negative.** A model absent from the
+ *    deviation list is an ordinary model, not a crippled one. A provider with no table at all has
+ *    said NOTHING — different again from saying no, and what `undefined` means below.
  */
 
-import type {
-  IProviderModelCatalog,
-  IProviderModelCatalogEntry,
-  TProviderModelCapability,
-} from './provider-definition.js';
+import type { TProviderModelCapability } from './provider-definition.js';
+
+/** One model that verifiably differs from its vendor's default, and when that was checked. */
+export interface IModelCapabilityDeviation {
+  /** The complete capability set for this model — not a delta against the default. */
+  capabilities: readonly TProviderModelCapability[];
+  /** ISO date this deviation was verified against the vendor's documentation. */
+  verifiedAt: string;
+  sourceUrl?: string;
+}
 
 /**
- * The catalog entry for a model, matched by id or alias.
+ * What a provider package declares about its own models.
  *
- * Aliases matter here: `deepseek-chat` and `deepseek-reasoner` both alias the provider's default
- * model name, and a lookup that only compared ids would miss the model actually in use.
+ * A package with no verified source for its vendor's baseline declares NO TABLE rather than an empty
+ * one: an empty default would resolve every capability to "false", which is the silence-read-as-denial
+ * inversion this contract exists to forbid.
  */
-export function findModelCatalogEntry(
-  catalog: IProviderModelCatalog | undefined,
+export interface IProviderCapabilityTable {
+  /** What this vendor's models can do unless a model below says otherwise. */
+  vendorDefault: readonly TProviderModelCapability[];
+  /** Only models that verifiably differ. Absent means none do. */
+  deviations?: Readonly<Record<string, IModelCapabilityDeviation>>;
+  /** ISO date the vendor default was verified. */
+  verifiedAt: string;
+  sourceUrl?: string;
+}
+
+/**
+ * The capability set that applies to a model, or `undefined` when nothing has been declared.
+ *
+ * A model with no deviation gets the vendor default — the rule that makes a short table safe.
+ */
+export function resolveModelCapabilities(
+  table: IProviderCapabilityTable | undefined,
   modelId: string,
-): IProviderModelCatalogEntry | undefined {
-  return catalog?.entries?.find(
-    (entry) => entry.id === modelId || entry.aliases?.includes(modelId) === true,
-  );
+): readonly TProviderModelCapability[] | undefined {
+  if (!table) return undefined;
+  return table.deviations?.[modelId]?.capabilities ?? table.vendorDefault;
 }
 
 /**
  * Whether a model declares a capability.
  *
- * Returns `undefined` when the catalog does not say — see the note above on why that is not `false`.
+ * Returns `undefined` when nothing has said — no table, or a table with no answer for this model.
  */
 export function modelDeclaresCapability(
-  catalog: IProviderModelCatalog | undefined,
+  table: IProviderCapabilityTable | undefined,
   modelId: string,
   capability: TProviderModelCapability,
 ): boolean | undefined {
-  const entry = findModelCatalogEntry(catalog, modelId);
-  // An EMPTY list is silence, not a blanket denial. `!entry?.capabilities` alone let `[]` through,
-  // and `[].includes(x)` is `false` — so an entry that declares nothing would have been read as an
-  // entry that declares nothing is possible, stripping tools from that model. That is the exact
-  // inversion this module's contract forbids, in the one shape the field check does not catch.
-  if (!entry?.capabilities || entry.capabilities.length === 0) return undefined;
-  return entry.capabilities.includes(capability);
+  const capabilities = resolveModelCapabilities(table, modelId);
+  // An EMPTY list is silence, not a blanket denial. A presence check alone lets `[]` through, and
+  // `[].includes(x)` answers `false` — so a table whose author had not filled the list in yet would
+  // read as a model that can do nothing, stripping its tools. That is the exact inversion this
+  // module's contract forbids, in the one shape a presence check does not catch.
+  if (!capabilities || capabilities.length === 0) return undefined;
+  return capabilities.includes(capability);
 }
 
 /**
  * Resolve a capability question with an explicit answer for silence.
  *
- * The shape every consumer wants: "does this model support X, and if the catalog is silent, what do
- * I assume?" Writing the assumption at the call site is the point — an assumption nobody states is
- * the reason this vocabulary went unread for as long as it did.
+ * The shape every consumer wants: "can this model do X, and if nothing has said, what do I assume?"
+ * Writing the assumption at the call site is the point — an assumption nobody states is the reason
+ * this vocabulary went unread for as long as it did.
  */
 export function resolveModelCapability(
-  catalog: IProviderModelCatalog | undefined,
+  table: IProviderCapabilityTable | undefined,
   modelId: string,
   capability: TProviderModelCapability,
-  whenCatalogIsSilent: boolean,
+  whenNothingIsDeclared: boolean,
 ): boolean {
-  return modelDeclaresCapability(catalog, modelId, capability) ?? whenCatalogIsSilent;
+  return modelDeclaresCapability(table, modelId, capability) ?? whenNothingIsDeclared;
 }
