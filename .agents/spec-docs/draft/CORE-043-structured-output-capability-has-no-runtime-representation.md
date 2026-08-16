@@ -294,14 +294,41 @@ Problem section says what is missing is _runtime knowledge_ of "whether the atte
 carried a schema at all" — and a decision made at `buildChatResponseFormat` and never surfaced is
 still not knowledge anything can read.
 
-So the resolved `mechanism` / `provenance` travels out on `ICoreExecutionResult`, which today carries
-none of it (`execution-types.ts:150-161`). That is what the retry loop, the terminal-extraction
-trigger, and TC-04's "does not report early enforcement" all actually need, and it is how the run
-level gets the fact without being handed a provider. It also has a consumer waiting:
-`agent-session/src/session-run.ts:164-177` already logs capability facts per run
-(`nativeWebSearchSupported`, `nativeWebFetchEnabled`, …) and would log this one the same way — so a
-degraded structured run becomes visible in the session log instead of being inferred from a bad
-answer, which is how the reporter of #1738 had to find it.
+**The carrier is the event channel, not `ICoreExecutionResult`.** The fourth revision chose the result
+object, and that choice does not survive: `executeStream` returns
+`AsyncGenerator<IStreamChunk>` where `IStreamChunk` is `{ chunk, isComplete }`
+(`execution-stream.ts:27-30`). There is no `ICoreExecutionResult` on the streaming path and no
+metadata channel on the chunk — so `robotaRunStreamStructured` (`robota-execution.ts:236`), a
+first-class structured entry point, would report nothing at all.
+
+That would ship **a declared member half the producers structurally cannot fill** — which is the exact
+defect class this item exists to eliminate. PROV-006's dead vocabulary, the DeepSeek catalog, the
+falsified Evidence Log row in this document's own history: all the same shape. A design whose thesis is
+that an unhonoured declaration is worse than none must not close by adding one.
+
+`ExecutionEventEmitter` already reaches both paths — it is in `IStreamDependencies`
+(`execution-stream.ts:40`) as well as in `ExecutionService`, and `onExecutionEvent` is threaded through
+`buildRunContext` for both. It is universal, and it needs no new contract member that can be absent.
+A typed field on `ICoreExecutionResult` may be added **only alongside a terminal metadata carrier on
+the streaming path** (`isComplete` being the obvious place), never on its own.
+
+**And the report is the OUTCOME, not the resolution.** The fourth revision said the resolved
+`mechanism` / `provenance` travels out. But the named consumer can compute that itself:
+`session-run.ts:164` has `ctx.aiProvider` and `ctx.model` both in scope (`:171`), so after step 3 it
+can call `resolveProviderCapabilities` pre-run and log the resolution directly. A post-run field
+restating a pre-run computation is a second place for one fact — precisely what step 1 spends a page
+collapsing.
+
+What only the runtime holds is **what actually happened**: which transport carried the schema, whether
+an extraction call was issued, whether the endpoint override applied. That is irreducible,
+self-verifying, and it is what TC-04's "does not report early enforcement" should assert against.
+
+Once injection moved to the pipeline (step 7), nothing needs this for control flow any more — so it
+stands purely as an **observability** contract, which is why the event channel is the right home. Its
+consumer is waiting: `session-run.ts:164-177` already logs sibling capability facts per run
+(`nativeWebSearchSupported`, `nativeWebFetchEnabled`, …), so a degraded structured run becomes visible
+in the session log instead of being inferred from a bad answer — which is how the reporter of #1738
+had to find it.
 
 ### 5. The endpoint override lands in this change, not later
 
@@ -386,11 +413,49 @@ and passes the spec down. With the ownership placed there, step 4 ("decide where
 resolved") and step 7 ("inject where convergence is a fact") stop pulling in opposite directions,
 because in the pipeline both facts are present at once.
 
-**The extraction is conditional, not unconditional.** The third revision specified "the structured
-turn ends with one additional extraction call", which makes a run whose text already validates pay a
-call for nothing. Validation is already performed and free (`validateStructuredText`,
-`robota-execution.ts:209`). The trigger is **validation failure inside the first attempt**, so the
-lucky path costs zero extra and the unlucky path costs one call.
+**The schema needs no new plumbing.** "Passes the spec down" is not an unbudgeted task: the schema
+already travels. `structuredConfigOverrides` (`robota-execution.ts:167-177`) puts `spec.jsonSchema` and
+`spec.name` into `config.responseFormat`, which becomes `executionConfig` and reaches the pipeline —
+it is the same carrier `buildChatResponseFormat` already reads. The pipeline holds the schema and the
+tool name it needs, with no new field on `IExecutionContext` or `IRunOptions`.
+
+**The trigger is structural, because the validator cannot travel.** `IStructuredOutputSpec.validate`
+(`schema/structured-output.ts:36`) is a **closure** over Zod's `safeParse` or the structural validator.
+It cannot pass through `IAgentConfig.responseFormat`, which is `Record<string, TConfigValue>` — data.
+So validation stays at the run layer, where it belongs.
+
+The fourth revision's trigger — "validation failure inside the first attempt" — therefore put the
+predicate in a layer that cannot perform the action, which is the round-1 and round-3 defect a third
+time, for the validator instead of the provider or the tool list. The pipeline instead evaluates a
+**structural** predicate over data it already holds:
+
+> the selected mechanism is not `response_schema`, **and** the converged response does not already
+> parse-and-match the JSON schema in `config.responseFormat`.
+
+Both helpers are core and exported and operate on plain data —
+`parseStructuredResponseText` and `validateAgainstJsonSchema` (`schema/structured-output.ts:274,99`).
+
+These are **two checks answering two different questions**, not one fact stated twice: the pipeline
+asks "do I need to extract?", the run layer asks "is this the object the caller asked for?". Zod
+refinements beyond the universal subset stay authoritative at the run layer and fall to the existing
+retry loop, unchanged.
+
+**The return path, which is load-bearing and was unspecified.** The extraction call comes back as an
+assistant message carrying a tool call whose `arguments` are the schema-conforming object — and, on
+every wire, empty content. `robotaRun` returns the response _string_, and `validateStructuredText`
+parses that string. **Unless the pipeline lifts the forced call's `arguments` into the response text,
+every structured run on a non-native provider returns `''` and fails validation** — the design's
+central mechanism producing nothing.
+
+That conversion is the pipeline's, and it interacts with two existing behaviours by name:
+`hasTextResponse` (`execution-pipeline.ts:90-94`) explicitly treats a message carrying tool calls as
+_not_ a response, and `allowToolOnlyCompletion` (CORE-011, `:99`) is the existing seam for "a tool call
+is a legitimate ending". The extraction call is a **third** case — a tool call that _is_ the answer,
+after conversion — and it is stated here rather than left for an implementation round to discover.
+
+**Conditional, so the lucky path pays nothing.** The third revision made the extraction unconditional,
+charging a call to a run whose text already validated. The structural predicate above fires only when
+extraction is actually needed.
 
 **And that call is cheaper than the retry it displaces.** An attempt is a whole run, not a call:
 `maxAttempts = (options.outputRetries ?? 2) + 1` and each attempt calls `robotaRun`
@@ -462,8 +527,8 @@ so every producer is updated rather than silently ignoring it.
 
 ### Independent review
 
-Three rounds with `proposal-reviewer`, 2026-08-16. All three returned **`REVIEW VERDICT: REVISE`**;
-all three were accepted in full, and in every round each load-bearing finding was independently
+Four rounds with `proposal-reviewer`, 2026-08-16. All four returned **`REVIEW VERDICT: REVISE`**;
+all were accepted in full, and in every round each load-bearing finding was independently
 re-checked against the code before revising. No finding was refuted in any round.
 
 **Round 3** (on the second revision) settled steps 1–6 — the discovery/capability split, the miss
@@ -487,6 +552,22 @@ attempt is a full round loop and the extraction is one call.
 
 **Rounds 1 and 2** are below. Round 2 (on the first revision):
 the code before revising. No finding was refuted.
+
+**Round 4** (on the third revision) confirmed the pipeline ownership, the cost argument, the
+conditional trigger and the capability-table posture, and blocked on the two points this author had
+again flagged as uncertain — both of which broke:
+
+| Round-4 finding                                                                                                                                     | Re-checked at                                                         | Disposition                            |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------- |
+| `validate` is a closure, so the trigger's layer cannot perform the action — the round-1 defect a third time                                         | `schema/structured-output.ts:36`                                      | Fixed — structural predicate in step 7 |
+| **The return path was unspecified**: a forced tool call returns `arguments` and empty content, so every non-native structured run would return `''` | `hasTextResponse`, `execution-pipeline.ts:90-94`                      | Fixed — conversion named, TC-04b       |
+| `ICoreExecutionResult` does not exist on the streaming path                                                                                         | `IStreamChunk` = `{ chunk, isComplete }`, `execution-stream.ts:27-30` | Fixed — event channel is the carrier   |
+| Reporting the _resolution_ duplicates what the consumer can compute pre-run                                                                         | `session-run.ts:164,171`                                              | Fixed — the report is the outcome      |
+| The schema needs no plumbing — it already travels                                                                                                   | `structuredConfigOverrides`, `robota-execution.ts:167-177`            | Adopted — stated, not budgeted as work |
+
+The carrier finding is the one worth keeping visible: adding an optional field that half the producers
+structurally cannot fill would have shipped **a declared member nobody honours** — the exact defect
+class this item exists to eliminate, committed by the document that exists to eliminate it.
 
 Round 2 confirmed the unified-channel direction and steps 2–6, and blocked
 on two defects that the first revision had _introduced_ — both at the two points this author had
@@ -554,8 +635,14 @@ representation is how that continues.
   vendor-default with `provenance: 'undeclared-model'`, and **`tools` stays enabled** — the miss case
   pinned for an unrecognised OpenAI snapshot, since that is the common case and a negative there would
   silently disable tool calling.
-- **TC-04** A structured run against a non-`response_schema` provider does **not** report early
-  enforcement, and carries a schema by the selected transport.
+- **TC-04** A structured run against a non-`response_schema` provider emits an outcome report saying
+  which transport carried the schema and whether an extraction call was issued — and does **not**
+  report early enforcement. Asserted on **both** entry points: `run(input, { output })` and
+  `runStream`'s structured form, since the event channel is what makes the streaming path reportable
+  at all.
+- **TC-04b** The extraction call's tool `arguments` become the response text the validator sees. A
+  run whose extraction succeeds returns the object, not `''` — the conversion step 7 names, pinned,
+  because without it the whole mechanism yields nothing.
 - **TC-05** With `outputRetries: 0` against a non-`response_schema` provider, a run whose first
   response is prose still returns a validated object — via the extraction call, and **without a second
   full run**. Scriptable deterministically against the scripted provider, and it asserts the property
