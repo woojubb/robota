@@ -1160,6 +1160,6 @@ no file, versus allowed and the file written), and S2 shows the subagent executi
 **not** writing into the main checkout, which is the containment ARCH-010 exists to guarantee.
 
 **Found along the way and filed rather than folded in:** `DIST-006` (#1758 — the built binary cannot spawn a
-subagent at all), `HARNESS-093` (the spec public-surface scan cannot read a SPEC that groups its table by
-subheading), #1764 (three pass-through re-exports, an unnameable public parameter type, an allowlist entry
+subagent at all), #1765 (the spec public-surface scan cannot read a SPEC that groups its table by
+subheading — filed as an issue, not a `HARNESS-093` file, because that ID was already taken), #1764 (three pass-through re-exports, an unnameable public parameter type, an allowlist entry
 its own criterion disqualifies), and #1763 (the skill work the owner directed).
