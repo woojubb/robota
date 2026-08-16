@@ -26,7 +26,8 @@ agent-cli
 ```typescript
 import {
   createChildProcessSubagentRunnerFactory,
-  getDefaultSubagentWorkerPath,
+  isSubagentWorkerModeArgv,
+  runSubagentWorkerMain,
 } from '@robota-sdk/agent-subagent-runner';
 import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 import type { ISubagentWorktreeAdapter } from '@robota-sdk/agent-executor';
@@ -35,8 +36,17 @@ declare const providerConfig: IProviderDefinitionConfig;
 // The concrete worktree adapter (git/fs I/O) is owned and injected by the composition root.
 declare const worktreeAdapter: ISubagentWorktreeAdapter;
 
+// DIST-006: your entry IS the worker. Dispatch before starting your app, so a subagent child
+// re-enters here instead of booting the whole product.
+if (isSubagentWorkerModeArgv(process.argv)) {
+  runSubagentWorkerMain();
+}
+
 const factory = createChildProcessSubagentRunnerFactory({
-  workerPath: getDefaultSubagentWorkerPath(), // the bundled worker entry point
+  // How to start a copy of THIS artifact. There is no default: only this process knows how it was
+  // packaged. A bundled build names the file it is running; a single-file compiled binary names
+  // nothing, because `process.execPath` is the binary and re-executing it re-enters its entry.
+  workerEntry: { execPath: process.execPath, args: [process.argv[1] ?? ''] },
   providerConfig,
   logsDir: '.robota/logs',
   worktreeAdapter, // required: no concrete git default — inject the port at the composition root
@@ -52,23 +62,25 @@ Pass `factory` to `createAgentRuntime({ subagentRunnerFactory: factory })`.
 | Export                                             | Description                                                                 |
 | -------------------------------------------------- | --------------------------------------------------------------------------- |
 | `createChildProcessSubagentRunnerFactory(options)` | Returns a `TSubagentRunnerFactory` that spawns subagents in child processes |
-| `getDefaultSubagentWorkerPath()`                   | Resolves the path to the bundled worker entry point                         |
+| `isSubagentWorkerModeArgv(argv)`                   | True when this process was started as a subagent worker                     |
+| `runSubagentWorkerMain()`                          | Enters worker mode; refuses loudly (exit 2) without an IPC channel          |
 
 ### Classes
 
-| Export                       | Description                                             |
-| ---------------------------- | ------------------------------------------------------- |
-| `ChildProcessSubagentRunner` | Implements `ISubagentRunner` using `child_process.fork` |
+| Export                       | Description                                              |
+| ---------------------------- | -------------------------------------------------------- |
+| `ChildProcessSubagentRunner` | Implements `ISubagentRunner` using `child_process.spawn` |
 
 ### Types
 
-| Export                               | Description                                           |
-| ------------------------------------ | ----------------------------------------------------- |
-| `IChildProcessSubagentRunnerOptions` | Options for `createChildProcessSubagentRunnerFactory` |
-| `ISubagentWorkerStartPayload`        | IPC payload sent from parent to worker on start       |
-| `TSubagentWorkerParentMessage`       | Union of all messages the parent sends to the worker  |
-| `TSubagentWorkerChildMessage`        | Union of all messages the worker sends to the parent  |
-| `TSubagentWorkerWireValue`           | Serializable value type used in IPC messages          |
+| Export                               | Description                                                |
+| ------------------------------------ | ---------------------------------------------------------- |
+| `IChildProcessSubagentRunnerOptions` | Options for `createChildProcessSubagentRunnerFactory`      |
+| `ISubagentWorkerEntry`               | How to spawn a copy of the running artifact in worker mode |
+| `ISubagentWorkerStartPayload`        | IPC payload sent from parent to worker on start            |
+| `TSubagentWorkerParentMessage`       | Union of all messages the parent sends to the worker       |
+| `TSubagentWorkerChildMessage`        | Union of all messages the worker sends to the parent       |
+| `TSubagentWorkerWireValue`           | Serializable value type used in IPC messages               |
 
 ### Type Guards
 
