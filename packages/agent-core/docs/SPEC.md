@@ -1015,6 +1015,10 @@ from the final `{ done: true, value }` iterator result).
   provider without a schema parameter no longer spends attempt one discovering the shape was never
   communicated. A provider that declares NO capability table is sent the request unchanged —
   silence is not a denial (PROV-006).
+- **`provider_request` reports the ASSEMBLED request (CORE-043)**: the event is emitted after the
+  capability guards have adjusted the request, not before, so its `messages` are the ones the model
+  actually received — including a schema instruction the transport seam added. Emitting the caller's
+  own conversation array would put a request in the session log that a replay could not reproduce.
 - **Transport report (CORE-043)**: each structured request emits a `structured_output_transport`
   execution event carrying the OUTCOME — `mechanism`, `provenance`, what was `sent`
   (`json_schema` / `json_object` / `omitted`), and whether the schema went into the prompt. It

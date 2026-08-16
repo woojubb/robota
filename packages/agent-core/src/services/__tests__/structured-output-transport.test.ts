@@ -195,3 +195,59 @@ describe('applyStructuredOutputTransport', () => {
     expect(plan.messages).toBe(HISTORY);
   });
 });
+
+describe('CORE-043 — the session log records the request that was actually sent', () => {
+  it('reports messages including the added instruction, not the caller history', async () => {
+    // `provider_request` used to be emitted BEFORE the transport guard ran, carrying
+    // `conversationMessages`. When the guard adds a system instruction, that log describes a request
+    // the model never received — and `agent-session/docs/SPEC.md` promises this event carries the
+    // request envelope, so a replay has to be able to reproduce it.
+    const { callProviderWithCache } = await import('../execution-round-provider');
+
+    const seen: Array<{ messages: TUniversalMessage[] }> = [];
+    const sentToProvider: TUniversalMessage[][] = [];
+    const resolved = {
+      provider: {
+        chat: async (messages: TUniversalMessage[]) => {
+          sentToProvider.push(messages);
+          return {
+            id: 'a1',
+            role: 'assistant',
+            content: '{}',
+            timestamp: new Date(),
+            state: 'complete',
+          } as TUniversalMessage;
+        },
+        capabilityTable: () => NO_SCHEMA_TABLE,
+      },
+      currentInfo: { provider: 'test' },
+      aiProviderInfo: {
+        providerName: 'test',
+        model: 'test-model',
+        temperature: undefined,
+        maxTokens: undefined,
+      },
+      toolsInfo: [],
+      availableTools: [],
+    } as unknown as IResolvedProviderInfo;
+
+    await callProviderWithCache(
+      HISTORY,
+      {
+        name: 'test',
+        defaultModel: { provider: 'test', model: 'test-model' },
+        responseFormat: { type: 'json_schema', name: 'Person', schema: { type: 'object' } },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
+      resolved,
+      undefined,
+      undefined,
+      (request) => seen.push({ messages: request.messages }),
+    );
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.messages).toEqual(sentToProvider[0]);
+    expect(seen[0]?.messages.at(-1)?.role).toBe('system');
+    expect(seen[0]?.messages.length).toBe(HISTORY.length + 1);
+  });
+});

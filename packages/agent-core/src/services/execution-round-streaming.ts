@@ -68,15 +68,6 @@ export async function callRoundProviderWithEvents(
   onProviderFailure?: (error: unknown) => void,
 ): Promise<TUniversalMessage | null> {
   try {
-    fullContext.onExecutionEvent?.('provider_request', {
-      executionId,
-      conversationId: fullContext.conversationId,
-      round: currentRound,
-      provider: resolved.currentInfo.provider,
-      model: config.defaultModel.model,
-      messages: conversationMessages,
-      tools: resolved.availableTools,
-    } as TExecutionEventData);
     const response = await callProviderWithCache(
       conversationMessages,
       config,
@@ -99,25 +90,41 @@ export async function callRoundProviderWithEvents(
           return effectiveToolChoice !== undefined ? { toolChoice: effectiveToolChoice } : {};
         })(),
       },
-      // CORE-043: report which transport actually carried the schema. The OUTCOME, not the
-      // resolution — "the table declares json_schema" describes a catalog, while "the schema was
-      // sent as a parameter, so no prompt statement was needed" explains the result the caller is
-      // holding. Emitted on the replay channel so a session log can answer it after the fact.
-      (structured) => {
-        fullContext.onExecutionEvent?.('structured_output_transport', {
+      // Emitted from here, not before the call, so the replay channel records the request as
+      // ASSEMBLED. The structured-output guard can add a system instruction that
+      // `conversationMessages` does not contain, and a `provider_request` logging the caller's own
+      // array would describe a request that was never sent — `agent-session/docs/SPEC.md` promises
+      // this event carries the request envelope, and a replay has to be able to reproduce it.
+      (request) => {
+        fullContext.onExecutionEvent?.('provider_request', {
           executionId,
           conversationId: fullContext.conversationId,
           round: currentRound,
           provider: resolved.currentInfo.provider,
           model: config.defaultModel.model,
-          mechanism: structured.capability.mechanism,
-          provenance: structured.capability.provenance,
-          sent: structured.sent,
-          schemaInPrompt: structured.schemaInPrompt,
-          ...(structured.capability.reason !== undefined && {
-            reason: structured.capability.reason,
-          }),
+          messages: request.messages,
+          tools: resolved.availableTools,
         } as TExecutionEventData);
+        // CORE-043: which transport actually carried the schema. The OUTCOME, not the resolution —
+        // "the table declares json_schema" describes a catalog, while "the schema was sent as a
+        // parameter, so no prompt statement was needed" explains the result the caller is holding.
+        const structured = request.structuredOutput;
+        if (structured !== undefined) {
+          fullContext.onExecutionEvent?.('structured_output_transport', {
+            executionId,
+            conversationId: fullContext.conversationId,
+            round: currentRound,
+            provider: resolved.currentInfo.provider,
+            model: config.defaultModel.model,
+            mechanism: structured.capability.mechanism,
+            provenance: structured.capability.provenance,
+            sent: structured.sent,
+            schemaInPrompt: structured.schemaInPrompt,
+            ...(structured.capability.reason !== undefined && {
+              reason: structured.capability.reason,
+            }),
+          } as TExecutionEventData);
+        }
       },
     );
     // CORE-042: a provider that returned assembled text without streaming any of it still owes the

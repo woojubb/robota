@@ -4,6 +4,7 @@
  */
 
 import { applyModelToolCapability } from './execution-model-capability-guards.js';
+import { callProviderWithIdleTimeout } from './execution-provider-call.js';
 import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
 import { applyStructuredOutputTransport } from './execution-structured-output-guard.js';
 import { randomId } from '../utils/random-id.js';
@@ -20,6 +21,19 @@ type TProviderChat = (
   messages: TUniversalMessage[],
   options: IChatOptions,
 ) => Promise<TUniversalMessage>;
+
+/**
+ * A provider request as it will actually be sent — after every capability guard has adjusted it.
+ *
+ * `messages` is NOT necessarily the array the caller passed in: the structured-output guard adds a
+ * system instruction when the wire cannot carry the schema. Reporting the caller's array instead
+ * would put a `provider_request` in the session log that no replay could reproduce.
+ */
+export interface IAssembledProviderRequest {
+  messages: TUniversalMessage[];
+  options: IChatOptions;
+  structuredOutput?: IStructuredOutputTransportOutcome;
+}
 
 /** Compute thinking context IDs for event tracking */
 export function computeRoundThinkingContext(
@@ -72,12 +86,15 @@ export async function callProviderWithCache(
   cacheService?: ExecutionCacheService,
   overrides?: Partial<IChatOptions>,
   /**
-   * CORE-043: where the structured-output outcome is reported. A callback rather than a field on
-   * `IResolvedProviderInfo`, because the report is about THIS request, not about the provider — the
-   * caller closes over the run's event emitter so the outcome travels the replay channel like every
-   * other observable step of the turn.
+   * CORE-043: fires once, with the request as it will actually be sent.
+   *
+   * A callback rather than a field on `IResolvedProviderInfo`, because this describes THIS request,
+   * not the provider. The caller closes over the run's event emitter, so the replay channel records
+   * the assembled request rather than the inputs it was assembled from — the transport guard can add
+   * a system instruction the caller's own array does not contain, and a log of the array the caller
+   * passed in would not reconstruct what the model was actually asked.
    */
-  onStructuredOutputTransport?: (outcome: IStructuredOutputTransportOutcome) => void,
+  onRequestAssembled?: (request: IAssembledProviderRequest) => void,
 ): Promise<TUniversalMessage> {
   if (!config.defaultModel?.model) {
     throw new Error('Model is required in defaultModel configuration. Please specify a model.');
@@ -100,9 +117,11 @@ export async function callProviderWithCache(
     model,
     resolved,
   );
-  if (structuredOutcome) {
-    onStructuredOutputTransport?.(structuredOutcome);
-  }
+  onRequestAssembled?.({
+    messages: outgoing,
+    options: chatOptions,
+    ...(structuredOutcome !== undefined && { structuredOutput: structuredOutcome }),
+  });
   const providerChat = resolved.provider.chat.bind(resolved.provider) as TProviderChat;
 
   if (cacheService) {
@@ -140,102 +159,6 @@ export async function callProviderWithCache(
   }
 
   return callProviderWithIdleTimeout(providerChat, outgoing, chatOptions, config.timeout);
-}
-
-/**
- * Call a provider honouring the run's cancellation signal and the configured idle timeout.
- *
- * Exported so that every provider call in the execution turn goes through one implementation --
- * CORE-042: the forced-summary call was the last one built by hand, and it silently had neither.
- */
-export async function callProviderWithIdleTimeout(
-  chat: TProviderChat,
-  messages: TUniversalMessage[],
-  options: IChatOptions,
-  timeoutMs: number | undefined,
-): Promise<TUniversalMessage> {
-  const normalizedTimeoutMs = normalizeTimeoutMs(timeoutMs);
-  const upstreamSignal = options.signal;
-  if (normalizedTimeoutMs === undefined && upstreamSignal === undefined) {
-    return chat(messages, options);
-  }
-  if (upstreamSignal?.aborted) {
-    throw createAbortError();
-  }
-
-  const controller = new AbortController();
-  let idleTimer: ReturnType<typeof setTimeout> | undefined;
-  let settled = false;
-  let rejectGuard: ((reason: Error) => void) | undefined;
-
-  const clearIdleTimer = (): void => {
-    if (idleTimer !== undefined) {
-      clearTimeout(idleTimer);
-      idleTimer = undefined;
-    }
-  };
-
-  const failWith = (error: Error): void => {
-    if (settled) return;
-    settled = true;
-    rejectGuard?.(error);
-    controller.abort(error);
-  };
-
-  const resetIdleTimer = (): void => {
-    if (normalizedTimeoutMs === undefined || settled) return;
-    clearIdleTimer();
-    idleTimer = setTimeout(() => {
-      failWith(new Error(`Provider call idle timeout after ${normalizedTimeoutMs}ms`));
-    }, normalizedTimeoutMs);
-  };
-
-  const handleUpstreamAbort = (): void => {
-    failWith(createAbortError());
-  };
-  upstreamSignal?.addEventListener('abort', handleUpstreamAbort, { once: true });
-
-  const originalOnTextDelta = options.onTextDelta;
-  const guardedOptions: IChatOptions = {
-    ...options,
-    signal: controller.signal,
-    ...(originalOnTextDelta !== undefined
-      ? {
-          onTextDelta: (delta: string): void => {
-            resetIdleTimer();
-            originalOnTextDelta(delta);
-          },
-        }
-      : {}),
-  };
-
-  resetIdleTimer();
-
-  try {
-    return await Promise.race([
-      chat(messages, guardedOptions),
-      new Promise<never>((_, reject) => {
-        rejectGuard = reject;
-      }),
-    ]);
-  } finally {
-    settled = true;
-    clearIdleTimer();
-    upstreamSignal?.removeEventListener('abort', handleUpstreamAbort);
-  }
-}
-
-function normalizeTimeoutMs(timeoutMs: number | undefined): number | undefined {
-  if (timeoutMs === undefined || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-    return undefined;
-  }
-  return timeoutMs;
-}
-
-function createAbortError(): Error {
-  const error = new Error('aborted');
-  error.name = 'AbortError';
-  return error;
 }
 
 /** Validate and normalize the provider response */
@@ -282,3 +205,7 @@ export function validateAndExtractResponse(
 
   return { assistantResponse, assistantToolCalls };
 }
+
+// Re-exported from its own module (see execution-provider-call.ts) so existing importers of this
+// file keep one import path for "make a provider call safely".
+export { callProviderWithIdleTimeout } from './execution-provider-call.js';
