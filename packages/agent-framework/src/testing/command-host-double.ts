@@ -50,6 +50,14 @@ const EMPTY_RESTORE_RESULT: IEditCheckpointRestoreResult = {
   removedCheckpointCount: 0,
 };
 
+/** One expression of "no context used yet", read by both the host and its session runtime. */
+const EMPTY_CONTEXT_STATE = {
+  maxTokens: 0,
+  usedTokens: 0,
+  usedPercentage: 0,
+  remainingPercentage: 100,
+} as const;
+
 /** No adapter is injected by default — a test that needs one states it through `overrides`. */
 const EMPTY_ADAPTERS: ICommandHostAdapters = {};
 
@@ -59,13 +67,24 @@ let doublesCreated = 0;
 function createSessionRuntimeDouble(
   overrides?: Partial<ICommandSessionRuntime>,
 ): ICommandSessionRuntime {
-  return {
+  // No cast here either. An earlier revision of this file wrote `as ICommandSessionRuntime` over four
+  // members of an 18-member contract — the exact defect this double exists to remove, inside the file
+  // that removes it. A double built through a helper that casts satisfies the ratchet and guarantees
+  // nothing; `scan-contract-cast-ratchet.mjs` says so in its own header.
+  const base: ICommandSessionRuntime = {
     getSessionId: () => `test-command-host-${doublesCreated}`,
     getHistory: () => [],
+    getFullHistory: () => [],
+    getMessageCount: () => 0,
     clearHistory: () => {},
-    getMessages: () => [],
-    ...overrides,
-  } as ICommandSessionRuntime;
+    compact: () => Promise.resolve(),
+    getContextState: () => EMPTY_CONTEXT_STATE,
+    getPermissionMode: () => 'default',
+    setPermissionMode: () => {},
+    getSessionAllowedTools: () => [],
+    getAutoCompactThreshold: () => false,
+  };
+  return { ...base, ...overrides };
 }
 
 export interface ICreateTestCommandHostOptions {
@@ -89,12 +108,7 @@ export function createTestCommandHost(
   const base: ICommandHostContext = {
     getSession: () => sessionRuntime,
     getCwd: () => cwd,
-    getContextState: () => ({
-      maxTokens: 0,
-      usedTokens: 0,
-      usedPercentage: 0,
-      remainingPercentage: 100,
-    }),
+    getContextState: () => EMPTY_CONTEXT_STATE,
     getAutoCompactThreshold: () => false,
     compactContext: () => Promise.resolve(),
     listCommands: () => [],

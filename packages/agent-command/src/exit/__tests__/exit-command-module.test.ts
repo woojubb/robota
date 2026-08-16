@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 import {
   ExitCommandSource,
   createExitCommandEntry,
@@ -8,9 +9,13 @@ import {
 } from '../index.js';
 
 function contextWithAnswer(value: string): ICommandHostContext {
-  return {
-    getUserInteraction: () => ({ ask: async () => ({ type: 'answer', values: [value] }) }),
-  } as unknown as ICommandHostContext;
+  // The double answers "no capability of that kind" by default; this fixture states the one
+  // capability it exercises, so the precondition is declared rather than inherited.
+  return createTestCommandHost({
+    overrides: {
+      getUserInteraction: () => ({ ask: async () => ({ type: 'answer', values: [value] }) }),
+    },
+  });
 }
 
 describe('exit command module', () => {

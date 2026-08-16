@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import {
   createResetCommandEntry,
@@ -7,7 +7,7 @@ import {
   executeResetCommand,
 } from '../index.js';
 
-const COMMAND_CONTEXT = {} as ICommandHostContext;
+const COMMAND_CONTEXT = createTestCommandHost();
 
 describe('createResetCommandModule', () => {
   it('provides reset metadata and a user-only executable command from one module owner', () => {
