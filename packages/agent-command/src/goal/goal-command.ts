@@ -38,21 +38,17 @@ export async function executeGoalCommand(
   }
 
   if (verb === 'status') {
-    const goal = context.getGoalState?.() ?? null;
+    const goal = context.getGoalState();
     return goal
       ? { message: formatGoalState(goal), success: true, data: { status: goal.status } }
       : { message: 'No goal is set.', success: true };
   }
 
   if (verb === 'cancel' || verb === 'stop') {
-    const stopped = context.cancelGoal?.() ?? null;
+    const stopped = context.cancelGoal();
     return stopped
       ? { message: `Goal cancelled: ${stopped.objective}`, success: true }
       : { message: 'No active goal to cancel.', success: false };
-  }
-
-  if (!context.setGoal) {
-    return { message: 'Goal pursuit is not available in this session.', success: false };
   }
 
   let goal: IGoalState;

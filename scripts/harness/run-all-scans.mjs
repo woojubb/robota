@@ -543,6 +543,19 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-contract-cast-ratchet.mjs'],
   },
   {
+    // ARCH-029: the load-bearing floor. Decomposing a god contract does not fix it — consumers
+    // must stop NAMING it, and REFACTOR-006 proved those are different events on this very
+    // contract. Frozen at 0; see scripts/harness/aggregate-naming-baseline.json.
+    name: 'aggregate-naming',
+    command: ['node', 'scripts/harness/scan-aggregate-naming.mjs'],
+  },
+  {
+    // ARCH-029 TC-06: role ports carry no optional members. An aggregate-level optional CEILING
+    // would not have caught the regression this guards, which is why the rule is per-port.
+    name: 'role-port-optionals',
+    command: ['node', 'scripts/harness/scan-role-port-optionals.mjs'],
+  },
+  {
     name: 'literal-cast-union',
     command: ['node', 'scripts/harness/scan-literal-cast-union.mjs'],
   },

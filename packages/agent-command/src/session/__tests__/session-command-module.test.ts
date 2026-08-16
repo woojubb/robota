@@ -2,10 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-framework';
 import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createSessionCommandModule } from '../session-command-module.js';
-import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
+import {
+  createTestCommandHost,
+  createTestSessionRuntime,
+} from '@robota-sdk/agent-framework/testing';
 
-function createRuntime(): ICommandSessionRuntime {
-  return {
+function createRuntime() {
+  return createTestSessionRuntime({
     clearHistory: vi.fn(),
     compact: async () => undefined,
     getContextState: () => ({
@@ -22,7 +25,7 @@ function createRuntime(): ICommandSessionRuntime {
     getAutoCompactThreshold: () => false,
     getFullHistory: () => [],
     getHistory: () => [],
-  };
+  });
 }
 
 function createCommandContext() {
@@ -241,11 +244,18 @@ describe('createSessionCommandModule', () => {
     expect(result?.message).toBe('Clear cancelled.');
   });
 
-  it('falls back to runtime clearHistory when the host has not implemented the richer API', async () => {
+  it('ARCH-029 TC-09: /clear takes the host path only — it never reaches past it into the runtime', async () => {
+    // The deleted fallback called `getSession().clearHistory()` when the host member was absent.
+    // Those are not the same operation: the host's clear also broadcasts `history_cleared` to
+    // every attached surface (CMD-004 Stage E), so the fallback cleared ONE surface and left the
+    // others still showing the transcript. With the member required there is one path, and this
+    // pins that the runtime is not reached behind the host's back.
     const runtime = createRuntime();
+    const clearConversationHistory = vi.fn();
     const context = {
       ...createCommandContext(),
       getSession: () => runtime,
+      clearConversationHistory,
     };
     const executor = new SystemCommandExecutor([
       ...(createSessionCommandModule().systemCommands ?? []),
@@ -253,7 +263,8 @@ describe('createSessionCommandModule', () => {
 
     const result = await executor.execute('clear', context, '');
 
-    expect(runtime.clearHistory).toHaveBeenCalledTimes(1);
+    expect(clearConversationHistory).toHaveBeenCalledTimes(1);
+    expect(runtime.clearHistory).not.toHaveBeenCalled();
     expect(result?.success).toBe(true);
   });
 

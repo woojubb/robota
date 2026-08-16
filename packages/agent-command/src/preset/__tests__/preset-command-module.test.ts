@@ -10,13 +10,14 @@ import type {
   IUnknownCommandModuleName,
 } from '@robota-sdk/agent-framework';
 import { createPresetCommandModule, executePresetCommand } from '../index.js';
+import { createTestSessionRuntime } from '@robota-sdk/agent-framework/testing';
 import {
   createTestCommandHost,
   type ICreateTestCommandHostOptions,
 } from '@robota-sdk/agent-framework/testing';
 
-function createSessionRuntime(overrides?: Partial<ICommandSessionRuntime>): ICommandSessionRuntime {
-  return {
+function createSessionRuntime(overrides?: Partial<ICommandSessionRuntime>) {
+  return createTestSessionRuntime({
     clearHistory: () => undefined,
     compact: async () => undefined,
     getContextState: () => ({
@@ -34,7 +35,7 @@ function createSessionRuntime(overrides?: Partial<ICommandSessionRuntime>): ICom
     getFullHistory: () => [],
     getHistory: () => [],
     ...overrides,
-  };
+  });
 }
 
 function createCommandHostContext(

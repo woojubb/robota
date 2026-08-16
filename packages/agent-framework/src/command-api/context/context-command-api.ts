@@ -50,7 +50,7 @@ export function readAutoCompactThreshold(
 export function readAutoCompactThresholdSource(
   context: ICommandHostContextWindow,
 ): TAutoCompactThresholdSource {
-  return context.getAutoCompactThresholdSource?.() ?? 'session';
+  return context.getAutoCompactThresholdSource();
 }
 
 /** Update the active session's automatic compact policy through the command host facade. */
@@ -114,7 +114,7 @@ export async function compactCommandContext(
 export function listCommandContextReferences(
   context: ICommandHostContextReferences,
 ): IContextReferenceItem[] {
-  return context.listContextReferences?.() ?? [];
+  return context.listContextReferences();
 }
 
 /** Add a manual context reference through the command host facade. */
@@ -143,7 +143,7 @@ export function removeCommandContextReference(
 export function clearCommandContextReferences(
   context: ICommandHostContextReferences,
 ): IContextReferenceClearResult {
-  return context.clearContextReferences?.() ?? { removed: [] };
+  return context.clearContextReferences();
 }
 
 function getSettingsAdapter(

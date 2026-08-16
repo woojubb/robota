@@ -2,10 +2,13 @@ import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/ag
 import type { ICommandListEntry } from '@robota-sdk/agent-interface-transport';
 import { formatCommandHelpMessage } from '@robota-sdk/agent-framework';
 import { describe, expect, it } from 'vitest';
-import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
+import {
+  createTestCommandHost,
+  createTestSessionRuntime,
+} from '@robota-sdk/agent-framework/testing';
 
-function createCommandSessionRuntime(): ICommandSessionRuntime {
-  return {
+function createCommandSessionRuntime() {
+  return createTestSessionRuntime({
     clearHistory: () => undefined,
     compact: async () => undefined,
     getContextState: () => ({
@@ -22,7 +25,7 @@ function createCommandSessionRuntime(): ICommandSessionRuntime {
     getAutoCompactThreshold: () => false,
     getFullHistory: () => [],
     getHistory: () => [],
-  };
+  });
 }
 
 function createCheckpoint() {

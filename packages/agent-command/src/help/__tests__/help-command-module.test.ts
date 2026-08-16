@@ -2,10 +2,13 @@ import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/ag
 import { describe, expect, it } from 'vitest';
 import { createHelpCommandModule } from '../help-command-module.js';
 import { executeHelpCommand } from '../help-command.js';
-import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
+import {
+  createTestCommandHost,
+  createTestSessionRuntime,
+} from '@robota-sdk/agent-framework/testing';
 
-function createCommandSessionRuntime(): ICommandSessionRuntime {
-  return {
+function createCommandSessionRuntime() {
+  return createTestSessionRuntime({
     clearHistory: () => undefined,
     compact: async () => undefined,
     getContextState: () => ({
@@ -22,7 +25,7 @@ function createCommandSessionRuntime(): ICommandSessionRuntime {
     getAutoCompactThreshold: () => false,
     getFullHistory: () => [],
     getHistory: () => [],
-  };
+  });
 }
 
 function createCommandHostContext() {

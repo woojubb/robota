@@ -109,6 +109,31 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'it judges spec documents that reached implementation without a user-execution gate section; over a root with no spec tree there is no document to judge, and "zero documents are missing the section" reads exactly like "every document carries it" — while the defect it exists to catch is seven documents implemented and reported complete with no section at all',
   },
   {
+    // Measured: `collectAggregateNaming(bare, …)` throws `aggregate-naming: packages missing from
+    // <root>`. It is pinned separately from the findings wrapper because it is exported and takes a
+    // root, so it is callable on its own — and alone it would have counted 0 over an unread tree.
+    file: 'scan-aggregate-naming.mjs',
+    finder: 'collectAggregateNaming',
+    tree: 'packages',
+    why: 'it is the counter behind the load-bearing ARCH-029 floor; a 0 from a tree it never read is indistinguishable from a finished decomposition',
+  },
+  {
+    // Measured, not assumed: `findAggregateNamingFindings(bare)` throws
+    // `aggregate-naming: packages missing from <root>`.
+    file: 'scan-aggregate-naming.mjs',
+    finder: 'findAggregateNamingFindings',
+    tree: 'packages',
+    why: 'ARCH-029 marks this the load-bearing floor — a god contract is fixed only when consumers stop NAMING it, and this is the only thing that measures that. Over a root with no packages there is nothing to name, and "0 references" reads exactly like "the decomposition landed" — which is the state REFACTOR-006 shipped while the facade survived untouched',
+  },
+  {
+    // Measured: `findRolePortOptionalFindings(bare)` throws
+    // `role-port-optionals: packages/agent-framework/src/command-api/host-context.ts missing from <root>`.
+    file: 'scan-role-port-optionals.mjs',
+    finder: 'findRolePortOptionalFindings',
+    tree: 'packages/agent-framework/src/command-api/host-roles.ts',
+    why: 'over a root without the contract file there is no port to inspect, and "0 optional members" reads exactly like a fully-required contract. This scan already shipped one silent version — it read `questionToken`, which the native AST never populates on a type member, so it reported zero for every input; failing closed on scope is the other half of that lesson',
+  },
+  {
     // Measured the way this harness calls it — `collectToolClassification(bare)`: throws
     // `governed tree(s) absent under <root>: packages`.
     file: 'scan-tool-classification.mjs',

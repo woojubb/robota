@@ -1,3 +1,7 @@
+import { createTestAgentJobHost } from './agent-job-host-double.js';
+import { FAKE_ROOT, NEVER } from './double-constants.js';
+import { createFileSystemMemoryStore } from '../memory/file-system-memory-store.js';
+
 import type { IEditCheckpointRestoreResult } from '../checkpoints/edit-checkpoint-types.js';
 import type { ICommandHostAdapters } from '../command-api/host-adapters.js';
 import type {
@@ -6,6 +10,8 @@ import type {
   ICommandSessionRuntime,
 } from '../command-api/host-context.js';
 import type {
+  IGoalState,
+  IPlanArtifact,
   IBackgroundJobGroupState,
   IBackgroundTaskState,
   ISubagentJobState,
@@ -67,6 +73,25 @@ const EMPTY_CONTEXT_STATE = {
   remainingPercentage: 100,
 } as const;
 
+/** "No goal is in flight" and "no plan is in flight", as values rather than absent members. */
+const EMPTY_GOAL: IGoalState = {
+  id: 'test-goal',
+  objective: '',
+  status: 'stopped',
+  iterations: 0,
+  maxIterations: 0,
+  startedAt: '1970-01-01T00:00:00.000Z',
+  progress: [],
+};
+
+const EMPTY_PLAN: IPlanArtifact = {
+  id: 'test-plan',
+  objective: '',
+  steps: [],
+  phase: 'planning',
+  createdAt: '1970-01-01T00:00:00.000Z',
+};
+
 /** No adapter is injected by default — a test that needs one states it through `overrides`. */
 const EMPTY_ADAPTERS: ICommandHostAdapters = {};
 
@@ -76,12 +101,16 @@ const EMPTY_ADAPTERS: ICommandHostAdapters = {};
  * production code under test, which may write through it. This path does not exist, so a test that
  * actually writes fails loudly instead of succeeding quietly inside a world-writable directory.
  */
-const FAKE_ROOT = '/robota-test-command-host';
 
 /** Counts doubles so each gets a distinguishable cwd when a test does not name one. */
 let doublesCreated = 0;
 
-function createSessionRuntimeDouble(
+/**
+ * The session-runtime half of the double, published for the same reason the host half is: three
+ * fixtures hand-rolled this 18-member contract, and making its members required turned each of
+ * those into a compile error with nothing honest to reach for.
+ */
+export function createTestSessionRuntime(
   overrides?: Partial<ICommandSessionRuntime>,
 ): ICommandSessionRuntime {
   // No cast here either. An earlier revision of this file wrote `as ICommandSessionRuntime` over four
@@ -100,6 +129,13 @@ function createSessionRuntimeDouble(
     setPermissionMode: () => {},
     getSessionAllowedTools: () => [],
     getAutoCompactThreshold: () => false,
+    setAutoCompactThreshold: () => {},
+    getSessionTokenUsage: () => undefined,
+    getModelId: () => undefined,
+    applyModelOptions: () => {},
+    getActivePresetId: () => 'default',
+    setActivePresetId: () => {},
+    setParallelSubagentsEnabled: () => {},
   };
   return { ...base, ...overrides };
 }
@@ -118,13 +154,43 @@ export function createTestCommandHost(
 ): ICommandHostContext {
   doublesCreated += 1;
   const cwd = options.cwd ?? `${FAKE_ROOT}-${doublesCreated}`;
-  const sessionRuntime = createSessionRuntimeDouble(options.session);
+  const sessionRuntime = createTestSessionRuntime(options.session);
 
   // No assertion anywhere in this object. The compiler refuses it the moment the contract gains a
   // member this file does not answer — which is the entire property the 21 hand-rolled partials lack.
   const base: ICommandHostContext = {
     getSession: () => sessionRuntime,
+    // "no log was validated" — an empty, valid report, matching every other default here.
+    validateCurrentSessionReplayLog: () => ({
+      logFile: `${cwd}/session.jsonl`,
+      entryCount: 0,
+      validation: { ok: true, issues: [] },
+    }),
     getCwd: () => cwd,
+    getCommandInvocationSource: () => 'user',
+    clearConversationHistory: () => {},
+    // `undefined` is "no interactive renderer is attached" — the headless case, which every
+    // command must already handle as a cancellation rather than a silent guess (CMD-004).
+    getUserInteraction: () => undefined,
+    applyPersona: () => {},
+    applySelfVerification: () => {},
+    // An empty array is "every name matched" (INFRA-032), not "nothing was applied".
+    applyCommandModuleSelection: () => [],
+    getAutoCompactThresholdSource: () => 'session',
+    setAutoCompactThreshold: () => {},
+    listCheckpointBranches: () => [],
+    forkCheckpointBranch: () => Promise.resolve(EMPTY_RESTORE_RESULT),
+    switchCheckpointBranch: () => {},
+    // Each goal/plan member answers "nothing is in flight".
+    setGoal: () => Promise.resolve(EMPTY_GOAL),
+    getGoalState: () => null,
+    cancelGoal: () => null,
+    setPlan: () => Promise.resolve(EMPTY_PLAN),
+    getPlanState: () => null,
+    approvePlan: () => EMPTY_PLAN,
+    revertPlan: () => EMPTY_PLAN,
+    getMemoryStore: () => createFileSystemMemoryStore(cwd, () => new Date(NEVER)),
+    runWithTerminal: (fn) => fn(),
     getContextState: () => EMPTY_CONTEXT_STATE,
     getAutoCompactThreshold: () => false,
     compactContext: () => Promise.resolve(),
@@ -154,82 +220,8 @@ export function createTestCommandHost(
     closeBackgroundTask: () => Promise.resolve(),
     getCommandHostAdapters: () => EMPTY_ADAPTERS,
     canHandoffTerminal: () => false,
+    getAgentJobCapability: () => createTestAgentJobHost(),
   };
 
   return { ...base, ...options.overrides };
-}
-
-/**
- * ARCH-029: the same double, for the capability `ICommandHostContext` reaches through
- * `getAgentJobCapability()`.
- *
- * `IAgentJobHostContext` declares 15 members and **none** of them optional — so it is the more honest
- * of the two contracts, and satisfying it without a cast means answering all fifteen. That is exactly
- * why fixtures cast it: there was nothing to reach for. Migrating a host cast into a job cast would
- * have been half the work, which is why this exists rather than a second `as unknown as`.
- */
-/**
- * The three states this contract returns, each meaning "nothing ran". Named rather than inlined so a
- * reader sees they are placeholders, and so the five members returning them cannot drift apart.
- */
-const NEVER = '1970-01-01T00:00:00.000Z';
-
-const EMPTY_SUBAGENT_JOB: ISubagentJobState = {
-  id: 'test-agent-job',
-  type: 'general-purpose',
-  label: 'test',
-  parentSessionId: 'test-command-host',
-  status: 'running',
-  mode: 'background',
-  depth: 1,
-  cwd: FAKE_ROOT,
-  promptPreview: '',
-  updatedAt: NEVER,
-};
-
-const EMPTY_JOB_GROUP: IBackgroundJobGroupState = {
-  id: 'test-group',
-  parentSessionId: 'test-command-host',
-  waitPolicy: 'wait_all',
-  taskIds: [],
-  status: 'running',
-  createdAt: NEVER,
-  updatedAt: NEVER,
-  results: [],
-};
-
-const EMPTY_BACKGROUND_TASK: IBackgroundTaskState = {
-  id: 'test-background-task',
-  kind: 'agent',
-  label: 'test',
-  status: 'running',
-  mode: 'background',
-  parentSessionId: 'test-command-host',
-  depth: 1,
-  cwd: FAKE_ROOT,
-  updatedAt: NEVER,
-  unread: false,
-};
-
-export function createTestAgentJobHost(
-  overrides?: Partial<IAgentJobHostContext>,
-): IAgentJobHostContext {
-  const base: IAgentJobHostContext = {
-    listAgentDefinitions: () => [],
-    listAgentJobs: () => [],
-    spawnAgentJob: () => Promise.resolve(EMPTY_SUBAGENT_JOB),
-    sendAgentJob: () => Promise.resolve(),
-    cancelAgentJob: () => Promise.resolve(),
-    closeAgentJob: () => Promise.resolve(),
-    createBackgroundJobGroup: () => EMPTY_JOB_GROUP,
-    waitBackgroundJobGroup: () => Promise.resolve(EMPTY_JOB_GROUP),
-    spawnScheduledWake: () => Promise.resolve(EMPTY_BACKGROUND_TASK),
-    listSchedules: () => [],
-    pauseSchedule: () => Promise.resolve(),
-    resumeSchedule: () => Promise.resolve(),
-    editSchedule: () => Promise.resolve(),
-    spawnMonitorWake: () => Promise.resolve(EMPTY_BACKGROUND_TASK),
-    readBackgroundTaskLog: (taskId: string) => Promise.resolve({ taskId, lines: [] }),
-  };
-  return { ...base, ...overrides };
 }

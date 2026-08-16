@@ -79,7 +79,7 @@ export function createCommandMemoryStores(
   context: ICommandHostMemory & ICommandHostWorkspace,
   now?: () => Date,
 ): IMemoryStore {
-  return context.getMemoryStore?.() ?? createFileSystemMemoryStore(context.getCwd(), now);
+  return context.getMemoryStore();
 }
 
 export function isCommandMemoryType(value: string): value is TMemoryType {

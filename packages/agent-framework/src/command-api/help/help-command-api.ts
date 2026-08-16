@@ -4,7 +4,7 @@ export const HELP_COMMAND_DESCRIPTION = 'Show available commands';
 const HELP_COMMAND_NAME_COLUMN_WIDTH = 16;
 
 function readCommandList(context: ICommandHostCatalog): readonly ICommandListEntry[] {
-  return context.listCommands?.() ?? [];
+  return context.listCommands();
 }
 
 export function formatCommandHelpMessage(context: ICommandHostCatalog): string {

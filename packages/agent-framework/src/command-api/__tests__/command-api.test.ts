@@ -58,7 +58,10 @@ import type {
   ISystemCommand,
 } from '../index.js';
 import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-core';
-import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
+import {
+  createTestCommandHost,
+  createTestSessionRuntime,
+} from '@robota-sdk/agent-framework/testing';
 
 const CONTEXT_STATE: IContextWindowState = {
   maxTokens: 100,
@@ -79,14 +82,14 @@ const CONTEXT_REFERENCE: IContextReferenceItem = {
   lastUsedAt: '2026-05-05T00:00:00.000Z',
 };
 
-function createCommandSessionRuntime(): ICommandSessionRuntime {
+function createCommandSessionRuntime() {
   let mode: TPermissionMode = 'default';
-  return {
+  return createTestSessionRuntime({
     clearHistory: () => undefined,
     compact: async () => undefined,
     getContextState: () => CONTEXT_STATE,
     getPermissionMode: () => mode,
-    setPermissionMode: (nextMode) => {
+    setPermissionMode: (nextMode: TPermissionMode) => {
       mode = nextMode;
     },
     getSessionId: () => 'session_1',
@@ -95,7 +98,7 @@ function createCommandSessionRuntime(): ICommandSessionRuntime {
     getAutoCompactThreshold: () => 0.8,
     getFullHistory: () => [],
     getHistory: () => [],
-  };
+  });
 }
 
 function createCheckpointResult(): IEditCheckpointRestoreResult {

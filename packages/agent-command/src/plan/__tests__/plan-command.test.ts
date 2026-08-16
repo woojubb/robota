@@ -102,9 +102,16 @@ describe('executePlanCommand (SELFHOST-002 /plan)', () => {
     expect(result.message).toContain('/plan approve');
   });
 
-  it('reports unavailability when the session cannot plan', async () => {
-    const result = await executePlanCommand(host({}), 'do a thing');
-    expect(result.success).toBe(false);
-    expect(result.message).toContain('not available');
+  it('ARCH-029 TC-09: "no plan" is a VALUE, not an absent member', async () => {
+    // This case previously asserted "Plan mode is not available in this session", a message only
+    // reachable when the host OMITTED `setPlan`. With the member required that state is no longer
+    // representable, and the distinction the contract keeps is the one that was always the real
+    // one: a host that has no plan says so by RETURNING null, not by lacking the method.
+    const noPlanYet = host({ getPlanState: () => null });
+
+    const status = await executePlanCommand(noPlanYet, 'status');
+
+    expect(status.success).toBe(true);
+    expect(status.message).toContain('No plan is active.');
   });
 });

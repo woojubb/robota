@@ -21,6 +21,7 @@ import {
   buildWorkspaceTaskSpawner,
   readWorkspaceDetail,
 } from './interactive-session-workspace.js';
+import { computeSessionReplayValidationReport } from '../command-api/session/session-command-api.js';
 
 import type { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import type { SessionExecutionController } from './interactive-session-execution-controller.js';
@@ -43,6 +44,7 @@ import type {
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
 } from '../checkpoints/edit-checkpoint-types.js';
+import type { ICommandSessionReplayValidationReport } from '../command-api/index.js';
 import type {
   ICommandHostAdapters,
   ICommandListEntry,
@@ -118,6 +120,18 @@ export abstract class InteractiveSessionBase {
     await this.ensureInitialized();
     return this.skillRouter.executeModelCommand(name, args);
   }
+  /**
+   * ARCH-029 TC-08 — the production host implements the member that used to be an unimplemented
+   * optional override, by delegating to the SAME helper the framework used as its default. One
+   * computed path with one owner; the framework's fallback branch is deleted, not kept beside it.
+   */
+  validateCurrentSessionReplayLog(): ICommandSessionReplayValidationReport {
+    return computeSessionReplayValidationReport(
+      this.getCwd(),
+      this.getSessionOrThrow().getSessionId(),
+    );
+  }
+
   getCommandInvocationSource(): TCommandInvocationSource {
     return this.skillRouter.getCommandInvocationSource();
   }

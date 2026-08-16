@@ -14,7 +14,7 @@ const DEFAULT_ACTIVE_PRESET_ID = 'default';
 
 /** Read the active preset id from the session, defaulting when the optional seam is absent. */
 function readActivePresetId(context: ICommandHostSessionAccess): string {
-  return context.getSession().getActivePresetId?.() ?? DEFAULT_ACTIVE_PRESET_ID;
+  return context.getSession().getActivePresetId();
 }
 
 /** Build the `/preset` listing: one line per preset, marking the active one with a `*` prefix. */

@@ -47,6 +47,13 @@
  *     re-exported here so call sites keep the legacy shape. Three guards are also RENAMED
  *     (`isParameter`, `isMethodSignature`, `isPropertySignature`); they are aliased back below.
  *
+ *  5. OPTIONALITY OF A TYPE MEMBER IS `postfixToken`, NOT `questionToken`. The native AST leaves
+ *     `questionToken` undefined on a `PropertySignature`/`MethodSignature`, so a caller reading it
+ *     sees `a?(): void` and `b(): void` as identical and reports zero optional members for every
+ *     input. That is silent: the scan passes, and its floor can never fail. `postfixToken` carries
+ *     the `QuestionToken` and additionally distinguishes an optional MEMBER from a required member
+ *     with an optional PARAMETER, which `questionToken` on the parameter would conflate.
+ *
  * Everything else the scans rely on — `node.parent`, `pos`/`end`, `getStart()`, `getText()`,
  * `getLineAndCharacterOfPosition()`, `modifiers`, `heritageClauses`, `elements`, `.text` on
  * identifiers and string literals — is present with the same names and the same semantics.

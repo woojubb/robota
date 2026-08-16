@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { findAggregateReferences } from '../scan-aggregate-naming.mjs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import {
+  collectAggregateNaming,
+  examinedFileCount,
+  findAggregateReferences,
+} from '../scan-aggregate-naming.mjs';
 
 /**
  * ARCH-029. This scan is the criterion the design marks load-bearing — "the decomposition is not
@@ -90,5 +98,81 @@ describe('findAggregateReferences', () => {
     );
 
     expect(found).toEqual([{ aggregate: 'ICommandHostContext', line: 3 }]);
+  });
+});
+
+describe('collectAggregateNaming — the `examined` counter is an output, and is asserted as one', () => {
+  it('examines EXACTLY the files it is given, and counts exactly what is in them', () => {
+    // measurement-provenance.md: a self-reported size nothing checks is how "examined 0 files"
+    // reads as a clean repository. Fixture of known size: 3 files, 4 references.
+    const root = mkdtempSync(join(tmpdir(), 'arch-029-count-'));
+    mkdirSync(join(root, 'packages'), { recursive: true });
+    const files = ['a.ts', 'b.ts', 'c.ts'];
+    writeFileSync(join(root, 'a.ts'), 'export function f(c: ICommandHostContext): void {}\n');
+    writeFileSync(
+      join(root, 'b.ts'),
+      'type T = Partial<ICommandHostContext>;\ntype U = () => ICommandHostContext;\ntype V = ICommandHostContext[];\n',
+    );
+    writeFileSync(join(root, 'c.ts'), 'export const nothing = 1;\n');
+
+    const { counts, examined } = collectAggregateNaming(
+      root,
+      { aggregateNaming: { aggregates: ['ICommandHostContext'], allowlist: [] } },
+      files,
+    );
+
+    expect(examined).toBe(3);
+    expect(examinedFileCount(), 'the walk was miscounted').toBe(3);
+    expect(counts.get('ICommandHostContext').references).toBe(4);
+  });
+
+  it('resets between runs — a second run over the same fixture reports the same size', () => {
+    // An accumulating counter would say 6 on the second pass. That is how "the number came from
+    // the walk" is told apart from "the number came from somewhere and kept growing".
+    const root = mkdtempSync(join(tmpdir(), 'arch-029-reset-'));
+    mkdirSync(join(root, 'packages'), { recursive: true });
+    writeFileSync(join(root, 'a.ts'), 'export function f(c: ICommandHostContext): void {}\n');
+    writeFileSync(join(root, 'b.ts'), 'export const nothing = 1;\n');
+    const config = { aggregateNaming: { aggregates: ['ICommandHostContext'], allowlist: [] } };
+    const files = ['a.ts', 'b.ts'];
+
+    collectAggregateNaming(root, config, files);
+    expect(examinedFileCount()).toBe(2);
+
+    collectAggregateNaming(root, config, files);
+    expect(examinedFileCount(), 'the counter accumulates across runs').toBe(2);
+  });
+
+  it('does not examine an allowlisted file — the count reflects the exclusion', () => {
+    const root = mkdtempSync(join(tmpdir(), 'arch-029-allow-'));
+    mkdirSync(join(root, 'packages'), { recursive: true });
+    writeFileSync(join(root, 'a.ts'), 'export function f(c: ICommandHostContext): void {}\n');
+    writeFileSync(join(root, 'b.ts'), 'export function g(c: ICommandHostContext): void {}\n');
+
+    const { counts, examined } = collectAggregateNaming(
+      root,
+      {
+        aggregateNaming: {
+          aggregates: ['ICommandHostContext'],
+          allowlist: [{ file: 'b.ts', reason: 'the declaration site' }],
+        },
+      },
+      ['a.ts', 'b.ts'],
+    );
+
+    expect(examined).toBe(1);
+    expect(counts.get('ICommandHostContext').references).toBe(1);
+  });
+});
+
+describe('collectAggregateNaming fails closed on scope', () => {
+  it('throws over a root without the governed tree, rather than counting zero', () => {
+    // A counter that reports 0 for a tree it never read is indistinguishable from a finished
+    // decomposition — which is the exact state this floor exists to refuse.
+    const bare = mkdtempSync(join(tmpdir(), 'arch-029-bare-'));
+
+    expect(() =>
+      collectAggregateNaming(bare, { aggregateNaming: { aggregates: ['I'], allowlist: [] } }, []),
+    ).toThrow(/packages/);
   });
 });

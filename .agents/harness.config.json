@@ -270,6 +270,22 @@
       "scope": ["packages/dag-worker/src"]
     }
   ],
+  "rolePortOptionals": {
+    "$comment": "ARCH-029 TC-06: role ports carry zero optional members. An aggregate-level ceiling would NOT have caught the regression this guards — `getAgentJobCapability?()` adds 15 reachable members while contributing 1 to any optional count, and `getSession()` adds 18 while contributing 0. A member may be optional only when its VALUE is genuinely variational, never because a host might not implement it; each such member is carved out below with a reason.",
+    "files": [
+      "packages/agent-framework/src/command-api/host-roles.ts",
+      "packages/agent-framework/src/command-api/session-roles.ts",
+      "packages/agent-framework/src/command-api/agent-job-roles.ts"
+    ],
+    "aggregates": ["ICommandHostContext", "ICommandSessionRuntime", "IAgentJobHostContext"],
+    "carveOuts": [
+      {
+        "interface": "ICommandHostAdapterAccess",
+        "member": "getCommandHostAdapters",
+        "reason": "A genuinely variational adapter bag: its CONTENTS differ by host by design, so requiring it would force every host to answer a question with no single answer. This is the distinction the rule keeps — variational value, not unimplemented member."
+      }
+    ]
+  },
   "aggregateNaming": {
     "$comment": "ARCH-029: the load-bearing floor. A god contract is not fixed by decomposing it — it is fixed when consumers stop NAMING it, and REFACTOR-006 proved those are different events (it closed green on the same contract, which then grew 20 members/50% optional to 46/70%). Type-position references to each aggregate are frozen in scripts/harness/aggregate-naming-baseline.json; they may fall and must never rise. The target is 0, not 'falling'.",
     "aggregates": ["ICommandHostContext"],

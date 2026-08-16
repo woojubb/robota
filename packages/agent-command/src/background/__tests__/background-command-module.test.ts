@@ -7,13 +7,14 @@ import {
   executeBackgroundCommand,
 } from '../index.js';
 import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-transport';
+import { createTestSessionRuntime } from '@robota-sdk/agent-framework/testing';
 import {
   createTestCommandHost,
   type ICreateTestCommandHostOptions,
 } from '@robota-sdk/agent-framework/testing';
 
-function createSessionRuntime(): ICommandSessionRuntime {
-  return {
+function createSessionRuntime() {
+  return createTestSessionRuntime({
     clearHistory: () => undefined,
     compact: async () => undefined,
     getContextState: () => ({
@@ -30,7 +31,7 @@ function createSessionRuntime(): ICommandSessionRuntime {
     getAutoCompactThreshold: () => false,
     getFullHistory: () => [],
     getHistory: () => [],
-  };
+  });
 }
 
 function createTask(overrides?: Partial<IBackgroundTaskState>): IBackgroundTaskState {

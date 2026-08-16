@@ -83,7 +83,7 @@ export async function executeSkillsCommand(
     }
     const displayInput = `/${parsed.skillName}${parsed.skillArgs ? ` ${parsed.skillArgs}` : ''}`;
     const result = await context.executeSkillCommandByName(parsed.skillName, parsed.skillArgs, {
-      invocationSource: context.getCommandInvocationSource?.() ?? 'user',
+      invocationSource: context.getCommandInvocationSource(),
       displayInput,
       rawInput: displayInput,
     });
@@ -95,7 +95,7 @@ export async function executeSkillsCommand(
     );
   }
 
-  const skills = context.listSkills?.() ?? [];
+  const skills = context.listSkills();
   return {
     success: true,
     message: formatSkillsMessage(skills),

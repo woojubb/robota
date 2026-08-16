@@ -3,7 +3,10 @@ import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-transpor
 import { describe, expect, it, vi } from 'vitest';
 import { createPluginCommandModule } from '../plugin-command-module.js';
 import { executePluginCommand, executeReloadPluginsCommand } from '../plugin-command.js';
-import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
+import {
+  createTestCommandHost,
+  createTestSessionRuntime,
+} from '@robota-sdk/agent-framework/testing';
 
 function createPluginAdapter(overrides?: Partial<ICommandPluginAdapter>): ICommandPluginAdapter {
   return {
@@ -22,8 +25,8 @@ function createPluginAdapter(overrides?: Partial<ICommandPluginAdapter>): IComma
   };
 }
 
-function createCommandSessionRuntime(): ICommandSessionRuntime {
-  return {
+function createCommandSessionRuntime() {
+  return createTestSessionRuntime({
     clearHistory: () => undefined,
     compact: async () => undefined,
     getContextState: () => ({
@@ -40,7 +43,7 @@ function createCommandSessionRuntime(): ICommandSessionRuntime {
     getAutoCompactThreshold: () => false,
     getFullHistory: () => [],
     getHistory: () => [],
-  };
+  });
 }
 
 function createCommandHostContext(adapter?: ICommandPluginAdapter) {

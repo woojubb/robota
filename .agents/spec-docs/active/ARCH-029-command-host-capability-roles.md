@@ -67,7 +67,7 @@ decomposition: every criterion in the previous attempt could be ticked while the
 
 ## Prior Art Research
 
-**Waived:** the decisive prior art is **in this repository and one layer over** — ARCH-012 solved the
+Waived: the decisive prior art is **in this repository and one layer over** — ARCH-012 solved the
 identical problem on the session axis three weeks ago, and its landed artifacts (an empty `extends`
 aggregate over 16 role ports, a conformant `testing/` double, a cast ratchet held at 0) are directly
 inspectable. External product documentation cannot tell us more about robota's own command host than
@@ -225,15 +225,15 @@ library, test-support subpath_. (b) Reuse is at the contract level: consumers de
 
 ## Completion Criteria
 
-- [ ] TC-01: `InteractiveSession` declares `implements ICommandHostContext` and the production
+- [x] TC-01: `InteractiveSession` declares `implements ICommandHostContext` and the production
       `as unknown as` cast is gone — conformance is compiler-checked.
-- [ ] TC-02: `createTestCommandHost(overrides?: Partial<ICommandHostContext>)` exists in
+- [x] TC-02: `createTestCommandHost(overrides?: Partial<ICommandHostContext>)` exists in
       `agent-framework/testing`, is typed with **no cast**, and a fixture using it type-checks.
-- [ ] TC-03: all **22** cast sites are accounted for — `ICommandHostContext` 18 + `IAgentJobHostContext` 4. One (the production cast) is removed by TC-01, so **21 test sites migrate** to the double or to
+- [x] TC-03: all **22** cast sites are accounted for — `ICommandHostContext` 18 + `IAgentJobHostContext` 4. One (the production cast) is removed by TC-01, so **21 test sites migrate** to the double or to
       exact-role hosts; both contracts are then ratcheted at **0**.
-- [ ] TC-04: the three contracts are decomposed into role ports; each aggregate is an empty `extends`;
+- [x] TC-04: the three contracts are decomposed into role ports; each aggregate is an empty `extends`;
       a command declaring only a narrow role compiles against `ISystemCommand`.
-- [ ] TC-05: declarations naming `ICommandHostContext` in a type position outside the named allowlist
+- [x] TC-05: declarations naming `ICommandHostContext` in a type position outside the named allowlist
       (`ISystemCommand.execute`, the production host, the double) are at **0**. Today's measured count
       is **128** — 82 in `agent-command`, 45 in `agent-framework`, 1 in `agent-command-workflows`.
       **Zero, not "frozen and falling."** An earlier revision of this criterion said "falling", which
@@ -247,13 +247,13 @@ library, test-support subpath_. (b) Reuse is at the contract level: consumers de
       (`ICommandHostContext['getContextState']`) and function-return (`() => ICommandHostContext`)
       forms, roughly 6 more. The target of **0** subsumes them, so the target is unaffected; the scan's
       definition and the recorded baseline must be the same quantity when it is written.
-- [ ] TC-06: the role ports carry **zero** optional members, with a named carve-out and a stated
+- [x] TC-06: the role ports carry **zero** optional members, with a named carve-out and a stated
       reason for genuinely variational adapter bags.
-- [ ] TC-07: all 79 members are preserved — an exact inventory, in ARCH-012's 39-member table format.
-- [ ] TC-08: `validateCurrentSessionReplayLog` is required and the production host delegates to the
+- [x] TC-07: all 79 members are preserved — an exact inventory, in ARCH-012's 39-member table format.
+- [x] TC-08: `validateCurrentSessionReplayLog` is required and the production host delegates to the
       **same helper** the framework used as its default — one computed path, one owner, and the
       framework's fallback branch is deleted rather than left as a second path.
-- [ ] TC-09: every `context.foo?.() ?? default` site in `agent-command` and
+- [x] TC-09: every `context.foo?.() ?? default` site in `agent-command` and
       `agent-framework/command-api` is resolved individually, and each surviving default is one where
       the **value** can legitimately be empty — not where the member could be absent. This is the
       design's one behaviour-changing surface and where "provided-empty is distinct from absent" is
@@ -1066,3 +1066,167 @@ neither decides this verdict:**
 **Verdict:** PASS on all four criteria. The deciding one is criterion 3 — ten `TC-N` tasks for ten
 Completion Criteria, each appearing exactly once, grouped in the four seams `## Sequencing` defines, with
 the superseded capability-map plan removed.
+
+### [TC-07 MEMBER INVENTORY] — ✅ 79/79 PRESERVED | 2026-08-17
+
+Produced by walking the `extends` graph of both revisions with the repo's own AST helper and
+diffing member sets — **not** by reading the diff. The design's own standard: "a presence/absence
+grep is not proof."
+
+**Result: 79 rows, 0 members lost, 0 members added.** 46 + 18 + 15, matching the pre-change counts
+exactly.
+
+| transition                   | count | meaning                                       |
+| ---------------------------- | ----- | --------------------------------------------- |
+| required → required          | 40    | untouched                                     |
+| optional → required          | 38    | TC-06 + TC-08                                 |
+| optional → optional          | 1     | the named carve-out, `getCommandHostAdapters` |
+| required → optional          | 0     | no member was weakened                        |
+| present before, absent after | 0     | nothing lost                                  |
+| absent before, present after | 0     | nothing invented                              |
+
+One correction is on the record here rather than smoothed over. The first `optional → required`
+sweep reported **36**; the real figure is 38. Two members were missed and only the TC-06 scan found
+them, once its detector was fixed:
+
+- `runWithTerminal?<T>(…)` — the sweep's pattern required `(` immediately after `?`, and this
+  declaration has a type-parameter list there.
+- `validateCurrentSessionReplayLog` — converted separately under TC-08.
+
+That is the reason the scan is the instrument of record and the sweep is not: the sweep and the
+floor disagreed, and the floor was right.
+
+**ICommandHostContext** — 46 members
+
+| role port                       | member                            | before   | after    |
+| ------------------------------- | --------------------------------- | -------- | -------- |
+| `ICommandHostAdapterAccess`     | `getCommandHostAdapters`          | optional | optional |
+| `ICommandHostAgentJobs`         | `getAgentJobCapability`           | optional | required |
+| `ICommandHostBackgroundTasks`   | `cancelBackgroundTask`            | required | required |
+|                                 | `closeBackgroundTask`             | required | required |
+|                                 | `listBackgroundTasks`             | required | required |
+|                                 | `readBackgroundTaskLog`           | required | required |
+| `ICommandHostCatalog`           | `executeSkillCommandByName`       | optional | required |
+|                                 | `listCommands`                    | optional | required |
+|                                 | `listSkills`                      | optional | required |
+| `ICommandHostCheckpoints`       | `forkCheckpointBranch`            | optional | required |
+|                                 | `inspectEditCheckpoint`           | optional | required |
+|                                 | `listCheckpointBranches`          | optional | required |
+|                                 | `listEditCheckpoints`             | required | required |
+|                                 | `restoreEditCheckpoint`           | required | required |
+|                                 | `rollbackEditCheckpoint`          | required | required |
+|                                 | `switchCheckpointBranch`          | optional | required |
+| `ICommandHostContextReferences` | `addContextReference`             | optional | required |
+|                                 | `clearContextReferences`          | optional | required |
+|                                 | `listContextReferences`           | optional | required |
+|                                 | `removeContextReference`          | optional | required |
+| `ICommandHostContextWindow`     | `compactContext`                  | required | required |
+|                                 | `getAutoCompactThreshold`         | required | required |
+|                                 | `getAutoCompactThresholdSource`   | optional | required |
+|                                 | `getContextState`                 | required | required |
+|                                 | `setAutoCompactThreshold`         | optional | required |
+| `ICommandHostGoal`              | `cancelGoal`                      | optional | required |
+|                                 | `getGoalState`                    | optional | required |
+|                                 | `setGoal`                         | optional | required |
+| `ICommandHostMemory`            | `getMemoryStore`                  | optional | required |
+|                                 | `getUsedMemoryReferences`         | required | required |
+|                                 | `recordMemoryEvent`               | required | required |
+| `ICommandHostPlan`              | `approvePlan`                     | optional | required |
+|                                 | `getPlanState`                    | optional | required |
+|                                 | `revertPlan`                      | optional | required |
+|                                 | `setPlan`                         | optional | required |
+| `ICommandHostPresetApplication` | `applyCommandModuleSelection`     | optional | required |
+|                                 | `applyPersona`                    | optional | required |
+|                                 | `applySelfVerification`           | optional | required |
+| `ICommandHostSessionAccess`     | `clearConversationHistory`        | optional | required |
+|                                 | `getSession`                      | required | required |
+|                                 | `validateCurrentSessionReplayLog` | optional | required |
+| `ICommandHostTerminalHandoff`   | `canHandoffTerminal`              | optional | required |
+|                                 | `runWithTerminal`                 | optional | required |
+| `ICommandHostUserInteraction`   | `getUserInteraction`              | optional | required |
+| `ICommandHostWorkspace`         | `getCommandInvocationSource`      | optional | required |
+|                                 | `getCwd`                          | required | required |
+
+**ICommandSessionRuntime** — 18 members
+
+| role port                      | member                        | before   | after    |
+| ------------------------------ | ----------------------------- | -------- | -------- |
+| `ICommandSessionContextWindow` | `compact`                     | required | required |
+|                                | `getAutoCompactThreshold`     | required | required |
+|                                | `getContextState`             | required | required |
+|                                | `setAutoCompactThreshold`     | optional | required |
+| `ICommandSessionHistory`       | `clearHistory`                | required | required |
+|                                | `getFullHistory`              | required | required |
+|                                | `getHistory`                  | required | required |
+|                                | `getMessageCount`             | required | required |
+| `ICommandSessionIdentity`      | `getModelId`                  | optional | required |
+|                                | `getSessionId`                | required | required |
+|                                | `getSessionTokenUsage`        | optional | required |
+| `ICommandSessionModel`         | `applyModelOptions`           | optional | required |
+| `ICommandSessionPermissions`   | `getPermissionMode`           | required | required |
+|                                | `getSessionAllowedTools`      | required | required |
+|                                | `setPermissionMode`           | required | required |
+| `ICommandSessionPreset`        | `getActivePresetId`           | optional | required |
+|                                | `setActivePresetId`           | optional | required |
+|                                | `setParallelSubagentsEnabled` | optional | required |
+
+**IAgentJobHostContext** — 15 members
+
+| role port            | member                     | before   | after    |
+| -------------------- | -------------------------- | -------- | -------- |
+| `IAgentJobDispatch`  | `cancelAgentJob`           | required | required |
+|                      | `closeAgentJob`            | required | required |
+|                      | `listAgentDefinitions`     | required | required |
+|                      | `listAgentJobs`            | required | required |
+|                      | `sendAgentJob`             | required | required |
+|                      | `spawnAgentJob`            | required | required |
+| `IAgentJobGroups`    | `createBackgroundJobGroup` | required | required |
+|                      | `waitBackgroundJobGroup`   | required | required |
+| `IAgentJobLogs`      | `readBackgroundTaskLog`    | required | required |
+| `IAgentJobMonitors`  | `spawnMonitorWake`         | required | required |
+| `IAgentJobSchedules` | `editSchedule`             | required | required |
+|                      | `listSchedules`            | required | required |
+|                      | `pauseSchedule`            | required | required |
+|                      | `resumeSchedule`           | required | required |
+|                      | `spawnScheduledWake`       | required | required |
+
+### [SCAN CORRECTION — PRIOR-ART WAIVER] — 2026-08-17
+
+Two gate entries above record that "an explicit `**Waived:** <reason>` line is present, which the
+scan accepts". The first half was true and the second half was never checked: `scan-spec-research.mjs`
+matches `/(^|\n)\s*Waived:\s*\S/`, which requires the line to BEGIN with the marker. A bolded
+`**Waived:**` does not begin with it, so the scan reported this document unsubstantiated the first
+time it ran against it — the gate had accepted a claim about a mechanism without running the
+mechanism. The marker is now unbolded and `pnpm harness:scan`'s `spec-research` passes.
+
+### [FILE-SIZE BASELINE — WHAT IT LICENSES] — 2026-08-17
+
+`scan-file-size` went red on five files after S3/S4. Recorded here because regenerating a size
+baseline is a licence to grow, and a licence taken quietly is indistinguishable from debt.
+
+**Reduced first, by real splits — not by moving the line.**
+
+| file                     | before | after | split                                                                                                 |
+| ------------------------ | ------ | ----- | ----------------------------------------------------------------------------------------------------- |
+| `host-context.ts`        | 448    | 131   | into `session-roles.ts` (122), `host-roles.ts` (243), `agent-job-roles.ts` (137), along the port seam |
+| `command-host-double.ts` | 302    | 227   | `agent-job-host-double.ts` (88) + `double-constants.ts`, same seam                                    |
+| `context-command.ts`     | 536    | 306   | `context-breakdown.ts` (266) — the read-only half, which `TContextReadHost` had just named            |
+| `interactive-session.ts` | 1018   | 1001  | the TC-08 delegation moved to the base class; a stray blank line and a five-line comment trimmed      |
+
+`context-command.ts` ends **208 lines below** its old frozen 514, and the ratchet is retightened to
+306 in the same change — the scan's own instruction, so the gain cannot be spent later.
+
+**The remainder is irreducible, and is what the baseline now records:**
+
+| file                                    | +lines | why no split reduces it                                                                                                                                                                                                           |
+| --------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent-framework/src/index.ts`          | +27    | 26 new public names, one line each. These barrels list every export by name — no `export *` appears in any of them — so a sub-barrel still costs one line per name at the top. The names are real exported contracts, not filler. |
+| `agent-framework/src/commands/index.ts` | +7     | same, for the ports this barrel forwards                                                                                                                                                                                          |
+| `interactive-session-base.ts`           | +11    | one required-member implementation (`validateCurrentSessionReplayLog`) plus its two imports, placed here rather than in `interactive-session.ts` precisely because that file was at its cap                                       |
+| `interactive-session.ts`                | +1     | a formatter line                                                                                                                                                                                                                  |
+
+Not claimed: that these four files are now the right size. They are pre-existing monoliths, and this
+change made two of them slightly larger while making a third much smaller. What is claimed is that
+the growth is new public surface and one contract implementation, that it was minimised by four
+splits before the baseline was touched, and that the one file which could be genuinely reduced was
+reduced and re-frozen at its new number.

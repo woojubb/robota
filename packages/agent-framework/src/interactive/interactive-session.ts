@@ -218,11 +218,7 @@ export class InteractiveSession
       commandModules,
       cwd,
       commandHostAdapters,
-      // ARCH-029 S1: no cast. The class declares `implements ICommandHostContext` above, so its
-      // conformance is checked by the compiler rather than asserted here. The assertion was
-      // vestigial — a strict-mode probe showed the session was already assignable — but an
-      // `as unknown as` would have silently swallowed any future drift, which is exactly what a
-      // 46-member contract with 32 optional members makes easy.
+      // ARCH-029 S1: no cast — `implements ICommandHostContext` above makes this compiler-checked.
       () => this,
       () => this.session?.getSessionId() ?? '',
       (prompt, displayInput, rawInput) => this.submit(prompt, displayInput, rawInput),

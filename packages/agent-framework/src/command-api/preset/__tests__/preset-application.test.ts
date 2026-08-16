@@ -4,7 +4,10 @@ import { applyPresetToSession } from '../preset-application.js';
 
 import type { ICommandHostContext, ICommandSessionRuntime } from '../../host-context.js';
 import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-core';
-import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
+import {
+  createTestCommandHost,
+  createTestSessionRuntime,
+} from '@robota-sdk/agent-framework/testing';
 
 const CONTEXT_STATE: IContextWindowState = {
   maxTokens: 100,
@@ -51,38 +54,32 @@ function createContext(
     mode = next;
   });
   const spies: IRuntimeSpies = { setPermissionMode };
+  const recordSpy = (name: keyof IRuntimeSpies) => {
+    const spy = vi.fn();
+    spies[name] = spy;
+    return spy;
+  };
 
-  const runtime: ICommandSessionRuntime = {
-    clearHistory: () => undefined,
-    compact: async () => undefined,
+  // ARCH-029 TC-06: every runtime member is now REQUIRED, so "a runtime without member X" is no
+  // longer a representable host. What the `include*` flags used to model — the caller surviving a
+  // host that does not participate in a group — is now modelled the way the design says it must be:
+  // the member is PRESENT and does nothing. The distinction the contract keeps is between a value
+  // that is legitimately empty and a member that is absent; only the first one survives.
+  //
+  // The assertions are unchanged: a flag left false simply does not install a recording spy, so
+  // `spies.X` is still undefined and the case still proves the caller does not depend on the spy.
+  const runtime = createTestSessionRuntime({
     getContextState: () => CONTEXT_STATE,
     getPermissionMode: () => mode,
     setPermissionMode,
     getSessionId: () => 'session_1',
-    getMessageCount: () => 0,
-    getSessionAllowedTools: () => [],
     getAutoCompactThreshold: () => 0.8,
-    getFullHistory: () => [],
-    getHistory: () => [],
-  };
-
-  if (includeActivePreset) {
-    const setActivePresetId = vi.fn();
-    runtime.setActivePresetId = setActivePresetId;
-    spies.setActivePresetId = setActivePresetId;
-  }
-
-  if (includeApplyModelOptions) {
-    const applyModelOptions = vi.fn();
-    runtime.applyModelOptions = applyModelOptions;
-    spies.applyModelOptions = applyModelOptions;
-  }
-
-  if (includeSetParallelSubagentsEnabled) {
-    const setParallelSubagentsEnabled = vi.fn();
-    runtime.setParallelSubagentsEnabled = setParallelSubagentsEnabled;
-    spies.setParallelSubagentsEnabled = setParallelSubagentsEnabled;
-  }
+    ...(includeActivePreset && { setActivePresetId: recordSpy('setActivePresetId') }),
+    ...(includeApplyModelOptions && { applyModelOptions: recordSpy('applyModelOptions') }),
+    ...(includeSetParallelSubagentsEnabled && {
+      setParallelSubagentsEnabled: recordSpy('setParallelSubagentsEnabled'),
+    }),
+  });
 
   const context = createTestCommandHost({
     overrides: {

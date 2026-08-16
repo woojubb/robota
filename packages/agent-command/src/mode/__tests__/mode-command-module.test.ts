@@ -35,34 +35,38 @@ function createCommandHostContext(): ReturnType<typeof createTestCommandHost> & 
   });
 
   return {
-    getSession: () => {
-      throw new Error('mode command should use the permission mode adapter');
-    },
-    getCommandHostAdapters: () => ({
-      permissionMode: {
-        getPermissionMode: () => mode,
-        setPermissionMode,
-        listSessionAllowedTools: () => [],
+    ...createTestCommandHost({
+      overrides: {
+        getSession: () => {
+          throw new Error('mode command should use the permission mode adapter');
+        },
+        getCommandHostAdapters: () => ({
+          permissionMode: {
+            getPermissionMode: () => mode,
+            setPermissionMode,
+            listSessionAllowedTools: () => [],
+          },
+        }),
+        getContextState: () => ({
+          usedTokens: 0,
+          maxTokens: 1,
+          usedPercentage: 0,
+          remainingPercentage: 100,
+        }),
+        getAutoCompactThreshold: () => 0.835,
+        compactContext: async () => undefined,
+        getCwd: () => '/workspace',
+        listEditCheckpoints: () => [],
+        restoreEditCheckpoint: async () => createCheckpointResult(),
+        rollbackEditCheckpoint: async () => createCheckpointResult(),
+        getUsedMemoryReferences: () => [],
+        recordMemoryEvent: () => undefined,
+        listBackgroundTasks: () => [],
+        readBackgroundTaskLog: async () => ({ taskId: 'task_1', lines: [] }),
+        cancelBackgroundTask: async () => undefined,
+        closeBackgroundTask: async () => undefined,
       },
     }),
-    getContextState: () => ({
-      usedTokens: 0,
-      maxTokens: 1,
-      usedPercentage: 0,
-      remainingPercentage: 100,
-    }),
-    getAutoCompactThreshold: () => 0.835,
-    compactContext: async () => undefined,
-    getCwd: () => '/workspace',
-    listEditCheckpoints: () => [],
-    restoreEditCheckpoint: async () => createCheckpointResult(),
-    rollbackEditCheckpoint: async () => createCheckpointResult(),
-    getUsedMemoryReferences: () => [],
-    recordMemoryEvent: () => undefined,
-    listBackgroundTasks: () => [],
-    readBackgroundTaskLog: async () => ({ taskId: 'task_1', lines: [] }),
-    cancelBackgroundTask: async () => undefined,
-    closeBackgroundTask: async () => undefined,
     setPermissionMode,
   };
 }

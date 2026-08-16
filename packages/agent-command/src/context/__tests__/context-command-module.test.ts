@@ -12,7 +12,10 @@ import type { IContextReferenceItem } from '@robota-sdk/agent-interface-transpor
 import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createContextCommandModule } from '../context-command-module.js';
 import type { ICommandHostContextWindow } from '@robota-sdk/agent-framework';
-import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
+import {
+  createTestCommandHost,
+  createTestSessionRuntime,
+} from '@robota-sdk/agent-framework/testing';
 
 type TContextWindowState = ReturnType<ICommandHostContextWindow['getContextState']>;
 type TPermissionMode = ReturnType<ICommandSessionRuntime['getPermissionMode']>;
@@ -60,12 +63,9 @@ const SYSTEM_REFERENCE: IContextReferenceItem = {
   lastUsedAt: '2026-05-05T00:00:00.000Z',
 };
 
-function createRuntime(
-  state: { threshold: number | false },
-  history: IHistoryEntry[] = [],
-): ICommandSessionRuntime {
+function createRuntime(state: { threshold: number | false }, history: IHistoryEntry[] = []) {
   let mode: TPermissionMode = 'default';
-  return {
+  return createTestSessionRuntime({
     clearHistory: vi.fn(),
     compact: vi.fn().mockResolvedValue(undefined),
     getContextState: () => CONTEXT_STATE,
@@ -82,7 +82,7 @@ function createRuntime(
     setAutoCompactThreshold: (threshold) => {
       state.threshold = threshold;
     },
-  };
+  });
 }
 
 function createCommandHostContext(threshold: number | false = 0.835): ReturnType<
@@ -100,6 +100,63 @@ function createCommandHostContext(threshold: number | false = 0.835): ReturnType
   };
   const runtime = createRuntime(state);
   return {
+    ...createTestCommandHost({
+      overrides: {
+        getSession: () => runtime,
+        getContextState: () => CONTEXT_STATE,
+        getAutoCompactThreshold: () => state.threshold,
+        getAutoCompactThresholdSource: () => state.source,
+        setAutoCompactThreshold: (nextThreshold, source = 'session') => {
+          state.threshold = nextThreshold;
+          state.source = source;
+        },
+        getCommandHostAdapters: () => ({
+          settings: {
+            read: () => state.settings,
+            write: (settings) => {
+              const value = settings.autoCompactThreshold;
+              state.settings =
+                typeof value === 'number' || value === false ? { autoCompactThreshold: value } : {};
+            },
+          },
+        }),
+        compactContext: vi.fn(),
+        listContextReferences: () => [...state.references],
+        addContextReference: async (path): Promise<IContextReferenceAddResult> => {
+          const reference = {
+            ...MANUAL_REFERENCE,
+            relativePath: path,
+            sourcePath: `/workspace/${path}`,
+            originalReference: `@${path}`,
+          };
+          state.references = [...state.references, reference];
+          return { reference, evicted: [], diagnostics: [] };
+        },
+        removeContextReference: (path): IContextReferenceRemoveResult => {
+          const removed = state.references.find((reference) => reference.relativePath === path);
+          state.references = state.references.filter(
+            (reference) => reference.relativePath !== path,
+          );
+          return removed ? { removed } : {};
+        },
+        clearContextReferences: (): IContextReferenceClearResult => {
+          const removed = [...state.references];
+          state.references = [];
+          return { removed };
+        },
+        getCwd: () => '/workspace',
+        listCommands: () => [],
+        listEditCheckpoints: () => [],
+        restoreEditCheckpoint: vi.fn(),
+        rollbackEditCheckpoint: vi.fn(),
+        getUsedMemoryReferences: () => [],
+        recordMemoryEvent: vi.fn(),
+        listBackgroundTasks: () => [],
+        readBackgroundTaskLog: vi.fn().mockResolvedValue({ taskId: 'task_1', lines: [] }),
+        cancelBackgroundTask: vi.fn(),
+        closeBackgroundTask: vi.fn(),
+      },
+    }),
     get settings() {
       return state.settings;
     },
@@ -109,57 +166,6 @@ function createCommandHostContext(threshold: number | false = 0.835): ReturnType
     get references() {
       return state.references;
     },
-    getSession: () => runtime,
-    getContextState: () => CONTEXT_STATE,
-    getAutoCompactThreshold: () => state.threshold,
-    getAutoCompactThresholdSource: () => state.source,
-    setAutoCompactThreshold: (nextThreshold, source = 'session') => {
-      state.threshold = nextThreshold;
-      state.source = source;
-    },
-    getCommandHostAdapters: () => ({
-      settings: {
-        read: () => state.settings,
-        write: (settings) => {
-          const value = settings.autoCompactThreshold;
-          state.settings =
-            typeof value === 'number' || value === false ? { autoCompactThreshold: value } : {};
-        },
-      },
-    }),
-    compactContext: vi.fn(),
-    listContextReferences: () => [...state.references],
-    addContextReference: async (path): Promise<IContextReferenceAddResult> => {
-      const reference = {
-        ...MANUAL_REFERENCE,
-        relativePath: path,
-        sourcePath: `/workspace/${path}`,
-        originalReference: `@${path}`,
-      };
-      state.references = [...state.references, reference];
-      return { reference, evicted: [], diagnostics: [] };
-    },
-    removeContextReference: (path): IContextReferenceRemoveResult => {
-      const removed = state.references.find((reference) => reference.relativePath === path);
-      state.references = state.references.filter((reference) => reference.relativePath !== path);
-      return removed ? { removed } : {};
-    },
-    clearContextReferences: (): IContextReferenceClearResult => {
-      const removed = [...state.references];
-      state.references = [];
-      return { removed };
-    },
-    getCwd: () => '/workspace',
-    listCommands: () => [],
-    listEditCheckpoints: () => [],
-    restoreEditCheckpoint: vi.fn(),
-    rollbackEditCheckpoint: vi.fn(),
-    getUsedMemoryReferences: () => [],
-    recordMemoryEvent: vi.fn(),
-    listBackgroundTasks: () => [],
-    readBackgroundTaskLog: vi.fn().mockResolvedValue({ taskId: 'task_1', lines: [] }),
-    cancelBackgroundTask: vi.fn(),
-    closeBackgroundTask: vi.fn(),
   };
 }
 

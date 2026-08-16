@@ -59,6 +59,20 @@ import * as ts from './lib/ts-ast.mjs';
 const BASELINE_FILE = 'scripts/harness/aggregate-naming-baseline.json';
 
 /**
+ * What the last `collectAggregateNaming` walk actually read. Exported so a test asserts the same
+ * number the scan prints (measurement-provenance.md) — a size only the scan itself reports is one
+ * nothing can contradict, and "examined 0 files" then reads exactly like a clean repository.
+ *
+ * Reset at the start of every run, so asserting it twice over one fixture distinguishes an
+ * accumulating counter from a growing subject.
+ */
+let examinedFiles = 0;
+
+export function examinedFileCount() {
+  return examinedFiles;
+}
+
+/**
  * Every type-position reference to one of `aggregates` in `content`.
  *
  * Read from the AST rather than a regex for the reason the sibling scan records in its own header:
@@ -99,18 +113,33 @@ function trackedSources(root) {
     .filter((f) => f.endsWith('.ts') || f.endsWith('.tsx') || f.endsWith('.mts'));
 }
 
-export function countAggregateNaming(root = process.cwd(), config = loadHarnessConfig(root)) {
+/**
+ * `examined` is an OUTPUT of this scan, so it is injectable and asserted exactly rather than
+ * self-reported (measurement-provenance.md): a count nothing checks is how "examined 0 files"
+ * reads as a clean repository.
+ */
+export function collectAggregateNaming(
+  root = process.cwd(),
+  config = loadHarnessConfig(root),
+  files = trackedSources(root),
+) {
+  // Fail CLOSED here too, not only in the findings wrapper. This function is exported and takes a
+  // root, so it is callable on its own — and on a root without the governed tree it would count 0
+  // references, which reads exactly like a finished decomposition.
+  requireGovernedTree(root, ['packages'], { scan: 'aggregate-naming' });
   const settings = config.aggregateNaming ?? {};
   const aggregates = settings.aggregates ?? [];
   const allowlist = new Set((settings.allowlist ?? []).map((entry) => entry.file));
 
   const counts = new Map(aggregates.map((name) => [name, { references: 0, files: new Map() }]));
   let examined = 0;
+  examinedFiles = 0;
 
-  for (const file of trackedSources(root)) {
+  for (const file of files) {
     if (allowlist.has(file)) continue;
     const content = readFileSync(join(root, file), 'utf8');
     examined += 1;
+    examinedFiles += 1;
     // A cheap reject before the RPC parse: most files never mention any aggregate at all.
     if (!aggregates.some((name) => content.includes(name))) continue;
     for (const hit of findAggregateReferences(content, file, aggregates)) {
@@ -132,9 +161,7 @@ export function findAggregateNamingFindings(root = process.cwd()) {
   // Fail CLOSED over a root without the governed tree: a scan that reported "no findings" for a
   // tree it never read is indistinguishable from a clean repo, and this is the floor the design
   // marks load-bearing.
-  requireGovernedTree(root, ['packages'], { scan: 'aggregate-naming' });
-
-  const { counts, examined } = countAggregateNaming(root, config);
+  const { counts, examined } = collectAggregateNaming(root, config);
 
   let baseline = {};
   try {
@@ -172,7 +199,7 @@ export function findAggregateNamingFindings(root = process.cwd()) {
 function main() {
   const root = process.cwd();
   if (process.argv.includes('--write-baseline')) {
-    const { counts } = countAggregateNaming(root);
+    const { counts } = collectAggregateNaming(root);
     const next = Object.fromEntries([...counts].map(([name, b]) => [name, b.references]));
     writeFileSync(resolve(root, BASELINE_FILE), `${JSON.stringify(next, null, 2)}\n`, 'utf8');
     console.log(`aggregate-naming baseline regenerated: ${JSON.stringify(next)}`);
@@ -193,4 +220,4 @@ function main() {
   );
 }
 
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) main();
+if (resolve(process.argv[1] ?? '') === resolve(import.meta.filename)) main();
