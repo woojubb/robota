@@ -18,28 +18,30 @@ import type {
   TBackgroundTaskMode,
 } from '@robota-sdk/agent-interface-transport';
 
-export interface ISpawnAgentTaskRequest {
-  readonly label: string;
-  readonly agentType: string;
-  readonly prompt: string;
-  readonly mode?: TBackgroundTaskMode;
-  readonly parentTaskId?: string;
-  readonly depth?: number;
-  readonly cwd?: string;
-  readonly model?: string;
-  readonly isolation?: TBackgroundTaskIsolation;
-  readonly allowedTools?: readonly string[];
-  readonly disallowedTools?: readonly string[];
-  /** ARCH-031: required. Every spawn site states its policy; `DEFAULT_BACKGROUND_PERMISSION_POLICY` is what it states when the answer is the usual one. */
-  readonly permissionPolicy: TBackgroundPermissionPolicy;
-  readonly timeoutMs?: number;
-  readonly idleTimeoutMs?: number;
-  readonly maxRuntimeMs?: number;
-  readonly outputLimitBytes?: number;
-  readonly maxTextDeltas?: number;
-  readonly repetitionWindow?: number;
-  readonly repetitionThreshold?: number;
-}
+/**
+ * ARCH-031: the third declaration of the seam's field family, now DERIVED like the other two.
+ *
+ * What the spawner owns, and therefore omits from what a caller may set: `kind` (fixed by the seam),
+ * `parentSessionId` (taken from `options.sessionId`) and `metadata` (built from `options.origin`). A
+ * caller that could set those could forge the parent session and the execution origin, which is why
+ * only the TYPE collapses here — `createAgentRequest` stays, because it also applies the defaults below.
+ *
+ * `mode`/`depth`/`cwd` are optional here and defaulted by that mapper. `permissionPolicy` is NOT among
+ * them: it stays required, so every spawn site states its own policy rather than inheriting one applied
+ * in the middle of a projection.
+ *
+ * `Readonly<T>` adds property modifiers but does not make `allowedTools?: string[]` a `readonly
+ * string[]`; the hand-written version declared the arrays readonly. That guarantee is knowingly given
+ * up, because what actually prevents caller mutation is the mapper copying with `[...]`, and the
+ * modifier was decorative beside it.
+ */
+export type ISpawnAgentTaskRequest = Readonly<
+  Omit<
+    IAgentBackgroundTaskRequest,
+    'kind' | 'parentSessionId' | 'metadata' | 'mode' | 'depth' | 'cwd'
+  > &
+    Partial<Pick<IAgentBackgroundTaskRequest, 'mode' | 'depth' | 'cwd'>>
+>;
 
 export interface ISpawnProcessTaskRequest {
   readonly command: string;

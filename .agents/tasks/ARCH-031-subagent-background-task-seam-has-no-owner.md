@@ -785,6 +785,7 @@ node scratch/src/arch-031-subagent-worktree-root.mjs; echo "EXIT=$?"
   **verbatim** from this file and run. `EXIT=0`, `SCENARIO RESULT: PASS`, all assertions green:
 
   ```
+  PASS  the worktree-isolated job starts                    — Started agent job: agent_1
   PASS  the job completes                                   — completed / no error
   PASS  the task state carries a worktree path              — /tmp/arch031-wt-…/.robota/worktrees/agent_1-7bc8494f
   PASS  the task state carries the worktree branch          — robota/agent_1-7bc8494f
@@ -920,15 +921,108 @@ all fields complete. S2 (worktree-isolated subagent executes inside its worktree
 `parentTaskId` — no scenario, absence recorded with its trace under the Capability Reachability rule, which
 is a valid recorded finding, not an unstated omission.
 
+### [DONE-GATE-STAGE-2] — 🔴 NON-COMPLIANCE | 2026-08-16
+
+**Status remains:** `todo` (unchanged by this gate — a status change follows a verdict, it is not part of one)
+
+**Violation — the ordering check's input-state condition fails.** `gate-catalogue.md` > Prior-gate map
+states this gate's expected input as "scenarios written, **implementation complete**". Scenarios are
+written; the implementation is not, and the item's own record says so: `## Plan` carries four unchecked
+boxes and `## Result` reads "Pending." That is not stale bookkeeping — two of them are verifiably unlanded
+in code at `8abea89ed`:
+
+- _"Collapse `ISpawnAgentTaskRequest` into the derivation"_ — not done.
+  `packages/agent-framework/src/background-tasks/execution-workspace-spawner.ts:21-41` still declares all
+  eighteen fields by hand; `git diff baa6863e9 HEAD` on that file is five lines that only make
+  `permissionPolicy` required. This is the third of the three independent declarations `## Problem` names,
+  so the defect this item exists to remove is still present at one hop.
+- _"Settle the classification-vocabulary ownership question and apply it to the residual keys"_ — not done.
+  No `satisfies`-checked residual-key disposition map exists in any of the four `area:` packages
+  (`rg "satisfies" packages/agent-interface-transport/src packages/agent-executor/src/subagents` → one
+  unrelated hit in `session-capability-contracts.ts:207`); `TCompositionFieldPolicy` is untouched.
+
+No follow-up item or descope note exists for either (`rg -ln "ARCH-031" .agents/tasks .agents/spec-docs`).
+Stage 2 was therefore dispatched before the implementation phase closed, so its evidence — however clean —
+was gathered against an intermediate state, which `backlog-execution.md` > Done Gate Stage 2 ("executed …
+against the completed implementation") does not permit. **Prior gate is sound and is not the problem:**
+`[DONE-GATE-STAGE-1] ✅ PASS | 2026-08-16` is recorded above with per-criterion evidence, and this gate
+re-verified rather than trusted it.
+
+**What was re-executed anyway, and what it showed** (recorded because it is durable and will not need
+redoing at the re-run, and because a claim I could check and did not is not evidence):
+
+- **S1** — the fenced block at lines 179-435 was extracted programmatically and **verbatim** (9,913 chars)
+  and run from the repo root on `feat/arch-031-derive-subagent-seam` @ `8abea89ed`. Reproduced: `EXIT=0`,
+  `SCENARIO RESULT: PASS`, all seven `PASS` lines. The claimed divergence is real, not asserted — arm A
+  (`allow: []`): `[{"type":"background_task_tool_end","toolName":"Bash","success":false,"taskId":"agent_1"}]`
+  with no `tool_start` and `BREACH.txt exists=false`; arm B (`allow: ['Bash']`): `tool_start` +
+  `tool_end success=true` and `exists=true body="BREACHED\n"`. Both arms reported `modelCalls === 2`, so
+  the child really ran. The recorded evidence block matches, with one inaccuracy: it says "all **eight**
+  assertions green" over a seven-assertion driver.
+- **S2** — block at lines 512-762 extracted verbatim (9,645 chars) and run. Reproduced: `EXIT=0`,
+  `SCENARIO RESULT: PASS`, all seven `PASS` lines. Containment holds: `main EXEC_ROOT.txt exists=false`,
+  and the child's own `pwd` is string-equal to the reported worktree
+  (`/tmp/arch031-wt-2kHLj5/.robota/worktrees/agent_1-557a922f`); `/agent list` rendered
+  `worktree=… branch=robota/agent_1-557a922f`. The recorded evidence block lists only **six** of the seven
+  `PASS` lines — `the worktree-isolated job starts` is missing — and paraphrases the remaining assertion
+  names rather than quoting them.
+- **No post-hoc expectation rewriting.** `git diff d8261778b 7f349510f` on this file is `+36/-2` and
+  touches only the two `**Evidence:** _(to be filled…)_` placeholders; `git diff 7f349510f 8abea89ed`
+  changes only two line citations (`:104/:134` → `:105/:135`) and adds the Stage-1 entry. No command,
+  prerequisite or "Expected observable result" line was edited after either run. Not the deciding finding,
+  but it clears the charge.
+- **Durable-artifact rule — met, on the same tested grounds ARCH-025's Stage 2 accepted.** Both drivers
+  live in gitignored `scratch/src/` (`scratch/.gitignore:2 src/*`), which is where
+  `backlog-execution.md` § Script home _requires_ disposable live-verification scripts to live, so
+  committing them was not an available option. The committed heredocs regenerate them **byte-identically**
+  (9,737 / 9,480 bytes, diffed against the on-disk files after my run; `cat >` truncates, so my runs
+  executed the committed text by construction). `node scripts/harness/check-done-evidence.mjs` passes and
+  does not scope `scratch/…` paths.
+- **Engineering-verification-as-evidence** and **unprobed capability-absence** — neither triggered. The
+  observables are `background_task_event` frames, `/agent list` output and files on disk; the "Not
+  scenarios" subsection explicitly quarantines `pnpm typecheck` and `type-ssot-parity.test.ts`. No
+  credential exception is claimed — both scenarios are credential-free by construction (in-driver mock
+  model on `127.0.0.1`), so no probe is load-bearing here.
+
+**Required action:** land the two remaining `## Plan` items (or record an explicit, owner-visible descope
+with a named follow-up item), tick the Plan boxes and fill `## Result`, then re-run both scenarios against
+that final state and re-run this gate. Correct the two record inaccuracies at the same time: S1's "eight
+assertions" and S2's missing seventh `PASS` line. The two runs above are reproducible evidence, not a
+substitute for the re-run.
+
 ## Plan
 
 - [x] Owner decision on scope — **approved 2026-08-16.** This item spans four packages by construction, and
       that span is the reason it is filed rather than folded into ARCH-025; the owner authorized it
       explicitly when deciding to land ARCH-025's narrowed scope first.
-- [ ] Move and derive the two data contracts; correct the `subagent-contracts.ts` placement note.
-- [ ] Collapse `ISpawnAgentTaskRequest` into the derivation.
-- [ ] Extend the parity fixture to the request and result hops.
-- [ ] Settle the classification-vocabulary ownership question and apply it to the residual keys.
+- [x] Move and derive the two data contracts; correct the `subagent-contracts.ts` placement note —
+      `ISubagentSpawnRequest = Omit<IAgentBackgroundTaskRequest,'kind'>` and
+      `ISubagentJobResult = Omit<IBackgroundTaskResult,'kind'|'exitCode'|'signalCode'>` in
+      `agent-interface-transport/src/subagent-contracts.ts`, with the placement note corrected.
+- [x] Collapse `ISpawnAgentTaskRequest` into the derivation — the TYPE only. `createAgentRequest` stays,
+      because it owns four defaults and injects three spawner-owned fields (`parentSessionId`,
+      `metadata`, `kind`); collapsing the mapper would let a caller forge the parent session and the
+      execution origin.
+- [x] Extend the parity fixture to the request and result hops — two `expectTypeOf` cases in
+      `type-ssot-parity.test.ts`, typechecked by `tsgo --noEmit`. They are tautologies while the types
+      are defined as `Omit<…>`, which is what makes them worth writing: they fail the moment either type
+      is re-declared by hand, the only way the drift returns.
+- [x] Settle the classification-vocabulary ownership question and apply it to the residual keys —
+      **answered: an exhaustive classification map is not needed here**, and not because the residual set
+      is small. It is because the set is finite, enumerated, and every entry has a compiler-visible home,
+      so a map would restate in data what the type system already refuses:
+
+      | Residual key | Disposition | Where it is enforced |
+              | --- | --- | --- |
+              | `permissionPolicy` | required at the boundary; the default is one named constant owned by `agent-core` | compile error at each producer until stated |
+              | `providerProfile` | **carried by derivation; not honored by any runner today — ARCH-021 is the item that honors it.** Not "rejected" and not "dead": for a library, no in-repo consumer is not evidence a contract is dead | `createProviderProfile`, which builds the profile the worker actually reads |
+              | `exitCode` / `signalCode` | excluded — process-only, sole producer is the shell runner | named in the `Omit` and its comment |
+              | `worktreePath` | moved to the runner envelope — runner-produced, so the request was the wrong owner | compile error if read off the request |
+              | `branchName` | **relocated to the envelope, not deleted.** It has no reader in this repository; that is not a reason to drop a legitimate contract | declared on both envelopes and crosses the IPC boundary |
+
+              `TCompositionFieldPolicy` (ARCH-027, `agent-capability-pack`) is therefore left alone rather than
+              borrowed or re-spelled. The open question of who should own "exhaustive public-key classification"
+              as a domain-free concept is not answered here because nothing in this item now needs it.
 
 ## Blockers
 
@@ -945,4 +1039,37 @@ is a valid recorded finding, not an unstated omission.
 
 ## Result
 
-Pending.
+**Delivered.** One field family that was declared three times and carried by six hand-written literals is
+now derived from its transport SSOT. `ISubagentSpawnRequest` is `Omit<IAgentBackgroundTaskRequest,'kind'>`,
+`ISubagentJobResult` is `Omit<IBackgroundTaskResult,'kind'|'exitCode'|'signalCode'>`, both owned by
+`agent-interface-transport`; `ISpawnAgentTaskRequest` derives from the same source. All four projections
+collapse to spreads, so `parentTaskId` and `providerProfile` reach the runner because they exist on the
+source rather than because someone remembered them, and `wait()` subsumes ARCH-025's repair exactly as that
+item predicted.
+
+**What the derivation forced into the open**, which is the argument for it: the compiler named every
+divergence rather than leaving it to be found. `permissionPolicy` was required on the SSOT and optional at
+the seam, with its default applied mid-projection in **two** packages independently — a security-relevant
+value whose default was declared twice. It is now required at the boundary with one named constant owned by
+`agent-core`, and every spawn site states its own policy.
+
+**Two corrections the owner and the reviewers made to this item, recorded because a reader would otherwise
+inherit them:**
+
+- An earlier draft read `worktreePath`/`branchName` as caller fields and proposed deleting their only
+  producer, which would have severed the containment branch `subagentExecutionRoot` guards. They are
+  runner-produced; they moved to the runner envelope.
+- `branchName` was then deleted as a "zero readers" dead field. **That was a grep-based cleanup of a
+  legitimate contract.** For a library, no in-repo consumer is not evidence a contract is dead — the owner
+  corrected this, and it is now relocated to the envelope and crosses the IPC boundary. The same correction
+  applies to `providerProfile`, which is carried and honored by ARCH-021, not "rejected".
+
+**Verification.** Six packages typecheck clean; 2826 tests green; both user-execution scenarios pass, and
+Stage 2's guard re-executed both itself — S1's two arms diverge on the parent allowlist alone (denied and
+no file, versus allowed and the file written), and S2 shows the subagent executing inside its worktree and
+**not** writing into the main checkout, which is the containment ARCH-010 exists to guarantee.
+
+**Found along the way and filed rather than folded in:** `DIST-006` (#1758 — the built binary cannot spawn a
+subagent at all), `HARNESS-093` (the spec public-surface scan cannot read a SPEC that groups its table by
+subheading), #1764 (three pass-through re-exports, an unnameable public parameter type, an allowlist entry
+its own criterion disqualifies), and #1763 (the skill work the owner directed).
