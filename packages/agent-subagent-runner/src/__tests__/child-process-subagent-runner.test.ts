@@ -417,3 +417,55 @@ describe('ChildProcessSubagentRunner — injected built-in agents (ARCH-036)', (
     expect(() => startWith(depsWithBuiltIns(undefined), 'general-purpose')).not.toThrow();
   });
 });
+
+describe('ChildProcessSubagentRunner — credential on the wire (SEC-009)', () => {
+  // Config loading resolves a `$ENV:` reference into the secret itself, which is right for an
+  // in-process provider and wrong for anything that SERIALIZES the config. Copying the resolved
+  // `apiKey` here put plaintext into a structured-clone IPC message on EVERY configuration —
+  // including the ones whose owner deliberately stored a reference. These assert on what the child
+  // actually received, because a parent-side assertion would still pass if the value were
+  // re-resolved just before `send`.
+  const SECRET = 'sk-secret-that-must-not-cross';
+  const VAR = 'SEC_009_TEST_KEY';
+
+  const runWith = async (
+    provider: Partial<IInProcessSubagentRunnerDeps['config']['provider']>,
+  ): Promise<Record<string, unknown>> => {
+    const base = createDeps();
+    const runner = new ChildProcessSubagentRunner(
+      { ...base, config: { ...base.config, provider: { ...base.config.provider, ...provider } } },
+      {
+        workerEntry: FIXTURE_WORKER_ENTRY,
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        env: { ROBOTA_FIXTURE_MODE: 'echo-profile' },
+      },
+    );
+    const result = await runner.start(createJob()).result;
+    return JSON.parse((result as { output: string }).output) as Record<string, unknown>;
+  };
+
+  it(
+    'sends the environment-variable REFERENCE, never the resolved secret',
+    async () => {
+      const profile = await runWith({ apiKey: SECRET, apiKeyEnv: VAR });
+
+      expect(profile.apiKeyEnv).toBe(VAR);
+      expect(profile.apiKey).toBeUndefined();
+      expect(JSON.stringify(profile)).not.toContain(SECRET);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'still carries a literal when the profile genuinely holds one and no reference was recorded',
+    async () => {
+      const profile = await runWith({ apiKey: SECRET, apiKeyEnv: undefined });
+
+      // The declared fallback: there is no reference to carry. `requireApiKeyFromEnv` is the
+      // documented way to forbid this storage form.
+      expect(profile.apiKey).toBe(SECRET);
+      expect(profile.apiKeyEnv).toBeUndefined();
+    },
+    TEST_TIMEOUT_MS,
+  );
+});

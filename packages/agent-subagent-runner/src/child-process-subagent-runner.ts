@@ -230,11 +230,23 @@ function createProviderProfile(
   job: ISubagentJobStart,
 ): ISerializableProviderProfile {
   const provider = providerConfig ?? deps.config.provider;
+  // SEC-009: carry the REFERENCE, not the secret. Config loading resolves a `$ENV:` value into the
+  // credential itself, so copying `apiKey` here put plaintext into a structured-clone IPC message —
+  // a second copy of the secret, in a second process, reachable by anything observing the channel.
+  // The child already inherits this process's environment (`env:` at the spawn below), and
+  // `resolveProfileApiKey` already reads `apiKeyEnv`, so the reference resolves on the far side with
+  // no new plumbing. When no reference was recorded the config genuinely holds a literal and the
+  // literal is all there is to send.
+  // allow-fallback: a profile storing a plaintext credential has no reference to carry; the
+  // org policy `requireApiKeyFromEnv` is the documented way to forbid that storage form.
+  const credential = provider.apiKeyEnv
+    ? { apiKeyEnv: provider.apiKeyEnv }
+    : { apiKey: provider.apiKey };
   return {
     profileName: deps.config.currentProvider,
     type: provider.name,
     model: job.request.model ?? provider.model,
-    apiKey: provider.apiKey,
+    ...credential,
     baseURL: provider.baseURL,
     timeout: provider.timeout,
     options: provider.options,

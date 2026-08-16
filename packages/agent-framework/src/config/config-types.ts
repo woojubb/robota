@@ -186,6 +186,12 @@ export interface IResolvedConfig {
     name: string;
     model: string;
     apiKey: string | undefined;
+    /**
+     * Name of the environment variable `apiKey` was resolved FROM, when the stored value was a
+     * `$ENV:` reference (SEC-009). Present so a caller that must SERIALIZE this config can carry
+     * the reference and leave the resolved secret behind.
+     */
+    apiKeyEnv?: string;
     baseURL?: string;
     timeout?: number;
     options?: Record<string, TUniversalValue>;

@@ -100,12 +100,24 @@ function resolveEnvRefs(settings: TSettings): TSettings {
   };
 }
 
+/**
+ * SEC-009: resolving a `$ENV:` reference here is correct — an in-process provider needs the secret
+ * — but it DISCARDED the variable name, so every later caller saw only the resolved value. A caller
+ * that has to serialize the config then had no way to carry the reference instead of the secret,
+ * which is how the plaintext credential reached the subagent IPC start payload on every
+ * configuration, including the ones whose owner deliberately stored a reference. Recording the
+ * variable name costs nothing and is what makes the reference recoverable downstream.
+ */
 function resolveProviderCredentialEnvRefs<TProvider extends { apiKey?: string }>(
   provider: TProvider,
 ): TProvider {
+  if (provider.apiKey === undefined) return provider;
+  const ENV_PREFIX = '$ENV:';
+  const wasReference = provider.apiKey.startsWith(ENV_PREFIX);
   return {
     ...provider,
-    ...(provider.apiKey !== undefined && { apiKey: resolveEnvRef(provider.apiKey) }),
+    apiKey: resolveEnvRef(provider.apiKey),
+    ...(wasReference && { apiKeyEnv: provider.apiKey.slice(ENV_PREFIX.length) }),
   };
 }
 

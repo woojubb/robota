@@ -28,6 +28,14 @@ process.on('message', (message) => {
       process.send?.({ type: 'text_delta', delta: 'partial ' });
       process.send?.({ type: 'tool_end', toolName: 'Read', success: true });
     }
+    // SEC-009: echoes the provider profile EXACTLY as it crossed the IPC boundary, so a test can
+    // assert on the wire message rather than on the function that built it. A payload assertion
+    // taken parent-side would still pass if the value were re-resolved before `send`.
+    if (process.env.ROBOTA_FIXTURE_MODE === 'echo-profile') {
+      process.send?.({ type: 'result', output: JSON.stringify(message.payload?.providerProfile) });
+      setTimeout(() => process.exit(0), 0);
+      return;
+    }
     // ARCH-031: reports the forked process's own OS working directory, so a test can observe where
     // the child actually landed rather than where the request said it should.
     if (process.env.ROBOTA_FIXTURE_MODE === 'cwd') {
