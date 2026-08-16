@@ -3,10 +3,7 @@
  * Extracted from execution-round.ts for single-responsibility.
  */
 
-import {
-  applyModelToolCapability,
-  assertModelAcceptsImages,
-} from './execution-model-capability-guards.js';
+import { applyModelToolCapability } from './execution-model-capability-guards.js';
 import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
 import { randomId } from '../utils/random-id.js';
 
@@ -75,7 +72,6 @@ export async function callProviderWithCache(
   };
   assertToolChoiceValid(chatOptions.toolChoice, chatOptions.tools);
   // PROV-006: what this MODEL can be asked to do, as opposed to what its vendor can.
-  assertModelAcceptsImages(conversationMessages, config.defaultModel.model, resolved);
   applyModelToolCapability(chatOptions, config.defaultModel.model, resolved);
   const providerChat = resolved.provider.chat.bind(resolved.provider) as TProviderChat;
 

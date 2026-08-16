@@ -8,6 +8,11 @@
  *
  * The contrast case matters as much as the gating one. Silence from a catalog is not a denial, and
  * a change that read it as one would have stripped tools from every model no catalog describes.
+ *
+ * `vision` is the same vocabulary and is NOT gated — see PROV-010. A first implementation refused
+ * any turn whose outgoing messages carried an image, which is right about what gets sent and wrong
+ * about what to do: `setModel()` preserves the conversation, so one image plus a model switch left
+ * every later text-only turn refused for ever.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -25,21 +30,9 @@ import type { IToolSchema } from '../../interfaces/tool-schema';
 const CATALOG: IProviderModelCatalog = {
   status: 'fallback',
   entries: [
-    { id: 'chat-model', displayName: 'Chat', capabilities: ['tools', 'vision', 'streaming'] },
+    { id: 'chat-model', displayName: 'Chat', capabilities: ['tools', 'streaming'] },
     // The deepseek-reasoner shape: a populated list that deliberately omits `tools`.
     { id: 'reasoning-model', displayName: 'Reasoner', capabilities: ['reasoning', 'streaming'] },
-  ],
-};
-
-const IMAGE_MESSAGE = {
-  id: 'u1',
-  role: 'user' as const,
-  content: 'what is in this picture?',
-  state: 'complete' as const,
-  timestamp: new Date(),
-  parts: [
-    { type: 'text' as const, text: 'what is in this picture?' },
-    { type: 'image_inline' as const, mimeType: 'image/png', data: 'AAAA' },
   ],
 };
 
@@ -137,40 +130,5 @@ describe('PROV-006 — per-model tool gating', () => {
     await buildAgent(provider, 'a-model-not-in-the-catalog').run('hello');
 
     expect(provider.toolsOffered[0]).toEqual(['echo_tool']);
-  });
-});
-
-describe('PROV-006 — per-model vision gating', () => {
-  it('refuses to send an image to a model whose entry omits `vision`, naming the model', async () => {
-    // Sending it anyway produced either a vendor error the user cannot interpret or — worse — an
-    // answer written as though the image had been read.
-    const provider = new CatalogProvider();
-    const agent = buildAgent(provider, 'reasoning-model');
-    agent.injectRawMessage(IMAGE_MESSAGE);
-
-    await expect(agent.run('describe it')).rejects.toThrow(/does not support images/);
-    expect(provider.toolsOffered).toHaveLength(0);
-  });
-
-  it('sends it to a model that declares `vision`', async () => {
-    const provider = new CatalogProvider();
-    const agent = buildAgent(provider, 'chat-model');
-    agent.injectRawMessage(IMAGE_MESSAGE);
-
-    await expect(agent.run('describe it')).resolves.toBeDefined();
-  });
-
-  it('sends it when the catalog says nothing — silence is not a denial', async () => {
-    const provider = new SilentCatalogProvider();
-    const agent = buildAgent(provider, 'some-unlisted-model');
-    agent.injectRawMessage(IMAGE_MESSAGE);
-
-    await expect(agent.run('describe it')).resolves.toBeDefined();
-  });
-
-  it('a text-only request to the same model is unaffected', async () => {
-    // The refusal is about the REQUEST carrying an image, not about the model being usable.
-    const provider = new CatalogProvider();
-    await expect(buildAgent(provider, 'reasoning-model').run('just text')).resolves.toBeDefined();
   });
 });

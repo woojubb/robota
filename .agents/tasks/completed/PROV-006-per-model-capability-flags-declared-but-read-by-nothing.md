@@ -102,9 +102,17 @@ this long.
 - **Tools.** `services/execution-model-capability-guards.ts` withholds tools from a model whose entry
   omits `tools`. Measured: `deepseek-reasoner` is offered none, `deepseek-chat` keeps them, and a
   model the catalog never mentions keeps them too.
-- **Vision.** An image part sent to a model whose entry omits `vision` is now refused **before the
-  request leaves**, naming the model and the reason. Sending it produced either a vendor error the
-  user cannot interpret or — worse — an answer written as though the image had been read.
+- **Vision — NOT gated here, and the reason is the interesting part.** A first implementation
+  refused any turn whose outgoing messages carried an image part for a model declaring no `vision`.
+  PR review refused it, correctly: `setModel()` preserves the conversation, so one image followed by
+  a switch to a non-vision model left **every later text-only turn refused for ever**. The obvious
+  narrowing — check only the new message — reintroduces the original defect, because the adapters
+  send historical image parts too (verified at
+  `openai-compatible/message-converter.ts:43-58` and `gemini/request-converter.ts:35`). The guard
+  cannot be scoped by "which message" when the thing sent is the whole conversation, so what to do
+  about history is a design choice rather than a defect with one answer. Filed as
+  **[PROV-010](../PROV-010-vision-gating-needs-a-history-answer.md)** with all three candidate
+  answers and the evidence that rules out the naive two.
 - **The provider seam.** `IAIProvider.modelCatalog?()` is how a provider surfaces its own catalog at
   call time. It is optional and there is deliberately **no base-class no-op**: an optional member
   needs none, and omitting it must never narrow behaviour.
@@ -133,9 +141,9 @@ model-listing surface is wanted, it is its own item and the data it would render
 - `pnpm build` clean; every workspace package's suite passes (`dag-adapters-sqlite`/`dag-worker`
   excluded — a missing `better-sqlite3` native binding locally, outside this change's file set).
 - `pnpm harness:scan`: 112 passed, 2 skipped.
-- Red-proof: removing the tool gate turns the reasoner case red; removing the vision guard turns the
-  image case red. Both contrast cases (silence keeps the capability) stay green either way, which is
-  what shows the gate is reading a declaration rather than defaulting to denial.
+- Red-proof: removing the tool gate turns the reasoner case red. The contrast cases (silence keeps
+  the capability) stay green either way, which is what shows the gate reads a declaration rather than
+  defaulting to denial.
 - File-size floor: four files were already frozen above the 300-line ceiling and this change pushed
   three past their freeze, so they were **split by responsibility** rather than shaved —
   `execution-model-capability-guards.ts`, `interfaces/provider-specific-options.ts` and
