@@ -19,6 +19,7 @@ import {
 } from './robota-history';
 import { performDoAsyncInit } from './robota-initializer';
 import { buildAgentStats, destroyAgent, type IDestroyResult } from './robota-lifecycle';
+import { RunQueue } from './robota-run-queue';
 import { DEFAULT_ABSTRACT_EVENT_SERVICE, bindWithOwnerPath } from '../event-service/index';
 import { AgentFactory } from '../managers/agent-factory';
 import { AIProviders } from '../managers/ai-provider-manager';
@@ -166,7 +167,7 @@ export class Robota
   run(input: string, options?: IRunOptions): Promise<string>;
   async run(input: string, options: IRunOptions = {}): Promise<unknown> {
     this.assertNotDestroyed();
-    return this.enqueueRun(options.signal, async () => {
+    return this.runQueue.run(options.signal, async () => {
       await this.ensureFullyInitialized();
       try {
         if (options.output) {
@@ -196,7 +197,7 @@ export class Robota
     this.assertNotDestroyed();
     // Serialized like run(): the queue slot is held until the stream is fully consumed
     // (return or throw), because the conversation history is being written throughout.
-    const release = await this.acquireRunSlot(options.signal);
+    const release = await this.runQueue.acquire(options.signal);
     try {
       await this.ensureFullyInitialized();
       if (options.output) {
@@ -222,32 +223,8 @@ export class Robota
     }
   }
 
-  /** Tail of the internal run queue (CORE-012). */
-  private runQueueTail: Promise<void> = Promise.resolve();
-
-  /** Wait for the previous run to settle, then hold the slot until `release` is called. */
-  private async acquireRunSlot(signal: AbortSignal | undefined): Promise<() => void> {
-    const previous = this.runQueueTail;
-    let release: () => void = () => {};
-    this.runQueueTail = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    await previous;
-    if (signal?.aborted) {
-      release();
-      throw new Error('Run aborted while queued behind another run on this instance');
-    }
-    return release;
-  }
-
-  private async enqueueRun<T>(signal: AbortSignal | undefined, task: () => Promise<T>): Promise<T> {
-    const release = await this.acquireRunSlot(signal);
-    try {
-      return await task();
-    } finally {
-      release();
-    }
-  }
+  /** One run at a time, per instance (CORE-012). */
+  private readonly runQueue = new RunQueue();
 
   private executionDeps(): IRobotaExecutionDeps {
     return {
@@ -356,13 +333,17 @@ export class Robota
     // and in-flight/queued runs settle before disposal begins (queue tail await).
     if (this.destroyed) return { errors: [] };
     this.destroyed = true;
-    await this.runQueueTail;
+    await this.runQueue.drained;
     return destroyAgent({
       name: this.name,
       isFullyInitialized: this.isFullyInitialized,
       moduleRegistry: this.moduleRegistry,
       eventEmitter: this.eventEmitter,
       executionService: this.executionService,
+      // CORE-045: the disposal chain never reached these two, so a destroyed agent kept its tool
+      // registry and provider map and still accepted `registerTool`.
+      tools: this.tools,
+      aiProviders: this.aiProviders,
       logger: this.logger,
       resetState: () => {
         this.isFullyInitialized = false;
