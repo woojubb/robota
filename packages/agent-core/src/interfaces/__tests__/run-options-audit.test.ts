@@ -14,22 +14,24 @@ import type { IRunOptions } from '../agent';
  * after wiring it end-to-end and covering it with a threading test.
  */
 const RUN_OPTION_CONSUMERS: Record<keyof Required<IRunOptions>, string> = {
-  temperature: 'execution-stream.ts / execution-round-provider.ts chatOptions (CORE-016)',
-  maxTokens: 'execution-stream.ts / execution-round-provider.ts chatOptions (CORE-016)',
-  toolChoice: 'execution-stream.ts / execution-round-provider.ts chatOptions (CORE-017)',
+  // CORE-042: these named `execution-stream.ts` alongside the round path, from when the streaming
+  // entry built its own chat options. It no longer builds any -- there is one construction site.
+  temperature: 'execution-round-provider.ts chatOptions (CORE-016)',
+  maxTokens: 'execution-round-provider.ts chatOptions (CORE-016)',
+  toolChoice: 'execution-round-provider.ts chatOptions (CORE-017)',
   sessionId: 'robota-execution.ts buildRunContext → IExecutionContext / plugin payload',
   userId: 'robota-execution.ts buildRunContext → IExecutionContext / plugin payload',
   metadata: 'robota-execution.ts buildRunContext → IExecutionContext',
   signal: 'robota.ts run queue + execution-round-provider.ts provider call',
-  onTextDelta: 'execution round/stream text delta dispatch',
-  onExecutionEvent: 'execution round/stream replay event dispatch',
+  onTextDelta: 'execution-round-streaming.ts text delta dispatch; the streaming entry sinks it',
+  onExecutionEvent: 'execution-round-streaming.ts replay event dispatch',
   maxExecutionRounds: 'execution round loop cap',
   maxSameToolInputs: 'execution tool-repetition guard',
   allowToolOnlyCompletion: 'execution round completion policy (CORE-011)',
   ephemeralSystemContext:
     'execution-round.ts derived providerMessages — transient system block, not persisted (SELFHOST-008 P3)',
-  output: 'robota-execution.ts robotaRunStructured (CORE-015)',
-  outputRetries: 'robota-execution.ts structured-output retry budget (CORE-015)',
+  output: 'robota-execution-structured.ts robotaRunStructured (CORE-015)',
+  outputRetries: 'robota-execution-structured.ts structured-output retry budget (CORE-015)',
 };
 
 describe('IRunOptions threading audit (CORE-017)', () => {

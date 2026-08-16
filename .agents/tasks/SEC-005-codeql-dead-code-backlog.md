@@ -248,6 +248,39 @@ report failure.
    this PR empties the alert list.** It empties the dead-code classes (91 alerts); confirm the
    remainder is closed on `main` first.
 
+## Observation added 2026-08-16 — a triage that is not applied has to be redone
+
+**Measured on PR #1778 (CORE-044), which it blocked.** The `CodeQL` check reported _"6 new alerts
+including 6 high severity security vulnerabilities"_ and went red. All six are
+`js/system-prompt-injection`, alert numbers **11–16**, `created_at` **2026-07-23** on
+`refs/heads/main` — a month older than the pull request they were reported as new in. They surfaced
+because the pull request MOVED the code carrying the taint path (the provider chat routes were split
+out of `apps/agent-server/src/app.ts`), so the pre-existing alerts re-attributed to changed code.
+
+They had already been triaged. [SEC-006](completed/SEC-006-main-ref-alert-triage.md) §
+_"`js/system-prompt-injection` ×6 — a provider adapter is not the trust boundary"_ examined every one
+and recorded them as false positives, with the reasoning that the sites are role-preserving format
+translations with no interpolation and no role decision, and that the real question — whether
+lower-trust content can acquire the `system` role upstream — belongs to SEC-007 and is not at those
+lines.
+
+**The verdict was written in a document and never applied to the alerts.** All six are still
+`state: open`, `dismissed_at: null`, `dismissed_reason: null`. So the analysis has to be redone by
+the next author whose diff happens to touch a file on the path, and the check goes red on correct
+work — the shape `git-branch.md` names: _"a gate that trains people to route around it has already
+failed."_
+
+The fix is to make the recorded triage the alerts' actual state: dismiss each as `false positive`
+with the SEC-006 reasoning as the comment, so the judgement survives outside a markdown file.
+**Deliberately not done here** — dismissing security alerts changes the repository's security posture
+and is visible outside this work; it is an owner action, not a side effect of an unrelated pull
+request.
+
+Worth checking in the same pass, and measured rather than presumed: the repository currently has
+**92 open alerts with `dismissed_at: null` against 2 dismissed in total**. So essentially every
+triage this repository has performed lives only in markdown, and each one will block whichever pull
+request next touches a file on its path — the same round again, for every class SEC-006 cleared.
+
 ## Test Plan
 
 - Full test suite of **every touched package**, run in the foreground (see evidence below).

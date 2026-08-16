@@ -5,9 +5,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import * as requestHandler from '../request-handler-simple';
 import {
   createChatTransportRequest,
-  createStreamTransportRequest,
   transformToAssistantMessage,
   validateChatRequest,
   validateStreamRequest,
@@ -96,29 +96,16 @@ describe('Request Handler Simple', () => {
     });
   });
 
-  describe('createStreamTransportRequest', () => {
-    it('should create a stream transport request', () => {
-      const request: IStreamExecutionRequest = {
-        messages: [
-          {
-            id: 'msg-1',
-            role: 'user',
-            content: 'Stream this',
-            state: 'complete' as const,
-            timestamp: new Date(),
-          },
-        ],
-        provider: 'openai',
-        model: 'gpt-4',
-        stream: true,
-      };
-
-      const result = createStreamTransportRequest(request);
-
-      expect(result.url).toBe('/chat/stream');
-      expect(result.endpoint).toBe('/chat/stream');
-      expect(result.method).toBe('POST');
-      expect(result.data?.stream).toBe(true);
+  describe('the removed stream request builder (CORE-044)', () => {
+    it('builds no request for a route nobody serves', () => {
+      // `createStreamTransportRequest` built a POST to `/chat/stream` — a spelling that appeared
+      // nowhere else, for a route the server does not register, while the client's own HTTP layer
+      // used `/stream`. Nothing that consumed it could work, and its tests passed because they
+      // asserted the shape of the request rather than that anything answered it.
+      //
+      // This case exists because a deletion is otherwise unprovable: restore the function and every
+      // remaining test still passes, which is exactly what the accidental-green floor flags.
+      expect(Object.keys(requestHandler)).not.toContain('createStreamTransportRequest');
     });
   });
 

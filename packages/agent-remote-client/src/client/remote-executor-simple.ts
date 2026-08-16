@@ -120,12 +120,15 @@ export class SimpleRemoteExecutor implements IExecutor {
     const provider = request.provider;
     const model = request.model;
 
+    // CORE-044: the whole options object, not just the signal. `LocalExecutor` has always forwarded
+    // `request.options`; the remote executor dropped everything but the tools, so the same agent
+    // behaved differently depending on which executor it was configured with.
     const response = await this.httpClient.chat(
       messages,
       provider,
       model,
       request.tools,
-      request.options?.signal,
+      request.options,
     );
 
     // Convert IResponseMessage to IAssistantMessage (IExecutor requirement)
@@ -145,53 +148,25 @@ export class SimpleRemoteExecutor implements IExecutor {
   }
 
   /**
-   * Execute streaming chat completion
+   * Streaming is deliberately NOT implemented on the remote executor (CORE-044).
+   *
+   * It used to be, against `${baseUrl}/stream` — an endpoint no server in this repository serves,
+   * spelled a third way (`/chat/stream`) in `request-handler-simple.ts`, while both `app.ts` and
+   * `apps/agent-server/docs/SPEC.md` claimed the route was inlined. Every remote streaming call was
+   * therefore a 404 dressed as a capability.
+   *
+   * It is removed rather than implemented because the foundation it needed no longer exists: the
+   * client yielded raw provider chunks with the comment "ExecutionService merges them", and the
+   * fragment assembler it referred to was deleted with the second execution engine in CORE-042.
+   * Building a wire protocol on top of a missing assembler risks silently corrupting tool calls,
+   * which is the failure class that work existed to end. `IExecutor.executeChatStream` is optional,
+   * so a provider configured with this executor now reports `supportsStreaming: false` and any
+   * caller reaching for it gets an accurate error instead of a 404 — and, since the turn drives
+   * streaming through `chat()` + `onTextDelta` after CORE-042, no working path is lost.
+   *
+   * Restoring it is CORE-046: it needs a transport decision (SSE or chunked), a served route, and
+   * an owner for chunk assembly.
    */
-  async *executeChatStream(request: IStreamExecutionRequest): AsyncIterable<TUniversalMessage> {
-    validateChatExecutionRequest(request);
-
-    this.logger.debug('[REMOTE-EXECUTOR] executeChatStream called');
-
-    // RemoteExecutor.executeChatStream() - Request with tools
-    this.logger.debug('[TOOL-FLOW] RemoteExecutor.executeChatStream() - Sending to server', {
-      provider: request.provider,
-      model: request.model,
-      hasTools: !!request.tools,
-      toolsCount: request.tools?.length || 0,
-      toolNames: request.tools?.map((t) => t.name) || [],
-    });
-
-    try {
-      const stream = this.httpClient.chatStream(
-        request.messages,
-        request.provider,
-        request.model,
-        request.tools,
-        request.options?.signal,
-      );
-
-      // LocalExecutor-compatible: yield every chunk as-is (ExecutionService merges them).
-      for await (const responseMessage of stream) {
-        // Convert IResponseMessage to TUniversalMessage (LocalExecutor-compatible shape)
-        const universalMessage: TUniversalMessage = {
-          id: randomUUID(),
-          role: responseMessage.role as 'assistant',
-          content: responseMessage.content,
-          state: 'complete' as const,
-          timestamp: responseMessage.timestamp,
-          ...(responseMessage.toolCalls && { toolCalls: responseMessage.toolCalls }),
-        };
-
-        // Yield every chunk (no buffering)
-        yield universalMessage;
-      }
-    } catch (error) {
-      this.logger.error('Error in executeChatStream', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
-    }
-  }
 
   /**
    * Check if the executor supports tool calling (IExecutor requirement)
