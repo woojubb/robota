@@ -331,14 +331,33 @@ node scratch/src/arch-025-schedule-edit.mjs; echo "EXIT=$?"
   ignores all of `src/*`) — the sanctioned home for disposable live-verification scripts. Delete it with
   `rm -f scratch/src/arch-025-schedule-edit.mjs` if a clean tree is wanted. No `~/.robota` is created or
   touched: the driver overrides `HOME`.
-- **Evidence (fill in after implementation):** paste the driver's full stdout and the `EXIT=` line from
-  the post-implementation run.
-  - _Baseline note for whoever fills this in:_ the driver was executed against **unfixed** code at
-    authoring time and returned `EXIT=0` with `SCENARIO RESULT: PASS` — as expected for a
-    behaviour-preservation scenario. The post-implementation run must produce the **same** five `PASS`
-    lines and the same `Schedule updated: …` string. A difference between the two runs falsifies repair
-    #2's "no runtime change" claim and is a failure, not a new baseline. Do not rewrite the expected
-    result after observing the output.
+- **Evidence (2026-08-16, post-implementation, branch `fix/arch-025-executor-projection-totality`):**
+  the command block above was extracted **verbatim** from this file and run. `EXIT=0`, stdout:
+
+  ```
+  PASS  create succeeds
+        observed: Scheduled wake (cron `0 9 * * *`): "run the daily report" — task process_1.
+  PASS  list shows original cadence 0 9 * * *
+        observed: - process_1 [sleeping] 0 9 * * * — Scheduled: run the daily report (next 2026-08-17T00:00:00.000Z)
+  PASS  edit reports the new cadence
+        observed: Schedule updated: process_1 (cron `30 18 * * *`).
+  PASS  list shows the new cadence and not the old one
+        observed: - process_1 [sleeping] 30 18 * * * — Scheduled: run the daily report (next 2026-08-16T09:30:00.000Z)
+  PASS  both patch fields landed on the task state
+        observed: {"cronExpression":"30 18 * * *","agentInstruction":"run the evening report"}
+
+  SCENARIO RESULT: PASS
+  ```
+
+  - **Matches the pre-implementation baseline exactly**, which is the pass condition for a
+    behaviour-preservation scenario: the same five `PASS` lines and the same `Schedule updated: …`
+    string. Had they differed, repair #2's "no runtime change" claim would be falsified and this would
+    be a failure, not a new baseline. No expectation was rewritten after observing the output.
+  - **What this does and does not prove.** It proves the `/schedule edit` path still works end to end
+    through the de-duplicated `IScheduleEditPatch` signature, and that **both** patch fields survive the
+    hop. It does **not** demonstrate a behaviour change, because repair #2 is a type-level
+    de-duplication that intends none — stated here so the Done Gate reads it as the non-regression proof
+    it is rather than as evidence of a fix.
 
 ### Repair #1 (`usage` carried by `wait()`) — no product-surface observable; absence recorded with its trace
 
