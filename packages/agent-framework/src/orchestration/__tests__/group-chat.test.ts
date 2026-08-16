@@ -113,10 +113,10 @@ describe('SELFHOST-001 P3 — group-chat orchestration', () => {
     const runner: ISubagentRunner = {
       start(job: ISubagentJobStart): ISubagentJobHandle {
         return {
-          jobId: job.jobId,
+          taskId: job.taskId,
           result: Promise.resolve<ISubagentJobResult>({
-            jobId: job.jobId,
-            output: job.request.type.toUpperCase(),
+            taskId: job.taskId,
+            output: job.request.agentType.toUpperCase(),
           }),
           cancel: async () => {},
         };

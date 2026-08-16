@@ -15,7 +15,10 @@ const SDK_PACKAGE_DIR = path.posix.dirname(SDK_PACKAGE_JSON);
 const SDK_SRC_DIR = 'packages/agent-framework/src';
 const SDK_RUNTIME_FACADE_FILES = new Set([
   'packages/agent-framework/src/background-tasks/index.ts',
-  'packages/agent-framework/src/subagents/index.ts',
+  // ARCH-031 removed `packages/agent-framework/src/subagents/index.ts` from this set. It held eleven
+  // executor pass-throughs that were TYPES ONLY — zero runtime values — so it was never the runtime
+  // facade this exception exists for, and an allowlist entry with nothing behind it is the next
+  // reader's false permission.
 ]);
 const FORBIDDEN_TOP_LEVEL_OWNER_PACKAGES = [
   '@robota-sdk/agent-core',

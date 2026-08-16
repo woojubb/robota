@@ -1,3 +1,4 @@
+import { DEFAULT_BACKGROUND_PERMISSION_POLICY } from '@robota-sdk/agent-core';
 /**
  * AgentTool — spawn a subagent with isolated context.
  *
@@ -192,7 +193,9 @@ function createSpawnRequest(
   toolCallId?: string,
 ): ISubagentSpawnRequest {
   return {
-    type: agentType,
+    // ARCH-031: stated, not inherited from a default applied mid-projection.
+    permissionPolicy: DEFAULT_BACKGROUND_PERMISSION_POLICY,
+    agentType,
     label,
     parentSessionId: deps.parentSessionId ?? 'unknown-session',
     mode: 'background',

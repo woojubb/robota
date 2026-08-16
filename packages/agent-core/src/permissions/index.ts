@@ -5,7 +5,7 @@ export type {
   TPermissionDecision,
   TBackgroundPermissionPolicy,
 } from './types.js';
-export { TRUST_TO_MODE } from './types.js';
+export { TRUST_TO_MODE, DEFAULT_BACKGROUND_PERMISSION_POLICY } from './types.js';
 export {
   evaluatePermission,
   registerToolArgumentKey,

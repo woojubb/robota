@@ -35,18 +35,14 @@ export class SubagentManager implements ISubagentManager {
     return this.toSubagentState(state);
   }
 
-  async wait(jobId: string): Promise<ISubagentJobResult> {
-    const result = await this.backgroundTaskManager.wait(jobId);
-    return {
-      jobId: result.taskId,
-      output: result.output,
-      metadata: result.metadata,
-      // ARCH-025: the same conditional spread `toBackgroundResult` uses below, so the two directions of
-      // this hop read identically. `usage` was declared by ANALYTICS-001 and dropped here in the very
-      // commit that added it — this projection is hand-written, and nothing checked it for totality.
-      // ARCH-031 replaces the hand-written hops with derivation and will subsume this line.
-      ...(result.usage ? { usage: result.usage } : {}),
-    };
+  /**
+   * ARCH-031 subsumed ARCH-025's repair here, exactly as that item said it would. The hand-written
+   * projection that dropped `usage` — in the very commit that added it — is gone; dropping `kind` is
+   * the whole transformation, and there is no key list left to forget a field from.
+   */
+  async wait(taskId: string): Promise<ISubagentJobResult> {
+    const { kind: _kind, ...result } = await this.backgroundTaskManager.wait(taskId);
+    return result;
   }
 
   list(): ISubagentJobState[] {
@@ -55,21 +51,21 @@ export class SubagentManager implements ISubagentManager {
       .map((state) => this.toSubagentState(state));
   }
 
-  get(jobId: string): ISubagentJobState | undefined {
-    const state = this.backgroundTaskManager.get(jobId);
+  get(taskId: string): ISubagentJobState | undefined {
+    const state = this.backgroundTaskManager.get(taskId);
     return state?.kind === 'agent' ? this.toSubagentState(state) : undefined;
   }
 
-  async cancel(jobId: string, reason?: string): Promise<void> {
-    await this.backgroundTaskManager.cancel(jobId, reason);
+  async cancel(taskId: string, reason?: string): Promise<void> {
+    await this.backgroundTaskManager.cancel(taskId, reason);
   }
 
-  async close(jobId: string): Promise<void> {
-    await this.backgroundTaskManager.close(jobId);
+  async close(taskId: string): Promise<void> {
+    await this.backgroundTaskManager.close(taskId);
   }
 
-  async send(jobId: string, prompt: string): Promise<void> {
-    await this.backgroundTaskManager.send(jobId, { prompt });
+  async send(taskId: string, prompt: string): Promise<void> {
+    await this.backgroundTaskManager.send(taskId, { prompt });
   }
 
   async shutdown(reason?: string): Promise<void> {
@@ -115,31 +111,14 @@ export class SubagentManager implements ISubagentManager {
     return `process_${this.processSequence}`;
   }
 
+  /**
+   * ARCH-031: a spread, not a 20-key hand-copy. `ISubagentSpawnRequest` IS
+   * `Omit<IAgentBackgroundTaskRequest, 'kind'>`, so the only thing this hop adds is the discriminant
+   * the seam fixes. The copy this replaced dropped `parentTaskId` and `providerProfile` and would have
+   * dropped the next field added too — nothing checked it for totality.
+   */
   private toBackgroundRequest(request: ISubagentSpawnRequest): IAgentBackgroundTaskRequest {
-    return {
-      kind: 'agent',
-      agentType: request.type,
-      label: request.label,
-      parentSessionId: request.parentSessionId,
-      mode: request.mode,
-      depth: request.depth,
-      cwd: request.cwd,
-      prompt: request.prompt,
-      model: request.model,
-      isolation: request.isolation,
-      allowedTools: request.allowedTools,
-      disallowedTools: request.disallowedTools,
-      timeoutMs: request.timeoutMs,
-      idleTimeoutMs: request.idleTimeoutMs,
-      maxRuntimeMs: request.maxRuntimeMs,
-      outputLimitBytes: request.outputLimitBytes,
-      maxTextDeltas: request.maxTextDeltas,
-      repetitionWindow: request.repetitionWindow,
-      repetitionThreshold: request.repetitionThreshold,
-      metadata: request.metadata,
-      // CORE-025: thread the caller's policy (default inherit-allowlist) instead of hard-coding it.
-      permissionPolicy: request.permissionPolicy ?? 'inherit-allowlist',
-    };
+    return { kind: 'agent', ...request };
   }
 
   private toSubagentState(state: IBackgroundTaskState): ISubagentJobState {
@@ -186,7 +165,7 @@ function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTas
       }
 
       const subagentHandle = runner.start({
-        jobId: task.taskId,
+        taskId: task.taskId,
         request: toSubagentStartRequest(task.request),
         emit: task.emit,
       });
@@ -213,38 +192,23 @@ function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTas
   };
 }
 
+/**
+ * ARCH-031: destructuring, not a 20-key hand-copy. Dropping `kind` is the entire transformation, and
+ * the compiler now guarantees the rest is carried. The copy this replaced omitted `parentTaskId` and
+ * `providerProfile`, and the CORE-025 comment it carried — "previously dropped here → dead field" —
+ * recorded the third field the same hop had already lost.
+ */
 function toSubagentStartRequest(request: IAgentBackgroundTaskRequest): ISubagentSpawnRequest {
-  return {
-    type: request.agentType,
-    label: request.label,
-    parentSessionId: request.parentSessionId,
-    mode: request.mode,
-    depth: request.depth,
-    cwd: request.cwd,
-    prompt: request.prompt,
-    model: request.model,
-    allowedTools: request.allowedTools,
-    disallowedTools: request.disallowedTools,
-    // CORE-025: carry the permission policy through to the runner (previously dropped here → dead field).
-    permissionPolicy: request.permissionPolicy,
-    timeoutMs: request.timeoutMs,
-    idleTimeoutMs: request.idleTimeoutMs,
-    maxRuntimeMs: request.maxRuntimeMs,
-    outputLimitBytes: request.outputLimitBytes,
-    maxTextDeltas: request.maxTextDeltas,
-    repetitionWindow: request.repetitionWindow,
-    repetitionThreshold: request.repetitionThreshold,
-    isolation: request.isolation,
-    metadata: request.metadata,
-  };
+  const { kind: _kind, ...spawnRequest } = request;
+  return spawnRequest;
 }
 
+/**
+ * ARCH-031: a spread. `ISubagentJobResult` IS
+ * `Omit<IBackgroundTaskResult, 'kind' | 'exitCode' | 'signalCode'>`, so the only addition is the
+ * discriminant. `usage` cannot be dropped here any more — there is no key list to forget it from,
+ * which is what the ARCH-025 repair had to add back by hand.
+ */
 function toBackgroundResult(result: ISubagentJobResult): IBackgroundTaskResult {
-  return {
-    taskId: result.jobId,
-    kind: 'agent',
-    output: result.output,
-    metadata: result.metadata,
-    ...(result.usage ? { usage: result.usage } : {}),
-  };
+  return { kind: 'agent', ...result };
 }

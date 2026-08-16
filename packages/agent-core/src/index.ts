@@ -288,6 +288,7 @@ export {
   type TTrustLevel,
   type TPermissionDecision,
   type TBackgroundPermissionPolicy,
+  DEFAULT_BACKGROUND_PERMISSION_POLICY,
   type TToolArgs,
   type IPermissionLists,
   type TPermissionPolicyDecision,

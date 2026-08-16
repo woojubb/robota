@@ -52,8 +52,8 @@ export function stringifyAgentSuccess(result: ISubagentJobResult): string {
     startedJobCount: 1,
     failedJobCount: 0,
     output: result.output,
-    agentId: result.jobId,
-    agentIds: [result.jobId],
+    agentId: result.taskId,
+    agentIds: [result.taskId],
     provenance: {
       source: 'agent-tool-single',
       requestedJobCount: 1,

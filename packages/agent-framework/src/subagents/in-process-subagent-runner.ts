@@ -133,7 +133,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
   return {
     start(job: ISubagentJobStart): ISubagentJobHandle {
       assertSupportedIsolation(job);
-      const definition = resolveAgentDefinition(job.request.type, deps);
+      const definition = resolveAgentDefinition(job.request.agentType, deps);
       const session = createSubagentSession({
         agentDefinition: applyRequestOverrides(definition, job),
         parentConfig: deps.config,
@@ -143,7 +143,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
         terminal: deps.terminal,
         // ARCH-010: the spawn request has always declared `cwd` required; there was simply no option
         // to pass it to, so the child session read `process.cwd()` — the PARENT's directory.
-        cwd: subagentExecutionRoot(job.request),
+        cwd: subagentExecutionRoot(job),
         permissionMode: deps.permissionMode,
         ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
         // CORE-025: carry the task's permission policy + its own tool lists so the child session gates tool
@@ -171,12 +171,12 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
       });
 
       return {
-        jobId: job.jobId,
+        taskId: job.taskId,
         result: session.run(job.request.prompt).then((output) => {
           // ANALYTICS-001 (Phase 2): capture the subagent's total token usage so the parent log can
           // attribute it to this agent as a source. Best-effort — never let usage capture fail the run.
           const usage = readSubagentUsage(session);
-          return { jobId: job.jobId, output, ...(usage ? { usage } : {}) };
+          return { taskId: job.taskId, output, ...(usage ? { usage } : {}) };
         }),
         cancel: () => {
           session.abort();

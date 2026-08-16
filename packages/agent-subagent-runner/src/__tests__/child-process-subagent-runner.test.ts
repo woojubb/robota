@@ -75,7 +75,7 @@ function createJob(): ISubagentJobStart {
   return {
     jobId: 'agent_1',
     request: {
-      type: 'tester',
+      agentType: 'tester',
       label: 'Tester',
       parentSessionId: 'session_1',
       mode: 'background',

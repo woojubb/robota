@@ -225,7 +225,7 @@ describe('Agent tool', () => {
     const subagentManager = {
       spawn: vi.fn().mockResolvedValue({
         id: 'agent_managed_1',
-        type: 'Explore',
+        agentType: 'Explore',
         label: 'Explore',
         parentSessionId: 'session_parent',
         status: 'running',
@@ -263,7 +263,7 @@ describe('Agent tool', () => {
 
     expect(subagentManager.spawn).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: 'Explore',
+        agentType: 'Explore',
         label: 'Explore',
         parentSessionId: 'session_parent',
         mode: 'background',
@@ -287,7 +287,7 @@ describe('Agent tool', () => {
     const subagentManager: ISubagentManager = {
       spawn: vi.fn().mockResolvedValue({
         id: 'agent_worktree_1',
-        type: 'Explore',
+        agentType: 'Explore',
         label: 'Explore',
         parentSessionId: 'session_parent',
         status: 'running',
@@ -333,7 +333,7 @@ describe('Agent tool', () => {
 
     expect(subagentManager.spawn).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: 'Explore',
+        agentType: 'Explore',
         prompt: 'Change files',
         isolation: 'worktree',
       }),
@@ -361,7 +361,7 @@ describe('Agent tool', () => {
     const subagentManager = {
       spawn: vi.fn().mockResolvedValue({
         id: 'agent_background_1',
-        type: 'Explore',
+        agentType: 'Explore',
         label: 'Explore',
         parentSessionId: 'session_parent',
         status: 'running',
@@ -418,7 +418,7 @@ describe('Agent tool', () => {
     const subagentManager = {
       spawn: vi.fn().mockResolvedValue({
         id: 'agent_background_2',
-        type: 'Explore',
+        agentType: 'Explore',
         label: 'Explore',
         parentSessionId: 'session_parent',
         status: 'running',
@@ -476,7 +476,7 @@ describe('Agent tool', () => {
     const subagentManager = {
       spawn: vi.fn().mockResolvedValue({
         id: 'agent_detached_1',
-        type: 'Explore',
+        agentType: 'Explore',
         label: 'Explore',
         parentSessionId: 'session_parent',
         status: 'running',
@@ -534,7 +534,7 @@ describe('Agent tool', () => {
     const subagentManager = {
       spawn: vi.fn().mockResolvedValue({
         id: 'agent_timeout_1',
-        type: 'Explore',
+        agentType: 'Explore',
         label: 'Explore',
         parentSessionId: 'session_parent',
         status: 'running',
@@ -581,7 +581,7 @@ describe('Agent tool', () => {
         .fn()
         .mockResolvedValueOnce({
           id: 'agent_parallel_1',
-          type: 'Explore',
+          agentType: 'Explore',
           label: 'Explore',
           parentSessionId: 'session_parent',
           status: 'running',
@@ -593,7 +593,7 @@ describe('Agent tool', () => {
         })
         .mockResolvedValueOnce({
           id: 'agent_parallel_2',
-          type: 'Plan',
+          agentType: 'Plan',
           label: 'Plan',
           parentSessionId: 'session_parent',
           status: 'running',
@@ -605,7 +605,7 @@ describe('Agent tool', () => {
         })
         .mockResolvedValueOnce({
           id: 'agent_parallel_3',
-          type: 'Explore',
+          agentType: 'Explore',
           label: 'Explore',
           parentSessionId: 'session_parent',
           status: 'running',
@@ -687,7 +687,7 @@ describe('Agent tool', () => {
         .fn()
         .mockResolvedValueOnce({
           id: 'agent_batch_1',
-          type: 'Explore',
+          agentType: 'Explore',
           label: 'Explore',
           parentSessionId: 'session_parent',
           status: 'running',
@@ -699,7 +699,7 @@ describe('Agent tool', () => {
         })
         .mockResolvedValueOnce({
           id: 'agent_batch_2',
-          type: 'Plan',
+          agentType: 'Plan',
           label: 'Plan',
           parentSessionId: 'session_parent',
           status: 'running',
@@ -768,7 +768,7 @@ describe('Agent tool', () => {
         .fn()
         .mockResolvedValueOnce({
           id: 'agent_batch_1',
-          type: 'Explore',
+          agentType: 'Explore',
           label: 'developer',
           parentSessionId: 'session_parent',
           status: 'running',
@@ -780,7 +780,7 @@ describe('Agent tool', () => {
         })
         .mockResolvedValueOnce({
           id: 'agent_batch_2',
-          type: 'Plan',
+          agentType: 'Plan',
           label: 'designer',
           parentSessionId: 'session_parent',
           status: 'running',
@@ -792,7 +792,7 @@ describe('Agent tool', () => {
         })
         .mockResolvedValueOnce({
           id: 'agent_batch_3',
-          type: 'Explore',
+          agentType: 'Explore',
           label: 'reviewer',
           parentSessionId: 'session_parent',
           status: 'running',
@@ -804,7 +804,7 @@ describe('Agent tool', () => {
         })
         .mockResolvedValueOnce({
           id: 'agent_batch_4',
-          type: 'general-purpose',
+          agentType: 'general-purpose',
           label: 'tester',
           parentSessionId: 'session_parent',
           status: 'running',
@@ -886,7 +886,7 @@ describe('Agent tool', () => {
     const subagentManager = {
       spawn: vi.fn().mockResolvedValue({
         id: 'agent_parallel_hint_1',
-        type: 'Explore',
+        agentType: 'Explore',
         label: 'Explore',
         parentSessionId: 'session_parent',
         status: 'running',
@@ -1185,7 +1185,7 @@ describe('Agent tool', () => {
     return {
       spawn: vi.fn().mockResolvedValue({
         id: 'agent_gate_1',
-        type: 'Explore',
+        agentType: 'Explore',
         label: 'Explore',
         parentSessionId: 'session_parent',
         status: 'running',

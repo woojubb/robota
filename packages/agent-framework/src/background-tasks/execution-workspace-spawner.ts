@@ -30,7 +30,8 @@ export interface ISpawnAgentTaskRequest {
   readonly isolation?: TBackgroundTaskIsolation;
   readonly allowedTools?: readonly string[];
   readonly disallowedTools?: readonly string[];
-  readonly permissionPolicy?: TBackgroundPermissionPolicy;
+  /** ARCH-031: required. Every spawn site states its policy; `DEFAULT_BACKGROUND_PERMISSION_POLICY` is what it states when the answer is the usual one. */
+  readonly permissionPolicy: TBackgroundPermissionPolicy;
   readonly timeoutMs?: number;
   readonly idleTimeoutMs?: number;
   readonly maxRuntimeMs?: number;
@@ -110,7 +111,7 @@ function createAgentRequest(
     isolation: request.isolation,
     allowedTools: request.allowedTools ? [...request.allowedTools] : undefined,
     disallowedTools: request.disallowedTools ? [...request.disallowedTools] : undefined,
-    permissionPolicy: request.permissionPolicy ?? 'inherit-allowlist',
+    permissionPolicy: request.permissionPolicy,
     timeoutMs: request.timeoutMs,
     idleTimeoutMs: request.idleTimeoutMs,
     maxRuntimeMs: request.maxRuntimeMs,

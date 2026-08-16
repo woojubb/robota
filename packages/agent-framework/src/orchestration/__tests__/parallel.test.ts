@@ -58,12 +58,12 @@ describe('SELFHOST-001 P2 — parallel orchestration', () => {
         peak = Math.max(peak, inFlight);
         return jobState(`job-${peak}-${inFlight}`);
       },
-      async wait(jobId) {
+      async wait(taskId) {
         // Yield twice so sibling workers can spawn before this slot frees.
         await Promise.resolve();
         await Promise.resolve();
         inFlight -= 1;
-        return { jobId, output: 'x' } satisfies ISubagentJobResult;
+        return { taskId, output: 'x' } satisfies ISubagentJobResult;
       },
       list: () => [],
       get: () => undefined,
@@ -86,11 +86,11 @@ describe('SELFHOST-001 P2 — parallel orchestration', () => {
         peak = Math.max(peak, inFlight);
         return jobState('job');
       },
-      async wait(jobId) {
+      async wait(taskId) {
         await Promise.resolve();
         await Promise.resolve();
         inFlight -= 1;
-        return { jobId, output: 'x' } satisfies ISubagentJobResult;
+        return { taskId, output: 'x' } satisfies ISubagentJobResult;
       },
       list: () => [],
       get: () => undefined,
@@ -112,11 +112,11 @@ describe('SELFHOST-001 P2 — parallel orchestration', () => {
         peak = Math.max(peak, inFlight);
         return jobState('job');
       },
-      async wait(jobId) {
+      async wait(taskId) {
         await Promise.resolve();
         await Promise.resolve();
         inFlight -= 1;
-        return { jobId, output: 'x' } satisfies ISubagentJobResult;
+        return { taskId, output: 'x' } satisfies ISubagentJobResult;
       },
       list: () => [],
       get: () => undefined,
@@ -175,9 +175,9 @@ describe('SELFHOST-001 P2 — parallel orchestration', () => {
       start(job: ISubagentJobStart): ISubagentJobHandle {
         started.push(job.request.prompt);
         return {
-          jobId: job.jobId,
+          taskId: job.taskId,
           result: Promise.resolve<ISubagentJobResult>({
-            jobId: job.jobId,
+            taskId: job.taskId,
             output: `out:${job.request.prompt}`,
           }),
           cancel: async () => {},

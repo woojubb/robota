@@ -8,8 +8,18 @@ export type TSubagentWorkerWireValue = string | number | boolean | null | undefi
 type TSubagentWorkerWireRecord = Record<string, TSubagentWorkerWireValue>;
 
 export interface ISubagentWorkerStartPayload {
-  jobId: string;
+  taskId: string;
   request: ISubagentSpawnRequest;
+  /**
+   * ARCH-031: the worktree the parent's runner prepared, carried across the fork so the child can
+   * answer `subagentExecutionRoot` the same way the parent would. Runner-produced, so it rides beside
+   * the request rather than on it.
+   *
+   * `branch` crosses the fork too, even though nothing reads it here yet: dropping it at the IPC
+   * boundary would make the child's view of its own isolated run poorer than the parent's, for no
+   * reason other than the absence of a present-day consumer.
+   */
+  worktree?: { readonly path: string; readonly branch?: string };
   agentDefinition: IAgentDefinition;
   parentConfig: IInProcessSubagentRunnerDeps['config'];
   parentContext: IInProcessSubagentRunnerDeps['context'];
@@ -87,8 +97,29 @@ function isRecord(value: TSubagentWorkerWireValue): value is TSubagentWorkerWire
   return typeof value === 'object' && value !== null;
 }
 
+/**
+ * ARCH-031: `key` is `string`, so a renamed contract field compiles clean here and then rejects every
+ * payload at runtime — which is exactly what a `type` → `agentType` rename would have done, silently.
+ * The typed overloads below make the next rename a compile error instead.
+ */
 function hasString(value: TSubagentWorkerWireRecord, key: string): boolean {
   return typeof value[key] === 'string';
+}
+
+/** Assert a key that must exist on the spawn request, so a contract rename is compiler-found. */
+function hasRequestString(
+  value: TSubagentWorkerWireRecord,
+  key: keyof ISubagentSpawnRequest & string,
+): boolean {
+  return hasString(value, key);
+}
+
+/** Assert a key that must exist on the worker start payload, for the same reason. */
+function hasPayloadString(
+  value: TSubagentWorkerWireRecord,
+  key: keyof ISubagentWorkerStartPayload & string,
+): boolean {
+  return hasString(value, key);
 }
 
 /**
@@ -109,10 +140,10 @@ function hasValidOptionalUsage(value: TSubagentWorkerWireRecord): boolean {
 
 function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWorkerStartPayload {
   if (!isRecord(value)) return false;
-  if (!hasString(value, 'jobId')) return false;
+  if (!hasPayloadString(value, 'taskId')) return false;
   if (!isRecord(value.request)) return false;
-  if (!hasString(value.request, 'type')) return false;
-  if (!hasString(value.request, 'prompt')) return false;
+  if (!hasRequestString(value.request, 'agentType')) return false;
+  if (!hasRequestString(value.request, 'prompt')) return false;
   if (!isRecord(value.agentDefinition)) return false;
   if (!hasString(value.agentDefinition, 'name')) return false;
   if (!hasString(value.agentDefinition, 'systemPrompt')) return false;

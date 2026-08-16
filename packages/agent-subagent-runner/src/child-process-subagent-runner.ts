@@ -105,7 +105,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       payload,
       resolveTranscriptPath: (request) => this.resolveTranscriptPath(request),
     });
-    const cancellation = createCancellationResult(job.jobId);
+    const cancellation = createCancellationResult(job.taskId);
     void workerResult.catch(() => undefined);
     const result = Promise.race([workerResult, cancellation.promise]);
     // CORE-023: cancel() now awaits the SIGTERM→grace→SIGKILL escalation, so it settles later
@@ -115,7 +115,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     const transcriptPath = this.resolveTranscriptPath(job);
 
     return {
-      jobId: job.jobId,
+      taskId: job.taskId,
       ...(child.pid !== undefined && { pid: child.pid }),
       ...(transcriptPath !== undefined && { transcriptPath, logPath: transcriptPath }),
       result,
@@ -128,16 +128,18 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       },
       ...(transcriptPath !== undefined && {
         readLog: async (cursor?: IBackgroundTaskLogCursor) =>
-          readTranscriptLog(job.jobId, transcriptPath, cursor),
+          readTranscriptLog(job.taskId, transcriptPath, cursor),
       }),
     };
   }
 
   private createStartPayload(job: ISubagentJobStart): ISubagentWorkerStartPayload {
-    const definition = resolveAgentDefinition(job.request.type, this.deps.customAgentRegistry);
+    const definition = resolveAgentDefinition(job.request.agentType, this.deps.customAgentRegistry);
     return {
-      jobId: job.jobId,
+      taskId: job.taskId,
       request: job.request,
+
+      ...(job.worktree ? { worktree: job.worktree } : {}),
       agentDefinition: applyRequestOverrides(definition, job),
       parentConfig: this.deps.config,
       parentContext: this.deps.context,
@@ -149,7 +151,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
 
   private resolveTranscriptPath(job: ISubagentJobStart): string | undefined {
     if (!this.logsDir) return undefined;
-    return join(this.logsDir, job.request.parentSessionId, 'subagents', `${job.jobId}.jsonl`);
+    return join(this.logsDir, job.request.parentSessionId, 'subagents', `${job.taskId}.jsonl`);
   }
 }
 
@@ -204,17 +206,17 @@ function resolveExecArgv(workerPath: string): string[] {
 }
 
 function readTranscriptLog(
-  jobId: string,
+  taskId: string,
   transcriptPath: string,
   cursor?: IBackgroundTaskLogCursor,
 ): IBackgroundTaskLogPage {
   if (!existsSync(transcriptPath)) {
     return {
-      taskId: jobId,
+      taskId,
       cursor,
       lines: [],
     };
   }
   const lines = readFileSync(transcriptPath, 'utf8').split(/\r?\n/).filter(Boolean);
-  return createBackgroundTaskLogPage(jobId, lines, cursor);
+  return createBackgroundTaskLogPage(taskId, lines, cursor);
 }

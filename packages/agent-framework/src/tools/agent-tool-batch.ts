@@ -179,7 +179,7 @@ function createBatchSuccessResult(
     success: true,
     groupId,
     label: job.label,
-    agentId: result.jobId,
+    agentId: result.taskId,
     subagent_type: job.agentType,
     prompt: job.job.prompt,
     output: result.output,

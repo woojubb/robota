@@ -64,18 +64,18 @@ function fakeManager(outputs: string[]): {
       const id = `job-${index}`;
       spawns.push({
         prompt: request.prompt,
-        type: request.type,
+        type: request.agentType,
         model: request.model,
         allowedTools: request.allowedTools,
         disallowedTools: request.disallowedTools,
       });
-      results.set(id, { jobId: id, output: outputs[index] ?? '' });
+      results.set(id, { taskId: id, output: outputs[index] ?? '' });
       index += 1;
       return jobState(id);
     },
-    async wait(jobId) {
-      const result = results.get(jobId);
-      if (!result) throw new Error(`no result for ${jobId}`);
+    async wait(taskId) {
+      const result = results.get(taskId);
+      if (!result) throw new Error(`no result for ${taskId}`);
       return result;
     },
     list: () => [],
@@ -199,11 +199,11 @@ describe('SELFHOST-001 P1 — sequential orchestration', () => {
     const started: string[] = [];
     const runner: ISubagentRunner = {
       start(job: ISubagentJobStart): ISubagentJobHandle {
-        started.push(job.request.type);
-        const output = `out:${job.request.type}`;
+        started.push(job.request.agentType);
+        const output = `out:${job.request.agentType}`;
         return {
-          jobId: job.jobId,
-          result: Promise.resolve<ISubagentJobResult>({ jobId: job.jobId, output }),
+          taskId: job.taskId,
+          result: Promise.resolve<ISubagentJobResult>({ taskId: job.taskId, output }),
           cancel: async () => {},
         };
       },
