@@ -6,6 +6,7 @@ import {
 } from '@robota-sdk/agent-framework';
 import type { IAgentJobHostContext, ICommandHostContext } from '@robota-sdk/agent-framework';
 import { createAgentCommandModule } from '../agent-command-module.js';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 function createMockSession(overrides?: Record<string, unknown>): ICommandHostContext {
   const session = {
@@ -67,9 +68,15 @@ function createMockSession(overrides?: Record<string, unknown>): ICommandHostCon
     closeAgentJob: vi.fn(),
     ...overrides,
   };
-  (session as Record<string, unknown>)['getAgentJobCapability'] = () =>
-    session as unknown as IAgentJobHostContext;
-  return session as unknown as ICommandHostContext;
+  // ARCH-029: the literal this replaced injected `getAgentJobCapability` at RUNTIME through a
+  // `Record<string, unknown>` cast, then asserted the result satisfied two contracts. Statically the
+  // object did not have that member at all. It is now declared, and checked.
+  return createTestCommandHost({
+    overrides: {
+      ...session,
+      getAgentJobCapability: () => session as unknown as IAgentJobHostContext,
+    },
+  });
 }
 
 describe('agent command module', () => {

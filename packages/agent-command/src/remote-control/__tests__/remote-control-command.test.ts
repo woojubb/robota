@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { executeRemoteControlCommand } from '../remote-control-command.js';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 import type {
   ICommandHostContext,
@@ -16,9 +17,11 @@ import type {
 function ctx(status?: TRemoteControlStatus): ICommandHostContext {
   const adapter: ICommandRemoteControlAdapter | undefined =
     status === undefined ? undefined : { getStatus: () => status };
-  return {
-    getCommandHostAdapters: () => (adapter ? { remoteControl: adapter } : {}),
-  } as unknown as ICommandHostContext;
+  return createTestCommandHost({
+    overrides: {
+      getCommandHostAdapters: () => (adapter ? { remoteControl: adapter } : {}),
+    },
+  });
 }
 
 describe('executeRemoteControlCommand (REMOTE-008)', () => {
@@ -76,9 +79,9 @@ describe('executeRemoteControlCommand (REMOTE-008)', () => {
   // REMOTE-012 E3 — trusted-device management verbs.
   function e3ctx(over: Partial<ICommandRemoteControlAdapter>): ICommandHostContext {
     const adapter: ICommandRemoteControlAdapter = { getStatus: () => ({ state: 'off' }), ...over };
-    return {
-      getCommandHostAdapters: () => ({ remoteControl: adapter }),
-    } as unknown as ICommandHostContext;
+    return createTestCommandHost({
+      overrides: { getCommandHostAdapters: () => ({ remoteControl: adapter }) },
+    });
   }
 
   it('`devices` lists enrolled trusted devices', () => {
