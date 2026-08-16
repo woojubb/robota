@@ -51,6 +51,12 @@ export interface IResolvedProviderInfo {
      * uses rather than depending on the whole provider interface.
      */
     capabilityTable?: () => IProviderCapabilityTable | undefined;
+    /**
+     * CORE-043: whether this provider is pointed at its vendor's own endpoint. Separate from the
+     * table on purpose — a provider with no verified capability table must still be able to say it
+     * is behind a gateway.
+     */
+    endpointIsVendorDefault?: () => boolean;
   };
   currentInfo: { provider: string };
   aiProviderInfo: {

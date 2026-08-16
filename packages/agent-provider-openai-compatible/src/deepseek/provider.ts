@@ -196,6 +196,16 @@ export class DeepSeekProvider extends AbstractAIProvider {
     return DEEPSEEK_CAPABILITY_TABLE;
   }
 
+  /**
+   * CORE-043: compared against the vendor default rather than merely checked for presence — passing
+   * DeepSeek's own URL explicitly is not a gateway, and reporting it as one would make the signal
+   * noise.
+   */
+  endpointIsVendorDefault(): boolean {
+    const configured = this.options.baseURL;
+    return configured === undefined || configured === DEFAULT_DEEPSEEK_PROVIDER_BASE_URL;
+  }
+
   override getCapabilities(): IProviderCapabilities {
     return DEEPSEEK_PROVIDER_CAPABILITIES;
   }

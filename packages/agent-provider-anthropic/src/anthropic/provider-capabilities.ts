@@ -7,7 +7,9 @@
  * boolean stand in for a per-model fact everywhere else.
  */
 
-import type { IProviderCapabilities } from '@robota-sdk/agent-core';
+import { ANTHROPIC_CAPABILITY_TABLE } from './capability-table';
+
+import type { IProviderCapabilities, IProviderCapabilityTable } from '@robota-sdk/agent-core';
 
 const CONFIGURE_HINT = 'Call configureNativeWebTools({ webSearch: true }) or set enableWebTools.';
 

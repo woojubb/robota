@@ -5,8 +5,10 @@
 
 import { applyModelToolCapability } from './execution-model-capability-guards.js';
 import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
+import { applyStructuredOutputTransport } from './execution-structured-output-guard.js';
 import { randomId } from '../utils/random-id.js';
 
+import type { IStructuredOutputTransportOutcome } from './execution-structured-output-guard';
 import type { IResolvedProviderInfo, IExecutionRoundState } from './execution-types';
 import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
 import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
@@ -34,6 +36,34 @@ export function computeRoundThinkingContext(
   return { thinkingNodeId, previousThinkingNodeId };
 }
 
+/** Assemble the wire options for one round, before any capability guard has adjusted them. */
+function buildRoundChatOptions(
+  model: string,
+  config: IAgentConfig,
+  resolved: IResolvedProviderInfo,
+  overrides: Partial<IChatOptions> | undefined,
+): IChatOptions {
+  const responseFormat = buildChatResponseFormat(config.responseFormat);
+  return {
+    model,
+    // Default the reasoning-effort dial to 'high' at the framework→provider seam so every
+    // model call carries an explicit effort (design §5.1 — neutral default 'high').
+    effort: config.defaultModel?.effort ?? 'high',
+    ...(config.defaultModel?.maxTokens !== undefined && {
+      maxTokens: config.defaultModel.maxTokens,
+    }),
+    ...(config.defaultModel?.temperature !== undefined && {
+      temperature: config.defaultModel.temperature,
+    }),
+    ...(config.defaultModel?.toolChoice !== undefined && {
+      toolChoice: config.defaultModel.toolChoice,
+    }),
+    ...(resolved.availableTools.length > 0 && { tools: resolved.availableTools }),
+    ...(responseFormat ? { responseFormat } : {}),
+    ...overrides,
+  };
+}
+
 /** Call the AI provider with optional cache lookup/store */
 export async function callProviderWithCache(
   conversationMessages: TUniversalMessage[],
@@ -41,6 +71,13 @@ export async function callProviderWithCache(
   resolved: IResolvedProviderInfo,
   cacheService?: ExecutionCacheService,
   overrides?: Partial<IChatOptions>,
+  /**
+   * CORE-043: where the structured-output outcome is reported. A callback rather than a field on
+   * `IResolvedProviderInfo`, because the report is about THIS request, not about the provider — the
+   * caller closes over the run's event emitter so the outcome travels the replay channel like every
+   * other observable step of the turn.
+   */
+  onStructuredOutputTransport?: (outcome: IStructuredOutputTransportOutcome) => void,
 ): Promise<TUniversalMessage> {
   if (!config.defaultModel?.model) {
     throw new Error('Model is required in defaultModel configuration. Please specify a model.');
@@ -49,35 +86,28 @@ export async function callProviderWithCache(
     throw new Error('Model must be a non-empty string in defaultModel configuration.');
   }
 
-  const chatOptions: IChatOptions = {
-    model: config.defaultModel.model,
-    // Default the reasoning-effort dial to 'high' at the framework→provider seam so every
-    // model call carries an explicit effort (design §5.1 — neutral default 'high').
-    effort: config.defaultModel.effort ?? 'high',
-    ...(config.defaultModel.maxTokens !== undefined && {
-      maxTokens: config.defaultModel.maxTokens,
-    }),
-    ...(config.defaultModel.temperature !== undefined && {
-      temperature: config.defaultModel.temperature,
-    }),
-    ...(config.defaultModel.toolChoice !== undefined && {
-      toolChoice: config.defaultModel.toolChoice,
-    }),
-    ...(resolved.availableTools.length > 0 && { tools: resolved.availableTools }),
-    ...(() => {
-      const responseFormat = buildChatResponseFormat(config.responseFormat);
-      return responseFormat ? { responseFormat } : {};
-    })(),
-    ...overrides,
-  };
+  const model = config.defaultModel.model;
+  const chatOptions = buildRoundChatOptions(model, config, resolved, overrides);
   assertToolChoiceValid(chatOptions.toolChoice, chatOptions.tools);
   // PROV-006: what this MODEL can be asked to do, as opposed to what its vendor can.
-  applyModelToolCapability(chatOptions, config.defaultModel.model, resolved);
+  applyModelToolCapability(chatOptions, model, resolved);
+  // CORE-043: which transport can carry the schema — decided before the call rather than discovered
+  // by spending the retry budget. `outgoing` may carry a prompt statement of the schema, so every
+  // use below (cache key included) reads it rather than the caller's history array.
+  const { messages: outgoing, outcome: structuredOutcome } = applyStructuredOutputTransport(
+    chatOptions,
+    conversationMessages,
+    model,
+    resolved,
+  );
+  if (structuredOutcome) {
+    onStructuredOutputTransport?.(structuredOutcome);
+  }
   const providerChat = resolved.provider.chat.bind(resolved.provider) as TProviderChat;
 
   if (cacheService) {
     const cachedResponse = cacheService.lookup(
-      conversationMessages,
+      outgoing,
       config.defaultModel.model,
       config.defaultModel.provider,
       { temperature: config.defaultModel.temperature, maxTokens: config.defaultModel.maxTokens },
@@ -93,13 +123,13 @@ export async function callProviderWithCache(
     }
     const response = await callProviderWithIdleTimeout(
       providerChat,
-      conversationMessages,
+      outgoing,
       chatOptions,
       config.timeout,
     );
     if (typeof response.content === 'string') {
       cacheService.store(
-        conversationMessages,
+        outgoing,
         config.defaultModel.model,
         config.defaultModel.provider,
         response.content,
@@ -109,12 +139,7 @@ export async function callProviderWithCache(
     return response;
   }
 
-  return callProviderWithIdleTimeout(
-    providerChat,
-    conversationMessages,
-    chatOptions,
-    config.timeout,
-  );
+  return callProviderWithIdleTimeout(providerChat, outgoing, chatOptions, config.timeout);
 }
 
 /**

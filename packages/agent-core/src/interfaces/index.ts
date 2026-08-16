@@ -95,6 +95,13 @@ export {
 } from './model-capability.js';
 export type { IModelCapabilityDeviation, IProviderCapabilityTable } from './model-capability.js';
 
+// CORE-043: which transport can carry a schema to a given model, and how sure that answer is.
+export type {
+  IProviderStructuredOutputCapability,
+  TStructuredOutputMechanism,
+  TStructuredOutputProvenance,
+} from './structured-output-capability.js';
+
 export type {
   IMediaOutputRef,
   IProviderMediaError,

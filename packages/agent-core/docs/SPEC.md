@@ -186,6 +186,9 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 | `closeObjectSchemas`                   | function | PROV-007: closes every object node in the universal subset for providers that reject open-world objects, optionally completing `required` for OpenAI strict mode. One recursion, shared |
 | `modelDeclaresCapability`              | function | PROV-006: whether a model declares a capability. `undefined` when the catalog has said nothing, which is NOT `false` — silence is not a denial                                          |
 | `resolveModelCapability`               | function | PROV-006: the same question with the caller's assumption for silence stated at the call site, so an unstated assumption cannot hide there                                               |
+| `IProviderStructuredOutputCapability`  | type     | CORE-043: which transport can carry a schema to a model (`mechanism`) and how sure that answer is (`provenance`) — two axes, because only the first changes the request                 |
+| `TStructuredOutputMechanism`           | type     | CORE-043: `response_schema` \| `json_object` \| `none` — WHICH transport carries the schema                                                                                             |
+| `TStructuredOutputProvenance`          | type     | CORE-043: `catalog` \| `vendor-default` \| `undeclared` \| `unverified-endpoint` — WHERE the mechanism answer came from                                                                 |
 
 <!-- The rows below live under `###` subheadings. `check-spec-public-surface.mjs` stops counting at the
      first non-"Public API" heading, so it reads none of them — which is why this package's undocumented
@@ -1001,11 +1004,30 @@ from the final `{ done: true, value }` iterator result).
   `Robota` class surface) or an explicit `IJsonSchemaOutput` wrapper carrying the universal
   JSON-schema subset (validated structurally by `validateAgainstJsonSchema`). Both normalize to
   `IStructuredOutputSpec` — one internal representation (SSOT).
-- **Provider mapping**: the schema is forwarded as `IChatOptions.responseFormat =
-{ type: 'json_schema', name, schema }`. Providers with a native structured-output surface map it
-  natively (OpenAI `response_format.json_schema`, Anthropic `output_config.format`, Gemini
-  `responseSchema` + JSON mime type); providers without one ignore it — the core-side enforcement
-  loop below is the universal contract either way.
+- **Transport selection (CORE-043)**: before the first model call, the turn asks the resolved
+  provider's capability table which transport can carry the schema for THIS model, and shapes the
+  request to match. `response_schema` → forwarded as `IChatOptions.responseFormat =
+{ type: 'json_schema', name, schema }` and mapped natively by the adapter (OpenAI
+  `response_format.json_schema`, Anthropic `output_config.format`, Gemini `responseSchema` + JSON
+  mime type). `json_object` (DeepSeek: JSON is guaranteed, the SHAPE is not) → downgraded to
+  `{ type: 'json_object' }`. `none` → the option is omitted rather than sent to be ignored.
+  In both non-native cases the schema is stated as a system instruction on the FIRST attempt, so a
+  provider without a schema parameter no longer spends attempt one discovering the shape was never
+  communicated. A provider that declares NO capability table is sent the request unchanged —
+  silence is not a denial (PROV-006).
+- **Transport report (CORE-043)**: each structured request emits a `structured_output_transport`
+  execution event carrying the OUTCOME — `mechanism`, `provenance`, what was `sent`
+  (`json_schema` / `json_object` / `omitted`), and whether the schema went into the prompt. It
+  reports what the request DID, not what a catalog says; `provenance: 'unverified-endpoint'` marks a
+  provider pointed at a custom `baseURL`, where the vendor's guarantees may not be the ones in force.
+- **Endpoint provenance is a separate answer from the capability table.** `IAIProvider` carries
+  `endpointIsVendorDefault?()` alongside `capabilityTable?()` rather than a field inside it, because
+  the two are independent facts: `@robota-sdk/agent-provider-openai` declares no table by choice
+  (nobody has verified one) and must still be able to report that it is behind a gateway. Folding the
+  endpoint into the table would force that provider to invent capability claims in order to answer,
+  and would make a gateway look like a model that lost a capability — a different claim, and a wrong
+  one. It matters most on OpenAI, where setting `baseURL` also switches the API surface to
+  `chat-completions`.
 - **Enforcement loop**: the final response text is parsed (`parseStructuredResponseText`, tolerant
   of one fenced json block) and validated core-side on every run. A violation triggers a retry
   turn whose input contains the validation issues plus the schema, bounded by `outputRetries`

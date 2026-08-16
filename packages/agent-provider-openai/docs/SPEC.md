@@ -99,3 +99,22 @@ provided". A handler that distinguishes an absent key from a null value will see
 Because the transformation is lossy it runs **only** when `strict` is actually being sent. With
 `strictTools` off or unset, `tool.parameters` is forwarded verbatim — OpenAI accepts the honest
 schema there, and rewriting it would change a contract for no reason.
+
+## Endpoint Provenance (CORE-043)
+
+This package declares **no** `capabilityTable()`. Nobody has verified a per-model capability table
+for OpenAI, and inventing one would be a fabricated claim — agent-core's miss policy already handles
+the silence correctly (a provider that declares nothing is sent a structured request unchanged;
+silence is not a denial).
+
+It does declare `endpointIsVendorDefault()`, which returns `false` whenever `baseURL` is configured.
+That is a separate member rather than a field on the capability table precisely so a provider with no
+table can still answer it.
+
+It matters more here than anywhere else in the workspace: setting `baseURL` also switches the API
+surface to `chat-completions` (`resolveApiSurface`), so the advertised gateway configuration is the
+one where whatever is on the far end is least likely to honour a structured-output parameter. Before
+CORE-043 the runtime reported early enforcement on it regardless. Now a structured request through a
+gateway is reported with `provenance: 'unverified-endpoint'` on the `structured_output_transport`
+execution event — the request is still sent the declared way, but nothing claims the endpoint
+enforced it.

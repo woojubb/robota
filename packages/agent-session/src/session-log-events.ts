@@ -33,6 +33,13 @@ export const SESSION_LOG_EVENT = {
   providerStreamRawDelta: 'provider_stream_raw_delta',
   providerResponseRaw: 'provider_response_raw',
   providerResponseNormalized: 'provider_response_normalized',
+  /**
+   * CORE-043: which transport actually carried a structured-output schema on this request, and
+   * whether the schema had to be stated in the prompt instead. Diagnostic, not replay substrate — a
+   * replay answers a `provider_request` from its recorded response, and this line explains why that
+   * request looked the way it did.
+   */
+  structuredOutputTransport: 'structured_output_transport',
   assistantMessageCommitted: 'assistant_message_committed',
 
   // Tool replay substrate (keyed by executionId + toolCallId).

@@ -99,6 +99,26 @@ export async function callRoundProviderWithEvents(
           return effectiveToolChoice !== undefined ? { toolChoice: effectiveToolChoice } : {};
         })(),
       },
+      // CORE-043: report which transport actually carried the schema. The OUTCOME, not the
+      // resolution — "the table declares json_schema" describes a catalog, while "the schema was
+      // sent as a parameter, so no prompt statement was needed" explains the result the caller is
+      // holding. Emitted on the replay channel so a session log can answer it after the fact.
+      (structured) => {
+        fullContext.onExecutionEvent?.('structured_output_transport', {
+          executionId,
+          conversationId: fullContext.conversationId,
+          round: currentRound,
+          provider: resolved.currentInfo.provider,
+          model: config.defaultModel.model,
+          mechanism: structured.capability.mechanism,
+          provenance: structured.capability.provenance,
+          sent: structured.sent,
+          schemaInPrompt: structured.schemaInPrompt,
+          ...(structured.capability.reason !== undefined && {
+            reason: structured.capability.reason,
+          }),
+        } as TExecutionEventData);
+      },
     );
     // CORE-042: a provider that returned assembled text without streaming any of it still owes the
     // caller its deltas — `IChatOptions.onTextDelta`'s contract is what such a provider is violating,
