@@ -3,6 +3,7 @@ import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-transpor
 import { describe, expect, it, vi } from 'vitest';
 import { createPluginCommandModule } from '../plugin-command-module.js';
 import { executePluginCommand, executeReloadPluginsCommand } from '../plugin-command.js';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 function createPluginAdapter(overrides?: Partial<ICommandPluginAdapter>): ICommandPluginAdapter {
   return {
@@ -42,7 +43,7 @@ function createCommandSessionRuntime(): ICommandSessionRuntime {
   };
 }
 
-function createCommandHostContext(adapter?: ICommandPluginAdapter): ICommandHostContext {
+function createCommandHostContext(adapter?: ICommandPluginAdapter) {
   const checkpoint = {
     id: 'checkpoint_1',
     sessionId: 'session_1',
@@ -51,39 +52,41 @@ function createCommandHostContext(adapter?: ICommandPluginAdapter): ICommandHost
     createdAt: '2026-05-03T00:00:00.000Z',
     fileCount: 0,
   };
-  return {
-    getSession: () => createCommandSessionRuntime(),
-    getContextState: () => ({
-      maxTokens: 100,
-      usedTokens: 10,
-      usedPercentage: 10,
-      remainingPercentage: 90,
-    }),
-    getAutoCompactThreshold: () => 0.8,
-    getCommandHostAdapters: () => (adapter === undefined ? {} : { plugin: adapter }),
-    compactContext: async () => undefined,
-    getCwd: () => '/workspace',
-    listCommands: () => [],
-    listEditCheckpoints: () => [],
-    restoreEditCheckpoint: async () => ({
-      target: checkpoint,
-      restoredCheckpointCount: 0,
-      restoredFileCount: 0,
-      removedCheckpointCount: 0,
-    }),
-    rollbackEditCheckpoint: async () => ({
-      target: checkpoint,
-      restoredCheckpointCount: 0,
-      restoredFileCount: 0,
-      removedCheckpointCount: 0,
-    }),
-    getUsedMemoryReferences: () => [],
-    recordMemoryEvent: () => undefined,
-    listBackgroundTasks: () => [],
-    readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
-    cancelBackgroundTask: async () => undefined,
-    closeBackgroundTask: async () => undefined,
-  };
+  return createTestCommandHost({
+    overrides: {
+      getSession: () => createCommandSessionRuntime(),
+      getContextState: () => ({
+        maxTokens: 100,
+        usedTokens: 10,
+        usedPercentage: 10,
+        remainingPercentage: 90,
+      }),
+      getAutoCompactThreshold: () => 0.8,
+      getCommandHostAdapters: () => (adapter === undefined ? {} : { plugin: adapter }),
+      compactContext: async () => undefined,
+      getCwd: () => '/workspace',
+      listCommands: () => [],
+      listEditCheckpoints: () => [],
+      restoreEditCheckpoint: async () => ({
+        target: checkpoint,
+        restoredCheckpointCount: 0,
+        restoredFileCount: 0,
+        removedCheckpointCount: 0,
+      }),
+      rollbackEditCheckpoint: async () => ({
+        target: checkpoint,
+        restoredCheckpointCount: 0,
+        restoredFileCount: 0,
+        removedCheckpointCount: 0,
+      }),
+      getUsedMemoryReferences: () => [],
+      recordMemoryEvent: () => undefined,
+      listBackgroundTasks: () => [],
+      readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
+      cancelBackgroundTask: async () => undefined,
+      closeBackgroundTask: async () => undefined,
+    },
+  });
 }
 
 describe('createPluginCommandModule', () => {

@@ -9,8 +9,8 @@ import { renderWorkflowsUsage, WORKFLOWS_SUBCOMMANDS } from './subcommands.js';
 import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
+  ICommandHostWorkspace,
   ICommandModule,
-  ICommandHostContext,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
 import type {
@@ -44,7 +44,7 @@ function splitSubcommand(args: string): { sub: string; rest: string } {
 }
 
 async function executeWorkflowsCommand(
-  context: ICommandHostContext,
+  context: ICommandHostWorkspace,
   args: string,
   workspace: IWorkspaceLayout,
   providerDefinitions: readonly IProviderDefinition[],

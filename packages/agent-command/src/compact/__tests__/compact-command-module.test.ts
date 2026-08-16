@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-framework';
 import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createCompactCommandModule } from '../compact-command-module.js';
+import type { ICommandHostContextWindow } from '@robota-sdk/agent-framework';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
-type TContextWindowState = ReturnType<ICommandHostContext['getContextState']>;
+type TContextWindowState = ReturnType<ICommandHostContextWindow['getContextState']>;
 type TPermissionMode = ReturnType<ICommandSessionRuntime['getPermissionMode']>;
 
 const BEFORE_CONTEXT: TContextWindowState = {
@@ -40,7 +42,7 @@ function createRuntime(beforeCount = 10, afterCount = 3): ICommandSessionRuntime
   };
 }
 
-function createCommandHostContext(): ICommandHostContext & {
+function createCommandHostContext(): ReturnType<typeof createTestCommandHost> & {
   compactContext: ReturnType<typeof vi.fn>;
 } {
   const runtime = createRuntime();

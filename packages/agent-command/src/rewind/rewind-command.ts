@@ -9,7 +9,7 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import type {
-  ICommandHostContext,
+  ICommandHostCheckpoints,
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
@@ -128,7 +128,10 @@ function formatError(error: Error | string): ICommandResult {
   };
 }
 
-function inspect(context: ICommandHostContext, checkpointId: string | undefined): ICommandResult {
+function inspect(
+  context: ICommandHostCheckpoints,
+  checkpointId: string | undefined,
+): ICommandResult {
   if (!checkpointId) return usage();
   try {
     return formatInspection(inspectCommandEditCheckpoint(context, checkpointId));
@@ -138,7 +141,7 @@ function inspect(context: ICommandHostContext, checkpointId: string | undefined)
 }
 
 async function restore(
-  context: ICommandHostContext,
+  context: ICommandHostCheckpoints,
   checkpointId: string | undefined,
 ): Promise<ICommandResult> {
   if (!checkpointId) return usage();
@@ -150,7 +153,7 @@ async function restore(
 }
 
 async function rollback(
-  context: ICommandHostContext,
+  context: ICommandHostCheckpoints,
   checkpointId: string | undefined,
 ): Promise<ICommandResult> {
   if (!checkpointId) return usage();
@@ -163,7 +166,7 @@ async function rollback(
 
 // SELFHOST-007: branching time-travel handlers.
 async function fork(
-  context: ICommandHostContext,
+  context: ICommandHostCheckpoints,
   checkpointId: string | undefined,
 ): Promise<ICommandResult> {
   if (!checkpointId) return usage();
@@ -183,7 +186,7 @@ async function fork(
 }
 
 function switchBranch(
-  context: ICommandHostContext,
+  context: ICommandHostCheckpoints,
   checkpointId: string | undefined,
 ): ICommandResult {
   if (!checkpointId) return usage();
@@ -195,7 +198,7 @@ function switchBranch(
   }
 }
 
-function branches(context: ICommandHostContext): ICommandResult {
+function branches(context: ICommandHostCheckpoints): ICommandResult {
   try {
     const tips = listCommandEditCheckpointBranches(context);
     return {
@@ -212,7 +215,7 @@ function branches(context: ICommandHostContext): ICommandResult {
 }
 
 export async function executeRewindCommand(
-  context: ICommandHostContext,
+  context: ICommandHostCheckpoints,
   rawArgs: string,
 ): Promise<ICommandResult> {
   const args = rawArgs.trim().split(/\s+/).filter(Boolean);

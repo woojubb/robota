@@ -22,7 +22,7 @@ import type {
   IMemoryStore,
   IMemoryWriter,
 } from '../../memory/types.js';
-import type { ICommandHostContext } from '../host-context.js';
+import type { ICommandHostMemory, ICommandHostWorkspace } from '../host-context.js';
 import type { ICommand } from '../types.js';
 
 export const MEMORY_COMMAND_DESCRIPTION =
@@ -76,7 +76,7 @@ export function buildMemoryCommandSubcommands(source = 'memory'): ICommand[] {
  * store over the command host's cwd when the host injects none (memory behavior unchanged).
  */
 export function createCommandMemoryStores(
-  context: ICommandHostContext,
+  context: ICommandHostMemory & ICommandHostWorkspace,
   now?: () => Date,
 ): IMemoryStore {
   return context.getMemoryStore?.() ?? createFileSystemMemoryStore(context.getCwd(), now);
@@ -91,13 +91,13 @@ export function hasSensitiveCommandMemoryContent(text: string): boolean {
 }
 
 export function listCommandUsedMemoryReferences(
-  context: ICommandHostContext,
+  context: ICommandHostMemory,
 ): readonly IMemoryReference[] {
   return context.getUsedMemoryReferences();
 }
 
 export function recordCommandMemoryEvent(
-  context: ICommandHostContext,
+  context: ICommandHostMemory,
   event: Omit<IMemoryEvent, 'at'>,
   now: () => Date = () => new Date(),
 ): void {

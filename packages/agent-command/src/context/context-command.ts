@@ -15,7 +15,10 @@ import {
 
 import type { IHistoryEntry, TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
-  ICommandHostContext,
+  ICommandHostAdapterAccess,
+  ICommandHostContextReferences,
+  ICommandHostContextWindow,
+  ICommandHostSessionAccess,
   TAutoCompactThreshold,
   TAutoCompactThresholdSource,
 } from '@robota-sdk/agent-framework';
@@ -49,7 +52,10 @@ function formatPersistenceSuffix(persisted: boolean): string {
 }
 
 export async function executeContextCommand(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess &
+    ICommandHostContextReferences &
+    ICommandHostContextWindow &
+    ICommandHostSessionAccess,
   args: string,
 ): Promise<ICommandResult> {
   const parts = args
@@ -87,7 +93,10 @@ export async function executeContextCommand(
 }
 
 async function executeContextSubcommand(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess &
+    ICommandHostContextReferences &
+    ICommandHostContextWindow &
+    ICommandHostSessionAccess,
   parts: readonly string[],
 ): Promise<ICommandResult> {
   const [subcommand, ...rest] = parts;
@@ -117,7 +126,7 @@ async function executeContextSubcommand(
 }
 
 function executeAutoContextSubcommand(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess & ICommandHostContextWindow & ICommandHostSessionAccess,
   parts: readonly string[],
 ): ICommandResult {
   const [action, extra] = parts;
@@ -160,7 +169,7 @@ function executeAutoContextSubcommand(
 }
 
 async function executeAddContextReference(
-  context: ICommandHostContext,
+  context: ICommandHostContextReferences,
   args: readonly string[],
 ): Promise<ICommandResult> {
   const path = args.join(' ').trim();
@@ -188,7 +197,7 @@ async function executeAddContextReference(
 }
 
 function executeRemoveContextReference(
-  context: ICommandHostContext,
+  context: ICommandHostContextReferences,
   args: readonly string[],
 ): ICommandResult {
   const path = args.join(' ').trim();
@@ -210,7 +219,7 @@ function executeRemoveContextReference(
 }
 
 function applyAutoCompactThreshold(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess & ICommandHostContextWindow & ICommandHostSessionAccess,
   threshold: TAutoCompactThreshold,
   action: 'enabled' | 'disabled' | 'threshold set',
 ): ICommandResult {
@@ -427,7 +436,9 @@ function formatSection(title: string, tokens: number, lines: string[]): string {
     : [header, ...lines.map((l) => `  ${l}`)].join('\n');
 }
 
-function formatFullContextBreakdown(context: ICommandHostContext): ICommandResult {
+function formatFullContextBreakdown(
+  context: ICommandHostContextReferences & ICommandHostContextWindow & ICommandHostSessionAccess,
+): ICommandResult {
   const state = readCommandContextState(context);
   const autoCompactThreshold = readAutoCompactThreshold(context);
   const autoCompactThresholdSource = readAutoCompactThresholdSource(context);

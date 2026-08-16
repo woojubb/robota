@@ -3,9 +3,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-framework';
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
 import { createSkillsCommandModule } from '../skills-command-module.js';
-import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
+import {
+  createTestCommandHost,
+  type ICreateTestCommandHostOptions,
+} from '@robota-sdk/agent-framework/testing';
 
 function createTempSkill(cwd: string): void {
   const skillDir = join(cwd, '.agents', 'skills', 'audit');
@@ -36,7 +38,7 @@ function makeParentSession() {
   };
 }
 
-function createMockContext(overrides?: Partial<ICommandHostContext>): ICommandHostContext {
+function createMockContext(overrides?: ICreateTestCommandHostOptions['overrides']) {
   // ARCH-029: overrides over a conformant host rather than a 20-member literal asserting it IS one.
   return createTestCommandHost({
     overrides: {

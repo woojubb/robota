@@ -5,6 +5,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createPermissionsCommandModule } from '../permissions-command-module.js';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 type TPermissionModeName = 'plan' | 'default' | 'acceptEdits' | 'bypassPermissions';
 type TSetPermissionModeSpy = ReturnType<typeof vi.fn<(nextMode: TPermissionModeName) => void>>;
@@ -28,7 +29,7 @@ function createCheckpointResult(): IEditCheckpointRestoreResult {
 function createCommandHostContext(options?: {
   mode?: TPermissionModeName;
   sessionAllowed?: readonly string[];
-}): ICommandHostContext & { setPermissionMode: TSetPermissionModeSpy } {
+}): ReturnType<typeof createTestCommandHost> & { setPermissionMode: TSetPermissionModeSpy } {
   let mode = options?.mode ?? 'default';
   const setPermissionMode = vi.fn((nextMode: TPermissionModeName) => {
     mode = nextMode;

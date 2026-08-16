@@ -1,7 +1,8 @@
 import { writeCommandPermissionMode } from '../permissions/permission-mode-command-api.js';
 
 import type {
-  ICommandHostContext,
+  ICommandHostPresetApplication,
+  ICommandHostSessionAccess,
   IModelReapplyOptions,
   IUnknownCommandModuleName,
 } from '../host-context.js';
@@ -68,7 +69,7 @@ export interface IPresetApplicationResult {
  * `skipped`.
  */
 export async function applyPresetToSession(
-  context: ICommandHostContext,
+  context: ICommandHostPresetApplication & ICommandHostSessionAccess,
   presetId: string,
   options: IPresetApplicationOptions,
 ): Promise<IPresetApplicationResult> {

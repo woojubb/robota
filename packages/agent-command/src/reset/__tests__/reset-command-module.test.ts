@@ -36,7 +36,7 @@ describe('createResetCommandModule', () => {
   });
 
   it('emits a typed settings reset effect without host file I/O', () => {
-    const result = executeResetCommand(COMMAND_CONTEXT, '');
+    const result = executeResetCommand();
 
     expect(result).toEqual({
       success: true,

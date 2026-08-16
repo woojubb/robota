@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 import {
   ExitCommandSource,
@@ -8,7 +7,7 @@ import {
   executeExitCommand,
 } from '../index.js';
 
-function contextWithAnswer(value: string): ICommandHostContext {
+function contextWithAnswer(value: string) {
   // The double answers "no capability of that kind" by default; this fixture states the one
   // capability it exercises, so the precondition is declared rather than inherited.
   return createTestCommandHost({

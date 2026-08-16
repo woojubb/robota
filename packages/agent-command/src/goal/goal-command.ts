@@ -4,7 +4,7 @@
  * command host context; all loop logic lives in agent-framework.
  */
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type { ICommandHostGoal } from '@robota-sdk/agent-framework';
 import type { ICommandResult, IGoalState } from '@robota-sdk/agent-interface-transport';
 
 export const GOAL_COMMAND_DESCRIPTION =
@@ -27,7 +27,7 @@ function formatGoalState(goal: IGoalState): string {
 }
 
 export async function executeGoalCommand(
-  context: ICommandHostContext,
+  context: ICommandHostGoal,
   args: string,
 ): Promise<ICommandResult> {
   const trimmed = args.trim();

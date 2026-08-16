@@ -8,7 +8,7 @@ import {
   readCommandBackgroundTaskLog,
 } from '@robota-sdk/agent-framework';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type { ICommandHostBackgroundTasks } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 function parseCommandParts(args: string): string[] {
@@ -16,7 +16,7 @@ function parseCommandParts(args: string): string[] {
 }
 
 export async function executeBackgroundCommand(
-  context: ICommandHostContext,
+  context: ICommandHostBackgroundTasks,
   args: string,
 ): Promise<ICommandResult> {
   const [action = 'list', taskId, ...reasonParts] = parseCommandParts(args);

@@ -5,7 +5,7 @@ import { loadSessionLogEntries, validateSessionReplayLogEntries } from '@robota-
 import { projectPaths } from '../../paths.js';
 
 import type { TCommandHostAction, TCommandUiIntent } from '../effects.js';
-import type { ICommandHostContext } from '../host-context.js';
+import type { ICommandHostSessionAccess, ICommandHostWorkspace } from '../host-context.js';
 import type { ICommandSessionReplayValidationReport } from '../host-context.js';
 
 export const CLEAR_COMMAND_DESCRIPTION = 'Clear conversation history';
@@ -22,7 +22,7 @@ export interface ICommandSessionInfo {
   messageCount: number;
 }
 
-export function clearConversationHistory(context: ICommandHostContext): void {
+export function clearConversationHistory(context: ICommandHostSessionAccess): void {
   if (context.clearConversationHistory !== undefined) {
     context.clearConversationHistory();
     return;
@@ -51,7 +51,7 @@ export function createSessionExitHostAction(): TCommandHostAction {
   return { type: 'session-exit' };
 }
 
-export function readCommandSessionInfo(context: ICommandHostContext): ICommandSessionInfo {
+export function readCommandSessionInfo(context: ICommandHostSessionAccess): ICommandSessionInfo {
   const session = context.getSession();
   return {
     sessionId: session.getSessionId(),
@@ -60,7 +60,7 @@ export function readCommandSessionInfo(context: ICommandHostContext): ICommandSe
 }
 
 export function validateCommandSessionReplayLog(
-  context: ICommandHostContext,
+  context: ICommandHostSessionAccess & ICommandHostWorkspace,
 ): ICommandSessionReplayValidationReport {
   const hostReport = context.validateCurrentSessionReplayLog?.();
   if (hostReport !== undefined) {

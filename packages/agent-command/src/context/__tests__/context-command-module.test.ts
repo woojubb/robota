@@ -11,8 +11,10 @@ import type {
 import type { IContextReferenceItem } from '@robota-sdk/agent-interface-transport';
 import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createContextCommandModule } from '../context-command-module.js';
+import type { ICommandHostContextWindow } from '@robota-sdk/agent-framework';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
-type TContextWindowState = ReturnType<ICommandHostContext['getContextState']>;
+type TContextWindowState = ReturnType<ICommandHostContextWindow['getContextState']>;
 type TPermissionMode = ReturnType<ICommandSessionRuntime['getPermissionMode']>;
 
 const CONTEXT_STATE: TContextWindowState = {
@@ -83,7 +85,9 @@ function createRuntime(
   };
 }
 
-function createCommandHostContext(threshold: number | false = 0.835): ICommandHostContext & {
+function createCommandHostContext(threshold: number | false = 0.835): ReturnType<
+  typeof createTestCommandHost
+> & {
   settings: Record<string, number | false>;
   source: TAutoCompactThresholdSource;
   references: IContextReferenceItem[];

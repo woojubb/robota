@@ -4,6 +4,7 @@ import { applyPresetToSession } from '../preset-application.js';
 
 import type { ICommandHostContext, ICommandSessionRuntime } from '../../host-context.js';
 import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-core';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 const CONTEXT_STATE: IContextWindowState = {
   maxTokens: 100,
@@ -42,7 +43,7 @@ function createContext(
   includeSetParallelSubagentsEnabled = true,
   includeApplySelfVerification = true,
 ): {
-  context: ICommandHostContext;
+  context: ReturnType<typeof createTestCommandHost>;
   spies: IRuntimeSpies;
 } {
   let mode: TPermissionMode = 'default';
@@ -83,26 +84,28 @@ function createContext(
     spies.setParallelSubagentsEnabled = setParallelSubagentsEnabled;
   }
 
-  const context: ICommandHostContext = {
-    getSession: () => runtime,
-    getContextState: () => CONTEXT_STATE,
-    getAutoCompactThreshold: () => 0.8,
-    compactContext: async () => undefined,
-    getCwd: () => '/workspace',
-    listEditCheckpoints: () => [],
-    restoreEditCheckpoint: async () => {
-      throw new Error('not used');
+  const context = createTestCommandHost({
+    overrides: {
+      getSession: () => runtime,
+      getContextState: () => CONTEXT_STATE,
+      getAutoCompactThreshold: () => 0.8,
+      compactContext: async () => undefined,
+      getCwd: () => '/workspace',
+      listEditCheckpoints: () => [],
+      restoreEditCheckpoint: async () => {
+        throw new Error('not used');
+      },
+      rollbackEditCheckpoint: async () => {
+        throw new Error('not used');
+      },
+      getUsedMemoryReferences: () => [],
+      recordMemoryEvent: () => undefined,
+      listBackgroundTasks: () => [],
+      readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
+      cancelBackgroundTask: async () => undefined,
+      closeBackgroundTask: async () => undefined,
     },
-    rollbackEditCheckpoint: async () => {
-      throw new Error('not used');
-    },
-    getUsedMemoryReferences: () => [],
-    recordMemoryEvent: () => undefined,
-    listBackgroundTasks: () => [],
-    readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
-    cancelBackgroundTask: async () => undefined,
-    closeBackgroundTask: async () => undefined,
-  };
+  });
 
   if (includeApplyPersona) {
     const applyPersona = vi.fn();

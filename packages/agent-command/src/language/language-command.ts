@@ -5,14 +5,16 @@ import {
   parseLanguageArgument,
 } from '@robota-sdk/agent-framework';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type { ICommandHostUserInteraction } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 /**
  * Ask the user to pick a language (CMD-004 inline ask). Returns a validated language, or `undefined`
  * when no interactive renderer is attached or the user cancelled — the caller then shows usage.
  */
-async function resolveLanguageViaAsk(context: ICommandHostContext): Promise<string | undefined> {
+async function resolveLanguageViaAsk(
+  context: ICommandHostUserInteraction,
+): Promise<string | undefined> {
   const ui = context.getUserInteraction?.();
   if (!ui) return undefined;
   const options = buildLanguageCommandSubcommands().map((sub) => ({
@@ -26,7 +28,7 @@ async function resolveLanguageViaAsk(context: ICommandHostContext): Promise<stri
 }
 
 export async function executeLanguageCommand(
-  context: ICommandHostContext,
+  context: ICommandHostUserInteraction,
   args: string,
 ): Promise<ICommandResult> {
   let language = parseLanguageArgument(args);

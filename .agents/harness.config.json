@@ -270,6 +270,36 @@
       "scope": ["packages/dag-worker/src"]
     }
   ],
+  "aggregateNaming": {
+    "$comment": "ARCH-029: the load-bearing floor. A god contract is not fixed by decomposing it — it is fixed when consumers stop NAMING it, and REFACTOR-006 proved those are different events (it closed green on the same contract, which then grew 20 members/50% optional to 46/70%). Type-position references to each aggregate are frozen in scripts/harness/aggregate-naming-baseline.json; they may fall and must never rise. The target is 0, not 'falling'.",
+    "aggregates": ["ICommandHostContext"],
+    "allowlist": [
+      {
+        "file": "packages/agent-framework/src/command-api/host-context.ts",
+        "reason": "The declaration site. The aggregate is defined here as an empty `extends` over the role ports."
+      },
+      {
+        "file": "packages/agent-framework/src/command-api/contracts.ts",
+        "reason": "`ISystemCommand.execute`'s parameter — the dispatch contract every command is assigned to. A command narrows its own declared role against this by contravariance; this one site must name the widest type."
+      },
+      {
+        "file": "packages/agent-framework/src/commands/system-command-executor.ts",
+        "reason": "The dispatch spine. It holds the host and hands it to an arbitrary `ISystemCommand.execute`, so it cannot know which roles the callee needs and must name the widest type — the same reason the contract itself is allowlisted."
+      },
+      {
+        "file": "packages/agent-framework/src/interactive/interactive-session-skill-router.ts",
+        "reason": "Supplies the host to that same dispatch spine (`getSession: () => ICommandHostContext`). Narrowing here would narrow what every routed command can reach."
+      },
+      {
+        "file": "packages/agent-framework/src/interactive/interactive-session.ts",
+        "reason": "The production host. `implements ICommandHostContext` is the compiler-checked conformance ARCH-029 TC-01 installed; naming it here is the check, not a leak."
+      },
+      {
+        "file": "packages/agent-framework/src/testing/command-host-double.ts",
+        "reason": "The conformant double. It exists to be checked against the whole aggregate with no cast — that is its entire property."
+      }
+    ]
+  },
   "contractCastRatchet": {
     "$comment": "ARCH-012: contracts whose `as X` cast count is frozen by scan-contract-cast-ratchet. A cast is a partial re-implementation nothing checks against the real contract; the count may fall and never rise while capability-scoped ports are designed.",
     "contracts": ["IInteractiveSession", "ICommandHostContext", "IAgentJobHostContext"]

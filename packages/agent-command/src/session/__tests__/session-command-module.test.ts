@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-framework';
 import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createSessionCommandModule } from '../session-command-module.js';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 function createRuntime(): ICommandSessionRuntime {
   return {
@@ -24,28 +25,30 @@ function createRuntime(): ICommandSessionRuntime {
   };
 }
 
-function createCommandContext(): ICommandHostContext {
+function createCommandContext() {
   const runtime = createRuntime();
-  return {
-    getSession: () => runtime,
-    getContextState: () => runtime.getContextState(),
-    getAutoCompactThreshold: () => 0.835,
-    compactContext: async () => undefined,
-    getCwd: () => '/workspace',
-    listEditCheckpoints: () => [],
-    restoreEditCheckpoint: async () => {
-      throw new Error('not used');
+  return createTestCommandHost({
+    overrides: {
+      getSession: () => runtime,
+      getContextState: () => runtime.getContextState(),
+      getAutoCompactThreshold: () => 0.835,
+      compactContext: async () => undefined,
+      getCwd: () => '/workspace',
+      listEditCheckpoints: () => [],
+      restoreEditCheckpoint: async () => {
+        throw new Error('not used');
+      },
+      rollbackEditCheckpoint: async () => {
+        throw new Error('not used');
+      },
+      getUsedMemoryReferences: () => [],
+      recordMemoryEvent: () => undefined,
+      listBackgroundTasks: () => [],
+      readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
+      cancelBackgroundTask: async () => undefined,
+      closeBackgroundTask: async () => undefined,
     },
-    rollbackEditCheckpoint: async () => {
-      throw new Error('not used');
-    },
-    getUsedMemoryReferences: () => [],
-    recordMemoryEvent: () => undefined,
-    listBackgroundTasks: () => [],
-    readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
-    cancelBackgroundTask: async () => undefined,
-    closeBackgroundTask: async () => undefined,
-  };
+  });
 }
 
 describe('createSessionCommandModule', () => {

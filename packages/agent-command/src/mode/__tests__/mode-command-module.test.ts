@@ -5,6 +5,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createModeCommandModule } from '../mode-command-module.js';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 type TPermissionModeName = 'plan' | 'default' | 'acceptEdits' | 'bypassPermissions';
 type TSetPermissionModeSpy = ReturnType<typeof vi.fn<(nextMode: TPermissionModeName) => void>>;
@@ -25,7 +26,7 @@ function createCheckpointResult(): IEditCheckpointRestoreResult {
   };
 }
 
-function createCommandHostContext(): ICommandHostContext & {
+function createCommandHostContext(): ReturnType<typeof createTestCommandHost> & {
   setPermissionMode: TSetPermissionModeSpy;
 } {
   let mode: TPermissionModeName = 'default';
@@ -146,10 +147,12 @@ describe('createModeCommandModule', () => {
       ...(createModeCommandModule().systemCommands ?? []),
     ]);
     const context = createCommandHostContext();
-    const contextWithAsk: ICommandHostContext = {
-      ...context,
-      getUserInteraction: () => ({ ask: async () => ({ type: 'answer', values: ['plan'] }) }),
-    };
+    const contextWithAsk = createTestCommandHost({
+      overrides: {
+        ...context,
+        getUserInteraction: () => ({ ask: async () => ({ type: 'answer', values: ['plan'] }) }),
+      },
+    });
 
     const result = await executor.execute('mode', contextWithAsk, '');
 
@@ -163,10 +166,12 @@ describe('createModeCommandModule', () => {
       ...(createModeCommandModule().systemCommands ?? []),
     ]);
     const context = createCommandHostContext();
-    const contextWithAsk: ICommandHostContext = {
-      ...context,
-      getUserInteraction: () => ({ ask: async () => ({ type: 'cancelled' }) }),
-    };
+    const contextWithAsk = createTestCommandHost({
+      overrides: {
+        ...context,
+        getUserInteraction: () => ({ ask: async () => ({ type: 'cancelled' }) }),
+      },
+    });
 
     const result = await executor.execute('mode', contextWithAsk, '');
 

@@ -2,6 +2,7 @@ import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/ag
 import type { ICommandListEntry } from '@robota-sdk/agent-interface-transport';
 import { formatCommandHelpMessage } from '@robota-sdk/agent-framework';
 import { describe, expect, it } from 'vitest';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 function createCommandSessionRuntime(): ICommandSessionRuntime {
   return {
@@ -35,40 +36,42 @@ function createCheckpoint() {
   };
 }
 
-function buildContext(commands: ICommandListEntry[]): ICommandHostContext {
+function buildContext(commands: ICommandListEntry[]) {
   const checkpoint = createCheckpoint();
-  return {
-    getSession: () => createCommandSessionRuntime(),
-    getContextState: () => ({
-      maxTokens: 100,
-      usedTokens: 10,
-      usedPercentage: 10,
-      remainingPercentage: 90,
-    }),
-    getAutoCompactThreshold: () => 0.8,
-    compactContext: async () => undefined,
-    getCwd: () => '/workspace',
-    listCommands: () => commands,
-    listEditCheckpoints: () => [],
-    restoreEditCheckpoint: async () => ({
-      target: checkpoint,
-      restoredCheckpointCount: 0,
-      restoredFileCount: 0,
-      removedCheckpointCount: 0,
-    }),
-    rollbackEditCheckpoint: async () => ({
-      target: checkpoint,
-      restoredCheckpointCount: 0,
-      restoredFileCount: 0,
-      removedCheckpointCount: 0,
-    }),
-    getUsedMemoryReferences: () => [],
-    recordMemoryEvent: () => undefined,
-    listBackgroundTasks: () => [],
-    readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
-    cancelBackgroundTask: async () => undefined,
-    closeBackgroundTask: async () => undefined,
-  };
+  return createTestCommandHost({
+    overrides: {
+      getSession: () => createCommandSessionRuntime(),
+      getContextState: () => ({
+        maxTokens: 100,
+        usedTokens: 10,
+        usedPercentage: 10,
+        remainingPercentage: 90,
+      }),
+      getAutoCompactThreshold: () => 0.8,
+      compactContext: async () => undefined,
+      getCwd: () => '/workspace',
+      listCommands: () => commands,
+      listEditCheckpoints: () => [],
+      restoreEditCheckpoint: async () => ({
+        target: checkpoint,
+        restoredCheckpointCount: 0,
+        restoredFileCount: 0,
+        removedCheckpointCount: 0,
+      }),
+      rollbackEditCheckpoint: async () => ({
+        target: checkpoint,
+        restoredCheckpointCount: 0,
+        restoredFileCount: 0,
+        removedCheckpointCount: 0,
+      }),
+      getUsedMemoryReferences: () => [],
+      recordMemoryEvent: () => undefined,
+      listBackgroundTasks: () => [],
+      readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
+      cancelBackgroundTask: async () => undefined,
+      closeBackgroundTask: async () => undefined,
+    },
+  });
 }
 
 describe('formatCommandHelpMessage — example field', () => {

@@ -1,4 +1,8 @@
-import type { ICommandHostContext, ICommandSkillListEntry } from '@robota-sdk/agent-framework';
+import type {
+  ICommandHostCatalog,
+  ICommandHostWorkspace,
+  ICommandSkillListEntry,
+} from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 export const SKILLS_COMMAND_DESCRIPTION =
@@ -66,7 +70,7 @@ function parseSkillsArgs(args: string): IParsedSkillsArgs {
 }
 
 export async function executeSkillsCommand(
-  context: ICommandHostContext,
+  context: ICommandHostCatalog & ICommandHostWorkspace,
   args = '',
 ): Promise<ICommandResult> {
   const parsed = parseSkillsArgs(args);

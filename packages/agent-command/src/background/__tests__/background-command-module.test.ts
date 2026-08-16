@@ -7,6 +7,10 @@ import {
   executeBackgroundCommand,
 } from '../index.js';
 import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-transport';
+import {
+  createTestCommandHost,
+  type ICreateTestCommandHostOptions,
+} from '@robota-sdk/agent-framework/testing';
 
 function createSessionRuntime(): ICommandSessionRuntime {
   return {
@@ -47,53 +51,55 @@ function createTask(overrides?: Partial<IBackgroundTaskState>): IBackgroundTaskS
   };
 }
 
-function createCommandHostContext(overrides?: Partial<ICommandHostContext>): ICommandHostContext {
-  return {
-    getSession: () => createSessionRuntime(),
-    getContextState: () => ({
-      maxTokens: 100,
-      usedTokens: 10,
-      usedPercentage: 10,
-      remainingPercentage: 90,
-    }),
-    getAutoCompactThreshold: () => 0.8,
-    compactContext: async () => undefined,
-    getCwd: () => '/workspace',
-    listEditCheckpoints: () => [],
-    restoreEditCheckpoint: async () => ({
-      target: {
-        id: 'checkpoint_1',
-        sessionId: 'session_1',
-        sequence: 1,
-        prompt: 'edit',
-        createdAt: '2026-05-03T00:00:00.000Z',
-        fileCount: 0,
-      },
-      restoredCheckpointCount: 1,
-      restoredFileCount: 0,
-      removedCheckpointCount: 0,
-    }),
-    rollbackEditCheckpoint: async () => ({
-      target: {
-        id: 'checkpoint_1',
-        sessionId: 'session_1',
-        sequence: 1,
-        prompt: 'edit',
-        createdAt: '2026-05-03T00:00:00.000Z',
-        fileCount: 0,
-      },
-      restoredCheckpointCount: 1,
-      restoredFileCount: 0,
-      removedCheckpointCount: 0,
-    }),
-    getUsedMemoryReferences: () => [],
-    recordMemoryEvent: () => undefined,
-    listBackgroundTasks: () => [],
-    readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
-    cancelBackgroundTask: async () => undefined,
-    closeBackgroundTask: async () => undefined,
-    ...overrides,
-  };
+function createCommandHostContext(overrides?: ICreateTestCommandHostOptions['overrides']) {
+  return createTestCommandHost({
+    overrides: {
+      getSession: () => createSessionRuntime(),
+      getContextState: () => ({
+        maxTokens: 100,
+        usedTokens: 10,
+        usedPercentage: 10,
+        remainingPercentage: 90,
+      }),
+      getAutoCompactThreshold: () => 0.8,
+      compactContext: async () => undefined,
+      getCwd: () => '/workspace',
+      listEditCheckpoints: () => [],
+      restoreEditCheckpoint: async () => ({
+        target: {
+          id: 'checkpoint_1',
+          sessionId: 'session_1',
+          sequence: 1,
+          prompt: 'edit',
+          createdAt: '2026-05-03T00:00:00.000Z',
+          fileCount: 0,
+        },
+        restoredCheckpointCount: 1,
+        restoredFileCount: 0,
+        removedCheckpointCount: 0,
+      }),
+      rollbackEditCheckpoint: async () => ({
+        target: {
+          id: 'checkpoint_1',
+          sessionId: 'session_1',
+          sequence: 1,
+          prompt: 'edit',
+          createdAt: '2026-05-03T00:00:00.000Z',
+          fileCount: 0,
+        },
+        restoredCheckpointCount: 1,
+        restoredFileCount: 0,
+        removedCheckpointCount: 0,
+      }),
+      getUsedMemoryReferences: () => [],
+      recordMemoryEvent: () => undefined,
+      listBackgroundTasks: () => [],
+      readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
+      cancelBackgroundTask: async () => undefined,
+      closeBackgroundTask: async () => undefined,
+      ...overrides,
+    },
+  });
 }
 
 describe('background command module', () => {

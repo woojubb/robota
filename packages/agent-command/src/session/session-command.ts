@@ -15,13 +15,18 @@ import {
 
 import { calculateCost, formatTokens, formatUsd } from './model-pricing.js';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type {
+  ICommandHostNoCapability,
+  ICommandHostSessionAccess,
+  ICommandHostUserInteraction,
+  ICommandHostWorkspace,
+} from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 export const CLEAR_COMMAND_MESSAGE = 'Conversation cleared.';
 
 export async function executeClearCommand(
-  context: ICommandHostContext,
+  context: ICommandHostSessionAccess & ICommandHostUserInteraction,
   _args: string,
 ): Promise<ICommandResult> {
   // Confirm only when an interactive renderer is attached; with no human the explicit /clear proceeds.
@@ -39,7 +44,10 @@ export async function executeClearCommand(
   return { success: true, message: CLEAR_COMMAND_MESSAGE };
 }
 
-export function executeRenameCommand(_context: ICommandHostContext, args: string): ICommandResult {
+export function executeRenameCommand(
+  _context: ICommandHostNoCapability,
+  args: string,
+): ICommandResult {
   const name = parseSessionNameArgument(args);
   if (name === undefined) {
     return { success: false, message: RENAME_COMMAND_USAGE };
@@ -53,7 +61,7 @@ export function executeRenameCommand(_context: ICommandHostContext, args: string
   };
 }
 
-export function executeResumeCommand(_context: ICommandHostContext, _args: string): ICommandResult {
+export function executeResumeCommand(): ICommandResult {
   return {
     success: true,
     message: 'Opening session picker...',
@@ -99,7 +107,7 @@ function clearBudget(cwd: string): void {
   }
 }
 
-function buildCostOutput(context: ICommandHostContext): {
+function buildCostOutput(context: ICommandHostSessionAccess & ICommandHostWorkspace): {
   lines: string[];
   data: Record<string, unknown>;
 } {
@@ -148,7 +156,10 @@ function buildCostOutput(context: ICommandHostContext): {
   return { lines, data };
 }
 
-export function executeCostCommand(context: ICommandHostContext, args: string): ICommandResult {
+export function executeCostCommand(
+  context: ICommandHostSessionAccess & ICommandHostWorkspace,
+  args: string,
+): ICommandResult {
   const trimmed = args.trim();
 
   if (trimmed.startsWith('budget')) {
@@ -186,7 +197,7 @@ export function executeCostCommand(context: ICommandHostContext, args: string): 
 }
 
 export function executeValidateSessionCommand(
-  context: ICommandHostContext,
+  context: ICommandHostSessionAccess & ICommandHostWorkspace,
   _args: string,
 ): ICommandResult {
   const report = validateCommandSessionReplayLog(context);

@@ -3,7 +3,7 @@ import type {
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
 } from '../../checkpoints/index.js';
-import type { ICommandHostContext } from '../host-context.js';
+import type { ICommandHostCheckpoints } from '../host-context.js';
 import type { ICommand } from '../types.js';
 
 export const REWIND_COMMAND_DESCRIPTION =
@@ -30,13 +30,13 @@ export function buildRewindCommandSubcommands(source = 'rewind'): ICommand[] {
 }
 
 export function listCommandEditCheckpoints(
-  context: ICommandHostContext,
+  context: ICommandHostCheckpoints,
 ): readonly IEditCheckpointSummary[] {
   return context.listEditCheckpoints();
 }
 
 export function inspectCommandEditCheckpoint(
-  context: ICommandHostContext,
+  context: ICommandHostCheckpoints,
   checkpointId: string,
 ): IEditCheckpointInspection {
   if (!context.inspectEditCheckpoint) {
@@ -46,14 +46,14 @@ export function inspectCommandEditCheckpoint(
 }
 
 export function restoreCommandEditCheckpoint(
-  context: ICommandHostContext,
+  context: ICommandHostCheckpoints,
   checkpointId: string,
 ): Promise<IEditCheckpointRestoreResult> {
   return context.restoreEditCheckpoint(checkpointId);
 }
 
 export function rollbackCommandEditCheckpoint(
-  context: ICommandHostContext,
+  context: ICommandHostCheckpoints,
   checkpointId: string,
 ): Promise<IEditCheckpointRestoreResult> {
   return context.rollbackEditCheckpoint(checkpointId);
@@ -62,7 +62,7 @@ export function rollbackCommandEditCheckpoint(
 // SELFHOST-007: branching time-travel command surface (delegates to the neutral tree via the host).
 
 export function forkCommandEditCheckpoint(
-  context: ICommandHostContext,
+  context: ICommandHostCheckpoints,
   checkpointId: string,
 ): Promise<IEditCheckpointRestoreResult> {
   if (!context.forkCheckpointBranch) {
@@ -72,7 +72,7 @@ export function forkCommandEditCheckpoint(
 }
 
 export function switchCommandEditCheckpointBranch(
-  context: ICommandHostContext,
+  context: ICommandHostCheckpoints,
   checkpointId: string,
 ): void {
   if (!context.switchCheckpointBranch) {
@@ -81,7 +81,7 @@ export function switchCommandEditCheckpointBranch(
   context.switchCheckpointBranch(checkpointId);
 }
 
-export function listCommandEditCheckpointBranches(context: ICommandHostContext): string[] {
+export function listCommandEditCheckpointBranches(context: ICommandHostCheckpoints): string[] {
   if (!context.listCheckpointBranches) {
     throw new Error('Checkpoint branching is not available in this command host.');
   }

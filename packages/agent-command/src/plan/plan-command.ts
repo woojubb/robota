@@ -6,7 +6,7 @@
  * per-call confirmed).
  */
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type { ICommandHostPlan } from '@robota-sdk/agent-framework';
 import type { ICommandResult, IPlanArtifact } from '@robota-sdk/agent-interface-transport';
 
 export const PLAN_COMMAND_DESCRIPTION =
@@ -30,7 +30,7 @@ function formatPlan(plan: IPlanArtifact): string {
 }
 
 export async function executePlanCommand(
-  context: ICommandHostContext,
+  context: ICommandHostPlan,
   args: string,
 ): Promise<ICommandResult> {
   const trimmed = args.trim();

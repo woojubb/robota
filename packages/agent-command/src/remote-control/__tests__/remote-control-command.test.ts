@@ -4,7 +4,6 @@ import { executeRemoteControlCommand } from '../remote-control-command.js';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 import type {
-  ICommandHostContext,
   ICommandRemoteControlAdapter,
   TRemoteControlStatus,
 } from '@robota-sdk/agent-framework';
@@ -14,7 +13,7 @@ import type {
  * status read over the injected `remoteControl` adapter.
  */
 
-function ctx(status?: TRemoteControlStatus): ICommandHostContext {
+function ctx(status?: TRemoteControlStatus) {
   const adapter: ICommandRemoteControlAdapter | undefined =
     status === undefined ? undefined : { getStatus: () => status };
   return createTestCommandHost({
@@ -77,7 +76,7 @@ describe('executeRemoteControlCommand (REMOTE-008)', () => {
   });
 
   // REMOTE-012 E3 — trusted-device management verbs.
-  function e3ctx(over: Partial<ICommandRemoteControlAdapter>): ICommandHostContext {
+  function e3ctx(over: Partial<ICommandRemoteControlAdapter>) {
     const adapter: ICommandRemoteControlAdapter = { getStatus: () => ({ state: 'off' }), ...over };
     return createTestCommandHost({
       overrides: { getCommandHostAdapters: () => ({ remoteControl: adapter }) },

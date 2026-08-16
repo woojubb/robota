@@ -23,6 +23,10 @@ import { useTerminalHandoffSuspension } from '../../hooks/useTerminalHandoffSusp
 import { TerminalHandoffController } from '../../terminal-handoff-controller.js';
 
 import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type {
+  ICommandHostTerminalHandoff,
+  ICommandHostWorkspace,
+} from '@robota-sdk/agent-framework';
 
 const MODE = process.argv[2];
 const OUTPUT_PATH = process.argv[3];
@@ -35,7 +39,7 @@ const context = {
   canHandoffTerminal: (): boolean => controller.canHandoffTerminal,
   runWithTerminal: <T,>(fn: () => Promise<T>): Promise<T> => controller.runWithTerminal(fn),
   getCwd: (): string => process.cwd(),
-} satisfies Pick<ICommandHostContext, 'canHandoffTerminal' | 'runWithTerminal' | 'getCwd'>;
+} satisfies ICommandHostTerminalHandoff & Pick<ICommandHostWorkspace, 'getCwd'>;
 
 function InputCapture(): React.ReactElement {
   useInput(() => {});

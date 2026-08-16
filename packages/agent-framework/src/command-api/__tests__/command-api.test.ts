@@ -58,6 +58,7 @@ import type {
   ISystemCommand,
 } from '../index.js';
 import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-core';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 const CONTEXT_STATE: IContextWindowState = {
   maxTokens: 100,
@@ -114,62 +115,68 @@ function createCheckpointResult(): IEditCheckpointRestoreResult {
   };
 }
 
-function createCommandHostContext(): ICommandHostContext {
+function createCommandHostContext() {
   const runtime = createCommandSessionRuntime();
   let settings: Record<string, number | false> = {};
   let threshold: number | false = 0.8;
   let contextReferences: IContextReferenceItem[] = [];
-  return {
-    getSession: () => runtime,
-    getContextState: () => CONTEXT_STATE,
-    getAutoCompactThreshold: () => threshold,
-    setAutoCompactThreshold: (nextThreshold) => {
-      threshold = nextThreshold;
-    },
-    getCommandHostAdapters: () => ({
-      settings: {
-        read: () => settings,
-        write: (nextSettings) => {
-          const value = nextSettings.autoCompactThreshold;
-          settings =
-            typeof value === 'number' || value === false ? { autoCompactThreshold: value } : {};
-        },
+  return createTestCommandHost({
+    overrides: {
+      getSession: () => runtime,
+      getContextState: () => CONTEXT_STATE,
+      getAutoCompactThreshold: () => threshold,
+      setAutoCompactThreshold: (nextThreshold) => {
+        threshold = nextThreshold;
       },
-    }),
-    compactContext: async () => undefined,
-    listContextReferences: () => [...contextReferences],
-    addContextReference: async (path): Promise<IContextReferenceAddResult> => {
-      const reference = {
-        ...CONTEXT_REFERENCE,
-        relativePath: path,
-        sourcePath: `/workspace/${path}`,
-        originalReference: `@${path}`,
-      };
-      contextReferences = [...contextReferences, reference];
-      return { reference, evicted: [], diagnostics: [] };
+      getCommandHostAdapters: () => ({
+        settings: {
+          read: () => settings,
+          write: (nextSettings) => {
+            const value = nextSettings.autoCompactThreshold;
+            settings =
+              typeof value === 'number' || value === false ? { autoCompactThreshold: value } : {};
+          },
+        },
+      }),
+      compactContext: async () => undefined,
+      listContextReferences: () => [...contextReferences],
+      addContextReference: async (path): Promise<IContextReferenceAddResult> => {
+        const reference = {
+          ...CONTEXT_REFERENCE,
+          relativePath: path,
+          sourcePath: `/workspace/${path}`,
+          originalReference: `@${path}`,
+        };
+        contextReferences = [...contextReferences, reference];
+        return { reference, evicted: [], diagnostics: [] };
+      },
+      removeContextReference: (path): IContextReferenceRemoveResult => {
+        const removed = contextReferences.find((reference) => reference.relativePath === path);
+        contextReferences = contextReferences.filter(
+          (reference) => reference.relativePath !== path,
+        );
+        return removed ? { removed } : {};
+      },
+      clearContextReferences: (): IContextReferenceClearResult => {
+        const removed = [...contextReferences];
+        contextReferences = [];
+        return { removed };
+      },
+      getCwd: () => '/workspace',
+      listCommands: () => [
+        { name: 'example', description: 'Example command', modelInvocable: true },
+      ],
+      listEditCheckpoints: () => [],
+      restoreEditCheckpoint: async () => createCheckpointResult(),
+      rollbackEditCheckpoint: async () => createCheckpointResult(),
+      getUsedMemoryReferences: () => [],
+      recordMemoryEvent: () => undefined,
+      listBackgroundTasks: () => [],
+      readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
+      cancelBackgroundTask: async () => undefined,
+      closeBackgroundTask: async () => undefined,
     },
-    removeContextReference: (path): IContextReferenceRemoveResult => {
-      const removed = contextReferences.find((reference) => reference.relativePath === path);
-      contextReferences = contextReferences.filter((reference) => reference.relativePath !== path);
-      return removed ? { removed } : {};
-    },
-    clearContextReferences: (): IContextReferenceClearResult => {
-      const removed = [...contextReferences];
-      contextReferences = [];
-      return { removed };
-    },
-    getCwd: () => '/workspace',
-    listCommands: () => [{ name: 'example', description: 'Example command', modelInvocable: true }],
-    listEditCheckpoints: () => [],
-    restoreEditCheckpoint: async () => createCheckpointResult(),
-    rollbackEditCheckpoint: async () => createCheckpointResult(),
-    getUsedMemoryReferences: () => [],
-    recordMemoryEvent: () => undefined,
-    listBackgroundTasks: () => [],
-    readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
-    cancelBackgroundTask: async () => undefined,
-    closeBackgroundTask: async () => undefined,
-  };
+  });
 }
 
 describe('command-api contracts', () => {

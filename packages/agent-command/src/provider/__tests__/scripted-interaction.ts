@@ -10,7 +10,7 @@ import type { ICommandHostContext } from '@robota-sdk/agent-framework';
  * returns `{ type: 'cancelled' }`, mirroring a user dismissing the prompt.
  */
 export function scriptedContext(answers: readonly TActionResponse[]): {
-  context: ICommandHostContext;
+  context: ReturnType<typeof createTestCommandHost>;
   requests: IActionRequest[];
 } {
   const requests: IActionRequest[] = [];

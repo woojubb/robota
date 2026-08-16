@@ -7,7 +7,12 @@ import type {
   IContextReferenceRemoveResult,
 } from '../../context/context-reference-inventory.js';
 import type { ICommandSettingsAdapter, ICommandSettingsDocument } from '../host-adapters.js';
-import type { ICommandHostContext } from '../host-context.js';
+import type {
+  ICommandHostAdapterAccess,
+  ICommandHostContextReferences,
+  ICommandHostContextWindow,
+  ICommandHostSessionAccess,
+} from '../host-context.js';
 import type { TAutoCompactThresholdSource } from '../host-context.js';
 import type { IContextWindowState } from '@robota-sdk/agent-core';
 export type {
@@ -30,25 +35,27 @@ export interface ICompactContextResult {
 }
 
 /** Read context-window state through the command host facade. */
-export function readCommandContextState(context: ICommandHostContext): IContextWindowState {
+export function readCommandContextState(context: ICommandHostContextWindow): IContextWindowState {
   return context.getContextState();
 }
 
 /** Read the effective automatic compact policy through the command host facade. */
-export function readAutoCompactThreshold(context: ICommandHostContext): TAutoCompactThreshold {
+export function readAutoCompactThreshold(
+  context: ICommandHostContextWindow,
+): TAutoCompactThreshold {
   return context.getAutoCompactThreshold();
 }
 
 /** Read the source of the effective automatic compact policy. */
 export function readAutoCompactThresholdSource(
-  context: ICommandHostContext,
+  context: ICommandHostContextWindow,
 ): TAutoCompactThresholdSource {
   return context.getAutoCompactThresholdSource?.() ?? 'session';
 }
 
 /** Update the active session's automatic compact policy through the command host facade. */
 export function setCommandAutoCompactThreshold(
-  context: ICommandHostContext,
+  context: ICommandHostContextWindow & ICommandHostSessionAccess,
   threshold: TAutoCompactThreshold,
   source: TAutoCompactThresholdSource,
 ): void {
@@ -66,7 +73,7 @@ export function setCommandAutoCompactThreshold(
 
 /** Persist an automatic compact policy value through the host settings adapter, when present. */
 export function writeAutoCompactThresholdSetting(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess,
   threshold: TAutoCompactThreshold,
 ): boolean {
   const settings = getSettingsAdapter(context);
@@ -80,7 +87,7 @@ export function writeAutoCompactThresholdSetting(
 }
 
 /** Remove the persisted automatic compact policy through the host settings adapter, when present. */
-export function resetAutoCompactThresholdSetting(context: ICommandHostContext): boolean {
+export function resetAutoCompactThresholdSetting(context: ICommandHostAdapterAccess): boolean {
   const settings = getSettingsAdapter(context);
   if (!settings) return false;
 
@@ -92,7 +99,7 @@ export function resetAutoCompactThresholdSetting(context: ICommandHostContext): 
 
 /** Run manual compaction through the command host facade and return before/after state. */
 export async function compactCommandContext(
-  context: ICommandHostContext,
+  context: ICommandHostContextWindow & ICommandHostSessionAccess,
   instructions?: string,
 ): Promise<ICompactContextResult> {
   const before = readCommandContextState(context);
@@ -105,14 +112,14 @@ export async function compactCommandContext(
 
 /** List context reference inventory entries through the command host facade. */
 export function listCommandContextReferences(
-  context: ICommandHostContext,
+  context: ICommandHostContextReferences,
 ): IContextReferenceItem[] {
   return context.listContextReferences?.() ?? [];
 }
 
 /** Add a manual context reference through the command host facade. */
 export async function addCommandContextReference(
-  context: ICommandHostContext,
+  context: ICommandHostContextReferences,
   path: string,
 ): Promise<IContextReferenceAddResult> {
   if (!context.addContextReference) {
@@ -126,7 +133,7 @@ export async function addCommandContextReference(
 
 /** Remove a context reference through the command host facade. */
 export function removeCommandContextReference(
-  context: ICommandHostContext,
+  context: ICommandHostContextReferences,
   path: string,
 ): IContextReferenceRemoveResult {
   return context.removeContextReference?.(path) ?? {};
@@ -134,13 +141,13 @@ export function removeCommandContextReference(
 
 /** Clear all context references through the command host facade. */
 export function clearCommandContextReferences(
-  context: ICommandHostContext,
+  context: ICommandHostContextReferences,
 ): IContextReferenceClearResult {
   return context.clearContextReferences?.() ?? { removed: [] };
 }
 
 function getSettingsAdapter(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess,
 ): ICommandSettingsAdapter<ICommandSettingsDocument> | undefined {
   return context.getCommandHostAdapters?.().settings;
 }

@@ -89,27 +89,79 @@ export interface IUnknownCommandModuleName {
   readonly kind: 'enabled' | 'disabled';
 }
 
-export interface ICommandSessionRuntime {
+/**
+ * ARCH-029 — the command axis decomposed into role ports.
+ *
+ * Each interface below is a CAPABILITY, and the three exported names commands used to reference are
+ * now empty `extends` aggregates over them. That is exactly the shape ARCH-012 landed one layer over
+ * (`IInteractiveSession` at `agent-interface-transport/src/session-contracts.ts`), and it is what
+ * lets a command declare only the role it uses: a role port is a SUPERTYPE of the aggregate, so a
+ * command narrowing its declared parameter still satisfies `ISystemCommand.execute` by
+ * contravariance — sound, not method bivariance.
+ *
+ * The aggregates stay because the dispatch contract needs one widest type. What must not stay is
+ * consumers naming them: `scan-aggregate-naming.mjs` freezes that count and drives it to zero,
+ * because the previous attempt on this contract (REFACTOR-006) closed green while the facade
+ * survived, and it then grew from 20 members / 50% optional to 46 / 70%.
+ */
+
+/**
+ * The role a command declares when it reads NOTHING from the host.
+ *
+ * Deliberately empty, and deliberately named. A command that needs no capability must still accept
+ * the dispatch parameter positionally when a later parameter is used, and naming the 46-member
+ * aggregate in order to ignore it is precisely the defect this decomposition removes — it takes the
+ * whole surface for nothing. Every role port is a supertype of the aggregate; this is the widest
+ * such supertype, so any host satisfies it.
+ *
+ * `unknown` would also type-check here and is NOT used: `code-quality.md` allows it only at trust
+ * and `catch` boundaries, and an unused command parameter is neither.
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- the emptiness IS the contract: this role demands nothing.
+export interface ICommandHostNoCapability {}
+
+/** Reading and clearing the conversation the session holds. */
+export interface ICommandSessionHistory {
   clearHistory(): void;
-  compact(instructions?: string): Promise<void>;
-  getContextState(): IContextWindowState;
-  getPermissionMode(): TPermissionMode;
-  setPermissionMode(mode: TPermissionMode): void;
-  getSessionId(): string;
   getMessageCount(): number;
-  getSessionAllowedTools(): readonly string[];
-  getAutoCompactThreshold(): number | false;
   getFullHistory(): IHistoryEntry[];
   getHistory(): TUniversalMessage[];
+}
+
+/** The session's context window and its compaction policy. */
+export interface ICommandSessionContextWindow {
+  compact(instructions?: string): Promise<void>;
+  getContextState(): IContextWindowState;
+  getAutoCompactThreshold(): number | false;
   setAutoCompactThreshold?(threshold: TAutoCompactThreshold): void;
+}
+
+/** What the session is currently permitted to do. */
+export interface ICommandSessionPermissions {
+  getPermissionMode(): TPermissionMode;
+  setPermissionMode(mode: TPermissionMode): void;
+  getSessionAllowedTools(): readonly string[];
+}
+
+/** Who this session is, and what it has spent. */
+export interface ICommandSessionIdentity {
+  getSessionId(): string;
   getSessionTokenUsage?(): { inputTokens: number; outputTokens: number } | undefined;
   getModelId?(): string | undefined;
+}
+
+/** Live model reconfiguration. */
+export interface ICommandSessionModel {
   /**
    * Re-apply model/effort/temperature/maxOutputTokens to the live session (PRESET-013).
    * May be async: the runtime ensures the agent is fully initialized before mutating its model
    * configuration, so callers must await the result.
    */
   applyModelOptions?(options: IModelReapplyOptions): void | Promise<void>;
+}
+
+/** Live preset state carried by the session. */
+export interface ICommandSessionPreset {
   /** Read the active preset id (PRESET-011 runtime state). */
   getActivePresetId?(): string;
   /** Set the active preset id (PRESET-011 runtime state — pure state, no option re-application). */
@@ -118,16 +170,36 @@ export interface ICommandSessionRuntime {
   setParallelSubagentsEnabled?(enabled: boolean): void;
 }
 
+/** Aggregate: all 18 members remain source-compatible. Declare a role port instead of this. */
+export interface ICommandSessionRuntime
+  extends
+    ICommandSessionHistory,
+    ICommandSessionContextWindow,
+    ICommandSessionPermissions,
+    ICommandSessionIdentity,
+    ICommandSessionModel,
+    ICommandSessionPreset {}
+
 export interface ICommandSessionReplayValidationReport {
   logFile: string;
   entryCount: number;
   validation: ISessionReplayValidationResult;
 }
 
-export interface ICommandHostContext {
+/** Reaching the live session, and the whole-conversation operations that sit beside it. */
+export interface ICommandHostSessionAccess {
+  getSession(): ICommandSessionRuntime;
   clearConversationHistory?(): void;
   validateCurrentSessionReplayLog?(): ICommandSessionReplayValidationReport;
+}
+
+/** Reaching the agent-job capability, when the host has one. */
+export interface ICommandHostAgentJobs {
   getAgentJobCapability?(): IAgentJobHostContext | undefined;
+}
+
+/** Asking the user a question. */
+export interface ICommandHostUserInteraction {
   /**
    * CMD-004: the injected "ask the user" port, or undefined when no interactive renderer is attached.
    * A command solicits a structured answer via `getUserInteraction()?.ask(request)`; absence means no
@@ -135,7 +207,10 @@ export interface ICommandHostContext {
    * as a cancellation, never a silent guess.
    */
   getUserInteraction?(): IUserInteraction | undefined;
-  getSession(): ICommandSessionRuntime;
+}
+
+/** Re-applying preset-owned configuration to the live session. */
+export interface ICommandHostPresetApplication {
   /** PRESET-014 — re-apply a preset persona to the live system prompt. */
   applyPersona?(persona: string): void;
   /** PRESET-017 — toggle the verify-before-done self-verification section on the live prompt. */
@@ -149,6 +224,10 @@ export interface ICommandHostContext {
     enabled: readonly string[] | undefined,
     disabled: readonly string[] | undefined,
   ): readonly IUnknownCommandModuleName[];
+}
+
+/** The host's view of the context window and its compaction. */
+export interface ICommandHostContextWindow {
   getContextState(): IContextWindowState;
   getAutoCompactThreshold(): TAutoCompactThreshold;
   getAutoCompactThresholdSource?(): TAutoCompactThresholdSource;
@@ -156,14 +235,25 @@ export interface ICommandHostContext {
     threshold: TAutoCompactThreshold,
     source?: TAutoCompactThresholdSource,
   ): void;
-  getCommandHostAdapters?(): ICommandHostAdapters;
   compactContext(instructions?: string): Promise<void>;
+}
+
+/** The files pinned into context by reference. */
+export interface ICommandHostContextReferences {
   listContextReferences?(): IContextReferenceItem[];
   addContextReference?(path: string): Promise<IContextReferenceAddResult>;
   removeContextReference?(path: string): IContextReferenceRemoveResult;
   clearContextReferences?(): IContextReferenceClearResult;
+}
+
+/** Where the command is running, and how it was invoked. */
+export interface ICommandHostWorkspace {
   getCwd(): string;
   getCommandInvocationSource?(): TCommandInvocationSource;
+}
+
+/** What commands and skills this host can dispatch. */
+export interface ICommandHostCatalog {
   listCommands?(): ICommandListEntry[];
   listSkills?(): ICommandSkillListEntry[];
   executeSkillCommandByName?(
@@ -171,6 +261,10 @@ export interface ICommandHostContext {
     args: string,
     request: ICommandSkillActivationRequest,
   ): Promise<ICommandResult | null>;
+}
+
+/** The edit-checkpoint tree: inspection, restore, and branching. */
+export interface ICommandHostCheckpoints {
   listEditCheckpoints(): IEditCheckpointSummary[];
   inspectEditCheckpoint?(checkpointId: string): IEditCheckpointInspection;
   restoreEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
@@ -181,6 +275,10 @@ export interface ICommandHostContext {
   forkCheckpointBranch?(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
   /** SELFHOST-007: switch the active branch to an existing checkpoint/branch tip. Optional. */
   switchCheckpointBranch?(checkpointId: string): void;
+}
+
+/** Durable memory: what was used, what happened, and the store behind it. */
+export interface ICommandHostMemory {
   getUsedMemoryReferences(): IMemoryReference[];
   recordMemoryEvent(event: IMemoryEvent): void;
   /**
@@ -190,6 +288,10 @@ export interface ICommandHostContext {
    * behavior unchanged). Must return the SAME instance the session injected (SSOT for a stateful store).
    */
   getMemoryStore?(): IMemoryStore;
+}
+
+/** Observing and ending background tasks. */
+export interface ICommandHostBackgroundTasks {
   listBackgroundTasks(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[];
   readBackgroundTaskLog(
     taskId: string,
@@ -197,12 +299,20 @@ export interface ICommandHostContext {
   ): Promise<IBackgroundTaskLogPage>;
   cancelBackgroundTask(taskId: string, reason?: string): Promise<void>;
   closeBackgroundTask(taskId: string): Promise<void>;
+}
+
+/** The autonomous-goal lifecycle. */
+export interface ICommandHostGoal {
   /** GOAL-001 — assign and begin pursuing an autonomous goal. */
   setGoal?(objective: string, options?: IGoalStartOptions): Promise<IGoalState>;
   /** GOAL-001 — the current goal state, or null when no goal has been set. */
   getGoalState?(): IGoalState | null;
   /** GOAL-001 — cancel an in-flight goal; returns the stopped state or null. */
   cancelGoal?(): IGoalState | null;
+}
+
+/** The plan lifecycle, including the mode flip approval performs. */
+export interface ICommandHostPlan {
   /** SELFHOST-002 — start a plan (draft for review; keeps `plan` mode). */
   setPlan?(objective: string, steps?: readonly string[]): Promise<IPlanArtifact>;
   /** SELFHOST-002 — the current plan artifact, or null when none started. */
@@ -211,6 +321,10 @@ export interface ICommandHostContext {
   approvePlan?(): IPlanArtifact;
   /** SELFHOST-002 — revert the plan to drafting; returns mode to `plan`. */
   revertPlan?(): IPlanArtifact;
+}
+
+/** Handing the real terminal to a child process. */
+export interface ICommandHostTerminalHandoff {
   /**
    * TERM-001 — whether the active transport can hand the real terminal to a child process. `false`
    * (or `runWithTerminal` absent) when there is no interactive TTY (e.g. headless).
@@ -225,7 +339,32 @@ export interface ICommandHostContext {
   runWithTerminal?<T>(fn: () => Promise<T>): Promise<T>;
 }
 
-export interface IAgentJobHostContext {
+/** The injected adapter bag — genuinely variational, and the named zero-optional carve-out. */
+export interface ICommandHostAdapterAccess {
+  getCommandHostAdapters?(): ICommandHostAdapters;
+}
+
+/** Aggregate: all 46 members remain source-compatible. Declare a role port instead of this. */
+export interface ICommandHostContext
+  extends
+    ICommandHostSessionAccess,
+    ICommandHostAgentJobs,
+    ICommandHostUserInteraction,
+    ICommandHostPresetApplication,
+    ICommandHostContextWindow,
+    ICommandHostContextReferences,
+    ICommandHostWorkspace,
+    ICommandHostCatalog,
+    ICommandHostCheckpoints,
+    ICommandHostMemory,
+    ICommandHostBackgroundTasks,
+    ICommandHostGoal,
+    ICommandHostPlan,
+    ICommandHostTerminalHandoff,
+    ICommandHostAdapterAccess {}
+
+/** Starting, steering and ending subagent jobs. */
+export interface IAgentJobDispatch {
   listAgentDefinitions(): Array<{ name: string; description: string }>;
   listAgentJobs(): ISubagentJobState[];
   spawnAgentJob(input: {
@@ -239,10 +378,18 @@ export interface IAgentJobHostContext {
   sendAgentJob(taskId: string, prompt: string): Promise<void>;
   cancelAgentJob(taskId: string, reason?: string): Promise<void>;
   closeAgentJob(taskId: string): Promise<void>;
+}
+
+/** Fanning jobs out as a group and waiting on it. */
+export interface IAgentJobGroups {
   createBackgroundJobGroup(
     input: Omit<IBackgroundJobGroupCreateRequest, 'parentSessionId'>,
   ): IBackgroundJobGroupState;
   waitBackgroundJobGroup(groupId: string): Promise<IBackgroundJobGroupState>;
+}
+
+/** Cron-driven wakes and their lifecycle. */
+export interface IAgentJobSchedules {
   /**
    * FLOW-005: schedule a recurring/one-shot agent wake. On each cron fire the agent loop
    * re-enters with `agentInstruction` (FLOW-001/002). `cronExpression` may be a standard cron
@@ -261,6 +408,10 @@ export interface IAgentJobHostContext {
   resumeSchedule(taskId: string): Promise<void>;
   /** SELFHOST-012: edit a scheduled task's cron / instruction in place (same task id). */
   editSchedule(taskId: string, patch: IScheduleEditPatch): Promise<void>;
+}
+
+/** Output-driven wakes. */
+export interface IAgentJobMonitors {
   /**
    * FLOW-005: monitor a process's output and wake the agent with `agentInstruction` when a
    * line matches `matchPattern` (FLOW-004).
@@ -271,8 +422,21 @@ export interface IAgentJobHostContext {
     matchPattern: string;
     agentInstruction: string;
   }): Promise<IBackgroundTaskState>;
+}
+
+/** Reading a job's output. */
+export interface IAgentJobLogs {
   readBackgroundTaskLog(
     taskId: string,
     cursor?: IBackgroundTaskLogCursor,
   ): Promise<IBackgroundTaskLogPage>;
 }
+
+/** Aggregate: all 15 members remain source-compatible. Declare a role port instead of this. */
+export interface IAgentJobHostContext
+  extends
+    IAgentJobDispatch,
+    IAgentJobGroups,
+    IAgentJobSchedules,
+    IAgentJobMonitors,
+    IAgentJobLogs {}

@@ -1,6 +1,9 @@
 import { compactCommandContext } from '@robota-sdk/agent-framework';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type {
+  ICommandHostContextWindow,
+  ICommandHostSessionAccess,
+} from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 function parseInstructions(args: string): string | undefined {
@@ -9,7 +12,7 @@ function parseInstructions(args: string): string | undefined {
 }
 
 export async function executeCompactCommand(
-  context: ICommandHostContext,
+  context: ICommandHostContextWindow & ICommandHostSessionAccess,
   args: string,
 ): Promise<ICommandResult> {
   const result = await compactCommandContext(context, parseInstructions(args));

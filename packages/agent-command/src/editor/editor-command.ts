@@ -9,14 +9,17 @@ import { join } from 'node:path';
 import { resolveEditor } from './resolve-editor.js';
 import { spawnInherited } from '../shell/spawn-inherited.js';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type {
+  ICommandHostTerminalHandoff,
+  ICommandHostWorkspace,
+} from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 export const EDITOR_COMMAND_DESCRIPTION =
   'Compose a message in $EDITOR (optionally pre-filled with `/editor <text>`), then return it.';
 
 export async function executeEditorCommand(
-  context: ICommandHostContext,
+  context: ICommandHostTerminalHandoff & ICommandHostWorkspace,
   args: string,
 ): Promise<ICommandResult> {
   if (context.canHandoffTerminal?.() !== true || context.runWithTerminal === undefined) {

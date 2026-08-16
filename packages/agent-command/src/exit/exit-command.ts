@@ -1,11 +1,11 @@
 import { confirmAction, isConfirmed } from '@robota-sdk/agent-core';
 import { createSessionExitHostAction } from '@robota-sdk/agent-framework';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type { ICommandHostUserInteraction } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 export async function executeExitCommand(
-  context: ICommandHostContext,
+  context: ICommandHostUserInteraction,
   _args: string,
 ): Promise<ICommandResult> {
   // Confirm only when an interactive renderer is attached. With no human (headless/automation) the

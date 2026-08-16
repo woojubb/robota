@@ -1,4 +1,4 @@
-import type { ICommandHostContext, TRemoteControlStatus } from '@robota-sdk/agent-framework';
+import type { ICommandHostAdapterAccess, TRemoteControlStatus } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 /**
@@ -40,7 +40,7 @@ function formatStatus(status: TRemoteControlStatus | undefined): ICommandResult 
 }
 
 export function executeRemoteControlCommand(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess,
   args: string,
 ): ICommandResult {
   const trimmed = args.trim();
