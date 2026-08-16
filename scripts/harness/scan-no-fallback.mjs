@@ -38,7 +38,7 @@
  * Exit 0 = clean, 1 = findings.
  */
 
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { listSourceFiles } from './workspace-packages.mjs';
@@ -53,6 +53,71 @@ const DEFAULT_LITERAL_RETURN =
 const ANNOTATION_WITH_REASON = /allow-fallback:\s*\S/;
 
 const SCAN_DIRS = ['packages'];
+
+/**
+ * CORE-029 — the swallow kinds arrive with a BURN-DOWN baseline, not as a wall.
+ *
+ * `silent-catch` and `discarded-rejection` were never scanned for, and the tree already contains 49
+ * of them. Failing on all of them at once would block every unrelated pull request until someone
+ * fixed 49 unrelated files, which is how a floor teaches people to route around it. So the existing
+ * set is frozen: a NEW one fails, and the frozen set may shrink but never grow — the same ratchet
+ * `scan-file-size` uses, for the same reason.
+ *
+ * `unannotated-fallback` and `reasonless-annotation` are unaffected and still fail outright.
+ */
+const BASELINED_KINDS = new Set(['silent-catch', 'discarded-rejection']);
+const BASELINE_PATH = path.join(import.meta.dirname, 'no-fallback-swallow-baseline.json');
+
+/** A baselined finding's identity: the file it is in, not its line — comments move, defects do not. */
+function baselineKey(finding) {
+  return `${finding.file}::${finding.kind}`;
+}
+
+function readBaseline() {
+  if (!existsSync(BASELINE_PATH)) return {};
+  return JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
+}
+
+/**
+ * Split findings into what must fail now and what the ratchet has to say.
+ *
+ * Counted per file rather than per line so that editing a file above a frozen swallow does not
+ * report it as new — the thing being frozen is "this file still has N of these", and the only
+ * accepted direction is down.
+ */
+export function applySwallowBaseline(findings, baseline) {
+  const counts = new Map();
+  for (const finding of findings) {
+    if (!BASELINED_KINDS.has(finding.kind)) continue;
+    const key = baselineKey(finding);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  const failures = findings.filter((f) => !BASELINED_KINDS.has(f.kind));
+  const ratchet = [];
+
+  for (const [key, count] of counts) {
+    const frozen = baseline[key] ?? 0;
+    if (count > frozen) {
+      const [file, kind] = key.split('::');
+      failures.push({
+        file,
+        line: 0,
+        kind,
+        text:
+          frozen === 0
+            ? `a new ${kind} appeared here — surface the error, or declare it with an adjacent \`allow-fallback: <reason>\``
+            : `${kind} count grew from ${frozen} to ${count} in this file — frozen debt may shrink, never grow`,
+      });
+    }
+  }
+  for (const [key, frozen] of Object.entries(baseline)) {
+    const count = counts.get(key) ?? 0;
+    if (count < frozen) ratchet.push({ key, frozen, count });
+  }
+
+  return { failures, ratchet, counts };
+}
 
 /**
  * Collect every non-test, non-dist `.ts`/`.tsx` file under a package tree.
@@ -132,7 +197,8 @@ function annotationInComment(line) {
  * Pure content check: return the no-fallback findings in a source string. Exposed so the harness
  * test can assert the flag/suppress/anti-rot behavior directly, without touching disk.
  *
- * Each finding: `{ file, line, kind: 'unannotated-fallback' | 'reasonless-annotation', text }`.
+ * Each finding: `{ file, line, kind, text }`, where kind is one of `unannotated-fallback`,
+ * `silent-catch`, `discarded-rejection` or `reasonless-annotation`.
  */
 export function findNoFallbackFindingsInSource(source, file = 'fixture.ts') {
   const findings = [];
@@ -165,6 +231,51 @@ export function findNoFallbackFindingsInSource(source, file = 'fixture.ts') {
       line,
       kind: 'unannotated-fallback',
       text: `catch { ${stmts[0]} }`,
+    });
+  }
+
+  // (1b) CORE-029 — the SWALLOW shapes, which v1 excluded and which are the ones the diagnostics
+  // audit actually found: a `catch` block whose body says nothing at all, and a promise handler that
+  // discards its rejection (`.catch(() => undefined)` and friends). Neither returns a default, so
+  // rule (1) never saw them; both make a failed path indistinguishable from a working one, which is
+  // exactly what "Silence is not success" forbids.
+  //
+  // Same escape hatch as (1): an adjacent `allow-fallback: <reason>` declares the degradation.
+  const emptyCatchRe = /(?<![.\w])catch\s*(\([^)]*\))?\s*\{/g;
+  let emptyMatch;
+  while ((emptyMatch = emptyCatchRe.exec(source)) !== null) {
+    const braceIndex = emptyMatch.index + emptyMatch[0].length - 1;
+    const body = extractBlockBody(source, braceIndex);
+    const stmts = body
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => !isCommentOrEmpty(s));
+    if (stmts.length > 0) continue; // it does something — rule (1) judges what
+    const line = source.slice(0, emptyMatch.index).split('\n').length;
+    const closingLine = source.slice(0, braceIndex + body.length + 2).split('\n').length;
+    const window = lines.slice(Math.max(0, line - 2), closingLine).join('\n');
+    if (ANNOTATION_WITH_REASON.test(window)) continue;
+    findings.push({
+      file,
+      line,
+      kind: 'silent-catch',
+      text: 'catch { } — the error is discarded with no record and no reason given',
+    });
+  }
+
+  // `.catch(() => undefined)` / `.catch(() => null)` / `.catch(() => {})` — a rejection thrown away.
+  const discardedRejectionRe =
+    /\.catch\(\s*\(\s*(?:_[\w$]*)?\s*\)\s*=>\s*(?:undefined|null|\{\s*\})\s*\)/g;
+  let discardMatch;
+  while ((discardMatch = discardedRejectionRe.exec(source)) !== null) {
+    const line = source.slice(0, discardMatch.index).split('\n').length;
+    const window = lines.slice(Math.max(0, line - 2), line + 1).join('\n');
+    if (ANNOTATION_WITH_REASON.test(window)) continue;
+    findings.push({
+      file,
+      line,
+      kind: 'discarded-rejection',
+      text: `${discardMatch[0]} — the rejection is thrown away with no record and no reason given`,
     });
   }
 
@@ -209,12 +320,40 @@ export function findNoFallbackFindings(root = WORKSPACE_ROOT) {
 
 function main() {
   const findings = findNoFallbackFindings();
-  if (findings.length === 0) {
-    console.log('no-fallback scan passed.');
+
+  if (process.argv.includes('--write-baseline')) {
+    const { counts } = applySwallowBaseline(findings, {});
+    const next = Object.fromEntries([...counts.entries()].sort(([a], [b]) => a.localeCompare(b)));
+    writeFileSync(BASELINE_PATH, `${JSON.stringify(next, null, 2)}\n`);
+    console.log(
+      `no-fallback swallow baseline regenerated: ${Object.keys(next).length} file/kind pair(s).`,
+    );
     process.exit(0);
   }
+
+  const { failures, ratchet } = applySwallowBaseline(findings, readBaseline());
+
+  if (failures.length === 0) {
+    const frozen = Object.keys(readBaseline()).length;
+    if (ratchet.length > 0) {
+      console.error(
+        'no-fallback scan FAILED — a frozen swallow was removed but the baseline still allows it:',
+      );
+      for (const entry of ratchet) {
+        console.error(`  [ratchet-tighten] ${entry.key}: ${entry.frozen} → ${entry.count}`);
+      }
+      console.error(
+        '\nRun `node scripts/harness/scan-no-fallback.mjs --write-baseline` in the SAME change so ' +
+          'the ratchet keeps the gain — an unlocked gain is a licence to grow back.',
+      );
+      process.exit(1);
+    }
+    console.log(`no-fallback scan passed (${frozen} baselined swallow burn-down entr(y/ies)).`);
+    process.exit(0);
+  }
+
   console.error('no-fallback scan FAILED — undeclared silent fallback / reason-less annotation:');
-  for (const f of findings) {
+  for (const f of failures) {
     console.error(`  [${f.kind}] ${f.file}:${f.line}  ${f.text}`);
   }
   console.error(
@@ -222,6 +361,8 @@ function main() {
       '  - unannotated-fallback: remove the silent catch→default, surface the error, OR — if this\n' +
       '    degradation is genuinely sanctioned — annotate the return with `// allow-fallback: <reason>`.\n' +
       '  - reasonless-annotation: every `allow-fallback` MUST carry a `: <reason>`.\n' +
+      '  - silent-catch / discarded-rejection: a swallowed error must not be indistinguishable from\n' +
+      '    a working path. Report it, or declare the degradation with `// allow-fallback: <reason>`.\n' +
       "  Intentional fallbacks are also declared in the spec's `## Fallback & Degradation Declaration`.",
   );
   process.exit(1);

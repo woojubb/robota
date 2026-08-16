@@ -1,3 +1,4 @@
+import { setGlobalLoggerSink, type ILogger } from '@robota-sdk/agent-core';
 import { writeFileSync, mkdirSync, rmSync, existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -348,13 +349,41 @@ Just content, no frontmatter.
     expect(plugins[0].skills[0].skillContent).toContain('# Simple Skill');
   });
 
-  it('should throw when a plugin.json contains invalid JSON', async () => {
-    const badDir = join(pluginsDir, 'cache', 'market', 'bad-plugin', '1.0.0', '.claude-plugin');
-    setupDir(badDir);
-    writeFile(join(badDir, 'plugin.json'), '{ invalid json }');
+  it('skips a plugin whose plugin.json is invalid JSON, and still loads its neighbours', async () => {
+    // CORE-029: this case used to assert `rejects.toThrow()` — the defect written down as a
+    // contract. The throw escaped discovery, and the only caller answered it with a bare
+    // `catch {}`, so ONE malformed manifest silently disabled EVERY installed plugin and the user's
+    // hooks simply did not run. A broken plugin is now skipped, by name, out loud.
+    const warnings: string[] = [];
+    const sink: ILogger = {
+      debug: () => undefined,
+      info: () => undefined,
+      warn: (message, context) => warnings.push(`${String(message)} ${JSON.stringify(context)}`),
+      error: () => undefined,
+      log: () => undefined,
+    };
+    setGlobalLoggerSink(sink);
+    try {
+      const badDir = join(pluginsDir, 'cache', 'market', 'bad-plugin', '1.0.0', '.claude-plugin');
+      setupDir(badDir);
+      writeFile(join(badDir, 'plugin.json'), '{ invalid json }');
 
-    const loader = new BundlePluginLoader(pluginsDir);
-    await expect(loader.loadAll()).rejects.toThrow();
+      createPluginInCache(pluginsDir, 'market', 'good-plugin', '1.0.0', {
+        name: 'good-plugin',
+        version: '1.0.0',
+        description: 'A neighbour that must survive its broken sibling',
+        features: {},
+      });
+
+      const loader = new BundlePluginLoader(pluginsDir);
+      const plugins = await loader.loadAll();
+
+      expect(plugins.map((p) => p.manifest.name)).toEqual(['good-plugin']);
+      expect(warnings.join(' ')).toMatch(/manifest could not be read/);
+      expect(warnings.join(' ')).toMatch(/bad-plugin/);
+    } finally {
+      setGlobalLoggerSink(undefined);
+    }
   });
 
   it('should load MCP config from .mcp.json at plugin root (primary location)', async () => {

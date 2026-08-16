@@ -27,7 +27,7 @@ import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ModuleRegistry } from '../managers/module-registry';
 import { Tools } from '../managers/tool-manager';
 import { normalizeStructuredOutput } from '../schema/structured-output';
-import { createLogger, setGlobalLogLevel, type ILogger } from '../utils/logger';
+import { createLogger, type ILogger } from '../utils/logger';
 
 import type { RobotaConfigManager } from './robota-config-manager';
 import type { IModelConfig, IConfigurationSnapshot } from './robota-types';
@@ -88,13 +88,13 @@ export class Robota
     this.conversationId =
       config.conversationId ||
       `conv_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
-    this.logger = createLogger('Robota');
+    // CORE-029: `config.logging` is PER-AGENT and used to be applied with `setGlobalLogLevel`,
+    // which is process-wide — so one agent built with `{ enabled: false }` silenced every other
+    // agent, and every other package, from a constructor. The level belongs to this agent's logger.
+    const logLevel =
+      config.logging?.enabled === false ? ('silent' as const) : config.logging?.level;
+    this.logger = createLogger('Robota', logLevel ? { level: logLevel } : {});
     this.startTime = Date.now();
-
-    if (config.logging) {
-      if (config.logging.level) setGlobalLogLevel(config.logging.level);
-      if (config.logging.enabled === false) setGlobalLogLevel('silent');
-    }
 
     validateAgentConfig(config);
 

@@ -1,4 +1,5 @@
 import {
+  createLogger,
   runHooks,
   type IHookInput,
   type IHookTypeExecutor,
@@ -13,6 +14,8 @@ import type {
   ISubagentRunner,
 } from './types.js';
 import type { TBackgroundPrimitive } from '../background-tasks/index.js';
+
+const logger = createLogger('WorktreeSubagentRunner');
 
 const SHORT_REVISION_LENGTH = 12;
 
@@ -246,5 +249,16 @@ function fireWorktreeHook(
       removed,
     },
   };
-  void runHooks(options.hooks, event, input, options.hookTypeExecutors).catch(() => undefined);
+  // CORE-029: `.catch(() => undefined)` made a failing worktree hook indistinguishable from one
+  // that ran. Fire-and-forget is deliberate — these are notifications, not vetoes
+  // (packages/agent-cli/docs/design/subagent-wiring.md) — so the result stays unawaited, but the
+  // failure is now sayable. Same shape as the session hooks in agent-session.
+  void runHooks(options.hooks, event, input, options.hookTypeExecutors).catch((error: unknown) => {
+    logger.warn('worktree hook failed', {
+      event,
+      taskId: job.taskId,
+      worktreePath: worktree.worktreePath,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
 }
