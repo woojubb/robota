@@ -57,22 +57,52 @@ export function examinedFileCount() {
  * guarded file also declares DATA shapes (`IModelReapplyOptions` is a patch; every field is
  * legitimately absent), and a rule about capability contracts does not apply to an options bag.
  */
-export function rolePortsOf(content, fileName, aggregates) {
+export function heritageOf(content, fileName) {
   const sourceFile = ts.createSourceFile(fileName, content);
-  const ports = new Set();
+  const edges = new Map();
   const visit = (node) => {
-    if (ts.isInterfaceDeclaration(node) && aggregates.includes(node.name.text)) {
+    if (ts.isInterfaceDeclaration(node)) {
+      const parents = [];
       for (const clause of node.heritageClauses ?? []) {
         for (const type of clause.types ?? []) {
           const name = type.expression?.text ?? type.expression?.escapedText;
-          if (name) ports.add(name);
+          if (name) parents.push(name);
         }
       }
+      edges.set(node.name.text, parents);
     }
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
-  return ports;
+  return edges;
+}
+
+/**
+ * Every interface in the aggregates' inheritance closure — the aggregates INCLUDED.
+ *
+ * Seeded with the aggregates and closed transitively, because the first two versions of this scan
+ * both scoped it one hop and both were walked past. Review demonstrated each:
+ *
+ *   A. an optional member written into the AGGREGATE'S OWN BODY. Scoping to the `extends` names
+ *      exempts the very interface the floor protects — and that is not an exotic route, it is the
+ *      one the design's trajectory table measures: this contract went 20 members to 46 by having
+ *      members added to its body.
+ *   B. an optional member one hop BELOW a listed port (`IPort extends IPortExtra`), in a file the
+ *      scan already reads.
+ *
+ * A closure closes both, and any deeper nesting, without a list to keep current.
+ */
+export function rolePortsOf(content, fileName, aggregates) {
+  const edges = heritageOf(content, fileName);
+  const scope = new Set();
+  const queue = [...aggregates];
+  while (queue.length > 0) {
+    const name = queue.pop();
+    if (scope.has(name)) continue;
+    scope.add(name);
+    for (const parent of edges.get(name) ?? []) queue.push(parent);
+  }
+  return scope;
 }
 
 /**
@@ -94,10 +124,12 @@ export function findOptionalMembers(content, fileName, only) {
       // was measured, not assumed: reintroducing an optional member left the scan green.
       // `postfixToken` also draws the line this rule needs — `e(x?: number)` has an optional
       // PARAMETER and no postfix, so a required member with an optional argument is not flagged.
+      const named = (member) => member.name?.text ?? member.name?.escapedText ?? '<unnamed>';
+      const members = (node.members ?? []).map(named);
       const optional = (node.members ?? [])
         .filter((member) => member.postfixToken?.kind === ts.SyntaxKind.QuestionToken)
-        .map((member) => member.name?.text ?? member.name?.escapedText ?? '<unnamed>');
-      byInterface.set(node.name.text, optional);
+        .map(named);
+      byInterface.set(node.name.text, { members, optional });
     }
     ts.forEachChild(node, visit);
   };
@@ -130,15 +162,27 @@ export function findRolePortOptionalFindings(root = process.cwd(), settingsOverr
   // demonstrated the second: a new role file with an optional member, added to the aggregate's
   // `extends`, printed "0 optional member(s)" while that member was reachable through the aggregate.
   examinedFiles = 0;
-  const ports = new Set();
   const declared = new Map();
+  const edges = new Map();
   for (const file of files) {
     const content = readFileSync(join(root, file), 'utf8');
     examinedFiles += 1;
-    for (const port of rolePortsOf(content, file, aggregates)) ports.add(port);
-    for (const [name, optional] of findOptionalMembers(content, file)) {
-      declared.set(name, { file, optional });
+    // Heritage edges are merged across the WHOLE file set before the closure is taken: the
+    // aggregates live in one file and inherit ports declared in others, so a per-file closure stops
+    // at the first file boundary and silently narrows the scope it is meant to widen.
+    for (const [name, parents] of heritageOf(content, file)) edges.set(name, parents);
+    for (const [name, entry] of findOptionalMembers(content, file)) {
+      declared.set(name, { file, ...entry });
     }
+  }
+
+  const ports = new Set();
+  const queue = [...aggregates];
+  while (queue.length > 0) {
+    const name = queue.pop();
+    if (ports.has(name)) continue;
+    ports.add(name);
+    for (const parent of edges.get(name) ?? []) queue.push(parent);
   }
 
   const findings = [];
@@ -150,6 +194,24 @@ export function findRolePortOptionalFindings(root = process.cwd(), settingsOverr
       detail: `no role ports resolved from ${JSON.stringify(aggregates)} across ${files.length} file(s) — the aggregates were renamed or moved, so this floor examined nothing.`,
     });
     return { findings, examined: examinedFiles, carveOuts: carveOuts.size };
+  }
+
+  // TC-04's "each aggregate is an empty `extends`" was mechanised NOWHERE — review found no check
+  // for it anywhere in the harness. An optional member added to an aggregate body is now caught by
+  // the closure above, but a REQUIRED one is not, and that is the exact motion the design's
+  // trajectory table records: this contract reached 46 members by accreting them into its body.
+  for (const aggregate of aggregates) {
+    const decl = declared.get(aggregate);
+    if (decl && decl.members.length > 0) {
+      findings.push({
+        rule: 'aggregate-has-own-members',
+        detail:
+          `${decl.file}: ${aggregate} declares ${decl.members.length} member(s) of its own ` +
+          `(${decl.members.join(', ')}). An aggregate is an empty \`extends\` over role ports — a ` +
+          `member added to its body belongs to no capability and is how this contract grew from 20 ` +
+          `members to 46.`,
+      });
+    }
   }
 
   for (const port of ports) {

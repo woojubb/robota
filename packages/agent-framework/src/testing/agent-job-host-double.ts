@@ -65,9 +65,9 @@ const EMPTY_BACKGROUND_TASK: IBackgroundTaskState = {
   unread: false,
 };
 
-export function createTestAgentJobHost(
-  overrides?: Partial<IAgentJobHostContext>,
-): IAgentJobHostContext {
+export function createTestAgentJobHost(overrides?: {
+  [K in keyof IAgentJobHostContext]?: NonNullable<IAgentJobHostContext[K]>;
+}): IAgentJobHostContext {
   const base: IAgentJobHostContext = {
     listAgentDefinitions: () => [],
     listAgentJobs: () => [],

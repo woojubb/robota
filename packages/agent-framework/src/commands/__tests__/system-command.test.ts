@@ -14,7 +14,21 @@ import {
 import type { IAgentJobHostContext } from '../../command-api/host-context.js';
 import { createTestAgentJobHost } from '../../testing/agent-job-host-double.js';
 
-function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspace') {
+/**
+ * ARCH-029: session-runtime overrides and host overrides are SEPARATE parameters.
+ *
+ * One `Record<string, unknown>` used to be spread into both. Excess-property checking does not
+ * apply to a spread, so a host member landed silently on the session runtime too — and the only
+ * caller passes `listCommands`, which is a host member, so the runtime was carrying a surplus
+ * property the whole time. Surplus is what the deleted cast hid; a shared bag reintroduces it.
+ */
+function createMockSession(
+  overrides?: {
+    readonly session?: Record<string, unknown>;
+    readonly host?: Record<string, unknown>;
+  },
+  cwd = '/workspace',
+) {
   const spies = {
     listBackgroundTasks: vi.fn().mockReturnValue([]),
     cancelBackgroundTask: vi.fn(),
@@ -68,7 +82,7 @@ function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspac
     }),
     getAutoCompactThreshold: vi.fn().mockReturnValue(0.835),
     compact: vi.fn(),
-    ...overrides,
+    ...overrides?.session,
   });
 
   // ARCH-029: overrides over a conformant host. The literal this replaced also carried
@@ -89,7 +103,7 @@ function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspac
       // the cast let the fixture hang them directly off `ICommandHostContext`, so it had the contract
       // STRUCTURE wrong and nothing could tell.
       getAgentJobCapability: () => createTestAgentJobHost(spies),
-      ...overrides,
+      ...overrides?.host,
       getCwd: () => cwd,
     },
   });
@@ -138,14 +152,16 @@ describe('SystemCommandExecutor', () => {
 
   it('formats a composed command list through the SDK common API', () => {
     const session = createMockSession({
-      listCommands: vi.fn().mockReturnValue([
-        { name: 'help', displayName: 'Help', description: 'Show available commands' },
-        {
-          name: 'provider',
-          displayName: 'Provider Setup',
-          description: 'Manage provider profiles',
-        },
-      ]),
+      host: {
+        listCommands: vi.fn().mockReturnValue([
+          { name: 'help', displayName: 'Help', description: 'Show available commands' },
+          {
+            name: 'provider',
+            displayName: 'Provider Setup',
+            description: 'Manage provider profiles',
+          },
+        ]),
+      },
     });
 
     const result = formatCommandHelpMessage(session);

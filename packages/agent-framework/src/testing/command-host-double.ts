@@ -94,7 +94,7 @@ let doublesCreated = 0;
  * those into a compile error with nothing honest to reach for.
  */
 export function createTestSessionRuntime(
-  overrides?: Partial<ICommandSessionRuntime>,
+  overrides?: TOverrides<ICommandSessionRuntime>,
 ): ICommandSessionRuntime {
   // No cast here either. An earlier revision of this file wrote `as ICommandSessionRuntime` over four
   // members of an 18-member contract — the exact defect this double exists to remove, inside the file
@@ -123,11 +123,20 @@ export function createTestSessionRuntime(
   return { ...base, ...overrides };
 }
 
+/**
+ * An override may replace a member, never remove one.
+ *
+ * `Partial<T>` admits `{ setPlan: undefined }`, and object spread then writes that `undefined` over
+ * the double's answer — reintroducing an ABSENT member at runtime, fully type-checked, which is the
+ * exact state ARCH-029 S4 removed. `NonNullable` closes it at the type level.
+ */
+type TOverrides<T> = { [K in keyof T]?: NonNullable<T[K]> };
+
 export interface ICreateTestCommandHostOptions {
   /** Overrides applied last, so a test can state exactly the capability it exercises. */
-  readonly overrides?: Partial<ICommandHostContext>;
+  readonly overrides?: TOverrides<ICommandHostContext>;
   /** Convenience for the common case of shaping only the session runtime. */
-  readonly session?: Partial<ICommandSessionRuntime>;
+  readonly session?: TOverrides<ICommandSessionRuntime>;
   /** The working directory every path-scoped command reads. */
   readonly cwd?: string;
 }

@@ -84,10 +84,36 @@ export function findAggregateReferences(content, fileName, aggregates) {
   const sourceFile = ts.createSourceFile(fileName, content);
   const found = [];
 
+  // An ALIASED import renames the aggregate locally, and every later reference then uses a name this
+  // scan was not looking for. The header's reason for skipping import specifiers — "it names nothing
+  // in a type position" — holds only for the un-aliased form, where a real reference always
+  // accompanies it. Under an alias the specifier is the ONLY place the guarded name appears, so
+  // skipping it hides the whole file. Found by review, reproduced before being fixed:
+  // `import type { ICommandHostContext as IHost } …` plus `interface IMine extends IHost {}` left
+  // the ratchet at 0. Not hypothetical here — this document's own GATE-WRITE evidence records an
+  // aliased import of this very symbol.
+  const aliasOf = new Map();
+  const canonical = (name) => aliasOf.get(name) ?? name;
+  const local = new Set(aggregates);
+  const collectAliases = (node) => {
+    if (ts.isImportDeclaration(node)) {
+      for (const element of node.importClause?.namedBindings?.elements ?? []) {
+        const imported = element.propertyName?.text;
+        if (imported && aggregates.includes(imported) && element.name?.text) {
+          local.add(element.name.text);
+          aliasOf.set(element.name.text, imported);
+        }
+      }
+    }
+    ts.forEachChild(node, collectAliases);
+  };
+  collectAliases(sourceFile);
+  const guarded = [...local];
+
   const note = (name, node) => {
-    if (!name || !aggregates.includes(name)) return;
+    if (!name || !guarded.includes(name)) return;
     const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
-    found.push({ aggregate: name, line: line + 1 });
+    found.push({ aggregate: aggregates.includes(name) ? name : canonical(name), line: line + 1 });
   };
 
   const visit = (node) => {

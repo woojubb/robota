@@ -18,7 +18,7 @@ import {
  * whole job is to make the zero mean something.
  */
 function optionalsOf(source, name = 'IPort') {
-  return findOptionalMembers(source, 'probe.ts').get(name) ?? [];
+  return findOptionalMembers(source, 'probe.ts').get(name)?.optional ?? [];
 }
 
 describe('findOptionalMembers', () => {
@@ -66,28 +66,14 @@ describe('findOptionalMembers', () => {
       'probe.ts',
     );
 
-    expect(found.get('IA')).toEqual(['a']);
-    expect(found.get('IB')).toEqual(['b']);
+    expect(found.get('IA').optional).toEqual(['a']);
+    expect(found.get('IB').optional).toEqual(['b']);
   });
 
   it('lists every optional member, not just the first', () => {
     expect(
       optionalsOf('export interface IPort {\n  a?(): void;\n  b(): void;\n  c?(): void;\n}\n'),
     ).toEqual(['a', 'c']);
-  });
-});
-
-describe("rolePortsOf — the scan's scope is derived, not listed", () => {
-  it('resolves exactly the ports the aggregates extend, and no data shape beside them', () => {
-    const source =
-      'export interface IOptionsBag {\n  x?: string;\n}\n' +
-      'export interface IPortA {\n  a(): void;\n}\n' +
-      'export interface IPortB {\n  b(): void;\n}\n' +
-      'export interface IAgg extends IPortA, IPortB {}\n';
-
-    const ports = rolePortsOf(source, 'probe.ts', ['IAgg']);
-
-    expect([...ports].sort()).toEqual(['IPortA', 'IPortB']);
   });
 });
 
@@ -161,6 +147,48 @@ describe('a port declared outside the scanned files is a finding, not a silent p
 
     const { findings } = findRolePortOptionalFindings(root, {
       files: ['a.ts', 'b.ts'],
+      aggregates: ['IAgg'],
+      carveOuts: [],
+    });
+
+    expect(findings).toEqual([]);
+  });
+});
+
+describe('an aggregate with members of its own is a finding (TC-04, mechanised)', () => {
+  it('flags a REQUIRED member added to the aggregate body', () => {
+    // The optional case is caught by the closure; this catches the required one, which the closure
+    // cannot. TC-04 says "each aggregate is an empty `extends`" and review found that mechanised
+    // nowhere — so the shape the trajectory table actually measures had no floor at all.
+    const root = mkdtempSync(join(tmpdir(), 'arch-029-agg-'));
+    mkdirSync(join(root, 'packages'), { recursive: true });
+    writeFileSync(
+      join(root, 'ports.ts'),
+      'export interface IPortA {\n  a(): void;\n}\n' +
+        'export interface IAgg extends IPortA {\n  accreted(): void;\n}\n',
+    );
+
+    const { findings } = findRolePortOptionalFindings(root, {
+      files: ['ports.ts'],
+      aggregates: ['IAgg'],
+      carveOuts: [],
+    });
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe('aggregate-has-own-members');
+    expect(findings[0].detail).toContain('accreted');
+  });
+
+  it('does not flag an aggregate that is a genuinely empty extends', () => {
+    const root = mkdtempSync(join(tmpdir(), 'arch-029-agg-ok-'));
+    mkdirSync(join(root, 'packages'), { recursive: true });
+    writeFileSync(
+      join(root, 'ports.ts'),
+      'export interface IPortA {\n  a(): void;\n}\nexport interface IAgg extends IPortA {}\n',
+    );
+
+    const { findings } = findRolePortOptionalFindings(root, {
+      files: ['ports.ts'],
       aggregates: ['IAgg'],
       carveOuts: [],
     });

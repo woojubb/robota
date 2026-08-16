@@ -55,7 +55,7 @@ export function readAutoCompactThresholdSource(
 
 /** Update the active session's automatic compact policy through the command host facade. */
 export function setCommandAutoCompactThreshold(
-  context: ICommandHostContextWindow & ICommandHostSessionAccess,
+  context: ICommandHostContextWindow,
   threshold: TAutoCompactThreshold,
   source: TAutoCompactThresholdSource,
 ): void {

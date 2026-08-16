@@ -132,11 +132,11 @@ export interface ICommandHostCheckpoints {
   inspectEditCheckpoint(checkpointId: string): IEditCheckpointInspection;
   restoreEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
   rollbackEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
-  /** SELFHOST-007: list the checkpoint branch tips (leaf ids) via the neutral tree. Optional (older hosts). */
+  /** SELFHOST-007: list the checkpoint branch tips (leaf ids) via the neutral tree. */
   listCheckpointBranches(): string[];
-  /** SELFHOST-007: fork a new branch from a past checkpoint (non-destructive restore). Optional. */
+  /** SELFHOST-007: fork a new branch from a past checkpoint (non-destructive restore). */
   forkCheckpointBranch(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
-  /** SELFHOST-007: switch the active branch to an existing checkpoint/branch tip. Optional. */
+  /** SELFHOST-007: switch the active branch to an existing checkpoint/branch tip. */
   switchCheckpointBranch(checkpointId: string): void;
 }
 
@@ -146,9 +146,11 @@ export interface ICommandHostMemory {
   recordMemoryEvent(event: IMemoryEvent): void;
   /**
    * SELFHOST-008 P1R — the injected durable-memory port the `/memory` command reads/writes through, so a
-   * surface that swaps the store is authoritative for command operations too (no split-brain). Optional:
-   * when absent, the command path defaults to the neutral fs reference store over `getCwd()` (memory
-   * behavior unchanged). Must return the SAME instance the session injected (SSOT for a stateful store).
+   * surface that swaps the store is authoritative for command operations too (no split-brain). Must
+   * return the SAME instance the session injected (SSOT for a stateful store). ARCH-029 TC-09: the
+   * "when absent, default to the neutral fs store over `getCwd()`" fallback is GONE — the one
+   * production host already built and cached that store itself, so the framework was re-deriving
+   * what the host owned.
    */
   getMemoryStore(): IMemoryStore;
 }
@@ -190,7 +192,8 @@ export interface ICommandHostPlan {
 export interface ICommandHostTerminalHandoff {
   /**
    * TERM-001 — whether the active transport can hand the real terminal to a child process. `false`
-   * (or `runWithTerminal` absent) when there is no interactive TTY (e.g. headless).
+   * when there is no interactive TTY (e.g. headless). `runWithTerminal` is required and present
+   * either way; whether a handoff is possible is a VALUE this returns, not a member that is missing.
    */
   canHandoffTerminal(): boolean;
   /**

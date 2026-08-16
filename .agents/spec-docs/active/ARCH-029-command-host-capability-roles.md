@@ -1237,11 +1237,11 @@ Independent review re-ran the SHIPPED instruments against the merge-base (`bac03
 numbers reported during implementation, and one in this document, do not reproduce. Reproduced and
 confirmed here before being corrected.
 
-| quantity                                          | reported during implementation | re-measured with the shipped instrument | why they differ                                                                                                                                                                                             |
-| ------------------------------------------------- | ------------------------------ | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ICommandHostContext` type-position refs at start | **137**                        | **150** (156 with no allowlist)         | 137 came from the scan BEFORE review found it blind to heritage clauses, and while the allowlist still named a path that does not exist (`command-contracts.ts`). Two instrument defects, both since fixed. |
-| cast sites at start                               | **23**                         | **22** (18 + 4)                         | a miscount; the design's own figure of 22 was right and the implementation note was not                                                                                                                     |
-| allowlist entries                                 | described as **4**             | **6** at implementation time, now **9** | `system-command-executor.ts` and `interactive-session-skill-router.ts` were added during implementation with reasons in config but no design update; the file split added three declaration sites           |
+| quantity                                          | reported during implementation | re-measured with the shipped instrument  | why they differ                                                                                                                                                                                             |
+| ------------------------------------------------- | ------------------------------ | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ICommandHostContext` type-position refs at start | **137**                        | **150** (156 with no allowlist)          | 137 came from the scan BEFORE review found it blind to heritage clauses, and while the allowlist still named a path that does not exist (`command-contracts.ts`). Two instrument defects, both since fixed. |
+| cast sites at start                               | **23**                         | **22** (18 + 4)                          | a miscount; the design's own figure of 22 was right and the implementation note was not                                                                                                                     |
+| allowlist entries                                 | described as **4**             | **6** at implementation time, now **10** | `system-command-executor.ts` and `interactive-session-skill-router.ts` were added during implementation with reasons in config but no design update; the file split added three declaration sites           |
 
 **This is the exact failure this document warned about**, in its own words: _"the scan's definition
 and the recorded baseline must be the same quantity when it is written"_, and _"freezing a number a
@@ -1256,3 +1256,11 @@ zero does not depend on where the count started.
 What IS affected: any reading of "137 → 0" as a measured delta. The honest statement is **150 → 0**
 against the current instrument, or "the count was never measured with one instrument end to end".
 The commit messages already in history are not rewritten; this entry is the correction of record.
+
+### [FILE-SIZE BASELINE — FILED] — 2026-08-17
+
+The `[FILE-SIZE BASELINE]` entry above discussed the three baselined files this change raised and did
+not file anything. Review named that omission: the gate's other half is that a licensed increase is
+**filed and linked**, not merely explained. Now tracked as **#1806** (`ARCH-038`), which carries the
+constraint (`sdk-public-surface` rejects every `export *` form, so a sub-barrel cannot reduce a name
+list) and the four splits taken before the baseline was touched.
