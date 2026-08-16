@@ -1587,7 +1587,6 @@ Note: `BackgroundTaskManager`, `BackgroundTaskError`, `createLimitedOutputCaptur
 | `TBackgroundTaskRunnerEvent`            | type      | Runner-owned progress event union without task IDs                      |
 | `TBackgroundTaskMode`                   | type      | `foreground` or `background`                                            |
 | `TBackgroundTaskStatus`                 | type      | Shared task lifecycle status union                                      |
-| `TBackgroundTaskTimeoutReason`          | type      | Watchdog reason union projected onto failed task state                  |
 | `IBackgroundJobGroupState`              | interface | Parent-session-scoped background task group snapshot                    |
 | `IBackgroundJobGroupSummary`            | interface | Presentation-neutral group completion counts and result lines           |
 | `TBackgroundJobWaitPolicy`              | type      | `detached`, `wait_all`, `wait_any`, or `manual` group completion policy |
@@ -1915,23 +1914,19 @@ pass-through exports, and runtime re-exports outside the documented SDK facade b
 
 ### History Types — Owner Package
 
+History entries are owned by `agent-core`, not by this package, and `Public Surface Ownership`
+above states that this entrypoint must not pass general-purpose `agent-core` exports through for
+convenience. Consumers import them directly:
+
 ```typescript
-import {
-  IHistoryEntry,
-  isChatEntry,
-  chatEntryToMessage,
-  messageToHistoryEntry,
-  getMessagesForAPI,
-} from '@robota-sdk/agent-core';
+import { IHistoryEntry, isChatEntry, chatEntryToMessage } from '@robota-sdk/agent-core';
 ```
 
-| Export                  | Kind      | Description                                                                           |
-| ----------------------- | --------- | ------------------------------------------------------------------------------------- |
-| `IHistoryEntry`         | interface | Rich history entry: `id`, `timestamp`, `category` ('chat' \| 'event'), `type`, `data` |
-| `isChatEntry`           | function  | Type guard that narrows `IHistoryEntry` to chat entries                               |
-| `chatEntryToMessage`    | function  | Converts a chat `IHistoryEntry` to `TUniversalMessage`                                |
-| `messageToHistoryEntry` | function  | Converts a `TUniversalMessage` to a chat `IHistoryEntry`                              |
-| `getMessagesForAPI`     | function  | Extracts `TUniversalMessage[]` from `IHistoryEntry[]` (filters to chat entries only)  |
+The surface table for these lives in its owner's SPEC — see
+[`packages/agent-core/docs/SPEC.md`](../../agent-core/docs/SPEC.md) § Public API Surface. It was
+duplicated here until HARNESS-104 made this section visible to the public-surface scan, which read
+the copy as a claim that THIS package exports them and reported three phantoms. One fact, one owner
+document.
 
 ### Built-in Tools — Direct Usage
 

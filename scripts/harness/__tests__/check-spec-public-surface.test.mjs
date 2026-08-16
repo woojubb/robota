@@ -9,6 +9,7 @@ import {
   evaluateUndocumentedExports,
   findPublicSurfaceFindings,
   loadUndocumentedExportBaseline,
+  publicApiIdentifiers,
 } from '../check-spec-public-surface.mjs';
 
 async function createFixture(files) {
@@ -168,5 +169,65 @@ describe('check-spec-public-surface', () => {
       expect(Number.isInteger(count)).toBe(true);
       expect(count).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('publicApiIdentifiers — hierarchical section extent (HARNESS-104)', () => {
+  // The parser held ONE boolean across headings, so a `###` nested inside `## Public API Surface`
+  // closed the section. Measured before the fix: 196 identifiers invisible across 7 packages, and
+  // agent-command / agent-plugin / agent-transport / dag-framework read as having an empty table.
+  const table = (...names) =>
+    [
+      '| Export | Kind | Description |',
+      '| --- | --- | --- |',
+      ...names.map((n) => `| \`${n}\` | function | d |`),
+    ].join('\n');
+
+  it('counts a table under a subheading nested inside the Public API section', () => {
+    const spec = ['## Public API Surface', '', '### Core', '', table('alpha', 'beta')].join('\n');
+
+    expect(publicApiIdentifiers(spec)).toEqual(['alpha', 'beta']);
+  });
+
+  it('still ENDS the section at the next same-level heading', () => {
+    const spec = [
+      '## Public API Surface',
+      '',
+      '### Core',
+      '',
+      table('inside'),
+      '',
+      '## Import Rules',
+      '',
+      table('outside'),
+    ].join('\n');
+
+    // Over-counting would replace a false negative with a false positive — the failure mode the
+    // terminating half exists to prevent.
+    expect(publicApiIdentifiers(spec)).toEqual(['inside']);
+  });
+
+  it('is level-relative rather than hard-coded to `##`', () => {
+    const spec = [
+      '## Reference',
+      '',
+      '### Public API',
+      '',
+      '#### Grouped',
+      '',
+      table('deep'),
+      '',
+      '### Other',
+      '',
+      table('sibling'),
+    ].join('\n');
+
+    expect(publicApiIdentifiers(spec)).toEqual(['deep']);
+  });
+
+  it('ignores tables that never enter the section at all', () => {
+    const spec = ['## Type Ownership', '', table('notSurface')].join('\n');
+
+    expect(publicApiIdentifiers(spec)).toEqual([]);
   });
 });
