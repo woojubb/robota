@@ -564,14 +564,43 @@ SPEC (`agent-core/docs/SPEC.md:1104-1108`) and in use in the round — `beginAss
 (`execution-round.ts:150`), `appendStreaming` / `appendToolCall` (`:210,214`), `commitAssistant`
 (`:218`), and `discardPending()`, already used on the failure path at `:198`.
 
-When a structured extraction may follow, the round does **not** commit at `:218`. The extraction
-request is composed explicitly from the pending prose plus the trailing user message, without touching
-the store. Then **one** `commitAssistant` writes the turn: the extracted object on success, the prose
-on failure, falling to the retry loop as today.
+**And the extraction happens inside the converging round — post-response, pre-commit.** An earlier
+revision put it after the loop and deferred the commit at `:218` across that boundary. That is
+superseded: the pending protocol is scoped to a single provider call's streaming lifecycle, and
+**four consumers read committed state after the round returns**, each breaking differently. They are
+listed here because each is a trap an implementer would otherwise hit separately:
 
-That satisfies all four: one assistant message per turn (b), no unpaired `tool_use` (a), nothing
-edited or added because pending was never committed (d), and history ending on the accepted answer on
-**every** provider (c). The divergence closes instead of moving.
+| Consumer                                                       | What deferral does                                                                                                                                                                                                                                                                                                    |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hasTextResponse` (`execution-pipeline.ts:88-94`)              | Last committed message is a user or tool-result turn, so it reads false and **`forceSummaryCall` fires on every non-native structured run** — an extra call, a "Tool round limit reached" prompt on a run that hit no limit, and its `clear()`-and-re-add edit, which is the very edit constraint (d) exists to avoid |
+| `buildFinalResult` (`execution-failure.ts:35-45`)              | Derives `response` from the last committed assistant message with non-empty content; pending is invisible, so `response` becomes the literal `'No response received. The context window may be full.'` and **the validator runs against a sentinel**                                                                  |
+| `history_mutation` emission (`execution-round.ts:222,229-237`) | `getMessages().at(-1)` returns the _preceding_ message — truthy, so the guard passes and an **append event fires for an append that did not happen**, at a wrong index, against `SPEC.md:859`'s append-only replay contract                                                                                           |
+| Abort return (`execution-pipeline.ts:98`)                      | Sits between the round's return and the extraction; an abort landing there leaves a pending assistant neither committed nor discarded, against `SPEC.md:1106` — "Text is ALWAYS preserved"                                                                                                                            |
+
+The correct placement is **inside the converging round, after the response is parsed and before
+`commitAssistant`** — and it is the only point where all four required inputs coexist:
+
+- **finality**, as a local: `assistantToolCalls.length === 0` (`execution-round.ts:241`), computed from
+  the parsed response with no store read — the fact that was unavailable at `buildChatResponseFormat`,
+  which runs _before_ the provider call;
+- **the provider and model**, via `resolved`, already `executeRound`'s parameter;
+- **the schema and tool name**, via `config.responseFormat`;
+- **an open pending state** the round owns.
+
+So the converging round runs: parse response → if the mechanism is non-native and the structural check
+fails, issue the extraction call → `commitAssistant` **once**, with the extracted object → return.
+
+**This does not reopen the round-2 finding.** That round rejected forcing the schema tool on a round
+that could not be identified as final _at request-build time_. This is the same fact evaluated _after_
+the response, where it is free.
+
+The commit still happens before the round returns, so all four consumers above see exactly what they
+have always seen. And it satisfies every constraint: one assistant message per turn (b), no unpaired
+`tool_use` (a), nothing edited or added (d), and history ending on the accepted answer on **every**
+provider (c). The divergence closes instead of moving.
+
+Transport **selection** is unaffected and stays at `buildChatResponseFormat` per step 4 — selection
+belongs where the request is built; only injection moves to where the response is parsed.
 
 **The streaming case is decided here, not left to the implementer.** On the streaming structured path
 the prose deltas have already been yielded before extraction runs, so committing the object makes
@@ -662,7 +691,7 @@ so every producer is updated rather than silently ignoring it.
 
 ### Independent review
 
-Seven rounds with `proposal-reviewer`, 2026-08-16. All seven returned **`REVIEW VERDICT: REVISE`**;
+Eight rounds with `proposal-reviewer`, 2026-08-16. All eight returned **`REVIEW VERDICT: REVISE`**;
 all were accepted in full, and in every round each load-bearing finding was independently
 re-checked against the code before revising. No finding was refuted in any round.
 
@@ -687,6 +716,24 @@ attempt is a full round loop and the extraction is one call.
 
 **Rounds 1 and 2** are below. Round 2 (on the first revision):
 the code before revising. No finding was refuted.
+
+**Round 8** (on the seventh revision) traced the seam the previous two rounds had moved, at this
+author's request, and found the history _outcome_ right and the _lever_ wrong — deferring the commit
+across the round boundary breaks four consumers, each differently:
+
+| Round-8 finding                                                              | Re-checked at                              | Disposition                      |
+| ---------------------------------------------------------------------------- | ------------------------------------------ | -------------------------------- |
+| `hasTextResponse` reads false → spurious `forceSummaryCall` every run        | `execution-pipeline.ts:88-94`              | Fixed — commit stays in-round    |
+| `buildFinalResult` returns the "No response received" sentinel               | `execution-failure.ts:35-45`               | Fixed — same                     |
+| `history_mutation` fires for an append that did not happen, at a wrong index | `execution-round.ts:222,229-237`           | Fixed — same; TC-07e             |
+| An abort between round return and extraction loses pending text              | `execution-pipeline.ts:98`; `SPEC.md:1106` | Fixed — same                     |
+| Finality is a free local **after** the response                              | `execution-round.ts:241`                   | Adopted — the placement argument |
+
+The placement question ran through five positions across eight rounds — `robotaRunStructured`, the
+emission seam, the run-level terminal phase, the pipeline post-loop, and finally inside the converging
+round. The last one is not another swing: it is the only point where all four required inputs coexist
+(finality as a local, the resolved provider, the schema, and an open pending state), and stating it
+that way is what makes it checkable rather than plausible.
 
 **Round 7** (on the sixth revision) found that the fully out-of-band rule was correct about wire
 validity and wrong about conversation semantics — the specific risk this author had asked it to check
@@ -853,6 +900,10 @@ representation is how that continues.
 - **TC-07d** The streaming structured path commits the same thing the non-streaming one does: the
   extracted object, even though the prose deltas were already yielded. Pinned so the two entry points
   cannot diverge.
+- **TC-07e** A structured run on a non-native provider issues **no** `forceSummaryCall`, and emits
+  **exactly one** `history_mutation` append for the converging turn with the index matching the
+  committed message. This pins the breakage class of a deferred commit directly rather than through
+  its symptoms — a spurious summary call and a replay event for an append that never happened.
 - **TC-07c** A validation failure on attempt _n_ causes attempt _n+1_ to use the extraction transport
   on a non-native provider **unconditionally**, without re-consulting the structural predicate — the
   subset-vs-Zod divergence, pinned with a schema whose constraints live outside the universal subset
