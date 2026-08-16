@@ -84,7 +84,7 @@ than rediscovered by the next reader.
 
 - Red-first: a field added to a derived source shape fails to compile until every hop carries it.
 - `type-ssot-parity.test.ts` extended to the request and result hops.
-- `parentTaskId` flows end to end from `execution-workspace-spawner.ts:104` to the runner.
+- `parentTaskId` flows end to end from `execution-workspace-spawner.ts:105` to the runner.
 - `pnpm typecheck`, `pnpm build`, `pnpm harness:scan`, `pnpm harness:verify-like-ci`.
 - Changesets for every changed public package (all are in one `fixed` group).
 
@@ -812,7 +812,7 @@ was derived from the source at authoring time:
 
 | Hop                                            | State today                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Reachable observable                                                                                                                                                                                                                                                            |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Producers**                                  | `parentTaskId` is written at exactly **three** non-test sites repo-wide — `execution-workspace-spawner.ts:104` and `:134` (both copying `request.parentTaskId`) and `background-task-manager-helpers.ts:186` (copying it onto the task state). **Zero sites originate a value.** `rg -n "parentTaskId" packages apps` finds no other occurrence, including tests.                                                                                                                    | **None** — nothing to observe, because nothing sets it.                                                                                                                                                                                                                         |
+| **Producers**                                  | `parentTaskId` is written at exactly **three** non-test sites repo-wide — `execution-workspace-spawner.ts:105` and `:135` (both copying `request.parentTaskId`) and `background-task-manager-helpers.ts:186` (copying it onto the task state). **Zero sites originate a value.** `rg -n "parentTaskId" packages apps` finds no other occurrence, including tests.                                                                                                                    | **None** — nothing to observe, because nothing sets it.                                                                                                                                                                                                                         |
 | **The one caller-settable door**               | `ISpawnAgentTaskRequest.parentTaskId` / `ISpawnProcessTaskRequest.parentTaskId`, reachable only through `createExecutionWorkspaceTaskSpawner`. That port is exported from `agent-framework`'s barrel and exposed on the host context (`interactive-session-base.ts:283`), and has **zero in-repo consumers** — the only `rg` hits are its own declaration, its builder, the two barrels and the SPEC tables. It is on neither the WS protocol nor `session-capability-contracts.ts`. | **None** — no command, transport frame or app calls it.                                                                                                                                                                                                                         |
 | **The subagent path this item actually fixes** | `SubagentManager.toBackgroundRequest` has no `parentTaskId` key, and `ISubagentSpawnRequest` has no such field for a producer to set — which is why the derivation "gains" it (recommendation §Request). The four spawn producers (`orchestration/shared.ts`, `tools/agent-tool.ts`, `tools/agent-tool-batch.ts`, `interactive/interactive-session-agent-jobs.ts`) do not set it and this item does not add a source.                                                                | **None.**                                                                                                                                                                                                                                                                       |
 | **The sink, which does exist**                 | `execution-workspace-projection.ts:77-78` maps `state.parentTaskId` to an entry's `parentId`, surfaced by the `get-execution-workspace` / `execution_workspace_event` frames.                                                                                                                                                                                                                                                                                                        | **Live but always unreached.** Verified by running it: after `/agent run`, the snapshot entry `task:agent_1` carries `parentId: "main:session_…"` — the `createMainThreadExecutionEntryId(state.parentSessionId)` fallback branch, because `state.parentTaskId` is `undefined`. |
@@ -843,6 +843,82 @@ runtime test in the recommendation's verification plan is its second. Both are *
 verification** and neither appears above. The `type-ssot-parity.test.ts` extension likewise. If a future
 reader finds S1 and S2 inconvenient and reaches for those instead, that is the substitution
 `backlog-execution.md` forbids.
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** `todo` → `todo` (Stage 1 authorizes the Stage 2 run; it is not a status transition —
+the item's status is the orchestrator's to move, not this gate's)
+
+**Ordering:** exempt — `DONE-GATE-STAGE-1` has no prior gate (gate catalogue > Prior-gate map). Input state
+checked anyway: `## User Execution Test Scenarios` present, item at `.agents/tasks/` root with
+`status: todo`, which is the state this gate expects. The section was committed at `d8261778b` (13:27),
+**before** all three implementation commits (`a21837604` 13:52, `d9d6c16ec` 14:06, `a3186b732` 14:10), so
+the "section before implementation starts" ordering in `backlog-execution.md` holds.
+
+- **Every scenario has exact commands, prerequisites, expected observable, evidence field** — met for both.
+  S1: heredoc + `node scratch/src/arch-031-subagent-permission-policy.mjs; echo "EXIT=$?"`; prerequisites
+  name `pnpm install`, Node ≥ 22 (machine `v22.14.0` confirmed), and that the driver builds its own temp
+  project/`HOME`/mock server; expected observable is exit `0` plus seven quoted `PASS` lines that
+  explicitly fence the per-run temp path out of the expectation; cleanup and evidence fields present.
+  S2 identical in shape, plus `git init` seeding. Prerequisites verified to exist:
+  `node_modules/.bin/tsx`, `packages/agent-cli/src/bin.ts`, `scratch/.gitignore` ignoring `src/*`.
+- **Executability decision per scenario** — met. Both `agent-executable`, each substantiated
+  (non-interactive, no TTY, `--no-session-persistence` keeps `better-sqlite3` out). No `manual-only`
+  claimed, so the specific-technical-reason sub-clause does not apply.
+- **Scenario drives a product surface** — met for both, and no engineering check is smuggled in. S1/S2
+  drive the real `robota --serve` loopback WS with `/agent run …` and `/agent list`; observables are
+  product-produced (`background_task_event` tool frames, `/agent list` rendering) and files on disk
+  (`BREACH.txt`, `EXEC_ROOT.txt`). Cited surface anchors verified present: `--isolation` parsing at
+  `agent-command-parser.ts:83-85`, `worktree=`/`branch=` rendering in `formatAgentJobLine`
+  (`agent-command.ts:64-71`), and the `command` / `get-background-task` / `background_task` /
+  `background_task_event` frames in `ws-protocol.ts`. Running the entrypoint via
+  `tsx --conditions=source packages/agent-cli/src/bin.ts` is the "repository-local command that invokes the
+  same CLI entrypoint" the rule sanctions, and the deviation is justified by a reproduced defect that is
+  filed separately (`.agents/tasks/DIST-006-built-binary-cannot-spawn-a-subagent.md` exists). The
+  "Not scenarios" subsection correctly quarantines `pnpm typecheck`, the IPC-guard test and
+  `type-ssot-parity.test.ts` instead of citing them.
+- **Live-credential / external-service prerequisite stated explicitly** — met, and stronger than stated:
+  neither scenario needs one. The probe is recorded, not asserted, and was **reproduced by this gate** —
+  `env | grep -iE 'ANTHROPIC|OPENAI|GEMINI|GOOGLE|BYTEDANCE|API_KEY|ROBOTA|CLAUDE'` returns only
+  `PATH`, `PWD`, `AI_AGENT` and `CLAUDE_CODE_*`, no provider key; `ls ~/.robota` →
+  `No such file or directory`. The credential-free path is real, not hoped: `resolveApiSurface` in
+  `agent-provider-openai/src/openai/provider.ts` returns `'chat-completions'` exactly when `baseURL` is
+  set, which is what the in-driver mock model relies on.
+- **S1 falsifiability (scrutinized, and it is real)** — the claim that the two arms diverge only by the
+  parent allowlist, and that dropping `permissionPolicy` at any hop flips arm A to allowed, was verified
+  against source rather than taken on trust. `permission-enforcer.ts:105` is literally
+  `if (this.permissionPolicy) {`. Present → `resolvePermissionByPolicy(..., { parentAllow:
+this.config.permissions.allow })`, whose `inherit-allowlist` branch ends
+  `matchesAnyPattern(toolName, toolArgs, allow) ? 'allow' : 'deny'` — so arm A (`allow: []`) denies and
+  arm B (`allow: ['Bash']`) allows, with nothing else differing. Absent → control falls to
+  `evaluatePermission(..., 'bypassPermissions', { allow: [], deny: [] })`, which matches no list and
+  returns `MODE_POLICY.bypassPermissions.Bash === 'auto'` → the call is allowed and `BREACH.txt` appears.
+  Every hop carries the field through a conditional spread
+  (`child-process-subagent-worker.ts:111`, `in-process-subagent-runner.ts:151`,
+  `create-subagent-session.ts:219`), so a dropped field silently becomes `undefined` rather than erroring —
+  the exact silent-no-op mode this item targets. `DEFAULT_BACKGROUND_PERMISSION_POLICY` is
+  `'inherit-allowlist'` (`agent-core/src/permissions/types.ts`), confirming the value the four producers
+  state. The scenario is a falsifier, not a restatement that the command ran.
+- **`parentTaskId` absence (scrutinized: trace-backed finding, not an N/A dodge)** — the per-hop table was
+  re-derived independently. `rg -n "parentTaskId" packages apps` reproduces the claimed shape exactly:
+  three non-test writers, all copying (`execution-workspace-spawner.ts`, `background-task-manager-helpers.ts:186`),
+  **zero originating a value**; the sink at `execution-workspace-projection.ts:77-78` exists with precisely
+  the described `createMainThreadExecutionEntryId(state.parentSessionId)` fallback; and
+  `IExecutionWorkspaceTaskSpawner` has no invoking consumer (`spawnAgent`/`spawnProcess` have no non-test
+  call site). The cited `:104`/`:134` are exact at the authoring commit `d8261778b` and shifted to
+  `:105`/`:135` only in the later implementation commit — evidence the trace was read off the source, not
+  reconstructed. It records what is missing and names the three wirings that would create an observable,
+  rather than asserting inapplicability; and it explicitly refuses to cite `type-ssot-parity.test.ts` as
+  user-execution evidence. This is the opposite of the N/A dodge the Capability Reachability rule bans.
+- **No post-hoc expectation rewriting** — checked, since it would void the gate.
+  `git diff d8261778b 7f349510f` on this file is `+36/-2`: it replaces only the two
+  `**Evidence:** _(to be filled…)_` placeholders. No command, prerequisite or expected-result line was
+  edited after the run.
+
+**Scenarios covered:** S1 (permission policy governs subagent tool calls, outranks `bypassPermissions`) —
+all fields complete. S2 (worktree-isolated subagent executes inside its worktree) — all fields complete.
+`parentTaskId` — no scenario, absence recorded with its trace under the Capability Reachability rule, which
+is a valid recorded finding, not an unstated omission.
 
 ## Plan
 
