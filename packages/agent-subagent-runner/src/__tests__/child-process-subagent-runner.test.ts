@@ -364,3 +364,56 @@ describe('subagent worker IPC guards', () => {
     expect(isSubagentWorkerChildMessage({ type: 'result' })).toBe(false);
   });
 });
+
+describe('ChildProcessSubagentRunner — injected built-in agents (ARCH-036)', () => {
+  // NEUT-003 made an injected `builtInAgents` set REPLACE the module built-ins, and an empty array
+  // remove them entirely. The in-process sibling honoured it; this runner read only
+  // `customAgentRegistry`, so the composition root's choice reached one runner and not the other.
+  // Every case here drives the real runner, because the defect was that a field on the shared deps
+  // type was never read — an assertion on a helper would not have caught it either.
+  const jobFor = (agentType: string): ISubagentJobStart => ({
+    ...createJob(),
+    request: { ...createJob().request, agentType },
+  });
+
+  const depsWithBuiltIns = (
+    builtInAgents: IInProcessSubagentRunnerDeps['builtInAgents'],
+  ): IInProcessSubagentRunnerDeps => ({
+    ...createDeps(),
+    customAgentRegistry: () => undefined,
+    ...(builtInAgents === undefined ? {} : { builtInAgents }),
+  });
+
+  const startWith = (deps: IInProcessSubagentRunnerDeps, agentType: string) => {
+    const runner = new ChildProcessSubagentRunner(deps, {
+      workerEntry: FIXTURE_WORKER_ENTRY,
+      worktreeAdapter: STUB_WORKTREE_ADAPTER,
+    });
+    return runner.start(jobFor(agentType));
+  };
+
+  it('an empty injected set removes the module built-ins', () => {
+    expect(() => startWith(depsWithBuiltIns([]), 'general-purpose')).toThrow(
+      /Unknown agent type: general-purpose/,
+    );
+  });
+
+  it('an injected set REPLACES the module built-ins rather than extending them', () => {
+    const injected = [
+      {
+        name: 'only-this-one',
+        description: 'the sole agent this composition root offers',
+        prompt: 'do the one thing',
+      },
+    ] as unknown as IInProcessSubagentRunnerDeps['builtInAgents'];
+
+    expect(() => startWith(depsWithBuiltIns(injected), 'general-purpose')).toThrow(
+      /Unknown agent type: general-purpose/,
+    );
+    expect(() => startWith(depsWithBuiltIns(injected), 'only-this-one')).not.toThrow();
+  });
+
+  it('leaves the module built-ins in place when nothing is injected', () => {
+    expect(() => startWith(depsWithBuiltIns(undefined), 'general-purpose')).not.toThrow();
+  });
+});

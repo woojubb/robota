@@ -165,7 +165,11 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   }
 
   private createStartPayload(job: ISubagentJobStart): ISubagentWorkerStartPayload {
-    const definition = resolveAgentDefinition(job.request.agentType, this.deps.customAgentRegistry);
+    const definition = resolveAgentDefinition(
+      job.request.agentType,
+      this.deps.customAgentRegistry,
+      this.deps.builtInAgents,
+    );
     return {
       taskId: job.taskId,
       request: job.request,
@@ -185,11 +189,23 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   }
 }
 
+/**
+ * ARCH-036: `builtInAgents` is threaded through because NEUT-003 made an injected set REPLACE the
+ * module built-ins — an empty array removes them entirely — and the in-process sibling already
+ * honours it (`agent-framework/src/subagents/in-process-subagent-runner.ts`). Reading only
+ * `customAgentRegistry` here meant the composition root's choice reached one runner and not the
+ * other, so selecting a runner for isolation silently also selected a capability.
+ */
 function resolveAgentDefinition(
   agentType: string,
   customRegistry?: (name: string) => IAgentDefinition | undefined,
+  builtInAgents?: readonly IAgentDefinition[],
 ): IAgentDefinition {
-  const definition = customRegistry?.(agentType) ?? getBuiltInAgent(agentType);
+  const definition =
+    customRegistry?.(agentType) ??
+    (builtInAgents
+      ? builtInAgents.find((agent) => agent.name === agentType)
+      : getBuiltInAgent(agentType));
   if (!definition) {
     throw new BackgroundTaskError('validation', `Unknown agent type: ${agentType}`);
   }
