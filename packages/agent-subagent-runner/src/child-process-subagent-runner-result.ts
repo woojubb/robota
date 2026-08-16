@@ -9,6 +9,7 @@ import {
 import {
   cancelChildProcess,
   handleWorkerMessage,
+  readChildStderrTail,
   sendWorkerMessage,
   type IChildProcessRuntime,
 } from './child-process-subagent-transport.js';
@@ -85,7 +86,12 @@ class ChildProcessSubagentResultController {
 
   private readonly onExit = (code: number | null, signal: NodeJS.Signals | null): void => {
     if (this.settled) return;
-    this.rejectOnce(new BackgroundTaskError('crash', formatEarlyExitMessage(code, signal)));
+    this.rejectOnce(
+      new BackgroundTaskError(
+        'crash',
+        formatEarlyExitMessage(code, signal, readChildStderrTail(this.options.runtime.child)),
+      ),
+    );
   };
 
   private readonly resolveOnce = (result: ISubagentWorkerResultMessage): void => {
@@ -160,8 +166,15 @@ function toSubagentResult(
   };
 }
 
-function formatEarlyExitMessage(code: number | null, signal: NodeJS.Signals | null): string {
+function formatEarlyExitMessage(
+  code: number | null,
+  signal: NodeJS.Signals | null,
+  stderrTail: string,
+): string {
   const detail =
     signal !== null ? `signal ${signal}` : `exit code ${code === null ? 'unknown' : code}`;
-  return `Subagent worker exited before result: ${detail}`;
+  // DIST-006: the exit code alone said nothing, so the previous occurrence of this defect had to be
+  // diagnosed by hand. The child's own words are what make the next one self-reporting.
+  const cause = stderrTail.length > 0 ? `: ${stderrTail}` : '';
+  return `Subagent worker exited before result: ${detail}${cause}`;
 }

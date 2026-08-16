@@ -15,9 +15,13 @@ import {
   isSubagentWorkerParentMessage,
 } from '../index.js';
 
-const FIXTURE_WORKER = fileURLToPath(
-  new URL('./fixtures/subagent-worker-fixture.mjs', import.meta.url),
-);
+// DIST-006: the fixture stands in for the composition root's own entry — the runner now spawns
+// `execPath args… --flag`, so a test worker is named the same way the real one is.
+const FIXTURE_WORKER_ENTRY = {
+  execPath: process.execPath,
+  args: [fileURLToPath(new URL('./fixtures/subagent-worker-fixture.mjs', import.meta.url))],
+  execArgv: [] as readonly string[],
+};
 const TEST_TIMEOUT_MS = 20_000;
 
 // The direct-constructor path never enables worktree isolation (that wrapping lives in the factory),
@@ -99,8 +103,7 @@ describe('ChildProcessSubagentRunner', () => {
     'resolves with the child worker result and exposes the child pid',
     async () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
-        workerPath: FIXTURE_WORKER,
-        execArgv: [],
+        workerEntry: FIXTURE_WORKER_ENTRY,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
       });
 
@@ -114,6 +117,30 @@ describe('ChildProcessSubagentRunner', () => {
   );
 
   it(
+    'reports why a worker died instead of only its exit code (DIST-006)',
+    async () => {
+      // This is the defect's own diagnosability. DIST-006 presented as
+      // `Subagent worker exited before result: exit code 1` because stderr was `'ignore'`, so the
+      // real cause — `Cannot find module …` — went to a stream nothing read, and occurrence #2 had
+      // to be bisected by hand. Pointing the entry at a module that does not exist reproduces
+      // exactly that shape.
+      const runner = new ChildProcessSubagentRunner(createDeps(), {
+        workerEntry: {
+          execPath: process.execPath,
+          args: [join(tmpdir(), 'robota-dist-006-no-such-worker.mjs')],
+          execArgv: [],
+        },
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+      });
+
+      const handle = runner.start(createJob());
+
+      await expect(handle.result).rejects.toThrow(/Cannot find module|MODULE_NOT_FOUND/);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
     'forks the child into the job worktree, not the request cwd (ARCH-010/ARCH-031)',
     async () => {
       // Before ARCH-031 the worktree runner rewrote `request.cwd` to the worktree path, so forking on
@@ -122,8 +149,7 @@ describe('ChildProcessSubagentRunner', () => {
       // checkout on purpose: it is the value the child must NOT land in.
       const worktreePath = realpathSync(mkdtempSync(join(tmpdir(), 'arch-031-worktree-')));
       const runner = new ChildProcessSubagentRunner(createDeps(), {
-        workerPath: FIXTURE_WORKER,
-        execArgv: [],
+        workerEntry: FIXTURE_WORKER_ENTRY,
         env: { ROBOTA_FIXTURE_MODE: 'cwd' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
       });
@@ -144,8 +170,7 @@ describe('ChildProcessSubagentRunner', () => {
     'propagates the child worker token usage into the subagent result (ANALYTICS-001 P2)',
     async () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
-        workerPath: FIXTURE_WORKER,
-        execArgv: [],
+        workerEntry: FIXTURE_WORKER_ENTRY,
         env: { ROBOTA_FIXTURE_MODE: 'usage' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
       });
@@ -165,8 +190,7 @@ describe('ChildProcessSubagentRunner', () => {
     async () => {
       const events: TBackgroundTaskRunnerEvent[] = [];
       const runner = new ChildProcessSubagentRunner(createDeps(), {
-        workerPath: FIXTURE_WORKER,
-        execArgv: [],
+        workerEntry: FIXTURE_WORKER_ENTRY,
         env: { ROBOTA_FIXTURE_MODE: 'progress' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
       });
@@ -197,8 +221,7 @@ describe('ChildProcessSubagentRunner', () => {
       mkdirSync(transcriptDir, { recursive: true });
       writeFileSync(join(transcriptDir, 'agent_1.jsonl'), 'line1\nline2\n', 'utf8');
       const runner = new ChildProcessSubagentRunner(createDeps(), {
-        workerPath: FIXTURE_WORKER,
-        execArgv: [],
+        workerEntry: FIXTURE_WORKER_ENTRY,
         logsDir,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
       });
@@ -218,8 +241,7 @@ describe('ChildProcessSubagentRunner', () => {
     'forwards follow-up prompts through IPC',
     async () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
-        workerPath: FIXTURE_WORKER,
-        execArgv: [],
+        workerEntry: FIXTURE_WORKER_ENTRY,
         env: { ROBOTA_FIXTURE_MODE: 'wait' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
       });
@@ -237,8 +259,7 @@ describe('ChildProcessSubagentRunner', () => {
     'rejects the result when the child worker acknowledges cancellation',
     async () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
-        workerPath: FIXTURE_WORKER,
-        execArgv: [],
+        workerEntry: FIXTURE_WORKER_ENTRY,
         env: { ROBOTA_FIXTURE_MODE: 'wait' },
         killGraceMs: 1_000,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,

@@ -59,12 +59,14 @@ agent-cli / composition root
         │   (when worktreeIsolation === false)
         └── ChildProcessSubagentRunner (ISubagentRunner)  ← returned directly
 
-worker-path-resolver.ts → getDefaultSubagentWorkerPath()
-  Returns path to compiled worker: {dirname}/child-process-subagent-worker.js
+worker-entry.ts → SUBAGENT_WORKER_MODE_FLAG / isSubagentWorkerModeArgv / ISubagentWorkerEntry
+  DIST-006: this package no longer locates a worker file. The composition root states how to
+  start a copy of ITSELF (execPath + args), and enters worker mode via runSubagentWorkerMain().
 ```
 
 **Opt-in wiring**: The composition root (`agent-cli`) imports
-`createChildProcessSubagentRunnerFactory` and `getDefaultSubagentWorkerPath` from this package
+`createChildProcessSubagentRunnerFactory`, `isSubagentWorkerModeArgv` and `runSubagentWorkerMain`
+from this package
 and passes the factory to `createAgentRuntime()`. The `agent-framework` runtime accepts the factory
 as an optional port (`TSubagentRunnerFactory`); no default is injected.
 
@@ -79,7 +81,7 @@ package carries no concrete git/filesystem dependency.
 
 | Type / Interface                          | Kind              | Owner                     | Description                                                                                                                                         |
 | ----------------------------------------- | ----------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `IChildProcessSubagentRunnerOptions`      | interface (local) | this pkg                  | Constructor options: workerPath, providerConfig, execArgv, killGraceMs, env, worktreeIsolation, **required** worktreeAdapter, logsDir               |
+| `IChildProcessSubagentRunnerOptions`      | interface (local) | this pkg                  | Constructor options: **required** workerEntry, providerConfig, killGraceMs, env, worktreeIsolation, **required** worktreeAdapter, logsDir           |
 | `ISubagentWorkerStartPayload`             | interface (local) | this pkg                  | IPC payload for `start` message: taskId, request, worktree?, agentDefinition, parentConfig, parentContext, providerProfile, permissionMode, logsDir |
 | `IChildProcessRuntime`                    | interface (local) | this pkg                  | Internal runtime context passed between transport helpers: job, child, killGraceMs, killTimer                                                       |
 | `ICancellationResult`                     | interface (local) | this pkg                  | Cancellable promise wrapper: promise + reject(reason?)                                                                                              |
@@ -104,8 +106,11 @@ package carries no concrete git/filesystem dependency.
 | ----------------------------------------- | ---------- | ------------------------------------------------------------------------------------- |
 | `ChildProcessSubagentRunner`              | class      | Implements `ISubagentRunner`. Forks child processes and returns `ISubagentJobHandle`. |
 | `createChildProcessSubagentRunnerFactory` | factory    | Returns `TSubagentRunnerFactory` for injection into `createAgentRuntime()`.           |
-| `IChildProcessSubagentRunnerOptions`      | interface  | Construction options (workerPath, killGraceMs, logsDir, worktreeIsolation, etc.)      |
-| `getDefaultSubagentWorkerPath`            | function   | Returns the compiled worker entry path for the installed package version.             |
+| `IChildProcessSubagentRunnerOptions`      | interface  | Construction options (workerEntry, killGraceMs, logsDir, worktreeIsolation, etc.)     |
+| `SUBAGENT_WORKER_MODE_FLAG`               | const      | The argv flag that puts a composition root's own entry into subagent-worker mode.     |
+| `isSubagentWorkerModeArgv`                | function   | True when this process was started as a subagent worker.                              |
+| `runSubagentWorkerMain`                   | function   | Enters worker mode; refuses loudly and exits 2 when there is no IPC channel.          |
+| `ISubagentWorkerEntry`                    | interface  | How to spawn a copy of the running artifact: `execPath`, `args`, optional `execArgv`. |
 | `isSubagentWorkerParentMessage`           | type guard | Runtime validation for parent → child IPC messages.                                   |
 | `isSubagentWorkerChildMessage`            | type guard | Runtime validation for child → parent IPC messages.                                   |
 | `ISubagentWorkerStartPayload`             | interface  | IPC start message payload shape.                                                      |
@@ -115,8 +120,12 @@ package carries no concrete git/filesystem dependency.
 
 ## Extension Points
 
-- **Custom worker path**: Pass `workerPath` in `IChildProcessSubagentRunnerOptions` to use a
-  non-default worker script (e.g., for testing or extended worker behavior).
+- **Worker entry (required)**: `workerEntry` states how to start a copy of the running artifact.
+  DIST-006 replaced `workerPath` with it: a path to a worker FILE is a property of the packaging
+  step, not of this library, and the previous seam was wrong twice for that reason — once when the
+  file was never emitted, and again when a downstream bundler inlined this package into another
+  artifact. There is no "default": the only party that knows how a process is packaged is that
+  process, so the composition root supplies it. Tests point it at a fixture entry the same way.
 - **Worktree adapter (required)**: `worktreeAdapter` is a **required** option — the concrete
   `ISubagentWorktreeAdapter` (git/filesystem I/O) is injected by the composition root, not defaulted
   here (INFRA-031). Supply a git-backed adapter for real isolation, or a test double / no-git double
@@ -167,7 +176,9 @@ package carries no concrete git/filesystem dependency.
 
 - No unit tests for `ChildProcessSubagentResultController` in isolation.
 - No unit tests for `child-process-subagent-transport.ts` helpers.
-- No unit tests for `worker-path-resolver.ts`.
+- The built-artifact contract is covered by `agent-cli`'s build-gated
+  `subagent-worker-entry.bintest.ts`, not from this package: only an artifact can be asked whether
+  its worker starts, and DIST-006 is what a shape-only unit test failed to catch.
 
 ## Class Contract Registry
 

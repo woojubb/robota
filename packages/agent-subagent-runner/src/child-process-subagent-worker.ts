@@ -17,6 +17,8 @@ import {
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
 const CANCEL_EXIT_CODE = 130;
+/** DIST-006: worker mode reached without an IPC channel — a misuse, not a run that failed. */
+const WORKER_MISUSE_EXIT_CODE = 2;
 /** Force-exit fallback if the IPC flush callback never fires (broken channel). */
 const FLUSH_EXIT_FALLBACK_MS = 2000;
 
@@ -182,31 +184,49 @@ async function cancelWorker(reason?: string): Promise<void> {
   setTimeout(() => process.exit(CANCEL_EXIT_CODE), 0);
 }
 
-process.on('message', (message: TSubagentWorkerWireValue) => {
-  if (!isSubagentWorkerParentMessage(message)) {
-    sendChildMessage({ type: 'error', message: 'Malformed subagent worker parent message' });
-    return;
+/**
+ * DIST-006: worker mode is ENTERED, not implied by loading this module.
+ *
+ * These handlers used to run as module top-level side effects, which is what forced the worker to
+ * be a separate file that something had to locate on disk. As a function, the composition root's
+ * own entry can become the worker — so there is no second artifact and no path to get wrong.
+ */
+export function runSubagentWorkerMain(): void {
+  if (process.send === undefined) {
+    // "Silence is not success": a worker without an IPC channel can never report anything, so it
+    // must fail where someone can see it rather than sit there looking started.
+    process.stderr.write(
+      'robota: subagent worker mode requires an IPC channel; it is started by the agent runtime, not by hand.\n',
+    );
+    process.exit(WORKER_MISUSE_EXIT_CODE);
   }
 
-  switch (message.type) {
-    case 'start':
-      running = running.then(() => runInitialPrompt(message.payload));
-      break;
-    case 'send':
-      runFollowUp(message.prompt);
-      break;
-    case 'cancel':
-      void cancelWorker(message.reason);
-      break;
-    default:
-      sendChildMessage({ type: 'error', message: 'Unhandled subagent worker parent message' });
-  }
-});
+  process.on('message', (message: TSubagentWorkerWireValue) => {
+    if (!isSubagentWorkerParentMessage(message)) {
+      sendChildMessage({ type: 'error', message: 'Malformed subagent worker parent message' });
+      return;
+    }
 
-process.on('disconnect', () => {
-  cancelled = true;
-  session?.abort();
-  void session?.shutdown({ reason: 'other' }).catch(() => undefined); // allow-fallback: cleanup on disconnect — process will exit regardless
-});
+    switch (message.type) {
+      case 'start':
+        running = running.then(() => runInitialPrompt(message.payload));
+        break;
+      case 'send':
+        runFollowUp(message.prompt);
+        break;
+      case 'cancel':
+        void cancelWorker(message.reason);
+        break;
+      default:
+        sendChildMessage({ type: 'error', message: 'Unhandled subagent worker parent message' });
+    }
+  });
 
-sendChildMessage({ type: 'ready' });
+  process.on('disconnect', () => {
+    cancelled = true;
+    session?.abort();
+    void session?.shutdown({ reason: 'other' }).catch(() => undefined); // allow-fallback: cleanup on disconnect — process will exit regardless
+  });
+
+  sendChildMessage({ type: 'ready' });
+}
