@@ -21,7 +21,6 @@ Every runtime export of the package entry (`src/index.ts`). Provider option/conf
 | ------------------------------------------- |
 | `GeminiProvider`                            |
 | `createGeminiProviderDefinition`            |
-| `refreshGeminiModelCatalog`                 |
 | `GEMINI_MODEL_LAST_VERIFIED_AT`             |
 | `GEMINI_MODEL_SOURCE_URL`                   |
 | `DEFAULT_GEMINI_PROVIDER_API_KEY_ENV`       |

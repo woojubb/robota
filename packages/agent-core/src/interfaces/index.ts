@@ -69,7 +69,6 @@ export type {
   IProviderDefinition,
   IProviderModelCatalog,
   IProviderModelCatalogEntry,
-  IProviderModelCatalogRefreshOptions,
   IProviderProbeResult,
   IProviderProfileConfig,
   IProviderProfileDefaults,
@@ -78,7 +77,6 @@ export type {
   TProviderCredentialField,
   TProviderModelCapability,
   TProviderModelCatalogStatus,
-  TProviderModelCatalogRefresh,
   TProviderModelLifecycle,
   TProviderSetupField,
   TProviderSetupHelpLinkKind,
@@ -89,12 +87,13 @@ export {
   getProviderCredentialRequirement,
 } from './provider-definition';
 
-// PROV-006: reading the per-model capability vocabulary that nothing read.
+// PROV-006/PROV-008: what a model can do, declared by the package that ships the adapter.
 export {
-  findModelCatalogEntry,
   modelDeclaresCapability,
+  resolveModelCapabilities,
   resolveModelCapability,
 } from './model-capability.js';
+export type { IModelCapabilityDeviation, IProviderCapabilityTable } from './model-capability.js';
 
 export type {
   IMediaOutputRef,

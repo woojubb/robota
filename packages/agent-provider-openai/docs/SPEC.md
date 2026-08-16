@@ -22,7 +22,6 @@ Every runtime export of the package entry (`src/index.ts`). Provider option/conf
 | `OpenAIProvider`                            |
 | `OpenAIConversationAdapter`                 |
 | `createOpenAIProviderDefinition`            |
-| `refreshOpenAIModelCatalog`                 |
 | `DEFAULT_OPENAI_PROVIDER_API_KEY_REFERENCE` |
 | `DEFAULT_OPENAI_PROVIDER_MODEL`             |
 | `FilePayloadLogger`                         |

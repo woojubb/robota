@@ -4,7 +4,6 @@ import {
   DEFAULT_DEEPSEEK_PROVIDER_MODEL,
 } from './defaults';
 import { DEEPSEEK_MODEL_CATALOG } from './model-catalog';
-import { refreshDeepSeekModelCatalog } from './model-catalog-refresh';
 import { DeepSeekProvider } from './provider';
 import { probeOpenAICompatibleProfile } from '../shared/openai-compatible/index.js';
 
@@ -59,8 +58,6 @@ export function createDeepSeekProviderDefinition(): IProviderDefinition {
     ],
     requiresApiKey: true,
     probeProfile: probeOpenAICompatibleProfile,
-    refreshModelCatalog: ({ profile }) => refreshDeepSeekModelCatalog(profile),
-    modelCatalogCacheTtlSeconds: 86400,
     createProvider: (config) => {
       const options = parseDeepSeekProviderOptions(config.options);
       return new DeepSeekProvider({

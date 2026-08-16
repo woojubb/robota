@@ -8,17 +8,20 @@ import {
   ValidationError,
 } from '@robota-sdk/agent-core';
 
+import { ANTHROPIC_CAPABILITY_TABLE } from './capability-table';
 import { resolveAnthropicMaxTokens } from './claude-models.js';
-import { buildOutputConfig } from './output-schema.js';
 import {
   convertToAnthropicFormat,
   convertToolsToAnthropicFormat,
   toAnthropicToolChoice,
 } from './message-converter';
+import { buildOutputConfig } from './output-schema.js';
+import { anthropicProviderCapabilities } from './provider-capabilities';
 import { streamAndAssemble } from './streaming-handler';
 
 import type { IAnthropicProviderOptions } from './types';
 import type {
+  IProviderCapabilityTable,
   IProviderCapabilities,
   IProviderNativeWebToolRequest,
   TUniversalMessage,
@@ -277,30 +280,17 @@ export class AnthropicProvider extends AbstractAIProvider {
     }
   }
 
+  /** What THIS vendor's models can do, per model (PROV-008). */
+  capabilityTable(): IProviderCapabilityTable {
+    return ANTHROPIC_CAPABILITY_TABLE;
+  }
+
   override supportsTools(): boolean {
     return true;
   }
 
   override getCapabilities(): IProviderCapabilities {
-    return {
-      functionCalling: { supported: true },
-      nativeWebTools: {
-        webSearch: this.enableWebTools
-          ? { supported: true, enabled: true, source: 'anthropic-messages' }
-          : {
-              supported: true,
-              enabled: false,
-              source: 'anthropic-messages',
-              reason: 'Call configureNativeWebTools({ webSearch: true }) or set enableWebTools.',
-            },
-        webFetch: {
-          supported: false,
-          enabled: false,
-          source: 'anthropic-messages',
-          reason: 'Anthropic provider exposes server web search only.',
-        },
-      },
-    };
+    return anthropicProviderCapabilities(this.enableWebTools);
   }
 
   configureNativeWebTools(request: IProviderNativeWebToolRequest): IProviderCapabilities {

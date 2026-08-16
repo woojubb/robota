@@ -1,4 +1,3 @@
-import { refreshGeminiModelCatalog } from './model-catalog-refresh';
 import { GeminiProvider } from './provider';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
@@ -64,8 +63,6 @@ export function createGeminiProviderDefinition(): IProviderDefinition {
       },
     ],
     requiresApiKey: true,
-    refreshModelCatalog: ({ profile }) => refreshGeminiModelCatalog(profile),
-    modelCatalogCacheTtlSeconds: 86400,
     createProvider: (config) =>
       new GeminiProvider({
         apiKey: requireApiKey(config.apiKey),

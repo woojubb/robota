@@ -25,8 +25,6 @@ Every runtime export of the package entry (`src/index.ts`). Provider option/conf
 | `createDeepSeekProviderDefinition`            |
 | `createQwenProviderDefinition`                |
 | `createGemmaProviderDefinition`               |
-| `refreshDeepSeekModelCatalog`                 |
-| `refreshQwenModelCatalog`                     |
 | `GemmaReasoningProjector`                     |
 | `GemmaToolCallProjector`                      |
 | `createGemmaToolCallProjector`                |

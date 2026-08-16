@@ -3,11 +3,13 @@ import { randomUUID } from 'node:crypto';
 import { GoogleGenAI } from '@google/genai';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 
+import { GEMINI_CAPABILITY_TABLE } from './capability-table';
 import { executeDirect, executeDirectStream, runImageRequest } from './execution-helpers';
 import { mapImageInputSourceToPart } from './image-operations';
 
 import type { IGeminiProviderOptions } from './types';
 import type {
+  IProviderCapabilityTable,
   TUniversalMessage,
   IChatOptions,
   TTextDeltaCallback,
@@ -252,6 +254,11 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
       timestamp: new Date(),
     };
     return runImageRequest(this.chat.bind(this), [message], request.model);
+  }
+
+  /** What THIS vendor's models can do, per model (PROV-008). */
+  capabilityTable(): IProviderCapabilityTable {
+    return GEMINI_CAPABILITY_TABLE;
   }
 
   override supportsTools(): boolean {

@@ -5,7 +5,6 @@ import {
   QWEN_MODEL_LAST_VERIFIED_AT,
   QWEN_MODEL_SOURCE_URL,
 } from './defaults';
-import { refreshQwenModelCatalog } from './model-catalog-refresh';
 import { QwenProvider } from './provider';
 import { probeOpenAICompatibleProfile } from '../shared/openai-compatible/index.js';
 
@@ -82,8 +81,6 @@ export function createQwenProviderDefinition(): IProviderDefinition {
       baseURL: DEFAULT_QWEN_PROVIDER_BASE_URL,
     },
     modelCatalog: QWEN_MODEL_CATALOG,
-    refreshModelCatalog: ({ profile }) => refreshQwenModelCatalog(profile),
-    modelCatalogCacheTtlSeconds: 86400,
     setupHelpLinks: QWEN_SETUP_HELP_LINKS,
     setupSteps: [
       {
