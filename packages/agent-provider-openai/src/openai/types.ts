@@ -147,15 +147,15 @@ export interface IOpenAIProviderOptions {
   /**
    * Opt into strict custom function parameter validation where supported.
    *
-   * **Known limitation (PROV-007).** Tool schemas are forwarded to OpenAI unchanged. Strict mode
-   * additionally requires EVERY object node — nested ones included — to carry
-   * `additionalProperties: false` and to list ALL of its properties in `required`. The universal
-   * schema subset does neither, and this adapter has no seam that rewrites the schema for strict
-   * mode (the Anthropic adapter has the analogous `closeObjectSchemas`). So with this flag on,
-   * every `createZodFunctionTool` tool is rejected — Zod's default `strip` emits
-   * `additionalProperties: true`, which strict mode refuses just as it refuses the member being
-   * absent — as is any tool carrying a nested object. The same tools work on every other provider.
-   * Leave it off until PROV-007 lands.
+   * PROV-007: the tool schema is rewritten for strict mode on the way out — every object node,
+   * nested ones included, is closed and given a complete `required` list. That transformation is
+   * lossy, so it runs ONLY when this flag is on; with it off the schema is forwarded exactly as
+   * authored.
+   *
+   * What "lossy" means for a caller: strict mode has no way to say "optional", so a field the
+   * schema marked optional becomes required and gains a `null` branch. The model must then supply
+   * the key explicitly, with `null` standing for "not provided". A tool whose handler distinguishes
+   * an absent key from a null value will see the difference.
    */
   strictTools?: boolean;
 

@@ -177,14 +177,15 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 
 ## Public API Surface
 
-| Export                                 | Kind     | Description                                                                                                                                                                         |
-| -------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DEFAULT_BACKGROUND_PERMISSION_POLICY` | const    | ARCH-031: the one definition of the policy a spawn site states when it has no reason to choose another. Replaced two independent `?? 'inherit-allowlist'` fallbacks in two packages |
-| `clearRegisteredToolProfiles`          | function | Clears the tool permission-profile registry. For tests and for hosts that rebuild a registry                                                                                        |
-| `getToolPermissionProfile`             | function | What a tool's owner has declared about it, or an empty profile when nobody has said                                                                                                 |
-| `resolveModelCapabilities`             | function | PROV-008: the capability set that applies to a model — its verified deviation if it has one, otherwise the vendor default. A miss is never a negative                               |
-| `modelDeclaresCapability`              | function | PROV-006: whether a model declares a capability. `undefined` when the catalog has said nothing, which is NOT `false` — silence is not a denial                                      |
-| `resolveModelCapability`               | function | PROV-006: the same question with the caller's assumption for silence stated at the call site, so an unstated assumption cannot hide there                                           |
+| Export                                 | Kind     | Description                                                                                                                                                                             |
+| -------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEFAULT_BACKGROUND_PERMISSION_POLICY` | const    | ARCH-031: the one definition of the policy a spawn site states when it has no reason to choose another. Replaced two independent `?? 'inherit-allowlist'` fallbacks in two packages     |
+| `clearRegisteredToolProfiles`          | function | Clears the tool permission-profile registry. For tests and for hosts that rebuild a registry                                                                                            |
+| `getToolPermissionProfile`             | function | What a tool's owner has declared about it, or an empty profile when nobody has said                                                                                                     |
+| `resolveModelCapabilities`             | function | PROV-008: the capability set that applies to a model — its verified deviation if it has one, otherwise the vendor default. A miss is never a negative                                   |
+| `closeObjectSchemas`                   | function | PROV-007: closes every object node in the universal subset for providers that reject open-world objects, optionally completing `required` for OpenAI strict mode. One recursion, shared |
+| `modelDeclaresCapability`              | function | PROV-006: whether a model declares a capability. `undefined` when the catalog has said nothing, which is NOT `false` — silence is not a denial                                          |
+| `resolveModelCapability`               | function | PROV-006: the same question with the caller's assumption for silence stated at the call site, so an unstated assumption cannot hide there                                               |
 
 <!-- The rows below live under `###` subheadings. `check-spec-public-surface.mjs` stops counting at the
      first non-"Public API" heading, so it reads none of them — which is why this package's undocumented
