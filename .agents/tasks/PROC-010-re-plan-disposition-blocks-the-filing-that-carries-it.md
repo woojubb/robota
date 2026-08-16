@@ -50,6 +50,13 @@ Note also that `record-local-review` already refuses to record a disposition whe
 (PROC-007's rule), so the author is pushed to open a PR _first_ and then record — which is exactly the
 sequence that produces the mislabelling.
 
+**A second instance landed the same day.**
+[PROC-011](PROC-011-merge-gate-demands-a-review-its-own-classifier-withheld.md): the merge gate
+demands a reviewer verdict on a documentation-only PR that the review automation deliberately skips,
+so that PR also ends in `MERGE_GATE_ACK=1`. Two different mechanisms, one shape — the gate refusing a
+PR because of a state the harness itself produced. Whatever fixes one should be checked against the
+other.
+
 ## Direction
 
 The distinction the label needs to carry is **what the PR contains**, not what the verdict was. A
