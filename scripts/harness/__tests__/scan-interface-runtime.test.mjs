@@ -143,18 +143,29 @@ describe('interface-package ENTRY surface (HARNESS-103)', () => {
         'export const VOCAB = Object.freeze({ a: 1 });',
         'export function isThing(x: unknown): x is string { return typeof x === "string"; }',
         'export function buildThing(): string { return "x"; }',
+        // The same three shapes written as `const`. A classifier that reads the declaration
+        // KEYWORD lets `buildThingArrow` through as vocabulary — the exact leak this edge exists
+        // to catch, wearing the one syntax the first three do not cover.
+        'export const isThingArrow = (x: unknown): x is string => typeof x === "string";',
+        'export const buildThingArrow = (): string => "x";',
+        'export const buildThingExpr = function (): string { return "x"; };',
       ].join('\n'),
     );
     write(
       'index.ts',
-      "export { VOCAB, isThing, buildThing } from './contracts.js';\nexport type { A } from './contracts.js';\n",
+      'export { VOCAB, isThing, buildThing, isThingArrow, buildThingArrow, buildThingExpr }' +
+        " from './contracts.js';\nexport type { A } from './contracts.js';\n",
     );
 
     const { byPackage, entriesScanned } = findEntryRuntimeMechanisms(root);
 
-    // The const is the contract's vocabulary and the predicate is its discriminator; only the
-    // factory is a mechanism.
-    expect(byPackage['agent-interface-fixture']).toEqual(['buildThing']);
+    // The const holding a frozen object is the contract's vocabulary and both predicates are its
+    // discriminators; the three factories are mechanisms whichever keyword introduces them.
+    expect(byPackage['agent-interface-fixture']).toEqual([
+      'buildThing',
+      'buildThingArrow',
+      'buildThingExpr',
+    ]);
     expect(entriesScanned).toBe(1);
   });
 
@@ -166,8 +177,19 @@ describe('interface-package ENTRY surface (HARNESS-103)', () => {
     expect(findings[0].problem).toMatch(/frozen allowance is 0/);
   });
 
+  it('counts a mechanism written as an arrow const against the allowance', () => {
+    // Red-proof for the classifier: with `const` read as vocabulary outright, only `buildThing`
+    // counts and an allowance of 1 passes. The arrow and function-expression forms are what make
+    // 1 too small.
+    const { findings } = findEntryBaselineFindings(root, { 'agent-interface-fixture': 1 });
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].problem).toMatch(/buildThingArrow/);
+    expect(findings[0].problem).toMatch(/buildThingExpr/);
+  });
+
   it('passes when the count is at or below the allowance — the ratchet only tightens', () => {
-    expect(findEntryBaselineFindings(root, { 'agent-interface-fixture': 1 }).findings).toEqual([]);
+    expect(findEntryBaselineFindings(root, { 'agent-interface-fixture': 3 }).findings).toEqual([]);
     expect(findEntryBaselineFindings(root, { 'agent-interface-fixture': 5 }).findings).toEqual([]);
   });
 

@@ -185,6 +185,7 @@ export function isTypeOnlyImportClause(clause) {
 // (below), and that check is only meaningful for guards we have a call site for.
 export const {
   isArrayBindingPattern,
+  isArrowFunction,
   isAsExpression,
   isBinaryExpression,
   isBindingElement,
@@ -262,6 +263,7 @@ export const isPropertySignature = guards.isPropertySignatureDeclaration;
 {
   const exported = {
     isArrayBindingPattern,
+    isArrowFunction,
     isAsExpression,
     isBinaryExpression,
     isBindingElement,

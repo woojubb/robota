@@ -235,20 +235,38 @@ function entryRuntimeReExports(sourceText, fileName) {
   return out;
 }
 
+/**
+ * Classify a function-like by what it RETURNS: a type-predicate annotation is the contract's
+ * discriminator, anything else is behaviour.
+ *
+ * The shim exposes no isTypePredicateNode; a type predicate is the only return annotation whose
+ * text contains ` is `, which is exactly the discriminator shape.
+ */
+function classifyFunctionLike(node) {
+  const ret = node.type ? node.type.getText() : '';
+  return / is /.test(ret) ? 'discriminator' : 'mechanism';
+}
+
 /** Is this exported declaration contract-shaped (const vocabulary, or a type-predicate function)? */
 function classifyDeclaration(sourceText, fileName, name) {
   const sf = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true);
   for (const st of sf.statements) {
     if (ts.isVariableStatement(st)) {
       for (const d of st.declarationList.declarations) {
-        if (d.name && d.name.text === name) return 'vocabulary';
+        if (!d.name || d.name.text !== name) continue;
+        // A `const` holding a function is a function. Judging by the DECLARATION KEYWORD rather
+        // than by what the binding holds would repeat the very defect HARNESS-103 is about — a
+        // check narrower than the rule it enforces — because `export const doThing = () => { … }`
+        // is a mechanism whichever keyword introduces it.
+        const init = d.initializer;
+        if (init && (ts.isArrowFunction(init) || ts.isFunctionExpression(init))) {
+          return classifyFunctionLike(init);
+        }
+        return 'vocabulary';
       }
     }
     if (ts.isFunctionDeclaration(st) && st.name && st.name.text === name) {
-      // The shim exposes no isTypePredicateNode; a type predicate is the only return annotation
-      // whose text contains ` is `, which is exactly the discriminator shape.
-      const ret = st.type ? st.type.getText() : '';
-      return / is /.test(ret) ? 'discriminator' : 'mechanism';
+      return classifyFunctionLike(st);
     }
   }
   return 'mechanism';
