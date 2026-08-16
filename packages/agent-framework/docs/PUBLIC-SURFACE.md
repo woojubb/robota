@@ -12,7 +12,7 @@ therefore attached to the published graph rather than to one hard-coded entry fi
 | ----------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | SDK-owned API           | Implemented or semantically owned by `agent-framework`                     | `InteractiveSession`, `createQuery`, command contracts, skill activation events/tools, model command catalog common APIs, prompt/context file references, project memory, checkpoints |
 | SDK facade              | SDK narrows or assembles lower-level behavior behind an SDK contract       | project session store helpers, command host/common APIs, subagent assembly helpers, execution workspace projection                                                                    |
-| Explicit runtime facade | Runtime lifecycle contract types intentionally re-exported for SDK hosts   | `IBackgroundTaskManager`, `ISubagentManager`, runner and worktree adapter types                                                                                                       |
+| Explicit runtime facade | Runtime lifecycle contract types intentionally re-exported for SDK hosts   | `IBackgroundTaskManager` and the background-task lifecycle types. ARCH-031 removed the subagent set: it was type-only, so it was never the runtime facade this row describes          |
 | Owner-direct API        | General-purpose lower package surface that consumers import from the owner | history helpers from `agent-core`, tool exports from `agent-tools`, generic session APIs from `agent-session`                                                                         |
 
 ## Allowed SDK Facade Barrels
@@ -48,7 +48,9 @@ import {
   createExecutionWorkspaceSnapshot,
   createInProcessSubagentRunner,
 } from '@robota-sdk/agent-framework';
-import type { IBackgroundTaskManager, ISubagentManager } from '@robota-sdk/agent-framework';
+import type { IBackgroundTaskManager } from '@robota-sdk/agent-framework';
+// ARCH-031: the subagent SPI is agent-executor's — import it from the owner.
+import type { ISubagentManager } from '@robota-sdk/agent-executor';
 
 // Concrete runtime classes remain owner-direct values.
 import { BackgroundTaskManager, SubagentManager } from '@robota-sdk/agent-executor';

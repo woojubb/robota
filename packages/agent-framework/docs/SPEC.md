@@ -1614,13 +1614,13 @@ Background agent watchdog configuration is provider-neutral. Agent requests may 
 
 `InteractiveSession` emits `background_job_group_event` with `TBackgroundJobGroupEvent`. When session persistence is enabled, group snapshots and group events are stored alongside background task snapshots/events so resume/debugging can reconstruct group provenance.
 
-`SubagentManager` and `WorktreeSubagentRunner` are owned by `agent-executor` and are NOT exported as values from `@robota-sdk/agent-framework`. Consumers needing these classes must import from `@robota-sdk/agent-executor`. The framework exports only the SDK-owned `createInProcessSubagentRunner` factory plus type-only re-exports of the subagent contracts.
+`SubagentManager` and `WorktreeSubagentRunner` are owned by `agent-executor` and are NOT exported as values from `@robota-sdk/agent-framework`. Consumers needing these classes must import from `@robota-sdk/agent-executor`. The framework exports only the SDK-owned `createInProcessSubagentRunner` factory. ARCH-031 removed the type-only re-exports of the subagent contracts: they carried zero runtime values, so they bought none of the assembly convenience a runtime facade exists for, while making one field family look like it had three owners. Import the SPI from `@robota-sdk/agent-executor` and the data contracts from `@robota-sdk/agent-interface-transport`.
 
 ```typescript
 import { createInProcessSubagentRunner } from '@robota-sdk/agent-framework';
-import type { ISubagentRunner, ISubagentSpawnRequest } from '@robota-sdk/agent-framework';
-// For the SubagentManager class itself, import from agent-executor:
-import { SubagentManager } from '@robota-sdk/agent-executor';
+// The SPI is agent-executor's; the data contracts are agent-interface-transport's (ARCH-031).
+import { SubagentManager, type ISubagentRunner } from '@robota-sdk/agent-executor';
+import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface-transport';
 ```
 
 Agent subagent requests may set `isolation: 'worktree'`. The SDK treats this as a contract flag and propagates it through `agent` command arguments, `ISubagentSpawnRequest`, and background task metadata. Worktree isolation is explicit unless a host assembly provides and documents a capability-aware default policy; SDK core must not silently infer or fallback between isolated and non-isolated execution. `agent-executor` owns `WorktreeSubagentRunner`, which decorates any `ISubagentRunner` with worktree lifecycle, metadata, cleanup, and hook behavior. Runtime shells provide an `ISubagentWorktreeAdapter` implementation for concrete local Git/filesystem operations. If a preserved worktree is returned by a runner, `IBackgroundTaskResult.metadata.worktreePath`, `branchName`, `worktreeStatus`, `worktreeNextAction`, `worktreeBaseRevision`, and `parentWorktreeStatus` are projected onto matching `IBackgroundTaskState` fields.
@@ -1631,25 +1631,11 @@ Agent subagent requests may set `isolation: 'worktree'`. The SDK treats this as 
 
 Exported subagent types from `src/subagents/index.ts`:
 
-| Export                            | Kind      | Description                                                               |
-| --------------------------------- | --------- | ------------------------------------------------------------------------- |
-| `createInProcessSubagentRunner`   | function  | Runner adapter that executes subagent jobs with `createSubagentSession()` |
-| `IInProcessSubagentRunnerDeps`    | interface | Dependencies captured by the in-process runner adapter                    |
-| `TSubagentRunnerFactory`          | type      | Factory seam for runtime shells to replace the default subagent runner    |
-| `ISubagentManager`                | interface | Type re-export from `agent-executor`; manager API                         |
-| `ISubagentManagerOptions`         | interface | Type re-export from `agent-executor`; manager construction options        |
-| `ISubagentRunner`                 | interface | Type re-export from `agent-executor`; single-job runner port              |
-| `ISubagentWorktreeAdapter`        | interface | Type re-export from `agent-executor`; concrete worktree I/O port          |
-| `ISubagentWorktreePrepareRequest` | interface | Type re-export from `agent-executor`; worktree prepare request            |
-| `IWorktreeSubagentRunnerOptions`  | interface | Type re-export from `agent-executor`; worktree runner options             |
-| `IPreparedSubagentWorktree`       | interface | Type re-export from `agent-executor`; prepared worktree handoff           |
-| `ISubagentJobHandle`              | interface | Type re-export from `agent-executor`; targeted job handle                 |
-| `ISubagentJobState`               | interface | Type re-export from `agent-executor`; subagent job projection             |
-| `ISubagentJobStart`               | interface | Type re-export from `agent-executor`; job start request                   |
-| `ISubagentSpawnRequest`           | interface | Type re-export from `agent-executor`; spawn request                       |
-| `ISubagentJobResult`              | interface | Type re-export from `agent-executor`; completion output and metadata      |
-| `TSubagentJobMode`                | type      | Type re-export from `agent-executor`; `foreground` or `background`        |
-| `TSubagentJobStatus`              | type      | Type re-export from `agent-executor`; lifecycle status union              |
+| Export                          | Kind      | Description                                                               |
+| ------------------------------- | --------- | ------------------------------------------------------------------------- |
+| `createInProcessSubagentRunner` | function  | Runner adapter that executes subagent jobs with `createSubagentSession()` |
+| `IInProcessSubagentRunnerDeps`  | interface | Dependencies captured by the in-process runner adapter                    |
+| `TSubagentRunnerFactory`        | type      | Factory seam for runtime shells to replace the default subagent runner    |
 
 ### History Entry Types
 
@@ -2395,13 +2381,19 @@ interface ISubagentRunner {
 }
 
 interface ISubagentJobStart {
-  jobId: string;
+  taskId: string;
   request: ISubagentSpawnRequest;
+  /**
+   * ARCH-031: the worktree the runner prepared. Runner-produced — it does not exist when a caller
+   * builds a request — so it rides on the envelope, and is the single carrier of the execution root
+   * that `subagentExecutionRoot` reads.
+   */
+  worktree?: { readonly path: string; readonly branch?: string };
   emit?: (event: TBackgroundTaskRunnerEvent) => void;
 }
 
 interface ISubagentJobHandle {
-  readonly jobId: string;
+  readonly taskId: string;
   readonly pid?: number;
   readonly logPath?: string;
   readonly transcriptPath?: string;
@@ -2430,8 +2422,8 @@ When `job.request.isolation !== 'worktree'`, the decorator delegates to the inne
 
 When `job.request.isolation === 'worktree'`, the decorator must:
 
-- call `ISubagentWorktreeAdapter.prepare({ jobId, cwd })`
-- invoke the inner runner with `cwd`, `worktreePath`, and `branchName` set to the prepared worktree
+- call `ISubagentWorktreeAdapter.prepare({ taskId, cwd })`
+- invoke the inner runner with `worktree: { path, branch }` set on the job envelope. ARCH-031: `request.cwd` is NOT rewritten — a second carrier of the execution root could disagree with the first
 - emit `WorktreeCreate` hook notification after preparation
 - remove clean worktrees exactly once on success, delegated failure, synchronous delegated start failure, or successful cancellation
 - preserve dirty worktrees and return `worktreePath`, `branchName`, `worktreeStatus`, and `worktreeNextAction` in `ISubagentJobResult.metadata`

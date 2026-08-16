@@ -245,8 +245,8 @@ export class TuiInteractionChannel {
     return this.interactiveSession.readExecutionWorkspaceDetail(entryId);
   }
 
-  async sendAgentJob(jobId: string, input: string): Promise<void> {
-    await this.interactiveSession.sendAgentJob(jobId, input);
+  async sendAgentJob(taskId: string, input: string): Promise<void> {
+    await this.interactiveSession.sendAgentJob(taskId, input);
   }
 
   setSessionName(name: string): void {

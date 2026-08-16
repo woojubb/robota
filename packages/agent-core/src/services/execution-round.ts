@@ -206,10 +206,6 @@ export async function executeRound(
     roundState.cumulativeInputTokens = inputTokens;
   }
 
-  if (assistantResponse.content && !conversationStore.getPendingContent()) {
-    conversationStore.appendStreaming(assistantResponse.content);
-  }
-
   for (const tc of assistantToolCalls) {
     conversationStore.appendToolCall(tc);
   }

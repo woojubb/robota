@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { subagentExecutionRoot } from '../execution-root.js';
 
-import type { ISubagentSpawnRequest } from '../types.js';
+import type { ISubagentExecutionEnvelope } from '../execution-root.js';
 
 /**
  * ARCH-010 — which directory a spawned subagent actually runs in.
@@ -15,36 +15,33 @@ import type { ISubagentSpawnRequest } from '../types.js';
  * to `process.cwd()` here would compile and every existing test would stay green. That is what these
  * cases are for, and why the rule lives in one function rather than being written out at each runner.
  */
-function request(overrides: Partial<ISubagentSpawnRequest>): ISubagentSpawnRequest {
+/**
+ * ARCH-031: the envelope, not the request. The worktree is runner-PRODUCED — it does not exist when a
+ * caller builds a request — so it rides beside the request rather than on it, and the runner no longer
+ * rewrites `request.cwd` to the same path (two carriers for one rule could disagree).
+ */
+function envelope(cwd: string, worktreePath?: string): ISubagentExecutionEnvelope {
   return {
-    type: 'general-purpose',
-    label: 'test',
-    parentSessionId: 'parent',
-    mode: 'sync',
-    depth: 1,
-    cwd: '/parent/checkout',
-    prompt: 'do the thing',
-    ...overrides,
-  } as ISubagentSpawnRequest;
+    request: { cwd },
+    ...(worktreePath !== undefined ? { worktree: { path: worktreePath } } : {}),
+  };
 }
 
 describe('subagentExecutionRoot (ARCH-010)', () => {
   it('uses the request cwd — never the process directory', () => {
     // The defect in one line: both runners produced the parent's directory here.
-    expect(subagentExecutionRoot(request({ cwd: '/some/workspace' }))).toBe('/some/workspace');
-    expect(subagentExecutionRoot(request({ cwd: '/some/workspace' }))).not.toBe(process.cwd());
+    expect(subagentExecutionRoot(envelope('/some/workspace'))).toBe('/some/workspace');
+    expect(subagentExecutionRoot(envelope('/some/workspace'))).not.toBe(process.cwd());
   });
 
   it('prefers the WORKTREE when the job is worktree-isolated', () => {
     // Isolating a subagent into a worktree and then running it in the parent's checkout would defeat
     // the isolation entirely — the worktree is the point.
-    const root = subagentExecutionRoot(
-      request({ cwd: '/parent/checkout', worktreePath: '/tmp/wt/job-1' }),
-    );
+    const root = subagentExecutionRoot(envelope('/parent/checkout', '/tmp/wt/job-1'));
     expect(root).toBe('/tmp/wt/job-1');
   });
 
   it('falls back to cwd when there is no worktree — not to anything ambient', () => {
-    expect(subagentExecutionRoot(request({ worktreePath: undefined }))).toBe('/parent/checkout');
+    expect(subagentExecutionRoot(envelope('/parent/checkout'))).toBe('/parent/checkout');
   });
 });

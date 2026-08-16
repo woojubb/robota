@@ -7,7 +7,7 @@ process.on('message', (message) => {
   }
 
   if (message.type === 'start') {
-    const jobId = message.payload?.jobId ?? 'unknown';
+    const taskId = message.payload?.taskId ?? 'unknown';
     if (process.env.ROBOTA_FIXTURE_MODE === 'wait') {
       return;
     }
@@ -16,16 +16,23 @@ process.on('message', (message) => {
       process.send?.({ type: 'text_delta', delta: 'partial ' });
       process.send?.({ type: 'tool_end', toolName: 'Read', success: true });
     }
+    // ARCH-031: reports the forked process's own OS working directory, so a test can observe where
+    // the child actually landed rather than where the request said it should.
+    if (process.env.ROBOTA_FIXTURE_MODE === 'cwd') {
+      process.send?.({ type: 'result', output: process.cwd() });
+      setTimeout(() => process.exit(0), 0);
+      return;
+    }
     if (process.env.ROBOTA_FIXTURE_MODE === 'usage') {
       process.send?.({
         type: 'result',
-        output: `completed:${jobId}`,
+        output: `completed:${taskId}`,
         usage: { promptTokens: 300, completionTokens: 120, totalTokens: 420 },
       });
       setTimeout(() => process.exit(0), 0);
       return;
     }
-    process.send?.({ type: 'result', output: `completed:${jobId}` });
+    process.send?.({ type: 'result', output: `completed:${taskId}` });
     setTimeout(() => process.exit(0), 0);
     return;
   }

@@ -120,7 +120,13 @@ export class SimpleRemoteExecutor implements IExecutor {
     const provider = request.provider;
     const model = request.model;
 
-    const response = await this.httpClient.chat(messages, provider, model, request.tools);
+    const response = await this.httpClient.chat(
+      messages,
+      provider,
+      model,
+      request.tools,
+      request.options?.signal,
+    );
 
     // Convert IResponseMessage to IAssistantMessage (IExecutor requirement)
     const assistantMessage: IAssistantMessage = {
@@ -161,6 +167,7 @@ export class SimpleRemoteExecutor implements IExecutor {
         request.provider,
         request.model,
         request.tools,
+        request.options?.signal,
       );
 
       // LocalExecutor-compatible: yield every chunk as-is (ExecutionService merges them).

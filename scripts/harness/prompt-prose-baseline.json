@@ -19,7 +19,7 @@
     "count": 1,
     "hashes": ["5434bd4bbeed"]
   },
-  "packages/agent-core/src/core/robota-execution.ts": {
+  "packages/agent-core/src/core/robota-execution-structured.ts": {
     "count": 1,
     "hashes": ["9c786864fd71"]
   },

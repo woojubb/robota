@@ -20,6 +20,54 @@ import type {
   ISubagentSpawnRequest,
 } from './types.js';
 
+/**
+ * ARCH-031: the keys `toSubagentState` passes through untouched — every task-state key that is
+ * neither transformed by that hop nor deliberately withheld from a subagent job.
+ */
+type TCarriedSubagentStateKey = Exclude<
+  keyof IBackgroundTaskState,
+  // Transformed by the hop.
+  | 'agentType'
+  | 'status'
+  | 'promptPreview'
+  | 'currentAction'
+  | 'result'
+  | 'error'
+  // Withheld — task-only, with no subagent-job meaning.
+  | 'kind'
+  | 'parentTaskId'
+  | 'lastActivityAt'
+  | 'commandPreview'
+  | 'unread'
+  | 'nextFireAt'
+  | 'schedule'
+>;
+
+/** The keys `toSubagentState` writes itself, rather than passing through. */
+type TWrittenSubagentStateKey =
+  'type' | 'status' | 'promptPreview' | 'currentTool' | 'result' | 'error';
+
+/**
+ * The floor, both directions. `TCarriedLeak` catches a key added to `IBackgroundTaskState` and left
+ * undecided — the spread would ship it on a transport-serialised object that never declared it, and
+ * TypeScript does not excess-property-check spreads. `TDeclaredGap` catches the opposite: a key
+ * added to `ISubagentJobState` that nothing carries or writes. Either one stops being `never` and
+ * this file stops compiling.
+ */
+type TCarriedLeak = Exclude<TCarriedSubagentStateKey, keyof ISubagentJobState>;
+type TDeclaredGap = Exclude<
+  keyof ISubagentJobState,
+  TCarriedSubagentStateKey | TWrittenSubagentStateKey
+>;
+/**
+ * Asserting via a CONSTRAINT, not an assignment: `never` is assignable to every type, so
+ * `const x: TCarriedLeak = undefined as never` would have been a check that cannot fail. Only
+ * `never` satisfies `T extends never`.
+ */
+type TAssertNever<T extends never> = T;
+type _TNoCarriedLeak = TAssertNever<TCarriedLeak>;
+type _TNoDeclaredGap = TAssertNever<TDeclaredGap>;
+
 export class SubagentManager implements ISubagentManager {
   private readonly backgroundTaskManager: IBackgroundTaskManager;
   private sequence = 0;
@@ -35,18 +83,14 @@ export class SubagentManager implements ISubagentManager {
     return this.toSubagentState(state);
   }
 
-  async wait(jobId: string): Promise<ISubagentJobResult> {
-    const result = await this.backgroundTaskManager.wait(jobId);
-    return {
-      jobId: result.taskId,
-      output: result.output,
-      metadata: result.metadata,
-      // ARCH-025: the same conditional spread `toBackgroundResult` uses below, so the two directions of
-      // this hop read identically. `usage` was declared by ANALYTICS-001 and dropped here in the very
-      // commit that added it — this projection is hand-written, and nothing checked it for totality.
-      // ARCH-031 replaces the hand-written hops with derivation and will subsume this line.
-      ...(result.usage ? { usage: result.usage } : {}),
-    };
+  /**
+   * ARCH-031 subsumed ARCH-025's repair here, exactly as that item said it would. The hand-written
+   * projection that dropped `usage` — in the very commit that added it — is gone; dropping `kind` is
+   * the whole transformation, and there is no key list left to forget a field from.
+   */
+  async wait(taskId: string): Promise<ISubagentJobResult> {
+    const { kind: _kind, ...result } = await this.backgroundTaskManager.wait(taskId);
+    return result;
   }
 
   list(): ISubagentJobState[] {
@@ -55,21 +99,21 @@ export class SubagentManager implements ISubagentManager {
       .map((state) => this.toSubagentState(state));
   }
 
-  get(jobId: string): ISubagentJobState | undefined {
-    const state = this.backgroundTaskManager.get(jobId);
+  get(taskId: string): ISubagentJobState | undefined {
+    const state = this.backgroundTaskManager.get(taskId);
     return state?.kind === 'agent' ? this.toSubagentState(state) : undefined;
   }
 
-  async cancel(jobId: string, reason?: string): Promise<void> {
-    await this.backgroundTaskManager.cancel(jobId, reason);
+  async cancel(taskId: string, reason?: string): Promise<void> {
+    await this.backgroundTaskManager.cancel(taskId, reason);
   }
 
-  async close(jobId: string): Promise<void> {
-    await this.backgroundTaskManager.close(jobId);
+  async close(taskId: string): Promise<void> {
+    await this.backgroundTaskManager.close(taskId);
   }
 
-  async send(jobId: string, prompt: string): Promise<void> {
-    await this.backgroundTaskManager.send(jobId, { prompt });
+  async send(taskId: string, prompt: string): Promise<void> {
+    await this.backgroundTaskManager.send(taskId, { prompt });
   }
 
   async shutdown(reason?: string): Promise<void> {
@@ -115,64 +159,67 @@ export class SubagentManager implements ISubagentManager {
     return `process_${this.processSequence}`;
   }
 
+  /**
+   * ARCH-031: a spread, not a 20-key hand-copy. `ISubagentSpawnRequest` IS
+   * `Omit<IAgentBackgroundTaskRequest, 'kind'>`, so the only thing this hop adds is the discriminant
+   * the seam fixes. The copy this replaced dropped `parentTaskId` and `providerProfile` and would have
+   * dropped the next field added too — nothing checked it for totality.
+   */
   private toBackgroundRequest(request: ISubagentSpawnRequest): IAgentBackgroundTaskRequest {
-    return {
-      kind: 'agent',
-      agentType: request.type,
-      label: request.label,
-      parentSessionId: request.parentSessionId,
-      mode: request.mode,
-      depth: request.depth,
-      cwd: request.cwd,
-      prompt: request.prompt,
-      model: request.model,
-      isolation: request.isolation,
-      allowedTools: request.allowedTools,
-      disallowedTools: request.disallowedTools,
-      timeoutMs: request.timeoutMs,
-      idleTimeoutMs: request.idleTimeoutMs,
-      maxRuntimeMs: request.maxRuntimeMs,
-      outputLimitBytes: request.outputLimitBytes,
-      maxTextDeltas: request.maxTextDeltas,
-      repetitionWindow: request.repetitionWindow,
-      repetitionThreshold: request.repetitionThreshold,
-      metadata: request.metadata,
-      // CORE-025: thread the caller's policy (default inherit-allowlist) instead of hard-coding it.
-      permissionPolicy: request.permissionPolicy ?? 'inherit-allowlist',
-    };
+    return { kind: 'agent', ...request };
   }
 
+  /**
+   * ARCH-031: the state hop of the same seam, and the last hand-written literal on it. It was a
+   * 24-key copy into a `Pick`-derived type, so the ~17 optional keys could be dropped silently —
+   * adding one to `ISubagentJobState`'s `Pick<>` list compiled clean and carried nothing. Now the
+   * pass-through half is the rest of the destructuring, so it is total by construction: only the
+   * keys this hop genuinely TRANSFORMS or deliberately WITHHOLDS are named, and each one that is
+   * withheld is a task-only concept a subagent job has no reader for.
+   *
+   * The spread makes the pass-through a blacklist, so the floor below closes the other direction: a
+   * field added to `IBackgroundTaskState` and NOT added to `ISubagentJobState`'s `Pick<>` would flow
+   * through `...carried` onto a transport-serialised object, and TypeScript does not
+   * excess-property-check spreads. `TCarriedSubagentStateKey` is a compile error the moment the two
+   * sets disagree, in either direction.
+   */
   private toSubagentState(state: IBackgroundTaskState): ISubagentJobState {
+    const {
+      // Transformed by this hop.
+      agentType,
+      status,
+      promptPreview,
+      currentAction,
+      result,
+      error,
+      // Withheld — task-only, with no subagent-job meaning.
+      kind: _kind,
+      parentTaskId: _parentTaskId,
+      lastActivityAt: _lastActivityAt,
+      commandPreview: _commandPreview,
+      unread: _unread,
+      nextFireAt: _nextFireAt,
+      schedule: _schedule,
+      ...carried
+    } = state;
+    // The destructuring above and `TCarriedSubagentStateKey` are two statements of the same
+    // partition, ~150 lines apart. The module-level floor catches an UNDECIDED new key; this one
+    // catches the decided-but-half-applied case — a key added to the `Exclude<>` list and forgotten
+    // here would otherwise leak through `...carried` with no compile error.
+    type _TDestructuringMatchesThePartition = TAssertNever<
+      | Exclude<keyof typeof carried, TCarriedSubagentStateKey>
+      | Exclude<TCarriedSubagentStateKey, keyof typeof carried>
+    >;
     return {
-      id: state.id,
-      type: state.agentType ?? state.label,
-      label: state.label,
-      parentSessionId: state.parentSessionId,
+      ...carried,
+      type: agentType ?? carried.label,
       // SELFHOST-012: `paused` is a scheduled-task-only status; a subagent is never a scheduled task, so this
       // branch is unreachable — narrowed here only to keep the projection assignable to TSubagentJobStatus.
-      status: state.status === 'paused' ? 'sleeping' : state.status,
-      mode: state.mode,
-      depth: state.depth,
-      pid: state.pid,
-      cwd: state.cwd,
-      isolation: state.isolation,
-      worktreePath: state.worktreePath,
-      branchName: state.branchName,
-      worktreeStatus: state.worktreeStatus,
-      worktreeNextAction: state.worktreeNextAction,
-      worktreeBaseRevision: state.worktreeBaseRevision,
-      parentWorktreeStatus: state.parentWorktreeStatus,
-      promptPreview: state.promptPreview ?? '',
-      currentTool: state.currentAction,
-      logPath: state.logPath,
-      transcriptPath: state.transcriptPath,
-      startedAt: state.startedAt,
-      updatedAt: state.updatedAt,
-      completedAt: state.completedAt,
-      timeoutReason: state.timeoutReason,
-      result: state.result?.output,
-      error: state.error?.message,
-      metadata: state.metadata,
+      status: status === 'paused' ? 'sleeping' : status,
+      promptPreview: promptPreview ?? '',
+      currentTool: currentAction,
+      result: result?.output,
+      error: error?.message,
     };
   }
 }
@@ -186,7 +233,7 @@ function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTas
       }
 
       const subagentHandle = runner.start({
-        jobId: task.taskId,
+        taskId: task.taskId,
         request: toSubagentStartRequest(task.request),
         emit: task.emit,
       });
@@ -213,38 +260,23 @@ function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTas
   };
 }
 
+/**
+ * ARCH-031: destructuring, not a 20-key hand-copy. Dropping `kind` is the entire transformation, and
+ * the compiler now guarantees the rest is carried. The copy this replaced omitted `parentTaskId` and
+ * `providerProfile`, and the CORE-025 comment it carried — "previously dropped here → dead field" —
+ * recorded the third field the same hop had already lost.
+ */
 function toSubagentStartRequest(request: IAgentBackgroundTaskRequest): ISubagentSpawnRequest {
-  return {
-    type: request.agentType,
-    label: request.label,
-    parentSessionId: request.parentSessionId,
-    mode: request.mode,
-    depth: request.depth,
-    cwd: request.cwd,
-    prompt: request.prompt,
-    model: request.model,
-    allowedTools: request.allowedTools,
-    disallowedTools: request.disallowedTools,
-    // CORE-025: carry the permission policy through to the runner (previously dropped here → dead field).
-    permissionPolicy: request.permissionPolicy,
-    timeoutMs: request.timeoutMs,
-    idleTimeoutMs: request.idleTimeoutMs,
-    maxRuntimeMs: request.maxRuntimeMs,
-    outputLimitBytes: request.outputLimitBytes,
-    maxTextDeltas: request.maxTextDeltas,
-    repetitionWindow: request.repetitionWindow,
-    repetitionThreshold: request.repetitionThreshold,
-    isolation: request.isolation,
-    metadata: request.metadata,
-  };
+  const { kind: _kind, ...spawnRequest } = request;
+  return spawnRequest;
 }
 
+/**
+ * ARCH-031: a spread. `ISubagentJobResult` IS
+ * `Omit<IBackgroundTaskResult, 'kind' | 'exitCode' | 'signalCode'>`, so the only addition is the
+ * discriminant. `usage` cannot be dropped here any more — there is no key list to forget it from,
+ * which is what the ARCH-025 repair had to add back by hand.
+ */
 function toBackgroundResult(result: ISubagentJobResult): IBackgroundTaskResult {
-  return {
-    taskId: result.jobId,
-    kind: 'agent',
-    output: result.output,
-    metadata: result.metadata,
-    ...(result.usage ? { usage: result.usage } : {}),
-  };
+  return { kind: 'agent', ...result };
 }

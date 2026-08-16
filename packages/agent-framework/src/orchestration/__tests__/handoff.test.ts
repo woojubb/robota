@@ -7,12 +7,12 @@ import {
 import type { IHandoffOrchestrationSpec } from '@robota-sdk/agent-core';
 import { SubagentManager } from '@robota-sdk/agent-executor';
 import type {
-  ISubagentManager,
-  ISubagentJobResult,
-  ISubagentRunner,
-  ISubagentJobStart,
   ISubagentJobHandle,
+  ISubagentJobStart,
+  ISubagentManager,
+  ISubagentRunner,
 } from '@robota-sdk/agent-executor';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
 import { runHandoff, type ResolveHandoff } from '../handoff';
 import { createInProcessSubagentRunner } from '../../subagents/index';
 import {
@@ -109,10 +109,10 @@ describe('SELFHOST-001 P2 — handoff orchestration', () => {
   it('composes end-to-end over a SubagentManager backed by an ISubagentRunner', async () => {
     const runner: ISubagentRunner = {
       start(job: ISubagentJobStart): ISubagentJobHandle {
-        const output = job.request.type === 'a' ? 'to:b' : 'END';
+        const output = job.request.agentType === 'a' ? 'to:b' : 'END';
         return {
-          jobId: job.jobId,
-          result: Promise.resolve<ISubagentJobResult>({ jobId: job.jobId, output }),
+          taskId: job.taskId,
+          result: Promise.resolve<ISubagentJobResult>({ taskId: job.taskId, output }),
           cancel: async () => {},
         };
       },

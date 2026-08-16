@@ -84,29 +84,17 @@ class UsageStreamProvider extends AbstractAIProvider {
   readonly name = 'usage-stream-provider';
   readonly version = '1.0.0';
 
-  async chat(messages: TUniversalMessage[]): Promise<TUniversalMessage> {
+  // CORE-042: a streaming provider emits its text through `options.onTextDelta` and STILL returns
+  // the complete assembled message, usage included -- that is what `IChatOptions.onTextDelta`
+  // requires. This double used to carry usage only on `chatStream`'s final chunk, which modelled the
+  // second engine rather than the contract.
+  async chat(_messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
+    options?.onTextDelta?.('streamed ');
+    options?.onTextDelta?.('answer');
     return {
-      id: 'x',
+      id: 'usage-1',
       role: 'assistant',
-      content: `Response to: ${messages[messages.length - 1]?.content ?? ''}`,
-      state: 'complete' as const,
-      timestamp: new Date(),
-    };
-  }
-
-  override async *chatStream(): AsyncIterable<TUniversalMessage> {
-    yield {
-      id: 'c1',
-      role: 'assistant',
-      content: 'Hi',
-      state: 'complete' as const,
-      timestamp: new Date(),
-    };
-    // Final usage chunk: empty content, carries top-level provider usage.
-    yield {
-      id: 'c2',
-      role: 'assistant',
-      content: '',
+      content: 'streamed answer',
       state: 'complete' as const,
       timestamp: new Date(),
       usage: { promptTokens: 123, completionTokens: 45, totalTokens: 168 },
@@ -836,16 +824,63 @@ describe('Robota Core', () => {
   // Cancellation contract (CORE-018)
   // ----------------------------------------------------------------
   describe('cancellation contract', () => {
-    it('runStream(): the run signal reaches provider chatOptions (parity with run)', async () => {
-      const provider = new TrackingProvider();
+    it('runStream(): aborting the run signal aborts the in-flight provider call', async () => {
+      // CORE-042: this used to assert that the provider received the caller's signal OBJECT. That
+      // identity held only because the deleted streaming engine called the provider directly and so
+      // skipped `callProviderWithIdleTimeout`, which hands the provider a linked controller of its
+      // own (execution-round-provider.ts:132) and detaches it once the call settles. Identity was a
+      // property of the second engine, not of the cancellation contract -- and asserting it would
+      // forbid the round path. What must hold, and what a caller actually depends on, is that an
+      // abort reaches the provider while the call is still in flight.
+      let started: () => void = () => {};
+      const inFlight = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+
+      class BlockingProvider extends AbstractAIProvider {
+        // `createConfig` names its default provider, so the double must answer to that name.
+        readonly name = 'tracking-provider';
+        readonly version = '1.0.0';
+        sawAbort = false;
+
+        async chat(
+          _messages: TUniversalMessage[],
+          options?: IChatOptions,
+        ): Promise<TUniversalMessage> {
+          expect(options?.signal).toBeDefined();
+          return new Promise<TUniversalMessage>((_resolve, reject) => {
+            options?.signal?.addEventListener(
+              'abort',
+              () => {
+                this.sawAbort = true;
+                reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+              },
+              { once: true },
+            );
+            started();
+          });
+        }
+      }
+
+      const provider = new BlockingProvider();
       const robota = new Robota(createConfig({ aiProviders: [provider] }));
       const controller = new AbortController();
 
-      for await (const _chunk of robota.runStream('hello', { signal: controller.signal })) {
-        // consume
-      }
+      const consumed = (async (): Promise<void> => {
+        for await (const _chunk of robota.runStream('hello', { signal: controller.signal })) {
+          // consume
+        }
+      })();
 
-      expect(provider.chatCalls[0].options?.signal).toBe(controller.signal);
+      await inFlight;
+      controller.abort();
+
+      // The turn then ends the way an aborted `run()` ends -- resolved and interrupted, not
+      // rejected (CORE-020's failure contract) -- so what this pins is the abort reaching the
+      // provider. Were the signal not linked, the provider would never settle and this awaits
+      // until the test times out; there is no way for it to pass without the propagation.
+      await consumed;
+      expect(provider.sawAbort).toBe(true);
     });
 
     it('run(): the run signal reaches IToolExecutionContext of executed tools', async () => {
@@ -1193,22 +1228,19 @@ describe('Robota Core', () => {
 
     it('returns the validated object as the runStream generator return value', async () => {
       class ScriptedStreamProvider extends TrackingProvider {
-        override async *chatStream(
+        // Emits the JSON in two deltas and returns it assembled -- the `onTextDelta` contract. The
+        // earlier shape put the pieces only on `chatStream`, so it exercised the deleted engine.
+        override async chat(
           messages: TUniversalMessage[],
           options?: IChatOptions,
-        ): AsyncIterable<TUniversalMessage> {
+        ): Promise<TUniversalMessage> {
           this.chatCalls.push({ messages, options });
-          yield {
-            id: 'chunk-1',
+          options?.onTextDelta?.('{"title": "streamed",');
+          options?.onTextDelta?.(' "score": 3}');
+          return {
+            id: 'scripted-stream',
             role: 'assistant',
-            content: '{"title": "streamed",',
-            state: 'complete' as const,
-            timestamp: new Date(),
-          };
-          yield {
-            id: 'chunk-2',
-            role: 'assistant',
-            content: ' "score": 3}',
+            content: '{"title": "streamed", "score": 3}',
             state: 'complete' as const,
             timestamp: new Date(),
           };

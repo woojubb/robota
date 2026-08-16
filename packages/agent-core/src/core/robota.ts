@@ -7,13 +7,8 @@ import {
   buildOwnerPath,
   createModuleEventEmitter,
 } from './robota-events';
-import {
-  robotaRun,
-  robotaRunStream,
-  robotaRunStructured,
-  robotaRunStreamStructured,
-  type IRobotaExecutionDeps,
-} from './robota-execution';
+import { robotaRun, robotaRunStream, type IRobotaExecutionDeps } from './robota-execution';
+import { robotaRunStructured, robotaRunStreamStructured } from './robota-execution-structured';
 import {
   getHistory,
   getFullHistory,
@@ -193,7 +188,7 @@ export class Robota
     input: string,
     options: TRunOptionsWithOutput<IJsonSchemaOutput>,
   ): AsyncGenerator<string, unknown, undefined>;
-  runStream(input: string, options?: IRunOptions): AsyncGenerator<string, void, undefined>;
+  runStream(input: string, options?: IRunOptions): AsyncGenerator<string, string, undefined>;
   async *runStream(
     input: string,
     options: IRunOptions = {},
@@ -209,8 +204,7 @@ export class Robota
         // The validated object is the generator's return value (CORE-015).
         return yield* robotaRunStreamStructured(this.executionDeps(), input, options, spec);
       }
-      yield* robotaRunStream(this.executionDeps(), input, options);
-      return undefined;
+      return yield* robotaRunStream(this.executionDeps(), input, options);
     } finally {
       this.resetEphemeralHistory();
       release();

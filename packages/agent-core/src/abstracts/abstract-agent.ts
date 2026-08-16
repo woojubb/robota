@@ -39,7 +39,7 @@ export abstract class AbstractAgent<
   /**
    * Run agent with streaming response and type-safe context
    */
-  abstract runStream(input: string, context?: TContext): AsyncGenerator<string, void, never>;
+  abstract runStream(input: string, context?: TContext): AsyncGenerator<string, string, never>;
 
   /**
    * Get conversation history with type-safe messages

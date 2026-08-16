@@ -15,7 +15,7 @@ interface ITestDeferred {
 }
 
 interface IStartedJob {
-  jobId: string;
+  taskId: string;
   deferred: ITestDeferred;
   cancelReason?: string;
 }
@@ -38,12 +38,12 @@ function createControllableRunner(): { runner: ISubagentRunner; started: IStarte
       start(job: ISubagentJobStart): ISubagentJobHandle {
         const deferred = createTestDeferred();
         const startedJob: IStartedJob = {
-          jobId: job.jobId,
+          taskId: job.taskId,
           deferred,
         };
         started.push(startedJob);
         return {
-          jobId: job.jobId,
+          taskId: job.taskId,
           result: deferred.promise,
           cancel: (reason?: string) => {
             startedJob.cancelReason = reason;
@@ -59,9 +59,9 @@ function createResolvedRunner(output: string): ISubagentRunner {
   return {
     start(job: ISubagentJobStart): ISubagentJobHandle {
       return {
-        jobId: job.jobId,
+        taskId: job.taskId,
         result: Promise.resolve({
-          jobId: job.jobId,
+          taskId: job.taskId,
           output,
         }),
         cancel: () => Promise.resolve(),
@@ -75,8 +75,8 @@ function createUsageReportingRunner(output: string, usage: ITokenUsage): ISubage
   return {
     start(job: ISubagentJobStart): ISubagentJobHandle {
       return {
-        jobId: job.jobId,
-        result: Promise.resolve({ jobId: job.jobId, output, usage }),
+        taskId: job.taskId,
+        result: Promise.resolve({ taskId: job.taskId, output, usage }),
         cancel: () => Promise.resolve(),
       };
     },
@@ -85,7 +85,7 @@ function createUsageReportingRunner(output: string, usage: ITokenUsage): ISubage
 
 function createSpawnRequest(prompt: string) {
   return {
-    type: 'general-purpose',
+    agentType: 'general-purpose',
     label: 'General purpose',
     parentSessionId: 'session_parent',
     mode: 'foreground' as const,
@@ -119,7 +119,7 @@ describe('SubagentManager', () => {
   });
 
   // ARCH-025: `ISubagentJobResult.usage` is declared (ANALYTICS-001) and populated end to end, but
-  // `wait()` projected `{ jobId, output, metadata }` and dropped it — so its readers saw `undefined`
+  // `wait()` projected `{ taskId, output, metadata }` and dropped it — so its readers saw `undefined`
   // structurally, always. The field was born dropped: the commit that added `usage` to
   // `toBackgroundResult` never touched `wait()`.
   it('wait() carries the declared usage through to its caller', async () => {
@@ -198,7 +198,7 @@ describe('SubagentManager', () => {
     expect(controlled.started).toHaveLength(1);
 
     controlled.started[0]?.deferred.resolve({
-      jobId: first.id,
+      taskId: first.id,
       output: 'first done',
     });
 

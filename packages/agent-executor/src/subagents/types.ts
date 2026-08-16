@@ -4,67 +4,52 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskRunner,
   TBackgroundTaskRequest,
-  TBackgroundPrimitive,
   TBackgroundTaskRunnerEvent,
-  TBackgroundTaskIsolation,
-  TBackgroundTaskTimeoutReason,
-  TBackgroundPermissionPolicy,
 } from '../background-tasks/index.js';
-import type { ITokenUsage } from '@robota-sdk/agent-core';
 import type {
+  ISubagentJobResult,
   ISubagentJobState,
+  ISubagentSpawnRequest,
   TSubagentJobMode,
   TSubagentJobStatus,
 } from '@robota-sdk/agent-interface-transport';
 
-export type { ISubagentJobState, TSubagentJobMode, TSubagentJobStatus };
-
-export interface ISubagentSpawnRequest {
-  type: string;
-  label: string;
-  parentSessionId: string;
-  mode: TSubagentJobMode;
-  depth: number;
-  cwd: string;
-  worktreePath?: string;
-  branchName?: string;
-  prompt: string;
-  model?: string;
-  isolation?: TBackgroundTaskIsolation;
-  allowedTools?: string[];
-  disallowedTools?: string[];
-  /**
-   * CORE-025: the spawned subagent's permission policy. Carried from `IAgentBackgroundTaskRequest` through the
-   * runner to `createSubagentSession`, where it gates tool calls BEFORE the session-mode decision. Previously
-   * dropped here (the field was absent), leaving the policy unenforced.
-   */
-  permissionPolicy?: TBackgroundPermissionPolicy;
-  timeoutMs?: number;
-  idleTimeoutMs?: number;
-  maxRuntimeMs?: number;
-  outputLimitBytes?: number;
-  maxTextDeltas?: number;
-  repetitionWindow?: number;
-  repetitionThreshold?: number;
-  metadata?: Record<string, TBackgroundPrimitive>;
-}
-
-export interface ISubagentJobResult {
-  jobId: string;
-  output: string;
-  metadata?: Record<string, TBackgroundPrimitive>;
-  /** ANALYTICS-001 (Phase 2): total token usage of the subagent run (TYPE-003: `ITokenUsage` SSOT). */
-  usage?: ITokenUsage;
-}
+/**
+ * ARCH-031: imported and re-exported here for INTRA-PACKAGE use only. The owner is
+ * `agent-interface-transport`; this package's PUBLIC index does not re-export them, because a
+ * pass-through re-export of another package's symbols is banned. Consumers import from the owner.
+ */
+export type {
+  ISubagentJobResult,
+  ISubagentJobState,
+  ISubagentSpawnRequest,
+  TSubagentJobMode,
+  TSubagentJobStatus,
+};
 
 export interface ISubagentJobStart {
-  jobId: string;
+  taskId: string;
   request: ISubagentSpawnRequest;
+  /**
+   * ARCH-031: the worktree a runner PREPARED for this job, when it isolated one. Runner-produced, so
+   * it lives on the envelope rather than on the request, which models what the caller asked for — the
+   * worktree does not exist at the moment a request is built. The execution root is read through
+   * {@link subagentExecutionRoot}, the single answer to "which directory does this run in".
+   *
+   * `branch` is carried deliberately even though nothing in this repository reads it yet. It is a real
+   * fact about an isolated run — which branch the subagent's work is on — and this is a library:
+   * contracts exist for consumers that are not in this tree. `project-structure.md` is explicit that an
+   * unconsumed public surface is a PRODUCT decision to remove, never a grep-based cleanup, and that a
+   * forward-provisioned surface carries the same quality bar as a consumed one. It used to sit on the
+   * REQUEST, which was the wrong owner (a caller cannot know it); moving it here keeps the capability
+   * and fixes the ownership.
+   */
+  worktree?: { readonly path: string; readonly branch?: string };
   emit?: (event: TBackgroundTaskRunnerEvent) => void;
 }
 
 export interface ISubagentJobHandle {
-  readonly jobId: string;
+  readonly taskId: string;
   readonly pid?: number;
   readonly logPath?: string;
   readonly transcriptPath?: string;
@@ -80,12 +65,12 @@ export interface ISubagentRunner {
 
 export interface ISubagentManager {
   spawn(request: ISubagentSpawnRequest): Promise<ISubagentJobState>;
-  wait(jobId: string): Promise<ISubagentJobResult>;
+  wait(taskId: string): Promise<ISubagentJobResult>;
   list(): ISubagentJobState[];
-  get(jobId: string): ISubagentJobState | undefined;
-  cancel(jobId: string, reason?: string): Promise<void>;
-  close(jobId: string): Promise<void>;
-  send(jobId: string, prompt: string): Promise<void>;
+  get(taskId: string): ISubagentJobState | undefined;
+  cancel(taskId: string, reason?: string): Promise<void>;
+  close(taskId: string): Promise<void>;
+  send(taskId: string, prompt: string): Promise<void>;
   shutdown(reason?: string): Promise<void>;
 }
 

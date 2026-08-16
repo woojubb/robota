@@ -12,8 +12,15 @@ import type { ISubagentWorkerStartPayload } from '../index.js';
 /** A minimal but fully-formed start payload that passes the structural guard. */
 function validStartPayload(): ISubagentWorkerStartPayload {
   return {
-    jobId: 'agent_1',
-    request: { type: 'tester', prompt: 'do work' },
+    taskId: 'agent_1',
+    // ARCH-031: `permissionPolicy` is required at the spawn boundary, so a "fully-formed" payload
+    // carries it. The `as unknown as` cast below is why this fixture could go stale silently.
+    request: {
+      agentType: 'tester',
+      prompt: 'do work',
+      permissionPolicy: 'inherit-allowlist',
+      cwd: '/tmp/parent-checkout',
+    },
     agentDefinition: { name: 'tester', systemPrompt: 'Run tasks.' },
     parentConfig: {},
     parentContext: {},
@@ -48,6 +55,37 @@ describe('isSubagentWorkerParentMessage', () => {
     const noModel = validStartPayload() as unknown as { providerProfile: Record<string, unknown> };
     delete noModel.providerProfile.model;
     expect(isSubagentWorkerParentMessage({ type: 'start', payload: noModel })).toBe(false);
+
+    // ARCH-031: the policy is required at the boundary, so the guard must reject a payload without
+    // it. Without this the worker's conditional spread silently omits the policy — CORE-025 lost
+    // this exact field once already, and nothing caught it.
+    const noPolicy = validStartPayload() as unknown as { request: Record<string, unknown> };
+    delete noPolicy.request.permissionPolicy;
+    expect(isSubagentWorkerParentMessage({ type: 'start', payload: noPolicy })).toBe(false);
+
+    // ARCH-010/ARCH-031: without `cwd` and without a `worktree`, `subagentExecutionRoot` has nothing
+    // to return and the child's tools get no containment root — reachable over the wire.
+    const noCwd = validStartPayload() as unknown as { request: Record<string, unknown> };
+    delete noCwd.request.cwd;
+    expect(isSubagentWorkerParentMessage({ type: 'start', payload: noCwd })).toBe(false);
+
+    // `worktree.path` wins over `request.cwd`, so a well-formed `cwd` does not rescue a malformed
+    // worktree — the child would take the bad branch.
+    const badWorktree = validStartPayload() as unknown as Record<string, unknown>;
+    badWorktree.worktree = { path: 42 };
+    expect(isSubagentWorkerParentMessage({ type: 'start', payload: badWorktree })).toBe(false);
+
+    const worktreeNotAnObject = validStartPayload() as unknown as Record<string, unknown>;
+    worktreeNotAnObject.worktree = '/tmp/wt';
+    expect(isSubagentWorkerParentMessage({ type: 'start', payload: worktreeNotAnObject })).toBe(
+      false,
+    );
+  });
+
+  it('accepts a start payload carrying a well-formed worktree', () => {
+    const withWorktree = validStartPayload() as unknown as Record<string, unknown>;
+    withWorktree.worktree = { path: '/tmp/wt', branch: 'subagent/x' };
+    expect(isSubagentWorkerParentMessage({ type: 'start', payload: withWorktree })).toBe(true);
   });
 });
 

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+
+import { subagentExecutionRoot } from '../execution-root.js';
 import type { IHookInput, IHookResult, IHookTypeExecutor } from '@robota-sdk/agent-core';
 import type {
   ISubagentJobHandle,
@@ -32,9 +34,9 @@ const TEST_WORKTREE: IPreparedSubagentWorktree = {
 
 function createJob(isolation?: TBackgroundTaskIsolation): ISubagentJobStart {
   return {
-    jobId: 'agent_1',
+    taskId: 'agent_1',
     request: {
-      type: 'tester',
+      agentType: 'tester',
       label: 'Tester',
       parentSessionId: 'session_1',
       mode: 'background',
@@ -55,9 +57,9 @@ function createCapturedRunner(onStart?: (job: ISubagentJobStart) => void): ICapt
         capturedJob = job;
         onStart?.(job);
         return {
-          jobId: job.jobId,
+          taskId: job.taskId,
           result: Promise.resolve({
-            jobId: job.jobId,
+            taskId: job.taskId,
             output: 'completed',
             metadata: { existing: 'value' },
           }),
@@ -118,7 +120,13 @@ describe('WorktreeSubagentRunner', () => {
 
     const result = await runner.start(createJob('worktree')).result;
 
-    expect(captured.getJob()?.request.cwd).toBe(TEST_WORKTREE.worktreePath);
+    // ARCH-031: the runner no longer rewrites `request.cwd` to the worktree. The request keeps what the
+    // CALLER asked for; the worktree the runner PREPARED rides on the envelope, and
+    // `subagentExecutionRoot` is the single answer to which of the two the child runs in. Rewriting cwd
+    // as well gave that rule two carriers that could disagree — the duplication ARCH-010 exists to prevent.
+    expect(captured.getJob()?.request.cwd).toBe('/repo');
+    expect(captured.getJob()?.worktree?.path).toBe(TEST_WORKTREE.worktreePath);
+    expect(subagentExecutionRoot(captured.getJob()!)).toBe(TEST_WORKTREE.worktreePath);
     expect(adapter.removed).toEqual([TEST_WORKTREE]);
     expect(result.metadata).toEqual({
       existing: 'value',
@@ -152,7 +160,7 @@ describe('WorktreeSubagentRunner', () => {
     const failingRunner: ISubagentRunner = {
       start(job: ISubagentJobStart): ISubagentJobHandle {
         return {
-          jobId: job.jobId,
+          taskId: job.taskId,
           result: Promise.reject(new Error('worker failed')),
           cancel: () => Promise.resolve(),
         };
@@ -183,7 +191,7 @@ describe('WorktreeSubagentRunner', () => {
     const cancellableRunner: ISubagentRunner = {
       start(job: ISubagentJobStart): ISubagentJobHandle {
         return {
-          jobId: job.jobId,
+          taskId: job.taskId,
           result: deferred.promise,
           cancel: () => Promise.resolve(),
         };
@@ -197,7 +205,7 @@ describe('WorktreeSubagentRunner', () => {
     const handle = runner.start(createJob('worktree'));
     await handle.cancel('stop requested');
     await Promise.resolve();
-    deferred.resolve({ jobId: 'agent_1', output: 'cancelled after cleanup' });
+    deferred.resolve({ taskId: 'agent_1', output: 'cancelled after cleanup' });
     const result = await handle.result;
 
     expect(adapter.removed).toEqual([TEST_WORKTREE]);
@@ -212,7 +220,7 @@ describe('WorktreeSubagentRunner', () => {
     const cancellableRunner: ISubagentRunner = {
       start(job: ISubagentJobStart): ISubagentJobHandle {
         return {
-          jobId: job.jobId,
+          taskId: job.taskId,
           result: new Promise<ISubagentJobResult>(() => undefined),
           cancel: () => Promise.resolve(),
         };
@@ -295,7 +303,7 @@ describe('WorktreeSubagentRunner', () => {
       'WorktreeCreate',
       'WorktreeRemove',
     ]);
-    expect(hookInputs[0]?.tool_input).toMatchObject({ jobId: 'agent_1', removed: false });
-    expect(hookInputs[1]?.tool_input).toMatchObject({ jobId: 'agent_1', removed: true });
+    expect(hookInputs[0]?.tool_input).toMatchObject({ taskId: 'agent_1', removed: false });
+    expect(hookInputs[1]?.tool_input).toMatchObject({ taskId: 'agent_1', removed: true });
   });
 });

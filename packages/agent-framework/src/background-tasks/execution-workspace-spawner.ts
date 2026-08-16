@@ -13,32 +13,33 @@ import type {
   IAgentBackgroundTaskRequest,
   IBackgroundTaskState,
   IProcessBackgroundTaskRequest,
-  TBackgroundPermissionPolicy,
-  TBackgroundTaskIsolation,
   TBackgroundTaskMode,
 } from '@robota-sdk/agent-interface-transport';
 
-export interface ISpawnAgentTaskRequest {
-  readonly label: string;
-  readonly agentType: string;
-  readonly prompt: string;
-  readonly mode?: TBackgroundTaskMode;
-  readonly parentTaskId?: string;
-  readonly depth?: number;
-  readonly cwd?: string;
-  readonly model?: string;
-  readonly isolation?: TBackgroundTaskIsolation;
-  readonly allowedTools?: readonly string[];
-  readonly disallowedTools?: readonly string[];
-  readonly permissionPolicy?: TBackgroundPermissionPolicy;
-  readonly timeoutMs?: number;
-  readonly idleTimeoutMs?: number;
-  readonly maxRuntimeMs?: number;
-  readonly outputLimitBytes?: number;
-  readonly maxTextDeltas?: number;
-  readonly repetitionWindow?: number;
-  readonly repetitionThreshold?: number;
-}
+/**
+ * ARCH-031: the third declaration of the seam's field family, now DERIVED like the other two.
+ *
+ * What the spawner owns, and therefore omits from what a caller may set: `kind` (fixed by the seam),
+ * `parentSessionId` (taken from `options.sessionId`) and `metadata` (built from `options.origin`). A
+ * caller that could set those could forge the parent session and the execution origin, which is why
+ * only the TYPE collapses here — `createAgentRequest` stays, because it also applies the defaults below.
+ *
+ * `mode`/`depth`/`cwd` are optional here and defaulted by that mapper. `permissionPolicy` is NOT among
+ * them: it stays required, so every spawn site states its own policy rather than inheriting one applied
+ * in the middle of a projection.
+ *
+ * `Readonly<T>` adds property modifiers but does not make `allowedTools?: string[]` a `readonly
+ * string[]`; the hand-written version declared the arrays readonly. That guarantee is knowingly given
+ * up, because what actually prevents caller mutation is the mapper copying with `[...]`, and the
+ * modifier was decorative beside it.
+ */
+export type ISpawnAgentTaskRequest = Readonly<
+  Omit<
+    IAgentBackgroundTaskRequest,
+    'kind' | 'parentSessionId' | 'metadata' | 'mode' | 'depth' | 'cwd'
+  > &
+    Partial<Pick<IAgentBackgroundTaskRequest, 'mode' | 'depth' | 'cwd'>>
+>;
 
 export interface ISpawnProcessTaskRequest {
   readonly command: string;
@@ -96,28 +97,23 @@ function createAgentRequest(
   options: ICreateExecutionWorkspaceTaskSpawnerOptions,
   request: ISpawnAgentTaskRequest,
 ): IAgentBackgroundTaskRequest {
+  // ARCH-031: a spread with the spawner's own overrides, NOT a hand-written key list. The list this
+  // replaced omitted `providerProfile` the moment the derivation introduced it — a caller could set it
+  // and get a silent no-op, which is precisely the defect class this item exists to remove, recreated by
+  // its own fix and caught at the done gate. A spread cannot forget a key.
+  //
+  // The three overrides after it are what the SPAWNER owns and a caller must not be able to forge:
+  // `kind` is fixed by the seam, `parentSessionId` comes from the session, `metadata` from the origin.
+  const { mode, depth, cwd, allowedTools, disallowedTools, ...rest } = request;
   return {
+    ...rest,
     kind: 'agent',
-    label: request.label,
-    mode: request.mode ?? 'background',
+    mode: mode ?? 'background',
+    depth: depth ?? 1,
+    cwd: cwd ?? options.cwd,
+    allowedTools: allowedTools ? [...allowedTools] : undefined,
+    disallowedTools: disallowedTools ? [...disallowedTools] : undefined,
     parentSessionId: options.sessionId,
-    parentTaskId: request.parentTaskId,
-    depth: request.depth ?? 1,
-    cwd: request.cwd ?? options.cwd,
-    agentType: request.agentType,
-    prompt: request.prompt,
-    model: request.model,
-    isolation: request.isolation,
-    allowedTools: request.allowedTools ? [...request.allowedTools] : undefined,
-    disallowedTools: request.disallowedTools ? [...request.disallowedTools] : undefined,
-    permissionPolicy: request.permissionPolicy ?? 'inherit-allowlist',
-    timeoutMs: request.timeoutMs,
-    idleTimeoutMs: request.idleTimeoutMs,
-    maxRuntimeMs: request.maxRuntimeMs,
-    outputLimitBytes: request.outputLimitBytes,
-    maxTextDeltas: request.maxTextDeltas,
-    repetitionWindow: request.repetitionWindow,
-    repetitionThreshold: request.repetitionThreshold,
     metadata: createExecutionOriginMetadata(options.origin),
   };
 }

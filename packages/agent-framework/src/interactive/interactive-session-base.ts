@@ -59,9 +59,9 @@ import type {
   IContextReferenceRemoveResult,
 } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
-import type { ISubagentJobResult } from '../subagents/index.js';
 import type { IHistoryEntry, TUniversalMessage, IContextWindowState } from '@robota-sdk/agent-core';
 import type { IScheduleEditPatch } from '@robota-sdk/agent-executor';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
 import type {
   IBackgroundTaskInput,
   IBackgroundTaskListFilter,
@@ -304,21 +304,21 @@ export abstract class InteractiveSessionBase {
       this.skillRouter.commandExecutor.getSemanticRoles().subagentSpawn,
     );
   }
-  async waitAgentJob(jobId: string): Promise<ISubagentJobResult> {
+  async waitAgentJob(taskId: string): Promise<ISubagentJobResult> {
     await this.ensureInitialized();
-    return waitAgentJobFromSession(this.getSessionOrThrow(), jobId);
+    return waitAgentJobFromSession(this.getSessionOrThrow(), taskId);
   }
-  async sendAgentJob(jobId: string, prompt: string): Promise<void> {
+  async sendAgentJob(taskId: string, prompt: string): Promise<void> {
     await this.ensureInitialized();
-    await sendAgentJobFromSession(this.getSessionOrThrow(), jobId, prompt);
+    await sendAgentJobFromSession(this.getSessionOrThrow(), taskId, prompt);
   }
-  async cancelAgentJob(jobId: string, reason?: string): Promise<void> {
+  async cancelAgentJob(taskId: string, reason?: string): Promise<void> {
     await this.ensureInitialized();
-    await cancelAgentJobFromSession(this.getSessionOrThrow(), jobId, reason);
+    await cancelAgentJobFromSession(this.getSessionOrThrow(), taskId, reason);
   }
-  async closeAgentJob(jobId: string): Promise<void> {
+  async closeAgentJob(taskId: string): Promise<void> {
     await this.ensureInitialized();
-    await closeAgentJobFromSession(this.getSessionOrThrow(), jobId);
+    await closeAgentJobFromSession(this.getSessionOrThrow(), taskId);
   }
 
   async spawnScheduledWake(input: {

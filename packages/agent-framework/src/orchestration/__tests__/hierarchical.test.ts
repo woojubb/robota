@@ -10,11 +10,11 @@ import type {
 } from '@robota-sdk/agent-core';
 import { SubagentManager } from '@robota-sdk/agent-executor';
 import type {
-  ISubagentRunner,
-  ISubagentJobStart,
   ISubagentJobHandle,
-  ISubagentJobResult,
+  ISubagentJobStart,
+  ISubagentRunner,
 } from '@robota-sdk/agent-executor';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
 import { runHierarchical, type PlanDelegation } from '../hierarchical';
 import { createInProcessSubagentRunner } from '../../subagents/index';
 import {
@@ -128,10 +128,10 @@ describe('SELFHOST-001 P3 — hierarchical orchestration', () => {
   it('composes end-to-end over a SubagentManager backed by an ISubagentRunner', async () => {
     const runner: ISubagentRunner = {
       start(job: ISubagentJobStart): ISubagentJobHandle {
-        const output = job.request.type === 'mgr' ? 'M' : 'W';
+        const output = job.request.agentType === 'mgr' ? 'M' : 'W';
         return {
-          jobId: job.jobId,
-          result: Promise.resolve<ISubagentJobResult>({ jobId: job.jobId, output }),
+          taskId: job.taskId,
+          result: Promise.resolve<ISubagentJobResult>({ taskId: job.taskId, output }),
           cancel: async () => {},
         };
       },

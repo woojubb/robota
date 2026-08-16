@@ -1,10 +1,10 @@
 import type { IAgentToolDeps } from './agent-tool.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import type { ISubagentManager } from '@robota-sdk/agent-executor';
 import type {
   ISubagentJobResult,
-  ISubagentManager,
   ISubagentSpawnRequest,
-} from '../subagents/index.js';
+} from '@robota-sdk/agent-interface-transport';
 
 export interface IAgentToolBatchJobArgs {
   label?: string;
@@ -179,7 +179,7 @@ function createBatchSuccessResult(
     success: true,
     groupId,
     label: job.label,
-    agentId: result.jobId,
+    agentId: result.taskId,
     subagent_type: job.agentType,
     prompt: job.job.prompt,
     output: result.output,

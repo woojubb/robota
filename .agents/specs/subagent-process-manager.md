@@ -76,12 +76,12 @@ It MUST provide APIs equivalent to:
 ```ts
 interface ISubagentManager {
   spawn(request: ISubagentSpawnRequest): Promise<ISubagentJobState>;
-  wait(jobId: string): Promise<ISubagentJobResult>;
+  wait(taskId: string): Promise<ISubagentJobResult>;
   list(): ISubagentJobState[];
-  get(jobId: string): ISubagentJobState | undefined;
-  cancel(jobId: string, reason?: string): Promise<void>;
-  close(jobId: string): Promise<void>;
-  send(jobId: string, prompt: string): Promise<void>;
+  get(taskId: string): ISubagentJobState | undefined;
+  cancel(taskId: string, reason?: string): Promise<void>;
+  close(taskId: string): Promise<void>;
+  send(taskId: string, prompt: string): Promise<void>;
 }
 ```
 
@@ -105,7 +105,7 @@ interface ISubagentRunner {
 }
 
 interface ISubagentJobHandle {
-  readonly jobId: string;
+  readonly taskId: string;
   readonly pid?: number;
   result: Promise<ISubagentJobResult>;
   cancel(reason?: string): Promise<void>;
@@ -146,20 +146,20 @@ IPC messages MUST be versioned and discriminated.
 
 ```ts
 type TSubagentWorkerToParentMessage =
-  | { version: 1; type: 'ready'; jobId: string }
-  | { version: 1; type: 'started'; jobId: string }
-  | { version: 1; type: 'text_delta'; jobId: string; delta: string }
+  | { version: 1; type: 'ready'; taskId: string }
+  | { version: 1; type: 'started'; taskId: string }
+  | { version: 1; type: 'text_delta'; taskId: string; delta: string }
   | {
       version: 1;
       type: 'tool_start';
-      jobId: string;
+      taskId: string;
       toolName: string;
       toolArgs?: Record<string, unknown>;
     }
   | {
       version: 1;
       type: 'tool_end';
-      jobId: string;
+      taskId: string;
       toolName: string;
       success: boolean;
       error?: string;
@@ -167,22 +167,22 @@ type TSubagentWorkerToParentMessage =
   | {
       version: 1;
       type: 'permission_request';
-      jobId: string;
+      taskId: string;
       requestId: string;
       toolName: string;
       toolArgs: Record<string, unknown>;
     }
-  | { version: 1; type: 'result'; jobId: string; output: string }
-  | { version: 1; type: 'error'; jobId: string; error: string }
-  | { version: 1; type: 'heartbeat'; jobId: string; at: string };
+  | { version: 1; type: 'result'; taskId: string; output: string }
+  | { version: 1; type: 'error'; taskId: string; error: string }
+  | { version: 1; type: 'heartbeat'; taskId: string; at: string };
 ```
 
 ```ts
 type TSubagentParentToWorkerMessage =
-  | { version: 1; type: 'start'; jobId: string; request: ISubagentWorkerStartRequest }
-  | { version: 1; type: 'cancel'; jobId: string; reason?: string }
-  | { version: 1; type: 'permission_response'; jobId: string; requestId: string; allowed: boolean }
-  | { version: 1; type: 'send'; jobId: string; prompt: string };
+  | { version: 1; type: 'start'; taskId: string; request: ISubagentWorkerStartRequest }
+  | { version: 1; type: 'cancel'; taskId: string; reason?: string }
+  | { version: 1; type: 'permission_response'; taskId: string; requestId: string; allowed: boolean }
+  | { version: 1; type: 'send'; taskId: string; prompt: string };
 ```
 
 Unknown message versions or types MUST fail closed and mark the job failed with protocol metadata.

@@ -48,6 +48,42 @@ describe('HttpClient chat methods', () => {
       expect(result.timestamp).toBeInstanceOf(Date);
     });
 
+    it('passes the run signal to fetch so a remote call is cancellable (CORE-042)', async () => {
+      // `fetch` was called with no `signal` at all, so an aborted run left the request in flight and
+      // the turn waiting on it -- the remote seam was the one provider call that could not be
+      // cancelled. This asserts the option arrives; CORE-044 owns the rest of `IChatOptions`, which
+      // needs a wire-schema change this does not.
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ role: 'assistant', content: 'ok', state: 'complete' }),
+        headers: new Map(),
+      });
+
+      const controller = new AbortController();
+      await httpClient.chat(
+        [{ role: 'user' as const, content: 'Hi' }],
+        'openai',
+        'gpt-4',
+        undefined,
+        controller.signal,
+      );
+
+      const init = mockFetch.mock.calls[0]?.[1] as RequestInit | undefined;
+      expect(init?.signal).toBe(controller.signal);
+    });
+
+    it('surfaces an abort as an AbortError rather than a generic request failure (CORE-042)', async () => {
+      // The catch rewrapped every rejection as `Request failed: …`, which erased the `AbortError`
+      // name. A caller cannot then tell its own cancellation from a transport fault, and threading
+      // the signal in would have been cosmetic.
+      mockFetch.mockRejectedValue(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+
+      await expect(
+        httpClient.chat([{ role: 'user' as const, content: 'Hi' }], 'openai', 'gpt-4'),
+      ).rejects.toMatchObject({ name: 'AbortError' });
+    });
+
     it('should include tools in request body when provided', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
