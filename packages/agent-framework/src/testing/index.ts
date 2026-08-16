@@ -26,6 +26,7 @@ export {
 // doubles (this package owns it), so all three consumer packages reach it with no new dependency edge
 // — the property ARCH-012 identified as the thing that actually killed its 37 casts.
 export {
+  createTestAgentJobHost,
   createTestCommandHost,
   type ICreateTestCommandHostOptions,
 } from './command-host-double.js';

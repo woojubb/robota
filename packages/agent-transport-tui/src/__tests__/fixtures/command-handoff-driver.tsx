@@ -15,6 +15,7 @@
 import { writeFileSync } from 'node:fs';
 
 import { executeEditorCommand, executeShellCommand } from '@robota-sdk/agent-command';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 import { Box, Text, render, useInput } from 'ink';
 import React from 'react';
 
@@ -65,7 +66,11 @@ async function main(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 300));
   marker(`READY canHandoff=${controller.canHandoffTerminal}`);
 
-  const ctx = context as ICommandHostContext;
+  // ARCH-029: the fixture's `satisfies Pick<>` above is the honest part — it declares exactly the
+  // three members these executors read. The widening cast existed only because the executors demand
+  // the whole 46-member facade. S3's role ports remove the need to widen at all; until then the
+  // double supplies the rest so no cast is required.
+  const ctx = createTestCommandHost({ overrides: context });
   const result =
     MODE === 'editor'
       ? await executeEditorCommand(ctx, COMMAND_ARG)

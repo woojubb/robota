@@ -7,6 +7,7 @@ import {
 import type { IAgentJobHostContext, ICommandHostContext } from '@robota-sdk/agent-framework';
 import { createAgentCommandModule } from '../agent-command-module.js';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
+import { createTestAgentJobHost } from '@robota-sdk/agent-framework/testing';
 
 function createMockSession(overrides?: Record<string, unknown>): ICommandHostContext {
   const session = {
@@ -74,7 +75,7 @@ function createMockSession(overrides?: Record<string, unknown>): ICommandHostCon
   return createTestCommandHost({
     overrides: {
       ...session,
-      getAgentJobCapability: () => session as unknown as IAgentJobHostContext,
+      getAgentJobCapability: () => createTestAgentJobHost(session),
     },
   });
 }

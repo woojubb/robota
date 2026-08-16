@@ -9,6 +9,7 @@ import type { ICommandModule } from '../../command-api/command-module.js';
 import type { ICommandHostContext, ISystemCommand } from '../../command-api/index.js';
 import { createTestCommandHost } from '../../testing/command-host-double.js';
 import type { IAgentJobHostContext } from '../../command-api/host-context.js';
+import { createTestAgentJobHost } from '../../testing/command-host-double.js';
 
 function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspace') {
   const underlying = {
@@ -77,7 +78,7 @@ function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspac
       // ARCH-029: the agent-job members are `IAgentJobHostContext`'s, reached through this getter —
       // the cast let the fixture hang them directly off `ICommandHostContext`, so it had the contract
       // STRUCTURE wrong and nothing could tell.
-      getAgentJobCapability: () => underlying as unknown as IAgentJobHostContext,
+      getAgentJobCapability: () => createTestAgentJobHost(underlying),
       ...overrides,
       getCwd: () => cwd,
     },

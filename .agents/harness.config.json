@@ -272,7 +272,7 @@
   ],
   "contractCastRatchet": {
     "$comment": "ARCH-012: contracts whose `as X` cast count is frozen by scan-contract-cast-ratchet. A cast is a partial re-implementation nothing checks against the real contract; the count may fall and never rise while capability-scoped ports are designed.",
-    "contracts": ["IInteractiveSession"]
+    "contracts": ["IInteractiveSession", "ICommandHostContext", "IAgentJobHostContext"]
   },
   "optionReachability": [
     {

@@ -15,6 +15,7 @@ import { executeMonitorCommand } from '../schedule-command.js';
 import { parseScheduleSpec } from '../schedule-spec-parser.js';
 
 import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
+import { createTestAgentJobHost } from '@robota-sdk/agent-framework/testing';
 
 /** Long enough that the quadratic path takes >10s while the linear path stays sub-millisecond. */
 const PUMP_LENGTH = 200_000;
@@ -42,7 +43,7 @@ describe('schedule argument parsing is not polynomial-ReDoS-able', () => {
   });
 
   it('rejects pumped `/monitor` arguments in linear time', async () => {
-    const host = {} as IAgentJobHostContext;
+    const host = createTestAgentJobHost();
     const hostile = `"cmd" "pattern"${' '.repeat(PUMP_LENGTH)}a\nb`;
 
     const started = performance.now();
@@ -64,7 +65,7 @@ describe('schedule argument parsing is not polynomial-ReDoS-able', () => {
 
   it('still parses well-formed `/monitor` arguments identically', async () => {
     const spawnMonitorWake = vi.fn().mockResolvedValue({ id: 'job-1' });
-    const host = { spawnMonitorWake } as unknown as IAgentJobHostContext;
+    const host = createTestAgentJobHost({ spawnMonitorWake });
 
     const result = await executeMonitorCommand(host, '  "pnpm build" "error"   report it  ');
 
