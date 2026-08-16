@@ -12,7 +12,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "typecheck": "astro sync && tsgo -p tsconfig.json --noEmit"
+    "typecheck": "astro sync && tsgo -p tsconfig.json --noEmit",
+    "deploy": "astro build && wrangler pages deploy dist --project-name robota --branch main"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.18",
@@ -25,6 +26,7 @@
     "unist-util-visit": "^5.1.0"
   },
   "devDependencies": {
-    "@astrojs/markdown-remark": "^7.2.1"
+    "@astrojs/markdown-remark": "^7.2.1",
+    "wrangler": "^4.123.0"
   }
 }
