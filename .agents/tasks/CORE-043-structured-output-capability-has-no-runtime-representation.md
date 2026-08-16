@@ -4,7 +4,7 @@ status: todo
 created: 2026-08-16
 priority: critical
 urgency: now
-area: packages/agent-core, packages/agent-provider-openai, packages/agent-provider-openai-compatible, packages/agent-provider-anthropic, packages/agent-provider-gemini, packages/agent-session
+area: packages/agent-core, packages/agent-provider-openai, packages/agent-provider-openai-compatible, packages/agent-provider-anthropic, packages/agent-provider-gemini, packages/agent-provider-replay, packages/agent-session, packages/agent-remote-client, packages/agent-playground, apps/agent-server
 depends_on: [PROV-007]
 ---
 

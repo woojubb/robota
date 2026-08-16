@@ -270,6 +270,59 @@ mitigation made the default answer `'none'` — Gemini would have silently repor
 the moment the change landed. A fail-silent capability regression, introduced by the mitigation for a
 different fail-silent risk.
 
+### 3b. The consumers, enumerated — the step this document was missing
+
+Round 1 found the **producer** enumeration incomplete and round 3 fixed it as a table, which has held
+since. But this change alters runtime _behaviour_ — an extra provider call, a new event kind, a
+changed commit shape — and no revision enumerated the **consumers** of that behaviour. Rounds 6, 7, 8
+and 9 each found one by accident, which is why they share a shape. That is a missing step, not bad
+luck, so it is done here once, from a workspace sweep rather than from the packages already in the
+Task's `area`.
+
+**Capability readers and answerers outside step 3's producer table** — nine, in six packages and one
+app:
+
+| Reader                                                     | Today                                      | What this change requires                                                                      |
+| ---------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `agent-provider-replay/src/replay-provider.ts:82`          | `supportsTools` only, no `getCapabilities` | An explicit answer — a provider with **no vendor** must not resolve a vendor-default mechanism |
+| `agent-core/src/testing/scripted-provider.ts:88`           | same                                       | An explicit answer **and** a scriptable extraction turn — six criteria name this fixture       |
+| `agent-core/src/executors/local-executor.ts:180-186`       | any-registered-provider disjunction        | Routed through the step-1 seam, or exempt with a reason — TC-08 claims `tools` resolves there  |
+| `agent-core/src/abstracts/abstract-executor.ts`            | `supportsTools`                            | Same question one layer up                                                                     |
+| `agent-core/src/interfaces/executor.ts`                    | declares `supportsTools`                   | Contract decision follows the two above                                                        |
+| `agent-remote-client/src/client/remote-executor-simple.ts` | `supportsTools`                            | Capability across a remote boundary — can it answer per-model at all?                          |
+| `agent-playground/src/lib/playground/remote-injection.ts`  | `supportsTools`                            | Browser-side reader                                                                            |
+| `apps/agent-server/src/catalog/providers.ts`               | `supportsTools`                            | Server catalog surface — outside every package this Task lists                                 |
+| `agent-provider-gemini/src/gemini/provider.ts`             | `supportsTools`, **no `getCapabilities`**  | The round-1 finding, restated: needs the new override                                          |
+
+**The replay collision — round 9's own fix breaks round 10's reader.** `ReplayProvider.chat`
+(`:60-71`) is a **positional cursor**, and `extractRecordedResponses` (`:88-95`) builds its corpus by
+filtering session-log entries on exactly `SESSION_LOG_EVENT.providerResponseNormalized`. Round 9
+specified that the extraction emit its **own** event kind — correct for replay disambiguation, and
+fatal here: the extraction's response is never recorded while the extraction call still **consumes a
+cursor position**, so the cursor desynchronises and every later call replays the wrong response until
+`"[replay] no recorded provider response for call #N … the log is exhausted."`
+
+The two rounds contradict each other and neither could see it alone. **Decision: the extraction
+records under the existing `providerResponseNormalized` name, and carries a discriminator field.**
+The corpus stays intact and ordered, replay stays deterministic — determinism being that package's
+entire purpose — and round 9's disambiguation survives as a field rather than as a separate event
+name. `session-log-events.ts` is the only other consumer of that event, so the blast radius is two
+files.
+
+**Cost is a static per-model fact left on the dynamic side of step 1's split.**
+`IProviderModelCatalogEntry.costPerInputToken` / `costPerOutputToken` (`:84-85`, ARCH-PROVIDER-003)
+are static and per-model by step 1's own criterion, yet step 1 moves `capabilities` to the new static
+table and leaves cost on the discovery struct — whose live-refresh path can never populate it, since
+`IOpenAIModelCatalogResource` carries `id` alone. **Cost travels with capability into the static
+table.** Round 9 made the extraction's tokens part of what must be costed, so leaving cost on the
+side that cannot be populated would break the accounting that round 9 exists to make checkable.
+
+**Surfaces not walked, recorded as unexplored rather than implied clean:** `agent-framework`'s
+`/model` command surface; `agent-session` persistence and the session-log schema beyond the replay
+reader; `agent-session-analytics`; `agent-cli` provider setup and `allowedModels`; and the plugin
+surface beyond `afterProviderCall`. A recorded null result is what stops a later round from
+rediscovering them; these are recorded as **unknown**, which is the honest state.
+
 ### 4. The decision is made where its inputs are resolved
 
 The first draft put the transport choice in `robotaRunStructured`. **That function has no provider.**
@@ -714,7 +767,7 @@ so every producer is updated rather than silently ignoring it.
 
 ### Independent review
 
-Nine rounds with `proposal-reviewer`, 2026-08-16. All nine returned **`REVIEW VERDICT: REVISE`**;
+Ten rounds with `proposal-reviewer`, 2026-08-16. All ten returned **`REVIEW VERDICT: REVISE`**;
 all were accepted in full, and in every round each load-bearing finding was independently
 re-checked against the code before revising. No finding was refuted in any round.
 
@@ -739,6 +792,24 @@ attempt is a full round loop and the extraction is one call.
 
 **Rounds 1 and 2** are below. Round 2 (on the first revision):
 the code before revising. No finding was refuted.
+
+**Round 10** (on the ninth revision) produced the meta-finding that explains rounds 6–9: **producers
+were enumerated, consumers never were.** Round 1 caught the producer gap and round 3 fixed it as a
+table; nothing did the same for the readers of the behaviour this change alters, so four consecutive
+rounds each found one by accident. Step 3b is that pass, done once from a workspace sweep.
+
+| Round-10 finding                                                                                    | Re-checked at                         | Disposition                                                 |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------- |
+| **Round 9's new event kind breaks the replay corpus** — recorded on one name, cursor still advances | `replay-provider.ts:60-71,88-95`      | Fixed — record under the existing name with a discriminator |
+| `ReplayProvider` has no `getCapabilities` — the Gemini shape, in the determinism package            | `replay-provider.ts:82`               | Fixed — step 3b table; TC-08b                               |
+| The scripted provider cannot express what six criteria assert                                       | `testing/scripted-provider.ts:88`     | Fixed — step 3b table                                       |
+| `LocalExecutor` reads `tools` outside the seam TC-08 claims                                         | `executors/local-executor.ts:180-186` | Fixed — TC-08c                                              |
+| Cost left on the dynamic side of step 1's split                                                     | `provider-definition.ts:84-85`        | Fixed — travels with capability                             |
+| Five surfaces unexplored                                                                            | —                                     | Recorded as unknown, not clean                              |
+
+The replay collision is the sharpest result of the whole loop: a fix this reviewer recommended in
+round 9, which this document adopted, was falsified in round 10 by a consumer neither party had
+walked. That is the argument for step 3b existing at all.
 
 **Round 9** (on the eighth revision) confirmed the placement and found that the round's _contract_ is
 one provider call, which the new placement makes two:
@@ -938,6 +1009,13 @@ representation is how that continues.
 - **TC-07d** The streaming structured path commits the same thing the non-streaming one does: the
   extracted object, even though the prose deltas were already yielded. Pinned so the two entry points
   cannot diverge.
+- **TC-08b** A replayed structured run reproduces the recorded run exactly: the extraction's response
+  is in the corpus, the cursor does not desynchronise, and `ReplayProvider` resolves an explicit
+  capability rather than a vendor default. Determinism is that package's whole purpose, so it is
+  pinned rather than assumed.
+- **TC-08c** `LocalExecutor` answers `tools` through the step-1 seam per (provider, model), or its
+  exemption is recorded — without this TC-08's claim that all six flags resolve through the seam is
+  false on the executor path, which is exactly where a wrong `tools` answer disables tool calling.
 - **TC-07f** On a converging round **after round 1**, the extraction request carries the named forcing
   directive, and the run's reported `tokensUsed` includes the extraction call. The two failures that
   are otherwise silent, pinned together: stripped forcing returns prose that looks like an ordinary
