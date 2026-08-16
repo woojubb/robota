@@ -27,11 +27,7 @@ import type { IShellPresetResolution } from './startup/preset-selection.js';
 import { DEFAULT_AGENT_NAME, getPreset, loadExternalPresets } from '@robota-sdk/agent-preset';
 import { buildPresetSurfaceOptions } from './startup/preset-surface-options.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
-import {
-  createRobotaPacks,
-  createRobotaProfile,
-  packCommandModuleNames,
-} from './product/robota-profile.js';
+import { createRobotaProfile } from './product/robota-profile.js';
 import {
   buildRobotaRuntimeOptions,
   createDefaultTransportRegistry,
@@ -48,8 +44,11 @@ import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transpo
 import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
-import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import { resolveSelfForkWorkerEntry } from './subagents/self-fork-worker-entry.js';
+import {
+  createRobotaChildProcessSubagentRunner,
+  createRobotaPackSet,
+} from './product/robota-subagent-composition.js';
 import { createGitWorktreeIsolationAdapter } from './subagents/git-worktree-isolation-adapter.js';
 import { reloadPluginCommandSource } from '@robota-sdk/agent-command';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
@@ -197,8 +196,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const resolvedPreset = preset.options;
   const selectedPresetId = preset.presetId;
 
-  const packs = createRobotaPacks({ cwd }); // ARCH-006: scoped to the cwd they are built with.
-  const packCommandModules = packCommandModuleNames(packs);
+  const { packContext, packs, packCommandModules } = createRobotaPackSet(cwd);
   const {
     commandHostAdapters,
     providerDefinitions,
@@ -272,10 +270,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
   const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
   const paths = projectPaths(cwd);
-  const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
-    workerEntry: resolveSelfForkWorkerEntry(),
+  const subagentRunnerFactory = createRobotaChildProcessSubagentRunner({
+    packContext,
     providerConfig: { ...providerSettings, model: modelId },
     logsDir: paths.logs,
+    workerEntry: resolveSelfForkWorkerEntry(),
     worktreeAdapter: createGitWorktreeIsolationAdapter(),
   });
 

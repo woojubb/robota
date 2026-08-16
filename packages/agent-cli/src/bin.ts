@@ -11,6 +11,7 @@ import { setGlobalLoggerSink } from '@robota-sdk/agent-core';
 import { isSubagentWorkerModeArgv, runSubagentWorkerMain } from '@robota-sdk/agent-subagent-runner';
 
 import { startCli } from './cli.js';
+import { createRobotaSubagentComposition } from './product/robota-subagent-composition.js';
 import { areTuiProcessGuardsActive, classifyUncaughtException } from './process-guards.js';
 
 /**
@@ -66,7 +67,9 @@ process.on('uncaughtException', (err) => {
 // `runSubagentWorkerMain` refuses loudly when there is no IPC channel, so a hand-typed flag fails
 // where someone can see it instead of looking started.
 if (isSubagentWorkerModeArgv(process.argv)) {
-  runSubagentWorkerMain();
+  // ARCH-021: the child composes robota's OWN surface, from the same packs the parent uses. The
+  // neutral runner no longer imports product defaults — it is handed the recipe.
+  runSubagentWorkerMain(createRobotaSubagentComposition());
 } else {
   startCli().catch((err) => {
     const message = err instanceof Error ? err.message : String(err);

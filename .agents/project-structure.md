@@ -12,7 +12,7 @@ packages/
 ├── agent-preset/                # Preset contract (IPreset) + resolvePreset + built-in presets (depends on agent-framework only)
 ├── agent-capability-pack/       # Additive capability-bundle contract (ICapabilityPack) + pure mergeCapabilityPacks merger; additive analog of agent-preset (deps: agent-framework + agent-core types only, no IO)
 ├── agent-product/               # Product-assembly kernel: assembleProduct — a pure, IO-free fold over IProductProfile that delegates runtime construction to agent-framework (deps: agent-framework + agent-preset + agent-capability-pack + type-only agent-interface-transport + agent-core types; NO concrete transport/TUI/CLI). ARCH-005; neutrality mechanically enforced by scan-composition-neutrality
-├── agent-subagent-runner/       # Optional: child-process subagent runner + worker (depends on agent-framework + agent-provider-defaults)
+├── agent-subagent-runner/       # Optional: child-process subagent runner + worker (depends on agent-framework; ARCH-021 removed the agent-provider-defaults edge — the composition root supplies ISubagentWorkerComposition)
 ├── agent-command/               # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
 ├── agent-command-*/             # Command-module bridge packages to other subsystems (e.g. agent-command-workflows: surfaces the DAG engine as `/workflows`, composing dag-framework)
 ├── agent-cli/                   # Terminal UI and local runtime adapters

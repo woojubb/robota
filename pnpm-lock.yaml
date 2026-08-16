@@ -1998,9 +1998,6 @@ importers:
       '@robota-sdk/agent-process':
         specifier: workspace:*
         version: link:../agent-process
-      '@robota-sdk/agent-provider-defaults':
-        specifier: workspace:*
-        version: link:../agent-provider-defaults
     devDependencies:
       '@types/node':
         specifier: ^22.19.21

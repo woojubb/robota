@@ -50,6 +50,15 @@ export type TSubagentWorkerParentMessage =
 
 export interface ISubagentWorkerReadyMessage {
   type: 'ready';
+  /**
+   * ARCH-021: the tool names the child actually composed, so "the child has the product's surface"
+   * is VERIFIED per run rather than assumed by construction. Names only — the tools themselves are
+   * code and do not cross this boundary; that is the whole point of the composition port.
+   *
+   * Enumerated at the worker's own cwd before any job arrives, which is sound because a pack's tool
+   * NAMES do not depend on the root (the root binds the path guard, not the name set).
+   */
+  composedToolNames?: readonly string[];
 }
 
 export interface ISubagentWorkerTextDeltaMessage {
@@ -140,6 +149,19 @@ function hasValidOptionalUsage(value: TSubagentWorkerWireRecord): boolean {
   );
 }
 
+/**
+ * ARCH-021: validate the optional parity declaration for the same reason CORE-024 (RUNTIME-47) added
+ * `hasValidOptionalUsage` beside it — the guard asserts a typed shape, so an unvalidated optional
+ * field hands a consumer a `readonly string[]` type over whatever the wire carried. Absent is valid;
+ * present must be an array of strings.
+ */
+function hasValidOptionalComposedToolNames(value: TSubagentWorkerWireRecord): boolean {
+  if (value.composedToolNames === undefined) return true;
+  const names = value.composedToolNames;
+  if (!Array.isArray(names)) return false;
+  return names.every((name) => typeof name === 'string');
+}
+
 function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWorkerStartPayload {
   if (!isRecord(value)) return false;
   if (!hasPayloadString(value, 'taskId')) return false;
@@ -193,7 +215,7 @@ export function isSubagentWorkerChildMessage(
   if (!isRecord(value) || !hasString(value, 'type')) return false;
   switch (value.type) {
     case 'ready':
-      return true;
+      return hasValidOptionalComposedToolNames(value);
     case 'text_delta':
       return hasString(value, 'delta');
     case 'tool_start':

@@ -1,5 +1,7 @@
 import type { TUniversalMessage, IToolCall } from './messages';
 import type { IProviderCapabilities, IProviderNativeWebToolRequest } from './provider-capabilities';
+import type { IProviderModelCatalog } from './provider-definition';
+import type { IProviderSpecificOptions } from './provider-specific-options';
 import type { IToolSchema } from './tool-schema';
 
 export type {
@@ -24,6 +26,8 @@ export {
  * Used for storing provider-specific configuration values
  */
 export type TProviderConfigValue = string | number | boolean;
+
+export type { IProviderSpecificOptions } from './provider-specific-options';
 
 // The universal JSON-schema subset moved to `./tool-schema` (CORE-039): it is its own concept,
 // reached by producers, validators and four provider adapters, and `provider.ts` was over its
@@ -71,55 +75,6 @@ export interface IProviderRequest {
   metadata?: Record<string, string | number | boolean>;
 }
 
-/**
- * Provider-specific configuration options
- */
-export interface IProviderSpecificOptions {
-  /** OpenAI specific options */
-  openai?: {
-    organization?: string;
-    user?: string;
-    stop?: string | string[];
-    presencePenalty?: number;
-    frequencyPenalty?: number;
-    logitBias?: Record<string, number>;
-    topP?: number;
-    n?: number;
-    stream?: boolean;
-    suffix?: string;
-    echo?: boolean;
-    bestOf?: number;
-    logprobs?: number;
-  };
-
-  /** Anthropic specific options */
-  anthropic?: {
-    stopSequences?: string[];
-    topP?: number;
-    topK?: number;
-    metadata?: {
-      userId?: string;
-    };
-  };
-
-  /** Google specific options */
-  google?: {
-    candidateCount?: number;
-    stopSequences?: string[];
-    safetySettings?: Array<{
-      category: string;
-      threshold: string;
-    }>;
-    responseModalities?: Array<'TEXT' | 'IMAGE'>;
-    topP?: number;
-    topK?: number;
-  };
-}
-
-/**
- * Callback for receiving text deltas during streaming.
- * Called for each text chunk as the model generates output.
- */
 export type TTextDeltaCallback = (delta: string) => void;
 
 export type TProviderNativeRawPayloadKind = 'request' | 'response' | 'stream_event';
@@ -254,6 +209,15 @@ export interface IAIProvider {
    * Providers without native web support can omit this and use default capability helpers.
    */
   getCapabilities?(): IProviderCapabilities;
+
+  /**
+   * This provider's model catalog, so a PER-MODEL capability is resolvable at call time (PROV-006).
+   *
+   * `supportsTools()` answers for the vendor, which is the wrong granularity when models differ —
+   * deepseek returned an unconditional `true` while its own catalog said `deepseek-reasoner` has
+   * none. Optional, and silence is NOT denial: see `interfaces/model-capability.ts`.
+   */
+  modelCatalog?(): IProviderModelCatalog | undefined;
 
   /**
    * Optional generic hook for enabling provider-native hosted web behavior.

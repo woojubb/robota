@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-097: a contract''s state is judged from a proxy signal instead of its actual state — "no consumer found" is read as dead, and "published" is read as unmodifiable, and both readings are made by the same agent that then acts on them'
-status: todo
+status: done
 created: 2026-08-16
+completed: 2026-08-16
 priority: high
 urgency: now
 area: .agents/rules, .agents/skills, scripts/harness
@@ -108,3 +109,8 @@ required, and the real changeset text is pinned as a green case so the widening 
 **Scope stated rather than implied:** the check cannot tell whether the disposition named is the
 RIGHT one — that is the skill's judgement. It closes the hole the incident went through: an
 unqualified claim reaching a shipped artifact with no disposition recorded.
+
+## Closed
+
+Delivered and on `main`. Mechanism MECHANIZED with its red proof recorded above. Nothing of this item
+remains open.

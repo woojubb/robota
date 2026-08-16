@@ -1,11 +1,6 @@
 import { sumHistoryUsage } from '@robota-sdk/agent-core';
 import { createProviderFromProfile, subagentExecutionRoot } from '@robota-sdk/agent-executor';
-import {
-  createDefaultTools,
-  createSubagentLogger,
-  createSubagentSession,
-} from '@robota-sdk/agent-framework';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
+import { createSubagentLogger, createSubagentSession } from '@robota-sdk/agent-framework';
 
 import {
   isSubagentWorkerParentMessage,
@@ -14,6 +9,7 @@ import {
   type TSubagentWorkerWireValue,
 } from './child-process-subagent-ipc.js';
 
+import type { ISubagentWorkerComposition } from './worker-composition.js';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
 const CANCEL_EXIT_CODE = 130;
@@ -84,12 +80,17 @@ function readSessionUsage(
   }
 }
 
-async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<void> {
+async function runInitialPrompt(
+  payload: ISubagentWorkerStartPayload,
+  composition: ISubagentWorkerComposition,
+): Promise<void> {
   try {
+    // ARCH-021: the PRODUCT's registry, not an imported six-vendor default. A custom provider type
+    // used to throw `Unknown provider` here while the parent ran on it perfectly well.
     const provider = createProviderFromProfile(
       payload.providerProfile,
       payload.request.model,
-      createDefaultProviderDefinitions(),
+      composition.providerDefinitions,
     );
     const sessionLogger = payload.logsDir
       ? createSubagentLogger(payload.request.parentSessionId, payload.taskId, payload.logsDir)
@@ -102,7 +103,10 @@ async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<v
       // every tool the child built was unconfined. Same reader as the session root below — the tools
       // and the session being told DIFFERENT roots is the same class of defect as neither being told
       // one.
-      parentTools: createDefaultTools({ cwd: subagentExecutionRoot(payload) }),
+      // ARCH-021: the product's tool surface, built at THIS child's execution root. Previously
+      // `createDefaultTools(...)`, which meant dropping a pack did not drop its tools from a
+      // child-process subagent — ARCH-006's invariant was true in the parent and false here.
+      parentTools: composition.createTools({ cwd: subagentExecutionRoot(payload) }),
       cwd: subagentExecutionRoot(payload),
       provider,
       terminal: NOOP_TERMINAL,
@@ -185,13 +189,35 @@ async function cancelWorker(reason?: string): Promise<void> {
 }
 
 /**
+ * The names the composition yields at this process's own cwd. Failure to enumerate must not stop the
+ * worker — the declaration is verification, not the run itself — but it must not be silent either.
+ */
+function composedToolNames(composition: ISubagentWorkerComposition): readonly string[] | undefined {
+  try {
+    return composition.createTools({ cwd: process.cwd() }).map((tool) => tool.getName());
+  } catch (error) {
+    // allow-fallback: a parity declaration must never take the subagent down with it. But it must
+    // not lie either — `[]` would read as "this product composed no tools", which is the one
+    // confusion a parity channel cannot afford. `undefined` says "could not enumerate".
+    process.stderr.write(
+      `robota: could not enumerate the composed tool surface: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    return undefined;
+  }
+}
+
+/**
  * DIST-006: worker mode is ENTERED, not implied by loading this module.
  *
  * These handlers used to run as module top-level side effects, which is what forced the worker to
  * be a separate file that something had to locate on disk. As a function, the composition root's
  * own entry can become the worker — so there is no second artifact and no path to get wrong.
+ *
+ * ARCH-021: `composition` is REQUIRED, deliberately. An optional parameter falling back to imported
+ * defaults would reinstate the exact defect this seam removes — and at this line conventions have a
+ * measured failure rate of 100% (ARCH-010 and ARCH-006 are both findings here).
  */
-export function runSubagentWorkerMain(): void {
+export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): void {
   if (process.send === undefined) {
     // "Silence is not success": a worker without an IPC channel can never report anything, so it
     // must fail where someone can see it rather than sit there looking started.
@@ -209,7 +235,7 @@ export function runSubagentWorkerMain(): void {
 
     switch (message.type) {
       case 'start':
-        running = running.then(() => runInitialPrompt(message.payload));
+        running = running.then(() => runInitialPrompt(message.payload, composition));
         break;
       case 'send':
         runFollowUp(message.prompt);
@@ -228,5 +254,13 @@ export function runSubagentWorkerMain(): void {
     void session?.shutdown({ reason: 'other' }).catch(() => undefined); // allow-fallback: cleanup on disconnect — process will exit regardless
   });
 
-  sendChildMessage({ type: 'ready' });
+  // ARCH-021: declare what this child composed. This is a VERIFICATION channel — the built-binary
+  // test and the port-level test read it; no production consumer does, and saying otherwise would
+  // stop the next reader asking whether this public wire field has one. It turns "equivalent by
+  // construction" into "verified per run" at a seam where two findings have already landed.
+  const names = composedToolNames(composition);
+  sendChildMessage({
+    type: 'ready',
+    ...(names ? { composedToolNames: names } : {}),
+  });
 }

@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-100: a defect found mid-task has no filing path that leaves the work in flight undisturbed — writing a backlog file inline interrupts it, and dropping the finding loses it, so the repo has no owned answer for the most common moment a defect is discovered'
-status: todo
+status: done
 created: 2026-08-16
+completed: 2026-08-16
 priority: medium
 urgency: soon
 area: .agents/skills, .agents/rules
@@ -108,3 +109,13 @@ children, including the judgement that the issue's eight named skills are four c
 surfaced two findings a later session would otherwise have re-derived — the `contract-audit` name
 collision and the already-filed mirror at #1765 — and both were recorded in the parent rather than
 discovered twice.
+
+## Closed
+
+Both skills delivered and on `main`.
+
+**The unmechanized half is now HARNESS-102.** This item's terminal state was `infeasible-now`, which
+`lesson-to-harness` step 8 permits only with a written obstacle **plus a tracked item** — and it
+pointed at itself, which is not one. HARNESS-102 is that item, and it carries the obstacle: a finding
+that was noticed and dropped leaves no artifact, so the failure state is an absence and there is
+nothing for a check to read.

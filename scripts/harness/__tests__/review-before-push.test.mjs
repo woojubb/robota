@@ -78,8 +78,10 @@ function push(dir, command = 'git push -u origin feat/probe', { openPrs = 0 } = 
 /**
  * A `gh` on PATH that answers the one question the hook asks it.
  *
- * `openPrs` is what `gh pr list --head <branch> --state open --json number --jq length` prints: how
- * many open pull requests that branch heads. `''` makes it exit non-zero instead — the
+ * `openPrs` is the number of open pull requests the branch heads. The hook asks
+ * `gh pr list --head <branch> --state open --json number --jq '.[0].number // empty'`, so the stub
+ * prints a pull-request NUMBER when there is one and nothing when there is none — the shape real
+ * `gh` prints after applying that jq. `''` makes it exit non-zero instead — the
  * unauthenticated / offline / no-such-repository case, which reaches the same refusal as `gh` being
  * absent altogether, because `command -v gh` and the lookup sit in one condition and either half
  * failing leaves the demand in place.
@@ -97,7 +99,9 @@ function stubGh(openPrs) {
       ? '#!/bin/bash\nexit 1\n'
       : `#!/bin/bash
 for arg in "$@"; do
-  if [ "$arg" = "--head" ]; then printf '%s\\n' ${JSON.stringify(String(openPrs))}; exit 0; fi
+  if [ "$arg" = "--head" ]; then ${
+    Number(openPrs) > 0 ? `printf '%s\\n' '4242'` : 'printf ""'
+  }; exit 0; fi
 done
 printf 'OPEN\\n'
 `;

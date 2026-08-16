@@ -3,11 +3,7 @@ import {
   DEFAULT_DEEPSEEK_PROVIDER_BASE_URL,
   DEFAULT_DEEPSEEK_PROVIDER_MODEL,
 } from './defaults';
-import {
-  DEEPSEEK_MODEL_CATALOG_ENTRIES,
-  DEEPSEEK_MODEL_CATALOG_SOURCE_URL,
-  DEEPSEEK_MODEL_LAST_VERIFIED_AT,
-} from './model-catalog';
+import { DEEPSEEK_MODEL_CATALOG } from './model-catalog';
 import { refreshDeepSeekModelCatalog } from './model-catalog-refresh';
 import { DeepSeekProvider } from './provider';
 import { probeOpenAICompatibleProfile } from '../shared/openai-compatible/index.js';
@@ -15,12 +11,6 @@ import { probeOpenAICompatibleProfile } from '../shared/openai-compatible/index.
 import type { TDeepSeekReasoningEffort, TDeepSeekThinkingMode } from './types';
 import type { IProviderDefinition, TUniversalValue } from '@robota-sdk/agent-core';
 
-const DEEPSEEK_MODEL_CATALOG: NonNullable<IProviderDefinition['modelCatalog']> = {
-  status: 'fallback',
-  sourceUrl: DEEPSEEK_MODEL_CATALOG_SOURCE_URL,
-  lastVerifiedAt: DEEPSEEK_MODEL_LAST_VERIFIED_AT,
-  entries: DEEPSEEK_MODEL_CATALOG_ENTRIES,
-};
 const DEEPSEEK_API_KEY_URL = 'https://platform.deepseek.com/api_keys';
 const DEEPSEEK_SETUP_SOURCE_URL = 'https://api-docs.deepseek.com/';
 const DEEPSEEK_SETUP_LAST_VERIFIED_AT = '2026-05-08';

@@ -121,6 +121,23 @@ describe('isSubagentWorkerChildMessage', () => {
     expect(isSubagentWorkerChildMessage({ type: 'unknown' })).toBe(false);
   });
 
+  it('validates the optional composed-tool-name declaration (ARCH-021)', () => {
+    // Absent is valid — an old-shaped `ready` still passes.
+    expect(isSubagentWorkerChildMessage({ type: 'ready' })).toBe(true);
+    expect(
+      isSubagentWorkerChildMessage({ type: 'ready', composedToolNames: ['Read', 'Write'] }),
+    ).toBe(true);
+    expect(isSubagentWorkerChildMessage({ type: 'ready', composedToolNames: [] })).toBe(true);
+
+    // Present must be an array of strings: the guard narrows to a typed shape, so an unvalidated
+    // field hands a consumer `readonly string[]` over whatever the wire carried.
+    expect(isSubagentWorkerChildMessage({ type: 'ready', composedToolNames: 'Read' })).toBe(false);
+    expect(
+      isSubagentWorkerChildMessage({ type: 'ready', composedToolNames: [{ name: 'Read' }] }),
+    ).toBe(false);
+    expect(isSubagentWorkerChildMessage({ type: 'ready', composedToolNames: 42 })).toBe(false);
+  });
+
   it('rejects a result message with a malformed usage payload (CORE-024 RUNTIME-47)', () => {
     // Missing fields, wrong types, and non-object usage must all be rejected so a bad payload
     // cannot be spread verbatim into the parent's token/cost accounting.
