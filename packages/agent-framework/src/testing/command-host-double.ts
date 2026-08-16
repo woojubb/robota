@@ -4,18 +4,8 @@ import { createFileSystemMemoryStore } from '../memory/file-system-memory-store.
 
 import type { IEditCheckpointRestoreResult } from '../checkpoints/edit-checkpoint-types.js';
 import type { ICommandHostAdapters } from '../command-api/host-adapters.js';
-import type {
-  IAgentJobHostContext,
-  ICommandHostContext,
-  ICommandSessionRuntime,
-} from '../command-api/host-context.js';
-import type {
-  IGoalState,
-  IPlanArtifact,
-  IBackgroundJobGroupState,
-  IBackgroundTaskState,
-  ISubagentJobState,
-} from '@robota-sdk/agent-interface-transport';
+import type { ICommandHostContext, ICommandSessionRuntime } from '../command-api/host-context.js';
+import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface-transport';
 
 /**
  * ARCH-029: a conformant, cast-free `ICommandHostContext` double.
@@ -57,7 +47,7 @@ const EMPTY_RESTORE_RESULT: IEditCheckpointRestoreResult = {
     sessionId: 'test-command-host',
     sequence: 0,
     prompt: '',
-    createdAt: '1970-01-01T00:00:00.000Z',
+    createdAt: NEVER,
     fileCount: 0,
   },
   restoredCheckpointCount: 0,
@@ -80,7 +70,7 @@ const EMPTY_GOAL: IGoalState = {
   status: 'stopped',
   iterations: 0,
   maxIterations: 0,
-  startedAt: '1970-01-01T00:00:00.000Z',
+  startedAt: NEVER,
   progress: [],
 };
 
@@ -89,18 +79,11 @@ const EMPTY_PLAN: IPlanArtifact = {
   objective: '',
   steps: [],
   phase: 'planning',
-  createdAt: '1970-01-01T00:00:00.000Z',
+  createdAt: NEVER,
 };
 
 /** No adapter is injected by default — a test that needs one states it through `overrides`. */
 const EMPTY_ADAPTERS: ICommandHostAdapters = {};
-
-/**
- * The root every default cwd hangs off. Deliberately NOT under `/tmp`: SEC-003's floor treats a
- * hardcoded shared-temp literal as a CWE-377 taint source, and it is right to — the cwd is handed to the
- * production code under test, which may write through it. This path does not exist, so a test that
- * actually writes fails loudly instead of succeeding quietly inside a world-writable directory.
- */
 
 /** Counts doubles so each gets a distinguishable cwd when a test does not name one. */
 let doublesCreated = 0;

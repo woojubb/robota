@@ -51,7 +51,7 @@ function presetListResult(context: ICommandHostSessionAccess): ICommandResult {
 async function resolvePresetViaAsk(
   context: ICommandHostUserInteraction,
 ): Promise<string | undefined> {
-  const ui = context.getUserInteraction?.();
+  const ui = context.getUserInteraction();
   if (!ui) return undefined;
   const options = listPresets().map((preset) => ({
     value: preset.id,

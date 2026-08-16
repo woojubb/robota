@@ -35,7 +35,10 @@ describe('exit command module', () => {
   });
 
   it('proceeds to exit with no renderer attached (no human to confirm)', async () => {
-    const result = await executeExitCommand({} as never, '');
+    // ARCH-029 TC-09: "no renderer attached" is a VALUE — `getUserInteraction()` returns undefined —
+    // not an absent member. `{} as never` expressed it as absence, which the required member no
+    // longer permits, and the double's default answers exactly this case.
+    const result = await executeExitCommand(createTestCommandHost(), '');
 
     expect(result).toEqual({
       success: true,

@@ -122,41 +122,61 @@ export function findRolePortOptionalFindings(root = process.cwd(), settingsOverr
   const carveOuts = new Map(
     (settings.carveOuts ?? []).map((entry) => [`${entry.interface}.${entry.member}`, entry.reason]),
   );
-  const findings = [];
-  let examined = 0;
-  examinedFiles = 0;
-
   const aggregates = settings.aggregates ?? [];
+
+  // TWO passes over the whole file set, not one pass per file. Scoping per file was wrong in both
+  // directions: a file that declares ports but no aggregate looked like an empty scope, and a port
+  // declared in a file the aggregate does not live in was never inspected at all. Review
+  // demonstrated the second: a new role file with an optional member, added to the aggregate's
+  // `extends`, printed "0 optional member(s)" while that member was reachable through the aggregate.
+  examinedFiles = 0;
+  const ports = new Set();
+  const declared = new Map();
   for (const file of files) {
     const content = readFileSync(join(root, file), 'utf8');
-    const ports = rolePortsOf(content, file, aggregates);
-    if (ports.size === 0) {
-      // Fail CLOSED: no ports resolved means the aggregates were renamed or the file moved, and a
-      // scan that then examines nothing reports a clean result for a check it never ran.
+    examinedFiles += 1;
+    for (const port of rolePortsOf(content, file, aggregates)) ports.add(port);
+    for (const [name, optional] of findOptionalMembers(content, file)) {
+      declared.set(name, { file, optional });
+    }
+  }
+
+  const findings = [];
+  if (ports.size === 0) {
+    // Fail CLOSED: no ports resolved means the aggregates were renamed or moved, and a scan that
+    // then examines nothing reports a clean result for a check it never ran.
+    findings.push({
+      rule: 'role-port-scope-empty',
+      detail: `no role ports resolved from ${JSON.stringify(aggregates)} across ${files.length} file(s) — the aggregates were renamed or moved, so this floor examined nothing.`,
+    });
+    return { findings, examined: examinedFiles, carveOuts: carveOuts.size };
+  }
+
+  for (const port of ports) {
+    const decl = declared.get(port);
+    if (!decl) {
       findings.push({
-        rule: 'role-port-scope-empty',
-        detail: `${file}: no role ports resolved from ${JSON.stringify(aggregates)} — the aggregates were renamed or moved, so this floor examined nothing.`,
+        rule: 'role-port-declaration-unscanned',
+        detail:
+          `${port} is named in an aggregate's \`extends\` clause but is declared in no scanned file. ` +
+          `Its members are reachable through the aggregate and this floor never read them — add its ` +
+          `file to rolePortOptionals.files.`,
       });
       continue;
     }
-    const byInterface = findOptionalMembers(content, file, ports);
-    examined += 1;
-    examinedFiles += 1;
-    for (const [name, optional] of byInterface) {
-      for (const member of optional) {
-        if (carveOuts.has(`${name}.${member}`)) continue;
-        findings.push({
-          rule: 'role-port-optional-member',
-          detail:
-            `${file}: ${name}.${member}? is optional. A role port carries no optional members — ` +
-            `an absent member forces every consumer to invent an answer for it, which is how a ` +
-            `framework-owned default becomes a second implementation nobody owns. Make it required, ` +
-            `or add a carve-out with a reason if its VALUE is genuinely variational.`,
-        });
-      }
+    for (const member of decl.optional) {
+      if (carveOuts.has(`${port}.${member}`)) continue;
+      findings.push({
+        rule: 'role-port-optional-member',
+        detail:
+          `${decl.file}: ${port}.${member}? is optional. A role port carries no optional members — ` +
+          `an absent member forces every consumer to invent an answer for it, which is how a ` +
+          `framework-owned default becomes a second implementation nobody owns. Make it required, ` +
+          `or add a carve-out with a reason if its VALUE is genuinely variational.`,
+      });
     }
   }
-  return { findings, examined, carveOuts: carveOuts.size };
+  return { findings, examined: examinedFiles, carveOuts: carveOuts.size };
 }
 
 function main() {

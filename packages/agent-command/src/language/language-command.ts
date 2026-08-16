@@ -15,7 +15,7 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 async function resolveLanguageViaAsk(
   context: ICommandHostUserInteraction,
 ): Promise<string | undefined> {
-  const ui = context.getUserInteraction?.();
+  const ui = context.getUserInteraction();
   if (!ui) return undefined;
   const options = buildLanguageCommandSubcommands().map((sub) => ({
     value: sub.name,

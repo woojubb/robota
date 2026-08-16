@@ -30,7 +30,7 @@ export async function executeClearCommand(
   _args: string,
 ): Promise<ICommandResult> {
   // Confirm only when an interactive renderer is attached; with no human the explicit /clear proceeds.
-  const ui = context.getUserInteraction?.();
+  const ui = context.getUserInteraction();
   if (ui) {
     const response = await ui.ask(confirmAction('clear', 'Clear conversation history?'));
     if (!isConfirmed(response)) {
@@ -113,8 +113,8 @@ function buildCostOutput(context: ICommandHostSessionAccess & ICommandHostWorksp
 } {
   const session = context.getSession();
   const sessionInfo = readCommandSessionInfo(context);
-  const tokenUsage = session.getSessionTokenUsage?.();
-  const modelId = session.getModelId?.();
+  const tokenUsage = session.getSessionTokenUsage();
+  const modelId = session.getModelId();
   const lines: string[] = [
     `Session:  ${sessionInfo.sessionId}`,
     `Messages: ${sessionInfo.messageCount}`,

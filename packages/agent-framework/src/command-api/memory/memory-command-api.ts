@@ -1,4 +1,3 @@
-import { createFileSystemMemoryStore } from '../../memory/file-system-memory-store.js';
 import { containsSensitiveMemoryContent } from '../../memory/memory-policy-evaluator.js';
 import {
   isMemoryType,
@@ -22,7 +21,7 @@ import type {
   IMemoryStore,
   IMemoryWriter,
 } from '../../memory/types.js';
-import type { ICommandHostMemory, ICommandHostWorkspace } from '../host-context.js';
+import type { ICommandHostMemory } from '../host-context.js';
 import type { ICommand } from '../types.js';
 
 export const MEMORY_COMMAND_DESCRIPTION =
@@ -71,14 +70,17 @@ export function buildMemoryCommandSubcommands(source = 'memory'): ICommand[] {
 }
 
 /**
- * The durable-memory port the `/memory` command reads/writes through — the surface-injected `IMemoryStore`
- * (SSOT: the SAME instance the session uses for startup injection + capture), or the neutral fs reference
- * store over the command host's cwd when the host injects none (memory behavior unchanged).
+ * The durable-memory port the `/memory` command reads/writes through — the SAME `IMemoryStore`
+ * instance the session uses for startup injection and capture.
+ *
+ * ARCH-029 TC-09: this used to fall back to `createFileSystemMemoryStore(context.getCwd(), now)`
+ * when the host injected none. That default was redundant, not load-bearing —
+ * `InteractiveSession.getMemoryStore()` already did `??= createFileSystemMemoryStore(this.getCwd())`
+ * itself, so the framework was re-deriving what the one production host already owned. With the
+ * member required there is one owner. `now` went with the fallback: no caller ever passed it, and
+ * `ICommandHostWorkspace` went with `getCwd()` — a role the body no longer reads.
  */
-export function createCommandMemoryStores(
-  context: ICommandHostMemory & ICommandHostWorkspace,
-  now?: () => Date,
-): IMemoryStore {
+export function createCommandMemoryStores(context: ICommandHostMemory): IMemoryStore {
   return context.getMemoryStore();
 }
 

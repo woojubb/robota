@@ -61,6 +61,25 @@ describe('findAggregateReferences', () => {
     ).toBe(2);
   });
 
+  it('counts an `extends` heritage clause — a one-line re-alias of the whole surface', () => {
+    // The worst hole this floor could have, and it shipped with it: `extends` parses as an
+    // `ExpressionWithTypeArguments`, not a `TypeReferenceNode`. One line re-aliases all 46 members,
+    // every consumer then names the alias, and the count sits at zero forever. Found by review.
+    expect(count('export interface IMyHost extends ICommandHostContext {}\n')).toBe(1);
+  });
+
+  it('counts an `implements` heritage clause on a class', () => {
+    expect(
+      count(
+        'export class C implements ICommandHostContext {\n  getCwd() {\n    return "";\n  }\n}\n',
+      ),
+    ).toBe(1);
+  });
+
+  it('counts the aggregate among several heritage entries, not just the first', () => {
+    expect(count('interface X extends IOther, ICommandHostContext, IThird {}\n')).toBe(1);
+  });
+
   it('does NOT count an import specifier — it names nothing in a type position', () => {
     // Counting it would double every honest site and make the frozen number mean two things.
     expect(count("import type { ICommandHostContext } from './host-context.js';\n")).toBe(0);

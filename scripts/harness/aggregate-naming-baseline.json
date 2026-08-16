@@ -1,3 +1,5 @@
 {
-  "ICommandHostContext": 0
+  "ICommandHostContext": 0,
+  "IAgentJobHostContext": 18,
+  "ICommandSessionRuntime": 4
 }

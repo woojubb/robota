@@ -23,7 +23,7 @@ export async function executeProviderCommand(
   args: string,
   options: IProviderCommandModuleOptions,
 ): Promise<ICommandResult> {
-  const ui = context.getUserInteraction?.();
+  const ui = context.getUserInteraction();
   const settings = options.settings.readMergedSettings();
   const trimmedArgs = args.trim();
   if (trimmedArgs.length === 0) {

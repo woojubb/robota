@@ -22,7 +22,7 @@ export async function executeEditorCommand(
   context: ICommandHostTerminalHandoff & ICommandHostWorkspace,
   args: string,
 ): Promise<ICommandResult> {
-  if (context.canHandoffTerminal?.() !== true || context.runWithTerminal === undefined) {
+  if (!context.canHandoffTerminal()) {
     return {
       message: 'An editor is unavailable here (no interactive terminal).',
       success: false,

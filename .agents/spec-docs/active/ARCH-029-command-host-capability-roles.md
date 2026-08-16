@@ -1230,3 +1230,29 @@ change made two of them slightly larger while making a third much smaller. What 
 the growth is new public surface and one contract implementation, that it was minimised by four
 splits before the baseline was touched, and that the one file which could be genuinely reduced was
 reduced and re-frozen at its new number.
+
+### [MEASUREMENT CORRECTION — THE STARTING NUMBERS WERE WRONG] — 2026-08-17
+
+Independent review re-ran the SHIPPED instruments against the merge-base (`bac03bfcc`). Two of the
+numbers reported during implementation, and one in this document, do not reproduce. Reproduced and
+confirmed here before being corrected.
+
+| quantity                                          | reported during implementation | re-measured with the shipped instrument | why they differ                                                                                                                                                                                             |
+| ------------------------------------------------- | ------------------------------ | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ICommandHostContext` type-position refs at start | **137**                        | **150** (156 with no allowlist)         | 137 came from the scan BEFORE review found it blind to heritage clauses, and while the allowlist still named a path that does not exist (`command-contracts.ts`). Two instrument defects, both since fixed. |
+| cast sites at start                               | **23**                         | **22** (18 + 4)                         | a miscount; the design's own figure of 22 was right and the implementation note was not                                                                                                                     |
+| allowlist entries                                 | described as **4**             | **6** at implementation time, now **9** | `system-command-executor.ts` and `interactive-session-skill-router.ts` were added during implementation with reasons in config but no design update; the file split added three declaration sites           |
+
+**This is the exact failure this document warned about**, in its own words: _"the scan's definition
+and the recorded baseline must be the same quantity when it is written"_, and _"freezing a number a
+different instrument produced is the shape of a floor that cannot fail"_. The commit message for S3
+argues that point at length while carrying a number produced by the pre-fix instrument.
+
+What is NOT affected: the END state. `ICommandHostContext` is at **0**, measured by the current
+instrument — which now counts heritage clauses, the form that could re-alias all 46 members in one
+line — and the zero is falsified by mutation in both directions. The target was always zero, and
+zero does not depend on where the count started.
+
+What IS affected: any reading of "137 → 0" as a measured delta. The honest statement is **150 → 0**
+against the current instrument, or "the count was never measured with one instrument end to end".
+The commit messages already in history are not rewritten; this entry is the correction of record.

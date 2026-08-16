@@ -59,16 +59,11 @@ export function setCommandAutoCompactThreshold(
   threshold: TAutoCompactThreshold,
   source: TAutoCompactThresholdSource,
 ): void {
-  if (context.setAutoCompactThreshold) {
-    context.setAutoCompactThreshold(threshold, source);
-    return;
-  }
-
-  const session = context.getSession();
-  if (!session.setAutoCompactThreshold) {
-    throw new Error('Command host does not support changing auto-compact threshold.');
-  }
-  session.setAutoCompactThreshold(threshold);
+  // ARCH-029 TC-09: one path. The branch this replaced fell back to
+  // `getSession().setAutoCompactThreshold(threshold)` when the host member was absent — and the two
+  // were NOT the same operation: the fallback silently dropped `source`, so a session-scoped change
+  // was recorded as whatever the reader assumed. Exactly the `clearConversationHistory` shape.
+  context.setAutoCompactThreshold(threshold, source);
 }
 
 /** Persist an automatic compact policy value through the host settings adapter, when present. */
@@ -122,12 +117,6 @@ export async function addCommandContextReference(
   context: ICommandHostContextReferences,
   path: string,
 ): Promise<IContextReferenceAddResult> {
-  if (!context.addContextReference) {
-    return {
-      evicted: [],
-      diagnostics: ['Command host does not support context reference additions.'],
-    };
-  }
   return context.addContextReference(path);
 }
 
@@ -136,7 +125,7 @@ export function removeCommandContextReference(
   context: ICommandHostContextReferences,
   path: string,
 ): IContextReferenceRemoveResult {
-  return context.removeContextReference?.(path) ?? {};
+  return context.removeContextReference(path);
 }
 
 /** Clear all context references through the command host facade. */

@@ -39,9 +39,6 @@ export function inspectCommandEditCheckpoint(
   context: ICommandHostCheckpoints,
   checkpointId: string,
 ): IEditCheckpointInspection {
-  if (!context.inspectEditCheckpoint) {
-    throw new Error('Checkpoint inspection is not available in this command host.');
-  }
   return context.inspectEditCheckpoint(checkpointId);
 }
 
@@ -65,9 +62,6 @@ export function forkCommandEditCheckpoint(
   context: ICommandHostCheckpoints,
   checkpointId: string,
 ): Promise<IEditCheckpointRestoreResult> {
-  if (!context.forkCheckpointBranch) {
-    throw new Error('Checkpoint branching is not available in this command host.');
-  }
   return context.forkCheckpointBranch(checkpointId);
 }
 
@@ -75,15 +69,9 @@ export function switchCommandEditCheckpointBranch(
   context: ICommandHostCheckpoints,
   checkpointId: string,
 ): void {
-  if (!context.switchCheckpointBranch) {
-    throw new Error('Checkpoint branching is not available in this command host.');
-  }
   context.switchCheckpointBranch(checkpointId);
 }
 
 export function listCommandEditCheckpointBranches(context: ICommandHostCheckpoints): string[] {
-  if (!context.listCheckpointBranches) {
-    throw new Error('Checkpoint branching is not available in this command host.');
-  }
   return context.listCheckpointBranches();
 }

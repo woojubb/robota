@@ -23,7 +23,7 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 async function resolveModeViaAsk(
   context: ICommandHostUserInteraction,
 ): Promise<string | undefined> {
-  const ui = context.getUserInteraction?.();
+  const ui = context.getUserInteraction();
   if (!ui) return undefined;
   const options = buildPermissionModeSubcommands().map((sub) => ({
     value: sub.name,

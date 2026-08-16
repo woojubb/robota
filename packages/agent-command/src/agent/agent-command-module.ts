@@ -9,7 +9,7 @@ import type {
 import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-transport';
 
 function getAgentHostContext(context: ICommandHostAgentJobs): IAgentJobHostContext {
-  const cap = context.getAgentJobCapability?.();
+  const cap = context.getAgentJobCapability();
   if (!cap) throw new Error('Agent job capability is not available in this context.');
   return cap;
 }

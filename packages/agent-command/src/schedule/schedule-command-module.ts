@@ -18,7 +18,7 @@ import type {
 } from '@robota-sdk/agent-interface-transport';
 
 function getAgentHostContext(context: ICommandHostAgentJobs): IAgentJobHostContext {
-  const cap = context.getAgentJobCapability?.();
+  const cap = context.getAgentJobCapability();
   if (!cap) throw new Error('Scheduling requires an active agent runtime.');
   return cap;
 }

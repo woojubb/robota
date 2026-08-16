@@ -75,12 +75,6 @@ export async function executeSkillsCommand(
 ): Promise<ICommandResult> {
   const parsed = parseSkillsArgs(args);
   if (parsed.action === 'activate' && parsed.skillName !== undefined) {
-    if (!context.executeSkillCommandByName) {
-      return {
-        success: false,
-        message: 'Skill activation is not available in this session.',
-      };
-    }
     const displayInput = `/${parsed.skillName}${parsed.skillArgs ? ` ${parsed.skillArgs}` : ''}`;
     const result = await context.executeSkillCommandByName(parsed.skillName, parsed.skillArgs, {
       invocationSource: context.getCommandInvocationSource(),

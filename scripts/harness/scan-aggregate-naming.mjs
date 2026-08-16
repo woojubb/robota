@@ -84,16 +84,32 @@ export function findAggregateReferences(content, fileName, aggregates) {
   const sourceFile = ts.createSourceFile(fileName, content);
   const found = [];
 
+  const note = (name, node) => {
+    if (!name || !aggregates.includes(name)) return;
+    const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+    found.push({ aggregate: name, line: line + 1 });
+  };
+
   const visit = (node) => {
+    // A HERITAGE clause is not a TypeReferenceNode — `interface IMyHost extends ICommandHostContext {}`
+    // and `class C implements ICommandHostContext` parse as `ExpressionWithTypeArguments`. Missing
+    // this was the worst possible hole in this particular floor: re-aliasing the entire 46-member
+    // surface takes ONE line, the aggregate keeps being named through the alias everywhere, and the
+    // count stays at zero forever. Found by review after the scan shipped, and reproduced before
+    // being fixed: adding `export interface IMyHost extends ICommandHostContext {}` to a consumer
+    // left the ratchet reporting `0 reference(s)`.
+    for (const clause of node.heritageClauses ?? []) {
+      for (const type of clause.types ?? []) {
+        let expr = type.expression;
+        while (expr && ts.isPropertyAccessExpression(expr)) expr = expr.name;
+        note(expr?.text, type);
+      }
+    }
     if (ts.isTypeReferenceNode(node)) {
       // `A.B.ICommandHostContext` resolves through a qualified name; the tail is the symbol.
       let name = node.typeName;
       while (name && ts.isQualifiedName(name)) name = name.right;
-      const text = name && ts.isIdentifier(name) ? name.text : undefined;
-      if (text && aggregates.includes(text)) {
-        const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
-        found.push({ aggregate: text, line: line + 1 });
-      }
+      note(name && ts.isIdentifier(name) ? name.text : undefined, node);
     }
     ts.forEachChild(node, visit);
   };

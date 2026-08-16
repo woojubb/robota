@@ -288,8 +288,25 @@
   },
   "aggregateNaming": {
     "$comment": "ARCH-029: the load-bearing floor. A god contract is not fixed by decomposing it — it is fixed when consumers stop NAMING it, and REFACTOR-006 proved those are different events (it closed green on the same contract, which then grew 20 members/50% optional to 46/70%). Type-position references to each aggregate are frozen in scripts/harness/aggregate-naming-baseline.json; they may fall and must never rise. The target is 0, not 'falling'.",
-    "aggregates": ["ICommandHostContext"],
+    "aggregates": ["ICommandHostContext", "IAgentJobHostContext", "ICommandSessionRuntime"],
+    "$scopeNote": "ICommandHostContext is the criterion ARCH-029 drives to ZERO (TC-05). The other two aggregates were decomposed by the same change but their consumer migration is NOT in this item's approved scope — they are frozen at what they measure today so the decomposition cannot regrow, and reaching zero is tracked separately. Freezing them at a non-zero number is the split the design sanctions ('TC-05a freezes, TC-05b reaches 0'), not a weakening of TC-05.",
     "allowlist": [
+      {
+        "file": "packages/agent-framework/src/command-api/host-roles.ts",
+        "reason": "Declares ICommandHostContext as an empty `extends` over its role ports."
+      },
+      {
+        "file": "packages/agent-framework/src/command-api/session-roles.ts",
+        "reason": "Declares ICommandSessionRuntime as an empty `extends` over its role ports."
+      },
+      {
+        "file": "packages/agent-framework/src/command-api/agent-job-roles.ts",
+        "reason": "Declares IAgentJobHostContext as an empty `extends` over its role ports."
+      },
+      {
+        "file": "packages/agent-framework/src/testing/agent-job-host-double.ts",
+        "reason": "The conformant IAgentJobHostContext double — it exists to be checked against the whole aggregate with no cast."
+      },
       {
         "file": "packages/agent-framework/src/command-api/host-context.ts",
         "reason": "The declaration site. The aggregate is defined here as an empty `extends` over the role ports."

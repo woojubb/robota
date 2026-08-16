@@ -67,6 +67,12 @@ export interface IUnknownCommandModuleName {
  * survived, and it then grew from 20 members / 50% optional to 46 / 70%.
  */
 
+export interface ICommandSessionReplayValidationReport {
+  logFile: string;
+  entryCount: number;
+  validation: ISessionReplayValidationResult;
+}
+
 /**
  * The role a command declares when it reads NOTHING from the host.
  *
@@ -80,12 +86,6 @@ export interface IUnknownCommandModuleName {
  * and `catch` boundaries, and an unused command parameter is neither.
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- the emptiness IS the contract: this role demands nothing.
-export interface ICommandSessionReplayValidationReport {
-  logFile: string;
-  entryCount: number;
-  validation: ISessionReplayValidationResult;
-}
-
 export interface ICommandHostNoCapability {}
 
 export type {

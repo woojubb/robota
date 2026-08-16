@@ -127,3 +127,44 @@ describe('findRolePortOptionalFindings — `examined` is an output, and is asser
     expect(examinedFileCount(), 'the counter accumulates across runs').toBe(1);
   });
 });
+
+describe('a port declared outside the scanned files is a finding, not a silent pass', () => {
+  it('flags a port named in `extends` whose declaration no scanned file contains', () => {
+    // Demonstrated by review against the shipped scan: ports are DERIVED from the extends clause,
+    // but their declarations were only searched inside the configured file list. A new file with an
+    // optional member, added to the aggregate, printed "0 optional member(s)" — an optional member
+    // reachable through the aggregate that the floor never read.
+    const root = mkdtempSync(join(tmpdir(), 'arch-029-unscanned-'));
+    mkdirSync(join(root, 'packages'), { recursive: true });
+    writeFileSync(
+      join(root, 'ports.ts'),
+      'export interface IPortA {\n  a(): void;\n}\n' +
+        'export interface IAgg extends IPortA, IPortElsewhere {}\n',
+    );
+
+    const { findings } = findRolePortOptionalFindings(root, {
+      files: ['ports.ts'],
+      aggregates: ['IAgg'],
+      carveOuts: [],
+    });
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe('role-port-declaration-unscanned');
+    expect(findings[0].detail).toContain('IPortElsewhere');
+  });
+
+  it('does not flag a port that IS declared in a scanned file', () => {
+    const root = mkdtempSync(join(tmpdir(), 'arch-029-scanned-'));
+    mkdirSync(join(root, 'packages'), { recursive: true });
+    writeFileSync(join(root, 'a.ts'), 'export interface IPortA {\n  a(): void;\n}\n');
+    writeFileSync(join(root, 'b.ts'), 'export interface IAgg extends IPortA {}\n');
+
+    const { findings } = findRolePortOptionalFindings(root, {
+      files: ['a.ts', 'b.ts'],
+      aggregates: ['IAgg'],
+      carveOuts: [],
+    });
+
+    expect(findings).toEqual([]);
+  });
+});
