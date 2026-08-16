@@ -446,6 +446,31 @@ comment (or the PR description):
 No CONFIRMED/PLAUSIBLE finding may be left silently unaddressed. **Only after all findings are resolved**
 may the PR be merged.
 
+### An open PR's diff is frozen except to resolve a finding
+
+**Open a PR only when the unit of work is complete.** An open PR is a merge invitation: it may be
+merged the moment its review reports clean. A PR opened on a half-finished unit invites a merge of
+half the work.
+
+**Once it is open, the only permitted reason to push a new commit is to RESOLVE A REPORTED FINDING**
+(the "fixed" branch above). Not the next part of the same task, and not an improvement the reviewer
+did not ask for. A reviewer who reported clean reviewed a diff that no longer exists, and the merge
+decision was made on the PR as it read.
+
+The merge gate refuses a merge whose review names a stale head — but that ordering is not guaranteed.
+A merge that lands before the push sees nothing to refuse, and the unpushed work is simply absent
+from it.
+
+If more work belongs to the same task, **finish it before opening the PR**, or open a second PR after
+the first lands. If a finding's fix requires work beyond the finding, say so on the thread and let the
+reviewer re-scope; do not widen the diff and leave them to discover it.
+
+Enforced by: `.claude/hooks/pre-push-check.sh`. Its open-PR exemption rests on the premise that a
+push into an open PR resolves what the review reported; when the PR's latest review reports
+`ACTIONABLE FINDINGS: 0` there is nothing to resolve, so the push is new work and the hook refuses.
+An unreadable count is not zero — the exemption stands, because a refusal on a failed measurement
+blocks correct work on no evidence. Deliberate exception: `PRE_PUSH_ALLOW_UNREVIEWED=1` inline.
+
 **Enforced** by `.claude/hooks/merge-gate.sh`, which refuses `gh pr merge` unless the PR is `CLEAN`
 and carries a review naming the exact current `baseRefOid` and `headRefOid`, and refuses outright
 when the reviewer's own `ACTIONABLE FINDINGS: <n>` says findings remain. Timestamp recency is not

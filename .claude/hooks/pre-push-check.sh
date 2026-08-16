@@ -840,8 +840,61 @@ if ! REVIEW_STATE=$(cd "$PROJECT_DIR" && node "$RECORDER" --show 2>&1); then
   # `gh pr list --head` and not `gh pr view "$CUR_BRANCH"`: `pr view` takes a number, a URL or a
   # branch and decides which by shape, so a branch named `42` would be answered with pull request
   # #42's state — a waiver granted on some other change's evidence. `--head` only ever means a branch.
-  if [[ "$(cd "$PROJECT_DIR" &&
-    bounded_gh pr list --head "$CUR_BRANCH" --state open --json number --jq 'length')" =~ ^[1-9] ]]; then
+  # `|| echo ""` is load-bearing: under `set -e` a bare assignment whose command substitution fails
+  # aborts the script with THAT status, so an unavailable `gh` turned this gate into exit 1 — a
+  # refusal nobody asked for, in place of the exit 2 the gate is supposed to give. The previous
+  # `if [[ $(...) ]]` form tolerated it because a condition does not trip `set -e`; hoisting it to an
+  # assignment removed that tolerance. Caught by hook-boundary-parity, which asserts the gate engages.
+  OPEN_PR=$(cd "$PROJECT_DIR" &&
+    bounded_gh pr list --head "$CUR_BRANCH" --state open --json number --jq '.[0].number // empty' || echo "")
+  # `^[1-9]` and not `^[0-9]`: a pull-request number is never 0, but a COUNT is — and this lookup
+  # previously asked for a count. Anything still answering the old question prints `0` for "none
+  # open", which `^[0-9]+$` would accept as pull request #0 and hand the exemption to a branch with
+  # no pull request at all. Caught by review-before-push, whose stub answers the old shape.
+  if [[ "$OPEN_PR" =~ ^[1-9][0-9]*$ ]]; then
+    # The exemption above rests on a premise: that a push into an open PR is RESOLVING what its
+    # review reported. That premise is checkable, and when it is false the exemption is a hole.
+    #
+    # Measured (2026-08-16, #1789): a PR was opened on a half-finished unit, its review reported
+    # clean, the owner merged it five minutes later, and a follow-up commit was authored twenty-five
+    # minutes AFTER the merge. This hook waved that push through. `merge-gate.sh` refuses a merge
+    # whose review names a stale head — but only when the merge comes after the push. Here it came
+    # first, so nothing refused anything and half the work was left behind, costing a fresh branch, a
+    # cherry-pick and a second PR.
+    #
+    # So: a review reporting ZERO actionable findings leaves nothing to resolve, which makes any push
+    # into it new work by definition. Read the count the same way `merge-gate.sh` does — its parse is
+    # the owner of "what the reviewer said", and a second reading here would be a second answer.
+    # Unknown is NOT zero: if the count cannot be read, the original exemption stands, because a
+    # refusal on a failed measurement blocks correct work on no evidence.
+    # The MARKER pattern is merge-gate.sh's, unanchored, and that is not a style choice: jq's regex
+    # does not make `^`/`$` match at line boundaries, so an anchored pattern finds nothing in a review
+    # body whose marker is not the whole text — and the `2>/dev/null` below turns that into an empty
+    # count, which reads as unknown and lets the push through. Fail-OPEN on the exact case this gate
+    # exists to block. The precise line extraction is `sed`'s job below, where `^`/`$` do mean lines.
+    #
+    # The AUTHOR FILTER is not optional, and it is the same one merge-gate.sh applies
+    # (merge-gate.sh:208). Without it this reads the latest comment from ANYONE carrying the marker,
+    # so the branch's own author could post `ACTIONABLE FINDINGS: 3` to unfreeze a clean pull request,
+    # or `ACTIONABLE FINDINGS: 0` to block someone else's legitimate push. A gate whose input its own
+    # subject can write is not a gate. Kept as its own literal because merge-gate.sh does not export
+    # it — the two must be changed together, said here rather than left to be noticed.
+    REVIEWER_RE='^github-actions(\\[bot\\])?$'
+    LATEST_COUNT=$( (cd "$PROJECT_DIR" &&
+      bounded_gh pr view "$OPEN_PR" --json comments,reviews \
+        --jq "([.comments[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"$REVIEWER_RE\"))) | map(select(.body | test(\"ACTIONABLE FINDINGS:[[:space:]]*[0-9]+\"; \"i\"))) | sort_by(.at) | last // {} | .body // \"\"" 2>/dev/null) |
+      sed -nE 's/^ACTIONABLE FINDINGS: ([0-9]+)$/\1/p' | tail -1 || echo "")
+
+    if [[ "$LATEST_COUNT" == "0" ]]; then
+      echo "[pre-push-check] Blocked: PR #$OPEN_PR's latest review reports ACTIONABLE FINDINGS: 0," >&2
+      echo "[pre-push-check] so there is nothing for this push to resolve — it is new work on a PR" >&2
+      echo "[pre-push-check] that is already merge-ready, and a reviewer who passed it never saw it." >&2
+      echo "[pre-push-check] git-branch.md: an open PR's diff is frozen except to resolve a finding." >&2
+      echo "[pre-push-check] Let #$OPEN_PR land, then open a second PR for this work." >&2
+      echo "[pre-push-check] Deliberate exception: PRE_PUSH_ALLOW_UNREVIEWED=1 inline." >&2
+      exit 2
+    fi
+
     echo "[pre-push-check] Open pull request on '$CUR_BRANCH': its review automation owns the review" >&2
     echo "[pre-push-check] of this push. Resolve what that review reports; do not review it again." >&2
     exit 0
