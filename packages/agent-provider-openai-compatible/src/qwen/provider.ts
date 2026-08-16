@@ -10,9 +10,7 @@ import { qwenChatWithStreamingAssembly } from './provider-streaming-assembly';
 import { chatStreamWithQwenResponsesApi, chatWithQwenResponsesApi } from './responses-chat';
 import { hasQwenBuiltInWebTools } from './responses-converter';
 import {
-  convertToOpenAICompatibleMessages,
-  convertToOpenAICompatibleTools,
-  toOpenAICompatibleToolChoice,
+  buildOpenAICompatibleRequestParams,
   observeProviderNativeRawPayloadStream,
   OpenAICompatibleResponseParser,
 } from '../shared/openai-compatible/index.js';
@@ -245,25 +243,12 @@ export class QwenProvider extends AbstractAIProvider {
     options: IChatOptions | undefined,
   ): OpenAI.Chat.ChatCompletionCreateParamsNonStreaming {
     this.validateTools(options?.tools);
-    const model = options?.model ?? this.options.defaultModel;
-    if (!model) {
-      throw new Error(
-        'Model is required in chat options. Please specify a model in defaultModel configuration.',
-      );
-    }
 
-    const requestParams = {
-      model,
-      messages: convertToOpenAICompatibleMessages(messages),
-      ...(options?.temperature !== undefined && { temperature: options.temperature }),
-      ...(options?.maxTokens !== undefined && { max_tokens: options.maxTokens }),
-      ...(options?.tools && {
-        tools: convertToOpenAICompatibleTools(options.tools),
-        tool_choice: toOpenAICompatibleToolChoice(options.toolChoice),
-      }),
-    };
-
-    return requestParams as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming;
+    return buildOpenAICompatibleRequestParams({
+      messages,
+      options,
+      defaultModel: this.options.defaultModel,
+    });
   }
 
   private buildStreamingRequestParams(
