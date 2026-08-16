@@ -96,5 +96,8 @@
   "publishConfig": {
     "access": "public"
   },
-  "private": true
+  "private": true,
+  "volta": {
+    "extends": "../../package.json"
+  }
 }

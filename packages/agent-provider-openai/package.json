@@ -61,5 +61,8 @@
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-provider-openai-compatible": "workspace:*",
     "openai": "^4.104.0"
+  },
+  "volta": {
+    "extends": "../../package.json"
   }
 }

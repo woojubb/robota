@@ -3,15 +3,17 @@ name: issue-to-backlog
 description: Convert a filed GitHub issue into the backlog Task document(s) it actually is — deciding how many items its contents are, not assuming one. Use when a session picks up an issue to work on, before any code changes. The counterpart to find-to-issue, which files at a different time for a different reason.
 ---
 
-# Issue → Backlog
+# Issue → Task
 
-An issue is a capture. A Task is a unit of work. **They are not the same shape, and one issue is not
-automatically one Task.**
+A GitHub issue is an externally tracked capture of intent or a problem. A Task is an executable unit of
+work. **They are not the same shape, and one issue is not automatically one Task.**
 
 ## Rule Anchor
 
 - [`.agents/tasks/README.md`](../../tasks/README.md) — required frontmatter, Test Plan, scenarios,
   and the done gate.
+- [`backlog-execution.md`](../../rules/backlog-execution.md) — the policy SSOT for the Issue ↔ Task
+  boundary and one-Task/one-PR execution shape.
 - [finding-depth.md](../../rules/finding-depth.md) — owns "is this one item or several".
 - [user-request-gate](../user-request-gate/SKILL.md) — the conversion IS the gate step for the issue.
 
@@ -29,6 +31,26 @@ wrong unit of work, and nothing in the loop was responsible for noticing.
 **Read the issue for the groupings it already makes.** An author who wrote "both of these are the same
 root error" or "two skills, because they run at different times" has done part of this work for you.
 
+## Boundary decision
+
+Use this order:
+
+1. Keep the GitHub issue as the parent initiative when it states a broad outcome or coordinates several
+   causes. Do not implement directly from a broad parent issue.
+2. Create a child issue when a cause needs separate external discussion, priority, ownership, security
+   review, or terminal disposition.
+3. Create a Task when the cause can have one recommendation gate, one verification plan, and one
+   independent completion decision. A Task may cross package boundaries.
+4. Keep package adapters, protocol frames, tests, and CLI wiring in the same Task when they are only
+   implementation steps for that cause. Do not create one Task per package or deliverable.
+5. Split a Task only when the design reveals distinct causes or independently verifiable outcomes. If
+   several related Tasks share a cross-package boundary, add a parent `AGREEMENT` Task and paired
+   spec-doc; do not add another GitHub issue solely for internal sequencing.
+
+Security/authentication and feature behavior are separate Tasks when their trust assumptions, failure
+policy, or verification differ, even if they use the same transport. This is a cause split, not a package
+split.
+
 ## Procedure
 
 1. **Read the issue in full**, including its constraints — those become the Task's, not prose to
@@ -36,11 +58,14 @@ root error" or "two skills, because they run at different times" has done part o
 2. **Survey what already exists** before writing. A skill, rule or scan the issue asks for may be
    present under another name, or its subject may already be filed. Record what you find in the Task;
    the next session should not re-derive it.
-3. **Group by cause.** Say how many items the issue's contents are, and why. Dispatch
+3. **Classify the issue.** Decide whether it is a parent initiative, one child cause, or several causes.
+   Say how many Tasks the contents become and why. Dispatch
    `finding-depth-triager` if the grouping is not obvious.
-4. **Write the Task(s)** per the README schema. For several children, add a parent `AGREEMENT` Task
+4. **Write the Task(s)** per the README schema. Cite the source issue in every Task. For several
+   related children, add a parent `AGREEMENT` Task
    **and its paired spec-doc** — `task-archival` fails an AGREEMENT with no spec.
-5. **Cite the issue** in each Task, and record any finding the conversion itself produced.
+5. Record any finding the conversion itself produced; do not turn internal implementation steps into
+   new issues unless they meet the child-issue test above.
 6. **Verify**: `task-lifecycle.mjs classify` returns `open` for each, and `pnpm harness:scan` is green.
 
 ## Do not

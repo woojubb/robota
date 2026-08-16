@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-036: the child-process subagent runner drops deps.builtInAgents (NEUT-003)'
-status: todo
+status: in-progress
 created: 2026-08-16
 priority: medium
 urgency: later

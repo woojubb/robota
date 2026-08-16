@@ -144,7 +144,12 @@ describe('INFRA-089 staged and full auto-fix contract', () => {
           '--config',
           path.join(WORKSPACE_ROOT, '.lintstagedrc.json'),
         ],
-        { cwd: fixtureRoot, encoding: 'utf8', stdio: 'pipe' },
+        // Spawn from the WORKSPACE, not the fixture. `pnpm` is version-pinned by the workspace's
+        // `packageManager` field, and corepack resolves that from the process CWD — so launching it
+        // from a bare temp directory picked up whatever pnpm happens to be installed globally and
+        // aborted on the version mismatch, failing this test for a reason that has nothing to do
+        // with what it asserts. The fixture is addressed by `--cwd`, which is what lint-staged reads.
+        { cwd: WORKSPACE_ROOT, encoding: 'utf8', stdio: 'pipe' },
       );
 
       expect(`${result.stdout}${result.stderr}`).not.toContain('FAILED');

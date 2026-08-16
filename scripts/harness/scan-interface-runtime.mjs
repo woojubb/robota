@@ -183,6 +183,144 @@ function collectSourceFiles(srcDir) {
   return files;
 }
 
+/**
+ * HARNESS-103 — the second edge: what the package's ENTRY actually publishes.
+ *
+ * `.agents/project-structure.md` says an `agent-interface-*` package "must not contain classes or
+ * runtime logic". The edge above enforces a narrower thing — no `class`/`enum` declaration, no bare
+ * value import — and its own operator message says to "keep pure functions over owned types", so a
+ * 100-line prototype-walking forwarder passed while sitting outside the rule.
+ *
+ * The distinction that makes the rule mechanical: a CONTRACT package may publish the vocabulary of
+ * its contracts and the predicates that discriminate them. It may not publish a mechanism.
+ *
+ *   contract-shaped  — a `const` binding (the vocabulary), or a function whose return type is a
+ *                      type predicate `x is T` (the discriminator).
+ *   mechanism        — anything else exported as a runtime value from the entry.
+ *
+ * `testing/` is exempt by the repository's own placement rule — `contracts→agent-interface-*,
+ * doubles→owner /testing` — so a double factory living there is where it belongs, not a violation.
+ *
+ * Existing mechanisms are frozen per package in `interface-entry-baseline.json` and may only
+ * shrink. Freezing rather than failing outright is deliberate: the count is the honest size of a
+ * debt that was invisible while the guard measured something narrower, and a burn-down that is
+ * recorded beats a gate that is switched off.
+ */
+const ENTRY_BASELINE_PATH = path.join(
+  WORKSPACE_ROOT,
+  'scripts/harness/interface-entry-baseline.json',
+);
+
+export function loadEntryBaseline(baselinePath = ENTRY_BASELINE_PATH) {
+  if (!existsSync(baselinePath)) return {};
+  return JSON.parse(readFileSync(baselinePath, 'utf8'));
+}
+
+/** Names a module re-exports as RUNTIME values (`export { a } from './x'`), with their source. */
+function entryRuntimeReExports(sourceText, fileName) {
+  const sf = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true);
+  const out = [];
+  for (const st of sf.statements) {
+    if (!ts.isExportDeclaration(st) || st.isTypeOnly) continue;
+    if (!st.moduleSpecifier || !ts.isStringLiteral(st.moduleSpecifier)) continue;
+    const spec = st.moduleSpecifier.text;
+    if (isBareSpecifier(spec)) continue;
+    const named = st.exportClause;
+    if (!named || !ts.isNamedExports(named)) continue;
+    for (const el of named.elements) {
+      if (el.isTypeOnly) continue;
+      out.push({ name: (el.propertyName ?? el.name).text, source: spec });
+    }
+  }
+  return out;
+}
+
+/**
+ * Classify a function-like by what it RETURNS: a type-predicate annotation is the contract's
+ * discriminator, anything else is behaviour.
+ *
+ * The shim exposes no isTypePredicateNode; a type predicate is the only return annotation whose
+ * text contains ` is `, which is exactly the discriminator shape.
+ */
+function classifyFunctionLike(node) {
+  const ret = node.type ? node.type.getText() : '';
+  return / is /.test(ret) ? 'discriminator' : 'mechanism';
+}
+
+/** Is this exported declaration contract-shaped (const vocabulary, or a type-predicate function)? */
+function classifyDeclaration(sourceText, fileName, name) {
+  const sf = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true);
+  for (const st of sf.statements) {
+    if (ts.isVariableStatement(st)) {
+      for (const d of st.declarationList.declarations) {
+        if (!d.name || d.name.text !== name) continue;
+        // A `const` holding a function is a function. Judging by the DECLARATION KEYWORD rather
+        // than by what the binding holds would repeat the very defect HARNESS-103 is about — a
+        // check narrower than the rule it enforces — because `export const doThing = () => { … }`
+        // is a mechanism whichever keyword introduces it.
+        const init = d.initializer;
+        if (init && (ts.isArrowFunction(init) || ts.isFunctionExpression(init))) {
+          return classifyFunctionLike(init);
+        }
+        return 'vocabulary';
+      }
+    }
+    if (ts.isFunctionDeclaration(st) && st.name && st.name.text === name) {
+      return classifyFunctionLike(st);
+    }
+  }
+  return 'mechanism';
+}
+
+export function findEntryRuntimeMechanisms(packagesDir = PACKAGES_DIR) {
+  const byPackage = {};
+  let entriesScanned = 0;
+  for (const srcDir of findInterfacePackages(packagesDir)) {
+    const pkg = path.basename(path.dirname(srcDir));
+    const entry = path.join(srcDir, 'index.ts');
+    if (!existsSync(entry)) continue;
+    entriesScanned += 1;
+    const names = [];
+    for (const { name, source } of entryRuntimeReExports(readFileSync(entry, 'utf8'), entry)) {
+      // `testing/` is the sanctioned home for doubles; the entry must not route around that.
+      const target = path.resolve(path.dirname(entry), source.replace(/\.js$/, '.ts'));
+      if (!existsSync(target)) continue;
+      if (classifyDeclaration(readFileSync(target, 'utf8'), target, name) === 'mechanism') {
+        names.push(name);
+      }
+    }
+    byPackage[pkg] = names.sort();
+  }
+  return { byPackage, entriesScanned };
+}
+
+/** Exported so a test can read the size this scan reports (measurement-provenance.md). */
+export function readExaminedEntryCount(packagesDir = PACKAGES_DIR) {
+  return findEntryRuntimeMechanisms(packagesDir).entriesScanned;
+}
+
+export function findEntryBaselineFindings(
+  packagesDir = PACKAGES_DIR,
+  baseline = loadEntryBaseline(),
+) {
+  const { byPackage, entriesScanned } = findEntryRuntimeMechanisms(packagesDir);
+  const findings = [];
+  for (const [pkg, names] of Object.entries(byPackage)) {
+    const allowed = baseline[pkg] ?? 0;
+    if (names.length > allowed) {
+      findings.push({
+        pkg,
+        problem:
+          `entry publishes ${names.length} runtime mechanism(s) (${names.join(', ')}) but the ` +
+          `frozen allowance is ${allowed}. An agent-interface-* package publishes contracts, its ` +
+          `vocabulary and its discriminators — not mechanisms. Move it to an owner package, or to ` +
+          `testing/ if it is a double.`,
+      });
+    }
+  }
+  return { findings, byPackage, entriesScanned };
+}
+
 export function scanInterfaceRuntime() {
   const findings = [];
   let filesScanned = 0;
@@ -200,6 +338,19 @@ export function scanInterfaceRuntime() {
 
 function main() {
   const { findings, filesScanned } = scanInterfaceRuntime();
+  // HARNESS-103: the entry edge runs alongside the source edge. Reported separately because they
+  // answer different questions — "does this package CONTAIN a runtime construct" and "does this
+  // package PUBLISH a mechanism" — and the second is the one the rule's words actually cover.
+  const entry = findEntryBaselineFindings();
+  if (entry.findings.length > 0) {
+    console.error('❌ Interface-package entry publishes a runtime mechanism:\n');
+    for (const f of entry.findings) console.error(`  [entry-mechanism] ${f.pkg} — ${f.problem}`);
+    console.error('');
+    console.error(
+      `interface-runtime summary: entry-violations=${entry.findings.length} entries=${entry.entriesScanned} result=FAIL`,
+    );
+    process.exit(1);
+  }
   if (findings.length > 0) {
     console.error('❌ Interface-package purity violations found:\n');
     console.error(
@@ -218,6 +369,7 @@ function main() {
   }
   console.log('✅ No interface-package purity violations found.');
   console.log(`::examined:: ${filesScanned} source files`);
+  console.log(`::examined:: ${entry.entriesScanned} package entries`);
   console.log(`interface-runtime summary: violations=0 scanned=${filesScanned} result=PASS`);
   process.exit(0);
 }

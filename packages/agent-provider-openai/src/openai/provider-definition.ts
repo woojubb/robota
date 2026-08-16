@@ -1,6 +1,5 @@
 import { probeOpenAICompatibleProfile } from '@robota-sdk/agent-provider-openai-compatible/shared';
 
-import { refreshOpenAIModelCatalog } from './model-catalog-refresh';
 import { OpenAIProvider } from './provider';
 
 import type { IOpenAINativeWebToolsOptions, TOpenAIApiSurface } from './types';
@@ -54,8 +53,6 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
     ],
     requiresApiKey: true,
     probeProfile: probeOpenAICompatibleProfile,
-    refreshModelCatalog: ({ profile }) => refreshOpenAIModelCatalog(profile),
-    modelCatalogCacheTtlSeconds: 86400,
     createProvider: (config) => {
       const apiSurface = readApiSurface(config.options);
       const nativeWebTools = readNativeWebTools(config.options);

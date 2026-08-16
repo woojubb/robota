@@ -28,5 +28,8 @@
   "devDependencies": {
     "@astrojs/markdown-remark": "^7.2.1",
     "wrangler": "^4.123.0"
+  },
+  "volta": {
+    "extends": "../../package.json"
   }
 }

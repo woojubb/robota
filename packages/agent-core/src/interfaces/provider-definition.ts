@@ -5,6 +5,18 @@ export interface IProviderDefinitionConfig {
   name: string;
   model: string;
   apiKey?: string;
+  /**
+   * Name of the environment variable `apiKey` was resolved FROM, when the stored settings value
+   * was a `$ENV:` reference (SEC-009). Config loading resolves such a reference into the secret
+   * itself, which is correct for an in-process provider and wrong for anything that has to
+   * SERIALIZE the config — the resolved value then crosses a boundary the credential's owner
+   * never opted into. Keeping the variable name lets a serializing caller carry the reference and
+   * leave the secret behind; `ISerializableProviderProfile` already declares the same field, and
+   * `resolveProfileApiKey` already reads it.
+   *
+   * Distinct from `sourceEnvVar`, which is set only for a synthesized `'env-default'` config.
+   */
+  apiKeyEnv?: string;
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;
@@ -64,7 +76,21 @@ export interface IProviderSetupHelpLink {
 export type TProviderModelCatalogStatus = 'live' | 'generated' | 'fallback' | 'unavailable';
 export type TProviderModelLifecycle = 'active' | 'preview' | 'deprecated' | 'unavailable';
 export type TProviderModelCapability =
-  'tools' | 'vision' | 'json_schema' | 'reasoning' | 'native_web' | 'streaming';
+  | 'tools'
+  | 'vision'
+  /** A first-class schema parameter the endpoint enforces. */
+  | 'json_schema'
+  /**
+   * JSON is guaranteed, the SHAPE is not (CORE-043).
+   *
+   * Without this DeepSeek is unrepresentable: the vocabulary offered only `json_schema`, which
+   * DeepSeek does not support, so its catalog entry was wrong and DELETING the entry would have left
+   * it wrong in the other direction — silent about a real capability.
+   */
+  | 'json_object'
+  | 'reasoning'
+  | 'native_web'
+  | 'streaming';
 
 export interface IProviderModelCatalogEntry {
   id: string;
@@ -92,14 +118,6 @@ export interface IProviderModelCatalog {
   sourceUrl?: string;
   message?: string;
 }
-
-export interface IProviderModelCatalogRefreshOptions {
-  profile: IProviderProfileConfig;
-}
-
-export type TProviderModelCatalogRefresh = (
-  options: IProviderModelCatalogRefreshOptions,
-) => Promise<IProviderModelCatalog>;
 
 export interface IProviderSetupStepDefinition {
   key: TProviderSetupField;
@@ -137,9 +155,6 @@ export interface IProviderDefinition {
    */
   costPerTokenUsd?: number;
   modelCatalog?: IProviderModelCatalog;
-  refreshModelCatalog?: TProviderModelCatalogRefresh;
-  /** Maximum age in seconds before the model catalog is considered stale and auto-refreshed. */
-  modelCatalogCacheTtlSeconds?: number;
   setupHelpLinks?: readonly IProviderSetupHelpLink[];
   setupSteps?: readonly IProviderSetupStepDefinition[];
   credentialRequirement?: IProviderCredentialRequirement;

@@ -58,7 +58,11 @@ The capability roadmap toward it is tracked in [`.agents/tasks/SELFHOST-*`](.age
 TypeScript/JavaScript monorepo for building AI agents with multi-provider support. Uses a pnpm workspace with strict TypeScript and ESLint.
 
 - Package manager: `pnpm` 8.15.4
-- Node.js: 22.14.0 (Volta), minimum 20.19.0 (Node 18 is EOL; the rolldown build chain requires ^20.19 || >=22.12)
+- Node.js: 22.14.0, pinned in the root `package.json` `volta` field and inherited by every workspace
+  manifest through `volta.extends` (INFRA-102). The root `engines.node` is `^22.14.0` because 22.x is
+  the only line any CI job runs — a wider range would describe a configuration nothing verifies. The
+  `node-version-single-valued` scan holds both edges: that every manifest resolves to the one pin, and
+  (with `--measured`) that the runtime a workspace script actually receives is that pin.
 - Module system: ES modules only (`"type": "module"`)
 - Repository: <https://github.com/woojubb/robota.git>
 

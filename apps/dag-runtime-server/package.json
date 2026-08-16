@@ -48,5 +48,8 @@
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
   },
-  "license": "AGPL-3.0-only OR LicenseRef-Commercial"
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "volta": {
+    "extends": "../../package.json"
+  }
 }

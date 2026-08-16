@@ -12,7 +12,12 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-import { SettingsSchema, type TSettings, type IResolvedConfig } from './config-types.js';
+import {
+  SettingsSchema,
+  type TSettings,
+  type TEnvResolvedSettings,
+  type IResolvedConfig,
+} from './config-types.js';
 
 /**
  * Return the current user home directory.
@@ -74,7 +79,7 @@ function resolveEnvRef(value: string): string {
 /**
  * Apply env-ref resolution to all string fields in a settings object.
  */
-function resolveEnvRefs(settings: TSettings): TSettings {
+function resolveEnvRefs(settings: TSettings): TEnvResolvedSettings {
   const provider =
     settings.provider?.apiKey !== undefined
       ? resolveProviderCredentialEnvRefs(settings.provider)
@@ -100,12 +105,24 @@ function resolveEnvRefs(settings: TSettings): TSettings {
   };
 }
 
+/**
+ * SEC-009: resolving a `$ENV:` reference here is correct — an in-process provider needs the secret
+ * — but it DISCARDED the variable name, so every later caller saw only the resolved value. A caller
+ * that has to serialize the config then had no way to carry the reference instead of the secret,
+ * which is how the plaintext credential reached the subagent IPC start payload on every
+ * configuration, including the ones whose owner deliberately stored a reference. Recording the
+ * variable name costs nothing and is what makes the reference recoverable downstream.
+ */
 function resolveProviderCredentialEnvRefs<TProvider extends { apiKey?: string }>(
   provider: TProvider,
-): TProvider {
+): TProvider & { apiKeyEnv?: string } {
+  if (provider.apiKey === undefined) return provider;
+  const ENV_PREFIX = '$ENV:';
+  const wasReference = provider.apiKey.startsWith(ENV_PREFIX);
   return {
     ...provider,
-    ...(provider.apiKey !== undefined && { apiKey: resolveEnvRef(provider.apiKey) }),
+    apiKey: resolveEnvRef(provider.apiKey),
+    ...(wasReference && { apiKeyEnv: provider.apiKey.slice(ENV_PREFIX.length) }),
   };
 }
 
@@ -114,8 +131,8 @@ function resolveProviderCredentialEnvRefs<TProvider extends { apiKey?: string }>
  * Arrays are replaced (not concatenated) so that project settings
  * fully override user settings for list-type fields.
  */
-function mergeSettings(layers: TSettings[]): TSettings {
-  return layers.reduce<TSettings>((merged, layer) => {
+function mergeSettings(layers: TEnvResolvedSettings[]): TEnvResolvedSettings {
+  return layers.reduce<TEnvResolvedSettings>((merged, layer) => {
     return {
       ...merged,
       ...layer,
@@ -149,10 +166,10 @@ function mergeSettings(layers: TSettings[]): TSettings {
 }
 
 function mergeProviders(
-  base: TSettings['providers'],
-  override: TSettings['providers'],
-): TSettings['providers'] {
-  const result: NonNullable<TSettings['providers']> = { ...(base ?? {}) };
+  base: TEnvResolvedSettings['providers'],
+  override: TEnvResolvedSettings['providers'],
+): TEnvResolvedSettings['providers'] {
+  const result: NonNullable<TEnvResolvedSettings['providers']> = { ...(base ?? {}) };
   for (const [name, profile] of Object.entries(override ?? {})) {
     result[name] = {
       ...result[name],
@@ -162,7 +179,7 @@ function mergeProviders(
   return result;
 }
 
-function resolveProvider(merged: TSettings): IResolvedConfig['provider'] {
+function resolveProvider(merged: TEnvResolvedSettings): IResolvedConfig['provider'] {
   if (merged.currentProvider !== undefined) {
     return resolveActiveProviderProfile(merged);
   }
@@ -174,7 +191,7 @@ function resolveProvider(merged: TSettings): IResolvedConfig['provider'] {
   return { ...DEFAULTS.provider };
 }
 
-function resolveActiveProviderProfile(merged: TSettings): IResolvedConfig['provider'] {
+function resolveActiveProviderProfile(merged: TEnvResolvedSettings): IResolvedConfig['provider'] {
   const currentProvider = merged.currentProvider;
   if (currentProvider === undefined) {
     throw new Error('currentProvider is required');
@@ -190,6 +207,11 @@ function resolveActiveProviderProfile(merged: TSettings): IResolvedConfig['provi
     name: profile.type,
     model: profile.model ?? DEFAULTS.provider.model,
     apiKey: profile.apiKey ?? DEFAULTS.provider.apiKey,
+    // SEC-009: this projection is field-by-field, so the credential's ORIGIN has to be copied
+    // deliberately. Resolving `$ENV:` and recording the variable name upstream achieved nothing
+    // while this line was missing — the resolved config the subagent runner serializes had only
+    // the secret, which is the whole defect.
+    ...(profile.apiKeyEnv !== undefined && { apiKeyEnv: profile.apiKeyEnv }),
     ...(profile.baseURL !== undefined && { baseURL: profile.baseURL }),
     ...(profile.timeout !== undefined && { timeout: profile.timeout }),
     ...(profile.options !== undefined && { options: profile.options }),
@@ -199,7 +221,7 @@ function resolveActiveProviderProfile(merged: TSettings): IResolvedConfig['provi
 /**
  * Convert merged TSettings into a fully-resolved IResolvedConfig with defaults.
  */
-function toResolvedConfig(merged: TSettings): IResolvedConfig {
+function toResolvedConfig(merged: TEnvResolvedSettings): IResolvedConfig {
   return {
     defaultTrustLevel: merged.defaultTrustLevel ?? DEFAULTS.defaultTrustLevel,
     language: merged.language,
@@ -249,7 +271,7 @@ export async function loadConfig(cwd: string): Promise<IResolvedConfig> {
     }
   }
 
-  const parsedLayers: TSettings[] = rawEntries.map(({ raw, path }) => {
+  const parsedLayers: TEnvResolvedSettings[] = rawEntries.map(({ raw, path }) => {
     const result = SettingsSchema.safeParse(raw);
     if (!result.success) {
       throw new Error(`Invalid settings in ${path}: ${result.error.message}`);

@@ -51,5 +51,8 @@
     "@robota-sdk/agent-provider-gemini": "workspace:*",
     "@robota-sdk/agent-provider-openai": "workspace:*",
     "@robota-sdk/agent-provider-openai-compatible": "workspace:*"
+  },
+  "volta": {
+    "extends": "../../package.json"
   }
 }

@@ -22,7 +22,6 @@ Every runtime export of the package entry (`src/index.ts`). Provider option/conf
 | `OpenAIProvider`                            |
 | `OpenAIConversationAdapter`                 |
 | `createOpenAIProviderDefinition`            |
-| `refreshOpenAIModelCatalog`                 |
 | `DEFAULT_OPENAI_PROVIDER_API_KEY_REFERENCE` |
 | `DEFAULT_OPENAI_PROVIDER_MODEL`             |
 | `FilePayloadLogger`                         |
@@ -77,22 +76,45 @@ Tool schemas reach OpenAI unchanged: `convertToOpenAIResponsesTools` forwards `t
 the universal JSON-schema subset owned by agent-core (see its SPEC § Universal JSON-Schema Subset) —
 verbatim, and sets `strict: strictTools ?? false`.
 
-**Known limitation.** OpenAI strict mode does not accept an arbitrary JSON Schema. It requires
-**every** object node, nested ones included, to carry `additionalProperties: false` and to list
-**all** of its properties in `required`. The universal subset does neither. A Zod-derived schema
-emits `additionalProperties: true` for Zod's default `strip` and for `.passthrough()`, and `false`
-only for `.strict()`; a hand-written one may omit the member, which the subset reads as closed
-relative to its declared properties. Either way `required` lists only the genuinely required
-fields.
-This adapter has no seam that rewrites the schema for strict mode — the Anthropic adapter has the
-analogous `closeObjectSchemas`, and there is no OpenAI equivalent on either the tool seam or the
-structured-output seam.
+Under `strictTools: true` the schema is **rewritten on the way out** (PROV-007). OpenAI strict mode
+does not accept an arbitrary JSON Schema: it requires **every** object node, nested ones included, to
+carry `additionalProperties: false` and to list **all** of its properties in `required`. The
+universal subset guarantees neither — a Zod-derived schema emits `additionalProperties: true` for
+Zod's default `strip` and for `.passthrough()`, a hand-written one may omit the member, and
+`required` lists only the genuinely required fields — so before this rewrite existed, **every**
+`createZodFunctionTool` tool was rejected with the flag on, flat ones included.
 
-Consequence: with `strictTools: true`, **every** `createZodFunctionTool` tool is rejected by
-OpenAI — flat ones included, since `additionalProperties: true` is as unacceptable to strict mode as
-omitting it — and any tool with a nested object is rejected regardless of how its schema was
-authored. The same tools are invoked correctly on every other provider. Neither half is a
-regression introduced by CORE-039 (a bare nested object failed strict mode before it too, and a
-`strip` object was rejected for listing no `additionalProperties`), but CORE-039 is what made nested
-schemas reach providers intact, so the exception is worth stating rather than leaving to be
-discovered. Leave `strictTools` off until PROV-007 lands.
+The rewrite uses agent-core's `closeObjectSchemas`, the same recursion the Anthropic adapter uses for
+its structured-output seam. It is shared rather than duplicated: a walk over this subset that misses
+a route leaves exactly the nodes it was written to fix untouched, and a second copy has to be found
+and fixed separately.
+
+**The lossy part, stated.** Strict mode has no way to express "optional", so a property the schema
+marked optional is forced into `required` and compensated with a `null` branch —
+`anyOf: [T, { type: 'null' }]`, which is how this subset already spells a nullable value, so a
+forced-optional field and a genuinely nullable one are indistinguishable on the wire rather than
+inventing a second spelling for one vendor. The model must supply the key, with `null` meaning "not
+provided". A handler that distinguishes an absent key from a null value will see the difference.
+
+Because the transformation is lossy it runs **only** when `strict` is actually being sent. With
+`strictTools` off or unset, `tool.parameters` is forwarded verbatim — OpenAI accepts the honest
+schema there, and rewriting it would change a contract for no reason.
+
+## Endpoint Provenance (CORE-043)
+
+This package declares **no** `capabilityTable()`. Nobody has verified a per-model capability table
+for OpenAI, and inventing one would be a fabricated claim — agent-core's miss policy already handles
+the silence correctly (a provider that declares nothing is sent a structured request unchanged;
+silence is not a denial).
+
+It does declare `endpointIsVendorDefault()`, which returns `false` whenever `baseURL` is configured.
+That is a separate member rather than a field on the capability table precisely so a provider with no
+table can still answer it.
+
+It matters more here than anywhere else in the workspace: setting `baseURL` also switches the API
+surface to `chat-completions` (`resolveApiSurface`), so the advertised gateway configuration is the
+one where whatever is on the far end is least likely to honour a structured-output parameter. Before
+CORE-043 the runtime reported early enforcement on it regardless. Now a structured request through a
+gateway is reported with `provenance: 'unverified-endpoint'` on the `structured_output_transport`
+execution event — the request is still sent the declared way, but nothing claims the endpoint
+enforced it.

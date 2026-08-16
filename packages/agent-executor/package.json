@@ -76,5 +76,8 @@
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
-  "private": false
+  "private": false,
+  "volta": {
+    "extends": "../../package.json"
+  }
 }

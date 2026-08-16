@@ -25,6 +25,22 @@ with no direction chosen yet. And `backlog` was simultaneously a _lifecycle fold
   were moved OUT rather than merged. They are a retired artefact kind, not old Tasks, and keeping
   them inside this tree made two scans start judging them the moment the move happened.
 
+## GitHub Issue Relationship
+
+A GitHub issue is the externally tracked capture of intent or a problem. A Task is the executable unit
+that can pass its own recommendation, verification, and completion gates. One issue may produce one or
+several Tasks; one Task may span several packages when those changes solve one cause and have one
+independent completion outcome.
+
+Split by cause and independent verification, not by package, file, deliverable, or test count. Keep
+implementation-only decomposition inside the Task. Use separate child issues only when the causes need
+separate external discussion, priority, ownership, security review, or terminal disposition.
+
+When a Task is converted from a GitHub issue, cite the issue URL in its frontmatter or body. When one
+parent issue produces several related Tasks, the parent `AGREEMENT` Task and paired spec-doc own the
+shared boundary and child relationship; the `AGREEMENT` is complete only after every declared child is
+complete.
+
 ## Process
 
 1. Create a new `.md` file in this directory with the required frontmatter (see File Format below).

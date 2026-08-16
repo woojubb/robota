@@ -1,27 +1,32 @@
-import { SESSION_CAPABILITY_MEMBER_KEYS } from './session-capability-contracts.js';
+/**
+ * HARNESS-103: the session-capability host MECHANISM, moved out of the interface package's
+ * contract surface.
+ *
+ * `.agents/project-structure.md` states that an `agent-interface-*` package "must not contain
+ * classes or runtime logic", and this file is 100 lines of prototype walking, accessor caching,
+ * reserved/duplicate-member rejection and freezing. It passed `scan-interface-runtime` only because
+ * that scan detected `class`/`enum` declarations and bare value imports — a narrower thing than the
+ * rule it enforces — so a factory function full of runtime behaviour sat outside the rule and
+ * inside the green.
+ *
+ * It lives under `testing/` rather than in an implementation package because that is what the
+ * repository's own placement rule prescribes for what it actually is: its only consumers are this
+ * package's own unit test and the `testing` subpath's `createTestSessionCapabilityHost`. There is
+ * no production consumer — verified by grepping every package and app source tree — so it is a
+ * double factory, and the rule reads `doubles→owner /testing`.
+ *
+ * The CONTRACTS it satisfies (`ISessionCapabilityHost`, `TSessionCapabilityHost`,
+ * `TSessionCapabilityReadResult`) stayed in `session-capability-contracts.ts`, where contracts go.
+ */
 
-import type { ISessionCapabilityMap } from './session-capability-contracts.js';
+import { SESSION_CAPABILITY_MEMBER_KEYS } from '../session-capability-contracts.js';
 
-type TUnionToIntersection<T> = (T extends T ? (value: T) => void : never) extends (
-  value: infer TIntersection,
-) => void
-  ? TIntersection
-  : never;
-
-type TSelectedSessionPorts<TCapabilities extends Partial<ISessionCapabilityMap>> =
-  TUnionToIntersection<Exclude<TCapabilities[keyof TCapabilities], undefined>>;
-
-export interface ISessionCapabilityHost<
-  TCapabilities extends Partial<ISessionCapabilityMap> = Partial<ISessionCapabilityMap>,
-> {
-  readonly capabilities: Readonly<TCapabilities>;
-}
-
-export type TSessionCapabilityHost<TCapabilities extends Partial<ISessionCapabilityMap>> =
-  ISessionCapabilityHost<TCapabilities> & TSelectedSessionPorts<TCapabilities>;
-
-export type TSessionCapabilityReadResult<TCapability> =
-  Readonly<{ provided: false }> | Readonly<{ provided: true; value: TCapability }>;
+import type {
+  ISessionCapabilityMap,
+  ISessionCapabilityHost,
+  TSessionCapabilityHost,
+  TSessionCapabilityReadResult,
+} from '../session-capability-contracts.js';
 
 function findPropertyDescriptor(target: object, key: PropertyKey): PropertyDescriptor | undefined {
   let current: object | null = target;

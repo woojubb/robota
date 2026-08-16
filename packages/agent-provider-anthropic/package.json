@@ -48,5 +48,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.114.0",
     "@robota-sdk/agent-core": "workspace:*"
+  },
+  "volta": {
+    "extends": "../../package.json"
   }
 }

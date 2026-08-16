@@ -47,5 +47,8 @@
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*"
+  },
+  "volta": {
+    "extends": "../../package.json"
   }
 }

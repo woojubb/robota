@@ -35,7 +35,7 @@ export function applyModelToolCapability(
   resolved: IResolvedProviderInfo,
 ): void {
   if (chatOptions.tools === undefined) return;
-  if (resolveModelCapability(resolved.provider.modelCatalog?.(), model, 'tools', true)) return;
+  if (resolveModelCapability(resolved.provider.capabilityTable?.(), model, 'tools', true)) return;
   delete chatOptions.tools;
   delete chatOptions.toolChoice;
 }

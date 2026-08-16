@@ -2,8 +2,8 @@ import type { IAgentConfig, IAssistantMessage, TExecutionEventCallback } from '.
 import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
 import type { TUniversalMessage } from '../interfaces/messages';
+import type { IProviderCapabilityTable } from '../interfaces/model-capability';
 import type { IChatOptions, TTextDeltaCallback, TToolChoice } from '../interfaces/provider';
-import type { IProviderModelCatalog } from '../interfaces/provider-definition';
 import type { TMetadata } from '../interfaces/types';
 
 /** Preview length for general content truncation */
@@ -46,11 +46,17 @@ export interface IResolvedProviderInfo {
   provider: {
     chat: (messages: TUniversalMessage[], options: IChatOptions) => Promise<TUniversalMessage>;
     /**
-     * PROV-006: the provider's per-model capability declarations, so the turn can ask whether THIS
-     * model can do what the request needs. Structurally typed like `chat` above — this seam names
-     * what it uses rather than depending on the whole provider interface.
+     * PROV-006/PROV-008: what this provider's models can do, so the turn can ask whether THIS model
+     * can do what the request needs. Structurally typed like `chat` above — this seam names what it
+     * uses rather than depending on the whole provider interface.
      */
-    modelCatalog?: () => IProviderModelCatalog | undefined;
+    capabilityTable?: () => IProviderCapabilityTable | undefined;
+    /**
+     * CORE-043: whether this provider is pointed at its vendor's own endpoint. Separate from the
+     * table on purpose — a provider with no verified capability table must still be able to say it
+     * is behind a gateway.
+     */
+    endpointIsVendorDefault?: () => boolean;
   };
   currentInfo: { provider: string };
   aiProviderInfo: {

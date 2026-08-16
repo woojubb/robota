@@ -15,6 +15,34 @@ gate passes_ by the [`backlog-gate-guard`](../../.claude/agents/backlog-gate-gua
 [`user-execution-scenario-author`](../../.claude/agents/user-execution-scenario-author.md) agent. This
 document states only what must hold, wherever those run.
 
+## GitHub Issue ↔ Task Boundary
+
+GitHub issues and Task files are complementary records, not duplicate work queues.
+
+- A **GitHub issue** captures externally trackable intent or a problem: user value, constraints, scope,
+  non-goals, discussion, and links. A parent issue may represent an initiative; a child issue represents
+  an independently discussable cause or outcome.
+- A **Task** records one executable unit of work: one problem cause, one recommendation gate, one
+  verification plan, and one completion decision. A Task may span several packages or files when they are
+  one coherent cause and one independently verifiable outcome.
+- A **spec-doc** is the plan paired with a Task. It records alternatives, the accepted design, completion
+  criteria, affected files, and the test plan. It is neither a GitHub issue nor a substitute for a Task.
+
+Convert issue contents by **cause and independent verification**, not by the number of deliverables,
+packages, files, or test suites named. Keep one issue and make several Tasks when the decomposition is
+only internal implementation sequencing. Create separate child issues when the causes need separate
+external discussion, priority, ownership, security review, or independently tracked disposition.
+
+When one parent issue produces several related Tasks, create a parent `AGREEMENT` Task and its paired
+spec-doc to own the shared boundary and child relationship. Do not create an `AGREEMENT` merely because
+the work touches several packages. When a feature and its authentication/security policy have different
+trust assumptions, failure policy, or verification, keep them as separate causes even if they use the
+same transport.
+
+Every Task converted from an issue must cite its source issue. Conversion does not authorize
+implementation; the issue remains open until the tracked work lands or receives an explicit terminal
+disposition. The `issue-to-backlog` skill owns the conversion procedure; this rule owns the boundary.
+
 ## Agent Decision Authority
 
 When a decision must be made during backlog work, the agent must first determine whether it falls

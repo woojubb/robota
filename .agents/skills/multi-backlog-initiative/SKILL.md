@@ -6,9 +6,11 @@ invocable: true
 
 # Multi-Backlog Initiative — pipeline only
 
-When one unit of intent needs several backlog items, they land on an **integration base branch** rather
-than one at a time on the shared integration branch. This skill owns that outer loop: establish the base,
-run each item through the per-item pipeline against it, and hand the assembled result to the user.
+When one unit of intent needs several Task items, they land on an **integration base branch** rather than
+one at a time on the shared integration branch. This skill operates on already-classified Tasks, not raw
+GitHub issues; use [issue-to-backlog](../issue-to-backlog/SKILL.md) first when the work starts from an
+issue. It owns that outer loop: establish the base, run each item through the per-item pipeline against
+it, and hand the assembled result to the user.
 
 It holds no branch policy and no gate definitions. Which branches may target which, when a merge needs
 approval, and what a work item must satisfy before it merges are owned by the rules below.

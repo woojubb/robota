@@ -1,6 +1,6 @@
 ---
 title: 'PROV-004: provider siblings diverge on the shared IAIProvider contract — Anthropic chatStream demotes system prompts and drops tool calls, error taxonomy is typed on 2 of 7 surfaces, responseFormat is ignored by the compat family, and three providers re-implement streamWithAbort without its abort race'
-status: todo
+status: in-progress
 created: 2026-08-13
 priority: medium
 urgency: soon

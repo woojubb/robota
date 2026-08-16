@@ -92,17 +92,34 @@ function collectSrcText(srcDir) {
   return text;
 }
 
-function publicApiIdentifiers(specText) {
+/**
+ * HARNESS-104: the section test is HIERARCHICAL, not a flag.
+ *
+ * This held a single `inPublicApi` boolean, so ANY heading that did not itself match
+ * `/public api/i` closed the section — including a `###` nested INSIDE `## Public API Surface`.
+ * A SPEC that groups its surface by subsection therefore had every table after the first
+ * subheading skipped, and the scan reported those exports undocumented. Measured before the fix:
+ * 196 identifiers invisible across 7 packages, with agent-command, agent-plugin, agent-transport
+ * and dag-framework reading as having an entirely empty table.
+ *
+ * Markdown defines section extent by heading LEVEL (CommonMark ATX headings), so a deeper heading
+ * continues the section and one of the same-or-shallower level ends it. `sectionDepth` is that
+ * level; 0 means outside. Keeping the terminating half is what stops the fix from over-counting
+ * tables that sit outside the public-surface section.
+ */
+export function publicApiIdentifiers(specText) {
   const lines = specText.split('\n');
   const idents = [];
-  let inPublicApi = false;
+  let sectionDepth = 0;
   for (const line of lines) {
     const heading = line.match(HEADING);
     if (heading) {
-      inPublicApi = PUBLIC_API_HEADING.test(heading[1]);
+      const level = heading[0].match(/^#+/)[0].length;
+      if (PUBLIC_API_HEADING.test(heading[1])) sectionDepth = level;
+      else if (sectionDepth && level <= sectionDepth) sectionDepth = 0;
       continue;
     }
-    if (!inPublicApi) continue;
+    if (!sectionDepth) continue;
     if (SEPARATOR_ROW.test(line) || !TABLE_ROW.test(line)) continue;
     const cell = line.replace(/^\s*\|/, '').split('|')[0];
     const tokenMatch = cell.match(FIRST_BACKTICK_TOKEN);

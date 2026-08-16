@@ -3627,18 +3627,27 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../packages/agent-core
+      '@robota-sdk/agent-executor':
+        specifier: workspace:*
+        version: link:../packages/agent-executor
       '@robota-sdk/agent-framework':
         specifier: workspace:*
         version: link:../packages/agent-framework
       '@robota-sdk/agent-provider-defaults':
         specifier: workspace:*
         version: link:../packages/agent-provider-defaults
+      '@robota-sdk/agent-provider-openai':
+        specifier: workspace:*
+        version: link:../packages/agent-provider-openai
       '@robota-sdk/agent-remote-client':
         specifier: workspace:*
         version: link:../packages/agent-remote-client
       '@robota-sdk/agent-session':
         specifier: workspace:*
         version: link:../packages/agent-session
+      '@robota-sdk/agent-subagent-runner':
+        specifier: workspace:*
+        version: link:../packages/agent-subagent-runner
       '@robota-sdk/agent-testing':
         specifier: workspace:*
         version: link:../packages/agent-testing

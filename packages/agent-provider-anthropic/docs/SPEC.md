@@ -22,7 +22,6 @@ Every runtime export of the package entry (`src/index.ts`). Provider option/conf
 | `AnthropicProvider`                            |
 | `createAnthropicProvider`                      |
 | `createAnthropicProviderDefinition`            |
-| `refreshAnthropicModelCatalog`                 |
 | `ANTHROPIC_MODEL_LAST_VERIFIED_AT`             |
 | `ANTHROPIC_MODEL_SOURCE_URL`                   |
 | `DEFAULT_ANTHROPIC_PROVIDER_API_KEY_ENV`       |

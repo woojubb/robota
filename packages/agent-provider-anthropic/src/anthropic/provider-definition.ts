@@ -1,7 +1,6 @@
 import { type IProviderDefinition, type IProviderModelCatalogEntry } from '@robota-sdk/agent-core';
 
 import { CLAUDE_MODELS } from './claude-models.js';
-import { refreshAnthropicModelCatalog } from './model-catalog-refresh';
 import { AnthropicProvider } from './provider';
 
 export const DEFAULT_ANTHROPIC_PROVIDER_MODEL = 'claude-sonnet-4-6';
@@ -54,8 +53,6 @@ export function createAnthropicProviderDefinition(): IProviderDefinition {
         defaultValue: DEFAULT_ANTHROPIC_PROVIDER_MODEL,
       },
     ],
-    refreshModelCatalog: ({ profile }) => refreshAnthropicModelCatalog(profile),
-    modelCatalogCacheTtlSeconds: 86400,
     requiresApiKey: true,
     createProvider: (config) =>
       new AnthropicProvider({

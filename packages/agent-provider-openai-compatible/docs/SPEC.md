@@ -25,8 +25,6 @@ Every runtime export of the package entry (`src/index.ts`). Provider option/conf
 | `createDeepSeekProviderDefinition`            |
 | `createQwenProviderDefinition`                |
 | `createGemmaProviderDefinition`               |
-| `refreshDeepSeekModelCatalog`                 |
-| `refreshQwenModelCatalog`                     |
 | `GemmaReasoningProjector`                     |
 | `GemmaToolCallProjector`                      |
 | `createGemmaToolCallProjector`                |
@@ -79,27 +77,27 @@ dist/
     └── shared ...             # sub-path entry
 ```
 
-## Structured Output — not mapped here (CORE-043)
+## Structured Output — carried by the core transport seam (CORE-043)
 
-**`IChatOptions.responseFormat` is not read by any adapter in this package.** `deepseek`, `qwen` and
-`gemma` build their requests without it, so a `run(input, { output })` call against them carries
-**no schema signal on the first attempt at all** — not a native `response_format`, and not a prose
-instruction either. `spec.jsonSchema` reaches the model only through the retry-feedback turn that
-agent-core's enforcement loop sends _after_ a first attempt has already failed validation.
+**No adapter in this package reads `IChatOptions.responseFormat`.** `deepseek`, `qwen` and `gemma`
+build their requests without it. That used to mean a `run(input, { output })` call against them
+carried **no schema signal on the first attempt at all** — not a native `response_format`, and not a
+prose instruction either, because `spec.jsonSchema` reached the model only through the retry-feedback
+turn agent-core sends _after_ a first attempt has already failed. A structured run against this
+family cost at least one extra turn by construction, and `outputRetries: 0` could only succeed by
+luck.
 
-The consequence is worth stating plainly rather than leaving to be measured: a structured run against
-this family costs at least one extra turn by construction, and `outputRetries: 0` can only succeed by
-luck. agent-core's bounded validate-and-retry loop still guarantees the returned object matches the
-schema or throws — the guarantee holds; the cost is real.
+CORE-043 closed that at the seam that assembles the request, not per adapter. agent-core now asks
+this package's capability table which transport applies and, when no schema parameter exists, states
+the schema as a system instruction on the FIRST attempt. So the extra turn is gone without any
+adapter here gaining a `responseFormat` branch — the mapping belongs where the capability is known,
+and duplicating it into three request builders is how the two answers would drift apart.
 
-**This is a stated gap, not a design.** It is recorded here because a user currently has no way to
-learn it except by measuring: the SPEC's § Structured Output Contract says providers without a native
-surface "ignore it — the core-side enforcement loop is the universal contract either way", which is
-true of the guarantee and silent about the cost. The per-model catalog makes it worse:
-`src/deepseek/model-catalog.ts` declares `'json_schema'` on all three entries, a capability this
-package does not implement, and nothing reads that flag anyway (PROV-006).
+**The capability claims were also wrong, and are corrected.** `DEEPSEEK_CAPABILITY_TABLE` declared
+`'json_schema'`; DeepSeek's JSON Output guarantees the response PARSES but takes no schema parameter
+and enforces no shape. It now declares `'json_object'`, which agent-core maps to
+`responseFormat: { type: 'json_object' }` plus the prompt statement of the schema. `qwen` declares
+neither, so its structured requests omit the option entirely rather than sending one to be ignored.
 
-Fixing it — threading `responseFormat` through the shared request builder, and deciding where
-capability is represented so the runtime can tell a mapped provider from a discarding one — is
-**CORE-043** (issue #1750), whose load-bearing decisions are reserved for the project owner. PROV-004
-carries the same row. Until then, treat structured output on this family as retry-driven.
+agent-core's bounded validate-and-retry loop remains the guarantee: the returned object matches the
+schema or it throws.

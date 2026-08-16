@@ -1,6 +1,6 @@
 import type { TUniversalMessage, IToolCall } from './messages';
+import type { IProviderCapabilityTable } from './model-capability';
 import type { IProviderCapabilities, IProviderNativeWebToolRequest } from './provider-capabilities';
-import type { IProviderModelCatalog } from './provider-definition';
 import type { IProviderSpecificOptions } from './provider-specific-options';
 import type { IToolSchema } from './tool-schema';
 
@@ -211,13 +211,29 @@ export interface IAIProvider {
   getCapabilities?(): IProviderCapabilities;
 
   /**
-   * This provider's model catalog, so a PER-MODEL capability is resolvable at call time (PROV-006).
+   * What this provider's models can do (PROV-006/PROV-008).
    *
-   * `supportsTools()` answers for the vendor, which is the wrong granularity when models differ —
-   * deepseek returned an unconditional `true` while its own catalog said `deepseek-reasoner` has
-   * none. Optional, and silence is NOT denial: see `interfaces/model-capability.ts`.
+   * `supportsTools()` answers for the vendor, which is the wrong granularity when models differ.
+   * This is the per-MODEL answer, declared by the package that ships the adapter and reachable from
+   * the instance — the catalog on `IProviderDefinition` is discovery, which the instance never
+   * holds. Optional, and silence is NOT denial: see `interfaces/model-capability.ts`.
    */
-  modelCatalog?(): IProviderModelCatalog | undefined;
+  capabilityTable?(): IProviderCapabilityTable | undefined;
+
+  /**
+   * Whether this provider instance is pointed at its vendor's own endpoint. CORE-043.
+   *
+   * A provider configured with a custom `baseURL` still speaks the vendor's protocol, but the
+   * vendor's guarantees are no longer the ones in force — a gateway can accept a structured-output
+   * parameter and forward a request that ignores it, so the runtime would claim enforcement the
+   * endpoint does not provide.
+   *
+   * Separate from `capabilityTable()` deliberately. Endpoint identity and capability declaration are
+   * independent facts, and coupling them would force a provider with no verified table to invent one
+   * in order to report its endpoint. Silence means the provider did not say, which is not a claim
+   * that the endpoint is the vendor's.
+   */
+  endpointIsVendorDefault?(): boolean;
 
   /**
    * Optional generic hook for enabling provider-native hosted web behavior.

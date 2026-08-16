@@ -237,6 +237,9 @@ export class GemmaProvider extends AbstractAIProvider {
       messages,
       options,
       defaultModel: this.options.defaultModel,
+      // PROV-004: no `capabilityTable` — gemma publishes none, so no model of its declares
+      // `json_schema`, and the builder must not emit `response_format` for it. Silence is not
+      // permission; passing an empty table here would read as a deliberate denial instead.
     });
   }
 
