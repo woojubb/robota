@@ -458,7 +458,7 @@ node scratch/src/arch-031-subagent-permission-policy.mjs; echo "EXIT=$?"
   if a clean tree is wanted. **The committed heredoc above, not the file it writes, is the durable
   artifact.**
 - **Evidence (2026-08-16, `feat/arch-031-derive-subagent-seam`):** the fenced block above was extracted
-  **verbatim** from this file and run. `EXIT=0`, `SCENARIO RESULT: PASS`, all eight assertions green:
+  **verbatim** from this file and run. `EXIT=0`, `SCENARIO RESULT: PASS`, all seven assertions green:
 
   ```
   PASS  A: subagent task completes                          — completed / no error
@@ -990,6 +990,97 @@ that final state and re-run this gate. Correct the two record inaccuracies at th
 assertions" and S2's missing seventh `PASS` line. The two runs above are reproducible evidence, not a
 substitute for the re-run.
 
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** `todo` → `todo` (this gate authorizes completion; moving the status is the
+orchestrator's act, not this gate's)
+
+**Ordering — passes, re-derived rather than accepted.** Prior gate `[DONE-GATE-STAGE-1] ✅ PASS |
+2026-08-16` is recorded above with per-criterion evidence. The input state `gate-catalogue.md` >
+Prior-gate map requires — "scenarios written, **implementation complete**" — now holds, and the two items
+the previous 🔴 NON-COMPLIANCE named as verifiably unlanded were re-checked **in code** at `f79d59e92`,
+not read off the ticked box:
+
+- `ISpawnAgentTaskRequest` is genuinely derived. `execution-workspace-spawner.ts:38-44` is now
+  `Readonly<Omit<IAgentBackgroundTaskRequest,'kind'|'parentSessionId'|'metadata'|'mode'|'depth'|'cwd'> &
+Partial<Pick<…,'mode'|'depth'|'cwd'>>>`, where `8abea89ed` declared twenty-one fields by hand — the third
+  of the three independent declarations `## Problem` names is gone. The TYPE-only split holds on its
+  stated ground (`createAgentRequest` injects `kind`/`parentSessionId`/`metadata`, which a caller must not
+  be able to forge) and required keys stay total, because the mapper's annotated return type makes a
+  missed required key a compile error. One consequence is recorded below rather than waived.
+- The classification-vocabulary question is answered, not deferred, and every row of the five-row residual
+  table was checked where it claims to be enforced: `permissionPolicy` required at
+  `background-task-contracts.ts:93`; `providerProfile` optional at `:94` and carried by the derivation;
+  `exitCode`/`signalCode` named in the `Omit` with its reason at `subagent-contracts.ts:99-110`;
+  `worktreePath`/`branchName` relocated onto the runner envelope at `subagents/types.ts:35-52`.
+- `## Plan` is 5/5 `[x]` and `## Result` is written. `pnpm typecheck` clean for agent-interface-transport
+  / agent-executor / agent-framework, and the parity fixture is inside the typechecked program
+  (`tsgo --listFiles` includes `type-ssot-parity.test.ts`; 5/5 green). Engineering verification, cited
+  **only** for this input-state condition and never as user-execution evidence.
+
+**Criterion 1 — every scenario directly executed against the completed implementation: MET, by this
+guard, at the final state.** Both fenced blocks were extracted programmatically and byte-verbatim from
+this file at `f79d59e92` (S1 lines 179-435, 9,914 chars; S2 lines 512-762, 9,646 chars) and run from the
+repo root on `feat/arch-031-derive-subagent-seam` with a clean tree. Recorded because it is the delta from
+the last run: the S1/S2 evidence blocks above are still the runs made at `7f349510f`, i.e. before the
+final implementation commit — the final-state execution is this one.
+
+**Criterion 2 — the observed result matched the expected observable, for every scenario: MET.** 14/14
+assertions, both `EXIT=0`, both `SCENARIO RESULT: PASS`.
+
+- S1 — the divergence is real, not asserted. Arm A (`permissions.allow: []`) observed
+  `[{"type":"background_task_tool_end","toolName":"Bash","success":false,"taskId":"agent_1"}]` with no
+  `tool_start`, and `BREACH.txt exists=false`. Arm B (`allow: ['Bash']`) observed `tool_start`
+  (`firstArg: echo BREACHED > /tmp/arch031-cwd-utWsD1/BREACH.txt`) then `tool_end success=true`, and
+  `exists=true body="BREACHED\n"`. Both arms `completed / no error` with `modelCalls === 2`, so the child
+  really reached the mock model. This is the falsifier the item needs: drop `permissionPolicy` at any hop
+  and arm A falls through to `evaluatePermission`, which under `bypassPermissions` writes the file.
+- S2 — containment holds after the worktree identity moved onto the envelope. `main EXEC_ROOT.txt
+exists=false`, and the child's own `pwd` (`/tmp/arch031-wt-56QzX9/.robota/worktrees/agent_1-318f9605`) is
+  string-equal to the `worktreePath` the task state reports; branch `robota/agent_1-318f9605`;
+  `/agent list` rendered `agent_1 [completed
+worktree=/tmp/arch031-wt-56QzX9/.robota/worktrees/agent_1-318f9605 branch=robota/agent_1-318f9605]
+general-purpose - record the execution root`.
+
+**Criterion 3 — concrete evidence recorded under each scenario's evidence field: MET, with one
+uncorrected inaccuracy.** Both fields carry the exact command, the observed `PASS` lines with their
+values, and the exit code, and every line of both reproduces at `f79d59e92`. S2's missing seventh line was
+fixed at `f79d59e92`; **S1's miscount was not** — line 461 still reads "all **eight** assertions green"
+over a seven-assertion driver, although that commit's message states it was corrected. The count is
+wrong; the seven quoted lines and their observed values are not, and the driver's own output is the
+authority — so the criterion is met on substance and the miscount is recorded rather than let pass
+silently.
+
+**Engineering verification cited as user-execution evidence** — not triggered. The observables are
+`background_task_event` frames, `/agent list` output, and files on disk; the "Not scenarios" subsection
+quarantines `pnpm typecheck`, the IPC-guard test and `type-ssot-parity.test.ts` instead of citing them.
+
+**Unprobed capability-absence claim** — not triggered, and no exception is claimed. The recorded probe was
+reproduced anyway: `env | grep -iE 'ANTHROPIC|OPENAI|GEMINI|GOOGLE|BYTEDANCE|API_KEY'` matches only
+`PATH`, and `ls ~/.robota` → `No such file or directory`. Nothing rides on it — both drivers point the
+provider at their own `127.0.0.1` mock, so both runs are credential-free by construction.
+
+**Durable-artifact rule — met.** The committed heredocs are the durable artifact and regenerate the
+drivers byte-identically (`cat >` truncates, so this run executed the committed text by construction);
+`scratch/src/*` is where `backlog-execution.md` § Script home requires disposable live-verification
+scripts to live. `node scripts/harness/check-done-evidence.mjs` →
+`done-evidence scan passed (14 superseded reference(s))`.
+
+**Recorded, not part of this verdict — a live instance of this item's own defect class, created by the
+fix.** The derivation widened the public `IExecutionWorkspaceTaskSpawner.spawnAgent` port with
+`providerProfile?` (inherited through the `Omit`; the hand-written version at `8abea89ed` had no such
+key), and `createAgentRequest` (`execution-workspace-spawner.ts:102-126`) is the one projection that
+stayed a hand-written literal and does not copy it. A caller that sets `providerProfile` there gets a
+silent no-op — "compiles clean as a silent no-op", the exact mode `## Problem` names. It is not a
+`DONE-GATE-STAGE-2` criterion and does not change this verdict; it wants a follow-up item, or a
+spread-with-overrides mapper at that hop.
+
+**Scenarios covered:** S1 (the subagent's permission policy governs its tool calls and outranks
+`bypassPermissions`) — executed by this guard, 7/7. S2 (a worktree-isolated subagent still executes inside
+its worktree) — executed by this guard, 7/7. `parentTaskId` — no scenario, and correctly so: a
+trace-backed absence finding under the Capability Reachability rule, not an exception this gate must
+accept.
+
 ## Plan
 
 - [x] Owner decision on scope — **approved 2026-08-16.** This item spans four packages by construction, and
@@ -1013,16 +1104,16 @@ substitute for the re-run.
       so a map would restate in data what the type system already refuses:
 
       | Residual key | Disposition | Where it is enforced |
-              | --- | --- | --- |
-              | `permissionPolicy` | required at the boundary; the default is one named constant owned by `agent-core` | compile error at each producer until stated |
-              | `providerProfile` | **carried by derivation; not honored by any runner today — ARCH-021 is the item that honors it.** Not "rejected" and not "dead": for a library, no in-repo consumer is not evidence a contract is dead | `createProviderProfile`, which builds the profile the worker actually reads |
-              | `exitCode` / `signalCode` | excluded — process-only, sole producer is the shell runner | named in the `Omit` and its comment |
-              | `worktreePath` | moved to the runner envelope — runner-produced, so the request was the wrong owner | compile error if read off the request |
-              | `branchName` | **relocated to the envelope, not deleted.** It has no reader in this repository; that is not a reason to drop a legitimate contract | declared on both envelopes and crosses the IPC boundary |
+                          | --- | --- | --- |
+                          | `permissionPolicy` | required at the boundary; the default is one named constant owned by `agent-core` | compile error at each producer until stated |
+                          | `providerProfile` | **carried by derivation; not honored by any runner today — ARCH-021 is the item that honors it.** Not "rejected" and not "dead": for a library, no in-repo consumer is not evidence a contract is dead | `createProviderProfile`, which builds the profile the worker actually reads |
+                          | `exitCode` / `signalCode` | excluded — process-only, sole producer is the shell runner | named in the `Omit` and its comment |
+                          | `worktreePath` | moved to the runner envelope — runner-produced, so the request was the wrong owner | compile error if read off the request |
+                          | `branchName` | **relocated to the envelope, not deleted.** It has no reader in this repository; that is not a reason to drop a legitimate contract | declared on both envelopes and crosses the IPC boundary |
 
-              `TCompositionFieldPolicy` (ARCH-027, `agent-capability-pack`) is therefore left alone rather than
-              borrowed or re-spelled. The open question of who should own "exhaustive public-key classification"
-              as a domain-free concept is not answered here because nothing in this item now needs it.
+                          `TCompositionFieldPolicy` (ARCH-027, `agent-capability-pack`) is therefore left alone rather than
+                          borrowed or re-spelled. The open question of who should own "exhaustive public-key classification"
+                          as a domain-free concept is not answered here because nothing in this item now needs it.
 
 ## Blockers
 

@@ -283,24 +283,10 @@ export type {
 export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';
 
 // Permissions
-export {
-  type TPermissionMode,
-  type TTrustLevel,
-  type TPermissionDecision,
-  type TBackgroundPermissionPolicy,
-  DEFAULT_BACKGROUND_PERMISSION_POLICY,
-  type TToolArgs,
-  type IPermissionLists,
-  type TPermissionPolicyDecision,
-  type IPermissionPolicyContext,
-  type TKnownToolName,
-  TRUST_TO_MODE,
-  evaluatePermission,
-  registerToolArgumentKey,
-  resolvePermissionByPolicy,
-  MODE_POLICY,
-  UNKNOWN_TOOL_FALLBACK,
-} from './permissions/index.js';
+// ARCH-031: one re-export of the permissions sub-barrel rather than a hand-listed block. The list it
+// replaced had to be edited every time the module gained a public name — which is how it grew, and why
+// adding one constant tripped the size ratchet. `export *` cannot fall out of step with its owner.
+export * from './permissions/index.js';
 
 // Context window tracking
 export type { IContextTokenUsage, IContextWindowState } from './context/index.js';

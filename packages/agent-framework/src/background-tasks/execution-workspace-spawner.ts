@@ -99,28 +99,23 @@ function createAgentRequest(
   options: ICreateExecutionWorkspaceTaskSpawnerOptions,
   request: ISpawnAgentTaskRequest,
 ): IAgentBackgroundTaskRequest {
+  // ARCH-031: a spread with the spawner's own overrides, NOT a hand-written key list. The list this
+  // replaced omitted `providerProfile` the moment the derivation introduced it — a caller could set it
+  // and get a silent no-op, which is precisely the defect class this item exists to remove, recreated by
+  // its own fix and caught at the done gate. A spread cannot forget a key.
+  //
+  // The three overrides after it are what the SPAWNER owns and a caller must not be able to forge:
+  // `kind` is fixed by the seam, `parentSessionId` comes from the session, `metadata` from the origin.
+  const { mode, depth, cwd, allowedTools, disallowedTools, ...rest } = request;
   return {
+    ...rest,
     kind: 'agent',
-    label: request.label,
-    mode: request.mode ?? 'background',
+    mode: mode ?? 'background',
+    depth: depth ?? 1,
+    cwd: cwd ?? options.cwd,
+    allowedTools: allowedTools ? [...allowedTools] : undefined,
+    disallowedTools: disallowedTools ? [...disallowedTools] : undefined,
     parentSessionId: options.sessionId,
-    parentTaskId: request.parentTaskId,
-    depth: request.depth ?? 1,
-    cwd: request.cwd ?? options.cwd,
-    agentType: request.agentType,
-    prompt: request.prompt,
-    model: request.model,
-    isolation: request.isolation,
-    allowedTools: request.allowedTools ? [...request.allowedTools] : undefined,
-    disallowedTools: request.disallowedTools ? [...request.disallowedTools] : undefined,
-    permissionPolicy: request.permissionPolicy,
-    timeoutMs: request.timeoutMs,
-    idleTimeoutMs: request.idleTimeoutMs,
-    maxRuntimeMs: request.maxRuntimeMs,
-    outputLimitBytes: request.outputLimitBytes,
-    maxTextDeltas: request.maxTextDeltas,
-    repetitionWindow: request.repetitionWindow,
-    repetitionThreshold: request.repetitionThreshold,
     metadata: createExecutionOriginMetadata(options.origin),
   };
 }
