@@ -834,6 +834,12 @@ if ! REVIEW_STATE=$(cd "$PROJECT_DIR" && node "$RECORDER" --show 2>&1); then
     # the owner of "what the reviewer said", and a second reading here would be a second answer.
     # Unknown is NOT zero: if the count cannot be read, the original exemption stands, because a
     # refusal on a failed measurement blocks correct work on no evidence.
+    # The MARKER pattern is merge-gate.sh's, unanchored, and that is not a style choice: jq's regex
+    # does not make `^`/`$` match at line boundaries, so an anchored pattern finds nothing in a review
+    # body whose marker is not the whole text — and the `2>/dev/null` below turns that into an empty
+    # count, which reads as unknown and lets the push through. Fail-OPEN on the exact case this gate
+    # exists to block. The precise line extraction is `sed`'s job below, where `^`/`$` do mean lines.
+    #
     # The AUTHOR FILTER is not optional, and it is the same one merge-gate.sh applies
     # (merge-gate.sh:208). Without it this reads the latest comment from ANYONE carrying the marker,
     # so the branch's own author could post `ACTIONABLE FINDINGS: 3` to unfreeze a clean pull request,
@@ -843,7 +849,7 @@ if ! REVIEW_STATE=$(cd "$PROJECT_DIR" && node "$RECORDER" --show 2>&1); then
     REVIEWER_RE='^github-actions(\\[bot\\])?$'
     LATEST_COUNT=$( (cd "$PROJECT_DIR" &&
       bounded_gh pr view "$OPEN_PR" --json comments,reviews \
-        --jq "([.comments[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"$REVIEWER_RE\"))) | map(select(.body | test(\"^ACTIONABLE FINDINGS: [0-9]+$\"; \"m\"))) | sort_by(.at) | last // {} | .body // \"\"" 2>/dev/null) |
+        --jq "([.comments[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"$REVIEWER_RE\"))) | map(select(.body | test(\"ACTIONABLE FINDINGS:[[:space:]]*[0-9]+\"; \"i\"))) | sort_by(.at) | last // {} | .body // \"\"" 2>/dev/null) |
       sed -nE 's/^ACTIONABLE FINDINGS: ([0-9]+)$/\1/p' | tail -1 || echo "")
 
     if [[ "$LATEST_COUNT" == "0" ]]; then

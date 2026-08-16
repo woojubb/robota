@@ -51,19 +51,49 @@ function scratchRepo() {
 function stubGh({ prNumber, findings, author = 'github-actions[bot]' }) {
   const dir = mkdtempSync(path.join(tmpdir(), 'openpr-gh-'));
   scratch.push(dir);
-  // The author filter is applied by `gh` server-side, from the comment's `author.login` — which lives
-  // in the DATA, not in the query string. So the stub decides it here, exactly as gh would: a marker
-  // from anyone other than the reviewer the hook trusts is simply not returned. A stub that echoed
-  // the body regardless of author would keep passing after the filter was removed from the hook.
-  const trusted = /^github-actions(\[bot\])?$/.test(author);
-  const body = findings === null || !trusted ? '' : `ACTIONABLE FINDINGS: ${findings}`;
+
+  // The payload real `gh` would have fetched, in the shape the hook's `--json comments,reviews` asks
+  // for. The stub does NOT pre-compute an answer from it: it runs the hook's OWN `--jq` expression
+  // over this with real jq, so the filter, the marker pattern and the `sort_by(.at)` ordering are all
+  // exercised as written in the hook.
+  //
+  // The earlier stub echoed a body it had decided in JS, which left the jq string untested — and a
+  // malformed jq is swallowed by the hook's `2>/dev/null`, yielding an empty count that reads as
+  // unknown and lets the push through. That is fail-open on exactly the scenario this gate exists to
+  // block, and the tests would have stayed green through it.
+  const payload = {
+    comments:
+      findings === null
+        ? []
+        : [
+            {
+              author: { login: 'someone-else' },
+              body: 'unrelated chatter',
+              createdAt: '2020-01-01T00:00:00Z',
+            },
+            {
+              author: { login: author },
+              body: `REVIEWED HEAD: ${'0'.repeat(40)}\nACTIONABLE FINDINGS: ${findings}`,
+              createdAt: '2020-01-02T00:00:00Z',
+            },
+          ],
+    reviews: [],
+  };
+  writeFileSync(path.join(dir, 'payload.json'), JSON.stringify(payload));
+
   writeFileSync(
     path.join(dir, 'gh'),
     [
       '#!/bin/bash',
+      "# Run the caller's own --jq over the fixture payload, the way gh does.",
       'if [[ "$*" == *"comments,reviews"* ]]; then',
-      `  printf '%s\\n' ${JSON.stringify(body)}`,
-      '  exit 0',
+      '  jqexpr=""',
+      '  while [ $# -gt 0 ]; do',
+      '    if [ "$1" = "--jq" ]; then jqexpr="$2"; fi',
+      '    shift',
+      '  done',
+      `  jq -r "$jqexpr" ${JSON.stringify(path.join(dir, 'payload.json'))}`,
+      '  exit $?',
       'fi',
       'for arg in "$@"; do',
       `  if [ "$arg" = "--head" ]; then printf '%s\\n' '${prNumber}'; exit 0; fi`,
