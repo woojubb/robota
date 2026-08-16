@@ -11,8 +11,10 @@
  * per-model answer, and the questions that need one are not going away: CORE-043 has to resolve a
  * structured-output mechanism per (provider, model), and vision gating is the same shape.
  *
- * **`undefined` is not `false`.** A catalog with no entry for a model, or an entry that lists no
- * capabilities, has said NOTHING — which is different from saying the model cannot do it. Treating
+ * **`undefined` is not `false`.** A catalog with no entry for a model, or an entry whose capability
+ * list is absent OR empty, has said NOTHING — which is different from saying the model cannot do it.
+ * (An empty list is the case a field-presence check misses, and `[].includes(x)` answers `false`
+ * rather than "unknown", so it has to be excluded explicitly.) Treating
  * silence as denial would turn every unlisted model into a crippled one the moment this started
  * being read, so callers decide what to do with silence and the decision is visible at each site.
  */
@@ -49,7 +51,11 @@ export function modelDeclaresCapability(
   capability: TProviderModelCapability,
 ): boolean | undefined {
   const entry = findModelCatalogEntry(catalog, modelId);
-  if (!entry?.capabilities) return undefined;
+  // An EMPTY list is silence, not a blanket denial. `!entry?.capabilities` alone let `[]` through,
+  // and `[].includes(x)` is `false` — so an entry that declares nothing would have been read as an
+  // entry that declares nothing is possible, stripping tools from that model. That is the exact
+  // inversion this module's contract forbids, in the one shape the field check does not catch.
+  if (!entry?.capabilities || entry.capabilities.length === 0) return undefined;
   return entry.capabilities.includes(capability);
 }
 

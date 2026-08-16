@@ -40,6 +40,12 @@ const CATALOG: IProviderModelCatalog = {
       displayName: 'Undescribed',
       // An entry that exists but declares nothing.
     },
+    {
+      id: 'empty-list-model',
+      displayName: 'Empty list',
+      // The shape a field-presence check misses: present, and empty.
+      capabilities: [],
+    },
   ],
 };
 
@@ -73,10 +79,14 @@ describe('PROV-006 — what a model declares', () => {
   });
 
   it('answers UNDEFINED — not false — when the catalog has said nothing', () => {
-    // Three ways of saying nothing, all distinct from saying no.
+    // Four ways of saying nothing, all distinct from saying no.
     expect(modelDeclaresCapability(CATALOG, 'unlisted-model', 'tools')).toBeUndefined();
     expect(modelDeclaresCapability(CATALOG, 'undescribed-model', 'tools')).toBeUndefined();
     expect(modelDeclaresCapability(undefined, 'chat-model', 'tools')).toBeUndefined();
+    // The one a field-presence check misses: `capabilities: []` is present and says nothing, and
+    // `[].includes(x)` answers `false` rather than "unknown". Read as a denial it would strip tools
+    // from a model whose author had simply not filled the list in yet.
+    expect(modelDeclaresCapability(CATALOG, 'empty-list-model', 'tools')).toBeUndefined();
   });
 });
 
@@ -89,5 +99,8 @@ describe('PROV-006 — resolving with a stated assumption', () => {
   it('the assumption is used only when the catalog is silent', () => {
     expect(resolveModelCapability(CATALOG, 'unlisted-model', 'tools', true)).toBe(true);
     expect(resolveModelCapability(CATALOG, 'unlisted-model', 'tools', false)).toBe(false);
+    // Including the empty-list form — otherwise the caller's assumption is silently overridden by a
+    // model that never said anything.
+    expect(resolveModelCapability(CATALOG, 'empty-list-model', 'tools', true)).toBe(true);
   });
 });
