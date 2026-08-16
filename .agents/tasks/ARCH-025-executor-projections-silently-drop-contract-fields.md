@@ -353,6 +353,22 @@ node scratch/src/arch-025-schedule-edit.mjs; echo "EXIT=$?"
     behaviour-preservation scenario: the same five `PASS` lines and the same `Schedule updated: …`
     string. Had they differed, repair #2's "no runtime change" claim would be falsified and this would
     be a failure, not a new baseline. No expectation was rewritten after observing the output.
+  - **Durable artifacts this evidence rests on.** The driver at `scratch/src/arch-025-schedule-edit.mjs`
+    is deliberately NOT one: `backlog-execution.md` § Script home puts disposable live-verification
+    scripts in that gitignored home, so it exists only while a run is in flight and is absent from a
+    fresh clone. It is **regenerated verbatim by the heredoc in the command block above**, which is
+    committed in this file — that block, not the file it writes, is the durable artifact, and the
+    scenario author proved the round-trip by deleting the driver and re-running the extracted block.
+    The durable repository artifacts for these two repairs are:
+    - `packages/agent-executor/src/subagents/__tests__/subagent-manager.test.ts` — the red-proved
+      contract cases (`wait() carries the declared usage through to its caller`, which failed with
+      `expected undefined to deeply equal { promptTokens: 120, … }` before the fix, and
+      `wait() omits usage entirely when the runner reported none`);
+    - `packages/agent-executor/src/index.ts` and `packages/agent-executor/src/background-tasks/index.ts` —
+      the `IScheduleEditPatch` exports;
+    - `packages/agent-framework/src/command-api/host-context.ts` and
+      `packages/agent-framework/src/interactive/interactive-session-base.ts` — both re-declaration sites,
+      now naming the owner, with `rg` finding zero occurrences of the anonymous literal repo-wide.
   - **What this does and does not prove.** It proves the `/schedule edit` path still works end to end
     through the de-duplicated `IScheduleEditPatch` signature, and that **both** patch fields survive the
     hop. It does **not** demonstrate a behaviour change, because repair #2 is a type-level
