@@ -77,3 +77,34 @@ written concrete obstacle plus a tracked item**, per `lesson-to-harness` step 8.
 
 Not applicable — process change with no runnable user-facing behaviour. The conversion exercised
 under Test Plan is the evidence.
+
+## Delivered (2026-08-16)
+
+**Two skills, because they run at different times for different reasons (the issue's own reason):**
+
+- `.agents/skills/find-to-issue/SKILL.md` — the mid-task path. Carries the anti-drop-box bar (fix now
+  if it is inside your own diff; file if fixing would widen the work; neither if you cannot say what
+  you observed), and states that **filing is not authorization** — an issue is not the backlog draft
+  `user-request-gate` requires.
+- `.agents/skills/issue-to-backlog/SKILL.md` — the pickup path. Its load-bearing instruction is to
+  **group the issue's contents by CAUSE, not by the count of things it lists**, with the measured cost
+  of getting it wrong.
+
+**Both route the depth question to `finding-depth.md` rather than answering it**, so "is this the
+current item's or its own root?" keeps one owner.
+
+**Mechanism terminal state: INFEASIBLE-NOW for the find half, with the obstacle written.** "Did the
+agent file an issue instead of dropping the finding?" is not observable from the tree — the dropped
+finding leaves no artifact, so there is nothing for a check to read. This is the honest terminal state
+that `lesson-to-harness` step 8 permits, and it is recorded here rather than left silent. The tracked
+item is this Task, which stays open for it.
+
+**The pickup half is verifiable and was verified:** a converted Task must satisfy
+`task-lifecycle.mjs classify` and `backlog-placement`, and for an AGREEMENT parent, `task-archival`
+requires exactly one paired spec-doc.
+
+**Worked example, which is this Task's own provenance:** issue #1763 → AGREEMENT-003 plus four
+children, including the judgement that the issue's eight named skills are four causes. The conversion
+surfaced two findings a later session would otherwise have re-derived — the `contract-audit` name
+collision and the already-filed mirror at #1765 — and both were recorded in the parent rather than
+discovered twice.

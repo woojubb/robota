@@ -83,3 +83,28 @@ item.** "Hard to check" is not a reason.
 Not applicable — harness/process change with no runnable user-facing behaviour. The mechanism's
 before/after result under Test Plan is the evidence, per the Task README's rule for
 governance-only changes.
+
+## Delivered (2026-08-16)
+
+**Skill:** `.agents/skills/contract-disposition/SKILL.md` — the exposure gate as a mandatory first
+step with a runnable version check, and the closed disposition vocabulary. Named
+`contract-disposition`, **not** `contract-audit`: that name was already taken by an unrelated skill
+about SPEC.md Class Contract Registries, as this Task recorded before the work started.
+
+**Mechanism terminal state: MECHANIZED.** `scripts/harness/check-contract-disposition.mjs`, registered
+in `run-all-scans.mjs`. A changeset asserting a contract is dead/unused must name a disposition.
+
+**Prove-it-fails (step 9), against the recorded incident:** the fixture feeds the guard the
+`providerProfile` changeset in the shape it shipped — _"is a dead contract field — nothing reads it,
+so it is removed"_ — and the guard FAILS it. The same text with the real disposition named
+(carried-but-not-honored, ARCH-021 honors it) PASSES.
+
+**A false positive the first draft produced, and what it cost:** the initial phrase list included
+`dead code`, which fired on `.changeset/dist-006-*.md` — a `--import tsx` branch described as "dead
+code", an unreachable branch and not an unconsumed contract. That is the exact over-matching the
+file's own comment warned against one line above. `dead code` was removed, a subject noun is now
+required, and the real changeset text is pinned as a green case so the widening cannot recur.
+
+**Scope stated rather than implied:** the check cannot tell whether the disposition named is the
+RIGHT one — that is the skill's judgement. It closes the hole the incident went through: an
+unqualified claim reaching a shipped artifact with no disposition recorded.

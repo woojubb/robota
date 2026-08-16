@@ -75,3 +75,31 @@ Candidates, to be decided during design:
 
 Not applicable — harness/process change with no runnable user-facing behaviour. The before/after
 mechanism result under Test Plan is the evidence.
+
+## Delivered (2026-08-16)
+
+**Mechanism terminal state: MECHANIZED (first stage).**
+`scripts/harness/check-fixture-floor.mjs`, registered in `run-all-scans.mjs`: every
+`scripts/harness/{check,scan}-*.mjs` has a same-named fixture test. 116 modules examined.
+
+**Prove-it-fails (step 9) — the strongest form available:** the check went red **on itself** the first
+time it ran, demanding its own fixture. That is the condition it names, met by the file that names it.
+The fixture then covers all three red branches (no fixture; a baselined entry that has since gained
+one; a baseline entry naming a check that no longer exists) and the green ones.
+
+**Ratchet, not amnesty:** five pre-existing checks lack fixtures and are listed in
+`fixture-floor-baseline.json`. Nothing may be added to it, and a baselined check that gains a fixture
+must be removed from the baseline — the check fails if it is not, so the gain is locked in.
+
+**Second stage, NOT delivered, and named rather than implied:** fixture EXISTENCE is not fixture
+QUALITY. A test asserting only the green path satisfies this floor and still leaves the check
+unfalsifiable. Detecting the red direction textually was considered and rejected — a heuristic over
+assertion shapes would itself be a check that cannot reliably fail, which is this item's own defect
+committed by the file closing it. The both-directions half stays open under this Task, with the
+obstacle written above rather than "hard to check".
+
+**Related mechanism found during the work, not duplicated:** `check-regression-red-proof.mjs`
+(HARNESS-041) already enforces the red proof for `fix:` PRs by reverse-applying source hunks. It is
+scoped to same-package source+test pairs, so it does not reach harness checks — which is why this
+floor exists rather than an extension of it. Whether it can be widened is the natural next step for
+the second stage.

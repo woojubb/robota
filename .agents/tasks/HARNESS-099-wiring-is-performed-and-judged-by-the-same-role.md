@@ -72,3 +72,34 @@ tests, so the guardian's verdict rests on something checkable rather than on its
 
 Not applicable — harness/process change with no runnable user-facing behaviour. The prove-it-fails
 pair under Test Plan is the evidence.
+
+## Delivered (2026-08-16)
+
+**Three roles, split per `enforcement-architecture.md:21`:**
+
+- `.claude/agents/wiring-worker.md` — produces only; derives the touchpoint set **from the tree**
+  rather than from a list in its own file, and reports touchpoints it could not complete rather than
+  declaring the job done.
+- `.claude/agents/wiring-guardian.md` — read-only, `GATE VERDICT`. Asks both questions, and the second
+  is the reason it exists.
+- `.agents/skills/wiring-orchestration/SKILL.md` — thin; holds no wiring policy.
+
+**The guardian's second question has a defined outcome for "cannot establish":** `NON-COMPLIANCE`,
+which routes to escalation and explicitly **not** back to the worker — the touchpoints are present, so
+re-running the worker cannot close a gap that is in the check. Without that branch the honest answer
+would have had nowhere to go except a green, which is the defect this item is about.
+
+**Mechanism terminal state: MECHANIZED, and it was already half-built.**
+`check-agent-def-convention.mjs` enforces registration, and its fixture at
+`__tests__/check-agent-def-convention.test.mjs:145` already feeds it an unregistered agent and asserts
+the finding — so the falsifiability evidence the guardian must cite exists rather than being asserted.
+`check-fixture-floor.mjs` (HARNESS-098) is the second enforcing check, registered in the orchestration
+map row for this pipeline.
+
+**Prove-it-fails (step 9):** demonstrated live during this work — the orchestration-map scan went RED
+on both new agents ("has no row in the Orchestration Map — a mention in prose or inside a diagram is
+not a listing") until each was given a row, and the agent-def guard's unregistered-agent fixture is
+the standing red case.
+
+**Wired fully:** both agents registered in `.agents/skills/index.md`, both rows added to the
+orchestration map's agent table, and a `Wiring` pipeline row added with its escalation semantics.
