@@ -1,5 +1,5 @@
 ---
-status: draft
+status: done
 type: AGREEMENT
 tags: [typescript]
 ---
@@ -96,10 +96,10 @@ prose it carries (`lesson-to-harness` step 11).
 
 ## Tasks
 
-- [ ] HARNESS-097 — todo — `.agents/tasks/HARNESS-097-contract-state-judged-by-proxy-signal.md`
-- [ ] HARNESS-098 — todo — `.agents/tasks/HARNESS-098-verifications-that-cannot-fail-or-cannot-pass.md`
-- [ ] HARNESS-099 — todo — `.agents/tasks/HARNESS-099-wiring-is-performed-and-judged-by-the-same-role.md`
-- [ ] HARNESS-100 — todo — `.agents/tasks/HARNESS-100-mid-task-discovery-has-no-filing-path-that-does-not-disturb-the-work.md`
+- [x] HARNESS-097 — done — `.agents/tasks/completed/HARNESS-097-contract-state-judged-by-proxy-signal.md`
+- [x] HARNESS-098 — done — `.agents/tasks/completed/HARNESS-098-verifications-that-cannot-fail-or-cannot-pass.md`
+- [x] HARNESS-099 — done — `.agents/tasks/completed/HARNESS-099-wiring-is-performed-and-judged-by-the-same-role.md`
+- [x] HARNESS-100 — done — `.agents/tasks/completed/HARNESS-100-mid-task-discovery-has-no-filing-path-that-does-not-disturb-the-work.md`
 
 ## Evidence Log
 
@@ -112,3 +112,16 @@ prose it carries (`lesson-to-harness` step 11).
 | Registration is already mechanized                            | `scripts/harness/check-agent-def-convention.mjs` (check 4)                 |
 | The unfalsifiable mirror is filed separately                  | <https://github.com/woojubb/robota/issues/1765>                            |
 | The source directives                                         | <https://github.com/woojubb/robota/issues/1763>                            |
+
+## Outcome
+
+All four children `done` and on `main`. Every completion criterion met: each child reached a named
+mechanism terminal state (TC-01), each mechanized one carries its recorded before/after (TC-02),
+nothing was partially wired (TC-03), the wiring guardian's falsifiability half rests on an existing
+red fixture (TC-04), the `contract-audit` name was not reused (TC-05), and the scans and lifecycle
+checks are green (TC-06).
+
+Two remainders were filed as their own items rather than left as notes inside closed Tasks —
+**HARNESS-101** (fixture existence is not fixture quality) and **HARNESS-102** (a dropped finding
+leaves no artifact). Filing them is the disposition this document argued for in its own decomposition
+section: a cause without an owner is not closed by being written down somewhere else.
