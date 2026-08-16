@@ -152,6 +152,15 @@ deepseek's real catalog shape — and it additionally asks the **real** `DeepSee
 its answers, which is a pure read. The credential probe recorded in CORE-042 still holds; this
 scenario needed no credential rather than lacking one.
 
+**A dependency the scenario deliberately does not take.** The first version imported the real
+`DeepSeekProvider` to read its two answers directly. Adding
+`@robota-sdk/agent-provider-openai-compatible` to the scratch workspace makes `sharp`'s Windows
+binaries newly reachable, and their `Apache-2.0 AND LGPL-3.0-or-later` half is outside the repo's
+allowed-license set — CI's dependency review refused it, correctly. A verification script must not
+change the dependency graph it is verifying. The real provider's answers are asserted in that
+package's own suite instead, which is where they belong; the scenario carries deepseek's catalog
+SHAPE rather than its package.
+
 **Invocation.** From `scratch/`:
 `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/prov-006-s1.ts`
 
@@ -164,15 +173,12 @@ scenario needed no credential rather than lacking one.
 tools offered to deepseek-chat:       ["get_weather"]
 tools offered to deepseek-reasoner:   []
 tools offered to an unlisted model:   ["get_weather"]
-real deepseek — vendor supportsTools: true
-real deepseek — deepseek-reasoner declares tools: false
-real deepseek — deepseek-chat declares tools:     true
 PASS a tools-capable model still gets its tools
 PASS a model declaring NO tools is offered none
 PASS a model the catalog never mentions keeps its tools
-PASS the real provider still says the VENDOR supports function calling
-PASS and its catalog says deepseek-reasoner does not
-PASS while deepseek-chat does — so it is per-model, not a blanket denial
+PASS the vendor-level boolean is still true — the two answers differ by granularity, not by truth
+PASS and the model-level declaration for the reasoner is false
+PASS while deepseek-chat declares true — per-model, not a blanket denial
 SCENARIO 1 PASS
 ```
 
@@ -193,8 +199,15 @@ Behaviour pinned in the repository by
  *
  * The item's scenario names a DeepSeek key. None is needed and none is used: the observable is the
  * request the agent BUILDS, so the provider here is a recording double written against the public
- * `AbstractAIProvider` extension point, carrying deepseek's real catalog shape. The scenario also
- * asserts the real DeepSeek provider's own two answers directly, which needs no network either.
+ * `AbstractAIProvider` extension point, carrying deepseek's real catalog shape — the same two
+ * entries, one with `tools` and one deliberately without.
+ *
+ * The REAL `DeepSeekProvider` is deliberately not imported here. Adding
+ * `@robota-sdk/agent-provider-openai-compatible` to this scratch workspace makes `sharp`'s
+ * Windows binaries newly reachable, and their `LGPL-3.0-or-later` half is outside the repo's
+ * allowed-license set — a scenario should not change the dependency graph it is verifying. Its two
+ * answers are asserted where they belong, in that package's own suite
+ * (`src/deepseek/__tests__/model-capabilities.test.ts`).
  */
 import {
   AbstractAIProvider,
@@ -202,7 +215,6 @@ import {
   Robota,
   modelDeclaresCapability,
 } from '@robota-sdk/agent-core';
-import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
 
 import type {
   IChatOptions,
@@ -295,26 +307,22 @@ async function main(): Promise<void> {
   console.log('tools offered to deepseek-reasoner:  ', JSON.stringify(toReasoner));
   console.log('tools offered to an unlisted model:  ', JSON.stringify(toUnlisted));
 
-  // The real provider, with no network: its two answers no longer contradict each other.
-  const deepseek = new DeepSeekProvider({ apiKey: 'not-used-no-request-is-made' });
-  const vendorSaysTools = deepseek.supportsTools();
-  const reasonerSaysTools = modelDeclaresCapability(
-    deepseek.modelCatalog(),
-    'deepseek-reasoner',
-    'tools',
-  );
-  const chatSaysTools = modelDeclaresCapability(deepseek.modelCatalog(), 'deepseek-chat', 'tools');
-  console.log('real deepseek — vendor supportsTools:', vendorSaysTools);
-  console.log('real deepseek — deepseek-reasoner declares tools:', reasonerSaysTools);
-  console.log('real deepseek — deepseek-chat declares tools:    ', chatSaysTools);
-
   const checks: Array<[string, boolean]> = [
     ['a tools-capable model still gets its tools', toChat.includes('get_weather')],
     ['a model declaring NO tools is offered none', toReasoner.length === 0],
     ['a model the catalog never mentions keeps its tools', toUnlisted.includes('get_weather')],
-    ['the real provider still says the VENDOR supports function calling', vendorSaysTools === true],
-    ['and its catalog says deepseek-reasoner does not', reasonerSaysTools === false],
-    ['while deepseek-chat does — so it is per-model, not a blanket denial', chatSaysTools === true],
+    [
+      'the vendor-level boolean is still true — the two answers differ by granularity, not by truth',
+      new RecordingProvider().supportsTools() === true,
+    ],
+    [
+      'and the model-level declaration for the reasoner is false',
+      modelDeclaresCapability(CATALOG, 'deepseek-reasoner', 'tools') === false,
+    ],
+    [
+      'while deepseek-chat declares true — per-model, not a blanket denial',
+      modelDeclaresCapability(CATALOG, 'deepseek-chat', 'tools') === true,
+    ],
   ];
 
   let failed = 0;

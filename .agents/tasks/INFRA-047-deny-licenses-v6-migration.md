@@ -59,3 +59,29 @@ not a measurement — which is precisely the shape the item wrote its own Test P
 
 Note the job is advisory (not a required check) and `paths`-filtered, so the fixture PR is safe to open
 and costs nothing to abandon.
+
+## Measured gap 2026-08-16 — the exemption list covers the libvips family but not sharp's win32 trio
+
+Found on PR #1793 (PROV-006), which it blocked. `allow-dependencies-licenses` exempts
+`@img/sharp-libvips-*` and `@img/sharp-wasm32`, but **not** `@img/sharp-win32-arm64`,
+`@img/sharp-win32-ia32` or `@img/sharp-win32-x64` — whose license is the same
+`Apache-2.0 AND LGPL-3.0-or-later` the libvips exemptions exist for.
+
+They sit in the lockfile already, so nothing changes until a pull request makes them **newly
+reachable from a new importer**: adding a workspace dependency on
+`@robota-sdk/agent-provider-openai-compatible` to `scratch/` was enough, and the check refused it.
+That PR dropped the dependency rather than widening the allowlist, which was the right call for a
+verification script — but the next change that legitimately needs an image-capable provider package
+in a new importer will hit the same wall, and widening the allowlist is a licence decision rather
+than a CI fix.
+
+Two things to decide together, both owner-level:
+
+- whether the win32 trio belongs in the same exemption as the libvips family it mirrors (they are
+  optional platform binaries of one package, and the repo already accepts the family for the same
+  license);
+- or whether `sharp` should not be reachable from a package the repo publishes at all, which is the
+  stricter reading and a different piece of work.
+
+Recorded rather than acted on: changing an allowed-license set is a licence-compliance decision, not
+a side effect of an unrelated pull request.
