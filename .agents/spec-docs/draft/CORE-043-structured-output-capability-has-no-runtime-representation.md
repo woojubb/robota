@@ -1111,12 +1111,23 @@ is the owner of that distinction and says to file the root item, never a third o
 design in this document is unchanged; only which item carries each part of it.
 
 **Order:** PROV-006 decides consume-or-delete → PROV-008 gives the answer a home → CORE-043 lands its
-transport and extraction, with PROV-007 ahead of its OpenAI path. PROV-009, CLI-081 and CORE-033 run
+transport and extraction, with PROV-007 ahead of its OpenAI path. All three are in `depends_on` —
+PROV-008 was omitted in the first rescope while this table already marked it blocking, which would
+have let an orchestrator gating on the machine-readable field start CORE-043 in an order this document
+forbids. PROV-009, CLI-081 and CORE-033 run
 independently. The replay discriminator can land any time.
 
 **One number, for the record.** CORE-043's `area` reached 13 packages. PROV-006's is 4, CORE-033's is
-1, CLI-081's is 1. This item's own thesis reaches roughly the 3 it was filed with, and it is now
-scoped back to 5.
+1, CLI-081's is 1. This item's own thesis is now scoped to 7 — `agent-core` plus the five provider
+packages that must answer their own structured-output mechanism for transport selection to work, plus
+`agent-session` for the replay-log discriminator.
+
+**A correction to the first rescope, from PR review.** That pass cut `agent-provider-openai` and never
+included `agent-provider-anthropic`, which is wrong in the opposite direction to the growth it was
+correcting: step 3's producer table and step 5's `baseURL` provenance both require work in exactly
+those two packages, so a scoped `harness:verify` would not have covered what this design says it
+touches. Trimming past the thesis is the same failure as growing past it — the test is what the item
+actually changes, not whether the number went up or down.
 
 ## Completion Criteria (draft)
 
