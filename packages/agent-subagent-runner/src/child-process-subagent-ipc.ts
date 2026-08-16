@@ -150,6 +150,10 @@ function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWork
   // missing the policy passes, and the worker's conditional spread then silently omits it — which is
   // how CORE-025 lost this exact field once already.
   if (!hasRequestString(value.request, 'permissionPolicy')) return false;
+  // ARCH-010/ARCH-031: `cwd` is the fallback carrier of the execution root — with no `worktree` on
+  // the payload, `subagentExecutionRoot` returns it verbatim. A payload without it gives the child's
+  // tools `undefined` as their containment root, which is the breach this rule exists to prevent.
+  if (!hasRequestString(value.request, 'cwd')) return false;
   if (!isRecord(value.agentDefinition)) return false;
   if (!hasString(value.agentDefinition, 'name')) return false;
   if (!hasString(value.agentDefinition, 'systemPrompt')) return false;

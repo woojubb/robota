@@ -20,6 +20,54 @@ import type {
   ISubagentSpawnRequest,
 } from './types.js';
 
+/**
+ * ARCH-031: the keys `toSubagentState` passes through untouched — every task-state key that is
+ * neither transformed by that hop nor deliberately withheld from a subagent job.
+ */
+type TCarriedSubagentStateKey = Exclude<
+  keyof IBackgroundTaskState,
+  // Transformed by the hop.
+  | 'agentType'
+  | 'status'
+  | 'promptPreview'
+  | 'currentAction'
+  | 'result'
+  | 'error'
+  // Withheld — task-only, with no subagent-job meaning.
+  | 'kind'
+  | 'parentTaskId'
+  | 'lastActivityAt'
+  | 'commandPreview'
+  | 'unread'
+  | 'nextFireAt'
+  | 'schedule'
+>;
+
+/** The keys `toSubagentState` writes itself, rather than passing through. */
+type TWrittenSubagentStateKey =
+  'type' | 'status' | 'promptPreview' | 'currentTool' | 'result' | 'error';
+
+/**
+ * The floor, both directions. `TCarriedLeak` catches a key added to `IBackgroundTaskState` and left
+ * undecided — the spread would ship it on a transport-serialised object that never declared it, and
+ * TypeScript does not excess-property-check spreads. `TDeclaredGap` catches the opposite: a key
+ * added to `ISubagentJobState` that nothing carries or writes. Either one stops being `never` and
+ * this file stops compiling.
+ */
+type TCarriedLeak = Exclude<TCarriedSubagentStateKey, keyof ISubagentJobState>;
+type TDeclaredGap = Exclude<
+  keyof ISubagentJobState,
+  TCarriedSubagentStateKey | TWrittenSubagentStateKey
+>;
+/**
+ * Asserting via a CONSTRAINT, not an assignment: `never` is assignable to every type, so
+ * `const x: TCarriedLeak = undefined as never` would have been a check that cannot fail. Only
+ * `never` satisfies `T extends never`.
+ */
+type TAssertNever<T extends never> = T;
+export type TNoCarriedLeak = TAssertNever<TCarriedLeak>;
+export type TNoDeclaredGap = TAssertNever<TDeclaredGap>;
+
 export class SubagentManager implements ISubagentManager {
   private readonly backgroundTaskManager: IBackgroundTaskManager;
   private sequence = 0;
@@ -128,6 +176,12 @@ export class SubagentManager implements ISubagentManager {
    * pass-through half is the rest of the destructuring, so it is total by construction: only the
    * keys this hop genuinely TRANSFORMS or deliberately WITHHOLDS are named, and each one that is
    * withheld is a task-only concept a subagent job has no reader for.
+   *
+   * The spread makes the pass-through a blacklist, so the floor below closes the other direction: a
+   * field added to `IBackgroundTaskState` and NOT added to `ISubagentJobState`'s `Pick<>` would flow
+   * through `...carried` onto a transport-serialised object, and TypeScript does not
+   * excess-property-check spreads. `TCarriedSubagentStateKey` is a compile error the moment the two
+   * sets disagree, in either direction.
    */
   private toSubagentState(state: IBackgroundTaskState): ISubagentJobState {
     const {

@@ -15,7 +15,12 @@ function validStartPayload(): ISubagentWorkerStartPayload {
     taskId: 'agent_1',
     // ARCH-031: `permissionPolicy` is required at the spawn boundary, so a "fully-formed" payload
     // carries it. The `as unknown as` cast below is why this fixture could go stale silently.
-    request: { agentType: 'tester', prompt: 'do work', permissionPolicy: 'inherit-allowlist' },
+    request: {
+      agentType: 'tester',
+      prompt: 'do work',
+      permissionPolicy: 'inherit-allowlist',
+      cwd: '/tmp/parent-checkout',
+    },
     agentDefinition: { name: 'tester', systemPrompt: 'Run tasks.' },
     parentConfig: {},
     parentContext: {},
@@ -57,6 +62,12 @@ describe('isSubagentWorkerParentMessage', () => {
     const noPolicy = validStartPayload() as unknown as { request: Record<string, unknown> };
     delete noPolicy.request.permissionPolicy;
     expect(isSubagentWorkerParentMessage({ type: 'start', payload: noPolicy })).toBe(false);
+
+    // ARCH-010/ARCH-031: without `cwd` and without a `worktree`, `subagentExecutionRoot` has nothing
+    // to return and the child's tools get no containment root — reachable over the wire.
+    const noCwd = validStartPayload() as unknown as { request: Record<string, unknown> };
+    delete noCwd.request.cwd;
+    expect(isSubagentWorkerParentMessage({ type: 'start', payload: noCwd })).toBe(false);
   });
 });
 

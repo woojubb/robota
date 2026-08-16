@@ -118,22 +118,22 @@ Design rules:
 
 ### Subagent Types
 
-| Type                              | Location                                                                                   | Purpose                                                                                               |
-| --------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| `TSubagentJobStatus`              | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | Subagent job status union — derived `Exclude<TBackgroundTaskStatus, 'paused'>` (TYPE-003)             |
-| `TSubagentJobMode`                | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | `'foreground' \| 'background'`                                                                        |
-| `ISubagentSpawnRequest`           | `src/subagents/types.ts:20` (owned)                                                        | Subagent spawn request                                                                                |
-| `ISubagentJobState`               | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | Subagent job state projection                                                                         |
-| `ISubagentJobResult`              | `src/subagents/types.ts` (owned)                                                           | Subagent completion output and metadata; `usage` is agent-core's `ITokenUsage` SSOT triple (TYPE-003) |
-| `ISubagentJobStart`               | `src/subagents/types.ts:52` (owned)                                                        | Argument passed from manager to runner `start()` call                                                 |
-| `ISubagentJobHandle`              | `src/subagents/types.ts:58` (owned)                                                        | Cancellable handle returned by `ISubagentRunner.start()`                                              |
-| `ISubagentRunner`                 | `src/subagents/types.ts:69` (owned)                                                        | Port for executing one subagent job                                                                   |
-| `ISubagentManager`                | `src/subagents/types.ts:73` (owned)                                                        | Subagent job compatibility facade                                                                     |
-| `ISubagentManagerOptions`         | `src/subagents/types.ts:84` (owned)                                                        | Constructor options for `SubagentManager`                                                             |
-| `ISubagentWorktreeAdapter`        | `src/subagents/worktree-subagent-runner.ts`                                                | Port for concrete worktree I/O                                                                        |
-| `ISubagentWorktreePrepareRequest` | `src/subagents/worktree-subagent-runner.ts`                                                | Request passed to `ISubagentWorktreeAdapter.prepare()`                                                |
-| `IPreparedSubagentWorktree`       | `src/subagents/worktree-subagent-runner.ts`                                                | Prepared worktree handoff data                                                                        |
-| `IWorktreeSubagentRunnerOptions`  | `src/subagents/worktree-subagent-runner.ts`                                                | Constructor options for `WorktreeSubagentRunner`                                                      |
+| Type                              | Location                                                                                | Purpose                                                                                                                          |
+| --------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `TSubagentJobStatus`              | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent job status union — derived `Exclude<TBackgroundTaskStatus, 'paused'>` (TYPE-003)                                        |
+| `TSubagentJobMode`                | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts`) | `'foreground' \| 'background'`                                                                                                   |
+| `ISubagentSpawnRequest`           | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent spawn request — derived `Omit<IAgentBackgroundTaskRequest, 'kind'>` (ARCH-031)                                          |
+| `ISubagentJobState`               | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent job state projection                                                                                                    |
+| `ISubagentJobResult`              | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent completion output and metadata — derived `Omit<IBackgroundTaskResult, 'kind' \| 'exitCode' \| 'signalCode'>` (ARCH-031) |
+| `ISubagentJobStart`               | `src/subagents/types.ts` (owned)                                                        | Argument passed from manager to runner `start()` call                                                                            |
+| `ISubagentJobHandle`              | `src/subagents/types.ts` (owned)                                                        | Cancellable handle returned by `ISubagentRunner.start()`                                                                         |
+| `ISubagentRunner`                 | `src/subagents/types.ts` (owned)                                                        | Port for executing one subagent job                                                                                              |
+| `ISubagentManager`                | `src/subagents/types.ts` (owned)                                                        | Subagent job compatibility facade                                                                                                |
+| `ISubagentManagerOptions`         | `src/subagents/types.ts` (owned)                                                        | Constructor options for `SubagentManager`                                                                                        |
+| `ISubagentWorktreeAdapter`        | `src/subagents/worktree-subagent-runner.ts`                                             | Port for concrete worktree I/O                                                                                                   |
+| `ISubagentWorktreePrepareRequest` | `src/subagents/worktree-subagent-runner.ts`                                             | Request passed to `ISubagentWorktreeAdapter.prepare()`                                                                           |
+| `IPreparedSubagentWorktree`       | `src/subagents/worktree-subagent-runner.ts`                                             | Prepared worktree handoff data                                                                                                   |
+| `IWorktreeSubagentRunnerOptions`  | `src/subagents/worktree-subagent-runner.ts`                                             | Constructor options for `WorktreeSubagentRunner`                                                                                 |
 
 Hook event types and hook execution are owned by `agent-core`.
 
@@ -347,7 +347,9 @@ The scheduled runner uses croner `protect: true`, which skips a fire while the p
 For non-worktree requests it delegates unchanged. For `isolation: 'worktree'` it must:
 
 - prepare a worktree through the adapter
-- pass `cwd`, `worktreePath`, and `branchName` to the inner runner
+- set `worktree: { path, branch }` on the job envelope handed to the inner runner. ARCH-031: the
+  request is NOT rewritten — `request.cwd` stays the parent checkout, and `subagentExecutionRoot` is
+  the single carrier of the execution root
 - fire `WorktreeCreate` after preparation
 - remove clean worktrees exactly once on success, async failure, sync start failure, or successful cancellation
 - preserve dirty worktrees and return `worktreePath`, `branchName`, `worktreeStatus`, and `worktreeNextAction` metadata

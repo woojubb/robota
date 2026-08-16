@@ -2383,6 +2383,12 @@ interface ISubagentRunner {
 interface ISubagentJobStart {
   taskId: string;
   request: ISubagentSpawnRequest;
+  /**
+   * ARCH-031: the worktree the runner prepared. Runner-produced — it does not exist when a caller
+   * builds a request — so it rides on the envelope, and is the single carrier of the execution root
+   * that `subagentExecutionRoot` reads.
+   */
+  worktree?: { readonly path: string; readonly branch?: string };
   emit?: (event: TBackgroundTaskRunnerEvent) => void;
 }
 
@@ -2417,7 +2423,7 @@ When `job.request.isolation !== 'worktree'`, the decorator delegates to the inne
 When `job.request.isolation === 'worktree'`, the decorator must:
 
 - call `ISubagentWorktreeAdapter.prepare({ taskId, cwd })`
-- invoke the inner runner with `cwd`, `worktreePath`, and `branchName` set to the prepared worktree
+- invoke the inner runner with `worktree: { path, branch }` set on the job envelope. ARCH-031: `request.cwd` is NOT rewritten — a second carrier of the execution root could disagree with the first
 - emit `WorktreeCreate` hook notification after preparation
 - remove clean worktrees exactly once on success, delegated failure, synchronous delegated start failure, or successful cancellation
 - preserve dirty worktrees and return `worktreePath`, `branchName`, `worktreeStatus`, and `worktreeNextAction` in `ISubagentJobResult.metadata`
