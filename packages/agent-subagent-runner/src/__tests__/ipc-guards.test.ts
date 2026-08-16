@@ -68,6 +68,24 @@ describe('isSubagentWorkerParentMessage', () => {
     const noCwd = validStartPayload() as unknown as { request: Record<string, unknown> };
     delete noCwd.request.cwd;
     expect(isSubagentWorkerParentMessage({ type: 'start', payload: noCwd })).toBe(false);
+
+    // `worktree.path` wins over `request.cwd`, so a well-formed `cwd` does not rescue a malformed
+    // worktree — the child would take the bad branch.
+    const badWorktree = validStartPayload() as unknown as Record<string, unknown>;
+    badWorktree.worktree = { path: 42 };
+    expect(isSubagentWorkerParentMessage({ type: 'start', payload: badWorktree })).toBe(false);
+
+    const worktreeNotAnObject = validStartPayload() as unknown as Record<string, unknown>;
+    worktreeNotAnObject.worktree = '/tmp/wt';
+    expect(isSubagentWorkerParentMessage({ type: 'start', payload: worktreeNotAnObject })).toBe(
+      false,
+    );
+  });
+
+  it('accepts a start payload carrying a well-formed worktree', () => {
+    const withWorktree = validStartPayload() as unknown as Record<string, unknown>;
+    withWorktree.worktree = { path: '/tmp/wt', branch: 'subagent/x' };
+    expect(isSubagentWorkerParentMessage({ type: 'start', payload: withWorktree })).toBe(true);
   });
 });
 

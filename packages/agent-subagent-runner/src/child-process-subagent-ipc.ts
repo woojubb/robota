@@ -154,6 +154,13 @@ function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWork
   // the payload, `subagentExecutionRoot` returns it verbatim. A payload without it gives the child's
   // tools `undefined` as their containment root, which is the breach this rule exists to prevent.
   if (!hasRequestString(value.request, 'cwd')) return false;
+  // …and `worktree.path` is the HIGHER-precedence carrier — `worktree?.path ?? request.cwd` — so
+  // validating `cwd` alone leaves the winning branch unchecked. Before ARCH-031 the runner rewrote
+  // `request.cwd` to the worktree, so one check covered both; now it does not.
+  if (value.worktree !== undefined) {
+    if (!isRecord(value.worktree)) return false;
+    if (!hasString(value.worktree, 'path')) return false;
+  }
   if (!isRecord(value.agentDefinition)) return false;
   if (!hasString(value.agentDefinition, 'name')) return false;
   if (!hasString(value.agentDefinition, 'systemPrompt')) return false;

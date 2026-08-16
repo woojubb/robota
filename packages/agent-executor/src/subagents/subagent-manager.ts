@@ -65,8 +65,8 @@ type TDeclaredGap = Exclude<
  * `never` satisfies `T extends never`.
  */
 type TAssertNever<T extends never> = T;
-export type TNoCarriedLeak = TAssertNever<TCarriedLeak>;
-export type TNoDeclaredGap = TAssertNever<TDeclaredGap>;
+type _TNoCarriedLeak = TAssertNever<TCarriedLeak>;
+type _TNoDeclaredGap = TAssertNever<TDeclaredGap>;
 
 export class SubagentManager implements ISubagentManager {
   private readonly backgroundTaskManager: IBackgroundTaskManager;
@@ -202,6 +202,14 @@ export class SubagentManager implements ISubagentManager {
       schedule: _schedule,
       ...carried
     } = state;
+    // The destructuring above and `TCarriedSubagentStateKey` are two statements of the same
+    // partition, ~150 lines apart. The module-level floor catches an UNDECIDED new key; this one
+    // catches the decided-but-half-applied case — a key added to the `Exclude<>` list and forgotten
+    // here would otherwise leak through `...carried` with no compile error.
+    type _TDestructuringMatchesThePartition = TAssertNever<
+      | Exclude<keyof typeof carried, TCarriedSubagentStateKey>
+      | Exclude<TCarriedSubagentStateKey, keyof typeof carried>
+    >;
     return {
       ...carried,
       type: agentType ?? carried.label,
