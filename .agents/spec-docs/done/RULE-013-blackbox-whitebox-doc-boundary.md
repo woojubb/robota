@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [infra, cli]
 ---
@@ -329,8 +329,12 @@ TC-14를 닫을 수 없다. 분할은 여전히 완전·서로소다(8+8 → 7+9
 
 `design-doc-authoring` SKILL.md에 배치 기준 섹션을 신설한다 (이 사실의 유일한 owner).
 
-> **소비자 파급 테스트** — "이 사실이 바뀌면 이 패키지 _밖의_ 코드 또는 최종 사용자가 바뀌어야
-> 하는가?" Yes → `SPEC.md` · No → `docs/design/`
+> **소비자 파급 테스트** — "이 사실이 소비자가 **바인딩하는 표면**의 일부여서, 바뀌면 이 패키지 _밖의_
+> 코드 또는 제품을 쓰는 사람이 따라 바뀌어야 하는가?" Yes → `SPEC.md` · No → `docs/design/`
+>
+> **머릿수가 아니라 표면을 묻는다.** 초안은 "바뀌면 … 바뀌어야 하는가"로만 적었는데, 출시 전이라
+> 소비자가 0명이면 답이 전부 "아니오"가 되어 경계가 붕괴한다. 소비자의 존재를 전제한 반사실 질문이며
+> 그것이 "계약"이라는 말의 뜻이다.
 
 경계 사례 표를 함께 싣는다:
 
@@ -555,24 +559,24 @@ node scripts/harness/verify-doc-split-preservation.mjs \
 프로세스 스폰/stdout 단정. 문서·프로세스 백로그이므로 `manual` 대신 command-form / `rg` 패턴 /
 `pnpm harness:*` 스모크를 기본으로 삼는다.
 
-| TC-ID | Test Type | Tool / Approach                                                                | Notes                                                                                          |
-| ----- | --------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| TC-01 | command   | `rg` 패턴 2건 (`consumer-impact test`, `End-user-facing contract`)             | 배치 기준 + 사용자 계약 예외가 owner 문서에 존재                                               |
-| TC-02 | command   | `rg` 링크 존재 + 기준 본문 미복제 확인                                         | Non-Duplication 확인                                                                           |
-| TC-03 | command   | `rg` mandate 행 문구                                                           | Phase 4 반영 여부                                                                              |
-| TC-04 | unit      | `scripts/harness/__tests__/check-spec-whitebox-leakage.test.mjs` + 고정 픽스처 | 임계(≥300 AND ≥40%) 정확도. 오탐 픽스처(203/203, 210/210) 포함                                 |
-| TC-05 | CI smoke  | `verify-doc-split-preservation.mjs` exit 0 + design 본문 줄 합계 ≥200          | 무손실 + 실물 회수량. **지표가 아니라 목적지를 잰다** — 헤딩 강등으로 만족 불가                |
-| TC-06 | command   | `isStandardSpecSection()` 로 잔류 `##` 전수 판정                               | **관측 기록**(수용 기준 아님) — 강등으로 만족되므로 배치의 증거가 아니다                       |
-| TC-07 | command   | 분류표의 원본 `##` 귀속 전수 확인 (62건)                                       | 분류 완결성 — 이 항목에서 유일하게 배치를 직접 재는 기준                                       |
-| TC-08 | command   | `find … \| wc -l`                                                              | design doc 실물 존재                                                                           |
-| TC-09 | CI smoke  | `node scripts/harness/check-design-doc-completeness.mjs` exit code             | vacuous green 해소 — 대상이 0이 아닌 상태에서 통과                                             |
-| TC-10 | command   | `rg` 양방향 링크                                                               | 발견 가능성                                                                                    |
-| TC-11 | command   | `rg`                                                                           | 최종 사용자 계약 잔류 회귀 방지                                                                |
-| TC-12 | command   | `check-spec-whitebox-leakage.mjs` `::examined::` stdout 기록                   | **관측 기록**. 기준선 6,675줄/38.4%(86개 전수) → 회수 후 값. 헤딩 적합성 지표라 수용 기준 아님 |
-| TC-13 | CI smoke  | `pnpm harness:scan` exit code                                                  | 전체 하네스 무회귀                                                                             |
-| TC-14 | command   | `rg` 3건 (스킬·템플릿·파일럿 SPEC)                                             | `User-Facing Contract` 슬롯이 정의되고 실제 사용됨                                             |
-| TC-15 | unit      | `rg` 복사본 부재 + vitest 로 파서 결과와 스킬 표의 **집합 동등성** 단정        | 표준 섹션 목록 3중 복제 방지 + 기존 8개 누락 교정. 길이 검사는 이름 변경을 못 잡음             |
-| TC-16 | CI smoke  | `--all` 출력의 `dag-nodes/` 항목 수 == 20 단정                                 | 중첩 워크스페이스 패키지 누락 회귀 방지 (HARNESS-057 준수)                                     |
+| TC-ID | Test Type | Tool / Approach                                                                              | Notes                                                                                                                                                                                                                                                                                                                                       |
+| ----- | --------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | command   | `rg` 패턴 2건 (`consumer-impact test`, `End-user-facing contract`)                           | 배치 기준 + 사용자 계약 예외가 owner 문서에 존재                                                                                                                                                                                                                                                                                            |
+| TC-02 | command   | `rg` 링크 존재 + 기준 본문 미복제 확인                                                       | Non-Duplication 확인                                                                                                                                                                                                                                                                                                                        |
+| TC-03 | command   | `rg` mandate 행 문구                                                                         | Phase 4 반영 여부                                                                                                                                                                                                                                                                                                                           |
+| TC-04 | unit      | `check-spec-whitebox-leakage.test.mjs`(스캔 동작) + `spec-sections.test.mjs`(임계 red-prove) | 임계(≥300 AND ≥40%) 정확도. **오탐 픽스처는 후자의 `describe('threshold — red-prove')`에 있다** — 버그 있던 exact-matcher가 203/203·210/210으로 오판하던 두 파일에 대해, 테스트는 정정 후 값 `flags(6,203)`·`flags(9,210)`이 **false**임을 단정한다 — 전자에 있다고 적었던 것을 GATE-COMPLETE가 잡았다(8라운드와 같은 "기록된 참조 ≠ 실물") |
+| TC-05 | CI smoke  | `verify-doc-split-preservation.mjs` exit 0 + design 본문 줄 합계 ≥200                        | 무손실 + 실물 회수량. **지표가 아니라 목적지를 잰다** — 헤딩 강등으로 만족 불가                                                                                                                                                                                                                                                             |
+| TC-06 | command   | `isStandardSpecSection()` 로 잔류 `##` 전수 판정                                             | **관측 기록**(수용 기준 아님) — 강등으로 만족되므로 배치의 증거가 아니다                                                                                                                                                                                                                                                                    |
+| TC-07 | command   | 분류표의 원본 `##` 귀속 전수 확인 (62건)                                                     | 분류 완결성 — 이 항목에서 유일하게 배치를 직접 재는 기준                                                                                                                                                                                                                                                                                    |
+| TC-08 | command   | `find … \| wc -l`                                                                            | design doc 실물 존재                                                                                                                                                                                                                                                                                                                        |
+| TC-09 | CI smoke  | `node scripts/harness/check-design-doc-completeness.mjs` exit code                           | vacuous green 해소 — 대상이 0이 아닌 상태에서 통과                                                                                                                                                                                                                                                                                          |
+| TC-10 | command   | `rg` 양방향 링크                                                                             | 발견 가능성                                                                                                                                                                                                                                                                                                                                 |
+| TC-11 | command   | `rg`                                                                                         | 최종 사용자 계약 잔류 회귀 방지                                                                                                                                                                                                                                                                                                             |
+| TC-12 | command   | `check-spec-whitebox-leakage.mjs` `::examined::` stdout 기록                                 | **관측 기록**. 기준선 6,675줄/38.4%(86개 전수) → 회수 후 값. 헤딩 적합성 지표라 수용 기준 아님                                                                                                                                                                                                                                              |
+| TC-13 | CI smoke  | `pnpm harness:scan` exit code                                                                | 전체 하네스 무회귀                                                                                                                                                                                                                                                                                                                          |
+| TC-14 | command   | `rg` 3건 (스킬·템플릿·파일럿 SPEC)                                                           | `User-Facing Contract` 슬롯이 정의되고 실제 사용됨                                                                                                                                                                                                                                                                                          |
+| TC-15 | unit      | `rg` 복사본 부재 + vitest 로 파서 결과와 스킬 표의 **집합 동등성** 단정                      | 표준 섹션 목록 3중 복제 방지 + 기존 8개 누락 교정. 길이 검사는 이름 변경을 못 잡음                                                                                                                                                                                                                                                          |
+| TC-16 | CI smoke  | `--all` 출력의 `dag-nodes/` 항목 수 == 20 단정                                               | 중첩 워크스페이스 패키지 누락 회귀 방지 (HARNESS-057 준수)                                                                                                                                                                                                                                                                                  |
 
 ## Tasks
 
@@ -593,9 +597,15 @@ any line is moved; the diff is the consequence of this table, not the other way 
 
 From [`design-doc-authoring/SKILL.md`](../../skills/design-doc-authoring/SKILL.md) > Placement criterion:
 
-> If this fact changed, would code outside this package — or an end user — have to change?
+> Is this fact part of what a consumer binds to — such that changing it would force code outside this
+> package, or a person using the product, to change with it?
 
 `yes` → `docs/SPEC.md`. `no` → `docs/design/`.
+
+**이 인용은 갱신된 것이다.** 분류 작업 당시의 문구는 _"if this fact changed, would … **have to
+change**?"_ 였고, 출시 전에는 그 답이 전부 "아니오"라 관대한 방향으로 vacuous했다(아래 Evidence Log의
+소유자 지적 항목). 아래 62개 행의 판정은 하나도 바뀌지 않는다 — 두 문구가 묻는 것이 같고, 갱신된
+문구는 그것을 오독 불가능하게 적었을 뿐이다.
 
 **Who the consumer is differs per package, and that is the whole point.** For `agent-framework` the
 consumer is calling code, so the contract is exports, types, and events. For `agent-cli` the consumer is
@@ -1640,6 +1650,579 @@ worktree에서 유출 스캔 재실행. 16개 기준 16/16, 동결 구역 해시
 `.agents/specs/document-standards/index.md` 행이 **일어나지 않은 변경을 기록**하고 있던 것 —
 승인된 계획에 있었으나 실행되지 않은 한 줄이라, 행을 지우는 대신 **실행했다**. 그 문서는
 `design-doc-authoring`의 Rule Anchor인데 이 항목이 만든 배치 기준을 가리키지 않고 있었다.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** in-progress → verifying (no folder change — `spec-workflow.md` > Spec-Document
+Status and Lifecycle Folders maps both `in-progress` and `verifying` to `.agents/spec-docs/active/`)
+
+**Ordering check — passed.** Prior gate per `gate-catalogue.md` > Prior-gate map is GATE-IMPLEMENT, and
+`### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-16` is present in this log (line 1139) carrying per-criterion
+evidence, not a bare verdict. Input state matches the required `in-progress`: frontmatter `status:
+in-progress` (line 2) and the file sits at `.agents/spec-docs/active/`, the folder that table maps to
+`in-progress` (spec-workflow.md line 170). Status and folder agree, so no NON-COMPLIANCE on placement.
+
+**Criterion 1 — all tasks in `.agents/tasks/<ID>.md` are `[x]`:** met, **26/26**.
+`.agents/tasks/RULE-013-blackbox-whitebox-doc-boundary.md` yields 26 lines matching `- [x]` and **0**
+matching `- [ ]`. The task IDs are contiguous `T-01`…`T-26` (WU-A `T-01`…`T-19`, WU-B `T-20`…`T-26`),
+which matches the count this spec's `## Tasks` section now claims (`26건 · WU-A 19 · WU-B 7`) — the
+25/6 mismatch that Round 7 recorded is corrected in the line I read, so the section and the file agree.
+
+**Criterion 2 — no task is blocked or pending:** met. The task file has no blocked/deferred/pending
+task marker; its `##` structure is Problem / Work units / WU-A / WU-B / Test Plan / Recommendation Gate
+— WU-A / Notes / Recommendation Gate — WU-B / 게이트 상한 초과, with no holding section. Both
+recommendation gates are closed ENDORSE (`WU-A revision 1`; `WU-B Round 11 — ENDORSE`). Work carved out
+of scope during execution was **filed as separate items rather than left pending here** — all four
+exist on disk: `.agents/spec-docs/draft/DOCS-025-agent-framework-spec-is-two-documents-concatenated.md`,
+`HARNESS-094-a-classification-table-is-checked-by-nobody.md`,
+`RULE-014-one-user-facing-contract-slot-is-too-few-for-a-product-shell.md`, and
+`INFRA-101-the-verify-like-ci-receipt-can-never-be-written.md`.
+
+**Criterion 3 — build passes (`pnpm build`):** met, verified by running it in this tree, not quoted.
+`pnpm build` (= `pnpm --filter "./packages/**" build:js && node scripts/build-types-ordered.mjs`)
+exited **0**, ending `✔ Build complete` / `✓ All build:types complete.`. Two
+`INEFFECTIVE_DYNAMIC_IMPORT` rolldown warnings are emitted; they are warnings, pre-existing, and do not
+affect the exit code. Affected-package note: this item's diff (`96728940c` WU-A + `29d669ec9` WU-B)
+contains **no `.ts`/`.tsx` source file** — only `.agents/**`, `.github/PULL_REQUEST_TEMPLATE.md`,
+`scripts/harness/**`, and `packages/agent-cli/docs/**` — so the whole-workspace build is a superset of
+"all affected packages" and its green is the stronger result.
+
+**Criterion 4 — tests pass (`pnpm test`):** met, verified by running it. `pnpm test` (= `pnpm run -r
+--if-present test`) exited **0**: 80 workspace packages reported a suite, **8,279 tests passed, 0
+failed** (no `FAIL` and no `N failed` line anywhere in the run log).
+
+Because this item's only executable code lives in `scripts/harness/`, which is **not** a workspace
+package and therefore not reached by `pnpm test`, the criterion was additionally exercised where the
+change actually is:
+
+- `pnpm harness:test` (`--tier all` then `--verify-hermetic-stripped`) exited **0** — 190 test files /
+  3,431 tests passed, then the hermetic tier 73 files / 1,074 tests passed. The `FINDINGS` text in that
+  log comes from hermetic negative-case fixtures in temp trees, not from the repository.
+- The three test files this item adds were run directly and are green:
+  `scripts/harness/__tests__/verify-doc-split-preservation.test.mjs` (25),
+  `scripts/harness/__tests__/spec-sections.test.mjs` (14),
+  `scripts/harness/__tests__/check-spec-whitebox-leakage.test.mjs` (8) — **47 tests passed**, which
+  matches the "테스트 47건 통과" figure Round 11 recorded, so that claim is now independently confirmed
+  rather than accepted.
+
+**Observations recorded — none is a GATE-VERIFY criterion, each is decidable later:**
+
+1. _Recommendation-gate bound overrun._ `## 게이트 상한 초과` (below) self-records that the WU-B
+   recommendation loop ran 11 rounds against a declared `bound=2 rounds`, i.e. it should have terminated
+   at round 3 and handed the findings to the owner. This is a real process violation, but it is **not**
+   a violation this gate can rule on: the recommendation gate is owned by `backlog-execution.md` /
+   `backlog-execution-orchestrator`, it is not one of the spec-document gates in `gate-catalogue.md`,
+   and it is not GATE-VERIFY's predecessor — so it neither fails the ordering check nor bypasses a gate
+   whose PASS this gate relies on. Surfaced for the orchestrator/owner, not absorbed into this verdict.
+2. _TC-13 needs re-checking at GATE-COMPLETE._ TC-13 asserts `pnpm harness:scan` → exit 0 and is `[x]`,
+   while task `T-19` records that exit 0 does **not** hold in a tree where `pnpm build` has not run (one
+   pre-existing `dist` freshness failure). GATE-VERIFY's criteria do not include `harness:scan`, and the
+   scan rewrites tracked files (`.agents/evals/lessons/*`), so this guardian did not run it. GATE-COMPLETE
+   owns the per-TC evidence and should re-derive TC-13 against a built tree.
+3. _Section ordering._ `## 게이트 상한 초과` is a top-level sibling that follows `## Evidence Log`, so
+   this entry is appended at the end of the Evidence Log section rather than at end-of-file. Flagged so
+   the placement is not later read as a misfiled entry.
+
+**Working tree at verdict time:** only `.agents/evals/lessons/auto-lessons.md` and
+`.agents/evals/lessons/weekly-digest.md` are modified — the regenerated-churn pair `INFRA-101` documents.
+No RULE-013 artifact is uncommitted, so the build/test results above describe the committed state.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** verifying → done
+
+**Ordering check — passed.** Prior gate per `gate-catalogue.md` > Prior-gate map is GATE-VERIFY, and
+`### [GATE-VERIFY] — ✅ PASS | 2026-08-16` is present in this log (line 1644) carrying per-criterion
+evidence, not a bare verdict. Input state matches the required `verifying`: frontmatter `status:
+verifying` (line 2) and the file sits at `.agents/spec-docs/active/`, the folder `spec-workflow.md`
+line 171 maps to `verifying` ("no folder change"). Nothing this gate authorizes has already happened —
+no `done/` copy exists and the frontmatter is not yet `done`.
+
+**Every command below was executed in this tree, at the working state `29d669ec9` + the uncommitted
+status/GATE-VERIFY edit, with `dist/` present (55 package `dist` directories). Nothing here is copied
+from the record.**
+
+- [GATE-COMPLETE: TC-01] `rg -q "consumer-impact test" .agents/skills/design-doc-authoring/SKILL.md` →
+  exit **0**; `rg -q "End-user-facing contract" .agents/skills/design-doc-authoring/SKILL.md` → exit
+  **0**. Test Plan row: command-form, both `rg` assertions; re-executed here, no automated test claimed.
+- [GATE-COMPLETE: TC-02] `rg -c "design-doc-authoring" .agents/skills/spec-writing-standard/SKILL.md` →
+  **2** (≥ 1), hits at lines 54 and 140. The row's second half was checked too: lines 139–140 name the
+  consumer-impact test and link to the owner rather than restating it — one `rg -c "consumer-impact
+test"` hit, and it is the sentence that delegates. No copy of the placement table. Test Plan row:
+  command-form; re-executed.
+- [GATE-COMPLETE: TC-03] `rg -q "externally observable" .agents/rules/spec-workflow.md` → exit **0**.
+  The Round-8 replacement of the un-matchable bold literal holds. Test Plan row: command-form; re-executed.
+- [GATE-COMPLETE: TC-04] Verified two ways. (a) Directly against the pre-Phase-2 snapshot: the tree of
+  `96728940c` was extracted with `git archive` and the scan run inside it →
+  `::examined:: 86 package SPEC.md files (6675/17369 lines outside the standard sections, 38.4%;
+**2 above threshold**)`, the two being `packages/agent-framework/docs/SPEC.md` (2001/2649, 75.5%) and
+  `packages/agent-cli/docs/SPEC.md` (1708/1939, 88.1%) — exactly the two the criterion names, no third.
+  (b) The pinning fixtures pass. Test Plan row: unit —
+  `scripts/harness/__tests__/check-spec-whitebox-leakage.test.mjs`, 8 tests green. **Recorded defect in
+  that reference:** the threshold fixtures the row's Notes cite (`오탐 픽스처(203/203, 210/210)`) are
+  **not** in that file; they live in `scripts/harness/__tests__/spec-sections.test.mjs` >
+  `describe('threshold — red-prove')` (`flags(1989, 2620)`/`flags(1708, 1939)` true;
+  `flags(9, 210)`/`flags(6, 203)` false), 14 tests green. The TC is verified and not silently
+  unaddressed, so the criterion is met; the pointer names the wrong one of this item's own two test
+  files. This is the same "recorded reference ≠ artifact" shape Round 8 caught, surviving in the
+  Test Plan.
+- [GATE-COMPLETE: TC-05] (a) The `### TC-05 검증 명령` block was extracted from this document and run
+  verbatim → exit **0**: `::examined:: 1470 distinct-counted body line(s) of
+packages/agent-cli/docs/SPEC.md@96728940c against 7 destination document(s)` / `doc-split preservation
+passed — no body line lost (13 allowance(s): 9 rename(s) verified against a named survivor,
+1 delete-and-link(s) verified against a live link, 3 on a written reason)` — the 9/1/3 split matches
+  the figures TC-05 and Pilot 1 outcome record. (b) Body lines under `packages/agent-cli/docs/design/`:
+  `cat packages/agent-cli/docs/design/*.md | grep -cv '^\s*$'` → **300** (≥ 200), and 300 is the figure
+  the document claims, under the tool's own definition of a body line (non-blank, heading markers
+  stripped — tool header line 13). Test Plan row: CI smoke; re-executed.
+- [GATE-COMPLETE: TC-06] `readSpecSectionContract()` + `isStandardSpecSection()` over every `^## `
+  heading of `packages/agent-cli/docs/SPEC.md` → **12 h2 headings, 0 non-standard**. Recorded as an
+  observation per the criterion's own demotion, not as the evidence of placement. Test Plan row:
+  command-form; re-executed.
+- [GATE-COMPLETE: TC-07] Machine-compared the appendix against the base-ref SPECs rather than counting
+  by eye: Pilot 1 table = **34** numbered rows vs **34** `^## ` headings in
+  `packages/agent-cli/docs/SPEC.md@96728940c`; Pilot 2 = **28** vs **28** in
+  `packages/agent-framework/docs/SPEC.md@96728940c`; section names match **in order with 0 mismatches**,
+  and **0 rows** carry an empty disposition. 62/62 attributed. The seven `split` rows (P1 §4/§11/§23,
+  P2 §14/§15/§23/§25/§26) each resolve into a sub-table whose parts carry dispositions. Test Plan row:
+  command-form; re-executed as a script.
+- [GATE-COMPLETE: TC-08] `find packages/agent-cli/docs/design -name "*.md" | wc -l` → **6** (≥ 3).
+  Test Plan row: command-form; re-executed.
+- [GATE-COMPLETE: TC-09] `node scripts/harness/check-design-doc-completeness.mjs` → exit **0**,
+  `design-doc completeness scan passed (6 design document(s) examined in 76 package design
+director(y/ies))`. The vacuous-green condition is gone: the examined count is 6, not 0. Test Plan
+  row: CI smoke; re-executed.
+- [GATE-COMPLETE: TC-10] All six design docs match `rg "SPEC\.md"` (exit 0 each: `command-registry`,
+  `composition`, `internal-structure`, `message-architecture`, `session-ownership`, `subagent-wiring`);
+  `rg -q "docs/design/" packages/agent-cli/docs/SPEC.md` → exit **0**. Bidirectional. Test Plan row:
+  command-form; re-executed.
+- [GATE-COMPLETE: TC-11] `rg -c "Keyboard Controls" packages/agent-cli/docs/SPEC.md` → **1**, exit
+  **0** — the end-user contract did not leave the SPEC. Test Plan row: command-form; re-executed.
+- [GATE-COMPLETE: TC-12] Observation record, and **both endpoints reproduce exactly**. Baseline: scan
+  run in an extracted `96728940c` tree → `6675/17369 lines … 38.4%; 2 above threshold` — identical to
+  the recorded `6,675 / 17,369줄 = 38.4%, 임계 초과 2건`. Post-recovery: extracted `6dcdf4198` (the WU-B
+  branch tip, the state the figure was taken at) → `4967/17174 lines … 28.9%; 1 above threshold` —
+  identical to the recorded `4,967 / 17,174줄 = 28.9%, 임계 초과 1건`. For completeness, the **current**
+  tree reads `5090/17336 … 29.4%; 1 above threshold`; the delta is fully explained and is not this
+  item's — `git diff --stat 96728940c..HEAD -- '*/docs/SPEC.md'` shows six SPEC files other than
+  `agent-cli` changed on develop after the measurement (`agent-core` +73, both openai providers,
+  three transports). Test Plan row: stdout record; re-executed at both named refs.
+- [GATE-COMPLETE: TC-13] `pnpm harness:scan` → exit **0**: `111 scans passed, 2 skipped (64 declared
+what they examined)`, 0 failed, plus 3 advisory findings that the runner itself states do not affect
+  the verdict (one of which is this item's own `spec-whitebox-leakage` advisory on `agent-framework`,
+  the file `DOCS-025` inherits). **Re-derived at this gate as GATE-VERIFY observation 2 required**, in
+  a tree where `pnpm build` output is present — `T-19`'s note that exit 0 does not hold in an unbuilt
+  tree is a `dist`-freshness precondition of the `dist` scan, not a defect of this item, and the
+  criterion holds under the precondition. Registration of the new scan in `run-all-scans.mjs` is
+  confirmed by its appearance in this run. Test Plan row: CI smoke; re-executed.
+- [GATE-COMPLETE: TC-14] `rg -l "User-Facing Contract" .agents/skills/spec-writing-standard/SKILL.md
+.agents/templates/spec-template.md` → **both files hit**; `rg -q "^## User-Facing Contract"
+packages/agent-cli/docs/SPEC.md` → exit **0** (line 707). Slot defined and actually used, which is
+  the WU-A/WU-B split the criterion was moved for. Test Plan row: command-form; re-executed.
+- [GATE-COMPLETE: TC-15] `rg -c "SPEC_REQUIRED_SECTIONS = \[" scripts/harness/cleanup-drift.mjs` →
+  **no match, exit 1** — the third copy is gone, and the criterion's own note about `rg -c` printing
+  nothing (rather than `0`) matches what I observed. The SSOT parser returns **9 required** (including
+  `class contract registry`, the entry `cleanup-drift.mjs` used to be missing) and **6 optional**
+  (including `user-facing contract`), kept distinguishable. Test Plan row: unit —
+  `scripts/harness/__tests__/spec-sections.test.mjs`, **14 tests green**, including
+  `fails closed when the owning document cannot be read`, `throws on a partial parse rather than
+returning a short list`, and `does not let the optional table bleed into the required set`. Re-executed.
+- [GATE-COMPLETE: TC-16] `node scripts/harness/check-spec-whitebox-leakage.mjs --all` → **20**
+  `packages/dag-nodes/` rows in the output, and `::examined:: 86 package SPEC.md files` (the SSOT
+  enumerator's count, not `find`'s 87). The nested group is inside the scan's universe. Test Plan
+  row: CI smoke; re-executed.
+
+**After all criteria:**
+
+- Completion Criteria checkboxes: **16/16 `[x]`, 0 unchecked** (TC-01…TC-16; TC-16 is listed before
+  TC-14/TC-15 in the source order, which is a presentation quirk, not a gap).
+- Test Plan: **16 TC rows for 16 criteria**, count matches, every row carries a non-empty Test Type and
+  Tool/Approach. **N/A judgement stated rather than skipped:** the catalogue's "test file path +
+  describe name" form applies to TC-04 and TC-15 only, and both name a real, green test file; the other
+  fourteen rows are command-form / CI-smoke, and the reason no automated test was written for them is
+  recorded explicitly in the Test Plan preamble ("문서·프로세스 백로그이므로 … command-form / `rg`
+  패턴 / `pnpm harness:*` 스모크를 기본으로 삼는다"). No row is silently unaddressed, and I executed
+  every one of the fourteen rather than reading them. The one defect found is TC-04's misattributed
+  fixture file, recorded above.
+- `## Tasks` names the exact active path
+  `.agents/tasks/RULE-013-blackbox-whitebox-doc-boundary.md`; the file exists (42,202 bytes).
+- That task is completion-ready: **26 `- [x]`, 0 `- [ ]`**, no `[ ]` anywhere in the file, IDs
+  contiguous `T-01`…`T-26`, matching the `26건 (WU-A 19 · WU-B 7)` the `## Tasks` line claims. Its
+  frontmatter is still `status: in-progress` — per `gate-catalogue.md` > Post-PASS handoff, terminal
+  status/date and archival are PASS outputs owned by `backlog-execution-orchestrator` Phase 5, not
+  preconditions of this verdict.
+
+**Surfaced, not absorbed into this verdict:** the 11-round recommendation loop against a declared
+`bound=2 rounds`, self-recorded in `## 게이트 상한 초과` below. It is a real process violation, but it
+overran a bound rather than bypassing a gate, the recommendation gate is not a `gate-catalogue.md`
+spec-document gate and is not GATE-COMPLETE's predecessor, and both work units closed `ENDORSE`. Same
+disposition GATE-VERIFY reached; it is the owner's call, not this gate's.
+
+**Working tree at verdict time:** `.agents/evals/lessons/auto-lessons.md` and
+`.agents/evals/lessons/weekly-digest.md` modified (the `INFRA-101` regenerated-churn pair, rewritten
+again by the `harness:scan` run above), this document modified (the status change + evidence), and
+`.agents/spec-docs/draft/HARNESS-095-run-all-scans-silently-ignores-unknown-arguments.md` untracked.
+No committed RULE-013 artifact was touched by this gate run.
+
+### 배치 기준이 출시 전에는 vacuous했다 — 소유자 지적, 2026-08-16
+
+**GATE-COMPLETE PASS 직후 소유자가 지적한 사실이 이 항목의 중심 산출물에서 결함 하나를 꺼냈다:**
+_"우리는 아직 정식버전을 공개한적 없고 … 베타버전이라 Published contract라고 간주되는 것들이 아직
+사람들에게 공개되지 않았습니다."_ 규칙도 같은 말을 한다 —
+[code-quality.md](../../rules/code-quality.md) L50 _"unreleased — no backward-compat constraint"_,
+[common-mistakes.md](../../rules/common-mistakes.md) 80 _"legacy is not the baseline"_.
+
+WU-A가 착지시킨 기준은 이렇게 쓰여 있었다:
+
+> if this fact changed, would code outside this package — or an end user — **have to change**?
+
+그리고 최종 사용자 행의 근거는 _"changing them **breaks someone**"_ 였다. **사용자가 0명이면 두 문장의
+답은 전부 "아니오"다.** 문자 그대로 적용하면 키 바인딩도 슬래시 명령도 `${PROJECT_DIR}`도 아무도
+깨뜨리지 않으니 전부 `docs/design/`으로 가고, **이 항목이 세운 경계가 통째로 무너진다.**
+
+**이 항목의 주제가 "일하지 않고 통과하는 기준"을 없애는 것인데, 그 기준 자신이 관대한 방향으로
+vacuous했다.** 심사 11라운드가 못 잡은 이유는 아무도 "사용자가 아직 없다"는 사실을 대입해보지
+않아서다 — 모든 라운드가 기준을 참인 전제로 놓고 그 **적용**만 검사했다.
+
+**정정:** 기준을 **표면의 성격**을 묻는 형태로 바꿨다 — 지금 소비자가 존재하느냐가 아니라 소비자가
+**바인딩하는 표면인가**. 질문은 소비자의 존재를 전제한 반사실이며 그것이 "계약"이라는 말의 뜻이다.
+그리고 **왜 그렇게 읽어야 하는지**(출시 전이라 문자 그대로 읽으면 붕괴한다)를 기준 문서 본문에
+명시해 다음 사람이 같은 함정을 밟지 않게 했다.
+
+**배치 판정은 하나도 바뀌지 않는다** — 잘못된 것은 결론이 아니라 논거였다. `${PROJECT_DIR}`는 사용자가
+자기 `SKILL.md`에 직접 타이핑하는 외부 표면이고, 그 파일이 현재 0개라는 사실이 그것을 바꾸지 않는다.
+
+**같은 규칙에 걸린 제기 문서 둘도 고쳤다:** `INFRA-101`이 대안(gitignore)을 **기존 주석을 인용해**
+기각하고 있었다(`common-mistakes.md` 80이 금지하는 형태) — 실질로 재판정했고 결론은 같으나 근거가
+`AGENTS.md`의 lessons 자산 정의로 바뀌었다. `HARNESS-095`는 선택지를 **"최소 변경"**이라며 골랐다
+(`code-quality.md` L50의 cost-first 금지) — "결함의 본체를 고치는 설계"로 근거를 바꿨다.
+
+**이 정정은 GATE-COMPLETE 판정 이후에 이뤄졌으므로 게이트를 다시 돌린다.** 판정은 지금 존재하지 않는
+트리 상태를 서술한다.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-16 (re-run)
+
+**Status upgrade:** verifying → done
+
+**Supersedes** the preceding `[GATE-COMPLETE] — ✅ PASS | 2026-08-16` entry. That verdict described the
+tree before the placement-criterion rewording; three artifacts changed after it
+(`.agents/skills/design-doc-authoring/SKILL.md`, `packages/agent-cli/docs/SPEC.md` > `### Skill Body
+Syntax`, and the Test Plan's TC-04 row). **No result below is carried forward** — every one of the
+sixteen criteria was re-executed in the current working tree (HEAD `29d669ec9` plus six uncommitted
+files), and the two prior-tree measurements were re-taken in `git archive` extractions of the refs they
+name. Where this entry and the superseded one disagree, this one governs.
+
+**Ordering check — passed.** Prior gate per `gate-catalogue.md` > Prior-gate map is GATE-VERIFY, and
+`### [GATE-VERIFY] — ✅ PASS | 2026-08-16` is present in this log carrying per-criterion evidence, not a
+bare verdict. Input state matches the required `verifying`: frontmatter `status: verifying` and the file
+sits in `.agents/spec-docs/active/`, the folder `spec-workflow.md` line 171 maps to `verifying`. Nothing
+this gate authorizes has already happened: `find .agents -name "*RULE-013*"` returns exactly two paths
+(this document and its task), so there is no `done/` copy and no archived task.
+
+**Per-TC verification — every command below was run by this guardian, nothing quoted from the record:**
+
+- [GATE-COMPLETE: TC-01] `rg -q "consumer-impact test" .agents/skills/design-doc-authoring/SKILL.md` →
+  exit **0**; `rg -q "End-user-facing contract" …` → exit **0**. Re-checked against the **reworded**
+  criterion: the section now reads _"is this fact part of what a consumer binds to — such that changing
+  it would force code outside this package, or a person using the product, to change with it?"_ and both
+  asserted strings survive the rewording. Test Plan row: command-form, two `rg` patterns; both executed.
+- [GATE-COMPLETE: TC-02] `rg -c "design-doc-authoring" .agents/skills/spec-writing-standard/SKILL.md` →
+  **2** (≥1), at lines 54 and 140. Second half checked, not assumed: lines 139–141 name the
+  consumer-impact test, link to the owner, and state _"It is not restated here"_ — no copy of the
+  criterion or the boundary table. Test Plan row: command-form; executed.
+- [GATE-COMPLETE: TC-03] `rg -q "externally observable" .agents/rules/spec-workflow.md` → exit **0**.
+  Test Plan row: command-form; executed.
+- [GATE-COMPLETE: TC-04] (a) `git archive 96728940c` extracted to a scratch tree and
+  `check-spec-whitebox-leakage.mjs` run inside it → `::examined:: 86 package SPEC.md files
+(6675/17369 lines outside the standard sections, 38.4%; 2 above threshold)`, the two being
+  `agent-framework` (2001/2649, 75.5%) and `agent-cli` (1708/1939, 88.1%) — exactly the two named, no
+  third. (b) Test Plan row: unit, and **the corrected pointer verifies**:
+  `scripts/harness/__tests__/check-spec-whitebox-leakage.test.mjs` (8 tests green) and
+  `scripts/harness/__tests__/spec-sections.test.mjs` (14 green), whose `describe('threshold —
+red-prove')` really is at line 150 and really does hold the two false-positive packages
+  (`flags(9, 210)` for `apps/www`, `flags(6, 203)` for `packages/agent-transport`, both asserted
+  `false`). The prior run's recorded defect is fixed. **Residual imprecision recorded, not a criterion
+  failure:** the row still labels those fixtures `203/203·210/210`, while the test deliberately asserts
+  the post-fix counts `6/203` and `9/210` — its own comment says freezing `203/203, 210/210` "would have
+  frozen the defect". File and describe name are right; the numeric label is the pre-fix framing carried
+  over from `## Problem`.
+- [GATE-COMPLETE: TC-05] (a) The `### TC-05 검증 명령` block was extracted from this document and run
+  verbatim → exit **0**: `::examined:: 1470 distinct-counted body line(s) … against 7 destination
+document(s)` / `no body line lost (13 allowance(s): 9 rename(s) verified against a named survivor,
+1 delete-and-link(s) verified against a live link, 3 on a written reason)` — 9/1/3 matches what TC-05
+  and Pilot 1 outcome claim. **Specifically re-run because of the SPEC edit:** the reworded sentence in
+  `### Skill Body Syntax` is a body line at the destination, so preservation could have broken; it did
+  not — the line is not a `survivesAs` target of any allowance. (b)
+  `cat packages/agent-cli/docs/design/*.md | grep -cv '^\s*$'` → **300** (≥200), the figure the document
+  claims. Test Plan row: CI smoke; executed.
+- [GATE-COMPLETE: TC-06] `readSpecSectionContract()` + `isStandardSpecSection()` over every `^## ` of
+  `packages/agent-cli/docs/SPEC.md` → **12 h2 headings, 0 non-standard** (Scope, Boundaries, Architecture
+  Overview, Type Ownership, Public API Surface, Extension Points, Configuration, Dependencies, Error
+  Taxonomy, Test Strategy, User-Facing Contract, Class Contract Registry). Recorded as an observation per
+  the criterion's own demotion, not as evidence of placement. Test Plan row: command-form; executed.
+- [GATE-COMPLETE: TC-07] Machine-compared, not eyeballed: a script parsed the appendix tables and diffed
+  them against `^## ` headings in the base-ref SPECs. Pilot 1 **34 rows vs 34 headings**, Pilot 2 **28 vs
+  28**, names matching **in order with 0 mismatches**, and **0 rows with an empty disposition** — 62/62
+  attributed. The seven/eight `split` rows (P1 §4/§11/§23; P2 §14/§15/§23/§25/§26) each resolve into a
+  sub-table whose parts carry dispositions. Test Plan row: command-form; executed as a script.
+- [GATE-COMPLETE: TC-08] `find packages/agent-cli/docs/design -name "*.md" | wc -l` → **6** (≥3). Test
+  Plan row: command-form; executed.
+- [GATE-COMPLETE: TC-09] `node scripts/harness/check-design-doc-completeness.mjs` → exit **0**,
+  `6 design document(s) examined in 76 package design director(y/ies)`. Not vacuous: examined count is 6,
+  not 0. Test Plan row: CI smoke; executed.
+- [GATE-COMPLETE: TC-10] All six design docs match `rg "SPEC\.md"` (exit 0 each: `command-registry`,
+  `composition`, `internal-structure`, `message-architecture`, `session-ownership`, `subagent-wiring`);
+  `rg -q "docs/design/" packages/agent-cli/docs/SPEC.md` → exit **0**. Test Plan row: command-form;
+  executed.
+- [GATE-COMPLETE: TC-11] `rg -c "Keyboard Controls" packages/agent-cli/docs/SPEC.md` → **1**, exit **0**.
+  Re-checked specifically because the SPEC was edited after the prior verdict; the edit touched
+  `### Skill Body Syntax`, not the end-user contract, and the `git diff` confirms it is the only hunk in
+  that file. Test Plan row: command-form; executed.
+- [GATE-COMPLETE: TC-12] Observation record; **both named endpoints reproduce exactly**. Baseline in an
+  extracted `96728940c` tree → `6675/17369 … 38.4%; 2 above threshold`. Post-recovery in an extracted
+  `6dcdf4198` tree → `4967/17174 … 28.9%; 1 above threshold`. Both identical to the recorded figures. The
+  current tree reads `5090/17336 … 29.4%; 1 above threshold`; the delta is other packages' SPEC churn on
+  develop, not this item's. Test Plan row: stdout record; executed at both named refs.
+- [GATE-COMPLETE: TC-13] `pnpm harness:scan` → exit **0**: `111 scans passed, 2 skipped (64 declared what
+they examined)`, 0 failed, plus 3 advisory findings the runner itself states do not affect the verdict
+  (one is this item's own `spec-whitebox-leakage` advisory on `agent-framework`, which `DOCS-025`
+  inherits). Run in a tree with `dist/` present, per GATE-VERIFY observation 2. Test Plan row: CI smoke;
+  executed.
+- [GATE-COMPLETE: TC-14] `rg -l "User-Facing Contract" .agents/skills/spec-writing-standard/SKILL.md
+.agents/templates/spec-template.md` → **both files hit**; `rg -q "^## User-Facing Contract"
+packages/agent-cli/docs/SPEC.md` → exit **0**. Test Plan row: command-form; executed.
+- [GATE-COMPLETE: TC-15] `rg -c "SPEC_REQUIRED_SECTIONS = \[" scripts/harness/cleanup-drift.mjs` → **no
+  output, exit 1**, exactly as the criterion's own note about `rg -c` predicts. The SSOT parser returns
+  **9 required** (including `class contract registry`) and **6 optional** (including `user-facing
+contract`), returned separately so `cleanup-drift` can take required-only. Test Plan row: unit —
+  `scripts/harness/__tests__/spec-sections.test.mjs`, **14 green**, including the fail-closed,
+  partial-parse-throws and no-optional-bleed assertions. Executed.
+- [GATE-COMPLETE: TC-16] `node scripts/harness/check-spec-whitebox-leakage.mjs --all` → **20**
+  `packages/dag-nodes/` rows, `::examined:: 86 package SPEC.md files`. Test Plan row: CI smoke; executed.
+
+**After all criteria:**
+
+- Completion Criteria: **16/16 `[x]`, 0 unchecked**, IDs TC-01…TC-16 with no gap.
+- Test Plan: **16 rows for 16 criteria**, IDs matching on both sides, every row carrying a non-empty Test
+  Type and Tool/Approach. **N/A judgement stated rather than skipped:** the catalogue's "test file path +
+  describe name" form applies to the two `unit` rows (TC-04, TC-15) and both name real, green test files;
+  the other fourteen are command-form / CI-smoke, and the reason no automated test was written for them
+  is recorded explicitly in the Test Plan preamble ("문서·프로세스 백로그이므로 … command-form / `rg`
+  패턴 / `pnpm harness:*` 스모크를 기본으로 삼는다"). No row is silently unaddressed, and I executed all
+  sixteen rather than reading them.
+- `## Tasks` names the exact active path `.agents/tasks/RULE-013-blackbox-whitebox-doc-boundary.md`; the
+  file exists (42,202 bytes).
+- That task is completion-ready: **26 `- [x]`, 0 `- [ ]`**, no occurrence of `[ ]` anywhere, IDs
+  contiguous `T-01`…`T-26`, no blocked/pending/deferred marker and no holding section in its `##`
+  structure — matching the `26건 (WU-A 19 · WU-B 7)` the `## Tasks` line claims. Its frontmatter is still
+  `status: in-progress`; per `gate-catalogue.md` > Post-PASS handoff, terminal status/date and archival
+  are PASS outputs owned by `backlog-execution-orchestrator` Phase 5, not preconditions of this verdict.
+
+**Defect found and recorded — not an enumerated criterion, so it does not change the verdict.** The
+appendix's `### The test being applied` still quotes the **superseded** criterion —
+_"If this fact changed, would code outside this package — or an end user — have to change?"_ — and
+attributes it to `design-doc-authoring/SKILL.md > Placement criterion`, which no longer contains that
+sentence (`rg -q "would code outside this package — or an end user — have to change"` over the skill →
+exit **1**). The correction that triggered this re-run created the staleness: the owner document moved on
+and the artifact quoting it did not. It is the same "recorded reference ≠ artifact" shape rounds 8 and 10
+caught, now pointing at the very sentence the owner declared vacuous. TC-07 asks only for completeness of
+attribution (62/62, verified above), and no GATE-COMPLETE criterion governs the appendix's preamble, so
+this is recorded for the orchestrator/owner rather than absorbed into the verdict. `## Solution` Phase 1
+(line 332) carries the same superseded phrasing; `## Architecture Review` > Decision does too, but that
+section is the frozen approval record and is correctly left alone.
+
+**Surfaced, not absorbed:** the 11-round recommendation loop against a declared `bound=2 rounds`,
+self-recorded in `## 게이트 상한 초과`. Same disposition GATE-VERIFY and the superseded GATE-COMPLETE
+entry reached — it overran a bound rather than bypassing a gate, the recommendation gate is not a
+`gate-catalogue.md` spec-document gate and is not this gate's predecessor, and both work units closed
+`ENDORSE`. Owner's call.
+
+**Working tree at verdict time:** `.agents/skills/design-doc-authoring/SKILL.md`,
+`packages/agent-cli/docs/SPEC.md`, this document,
+`.agents/spec-docs/draft/INFRA-101-the-verify-like-ci-receipt-can-never-be-written.md` and the
+`.agents/evals/lessons/*` regenerated-churn pair are modified;
+`.agents/spec-docs/draft/HARNESS-095-run-all-scans-silently-ignores-unknown-arguments.md` is untracked.
+The evidence above therefore describes the working tree, not `29d669ec9` alone — the three
+correction-bearing files are uncommitted, and `npx prettier --check` on all three passes. This gate run
+mutated no committed artifact; the only write it made is this entry.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-16 (third run)
+
+**Status upgrade:** verifying → done
+
+**Supersedes both preceding `[GATE-COMPLETE]` entries.** Each described a tree that no longer exists,
+and each re-run was triggered by the artifact changing after the verdict, not by a disputed verdict.
+**Nothing is carried forward.** All sixteen criteria were re-executed against the current working tree
+(HEAD `29d669ec9` plus seven uncommitted/untracked files); the two prior-tree measurements were re-taken
+in fresh `git archive` extractions of the refs they name. Where this entry and either predecessor
+disagree, this one governs.
+
+**Ordering check — passed.** Prior gate per `gate-catalogue.md` > Prior-gate map is GATE-VERIFY, and
+`### [GATE-VERIFY] — ✅ PASS | 2026-08-16` is present in this log carrying four per-criterion evidence
+blocks, not a bare verdict. Its evidence was spot-checked rather than accepted: the five spin-off items
+it names all exist on disk (`DOCS-025`, `HARNESS-094`, `RULE-014`, `INFRA-101`, `HARNESS-095` under
+`.agents/spec-docs/draft/`). Input state matches the required `verifying`: frontmatter `status:
+verifying` (line 2) and the file sits in `.agents/spec-docs/active/`, the folder `spec-workflow.md`
+line 171 maps to `verifying` ("no folder change"). Nothing this gate authorizes has already happened:
+`find .agents -name "*RULE-013*"` returns exactly two paths (this document and its task), so there is
+no `done/` copy and no archived task, and the task frontmatter is still `in-progress`.
+
+**Frozen-section check (caller's claim, verified independently, not accepted).** `## Architecture
+Review` extracted by `awk` from `## Architecture Review` to `## Fallback` = 129 lines, sha256
+`39e37e1ab850cd338414a2a3a6e72001e66bf00cd6641e2b2602c39652ee2698` — the claimed `39e37e1ab850cd33`
+prefix matches, and `diff` against `git show HEAD:<this file>` for the same range is **empty**. The
+section is byte-identical to the committed version; the three corrections did not touch it.
+
+**The three post-verdict corrections, verified against `git diff` rather than the description:**
+
+- _Appendix `### The test being applied`._ Now quotes _"Is this fact part of what a consumer binds to —
+  such that changing it would force code outside this package, or a person using the product, to change
+  with it?"_, which is substantively identical to `design-doc-authoring/SKILL.md` lines 37–39. The old
+  sentence is gone from the owner document (`rg -q "would code outside this package — or an end user —
+have to change"` → exit **1**), so the stale attribution the second verdict recorded is resolved, and
+  the "quotation was updated / 62 dispositions unaffected" note is present at lines 605–608.
+- _`## Solution` Phase 1._ Reworded to the surface form and now carries the "머릿수가 아니라 표면을
+  묻는다" point (line 335), matching the skill's own "It asks about the surface, not the headcount"
+  (line 41).
+- _Test Plan TC-04 row._ Now names both framings: the buggy exact-matcher's `203/203·210/210`
+  mis-measurement **and** the assertion the test actually makes. Checked against the source:
+  `spec-sections.test.mjs` line 150 `describe('threshold — red-prove')` asserts `flags(9, 210)` and
+  `flags(6, 203)` are **false**, with a comment stating that freezing `203/203, 210/210` "would have
+  frozen the defect". The row now matches the artifact.
+
+**Per-TC verification — every command below was run by this guardian in this tree:**
+
+- [GATE-COMPLETE: TC-01] `[x]`. `rg -q "consumer-impact test" .agents/skills/design-doc-authoring/SKILL.md`
+  → exit **0**; `rg -q "End-user-facing contract" …` → exit **0**. Both strings survive the rewording.
+  Test Plan row: command-form, two `rg` patterns; both executed.
+- [GATE-COMPLETE: TC-02] `[x]`. `rg -c "design-doc-authoring" .agents/skills/spec-writing-standard/SKILL.md`
+  → **2** (≥1), exit **0**, at lines 54 and 140. Second half checked, not assumed: lines 139–140 name the
+  consumer-impact test and link to the owner; no copy of the criterion or the boundary table.
+  Test Plan row: command-form; executed.
+- [GATE-COMPLETE: TC-03] `[x]`. `rg -q "externally observable" .agents/rules/spec-workflow.md` → exit
+  **0**. Test Plan row: command-form; executed.
+- [GATE-COMPLETE: TC-04] `[x]`. (a) `git archive 96728940c` extracted to a scratch tree and
+  `check-spec-whitebox-leakage.mjs --all` run inside it → `::examined:: 86 package SPEC.md files
+(6675/17369 lines outside the standard sections, 38.4%; 2 above threshold)`, exit **0**; the two
+  findings are `packages/agent-framework/docs/SPEC.md` (2001/2649, 75.5%) and
+  `packages/agent-cli/docs/SPEC.md` (1708/1939, 88.1%) — exactly the two the criterion names, no third.
+  (b) Test Plan row: unit, and the pointer now resolves —
+  `scripts/harness/__tests__/check-spec-whitebox-leakage.test.mjs` (**8 tests**) and
+  `scripts/harness/__tests__/spec-sections.test.mjs` > `describe('threshold — red-prove')` (line 150,
+  **14 tests**); both files run together → **22 passed, 0 failed**.
+- [GATE-COMPLETE: TC-05] `[x]`. (a) The `### TC-05 검증 명령` fence was extracted from this document by
+  `awk` and run verbatim → exit **0**: `::examined:: 1470 distinct-counted body line(s) of
+packages/agent-cli/docs/SPEC.md@96728940c against 7 destination document(s)` / `doc-split preservation
+passed — no body line lost (13 allowance(s): 9 rename(s) verified against a named survivor,
+1 delete-and-link(s) verified against a live link, 3 on a written reason)` — the 9/1/3 split matches
+  what TC-05 and the Pilot 1 outcome claim. (b) `cat packages/agent-cli/docs/design/*.md | grep -cv
+'^[[:space:]]*$'` → **300** (≥200), the figure the document claims. Test Plan row: CI smoke; executed.
+- [GATE-COMPLETE: TC-06] `[x]`. `readSpecSectionContract(cwd)` + `isStandardSpecSection(h, contract)`
+  over every `^## ` of `packages/agent-cli/docs/SPEC.md` → **12 h2 headings, 0 non-standard** (Scope,
+  Boundaries, Architecture Overview, Type Ownership, Public API Surface, Extension Points,
+  Configuration, Dependencies, Error Taxonomy, Test Strategy, User-Facing Contract, Class Contract
+  Registry). Recorded as an observation per the criterion's own demotion, not as evidence of placement.
+  Test Plan row: command-form; executed.
+- [GATE-COMPLETE: TC-07] `[x]`. Machine-compared, not eyeballed: a script parsed both appendix tables
+  and diffed them against `^## ` headings in the base-ref SPECs extracted at `96728940c`. Pilot 1 **34
+  rows vs 34 headings**, Pilot 2 **28 vs 28**, numbering contiguous `1..n` on both, names matching **in
+  order with 0 mismatches**, **0 rows with an empty disposition**, and **0 rows outside the disposition
+  vocabulary** — 62/62 attributed. Seven rows carry `split` (P1 §4/§11/§23, P2 §14/§23/§25/§26; P2 §15
+  is `delete-and-link` + split, which is why the prior entry hedged "seven/eight"), and each resolves
+  into a sub-table whose parts carry dispositions. Test Plan row: command-form; executed as a script.
+- [GATE-COMPLETE: TC-08] `[x]`. `find packages/agent-cli/docs/design -name "*.md" | wc -l` → **6** (≥3).
+  Test Plan row: command-form; executed.
+- [GATE-COMPLETE: TC-09] `[x]`. `node scripts/harness/check-design-doc-completeness.mjs` → exit **0**,
+  `design-doc completeness scan passed (6 design document(s) examined in 76 package design
+director(y/ies))`. Not vacuous: the examined count is 6, not 0. Test Plan row: CI smoke; executed.
+- [GATE-COMPLETE: TC-10] `[x]`. All six design docs match `rg "SPEC\.md"` (exit **0** each:
+  `command-registry`, `composition`, `internal-structure`, `message-architecture`, `session-ownership`,
+  `subagent-wiring`); `rg -q "docs/design/" packages/agent-cli/docs/SPEC.md` → exit **0**.
+  Bidirectional. Test Plan row: command-form; executed.
+- [GATE-COMPLETE: TC-11] `[x]`. `rg -c "Keyboard Controls" packages/agent-cli/docs/SPEC.md` → **1**,
+  exit **0** — the end-user contract is still in the SPEC. Test Plan row: command-form; executed.
+- [GATE-COMPLETE: TC-12] `[x]`. Observation record; **both named endpoints reproduce exactly**.
+  Baseline in an extracted `96728940c` tree → `6675/17369 … 38.4%; 2 above threshold`. Post-recovery in
+  an extracted `6dcdf4198` tree → `4967/17174 … 28.9%; 1 above threshold`. Both identical to the
+  recorded `6,675 / 17,369줄 = 38.4% · 임계 2건` and `4,967 / 17,174줄 = 28.9% · 임계 1건`. The current
+  tree reads `5090/17336 … 29.4%; 1 above threshold`, the delta being other packages' SPEC churn on
+  develop rather than this item's. Test Plan row: stdout record; executed at both named refs.
+- [GATE-COMPLETE: TC-13] `[x]`. `pnpm harness:scan` → exit **0**: `111 scans passed, 2 skipped (64
+declared what they examined)`, 0 failed, plus **3 advisory** findings the runner itself labels "NOT
+  failures. The verdict below is unaffected." (`action-references` resolvability-not-verified,
+  this item's own `spec-whitebox-leakage` advisory on `agent-framework` that `DOCS-025` inherits, and
+  `progress-report-quantification`). Run in a tree with `dist/` present, satisfying GATE-VERIFY
+  observation 2. Test Plan row: CI smoke; executed.
+- [GATE-COMPLETE: TC-14] `[x]`. `rg -l "User-Facing Contract" .agents/skills/spec-writing-standard/SKILL.md
+.agents/templates/spec-template.md` → **both files hit**, exit **0**; `rg -q "^## User-Facing Contract"
+packages/agent-cli/docs/SPEC.md` → exit **0**. Slot defined and actually used. Test Plan row:
+  command-form; executed.
+- [GATE-COMPLETE: TC-15] `[x]`. `rg -c "SPEC_REQUIRED_SECTIONS = \[" scripts/harness/cleanup-drift.mjs`
+  → **no output, exit 1**, exactly as the criterion's own note about `rg -c` predicts: the third copy is
+  gone. Both halves of the AND were checked against the source: the SSOT parser returns **9 required**
+  (`scope`, `boundaries`, `architecture overview`, `type ownership`, `public api surface`, `extension
+points`, `error taxonomy`, `test strategy`, `class contract registry`) and **6 optional** (including
+  `user-facing contract`), returned separately so `cleanup-drift` can take required-only. Test Plan row:
+  unit — `scripts/harness/__tests__/spec-sections.test.mjs`, **14 green**, and the criterion's exact
+  claim holds: set equality (`toEqual(['scope','boundaries'])`) is asserted **against a fixture skill
+  file** in `describe('the parser refuses a bad parse instead of shrinking the contract')`, while the
+  **real owner document** is asserted only for the nine required entries and `class contract registry`
+  in `describe('the section contract is parsed from its owner, not copied')` — the 9라운드 정정's split,
+  not the retracted tautology. Fail-closed, partial-parse-throws and no-optional-bleed are all asserted.
+- [GATE-COMPLETE: TC-16] `[x]`. `node scripts/harness/check-spec-whitebox-leakage.mjs --all` → exit
+  **0**, **20** `packages/dag-nodes/` rows in the output and `::examined:: 86 package SPEC.md files`
+  (the SSOT enumerator's count, not `find`'s 87). Test Plan row: CI smoke; executed.
+
+**After all criteria:**
+
+- Completion Criteria: **16/16 `[x]`, 0 unchecked**, IDs TC-01…TC-16 with no gap (TC-16 is written
+  before TC-14/TC-15 in source order — presentation, not a gap).
+- Test Plan: **16 rows for 16 criteria**, IDs matching on both sides, every row carrying a non-empty
+  Test Type and Tool/Approach, and **no row whose Tool is `manual`**. **N/A judgement stated rather
+  than skipped:** the catalogue's "test file path + describe name" form is applicable to the two `unit`
+  rows (TC-04, TC-15), and both resolve to real, green files; for the other fourteen (command-form /
+  CI-smoke) an automated test file is N/A because the assertion _is_ the command, and the reason is
+  recorded explicitly in the Test Plan preamble ("문서·프로세스 백로그이므로 … command-form / `rg`
+  패턴 / `pnpm harness:*` 스모크를 기본으로 삼는다"). No row is silently unaddressed; all sixteen were
+  executed rather than read.
+- `## Tasks` names the exact active path `.agents/tasks/RULE-013-blackbox-whitebox-doc-boundary.md`;
+  the file exists (42,202 bytes).
+- That task is completion-ready: **26 `- [x]`, 0 `- [ ]`**, zero occurrences of `[ ]` anywhere in the
+  file, IDs contiguous `T-01`…`T-26` matching the `26건 (WU-A 19 · WU-B 7)` the `## Tasks` line claims,
+  and no blocked/pending/deferred item or holding section in its `##` structure. Its frontmatter is
+  still `status: in-progress`; per `gate-catalogue.md` > Post-PASS handoff, terminal status/date and
+  archival are PASS outputs owned by `backlog-execution-orchestrator` Phase 5, not preconditions here.
+
+**Observations recorded, none of them an enumerated criterion of this gate:**
+
+1. _Test Plan TC-15 row is the least precise of the sixteen._ It reads "vitest 로 파서 결과와 스킬
+   표의 **집합 동등성** 단정" — it names no file path, and it does not distinguish that the `toEqual`
+   set-equality runs against a **fixture** skill file while the real owner document is asserted only
+   for the nine required entries. The row is not false (that fixture assertion exists and is green),
+   but its wording predates the 9라운드 정정 that retracted real-table set-equality as tautological.
+   The file path and describe names are recorded in this entry's TC-15 line instead. Same shape as the
+   TC-04 defect that has just been fixed; smaller, and in a row rather than a pointer.
+2. _`## Architecture Review` > Decision (line 215) still carries the superseded framing._ Left alone,
+   and correctly: `gate-catalogue.md` > GATE-APPROVAL forbids modifying Architecture Review after
+   approval, so the frozen approval record must keep the wording it was approved with. Recorded as
+   N/A-by-rule rather than skipped. Every other surviving instance of the old sentence (lines 1877,
+   1879, 2023, 2025) sits inside an evidence entry whose subject _is_ that sentence — history, not a
+   live misquotation. No live artifact now attributes the superseded wording to the owner document.
+3. _Recommendation-gate bound overrun._ The WU-B loop ran 11 rounds against a declared `bound=2 rounds`
+   (`## 게이트 상한 초과`, self-recorded). Same disposition as both prior gates: it overran a bound
+   rather than bypassing a gate, the recommendation gate is not a `gate-catalogue.md` spec-document
+   gate and is not this gate's predecessor, and both work units closed `ENDORSE`. Surfaced for the
+   owner, not absorbed into this verdict.
+
+**Working tree at verdict time:** modified — `.agents/skills/design-doc-authoring/SKILL.md`,
+`packages/agent-cli/docs/SPEC.md`, this document,
+`.agents/spec-docs/draft/INFRA-101-the-verify-like-ci-receipt-can-never-be-written.md`, and the
+`.agents/evals/lessons/{auto-lessons,weekly-digest}.md` regenerated-churn pair; untracked —
+`.agents/spec-docs/draft/HARNESS-095-run-all-scans-silently-ignores-unknown-arguments.md`. The evidence
+above therefore describes the working tree, not `29d669ec9` alone. `npx prettier --check` passes on all
+three correction-bearing files. This gate run's only write to a RULE-013 artifact is this entry; the
+`pnpm harness:scan` above regenerated the two `.agents/evals/lessons/*` files, which were already
+modified before the run.
 
 ## 게이트 상한 초과 — 이 게이트는 2라운드가 상한이었다
 

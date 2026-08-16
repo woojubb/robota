@@ -252,8 +252,8 @@ interface ICommand {
 
 ### Skill Body Syntax
 
-A user authors these tokens inside their own `SKILL.md`; renaming one breaks every existing skill
-file. The pipeline that performs the substitution is
+A user authors these tokens inside their own `SKILL.md`, so they are the surface that file is
+written against — renaming one invalidates every skill file written to it. The pipeline that performs the substitution is
 [`docs/design/command-registry.md`](design/command-registry.md).
 
 Skill content supports variable substitution before injection:
