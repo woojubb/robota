@@ -281,6 +281,41 @@ describe('loadConfig', () => {
     delete process.env.TEST_OPENAI_COMPAT_KEY;
   });
 
+  // SEC-009. These assert through loadConfig deliberately: the first version of this fix recorded
+  // the variable name during env resolution and was proven by a test that HAND-BUILT the resolved
+  // config, so it never executed `resolveActiveProviderProfile` — which projects the profile field
+  // by field and was not copying `apiKeyEnv`. The fix therefore changed nothing on the real path
+  // while its test passed. Only an assertion on what loadConfig RETURNS can catch that.
+  it('records which env var the active profile apiKey came from (SEC-009)', async () => {
+    process.env.TEST_SEC_009_KEY = 'sk-must-not-cross-a-process-boundary';
+    writeJson(join(projectDir, 'settings.json'), {
+      currentProvider: 'openai',
+      providers: {
+        openai: { type: 'openai', model: 'm', apiKey: '$ENV:TEST_SEC_009_KEY' },
+      },
+    });
+
+    const config = await loadConfig(cwd);
+
+    expect(config.provider.apiKey).toBe('sk-must-not-cross-a-process-boundary');
+    expect(config.provider.apiKeyEnv).toBe('TEST_SEC_009_KEY');
+    delete process.env.TEST_SEC_009_KEY;
+  });
+
+  it('records no credential origin when the profile stores a literal key (SEC-009)', async () => {
+    writeJson(join(projectDir, 'settings.json'), {
+      currentProvider: 'openai',
+      providers: { openai: { type: 'openai', model: 'm', apiKey: 'sk-literal' } },
+    });
+
+    const config = await loadConfig(cwd);
+
+    // A literal has no reference to carry, so a serializing caller has only the literal to send.
+    // Reporting an origin here would make the runner send a variable name that resolves to nothing.
+    expect(config.provider.apiKey).toBe('sk-literal');
+    expect(config.provider.apiKeyEnv).toBeUndefined();
+  });
+
   it('ignores removed active provider profile authToken fields', async () => {
     writeJson(join(projectDir, 'settings.json'), {
       currentProvider: 'anthropic',

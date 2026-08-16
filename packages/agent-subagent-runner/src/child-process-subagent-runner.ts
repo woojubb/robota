@@ -165,7 +165,11 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   }
 
   private createStartPayload(job: ISubagentJobStart): ISubagentWorkerStartPayload {
-    const definition = resolveAgentDefinition(job.request.agentType, this.deps.customAgentRegistry);
+    const definition = resolveAgentDefinition(
+      job.request.agentType,
+      this.deps.customAgentRegistry,
+      this.deps.builtInAgents,
+    );
     return {
       taskId: job.taskId,
       request: job.request,
@@ -185,11 +189,23 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   }
 }
 
+/**
+ * ARCH-036: `builtInAgents` is threaded through because NEUT-003 made an injected set REPLACE the
+ * module built-ins — an empty array removes them entirely — and the in-process sibling already
+ * honours it (`agent-framework/src/subagents/in-process-subagent-runner.ts`). Reading only
+ * `customAgentRegistry` here meant the composition root's choice reached one runner and not the
+ * other, so selecting a runner for isolation silently also selected a capability.
+ */
 function resolveAgentDefinition(
   agentType: string,
   customRegistry?: (name: string) => IAgentDefinition | undefined,
+  builtInAgents?: readonly IAgentDefinition[],
 ): IAgentDefinition {
-  const definition = customRegistry?.(agentType) ?? getBuiltInAgent(agentType);
+  const definition =
+    customRegistry?.(agentType) ??
+    (builtInAgents
+      ? builtInAgents.find((agent) => agent.name === agentType)
+      : getBuiltInAgent(agentType));
   if (!definition) {
     throw new BackgroundTaskError('validation', `Unknown agent type: ${agentType}`);
   }
@@ -214,11 +230,23 @@ function createProviderProfile(
   job: ISubagentJobStart,
 ): ISerializableProviderProfile {
   const provider = providerConfig ?? deps.config.provider;
+  // SEC-009: carry the REFERENCE, not the secret. Config loading resolves a `$ENV:` value into the
+  // credential itself, so copying `apiKey` here put plaintext into a structured-clone IPC message —
+  // a second copy of the secret, in a second process, reachable by anything observing the channel.
+  // The child already inherits this process's environment (`env:` at the spawn below), and
+  // `resolveProfileApiKey` already reads `apiKeyEnv`, so the reference resolves on the far side with
+  // no new plumbing. When no reference was recorded the config genuinely holds a literal and the
+  // literal is all there is to send.
+  // allow-fallback: a profile storing a plaintext credential has no reference to carry; the
+  // org policy `requireApiKeyFromEnv` is the documented way to forbid that storage form.
+  const credential = provider.apiKeyEnv
+    ? { apiKeyEnv: provider.apiKeyEnv }
+    : { apiKey: provider.apiKey };
   return {
     profileName: deps.config.currentProvider,
     type: provider.name,
     model: job.request.model ?? provider.model,
-    apiKey: provider.apiKey,
+    ...credential,
     baseURL: provider.baseURL,
     timeout: provider.timeout,
     options: provider.options,

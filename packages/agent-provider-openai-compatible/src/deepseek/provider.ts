@@ -229,6 +229,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
         messages,
         options,
         defaultModel: this.options.defaultModel,
+        capabilityTable: this.capabilityTable(),
       }),
       ...(this.options.thinking !== undefined && {
         thinking: { type: this.options.thinking },

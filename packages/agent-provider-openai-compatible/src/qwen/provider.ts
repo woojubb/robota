@@ -255,6 +255,7 @@ export class QwenProvider extends AbstractAIProvider {
       messages,
       options,
       defaultModel: this.options.defaultModel,
+      capabilityTable: this.capabilityTable(),
     });
   }
 

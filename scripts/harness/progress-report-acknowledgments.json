@@ -78,6 +78,18 @@
       "timestamp": "2026-08-16T05:05:32.485Z",
       "ratio": "13/14",
       "reason": "An eighth instance, in a per-package test table: '13/14 (1건 진행 중)' with no percentage. Same sentence shape as the seven before it — a ratio of how far along something is, written in a summary to the owner. Notable because it happened in the SAME session where I acknowledged the seventh and wrote the rule into memory, which is the argument for the scan over the intention."
+    },
+    {
+      "transcript": "22469e82-14ef-4e23-9aea-9e5bd3295700.jsonl",
+      "timestamp": "2026-08-16T16:40:32.907Z",
+      "ratio": "6/7",
+      "reason": "A real violation, committed by me during the issue-triage batch: a mid-work status said \"6/7 구현 완료\" with no percentage (6/7 = 86%). History cannot be edited, so it is recorded rather than fixed."
+    },
+    {
+      "transcript": "22469e82-14ef-4e23-9aea-9e5bd3295700.jsonl",
+      "timestamp": "2026-08-16T16:58:49.038Z",
+      "ratio": "6/7",
+      "reason": "The same omission eighteen minutes later in the same session, in the summary report that mattered most. Two instances in one session is the argument for the scan over the intention — the same reasoning the 2026-08-01 pair records."
     }
   ]
 }

@@ -57,5 +57,8 @@
   "publishConfig": {
     "access": "public"
   },
-  "license": "AGPL-3.0-only OR LicenseRef-Commercial"
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "volta": {
+    "extends": "../../package.json"
+  }
 }

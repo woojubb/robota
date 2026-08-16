@@ -5,6 +5,18 @@ export interface IProviderDefinitionConfig {
   name: string;
   model: string;
   apiKey?: string;
+  /**
+   * Name of the environment variable `apiKey` was resolved FROM, when the stored settings value
+   * was a `$ENV:` reference (SEC-009). Config loading resolves such a reference into the secret
+   * itself, which is correct for an in-process provider and wrong for anything that has to
+   * SERIALIZE the config — the resolved value then crosses a boundary the credential's owner
+   * never opted into. Keeping the variable name lets a serializing caller carry the reference and
+   * leave the secret behind; `ISerializableProviderProfile` already declares the same field, and
+   * `resolveProfileApiKey` already reads it.
+   *
+   * Distinct from `sourceEnvVar`, which is set only for a synthesized `'env-default'` config.
+   */
+  apiKeyEnv?: string;
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;

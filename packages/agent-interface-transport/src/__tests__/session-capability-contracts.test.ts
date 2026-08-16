@@ -1,8 +1,6 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import {
-  createSessionCapabilityHost,
-  readSessionCapability,
   SESSION_CAPABILITY_MEMBER_KEYS,
   type IInteractiveSession,
   type ISessionCapabilityHost,
@@ -12,6 +10,12 @@ import {
   type TSessionCapabilityHost,
 } from '../index.js';
 import { createTestInteractiveSession, createTestSessionCapabilityHost } from '../testing/index.js';
+// HARNESS-103: the host mechanism moved out of the contract surface. The contracts still come from
+// the package entry above; the factory now comes from where doubles live.
+import {
+  createSessionCapabilityHost,
+  readSessionCapability,
+} from '../testing/session-capability-host.js';
 
 describe('session capability contracts (ARCH-012)', () => {
   it('keeps the runtime role registry in exact 16-role and 39-member parity', () => {

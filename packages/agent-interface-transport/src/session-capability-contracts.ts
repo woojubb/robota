@@ -207,3 +207,31 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
 } satisfies {
   readonly [TKey in keyof ISessionCapabilityMap]: readonly (keyof ISessionCapabilityMap[TKey])[];
 });
+
+// ── Capability host contracts (HARNESS-103) ──────────────────────────────────
+// These TYPES stayed here when the host's runtime mechanism moved to `testing/`. An
+// `agent-interface-*` package must not contain runtime logic (project-structure.md), and the
+// repository's own placement rule is `contracts→agent-interface-*, doubles→owner /testing`. The
+// contract is the part that belongs in a contracts package; the 100-line prototype-walking
+// forwarder that satisfies it is a double factory and now lives where doubles live.
+
+type TUnionToIntersection<T> = (T extends T ? (value: T) => void : never) extends (
+  value: infer TIntersection,
+) => void
+  ? TIntersection
+  : never;
+
+type TSelectedSessionPorts<TCapabilities extends Partial<ISessionCapabilityMap>> =
+  TUnionToIntersection<Exclude<TCapabilities[keyof TCapabilities], undefined>>;
+
+export interface ISessionCapabilityHost<
+  TCapabilities extends Partial<ISessionCapabilityMap> = Partial<ISessionCapabilityMap>,
+> {
+  readonly capabilities: Readonly<TCapabilities>;
+}
+
+export type TSessionCapabilityHost<TCapabilities extends Partial<ISessionCapabilityMap>> =
+  ISessionCapabilityHost<TCapabilities> & TSelectedSessionPorts<TCapabilities>;
+
+export type TSessionCapabilityReadResult<TCapability> =
+  Readonly<{ provided: false }> | Readonly<{ provided: true; value: TCapability }>;
