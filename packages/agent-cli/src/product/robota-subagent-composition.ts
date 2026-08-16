@@ -1,8 +1,11 @@
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
+import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 
-import { createRobotaPacks } from './robota-profile.js';
+import { createRobotaPacks, packCommandModuleNames } from './robota-profile.js';
 
 import type { ISubagentWorkerComposition } from '@robota-sdk/agent-subagent-runner';
+import type { TSubagentRunnerFactory } from '@robota-sdk/agent-framework';
+import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 import type { ICodingPackOptions } from '@robota-sdk/pack-coding';
 import type { IProviderDefinition, IToolWithEventService } from '@robota-sdk/agent-core';
 
@@ -61,7 +64,7 @@ export function assertChildProcessSubagentsCanReproduce(context: IRobotaPackCont
 }
 
 /** robota's provider registry, in one place for both the parent and its child-process subagents. */
-export function robotaProviderDefinitions(): readonly IProviderDefinition[] {
+function robotaProviderDefinitions(): readonly IProviderDefinition[] {
   return createDefaultProviderDefinitions();
 }
 
@@ -99,4 +102,49 @@ export function packTools(
   createPacks: TRobotaPackFactory = createRobotaPacks,
 ): IToolWithEventService[] {
   return createPacks(context).flatMap((pack) => [...(pack.tools ?? [])]);
+}
+
+/**
+ * robota's child-process subagent runner, and the guard that decides whether it may be selected at
+ * all. They live together because they read the same pack context: separating them is what would let
+ * a guard check one value while the packs were built from another.
+ */
+export function createRobotaChildProcessSubagentRunner(options: {
+  readonly packContext: IRobotaPackContext;
+  readonly providerConfig: IProviderDefinitionConfig;
+  readonly logsDir: string;
+  readonly workerEntry: Parameters<
+    typeof createChildProcessSubagentRunnerFactory
+  >[0]['workerEntry'];
+  readonly worktreeAdapter: Parameters<
+    typeof createChildProcessSubagentRunnerFactory
+  >[0]['worktreeAdapter'];
+}): TSubagentRunnerFactory {
+  // ARCH-021: fail closed. A capability the child cannot reproduce must stop the spawn rather than
+  // be silently dropped — a sandboxed parent with a host-tool child is ARCH-010's measured shape.
+  assertChildProcessSubagentsCanReproduce(options.packContext);
+  return createChildProcessSubagentRunnerFactory({
+    workerEntry: options.workerEntry,
+    providerConfig: options.providerConfig,
+    logsDir: options.logsDir,
+    worktreeAdapter: options.worktreeAdapter,
+  });
+}
+
+/**
+ * robota's pack context and the packs built from it, as ONE value.
+ *
+ * ARCH-021: the context must be a single named value that both the pack construction and the
+ * child-process runner selection read. Built here rather than at the call site so the two cannot
+ * drift into reading different values — which is the whole mechanism behind the fail-closed guard.
+ */
+export function createRobotaPackSet(cwd: string): {
+  readonly packContext: IRobotaPackContext;
+  readonly packs: readonly TRobotaPack[];
+  readonly packCommandModules: readonly string[];
+} {
+  const packContext: IRobotaPackContext = { cwd };
+  // ARCH-006: scoped to the cwd they are built with.
+  const packs = createRobotaPacks(packContext);
+  return { packContext, packs, packCommandModules: packCommandModuleNames(packs) };
 }

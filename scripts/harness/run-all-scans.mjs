@@ -667,6 +667,12 @@ export const SCAN_COMMANDS = [
     name: 'interface-runtime',
     command: ['node', 'scripts/harness/scan-interface-runtime.mjs'],
   },
+  {
+    // ARCH-021: the same family as interface-runtime — "package X's src/ must not import Y". This one
+    // holds the TOOL axis, which the manifest edge cannot cut (ARCH-035 / #1787).
+    name: 'subagent-runner-composition',
+    command: ['node', 'scripts/harness/scan-subagent-runner-composition.mjs'],
+  },
   { name: 'publish', command: ['node', 'scripts/harness/check-publish-safety.mjs'] },
   { name: 'release-governance', command: ['node', 'scripts/harness/check-release-governance.mjs'] },
   { name: 'test-plans', command: ['node', 'scripts/harness/scan-test-plan.mjs'] },

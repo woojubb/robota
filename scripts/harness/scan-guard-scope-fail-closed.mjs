@@ -95,6 +95,14 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'it asks whether every produced tool declares what the permission system should do with it; over a root with no packages there is no tool to ask about, and "no unclassified tool" reads exactly like "every tool is classified" — while an unclassified tool is the one that prompts on every call and is refused in plan mode',
   },
   {
+    // Measured: `finder(bare)` throws
+    // `subagent-runner-composition: packages/agent-subagent-runner/src missing from <root>`.
+    file: 'scan-subagent-runner-composition.mjs',
+    finder: 'findSubagentRunnerCompositionFindings',
+    tree: 'packages/agent-subagent-runner/src',
+    why: 'it asserts a specific package imports no product defaults; over a root without that package the answer is vacuously "no findings", which reads exactly like a compliant runner — and this is the only floor on the TOOL axis, which the manifest edge cannot cut (ARCH-035)',
+  },
+  {
     // Measured the way this harness calls it — `collectRows(bare, contract)` cannot even be reached:
     // building `contract` throws `cannot read the section contract — .agents/skills/...` first.
     file: 'check-spec-whitebox-leakage.mjs',
