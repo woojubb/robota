@@ -68,6 +68,6 @@ Waived: 배치 기준의 선행 조사는 `RULE-013`의 `## Prior Art Research`�
 ## Evidence Log
 
 - **2026-08-16 — 제기.** `RULE-013` WU-B 3라운드 심사가 권고 4번으로 명시("mechanize table→artifact
-  conformance as the successor to TC-07"). WU-B에 접지 않고 후속으로 분리한 이유: WU-B는 이미 11파일
-  ~2,700줄로 PR Unit Rule 상한을 넘었고, 이 스캔은 그 자체로 픽스처와 fail-closed 설계가 필요한
+  conformance as the successor to TC-07"). WU-B에 접지 않고 후속으로 분리한 이유: WU-B는 이미 10파일
+  +1,693 / −1,101(`git show --stat 690c1e964`)로 PR Unit Rule 상한을 넘었고, 이 스캔은 그 자체로 픽스처와 fail-closed 설계가 필요한
   독립 작업이다. **드롭이 아니라 명명된 후속임을 심사자가 요구했고 그에 따라 파일로 남긴다.**

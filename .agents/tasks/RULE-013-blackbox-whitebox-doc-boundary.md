@@ -179,7 +179,8 @@ WU-A 안에서)과 `.design/decisions/` 제외 판단은 위 태스크에 반영
 
 ## Recommendation Gate — WU-B
 
-`backlog-execution.md` > Recommendation Gate. 판정자 `proposal-reviewer`(독립 에이전트), 2라운드.
+`backlog-execution.md` > Recommendation Gate. 판정자 `proposal-reviewer`(독립 에이전트).
+각 라운드의 판정과 접은 내용을 아래에 순서대로 기록한다.
 
 ### Round 1 — `REVIEW VERDICT: REVISE` | 2026-08-16
 
@@ -369,6 +370,29 @@ behavior"`로 적었으나 실제 행은 `New or changed **externally observable
 비교할 두 번째 사본이 없다). 실제 테스트는 픽스처에 `toEqual`, 실물에는 필수 9개 + 특정 항목 포함을
 단정한다. **설계가 맞고 기준 문구가 틀렸으므로 문구를 실물에 맞췄다** — 자기 비교를 추가하지 않는다.
 
-### Round 10
+### Round 10 — `REVIEW VERDICT: REVISE` | 2026-08-16
 
-9라운드 접기 완료 후 재심사 대기.
+16개 기준 16/16 재확인, 동결 구역 해시 유지, 설계·배치·도구는 일곱 라운드 연속 이견 없음.
+9라운드 수정 둘 다 검증됐고 §2는 diff가 아니라 문단 전체로 다시 읽혀 정합 확인.
+
+**blocking — 숫자가 아니라 구조적 사실이었다.** WU-A가 실제로 만든 표준 섹션 SSOT는
+`scripts/harness/spec-sections.mjs`인데 Plan은 두 곳에서 `shared.mjs`에 상수를 두라고 처방하고
+있었다(`## Affected Files` 행, Phase 3). `shared.mjs`는 이 항목에서 한 줄도 안 바뀌었고, **같은
+문서의 TC-15가 그 형태를 폐기한다고 이미 적고 있다** — 507줄에서 폐기한 것을 392줄에서 처방.
+하드코딩 배열은 SSOT가 아니라 네 번째 사본이라 이 항목이 고치려는 드리프트를 스스로 재생산한다.
+
+같은 섹션에 **이 브랜치가 만든 파일 넷이 빠져 있었다**(`spec-sections.mjs`,
+`verify-doc-split-preservation.mjs`와 테스트, `.split-allowances.json`). TC-05가 전적으로 그 도구로
+판정되는데 Plan은 그것을 만든다고 적지 않았다. `## Affected Files`는 **GATE-APPROVAL·GATE-IMPLEMENT가
+"모든 행을 검증했다"고 기록한 가디언 판독 목록**이라 장식이 아니다. 6행 추가 + SSOT 행 정정.
+
+**동결 구역 안의 같은 `shared.mjs` 줄은 건드리지 않았다** — GATE-IMPLEMENT 관측 2가 그 불일치를
+정상으로 판정해 두었고, 5~7라운드에 그곳을 편집한 대가로 세 라운드를 썼다. 해시 유지 확인.
+
+**동시 정정 넷:** 허용 파일 헤더의 "delete-and-link 2건"(4라운드 이후 1건 — 5라운드가 세 곳은
+옮기고 JSON 헤더는 빠뜨렸다), 이 게이트 헤더의 "2라운드", `HARNESS-094`가 인용한 폐기된 diffstat,
+부록의 `0/1731`(시점 표시), §2의 `line 989–998`(→ 997).
+
+### Round 11
+
+10라운드 접기 완료 후 재심사 대기.

@@ -61,7 +61,7 @@ required?"는 _존재 여부_ 판단만 다루고 *내용 배치*는 다루지 �
      System, Hooks, Sandbox, Edit Checkpointing, Reversible Execution 등 30여 개). 약 2,000줄짜리
      design doc이 SPEC 뒤에 붙어 있는 형태. (이음매는 구현 착수 시 L695로 확인됐다 — 아래 부록
      Pilot 2 참조.)
-   - `agent-cli/docs/SPEC.md`: `## Public API Surface`가 **9줄**(line 989–998). 1,939줄 문서에서
+   - `agent-cli/docs/SPEC.md`: `## Public API Surface`가 **9줄**(line 989–997). 1,939줄 문서에서
      공개 계약이 **0.5%**다. 나머지는 StatusBar Display, TUI Visual Grammar, Tool Call Display,
      Keyboard Controls(149줄), Plugin Management TUI, Subagent Execution, Message Architecture,
      File Structure 등 whitebox.
@@ -389,9 +389,14 @@ TC-14를 닫을 수 없다. 분할은 여전히 완전·서로소다(8+8 → 7+9
 - **표준 섹션 목록 SSOT화 (선행 필수).** 현재 이 목록은 두 곳에 복제되어 **이미 어긋나 있다** —
   `spec-writing-standard` SKILL.md는 필수 9개를 열거하는데 `cleanup-drift.mjs:13-22`의
   `SPEC_REQUIRED_SECTIONS`는 **8개뿐이고 `Class Contract Registry`가 빠져 있다.** 신규 스캔이 세 번째
-  복사본을 만들면 드리프트가 확정된다. `scripts/harness/shared.mjs`에 필수 9 + 선택 6(Phase 1b의
-  `User-Facing Contract` 포함) 상수를 하나 두고, `cleanup-drift.mjs`와 신규 스캔이 함께 import 한다.
-  기존 8개 목록의 누락도 이 과정에서 교정된다(부수적 버그 수정, 본 항목 범위 내).
+  복사본을 만들면 드리프트가 확정된다. **owner 문서(`spec-writing-standard/SKILL.md`)의 표를 직접
+  파싱하는 모듈** `scripts/harness/spec-sections.mjs`를 두고, `cleanup-drift.mjs`와 신규 스캔이 함께
+  import 한다. 기존 8개 목록의 누락도 이 과정에서 교정된다(부수적 버그 수정, 본 항목 범위 내).
+
+  **초안은 `scripts/harness/shared.mjs`에 필수 9 + 선택 6 상수를 두는 형태였고 그것을 폐기했다** —
+  하드코딩 배열은 SSOT가 아니라 **네 번째 사본**이며, 이름이 하나 바뀌면 그대로 어긋난다. TC-15가 이
+  폐기를 기록하고 있는데 이 문단과 `## Affected Files` 행이 따라가지 않아 10라운드에서 잡혔다.
+  `shared.mjs`는 이 항목에서 변경되지 않았다.
 
 ### Phase 4 — Live Spec mandate 범위 조정
 
@@ -401,26 +406,32 @@ semantics`** 로 좁히고, 내부 동작 변경은 design doc으로 라우팅�
 
 ## Affected Files
 
-| 파일                                                                          | 변경                                                                                                                                                                                                                                                         |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `.agents/skills/design-doc-authoring/SKILL.md`                                | 배치 기준 섹션 신설 (owner)                                                                                                                                                                                                                                  |
-| `.agents/skills/spec-writing-standard/SKILL.md`                               | 배치 기준 링크 + 선택 섹션에 `User-Facing Contract` 추가 + "Required Sections Reference" 표에 선택 섹션 열거 (현재 필수 9만 있고 선택 5는 Mode A 절차문 안에만 있어 사실상 발견 불가 — GATE-WRITE 재판정에서 가디언이 "열거된 곳이 없다"고 결론낸 실증 사례) |
-| `.agents/templates/spec-template.md`                                          | `User-Facing Contract` 선택 섹션 추가                                                                                                                                                                                                                        |
-| `.agents/rules/spec-workflow.md`                                              | mandate 행 범위 조정 + 라우팅 문장                                                                                                                                                                                                                           |
-| `.agents/specs/document-standards/index.md`                                   | Design/LLD 행 Status note 갱신                                                                                                                                                                                                                               |
-| `scripts/harness/shared.mjs`                                                  | 표준 섹션 목록 SSOT 상수 신설 (필수 9 + 선택 6)                                                                                                                                                                                                              |
-| `scripts/harness/cleanup-drift.mjs`                                           | 자체 8개 목록 제거 → SSOT import (누락된 `Class Contract Registry` 교정)                                                                                                                                                                                     |
-| `scripts/harness/check-spec-whitebox-leakage.mjs`                             | 신규 (advisory)                                                                                                                                                                                                                                              |
-| `scripts/harness/check-design-doc-completeness.mjs`                           | 양방향 링크 warning                                                                                                                                                                                                                                          |
-| `.agents/rules/spec-workflow.md` (§ Document Authority and Content Placement) | **범위 확대(2026-08-16 승인)** — Design documents 행을 `packages/*/docs/design/` + 횡단 `.agents/specs/`로 정정, SPEC↔design 내용 분할은 배치 기준으로 링크 위임(복사 금지). 모순 스윕을 Evidence Log에 기록                                                 |
-| `scripts/harness/check-document-authority.mjs`                                | **범위 확대** — `isDesignDoc()`이 `packages/*/docs/design/`를 인식하도록 확장                                                                                                                                                                                |
-| `scripts/harness/workspace-packages.mjs`                                      | 소비 (신규 글롭 금지 — `listWorkspacePackageDirs()` 사용)                                                                                                                                                                                                    |
-| `scripts/harness/run-all-scans.mjs`                                           | 신규 스캔 등록                                                                                                                                                                                                                                               |
-| `scripts/harness/__tests__/check-spec-whitebox-leakage.test.mjs`              | 신규 스캔 단위 테스트 (WU-A 착지 시 `check-` 접두로 배치됐고 이 행이 따라가지 않았다)                                                                                                                                                                        |
-| `packages/agent-framework/docs/SPEC.md`                                       | **이 항목에서 변경하지 않는다** — L695–2,649 추출은 `DOCS-025`로 이관(부록 Pilot 2가 분류만 남긴다). 초안의 `line 668–2593`은 두 끝이 모두 틀린 값이었다                                                                                                     |
-| `packages/agent-framework/docs/design/*.md`                                   | **이 항목에서 만들지 않는다** — 바로 위 행과 함께 `DOCS-025`로 이관. 디렉터리는 존재하지 않으며 이 항목이 만들지 않는다                                                                                                                                      |
-| `packages/agent-cli/docs/SPEC.md`                                             | whitebox 섹션 추출 (사용자 계약 잔류)                                                                                                                                                                                                                        |
-| `packages/agent-cli/docs/design/*.md`                                         | 신규 (추출분 수용)                                                                                                                                                                                                                                           |
+| 파일                                                                          | 변경                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.agents/skills/design-doc-authoring/SKILL.md`                                | 배치 기준 섹션 신설 (owner)                                                                                                                                                                                                                                                                                                                        |
+| `.agents/skills/spec-writing-standard/SKILL.md`                               | 배치 기준 링크 + 선택 섹션에 `User-Facing Contract` 추가 + "Required Sections Reference" 표에 선택 섹션 열거 (현재 필수 9만 있고 선택 5는 Mode A 절차문 안에만 있어 사실상 발견 불가 — GATE-WRITE 재판정에서 가디언이 "열거된 곳이 없다"고 결론낸 실증 사례)                                                                                       |
+| `.agents/templates/spec-template.md`                                          | `User-Facing Contract` 선택 섹션 추가                                                                                                                                                                                                                                                                                                              |
+| `.agents/rules/spec-workflow.md`                                              | mandate 행 범위 조정 + 라우팅 문장                                                                                                                                                                                                                                                                                                                 |
+| `.agents/specs/document-standards/index.md`                                   | Design/LLD 행 Status note 갱신                                                                                                                                                                                                                                                                                                                     |
+| `scripts/harness/spec-sections.mjs`                                           | **신규 — 표준 섹션 목록 SSOT 파서.** 초안은 `scripts/harness/shared.mjs`에 상수를 두는 형태였으나 **하드코딩 배열은 네 번째 사본을 만들 뿐**이라 폐기하고, `spec-writing-standard/SKILL.md`의 표를 직접 파싱하는 모듈로 구현했다(TC-15가 그 폐기를 이미 기록하고 있는데 이 행이 따라가지 않아 10라운드에서 잡혔다). `shared.mjs`는 변경되지 않았다 |
+| `scripts/harness/cleanup-drift.mjs`                                           | 자체 8개 목록 제거 → SSOT import (누락된 `Class Contract Registry` 교정)                                                                                                                                                                                                                                                                           |
+| `scripts/harness/check-spec-whitebox-leakage.mjs`                             | 신규 (advisory)                                                                                                                                                                                                                                                                                                                                    |
+| `scripts/harness/check-design-doc-completeness.mjs`                           | 양방향 링크 warning                                                                                                                                                                                                                                                                                                                                |
+| `.agents/rules/spec-workflow.md` (§ Document Authority and Content Placement) | **범위 확대(2026-08-16 승인)** — Design documents 행을 `packages/*/docs/design/` + 횡단 `.agents/specs/`로 정정, SPEC↔design 내용 분할은 배치 기준으로 링크 위임(복사 금지). 모순 스윕을 Evidence Log에 기록                                                                                                                                       |
+| `scripts/harness/check-document-authority.mjs`                                | **범위 확대** — `isDesignDoc()`이 `packages/*/docs/design/`를 인식하도록 확장                                                                                                                                                                                                                                                                      |
+| `scripts/harness/workspace-packages.mjs`                                      | 소비 (신규 글롭 금지 — `listWorkspacePackageDirs()` 사용)                                                                                                                                                                                                                                                                                          |
+| `scripts/harness/run-all-scans.mjs`                                           | 신규 스캔 등록                                                                                                                                                                                                                                                                                                                                     |
+| `scripts/harness/__tests__/check-spec-whitebox-leakage.test.mjs`              | 신규 스캔 단위 테스트 (WU-A 착지 시 `check-` 접두로 배치됐고 이 행이 따라가지 않았다)                                                                                                                                                                                                                                                              |
+| `scripts/harness/__tests__/spec-sections.test.mjs`                            | 신규 — SSOT 파서 단위 테스트 (14건: 픽스처 집합 동등성, fail-closed, 부분 파싱 throw, 선택 표 누출 금지)                                                                                                                                                                                                                                           |
+| `scripts/harness/verify-doc-split-preservation.mjs`                           | **신규 (WU-B)** — 분할 무손실 검증 도구. TC-05가 이것으로 판정된다                                                                                                                                                                                                                                                                                 |
+| `scripts/harness/__tests__/verify-doc-split-preservation.test.mjs`            | 신규 (WU-B) — 위 도구의 단위 테스트 25건 (허용 항목의 red 픽스처 포함)                                                                                                                                                                                                                                                                             |
+| `packages/agent-cli/docs/design/.split-allowances.json`                       | **신규 (WU-B)** — 커밋되는 허용 목록. 13건 중 10건을 도구가 검증한다                                                                                                                                                                                                                                                                               |
+| `scripts/harness/measurement-provenance-pending.json`                         | 신규 도구를 `covered`에 등재                                                                                                                                                                                                                                                                                                                       |
+| `.agents/tasks/HARNESS-052-vacuous-green-sweep.md`                            | **G8 등재** — 유출 스캔이 `##`만 마크해 강등으로 잔여량이 0이 되는 지표 사각지대                                                                                                                                                                                                                                                                   |
+| `packages/agent-framework/docs/SPEC.md`                                       | **이 항목에서 변경하지 않는다** — L695–2,649 추출은 `DOCS-025`로 이관(부록 Pilot 2가 분류만 남긴다). 초안의 `line 668–2593`은 두 끝이 모두 틀린 값이었다                                                                                                                                                                                           |
+| `packages/agent-framework/docs/design/*.md`                                   | **이 항목에서 만들지 않는다** — 바로 위 행과 함께 `DOCS-025`로 이관. 디렉터리는 존재하지 않으며 이 항목이 만들지 않는다                                                                                                                                                                                                                            |
+| `packages/agent-cli/docs/SPEC.md`                                             | whitebox 섹션 추출 (사용자 계약 잔류)                                                                                                                                                                                                                                                                                                              |
+| `packages/agent-cli/docs/design/*.md`                                         | 신규 (추출분 수용)                                                                                                                                                                                                                                                                                                                                 |
 
 ## Completion Criteria
 
@@ -751,7 +762,7 @@ been moving contract out of the contract document.
 document initially made and then failed to act on.** `check-spec-whitebox-leakage.mjs:62` marks a span
 only on `/^##\s+/`, so every `###` is attributed to its enclosing `##`. Demoting a non-standard `##` to
 `###` under a standard one drives the residual to zero **without moving a line**, which is exactly what
-this pilot did: 20 non-standard `##` became `###`, and `agent-cli` reported `0/1731`. TC-05 was rewritten
+this pilot did: 20 non-standard `##` became `###`, and `agent-cli` reported `0/1731` (라운드 2 시점 측정값; 이후 접기로 현재는 `0/1744`). TC-05 was rewritten
 to assert destination volume and losslessness instead, and TC-06 — which a demotion _satisfies_ — was
 demoted to an observation. The metric's blind spot is filed against `HARNESS-052` (second axis, sub-shape
 **A**: a check that measures something other than what its name claims).
@@ -1577,3 +1588,33 @@ exit 1이라 검증자가 보는 것과 달랐다. 나머지 둘(스냅샷 헤�
 9개와 `class contract registry` 포함을 단정한다. **설계가 맞고 기준 문구가 틀렸으므로 문구를 실물에
 맞췄다** — 자기 비교를 추가하는 것은 아무것도 막지 못한다. 실제로 막아야 할 파싱 실패(fail-closed,
 부분 파싱 throw, 선택 표 누출 금지)는 이미 단정돼 있다.
+
+### WU-B Recommendation Gate Round 10 — 2026-08-16
+
+**16개 기준 16/16 재확인**, 동결 구역 해시 유지, 설계·배치·도구는 일곱 라운드 연속 이견 없음.
+9라운드 수정 둘 다 검증됐고, §2는 diff가 아니라 **문단 전체**로 다시 읽혀 내부 정합 확인.
+
+**blocking — SSOT의 실제 위치가 Plan에 없고, 폐기된 위치가 여전히 처방되어 있었다.** 숫자가 아니라
+**구조적 사실**의 같은 결함이다. WU-A가 실제로 만든 표준 섹션 SSOT는
+`scripts/harness/spec-sections.mjs`(197줄, owner 문서의 표를 직접 파싱)인데, Plan은 두 곳에서
+`scripts/harness/shared.mjs`에 상수를 두라고 적고 있었다 — `## Affected Files` 행과 Phase 3 처방.
+`shared.mjs`는 이 항목에서 **한 줄도 바뀌지 않았고**, 같은 문서의 TC-15가 그 형태를 폐기한다고 이미
+적고 있다. **문서가 507줄에서 폐기한 것을 392줄에서 처방하고 있었다.**
+
+하드코딩 배열이 SSOT가 아니라 **네 번째 사본**이라는 것이 폐기 이유다 — 이름이 하나 바뀌면 그대로
+어긋나므로, 이 항목이 고치려는 드리프트를 그 자체로 재생산한다.
+
+같은 섹션에서 **이 브랜치가 만든 파일 넷이 통째로 빠져 있었다** — `spec-sections.mjs`,
+`verify-doc-split-preservation.mjs`와 그 테스트, `.split-allowances.json`. TC-05가 전적으로
+그 도구로 판정되는데 Plan은 그것을 만든다고 적지 않았다. `## Affected Files`는 장식이 아니라
+**GATE-APPROVAL과 GATE-IMPLEMENT가 "모든 행을 검증했다"고 기록한 가디언 판독 목록**이며,
+8라운드가 이미 이 섹션의 잘못된 경로로 blocking을 냈다. 6행을 추가하고 SSOT 행을 정정했다.
+
+**`### Affected Scope`(동결 구역 안, L154–174)에는 같은 `shared.mjs` 줄이 남아 있지만 건드리지
+않았다** — GATE-IMPLEMENT 관측 2가 그 불일치를 정상으로 판정해 두었고, 5~7라운드에 그곳을 편집한
+대가로 세 라운드를 썼다. 해시 `39e37e1ab850cd33` / 129줄 유지 확인.
+
+**동시 정정 넷:** 허용 파일 자신의 헤더가 아직 "delete-and-link 2건"이라 적고 있었다(4라운드 재분류
+이후 1건) — 5라운드가 TC-05와 outcome 두 항목에는 옮겨 적었는데 JSON 헤더는 빠뜨린, 넷 중 셋 패턴.
+게이트 기록 헤더의 "2라운드", `HARNESS-094`가 인용한 폐기된 diffstat(`11파일 ~2,700줄`), 부록의
+`0/1731`(라운드 2 시점 표시 추가), §2의 `line 989–998`(→ 997)도 함께 고쳤다.
