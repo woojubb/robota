@@ -177,6 +177,15 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 
 ## Public API Surface
 
+| Export                                 | Kind  | Description                                                                                                                                                                         |
+| -------------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEFAULT_BACKGROUND_PERMISSION_POLICY` | const | ARCH-031: the one definition of the policy a spawn site states when it has no reason to choose another. Replaced two independent `?? 'inherit-allowlist'` fallbacks in two packages |
+
+<!-- The rows below live under `###` subheadings. `check-spec-public-surface.mjs` stops counting at the
+     first non-"Public API" heading, so it reads none of them — which is why this package's undocumented
+     baseline is ~147 phantom entries. Filed as its own item; this table exists so a genuinely new export
+     is visible to the scan rather than hidden behind that parser defect. -->
+
 ### Core
 
 | Export                                  | Kind           | Description                                                                                                                                                                                                                                             |
