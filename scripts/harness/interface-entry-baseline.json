@@ -1,0 +1,5 @@
+{
+  "//": "HARNESS-103. Frozen count of RUNTIME MECHANISMS each agent-interface-* package publishes from its entry. project-structure.md forbids runtime logic in these packages; the guard used to measure only class/enum declarations and bare value imports, so mechanisms sat outside the rule and inside the green. These are the ones that were already there when the guard started measuring the rule. The count may only SHRINK.",
+  "agent-interface-transport": 5,
+  "agent-interface-tui": 0
+}

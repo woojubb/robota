@@ -305,7 +305,16 @@ They are the SSOT for cross-cutting contracts shared between implementation fami
 
 Rules:
 
-- An `agent-interface-*` package must not contain classes or runtime logic.
+- An `agent-interface-*` package must not contain classes or runtime logic. **Mechanized on two
+  edges by `scripts/harness/scan-interface-runtime.mjs` (HARNESS-103).** SOURCE: no `class`/`enum`
+  declaration and no bare value import. ENTRY: the package's `src/index.ts` may publish its
+  contracts' VOCABULARY (a `const` binding) and their DISCRIMINATORS (a function returning a type
+  predicate `x is T`) — anything else exported as a runtime value is a mechanism and belongs in an
+  owner package, or under `testing/` if it is a double (`contracts→agent-interface-*,
+doubles→owner /testing`). Pre-existing mechanisms are frozen per package in
+  `scripts/harness/interface-entry-baseline.json` and the count may only shrink. The entry edge
+  exists because the source edge alone measured something narrower than this rule's words, so a
+  100-line prototype-walking forwarder sat outside the rule and inside the green.
 - An `agent-interface-*` package's internal dependencies are a subset of `{agent-core}` —
   contracts never depend on implementation packages (INFRA-025; mechanized as the
   `INTERFACE-DEPS` rule in the `deps` scan). `agent-interface-transport` owns the
