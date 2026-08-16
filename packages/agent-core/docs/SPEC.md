@@ -288,8 +288,10 @@ mode) instead of continuing to the allow list.
 | ------------------------- | -------- | -------------------------------------------------------------------- |
 | `registerToolArgumentKey` | function | Declare which argument this tool's permission patterns are scoped to |
 
-`clearRegisteredToolArgumentKeys` stays in-package: it exists for tests and for a host rebuilding a
-registry, not as part of the contract.
+`clearRegisteredToolArgumentKeys` is public as of ARCH-031 — see its row in the Public API Surface
+table above. It was in-package until the permissions block collapsed to `export *`; the rationale for
+it (tests, and a host rebuilding a registry) is unchanged, but it is now on the barrel and therefore
+part of the contract, so a consumer may rely on it.
 
 ### Model Metadata Registry Public API (NEUT-010)
 

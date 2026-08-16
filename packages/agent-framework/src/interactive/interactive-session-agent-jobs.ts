@@ -1,10 +1,11 @@
-import { DEFAULT_BACKGROUND_PERMISSION_POLICY } from '@robota-sdk/agent-core';
 /**
  * Agent job helpers for InteractiveSession.
  *
  * Pure functions for spawning, waiting, sending, cancelling, and closing
  * agent jobs. The class delegates to these with thin wrappers.
  */
+
+import { DEFAULT_BACKGROUND_PERMISSION_POLICY } from '@robota-sdk/agent-core';
 
 import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';

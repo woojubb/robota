@@ -121,37 +121,43 @@ export class SubagentManager implements ISubagentManager {
     return { kind: 'agent', ...request };
   }
 
+  /**
+   * ARCH-031: the state hop of the same seam, and the last hand-written literal on it. It was a
+   * 24-key copy into a `Pick`-derived type, so the ~17 optional keys could be dropped silently —
+   * adding one to `ISubagentJobState`'s `Pick<>` list compiled clean and carried nothing. Now the
+   * pass-through half is the rest of the destructuring, so it is total by construction: only the
+   * keys this hop genuinely TRANSFORMS or deliberately WITHHOLDS are named, and each one that is
+   * withheld is a task-only concept a subagent job has no reader for.
+   */
   private toSubagentState(state: IBackgroundTaskState): ISubagentJobState {
+    const {
+      // Transformed by this hop.
+      agentType,
+      status,
+      promptPreview,
+      currentAction,
+      result,
+      error,
+      // Withheld — task-only, with no subagent-job meaning.
+      kind: _kind,
+      parentTaskId: _parentTaskId,
+      lastActivityAt: _lastActivityAt,
+      commandPreview: _commandPreview,
+      unread: _unread,
+      nextFireAt: _nextFireAt,
+      schedule: _schedule,
+      ...carried
+    } = state;
     return {
-      id: state.id,
-      type: state.agentType ?? state.label,
-      label: state.label,
-      parentSessionId: state.parentSessionId,
+      ...carried,
+      type: agentType ?? carried.label,
       // SELFHOST-012: `paused` is a scheduled-task-only status; a subagent is never a scheduled task, so this
       // branch is unreachable — narrowed here only to keep the projection assignable to TSubagentJobStatus.
-      status: state.status === 'paused' ? 'sleeping' : state.status,
-      mode: state.mode,
-      depth: state.depth,
-      pid: state.pid,
-      cwd: state.cwd,
-      isolation: state.isolation,
-      worktreePath: state.worktreePath,
-      branchName: state.branchName,
-      worktreeStatus: state.worktreeStatus,
-      worktreeNextAction: state.worktreeNextAction,
-      worktreeBaseRevision: state.worktreeBaseRevision,
-      parentWorktreeStatus: state.parentWorktreeStatus,
-      promptPreview: state.promptPreview ?? '',
-      currentTool: state.currentAction,
-      logPath: state.logPath,
-      transcriptPath: state.transcriptPath,
-      startedAt: state.startedAt,
-      updatedAt: state.updatedAt,
-      completedAt: state.completedAt,
-      timeoutReason: state.timeoutReason,
-      result: state.result?.output,
-      error: state.error?.message,
-      metadata: state.metadata,
+      status: status === 'paused' ? 'sleeping' : status,
+      promptPreview: promptPreview ?? '',
+      currentTool: currentAction,
+      result: result?.output,
+      error: error?.message,
     };
   }
 }

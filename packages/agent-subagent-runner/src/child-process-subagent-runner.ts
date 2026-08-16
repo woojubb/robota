@@ -6,6 +6,7 @@ import {
   BackgroundTaskError,
   createBackgroundTaskLogPage,
   createWorktreeSubagentRunner,
+  subagentExecutionRoot,
   type ISubagentJobHandle,
   type ISubagentJobStart,
   type ISubagentRunner,
@@ -88,7 +89,11 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
 
   start(job: ISubagentJobStart): ISubagentJobHandle {
     const child = fork(this.workerPath, [], {
-      cwd: job.request.cwd,
+      // ARCH-010/ARCH-031: the forked process's OS working directory answers the same question as
+      // the session's execution root, so it reads the same rule. Reading `request.cwd` directly was
+      // only ever correct while the worktree runner rewrote that field — this is the second carrier
+      // that removal would have left disagreeing with the first.
+      cwd: subagentExecutionRoot(job),
       env: { ...process.env, ...(this.env ?? {}) },
       execArgv: this.execArgv ?? resolveExecArgv(this.workerPath),
       stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
@@ -138,7 +143,6 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     return {
       taskId: job.taskId,
       request: job.request,
-
       ...(job.worktree ? { worktree: job.worktree } : {}),
       agentDefinition: applyRequestOverrides(definition, job),
       parentConfig: this.deps.config,

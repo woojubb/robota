@@ -13,7 +13,9 @@ import type { ISubagentWorkerStartPayload } from '../index.js';
 function validStartPayload(): ISubagentWorkerStartPayload {
   return {
     taskId: 'agent_1',
-    request: { agentType: 'tester', prompt: 'do work' },
+    // ARCH-031: `permissionPolicy` is required at the spawn boundary, so a "fully-formed" payload
+    // carries it. The `as unknown as` cast below is why this fixture could go stale silently.
+    request: { agentType: 'tester', prompt: 'do work', permissionPolicy: 'inherit-allowlist' },
     agentDefinition: { name: 'tester', systemPrompt: 'Run tasks.' },
     parentConfig: {},
     parentContext: {},
@@ -48,6 +50,13 @@ describe('isSubagentWorkerParentMessage', () => {
     const noModel = validStartPayload() as unknown as { providerProfile: Record<string, unknown> };
     delete noModel.providerProfile.model;
     expect(isSubagentWorkerParentMessage({ type: 'start', payload: noModel })).toBe(false);
+
+    // ARCH-031: the policy is required at the boundary, so the guard must reject a payload without
+    // it. Without this the worker's conditional spread silently omits the policy — CORE-025 lost
+    // this exact field once already, and nothing caught it.
+    const noPolicy = validStartPayload() as unknown as { request: Record<string, unknown> };
+    delete noPolicy.request.permissionPolicy;
+    expect(isSubagentWorkerParentMessage({ type: 'start', payload: noPolicy })).toBe(false);
   });
 });
 

@@ -38,7 +38,11 @@ because they exist on the source, not because someone remembered them.
   `worktree?`. This package is not in the item's declared `area:`; the audit that caught it is the reason
   it is here.
 - **`agent-interface-transport` (minor)** — two new barrel exports; nothing removed or renamed.
-- **`agent-core` (minor)** — one new barrel export, `DEFAULT_BACKGROUND_PERMISSION_POLICY`.
+- **`agent-core` (minor)** — **two** new barrel exports. `DEFAULT_BACKGROUND_PERMISSION_POLICY` is the
+  intended one; collapsing the hand-listed permissions block to `export *` also surfaced
+  `clearRegisteredToolArgumentKeys`, which the old list had omitted. It is documented as public rather
+  than re-narrowed — a barrel that cannot fall out of step with its owner is the point of the collapse.
+  Nothing was removed: all nine previously-listed permission types remain on the barrel.
 - **`agent-cli` (patch)** — migrated as the only in-repo implementer of `ISubagentWorktreeAdapter`; no
   barrel change.
 

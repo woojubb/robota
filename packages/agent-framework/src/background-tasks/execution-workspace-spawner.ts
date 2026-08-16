@@ -13,8 +13,6 @@ import type {
   IAgentBackgroundTaskRequest,
   IBackgroundTaskState,
   IProcessBackgroundTaskRequest,
-  TBackgroundPermissionPolicy,
-  TBackgroundTaskIsolation,
   TBackgroundTaskMode,
 } from '@robota-sdk/agent-interface-transport';
 

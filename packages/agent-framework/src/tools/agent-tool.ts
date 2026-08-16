@@ -1,4 +1,3 @@
-import { DEFAULT_BACKGROUND_PERMISSION_POLICY } from '@robota-sdk/agent-core';
 /**
  * AgentTool — spawn a subagent with isolated context.
  *
@@ -12,6 +11,7 @@ import { DEFAULT_BACKGROUND_PERMISSION_POLICY } from '@robota-sdk/agent-core';
  * multiple concurrent sessions without race conditions.
  */
 
+import { DEFAULT_BACKGROUND_PERMISSION_POLICY } from '@robota-sdk/agent-core';
 import { SubagentManager } from '@robota-sdk/agent-executor';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';

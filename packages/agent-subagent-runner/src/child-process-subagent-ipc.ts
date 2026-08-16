@@ -1,7 +1,9 @@
 import type { ISessionUsageTotals, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import type { IAgentDefinition, IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
-import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface-transport';
-import type { ISerializableProviderProfile } from '@robota-sdk/agent-interface-transport';
+import type {
+  ISerializableProviderProfile,
+  ISubagentSpawnRequest,
+} from '@robota-sdk/agent-interface-transport';
 
 export type TSubagentWorkerWireValue = string | number | boolean | null | undefined | object;
 
@@ -144,6 +146,10 @@ function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWork
   if (!isRecord(value.request)) return false;
   if (!hasRequestString(value.request, 'agentType')) return false;
   if (!hasRequestString(value.request, 'prompt')) return false;
+  // ARCH-031: required at the spawn boundary, so the guard asserts it too. Without this a payload
+  // missing the policy passes, and the worker's conditional spread then silently omits it — which is
+  // how CORE-025 lost this exact field once already.
+  if (!hasRequestString(value.request, 'permissionPolicy')) return false;
   if (!isRecord(value.agentDefinition)) return false;
   if (!hasString(value.agentDefinition, 'name')) return false;
   if (!hasString(value.agentDefinition, 'systemPrompt')) return false;
