@@ -21,7 +21,7 @@ import type {
  * `IAgentJobHostContext` declares 15 members and **none** of them optional — so it is the more honest
  * of the two contracts, and satisfying it without a cast means answering all fifteen. That is exactly
  * why fixtures cast it: there was nothing to reach for. Migrating a host cast into a job cast would
- * have been half the work, which is why this exists rather than a second `as unknown as`.
+ * have been half the work, which is why this exists rather than a second double assertion.
  */
 /**
  * The three states this contract returns, each meaning "nothing ran". Named rather than inlined so a

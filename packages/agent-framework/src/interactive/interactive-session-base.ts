@@ -121,15 +121,12 @@ export abstract class InteractiveSessionBase {
     return this.skillRouter.executeModelCommand(name, args);
   }
   /**
-   * ARCH-029 TC-08 — the production host implements the member that used to be an unimplemented
-   * optional override, by delegating to the SAME helper the framework used as its default. One
-   * computed path with one owner; the framework's fallback branch is deleted, not kept beside it.
+   * ARCH-029 TC-08 — delegates to the SAME helper the framework used as its default, so there is
+   * one computed path with one owner and no fallback branch beside it.
    */
   validateCurrentSessionReplayLog(): ICommandSessionReplayValidationReport {
-    return computeSessionReplayValidationReport(
-      this.getCwd(),
-      this.getSessionOrThrow().getSessionId(),
-    );
+    const sessionId = this.getSessionOrThrow().getSessionId();
+    return computeSessionReplayValidationReport(this.getCwd(), sessionId);
   }
 
   getCommandInvocationSource(): TCommandInvocationSource {
