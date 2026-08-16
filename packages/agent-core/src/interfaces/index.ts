@@ -89,6 +89,13 @@ export {
   getProviderCredentialRequirement,
 } from './provider-definition';
 
+// PROV-006: reading the per-model capability vocabulary that nothing read.
+export {
+  findModelCatalogEntry,
+  modelDeclaresCapability,
+  resolveModelCapability,
+} from './model-capability.js';
+
 export type {
   IMediaOutputRef,
   IProviderMediaError,

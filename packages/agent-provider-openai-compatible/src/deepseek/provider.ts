@@ -1,7 +1,9 @@
 import { AbstractAIProvider, SilentLogger } from '@robota-sdk/agent-core';
 import OpenAI from 'openai';
 
+import { DEEPSEEK_PROVIDER_CAPABILITIES } from './capabilities';
 import { DEFAULT_DEEPSEEK_PROVIDER_BASE_URL } from './defaults';
+import { DEEPSEEK_MODEL_CATALOG } from './model-catalog';
 import {
   assembleOpenAICompatibleStream,
   buildOpenAICompatibleRequestParams,
@@ -18,6 +20,7 @@ import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.j
 import type {
   IChatOptions,
   IProviderCapabilities,
+  IProviderModelCatalog,
   TTextDeltaCallback,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -179,30 +182,22 @@ export class DeepSeekProvider extends AbstractAIProvider {
     }
   }
 
+  /**
+   * PROV-006: this answers for the VENDOR — deepseek does support function calling — which is all a
+   * provider-granular boolean can honestly say. It used to be the only answer anything read, while
+   * this package's own catalog said `deepseek-reasoner` has no `tools`; the per-MODEL question is
+   * now `modelCatalog()`, which the execution seam asks before offering any.
+   */
   override supportsTools(): boolean {
     return true;
   }
 
+  modelCatalog(): IProviderModelCatalog {
+    return DEEPSEEK_MODEL_CATALOG;
+  }
+
   override getCapabilities(): IProviderCapabilities {
-    return {
-      functionCalling: { supported: true },
-      nativeWebTools: {
-        webSearch: {
-          supported: false,
-          enabled: false,
-          source: 'openai-compatible-chat-completions',
-          reason:
-            'DeepSeek OpenAI-compatible Chat Completions supports declared function tools, not provider-native web search.',
-        },
-        webFetch: {
-          supported: false,
-          enabled: false,
-          source: 'openai-compatible-chat-completions',
-          reason:
-            'DeepSeek OpenAI-compatible Chat Completions supports declared function tools, not provider-native web fetch.',
-        },
-      },
-    };
+    return DEEPSEEK_PROVIDER_CAPABILITIES;
   }
 
   override validateConfig(): boolean {

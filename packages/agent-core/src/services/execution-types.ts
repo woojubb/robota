@@ -3,6 +3,7 @@ import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IChatOptions, TTextDeltaCallback, TToolChoice } from '../interfaces/provider';
+import type { IProviderModelCatalog } from '../interfaces/provider-definition';
 import type { TMetadata } from '../interfaces/types';
 
 /** Preview length for general content truncation */
@@ -44,6 +45,12 @@ export const ID_RANDOM_LENGTH = 9;
 export interface IResolvedProviderInfo {
   provider: {
     chat: (messages: TUniversalMessage[], options: IChatOptions) => Promise<TUniversalMessage>;
+    /**
+     * PROV-006: the provider's per-model capability declarations, so the turn can ask whether THIS
+     * model can do what the request needs. Structurally typed like `chat` above — this seam names
+     * what it uses rather than depending on the whole provider interface.
+     */
+    modelCatalog?: () => IProviderModelCatalog | undefined;
   };
   currentInfo: { provider: string };
   aiProviderInfo: {

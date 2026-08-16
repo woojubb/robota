@@ -1,6 +1,6 @@
 import { DEFAULT_DEEPSEEK_PROVIDER_MODEL } from './defaults';
 
-import type { IProviderModelCatalogEntry } from '@robota-sdk/agent-core';
+import type { IProviderModelCatalog, IProviderModelCatalogEntry } from '@robota-sdk/agent-core';
 
 export const DEEPSEEK_MODEL_CATALOG_SOURCE_URL =
   'https://api-docs.deepseek.com/quick_start/pricing';
@@ -48,6 +48,20 @@ export const DEEPSEEK_MODEL_CATALOG_ENTRIES: readonly IProviderModelCatalogEntry
     lastVerifiedAt: DEEPSEEK_MODEL_LAST_VERIFIED_AT,
   },
 ];
+
+/**
+ * The catalog as the provider surfaces it, so a per-model capability is reachable at call time.
+ *
+ * PROV-006: `provider-definition.ts` already built this object for the definition registry, but the
+ * running provider had no way to reach it — which is why `supportsTools()` answered for the whole
+ * vendor and contradicted this very file.
+ */
+export const DEEPSEEK_MODEL_CATALOG = {
+  status: 'fallback',
+  sourceUrl: DEEPSEEK_MODEL_CATALOG_SOURCE_URL,
+  lastVerifiedAt: DEEPSEEK_MODEL_LAST_VERIFIED_AT,
+  entries: DEEPSEEK_MODEL_CATALOG_ENTRIES,
+} as const satisfies IProviderModelCatalog;
 
 export function getDeepSeekFallbackModelCatalogEntry(
   id: string,
