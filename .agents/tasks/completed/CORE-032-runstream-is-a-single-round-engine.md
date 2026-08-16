@@ -1,7 +1,8 @@
 ---
 title: 'CORE-032: the public runStream() is a single-round engine that implements none of the documented execution loop — no post-tool model call, no round cap, an aborted stream is committed as complete, and structured-output validation over "final assistant text after tool rounds" is unimplementable'
-status: todo
+status: done
 created: 2026-08-13
+completed: 2026-08-16
 priority: high
 urgency: soon
 area: packages/agent-core
@@ -75,3 +76,44 @@ emission on the streaming path is CORE-033.)
 - Cleanup: delete the scratch project.
 - Evidence (fill in after implementation): the streaming transcript showing the post-tool answer, and
   the stored message state after abort.
+
+## Outcome (2026-08-16) — delivered by CORE-042
+
+`runStream` no longer has a loop of its own to be single-round. `ExecutionService.executeStream` is a
+streaming ENTRY into the same `execute()` the round path runs
+(`packages/agent-core/src/services/execution-stream.ts`), and
+`packages/agent-core/src/services/execution-stream-tools.ts` — the single-round tool loop this item is
+named after — is deleted. The round loop, the post-tool model call, the round cap,
+`maxSameToolInputs` and abort classification are therefore not re-implemented for streaming; they are
+what the turn does.
+
+This item's own Direction called for exactly that — _"route `executeStream` through the same round
+loop as `execute`"_ — so it is delivered rather than superseded.
+
+Pinned in the repository by `packages/agent-core/src/core/__tests__/entry-point-parity.test.ts`, which
+runs nine capabilities against BOTH entry points from one table, so a future divergence fails rather
+than passing quietly.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** in-progress → done
+
+- **Scenario executed.** CORE-042's Scenarios 1 and 2 are this item's scenario, executed against the
+  completed implementation from `scratch/` via
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-042-s1.ts` (and `-s2`). Both
+  printed `SCENARIO <N> PASS`.
+- **Observed matched expected.** S1: a streaming turn that calls a tool made **2** provider calls with
+  history `["user","assistant","tool","assistant"]` — the tool result fed a follow-up model call,
+  which a single-round engine cannot do — and `run()` made the same 2. S2: with
+  `maxExecutionRounds=2`, `runStream()` made **3** provider calls and executed the tool **twice**,
+  matching `run()` exactly; the cap is honoured rather than absent.
+- **Surface substitution, stated.** This item's scenario text names a provider key. The scenarios were
+  instead run against a scripted provider written to the PUBLIC extension point
+  (`AbstractAIProvider`, `AbstractTool`, `Robota`), which is the same surface a third-party integrator
+  uses and which makes the round count directly observable. The credential probe is recorded in
+  CORE-042: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `GEMINI_API_KEY` and
+  `BYTEDANCE_API_KEY` were all unset with no `.env` present, so this is a probed absence, not an
+  assumed one — and a live key would have made the round count harder to observe, not easier.
+- **Durable artifacts.** `packages/agent-core/src/core/__tests__/entry-point-parity.test.ts` and the
+  scenario blocks inlined in
+  [CORE-042](completed/CORE-042-the-execution-turn-is-implemented-twice.md).
