@@ -393,7 +393,11 @@ which construction path the caller happened to use. Pre-release, `code-quality.m
 consequences available rather than merely desirable:
 
 - **(3)** is removed, or routed through the gate — the provider stops merging a construction-time
-  format of its own.
+  format of its own. **The caller set is verified empty**: every in-repo match on that option is
+  inside `openai-request-format.ts`'s own merge function; there is no constructor caller anywhere in
+  the workspace, and `packages/agent-provider-openai/docs/SPEC.md` does not mention `responseFormat`
+  at all. A removal with an enumerated-and-empty caller list is a far stronger case than an
+  unenumerated one.
 - **(4)** funnels into (1) as intent, so a drop is reported rather than silent.
 - **(5)** becomes a caller of the gated path instead of a prompt-appender — which also removes the
   contradiction with step 4's own scope-out.
@@ -793,8 +797,10 @@ cites as its reason to prefer one helper.
 
 **A. Thread `responseFormat` through the compat builder and stop.** One line in the seam #1757
 created. Rejected as the whole answer: it sends a schema to models the vendor documents as not
-supporting it, and leaves `agent-provider-openai`-through-a-gateway still misreporting. A strict subset
-of this design; can land first as a step, not as the fix.
+supporting it, and leaves `agent-provider-openai`-through-a-gateway still misreporting. **And it is
+withdrawn as a landing step too** — that wording predates step 1's correction, which established
+DeepSeek is `json_object` only, so threading `responseFormat` there would send a surface the vendor
+does not offer.
 
 **B. Put transport selection in `IRunOptions` / agent config alone.** Makes the caller responsible for
 knowing what their endpoint supports — the knowledge the SDK is supposed to hold. It would not have
@@ -842,7 +848,7 @@ so every producer is updated rather than silently ignoring it.
 
 ### Independent review
 
-Eleven rounds with `proposal-reviewer`, 2026-08-16. All eleven returned **`REVIEW VERDICT: REVISE`**;
+Twelve rounds with `proposal-reviewer`, 2026-08-16. All twelve returned **`REVIEW VERDICT: REVISE`**;
 all were accepted in full, and in every round each load-bearing finding was independently
 re-checked against the code before revising. No finding was refuted in any round.
 
@@ -1041,6 +1047,28 @@ PROV-007 sequenced ahead of the OpenAI fallback path. It is the size the defect 
 filed **three times in three days from three channels** because no layer owns it, and a fourth partial
 representation is how that continues.
 
+## Landing sequence
+
+The `area` grew from three packages to thirteen across eleven review rounds — every increment traced
+to a verified defect, but the aggregate is no longer one landing. The design stays **one design**; it
+lands in four units, each independently verifiable, with one hard ordering rule.
+
+| Unit  | Content                                                            | Depends on         | Why it is its own landing                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----- | ------------------------------------------------------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A** | Intent-channel consolidation — the sole gate (§ 3c) + the CLI flag | —                  | **Must precede C.** A gate with a bypass is not a gate: while the provider-level option reaches the wire directly, step 4's gate and step 4b's report are _false_ for that path. Cheapest of the four — verified-empty caller set, no SPEC to amend                                                                                                                                                                   |
+| **B** | Capability contract and resolution seam (§ 1–3, 3b)                | —                  | Runs parallel to A. Deliverable is **truth without action**: every (provider, model) answers correctly, all six flags route through the seam, PROV-006 closes, the catalog splits, cost moves — and `buildChatResponseFormat` **emits exactly as today**. Observable before it acts. Carries one behaviour change of its own (`tools` gating once `LocalExecutor` routes through), which needs its own red-first test |
+| **C** | Transport selection and terminal extraction (§ 4, 4b, 5, 6, 7)     | A, B, **PROV-007** | Where behaviour changes: the gate acts, the extraction exists, the commit shape changes, the report is emitted                                                                                                                                                                                                                                                                                                        |
+| **D** | Replay-log discriminator + `session-log-events.ts`                 | —                  | Two files, enabling for C, landable any time. Keeps C's diff about transport rather than log format                                                                                                                                                                                                                                                                                                                   |
+
+**Order: A and B in parallel → C.** D whenever convenient; PROV-007 ahead of C's OpenAI path.
+
+**The one hard rule: B changes no emission.** Its whole value is that the capability answers and the
+reports can be checked against reality before anything depends on them. A B that also changes what is
+sent would be C wearing B's clothes, and the safe half would inherit the risky half's blast radius —
+which is the reason for splitting at all.
+
+Each child cites this document as its design; this document is not superseded by them.
+
 ## Completion Criteria (draft)
 
 - **TC-01** Given provider _P_ and model _M_, the emitted request carries or omits the schema exactly
@@ -1128,6 +1156,12 @@ representation is how that continues.
   **exactly one** `history_mutation` append for the converging turn with the index matching the
   committed message. This pins the breakage class of a deferred commit directly rather than through
   its symptoms — a spurious summary call and a replay event for an append that never happened.
+- **TC-07g** Every touched provider package's `docs/SPEC.md` states its capability-table contract,
+  and `agent-provider-openai`'s records the removal of the provider-level `responseFormat` /
+  `jsonSchema` option — which that SPEC does not mention today, while the option is published. A
+  package SSOT silent on its own published option is the defect class this item is _about_: a
+  declaration nobody updated after the fact under it changed. Distributes across the children under
+  the landing sequence below.
 - **TC-07c** A validation failure on attempt _n_ causes attempt _n+1_ to use the extraction transport
   on a non-native provider **unconditionally**, without re-consulting the structural predicate — the
   subset-vs-Zod divergence, pinned with a schema whose constraints live outside the universal subset
