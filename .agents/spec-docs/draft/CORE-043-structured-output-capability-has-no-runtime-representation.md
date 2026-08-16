@@ -330,7 +330,23 @@ consumer is waiting: `session-run.ts:164-177` already logs sibling capability fa
 in the session log instead of being inferred from a bad answer — which is how the reporter of #1738
 had to find it.
 
-### 5. The endpoint override lands in this change, not later
+### 5. The endpoint override lands in this change, and covers BOTH gateway providers
+
+**`agent-provider-anthropic` accepts a `baseURL` too, and every revision before this one missed it.**
+`anthropic/src/anthropic/types.ts:41-48` documents it as "any Anthropic-Messages-API-compatible
+endpoint — e.g. a proxy/gateway that speaks the Messages protocol", wired at `provider.ts:84`. So
+Anthropic-through-a-gateway carries the **identical defect this whole item was filed for**: it sends
+`output_config.format`, the endpoint accepts it, the model may ignore it, and the runtime reports
+early enforcement it does not have.
+
+Earlier revisions gave anthropic a flat `response_schema` and split only `agent-provider-openai` on
+`baseURL` — the round-1 producer-enumeration failure recurring in the answer table, where the provider
+being thought about got enumerated and the others did not. Correcting the defect in one package while
+leaving it standing in another this change already modifies is the documented-as-intentional exception
+`code-quality.md:50` bars.
+
+**Both gateway-capable providers resolve `provenance: 'unverified-endpoint'` when `baseURL` is set,
+and both are covered by the override below.**
 
 `'unverified-endpoint'` for every `baseURL` reverses a **correct** behaviour for a large documented
 population: `llms.txt:22` names Azure, vLLM, Ollama and LM Studio alongside gateways, and Azure OpenAI
@@ -344,8 +360,10 @@ the behaviour change safe, so it ships with it.
 ### 6. What the fallback actually emits — the previously "resolved" question, reopened
 
 The first draft closed its gating question by citing Anthropic's `strict: true` and OpenAI's strict
-function calling. **Those citations do not apply to either family that takes the fallback.** Under the
-capability table, anthropic and gemini answer `response_schema` and never reach it. The two that do:
+function calling. **Those citations do not apply to the families that take the fallback.** Gemini
+answers `response_schema` and never reaches it; anthropic reaches it only through a `baseURL`, where
+the endpoint is by definition not Anthropic's and the guarantee does not travel with the protocol.
+The paths that do take it:
 
 - **compat (`json_object` / `none`)** — `convertToOpenAICompatibleTools`
   (`shared/openai-compatible/message-converter.ts:19-36`) emits `name`, `description`, `parameters`,
@@ -515,13 +533,36 @@ deliberately adopted, already does the edit-history dance — `conversationStore
 filtered list (`execution-pipeline.ts:170-183`). Taking it as the structural sibling inherits that
 tension.
 
-**The extraction call is therefore out-of-band.** Its request and its raw tool-call response are not
-committed; what is committed is a normal assistant **text** message carrying the converted JSON —
-exactly the response text TC-04b already defines. History stays valid for every provider, no unpaired
-tool call is ever persisted, and "every attempt is a real conversation turn" still holds, because the
-attempt's turn is that assistant text. Nothing is edited, so `SPEC:987` is **satisfied rather than
-worked around** — which is also why the same clause's tension with `forceSummaryCall` is recorded here
-rather than copied.
+**The extraction call is therefore out-of-band in BOTH directions: nothing of it is committed.** Not
+the request, not the tool call, and — correcting the round-5 formulation this document first
+adopted — **not the converted text either.**
+
+That first formulation committed the converted JSON as an assistant text message. It solves the
+unpaired-`tool_use` problem and creates a new one: the round has **already** committed its prose
+assistant message, so appending the converted text produces **two consecutive assistant messages for
+one turn**. Valid on the OpenAI wire; rejected on the Anthropic Messages wire, which requires
+user/assistant alternation — and whose converter maps messages by role with no merging of consecutive
+same-role entries (`anthropic/message-converter.ts:56-62`). Step 5's correction is what makes that
+wire reachable here: once anthropic-with-`baseURL` resolves non-native, the extraction runs on it.
+
+The rule that satisfies every constraint at once: **the attempt's committed turn stays the single
+assistant message the round already wrote, and the extracted object is the attempt's return value**,
+which the run layer validates. `SPEC:986` holds — every attempt is a real conversation turn, and the
+turn is the round's assistant message. `SPEC:987` holds — nothing is edited _or_ added. No unpaired
+`tool_use` is persisted on any wire, and no consecutive-assistant sequence is produced on any wire. It
+is also the more honest record: history shows what the model actually emitted, not a message it never
+produced in that form.
+
+**Two ordering facts, verified rather than assumed.** There is no race with the attempt's own append:
+`commitAssistant` runs **inside** the round (`execution-round.ts:218`), so by the time the loop exits
+the store already holds the converged assistant message — the same guarantee `hasTextResponse` and
+`forceSummaryCall` already depend on. A post-loop read is sequential and deterministic. And the
+extraction's request is composed **without mutating the store** —
+`[...conversationStore.getMessages(), <trailing user message>]` passed straight to `provider.chat`.
+That is what makes out-of-band implementable, and it is strictly better than `forceSummaryCall`'s
+`clear()`-and-re-add (`execution-pipeline.ts:170-183`), which is the edit that sits in tension with
+`SPEC:987`. The trailing user message is not decoration: a conversation ending on an assistant message
+is not a valid request shape on every wire, which is why the sibling has one too.
 
 **And that call is cheaper than the retry it displaces.** An attempt is a whole run, not a call:
 `maxAttempts = (options.outputRetries ?? 2) + 1` and each attempt calls `robotaRun`
@@ -593,7 +634,7 @@ so every producer is updated rather than silently ignoring it.
 
 ### Independent review
 
-Five rounds with `proposal-reviewer`, 2026-08-16. All five returned **`REVIEW VERDICT: REVISE`**;
+Six rounds with `proposal-reviewer`, 2026-08-16. All six returned **`REVIEW VERDICT: REVISE`**;
 all were accepted in full, and in every round each load-bearing finding was independently
 re-checked against the code before revising. No finding was refuted in any round.
 
@@ -618,6 +659,22 @@ attempt is a full round loop and the extraction is one call.
 
 **Rounds 1 and 2** are below. Round 2 (on the first revision):
 the code before revising. No finding was refuted.
+
+**Round 6** (on the fifth revision) closed the ordering question this author raised — there is no race,
+because `commitAssistant` runs inside the round (`execution-round.ts:218`), so the post-loop read is
+sequential — and then found one verified fact that changed two steps, **including a correction to the
+reviewer's own round-5 recommendation**:
+
+| Round-6 finding                                                                                                    | Re-checked at                                | Disposition                                              |
+| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- | -------------------------------------------------------- |
+| `agent-provider-anthropic` accepts `baseURL` — the gateway defect is not OpenAI-only                               | `anthropic/types.ts:41-48`, `provider.ts:84` | Fixed — step 5 covers both providers                     |
+| Committing the converted text produces **two consecutive assistant messages** — a 400 on a strict-alternation wire | `anthropic/message-converter.ts:56-62`       | Fixed — fully out-of-band; TC-07b now pins both failures |
+| No race, and the request must be composed without mutating the store                                               | `execution-round.ts:218`                     | Adopted — stated as verified                             |
+
+The second row is the notable one: the reviewer recommended committing the converted assistant text in
+round 5, this document adopted it, and round 6 falsified it — but only because round 6's _own_ first
+finding (anthropic + `baseURL`) made the strict-alternation wire reachable. Neither fact alone would
+have surfaced it.
 
 **Round 5** (on the fourth revision) confirmed the design's shape as final — the reviewer stated it
 would approve steps 1–6, the pipeline ownership, the predicate's placement, the carrier decision and
@@ -704,9 +761,12 @@ representation is how that continues.
 - **TC-01** Given provider _P_ and model _M_, the emitted request carries or omits the schema exactly
   as the resolved capability says — asserted on the request, not on the presence of a type member.
   (The first draft's "the member exists and the resolver returns it" was a compile-time tautology.)
-- **TC-02** `agent-provider-openai` resolves `provenance: 'vendor-default'` without a `baseURL` and
-  `'unverified-endpoint'` with one; a test pins both, and a third pins the step-5 override restoring
-  `response_schema` for a declared Azure/vLLM endpoint.
+- **TC-02** **Both** gateway-capable providers — `agent-provider-openai` and
+  `agent-provider-anthropic` — resolve `provenance: 'vendor-default'` without a `baseURL` and
+  `'unverified-endpoint'` with one; a test pins each, and a further one pins the step-5 override
+  restoring `response_schema` for a declared Azure/vLLM endpoint. Anthropic is named explicitly
+  because every revision before the seventh gave it a flat `response_schema` and missed that
+  `types.ts:41-48` advertises the same gateway configuration.
 - **TC-03** Catalog entry ↔ resolved capability ↔ emitted request are mutually consistent for every
   provider, tested. Vendor verification is recorded as a dated source on the catalog entry
   (`lastVerifiedAt` / `sourceUrl` already exist on `IProviderModelCatalogEntry`) — a human act with an
@@ -723,9 +783,9 @@ representation is how that continues.
   report early enforcement. Asserted on **both** entry points: `run(input, { output })` and
   `runStream`'s structured form, since the event channel is what makes the streaming path reportable
   at all.
-- **TC-04b** The extraction call's tool `arguments` become the response text the validator sees. A
-  run whose extraction succeeds returns the object, not `''` — the conversion step 7 names, pinned,
-  because without it the whole mechanism yields nothing.
+- **TC-04b** The extraction call's tool `arguments` become the value the validator sees, **without
+  being committed to history**. A run whose extraction succeeds returns the object, not `''` — the
+  conversion step 7 names, pinned, because without it the whole mechanism yields nothing.
 - **TC-05** With `outputRetries: 0` against a non-`response_schema` provider, a run whose first
   response is prose still returns a validated object — via the extraction call, and **without a second
   full run**. Scriptable deterministically against the scripted provider, and it asserts the property
@@ -746,11 +806,12 @@ representation is how that continues.
   it" — PROV-004 classifies that as a violation, so the SPEC currently documents the violation as
   intent. § Structured Output Contract's **History** clause (`:986-987`) additionally states the
   out-of-band rule for the extraction call, since that clause is what governs it.
-- **TC-07b** After a structured run that used the extraction transport, the conversation contains **no
-  assistant message with an unanswered tool call**, and a subsequent turn on the same conversation
-  succeeds. This is the criterion that catches the 400 a naive implementation would ship — pinned on
-  a provider whose converter emits `tool_use` blocks, so the failure is reproducible rather than
-  theoretical.
+- **TC-07b** After a structured run that used the extraction transport, the conversation contains
+  **no assistant message with an unanswered tool call** and **no two consecutive assistant messages**,
+  and a subsequent turn on the same conversation succeeds. Pinned against a converter that emits
+  `tool_use` blocks _and_ enforces user/assistant alternation, so both failures are reproducible
+  rather than theoretical — the first is the 400 a naive commit would ship, the second is the 400 the
+  round-5 formulation of this rule would have shipped.
 - **TC-07c** A validation failure on attempt _n_ causes attempt _n+1_ to use the extraction transport
   on a non-native provider **unconditionally**, without re-consulting the structural predicate — the
   subset-vs-Zod divergence, pinned with a schema whose constraints live outside the universal subset
