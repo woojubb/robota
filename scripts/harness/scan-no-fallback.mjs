@@ -264,8 +264,13 @@ export function findNoFallbackFindingsInSource(source, file = 'fixture.ts') {
   }
 
   // `.catch(() => undefined)` / `.catch(() => null)` / `.catch(() => {})` — a rejection thrown away.
-  const discardedRejectionRe =
-    /\.catch\(\s*\(\s*(?:_[\w$]*)?\s*\)\s*=>\s*(?:undefined|null|\{\s*\})\s*\)/g;
+  //
+  // The parameter list is deliberately permissive. A first cut allowed only `()` and `(_name)`,
+  // which missed `.catch((err) => undefined)` and `.catch((error: unknown) => undefined)` — the two
+  // most common spellings, and exactly the ones this floor exists to catch. What makes it a discard
+  // is the BODY: an arrow that evaluates to `undefined`, `null` or `{}` throws the rejection away
+  // whatever it called the parameter it ignored.
+  const discardedRejectionRe = /\.catch\(\s*\(?[^)=]*\)?\s*=>\s*(?:undefined|null|\{\s*\})\s*[,)]/g;
   let discardMatch;
   while ((discardMatch = discardedRejectionRe.exec(source)) !== null) {
     const line = source.slice(0, discardMatch.index).split('\n').length;

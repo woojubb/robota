@@ -166,6 +166,15 @@ describe('CORE-029 — the swallow kinds', () => {
     expect(kinds('void run().catch(() => null);')).toContain('discarded-rejection');
     expect(kinds('void run().catch(() => {});')).toContain('discarded-rejection');
     expect(kinds('void run().catch((_e) => undefined);')).toContain('discarded-rejection');
+    // A first cut allowed only `()` and `(_name)`, so the two most common spellings slipped through
+    // the very floor this change adds. What makes it a discard is the body, not the parameter name.
+    expect(kinds('void run().catch((err) => undefined);')).toContain('discarded-rejection');
+    expect(kinds('void run().catch((error: unknown) => undefined);')).toContain(
+      'discarded-rejection',
+    );
+    expect(kinds('void run().catch(err => undefined);')).toContain('discarded-rejection');
+    expect(kinds('void run().catch((error) => null);')).toContain('discarded-rejection');
+    expect(kinds('void run().catch((error: Error) => {});')).toContain('discarded-rejection');
   });
 
   it('does NOT flag a rejection handler that reports', () => {
