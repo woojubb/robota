@@ -94,7 +94,7 @@ const PROMPT_BACKSTOP_MS = 30 * 60 * 1000;
 
 export class InteractiveSession
   extends InteractiveSessionBase
-  implements ISession, IAgentJobHostContext, IInteractiveSession
+  implements ISession, IAgentJobHostContext, IInteractiveSession, ICommandHostContext
 {
   private session: Session | null = null;
   private readonly listeners = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -218,7 +218,12 @@ export class InteractiveSession
       commandModules,
       cwd,
       commandHostAdapters,
-      () => this as unknown as ICommandHostContext,
+      // ARCH-029 S1: no cast. The class declares `implements ICommandHostContext` above, so its
+      // conformance is checked by the compiler rather than asserted here. The assertion was
+      // vestigial — a strict-mode probe showed the session was already assignable — but an
+      // `as unknown as` would have silently swallowed any future drift, which is exactly what a
+      // 46-member contract with 32 optional members makes easy.
+      () => this,
       () => this.session?.getSessionId() ?? '',
       (prompt, displayInput, rawInput) => this.submit(prompt, displayInput, rawInput),
       (result) => this.execCtrl.applyForkSkillResult(result),
