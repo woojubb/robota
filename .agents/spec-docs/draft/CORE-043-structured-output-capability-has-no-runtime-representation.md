@@ -602,6 +602,29 @@ provider (c). The divergence closes instead of moving.
 Transport **selection** is unaffected and stays at `buildChatResponseFormat` per step 4 — selection
 belongs where the request is built; only injection moves to where the response is parsed.
 
+**The extraction gets its own instrumented call path — the round's contract is one provider call.**
+Placing the extraction inside the round makes it two, and reusing the round's path would inherit six
+assumptions that do not hold for it. A named sibling of `callRoundProviderWithEvents`, not a reuse of
+it, with each of these specified rather than inherited:
+
+| #   | Assumption of the round's path                                                                                                   | What the extraction requires                                                                                      |
+| --- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 1   | **Forcing is round-1 only.** `resolveToolChoiceForRound` (`execution-round-streaming.ts:93-99`) reverts later rounds to `'auto'` | Pass `toolChoice: { tool }` **directly, bypassing that resolution** — a deliberate exemption, stated as one       |
+| 2   | One usage record per round; `cumulativeInputTokens = inputTokens` **assigns** (`execution-round.ts:205-207`)                     | Usage is accumulated, or carried separately and included by `buildFinalResult`, so `tokensUsed` covers both calls |
+| 3   | One `provider_request` / `provider_response_*` per `round` (`:70,105,111`)                                                       | Its own event kind — never a second request under the same round, and never an unpaired tool call in the stream   |
+| 4   | Streaming callbacks append into the round's pending assistant (`createRoundStreamingCallbacks`, `:151`)                          | Does **not** stream into pending; whether its deltas reach `onTextDelta` is decided and pinned                    |
+| 5   | `afterProviderCall` fires once per round (`:183-187`)                                                                            | Fires with an explicit marker, or is excluded with the reason recorded                                            |
+| 6   | `callProviderWithCache` treats every request as ordinary                                                                         | Bypasses the cache, or the document states why a hit across differing schemas is safe                             |
+
+**Row 1 is a correctness bug, not bookkeeping**, and it is the round-2 rule biting from the other
+side: routed through the round's resolution, the extraction's named forcing would be **stripped on
+every converging round after the first** — the common case for any run that used tools — and the call
+would come back as prose that looks exactly like an ordinary miss.
+
+**Row 2 makes step 7's own cost claim checkable.** That step argues the extraction is cheaper than the
+retry it displaces; under the round's wiring the one call it adds is the one call it does not count,
+so the claim would be unverifiable from the runtime's own numbers.
+
 **The streaming case is decided here, not left to the implementer.** On the streaming structured path
 the prose deltas have already been yielded before extraction runs, so committing the object makes
 history differ from what the caller watched stream by. **Commit the object anyway.** History is the
@@ -691,7 +714,7 @@ so every producer is updated rather than silently ignoring it.
 
 ### Independent review
 
-Eight rounds with `proposal-reviewer`, 2026-08-16. All eight returned **`REVIEW VERDICT: REVISE`**;
+Nine rounds with `proposal-reviewer`, 2026-08-16. All nine returned **`REVIEW VERDICT: REVISE`**;
 all were accepted in full, and in every round each load-bearing finding was independently
 re-checked against the code before revising. No finding was refuted in any round.
 
@@ -716,6 +739,21 @@ attempt is a full round loop and the extraction is one call.
 
 **Rounds 1 and 2** are below. Round 2 (on the first revision):
 the code before revising. No finding was refuted.
+
+**Round 9** (on the eighth revision) confirmed the placement and found that the round's _contract_ is
+one provider call, which the new placement makes two:
+
+| Round-9 finding                                                                                 | Re-checked at                           | Disposition                     |
+| ----------------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------- |
+| **`resolveToolChoiceForRound` strips the forcing after round 1** — the extraction returns prose | `execution-round-streaming.ts:93-99`    | Fixed — own path, row 1; TC-07f |
+| Usage **assigns** rather than accumulates, so the extraction's tokens are unattributed          | `execution-round.ts:205-207`            | Fixed — row 2; TC-07f           |
+| A second `provider_request` under one `round`, with an unpaired tool call in the event stream   | `execution-round.ts:70,105,111`         | Fixed — row 3                   |
+| Streaming callbacks would concatenate extraction text onto the pending prose                    | `createRoundStreamingCallbacks`, `:151` | Fixed — row 4                   |
+| `afterProviderCall` fires once per round                                                        | `:183-187`                              | Fixed — row 5                   |
+| Cache eligibility undecided                                                                     | `callProviderWithCache`                 | Fixed — row 6                   |
+
+The first is the round-2 rule biting from the other side, and it is the reason the extraction needs an
+instrumented path of its own rather than a reuse of the round's.
 
 **Round 8** (on the seventh revision) traced the seam the previous two rounds had moved, at this
 author's request, and found the history _outcome_ right and the _lever_ wrong — deferring the commit
@@ -900,6 +938,10 @@ representation is how that continues.
 - **TC-07d** The streaming structured path commits the same thing the non-streaming one does: the
   extracted object, even though the prose deltas were already yielded. Pinned so the two entry points
   cannot diverge.
+- **TC-07f** On a converging round **after round 1**, the extraction request carries the named forcing
+  directive, and the run's reported `tokensUsed` includes the extraction call. The two failures that
+  are otherwise silent, pinned together: stripped forcing returns prose that looks like an ordinary
+  miss, and an uncounted call looks like a cheap run.
 - **TC-07e** A structured run on a non-native provider issues **no** `forceSummaryCall`, and emits
   **exactly one** `history_mutation` append for the converging turn with the index matching the
   committed message. This pins the breakage class of a deferred commit directly rather than through
