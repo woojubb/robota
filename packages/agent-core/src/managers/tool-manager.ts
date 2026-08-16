@@ -24,7 +24,10 @@ export class Tools extends AbstractManager implements IToolManager {
   private allowedTools?: string[];
 
   constructor() {
-    super();
+    // CORE-045: `doInitialize` below only logs, so this registry is usable the moment it exists.
+    // Without this declaration `Robota.registerTool()` threw on every freshly constructed agent,
+    // because the only thing that awaited `initialize()` was the first run.
+    super({ readyOnConstruction: true });
     this.registry = new ToolRegistry();
   }
 

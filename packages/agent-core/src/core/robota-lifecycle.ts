@@ -85,6 +85,16 @@ export interface IRobotaDestroyDeps {
   moduleRegistry: ModuleRegistry;
   eventEmitter: EventEmitterPlugin;
   executionService: ExecutionService | undefined;
+  /**
+   * The lifecycle-managed collaborators the agent owns.
+   *
+   * CORE-045: the disposal chain reached modules, plugins, the module registry and the event
+   * emitter but never these two, so a destroyed agent still held its tool registry and its provider
+   * instances — and still ACCEPTED `registerTool`, because the flag that would have refused it was
+   * never flipped. Disposal is what the flag genuinely marks; leaving them out made that untrue.
+   */
+  tools: Tools;
+  aiProviders: AIProviders;
   logger: ILogger;
   resetState(): void;
 }
@@ -145,6 +155,9 @@ export async function destroyAgent(deps: IRobotaDestroyDeps): Promise<IDestroyRe
   if (deps.eventEmitter) {
     await step('EventEmitter disposed', () => deps.eventEmitter.dispose());
   }
+
+  await step('Tools disposed', () => deps.tools.dispose());
+  await step('AIProviders disposed', () => deps.aiProviders.dispose());
 
   deps.resetState();
   if (errors.length === 0) {
