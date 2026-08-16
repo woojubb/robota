@@ -37,6 +37,7 @@
     "named-artifact-resolves",
     "new-rule-declares-enforcement",
     "no-fake-in-src",
+    "node-version-single-valued",
     "orchestration-map",
     "orchestration-neutrality",
     "product-identity",

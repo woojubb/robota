@@ -60,5 +60,8 @@
   "dependencies": {
     "@google/genai": "^1.52.0",
     "@robota-sdk/agent-core": "workspace:*"
+  },
+  "volta": {
+    "extends": "../../package.json"
   }
 }

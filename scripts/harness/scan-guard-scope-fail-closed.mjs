@@ -87,6 +87,21 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Measured as this harness calls it — `findDeclaredPinFindings(bare)`: throws
+    // `governed tree(s) absent under <root>: package.json, packages`.
+    file: 'scan-node-version-single-valued.mjs',
+    finder: 'findDeclaredPinFindings',
+    tree: 'packages',
+    why: 'it judges the Node pin by comparing every workspace manifest to the root declaration; over a root with no workspace tree there is no manifest to compare, and "zero manifests disagree" reads exactly like "the version is single-valued" — while the defect it exists to catch is 58 packages testing on a runtime nobody declared',
+  },
+  {
+    // Measured as `findMeasuredRuntimeFindings(bare)`: throws before probing.
+    file: 'scan-node-version-single-valued.mjs',
+    finder: 'findMeasuredRuntimeFindings',
+    tree: 'packages',
+    why: 'it probes the runtime a WORKSPACE script actually receives; with no workspace tree there is no such script, so a pass would report agreement between a declaration and a measurement that was never taken',
+  },
+  {
     // Measured the way this harness calls it — `collectToolClassification(bare)`: throws
     // `governed tree(s) absent under <root>: packages`.
     file: 'scan-tool-classification.mjs',

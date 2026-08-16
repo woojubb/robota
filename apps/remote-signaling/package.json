@@ -47,5 +47,8 @@
     "vitest": "^3.2.6",
     "werift": "^0.24.0"
   },
-  "license": "AGPL-3.0-only OR LicenseRef-Commercial"
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "volta": {
+    "extends": "../../package.json"
+  }
 }
