@@ -7,10 +7,16 @@ import { SystemCommandExecutor, createSystemCommands } from '../system-command.j
 
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { ICommandHostContext, ISystemCommand } from '../../command-api/index.js';
+import { createTestCommandHost } from '../../testing/command-host-double.js';
+import type { IAgentJobHostContext } from '../../command-api/host-context.js';
 
 function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspace') {
   const underlying = {
     clearHistory: vi.fn(),
+    // ARCH-029: these two were MISSING while the cast was in place — the fixture claimed to be a
+    // conformant ICommandSessionRuntime without them. Turning the check on surfaced it.
+    getHistory: vi.fn().mockReturnValue([]),
+    getFullHistory: vi.fn().mockReturnValue([]),
     getPermissionMode: vi.fn().mockReturnValue('default'),
     setPermissionMode: vi.fn(),
     getSessionId: vi.fn().mockReturnValue('test-session-id'),
@@ -54,27 +60,28 @@ function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspac
     ...overrides,
   };
 
-  return {
-    getSession: () => underlying,
-    getContextState: underlying.getContextState,
-    listBackgroundTasks: underlying.listBackgroundTasks,
-    cancelBackgroundTask: underlying.cancelBackgroundTask,
-    closeBackgroundTask: underlying.closeBackgroundTask,
-    readBackgroundTaskLog: underlying.readBackgroundTaskLog,
-    spawnAgentJob: underlying.spawnAgentJob,
-    waitAgentJob: underlying.waitAgentJob,
-    listAgentJobs: underlying.listAgentJobs,
-    listAgentDefinitions: underlying.listAgentDefinitions,
-    listEditCheckpoints: underlying.listEditCheckpoints,
-    restoreEditCheckpoint: underlying.restoreEditCheckpoint,
-    rollbackEditCheckpoint: underlying.rollbackEditCheckpoint,
-    sendAgentJob: underlying.sendAgentJob,
-    cancelAgentJob: underlying.cancelAgentJob,
-    closeAgentJob: underlying.closeAgentJob,
-    ...overrides,
-    _underlying: underlying,
-    getCwd: () => cwd,
-  } as unknown as ICommandHostContext;
+  // ARCH-029: overrides over a conformant host. The literal this replaced also carried
+  // `_underlying`, a field the contract does not declare and nothing in this file reads —
+  // the cast hid surplus as readily as it hid omissions.
+  return createTestCommandHost({
+    overrides: {
+      getSession: () => underlying,
+      getContextState: underlying.getContextState,
+      listBackgroundTasks: underlying.listBackgroundTasks,
+      cancelBackgroundTask: underlying.cancelBackgroundTask,
+      closeBackgroundTask: underlying.closeBackgroundTask,
+      readBackgroundTaskLog: underlying.readBackgroundTaskLog,
+      listEditCheckpoints: underlying.listEditCheckpoints,
+      restoreEditCheckpoint: underlying.restoreEditCheckpoint,
+      rollbackEditCheckpoint: underlying.rollbackEditCheckpoint,
+      // ARCH-029: the agent-job members are `IAgentJobHostContext`'s, reached through this getter —
+      // the cast let the fixture hang them directly off `ICommandHostContext`, so it had the contract
+      // STRUCTURE wrong and nothing could tell.
+      getAgentJobCapability: () => underlying as unknown as IAgentJobHostContext,
+      ...overrides,
+      getCwd: () => cwd,
+    },
+  });
 }
 
 describe('SystemCommandExecutor', () => {
