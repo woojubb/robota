@@ -48,8 +48,12 @@ class NoSchemaProvider {
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async *chatStream(): AsyncGenerator<TUniversalMessage> {
-    throw new Error('unused');
+    // This scenario drives the non-streaming path; a generator that yields nothing is the honest
+    // stub, and reaching it would be a routing bug worth seeing rather than a silent no-op.
+    yield* [];
+    throw new Error('chatStream is not exercised by this scenario');
   }
 
   supportsTools(): boolean {
