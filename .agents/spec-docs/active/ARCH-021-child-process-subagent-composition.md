@@ -6,7 +6,7 @@ tags: [typescript, process-boundary, composition-root, ipc]
 
 # ARCH-021: the child-process subagent worker composes from imported defaults, not from the product
 
-Design for Task [`.agents/tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`](../../tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md),
+Design for Task [`.agents/tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`](../../tasks/completed/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md),
 re-scoped by owner approval to be the root item filed as
 [#1777](https://github.com/woojubb/robota/issues/1777) after a `finding-depth-triager` verdict of
 FOUNDATIONAL.
@@ -330,7 +330,7 @@ composition root → neutral package.
 ## Tasks
 
 Broken down in the task file, one task per Completion Criterion:
-[`.agents/tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`](../../tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md)
+[`.agents/tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`](../../tasks/completed/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md)
 
 ## Semver
 
@@ -953,7 +953,7 @@ both halves — frontmatter reads `status: approved` (line 2) and the file is lo
   of the two criteria that failed the prior run. `## Tasks` (line 330) no longer reads
   `- [ ] To be broken down after GATE-APPROVAL.`; it now reads "Broken down in the task file, one task
   per Completion Criterion:" followed by the link
-  `[`.agents/tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`](../../tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md)`.
+  `[`.agents/tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`](../../tasks/completed/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md)`.
   The relative target resolves from `.agents/spec-docs/approved/` to the file that exists on disk, so
   GATE-COMPLETE's later read of `## Tasks` for "the exact active task path" will find a live pointer.
 - **Tasks in the file correspond to the Completion Criteria (≥1 task per TC-N):** MET, and this is the

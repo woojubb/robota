@@ -36,10 +36,12 @@
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { loadHarnessConfig } from './harness-config.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
+import * as ts from './lib/ts-ast.mjs';
 
 const PACKAGE_DIR = 'packages/agent-subagent-runner';
 const SRC_DIR = join(PACKAGE_DIR, 'src');
@@ -63,13 +65,68 @@ function collectSourceFiles(dir) {
 }
 
 /**
- * Match the NAME in an import statement, not anywhere in the file — the module docblock of the very
- * file being guarded names both symbols while explaining why it must not import them, and a naive
- * substring search would fail on its own explanation.
+ * Which forbidden symbols a file actually imports.
+ *
+ * Read from the AST, not a regex. My first version was
+ * `\bimport\b[\s\S]*?\bSYMBOL\b[\s\S]*?from\s+['"]` — which spans the WHOLE file, so it
+ * missed `import * as fw from '…'; fw.createDefaultTools()` and `const { createDefaultTools } =
+ * await import('…')`, and false-flagged this very file once a later line contained `from '` (its
+ * own docblock names both symbols while explaining why it must not import them). A floor for the
+ * axis with the failure history cannot be approximate in both directions.
+ *
+ * The sibling this scan sits beside, `scan-interface-runtime.mjs`, already reads imports from the
+ * AST; this uses the same helper.
  */
-function importsForbiddenSymbol(content, symbol) {
-  const pattern = new RegExp(`\\bimport\\b[\\s\\S]*?\\b${symbol}\\b[\\s\\S]*?from\\s+['"]`, 'g');
-  return pattern.test(content);
+function forbiddenImports(content, fileName) {
+  const sourceFile = ts.createSourceFile(fileName, content);
+  const found = new Set();
+
+  const noteBinding = (name) => {
+    if (FORBIDDEN_IMPORTS.includes(name)) found.add(name);
+  };
+
+  const visit = (node) => {
+    if (ts.isImportDeclaration(node)) {
+      const clause = node.importClause;
+      // `import createDefaultTools from …` — the default binding.
+      if (clause?.name) noteBinding(clause.name.text);
+      const bindings = clause?.namedBindings;
+      if (bindings?.elements) {
+        // `import { createDefaultTools as x } from …` — the IMPORTED name is what identifies it.
+        for (const element of bindings.elements) {
+          noteBinding((element.propertyName ?? element.name).text);
+        }
+      }
+      // `import * as fw from …` — the symbol is reached through the namespace, so any later
+      // `fw.createDefaultTools(...)` counts. Checked below over the whole file's identifiers.
+      if (bindings?.name) namespaceAliases.add(bindings.name.text);
+    } else if (ts.isImportEqualsDeclaration?.(node)) {
+      if (node.name) noteBinding(node.name.text);
+    } else if (node.kind === ts.SyntaxKind?.CallExpression) {
+      // `await import('…')` destructured — the binding names appear as identifiers; the property
+      // access sweep below catches the usage either way.
+      void 0;
+    }
+    ts.forEachChild(node, visit);
+  };
+
+  const namespaceAliases = new Set();
+  visit(sourceFile);
+
+  // A namespaced or dynamically-imported symbol is used via a property access. Only look for that
+  // when a namespace alias exists or a dynamic import is present — otherwise a comment could match.
+  if (namespaceAliases.size > 0 || /\bimport\s*\(/.test(content)) {
+    for (const symbol of FORBIDDEN_IMPORTS) {
+      const usage = new RegExp(`\\.\\s*${symbol}\\s*\\(`);
+      if (usage.test(content)) found.add(symbol);
+      const destructured = new RegExp(
+        `\\{[^}]*\\b${symbol}\\b[^}]*\\}\\s*=\\s*await\\s+import\\s*\\(`,
+      );
+      if (destructured.test(content)) found.add(symbol);
+    }
+  }
+
+  return [...found];
 }
 
 export function findSubagentRunnerCompositionFindings(root = process.cwd()) {
@@ -86,8 +143,7 @@ export function findSubagentRunnerCompositionFindings(root = process.cwd()) {
   const files = collectSourceFiles(srcDir);
   for (const file of files) {
     const content = readFileSync(file, 'utf8');
-    for (const symbol of FORBIDDEN_IMPORTS) {
-      if (!importsForbiddenSymbol(content, symbol)) continue;
+    for (const symbol of forbiddenImports(content, file)) {
       findings.push({
         file: file.slice(root.length + 1),
         detail:
@@ -111,7 +167,9 @@ export function findSubagentRunnerCompositionFindings(root = process.cwd()) {
   return { findings, examined: { files: files.length, manifests: 1 } };
 }
 
-const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop());
+// The repo's idiom. A basename heuristic misses e.g. a backslash argv path, and then this script
+// exits 0 having examined nothing — a silent pass for the only floor on the tool axis.
+const isMain = resolve(process.argv[1] ?? '') === resolve(fileURLToPath(import.meta.url));
 if (isMain) {
   const { findings, examined } = findSubagentRunnerCompositionFindings();
   if (findings.length > 0) {

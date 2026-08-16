@@ -91,12 +91,47 @@ describe('findSubagentRunnerCompositionFindings', () => {
     expect(findings).toHaveLength(1);
   });
 
-  it('does NOT flag prose that merely names the symbols', () => {
-    // The guarded file's own docblock names both symbols while explaining why it must not import
-    // them. A substring search would fail on that explanation — the check must read imports.
+  it('flags a NAMESPACE import used through the alias', () => {
+    // The first version of this scan missed it: its regex looked for the symbol between `import`
+    // and `from`, and a namespace import never names the symbol there.
     const root = createFixture({
       'packages/agent-subagent-runner/src/worker.ts':
-        '/**\n * ARCH-021: this file must not use createDefaultTools or createDefaultProviderDefinitions.\n */\nexport const ok = 1;\n',
+        "import * as fw from '@robota-sdk/agent-framework';\nexport const t = fw.createDefaultTools({ cwd: '.' });\n",
+    });
+
+    const { findings } = findSubagentRunnerCompositionFindings(root);
+
+    expect(findings.map((finding) => finding.detail).join(' ')).toContain('createDefaultTools');
+  });
+
+  it('flags a DYNAMIC import destructured at the call site', () => {
+    const root = createFixture({
+      'packages/agent-subagent-runner/src/worker.ts':
+        "export async function t() {\n  const { createDefaultTools } = await import('@robota-sdk/agent-framework');\n  return createDefaultTools({ cwd: '.' });\n}\n",
+    });
+
+    const { findings } = findSubagentRunnerCompositionFindings(root);
+
+    expect(findings.map((finding) => finding.detail).join(' ')).toContain('createDefaultTools');
+  });
+
+  it('flags an ALIASED named import by the symbol it imports, not the local name', () => {
+    const root = createFixture({
+      'packages/agent-subagent-runner/src/worker.ts':
+        "import { createDefaultTools as build } from '@robota-sdk/agent-framework';\nexport const t = build;\n",
+    });
+
+    const { findings } = findSubagentRunnerCompositionFindings(root);
+
+    expect(findings).toHaveLength(1);
+  });
+
+  it('does NOT flag prose that merely names the symbols, even beside a real import', () => {
+    // The guarded file's own docblock names both symbols while explaining why it must not import
+    // them, and it also has legitimate imports. The first version false-flagged exactly this shape.
+    const root = createFixture({
+      'packages/agent-subagent-runner/src/worker.ts':
+        "import { createSubagentSession } from '@robota-sdk/agent-framework';\n/**\n * ARCH-021: this file must not use createDefaultTools or createDefaultProviderDefinitions.\n */\nexport const ok = createSubagentSession;\nimport { join } from 'node:path';\nexport const j = join;\n",
     });
 
     const { findings } = findSubagentRunnerCompositionFindings(root);

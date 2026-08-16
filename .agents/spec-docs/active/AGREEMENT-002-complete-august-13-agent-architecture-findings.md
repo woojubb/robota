@@ -22,7 +22,7 @@ baseline until that item's recommendation gate revalidates them against the curr
 
 ## Prior Art Research
 
-Research is scoped to ARCH-021's new cross-process capability broker; the other thirteen children are
+Research was scoped to ARCH-021's cross-process capability question; the other thirteen children are
 internal conformance repairs whose direction is determined by Robota's existing contracts.
 
 ### References consulted
@@ -176,8 +176,12 @@ The child decisions are:
 - ARCH-025 replaces recurring manual partial projections with one canonical total mapper and a mechanical
   key-classification floor. Usage, provider profile, permission policy, schedule patch, and future public
   fields must be mapped, deliberately derived, or explicitly rejected; none may disappear silently.
-- ARCH-021 introduces a correlated parent-side provider/tool capability broker over the existing
-  `agent-subagent-runner` IPC family. The child uses neutral proxies; executable provider factories, live
+- ARCH-021 **rejected** the correlated parent-side capability broker this section originally
+  specified, on evidence: proxied tools execute in the parent, bound to the parent's checkout,
+  while a worktree-isolated child's execution root is a different directory — so it would
+  re-break ARCH-010's containment — and no specification defines a per-call working root for a
+  proxied tool invocation. It ships a composition RECIPE instead: the composition root supplies
+  `ISubagentWorkerComposition` and the child builds an equivalent surface at its own root.
   tool instances, and provider credentials stay in the parent. A parent-side provider resolver/factory
   registry is injected from the product composition root. A request `providerProfile` selects through
   that registry; when absent, the invoking runtime provider is used; an unknown or unconstructable profile
@@ -293,24 +297,24 @@ adversarial review before code changes.
 
 ## Test Plan
 
-| TC-ID | Test Type                       | Tool / Approach                                                                                                                                                                                                                                       | Notes                |
-| ----- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| TC-01 | Agreement / persistence         | agent-session and replay-provider Vitest fixtures with nested real sidecars, configurable bounds, integrity, direct-constructor, and real-path containment cases                                                                                      | ARCH-014             |
-| TC-02 | Agreement / data contract       | agent-session round-trip integration plus type-level store-port conformance                                                                                                                                                                           | ARCH-015             |
-| TC-03 | Agreement / observability       | direct logger + `onExecutionEvent` + replay-reader event-name enumeration guard and manual-compaction hook integration test                                                                                                                           | ARCH-016             |
-| TC-04 | Agreement / auth interaction    | prompt-registry adapter integration, settlement-event assertion, removed-option type tests, and zero stale-event scan                                                                                                                                 | ARCH-017             |
-| TC-05 | Agreement / contract            | exact implementer/wiring tests plus architecture documentation conformance                                                                                                                                                                            | ARCH-018             |
-| TC-06 | Agreement / observability       | post-persistence transition matrix plus throwing-subscriber tests asserting committed success and owned delivery-error observation                                                                                                                    | ARCH-020             |
-| TC-07 | Agreement / transport           | shared-key and per-implementation exhaustive-map guards plus deterministic TUI, protocol fan-out, and client-observation tests                                                                                                                        | ARCH-028             |
-| TC-08 | Agreement / process integration | forked worker matrix for requested/default/unknown profiles, credential non-serialization, streaming/cancellation/errors, ownership-field round trips, nested tagged extension variants, malformed/cyclic/limit failures, and exhaustiveness fixtures | ARCH-021             |
-| TC-09 | Agreement / persistence         | createAgentRuntime default/override/resume integration matrix                                                                                                                                                                                         | ARCH-023             |
-| TC-10 | Agreement / composition         | alternate-ID/absence/duplicate-role integration tests, SDK scenario, and zero hard-coded-ID scan                                                                                                                                                      | ARCH-024             |
-| TC-11 | Agreement / composition         | exhaustive product/pack key fixtures, removed product-field type test, shell override regression, accepted metadata, separate whole-pack duplicate rejection, and provenance assertions                                                               | ARCH-027             |
-| TC-12 | Agreement / public surface      | package-export-root recursive barrel-graph fixtures (depth, cycle, unreachable, unresolved, facade) plus affected package/app builds                                                                                                                  | ARCH-022             |
-| TC-13 | Agreement / type contract       | canonical projection tests, public-key exhaustiveness fixture, and shared-type compile assertion                                                                                                                                                      | ARCH-025             |
-| TC-14 | Agreement / platform behavior   | shared executable/argument-family matrix for both runner spawn paths plus real Windows default-PowerShell execution                                                                                                                                   | ARCH-026             |
-| TC-15 | Agreement / governance          | done-gate evidence audit, task-archival scan, and agreement child projection check                                                                                                                                                                    | All children         |
-| TC-16 | Agreement / CI                  | `pnpm harness:conformance`, scoped `pnpm harness:verify`, and `pnpm harness:verify-like-ci`                                                                                                                                                           | Final assembled base |
+| TC-ID | Test Type                       | Tool / Approach                                                                                                                                                                                                                                | Notes                |
+| ----- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| TC-01 | Agreement / persistence         | agent-session and replay-provider Vitest fixtures with nested real sidecars, configurable bounds, integrity, direct-constructor, and real-path containment cases                                                                               | ARCH-014             |
+| TC-02 | Agreement / data contract       | agent-session round-trip integration plus type-level store-port conformance                                                                                                                                                                    | ARCH-015             |
+| TC-03 | Agreement / observability       | direct logger + `onExecutionEvent` + replay-reader event-name enumeration guard and manual-compaction hook integration test                                                                                                                    | ARCH-016             |
+| TC-04 | Agreement / auth interaction    | prompt-registry adapter integration, settlement-event assertion, removed-option type tests, and zero stale-event scan                                                                                                                          | ARCH-017             |
+| TC-05 | Agreement / contract            | exact implementer/wiring tests plus architecture documentation conformance                                                                                                                                                                     | ARCH-018             |
+| TC-06 | Agreement / observability       | post-persistence transition matrix plus throwing-subscriber tests asserting committed success and owned delivery-error observation                                                                                                             | ARCH-020             |
+| TC-07 | Agreement / transport           | shared-key and per-implementation exhaustive-map guards plus deterministic TUI, protocol fan-out, and client-observation tests                                                                                                                 | ARCH-028             |
+| TC-08 | Agreement / process integration | the injected composition reaches the real worker entry over IPC (tool surface + a provider type no default registry contains); the built artifact declares the pack tool names it composed; fail-closed refusal on non-reproducible capability | ARCH-021             |
+| TC-09 | Agreement / persistence         | createAgentRuntime default/override/resume integration matrix                                                                                                                                                                                  | ARCH-023             |
+| TC-10 | Agreement / composition         | alternate-ID/absence/duplicate-role integration tests, SDK scenario, and zero hard-coded-ID scan                                                                                                                                               | ARCH-024             |
+| TC-11 | Agreement / composition         | exhaustive product/pack key fixtures, removed product-field type test, shell override regression, accepted metadata, separate whole-pack duplicate rejection, and provenance assertions                                                        | ARCH-027             |
+| TC-12 | Agreement / public surface      | package-export-root recursive barrel-graph fixtures (depth, cycle, unreachable, unresolved, facade) plus affected package/app builds                                                                                                           | ARCH-022             |
+| TC-13 | Agreement / type contract       | canonical projection tests, public-key exhaustiveness fixture, and shared-type compile assertion                                                                                                                                               | ARCH-025             |
+| TC-14 | Agreement / platform behavior   | shared executable/argument-family matrix for both runner spawn paths plus real Windows default-PowerShell execution                                                                                                                            | ARCH-026             |
+| TC-15 | Agreement / governance          | done-gate evidence audit, task-archival scan, and agreement child projection check                                                                                                                                                             | All children         |
+| TC-16 | Agreement / CI                  | `pnpm harness:conformance`, scoped `pnpm harness:verify`, and `pnpm harness:verify-like-ci`                                                                                                                                                    | Final assembled base |
 
 ## Tasks
 
@@ -322,7 +326,7 @@ Active initiative Task: `.agents/tasks/AGREEMENT-002-complete-august-13-agent-ar
 - [x] ARCH-017 — done — `.agents/tasks/completed/ARCH-017-injected-permission-ask-handlers-are-dead-surface.md`
 - [x] ARCH-018 — done — `.agents/tasks/completed/ARCH-018-interaction-channel-charter-is-unsatisfiable-as-written.md`
 - [x] ARCH-020 — done — `.agents/tasks/completed/ARCH-020-branch-event-is-declared-and-emitted-by-nothing.md`
-- [ ] ARCH-021 — todo — `.agents/tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`
+- [x] ARCH-021 — done — `.agents/tasks/completed/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`
 - [x] ARCH-022 — done — `.agents/tasks/completed/ARCH-022-framework-pass-through-re-export-evades-public-surface-guard.md`
 - [x] ARCH-023 — done — `.agents/tasks/completed/ARCH-023-createAgentRuntime-default-sessionstore-never-forwarded.md`
 - [x] ARCH-024 — done — `.agents/tasks/completed/ARCH-024-framework-hardcodes-module-owned-command-ids.md`

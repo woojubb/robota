@@ -135,8 +135,13 @@ export function createRobotaChildProcessSubagentRunner(options: {
  * robota's pack context and the packs built from it, as ONE value.
  *
  * ARCH-021: the context must be a single named value that both the pack construction and the
- * child-process runner selection read. Built here rather than at the call site so the two cannot
- * drift into reading different values — which is the whole mechanism behind the fail-closed guard.
+ * child-process runner selection read. Built here rather than at the call site so the two do not
+ * drift into reading different values.
+ *
+ * Stated precisely, because the earlier wording overclaimed: `createRobotaChildProcessSubagentRunner`
+ * takes a free-standing context, so a future call site COULD hand it one the packs were not built
+ * from. Today there is exactly one construction site and one consumer; that is convention, not
+ * construction. Tightening it means passing this whole result rather than a bare context.
  */
 export function createRobotaPackSet(cwd: string): {
   readonly packContext: IRobotaPackContext;

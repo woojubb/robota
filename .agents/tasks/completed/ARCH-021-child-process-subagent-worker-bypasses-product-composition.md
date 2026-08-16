@@ -113,17 +113,54 @@ naming it. Actually projecting live capability is filed separately; it is the ho
 
 ## User Execution Test Scenarios
 
-**Applies** (subagents are a CLI product surface; custom packs are public SDK usage).
+**Applies** (subagents are a CLI product surface), but the scenario as originally written is
+**not-writable as an agent-runnable check** — recorded here rather than inferred, per the Done Gate.
 
-- Prerequisites: built CLI; a scratch product/pack that contributes a uniquely-named tool and a custom
-  provider definition — authored by this work; a prompt that spawns a subagent which uses that tool.
-- Steps: run the CLI (default child-process subagent runner), ask it to delegate to a subagent that
-  calls the custom pack tool.
-- Expected (after fix): the subagent runs on the custom provider and successfully calls the pack tool.
-- Expected (before fix, contrast): the subagent cannot see the custom tool (and errors on a custom
-  provider).
-- Cleanup: remove the scratch pack/provider.
-- Evidence (fill in after implementation): subagent transcript showing the custom tool call.
+**Why the original is not runnable.** It required "a scratch product/pack that contributes a
+uniquely-named tool and a custom provider definition" reaching the **built** CLI. There is no runtime
+pack-injection path: the binary composes statically, external presets are JSON, plugins contribute
+commands rather than tools, and the worker spawn forwards no user argv. `startCli({ providerDefinitions })`
+exists but `bin.ts` calls `startCli()` with nothing. So the scratch-pack half cannot be exercised
+against the artifact by any user action; it is only reachable at the port level, where it is covered
+by engineering verification.
+
+### S1 — manual-only: the subagent runs on the product's surface
+
+- **Prerequisites:** a built `robota` and a working provider key (this is the part that makes it
+  manual-only — the replay provider `--session-log` is injected into the PARENT and does not cross
+  the process boundary, so a subagent turn cannot be made deterministic without a live model).
+- **Steps:** `robota` → ask it to delegate to a subagent that edits a file in the repo.
+- **Expected (after):** the subagent uses robota's pack tools (`Read`/`Write`/`Edit`/`Bash`…) and the
+  edit lands.
+- **Expected (before, contrast):** the subagent also worked — the divergence was **latent** for
+  robota, because `pack-coding` is pinned by name to `createDefaultTools()`. That is precisely why
+  this scenario is weak evidence for this item and why S2 exists.
+- **Cleanup:** revert the file.
+
+### S2 — agent-runnable: the built artifact declares the surface it composed. EXECUTED.
+
+This is the check that actually discriminates, and it runs against the real binary.
+
+- **Steps:** build `@robota-sdk/agent-cli`, then spawn the built entry in worker mode over an IPC
+  channel and read its `ready` message (pinned by
+  `packages/agent-cli/src/__tests__/e2e/subagent-worker-entry.bintest.ts`, run via
+  `pnpm --filter @robota-sdk/agent-cli test:bin`).
+- **Expected:** the child reports the tool names **the product's packs** contribute.
+- **Evidence (executed 2026-08-16, against the built entry produced from `packages/agent-cli/src/bin.ts`;
+  the dist artifact itself is build output, not a tracked file):**
+
+  ```
+  READY: {"type":"ready","composedToolNames":
+    ["Shell","Bash","Read","Write","Edit","Glob","Grep","WebFetch","WebSearch","AskUserQuestion"]}
+  ```
+
+  `test:bin` 8/8. Breaking the recipe (composing an empty tool set) turns exactly this case red and
+  leaves the other seven green — measured, not assumed.
+
+- **What S2 does NOT cover, stated rather than implied:** it proves the child composes from the
+  product's recipe; it does not exercise a _custom_ provider definition end-to-end, because that
+  needs a live model in the child. The provider axis is covered by the composition unit suite and by
+  the deleted manifest edge, which makes the old default registry a compile error.
 
 ## Plan
 

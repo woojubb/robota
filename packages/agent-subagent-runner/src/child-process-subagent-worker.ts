@@ -203,15 +203,17 @@ async function cancelWorker(reason?: string): Promise<void> {
  * The names the composition yields at this process's own cwd. Failure to enumerate must not stop the
  * worker — the declaration is verification, not the run itself — but it must not be silent either.
  */
-function composedToolNames(composition: ISubagentWorkerComposition): readonly string[] {
+function composedToolNames(composition: ISubagentWorkerComposition): readonly string[] | undefined {
   try {
-    return composition.createTools({ cwd: process.cwd() }).map((tool) => tool.schema.name);
+    return composition.createTools({ cwd: process.cwd() }).map((tool) => tool.getName());
   } catch (error) {
-    // allow-fallback: a parity declaration must never take the subagent down with it.
+    // allow-fallback: a parity declaration must never take the subagent down with it. But it must
+    // not lie either — `[]` would read as "this product composed no tools", which is the one
+    // confusion a parity channel cannot afford. `undefined` says "could not enumerate".
     process.stderr.write(
       `robota: could not enumerate the composed tool surface: ${error instanceof Error ? error.message : String(error)}\n`,
     );
-    return [];
+    return undefined;
   }
 }
 
@@ -255,8 +257,9 @@ export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): 
   // ARCH-021: declare what this child composed. The runner and the built-binary test read it, which
   // turns "equivalent by construction" into "verified per run" — worth having at a seam where two
   // findings have already landed.
+  const names = composedToolNames(composition);
   sendChildMessage({
     type: 'ready',
-    composedToolNames: composedToolNames(composition),
+    ...(names ? { composedToolNames: names } : {}),
   });
 }
