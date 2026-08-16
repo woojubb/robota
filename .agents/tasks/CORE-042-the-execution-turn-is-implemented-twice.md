@@ -70,7 +70,10 @@ and would invite five more copy-in patches.
 - **The tool-list predicate differs.** The round path includes tools when
   `resolved.availableTools.length > 0` (`execution-round-provider.ts:65`); streaming asks
   `config.tools && config.tools.length > 0` (`execution-stream.ts:144`) and then sends
-  `tools.getTools()`. Two different questions producing two different tool lists for one agent.
+  `tools.getTools()`. Two different questions producing two different tool lists for one agent —
+  **measured 2026-08-16 through the public API**: an agent constructed with no `tools` in its config,
+  given one via `robota.registerTool()`, offers the model `["echo_tool"]` through `run()` and `[]`
+  through `runStream()`. A tool the user registered is invisible to the streaming path.
 - **`resolveProviderAndTools`' validation is skipped.** A tool missing a `description` throws on the
   round path and passes on the streaming one.
 - **No cache-service lookup**, **no `handleContextCapacityBlock` pre-send guard**, **no
@@ -154,8 +157,799 @@ turn, rather than each test file re-writing its own — the state that let this 
 
 ## User Execution Test Scenarios
 
-Applies — this changes observable SDK behavior on the default interactive surface.
+**Applies** — this changes observable behaviour of a published SDK entry point (`Robota.runStream()`).
+The section covers CORE-042 and CORE-032's Test Plan together, because one change delivers both.
 
-To be authored when this item is picked up. Expected `agent-executable` and provider-free: implement
-`IAIProvider` with a recording `chatStream` (a public extension point), drive both `run()` and
-`runStream()` with one config, and observe that the provider received the same contract on both.
+**Surface: public exports, no provider.** `AbstractAIProvider`, `AbstractPlugin`, `AbstractTool`,
+`FunctionTool`, `Robota` and `IRunOptions.onExecutionEvent` are all public exports of
+`@robota-sdk/agent-core`; a scripted provider written against them is the same extension point a
+third-party integrator uses. **No API key, no network, no live service.** Credential probe recorded
+2026-08-16: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `GEMINI_API_KEY` and
+`BYTEDANCE_API_KEY` all unset, no `.env` present — so a live surface was neither needed nor available.
+
+**Invocation.** From `scratch/`, either `pnpm run run src/<file>.ts` or
+`node ../node_modules/tsx/dist/cli.mjs --conditions=source src/<file>.ts`; both were exercised. The
+scripts are reproduced in full below because `scratch/src` is gitignored and this item is their only
+durable home.
+
+**Why the shared double implements BOTH provider entry points.** After the change the round path
+drives streaming through `chat()` + `onTextDelta`, so a `chat()`-only double would suffice. But today's
+`executeStream` would then throw _"Provider must have chatStream method"_ and every scenario would be
+red for the wrong reason. Implementing both keeps each red honest and keeps one script valid on both
+sides of the change. Once `execution-stream.ts` is deleted, the `chatStream()` half becomes dead weight
+and can be dropped.
+
+```ts
+// scratch/src/core-042-lib.ts
+/**
+ * CORE-042 / CORE-032 shared harness for the user-execution scenarios.
+ *
+ * `ScriptedStreamingProvider` is written against the PUBLIC extension point
+ * (`AbstractAIProvider`, exported from `@robota-sdk/agent-core`) exactly as a third-party
+ * integrator would write a provider. It implements BOTH provider entry points:
+ *   - `chat(messages, { onTextDelta })` — the entry the ROUND path drives streaming through;
+ *   - `chatStream(messages)`            — the entry today's `executeStream` drives.
+ * so the same script drives the product before and after the change, and the scenarios
+ * observe behaviour rather than which internal function was called. No API key, no network.
+ */
+import { AbstractAIProvider, FunctionTool } from '@robota-sdk/agent-core';
+
+import type {
+  IChatOptions,
+  IToolCall,
+  IToolSchema,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
+
+/** One scripted provider reply. */
+export interface IScriptedTurn {
+  text?: string;
+  toolCalls?: IToolCall[];
+  /** Emit deltas until the run signal aborts (used by the abort scenario). */
+  streamUntilAborted?: boolean;
+}
+
+export type TScript = (messages: TUniversalMessage[], callIndex: number) => IScriptedTurn;
+
+export interface IRecordedCall {
+  entry: 'chat' | 'chatStream';
+  roles: string[];
+  toolNamesOffered: string[];
+  options?: IChatOptions;
+}
+
+const DELTA_GAP_MS = 15;
+const MAX_ABORT_DELTAS = 200;
+
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const pieces = (text: string): string[] => text.match(/.{1,8}/gs) ?? [];
+
+export class ScriptedStreamingProvider extends AbstractAIProvider {
+  readonly name = 'scripted-streaming-provider';
+  readonly version = '1.0.0';
+  /** One entry per provider call, in order. */
+  readonly calls: IRecordedCall[] = [];
+
+  constructor(private readonly script: TScript) {
+    super();
+  }
+
+  private record(
+    entry: 'chat' | 'chatStream',
+    messages: TUniversalMessage[],
+    options?: IChatOptions,
+  ): IScriptedTurn {
+    this.calls.push({
+      entry,
+      roles: messages.map((m) => m.role),
+      toolNamesOffered: (options?.tools ?? []).map((t: IToolSchema) => t.name),
+      ...(options ? { options } : {}),
+    });
+    return this.script(messages, this.calls.length - 1);
+  }
+
+  private assistant(content: string, toolCalls?: IToolCall[]): TUniversalMessage {
+    return {
+      id: `scripted-${this.calls.length}`,
+      role: 'assistant',
+      content,
+      ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
+      state: 'complete' as const,
+      timestamp: new Date(),
+    } as TUniversalMessage;
+  }
+
+  /** Round-path entry: streams via `options.onTextDelta`, returns the assembled message. */
+  async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
+    const turn = this.record('chat', messages, options);
+    let emitted = '';
+    if (turn.streamUntilAborted === true) {
+      for (let i = 0; i < MAX_ABORT_DELTAS; i++) {
+        if (options?.signal?.aborted === true) break;
+        const piece = `tick${i} `;
+        emitted += piece;
+        options?.onTextDelta?.(piece);
+        await delay(DELTA_GAP_MS);
+      }
+      return this.assistant(emitted);
+    }
+    for (const piece of pieces(turn.text ?? '')) {
+      if (options?.signal?.aborted === true) break;
+      emitted += piece;
+      options?.onTextDelta?.(piece);
+      await delay(DELTA_GAP_MS);
+    }
+    return this.assistant(emitted, turn.toolCalls);
+  }
+
+  /** Legacy streaming entry: today's `executeStream` calls this one. */
+  override async *chatStream(
+    messages: TUniversalMessage[],
+    options?: IChatOptions,
+  ): AsyncIterable<TUniversalMessage> {
+    const turn = this.record('chatStream', messages, options);
+    if (turn.streamUntilAborted === true) {
+      for (let i = 0; i < MAX_ABORT_DELTAS; i++) {
+        if (options?.signal?.aborted === true) break;
+        yield this.assistant(`tick${i} `);
+        await delay(DELTA_GAP_MS);
+      }
+      return;
+    }
+    for (const piece of pieces(turn.text ?? '')) {
+      if (options?.signal?.aborted === true) break;
+      yield this.assistant(piece);
+      await delay(DELTA_GAP_MS);
+    }
+    if (turn.toolCalls && turn.toolCalls.length > 0) {
+      yield this.assistant('', turn.toolCalls);
+    }
+  }
+}
+
+/** A tool call the scripted model "requests". */
+export const toolCall = (id: string, name: string, args: Record<string, unknown>): IToolCall => ({
+  id,
+  type: 'function',
+  function: { name, arguments: JSON.stringify(args) },
+});
+
+/** Provider-free tool: returns a fixed reading the model must consume to answer. */
+export const makeWeatherTool = (): FunctionTool =>
+  new FunctionTool(
+    {
+      name: 'get_weather',
+      description: 'Return the current temperature for a city.',
+      parameters: {
+        type: 'object' as const,
+        properties: { city: { type: 'string' as const, description: 'City name' } },
+        required: ['city'],
+      },
+    },
+    async () => ({ tempC: 21 }),
+  );
+
+export const hasToolMessage = (messages: TUniversalMessage[]): boolean =>
+  messages.some((m) => m.role === 'tool');
+
+const fails: string[] = [];
+
+export const check = (label: string, ok: boolean): void => {
+  console.log(`${ok ? 'PASS' : 'FAIL'} ${label}`);
+  if (!ok) fails.push(label);
+};
+
+export const finish = (scenario: string): never => {
+  console.log(
+    fails.length === 0
+      ? `${scenario} PASS`
+      : `${scenario} FAIL (${fails.length}): ${fails.join(' | ')}`,
+  );
+  process.exit(fails.length === 0 ? 0 : 1);
+};
+```
+
+---
+
+**Scenario 1 — a tool-using `runStream()` turn produces a real final answer, and returns it**
+
+- Agent-executability decision: `agent-executable`.
+- Prerequisites: the shared harness above; one `FunctionTool` (`get_weather` → `{ tempC: 21 }`); no
+  credentials. The script replies with a tool call while no `role: 'tool'` message is present, and
+  with `"It is 21C in Seoul right now."` once one is.
+- Steps (from `scratch/`): `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-042-s1.ts; echo "EXIT:$?"`
+
+```ts
+// scratch/src/core-042-s1.ts
+/**
+ * CORE-042 / CORE-032 Scenario 1 — a tool-using runStream() turn produces a real final answer,
+ * and runStream() returns that final assistant text as its generator return value.
+ */
+import { Robota } from '@robota-sdk/agent-core';
+
+import {
+  ScriptedStreamingProvider,
+  check,
+  finish,
+  hasToolMessage,
+  makeWeatherTool,
+  toolCall,
+} from './core-042-lib';
+
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
+
+const FINAL = 'It is 21C in Seoul right now.';
+
+const script = (messages: TUniversalMessage[]) =>
+  hasToolMessage(messages)
+    ? { text: FINAL }
+    : { text: '', toolCalls: [toolCall('call-1', 'get_weather', { city: 'Seoul' })] };
+
+const makeAgent = (provider: ScriptedStreamingProvider, name: string): Robota =>
+  new Robota({
+    name,
+    aiProviders: [provider],
+    defaultModel: { provider: 'scripted-streaming-provider', model: 'test-model' },
+    tools: [makeWeatherTool()],
+    logging: { level: 'silent', enabled: false },
+  });
+
+async function main(): Promise<void> {
+  // Reference: the non-streaming entry point on the identical config.
+  const runProvider = new ScriptedStreamingProvider(script);
+  const runAnswer = await makeAgent(runProvider, 'run-agent').run('What is the weather in Seoul?');
+  console.log(`run() answer: ${JSON.stringify(runAnswer)}`);
+  console.log(`run() provider calls: ${runProvider.calls.length}`);
+
+  // The surface under verification.
+  const streamProvider = new ScriptedStreamingProvider(script);
+  const agent = makeAgent(streamProvider, 'stream-agent');
+  const iterator = agent.runStream('What is the weather in Seoul?');
+  const chunks: string[] = [];
+  let step = await iterator.next();
+  while (step.done !== true) {
+    chunks.push(step.value);
+    step = await iterator.next();
+  }
+  const streamed = chunks.join('');
+  // Typed `void` on today's non-structured overload — CORE-042 makes it the final assistant text.
+  const returned = step.value as unknown;
+
+  console.log(`runStream() streamed text: ${JSON.stringify(streamed)}`);
+  console.log(`runStream() return value: ${JSON.stringify(returned)}`);
+  console.log(`runStream() provider calls: ${streamProvider.calls.length}`);
+  console.log(
+    `runStream() history roles: ${JSON.stringify(agent.getHistory().map((m) => m.role))}`,
+  );
+
+  check('run(): tool result reached a second provider call', runProvider.calls.length >= 2);
+  check('run(): final answer returned', runAnswer === FINAL);
+
+  check(
+    'runStream(): the tool ran (a tool message is in history)',
+    hasToolMessage(agent.getHistory()),
+  );
+  check(
+    'runStream(): the tool result fed a follow-up provider call',
+    streamProvider.calls.length >= 2,
+  );
+  check('runStream(): the final answer was streamed to the consumer', streamed.includes(FINAL));
+  check(
+    'runStream(): the last history message is the assistant final answer',
+    agent.getHistory().at(-1)?.role === 'assistant' &&
+      String(agent.getHistory().at(-1)?.content ?? '').includes(FINAL),
+  );
+  check('runStream(): generator return value is the final assistant text', returned === FINAL);
+  check(
+    'both entry points made the same number of provider calls',
+    streamProvider.calls.length === runProvider.calls.length,
+  );
+
+  finish('SCENARIO 1');
+}
+
+void main();
+```
+
+- Expected observable result: `SCENARIO 1 PASS`, `EXIT:0` — `runStream()` streams text containing
+  `It is 21C in Seoul right now.`; the provider received **≥2** calls (the tool result fed a follow-up
+  model call); the last history message is the assistant's final answer; the generator's return value
+  equals that text; and the provider call count matches `run()`'s exactly.
+  Measured pre-fix (2026-08-16): `EXIT:1`, `SCENARIO 1 FAIL` —
+  `runStream() streamed text: "\n[Tool: get_weather executed successfully]"`,
+  `return value: undefined`, `provider calls: 1`, `history roles: ["user","assistant","tool"]`,
+  against `run()`'s 2 calls and the real answer. **The stream simply stops at the tool result.**
+- Cleanup: none — in-memory only.
+- Evidence: _to be filled after implementation._
+
+---
+
+**Scenario 2 — `maxExecutionRounds` caps `runStream()` rounds**
+
+- Agent-executability decision: `agent-executable`.
+- Prerequisites: as above. The script **always** replies with a tool call, using distinct arguments
+  each time so `maxSameToolInputs` is not what stops it — only the round cap can end the turn. Both
+  entry points run with `{ maxExecutionRounds: 2 }`.
+- Steps: `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-042-s2.ts; echo "EXIT:$?"`
+
+```ts
+// scratch/src/core-042-s2.ts
+/**
+ * CORE-042 / CORE-032 Scenario 2 — `maxExecutionRounds` caps runStream() rounds, identically
+ * to run(). Today runStream() makes exactly one provider call whatever the cap says.
+ */
+import { Robota } from '@robota-sdk/agent-core';
+
+import {
+  ScriptedStreamingProvider,
+  check,
+  finish,
+  makeWeatherTool,
+  toolCall,
+} from './core-042-lib';
+
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
+
+const MAX_ROUNDS = 2;
+
+/** A model that never stops asking for the tool — only the round cap can end the turn. */
+const script = (_messages: TUniversalMessage[], callIndex: number) => ({
+  text: '',
+  toolCalls: [toolCall(`call-${callIndex}`, 'get_weather', { city: `City-${callIndex}` })],
+});
+
+const makeAgent = (provider: ScriptedStreamingProvider, name: string): Robota =>
+  new Robota({
+    name,
+    aiProviders: [provider],
+    defaultModel: { provider: 'scripted-streaming-provider', model: 'test-model' },
+    tools: [makeWeatherTool()],
+    logging: { level: 'silent', enabled: false },
+  });
+
+async function main(): Promise<void> {
+  const runProvider = new ScriptedStreamingProvider(script);
+  const runAgent = makeAgent(runProvider, 'run-agent');
+  await runAgent.run('loop please', { maxExecutionRounds: MAX_ROUNDS });
+  const runToolMessages = runAgent.getHistory().filter((m) => m.role === 'tool').length;
+  console.log(`run(maxExecutionRounds=${MAX_ROUNDS}) provider calls: ${runProvider.calls.length}`);
+  console.log(`run() tool messages in history: ${runToolMessages}`);
+
+  const streamProvider = new ScriptedStreamingProvider(script);
+  const agent = makeAgent(streamProvider, 'stream-agent');
+  for await (const _chunk of agent.runStream('loop please', { maxExecutionRounds: MAX_ROUNDS })) {
+    void _chunk;
+  }
+  console.log(
+    `runStream(maxExecutionRounds=${MAX_ROUNDS}) provider calls: ${streamProvider.calls.length}`,
+  );
+  console.log(
+    `runStream() tool messages in history: ${agent.getHistory().filter((m) => m.role === 'tool').length}`,
+  );
+
+  check('run(): the cap produced more than one provider call', runProvider.calls.length > 1);
+  check('runStream(): the round loop ran more than one round', streamProvider.calls.length > 1);
+  check(
+    'runStream(): the tool ran once per capped round, same as run()',
+    agent.getHistory().filter((m) => m.role === 'tool').length === runToolMessages,
+  );
+  check(
+    'runStream(): the cap holds — provider calls match run() exactly',
+    streamProvider.calls.length === runProvider.calls.length,
+  );
+
+  finish('SCENARIO 2');
+}
+
+void main();
+```
+
+- Expected observable result: `SCENARIO 2 PASS`, `EXIT:0` — `runStream()` makes more than one provider
+  call, its call count equals `run()`'s under the same cap (3 = 2 capped rounds + the forced summary),
+  and its history holds the same number of tool messages (2).
+  Measured pre-fix: `EXIT:1` — `run(): 3 calls, 2 tool messages` vs `runStream(): 1 call, 1 tool
+message`. The cap is accepted and read by nothing on that path.
+- Cleanup: none.
+- Evidence: _to be filled after implementation._
+
+---
+
+**Scenario 3 — an aborted `runStream()` commits the partial message as `interrupted`**
+
+- Agent-executability decision: `agent-executable` — the abort is driven programmatically through
+  `IRunOptions.signal`, not by a terminal keypress.
+- Prerequisites: as above, no tools. The script emits `tick0 tick1 …` 15 ms apart and stops as soon as
+  `options.signal.aborted` is true, which is what a real provider does. The consumer aborts after the
+  third chunk, keeps consuming to the end (catching a possible abort error), then reads
+  `getHistory()`.
+- Steps: `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-042-s3.ts; echo "EXIT:$?"`
+
+```ts
+// scratch/src/core-042-s3.ts
+/**
+ * CORE-042 / CORE-032 Scenario 3 — an aborted runStream() commits the partial assistant
+ * message as `interrupted`, exactly as an aborted run() does. Today it is stored as `complete`,
+ * indistinguishable from a natural completion.
+ */
+import { Robota } from '@robota-sdk/agent-core';
+
+import { ScriptedStreamingProvider, check, finish } from './core-042-lib';
+
+const script = () => ({ streamUntilAborted: true });
+
+const makeAgent = (provider: ScriptedStreamingProvider, name: string): Robota =>
+  new Robota({
+    name,
+    aiProviders: [provider],
+    defaultModel: { provider: 'scripted-streaming-provider', model: 'test-model' },
+    logging: { level: 'silent', enabled: false },
+  });
+
+async function main(): Promise<void> {
+  const provider = new ScriptedStreamingProvider(script);
+  const agent = makeAgent(provider, 'stream-agent');
+  const controller = new AbortController();
+
+  let received = 0;
+  let thrown: string | undefined;
+  try {
+    for await (const chunk of agent.runStream('stream forever please', {
+      signal: controller.signal,
+    })) {
+      void chunk;
+      received++;
+      if (received === 3) controller.abort();
+    }
+  } catch (error) {
+    thrown = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  }
+
+  const history = agent.getHistory();
+  const lastAssistant = [...history].reverse().find((m) => m.role === 'assistant');
+  console.log(`chunks received before abort: ${received}`);
+  console.log(`consumption ended with: ${thrown ?? '(no throw)'}`);
+  console.log(
+    `stored assistant message: ${JSON.stringify({
+      state: lastAssistant?.state,
+      content: String(lastAssistant?.content ?? '').slice(0, 40),
+    })}`,
+  );
+
+  check('the consumer received partial text before aborting', received >= 3);
+  check('a partial assistant message was stored', lastAssistant !== undefined);
+  check(
+    "the aborted partial is stored with state 'interrupted'",
+    lastAssistant?.state === 'interrupted',
+  );
+  check(
+    'the stored partial is not indistinguishable from a natural completion',
+    lastAssistant?.state !== 'complete',
+  );
+
+  finish('SCENARIO 3');
+}
+
+void main();
+```
+
+- Expected observable result: `SCENARIO 3 PASS`, `EXIT:0` — the stored assistant message carries the
+  partial text **and** `state: 'interrupted'`, never `'complete'`. Whether the generator ends cleanly
+  or rejects is deliberately **not** asserted: the stored state is the observable, and pinning the
+  other would over-specify a choice the plan has not made.
+  Measured pre-fix: `EXIT:1` —
+  `stored assistant message: {"state":"complete","content":"tick0 tick1 tick2 "}`. An aborted partial
+  is recorded indistinguishably from a natural completion.
+- Cleanup: none.
+- Evidence: _to be filled after implementation._
+
+---
+
+**Scenario 4 — `runStream(input, { output })` validates the post-tool final text**
+
+- Agent-executability decision: `agent-executable`.
+- Prerequisites: as above, with the `get_weather` tool and a Zod schema
+  `z.object({ city: z.string(), tempC: z.number() })`. Run with `{ outputRetries: 0 }` so exactly one
+  attempt is made — a retry would mask the defect.
+- Steps: `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-042-s4.ts; echo "EXIT:$?"`
+
+```ts
+// scratch/src/core-042-s4.ts
+/**
+ * CORE-042 / CORE-032 Scenario 4 — runStream(input, { output }) validates the POST-TOOL final
+ * assistant text. Today it validates the concatenation of every chunk (pre-tool text plus the
+ * injected "[Tool: … executed successfully]" notices), so a tool-using structured stream can
+ * never pass.
+ */
+import { Robota } from '@robota-sdk/agent-core';
+import { z } from 'zod';
+
+import {
+  ScriptedStreamingProvider,
+  check,
+  finish,
+  hasToolMessage,
+  makeWeatherTool,
+  toolCall,
+} from './core-042-lib';
+
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
+
+const reportSchema = z.object({ city: z.string(), tempC: z.number() });
+
+const FINAL_JSON = JSON.stringify({ city: 'Seoul', tempC: 21 });
+
+const script = (messages: TUniversalMessage[]) =>
+  hasToolMessage(messages)
+    ? { text: FINAL_JSON }
+    : { text: '', toolCalls: [toolCall('call-1', 'get_weather', { city: 'Seoul' })] };
+
+const makeAgent = (provider: ScriptedStreamingProvider, name: string): Robota =>
+  new Robota({
+    name,
+    aiProviders: [provider],
+    defaultModel: { provider: 'scripted-streaming-provider', model: 'test-model' },
+    tools: [makeWeatherTool()],
+    logging: { level: 'silent', enabled: false },
+  });
+
+async function main(): Promise<void> {
+  const provider = new ScriptedStreamingProvider(script);
+  const agent = makeAgent(provider, 'stream-agent');
+
+  const iterator = agent.runStream('Report the weather in Seoul.', {
+    output: reportSchema,
+    outputRetries: 0,
+  });
+
+  const chunks: string[] = [];
+  let validated: unknown;
+  let thrown: string | undefined;
+  try {
+    let step = await iterator.next();
+    while (step.done !== true) {
+      chunks.push(step.value);
+      step = await iterator.next();
+    }
+    validated = step.value;
+  } catch (error) {
+    thrown = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  }
+
+  console.log(`streamed text: ${JSON.stringify(chunks.join(''))}`);
+  console.log(`validated object: ${JSON.stringify(validated)}`);
+  console.log(`error: ${thrown ?? '(none)'}`);
+
+  check('the structured stream did not fail validation', thrown === undefined);
+  check('the tool ran inside the structured turn', hasToolMessage(agent.getHistory()));
+  check(
+    'the validated object is the generator return value',
+    JSON.stringify(validated) === JSON.stringify({ city: 'Seoul', tempC: 21 }),
+  );
+  check(
+    'validation saw the post-tool final text, not the tool notices',
+    chunks.join('').includes(FINAL_JSON),
+  );
+
+  finish('SCENARIO 4');
+}
+
+void main();
+```
+
+- Expected observable result: `SCENARIO 4 PASS`, `EXIT:0` — no error; the tool ran inside the
+  structured turn; the generator's return value deep-equals `{ city: 'Seoul', tempC: 21 }`; and the
+  streamed text contains the JSON, i.e. validation saw the post-tool final text rather than the tool
+  notices.
+  Measured pre-fix: `EXIT:1` — `streamed text: "\n[Tool: get_weather executed successfully]"`,
+  `validated object: undefined`,
+  `StructuredOutputError: response failed schema validation after 1 attempt(s)`.
+- Cleanup: none.
+- Evidence: _to be filled after implementation._
+
+---
+
+**Scenario 5 — plugin provider-call hooks and replay events fire on the streaming path**
+
+- Agent-executability decision: `agent-executable`.
+- Prerequisites: as above, plus a `ProviderCallRecorder extends AbstractPlugin` counting
+  `beforeProviderCall`/`afterProviderCall` and registered through `config.plugins`; both entry points
+  also pass `IRunOptions.onExecutionEvent` to collect event names. No tools, single-round script.
+- Steps: `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-042-s5.ts; echo "EXIT:$?"`
+
+```ts
+// scratch/src/core-042-s5.ts
+/**
+ * CORE-042 Scenario 5 — the streaming turn is observable to plugins and to the replay-event
+ * callback exactly as the non-streaming turn is: `beforeProviderCall`/`afterProviderCall` fire,
+ * and the required replay event families are emitted on `runStream()`.
+ *
+ * Both surfaces are public: `AbstractPlugin` (exported from `@robota-sdk/agent-core`) and
+ * `IRunOptions.onExecutionEvent`.
+ */
+import { AbstractPlugin, Robota } from '@robota-sdk/agent-core';
+
+import { ScriptedStreamingProvider, check, finish } from './core-042-lib';
+
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
+
+const ANSWER = 'Hello from the scripted model.';
+
+class ProviderCallRecorder extends AbstractPlugin {
+  override readonly name = 'provider-call-recorder';
+  override readonly version = '1.0.0';
+  before = 0;
+  after = 0;
+
+  override async beforeProviderCall(_messages: TUniversalMessage[]): Promise<void> {
+    this.before++;
+  }
+
+  override async afterProviderCall(
+    _messages: TUniversalMessage[],
+    _response: TUniversalMessage,
+  ): Promise<void> {
+    this.after++;
+  }
+}
+
+const makeAgent = (plugin: ProviderCallRecorder, name: string): Robota =>
+  new Robota({
+    name,
+    aiProviders: [new ScriptedStreamingProvider(() => ({ text: ANSWER }))],
+    defaultModel: { provider: 'scripted-streaming-provider', model: 'test-model' },
+    plugins: [plugin],
+    logging: { level: 'silent', enabled: false },
+  });
+
+const REQUIRED_EVENTS = [
+  'provider_request',
+  'provider_stream_raw_delta',
+  'provider_response_raw',
+  'provider_response_normalized',
+  'assistant_message_committed',
+];
+
+async function main(): Promise<void> {
+  const runPlugin = new ProviderCallRecorder();
+  const runEvents: string[] = [];
+  await makeAgent(runPlugin, 'run-agent').run('hi', {
+    onExecutionEvent: (type: string) => void runEvents.push(type),
+  });
+  console.log(
+    `run(): beforeProviderCall=${runPlugin.before} afterProviderCall=${runPlugin.after} events=${JSON.stringify([...new Set(runEvents)])}`,
+  );
+
+  const streamPlugin = new ProviderCallRecorder();
+  const streamEvents: string[] = [];
+  const agent = makeAgent(streamPlugin, 'stream-agent');
+  for await (const _chunk of agent.runStream('hi', {
+    onExecutionEvent: (type: string) => void streamEvents.push(type),
+  })) {
+    void _chunk;
+  }
+  console.log(
+    `runStream(): beforeProviderCall=${streamPlugin.before} afterProviderCall=${streamPlugin.after} events=${JSON.stringify([...new Set(streamEvents)])}`,
+  );
+
+  check('run(): beforeProviderCall fired', runPlugin.before >= 1);
+  check('run(): afterProviderCall fired', runPlugin.after >= 1);
+  check('runStream(): beforeProviderCall fired', streamPlugin.before >= 1);
+  check('runStream(): afterProviderCall fired', streamPlugin.after >= 1);
+  for (const event of REQUIRED_EVENTS) {
+    check(`runStream(): emitted ${event}`, streamEvents.includes(event));
+  }
+
+  finish('SCENARIO 5');
+}
+
+void main();
+```
+
+- Expected observable result: `SCENARIO 5 PASS`, `EXIT:0` — on `runStream()` both hooks fired at least
+  once, and the collected events include `provider_request`, `provider_stream_raw_delta`,
+  `provider_response_raw`, `provider_response_normalized` and `assistant_message_committed`.
+  `history_mutation` is deliberately **not** required here: CORE-033 owns the history-append event
+  gaps, and if the seam delivers it anyway that is a bonus rather than a gate.
+  Measured pre-fix: `EXIT:1` — `run(): beforeProviderCall=1 afterProviderCall=1` with six event
+  families, versus `runStream(): beforeProviderCall=0 afterProviderCall=0 events=[]`. A plugin that
+  inspects provider traffic is blind on the streaming path, and no replay event is emitted at all.
+- Cleanup: none.
+- Evidence: _to be filled after implementation._
+
+---
+
+**Scenario 6 — one agent, one tool inventory**
+
+- Agent-executability decision: `agent-executable`.
+- Prerequisites: as above. The agent is constructed with **no** `tools` in its config, and an
+  `EchoTool extends AbstractTool` is added afterwards through the public `robota.registerTool()`
+  (after `await agent.ensureReady()`, which the tool manager requires). The provider records
+  `options.tools` names on the first call of each entry point.
+- Steps: `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-042-s6.ts; echo "EXIT:$?"`
+
+```ts
+// scratch/src/core-042-s6.ts
+/**
+ * CORE-042 Scenario 6 — one agent, one tool inventory. A tool added at runtime through the
+ * public `robota.registerTool()` is offered to the model on run() but is invisible on
+ * runStream(), because the streaming path asks a different question about which tools exist
+ * (`config.tools.length > 0`) than the round path does (the resolved tool registry).
+ */
+import { AbstractTool, Robota } from '@robota-sdk/agent-core';
+
+import { ScriptedStreamingProvider, check, finish } from './core-042-lib';
+
+import type { IToolSchema } from '@robota-sdk/agent-core';
+
+class EchoTool extends AbstractTool {
+  override readonly schema: IToolSchema = {
+    name: 'echo_tool',
+    description: 'Echo a message back.',
+    parameters: {
+      type: 'object' as const,
+      properties: { message: { type: 'string' as const, description: 'Message' } },
+      required: ['message'],
+    },
+  };
+
+  protected override async executeImpl(): Promise<{ success: true; data: unknown }> {
+    return { success: true, data: 'echo' };
+  }
+}
+
+/** Constructed with NO tools in config — the tool arrives later, as a user would add it. */
+const makeAgent = async (provider: ScriptedStreamingProvider, name: string): Promise<Robota> => {
+  const agent = new Robota({
+    name,
+    aiProviders: [provider],
+    defaultModel: { provider: 'scripted-streaming-provider', model: 'test-model' },
+    logging: { level: 'silent', enabled: false },
+  });
+  await agent.ensureReady();
+  agent.registerTool(new EchoTool());
+  return agent;
+};
+
+async function main(): Promise<void> {
+  const script = () => ({ text: 'done' });
+
+  const runProvider = new ScriptedStreamingProvider(script);
+  const runAgent = await makeAgent(runProvider, 'run-agent');
+  await runAgent.run('hi');
+
+  const streamProvider = new ScriptedStreamingProvider(script);
+  const streamAgent = await makeAgent(streamProvider, 'stream-agent');
+  for await (const _chunk of streamAgent.runStream('hi')) void _chunk;
+
+  const runTools = runProvider.calls[0]?.toolNamesOffered ?? [];
+  const streamTools = streamProvider.calls[0]?.toolNamesOffered ?? [];
+  console.log(`run() tools offered to the model: ${JSON.stringify(runTools)}`);
+  console.log(`runStream() tools offered to the model: ${JSON.stringify(streamTools)}`);
+
+  check('run(): the registered tool reached the model', runTools.includes('echo_tool'));
+  check('runStream(): the registered tool reached the model', streamTools.includes('echo_tool'));
+  check(
+    'both entry points offered the model the same tool list',
+    JSON.stringify(runTools) === JSON.stringify(streamTools),
+  );
+
+  finish('SCENARIO 6');
+}
+
+void main();
+```
+
+- Expected observable result: `SCENARIO 6 PASS`, `EXIT:0` — `runStream()` offers the model
+  `["echo_tool"]`, identical to `run()`.
+  Measured pre-fix: `EXIT:1` — `run() tools offered: ["echo_tool"]` vs
+  `runStream() tools offered: []`. **A tool the user registered through the public API is invisible to
+  the streaming path**, because it asks `config.tools.length > 0` while the round path asks the
+  resolved registry.
+  _Recorded so it is not re-litigated:_ an earlier draft of this scenario probed the "tool missing a
+  `description`" divergence instead, and it did **not** discriminate — `FunctionTool`'s own
+  constructor rejects that on both paths, so that half is unreachable through the public tool
+  primitive. The tool-list predicate is the user-visible half, and it is what this scenario tests.
+
+- Cleanup: none.
+- Evidence: _to be filled after implementation._
