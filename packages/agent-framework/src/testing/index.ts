@@ -21,3 +21,11 @@ export {
 // beside the contract it doubles — the transports that need it all sit BELOW this package and could
 // never import it from here. It is NOT re-exported: pass-through re-exports of another package's
 // symbols are banned (STRUCT-07, project-structure.md), and this one had zero importers.
+
+// ARCH-029: the conformant, cast-free `ICommandHostContext` double. Lives beside the contract it
+// doubles (this package owns it), so all three consumer packages reach it with no new dependency edge
+// — the property ARCH-012 identified as the thing that actually killed its 37 casts.
+export {
+  createTestCommandHost,
+  type ICreateTestCommandHostOptions,
+} from './command-host-double.js';
