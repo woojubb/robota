@@ -393,3 +393,87 @@ Until then the repair is a **forward-provisioned contract surface**, which `proj
 to the same quality bar ("_'nobody uses it yet' never downgrades a defect on such a surface_"). Its
 verification is the red-first contract test in `## Test Plan` — engineering evidence, which per
 `backlog-execution.md` is never user-execution evidence and is not cited as such here.
+
+---
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** scenario-written (Stage 1) → eligible for `DONE-GATE-STAGE-2`. Frontmatter
+`status: todo` deliberately unchanged — only Stage 2 plus the Completion Steps may set a terminal status.
+
+**Ordering check:** exempt. `gate-catalogue.md` > Prior-gate map states DONE-GATE-STAGE-1 has no prior
+gate and defines no expected input status. No `[DONE-GATE-STAGE-1]` entry pre-existed in this item, so
+this is the first run, not a re-run over a prior verdict.
+
+**Per-criterion evidence:**
+
+- **Field completeness (S1)** — PASS. Exact commands: the fenced block (`pnpm --filter
+@robota-sdk/agent-cli build`, the `scratch/src/arch-025-schedule-edit.mjs` heredoc, `node … ; echo
+"EXIT=$?"`). Prerequisites: built CLI + `packages/agent-cli/bin/robota.cjs`, Node ≥ 22 for global
+  `WebSocket`, driver-created throwaway cwd/`HOME`/dummy `settings.json`, and an explicit "no dependency
+  needs to be added" (driver imports only `node:` builtins — confirmed by reading the block). Expected
+  observable: `EXIT=0`, five named `PASS` lines, the exact `Schedule updated: <id> (cron \`30 18 * *
+  _\`).`string, final`SCENARIO RESULT: PASS`, with the clock-relative `next …`timestamps explicitly
+excluded from the expectation. Cleanup:`finally`block SIGTERM→SIGKILL + temp-dir removal, and the
+named residue`scratch/src/arch-025-schedule-edit.mjs`(present on disk;`scratch/.gitignore`does
+ignore`src/_` as claimed). Evidence field: present and populated.
+- **Expectation not back-fitted to output (Evidence rule)** — PASS, verified mechanically, not accepted
+  on assertion. `git diff fc9f275be 175d2bd8c -- <this file>` touches **only** the Evidence bullet; the
+  "Expected observable result" list is byte-identical across the authoring commit and the evidence
+  commit, and the authoring commit already recorded the against-unfixed-code baseline as the pass
+  condition. The item's "no expectation was rewritten" claim is therefore checked, not taken.
+- **Executability decision (S1)** — PASS. Recorded as `agent-executable` with the reasons that make it
+  one (non-interactive, no TTY, no credentials, `--no-session-persistence` keeps `better-sqlite3` out).
+  Not a bare label. `manual-only` is not used anywhere in this item, so the specific-technical-reason
+  sub-clause is not engaged.
+- **Drives a product surface** — PASS. The observable is `command_result` / `background_tasks` frames
+  from a live `robota --serve` host spawned from the built product binary — not a build, typecheck,
+  lint, test, harness, CI, or repository-text inspection. The surface exists as described:
+  `{ type: 'command'; name: string; args?: string }` and `{ type: 'background_tasks'; tasks: … }` are in
+  `packages/agent-transport-protocol/src/ws-protocol.ts:35,96`, dispatched at `ws-handler.ts:234-253`
+  and `ws-background-messages.ts:17-18`. The `pnpm --filter … build` line is a prerequisite that
+  produces the binary, not the thing observed.
+- **Exercises the implemented code path (code-changing item)** — PASS. `/schedule edit` reaches
+  `host.editSchedule(id, { cronExpression, agentInstruction })` at
+  `packages/agent-command/src/schedule/schedule-command.ts:65-67` — the exact signature retyped by
+  repair #2 at `command-api/host-context.ts:263` and `interactive/interactive-session-base.ts:380`
+  (commit `a0e33e04`). `rg` finds zero remaining occurrences of the anonymous
+  `{ cronExpression?; agentInstruction?; command? }` literal, and `IScheduleEditPatch`
+  (`agent-executor/src/background-tasks/types.ts:107-111`) carries all three fields of the shapes it
+  replaced, so the de-duplication is field-equivalent and S1's fifth assertion is a real forwarding
+  check.
+- **Behaviour-preservation shape of S1** — PASS, judged rather than accepted. Stage 1 requires a
+  scenario that drives a product surface over the changed path; it nowhere requires a behaviour flip,
+  and repair #2 is a type-level de-duplication for which no flip exists to observe — demanding one would
+  force a fabricated observable, which is exactly the HARNESS-052 failure the deleted `/cost` scenario
+  committed. S1 is falsifiable in the direction that matters (a dropped or renamed patch field fails
+  assertion 5), the pre-fix baseline is recorded as the pass condition rather than discovered
+  afterwards, and the item states the limit of what it proves instead of overclaiming. Legitimate, not
+  vacuous.
+- **Credential / external-service prerequisite stated** — PASS. Stated as "needs none", with the reason
+  (dummy profile boots the CLI; `/schedule` never calls a model). The recorded probe was **re-run by
+  this gate and reproduces exactly**: `env | grep -iE 'ANTHROPIC|OPENAI|GEMINI|GOOGLE|BYTEDANCE|API_KEY|ROBOTA'`
+  returns only `PATH` and `PWD`, and `/home/ubunutu/.robota` does not exist. An executor learns from the
+  scenario, not from a failure.
+- **Repair #1's unwritten scenario (Exception clause)** — PASS by exception, and it is a finding, not an
+  N/A dodge. "Genuinely impossible" is established by evidence I re-verified independently rather than
+  read: `rg` finds exactly the four non-test `wait()` consumers the table names
+  (`orchestration/shared.ts:104`, `tools/agent-tool.ts:236`, `tools/agent-tool-batch.ts:217`,
+  `interactive/interactive-session-agent-jobs.ts:108`), and each sink is closed —
+  `shared.ts:106` writes `usage` and nothing reads it repo-wide; `stringifyAgentSuccess`
+  (`tools/agent-tool-output.ts:43-69`) and `createBatchSuccessResult` (`agent-tool-batch.ts:172-188`)
+  build explicit field lists with no `usage` key and no spread; `waitAgentJob` has only its declaration
+  (`interactive-session-base.ts:307`), its delegation, and test mocks — no production caller; and the
+  five orchestration primitives appear only as their own definitions and barrel re-exports
+  (`agent-framework/src/index.ts:497-501`). There is therefore no product surface at which a user could
+  observe this field, so no scenario could be written that is not fabricated. The absence is recorded
+  **under** the unwritten scenario with its per-consumer trace, it refuses `/cost` as a false observable
+  and says why the deleted scenario was vacuous, it names the three missing wirings and assigns them to
+  ARCH-031 (`.agents/tasks/ARCH-031-subagent-background-task-seam-has-no-owner.md` exists), and it
+  states outright that its red-first contract test is engineering evidence and is not being cited as
+  user-execution evidence. That is the Capability Reachability requirement satisfied, not waived.
+
+**Advisory for DONE-GATE-STAGE-2 (not part of this verdict):** S1's evidence cites
+`scratch/src/arch-025-schedule-edit.mjs`, which is gitignored and self-deleted by the documented cleanup
+step. Whether that satisfies the durable-artifact rule and `check-done-evidence.mjs` is Stage 2's
+criterion to judge, not Stage 1's.
