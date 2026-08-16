@@ -41,7 +41,6 @@
   "packages/agent-plugin/src/execution-analytics/execution-analytics-plugin.ts": 329,
   "packages/agent-plugin/src/usage/usage-plugin.ts": 301,
   "packages/agent-plugin/src/webhook/webhook-plugin.ts": 302,
-  "packages/agent-provider-anthropic/src/anthropic/provider.ts": 302,
   "packages/agent-provider-openai-compatible/src/qwen/responses-parser.ts": 302,
   "packages/agent-session/src/session-run.ts": 323,
   "packages/agent-session/src/session.ts": 316,
