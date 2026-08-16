@@ -353,6 +353,51 @@ must answer for it on the same terms as row 5 — fire with an explicit marker, 
 reason recorded. A hook that sees the request but not its sibling, or the response but not the
 request, is worse for a cost/usage plugin than seeing neither.
 
+### 3c. The intent channels — the axis step 3b's sweep could not reach
+
+Step 3b enumerated **readers of capability**. That is not the same set as **expressers of
+structured-output intent**, and the second is where the bypass lives: a caller can ask for structured
+output through a channel that reads no capability and emits no provider event, so no term in step 3b's
+sweep could find it. Swept here on the intent symbols themselves.
+
+| #   | Channel                                                                                                                                                                                                                                                   | Routes through the gate?                     |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| 1   | `IChatOptions.responseFormat` (`interfaces/provider.ts:198-200`) — per call, the union                                                                                                                                                                    | **Yes** — this is where step 4 puts the gate |
+| 2   | `IAgentConfig.responseFormat` / `IResponseFormatConfig` (`interfaces/response-format.ts`) — agent config; what `structuredConfigOverrides` writes                                                                                                         | Yes, it feeds (1)                            |
+| 3   | **`agent-provider-openai` construction options** — `responseFormat?: 'text' \| 'json_object' \| 'json_schema'` and `jsonSchema` (`openai/types.ts:124,128`), merged inside the provider by `mergeChatResponseFormat` (`chat-completions-chat.ts:147-148`) | **NO — bypasses core entirely**              |
+| 4   | Caller options publishing the `json_object` arm — `agent-framework/query.ts:30`, `runtime/agent-runtime.ts:58`, `interactive/interactive-session-options.ts:157,279`, `agent-session/session-types.ts:154`                                                | Reach (1), but ungated as intent             |
+| 5   | **CLI `--json-schema`** (`agent-cli/src/utils/cli-args.ts:49,269`) — implemented by appending _"Respond with valid JSON only, matching this JSON schema: …"_ to the system prompt (`startup/append-system-prompt.ts:26-28`)                               | **NO — prompt-level, outside the model**     |
+
+A live in-repo caller of (4) exists today: `agent-command-workflows/src/authoring/author.ts:60` passes
+`responseFormat: { type: 'json_object' }` and gets nothing on the compat family.
+(`dag-framework/src/adapters/prompt-backend.ts` matches the sweep on
+`jsonSchemaPropertyToInputSpec` — a schema→port converter, **not** an intent channel. Recorded so it
+is not re-examined.)
+
+**Channel 3 is the one with consequences.** Step 4 places the gate in core, and a user writing
+`new OpenAIProvider({ baseURL: <gateway>, responseFormat: 'json_schema', jsonSchema })` never reaches
+it. So the design's central claim — the core chooses the transport from the capability — is bypassed
+by a documented provider option, on the exact `baseURL`-plus-gateway configuration step 5 exists to
+correct. And step 4b's outcome report is produced at the seam this path avoids, so it would describe a
+request the wire did not carry. **A report that lies is worse than no report**, and the report is this
+item's headline deliverable.
+
+**Channel 5 contradicts this document's own scope-out.** Step 4 declined DeepSeek's `json_object` on
+the grounds that injecting "json" into the user's prompt is prompt manipulation, citing
+`project-structure.md:113`. The CLI already ships exactly that mechanism, on the flagship surface. The
+design cannot both refuse it as out of bounds and leave it running unexamined.
+
+**Decision: the core seam is the SOLE gate for structured-output intent.** Any other answer requires
+step 4b's report to enumerate what it cannot see, which makes the item's deliverable conditional on
+which construction path the caller happened to use. Pre-release, `code-quality.md:51` makes the
+consequences available rather than merely desirable:
+
+- **(3)** is removed, or routed through the gate — the provider stops merging a construction-time
+  format of its own.
+- **(4)** funnels into (1) as intent, so a drop is reported rather than silent.
+- **(5)** becomes a caller of the gated path instead of a prompt-appender — which also removes the
+  contradiction with step 4's own scope-out.
+
 ### 4. The decision is made where its inputs are resolved
 
 The first draft put the transport choice in `robotaRunStructured`. **That function has no provider.**
@@ -797,7 +842,7 @@ so every producer is updated rather than silently ignoring it.
 
 ### Independent review
 
-Ten rounds with `proposal-reviewer`, 2026-08-16. All ten returned **`REVIEW VERDICT: REVISE`**;
+Eleven rounds with `proposal-reviewer`, 2026-08-16. All eleven returned **`REVIEW VERDICT: REVISE`**;
 all were accepted in full, and in every round each load-bearing finding was independently
 re-checked against the code before revising. No finding was refuted in any round.
 
@@ -822,6 +867,22 @@ attempt is a full round loop and the extraction is one call.
 
 **Rounds 1 and 2** are below. Round 2 (on the first revision):
 the code before revising. No finding was refuted.
+
+**Round 11** (on the tenth revision) answered this author's question about step 3b's completeness with
+**no** — the sweep had the same shape of gap, one axis over. "Consumer" had been scoped to _readers of
+capability_; the set that matters equally is _expressers of intent_, and a caller can express intent
+through a channel that reads no capability and emits no provider event. Step 3c is that axis.
+
+| Round-11 finding                                                               | Re-checked at                                                 | Disposition                        |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------- | ---------------------------------- |
+| **`agent-provider-openai` construction options bypass the core gate entirely** | `openai/types.ts:124,128`; `chat-completions-chat.ts:147-148` | Fixed — sole-gate decision; TC-08e |
+| `agent-session` is a further publisher of the `json_object` arm                | `session-types.ts:154`                                        | Fixed — step 3c row 4              |
+| A live in-repo caller gets nothing today                                       | `agent-command-workflows/.../author.ts:60`                    | Fixed — TC-08d retargeted          |
+| **The CLI already ships the prompt-injected schema this design scoped out**    | `cli-args.ts:49,269`; `append-system-prompt.ts:26-28`         | Fixed — TC-08f                     |
+
+This author's own sweep then found two more publishers the review had not named
+(`interactive-session-options.ts:157,279`) and one false positive worth recording
+(`dag-framework/prompt-backend.ts` matches on a schema→port converter, not an intent channel).
 
 **Round 10** (on the ninth revision) produced the meta-finding that explains rounds 6–9: **producers
 were enumerated, consumers never were.** Round 1 caught the producer gap and round 3 fixed it as a
@@ -1039,11 +1100,19 @@ representation is how that continues.
 - **TC-07d** The streaming structured path commits the same thing the non-streaming one does: the
   extracted object, even though the prose deltas were already yielded. Pinned so the two entry points
   cannot diverge.
-- **TC-08d** A caller-supplied `responseFormat: { type: 'json_object' }` through `agent-framework`'s
-  `query` / `agent-runtime` surface is **not** reinterpreted as a structured-output request — no
-  extraction fires — and on a provider whose mechanism cannot carry it the caller is told rather than
-  silently dropped. The second arm of the `IChatOptions.responseFormat` union, which this document
-  had not covered until the round-10 sweep.
+- **TC-08d** `agent-command-workflows/src/authoring/author.ts:60` — a **live in-repo caller** passing
+  `responseFormat: { type: 'json_object' }` — is not reinterpreted as a structured-output request (no
+  extraction fires), and on a provider whose mechanism cannot carry it the caller is **told** rather
+  than silently dropped. Covers the same arm published by `agent-framework` (`query.ts:30`,
+  `agent-runtime.ts:58`, `interactive-session-options.ts:157,279`) and `agent-session`
+  (`session-types.ts:154`).
+- **TC-08e** A structured request made through `agent-provider-openai` **construction options**
+  (`responseFormat: 'json_schema'` + `jsonSchema`) resolves through the same capability gate as a
+  core-issued one, and step 4b's report describes what the wire actually carried. Without this, the
+  design's central claim is bypassed by a documented option and the report lies about it.
+- **TC-08f** The CLI `--json-schema` flag routes through the gated path rather than appending a schema
+  instruction to the system prompt — removing the contradiction with step 4's own scope-out of prompt
+  injection under `project-structure.md:113`.
 - **TC-08b** A replayed structured run reproduces the recorded run exactly: the extraction's response
   is in the corpus, the cursor does not desynchronise, and `ReplayProvider` resolves an explicit
   capability rather than a vendor default. Determinism is that package's whole purpose, so it is
