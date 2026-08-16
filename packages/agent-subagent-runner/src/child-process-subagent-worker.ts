@@ -199,6 +199,22 @@ async function cancelWorker(reason?: string): Promise<void> {
  * defaults would reinstate the exact defect this seam removes — and at this line conventions have a
  * measured failure rate of 100% (ARCH-010 and ARCH-006 are both findings here).
  */
+/**
+ * The names the composition yields at this process's own cwd. Failure to enumerate must not stop the
+ * worker — the declaration is verification, not the run itself — but it must not be silent either.
+ */
+function composedToolNames(composition: ISubagentWorkerComposition): readonly string[] {
+  try {
+    return composition.createTools({ cwd: process.cwd() }).map((tool) => tool.schema.name);
+  } catch (error) {
+    // allow-fallback: a parity declaration must never take the subagent down with it.
+    process.stderr.write(
+      `robota: could not enumerate the composed tool surface: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    return [];
+  }
+}
+
 export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): void {
   if (process.send === undefined) {
     // "Silence is not success": a worker without an IPC channel can never report anything, so it
@@ -236,5 +252,11 @@ export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): 
     void session?.shutdown({ reason: 'other' }).catch(() => undefined); // allow-fallback: cleanup on disconnect — process will exit regardless
   });
 
-  sendChildMessage({ type: 'ready' });
+  // ARCH-021: declare what this child composed. The runner and the built-binary test read it, which
+  // turns "equivalent by construction" into "verified per run" — worth having at a seam where two
+  // findings have already landed.
+  sendChildMessage({
+    type: 'ready',
+    composedToolNames: composedToolNames(composition),
+  });
 }

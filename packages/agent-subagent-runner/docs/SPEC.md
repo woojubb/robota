@@ -12,11 +12,16 @@ Applications that do not use subagents should not carry this dependency.
 ## Boundaries
 
 - Depends on `@robota-sdk/agent-core`, `@robota-sdk/agent-executor`, `@robota-sdk/agent-framework`,
-  `@robota-sdk/agent-provider-defaults`, `@robota-sdk/agent-interface-transport`, and `@robota-sdk/agent-process`.
+  `@robota-sdk/agent-interface-transport`, and `@robota-sdk/agent-process`. **ARCH-021 removed the
+  `@robota-sdk/agent-provider-defaults` edge**: a neutral runner must not compose the product's surface.
 - Must NOT import from `@robota-sdk/agent-command` or `@robota-sdk/agent-cli`.
 - Must NOT import from `@robota-sdk/agent-session` directly — session lifecycle is accessed through
   `agent-framework` facades.
 - Owns the IPC wire protocol between parent runner and child worker.
+- Does NOT own what the product composes. ARCH-021: `ISubagentWorkerComposition` is a PORT — the
+  composition root supplies the tool factory and the provider registry, and this package builds the
+  child's surface from that recipe rather than from imported defaults. The parameter is **required**;
+  an optional one falling back to defaults would reinstate the defect.
 - Owns the worker entry point (`child-process-subagent-worker.ts`, entered via `runSubagentWorkerMain()`)
   and the worker-mode argv contract (`worker-entry.ts`). DIST-006: it does NOT own where a worker
   lives on disk — that is a property of the packaging step, which the composition root states.
@@ -32,7 +37,7 @@ Applications that do not use subagents should not carry this dependency.
   contracts there and are no longer exported by `agent-executor`.
 - `ISerializableProviderProfile` is consumed from `@robota-sdk/agent-interface-transport` (its SSOT).
 - `IAgentDefinition`, `IInProcessSubagentRunnerDeps`, `TSubagentRunnerFactory`,
-  `getBuiltInAgent`, `createSubagentSession`, `createSubagentLogger`, `createDefaultTools` are
+  `getBuiltInAgent`, `createSubagentSession`, `createSubagentLogger` are
   consumed from `@robota-sdk/agent-framework`.
 
 ## Architecture Overview
@@ -111,7 +116,8 @@ package carries no concrete git/filesystem dependency.
 | `IChildProcessSubagentRunnerOptions`      | interface  | Construction options (workerEntry, killGraceMs, logsDir, worktreeIsolation, etc.)                                               |
 | `SUBAGENT_WORKER_MODE_FLAG`               | const      | The argv flag that puts a composition root's own entry into subagent-worker mode.                                               |
 | `isSubagentWorkerModeArgv`                | function   | True when this process was started as a subagent worker.                                                                        |
-| `runSubagentWorkerMain`                   | function   | Enters worker mode; refuses loudly and exits 2 when there is no IPC channel.                                                    |
+| `runSubagentWorkerMain`                   | function   | Enters worker mode with the product's composition (**required**); refuses loudly and exits 2 without an IPC channel.            |
+| `ISubagentWorkerComposition`              | interface  | ARCH-021: the product's `createTools({ cwd })` + `providerDefinitions`, supplied by the composition root.                       |
 | `ISubagentWorkerEntry`                    | interface  | How to spawn a copy of the running artifact: `execPath`, `args`, optional `execArgv`.                                           |
 | `isSubagentWorkerParentMessage`           | type guard | Runtime validation for parent → child IPC messages.                                                                             |
 | `isSubagentWorkerChildMessage`            | type guard | Runtime validation for child → parent IPC messages.                                                                             |

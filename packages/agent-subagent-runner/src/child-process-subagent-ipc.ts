@@ -50,6 +50,15 @@ export type TSubagentWorkerParentMessage =
 
 export interface ISubagentWorkerReadyMessage {
   type: 'ready';
+  /**
+   * ARCH-021: the tool names the child actually composed, so "the child has the product's surface"
+   * is VERIFIED per run rather than assumed by construction. Names only — the tools themselves are
+   * code and do not cross this boundary; that is the whole point of the composition port.
+   *
+   * Enumerated at the worker's own cwd before any job arrives, which is sound because a pack's tool
+   * NAMES do not depend on the root (the root binds the path guard, not the name set).
+   */
+  composedToolNames?: readonly string[];
 }
 
 export interface ISubagentWorkerTextDeltaMessage {
