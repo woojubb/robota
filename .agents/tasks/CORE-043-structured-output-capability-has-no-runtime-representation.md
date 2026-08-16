@@ -17,9 +17,12 @@ proposal it was raised from is [issue #1738](https://github.com/woojubb/robota/i
 CORE-038 proposed a transport (forced tool call instead of a prose re-prompt); the
 transport may well be the right one, but it is stated one layer above its cause.
 
-**This item is not a proposal to implement. Several of its load-bearing decisions are reserved for
-the owner** — see § Decisions reserved for the owner. What can proceed without them is listed there
-too.
+**Ready to design.** This item was first filed as "not a proposal to implement", holding four
+decisions for the owner. Three of those were reserved on a false premise — that the surfaces involved
+are published and carry a backward-compatibility constraint. They are not published (see
+§ Decisions reserved for the owner, corrected 2026-08-16), so what remains is one architectural
+choice plus a behavioural one, both of which `code-quality.md:50` says to answer by bringing a
+validated design rather than by asking.
 
 ## Problem
 
@@ -109,23 +112,56 @@ published-contract change, semver/changeset gate."
 
 ## Decisions reserved for the owner
 
-Named explicitly rather than folded into a plan, because `backlog-execution.md` § Agent Decision
-Authority reserves each of them:
+> **Corrected 2026-08-16 (owner directive).** This section was written on a false premise — that
+> `llms.txt:22`, `types.ts:86-103` and the SPEC's structured-output clause are **published** surfaces
+> carrying a backward-compatibility constraint. They are not. `@robota-sdk/agent-core` has **71
+> versions on npm and zero non-prerelease among them**; the `latest` dist-tag itself resolves to
+> `3.0.0-beta.79`. There has never been a stable release, so no consumer holds a compatibility claim
+> against any of these surfaces.
+>
+> [code-quality.md](../rules/code-quality.md) already says so twice as an owner directive: cost,
+> scale and churn "are NOT reasons to prefer a lesser design ... **(unreleased — no backward-compat
+> constraint)**" (`:50`), and "**Legacy is disposable in service of the correct structure** ...
+> Pre-release, existing files, rules, packages, or names are not preserved for their own sake"
+> (`:51`). Three of the four items below were reserved _because_ they were read as
+> published-contract changes; that reason does not exist. Worse, deferring them on those grounds is
+> the "documented-as-intentional exception / leave-as-is" half-measure `:50` explicitly forbids as a
+> primary option.
+>
+> **What actually remains reserved is a design choice, not a compatibility one** — and `:50` says how
+> to bring it: lead with the architecturally-correct design, validate it (reachability, capability
+> preservation, adversarial review at contract boundaries), then request approval. Not a
+> multiple-choice question posed before any design exists.
 
-1. **Whether `agent-provider-openai` changes behaviour when `baseURL` is set.** A provider default on
-   a documented, published surface (`llms.txt:22`, `types.ts:86-103`). CORE-038's own first open
-   question.
+Restated on the correct premise:
+
+1. **Whether `agent-provider-openai` reports early enforcement when `baseURL` is set.** Not a
+   compatibility question — `llms.txt:22` and `types.ts:98` advertise the gateway configuration, and
+   the runtime claims early enforcement on it while the model may ignore `response_format`. That is
+   a **defect in the advertised configuration**, and the docs are ours to correct with the code.
 2. **Where capability and transport selection live** — provider capability declaration, agent config,
-   or `IRunOptions`. Multiple architecturally valid approaches with long-term structural impact, and
-   unanswerable before PROV-006's decision.
-3. **Whether the SPEC's "providers without one ignore it" clause is rewritten.** Published contract.
+   or `IRunOptions`. This is the one genuinely architectural choice, and it is the substance of this
+   item. PROV-006 does **not** gate it on a "semver/changeset" basis (`:108` above records that
+   framing; it falls with the rest); PROV-006's real question — consume the per-model vocabulary or
+   delete it — is answerable on architectural grounds alone.
+3. **The SPEC's "providers without one ignore it" clause is wrong and should be rewritten.** Not a
+   published contract. PROV-004 (2026-08-13) already classifies the same behaviour as a
+   **VIOLATION** of `IChatOptions.responseFormat`, so the repository currently documents as intent
+   what one of its own items calls a contract violation. Under `code-quality.md:51` that
+   contradiction is absorbed into this work, not carried.
 4. **Whether a synthetic schema tool may be injected into a user's tool set** under
-   `tool_choice: required`. Observable behaviour change for every tool-using agent.
+   `tool_choice: required`. This one survives as a real design question — name collision and "the
+   model picks a real tool instead" are behavioural, not compatibility, concerns — and it is
+   answerable once (2) exists.
 
-**What can proceed without them:** PROV-004's already-scoped row — thread `responseFormat` through
-the compat `./shared` request builder, or document the no-op the way the per-call effort dial is
-documented. That is a correctness/documentation fix inside one package with no contract change, and
-it is the honest floor under whatever the owner decides above.
+**The floor is not as free as first stated.** "Document the no-op the way the effort dial is
+documented" is no longer available: it is the half-measure `:50` forbids, and it would re-record
+PROV-004's VIOLATION as intent a second time. Threading `responseFormat` through the compat
+`./shared` request builder is the correctness half — but note the three providers each carry a
+**private copy** of `buildRequestParams` (`deepseek/provider.ts:218`, `qwen/provider.ts:243`,
+`gemma/provider.ts:234`), so "via `./shared`" means collapsing that triplication first. That
+extraction is behaviour-preserving and needs no decision, and it is what makes (1)–(4) a small change
+in one place rather than three.
 
 ## Test Plan
 
