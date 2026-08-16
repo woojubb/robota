@@ -190,7 +190,7 @@ not silent: the capability table is the explicit declaration that produced it. T
 - `packages/agent-provider-openai-compatible/src/deepseek/provider.ts`
 - `packages/agent-provider-openai-compatible/src/qwen/provider.ts`
 - `packages/agent-provider-openai-compatible/src/gemma/provider.ts`
-- `packages/agent-provider-openai-compatible/src/shared/openai-compatible/__tests__/request-builder.test.ts`
+- `packages/agent-provider-openai-compatible/src/shared/openai-compatible/request-builder.test.ts`
 - `packages/agent-provider-openai-compatible/docs/SPEC.md`
 - `scripts/harness/scan-capability-transport-parity.mjs`
 - `scripts/harness/run-all-scans.mjs`
@@ -223,6 +223,56 @@ not silent: the capability table is the explicit declaration that produced it. T
 | TC-04 | Unit test              | Vitest with `options.responseFormat` undefined                            | Guards against the capability signal alone producing a field the caller never asked for |
 | TC-05 | Unit test              | Vitest fixtures for the parity check, one violating in each direction     | The tables become load-bearing under this decision; both directions must fail           |
 | TC-06 | CI pipeline smoke test | `pnpm harness:scan` and the scoped package test run                       | Registration, dispatch, and package regression                                          |
+
+## User Execution Test Scenarios
+
+The provider definitions are a **public SDK surface** (`createDefaultProviderDefinitions()` →
+`createProvider()`), and this item changes what those providers put on the wire. The gate is
+therefore not "not applicable".
+
+**Scenario — a model that declares `json_schema` gets `response_format`; one that declares nothing
+does not.** `agent-executable`. Prerequisites: none. The scenario ships its own observable rather
+than depending on a live provider — a design the rule prefers explicitly: it starts a local HTTP
+server on `127.0.0.1:0`, records the request body each provider sends, and answers with a minimal
+OpenAI-compatible completion. No credentials, no external service, no network egress.
+
+Command:
+
+```bash
+pnpm --filter robota-scratch run run src/prov-004-response-format.ts
+```
+
+Expected observable result (exit code 0):
+
+- `deepseek-chat` (its capability table DECLARES `json_schema`) → the captured request body carries
+  `response_format`
+- `gemma-3-27b-it` (the gemma definition ships no capability table, so nothing is declared) → the
+  captured request body carries NO `response_format`
+
+Cleanup: the server is closed by the scenario; it binds an ephemeral port and leaves nothing behind.
+
+**Evidence (run 2026-08-17, against the completed implementation):**
+
+```
+deepseek-chat  request.response_format = {"type":"json_object"}
+gemma-3-27b-it request.response_format = undefined
+PASS
+```
+
+Red-proof of the scenario itself — with `buildResponseFormat` reverted to the pre-fix behavior
+(never emit `response_format`), the declaring model's row flips and the scenario reports FAIL:
+
+```
+deepseek-chat  request.response_format = undefined
+gemma-3-27b-it request.response_format = undefined
+FAIL
+```
+
+That second row is the item's own decision made observable: silence in a capability table is not
+permission, so gemma stays untouched until it declares something.
+
+Durable engineering artifacts backing the same behavior:
+`packages/agent-provider-openai-compatible/src/shared/openai-compatible/request-builder.test.ts`.
 
 ## Tasks
 

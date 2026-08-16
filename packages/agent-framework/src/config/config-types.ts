@@ -174,6 +174,26 @@ export type TProviderSettings = z.infer<typeof ProviderSchema>;
 export type TPermissionsSettings = z.infer<typeof PermissionsSchema>;
 
 /**
+ * SEC-009: a settings object AFTER `$ENV:` resolution. `apiKeyEnv` — the name of the variable
+ * `apiKey` was resolved from — is DERIVED during loading, never written by a user, which is why it
+ * is absent from the schemas above: declaring it there would document an input key that is really
+ * an output.
+ *
+ * It is declared as a type rather than left implicit because the resolution step produced the field
+ * and the resolution PIPELINE then dropped it: `resolveActiveProviderProfile` builds
+ * `IResolvedConfig['provider']` field by field, so a field nothing in the type system knew about was
+ * silently not copied, and the credential origin never reached the caller that needs it.
+ */
+export type TEnvResolvedProviderProfile = z.infer<typeof ProviderProfileSchema> & {
+  apiKeyEnv?: string;
+};
+
+export type TEnvResolvedSettings = Omit<TSettings, 'provider' | 'providers'> & {
+  provider?: TProviderSettings & { apiKeyEnv?: string };
+  providers?: Record<string, TEnvResolvedProviderProfile>;
+};
+
+/**
  * Fully resolved config after merging all settings files and applying defaults.
  */
 export interface IResolvedConfig {

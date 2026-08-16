@@ -224,6 +224,75 @@ site carries `// allow-fallback: <reason>` per the mechanical floor.
 | TC-05 | Unit test                | Vitest fixture sources for the new scan (violating and compliant)               | Red-first: the scan must reject the fixture before the call site is changed                          |
 | TC-06 | CI pipeline smoke test   | `pnpm harness:scan`                                                             | Proves registration and dispatch, and the examined-size report the repository requires of a scan     |
 
+## User Execution Test Scenarios
+
+The first version of this section said "not applicable — nothing user-visible changes." Writing the
+scenario is what refuted that, and the refutation is the item's most important finding: **the fix as
+first merged did not work on the real path.** `resolveProviderCredentialEnvRefs` recorded the
+variable name during `$ENV:` resolution, but `resolveActiveProviderProfile` projects
+`IResolvedConfig['provider']` field by field and was not copying `apiKeyEnv` — so the resolved config
+the runner serializes still held only the secret. The unit test passed because it HAND-BUILT the
+resolved config and therefore never executed the projection that was dropping the field.
+
+That is why this gate is not "not applicable": the observable that distinguishes fixed from broken
+exists, it is reachable through the published SDK, and skipping it is exactly what let a non-working
+fix be reported as complete.
+
+**Scenario — a `$ENV:` credential does not cross the subagent process boundary.**
+`agent-executable`. Prerequisites: none — no live credentials, no network, no external service. The
+scenario writes its own settings file and its own echo worker, sets the referenced variable itself,
+and drives the PUBLISHED `@robota-sdk/agent-subagent-runner` barrel with a config produced by the
+real `loadConfig`. The observable is the provider profile **as the child process received it over
+IPC**, echoed back by the worker — a parent-side assertion would still pass if the value were
+re-resolved just before `send`.
+
+Command:
+
+```bash
+pnpm --filter robota-scratch run run src/sec-009-end-to-end.ts
+```
+
+Expected observable result (exit code 0):
+
+- `loadConfig` reports `provider.apiKeyEnv` equal to the variable name
+- the profile the child received carries `apiKeyEnv` and no `apiKey`
+- the secret string appears nowhere in the serialized message
+
+Cleanup: the temp home and worker are disposable; the child exits on its own after replying.
+
+**Evidence (run 2026-08-17, against the completed implementation):**
+
+```
+loadConfig → provider.apiKeyEnv = SEC_009_E2E_KEY
+child received providerProfile = {"profileName":"openai","type":"openai","model":"m","apiKeyEnv":"SEC_009_E2E_KEY"}
+carries reference: true
+secret absent from the whole message: true
+PASS
+```
+
+Red-proof of the scenario itself — with the one-line projection in `resolveActiveProviderProfile`
+removed (the state this item shipped in before the gate was run), the secret crosses in plaintext:
+
+```
+loadConfig → provider.apiKeyEnv = undefined
+child received providerProfile = {"profileName":"openai","type":"openai","model":"m","apiKey":"sk-secret-that-must-not-cross"}
+carries reference: false
+secret absent from the whole message: false
+FAIL
+```
+
+Credential probe (recorded because a capability-absence claim requires one): `env` carries no
+`ANTHROPIC_*`, `OPENAI_*`, `GOOGLE_*`, `DEEPSEEK_*`, or `QWEN_*` variable, `~/.robota/settings.json`
+does not exist, and the repository has no `.env`. None were needed — the scenario was restructured
+toward a provider-free observable, which the rule prefers over stating a credential prerequisite.
+
+Durable engineering artifacts backing the same behavior:
+`packages/agent-framework/src/__tests__/config-loader.test.ts` (the two SEC-009 cases, which assert
+through `loadConfig` precisely because the hand-built variant did not catch this) and
+`packages/agent-subagent-runner/src/__tests__/child-process-subagent-runner.test.ts`
+(`ChildProcessSubagentRunner — credential on the wire (SEC-009)`), driven by the `echo-profile` mode
+in `packages/agent-subagent-runner/src/__tests__/fixtures/subagent-worker-fixture.mjs`.
+
 ## Tasks
 
 - [ ] `.agents/tasks/SEC-009-subagent-ipc-start-payload-carries-apikey.md` — problem record exists;
@@ -239,3 +308,14 @@ independently reproduced against the code before any change (see the Problem sec
 measurements), and each change is reversible and internal to this repository.
 
 Worse than the document assumed: config loading resolves `$ENV:` into the secret and discards the variable name, so plaintext crossed on EVERY configuration, not only profiles storing a literal. Fix records the variable name at resolution and sends the reference. Tests assert on the message the child actually received. 16 runner tests, 117 scans.
+
+### Gate finding — the fix was incomplete when first merged (2026-08-17)
+
+Recorded here because the process lesson matters more than the patch: this item was reported
+complete on the strength of a unit test that constructed the object under test. Running the
+user-execution gate — the step that drives the real entry point — is what found that
+`resolveActiveProviderProfile` never copied `apiKeyEnv`, so on every real configuration the runner
+still serialized the plaintext credential. `IResolvedConfig['provider']` is built field by field, and
+a field the type system did not know about was therefore silently not copied; the corrective change
+adds `TEnvResolvedSettings` / `TEnvResolvedProviderProfile` in `config-types.ts` so the derived field
+is declared and the projection cannot drop it unnoticed again.

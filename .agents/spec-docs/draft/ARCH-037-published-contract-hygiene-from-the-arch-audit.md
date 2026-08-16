@@ -206,6 +206,23 @@ None
 | TC-05 | Unit test              | Vitest fixtures for the new check, one violating and three false-positive | The false-positive fixtures are the load-bearing half — a noisy check gets disabled     |
 | TC-06 | CI pipeline smoke test | `pnpm harness:scan` and `pnpm test`                                       | Whole-repository regression gate for a change that edits two published barrels          |
 
+## User Execution Test Scenarios
+
+**Not applicable — the surviving change is a type-only barrel export.** Of the four items the source
+issue raised, three were refuted against the code and reverted (recorded in `## Evidence Log`). The
+one that landed adds `export type { ISubagentExecutionEnvelope }` to `agent-executor`'s root and
+`subagents/` barrels. A type export emits no runtime code: a consumer's observation of it is a
+successful compile, and compilation is named in the User Execution Test Scenario Rule as engineering
+verification, never user-execution evidence. There is therefore no runnable behavior a product
+surface could show, and inventing a scenario would mean using a typecheck as the gate — exactly what
+the rule forbids.
+
+The anti-dodge clause does not apply: a type alias is not a user-facing capability, and no seam is
+being left switched off.
+
+Engineering evidence: `pnpm typecheck` across the workspace, `pnpm harness:scan`
+(`sdk-runtime-facade-location`, `orphan-exports`), and the `agent-executor` package suite.
+
 ## Tasks
 
 - [ ] `.agents/tasks/ARCH-037-published-contract-hygiene-from-the-arch-audit.md` — problem record

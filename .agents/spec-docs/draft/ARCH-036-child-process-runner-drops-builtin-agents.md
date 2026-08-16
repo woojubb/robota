@@ -174,6 +174,63 @@ type` for every name in `BUILT_IN_AGENTS`.
 | TC-05 | Unit test              | Vitest fixtures for the parity check (divergent and conforming pairs)         | Red-first: the check must reject the divergent fixture before the runner is fixed                       |
 | TC-06 | CI pipeline smoke test | `pnpm harness:scan`                                                           | Proves registration and dispatch plus the examined-size report                                          |
 
+## User Execution Test Scenarios
+
+`builtInAgents` is a **public SDK seam** — `ISubagentOptions` and `IInProcessSubagentRunnerDeps`
+document that an injected set REPLACES the framework built-ins and that an empty array removes them.
+A composition root enabling that seam is a product surface, so the reachability rule applies and the
+gate is not "not applicable".
+
+**Scenario — a composition root's agent set reaches the child-process runner.**
+`agent-executable`. Prerequisites: none — agent-type resolution happens in the parent before any
+provider call, so the scenario needs no credentials, no network, and no external service. Fixture:
+the scenario writes its own one-line worker (`process.exit(0)`) to a temp dir, since the child is
+never reached. Driven through the PUBLISHED `@robota-sdk/agent-subagent-runner` barrel
+(`ChildProcessSubagentRunner`) — the artifact an SDK consumer installs, not repository-internal
+source.
+
+Command:
+
+```bash
+pnpm --filter robota-scratch run run src/arch-036-builtin-agents.ts
+```
+
+Expected observable result (exit code 0, four rows):
+
+| injected `builtInAgents` | requested `agentType` | expected                                        |
+| ------------------------ | --------------------- | ----------------------------------------------- |
+| `[]`                     | `general-purpose`     | rejected: `Unknown agent type: general-purpose` |
+| `[only-this-one]`        | `general-purpose`     | rejected: `Unknown agent type: general-purpose` |
+| `[only-this-one]`        | `only-this-one`       | `started`                                       |
+| omitted                  | `general-purpose`     | `started`                                       |
+
+Cleanup: the temp worker directory is disposable; the scenario cancels each handle it starts.
+
+**Evidence (run 2026-08-17, against the completed implementation):**
+
+```
+empty set → general-purpose: rejected: Unknown agent type: general-purpose
+injected set → general-purpose: rejected: Unknown agent type: general-purpose
+injected set → only-this-one: started
+omitted → general-purpose: started
+PASS
+```
+
+Red-proof of the scenario itself — with `resolveAgentDefinition` reverted to the pre-fix form
+(`deps.builtInAgents` unread), every row flips and the scenario reports FAIL:
+
+```
+empty set → general-purpose: started
+injected set → general-purpose: started
+injected set → only-this-one: rejected: Unknown agent type: only-this-one
+omitted → general-purpose: started
+FAIL
+```
+
+Durable engineering artifacts backing the same behavior:
+`packages/agent-subagent-runner/src/__tests__/child-process-subagent-runner.test.ts`
+(`ChildProcessSubagentRunner — injected built-in agents (ARCH-036)`).
+
 ## Tasks
 
 - [ ] `.agents/tasks/ARCH-036-child-process-runner-drops-builtin-agents.md` — problem record exists;

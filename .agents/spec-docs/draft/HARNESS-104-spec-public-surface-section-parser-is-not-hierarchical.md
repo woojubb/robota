@@ -212,6 +212,22 @@ None
 | TC-05 | Unit test              | Assertion over `agent-core/docs/SPEC.md` for a single matching row | The workaround and the real row are both plain rows, so only a count assertion distinguishes them |
 | TC-06 | CI pipeline smoke test | `pnpm harness:scan`                                                | The whole-repository gate this scan participates in                                               |
 
+## User Execution Test Scenarios
+
+**Not applicable — governance-only change.** This item corrects a harness parser
+(`check-spec-public-surface.mjs`) and regenerates its baseline. Nothing in a shipped package's code
+changed; the only repository edits outside `scripts/harness/` are SPEC.md rows the corrected parser
+proved were describing symbols the packages do not export. No runnable user-facing, command, TUI,
+browser, or workflow behavior changes, so per the User Execution Test Scenario Rule the verification
+evidence belongs in the engineering `## Test Plan` above rather than in an invented product scenario.
+
+The reachability anti-dodge clause does not apply — this is not a user-facing capability behind a
+library seam; the deliverable IS the check, whose surface is `pnpm harness:scan`.
+
+Engineering evidence: `scripts/harness/__tests__/check-spec-public-surface.test.mjs`, and the
+regenerated `scripts/harness/spec-surface-baseline.json` (567 → 482 identifiers; the drop is the
+nested subsections the flat parser was reading as public API).
+
 ## Tasks
 
 - [ ] `.agents/tasks/HARNESS-104-spec-public-surface-section-parser-is-not-hierarchical.md` — problem

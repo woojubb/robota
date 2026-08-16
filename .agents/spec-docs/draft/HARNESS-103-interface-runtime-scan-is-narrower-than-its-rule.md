@@ -204,6 +204,24 @@ Under option A (the recommendation; re-scope if the owner chooses otherwise):
 | TC-05 | Unit test              | Existing capability-host suite re-pointed at the new package           | Proves the move preserved behavior rather than only relocating text                       |
 | TC-06 | CI pipeline smoke test | `pnpm harness:scan`, `pnpm typecheck`, `pnpm test`                     | Whole-repository gate for a published-surface move                                        |
 
+## User Execution Test Scenarios
+
+**Not applicable — governance-only change.** This item delivers a harness scan edge, a ratchet
+baseline, and a rule-text correction. Its one code-shaped change is a file move within
+`agent-interface-transport` (`src/session-capability-host.ts` → `src/testing/`), which removes a
+symbol from the main barrel that only that package's own unit test and the `testing` subpath ever
+imported — no product surface reaches it, and no runnable user-facing, command, TUI, browser, or
+workflow behavior changes. Per the User Execution Test Scenario Rule, verification evidence is
+recorded in the engineering `## Test Plan` above rather than as an invented product scenario.
+
+The reachability rule's anti-dodge clause does not apply: it fences a **user-facing capability**
+implemented as a library seam no surface enables. Nothing here is a capability — the deliverable IS
+the guard, and the guard's own surface is `pnpm harness:scan`.
+
+Engineering evidence for this decision: `scripts/harness/__tests__/scan-interface-runtime.test.mjs`
+(21 tests, including the entry-edge red proof), `pnpm harness:scan` (`interface-runtime`), and the
+re-pointed `packages/agent-interface-transport/src/testing/__tests__/` suite.
+
 ## Tasks
 
 - [ ] `.agents/tasks/HARNESS-103-interface-runtime-scan-is-narrower-than-its-rule.md` — problem record

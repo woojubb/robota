@@ -213,6 +213,27 @@ None
 | TC-05 | CI pipeline smoke test   | `pnpm harness:scan`                                                             | Proves the scan is registered and dispatched, not merely authored                                      |
 | TC-06 | Unit test                | `semver` range check of `engines.node` against 24.19.0 and against `volta.node` | Guards the defense-in-depth half from being reverted to a range that admits the wrong major            |
 
+## User Execution Test Scenarios
+
+**Not applicable — repository-infrastructure change.** This item makes the Node pin single-valued
+across 66 workspace manifests and adds the two-edge `node-version-single-valued` scan. The behavior
+it changes is which Node binary a _developer's_ toolchain selects inside a package directory — a
+property of this repository's build environment, not of the Robota product. It ships no CLI, TUI,
+browser, or public-SDK behavior, so per the User Execution Test Scenario Rule no product scenario is
+invented and the evidence lives in the engineering `## Test Plan` above.
+
+The anti-dodge clause does not apply: nothing here is a user-facing capability behind an unenabled
+seam.
+
+Worth recording because it is the item's own finding: the MEASURED edge exists precisely because the
+DECLARED edge is not the observable. `volta.extends` fixes what `node -v` resolves in a package
+directory but not what pnpm hands a workspace script (volta-cli/volta#1562), which is why the scan
+reports both and names the host remediation for the second.
+
+Engineering evidence: `scripts/harness/__tests__/scan-node-version-single-valued.test.mjs` (9 tests,
+including the drifted-literal, circular-`extends`, and examined-count reset cases) and
+`pnpm harness:scan` (`node-version-single-valued`).
+
 ## Tasks
 
 - [ ] `.agents/tasks/INFRA-102-node-version-is-not-single-valued-across-the-workspace.md` — problem
