@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-099: a skill that is not wired is not invoked, and wiring that is not verified is not wiring — today the same role performs the wiring and declares it done, and nothing asks whether the registration check would have gone red had it not been wired'
-status: todo
+status: done
 created: 2026-08-16
+completed: 2026-08-16
 priority: high
 urgency: now
 area: .agents/skills, .claude/agents, scripts/harness
@@ -103,3 +104,8 @@ the standing red case.
 
 **Wired fully:** both agents registered in `.agents/skills/index.md`, both rows added to the
 orchestration map's agent table, and a `Wiring` pipeline row added with its escalation semantics.
+
+## Closed
+
+Delivered and on `main`. All three roles wired, and the guardian's falsifiability half rests on an
+existing fixture rather than on its own reading. Nothing of this item remains open.

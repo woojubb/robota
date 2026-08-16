@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-098: a verification that cannot fail on the condition it names converts unverified into verified — the state nobody re-examines — and its mirror, a check that cannot pass on correct input, is equally live in this repo'
-status: todo
+status: done
 created: 2026-08-16
+completed: 2026-08-16
 priority: high
 urgency: now
 area: .agents/rules, .agents/skills, scripts/harness
@@ -103,3 +104,12 @@ obstacle written above rather than "hard to check".
 scoped to same-package source+test pairs, so it does not reach harness checks — which is why this
 floor exists rather than an extension of it. Whether it can be widened is the natural next step for
 the second stage.
+
+## Closed
+
+Stage 1 delivered and on `main`, MECHANIZED, with the strongest red proof available — the check went
+red on itself.
+
+**Stage 2 is now HARNESS-101**, filed rather than left as an open note inside a closed item: fixture
+EXISTENCE is not fixture QUALITY, and the textual approach to the red direction was rejected during
+this work for a reason that item carries forward.

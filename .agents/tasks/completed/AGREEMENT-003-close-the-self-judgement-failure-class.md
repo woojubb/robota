@@ -1,7 +1,8 @@
 ---
 title: 'AGREEMENT-003: close the self-judgement failure class — six times in one session a role judged its own output, every one caught by an independent reviewer and never by the producer, in areas where enforcement-architecture.md already forbids it'
-status: todo
+status: done
 created: 2026-08-16
+completed: 2026-08-16
 priority: high
 urgency: now
 area: cross-cutting harness governance initiative
@@ -48,10 +49,10 @@ children with one cause each are independently verifiable; one item with eight s
 
 ## Children
 
-- [ ] HARNESS-097 — todo — `.agents/tasks/HARNESS-097-contract-state-judged-by-proxy-signal.md`
-- [ ] HARNESS-098 — todo — `.agents/tasks/HARNESS-098-verifications-that-cannot-fail-or-cannot-pass.md`
-- [ ] HARNESS-099 — todo — `.agents/tasks/HARNESS-099-wiring-is-performed-and-judged-by-the-same-role.md`
-- [ ] HARNESS-100 — todo — `.agents/tasks/HARNESS-100-mid-task-discovery-has-no-filing-path-that-does-not-disturb-the-work.md`
+- [x] HARNESS-097 — done — `.agents/tasks/completed/HARNESS-097-contract-state-judged-by-proxy-signal.md`
+- [x] HARNESS-098 — done — `.agents/tasks/completed/HARNESS-098-verifications-that-cannot-fail-or-cannot-pass.md`
+- [x] HARNESS-099 — done — `.agents/tasks/completed/HARNESS-099-wiring-is-performed-and-judged-by-the-same-role.md`
+- [x] HARNESS-100 — done — `.agents/tasks/completed/HARNESS-100-mid-task-discovery-has-no-filing-path-that-does-not-disturb-the-work.md`
 
 ## Plan
 
@@ -103,3 +104,19 @@ the lesson is not closed.
 Not applicable — this initiative is harness governance with no runnable user-facing behaviour. Per the
 Task README, governance-only changes record `Not applicable` with the reason and keep verification in
 the Test Plan. Each child states the same, with its mechanism's before/after result as the evidence.
+
+## Closed
+
+All four children are `done` and on `main`: eight artifacts (four skills, two agents, two scans),
+each child carrying a named mechanism terminal state and a recorded red proof, as
+`lesson-to-harness` step 11 requires.
+
+**Two remainders were filed rather than carried inside closed items**, because a follow-up living as
+a note in a `done` Task has no owner:
+
+- **HARNESS-101** — fixture existence is not fixture quality (HARNESS-098's stage 2).
+- **HARNESS-102** — a dropped finding leaves no artifact (HARNESS-100's unmechanized half).
+
+**One defect this initiative produced was also closed**, separately: the process failure that merged
+a half-finished PR is fixed in `git-branch.md` and `pre-push-check.sh` — an open PR's diff is frozen
+except to resolve a finding.
