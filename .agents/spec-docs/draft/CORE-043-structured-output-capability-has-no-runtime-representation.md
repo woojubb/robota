@@ -533,25 +533,53 @@ deliberately adopted, already does the edit-history dance — `conversationStore
 filtered list (`execution-pipeline.ts:170-183`). Taking it as the structural sibling inherits that
 tension.
 
-**The extraction call is therefore out-of-band in BOTH directions: nothing of it is committed.** Not
-the request, not the tool call, and — correcting the round-5 formulation this document first
-adopted — **not the converted text either.**
+**Four constraints, and the rule is their intersection.** This is the third formulation of the history
+rule, and the previous two are recorded rather than quietly replaced, because each optimised one
+constraint before the others were known:
 
-That first formulation committed the converted JSON as an assistant text message. It solves the
-unpaired-`tool_use` problem and creates a new one: the round has **already** committed its prose
-assistant message, so appending the converted text produces **two consecutive assistant messages for
-one turn**. Valid on the OpenAI wire; rejected on the Anthropic Messages wire, which requires
-user/assistant alternation — and whose converter maps messages by role with no merging of consecutive
-same-role entries (`anthropic/message-converter.ts:56-62`). Step 5's correction is what makes that
-wire reachable here: once anthropic-with-`baseURL` resolves non-native, the extraction runs on it.
+| #   | Constraint                              | Broken by                                                             |
+| --- | --------------------------------------- | --------------------------------------------------------------------- |
+| a   | No unpaired `tool_use` persisted        | committing the raw extraction response                                |
+| b   | No two consecutive assistant messages   | **round 5** — committing the converted text as a second message       |
+| c   | History ends on the **accepted** answer | **round 6** — committing nothing, so history keeps the rejected prose |
+| d   | No history edit (`SPEC:987`)            | `forceSummaryCall`'s `clear()`-and-re-add                             |
 
-The rule that satisfies every constraint at once: **the attempt's committed turn stays the single
-assistant message the round already wrote, and the extracted object is the attempt's return value**,
-which the run layer validates. `SPEC:986` holds — every attempt is a real conversation turn, and the
-turn is the round's assistant message. `SPEC:987` holds — nothing is edited _or_ added. No unpaired
-`tool_use` is persisted on any wire, and no consecutive-assistant sequence is produced on any wire. It
-is also the more honest record: history shows what the model actually emitted, not a message it never
-produced in that form.
+Round 5 committed the converted JSON as an assistant text message: it solved (a) and broke (b), since
+the round has already committed its prose message and the Anthropic Messages wire rejects consecutive
+assistant entries (`anthropic/message-converter.ts:56-62`) — a wire step 5's gateway correction had
+just made reachable. Round 6 committed nothing: it solved (b) and broke (c).
+
+**(c) is not a nicety — breaking it re-creates this item's own defect one layer over.** On a native
+provider the model's JSON _is_ the assistant text, so `commitAssistant` writes the object into
+history. Under round 6's rule a non-native provider commits the prose and returns the object only to
+the caller. Same `run(input, { output })`, different conversation state **depending on which provider
+package was instantiated** — verbatim the sentence the Problem section indicts. And what gets
+committed is the artifact the system _rejected_: `parseStructuredResponseText` already tolerates a
+fenced JSON block, so anything reaching extraction genuinely failed validation. It is also a
+regression against today's loop, where a failed attempt is followed by a retry turn and history ends
+on the accepted answer.
+
+**The rule: hold the turn pending, commit exactly once.** The store already has the protocol, in the
+SPEC (`agent-core/docs/SPEC.md:1104-1108`) and in use in the round — `beginAssistant()`
+(`execution-round.ts:150`), `appendStreaming` / `appendToolCall` (`:210,214`), `commitAssistant`
+(`:218`), and `discardPending()`, already used on the failure path at `:198`.
+
+When a structured extraction may follow, the round does **not** commit at `:218`. The extraction
+request is composed explicitly from the pending prose plus the trailing user message, without touching
+the store. Then **one** `commitAssistant` writes the turn: the extracted object on success, the prose
+on failure, falling to the retry loop as today.
+
+That satisfies all four: one assistant message per turn (b), no unpaired `tool_use` (a), nothing
+edited or added because pending was never committed (d), and history ending on the accepted answer on
+**every** provider (c). The divergence closes instead of moving.
+
+**The streaming case is decided here, not left to the implementer.** On the streaming structured path
+the prose deltas have already been yielded before extraction runs, so committing the object makes
+history differ from what the caller watched stream by. **Commit the object anyway.** History is the
+record of the turn's outcome, and a streamed-then-superseded render is already what happens on any
+retried attempt today. Pinned explicitly, because an implementer who does not notice will commit
+whatever is convenient on each path and the two entry points diverge again — which is the failure
+this document has now corrected three times.
 
 **Two ordering facts, verified rather than assumed.** There is no race with the attempt's own append:
 `commitAssistant` runs **inside** the round (`execution-round.ts:218`), so by the time the loop exits
@@ -634,7 +662,7 @@ so every producer is updated rather than silently ignoring it.
 
 ### Independent review
 
-Six rounds with `proposal-reviewer`, 2026-08-16. All six returned **`REVIEW VERDICT: REVISE`**;
+Seven rounds with `proposal-reviewer`, 2026-08-16. All seven returned **`REVIEW VERDICT: REVISE`**;
 all were accepted in full, and in every round each load-bearing finding was independently
 re-checked against the code before revising. No finding was refuted in any round.
 
@@ -659,6 +687,16 @@ attempt is a full round loop and the extraction is one call.
 
 **Rounds 1 and 2** are below. Round 2 (on the first revision):
 the code before revising. No finding was refuted.
+
+**Round 7** (on the sixth revision) found that the fully out-of-band rule was correct about wire
+validity and wrong about conversation semantics — the specific risk this author had asked it to check
+rather than assume:
+
+| Round-7 finding                                                                                                                    | Re-checked at                                         | Disposition                        |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------- |
+| Committing nothing leaves history on the **rejected** prose, so conversation state again depends on which package was instantiated | the Problem section's own indictment                  | Fixed — pending-then-commit-once   |
+| The pending protocol already exists, and `discardPending()` is already used on a failure path                                      | `execution-round.ts:150,198,218`; `SPEC.md:1104-1108` | Adopted — no new machinery         |
+| The streaming case would diverge if left unstated                                                                                  | streamed deltas precede extraction                    | Fixed — decided and pinned, TC-07d |
 
 **Round 6** (on the fifth revision) closed the ordering question this author raised — there is no race,
 because `commitAssistant` runs inside the round (`execution-round.ts:218`), so the post-loop read is
@@ -806,12 +844,15 @@ representation is how that continues.
   it" — PROV-004 classifies that as a violation, so the SPEC currently documents the violation as
   intent. § Structured Output Contract's **History** clause (`:986-987`) additionally states the
   out-of-band rule for the extraction call, since that clause is what governs it.
-- **TC-07b** After a structured run that used the extraction transport, the conversation contains
-  **no assistant message with an unanswered tool call** and **no two consecutive assistant messages**,
-  and a subsequent turn on the same conversation succeeds. Pinned against a converter that emits
-  `tool_use` blocks _and_ enforces user/assistant alternation, so both failures are reproducible
-  rather than theoretical — the first is the 400 a naive commit would ship, the second is the 400 the
-  round-5 formulation of this rule would have shipped.
+- **TC-07b** After a structured run that used the extraction transport, history **ends on the object
+  the caller received**, contains **exactly one assistant message for that turn**, contains **no
+  unanswered tool call**, and a subsequent turn on the same conversation both **succeeds** against an
+  alternation-enforcing converter and **can reference the structured answer**. One criterion pinning
+  wire validity and conversation semantics together — separating them is what let three successive
+  formulations each fix one and break the other.
+- **TC-07d** The streaming structured path commits the same thing the non-streaming one does: the
+  extracted object, even though the prose deltas were already yielded. Pinned so the two entry points
+  cannot diverge.
 - **TC-07c** A validation failure on attempt _n_ causes attempt _n+1_ to use the extraction transport
   on a non-native provider **unconditionally**, without re-consulting the structural predicate — the
   subset-vs-Zod divergence, pinned with a schema whose constraints live outside the universal subset
