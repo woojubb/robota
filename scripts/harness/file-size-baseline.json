@@ -12,7 +12,6 @@
   "packages/agent-core/src/core/robota.ts": 413,
   "packages/agent-core/src/index.ts": 337,
   "packages/agent-core/src/interfaces/agent.ts": 308,
-  "packages/agent-core/src/interfaces/provider.ts": 314,
   "packages/agent-core/src/managers/agent-factory.ts": 301,
   "packages/agent-core/src/plugins/event-emitter-plugin.ts": 310,
   "packages/agent-core/src/services/execution-round.ts": 304,

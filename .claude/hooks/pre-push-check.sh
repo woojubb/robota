@@ -696,6 +696,39 @@ if ! hook_git_in "$PROJECT_DIR" diff --quiet pnpm-lock.yaml 2>/dev/null; then
   exit 2
 fi
 
+# --- a lockfile change nobody asked for ---------------------------------------------------------
+#
+# The checks above ask whether the lockfile is COMMITTED and IN SYNC. Neither asks the question that
+# actually costs CI cycles: does this branch change `pnpm-lock.yaml` at all, when it changes no
+# manifest?
+#
+# Measured on PR #1793 (2026-08-16). A local `pnpm install` dropped `dev: true` from the `sharp`
+# family, moving it from a dev-only resolution into the production graph. No `package.json` on the
+# branch differed from develop's, so nothing local looked wrong — but `dependency-review` refuses
+# `@img/sharp-win32-*` (`LGPL-3.0-or-later`, outside the allowed set) the moment it becomes
+# production-reachable. That cost TWO red CI runs and two re-reviews: one to fail, one to fail again
+# after a fix aimed at the wrong cause.
+#
+# A lockfile diff with no manifest diff is churn, not intent. The remedy is one command and it is
+# printed. `LOCKFILE_CHURN_ACK=1` is for the case where the resolution genuinely changed on purpose
+# without a manifest edit (a registry republish, a pnpm upgrade) — state it, do not discover it in CI.
+if [ -z "${LOCKFILE_CHURN_ACK:-}" ]; then
+  merge_base="$(hook_git_in "$PROJECT_DIR" merge-base origin/develop HEAD 2>/dev/null || true)"
+  if [ -n "$merge_base" ]; then
+    lock_changed="$(hook_git_in "$PROJECT_DIR" diff --name-only "$merge_base" HEAD -- pnpm-lock.yaml 2>/dev/null || true)"
+    manifests_changed="$(hook_git_in "$PROJECT_DIR" diff --name-only "$merge_base" HEAD -- '*package.json' 2>/dev/null || true)"
+    if [ -n "$lock_changed" ] && [ -z "$manifests_changed" ]; then
+      echo "[pre-push-check] Blocked: this branch changes pnpm-lock.yaml but no package.json." >&2
+      echo "[pre-push-check] A lockfile diff with no manifest diff is install churn, not intent —" >&2
+      echo "[pre-push-check] and a resolution moving a package into the production graph is what" >&2
+      echo "[pre-push-check] dependency-review refuses, one CI cycle later." >&2
+      echo "[pre-push-check] Restore it:  git checkout origin/develop -- pnpm-lock.yaml" >&2
+      echo "[pre-push-check] Deliberate resolution change with no manifest edit: LOCKFILE_CHURN_ACK=1 inline." >&2
+      exit 2
+    fi
+  fi
+fi
+
 # Nothing is printed on the clean path. Both lines that used to sit here narrated progress on
 # every successful push and carried nothing the operator could act on; a guard that speaks when
 # it has nothing to say is one people learn to scroll past, and then its refusals scroll past too.
