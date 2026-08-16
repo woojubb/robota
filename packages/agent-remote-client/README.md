@@ -1,6 +1,10 @@
 # @robota-sdk/agent-remote-client
 
-Client-side remote execution layer for Robota SDK. Provides `RemoteExecutor` (implements `IExecutor`) to proxy AI provider calls to a remote Robota agent server over HTTP, including SSE streaming support.
+Client-side remote execution layer for Robota SDK. Provides `RemoteExecutor` (implements `IExecutor`) to proxy AI provider calls to a remote Robota agent server over HTTP.
+
+Streaming is deliberately **not** implemented (CORE-044): the client used to post to a `/stream`
+endpoint no server in this repository serves, so every such call was a 404. Restoring it needs a
+transport decision and an owner for chunk assembly — tracked as CORE-046.
 
 > This package is **private** and not published to npm. Server-side hosting is handled by separate packages (`agent-transport-http`, `agent-transport-ws`).
 
@@ -20,29 +24,27 @@ const executor = new RemoteExecutor({
   timeout: 30000, // optional, default 30 000 ms
 });
 
-// Non-streaming
 const response = await executor.executeChat({
   provider: 'anthropic',
   model: 'claude-opus-4-5',
   messages: [createUserMessage('Hello')],
+  // Per-call options travel to the server as one object and are forwarded into the
+  // provider call there (CORE-044). Tools are sent alongside them.
+  options: {
+    model: 'claude-opus-4-5',
+    toolChoice: 'required',
+    maxTokens: 1024,
+  },
 });
-
-// Streaming (SSE)
-for await (const chunk of executor.executeChatStream({
-  provider: 'anthropic',
-  model: 'claude-opus-4-5',
-  messages: [createUserMessage('Hello')],
-  stream: true,
-})) {
-  process.stdout.write(chunk.content ?? '');
-}
 ```
 
 ## API
 
 ### `RemoteExecutor`
 
-Implements `IExecutor` from `@robota-sdk/agent-core`. Proxies `executeChat` and `executeChatStream` calls to a remote server via HTTP POST.
+Implements `IExecutor` from `@robota-sdk/agent-core`. Proxies `executeChat` to a remote server via HTTP POST, carrying the caller's `tools` and the serializable members of `IChatOptions`. `executeChatStream` is not implemented — the interface makes it optional, so a provider configured with this executor reports `supportsStreaming: false` rather than failing at a route nobody serves.
+
+The run's `AbortSignal` cannot be serialized, so it is threaded into `fetch`: cancelling the HTTP request IS the cancellation on this seam, and an abort surfaces as an `AbortError` rather than a generic transport failure.
 
 | Config option | Type                     | Required | Description                             |
 | ------------- | ------------------------ | -------- | --------------------------------------- |
@@ -54,7 +56,7 @@ Implements `IExecutor` from `@robota-sdk/agent-core`. Proxies `executeChat` and 
 
 ### `HttpClient`
 
-Low-level HTTP client used internally by `RemoteExecutor`. Provides typed `chat` and `chatStream` methods. Accepts an injected `ILogger` via `IHttpClientConfig`.
+Low-level HTTP client used internally by `RemoteExecutor`. Provides a typed `chat` method. Accepts an injected `ILogger` via `IHttpClientConfig`.
 
 ## Exported Types
 

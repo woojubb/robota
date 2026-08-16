@@ -18,7 +18,10 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
   private currentModel: string | undefined;
 
   constructor() {
-    super();
+    // CORE-045: same as the tool registry — `doInitialize` only logs, so there is no asynchronous
+    // state a caller could race, and refusing until the first run made `swapDefaultProvider()`
+    // throw on every freshly constructed agent.
+    super({ readyOnConstruction: true });
   }
 
   /**

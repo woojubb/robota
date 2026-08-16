@@ -347,63 +347,46 @@ describe('AIProviders (AI Provider Manager)', () => {
   // ----------------------------------------------------------------
   // 6. Error States
   // ----------------------------------------------------------------
-  describe('Error States', () => {
-    it('should throw when calling addProvider before initialization', async () => {
+  describe('Lifecycle refusals (CORE-045)', () => {
+    // These cases used to assert the opposite: that every method throws
+    // `AIProviders is not initialized` on a freshly constructed manager. That was the DEFECT, pinned
+    // as a contract. `doInitialize` only emits a debug log, so there was no asynchronous state a
+    // caller could race and the refusal protected nothing -- while making `Robota.swapDefaultProvider`
+    // unusable on a fresh agent, because nothing initialized the manager except the first run.
+    //
+    // What the flag genuinely marks is teardown, so that is what is asserted now.
+    it('is usable from construction, with no initialize() call', () => {
       const manager = new AIProviders();
       const provider = new MockAIProvider();
-      expect(() => manager.addProvider('test', provider)).toThrow('AIProviders is not initialized');
+
+      expect(() => manager.addProvider('test', provider)).not.toThrow();
+      expect(manager.getProviderNames()).toEqual(['test']);
+      expect(manager.getProviderCount()).toBe(1);
+      expect(manager.isConfigured()).toBe(false);
+      expect(manager.getProvidersByPattern('te')).toBeDefined();
+      expect(manager.supportsStreaming('test')).toBe(false);
+      expect(() => manager.setCurrentProvider('test', 'model-1')).not.toThrow();
+      expect(manager.getCurrentProvider()).toEqual({ provider: 'test', model: 'model-1' });
+      expect(() => manager.removeProvider('test')).not.toThrow();
     });
 
-    it('should throw when calling removeProvider before initialization', () => {
+    it('refuses after disposal, and says disposal rather than "not initialized"', async () => {
       const manager = new AIProviders();
-      expect(() => manager.removeProvider('test')).toThrow('AIProviders is not initialized');
+      manager.addProvider('test', new MockAIProvider());
+      await manager.dispose();
+
+      expect(() => manager.getProviderNames()).toThrow(/was disposed/);
+      expect(() => manager.getProviderNames()).not.toThrow(/is not initialized/);
     });
 
-    it('should throw when calling getProvider before initialization', () => {
+    it('is usable again after an explicit re-initialize', async () => {
+      // Disposal is reversible by an explicit call — both lifecycle hooks are documented idempotent,
+      // and the refusal exists to stop a disposed manager answering silently, not to entomb it.
       const manager = new AIProviders();
-      expect(() => manager.getProvider('test')).toThrow('AIProviders is not initialized');
-    });
+      await manager.dispose();
+      await manager.initialize();
 
-    it('should throw when calling getProviders before initialization', () => {
-      const manager = new AIProviders();
-      expect(() => manager.getProviders()).toThrow('AIProviders is not initialized');
-    });
-
-    it('should throw when calling setCurrentProvider before initialization', () => {
-      const manager = new AIProviders();
-      expect(() => manager.setCurrentProvider('test', 'model')).toThrow(
-        'AIProviders is not initialized',
-      );
-    });
-
-    it('should throw when calling getCurrentProvider before initialization', () => {
-      const manager = new AIProviders();
-      expect(() => manager.getCurrentProvider()).toThrow('AIProviders is not initialized');
-    });
-
-    it('should throw when calling isConfigured before initialization', () => {
-      const manager = new AIProviders();
-      expect(() => manager.isConfigured()).toThrow('AIProviders is not initialized');
-    });
-
-    it('should throw when calling getProviderNames before initialization', () => {
-      const manager = new AIProviders();
-      expect(() => manager.getProviderNames()).toThrow('AIProviders is not initialized');
-    });
-
-    it('should throw when calling getProvidersByPattern before initialization', () => {
-      const manager = new AIProviders();
-      expect(() => manager.getProvidersByPattern('test')).toThrow('AIProviders is not initialized');
-    });
-
-    it('should throw when calling getProviderCount before initialization', () => {
-      const manager = new AIProviders();
-      expect(() => manager.getProviderCount()).toThrow('AIProviders is not initialized');
-    });
-
-    it('should throw when calling supportsStreaming before initialization', () => {
-      const manager = new AIProviders();
-      expect(() => manager.supportsStreaming('test')).toThrow('AIProviders is not initialized');
+      expect(() => manager.addProvider('test', new MockAIProvider())).not.toThrow();
     });
   });
 });

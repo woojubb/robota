@@ -233,72 +233,13 @@ describe('SimpleRemoteExecutor Facade', () => {
   });
 
   describe('Stream Execution', () => {
-    let validRequest: IStreamExecutionRequest;
-
-    beforeEach(() => {
-      executor = new SimpleRemoteExecutor(mockConfig);
-
-      validRequest = {
-        messages: [
-          {
-            id: 'test-user-msg-id',
-            role: 'user',
-            content: 'Hello',
-            state: 'complete' as const,
-            timestamp: new Date(),
-          },
-        ],
-        provider: 'openai',
-        model: 'gpt-4',
-        stream: true,
-      };
-    });
-
-    it('should handle streaming responses', async () => {
-      const sourceResponse: TUniversalMessage = {
-        id: 'test-assistant-msg-id',
-        role: 'assistant',
-        content: 'Streaming response',
-        state: 'complete' as const,
-        timestamp: new Date(),
-      };
-
-      mockHttpClient.chatStream.mockReturnValue(
-        (async function* (): AsyncIterable<TUniversalMessage> {
-          yield sourceResponse;
-        })(),
-      );
-
-      const stream = executor.executeChatStream(validRequest);
-      const chunks = [];
-
-      for await (const chunk of stream) {
-        chunks.push(chunk);
-      }
-
-      expect(chunks).toHaveLength(1);
-      expect(chunks[0]).toMatchObject({
-        role: 'assistant',
-        content: 'Streaming response',
-        state: 'complete',
-      });
-    });
-
-    it('should validate request before streaming', async () => {
-      const invalidRequest = {
-        messages: [],
-        provider: 'openai',
-        model: 'gpt-4',
-        stream: true,
-      } as IStreamExecutionRequest;
-
-      const stream = executor.executeChatStream(invalidRequest);
-
-      await expect(async () => {
-        for await (const _chunk of stream) {
-          // This should throw before yielding any chunks
-        }
-      }).rejects.toThrow('Messages array is required and cannot be empty');
+    it('does not advertise streaming, because no server here serves a stream route (CORE-044)', () => {
+      // The removed cases drove `executeChatStream` against a mocked HttpClient, so they were green
+      // while every real call 404'd: the client posted to `${baseUrl}/stream`, `request-handler-simple`
+      // named `/chat/stream`, and the server serves neither. `IExecutor.executeChatStream` is
+      // optional, so the honest state is to not implement it — a caller then gets an accurate
+      // "streaming executor is required" instead of a 404 dressed as a capability.
+      expect((executor as unknown as Record<string, unknown>)['executeChatStream']).toBeUndefined();
     });
   });
 
@@ -380,13 +321,7 @@ describe('SimpleRemoteExecutor Facade', () => {
         (name) => name !== 'constructor' && !name.startsWith('_'),
       );
 
-      expect(publicMethods).toEqual([
-        'executeChat',
-        'executeChatStream',
-        'supportsTools',
-        'validateConfig',
-        'dispose',
-      ]);
+      expect(publicMethods).toEqual(['executeChat', 'supportsTools', 'validateConfig', 'dispose']);
     });
   });
 });
