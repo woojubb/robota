@@ -10,7 +10,7 @@ depends_on: [CORE-042]
 
 # CORE-044: the remote seam implements none of the contract it declares
 
-Found while planning [CORE-042](CORE-042-the-execution-turn-is-implemented-twice.md), which made the
+Found while planning [CORE-042](completed/CORE-042-the-execution-turn-is-implemented-twice.md), which made the
 gap load-bearing: once the streaming entry becomes an adapter over the round path, a remote provider
 that ignores `signal` is a turn that cannot be cancelled.
 

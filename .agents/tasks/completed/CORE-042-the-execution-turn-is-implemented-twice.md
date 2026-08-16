@@ -1,7 +1,8 @@
 ---
 title: 'CORE-042: agent-core declares one execution-turn contract and implements it twice — `executeStream` re-derives store setup, provider resolution, chat options, validation, commit and error classification inline instead of entering a shared turn seam, so every turn capability must be built twice and the forgotten copy fails silently'
-status: todo
+status: done
 created: 2026-08-16
+completed: 2026-08-16
 priority: critical
 urgency: now
 area: packages/agent-core
@@ -461,7 +462,31 @@ void main();
   `return value: undefined`, `provider calls: 1`, `history roles: ["user","assistant","tool"]`,
   against `run()`'s 2 calls and the real answer. **The stream simply stops at the tool result.**
 - Cleanup: none — in-memory only.
-- Evidence: _to be filled after implementation._
+- Evidence: executed 2026-08-16 against the completed implementation, from `scratch/` as
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-042-s1.ts`; **EXIT:0**.
+  Full output:
+
+  ```text
+    run() answer: "It is 21C in Seoul right now."
+    run() provider calls: 2
+    runStream() streamed text: "\n\nIt is 21C in Seoul right now."
+    runStream() return value: "It is 21C in Seoul right now."
+    runStream() provider calls: 2
+    runStream() history roles: ["user","assistant","tool","assistant"]
+    PASS run(): tool result reached a second provider call
+    PASS run(): final answer returned
+    PASS runStream(): the tool ran (a tool message is in history)
+    PASS runStream(): the tool result fed a follow-up provider call
+    PASS runStream(): the final answer was streamed to the consumer
+    PASS runStream(): the last history message is the assistant final answer
+    PASS runStream(): generator return value is the final assistant text
+    PASS both entry points made the same number of provider calls
+    SCENARIO 1 PASS
+  ```
+
+  The behaviour is pinned in the repository by
+  `packages/agent-core/src/core/__tests__/entry-point-parity.test.ts` — `scratch/src` is
+  gitignored, so the script's durable home is the block above.
 
 ---
 
@@ -551,7 +576,25 @@ void main();
   Measured pre-fix: `EXIT:1` — `run(): 3 calls, 2 tool messages` vs `runStream(): 1 call, 1 tool
 message`. The cap is accepted and read by nothing on that path.
 - Cleanup: none.
-- Evidence: _to be filled after implementation._
+- Evidence: executed 2026-08-16 against the completed implementation, from `scratch/` as
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-042-s2.ts`; **EXIT:0**.
+  Full output:
+
+  ```text
+    run(maxExecutionRounds=2) provider calls: 3
+    run() tool messages in history: 2
+    runStream(maxExecutionRounds=2) provider calls: 3
+    runStream() tool messages in history: 2
+    PASS run(): the cap produced more than one provider call
+    PASS runStream(): the round loop ran more than one round
+    PASS runStream(): the tool ran once per capped round, same as run()
+    PASS runStream(): the cap holds — provider calls match run() exactly
+    SCENARIO 2 PASS
+  ```
+
+  The behaviour is pinned in the repository by
+  `packages/agent-core/src/core/__tests__/entry-point-parity.test.ts` — `scratch/src` is
+  gitignored, so the script's durable home is the block above.
 
 ---
 
@@ -641,7 +684,24 @@ void main();
   `stored assistant message: {"state":"complete","content":"tick0 tick1 tick2 "}`. An aborted partial
   is recorded indistinguishably from a natural completion.
 - Cleanup: none.
-- Evidence: _to be filled after implementation._
+- Evidence: executed 2026-08-16 against the completed implementation, from `scratch/` as
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-042-s3.ts`; **EXIT:0**.
+  Full output:
+
+  ```text
+    chunks received before abort: 3
+    consumption ended with: (no throw)
+    stored assistant message: {"state":"interrupted","content":"tick0 tick1 tick2 "}
+    PASS the consumer received partial text before aborting
+    PASS a partial assistant message was stored
+    PASS the aborted partial is stored with state 'interrupted'
+    PASS the stored partial is not indistinguishable from a natural completion
+    SCENARIO 3 PASS
+  ```
+
+  The behaviour is pinned in the repository by
+  `packages/agent-core/src/core/__tests__/entry-point-parity.test.ts` — `scratch/src` is
+  gitignored, so the script's durable home is the block above.
 
 ---
 
@@ -745,7 +805,24 @@ void main();
   `validated object: undefined`,
   `StructuredOutputError: response failed schema validation after 1 attempt(s)`.
 - Cleanup: none.
-- Evidence: _to be filled after implementation._
+- Evidence: executed 2026-08-16 against the completed implementation, from `scratch/` as
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-042-s4.ts`; **EXIT:0**.
+  Full output:
+
+  ```text
+    streamed text: "\n\n{\"city\":\"Seoul\",\"tempC\":21}"
+    validated object: {"city":"Seoul","tempC":21}
+    error: (none)
+    PASS the structured stream did not fail validation
+    PASS the tool ran inside the structured turn
+    PASS the validated object is the generator return value
+    PASS validation saw the post-tool final text, not the tool notices
+    SCENARIO 4 PASS
+  ```
+
+  The behaviour is pinned in the repository by
+  `packages/agent-core/src/core/__tests__/entry-point-parity.test.ts` — `scratch/src` is
+  gitignored, so the script's durable home is the block above.
 
 ---
 
@@ -855,7 +932,28 @@ void main();
   families, versus `runStream(): beforeProviderCall=0 afterProviderCall=0 events=[]`. A plugin that
   inspects provider traffic is blind on the streaming path, and no replay event is emitted at all.
 - Cleanup: none.
-- Evidence: _to be filled after implementation._
+- Evidence: executed 2026-08-16 against the completed implementation, from `scratch/` as
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-042-s5.ts`; **EXIT:0**.
+  Full output:
+
+  ```text
+    run(): beforeProviderCall=1 afterProviderCall=1 events=["history_mutation","provider_request","provider_stream_raw_delta","provider_response_raw","provider_response_normalized","assistant_message_committed"]
+    runStream(): beforeProviderCall=1 afterProviderCall=1 events=["history_mutation","provider_request","provider_stream_raw_delta","provider_response_raw","provider_response_normalized","assistant_message_committed"]
+    PASS run(): beforeProviderCall fired
+    PASS run(): afterProviderCall fired
+    PASS runStream(): beforeProviderCall fired
+    PASS runStream(): afterProviderCall fired
+    PASS runStream(): emitted provider_request
+    PASS runStream(): emitted provider_stream_raw_delta
+    PASS runStream(): emitted provider_response_raw
+    PASS runStream(): emitted provider_response_normalized
+    PASS runStream(): emitted assistant_message_committed
+    SCENARIO 5 PASS
+  ```
+
+  The behaviour is pinned in the repository by
+  `packages/agent-core/src/core/__tests__/entry-point-parity.test.ts` — `scratch/src` is
+  gitignored, so the script's durable home is the block above.
 
 ---
 
@@ -952,7 +1050,22 @@ void main();
   primitive. The tool-list predicate is the user-visible half, and it is what this scenario tests.
 
 - Cleanup: none.
-- Evidence: _to be filled after implementation._
+- Evidence: executed 2026-08-16 against the completed implementation, from `scratch/` as
+  `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-042-s6.ts`; **EXIT:0**.
+  Full output:
+
+  ```text
+    run() tools offered to the model: ["echo_tool"]
+    runStream() tools offered to the model: ["echo_tool"]
+    PASS run(): the registered tool reached the model
+    PASS runStream(): the registered tool reached the model
+    PASS both entry points offered the model the same tool list
+    SCENARIO 6 PASS
+  ```
+
+  The behaviour is pinned in the repository by
+  `packages/agent-core/src/core/__tests__/entry-point-parity.test.ts` — `scratch/src` is
+  gitignored, so the script's durable home is the block above.
 
 ---
 
@@ -1125,3 +1238,44 @@ delegates to `execute`, so both public entry points enter one turn.
   `robota-execution.ts` split into a structured-output half and `chat-http-methods.ts` split into a
   streaming half so both stay under the 300-line ceiling; the ratchet re-locked for the three files
   that shrank.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-16
+
+**Status upgrade:** in-progress → done
+
+- **Every scenario executed against the completed implementation.** All six were run from `scratch/`
+  as `node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-042-s<N>.ts` against the
+  final tree (commit `a57e3a336`) — i.e. after the tail emission, the forced-summary threading and
+  the remote `signal` landed, not against the mid-implementation state. Every scenario printed
+  `SCENARIO <N> PASS`.
+- **Observed matched expected, per scenario.**
+  - **S1 — one turn, both entries.** `run()` 2 provider calls; `runStream()` 2 provider calls,
+    history `["user","assistant","tool","assistant"]`, streamed text
+    `"\n\nIt is 21C in Seoul right now."`, generator return value
+    `"It is 21C in Seoul right now."`. Both entries made the same number of calls — the property
+    the item exists to establish. Note the return value is the FINAL text and not the concatenation:
+    the inter-round separator is present in the stream and absent from the return, which is exactly
+    why structured output had to stop validating the concatenation.
+  - **S2 — the round cap.** `maxExecutionRounds=2` gives 3 provider calls and 2 tool messages
+    through BOTH entries; `runStream()` was a single-round engine before (CORE-032).
+  - **S3 — abort.** 3 chunks received, then the stored assistant message is
+    `{"state":"interrupted","content":"tick0 tick1 tick2 "}`. `interrupted` had no reachable producer
+    on this path before (CORE-034), so a cancelled run was indistinguishable from a completed one.
+  - **S4 — structured output over a tool-using stream.** Streamed
+    `"\n\n{\"city\":\"Seoul\",\"tempC\":21}"`, validated object `{"city":"Seoul","tempC":21}`,
+    no error. Validation saw the post-tool final text rather than the tool notices.
+  - **S5 — hooks and replay events.** `beforeProviderCall=1 afterProviderCall=1` and the identical
+    event list through both entries: `history_mutation`, `provider_request`,
+    `provider_stream_raw_delta`, `provider_response_raw`, `provider_response_normalized`,
+    `assistant_message_committed`. The streaming path emitted none of these before.
+  - **S6 — the tool list.** `["echo_tool"]` offered through both entries; the two paths previously
+    asked different questions about which tools exist.
+- **Evidence lives in durable repository artifacts.** `scratch/src` is gitignored, so the scripts'
+  durable home is the inlined blocks in this item, and the behaviour they exercise is pinned in the
+  repository by `packages/agent-core/src/core/__tests__/entry-point-parity.test.ts` (nine capabilities
+  × both entry points) and `packages/agent-core/examples/verify-offline.ts` (a recorded scenario
+  run by `pnpm harness:verify --scope packages/agent-core`).
+- **No engineering verification is cited as user-execution evidence.** The suites and harness runs are
+  recorded separately under _Implementation Outcome_; the evidence in this entry is scenario output.
+- **No capability-absence claim is made.** Every scenario was executed; none was passed by exception,
+  and none carries `manual-only`.
