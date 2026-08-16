@@ -368,8 +368,17 @@ sweep could find it. Swept here on the intent symbols themselves.
 | 4   | Caller options publishing the `json_object` arm — `agent-framework/query.ts:30`, `runtime/agent-runtime.ts:58`, `interactive/interactive-session-options.ts:157,279`, `agent-session/session-types.ts:154`                                                | Reach (1), but ungated as intent             |
 | 5   | **CLI `--json-schema`** (`agent-cli/src/utils/cli-args.ts:49,269`) — implemented by appending _"Respond with valid JSON only, matching this JSON schema: …"_ to the system prompt (`startup/append-system-prompt.ts:26-28`)                               | **NO — prompt-level, outside the model**     |
 
-A live in-repo caller of (4) exists today: `agent-command-workflows/src/authoring/author.ts:60` passes
-`responseFormat: { type: 'json_object' }` and gets nothing on the compat family.
+**Correction (depth triage, 2026-08-16).** `agent-command-workflows/src/authoring/author.ts:60` was
+filed here under (4) as "reaches (1), but ungated". It does **not** reach (1): `author.ts:53` calls
+`provider.chat()` **directly**, so it is (3)'s class. And it is not alone — there are six non-test
+direct `provider.chat()` sites outside the core turn path (`author.ts:53`,
+`execution-pipeline.ts:168`, `agent-session/src/compaction-orchestrator.ts:128`,
+`agent-framework/src/interactive/session-naming.ts:53`, `apps/agent-server/src/app.ts:138`,
+`routes/handlers/playground-execute.ts:145`).
+
+The round-11 sweep that existed to close this axis also missed four publishers of the `json_object`
+arm: `agent-framework/src/assembly/create-session-types.ts:207`, `assembly/create-session.ts:273`,
+`interactive/create-session-projection.ts:95`, `interactive/interactive-session-init.ts:261`.
 (`dag-framework/src/adapters/prompt-backend.ts` matches the sweep on
 `jsonSchemaPropertyToInputSpec` — a schema→port converter, **not** an intent channel. Recorded so it
 is not re-examined.)
@@ -387,17 +396,23 @@ the grounds that injecting "json" into the user's prompt is prompt manipulation,
 `project-structure.md:113`. The CLI already ships exactly that mechanism, on the flagship surface. The
 design cannot both refuse it as out of bounds and leave it running unexamined.
 
-**Decision: the core seam is the SOLE gate for structured-output intent.** Any other answer requires
+**Decision, as corrected: the core seam is the sole gate FOR THE CORE TURN PATH.** The unqualified
+form was unenforceable — `IChatOptions` is a provider-facing contract any package holding an
+`IAIProvider` can populate directly, and six sites do. The unbounded-provider-surface half is
+**PROV-009**; the direct-call sites are their own question and are recorded here rather than claimed.
+Within the core turn path: Any other answer requires
 step 4b's report to enumerate what it cannot see, which makes the item's deliverable conditional on
 which construction path the caller happened to use. Pre-release, `code-quality.md:51` makes the
 consequences available rather than merely desirable:
 
 - **(3)** is removed, or routed through the gate — the provider stops merging a construction-time
-  format of its own. **The caller set is verified empty**: every in-repo match on that option is
-  inside `openai-request-format.ts`'s own merge function; there is no constructor caller anywhere in
-  the workspace, and `packages/agent-provider-openai/docs/SPEC.md` does not mention `responseFormat`
-  at all. A removal with an enumerated-and-empty caller list is a far stronger case than an
-  unenumerated one.
+  format of its own. **Correction (depth triage, 2026-08-16): the "verified empty caller
+  set" claimed here was FALSE.** The sweep that produced it excluded `*.test.*`, and the one caller is
+  a test — `packages/agent-provider-openai/src/openai/provider.test.ts:313-326` constructs
+  `new OpenAIProvider({ apiKey, responseFormat: 'json_schema', jsonSchema })`. The option is also
+  published at `content/v2.0.0/api-reference/openai/interfaces/IOpenAIProviderOptions.md:84`, while
+  `packages/agent-provider-openai/docs/SPEC.md` does not mention it. The finding survives; the
+  approval case built on the empty set does not, and this consequence now belongs to **PROV-009**.
 - **(4)** funnels into (1) as intent, so a drop is reported rather than silent.
 - **(5)** becomes a caller of the gated path instead of a prompt-appender — which also removes the
   contradiction with step 4's own scope-out.
@@ -1047,27 +1062,49 @@ PROV-007 sequenced ahead of the OpenAI fallback path. It is the size the defect 
 filed **three times in three days from three channels** because no layer owns it, and a fourth partial
 representation is how that continues.
 
-## Landing sequence
+## Landing sequence — corrected by depth triage
 
-The `area` grew from three packages to thirteen across eleven review rounds — every increment traced
-to a verified defect, but the aggregate is no longer one landing. The design stays **one design**; it
-lands in four units, each independently verifiable, with one hard ordering rule.
+> **Superseded 2026-08-16.** The first version of this section split the work into four **delivery**
+> units (A/B/C/D) by blast radius. `finding-depth-triager` judged the ten expansions and returned
+> **7 FOUNDATIONAL of 10** — three of them **already filed** as open items three days before CORE-043
+> existed. A delivery split and a depth split are not the same question, and this section had
+> conflated them: its own opening sentence ("the `area` grew from three packages to thirteen") is a
+> _size_ observation, and a size remedy was the answer given.
 
-| Unit  | Content                                                            | Depends on         | Why it is its own landing                                                                                                                                                                                                                                                                                                                                                                                             |
-| ----- | ------------------------------------------------------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A** | Intent-channel consolidation — the sole gate (§ 3c) + the CLI flag | —                  | **Must precede C.** A gate with a bypass is not a gate: while the provider-level option reaches the wire directly, step 4's gate and step 4b's report are _false_ for that path. Cheapest of the four — verified-empty caller set, no SPEC to amend                                                                                                                                                                   |
-| **B** | Capability contract and resolution seam (§ 1–3, 3b)                | —                  | Runs parallel to A. Deliverable is **truth without action**: every (provider, model) answers correctly, all six flags route through the seam, PROV-006 closes, the catalog splits, cost moves — and `buildChatResponseFormat` **emits exactly as today**. Observable before it acts. Carries one behaviour change of its own (`tools` gating once `LocalExecutor` routes through), which needs its own red-first test |
-| **C** | Transport selection and terminal extraction (§ 4, 4b, 5, 6, 7)     | A, B, **PROV-007** | Where behaviour changes: the gate acts, the extraction exists, the commit shape changes, the report is emitted                                                                                                                                                                                                                                                                                                        |
-| **D** | Replay-log discriminator + `session-log-events.ts`                 | —                  | Two files, enabling for C, landable any time. Keeps C's diff about transport rather than log format                                                                                                                                                                                                                                                                                                                   |
+**What belongs to CORE-043** — its own thesis, plus the two defects this change itself creates:
 
-**Order: A and B in parallel → C.** D whenever convenient; PROV-007 ahead of C's OpenAI path.
+| Content                                                                      | Depth                                                                                    |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Transport selection, terminal extraction, the outcome report (§ 4, 4b, 6, 7) | LOCAL — this item's thesis                                                               |
+| Replay discriminator + `session-log-events.ts`                               | LOCAL — the desync exists only because this design adds a second call in a round         |
+| DeepSeek catalog `json_schema` → `json_object`                               | LOCAL — a data fix in a file this work rewrites                                          |
+| `agent-provider-gemini` gains `getCapabilities`                              | LOCAL — its inherited default is correct **today**; this change's own contract breaks it |
 
-**The one hard rule: B changes no emission.** Its whole value is that the capability answers and the
-reports can be checked against reality before anything depends on them. A B that also changes what is
-sent would be C wearing B's clothes, and the safe half would inherit the risky half's blast radius —
-which is the reason for splitting at all.
+**What was absorbed and is being returned to its owner:**
 
-Each child cites this document as its design; this document is not superseded by them.
+| Absorbed as                                                 | Real owner                                                                                      | Blocks CORE-043?                                                                              |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Unify capability channels, close PROV-006 for all six flags | **PROV-006** (2026-08-13, open) — its Direction _is_ this decision                              | **Yes** — now in `depends_on`                                                                 |
+| `LocalExecutor.supportsTools()` disjunction                 | **PROV-006** — cites `local-executor.ts:180-182` verbatim                                       | No                                                                                            |
+| `forceSummaryCall` drops `responseFormat`                   | **CORE-033** (2026-08-13, open) — enumerates `signal`, `effort`, idle-timeout at the same lines | No — a run that exhausts its rounds is not the extraction's path                              |
+| Catalog struct split + cost move                            | **PROV-008** (filed with this change)                                                           | Partly — a declared source is needed; the **cost move is not**, and had no forcing constraint |
+| Provider construction-level format                          | **PROV-009** (filed with this change)                                                           | No — scopes one criterion (TC-08e)                                                            |
+| CLI `--json-schema` prompt append                           | **CLI-081** (filed with this change)                                                            | No — the coupling was rhetorical                                                              |
+
+**Why this is not scope-shrinking for churn reasons.** [code-quality.md](../../rules/code-quality.md)
+`:51` says a defect found along the way must be absorbed, not bypassed. A defect that **already has a
+filed owner** is not "found along the way" — absorbing it does not fix it sooner, it hides an open
+item under a different number and inflates one `area`. [finding-depth.md](../../rules/finding-depth.md)
+is the owner of that distinction and says to file the root item, never a third option. The correct
+design in this document is unchanged; only which item carries each part of it.
+
+**Order:** PROV-006 decides consume-or-delete → PROV-008 gives the answer a home → CORE-043 lands its
+transport and extraction, with PROV-007 ahead of its OpenAI path. PROV-009, CLI-081 and CORE-033 run
+independently. The replay discriminator can land any time.
+
+**One number, for the record.** CORE-043's `area` reached 13 packages. PROV-006's is 4, CORE-033's is
+1, CLI-081's is 1. This item's own thesis reaches roughly the 3 it was filed with, and it is now
+scoped back to 5.
 
 ## Completion Criteria (draft)
 
