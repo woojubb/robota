@@ -107,7 +107,7 @@ import {
   inspectTree,
   listBuildablePackageDirs as listBuildablePackageDirsIn,
 } from './tree-prerequisites.mjs';
-import { isCleanTree, shouldWriteFullReceipt } from './verification-receipt.mjs';
+import { realDirtyLines, shouldWriteFullReceipt } from './verification-receipt.mjs';
 
 export { CI_STAGES, NOT_MIRRORED };
 
@@ -846,8 +846,10 @@ export async function main(argv = process.argv.slice(2)) {
   appendJobSummary(`${lines.join('\n')}\n`);
   let finalExitCode = exitCode;
   let clean = false;
+  let dirty = [];
   try {
-    clean = isCleanTree(WORKSPACE_ROOT);
+    dirty = realDirtyLines(WORKSPACE_ROOT);
+    clean = dirty.length === 0;
   } catch (error) {
     process.stderr.write(`verification receipt eligibility failed: ${error?.message ?? error}\n`);
   }
@@ -868,8 +870,19 @@ export async function main(argv = process.argv.slice(2)) {
     ]);
     if (receiptCode !== 0) finalExitCode = 1;
   } else if (exitCode === 0) {
+    // Name the reason. A green run that quietly produced no receipt is why every push kept paying the
+    // full gate (INFRA-101) — "run was partial or tree was not clean" told the operator neither which
+    // of the two it was nor what to do about it.
+    const missing = CI_STAGES.map((stage) => stage.name).filter(
+      (name) => !selected.some((stage) => stage.name === name),
+    );
+    const reasons = [];
+    if (missing.length > 0)
+      reasons.push(`partial run — stage(s) not selected: ${missing.join(', ')}`);
+    if (!clean) reasons.push(`working tree is not clean: ${dirty.join(', ')}`);
     process.stdout.write(
-      'verification receipt not written: run was partial or tree was not clean\n',
+      `verification receipt not written: ${reasons.join('; ') || 'eligibility check failed'}\n` +
+        '  (without a receipt the next `git push` re-runs this entire gate)\n',
     );
   }
   process.exitCode = finalExitCode;
