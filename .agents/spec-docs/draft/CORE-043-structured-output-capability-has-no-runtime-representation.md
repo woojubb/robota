@@ -317,11 +317,41 @@ table and leaves cost on the discovery struct — whose live-refresh path can ne
 table.** Round 9 made the extraction's tokens part of what must be costed, so leaving cost on the
 side that cannot be populated would break the accounting that round 9 exists to make checkable.
 
-**Surfaces not walked, recorded as unexplored rather than implied clean:** `agent-framework`'s
-`/model` command surface; `agent-session` persistence and the session-log schema beyond the replay
-reader; `agent-session-analytics`; `agent-cli` provider setup and `allowedModels`; and the plugin
-surface beyond `afterProviderCall`. A recorded null result is what stops a later round from
-rediscovering them; these are recorded as **unknown**, which is the honest state.
+**The five surfaces round 10 named as unexplored, now walked.** Two were not clean:
+
+| Surface                             | Result                                                                                                     |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `agent-session-analytics`           | **No impact** — no reference to `responseFormat`, `json_schema` or capability                              |
+| `agent-cli` `allowedModels` / setup | **No impact** — no `allowedModels` reference in that package's `src`                                       |
+| `agent-session` log schema          | **No impact beyond the replay reader** — `provider_request` / `provider_response_*` names, already covered |
+| **`agent-framework` query surface** | **Impact — see below**                                                                                     |
+| **Plugin hooks**                    | **Impact — `beforeProviderCall` was missed**                                                               |
+
+**`agent-framework` exposes a second, pre-existing path into the same provider field.**
+`IChatOptions.responseFormat` (`interfaces/provider.ts:198-200`) is a **union**:
+`{ type: 'text' | 'json_object' }` or `{ type: 'json_schema'; name?; schema }`. This document has
+treated only the `json_schema` arm. But `query.ts:30` and `runtime/agent-runtime.ts:58` publish
+`responseFormat?: { type: 'text' | 'json_object' }` as a caller option and forward it
+(`query.ts:54`, `agent-runtime.ts:125`).
+
+Two consequences the design must state:
+
+1. **Caller-supplied `json_object` is a different intent from schema enforcement** — "give me JSON",
+   not "enforce this shape" — and it carries no schema to validate against. The capability gate must
+   not silently reinterpret it as a structured-output request, and the extraction transport must not
+   fire for it.
+2. **It has the same defect, ungated.** `agent-framework` forwards it to whatever provider is
+   configured, and the compat family reads no `responseFormat` at all, so a caller asking for JSON on
+   deepseek/qwen/gemma gets nothing and is told nothing — the identical silent drop, on a surface this
+   document had not looked at. The capability's `json_object` mechanism (step 2) is exactly what makes
+   this answerable, so covering it costs almost nothing here and leaves the same bug standing if
+   omitted.
+
+**`beforeProviderCall` was missed by the round-9 table.** It fires once per round at
+`execution-round.ts:93`, the mirror of `afterProviderCall` at `:185`. The extraction's own call path
+must answer for it on the same terms as row 5 — fire with an explicit marker, or be excluded with the
+reason recorded. A hook that sees the request but not its sibling, or the response but not the
+request, is worse for a cost/usage plugin than seeing neither.
 
 ### 4. The decision is made where its inputs are resolved
 
@@ -1009,6 +1039,11 @@ representation is how that continues.
 - **TC-07d** The streaming structured path commits the same thing the non-streaming one does: the
   extracted object, even though the prose deltas were already yielded. Pinned so the two entry points
   cannot diverge.
+- **TC-08d** A caller-supplied `responseFormat: { type: 'json_object' }` through `agent-framework`'s
+  `query` / `agent-runtime` surface is **not** reinterpreted as a structured-output request — no
+  extraction fires — and on a provider whose mechanism cannot carry it the caller is told rather than
+  silently dropped. The second arm of the `IChatOptions.responseFormat` union, which this document
+  had not covered until the round-10 sweep.
 - **TC-08b** A replayed structured run reproduces the recorded run exactly: the extraction's response
   is in the corpus, the cursor does not desynchronise, and `ReplayProvider` resolves an explicit
   capability rather than a vendor default. Determinism is that package's whole purpose, so it is
