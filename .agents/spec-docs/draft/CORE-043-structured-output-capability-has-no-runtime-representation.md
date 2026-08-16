@@ -73,7 +73,9 @@ Four findings, each of which changes something in this document:
    not a tidy-up.
 2. **`'none'` is a real state with a real shape behind it.** DeepSeek is not "no structured output";
    it is "JSON mode, no schema, and the word json must appear in the prompt". A boolean cannot carry
-   that, and neither can a two-state enum. This is the strongest external support for the tri-state,
+   that, and neither can a two-state enum. This is the strongest external evidence that capability
+   must name the **mechanism** — which is what step 2 does, and why the tri-state that first stood
+   here was rejected: it kept provenance and discarded exactly this,
    and it argues the capability should eventually name the _mechanism_, not just the level.
 3. **A forced tool call is a documented schema-conformance mechanism, not a folk remedy.** Anthropic
    documents `strict: true` for exactly this guarantee and documents forcing via `tool_choice`;
@@ -141,6 +143,49 @@ resolveProviderCapabilities({ provider, model }): IProviderCapabilities;
 This resolves PROV-006 wholesale rather than for one flag, and the deepseek
 `supportsTools()`-vs-catalog contradiction PROV-006 also names falls out of the same mechanism
 instead of needing its own criterion.
+
+**The declared source has to be built, because the current catalog cannot be it.** Review round 2
+established three facts: `IProviderModelCatalog` hangs off `IProviderDefinition`, a setup/registry
+artifact the provider _instance_ does not hold; `refreshModelCatalog` is declared by all six
+provider-definitions and **invoked by nothing**, and no `src` reads `modelCatalog.entries` either; and
+OpenAI's `status: 'unavailable'` (`openai/provider-definition.ts:36-40`) is a statement about
+**discovery** — "availability should be discovered live from `GET /v1/models`" — which the first
+revision misread as "declares no capabilities". `IOpenAIModelCatalogResource` carries `id` and nothing
+else, so live discovery can never populate a capability.
+
+The struct conflates two different things, and the split is part of this work:
+
+| Concern                 | Nature                                    | Home                                                                              |
+| ----------------------- | ----------------------------------------- | --------------------------------------------------------------------------------- |
+| **Which models exist**  | dynamic, per-account, live-refreshable    | stays in `modelCatalog` / `refreshModelCatalog` as today                          |
+| **What a model can do** | static, versioned with the adapter, dated | a new static capability table each provider package owns and its instance imports |
+
+DeepSeek already has exactly that shape (`getDeepSeekFallbackModelCatalogEntry` reads a module-scope
+array in its own package). OpenAI gets one for the first time, and it can finally express the snapshot
+rule its own vendor documentation states. That table — not the registry catalog — is the declared
+source the resolution seam reads, which is also the plumbing path the first revision needed and did
+not name.
+
+`IProviderDefinition.allowedModels` is a **third** model-scoped surface. It stays separate on purpose:
+its own JSDoc scopes it as a subset/override of `modelCatalog.entries[].id`, so it is a listing
+concern like discovery, not a capability one. A design that opens by collapsing two channels should
+say why it is not collapsing a third.
+
+**Miss policy — stated here rather than left to implementation.** Lookup is exact-id, new model
+snapshots appear constantly, and `capabilities` is an optional field, so there are three states:
+
+| State                                     | Resolution                                                |
+| ----------------------------------------- | --------------------------------------------------------- |
+| entry present, capabilities declared      | the declaration, `provenance: 'catalog'`                  |
+| entry present, `capabilities` undefined   | provider vendor-default, `provenance: 'vendor-default'`   |
+| **entry absent** (the common OpenAI case) | provider vendor-default, `provenance: 'undeclared-model'` |
+
+**Only an explicit declaration may deny a capability. A miss never resolves to a negative.** Without
+this rule, an unrecognised but perfectly real OpenAI model would resolve `tools` absent and have tool
+calling silently disabled — a regression far worse than the one this item exists to fix. This is the
+first draft's red-team #1 (`'unknown'` swallowing real support) returning at six times the stakes now
+that the seam governs six flags, and that same pattern already produced the Gemini fail-silent that
+step 3 fixes. It is written into the design rather than trusted to whoever implements it.
 
 ### 2. Mechanism and provenance, not a flat tri-state
 
@@ -259,13 +304,38 @@ Task's `depends_on`.
   named tool exists in the invocation's tool list, so a collision is detectable rather than silent. The
   rule: the synthetic tool takes a reserved prefix, and a user tool already holding that name is a
   configuration error raised at registration, not at run time.
-- **The unaddressed one — multi-round.** `provider.ts:159-161` documents that "within a multi-round
-  run, forcing directives apply to the FIRST model call only". A structured run that also carries real
-  tools _is_ multi-round, so forcing a synthetic schema tool on the first call would short-circuit the
-  agent's real tool work before it happens. The schema tool must therefore be forced on the **final**
-  call — the one that produces the answer being validated — not the first. This is a semantics
-  collision with the run loop, and it is why step 4's placement at the emission seam matters: only
-  there is it known which call this is.
+- **Multi-round — and the previous revision's answer to it was undecidable.** `provider.ts:159-161`
+  documents that "within a multi-round run, forcing directives apply to the FIRST model call only". A
+  structured run that also carries real tools _is_ multi-round, so forcing the schema tool on the
+  first call would short-circuit the agent's real tool work. The previous revision concluded "force
+  it on the **final** call, and the emission seam knows which call that is". **Both halves are
+  false**, and review round 2 showed why:
+  - **Finality is a posterior fact.** The loop is `while (hasRoundCapacity(...)) { … const shouldBreak
+= await executeRound(…); if (shouldBreak) break; }` (`execution-pipeline.ts:67-83`). It ends
+    because the model came back with text and no tool calls. `buildChatResponseFormat` runs _inside_
+    the round, before the provider call, where the only decidable predicate is
+    `currentRound === maxRounds` — budget exhaustion, which on the happy path never fires. A
+    "force when round is last" implementation would force the schema tool essentially never.
+  - **The structurally final call bypasses the seam.** `forceSummaryCall`
+    (`execution-pipeline.ts:120-168`) builds its own options — `{ model, onTextDelta? }` and nothing
+    else. No `tools`, no `toolChoice`, no `responseFormat`, no call to `buildChatResponseFormat`.
+
+**Injection is a run-level terminal phase, not a round-level guess.** Selection and injection are
+different decisions and the previous revision conflated them. Transport _selection_ stays at the
+capability seam per step 4. _Injection_ moves to `robotaRunStructured`, which already owns the only
+boundary where convergence is a fact rather than a prediction — `robotaRun` returned. When the
+resolved mechanism is not `response_schema`, the structured turn ends with **one additional
+extraction call carrying the schema tool forced by name and no other tools**. That predicate needs no
+round bookkeeping, and it removes the collision with real tool work by construction rather than by
+ordering.
+
+**An existing defect this absorbs.** `forceSummaryCall` carries no `responseFormat` on _any_ provider,
+native ones included — so a structured run that exhausts its rounds already ends on a call with no
+schema signal today. That is a latent instance of this item's own defect that nobody had noticed. Per
+[code-quality.md](../../rules/code-quality.md) `:51` it is absorbed here: `forceSummaryCall` is routed
+through the shared option builder, or excluded with a stated reason. Leaving a second divergent
+option-construction path is exactly the "the turn is implemented twice" pattern (CORE-042) that step 4
+cites as its reason to prefer one helper.
 
 ### Alternatives considered
 
@@ -320,9 +390,30 @@ so every producer is updated rather than silently ignoring it.
 
 ### Independent review
 
-`proposal-reviewer`, 2026-08-16 — **`REVIEW VERDICT: REVISE`** on the first draft. Verdict accepted in
-full; every load-bearing finding was independently re-checked against the code before this revision was
-written, and all confirmed:
+Two rounds with `proposal-reviewer`, 2026-08-16. Both returned **`REVIEW VERDICT: REVISE`**; both were
+accepted in full, and in both rounds every load-bearing finding was independently re-checked against
+the code before revising. No finding was refuted.
+
+**Round 2** (on the first revision) confirmed the unified-channel direction and steps 2–6, and blocked
+on two defects that the first revision had _introduced_ — both at the two points this author had
+flagged as uncertain when sending it back:
+
+| Round-2 finding                                                                        | Re-checked at                                                    | Disposition                                                  |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------ |
+| "Force on the final call, the seam knows which" — undecidable; the seam runs mid-round | `execution-pipeline.ts:67-83`                                    | Fixed — step 7 moves injection to a run-level terminal phase |
+| The structurally final call bypasses the seam and carries no schema on any provider    | `execution-pipeline.ts:150-168` — `{ model, onTextDelta? }` only | Fixed — absorbed as an existing defect, TC-06b               |
+| "Catalog declares" has no source for OpenAI; `refreshModelCatalog` invoked by nothing  | `openai/provider-definition.ts:36-40`; no caller in any `src`    | Fixed — step 1 splits discovery from capability              |
+| Catalog-miss semantics undefined, now governing six flags                              | optional `capabilities`, exact-id lookup                         | Fixed — miss policy table, TC-03b                            |
+| Evidence Log still asserted the falsified "four producers"                             | the row itself                                                   | Fixed — the row now reads eight, Gemini's absence included   |
+| Prior Art #2 still argued for the rejected tri-state                                   | the sentence itself                                              | Fixed — retargeted at mechanism                              |
+| `lastVerifiedAt` has no keeper                                                         | DeepSeek entries stamped `2026-05-07`, wrong throughout          | Fixed — TC-03 staleness scan                                 |
+
+The falsified Evidence Log row deserves naming rather than burying: the first revision corrected the
+producer count in the body and left the **audit surface** stating the count the revision existed to
+fix. That is the same defect class as the DeepSeek catalog entry this whole item is about — a
+declaration nobody re-read after the fact under it changed.
+
+**Round 1** (on the original draft):
 
 | Finding                                                                                                         | Re-checked at                                                    | Disposition                                                      |
 | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------- |
@@ -362,15 +453,26 @@ representation is how that continues.
   provider, tested. Vendor verification is recorded as a dated source on the catalog entry
   (`lastVerifiedAt` / `sourceUrl` already exist on `IProviderModelCatalogEntry`) — a human act with an
   auditable stamp, not a machine check pretending to be one. DeepSeek's entry states `json_object`.
+  The stamp gets a keeper: a scan fails on any capability entry whose `lastVerifiedAt` is past a
+  staleness threshold. Without it the field records a date and enforces nothing — the DeepSeek entries
+  are stamped `2026-05-07` and were wrong for the whole interval.
+- **TC-03b** A model slug absent from the declared capability table resolves to the provider's
+  vendor-default with `provenance: 'undeclared-model'`, and **`tools` stays enabled** — the miss case
+  pinned for an unrecognised OpenAI snapshot, since that is the common case and a negative there would
+  silently disable tool calling.
 - **TC-04** A structured run against a non-`response_schema` provider does **not** report early
   enforcement, and carries a schema by the selected transport.
 - **TC-05** With `outputRetries: 0`, attempt 1 carries the schema by the selected transport — a
   structural property of this repo. (The first draft asserted the run _succeeds_, which is a property
   of the model, and against a scripted provider would assert only what the fixture was told to return.)
 - **TC-06** The forced-tool rules from step 7 are implemented and tested: named-tool forcing, the
-  reserved-prefix collision error raised at registration, and the schema tool forced on the final call
-  rather than the first in a run that also carries real tools. (The first draft's TC-06 tested a rule
-  the design had deferred past approval.)
+  reserved-prefix collision error raised at registration, and — for a run that also carries real tools
+  — the real tool rounds complete first and the schema tool is carried by a **terminal extraction call
+  issued after the run converged**, not by a round inside the loop. (The first draft's TC-06 tested a
+  rule the design had deferred; the second revision's tested one that was undecidable where it was
+  placed.)
+- **TC-06b** `forceSummaryCall` carries the same schema signal as any other terminal call, or is
+  excluded with the reason recorded — it carries none today, on native providers included.
 - **TC-07** `agent-core/docs/SPEC.md:979` no longer says providers without a native surface "ignore
   it" — PROV-004 classifies that as a violation, so the SPEC currently documents the violation as
   intent.
@@ -380,23 +482,27 @@ representation is how that continues.
 
 ## Evidence Log
 
-| Claim                                          | Verified at                                                                                                |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `spec.jsonSchema` has two consumers            | `agent-core/src/core/robota-execution.ts:173,186`                                                          |
-| compat family never reads `responseFormat`     | `grep -rn responseFormat packages/agent-provider-openai-compatible/src` → no hits                          |
-| deepseek catalog claims `json_schema`          | `deepseek/model-catalog.ts:16,25,35,45`                                                                    |
-| nothing reads the catalog `capabilities` array | `grep -rn "\.capabilities" packages/agent-provider-openai-compatible/src packages/agent-cli/src` → no hits |
-| `IProviderCapabilities` shape and default      | `agent-core/src/interfaces/provider-capabilities.ts:20-23,33-50`                                           |
-| resolver is exported and consumed              | `agent-core/src/index.ts:91`, `agent-session/src/session-run.ts:164`                                       |
-| four `getCapabilities` implementations         | `anthropic:284`, `deepseek:186`, `qwen:227`, `gemma:185`                                                   |
-| gateway configuration is advertised            | `llms.txt:22`                                                                                              |
-| SPEC documents the drop as intent              | `agent-core/docs/SPEC.md:979`                                                                              |
-| PROV-004 calls the same behaviour a violation  | `.agents/tasks/PROV-004-*.md:33`                                                                           |
-| no stable release exists                       | npm `@robota-sdk/agent-core`: 71 versions, 0 non-prerelease                                                |
-| DeepSeek supports `json_object` only           | <https://api-docs.deepseek.com/guides/json_mode>                                                           |
-| OpenAI documents two mechanisms                | <https://developers.openai.com/api/docs/guides/structured-outputs>                                         |
-| Anthropic documents strict tools + forcing     | <https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview>                                   |
-| Gemini limits schema depth and features        | <https://ai.google.dev/gemini-api/docs/structured-output>                                                  |
+| Claim                                               | Verified at                                                                                                                                                                                 |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spec.jsonSchema` has two consumers                 | `agent-core/src/core/robota-execution.ts:173,186`                                                                                                                                           |
+| compat family never reads `responseFormat`          | `grep -rn responseFormat packages/agent-provider-openai-compatible/src` → no hits                                                                                                           |
+| deepseek catalog claims `json_schema`               | `deepseek/model-catalog.ts:16,25,35,45`                                                                                                                                                     |
+| nothing reads the catalog `capabilities` array      | `grep -rn "\.capabilities" packages/agent-provider-openai-compatible/src packages/agent-cli/src` → no hits                                                                                  |
+| `IProviderCapabilities` shape and default           | `agent-core/src/interfaces/provider-capabilities.ts:20-23,33-50`                                                                                                                            |
+| resolver is exported and consumed                   | `agent-core/src/index.ts:91`, `agent-session/src/session-run.ts:164`                                                                                                                        |
+| **eight** capability producers, not four            | `abstract-ai-provider.ts:210`, `openai/provider.ts:162`, `anthropic:284` and `:311`, `deepseek:186`, `qwen/provider-capabilities.ts`, `gemma:185`, and **`agent-provider-gemini` has none** |
+| finality is posterior to the round call             | `execution-pipeline.ts:67-83` — loop ends on `executeRound`'s `shouldBreak`                                                                                                                 |
+| the terminal call bypasses the emission seam        | `execution-pipeline.ts:120-168` — `forceSummaryCall` builds `{ model, onTextDelta? }` only                                                                                                  |
+| `refreshModelCatalog` is invoked by nothing         | declared in six provider-definitions; no caller and no `modelCatalog.entries` reader in any `src`                                                                                           |
+| OpenAI's catalog declares discovery, not capability | `openai/provider-definition.ts:36-40`; `IOpenAIModelCatalogResource` carries `id` only                                                                                                      |
+| gateway configuration is advertised                 | `llms.txt:22`                                                                                                                                                                               |
+| SPEC documents the drop as intent                   | `agent-core/docs/SPEC.md:979`                                                                                                                                                               |
+| PROV-004 calls the same behaviour a violation       | `.agents/tasks/PROV-004-*.md:33`                                                                                                                                                            |
+| no stable release exists                            | npm `@robota-sdk/agent-core`: 71 versions, 0 non-prerelease                                                                                                                                 |
+| DeepSeek supports `json_object` only                | <https://api-docs.deepseek.com/guides/json_mode>                                                                                                                                            |
+| OpenAI documents two mechanisms                     | <https://developers.openai.com/api/docs/guides/structured-outputs>                                                                                                                          |
+| Anthropic documents strict tools + forcing          | <https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview>                                                                                                                    |
+| Gemini limits schema depth and features             | <https://ai.google.dev/gemini-api/docs/structured-output>                                                                                                                                   |
 
 ## Sources
 
