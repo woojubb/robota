@@ -23,6 +23,9 @@ import type { IBuiltinToolDescriptionOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool, IActionRequest, IToolExecutionContext } from '@robota-sdk/agent-core';
 
+// CORE-030: defining a tool and telling the permission system what it does arrive together.
+import '../tool-permission-profiles.js';
+
 const MAX_QUESTIONS = 4;
 
 const QuestionSchema = z.object({

@@ -26,6 +26,9 @@ import type {
 } from './types.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
+// CORE-030: defining a tool and telling the permission system what it does arrive together.
+import '../tool-permission-profiles.js';
+
 /** The tool-boundary result shape returned (as JSON) by both `ComputerView` and `Computer`. */
 export interface IComputerToolResult {
   success: boolean;

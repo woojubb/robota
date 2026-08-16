@@ -45,6 +45,9 @@ import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
+// CORE-030: defining a tool and telling the permission system what it does arrive together.
+import '../tool-permission-profiles.js';
+
 const DEFAULT_TIMEOUT_MS = 120_000; // 2 minutes
 
 const ShellSchema = z.object({

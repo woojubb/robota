@@ -13,6 +13,9 @@ import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
+// CORE-030: defining a tool and telling the permission system what it does arrive together.
+import '../tool-permission-profiles.js';
+
 const DEFAULT_WRITE_DESCRIPTION =
   'Writes a file to the local filesystem. This will overwrite an existing file if one exists.\n\nPrefer the Edit tool for modifying existing files — it only sends the changed text. Use this tool to create new files or for complete rewrites.\n\nParent directories are created automatically when missing.';
 

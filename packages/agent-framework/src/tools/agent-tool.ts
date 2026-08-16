@@ -14,6 +14,9 @@
 import { DEFAULT_BACKGROUND_PERMISSION_POLICY } from '@robota-sdk/agent-core';
 import { SubagentManager } from '@robota-sdk/agent-executor';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
+
+// CORE-030: defining a tool and telling the permission system what it does arrive together.
+import './tool-permission-profiles.js';
 import { z } from 'zod';
 
 import { runManagedAgentBatch } from './agent-tool-batch.js';

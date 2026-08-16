@@ -487,6 +487,12 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-build-tooling-scope.mjs'],
   },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
+  // CORE-030: a produced tool with no declared permission profile takes the fail-safe fallback,
+  // which prompts on every call and is refused in plan mode. Silent, and it had already happened.
+  {
+    name: 'tool-classification',
+    command: ['node', 'scripts/harness/scan-tool-classification.mjs'],
+  },
   {
     // HARNESS-072 tractable subset: a quantified loop bound has one owner (the skill); the map and
     // the rules point rather than restate. #1615 produced five contradictions this way in one PR.

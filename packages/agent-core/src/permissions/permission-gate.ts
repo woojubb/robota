@@ -14,8 +14,9 @@
  * - `ToolName`      — match any invocation of that tool
  */
 
-import { MODE_POLICY, UNKNOWN_TOOL_FALLBACK } from './permission-mode.js';
+import { RISK_CLASS_POLICY, UNCLASSIFIED_TOOL_FALLBACK } from './permission-mode.js';
 
+import type { TToolRiskClass } from './permission-mode.js';
 import type { TPermissionMode, TPermissionDecision } from './types.js';
 
 /**
@@ -64,48 +65,65 @@ function parsePattern(pattern: string): { toolName: string; argPattern: string |
   return { toolName, argPattern };
 }
 
-/** Argument keys contributed by the packages that own the tools. See `BUILT_IN_ARGUMENT_KEYS`. */
-const registeredArgumentKeys = new Map<string, string>();
-
 /**
- * Declare which argument a tool's permission patterns are scoped to. CORE-030.
+ * What a tool's owner declares about it for permission purposes.
  *
- * `BUILT_IN_ARGUMENT_KEYS` below is a hardcoded list of PRODUCT tool names in the vendor-neutral
- * foundation, and a tool it has never heard of had no way onto it. That is not merely a layering
- * complaint: an argument-scoped deny for such a tool could never match, so the deny lost to any
- * broader allow beside it and the invocation was auto-approved.
- *
- * A tool's owner registers its key; the built-in table remains until those tools do the same.
+ * Both halves used to live in this file as hardcoded product-name tables — an argument-key `switch`
+ * and a mode-policy matrix keyed on a closed union of tool names — two layers below the packages
+ * that define those tools, with nothing coupling the lists. CORE-030.
  */
-export function registerToolArgumentKey(toolName: string, argumentKey: string): void {
-  registeredArgumentKeys.set(toolName, argumentKey);
+export interface IToolPermissionProfile {
+  /**
+   * Which argument this tool's permission patterns are scoped to.
+   *
+   * `Shell(rm *)` matches against `command`; `Read(/src/**)` against `filePath`. Without it an
+   * argument-scoped pattern is UNEVALUABLE for this tool, and an unevaluable deny is not an allow —
+   * the gate prompts rather than proceeding.
+   */
+  argumentKey?: string;
+  /**
+   * What kind of action this tool performs, which is what the modes actually decide about.
+   *
+   * Omitting it is not neutral: an unclassified tool takes the fallback, which prompts on every
+   * call and is refused in plan mode.
+   */
+  riskClass?: TToolRiskClass;
 }
 
-/** Forget registered argument keys. For tests and for hosts that rebuild a registry. */
-export function clearRegisteredToolArgumentKeys(): void {
-  registeredArgumentKeys.clear();
-}
+/** Profiles contributed by the packages that own the tools. */
+const toolProfiles = new Map<string, IToolPermissionProfile>();
 
 /**
- * The built-in argument keys, as DATA rather than as a switch.
+ * Declare how a tool is treated by the permission system. CORE-030.
  *
- * It was a `switch` plus a second hardcoded list of the same names in `hasKnownArgumentKey` — a
- * third copy of a tool-name table, in the change whose own Task calls that pattern out. One table,
- * and both questions ("which key" and "is it knowable") are derived from it. (#1596 review)
+ * Called by the package that DEFINES the tool, at the point it is created, so a tool's existence
+ * and its classification arrive together. The foundation cannot know a product's tool inventory,
+ * and every attempt to hardcode it drifted: `Agent`, `BackgroundProcess`, `CodebaseRetrieval` and
+ * `ExecuteCommand` were all produced tools the old matrix had never heard of.
+ *
+ * Merges rather than replaces, so a tool may declare its argument key and its risk class from
+ * different places without one silently erasing the other.
  */
-const BUILT_IN_ARGUMENT_KEYS: Readonly<Record<string, string>> = {
-  Shell: 'command',
-  Bash: 'command',
-  Read: 'filePath',
-  Write: 'filePath',
-  Edit: 'filePath',
-  Glob: 'pattern',
-  Grep: 'pattern',
-};
+export function registerToolPermissionProfile(
+  toolName: string,
+  profile: IToolPermissionProfile,
+): void {
+  toolProfiles.set(toolName, { ...toolProfiles.get(toolName), ...profile });
+}
+
+/** Forget registered profiles. For tests and for hosts that rebuild a registry. */
+export function clearRegisteredToolProfiles(): void {
+  toolProfiles.clear();
+}
+
+/** What has been declared about a tool, or an empty profile when nobody has said anything. */
+export function getToolPermissionProfile(toolName: string): IToolPermissionProfile {
+  return toolProfiles.get(toolName) ?? {};
+}
 
 /** Which argument a pattern is matched against, or `undefined` when nobody has said. */
 function argumentKeyFor(toolName: string): string | undefined {
-  return registeredArgumentKeys.get(toolName) ?? BUILT_IN_ARGUMENT_KEYS[toolName];
+  return toolProfiles.get(toolName)?.argumentKey;
 }
 
 function primaryArg(toolName: string, args: TToolArgs): string | undefined {
@@ -214,13 +232,12 @@ export function evaluatePermission(
     return 'auto';
   }
 
-  // Step 3: mode policy lookup
-  const modePolicy = MODE_POLICY[mode];
-  const knownDecision = modePolicy[toolName as keyof typeof modePolicy];
-  if (knownDecision !== undefined) {
-    return knownDecision;
+  // Step 3: what the mode says about this KIND of action, which is the only thing it decides.
+  const riskClass = toolProfiles.get(toolName)?.riskClass;
+  if (riskClass !== undefined) {
+    return RISK_CLASS_POLICY[mode][riskClass];
   }
 
-  // Unknown tool — use fail-safe fallback per mode
-  return UNKNOWN_TOOL_FALLBACK[mode];
+  // Nobody declared what this tool does — fail safe, which means ask rather than proceed.
+  return UNCLASSIFIED_TOOL_FALLBACK[mode];
 }
