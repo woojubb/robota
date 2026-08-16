@@ -53,6 +53,11 @@ export interface IChildProcessSubagentRunnerOptions {
   workerEntry: ISubagentWorkerEntry;
   providerConfig?: IProviderDefinitionConfig;
   killGraceMs?: number;
+  /**
+   * How long a spawned worker may take to signal `ready` before the runner gives up. Injectable so
+   * the branch is reachable in a test; without that it is a fix that ships untested.
+   */
+  handshakeBudgetMs?: number;
   env?: NodeJS.ProcessEnv;
   worktreeIsolation?: boolean;
   worktreeAdapter: ISubagentWorktreeAdapter;
@@ -77,6 +82,7 @@ export function createChildProcessSubagentRunnerFactory(
 export class ChildProcessSubagentRunner implements ISubagentRunner {
   private readonly workerEntry: ISubagentWorkerEntry;
   private readonly killGraceMs: number;
+  private readonly handshakeBudgetMs?: number;
   private readonly providerConfig?: IProviderDefinitionConfig;
   private readonly env?: NodeJS.ProcessEnv;
   private readonly logsDir?: string;
@@ -87,6 +93,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   ) {
     this.workerEntry = options.workerEntry;
     this.killGraceMs = options.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
+    this.handshakeBudgetMs = options.handshakeBudgetMs;
     this.providerConfig = options.providerConfig;
     this.env = options.env;
     this.logsDir = options.logsDir;
@@ -124,6 +131,9 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     const workerResult = createChildProcessSubagentResult({
       runtime,
       payload,
+      ...(this.handshakeBudgetMs !== undefined
+        ? { handshakeBudgetMs: this.handshakeBudgetMs }
+        : {}),
       resolveTranscriptPath: (request) => this.resolveTranscriptPath(request),
     });
     const cancellation = createCancellationResult(job.taskId);

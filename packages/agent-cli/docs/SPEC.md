@@ -626,8 +626,13 @@ existing Node path (`bin/robota.cjs` → `dist/node/bin.js`) and every existing 
   guard falls through to the existing fs-walk).
 - **Smoke:** `test:bun` (`scripts/e2e-bun-binary.mjs`) builds the host binary and asserts `--version` (real
   version, not `0.0.0`) + `--help` (exit 0); it **skips gracefully when `bun` is not on PATH**.
-- **Constraint (user-facing):** a **subagent** turn inside the binary spawns a child `node` process, so
-  subagent execution still requires **`node` on `PATH`**. Non-subagent use (the CLI itself, no-provider
+- **Constraint (user-facing) — removed by DIST-006:** a subagent turn used to spawn a child `node`
+  process against a worker file, which required **`node` on `PATH`** and, in a compiled binary, did
+  not work at all (the worker file is not there). The binary now re-executes **itself**
+  (`process.execPath`), so no external `node` is named anywhere on this path. Measured: the real
+  `robota-linux-x64` completes the worker IPC handshake, and a compiled Bun binary spawning itself
+  over IPC was verified as the parent half. Binary-as-parent END-TO-END (a full subagent turn from
+  the compiled binary) additionally needs a model provider in the child and was not run. Non-subagent use (the CLI itself, no-provider
   commands) needs no Node install. Publishing the binaries (DIST-002) and the node-less install scripts
   (DIST-003) are separate downstream items.
 
@@ -1715,11 +1720,10 @@ files for context display.
 
 ### Known Limitations
 
-- **Bun single binary — subagents need `node`:** see Distribution above — a subagent turn spawns a child
-  `node`, so the standalone binary still requires `node` on `PATH` for subagent execution (not for the CLI
-  itself). (DIST-001)
-- **Korean IME on macOS Terminal.app**: Ink's renderer shifts the input area during IME composition, causing Terminal.app to crash (SIGSEGV). Fixed by adding a permanent blank line below the input area, which stabilizes the cursor position during IME composition. **Use [iTerm2](https://iterm2.com/) for the best experience.**
-- **CjkTextInput**: Custom text input component with try-catch error handling, non-printable character filtering, `setCursorPosition` removed to minimize IME interaction surface, and optional visual-line-aware up/down arrow navigation for wrapped text.
+- **Bun single binary — subagents no longer need `node` (DIST-006):** the binary re-executes itself
+  rather than spawning `node` against a worker file. Before that change the standalone binary could
+  not spawn a subagent at all, because the worker file it looked for was never emitted into the
+  artifact. See Distribution above for exactly what was measured and what was not.
 
 ## Class Contract Registry
 

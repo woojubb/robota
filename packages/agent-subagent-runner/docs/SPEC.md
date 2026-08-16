@@ -104,21 +104,21 @@ package carries no concrete git/filesystem dependency.
 
 ## Public API Surface
 
-| Export                                    | Kind       | Description                                                                           |
-| ----------------------------------------- | ---------- | ------------------------------------------------------------------------------------- |
-| `ChildProcessSubagentRunner`              | class      | Implements `ISubagentRunner`. Forks child processes and returns `ISubagentJobHandle`. |
-| `createChildProcessSubagentRunnerFactory` | factory    | Returns `TSubagentRunnerFactory` for injection into `createAgentRuntime()`.           |
-| `IChildProcessSubagentRunnerOptions`      | interface  | Construction options (workerEntry, killGraceMs, logsDir, worktreeIsolation, etc.)     |
-| `SUBAGENT_WORKER_MODE_FLAG`               | const      | The argv flag that puts a composition root's own entry into subagent-worker mode.     |
-| `isSubagentWorkerModeArgv`                | function   | True when this process was started as a subagent worker.                              |
-| `runSubagentWorkerMain`                   | function   | Enters worker mode; refuses loudly and exits 2 when there is no IPC channel.          |
-| `ISubagentWorkerEntry`                    | interface  | How to spawn a copy of the running artifact: `execPath`, `args`, optional `execArgv`. |
-| `isSubagentWorkerParentMessage`           | type guard | Runtime validation for parent → child IPC messages.                                   |
-| `isSubagentWorkerChildMessage`            | type guard | Runtime validation for child → parent IPC messages.                                   |
-| `ISubagentWorkerStartPayload`             | interface  | IPC start message payload shape.                                                      |
-| `TSubagentWorkerParentMessage`            | type alias | Union of all parent → child message types.                                            |
-| `TSubagentWorkerChildMessage`             | type alias | Union of all child → parent message types.                                            |
-| `TSubagentWorkerWireValue`                | type alias | Union of all IPC message types for wire-level validation.                             |
+| Export                                    | Kind       | Description                                                                                                                     |
+| ----------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `ChildProcessSubagentRunner`              | class      | Implements `ISubagentRunner`. Spawns a copy of the running artifact in worker mode (DIST-006) and returns `ISubagentJobHandle`. |
+| `createChildProcessSubagentRunnerFactory` | factory    | Returns `TSubagentRunnerFactory` for injection into `createAgentRuntime()`.                                                     |
+| `IChildProcessSubagentRunnerOptions`      | interface  | Construction options (workerEntry, killGraceMs, logsDir, worktreeIsolation, etc.)                                               |
+| `SUBAGENT_WORKER_MODE_FLAG`               | const      | The argv flag that puts a composition root's own entry into subagent-worker mode.                                               |
+| `isSubagentWorkerModeArgv`                | function   | True when this process was started as a subagent worker.                                                                        |
+| `runSubagentWorkerMain`                   | function   | Enters worker mode; refuses loudly and exits 2 when there is no IPC channel.                                                    |
+| `ISubagentWorkerEntry`                    | interface  | How to spawn a copy of the running artifact: `execPath`, `args`, optional `execArgv`.                                           |
+| `isSubagentWorkerParentMessage`           | type guard | Runtime validation for parent → child IPC messages.                                                                             |
+| `isSubagentWorkerChildMessage`            | type guard | Runtime validation for child → parent IPC messages.                                                                             |
+| `ISubagentWorkerStartPayload`             | interface  | IPC start message payload shape.                                                                                                |
+| `TSubagentWorkerParentMessage`            | type alias | Union of all parent → child message types.                                                                                      |
+| `TSubagentWorkerChildMessage`             | type alias | Union of all child → parent message types.                                                                                      |
+| `TSubagentWorkerWireValue`                | type alias | Union of all IPC message types for wire-level validation.                                                                       |
 
 ## Extension Points
 
@@ -154,16 +154,18 @@ package carries no concrete git/filesystem dependency.
 
 ## Error Taxonomy
 
-| Error scenario                         | Behavior                                                                                                                                                                                     |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Worker process exits unexpectedly      | `ISubagentJobHandle.result` rejects with `BackgroundTaskError('crash', …)` describing the exit code or signal (`stdio` is fully ignored — no stderr is captured)                             |
-| Worker sends `error` message           | `result` rejects with `BackgroundTaskError('runner', message)` using the worker error message string                                                                                         |
-| Worker sends `cancelled` message       | `result` rejects with `BackgroundTaskError('runner', reason)`; parent-side cancellation promise also rejects                                                                                 |
-| IPC child message fails validation     | `ChildProcessSubagentResultController` rejects with `BackgroundTaskError('runner', 'Received malformed subagent worker message')` — the message is NOT silently dropped                      |
-| IPC parent message fails validation    | Worker sends back `{ type: 'error', message: 'Malformed subagent worker parent message' }` and the parent result rejects                                                                     |
-| Timeout (`timeoutMs` on spawn request) | `ChildProcessSubagentResultController` fires `cancelChildProcess` then rejects with `BackgroundTaskError('timeout', 'Subagent worker timed out')` after `ISubagentSpawnRequest.timeoutMs` ms |
-| Spawn failure                          | `child_process.spawn()` emits `'error'`; the result controller rejects with the child's captured stderr appended, so the cause is in the message                                             |
-| IPC channel closed before send         | `sendWorkerMessage` rejects with `BackgroundTaskError('crash', 'Subagent worker IPC channel is closed')` when `child.connected` is false                                                     |
+| Error scenario                         | Behavior                                                                                                                                                                                       |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Worker process exits unexpectedly      | `ISubagentJobHandle.result` rejects with `BackgroundTaskError('crash', …)` describing the exit code or signal (`stdio` is fully ignored — no stderr is captured)                               |
+| Worker sends `error` message           | `result` rejects with `BackgroundTaskError('runner', message)` using the worker error message string                                                                                           |
+| Worker sends `cancelled` message       | `result` rejects with `BackgroundTaskError('runner', reason)`; parent-side cancellation promise also rejects                                                                                   |
+| IPC child message fails validation     | `ChildProcessSubagentResultController` rejects with `BackgroundTaskError('runner', 'Received malformed subagent worker message')` — the message is NOT silently dropped                        |
+| IPC parent message fails validation    | Worker sends back `{ type: 'error', message: 'Malformed subagent worker parent message' }` and the parent result rejects                                                                       |
+| Timeout (`timeoutMs` on spawn request) | `ChildProcessSubagentResultController` fires `cancelChildProcess` then rejects with `BackgroundTaskError('timeout', 'Subagent worker timed out')` after `ISubagentSpawnRequest.timeoutMs` ms   |
+| Spawn failure                          | `child_process.spawn()` emits `'error'` and no `'exit'`; `onError` rejects with `error.message` only — an ENOENT `execPath` never produced output to append                                    |
+| Child exited before a result           | `onExit` rejects with the exit code/signal **and the captured stderr tail appended**, so the cause is in the message rather than only in a stream nothing read (DIST-006)                      |
+| Worker never signalled ready           | `BackgroundTaskError('runner', 'Subagent worker never signalled ready within …ms')` after `handshakeBudgetMs` (default 30s) — guards an entry wired to something that never enters worker mode |
+| IPC channel closed before send         | `sendWorkerMessage` rejects with `BackgroundTaskError('crash', 'Subagent worker IPC channel is closed')` when `child.connected` is false                                                       |
 
 ## Test Strategy
 

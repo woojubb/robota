@@ -193,16 +193,17 @@ describe('ChildProcessSubagentRunner', () => {
 
       const runner = new ChildProcessSubagentRunner(createDeps(), {
         workerEntry: { execPath: process.execPath, args: [silentEntry], execArgv: [] },
+        // The production budget is 30s — longer than this file's own test timeout, so a test that
+        // relied on it could only ever pass through the REQUEST timeout instead, leaving this
+        // branch shipped untested. Injecting the budget is what makes the assertion reach it.
+        handshakeBudgetMs: 300,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
       });
 
-      const handle = runner.start({
-        ...createJob(),
-        // The deadline is 30s; this asserts the mechanism, not the production budget.
-        request: { ...createJob().request, timeoutMs: 1500 },
-      });
+      // Deliberately NO `request.timeoutMs`: that is the other path, and it would mask this one.
+      const handle = runner.start(createJob());
 
-      await expect(handle.result).rejects.toThrow(/timed out|never signalled ready/);
+      await expect(handle.result).rejects.toThrow(/never signalled ready/);
     },
     TEST_TIMEOUT_MS,
   );

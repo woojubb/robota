@@ -20,7 +20,7 @@ import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
  * DIST-006: how long a spawned worker may take to say anything at all. Generous — it covers process
  * start plus module load of a bundled CLI — but finite, because the alternative is a silent hang.
  */
-const HANDSHAKE_BUDGET_MS = 30_000;
+const DEFAULT_HANDSHAKE_BUDGET_MS = 30_000;
 
 export interface ICancellationResult {
   promise: Promise<ISubagentJobResult>;
@@ -29,6 +29,8 @@ export interface ICancellationResult {
 
 export interface IChildProcessSubagentResultOptions {
   runtime: IChildProcessRuntime;
+  /** How long the worker may take to say anything. Injectable so a test can reach this branch. */
+  handshakeBudgetMs?: number;
   payload: ISubagentWorkerStartPayload;
   resolveTranscriptPath: (job: ISubagentJobStart) => string | undefined;
 }
@@ -47,12 +49,14 @@ class ChildProcessSubagentResultController {
   private ready = false;
   private readonly timeoutTimer?: ReturnType<typeof setTimeout>;
   private readonly handshakeTimer: ReturnType<typeof setTimeout>;
+  private readonly handshakeBudgetMs: number;
 
   constructor(
     private readonly options: IChildProcessSubagentResultOptions,
     private readonly resolve: (result: ISubagentJobResult) => void,
     private readonly reject: (error: Error) => void,
   ) {
+    this.handshakeBudgetMs = options.handshakeBudgetMs ?? DEFAULT_HANDSHAKE_BUDGET_MS;
     this.timeoutTimer = createTimeoutTimer(this.options.runtime, (error) => this.rejectOnce(error));
     // DIST-006: a worker that never answers must not hang the parent forever. The old seam failed
     // LOUDLY when the entry was wrong (`Cannot find module`, then exit); this one re-executes the
@@ -65,11 +69,11 @@ class ChildProcessSubagentResultController {
       this.rejectOnce(
         new BackgroundTaskError(
           'runner',
-          `Subagent worker never signalled ready within ${HANDSHAKE_BUDGET_MS}ms. ` +
+          `Subagent worker never signalled ready within ${this.handshakeBudgetMs}ms. ` +
             'Its entry must dispatch worker mode before starting the host application.',
         ),
       );
-    }, HANDSHAKE_BUDGET_MS);
+    }, this.handshakeBudgetMs);
     this.handshakeTimer.unref?.();
   }
 
