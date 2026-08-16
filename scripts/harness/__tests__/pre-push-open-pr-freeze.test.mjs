@@ -48,10 +48,15 @@ function scratchRepo() {
  * comment carrying the verdict marker. A stub answering its own preferred shape would keep passing
  * while the hook stopped working.
  */
-function stubGh({ prNumber, findings }) {
+function stubGh({ prNumber, findings, author = 'github-actions[bot]' }) {
   const dir = mkdtempSync(path.join(tmpdir(), 'openpr-gh-'));
   scratch.push(dir);
-  const body = findings === null ? '' : `ACTIONABLE FINDINGS: ${findings}`;
+  // The author filter is applied by `gh` server-side, from the comment's `author.login` — which lives
+  // in the DATA, not in the query string. So the stub decides it here, exactly as gh would: a marker
+  // from anyone other than the reviewer the hook trusts is simply not returned. A stub that echoed
+  // the body regardless of author would keep passing after the filter was removed from the hook.
+  const trusted = /^github-actions(\[bot\])?$/.test(author);
+  const body = findings === null || !trusted ? '' : `ACTIONABLE FINDINGS: ${findings}`;
   writeFileSync(
     path.join(dir, 'gh'),
     [
@@ -70,7 +75,7 @@ function stubGh({ prNumber, findings }) {
   return dir;
 }
 
-function push({ findings, prNumber = 4242 }) {
+function push({ findings, prNumber = 4242, author }) {
   const dir = scratchRepo();
   const result = spawnSync('bash', [HOOK], {
     input: JSON.stringify({
@@ -83,7 +88,7 @@ function push({ findings, prNumber = 4242 }) {
     env: {
       ...process.env,
       CLAUDE_PROJECT_DIR: dir,
-      PATH: `${stubGh({ prNumber, findings })}${path.delimiter}${process.env.PATH}`,
+      PATH: `${stubGh({ prNumber, findings, author })}${path.delimiter}${process.env.PATH}`,
     },
   });
   return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
@@ -123,5 +128,16 @@ describe('pre-push open-PR freeze — GREEN direction', () => {
     const res = push({ findings: 0, prNumber: 0 });
     expect(res.status).toBe(2);
     expect(res.output).not.toMatch(/nothing for this push to resolve/);
+  });
+
+  it('does not let a non-reviewer spoof a blocking count', () => {
+    // The pair that proves the author filter. The SAME `0` blocks when the reviewer says it (the RED
+    // case above) and does not when anyone else does — because a non-reviewer's marker is filtered
+    // out, the count becomes unknown, and unknown is not zero. Without the filter this push would be
+    // refused on a stranger's say-so, and the mirror spoof (a fake non-zero count) would unfreeze a
+    // clean pull request. A gate whose input its own subject can write is not a gate.
+    const res = push({ findings: 0, author: 'some-contributor' });
+    expect(res.status).toBe(0);
+    expect(res.output).toMatch(/its review automation owns the review/);
   });
 });

@@ -834,9 +834,16 @@ if ! REVIEW_STATE=$(cd "$PROJECT_DIR" && node "$RECORDER" --show 2>&1); then
     # the owner of "what the reviewer said", and a second reading here would be a second answer.
     # Unknown is NOT zero: if the count cannot be read, the original exemption stands, because a
     # refusal on a failed measurement blocks correct work on no evidence.
+    # The AUTHOR FILTER is not optional, and it is the same one merge-gate.sh applies
+    # (merge-gate.sh:208). Without it this reads the latest comment from ANYONE carrying the marker,
+    # so the branch's own author could post `ACTIONABLE FINDINGS: 3` to unfreeze a clean pull request,
+    # or `ACTIONABLE FINDINGS: 0` to block someone else's legitimate push. A gate whose input its own
+    # subject can write is not a gate. Kept as its own literal because merge-gate.sh does not export
+    # it — the two must be changed together, said here rather than left to be noticed.
+    REVIEWER_RE='^github-actions(\\[bot\\])?$'
     LATEST_COUNT=$( (cd "$PROJECT_DIR" &&
       bounded_gh pr view "$OPEN_PR" --json comments,reviews \
-        --jq '([.comments[]? | {body: (.body // ""), at: (.createdAt // "")}] + [.reviews[]? | {body: (.body // ""), at: (.submittedAt // "")}]) | map(select(.body | test("^ACTIONABLE FINDINGS: [0-9]+$"; "m"))) | sort_by(.at) | last // {} | .body // ""' 2>/dev/null) |
+        --jq "([.comments[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"$REVIEWER_RE\"))) | map(select(.body | test(\"^ACTIONABLE FINDINGS: [0-9]+$\"; \"m\"))) | sort_by(.at) | last // {} | .body // \"\"" 2>/dev/null) |
       sed -nE 's/^ACTIONABLE FINDINGS: ([0-9]+)$/\1/p' | tail -1 || echo "")
 
     if [[ "$LATEST_COUNT" == "0" ]]; then
