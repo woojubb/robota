@@ -4,6 +4,7 @@ import { executePlanCommand } from '../plan-command.js';
 
 import type { ICommandHostContext } from '@robota-sdk/agent-framework';
 import type { IPlanArtifact } from '@robota-sdk/agent-interface-transport';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 function plan(overrides: Partial<IPlanArtifact> = {}): IPlanArtifact {
   return {
@@ -17,7 +18,9 @@ function plan(overrides: Partial<IPlanArtifact> = {}): IPlanArtifact {
 }
 
 function host(overrides: Partial<ICommandHostContext> = {}): ICommandHostContext {
-  return overrides as unknown as ICommandHostContext;
+  // ARCH-029: the partial is now an OVERRIDE over a conformant host, not a cast that turns the
+  // check off. A fixture that names three members no longer claims to satisfy 46.
+  return createTestCommandHost({ overrides });
 }
 
 describe('executePlanCommand (SELFHOST-002 /plan)', () => {
