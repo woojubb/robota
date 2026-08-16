@@ -103,187 +103,280 @@ none of this; what is missing is a capability the _core_ consults before choosin
 
 ## Solution
 
-Give structured-output capability a representation the runtime reads, keyed to the model actually
-being called, and make the core's transport choice a function of it.
+> **Revised 2026-08-16 after `REVIEW VERDICT: REVISE`.** The first draft added a third representation
+> of one fact and placed the decision where its inputs are not resolved. The independent review
+> falsified four premises; every one was re-checked against the code and confirmed. See § Architecture
+> Review → Independent review for the verdict and what each finding changed. This section is the
+> revised design, not the reviewed one.
 
-### 1. Extend the capability contract that already exists
+There is not one capability channel in this repository. There are **two, and they already overlap**:
 
-`IProviderCapabilities` (`agent-core/src/interfaces/provider-capabilities.ts:20`) is the established
-seam: every provider either overrides `getCapabilities()` or inherits
-`createDefaultProviderCapabilities`, and `getProviderCapabilities()` is exported from agent-core's
-public surface and already consumed by `agent-session/src/session-run.ts:164`. It is reachable by
-every intended consumer today. Adding a third member is a smaller and more honest change than
-introducing a parallel capability channel.
+| Channel                                                                            | Scope    | Facts it carries                                                         | State    |
+| ---------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------ | -------- |
+| `IProviderCapabilities` (`agent-core/src/interfaces/provider-capabilities.ts:20`)  | instance | `functionCalling`, `nativeWebTools`                                      | live     |
+| `IProviderModelCatalogEntry.capabilities` (`interfaces/provider-definition.ts:66`) | model    | `tools`, `vision`, `json_schema`, `reasoning`, `native_web`, `streaming` | **dead** |
+
+`tools` ↔ `functionCalling` and `native_web` ↔ `nativeWebTools` are **the same facts stated twice**,
+with the per-model side unread. `json_schema` is a third such fact, unread on both sides.
+
+Adding a structured-output member to the instance channel — the first draft's design — would have
+given one of six overlapping facts a _third_ shape and left the other five dead. That repeats the
+depth error one level below the one this item was filed for: CORE-038 fixed a transport where the
+symptom surfaced instead of where the capability was missing; adding to the instance channel fixes
+the capability where _it_ surfaces instead of where the defect is. Under
+[finding-depth.md](../../rules/finding-depth.md) that is the same mistake, and under
+[code-quality.md](../../rules/code-quality.md) `:51` the duplication found along the way must be
+absorbed, not stepped around.
+
+### 1. One resolution seam, keyed on (provider, model)
+
+Collapse the two channels instead of extending one. The per-model catalog entry becomes the
+**declared source**; the provider **qualifies** it with what only the instance knows (endpoint not
+identifiable, feature disabled by config); agent-core owns the resolution:
 
 ```ts
-export type TStructuredOutputSupport = 'native' | 'none' | 'unknown';
+resolveProviderCapabilities({ provider, model }): IProviderCapabilities;
+```
 
+This resolves PROV-006 wholesale rather than for one flag, and the deepseek
+`supportsTools()`-vs-catalog contradiction PROV-006 also names falls out of the same mechanism
+instead of needing its own criterion.
+
+### 2. Mechanism and provenance, not a flat tri-state
+
+The first draft proposed `'native' | 'none' | 'unknown'`. That is the wrong shape, and this document's
+own Prior Art established why before the review said so: capability varies along **two orthogonal
+axes**, and the tri-state kept the one the runtime does not act on while discarding the one that
+decides what gets sent.
+
+```ts
 export interface IProviderStructuredOutputCapability {
-  support: TStructuredOutputSupport;
-  /** Why — required for 'none' and 'unknown', so a degraded run can say what degraded it. */
+  mechanism: 'response_schema' | 'json_object' | 'tool_strict' | 'none';
+  provenance: 'catalog' | 'vendor-default' | 'unverified-endpoint';
   reason?: string;
 }
 ```
 
-**The third state is the point.** A boolean forces every provider to lie in one direction: `false`
-makes `agent-provider-openai` stop sending `response_format` to real OpenAI, and `true` makes it
-claim early enforcement through an arbitrary gateway. `'unknown'` is the honest answer for
-"a `baseURL` I did not configure, serving a model I cannot identify", and it is a state the core can
-act on differently from both others.
+`'unknown'` was never a capability — it is `provenance: 'unverified-endpoint'`, and separating it lets
+a presumed mechanism co-exist with unverified provenance, which is what makes the override in step 5
+fit without another contract change.
 
-### 2. Make capability resolution model-aware
+**`json_object` is added to `TProviderModelCapability`.** Without it, DeepSeek is unrepresentable in
+either channel: the vocabulary offers only `json_schema`, which DeepSeek does not support, so removing
+that entry (the first draft's TC-03) would have left the corrected catalog as wrong as the current
+one, in the other direction.
 
-`getCapabilities()` takes no argument, so it can only describe the instance. Structured-output
-support is a property of the model:
+### 3. The model argument is required
 
-```ts
-getCapabilities?(model?: string): IProviderCapabilities;
-```
+`resolveProviderCapabilities` takes the model, and no caller may omit it. The first draft made it
+optional and justified that with "so no existing implementation breaks" — which
+`code-quality.md:50` bars in as many words ("cost, scale, and churn are NOT reasons to prefer a lesser
+design … unreleased — no backward-compat constraint"), and which this item's own Task spends a
+paragraph establishing is not a real constraint here.
 
-Optional parameter, so no existing implementation breaks. Providers with a catalog answer from it;
-providers without ignore it. `getProviderCapabilities(provider, model?)` threads it through.
+It is also the wrong contract. Optional means the same provider answers differently depending on
+whether a caller happens to pass the argument, with nothing declaring which answer is authoritative,
+and every existing override keeps compiling while silently ignoring the model. The live consumer shows
+the hazard concretely: `agent-session/src/session-run.ts:164` calls
+`getProviderCapabilities(ctx.aiProvider)` and logs the result three lines below `model: ctx.model` —
+the model is already in scope and would silently not be passed, so the log would describe a different
+model than the run. That fail-silent-by-omission shape is what produced PROV-006's dead vocabulary in
+the first place.
 
-**This gives PROV-006 its answer, and its first real consumer.** PROV-006 asks whether to consume the
-per-model capability vocabulary or delete it; this consumes it, and the `supportsTools()`-vs-catalog
-self-contradiction PROV-006 also names becomes reachable through the same parameter.
+**Every producer is updated — the full list, which the first draft got wrong:**
 
-**With one correction the research forces: the catalog must be fixed before it is read.** DeepSeek
-documents `json_object` only, so the four `'json_schema'` entries are wrong, and consuming them as
-written would make the runtime send a surface the vendor does not offer — a worse failure than
-today's silent drop, because it would be a confident one. Correcting those entries is a prerequisite
-step of this work, not a follow-up.
+| Producer                                                             | Today                                                                   |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `agent-core/src/abstracts/abstract-ai-provider.ts:210`               | concrete, non-optional default                                          |
+| `agent-provider-openai/src/openai/provider.ts:162`                   | **omitted from the first draft**                                        |
+| `agent-provider-anthropic/src/anthropic/provider.ts:284`             | override                                                                |
+| `agent-provider-anthropic/src/anthropic/provider.ts:311`             | `configureNativeWebTools` also returns the type, with no model in scope |
+| `agent-provider-openai-compatible/src/deepseek/provider.ts:186`      | override                                                                |
+| `agent-provider-openai-compatible/src/qwen/provider-capabilities.ts` | answer lives in its own file                                            |
+| `agent-provider-openai-compatible/src/gemma/provider.ts:185`         | override                                                                |
+| **`agent-provider-gemini`**                                          | **no override at all — inherits the default**                           |
+| `agent-session/src/session-run.ts:164`                               | call site; must pass `ctx.model`                                        |
 
-### 3. Each provider answers for itself
+The Gemini row is the one that mattered. It has a working native surface
+(`gemini/execution-helpers.ts:140-145`) and no override, so under the first draft — whose red-team
+mitigation made the default answer `'none'` — Gemini would have silently reported no structured output
+the moment the change landed. A fail-silent capability regression, introduced by the mitigation for a
+different fail-silent risk.
 
-| Provider                                   | Answer                                                                                            |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| anthropic, gemini                          | `'native'`                                                                                        |
-| `agent-provider-openai`, **no `baseURL`**  | `'native'`                                                                                        |
-| `agent-provider-openai`, **`baseURL` set** | `'unknown'` — the endpoint is not ours and the model slug passes through verbatim                 |
-| **deepseek**                               | `'none'` — the vendor documents `json_object` only; the catalog is corrected to match             |
-| qwen / gemma                               | from their catalogs, once each is checked against its vendor documentation the way deepseek's was |
+### 4. The decision is made where its inputs are resolved
 
-### 4. The core chooses the transport from the capability
+The first draft put the transport choice in `robotaRunStructured`. **That function has no provider.**
+`IRobotaExecutionDeps` (`robota-execution.ts:19-26`) carries `conversationId`, `config`, `logger`,
+`getHistory`, `getExecutionService`, `emitAgentEvent` — nothing else. Deciding there would mean
+re-resolving a provider out of `config.aiProviders` by name, duplicating resolution that already
+happens.
 
-`robotaRunStructured` stops unconditionally setting `responseFormat`:
+The decision belongs at the seam where `responseFormat` is actually emitted — `buildChatResponseFormat`
+(`execution-service-helpers.ts:25`), called from `execution-round-provider.ts:67` and
+`execution-stream.ts:159`. One shared helper covers both the round and the streaming path, which is
+also what keeps CORE-042's "the turn is implemented twice" from claiming an eighth instance.
 
-- `'native'` → today's behaviour, unchanged. OpenAI's own guidance supports keeping it: a structured
-  `text.format` is what it recommends for structuring a response to the user, over function calling.
-- `'none'` / `'unknown'` → the forced-tool-call transport CORE-038 proposed, gated on this capability
-  rather than on a guess, with the prose retry kept as the last resort it is good at. Anthropic
-  documents `strict: true` on a custom tool for exactly this guarantee, so the fallback is a
-  documented mechanism rather than a trick.
+This requires widening `IResolvedProviderInfo.provider`, which is typed down to `{ chat }`
+(`execution-types.ts:45-47`) and cannot answer a capability question at all. That widening is part of
+this work.
 
-CORE-038's own open question — "does the schema tool collide with the agent's own tools under
-`tool_choice: required`?" — is answerable only here, because only here does something decide _when_
-to inject. Collision handling is part of this step, not a separate worry.
+### 5. The endpoint override lands in this change, not later
 
-**Deliberately out of scope: DeepSeek's `json_object` mode as a third transport.** It would need the
-word "json" injected into the prompt per DeepSeek's documentation, which is prompt manipulation on the
-user's behalf and a decision of its own. `'none'` routing to the tool-call transport is the answer
-here; the JSON-mode option is recorded so it is a choice rather than an oversight.
+`'unverified-endpoint'` for every `baseURL` reverses a **correct** behaviour for a large documented
+population: `llms.txt:22` names Azure, vLLM, Ollama and LM Studio alongside gateways, and Azure OpenAI
+and vLLM do honour `response_format: json_schema`. For those users today's early enforcement is right,
+and routing them to an extra-round fallback is a regression.
+
+The first draft deferred the caller-side declaration to "a later override". That is the half-measure
+`code-quality.md:50` forbids, applied to the mitigation instead of the fix: the override is what makes
+the behaviour change safe, so it ships with it.
+
+### 6. What the fallback actually emits — the previously "resolved" question, reopened
+
+The first draft closed its gating question by citing Anthropic's `strict: true` and OpenAI's strict
+function calling. **Those citations do not apply to either family that takes the fallback.** Under the
+capability table, anthropic and gemini answer `response_schema` and never reach it. The two that do:
+
+- **compat (`json_object` / `none`)** — `convertToOpenAICompatibleTools`
+  (`shared/openai-compatible/message-converter.ts:19-36`) emits `name`, `description`, `parameters`,
+  and there is **no `strict` field anywhere in that package**. A non-strict forced tool call carries no
+  conformance guarantee.
+- **`agent-provider-openai` + `baseURL`** — this is the path **PROV-007** declares broken: strict mode
+  refuses the `additionalProperties: true` that Zod-derived schemas emit.
+
+So the honest claim is weaker than the first draft's, and is made explicitly: **a non-strict forced
+tool call is expected to beat a prose re-prompt because models are post-trained on emitting well-formed
+tool arguments, not because a vendor guarantees conformance.** The validate-and-retry loop remains the
+only guarantee. **PROV-007 is a hard prerequisite** on the OpenAI path and is now declared in the
+Task's `depends_on`.
+
+### 7. Forced-tool semantics, designed rather than deferred
+
+- **Force by name, not by `required`.** `TToolChoice` (`interfaces/provider.ts:162`) already has
+  `{ tool: string }`, and both wires already map it (`shared/openai-compatible/tool-choice.ts`). This
+  dissolves most of "the model picks the user's tool instead".
+- **Name collision.** The schema tool's name derives from `spec.name`; core already validates that a
+  named tool exists in the invocation's tool list, so a collision is detectable rather than silent. The
+  rule: the synthetic tool takes a reserved prefix, and a user tool already holding that name is a
+  configuration error raised at registration, not at run time.
+- **The unaddressed one — multi-round.** `provider.ts:159-161` documents that "within a multi-round
+  run, forcing directives apply to the FIRST model call only". A structured run that also carries real
+  tools _is_ multi-round, so forcing a synthetic schema tool on the first call would short-circuit the
+  agent's real tool work before it happens. The schema tool must therefore be forced on the **final**
+  call — the one that produces the answer being validated — not the first. This is a semantics
+  collision with the run loop, and it is why step 4's placement at the emission seam matters: only
+  there is it known which call this is.
 
 ### Alternatives considered
 
 **A. Thread `responseFormat` through the compat builder and stop.** One line in the seam #1757
-created. Rejected as the whole answer: it sends a schema to models the catalog says may not honour it,
-and it leaves `agent-provider-openai`-through-a-gateway — the configuration `llms.txt` actually
-advertises — still misreporting. It is a strict subset of this design and can land first as a step,
-but not as the fix.
+created. Rejected as the whole answer: it sends a schema to models the vendor documents as not
+supporting it, and leaves `agent-provider-openai`-through-a-gateway still misreporting. A strict subset
+of this design; can land first as a step, not as the fix.
 
-**B. Put transport selection in `IRunOptions` / agent config.** Makes the caller responsible for
-knowing what their endpoint supports. That is exactly the knowledge the SDK is supposed to hold, and
-it would not help the reporter of #1738, who had no way to know either. Kept as a later _override_,
-not as the mechanism.
+**B. Put transport selection in `IRunOptions` / agent config alone.** Makes the caller responsible for
+knowing what their endpoint supports — the knowledge the SDK is supposed to hold. It would not have
+helped the reporter of #1738, who had no way to know either. **Partially adopted**: as the step-5
+override, it is the necessary escape hatch; as the whole mechanism, it is not.
 
-**C. Probe the endpoint.** `shared/openai-compatible/endpoint-probe.ts` exists. Rejected: a probe
-costs a request, is not deterministic, and `'unknown'` already carries the same information without
-the round trip.
+**C. Probe the endpoint.** `shared/openai-compatible/endpoint-probe.ts` exists. Rejected: a probe costs
+a request and is not deterministic, and `provenance: 'unverified-endpoint'` carries the same
+information without the round trip.
 
-**D. Delete the per-model vocabulary (PROV-006's other branch).** Consistent, but it removes the only
-per-model channel at the moment this item needs one, and would have to be rebuilt immediately.
+**D. Delete the per-model vocabulary (PROV-006's other branch).** Rejected — but note the first draft
+rejected it partly because the vocabulary "would have to be rebuilt immediately", which is an argument
+for building it correctly now, not for keeping it unread. The real reason to keep it is that a
+model-scoped declared source is the correct structure; step 1 makes it live.
+
+**E. Add a structured-output member to the instance-level `IProviderCapabilities` (the first draft).**
+Rejected on review: it gives one of six overlapping facts a third representation while five stay dead,
+and it cannot be reached from the decision point.
 
 ## Architecture Review
 
 Per [spec-workflow.md](../../rules/spec-workflow.md) § Validated Recommendation Before Approval. This
-crosses a contract boundary (`IProviderCapabilities`, `IAIProvider.getCapabilities`), so the three
-checks are run explicitly rather than assumed.
+crosses a contract boundary, so the three checks are run explicitly.
 
-**Reachability — verified.** `getProviderCapabilities` is exported at `agent-core/src/index.ts:91`
-and `interfaces/index.ts:63`, and has a live consumer at `agent-session/src/session-run.ts:164`. The
-new member is reachable by agent-core (the intended consumer, `robota-execution.ts`), agent-session,
-and every provider package, with no new dependency edge. Checked against
-[project-structure.md](../../project-structure.md): agent-core → providers is the existing direction.
+**Reachability — re-verified after the first check was found insufficient.** The first draft verified
+that the _type_ is exported (`agent-core/src/index.ts:91`) and has a live consumer
+(`agent-session/src/session-run.ts:164`), and stopped there. It never checked that the decision point
+can obtain a provider to ask — and it cannot: `IRobotaExecutionDeps` carries no provider, and
+`IResolvedProviderInfo.provider` is typed `{ chat }` only. Export-level reachability is not reachability
+at the decision point. The revised design decides at `buildChatResponseFormat`, reached from both
+`execution-round-provider.ts:67` and `execution-stream.ts:159`, and widens the resolved-provider type as
+part of the work.
 
-**Capability preservation — verified by enumeration, not by grep.** `IProviderCapabilities` has two
-existing members. `functionCalling` and `nativeWebTools` are untouched; the change is additive.
-`getCapabilities()`'s new parameter is optional, so all four current implementations
-(`anthropic:284`, `deepseek:186`, `qwen:227`, `gemma:185`) and the
-`createDefaultProviderCapabilities` fallback keep compiling and keep their current answers. One
-behaviour is **consciously dropped**: `agent-provider-openai` with a `baseURL` stops reporting early
-enforcement. That is the defect, stated as a change so it is not mistaken for a regression.
+**Capability preservation — re-enumerated after the first enumeration proved incomplete.** The first
+draft listed four producers and claimed "verified by enumeration, not by grep". It missed
+`abstract-ai-provider.ts:210` (a concrete non-optional default, not merely the helper),
+`agent-provider-openai/src/openai/provider.ts:162` (the provider whose answer the design most wants to
+change), anthropic's second producer at `:311`, qwen's separate file, and — the material one —
+**`agent-provider-gemini` has no override at all**. The full list is in step 3. Two behaviours are
+**consciously changed**: `agent-provider-openai` with a `baseURL` stops reporting early enforcement
+(the defect), mitigated for Azure/vLLM by the step-5 override; and the model argument becomes required,
+so every producer is updated rather than silently ignoring it.
 
-**Adversarial pass — partial, and the gap is named.** No independent reviewer ran (subagent use is
-restricted this session), so this is a self-run red-team and should not be counted as the independent
-pass the rule asks for. Strongest failure modes found:
+**Adversarial pass — independent, completed.** See below.
 
-1. **`'unknown'` becomes the default that swallows real support.** If a provider forgets to answer,
-   the fallback decides. Mitigation: `createDefaultProviderCapabilities` returns `'none'` with a
-   reason naming the provider, not `'unknown'` — an unanswered provider is not an ambiguous one, and
-   `'none'` degrades to a transport that works everywhere rather than to a guess.
-2. **The forced tool call collides with a real tool.** Under `tool_choice: required` the model may
-   pick the user's tool instead of the schema tool. Not resolved by this document — it is the
-   substance of step 4 and must be designed with a name-collision rule and an assertion on which tool
-   came back, before implementation.
-3. **A model-aware answer is only as good as the catalog — and the catalog is already wrong.** This
-   was raised as a hypothetical risk and the research turned it into a finding: DeepSeek documents
-   `json_object` only, while the catalog claims `'json_schema'` for all four models. Consuming it
-   unchanged would upgrade a silent drop into a confident wrong send. Mitigation: correcting the
-   catalog is a prerequisite step, and TC-03 fails if any entry disagrees with the vendor.
-4. **Two capability channels drift.** `getCapabilities(model)` and the catalog could disagree.
-   Mitigation: the catalog is the _source_ the compat providers answer from, not a second answer —
-   one direction only.
-5. **The tri-state flattens a state that is not flat.** DeepSeek is not "no structured output" — it
-   is JSON mode without a schema, plus a prompt requirement. `'none'` routes it correctly today, but
-   the capability will want to name the _mechanism_ eventually. Recorded, not designed here.
+### Independent review
 
-**Previously gating, now resolved.** The open question was whether a forced tool call is reliable
-enough to be the fallback across five provider packages — the reporter's 4/4 on two models through
-one gateway being evidence rather than a basis. The documentation pass above answers it: Anthropic
-documents `strict: true` on custom tools "to ensure Claude's tool calls always match your schema
-exactly" and documents `tool_choice` forcing; OpenAI documents strict function calling as one of its
-two structured-output mechanisms. The fallback rests on documented vendor guarantees.
+`proposal-reviewer`, 2026-08-16 — **`REVIEW VERDICT: REVISE`** on the first draft. Verdict accepted in
+full; every load-bearing finding was independently re-checked against the code before this revision was
+written, and all confirmed:
 
-**It also produced one correction to this design's own premise.** OpenAI's guidance recommends a
-structured `text.format` over function calling for structuring a response to the user. CORE-038
-proposed the forced tool call as the better transport generally; that is not supported where a native
-surface exists. The native-first ordering in step 4 is the corrected form — the tool call is the
-fallback, not the default.
+| Finding                                                                                                         | Re-checked at                                                    | Disposition                                                      |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Decision point cannot reach a provider                                                                          | `robota-execution.ts:19-26`, `execution-types.ts:45-47`          | Fixed — step 4                                                   |
+| Producer enumeration incomplete; **gemini has no override**                                                     | `grep getCapabilities packages/agent-provider-gemini/src` → none | Fixed — step 3                                                   |
+| `strict:true` citations apply only to providers that never take the fallback; no `strict` in the compat package | `grep strict …/agent-provider-openai-compatible/src` → none      | Fixed — step 6, claim weakened                                   |
+| PROV-007 unmentioned and undeclared                                                                             | `.agents/tasks/PROV-007-*.md` exists                             | Fixed — `depends_on`                                             |
+| Tri-state encodes provenance and discards mechanism                                                             | own Prior Art finding #2                                         | Fixed — step 2                                                   |
+| "Catalog is the source" false for OpenAI                                                                        | `openai/provider-definition.ts:36-40` — `status: 'unavailable'`  | Fixed — step 1 makes the provider qualify, not the catalog alone |
+| Optional `model?` justified by "nothing breaks"                                                                 | `code-quality.md:50`                                             | Fixed — step 3                                                   |
+| Forcing applies to the FIRST call only                                                                          | `interfaces/provider.ts:159-161`                                 | Fixed — step 7                                                   |
 
-**Still not run: an independent adversarial review.** Everything above is self-run (subagent use is
-restricted this session). The rule asks for an independent critical pass on a contract-boundary
-change, and this is not it. That gap should be closed before GATE-APPROVAL.
+Two findings are recorded as **accepted but not adopted here**: the reviewer notes anthropic and gemini
+provider-definitions also declare `json_schema` (`anthropic/provider-definition.ts:80`,
+`gemini/provider-definition.ts:45`) — correct, and folded into step 1's audit rather than a separate
+criterion; and that `project-structure.md:113` ("no invented prompt/protocol directives") is the rule
+that supports scoping out DeepSeek's `json_object` prompt requirement — now cited rather than argued
+freehand.
+
+**Migration cost, stated rather than used as a veto.** This is materially larger than the first draft:
+eight capability producers updated (one newly created for Gemini), two emission seams plus the
+resolved-provider type widened in agent-core, catalog corrections across five provider packages, the
+`TProviderModelCapability` vocabulary extended and made live, PROV-006 closed as part of the work, and
+PROV-007 sequenced ahead of the OpenAI fallback path. It is the size the defect is: this fact has been
+filed **three times in three days from three channels** because no layer owns it, and a fourth partial
+representation is how that continues.
 
 ## Completion Criteria (draft)
 
-- **TC-01** `IProviderCapabilities.structuredOutput` exists with the tri-state, and
-  `getProviderCapabilities(provider, model?)` returns it.
-- **TC-02** `agent-provider-openai` reports `'native'` without a `baseURL` and `'unknown'` with one;
-  a test pins both.
-- **TC-03** The deepseek catalog no longer claims `'json_schema'` — the vendor documents `json_object`
-  only — and qwen's and gemma's catalogs are checked against their vendor documentation the same way.
-  A test fails if a catalog entry disagrees with what the adapter sends.
-- **TC-04** A structured run against a `'none'` / `'unknown'` provider does **not** report early
-  enforcement, and carries a schema by the tool-call transport.
-- **TC-05** `outputRetries: 0` against a non-native provider succeeds for a schema the model can
-  satisfy — the property that is structurally impossible today.
-- **TC-06** The schema tool's name-collision rule is specified and tested against an agent that
-  already registers a tool of that name.
-- **TC-07** `agent-core/docs/SPEC.md` § Structured Output Contract no longer says providers without a
-  native surface "ignore it" — PROV-004 classifies that as a violation, and the SPEC currently
-  documents the violation as intent.
-- **TC-08** PROV-006's `supportsTools()`-vs-catalog contradiction for deepseek is resolved in the same
-  change, since the model parameter this design adds is what makes it resolvable.
+- **TC-01** Given provider _P_ and model _M_, the emitted request carries or omits the schema exactly
+  as the resolved capability says — asserted on the request, not on the presence of a type member.
+  (The first draft's "the member exists and the resolver returns it" was a compile-time tautology.)
+- **TC-02** `agent-provider-openai` resolves `provenance: 'vendor-default'` without a `baseURL` and
+  `'unverified-endpoint'` with one; a test pins both, and a third pins the step-5 override restoring
+  `response_schema` for a declared Azure/vLLM endpoint.
+- **TC-03** Catalog entry ↔ resolved capability ↔ emitted request are mutually consistent for every
+  provider, tested. Vendor verification is recorded as a dated source on the catalog entry
+  (`lastVerifiedAt` / `sourceUrl` already exist on `IProviderModelCatalogEntry`) — a human act with an
+  auditable stamp, not a machine check pretending to be one. DeepSeek's entry states `json_object`.
+- **TC-04** A structured run against a non-`response_schema` provider does **not** report early
+  enforcement, and carries a schema by the selected transport.
+- **TC-05** With `outputRetries: 0`, attempt 1 carries the schema by the selected transport — a
+  structural property of this repo. (The first draft asserted the run _succeeds_, which is a property
+  of the model, and against a scripted provider would assert only what the fixture was told to return.)
+- **TC-06** The forced-tool rules from step 7 are implemented and tested: named-tool forcing, the
+  reserved-prefix collision error raised at registration, and the schema tool forced on the final call
+  rather than the first in a run that also carries real tools. (The first draft's TC-06 tested a rule
+  the design had deferred past approval.)
+- **TC-07** `agent-core/docs/SPEC.md:979` no longer says providers without a native surface "ignore
+  it" — PROV-004 classifies that as a violation, so the SPEC currently documents the violation as
+  intent.
+- **TC-08** PROV-006 is closed: all six `TProviderModelCapability` flags resolve through the step-1
+  seam, and the deepseek `supportsTools()`-vs-catalog contradiction is gone as a consequence rather
+  than as a separate fix.
 
 ## Evidence Log
 

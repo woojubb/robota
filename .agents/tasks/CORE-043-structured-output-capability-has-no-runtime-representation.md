@@ -4,8 +4,8 @@ status: todo
 created: 2026-08-16
 priority: critical
 urgency: now
-area: packages/agent-core, packages/agent-provider-openai, packages/agent-provider-openai-compatible
-depends_on: []
+area: packages/agent-core, packages/agent-provider-openai, packages/agent-provider-openai-compatible, packages/agent-provider-anthropic, packages/agent-provider-gemini, packages/agent-session
+depends_on: [PROV-007]
 ---
 
 # CORE-043: structured-output capability is not represented at runtime
