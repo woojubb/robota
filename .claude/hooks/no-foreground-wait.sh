@@ -64,7 +64,11 @@ if printf '%s' "$STMT_MASK" |
   exit 0
 fi
 
-# A background call is exactly the thing being recommended, so never refuse one.
+# A background call is exactly the thing being recommended, so never refuse one. TWO spellings, and
+# the second is the one that matters: the harness's own `run_in_background` flag lives in the tool
+# payload, not in the command text, so a guard reading only the command refuses the very mechanism
+# its refusal message tells you to use. It did — on the author's retry loop, minutes after landing.
+if printf '%s' "$INPUT" | grep -qE '"run_in_background"[[:space:]]*:[[:space:]]*true'; then exit 0; fi
 if printf '%s' "$STMT_MASK" | grep -qE '&[[:space:]]*$'; then exit 0; fi
 
 # The WAIT is read from the WORD SPLIT, not from the masked text, and the difference is the point.

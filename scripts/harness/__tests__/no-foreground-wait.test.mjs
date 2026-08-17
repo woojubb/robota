@@ -64,6 +64,21 @@ describe('no-foreground-wait — permits work, and the path it recommends (D7)',
     expect(verdict('until git ls-remote origin main | grep -q x; do sleep 30; done &')).toBe(0);
   });
 
+  it("permits the harness's own run_in_background flag, which is not in the command text", () => {
+    // The guard refused this minutes after landing — on a retry loop its own message had asked for.
+    // The flag lives in the tool payload, so a guard reading only the command string cannot see it,
+    // and refusing there means refusing the exact mechanism the refusal recommends.
+    const result = spawnSync('bash', [HOOK], {
+      input: JSON.stringify({
+        tool_name: 'Bash',
+        tool_input: { command: 'sleep 300', run_in_background: true },
+      }),
+      encoding: 'utf8',
+    });
+
+    expect(result.status).toBe(0);
+  });
+
   it('permits an interpreter payload that merely CONTAINS the word sleep', () => {
     // This one blocked its own author while the guard was being written: `python3 -c "…sleep 300…"`
     // measured as a 600-second wait. Both library readers expand interpreter payloads on purpose —
