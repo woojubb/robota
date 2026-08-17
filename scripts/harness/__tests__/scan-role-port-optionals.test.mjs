@@ -5,10 +5,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  closeOverHeritage,
   examinedFileCount,
   findOptionalMembers,
   findRolePortOptionalFindings,
-  rolePortsOf,
+  heritageOf,
 } from '../scan-role-port-optionals.mjs';
 
 /**
@@ -194,5 +195,28 @@ describe('an aggregate with members of its own is a finding (TC-04, mechanised)'
     });
 
     expect(findings).toEqual([]);
+  });
+});
+
+describe('a duplicate scoped declaration is a finding, not a silent overwrite', () => {
+  it('flags a same-named interface in a later scanned file', () => {
+    // Route D. The maps were keyed by bare name, last-write-wins, so ONE unexported decoy line in a
+    // later file replaced the real record — hiding a real optional member (D1) and masking
+    // `aggregate-has-own-members` on the aggregate itself (D2).
+    const root = mkdtempSync(join(tmpdir(), 'arch-029-dup-'));
+    mkdirSync(join(root, 'packages'), { recursive: true });
+    writeFileSync(
+      join(root, 'a.ts'),
+      'export interface IPortA {\n  sneaky?(): void;\n}\nexport interface IAgg extends IPortA {}\n',
+    );
+    writeFileSync(join(root, 'b.ts'), 'interface IPortA {\n  harmless(): void;\n}\n');
+
+    const { findings } = findRolePortOptionalFindings(root, {
+      files: ['a.ts', 'b.ts'],
+      aggregates: ['IAgg'],
+      carveOuts: [],
+    });
+
+    expect(findings.map((f) => f.rule)).toContain('duplicate-scoped-declaration');
   });
 });

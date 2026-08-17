@@ -80,6 +80,36 @@ export function examinedFileCount() {
  * prose in a docblock that explains why a file must not name it. This file's own header names the
  * guarded aggregate repeatedly; a text scan would flag itself.
  */
+/**
+ * Every place `content` RENAMES a guarded aggregate — an aliased import or an aliased re-export.
+ *
+ * This exists because patching syntactic forms did not converge. Three review rounds closed a
+ * heritage clause, then an aliased import, then an aliased re-export, and a fourth form would have
+ * followed: the scan resolves names per file, so ANY renaming indirection defeats it. The class is
+ * closed instead of the form — there is no legitimate reason to rename these aggregates, so renaming
+ * one is itself the finding, and the reference count stops being the only thing standing between a
+ * consumer and the whole 46-member surface.
+ */
+export function findAggregateAliases(content, fileName, aggregates) {
+  const sourceFile = ts.createSourceFile(fileName, content);
+  const aliases = [];
+  const visit = (node) => {
+    const clause = ts.isImportDeclaration(node) ? node.importClause?.namedBindings : undefined;
+    const exported = ts.isExportDeclaration(node) ? node.exportClause : undefined;
+    for (const element of clause?.elements ?? exported?.elements ?? []) {
+      const imported = element.propertyName?.text;
+      const local = element.name?.text;
+      if (imported && local && imported !== local && aggregates.includes(imported)) {
+        const { line } = sourceFile.getLineAndCharacterOfPosition(element.getStart(sourceFile));
+        aliases.push({ aggregate: imported, alias: local, line: line + 1 });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return aliases;
+}
+
 export function findAggregateReferences(content, fileName, aggregates) {
   const sourceFile = ts.createSourceFile(fileName, content);
   const found = [];
@@ -174,6 +204,7 @@ export function collectAggregateNaming(
   const allowlist = new Set((settings.allowlist ?? []).map((entry) => entry.file));
 
   const counts = new Map(aggregates.map((name) => [name, { references: 0, files: new Map() }]));
+  const aliasFindings = [];
   let examined = 0;
   examinedFiles = 0;
 
@@ -184,6 +215,16 @@ export function collectAggregateNaming(
     examinedFiles += 1;
     // A cheap reject before the RPC parse: most files never mention any aggregate at all.
     if (!aggregates.some((name) => content.includes(name))) continue;
+    for (const alias of findAggregateAliases(content, file, aggregates)) {
+      aliasFindings.push({
+        rule: 'aggregate-renamed',
+        detail:
+          `${file}:${alias.line}: ${alias.aggregate} is renamed to ${alias.alias}. Renaming a guarded ` +
+          `aggregate makes every downstream reference invisible to this ratchet — an aliased import ` +
+          `or re-export is a one-line way to keep the whole surface while the count reads zero. ` +
+          `There is no legitimate reason to rename it; declare the role port instead.`,
+      });
+    }
     for (const hit of findAggregateReferences(content, file, aggregates)) {
       const bucket = counts.get(hit.aggregate);
       bucket.references += 1;
@@ -191,7 +232,7 @@ export function collectAggregateNaming(
     }
   }
 
-  return { counts, examined };
+  return { counts, examined, aliasFindings };
 }
 
 export function findAggregateNamingFindings(root = process.cwd()) {
@@ -203,7 +244,7 @@ export function findAggregateNamingFindings(root = process.cwd()) {
   // Fail CLOSED over a root without the governed tree: a scan that reported "no findings" for a
   // tree it never read is indistinguishable from a clean repo, and this is the floor the design
   // marks load-bearing.
-  const { counts, examined } = collectAggregateNaming(root, config);
+  const { counts, examined, aliasFindings } = collectAggregateNaming(root, config);
 
   let baseline = {};
   try {
@@ -212,7 +253,7 @@ export function findAggregateNamingFindings(root = process.cwd()) {
     baseline = {};
   }
 
-  const findings = [];
+  const findings = [...aliasFindings];
   for (const [aggregate, bucket] of counts) {
     const frozen = baseline[aggregate];
     if (frozen === undefined) {

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 
 import {
   collectAggregateNaming,
+  findAggregateAliases,
   examinedFileCount,
   findAggregateReferences,
 } from '../scan-aggregate-naming.mjs';
@@ -193,5 +194,50 @@ describe('collectAggregateNaming fails closed on scope', () => {
     expect(() =>
       collectAggregateNaming(bare, { aggregateNaming: { aggregates: ['I'], allowlist: [] } }, []),
     ).toThrow(/packages/);
+  });
+});
+
+describe('findAggregateAliases — renaming the aggregate is the finding, not the reference count', () => {
+  it('flags an aliased IMPORT', () => {
+    // Round 2's route: `as IHost` made every downstream reference invisible.
+    const found = findAggregateAliases(
+      "import type { ICommandHostContext as IHost } from 'x';\n",
+      'p.ts',
+      ['ICommandHostContext'],
+    );
+
+    expect(found).toEqual([{ aggregate: 'ICommandHostContext', alias: 'IHost', line: 1 }]);
+  });
+
+  it('flags an aliased RE-EXPORT, which the import-only fix did not see', () => {
+    // Round 3's route. Two ordinary lines in a repo whose barrels are full of re-exports. Patching
+    // one syntactic form per round does not converge, so the CLASS is banned: there is no
+    // legitimate reason to rename these aggregates.
+    const found = findAggregateAliases(
+      "export type { ICommandHostContext as IHostAlias } from 'x';\n",
+      'p.ts',
+      ['ICommandHostContext'],
+    );
+
+    expect(found).toHaveLength(1);
+    expect(found[0].alias).toBe('IHostAlias');
+  });
+
+  it('does NOT flag an un-aliased import or re-export', () => {
+    expect(
+      findAggregateAliases(
+        "import type { ICommandHostContext } from 'x';\nexport type { ICommandHostContext } from 'x';\n",
+        'p.ts',
+        ['ICommandHostContext'],
+      ),
+    ).toEqual([]);
+  });
+
+  it('does NOT flag an alias of some other symbol', () => {
+    expect(
+      findAggregateAliases("import type { ISomethingElse as IX } from 'x';\n", 'p.ts', [
+        'ICommandHostContext',
+      ]),
+    ).toEqual([]);
   });
 });

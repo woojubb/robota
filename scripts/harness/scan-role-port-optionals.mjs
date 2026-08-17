@@ -57,16 +57,35 @@ export function examinedFileCount() {
  * guarded file also declares DATA shapes (`IModelReapplyOptions` is a patch; every field is
  * legitimately absent), and a rule about capability contracts does not apply to an options bag.
  */
+/**
+ * The heritage graph of `content`, plus every heritage expression whose NAME could not be read.
+ *
+ * The second return value is the point. Three review rounds each closed one syntactic form on this
+ * floor — a heritage clause, then an import alias, then a qualified name — and every one was the
+ * same underlying shape: a name the scan could not resolve, treated as absence rather than as a
+ * finding. `interface X extends ns.IPort` parses its clause type as a `PropertyAccessExpression`,
+ * which answers neither `.text` nor `.escapedText`, so the edge was dropped AND the fail-closed
+ * "declared in no scanned file" rule could not fire either — there was no name for it to miss.
+ *
+ * So the rule here is not "handle qualified names too". It is: **an unresolvable name is a
+ * finding.** A new syntactic form the walker does not understand now trips the floor instead of
+ * silently shrinking its scope.
+ */
 export function heritageOf(content, fileName) {
   const sourceFile = ts.createSourceFile(fileName, content);
   const edges = new Map();
+  const unresolvable = [];
   const visit = (node) => {
     if (ts.isInterfaceDeclaration(node)) {
       const parents = [];
       for (const clause of node.heritageClauses ?? []) {
         for (const type of clause.types ?? []) {
-          const name = type.expression?.text ?? type.expression?.escapedText;
+          let expr = type.expression;
+          while (expr && ts.isPropertyAccessExpression(expr)) expr = expr.name;
+          const name = expr?.text ?? expr?.escapedText;
           if (name) parents.push(name);
+          else
+            unresolvable.push({ child: node.name.text, text: type.getText?.(sourceFile) ?? '?' });
         }
       }
       edges.set(node.name.text, parents);
@@ -74,26 +93,26 @@ export function heritageOf(content, fileName) {
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
-  return edges;
+  return { edges, unresolvable };
 }
 
 /**
  * Every interface in the aggregates' inheritance closure — the aggregates INCLUDED.
  *
- * Seeded with the aggregates and closed transitively, because the first two versions of this scan
- * both scoped it one hop and both were walked past. Review demonstrated each:
+ * Seeded with the aggregates and closed transitively over MERGED edges, because three review rounds
+ * each walked past a narrower scope:
  *
  *   A. an optional member written into the AGGREGATE'S OWN BODY. Scoping to the `extends` names
- *      exempts the very interface the floor protects — and that is not an exotic route, it is the
- *      one the design's trajectory table measures: this contract went 20 members to 46 by having
- *      members added to its body.
- *   B. an optional member one hop BELOW a listed port (`IPort extends IPortExtra`), in a file the
- *      scan already reads.
+ *      exempted the very interface the floor protects — the motion the design's trajectory table
+ *      measures, since this contract reached 46 members by accreting them into its body.
+ *   B. an optional member one hop BELOW a listed port (`IPort extends IPortExtra`).
+ *   C. a port reached through a QUALIFIED name (`extends ns.IPort`), whose edge could not be read
+ *      at all — see {@link heritageOf}, which now reports an unresolvable name instead of skipping.
  *
- * A closure closes both, and any deeper nesting, without a list to keep current.
+ * Edges are passed in already merged across the whole file set: a closure over one file's edges
+ * stops at the first file boundary, which is the same narrowing in a different disguise.
  */
-export function rolePortsOf(content, fileName, aggregates) {
-  const edges = heritageOf(content, fileName);
+export function closeOverHeritage(edges, aggregates) {
   const scope = new Set();
   const queue = [...aggregates];
   while (queue.length > 0) {
@@ -164,28 +183,54 @@ export function findRolePortOptionalFindings(root = process.cwd(), settingsOverr
   examinedFiles = 0;
   const declared = new Map();
   const edges = new Map();
+  const duplicates = [];
+  const unresolvable = [];
   for (const file of files) {
     const content = readFileSync(join(root, file), 'utf8');
     examinedFiles += 1;
     // Heritage edges are merged across the WHOLE file set before the closure is taken: the
     // aggregates live in one file and inherit ports declared in others, so a per-file closure stops
     // at the first file boundary and silently narrows the scope it is meant to widen.
-    for (const [name, parents] of heritageOf(content, file)) edges.set(name, parents);
+    const heritage = heritageOf(content, file);
+    for (const [name, parents] of heritage.edges) {
+      // A bare-name map is last-write-wins, so a same-named `interface` in a later file silently
+      // REPLACED the real record — hiding a real optional member, and masking
+      // `aggregate-has-own-members` on the aggregate itself. Found by review. A duplicate scoped
+      // name is now a finding rather than a quiet overwrite.
+      if (edges.has(name)) duplicates.push({ name, file, first: declared.get(name)?.file });
+      edges.set(name, parents);
+    }
+    for (const entry of heritage.unresolvable) unresolvable.push({ ...entry, file });
     for (const [name, entry] of findOptionalMembers(content, file)) {
       declared.set(name, { file, ...entry });
     }
   }
 
-  const ports = new Set();
-  const queue = [...aggregates];
-  while (queue.length > 0) {
-    const name = queue.pop();
-    if (ports.has(name)) continue;
-    ports.add(name);
-    for (const parent of edges.get(name) ?? []) queue.push(parent);
-  }
+  const ports = closeOverHeritage(edges, aggregates);
 
   const findings = [];
+
+  // An unresolvable name is a finding — the single rule the previous three rounds each patched one
+  // form of. Nothing is skipped silently any more.
+  for (const entry of unresolvable) {
+    findings.push({
+      rule: 'heritage-name-unresolvable',
+      detail:
+        `${entry.file}: ${entry.child} extends an expression this scan cannot read a name from ` +
+        `(\`${entry.text}\`). Its members reach the aggregate and this floor cannot see them. ` +
+        `Silence here is indistinguishable from safety, so it fails instead.`,
+    });
+  }
+  for (const entry of duplicates) {
+    findings.push({
+      rule: 'duplicate-scoped-declaration',
+      detail:
+        `${entry.file}: ${entry.name} is declared here and also in ${entry.first ?? 'another scanned file'}. ` +
+        `This floor resolves by name, so the later declaration REPLACES the earlier one and its ` +
+        `members stop being checked — one decoy line is enough to hide a real optional member.`,
+    });
+  }
+
   if (ports.size === 0) {
     // Fail CLOSED: no ports resolved means the aggregates were renamed or moved, and a scan that
     // then examines nothing reports a clean result for a check it never ran.
