@@ -148,25 +148,53 @@ export class SimpleRemoteExecutor implements IExecutor {
   }
 
   /**
-   * Streaming is deliberately NOT implemented on the remote executor (CORE-044).
+   * Remote streaming — restored by CORE-046, on a route the server actually serves.
    *
-   * It used to be, against `${baseUrl}/stream` — an endpoint no server in this repository serves,
-   * spelled a third way (`/chat/stream`) in `request-handler-simple.ts`, while both `app.ts` and
-   * `apps/agent-server/docs/SPEC.md` claimed the route was inlined. Every remote streaming call was
-   * therefore a 404 dressed as a capability.
+   * CORE-044 had removed this. It posted to `${baseUrl}/stream`, a sibling module named
+   * `/chat/stream`, and no server here served either spelling, so every call was a 404 dressed as a
+   * capability — green in the suite only because the tests mocked `fetch`. It could not simply be
+   * reconnected, because it yielded RAW provider chunks and relied on a fragment assembler that
+   * CORE-042 deleted with the second execution engine.
    *
-   * It is removed rather than implemented because the foundation it needed no longer exists: the
-   * client yielded raw provider chunks with the comment "ExecutionService merges them", and the
-   * fragment assembler it referred to was deleted with the second execution engine in CORE-042.
-   * Building a wire protocol on top of a missing assembler risks silently corrupting tool calls,
-   * which is the failure class that work existed to end. `IExecutor.executeChatStream` is optional,
-   * so a provider configured with this executor now reports `supportsStreaming: false` and any
-   * caller reaching for it gets an accurate error instead of a 404 — and, since the turn drives
-   * streaming through `chat()` + `onTextDelta` after CORE-042, no working path is lost.
+   * What makes it safe now is that the SERVER assembles. `/api/v1/remote/chat/stream` calls
+   * `provider.chat(messages, { onTextDelta })` — already every provider's contract — so the wire
+   * carries text deltas plus one terminal ASSEMBLED message, and tool-call fragments never cross it.
+   * There is one assembler in the world and it is the provider's.
    *
-   * Restoring it is CORE-046: it needs a transport decision (SSE or chunked), a served route, and
-   * an owner for chunk assembly.
+   * This generator therefore does the small half: hand each delta to the caller's `onTextDelta` and
+   * yield the terminal message. Yielding ONE message rather than a message per delta is deliberate —
+   * `IExecutor.executeChatStream` yields `TUniversalMessage`, and a partial message is not one; the
+   * live text is what `onTextDelta` is for, and the turn has consumed it that way since CORE-042.
    */
+  async *executeChatStream(request: IStreamExecutionRequest): AsyncIterable<TUniversalMessage> {
+    // The SAME validation `executeChat` runs, for the same reason it runs it. The first version of
+    // this method mapped `content` to `''` when it was not a string — a silent fallback that shipped
+    // a message with its content DELETED to the remote server, and made the two executor entry
+    // points disagree about what a valid request is. A non-string content (multimodal, for one) is a
+    // request this seam cannot carry, and saying so is the only honest answer.
+    validateChatExecutionRequest(request);
+
+    const response = await this.httpClient.chatStream(
+      request.messages,
+      request.provider,
+      request.model,
+      (delta) => request.options?.onTextDelta?.(delta),
+      request.tools,
+      request.options,
+    );
+
+    const assembled: IAssistantMessage = {
+      id: randomUUID(),
+      role: 'assistant',
+      content: response.content || '',
+      state: 'complete' as const,
+      timestamp: new Date(),
+    };
+    if (response.toolCalls) {
+      assembled.toolCalls = response.toolCalls;
+    }
+    yield assembled;
+  }
 
   /**
    * Check if the executor supports tool calling (IExecutor requirement)

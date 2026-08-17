@@ -233,13 +233,119 @@ describe('SimpleRemoteExecutor Facade', () => {
   });
 
   describe('Stream Execution', () => {
-    it('does not advertise streaming, because no server here serves a stream route (CORE-044)', () => {
-      // The removed cases drove `executeChatStream` against a mocked HttpClient, so they were green
-      // while every real call 404'd: the client posted to `${baseUrl}/stream`, `request-handler-simple`
-      // named `/chat/stream`, and the server serves neither. `IExecutor.executeChatStream` is
-      // optional, so the honest state is to not implement it — a caller then gets an accurate
-      // "streaming executor is required" instead of a 404 dressed as a capability.
-      expect((executor as unknown as Record<string, unknown>)['executeChatStream']).toBeUndefined();
+    const streamRequest = {
+      messages: [
+        {
+          id: 'msg-1',
+          role: 'user' as const,
+          content: 'Hello AI',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        },
+      ],
+      provider: 'openai',
+      model: 'gpt-4',
+      tools: undefined,
+      stream: true as const,
+    };
+
+    beforeEach(() => {
+      executor = new SimpleRemoteExecutor(mockConfig);
+    });
+
+    // CORE-046 inverts what CORE-044 pinned here. The old cases drove `executeChatStream` against a
+    // mocked HttpClient, so they were green while every real call 404'd — the client posted to
+    // `${baseUrl}/stream`, a sibling named `/chat/stream`, and the server served neither. A mocked
+    // transport cannot notice that the far end does not exist, which is why the ROUTE is asserted
+    // against the server's real table in `chat-stream-route-contract.test.ts`, and only the
+    // executor's own behaviour is asserted here.
+    it('advertises streaming again, now that a server serves the route', () => {
+      expect(typeof (executor as unknown as Record<string, unknown>)['executeChatStream']).toBe(
+        'function',
+      );
+    });
+
+    it('hands every delta to the caller and yields ONE assembled message', async () => {
+      const deltas: string[] = [];
+      mockHttpClient.chatStream = vi
+        .fn()
+        .mockImplementation(async (_m, _p, _model, onDelta: (d: string) => void) => {
+          for (const piece of ['a', 'b', 'c']) onDelta(piece);
+          return {
+            content: 'abc',
+            toolCalls: [{ id: 't1', type: 'function', function: { name: 'x', arguments: '{}' } }],
+          };
+        });
+
+      const yielded = [];
+      for await (const message of executor.executeChatStream!({
+        ...streamRequest,
+        options: { model: 'gpt-4', onTextDelta: (d: string) => deltas.push(d) },
+      } as never)) {
+        yielded.push(message);
+      }
+
+      expect(deltas).toEqual(['a', 'b', 'c']);
+      // ONE message, not one per delta: `IExecutor.executeChatStream` yields `TUniversalMessage`,
+      // and a partial message is not one. The live text is what `onTextDelta` carries.
+      expect(yielded).toHaveLength(1);
+      expect(yielded[0].content).toBe('abc');
+      // Narrowed rather than asserted through the union: only an assistant message carries them,
+      // and yielding anything else would be the defect this case is about.
+      expect((yielded[0] as { toolCalls?: unknown[] }).toolCalls).toHaveLength(1);
+    });
+
+    it('REFUSES a non-string content instead of shipping it with the content deleted', async () => {
+      // Review finding on the CORE-046 PR. The first version mapped a non-string `content` to `''`,
+      // so a multimodal message reached the remote server with its content SILENTLY REMOVED — a
+      // fallback this repository forbids, and a disagreement with `executeChat`, which validates.
+      // The two entry points must agree on what a valid request is.
+      mockHttpClient.chatStream = vi.fn().mockResolvedValue({ content: 'ok' });
+
+      const multimodal = {
+        ...streamRequest,
+        messages: [
+          {
+            id: 'msg-mm',
+            role: 'user' as const,
+            content: [{ type: 'image', url: 'https://example.invalid/a.png' }],
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
+        options: { model: 'gpt-4' },
+      };
+
+      const iterate = async (): Promise<void> => {
+        for await (const _message of executor.executeChatStream!(multimodal as never)) {
+          // drain
+        }
+      };
+
+      await expect(iterate()).rejects.toThrow(/must be strings/);
+      // And nothing was sent: refusing after the request is on the wire would be no refusal at all.
+      expect(mockHttpClient.chatStream).not.toHaveBeenCalled();
+    });
+
+    it('forwards the whole options object, as the non-streaming path does (CORE-044)', async () => {
+      mockHttpClient.chatStream = vi.fn().mockResolvedValue({ content: 'ok' });
+
+      const options = { model: 'gpt-4', temperature: 0.2, toolChoice: 'auto' as const };
+      for await (const _message of executor.executeChatStream!({
+        ...streamRequest,
+        options,
+      } as never)) {
+        // drain
+      }
+
+      expect(mockHttpClient.chatStream).toHaveBeenCalledWith(
+        streamRequest.messages,
+        streamRequest.provider,
+        streamRequest.model,
+        expect.any(Function),
+        streamRequest.tools,
+        options,
+      );
     });
   });
 
@@ -321,7 +427,16 @@ describe('SimpleRemoteExecutor Facade', () => {
         (name) => name !== 'constructor' && !name.startsWith('_'),
       );
 
-      expect(publicMethods).toEqual(['executeChat', 'supportsTools', 'validateConfig', 'dispose']);
+      // CORE-046 adds `executeChatStream` back to the surface. It was removed by CORE-044 because
+      // no server served the route it posted to; one does now, and this enumeration is the record
+      // that says so — the same reason the absence was pinned rather than merely deleted.
+      expect(publicMethods).toEqual([
+        'executeChat',
+        'executeChatStream',
+        'supportsTools',
+        'validateConfig',
+        'dispose',
+      ]);
     });
   });
 });

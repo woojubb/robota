@@ -10,6 +10,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 
 import { playgroundRouter } from './routes/playground.js';
+import { registerProviderChatStreamRoute } from './routes/provider-chat-stream.js';
 import { registerProviderChatRoutes } from './routes/provider-chat.js';
 
 import type { PlaygroundWebSocketServer } from './websocket-server';
@@ -28,7 +29,17 @@ export function setPlaygroundWebSocketServer(server: PlaygroundWebSocketServer):
  * Create Express application with RemoteServer
  * This app can be used both standalone and in Firebase Functions
  */
-export function createApp(): express.Application {
+/**
+ * CORE-046: providers may be INJECTED. They were built only from environment API keys, so the
+ * streaming route could not be exercised without live credentials — and a route nothing exercises is
+ * how the previous streaming gap survived. The injected map is merged over the env-derived one, so a
+ * deployment's behaviour is unchanged when nothing is passed.
+ */
+export interface ICreateAppOptions {
+  providers?: Record<string, IAIProvider>;
+}
+
+export function createApp(options: ICreateAppOptions = {}): express.Application {
   const app = express();
 
   // Trust proxy for Firebase Functions and load balancers
@@ -108,7 +119,10 @@ export function createApp(): express.Application {
     });
   }
 
+  Object.assign(providers, options.providers ?? {});
+
   registerProviderChatRoutes(app, providers);
+  registerProviderChatStreamRoute(app, providers);
 
   // Root endpoint
   app.get('/', (_req, res) => {

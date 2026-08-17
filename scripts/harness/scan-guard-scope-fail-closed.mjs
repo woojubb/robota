@@ -87,6 +87,14 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Measured as `findRouteSpellingFindings(bare)`: throws `apps, packages missing from <root>`
+    // before it can read either spelling.
+    file: 'scan-remote-stream-route-spelling.mjs',
+    finder: 'findRouteSpellingFindings',
+    tree: 'apps',
+    why: 'the check compares a route served by apps/agent-server to a path posted by packages/agent-remote-client; over a root missing either, "the two agree" would be a statement about nothing — and "the two agree" is exactly what was wrongly believed for as long as remote streaming was a 404 (CORE-046)',
+  },
+  {
     // Measured as `findWorkflowProvenanceFindings(bare)`: throws `governed tree(s) absent under
     // <root>` before it can read which workflows are guarded.
     file: 'scan-workflow-provenance.mjs',

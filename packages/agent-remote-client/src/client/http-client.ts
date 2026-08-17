@@ -7,6 +7,7 @@
 import { SilentLogger } from '@robota-sdk/agent-core';
 
 import { executeChatRequest } from './chat-http-methods';
+import { executeChatStreamRequest } from './chat-stream-http';
 import { createHttpRequest, createHttpResponse, generateId } from '../utils/transformers';
 
 import type { IHttpRequest, IHttpResponse, TDefaultRequestData } from '../types/http-types';
@@ -82,6 +83,34 @@ export class HttpClient {
       messages,
       provider,
       model,
+      tools,
+      options,
+    );
+  }
+
+  /**
+   * Streaming counterpart of {@link chat} — CORE-046.
+   *
+   * Hands each text delta to `onDelta` as it arrives and returns the terminal ASSEMBLED message. The
+   * server owns assembly, so nothing here accumulates tool-call fragments; see `chat-stream-http.ts`
+   * for why that division is the reason this capability could be restored.
+   */
+  async chatStream(
+    messages: IBasicMessage[],
+    provider: string,
+    model: string,
+    onDelta: (delta: string) => void,
+    tools?: IToolSchema[],
+    options?: IChatOptions,
+  ): Promise<IResponseMessage> {
+    return executeChatStreamRequest(
+      this.config.baseUrl,
+      this.config.headers,
+      this.logger,
+      messages,
+      provider,
+      model,
+      onDelta,
       tools,
       options,
     );

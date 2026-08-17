@@ -625,6 +625,13 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-resolving-claims.mjs'],
   },
   {
+    // CORE-046: the remote streaming route's spelling, compared across two packages that must not
+    // import each other. No single test can hold both values, which is why the disagreement
+    // survived long enough to make every remote streaming call a 404.
+    name: 'remote-stream-route-spelling',
+    command: ['node', 'scripts/harness/scan-remote-stream-route-spelling.mjs'],
+  },
+  {
     name: 'mistake-mechanisms',
     command: ['node', 'scripts/harness/scan-mistake-mechanisms.mjs'],
   },
