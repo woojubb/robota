@@ -129,6 +129,17 @@ function convertZodTypeToProperty(
       return { type: 'string', enum: enumValues as TJSONSchemaEnum, ...base };
     }
 
+    case 'ZodNativeEnum': {
+      // CORE-041: `_def.values` is the enum OBJECT here, not the array `ZodEnum` carries.
+      return { ...convertNativeEnum(typeDef.values), ...base };
+    }
+
+    case 'ZodDate':
+      // CORE-041: JSON has no date type, so a string is what the provider receives either way —
+      // this is the faithful description of the payload, not a lossy stand-in. `format` carries the
+      // intent to a provider that reads it, and `validateAgainstJsonSchema` checks the type.
+      return { type: 'string', format: 'date-time', ...base };
+
     case 'ZodLiteral':
       return { ...convertLiteral(typeDef.value), ...base };
 
@@ -194,7 +205,7 @@ function convertZodTypeToProperty(
       return { type: 'object', additionalProperties: { type: 'string' }, ...base };
 
     default:
-      throw new Error(`Unsupported Zod type: ${String(typeDef.typeName)}`);
+      throw new Error(unsupportedConstructMessage(String(typeDef.typeName)));
   }
 }
 
@@ -209,4 +220,65 @@ function convertLiteral(value: TUniversalValue | undefined): IParameterSchema {
   // `TJSONSchemaEnum` has no null member, and a null literal needs none: `type: 'null'` already
   // admits exactly one value.
   return kind === 'null' ? { type: 'null' } : { type: kind, enum: [value] as TJSONSchemaEnum };
+}
+
+/**
+ * Convert a `ZodNativeEnum`'s value set — CORE-041.
+ *
+ * A NUMERIC TypeScript enum compiles to an object with a reverse mapping, so `Object.values` on
+ * `enum Level { Low, High }` yields `['Low', 'High', 0, 1]`. Emitting that would advertise `"Low"` as
+ * an acceptable value for a field that accepts `0`, which is a wrong contract rather than a wide one.
+ * When any numeric value is present, the numeric half IS the value set and the names are the
+ * compiler's bookkeeping.
+ */
+function convertNativeEnum(values: IZodSchemaDef['values']): IParameterSchema {
+  if (!values || typeof values !== 'object') {
+    throw new Error('ZodNativeEnum is missing enum values; cannot convert to JSON schema.');
+  }
+  const all = Array.isArray(values) ? values : Object.values(values);
+  const numeric = all.filter((entry): entry is number => typeof entry === 'number');
+  const members = numeric.length > 0 ? numeric : all;
+  if (members.length === 0) {
+    throw new Error('ZodNativeEnum declares no members; cannot convert to JSON schema.');
+  }
+  return {
+    type: numeric.length > 0 ? 'number' : 'string',
+    enum: members as TJSONSchemaEnum,
+  };
+}
+
+/**
+ * The boundary between Zod and the universal JSON-schema subset, stated where a consumer hits it —
+ * CORE-041.
+ *
+ * The old message was `Unsupported Zod type: ZodTuple`: the name of the consumer's own construct,
+ * and nothing they could act on. The boundary is real and staying — these constructs need
+ * positional `items`, `allOf` or `$ref`, none of which the subset carries, and none of which the
+ * field-enumerated provider mappers would forward if it did. That is also why adopting
+ * `zod-to-json-schema` does not dissolve this: the difficulty was never PARSING Zod, it is that the
+ * target language cannot say these things, and a library emitting a richer document widens the gap.
+ *
+ * Mapping them lossily was the other option and is worse than throwing: a tuple flattened to an
+ * array of `anyOf` members would tell the model that any order and any length are acceptable — a
+ * contract the author did not write. A loud boundary a consumer can route around beats a quiet one
+ * that misdescribes their schema.
+ */
+const CONSTRUCT_GUIDANCE: Record<string, string> = {
+  ZodTuple:
+    'a tuple needs positional `items`, and the subset models `items` as ONE schema — use `z.object({...})` for a fixed-shape record, or `z.array(z.union([...]))` if order genuinely does not matter',
+  ZodIntersection:
+    'an intersection needs `allOf` — merge the two object schemas yourself with `.merge()`, which produces a single object node the subset can carry',
+  ZodLazy:
+    'a recursive schema needs `$ref` — flatten the recursion to a fixed depth, or model the nested level as `z.record(...)`',
+  ZodDate: 'use `z.string()` (optionally with `.datetime()`), which is what a provider receives',
+};
+
+function unsupportedConstructMessage(typeName: string): string {
+  const guidance = CONSTRUCT_GUIDANCE[typeName];
+  const why = guidance ?? 'it has no representation in the subset';
+  return (
+    `${typeName} cannot be carried by the universal JSON-schema subset: ${why}. ` +
+    'The subset is the one language every provider mapper forwards intact; a construct outside it ' +
+    'would be advertised to the model and enforced by nothing.'
+  );
 }
