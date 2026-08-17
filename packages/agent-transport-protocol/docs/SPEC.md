@@ -118,6 +118,21 @@ they do not rebuild anonymous intersections or require the unrelated lifecycle/g
   (verified). Transport implementations (`-ws`, `-webrtc`) depend DOWN on this package; it depends on none of
   them (no cycle).
 
+### Hand-off ownership transaction (HANDOFF-001, #1811)
+
+**The source gives up authority only on evidence it holds** — a durable acknowledgement from the
+destination. Nothing else moves it. That single rule makes the unavoidable network window harmless:
+between the destination persisting and the source learning of it the connection can drop, and the
+answer is always the same — the source is still in charge, and a re-delivered acknowledgement
+finishes the job.
+
+| Rule                                                | Why                                                                                                                                                  |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `persisted: true` is checked, not inferred          | Receipt is not persistence. A destination that crashed before writing would leave the session owned by nobody                                        |
+| A duplicate ack is idempotent by `handoffId`        | A retried commit is not a second hand-off — and a second hand-off would transfer something the source no longer owns                                 |
+| An illegal transition is **refused**, never ignored | An ignored transition leaves the caller believing it happened, which in an ownership protocol means both machines can believe they are authoritative |
+| `committed` is terminal                             | "Un-committing" would leave the session owned by nobody, which is worse than either machine owning it                                                |
+
 ### Peer-message ledger (PEER-001, #1809)
 
 The issue requires delivery, acknowledgement, duplicate, retry and shutdown to produce
@@ -143,6 +158,11 @@ once and the carriers stay dumb.
 | `admitPeerMessage`                      | Function  | PEER-001: record a peer message and decide deliver / duplicate / refused, reporting gaps   |
 | `acknowledgePeerMessage`                | Function  | PEER-001: promote a delivered message to acknowledged (a different question from delivery) |
 | `forgetPeerOrigin`                      | Function  | PEER-001: drop one peer's sequence space on disconnect, so a reconnect starts fresh        |
+| `beginHandoff`                          | Function  | HANDOFF-001: open an ownership transaction from a manifest                                 |
+| `advanceHandoff`                        | Function  | HANDOFF-001: move a phase, or REFUSE and say why — never ignore                            |
+| `commitHandoff`                         | Function  | HANDOFF-001: the only path to `committed`, and only on a durable acknowledgement           |
+| `sourceStillOwns`                       | Function  | HANDOFF-001: is the source authoritative? Delegates to the contract's predicate            |
+| `handoffOutcome`                        | Function  | HANDOFF-001: the reportable outcome, derived rather than assembled per call site           |
 | `mintTransportToken`                    | Function  | SEC-008: mint a per-launch credential; throws rather than returning a weak one             |
 | `credentialMatches`                     | Function  | SEC-008: constant-time comparison of a presented credential against the required one       |
 | `bearerCredential`                      | Function  | SEC-008: extract a bearer credential from an `Authorization` header value                  |
