@@ -51,3 +51,14 @@ export type {
   IPeerMessageRejection,
   IPeerMessageVerdict,
 } from './peer-message-ledger.js';
+
+// HANDOFF-001 (#1811): the ownership transaction. Every failure lands in the same place — the source
+// keeps authority — because it only ever gives it up on evidence it holds.
+export {
+  advanceHandoff,
+  beginHandoff,
+  commitHandoff,
+  handoffOutcome,
+  sourceStillOwns,
+} from './handoff-ownership.js';
+export type { ICommitResult, IHandoffTransaction, ITransitionResult } from './handoff-ownership.js';
