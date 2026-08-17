@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: API
 tags: [typescript, contracts, command-host, test-doubles]
 ---

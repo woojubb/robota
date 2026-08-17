@@ -572,19 +572,35 @@ describe('findAggregateAliases — renaming the aggregate is the finding, not th
   });
 
   it('a carve-out matches regardless of how the type is FORMATTED', () => {
-    // The exemption asserts a type, not a line break. Whitespace is normalised so reformatting the
-    // member does not silently expire a carve-out that still describes it.
+    // The exemption asserts a type, not a line break. A member wrapped across lines by the
+    // formatter must still match the single-line type the config states — otherwise a cosmetic
+    // reformat turns the load-bearing floor red AND reports the exemption as describing nothing,
+    // which is the over-fire shape that gets a floor silenced.
+    const wrapped =
+      'export interface IOpts {\n  readonly overrides?: TOverrides<\n    ICommandHostContext\n  >;\n}\n';
+
+    expect(
+      findAggregateAliases(wrapped, 'double.ts', ['ICommandHostContext'], {
+        allowlisted: true,
+        carveOuts: new Map([['double.ts#IOpts.overrides', 'TOverrides<ICommandHostContext>']]),
+      }),
+    ).toEqual([]);
+  });
+
+  it('normalising formatting does NOT collapse a space that separates identifiers', () => {
+    // `keyof T` and `keyofT` are different tokens. Stripping whitespace next to punctuation must
+    // not become stripping whitespace generally.
     expect(
       findAggregateAliases(
-        'export interface IOpts {\n  readonly overrides?: TOverrides<\n    ICommandHostContext\n  >;\n}\n',
+        'export interface IOpts {\n  readonly keys?: keyof ICommandHostContext;\n}\n',
         'double.ts',
         ['ICommandHostContext'],
         {
           allowlisted: true,
-          carveOuts: new Map([['double.ts#IOpts.overrides', 'TOverrides< ICommandHostContext >']]),
+          carveOuts: new Map([['double.ts#IOpts.keys', 'keyofICommandHostContext']]),
         },
       ),
-    ).toEqual([]);
+    ).toHaveLength(1);
   });
 
   it('a METHOD signature returning the aggregate is a handle, not a structural exemption', () => {

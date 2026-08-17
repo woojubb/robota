@@ -230,9 +230,24 @@ function deferredExports(sourceFile) {
   return names;
 }
 
-/** Type text with all runs of whitespace collapsed, so formatting is not part of the assertion. */
+/**
+ * Type text with formatting removed, so a carve-out asserts a TYPE and not a line break.
+ *
+ * Collapsing whitespace runs is not enough: a member wrapped across lines by the formatter reads as
+ * `TOverrides< ICommandHostContext >`, which no longer equals the configured
+ * `TOverrides<ICommandHostContext>`. That turns a purely cosmetic reformat into a red load-bearing
+ * floor AND a `rename-carve-out-unused` finding claiming the exemption describes nothing, when it
+ * describes the identical type. Not reachable at today's member lengths, but a longer port name or a
+ * print-width change makes it reachable, and an over-fire is how a floor gets silenced.
+ *
+ * Whitespace adjacent to punctuation is therefore dropped, while whitespace that SEPARATES
+ * identifiers is kept — `keyof T` must not collapse into a different token.
+ */
 function normalizeType(text) {
-  return (text ?? '').replace(/\s+/g, ' ').trim();
+  return (text ?? '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*([<>(),[\]|&])\s*/g, '$1')
+    .trim();
 }
 
 function isExported(node, deferred) {
