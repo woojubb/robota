@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-013: the (preset, CLI args) → session options projection chain has no owner — eleven assembly seams are unreachable and nine resolved preset fields are computed and discarded'
-status: in-progress
+status: done
+completed: 2026-08-18
 created: 2026-08-02
 priority: high
 urgency: soon
@@ -649,3 +650,36 @@ The hop it does not execute is `interactive-session.ts:341-342`, a straight pass
 `initializeInteractiveSessionAsync` — the group above drives that directly and red-proves it. Two
 readers checked that pass-through by hand. It is the one link here carried by review rather than by
 execution, and it is named rather than glossed.
+
+## Result
+
+All three stages delivered and merged: stage 1 (#1607), stage 2 (#1826), stage 3 (#1847).
+
+The item's cause was _"resolved intent is mapped to session options by hand at four sites and checked
+at none."_ Both ends of that chain are now mechanical:
+
+- `scan-option-reachability` (stage 1) — a declared `ICreateSessionOptions` key that no production
+  code assigns. Frozen at **9**, down from 11: `effort` in stage 1, `guardrails` and
+  `retrievalAdapter` in stage 3.
+- `scan-preset-projection` (stage 2) — every `IResolvedPresetOptions` field must appear in a DECLARED
+  projection, and the startup and live-`/preset` surfaces must not diverge.
+- `optionReachability` also watches `IInitOptions` now (stage 3), because the hand-map between the
+  published type and the projection was where stage 3's own first attempt dropped both ports.
+
+Capabilities restored, each red-proved rather than asserted: `effort` at startup (it had been applied
+mid-session by `/preset` and dropped at launch, so one session held two answers for one preset), and
+`guardrails` / `retrievalAdapter`, which no surface could turn on at all.
+
+**What is NOT closed by this item, and is filed rather than implied:** the ten resolved-preset fields
+that still reach no declared projection ([#1820](https://github.com/woojubb/robota/issues/1820)) —
+each needs a product decision with user-visible consequences, and five of them have no session seam at
+all. They are named, reasoned, expiring exemptions in `presetProjection.pendingProjection`, not an
+opaque baseline, and any movement out of their recorded state turns the floor red. Also filed:
+[#1844](https://github.com/woojubb/robota/issues/1844) (`providerDefinitions`).
+
+The most transferable output is not the scans. Across three stages, **six of my own mechanical claims
+were wrong**, every one of them asserted from a tool's output or a precedent without checking what
+that mechanism could see — including a ratchet entry that measured the wrong interface and would have
+pushed the next reader to manufacture the defect it guarded. Each was caught by the same cheap move:
+run the mutation, read what the tool actually prints. The record above keeps them rather than
+smoothing them, because the pattern is the lesson.
