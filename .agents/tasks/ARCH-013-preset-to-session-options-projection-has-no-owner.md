@@ -542,9 +542,19 @@ had no way to hand it over. `additionalTools` is the working precedent for the s
 
 Both fields added to `IInitOptions` **and** `IInteractiveSessionStandardOptions` — the two
 hand-duplicate ~40 fields, and adding a field to one is exactly how the next silent drop starts (L2
-F16, which this item already flagged as needing inclusion) — and projected in
-`buildCreateSessionOptions`, the single owner stage 1 extracted. The three surfaces spread those
-options, so all of them gain it at once.
+F16, which this item already flagged as needing inclusion) — projected in `buildCreateSessionOptions`,
+and **forwarded through the ~40-field hand-map in `initializeInteractiveSessionAsync`**, which is the
+hop that actually made the capability reachable.
+
+**A false claim of mine, corrected here rather than quietly dropped.** The first attempt at this stage
+asserted that "the three surfaces spread those options, so all of them gain it at once", inferred from
+`additionalTools`' precedent without measuring it. Review refuted both halves: `additionalTools` is not
+spread anywhere — it is re-declared and explicitly forwarded at **eight** sites — and the hand-map
+inside `initializeInteractiveSessionAsync` omitted both new fields, so **after that commit neither
+capability was reachable from any surface**. The published option type accepted them and dropped them
+one hop later. That is this item's own defect, restated one hop above where I was fixing it, inside
+the change meant to fix it. Nothing excuses it; the lesson is that "the surfaces spread it" was a
+guess about a mechanism I had the means to check in one command.
 
 Conditional spreads rather than `key: undefined`, because `create-session.ts` branches on
 `options.guardrails && Object.keys(...).length > 0` and an explicitly-undefined key is how a spread
@@ -579,4 +589,4 @@ it detected that the unreachable set had SHRUNK and refused to pass until the ga
 the same change (_"or the gain is a licence to drop them again"_), which is the mechanism working
 exactly as its author intended.
 
-Verified: 121 of 123 scans pass (2 skipped). agent-framework 1371 tests.
+Verified: 122 of 123 scans pass (1 skipped). agent-framework 1380 tests.

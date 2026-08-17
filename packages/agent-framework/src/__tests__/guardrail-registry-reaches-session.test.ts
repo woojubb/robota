@@ -1,25 +1,26 @@
 /**
- * ARCH-013 stage 3 — a supplied guardrail registry actually reaches the assembled session.
+ * ARCH-013 stage 3 — the guardrail registry and retrieval adapter, from the PUBLIC surface in.
  *
- * The stage-3 projection test proves the registry survives `IInitOptions → ICreateSessionOptions`.
- * That is a type-level hop, and on its own it would let this change claim a capability it had not
- * restored: a projection can carry a field into an option bag that then drops it again.
+ * ## What each group here guards, stated because an earlier revision got it wrong
  *
- * This is the other half, asserted on the ASSEMBLED session rather than on the option bag. The
- * property that matters is the one `create-session.ts` documents in its own comment — registering a
- * registry only adds the EXECUTOR, and the guardrails fire only if a `{ type: 'guardrail' }` hook
- * definition exists on an enforcing event, so `createSession` auto-injects a `PreToolUse` group when
- * the config declares none. Nothing had ever tested that from the option in: `guardrails` appeared in
- * no `createSession` test before this one.
+ * The `createSession` group covers pre-existing behaviour: registering a registry adds the EXECUTOR,
+ * and the guardrails only fire if a `{ type: 'guardrail' }` hook exists on an enforcing event, so
+ * `createSession` auto-injects a `PreToolUse` group when the config declares none. That behaviour was
+ * genuinely untested from the option in — `guardrails` appeared in no `createSession` test before
+ * this file — so the coverage is worth having. But review measured all of it passing on the pre-fix
+ * merge-base, because it enters BELOW the hop this change touches. It guards the assembler, not the
+ * fix, and the previous revision of this docblock claimed otherwise.
  *
- * It also pins the idempotence half — a consumer who declares their own guardrail hook must not get a
- * second, auto-injected one — because that branch is what makes the auto-injection safe to ship.
+ * The `initializeInteractiveSessionAsync` group is the one that guards the fix. It drives the
+ * published option type, which is the only thing a consumer can actually reach, and it fails on the
+ * pre-fix tree. Both halves are kept: one pins the mechanism, the other pins the wiring.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
+import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
 
 const sessionCtorCalls: Array<Record<string, unknown>> = [];
 
@@ -98,13 +99,19 @@ function guardrailHooksOf(sessionOptions: Record<string, unknown>): unknown[] {
 
 const NEVER_PASSES: TGuardrail = () => ({ pass: false, reason: 'blocked by test' });
 
+/** Hook-executor types registered on the assembled session. */
+function executorTypesOf(sessionOptions: Record<string, unknown>): string[] {
+  const executors = (sessionOptions.hookTypeExecutors ?? []) as Array<{ type?: string }>;
+  return executors.map((executor) => executor.type ?? '').filter(Boolean);
+}
+
 /** Tool names on the assembled session. */
 function toolNamesOf(sessionOptions: Record<string, unknown>): string[] {
   const tools = (sessionOptions.tools ?? []) as Array<{ getName?: () => string }>;
   return tools.map((tool) => tool.getName?.() ?? '').filter(Boolean);
 }
 
-describe('ARCH-013 stage 3 — a supplied guardrail registry reaches the assembled session', () => {
+describe('createSession registers the guardrail machinery (pre-existing, previously untested)', () => {
   beforeEach(() => {
     sessionCtorCalls.length = 0;
   });
@@ -122,6 +129,9 @@ describe('ARCH-013 stage 3 — a supplied guardrail registry reaches the assembl
 
     expect(sessionCtorCalls).toHaveLength(1);
     expect(guardrailHooksOf(sessionCtorCalls[0]!)).toHaveLength(1);
+    // The EXECUTOR half, which this file's own docblock names and an earlier revision left unasserted:
+    // the hook is inert without it, so asserting only the hook proved half the mechanism.
+    expect(executorTypesOf(sessionCtorCalls[0]!)).toContain('guardrail');
   });
 
   it('injects NOTHING when no registry is supplied — the state before this change', async () => {
@@ -176,7 +186,7 @@ describe('ARCH-013 stage 3 — a supplied guardrail registry reaches the assembl
   });
 });
 
-describe('ARCH-013 stage 3 — a supplied retrieval adapter reaches the assembled tool surface', () => {
+describe('createSession gates CodebaseRetrieval on the adapter (pre-existing behaviour)', () => {
   beforeEach(() => {
     sessionCtorCalls.length = 0;
   });
@@ -187,9 +197,11 @@ describe('ARCH-013 stage 3 — a supplied retrieval adapter reaches the assemble
     // → `createDefaultTools`. Without it, "the adapter reaches the session" was an inference across
     // two separately-tested halves rather than a measured fact.
     const { createSession } = await import('../assembly/create-session.js');
-    const retrievalAdapter = {
-      search: () => Promise.resolve([]),
-    } as unknown as Parameters<typeof createSession>[0]['retrievalAdapter'];
+    // `retrieve`, not `search`: the gate is truthiness-only so a wrong member name would still pass,
+    // which is exactly why encoding one in a cast is worth avoiding.
+    const retrievalAdapter: IRetrievalAdapter = {
+      retrieve: async () => ({ symbols: [], totalTokens: 0 }),
+    };
 
     createSession({
       config: baseConfig(),
@@ -217,5 +229,99 @@ describe('ARCH-013 stage 3 — a supplied retrieval adapter reaches the assemble
     // an empty list passes for the wrong reason, which is how a negative assertion goes vacuous.
     expect(names.length).toBeGreaterThan(3);
     expect(names).not.toContain('CodebaseRetrieval');
+  });
+});
+
+describe('ARCH-013 stage 3 — the PUBLIC surface carries both ports (this is what guards the fix)', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  /**
+   * Everything `initializeInteractiveSessionAsync` needs that is not under test. Review drove this
+   * entry point and found the fields dropped at the ~40-field hand-map inside it — a hop ABOVE the
+   * projection the first commit fixed, so every `createSession`-level case passed on the pre-fix tree
+   * while a consumer still got silence.
+   */
+  function asyncInitDeps(): Parameters<
+    typeof import('../interactive/interactive-session-init.js').initializeInteractiveSessionAsync
+  >[1] {
+    return {
+      sandboxSnapshotId: undefined,
+      resumeSessionId: undefined,
+      pendingRestoreMessages: null,
+      permissionHandler: undefined,
+      askHandler: undefined,
+      onTextDelta: () => {},
+      onContextUpdate: () => {},
+      onCompactEvent: () => {},
+      onToolExecution: () => {},
+      executeModelCommand: () => Promise.resolve(null),
+      isModelCommandInvocable: () => false,
+      commandDescriptors: [],
+      commandSemanticRoles: undefined,
+      setEditCheckpointStore: () => {},
+    } as never;
+  }
+
+  it('carries a guardrail registry set on the published option type all the way to the session', async () => {
+    const { initializeInteractiveSessionAsync } =
+      await import('../interactive/interactive-session-init.js');
+
+    await initializeInteractiveSessionAsync(
+      {
+        cwd: '/arch-013-stage-3-public',
+        provider: createMockProvider(),
+        bare: true,
+        config: baseConfig(),
+        guardrails: { neverPasses: NEVER_PASSES },
+      },
+      asyncInitDeps(),
+    );
+
+    expect(sessionCtorCalls).toHaveLength(1);
+    expect(guardrailHooksOf(sessionCtorCalls[0]!)).toHaveLength(1);
+    expect(executorTypesOf(sessionCtorCalls[0]!)).toContain('guardrail');
+  });
+
+  it('carries a retrieval adapter set on the published option type through to the tool surface', async () => {
+    const { initializeInteractiveSessionAsync } =
+      await import('../interactive/interactive-session-init.js');
+    const retrievalAdapter: IRetrievalAdapter = {
+      retrieve: async () => ({ symbols: [], totalTokens: 0 }),
+    };
+
+    await initializeInteractiveSessionAsync(
+      {
+        cwd: '/arch-013-stage-3-public',
+        provider: createMockProvider(),
+        bare: true,
+        config: baseConfig(),
+        retrievalAdapter,
+      },
+      asyncInitDeps(),
+    );
+
+    const names = toolNamesOf(sessionCtorCalls[0]!);
+    expect(names.length).toBeGreaterThan(3);
+    expect(names).toContain('CodebaseRetrieval');
+  });
+
+  it('carries neither when neither is set — the contrast that makes the two above mean something', async () => {
+    const { initializeInteractiveSessionAsync } =
+      await import('../interactive/interactive-session-init.js');
+
+    await initializeInteractiveSessionAsync(
+      {
+        cwd: '/arch-013-stage-3-public',
+        provider: createMockProvider(),
+        bare: true,
+        config: baseConfig(),
+      },
+      asyncInitDeps(),
+    );
+
+    expect(guardrailHooksOf(sessionCtorCalls[0]!)).toHaveLength(0);
+    expect(toolNamesOf(sessionCtorCalls[0]!)).not.toContain('CodebaseRetrieval');
   });
 });

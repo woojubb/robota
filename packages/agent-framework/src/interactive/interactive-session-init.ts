@@ -271,6 +271,8 @@ export async function initializeInteractiveSessionAsync(
     ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),
     ...(options.defaultTools ? { defaultTools: options.defaultTools } : {}), // ARCH-006
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
+    ...(options.guardrails ? { guardrails: options.guardrails } : {}),
+    ...(options.retrievalAdapter ? { retrievalAdapter: options.retrievalAdapter } : {}),
     commandDescriptors: deps.commandDescriptors,
     ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
     ...(deps.commandDescriptors.length > 0

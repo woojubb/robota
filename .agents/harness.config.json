@@ -369,6 +369,12 @@
       "file": "packages/agent-framework/src/assembly/create-session-types.ts",
       "constructors": ["createSession"],
       "reason": "The session-construction option surface. `guardrails` (SELFHOST-005) and `retrievalAdapter` (SELFHOST-003) were declared, read at the consuming end, and set by no production call to createSession — two documented capabilities no shipped surface could turn on."
+    },
+    {
+      "name": "IInteractiveSessionStandardOptions",
+      "file": "packages/agent-framework/src/interactive/interactive-session-options.ts",
+      "constructors": ["createInteractiveSession"],
+      "reason": "The PUBLISHED construction surface, added by ARCH-013 stage 3 after review measured the gap it leaves. Watching only ICreateSessionOptions could not see a key declared on the public type and forwarded by nothing — which is exactly what stage 3's first attempt created: both new fields were accepted by this type and dropped by the ~40-field hand-map in initializeInteractiveSessionAsync, so the ratchet certified a 11-to-9 gain the code did not deliver. A consumer can only set what this type declares, so this is where unreachability is user-visible."
     }
   ],
   "productIdentity": {

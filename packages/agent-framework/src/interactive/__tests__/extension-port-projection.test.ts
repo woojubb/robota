@@ -57,7 +57,10 @@ describe('ARCH-013 stage 3 — a consumer can supply the guardrail registry', ()
 
 describe('ARCH-013 stage 3 — a consumer can supply the retrieval adapter', () => {
   it('projects the adapter that gates CodebaseRetrieval', () => {
-    const adapter = { search: () => Promise.resolve([]) } as unknown as IRetrievalAdapter;
+    // The real member is `retrieve` returning `IRetrievalResult`, and it is written cast-free for a
+    // reason: an `as unknown as` here would encode a member name and a return shape that do not
+    // exist, and the gate is truthiness-only so nothing would ever catch it.
+    const adapter: IRetrievalAdapter = { retrieve: async () => ({ symbols: [], totalTokens: 0 }) };
 
     const built = buildCreateSessionOptions(initOptions({ retrievalAdapter: adapter }), DEPS);
 

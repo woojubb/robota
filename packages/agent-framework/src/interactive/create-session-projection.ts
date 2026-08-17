@@ -73,9 +73,12 @@ export function buildCreateSessionOptions(
     // `resolveGuardrailHooks` at `create-session.ts` is the bridge, which has existed all along.
     // Nothing needed reconciling — the registry simply had no way in.
     //
-    // Conditional spreads, not `key: undefined`: `create-session.ts` branches on
-    // `options.guardrails && Object.keys(...).length > 0`, and an explicitly-undefined key is how a
-    // spread reintroduces an absent member (ARCH-029's lesson, one package over).
+    // Conditional spreads for consistency with the ~15 optional keys around them, NOT because the
+    // ARCH-029 spread hazard applies: review measured that it cannot fire here.
+    // `exactOptionalPropertyTypes` is set nowhere in this repo, the consumer branches on truthiness,
+    // and this object is passed straight into `createSession` rather than spread over a base. An
+    // earlier revision of this comment cited that hazard as the reason — the right shape justified by
+    // a mechanism that does not reach it, which is a claim to correct rather than keep.
     ...(options.guardrails !== undefined ? { guardrails: options.guardrails } : {}),
     ...(options.retrievalAdapter !== undefined
       ? { retrievalAdapter: options.retrievalAdapter }
