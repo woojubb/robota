@@ -559,7 +559,13 @@ export const SCAN_COMMANDS = [
   {
     // ARCH-029: the load-bearing floor. Decomposing a god contract does not fix it — consumers
     // must stop NAMING it, and REFACTOR-006 proved those are different events on this very
-    // contract. Frozen at 0; see scripts/harness/aggregate-naming-baseline.json.
+    // contract.
+    //
+    // The scan guards THREE aggregates and each has its own frozen count, in
+    // scripts/harness/aggregate-naming-baseline.json. Only `ICommandHostContext` — the god contract
+    // TC-05 drove to zero — is at 0; `IAgentJobHostContext` and `ICommandSessionRuntime` are frozen
+    // above zero and burn down from there. This used to read "Frozen at 0" with no subject, which a
+    // reader would take as covering all three.
     name: 'aggregate-naming',
     command: ['node', 'scripts/harness/scan-aggregate-naming.mjs'],
   },
