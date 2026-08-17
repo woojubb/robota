@@ -49,7 +49,11 @@ import { resolveStructuredOutputCapability } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { DeepSeekProvider, QwenProvider } from '@robota-sdk/agent-provider-openai-compatible';
+import {
+  DeepSeekProvider,
+  GemmaProvider,
+  QwenProvider,
+} from '@robota-sdk/agent-provider-openai-compatible';
 
 import type { IAIProvider, TStructuredOutputMechanism } from '@robota-sdk/agent-core';
 
@@ -74,8 +78,13 @@ function resolveFor(provider: IAIProvider, model: string): TStructuredOutputMech
 }
 
 /**
- * Every provider this workspace ships, with a representative model and whether its package exposes
- * enforceable strict tool arguments.
+ * EVERY provider this workspace ships — all six — with a representative model and whether its
+ * package exposes enforceable strict tool arguments.
+ *
+ * "Every" is load-bearing and was got wrong once: `gemma` was omitted while this file's own docblock
+ * and `agent-core`'s SPEC both named six. A tripwire with a hole in its coverage is worse than no
+ * tripwire, because it reads as a check. `providerCoverage` below asserts the count against the
+ * documented set so the next omission fails instead of passing quietly.
  *
  * `strictTools` is asserted by presence in the provider's published options rather than assumed, so
  * a provider that GAINS the capability changes this table by failing, not by being forgotten.
@@ -106,6 +115,18 @@ function providerMatrix(): Array<{
       hasStrictToolArguments: false,
     },
     {
+      name: 'gemma',
+      // Served over an OpenAI-compatible endpoint, so it is constructed with one. It declares no
+      // capability table, which resolves to `response_schema` / `undeclared` — silence is not a
+      // denial (CORE-043).
+      provider: new GemmaProvider({
+        apiKey: NOT_USED,
+        baseURL: 'https://example.invalid/v1',
+      }) as unknown as IAIProvider,
+      model: 'gemma-3-27b-it',
+      hasStrictToolArguments: false,
+    },
+    {
       name: 'deepseek',
       provider: new DeepSeekProvider({ apiKey: NOT_USED }),
       model: 'deepseek-chat',
@@ -120,7 +141,21 @@ function providerMatrix(): Array<{
   ];
 }
 
+/** The providers this repository ships, as named in `agent-core`'s SPEC. */
+const DOCUMENTED_PROVIDERS = ['anthropic', 'deepseek', 'gemini', 'gemma', 'openai', 'qwen'];
+
 describe('CORE-048 — the forced-tool-call transport has no applicable provider', () => {
+  it('measures EVERY provider this workspace ships', () => {
+    // The omission this catches is the one that already happened: `gemma` was missing while the
+    // docblock and the SPEC both named it. Without this, a provider added later is simply never
+    // measured, and the tripwire stays green over a set it does not cover.
+    expect(
+      providerMatrix()
+        .map((entry) => entry.name)
+        .sort(),
+    ).toEqual(DOCUMENTED_PROVIDERS);
+  });
+
   it('no provider both lacks a schema parameter AND has strict tool arguments', () => {
     const qualifying = providerMatrix().filter((entry) => {
       // "Would benefit" means the schema cannot travel as a parameter. `response_schema` providers
