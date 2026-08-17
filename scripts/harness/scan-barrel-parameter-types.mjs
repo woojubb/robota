@@ -113,37 +113,74 @@ export function parameterTypeNames(fn) {
 }
 
 /**
- * `{ functions, exportedNames, reexports }` for one barrel file.
+ * What one file declares and publishes: `{ functions, exportedNames, reexports, starExports }`.
  *
- * `functions` covers both shapes a barrel publishes a function in: declared with `export function`
- * here, and named in an `export { … } from './x.js'` specifier — the second is how the real defect
- * arrived, so a walk that saw only the first would have missed it.
+ * `functions` covers every shape a barrel can publish a callable in, because review measured seven
+ * that an earlier revision missed silently — `export const f = (…) => …`, `export default function`,
+ * an overload set (only the first signature was read, so the dirty overload was invisible), and a
+ * name arriving through `export * from`. A floor that reads one declaration form reports zero for
+ * every other, which is the shape this whole item is about.
+ *
+ * `starExports` is tracked rather than ignored for the same reason, and it cut BOTH ways before it
+ * was: a function published by `export *` was never checked, and a TYPE published by `export *` was
+ * reported as unexported — ten false positives on `agent-core` alone, whose barrel publishes that way.
  */
 export function readBarrel(content, fileName) {
   const sourceFile = ts.createSourceFile(fileName, content);
   const functions = [];
   const exportedNames = new Set();
   const reexports = [];
+  const starExports = [];
+
+  const isExported = (node) =>
+    (node.modifiers ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
+  const isDefault = (node) =>
+    (node.modifiers ?? []).some((m) => m.kind === ts.SyntaxKind.DefaultKeyword);
 
   const visit = (node) => {
-    if (ts.isFunctionDeclaration(node) && node.name?.text) {
-      const exported = (node.modifiers ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
-      if (exported) {
-        exportedNames.add(node.name.text);
-        functions.push({ name: node.name.text, node });
+    if (ts.isFunctionDeclaration(node) && isExported(node)) {
+      // An overload set declares the same name several times; every signature is part of the
+      // published contract, so each is read rather than only the first.
+      const name = node.name?.text ?? (isDefault(node) ? 'default' : undefined);
+      if (name) {
+        exportedNames.add(name);
+        functions.push({ name, node });
       }
     }
-    if (ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) {
-      const exported = (node.modifiers ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
-      if (exported && node.name?.text) exportedNames.add(node.name.text);
+    // `export const f = (…) => …` / `= function (…) …`: a published callable with no
+    // FunctionDeclaration anywhere.
+    if (ts.isVariableStatement(node) && isExported(node)) {
+      for (const declaration of node.declarationList?.declarations ?? []) {
+        const name = declaration.name?.text;
+        if (!name) continue;
+        exportedNames.add(name);
+        const init = declaration.initializer;
+        if (init?.parameters) functions.push({ name, node: init });
+      }
+    }
+    if (
+      (ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) &&
+      isExported(node) &&
+      node.name?.text
+    ) {
+      exportedNames.add(node.name.text);
+    }
+    if (ts.isClassDeclaration(node) && isExported(node) && node.name?.text) {
+      exportedNames.add(node.name.text);
     }
     if (ts.isExportDeclaration(node)) {
       const module = node.moduleSpecifier?.text;
-      for (const element of node.exportClause?.elements ?? []) {
+      const elements = node.exportClause?.elements;
+      if (!elements && module) {
+        // `export * from './x.js'` — publishes whatever that module publishes, transitively.
+        starExports.push({ module });
+      }
+      for (const element of elements ?? []) {
         const local = element.name?.text;
         const original = element.propertyName?.text ?? local;
         if (!local) continue;
         exportedNames.add(local);
+        // An ALIASED re-export publishes the local name; the original is what the target declares.
         if (module) reexports.push({ local, original, module });
       }
     }
@@ -151,7 +188,7 @@ export function readBarrel(content, fileName) {
   };
   visit(sourceFile);
 
-  return { functions, exportedNames, reexports };
+  return { functions, exportedNames, reexports, starExports };
 }
 
 /** Resolve a relative module specifier to a file inside the package, or undefined. */
@@ -162,6 +199,71 @@ function resolveModule(fromFile, specifier, root) {
     if (existsSync(resolve(root, candidate))) return candidate;
   }
   return undefined;
+}
+
+/**
+ * Everything a barrel publishes, resolved to a FIXPOINT rather than to a fixed number of hops.
+ *
+ * Review demonstrated the cost of a hop limit on a configured barrel: `agent-executor`'s
+ * `index.ts` → `background-tasks/index.ts` → `runners/index.ts` → the runner modules is THREE hops,
+ * and a two-hop walk read 10 of its 13 in-scope functions while the header claimed it read every one.
+ * Deleting three parameter types from that barrel left the floor GREEN. A `visited` set makes the
+ * depth a property of the tree rather than of this function.
+ */
+export function resolvePublished(barrel, root, readFile) {
+  const exportedNames = new Set();
+  const functions = [];
+  const visited = new Set();
+
+  /**
+   * `wanted` is the crux, and an earlier revision got it wrong in the widening direction: it unioned
+   * every name each visited module declared, so a name the BARREL does not re-export still counted as
+   * published. Deleting a real re-export line then changed nothing and the floor stayed green — a
+   * resolver reading a WIDER surface than the package actually has, which hides findings rather than
+   * inventing them.
+   *
+   * So a module reached by a NAMED re-export contributes only that name; one reached by `export *`
+   * contributes everything it publishes, because that is what `export *` means.
+   */
+  const walk = (file, wanted) => {
+    const key = `${file}#${wanted ?? '*'}`;
+    if (visited.has(key)) return;
+    visited.add(key);
+
+    let content;
+    try {
+      content = readFile(file);
+    } catch {
+      return;
+    }
+    const read = readBarrel(content, file);
+
+    if (wanted === undefined) {
+      for (const name of read.exportedNames) exportedNames.add(name);
+      for (const fn of read.functions) functions.push({ ...fn, declaredIn: file });
+    } else {
+      if (read.exportedNames.has(wanted)) exportedNames.add(wanted);
+      for (const fn of read.functions) {
+        if (fn.name === wanted) functions.push({ ...fn, declaredIn: file });
+      }
+    }
+
+    for (const entry of read.reexports) {
+      const target = resolveModule(file, entry.module, root);
+      if (!target) continue;
+      // Follow a named re-export only when the barrel actually asked for that name (or asked for
+      // everything). The alias case matters: the barrel publishes `local`, the target declares
+      // `original`.
+      if (wanted === undefined || entry.local === wanted) walk(target, entry.original);
+    }
+    for (const star of read.starExports) {
+      const target = resolveModule(file, star.module, root);
+      if (target) walk(target, wanted);
+    }
+  };
+
+  walk(barrel, undefined);
+  return { exportedNames, functions };
 }
 
 /**
@@ -192,53 +294,35 @@ export function findBarrelParameterTypeFindings(root = process.cwd(), settingsOv
   examinedBarrels = 0;
   const findings = [];
 
+  const readCache = new Map();
+  const readFile = (file) => {
+    if (!readCache.has(file)) readCache.set(file, readFileSync(join(root, file), 'utf8'));
+    return readCache.get(file);
+  };
+
   for (const barrel of barrels) {
-    const content = readFileSync(join(root, barrel), 'utf8');
-    const { functions, exportedNames, reexports } = readBarrel(content, barrel);
+    const { exportedNames, functions } = resolvePublished(barrel, root, readFile);
     examinedBarrels += 1;
 
-    // Functions the barrel publishes by re-export: read them where they are declared.
-    const collected = [...functions];
-    for (const entry of reexports) {
-      const target = resolveModule(barrel, entry.module, root);
-      if (!target) continue;
-      const targetContent = readFileSync(join(root, target), 'utf8');
-      const inner = readBarrel(targetContent, target);
-      const match = inner.functions.find((f) => f.name === entry.original);
-      if (match) collected.push({ name: entry.local, node: match.node, declaredIn: target });
-      // A function re-exported through a nested barrel is followed one more hop, which is how the
-      // real instance was shaped (`index.ts` → `subagents/index.ts` → `execution-root.ts`).
-      else {
-        for (const nested of inner.reexports) {
-          if (nested.local !== entry.original) continue;
-          const nestedTarget = resolveModule(target, nested.module, root);
-          if (!nestedTarget) continue;
-          const nestedInner = readBarrel(
-            readFileSync(join(root, nestedTarget), 'utf8'),
-            nestedTarget,
-          );
-          const nestedMatch = nestedInner.functions.find((f) => f.name === nested.original);
-          if (nestedMatch) {
-            collected.push({ name: entry.local, node: nestedMatch.node, declaredIn: nestedTarget });
-          }
-        }
-      }
-    }
-
-    for (const fn of collected) {
+    for (const fn of functions) {
+      // A function's OWN generic parameters are not types the barrel owes anyone — `<TItem>` is
+      // bound by the signature. Review found this over-firing where a generic's name collided with
+      // an exported alias, which a `T`-prefixing repo makes likely rather than exotic.
+      const ownTypeParameters = new Set(
+        (fn.node.typeParameters ?? []).map((p) => p.name?.text).filter(Boolean),
+      );
       for (const typeName of parameterTypeNames(fn.node)) {
-        if (AMBIENT_TYPES.has(typeName)) continue;
+        if (ownTypeParameters.has(typeName)) continue;
         if (exportedNames.has(typeName)) continue;
-        // Only types DECLARED in this package are the barrel's to publish. One owned by another
-        // package is nameable from there, and re-exporting it is the pass-through STRUCT-07 bans.
         if (!declaredInPackage(root, barrel, typeName)) continue;
         findings.push({
           rule: 'barrel-parameter-type-unexported',
           detail:
-            `${barrel}: \`${fn.name}\` is exported but its parameter type \`${typeName}\` is not. ` +
-            `A consumer of the function cannot name what it must pass, so they reverse-engineer the ` +
-            `shape or cast into it — which is the defect ARCH-025 fixed for \`IScheduleEditPatch\` ` +
-            `and ARCH-037 found again on \`subagentExecutionRoot\`. Export it from this barrel.`,
+            `${barrel}: \`${fn.name}\` (declared in ${fn.declaredIn}) is exported but its parameter ` +
+            `type \`${typeName}\` is not. A consumer of the function cannot name what it must pass, ` +
+            `so they reverse-engineer the shape or cast into it — which is the defect ARCH-025 fixed ` +
+            `for \`IScheduleEditPatch\` and ARCH-037 found again on \`subagentExecutionRoot\` and ` +
+            `\`createDefaultTools\`. Export it from this barrel.`,
         });
       }
     }
@@ -247,37 +331,58 @@ export function findBarrelParameterTypeFindings(root = process.cwd(), settingsOv
   return { findings, examined: examinedBarrels };
 }
 
-/** Whether `typeName` is declared anywhere in the barrel's own package `src`. */
+/**
+ * Whether `typeName` is DECLARED in the barrel's own package `src` — the gate that keeps this floor
+ * off other packages' types, which a barrel must not re-export (STRUCT-07).
+ *
+ * Test files are excluded wherever they sit, not only under `__tests__/`: review found a type
+ * declared in a sibling `*.test.ts` counted as the package's, so the floor demanded a barrel publish
+ * a fixture. Results are cached per package because an unmatched name otherwise re-walks the whole
+ * `src` tree — measured at 7 s across 55 barrels.
+ */
+const declaredCache = new Map();
+
 function declaredInPackage(root, barrel, typeName) {
   const packageSrc = barrel.slice(0, barrel.indexOf('/src/') + 5);
   if (!packageSrc) return false;
-  const pattern = new RegExp(`export (interface|type) ${typeName}\\b`);
-  const stack = [resolve(root, packageSrc)];
-  while (stack.length > 0) {
-    const dir = stack.pop();
-    let entries;
-    try {
-      entries = readdirSync(dir);
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      const full = join(dir, entry);
-      let stat;
+  const cacheKey = `${root}::${packageSrc}`;
+  if (!declaredCache.has(cacheKey)) {
+    const declared = new Set();
+    const stack = [resolve(root, packageSrc)];
+    while (stack.length > 0) {
+      const dir = stack.pop();
+      let entries;
       try {
-        stat = statSync(full);
+        entries = readdirSync(dir);
       } catch {
         continue;
       }
-      if (stat.isDirectory()) {
-        if (entry !== '__tests__' && entry !== 'node_modules') stack.push(full);
-        continue;
+      for (const entry of entries) {
+        const full = join(dir, entry);
+        let stat;
+        try {
+          stat = statSync(full);
+        } catch {
+          continue;
+        }
+        if (stat.isDirectory()) {
+          if (entry !== '__tests__' && entry !== 'node_modules') stack.push(full);
+          continue;
+        }
+        if (!entry.endsWith('.ts') || entry.endsWith('.test.ts') || entry.endsWith('.ptytest.ts')) {
+          continue;
+        }
+        const content = readFileSync(full, 'utf8');
+        for (const m of content.matchAll(
+          /export (?:declare )?(?:interface|type|class|enum) (\w+)/g,
+        )) {
+          declared.add(m[1]);
+        }
       }
-      if (!entry.endsWith('.ts')) continue;
-      if (pattern.test(readFileSync(full, 'utf8'))) return true;
     }
+    declaredCache.set(cacheKey, declared);
   }
-  return false;
+  return declaredCache.get(cacheKey).has(typeName);
 }
 
 function main() {

@@ -16,6 +16,12 @@ const SDK_SRC_DIR = 'packages/agent-framework/src';
 /**
  * Files permitted to re-export `agent-executor` symbols, with the REAL reason each is here.
  *
+ * RENAMED from `SDK_RUNTIME_FACADE_FILES` by ARCH-037. The old name and the failure message below
+ * both still announced the retired "runtime facade" criterion, so the mechanism a developer meets
+ * would have kept teaching the rule this docblock had already disproved — and the next audit would
+ * have re-raised the same finding verbatim. A criterion that lives only in a comment is the
+ * narrower-than-the-rule shape this item exists to remove.
+ *
  * ARCH-037 asked for one of two things: apply this set's stated criterion to its surviving entry and
  * empty the set, or replace the comment with the real distinguishing reason. Emptying it was tried
  * first and REFUTED by the compiler, so this is the second branch — and the refutation is the useful
@@ -41,9 +47,12 @@ const SDK_SRC_DIR = 'packages/agent-framework/src';
  * that cannot name one is the next reader's false permission — ARCH-031's sentence, which holds
  * whichever criterion is in force.
  */
-const SDK_RUNTIME_FACADE_FILES = new Set([
-  // Reached by `agent-product` and `agent-transport-tui`, neither of which may depend on
-  // `agent-executor`. Verified by deletion: removing the block reddens both packages' typecheck.
+const SDK_UNREACHABLE_ELSEWHERE_FILES = new Set([
+  // `IBackgroundTaskRunner` is reached through this barrel by `agent-product`, `agent-transport-tui`,
+  // `agent-transport` and `agent-cli` — none of the first three may depend on `agent-executor`.
+  // Verified by deletion: removing the block reddens their typecheck. LIMIT: the criterion is
+  // per-symbol but this entry is per-file, and measurement puts external importers on exactly ONE
+  // of the block's ten names, so the other nine ride along. Narrowing it belongs with ARCH-039.
   'packages/agent-framework/src/background-tasks/index.ts',
 ]);
 const FORBIDDEN_TOP_LEVEL_OWNER_PACKAGES = [
@@ -252,14 +261,14 @@ async function collectReachableFindings(root, file, visited, findings) {
 }
 
 function findUnexpectedRuntimeFacadeFindings(file, content) {
-  if (SDK_RUNTIME_FACADE_FILES.has(file)) return [];
+  if (SDK_UNREACHABLE_ELSEWHERE_FILES.has(file)) return [];
   return extractPassThroughSources(content)
     .filter((source) => source === EXECUTOR_PACKAGE || source.startsWith(`${EXECUTOR_PACKAGE}/`))
     .map(() => ({
       file,
-      type: 'sdk-runtime-facade-location',
+      type: 'sdk-unreachable-elsewhere-location',
       detail:
-        'agent-executor public re-exports must stay in SDK runtime facade barrels, not arbitrary SDK files.',
+        'agent-executor public re-exports belong only where a permitted consumer cannot reach the symbol any other way (see SDK_UNREACHABLE_ELSEWHERE_FILES), not in arbitrary SDK files.',
     }));
 }
 

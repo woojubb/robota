@@ -477,8 +477,8 @@ export type {
 
 // ── Subagent process manager contracts ─────────────────────
 export { createInProcessSubagentRunner } from './subagents/index.js';
-// ARCH-031 removed eleven type-only `agent-executor` republications here; ARCH-037 records why the
-// background-tasks barrel's block survives (see that file) — consumers otherwise cannot reach it.
+// ARCH-031 removed eleven type-only `agent-executor` republications. Import from the owner: the SPI
+// from `@robota-sdk/agent-executor`, data contracts from `@robota-sdk/agent-interface-transport`.
 export type { IInProcessSubagentRunnerDeps, TSubagentRunnerFactory } from './subagents/index.js';
 
 // ── Multi-agent orchestration mechanism (SELFHOST-001) ──────

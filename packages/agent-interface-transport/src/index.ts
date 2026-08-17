@@ -6,9 +6,10 @@
 // bans. It survives as a NAMED exception because the ban has no answer here, and that was measured
 // rather than assumed:
 //
-//   - the one consumer is `agent-transport-gui` (`PermissionPrompt.tsx`), whose documented
-//     dependency set is "interface-transport + transport-protocol only"
-//     (`.agents/project-structure.md`), so it may not import from `agent-core`;
+//   - its consumers are FOUR files across TWO packages — `agent-transport-gui` (three) and
+//     `agent-transport-protocol` (one) — and neither package's documented dependency set
+//     (`.agents/project-structure.md`) admits `agent-core`. An earlier revision said "the one
+//     consumer is `agent-transport-gui`": a line-based count cannot see a multi-line import;
 //   - `agent-core` has NO internal dependencies — it is the bottom layer — so the type cannot move
 //     here instead.
 //

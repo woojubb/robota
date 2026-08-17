@@ -59,21 +59,30 @@ lines above the surviving one and applies to it verbatim:
 
 > an allowlist entry with nothing behind it is the next reader's false permission.
 
-## Refuted on implementation — issue #1764 item 3
+## Partly refuted on implementation — issue #1764 item 3
 
 The item argues the allowlist entry for `packages/agent-framework/src/background-tasks/index.ts` is
 disqualified by its own criterion, because the file's `agent-executor` re-exports are type-only.
 
-Attempting it showed the inference is wrong. `check-sdk-public-surface.mjs`'s
-`sdk-runtime-facade-location` finding is about the LOCATION of an `agent-executor` pass-through, not
-about whether the re-exported symbols are runtime values — its own test asserts that a **type-only**
-`export type { … } from '@robota-sdk/agent-executor/testing'` outside a facade barrel must be
-flagged. Teaching the check to ignore type-only re-exports made that test fail, which is the test
-doing its job.
+Its CONCLUSION — delete the entry — is refuted, for two independent reasons:
 
-So the entry is load-bearing and justified. ARCH-031's comment explains why the SIBLING entry went —
-ARCH-031 also removed that file's re-exports — and does not transfer to a file that still has them.
-Item 3 is closed as refuted; the check and the allowlist are unchanged.
+1. The finding is about the LOCATION of an `agent-executor` pass-through, not about whether the
+   re-exported symbols are runtime values. Its own test asserts that a **type-only**
+   `export type { … } from '@robota-sdk/agent-executor/testing'` outside the exempt files must be
+   flagged. Teaching the check to ignore type-only re-exports made that test fail, which is the test
+   doing its job. So "these are type-only" never implied "this entry is unearned".
+2. Emptying the set was then tried anyway, as the Direction's first branch asks, and the compiler
+   refuted that too — see the resolution below.
+
+Its DIAGNOSIS was right, and is what this item acts on: the criterion written beside the entry did
+not describe why the entry was there. The entry stays; the criterion is replaced.
+
+This section and the resolution below were previously two closures of item 3 that did not agree —
+one saying the entry was justified under the existing criterion and the check unchanged, the other
+saying the criterion was wrong and replacing it. The second is correct, and the check did change
+(`SDK_RUNTIME_FACADE_FILES` → `SDK_UNREACHABLE_ELSEWHERE_FILES`, and its finding type and message
+with it). A record that closes one item two incompatible ways leaves the next reader to guess which
+half is live, so the disagreement is resolved here rather than left for them.
 
 ## Not reproducible — issue #1764 item 4 is refuted
 
@@ -155,16 +164,28 @@ silent-direction tests.
 
 ### 3. The runtime-facade allowlist — the criterion was wrong, not the entry
 
-Emptying `SDK_RUNTIME_FACADE_FILES` was tried first, as the Direction's first branch asks. The
-compiler refuted it: `agent-product` and `agent-transport-tui` both name `IBackgroundTaskRunner` and
-neither may depend on `agent-executor`, so `agent-framework`'s barrel is their only permitted path.
+Emptying the set was tried first, as the Direction's first branch asks. The compiler refuted it:
+`IBackgroundTaskRunner` is named by `agent-product`, `agent-transport-tui`, `agent-transport` and
+`agent-cli`, and none of the first three may depend on `agent-executor`, so `agent-framework`'s
+barrel is their only permitted path. (An earlier revision of this paragraph said two packages; the
+count came from a line-based search that cannot see a name inside a multi-line import block.)
 
-The entry was load-bearing — just never for the reason written beside it. Counted, its
-`agent-executor` re-exports are ten type-only names and zero runtime values, so "runtime facade"
-disqualified it exactly as ARCH-031 argued. The criterion is now **dependency reach**: an entry
-belongs when a permitted consumer cannot reach the symbol any other way, and it must NAME that
-consumer. ARCH-031's sentence survives the change of criterion — an entry that cannot name one is the
-next reader's false permission.
+The entry was load-bearing — just never for the reason written beside it. The criterion is now
+**dependency reach**: an entry belongs when a permitted consumer cannot reach the symbol any other
+way, and it must NAME that consumer. The constant, the finding type and the failure message were
+renamed to match (`SDK_RUNTIME_FACADE_FILES` → `SDK_UNREACHABLE_ELSEWHERE_FILES`,
+`sdk-runtime-facade-location` → `sdk-unreachable-elsewhere-location`), because a criterion that
+lives only in a docblock while the mechanism still announces the retired one teaches the retired
+one. ARCH-031's sentence survives the change of criterion — an entry that cannot name a consumer is
+the next reader's false permission.
+
+A LIMIT of the result: the criterion is per-symbol and the exemption is per-file. Measured — not
+assumed, after two earlier counts in this record were made with a line-based search that cannot see
+a name inside a multi-line import — exactly ONE of the block's ten names has an external importer:
+`IBackgroundTaskRunner`, in 6 files across `agent-cli`, `agent-product`, `agent-transport` and
+`agent-transport-tui`. The other nine ride along on it, and `agent-cli` additionally imports the
+runner straight from `agent-executor`. Narrowing the entry to the one name it earns is recorded in
+the code and in `PUBLIC-SURFACE.md`, and belongs with ARCH-039.
 
 Inside `agent-framework` the redirect stands: this package does depend on `agent-executor`, so its own
 files now import these from the SSOT rather than through their own barrel.

@@ -16,15 +16,25 @@ export {
 // ARCH-037: these ten are `agent-executor`'s, re-published here for a STRUCTURAL reason, not as a
 // runtime facade. Measured, after an attempt to delete them failed:
 //
-//   - `agent-product`'s permitted dependency set is "agent-framework + agent-preset +
-//     agent-capability-pack + type-only agent-interface-transport + agent-core types"
-//     (`.agents/project-structure.md`) — `agent-executor` is not in it;
-//   - `agent-transport-tui` likewise does not depend on `agent-executor`.
+//   - `IBackgroundTaskRunner` is reached through this barrel by FOUR packages — `agent-product`,
+//     `agent-transport-tui`, `agent-transport` and `agent-cli`. None of the first three can even
+//     resolve `@robota-sdk/agent-executor` under pnpm's strict layout; `agent-product`'s permitted
+//     set is "agent-framework + agent-preset + agent-capability-pack + type-only
+//     agent-interface-transport + agent-core types" (`.agents/project-structure.md`).
 //
-// Both name `IBackgroundTaskRunner`, so this barrel is their only permitted path to it. Deleting the
-// block turned `pnpm typecheck` red in both packages, which is how the reason was established rather
-// than assumed. INSIDE `agent-framework` the story is different and the redirect stands: this
-// package does depend on `agent-executor`, so its own files import these from the SSOT directly.
+// Deleting the block turned `pnpm typecheck` red, which is how this was established rather than
+// assumed. An earlier revision named two packages; a line-based search had missed the two whose
+// import spans several lines.
+//
+// A LIMIT of the entry, stated because the criterion is per-symbol and the exemption is per-file:
+// measured across the workspace, exactly ONE of these ten names — `IBackgroundTaskRunner` — has an
+// external importer (6 files in 4 packages). The other NINE ride along on it. `agent-cli` also
+// imports the runner straight from `agent-executor` (`modes/print-mode.ts`), so for that consumer
+// the entry blesses a path it does not need. Narrowing the block to the one name it earns is the
+// honest next step and belongs with the guard-widening item (ARCH-039) rather than here.
+//
+// INSIDE `agent-framework` the story is different and the redirect stands: this package does depend
+// on `agent-executor`, so its own files import these from the SSOT directly.
 export type {
   IBackgroundTaskHandle,
   IBackgroundTaskManager,

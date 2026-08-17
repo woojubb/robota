@@ -91,7 +91,7 @@ export { readTool } from '@robota-sdk/agent-tools/builtins';
   // ARCH-031 pruned `subagents/index.ts` from the facade allowlist: it held type-only executor
   // pass-throughs, so it was never the runtime facade the exception exists for. This case is the
   // floor on that pruning — re-adding the entry turns it red.
-  it('does not treat the subagents barrel as a runtime facade', async () => {
+  it('does not exempt the subagents barrel, whose symbols are reachable elsewhere', async () => {
     const root = await createFixture({
       'packages/agent-framework/src/subagents/index.ts':
         "export { InProcessSubagentRunner } from '@robota-sdk/agent-executor';\n",
@@ -104,14 +104,14 @@ export { readTool } from '@robota-sdk/agent-tools/builtins';
     expect(findings).toEqual([
       {
         file: 'packages/agent-framework/src/subagents/index.ts',
-        type: 'sdk-runtime-facade-location',
+        type: 'sdk-unreachable-elsewhere-location',
         detail:
-          'agent-executor public re-exports must stay in SDK runtime facade barrels, not arbitrary SDK files.',
+          'agent-executor public re-exports belong only where a permitted consumer cannot reach the symbol any other way (see SDK_UNREACHABLE_ELSEWHERE_FILES), not in arbitrary SDK files.',
       },
     ]);
   });
 
-  it('flags runtime re-exports outside SDK runtime facade barrels', async () => {
+  it('flags runtime re-exports outside the exempt files', async () => {
     const root = await createFixture({
       'packages/agent-framework/src/index.ts':
         "export { BackgroundTaskManager } from './runtime.js';\n",
@@ -124,9 +124,9 @@ export { readTool } from '@robota-sdk/agent-tools/builtins';
     expect(findings).toEqual([
       {
         file: 'packages/agent-framework/src/runtime.ts',
-        type: 'sdk-runtime-facade-location',
+        type: 'sdk-unreachable-elsewhere-location',
         detail:
-          'agent-executor public re-exports must stay in SDK runtime facade barrels, not arbitrary SDK files.',
+          'agent-executor public re-exports belong only where a permitted consumer cannot reach the symbol any other way (see SDK_UNREACHABLE_ELSEWHERE_FILES), not in arbitrary SDK files.',
       },
     ]);
   });
@@ -263,7 +263,7 @@ export { readTool } from '@robota-sdk/agent-tools/builtins';
     ]);
   });
 
-  it('flags agent-executor subpath re-exports outside the named facade barrels', async () => {
+  it('flags agent-executor subpath re-exports outside the named exempt files', async () => {
     const root = await createFixture({
       'packages/agent-framework/src/index.ts': "export type { RuntimePort } from './runtime.js';\n",
       'packages/agent-framework/src/runtime.ts':
@@ -275,9 +275,9 @@ export { readTool } from '@robota-sdk/agent-tools/builtins';
     expect(findings).toEqual([
       {
         file: 'packages/agent-framework/src/runtime.ts',
-        type: 'sdk-runtime-facade-location',
+        type: 'sdk-unreachable-elsewhere-location',
         detail:
-          'agent-executor public re-exports must stay in SDK runtime facade barrels, not arbitrary SDK files.',
+          'agent-executor public re-exports belong only where a permitted consumer cannot reach the symbol any other way (see SDK_UNREACHABLE_ELSEWHERE_FILES), not in arbitrary SDK files.',
       },
     ]);
   });
