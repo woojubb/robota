@@ -452,6 +452,13 @@ export const SCAN_COMMANDS = [
     name: 'node-version-single-valued',
     command: ['node', 'scripts/harness/scan-node-version-single-valued.mjs'],
   },
+  // HARNESS-105. The user-execution gate section is required BEFORE implementation starts, and
+  // nothing enforced it — 217 of 257 `done/` documents had none when this floor was written. The
+  // baseline freezes that set; documents outside it must carry the section.
+  {
+    name: 'spec-user-execution-section',
+    command: ['node', 'scripts/harness/scan-spec-user-execution-section.mjs'],
+  },
   { name: 'shell-portability', command: ['node', 'scripts/harness/scan-shell-portability.mjs'] },
   { name: 'ci-base-history', command: ['node', 'scripts/harness/scan-ci-base-history.mjs'] },
   {
