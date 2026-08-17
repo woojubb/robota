@@ -336,12 +336,12 @@
       {
         "file": "packages/agent-framework/src/testing/command-host-double.ts",
         "declaration": "ICreateTestCommandHostOptions.overrides",
-        "reason": "The options bag of the conformant ICommandHostContext double. A double that exists to be checked against the whole aggregate with no cast must let a caller state overrides against that same aggregate; the member is TOverrides<ICommandHostContext>, a mapped type, so it hands out no second handle on the surface."
+        "reason": "The options bag of the conformant ICommandHostContext double. A double that exists to be checked against the whole aggregate with no cast must let a caller state overrides against that same aggregate, so this member cannot be written any other way. It IS an addressable handle and the carve-out does not claim otherwise: review compiled the proof that keyof over TOverrides<ICommandHostContext> yields the full member-name list and that each member type is recoverable and callable by indexed access, with the aggregate never named. That is a STATED LIMIT of a name-only walk, recorded in scan-aggregate-naming.mjs alongside the ReturnType<typeof createTestCommandHost> route; closing either needs the type checker. An earlier revision of this reason claimed a mapped type hands out no second handle, and that was false."
       },
       {
         "file": "packages/agent-framework/src/testing/command-host-double.ts",
         "declaration": "ICreateTestCommandHostOptions.session",
-        "reason": "Same site, same reason, for the session-runtime half: TOverrides<ICommandSessionRuntime> on the double options bag."
+        "reason": "Same site, same reason and the same stated limit, for the session-runtime half: TOverrides<ICommandSessionRuntime> on the double options bag."
       }
     ]
   },

@@ -286,6 +286,30 @@ describe('the ratchet requires its subject to exist', () => {
   });
 });
 
+describe('a carve-out that matches nothing is reported', () => {
+  it('flags a configured carve-out with no live site', () => {
+    // It fails closed — a stale entry just stops exempting — but config asserting an exception that
+    // does not exist is the same silence this file's header refuses everywhere else.
+    const root = mkdtempSync(join(tmpdir(), 'arch-029-stale-carve-'));
+    mkdirSync(join(root, 'packages'), { recursive: true });
+    writeFileSync(join(root, 'site.ts'), 'export interface ICommandHostContext {}\n');
+
+    const { aliasFindings } = collectAggregateNaming(
+      root,
+      {
+        aggregateNaming: {
+          aggregates: ['ICommandHostContext'],
+          allowlist: [{ file: 'site.ts', reason: 'the declaration site' }],
+          renameCarveOuts: [{ file: 'site.ts', declaration: 'IGone.member', reason: 'moved away' }],
+        },
+      },
+      ['site.ts'],
+    );
+
+    expect(aliasFindings.map((f) => f.rule)).toEqual(['rename-carve-out-unused']);
+  });
+});
+
 describe('an empty aggregate list fails closed', () => {
   it('flags an empty `aggregates` config instead of returning a clean result', () => {
     // Deleting one config array switched the load-bearing floor off silently: it returned
@@ -434,18 +458,54 @@ describe('findAggregateAliases — renaming the aggregate is the finding, not th
     }
   });
 
+  it('treats a DEFERRED `export { X }` as exported', () => {
+    // Round 7. `isExported` read only `node.modifiers`, so "has an export modifier" stood in for
+    // "is exported" and three routes went green on the real tree behind an ordinary second export
+    // form.
+    const deferred = [
+      'interface IHostBox {\n  readonly it: ICommandHostContext;\n}\nexport { IHostBox };\n',
+      'declare const theHost: ICommandHostContext;\nexport { theHost };\n',
+      'interface IBox<T = ICommandHostContext> {\n  readonly it: T;\n}\nexport { IBox };\n',
+    ];
+
+    for (const source of deferred) {
+      expect(
+        findAggregateAliases(source, 'p.ts', ['ICommandHostContext'], { allowlisted: true }),
+        source,
+      ).toHaveLength(1);
+    }
+  });
+
+  it('inspects INSIDE a function type — only the signature kinds are skipped', () => {
+    // `FunctionType` and `ConstructorType` were skipped subtree-and-all and forced by no site: the
+    // real tree is green without them, and their presence cost three routes. The two sites that
+    // genuinely force a skip are role-port METHOD signatures, not function types.
+    const inside = [
+      'export type TGetHost = () => ICommandHostContext;\n',
+      'export interface IHostBox {\n  readonly get: () => Array<ICommandHostContext>;\n}\n',
+      'export type TCtor = new () => ICommandHostContext;\n',
+    ];
+
+    for (const source of inside) {
+      expect(
+        findAggregateAliases(source, 'p.ts', ['ICommandHostContext'], { allowlisted: true }),
+        source,
+      ).toHaveLength(1);
+    }
+  });
+
   it('does NOT flag the CONSUMED positions, which mint nothing', () => {
     // The direction that makes `execute(context: I)` harmless is not that it is a member — it is
-    // that nothing outside can address the aggregate through it. Same for a function-type return:
-    // `getSession: () => ICommandHostContext` on the skill router and `getSession(): I` on a role
-    // port are both real allowlisted sites, and flagging them would flag the decomposition's own
-    // wiring. A generic CONSTRAINT mints nothing either. An UNEXPORTED declaration is unreachable
-    // from outside the file, which is how both doubles' `const base: IAggregate = { … }` stays
-    // clean — that is the cast-free conformance they exist to provide.
+    // that nothing outside can address the aggregate through it. The only OTHER skip the real tree
+    // forces is the method signature, and exactly two sites force it, both role ports in
+    // `packages/agent-framework/src/command-api/host-roles.ts`: `getSession()` and
+    // `getAgentJobCapability()`. A generic CONSTRAINT mints nothing either. An UNEXPORTED
+    // declaration is unreachable from outside the file, which is how both doubles'
+    // `const base: IAggregate = { … }` stays clean — the cast-free conformance they exist to provide.
     const consumed = [
       'export interface ISystemCommand {\n  execute(context: ICommandHostContext): void;\n}\n',
-      'export interface IRouter {\n  getSession: () => ICommandHostContext;\n}\n',
       'export interface IPort {\n  getSession(): ICommandHostContext;\n}\n',
+      'export interface IPort {\n  getAgentJobCapability(): ICommandHostContext | undefined;\n}\n',
       'export interface IBox<T extends ICommandHostContext> {\n  readonly it: T;\n}\n',
       'const base: ICommandHostContext = makeIt();\n',
       'interface IUnexported {\n  readonly it: ICommandHostContext;\n}\n',
@@ -475,6 +535,23 @@ describe('findAggregateAliases — renaming the aggregate is the finding, not th
         carveOuts: new Set(['double.ts#ICreateTestCommandHostOptions.overrides']),
       }),
     ).toEqual([]);
+  });
+
+  it('a carve-out does NOT cover an unwrapped direct handle under the same member name', () => {
+    // The carve-out is keyed by member name, so the entry written for `TOverrides<IAggregate>` was
+    // exempting `overrides?: IAggregate` too — a direct handle. The wrapping is the carve-out's
+    // entire justification, so it is now a condition of it rather than a description of it.
+    expect(
+      findAggregateAliases(
+        'export interface ICreateTestCommandHostOptions {\n  readonly overrides?: ICommandHostContext;\n}\n',
+        'double.ts',
+        ['ICommandHostContext'],
+        {
+          allowlisted: true,
+          carveOuts: new Set(['double.ts#ICreateTestCommandHostOptions.overrides']),
+        },
+      ),
+    ).toHaveLength(1);
   });
 
   it('does NOT apply the mint rule outside the allowlist — the reference count guards those', () => {

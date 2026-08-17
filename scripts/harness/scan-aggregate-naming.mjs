@@ -118,31 +118,47 @@ function directlyNamedAggregate(type, aggregates) {
  * allowlisted file the question stops being "which wrapper is this" and becomes "does this
  * declaration mint a NEW NAME from the aggregate at all".
  *
- * ## The two skipped positions, and why the line is drawn there
+ * ## The skipped positions, and which sites actually force each one
  *
  * The distinction is not syntactic position but DIRECTION: a type that something outside can
- * address mints a handle; a type that is only consumed does not.
+ * address mints a handle; a type that is only consumed does not. The set below is the SMALLEST one
+ * the real tree forces — established by shrinking it and re-running the scan, not by reasoning:
  *
  *   - **Parameters.** `ISystemCommand.execute(context: ICommandHostContext)` is the dispatch
  *     contract every command is assigned to, and naming the widest type there is the entire reason
  *     that file is allowlisted. Nothing can address the aggregate through it.
- *   - **Function-like types and their returns.** `getSession: () => ICommandHostContext` on the
- *     skill router, and `getSession(): ICommandSessionRuntime` on a role port, are both real
- *     allowlisted sites. Flagging them would flag the decomposition's own wiring.
+ *   - **Method, call and construct SIGNATURES.** Exactly two sites force this, both role-port
+ *     methods in `packages/agent-framework/src/command-api/host-roles.ts`: `getSession():
+ *     ICommandSessionRuntime` and `getAgentJobCapability(): IAgentJobHostContext | undefined`.
+ *     Flagging them would flag the decomposition's own wiring.
  *
- * ## A stated limit
+ * `FunctionType` and `ConstructorType` were in this set and are NOT: review measured the real tree
+ * green without them, and their presence cost three routes — `export type TGetHost = () =>
+ * ICommandHostContext` reached as `ReturnType<TGetHost>`, `() => Array<IAggregate>`, and
+ * `new () => IAggregate`. An earlier revision of this docblock justified the skip with
+ * `getSession: () => ICommandHostContext` on the skill router; that site never reaches this rule at
+ * all, because the member walk runs only on exported interface declarations in allowlisted files.
+ * Naming the wrong forcing site is how a cut outlives its reason, so each is now named with its file.
  *
- * A factory's return type is addressable — `type IHostAll = ReturnType<typeof createTestCommandHost>`
- * takes the whole surface in one line with NO allowlisted file modified — and this scan cannot
- * close it. `createTestCommandHost` must return `ICommandHostContext`; that is what makes it a
- * conformant double. Closing that route needs the type checker, not a name walk. It is written here
- * rather than left implicit because an undocumented limit is what the preceding review rounds were
- * about.
+ * ## Stated limits
+ *
+ * Two routes a NAME-ONLY walk cannot close. Both are written here rather than left implicit, because
+ * an undocumented limit is what the preceding review rounds were about:
+ *
+ *   1. A factory's return type is addressable — `type IHostAll = ReturnType<typeof
+ *      createTestCommandHost>` takes the whole surface in one line with NO allowlisted file
+ *      modified. `createTestCommandHost` must return `ICommandHostContext`; that is what makes it a
+ *      conformant double.
+ *   2. A carved-out member is addressable through indexed access. Review compiled the proof against
+ *      `ICreateTestCommandHostOptions['overrides']`: `keyof` yields the full member-name list, each
+ *      member's type is recoverable and callable, and a mapped type over them supports a function
+ *      taking the whole surface — with the aggregate never named. See `renameCarveOuts` in the
+ *      harness config, whose reason previously asserted the opposite.
+ *
+ * Closing either needs the type checker, not a name walk.
  */
 const CONSUMED_POSITIONS = new Set([
   ts.SyntaxKind.Parameter,
-  ts.SyntaxKind.FunctionType,
-  ts.SyntaxKind.ConstructorType,
   ts.SyntaxKind.MethodSignature,
   ts.SyntaxKind.CallSignature,
   ts.SyntaxKind.ConstructSignature,
@@ -182,17 +198,45 @@ function mentionsAggregate(type, aggregates) {
  * consumer naming the alias, left the real tree GREEN. The allowlist exempts a file from having its
  * REFERENCES counted; it never had a reason to exempt it from the rename ban.
  */
-function isExported(node) {
-  return (node.modifiers ?? []).some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
+/**
+ * The names a file exports through a deferred `export { X }` statement.
+ *
+ * "Has an `export` modifier" and "is exported" are different predicates, and review reproduced the
+ * gap on the real tree: `interface IHostBox { readonly it: ICommandHostContext }` followed by
+ * `export { IHostBox };` read as unexported, so the mint rule skipped it while a consumer addressed
+ * the whole surface through `IHostBox['it']`. Same for the const and generic-default forms.
+ */
+function deferredExports(sourceFile) {
+  const names = new Set();
+  const visit = (node) => {
+    if (ts.isExportDeclaration(node) && !node.moduleSpecifier) {
+      for (const element of node.exportClause?.elements ?? []) {
+        if (element.propertyName?.text) names.add(element.propertyName.text);
+        else if (element.name?.text) names.add(element.name.text);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return names;
+}
+
+function isExported(node, deferred) {
+  if ((node.modifiers ?? []).some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)) {
+    return true;
+  }
+  const named = node.name?.text ?? node.declarationList?.declarations?.[0]?.name?.text;
+  return Boolean(named && deferred.has(named));
 }
 
 export function findAggregateAliases(
   content,
   fileName,
   aggregates,
-  { allowlisted = false, carveOuts = new Set() } = {},
+  { allowlisted = false, carveOuts = new Set(), carveOutsUsed } = {},
 ) {
   const sourceFile = ts.createSourceFile(fileName, content);
+  const deferred = deferredExports(sourceFile);
   const aliases = [];
   const note = (aggregate, alias, node, form) => {
     const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
@@ -236,16 +280,28 @@ export function findAggregateAliases(
       }
       // Members and generic defaults, in an allowlisted and EXPORTED declaration only.
       // `IHostBox['it']` and `IBox['it']` address the aggregate from outside just as an alias does
-      // — but only if the declaration carrying them is exported. Requiring `export` is not a
+      // — but only if the declaration carrying them is exported. Requiring export is not a
       // loosening: an unexported declaration mints no handle anything outside the file can reach,
-      // which is the whole property this rule is about.
-      if (allowlisted && isExported(node)) {
+      // which is the whole property this rule is about, and it is what keeps both doubles'
+      // `const base: IAggregate = { … }` clean.
+      if (allowlisted && isExported(node, deferred)) {
         for (const member of node.members ?? []) {
           const aggregate = renamedBy(member);
+          if (!aggregate) continue;
           const alias = `${node.name.text}.${member.name?.text ?? '?'}`;
-          if (aggregate && !carveOuts.has(`${fileName}#${alias}`)) {
-            note(aggregate, alias, member, 'a member type');
+          // A carve-out never covers a DIRECT handle. It is keyed by member name, so the entry
+          // written for `overrides?: TOverrides<IAggregate>` was silently exempting
+          // `overrides?: IAggregate` — an unwrapped handle under the same name. Review measured
+          // that green. The carve-out's whole justification is the wrapping, so the wrapping is now
+          // a condition of it rather than a description of it.
+          if (
+            carveOuts.has(`${fileName}#${alias}`) &&
+            !directlyNamedAggregate(member.type, aggregates)
+          ) {
+            carveOutsUsed?.add(`${fileName}#${alias}`);
+            continue;
           }
+          note(aggregate, alias, member, 'a member type');
         }
         for (const parameter of node.typeParameters ?? []) {
           // `defaultType`, NOT `default` — see the divergence list in `lib/ts-ast.mjs`. Reading
@@ -263,7 +319,7 @@ export function findAggregateAliases(
     // not, which is why the export check matters here too: both doubles build their answer as
     // `const base: IAggregate = { … }` inside the factory, and that is the cast-free conformance
     // the doubles exist to provide, not a handle anything can reach.
-    if (allowlisted && ts.isVariableStatement(node) && isExported(node)) {
+    if (allowlisted && ts.isVariableStatement(node) && isExported(node, deferred)) {
       for (const declaration of node.declarationList?.declarations ?? []) {
         const aggregate = renamedBy(declaration.type);
         if (aggregate) {
@@ -413,6 +469,10 @@ export function collectAggregateNaming(
   const renameCarveOuts = new Set(
     (settings.renameCarveOuts ?? []).map((entry) => `${entry.file}#${entry.declaration}`),
   );
+  // Which carve-outs actually matched a live site. A carve-out that matches nothing is config
+  // asserting an exception that does not exist — it fails closed, but this file's own standard is
+  // that silence is not evidence, and an exception nobody can see expiring outlives its reason.
+  const carveOutsUsed = new Set();
 
   const counts = new Map(aggregates.map((name) => [name, { references: 0, files: new Map() }]));
   const declaredIn = new Map(aggregates.map((name) => [name, []]));
@@ -440,6 +500,7 @@ export function collectAggregateNaming(
     for (const alias of findAggregateAliases(content, file, aggregates, {
       allowlisted: allowlist.has(file),
       carveOuts: renameCarveOuts,
+      carveOutsUsed,
     })) {
       aliasFindings.push({
         rule: 'aggregate-renamed',
@@ -458,6 +519,17 @@ export function collectAggregateNaming(
       bucket.references += 1;
       bucket.files.set(file, (bucket.files.get(file) ?? 0) + 1);
     }
+  }
+
+  for (const key of renameCarveOuts) {
+    if (carveOutsUsed.has(key)) continue;
+    aliasFindings.push({
+      rule: 'rename-carve-out-unused',
+      detail:
+        `${key}: a rename carve-out is configured for a declaration that no longer matches. Either ` +
+        `the site moved or was renamed, or its type stopped being the wrapped form the carve-out is ` +
+        `justified by — in which case the exemption now describes nothing and should be removed.`,
+    });
   }
 
   return { counts, examined, aliasFindings, declaredIn };
