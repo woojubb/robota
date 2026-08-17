@@ -30,18 +30,12 @@
  * private key, and every field it could tamper with is signed.
  */
 
-import { ab } from './crypto-primitives.js';
+import { ab, toBase64Url } from './crypto-primitives.js';
 
 const SIGN_PARAMS = { name: 'ECDSA', hash: 'SHA-256' } as const;
 
 const webcrypto = globalThis.crypto;
 const encoder = new TextEncoder();
-
-function toBase64Url(bytes: Uint8Array): string {
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
 
 function fromBase64Url(value: string): Uint8Array {
   const padded = value.replace(/-/g, '+').replace(/_/g, '/');
