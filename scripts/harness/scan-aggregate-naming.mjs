@@ -118,27 +118,33 @@ function directlyNamedAggregate(type, aggregates) {
  * allowlisted file the question stops being "which wrapper is this" and becomes "does this
  * declaration mint a NEW NAME from the aggregate at all".
  *
- * ## The skipped positions, and which sites actually force each one
+ * ## The one skipped position, and why it is the only one
  *
  * The distinction is not syntactic position but DIRECTION: a type that something outside can
- * address mints a handle; a type that is only consumed does not. The set below is the SMALLEST one
- * the real tree forces — established by shrinking it and re-running the scan, not by reasoning:
+ * address mints a handle; a type that is only consumed does not. Exactly one kind is skipped
+ * STRUCTURALLY:
  *
  *   - **Parameters.** `ISystemCommand.execute(context: ICommandHostContext)` is the dispatch
  *     contract every command is assigned to, and naming the widest type there is the entire reason
- *     that file is allowlisted. Nothing can address the aggregate through it.
- *   - **Method, call and construct SIGNATURES.** Exactly two sites force this, both role-port
- *     methods in `packages/agent-framework/src/command-api/host-roles.ts`: `getSession():
- *     ICommandSessionRuntime` and `getAgentJobCapability(): IAgentJobHostContext | undefined`.
- *     Flagging them would flag the decomposition's own wiring.
+ *     that file is allowlisted. Nothing can address the aggregate through it. This one is
+ *     unbounded-but-safe: a parameter is not addressable in ANY instance, so a blanket rule and a
+ *     per-site rule would exempt the same set.
  *
- * `FunctionType` and `ConstructorType` were in this set and are NOT: review measured the real tree
- * green without them, and their presence cost three routes — `export type TGetHost = () =>
- * ICommandHostContext` reached as `ReturnType<TGetHost>`, `() => Array<IAggregate>`, and
- * `new () => IAggregate`. An earlier revision of this docblock justified the skip with
- * `getSession: () => ICommandHostContext` on the skill router; that site never reaches this rule at
- * all, because the member walk runs only on exported interface declarations in allowlisted files.
- * Naming the wrong forcing site is how a cut outlives its reason, so each is now named with its file.
+ * Four kinds have been in this set and are not. `FunctionType` and `ConstructorType` went first:
+ * review measured the tree green without them, and they had cost three routes — `export type
+ * TGetHost = () => ICommandHostContext` reached as `ReturnType<TGetHost>`, `() => Array<IAggregate>`
+ * and `new () => IAggregate`. `MethodSignature`, `CallSignature` and `ConstructSignature` followed,
+ * and that removal is the more instructive one:
+ *
+ * A structural skip is an UNNAMED, NON-EXPIRING exemption over an UNBOUNDED set. `MethodSignature`
+ * was forced by exactly two sites, and in exchange it exempted every future method-signature handle
+ * in all ten allowlisted files — `getEverything(): ICommandHostContext` was green while the
+ * identical member in property syntax was red, which is a rule keyed on syntax rather than on the
+ * property. `CallSignature` and `ConstructSignature` were forced by nothing whatsoever. The two real
+ * sites are now named `renameCarveOuts` entries with reasons and exact expected types, so
+ * `rename-carve-out-unused` reports them the moment they stop matching. That is the disposition this
+ * file has converged on over four rounds: an exact assertion plus a rule that fires when it expires
+ * is the only form of exemption that cannot outlive its reason.
  *
  * ## Stated limits
  *
@@ -157,12 +163,7 @@ function directlyNamedAggregate(type, aggregates) {
  *
  * Closing either needs the type checker, not a name walk.
  */
-const CONSUMED_POSITIONS = new Set([
-  ts.SyntaxKind.Parameter,
-  ts.SyntaxKind.MethodSignature,
-  ts.SyntaxKind.CallSignature,
-  ts.SyntaxKind.ConstructSignature,
-]);
+const CONSUMED_POSITIONS = new Set([ts.SyntaxKind.Parameter]);
 
 function mentionsAggregate(type, aggregates) {
   let found;
@@ -215,10 +216,23 @@ function deferredExports(sourceFile) {
         else if (element.name?.text) names.add(element.name.text);
       }
     }
+    // `export default theHost` is an ExportAssignment, not an ExportDeclaration, and it publishes
+    // the declaration just as effectively — review reproduced the whole route through
+    // `typeof theHost` on a consumer, compiled. `export =` needs no handling: it does not compile
+    // under this repo's ES-module target (TS1203), which was measured rather than assumed.
+    if (node.kind === ts.SyntaxKind.ExportAssignment && node.isExportEquals !== true) {
+      const named = node.expression?.text ?? node.expression?.escapedText;
+      if (named) names.add(named);
+    }
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
   return names;
+}
+
+/** Type text with all runs of whitespace collapsed, so formatting is not part of the assertion. */
+function normalizeType(text) {
+  return (text ?? '').replace(/\s+/g, ' ').trim();
 }
 
 function isExported(node, deferred) {
@@ -233,7 +247,7 @@ export function findAggregateAliases(
   content,
   fileName,
   aggregates,
-  { allowlisted = false, carveOuts = new Set(), carveOutsUsed } = {},
+  { allowlisted = false, carveOuts = new Map(), carveOutsUsed } = {},
 ) {
   const sourceFile = ts.createSourceFile(fileName, content);
   const deferred = deferredExports(sourceFile);
@@ -289,14 +303,18 @@ export function findAggregateAliases(
           const aggregate = renamedBy(member);
           if (!aggregate) continue;
           const alias = `${node.name.text}.${member.name?.text ?? '?'}`;
-          // A carve-out never covers a DIRECT handle. It is keyed by member name, so the entry
-          // written for `overrides?: TOverrides<IAggregate>` was silently exempting
-          // `overrides?: IAggregate` — an unwrapped handle under the same name. Review measured
-          // that green. The carve-out's whole justification is the wrapping, so the wrapping is now
-          // a condition of it rather than a description of it.
+          // A carve-out exempts an EXACT type, not a member name. Two weaker versions were tried
+          // and both were measured through: keying on the name alone exempted
+          // `overrides?: IAggregate` under an entry written for `TOverrides<IAggregate>`, and
+          // requiring merely "not syntactically bare" exempted `(I)`, `I & {}`, `I | I`, `I | never`
+          // and `Readonly<I>` — every one a full handle. The entry now states the type it exempts
+          // and it must match, which is safe rather than brittle precisely because
+          // `rename-carve-out-unused` reports the entry the moment it stops matching: drift expires
+          // the exemption loudly instead of silently widening it.
+          const expected = carveOuts.get(`${fileName}#${alias}`);
           if (
-            carveOuts.has(`${fileName}#${alias}`) &&
-            !directlyNamedAggregate(member.type, aggregates)
+            expected !== undefined &&
+            expected === normalizeType(member.type?.getText(sourceFile))
           ) {
             carveOutsUsed?.add(`${fileName}#${alias}`);
             continue;
@@ -466,8 +484,11 @@ export function collectAggregateNaming(
   // Named, reasoned exceptions to the mint rule, in the same idiom as `rolePortOptionals.carveOuts`.
   // There are two, both on the doubles' own options bags, and they are listed rather than designed
   // around: an options type for a conformant double necessarily names the contract it doubles.
-  const renameCarveOuts = new Set(
-    (settings.renameCarveOuts ?? []).map((entry) => `${entry.file}#${entry.declaration}`),
+  const renameCarveOuts = new Map(
+    (settings.renameCarveOuts ?? []).map((entry) => [
+      `${entry.file}#${entry.declaration}`,
+      normalizeType(entry.type),
+    ]),
   );
   // Which carve-outs actually matched a live site. A carve-out that matches nothing is config
   // asserting an exception that does not exist — it fails closed, but this file's own standard is
@@ -521,14 +542,15 @@ export function collectAggregateNaming(
     }
   }
 
-  for (const key of renameCarveOuts) {
+  for (const [key, expected] of renameCarveOuts) {
     if (carveOutsUsed.has(key)) continue;
     aliasFindings.push({
       rule: 'rename-carve-out-unused',
       detail:
         `${key}: a rename carve-out is configured for a declaration that no longer matches. Either ` +
-        `the site moved or was renamed, or its type stopped being the wrapped form the carve-out is ` +
-        `justified by — in which case the exemption now describes nothing and should be removed.`,
+        `the site moved or was renamed, or its type stopped being \`${expected}\` — the exact type ` +
+        `the exemption is written for. Either way the exemption now describes nothing, and an ` +
+        `exemption that describes nothing is how one outlives its reason. Remove or update it.`,
     });
   }
 

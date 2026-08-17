@@ -334,14 +334,28 @@
     ],
     "renameCarveOuts": [
       {
+        "file": "packages/agent-framework/src/command-api/host-roles.ts",
+        "declaration": "ICommandHostSessionAccess.getSession",
+        "type": "ICommandSessionRuntime",
+        "reason": "The role-port method that reaches the session aggregate — the decomposition's own wiring. ICommandHostContext composes ICommandHostSessionAccess, and a command narrows to this port precisely so it can reach the session runtime; a host that could not return it would not be a host. Named here rather than exempted structurally: a blanket MethodSignature skip is an unnamed, non-expiring exemption over an unbounded set, and it covered every future method-signature handle in all ten allowlisted files in order to spare this site and one other."
+      },
+      {
+        "file": "packages/agent-framework/src/command-api/host-roles.ts",
+        "declaration": "ICommandHostAgentJobs.getAgentJobCapability",
+        "type": "IAgentJobHostContext | undefined",
+        "reason": "The second and last site that forces a method-signature exemption. Same reason as the sibling entry: the agent-job aggregate is reached through this port by design. The `| undefined` is part of the asserted type, so narrowing or widening it expires this carve-out and rename-carve-out-unused reports it."
+      },
+      {
         "file": "packages/agent-framework/src/testing/command-host-double.ts",
         "declaration": "ICreateTestCommandHostOptions.overrides",
-        "reason": "The options bag of the conformant ICommandHostContext double. A double that exists to be checked against the whole aggregate with no cast must let a caller state overrides against that same aggregate, so this member cannot be written any other way. It IS an addressable handle and the carve-out does not claim otherwise: review compiled the proof that keyof over TOverrides<ICommandHostContext> yields the full member-name list and that each member type is recoverable and callable by indexed access, with the aggregate never named. That is a STATED LIMIT of a name-only walk, recorded in scan-aggregate-naming.mjs alongside the ReturnType<typeof createTestCommandHost> route; closing either needs the type checker. An earlier revision of this reason claimed a mapped type hands out no second handle, and that was false."
+        "type": "TOverrides<ICommandHostContext>",
+        "reason": "The options bag of the conformant ICommandHostContext double. A double that exists to be checked against the whole aggregate with no cast must let a caller state overrides against that same aggregate, so this member cannot be written any other way. It IS an addressable handle and this carve-out does not claim otherwise: review compiled the proof that keyof over TOverrides<ICommandHostContext> yields the full member-name list and that each member type is recoverable and callable by indexed access, with the aggregate never named. That is a STATED LIMIT of a name-only walk, recorded in scan-aggregate-naming.mjs alongside the ReturnType<typeof createTestCommandHost> route; closing either needs the type checker. An earlier revision of this reason claimed a mapped type hands out no second handle, and that was false."
       },
       {
         "file": "packages/agent-framework/src/testing/command-host-double.ts",
         "declaration": "ICreateTestCommandHostOptions.session",
-        "reason": "Same site, same reason and the same stated limit, for the session-runtime half: TOverrides<ICommandSessionRuntime> on the double options bag."
+        "type": "TOverrides<ICommandSessionRuntime>",
+        "reason": "Same site, same reason and the same stated limit, for the session-runtime half of the double options bag."
       }
     ]
   },

@@ -300,7 +300,9 @@ describe('a carve-out that matches nothing is reported', () => {
         aggregateNaming: {
           aggregates: ['ICommandHostContext'],
           allowlist: [{ file: 'site.ts', reason: 'the declaration site' }],
-          renameCarveOuts: [{ file: 'site.ts', declaration: 'IGone.member', reason: 'moved away' }],
+          renameCarveOuts: [
+            { file: 'site.ts', declaration: 'IGone.member', type: 'IGone', reason: 'moved away' },
+          ],
         },
       },
       ['site.ts'],
@@ -476,10 +478,9 @@ describe('findAggregateAliases — renaming the aggregate is the finding, not th
     }
   });
 
-  it('inspects INSIDE a function type — only the signature kinds are skipped', () => {
+  it('inspects INSIDE a function type — only a parameter is skipped structurally', () => {
     // `FunctionType` and `ConstructorType` were skipped subtree-and-all and forced by no site: the
-    // real tree is green without them, and their presence cost three routes. The two sites that
-    // genuinely force a skip are role-port METHOD signatures, not function types.
+    // real tree is green without them, and their presence cost three routes.
     const inside = [
       'export type TGetHost = () => ICommandHostContext;\n',
       'export interface IHostBox {\n  readonly get: () => Array<ICommandHostContext>;\n}\n',
@@ -496,16 +497,15 @@ describe('findAggregateAliases — renaming the aggregate is the finding, not th
 
   it('does NOT flag the CONSUMED positions, which mint nothing', () => {
     // The direction that makes `execute(context: I)` harmless is not that it is a member — it is
-    // that nothing outside can address the aggregate through it. The only OTHER skip the real tree
-    // forces is the method signature, and exactly two sites force it, both role ports in
-    // `packages/agent-framework/src/command-api/host-roles.ts`: `getSession()` and
-    // `getAgentJobCapability()`. A generic CONSTRAINT mints nothing either. An UNEXPORTED
-    // declaration is unreachable from outside the file, which is how both doubles'
-    // `const base: IAggregate = { … }` stays clean — the cast-free conformance they exist to provide.
+    // that nothing outside can address the aggregate through it. A parameter is the ONLY kind
+    // skipped structurally, and it is unbounded-but-safe: no instance of it is addressable, so a
+    // blanket rule and a per-site rule would exempt the same set. A generic CONSTRAINT mints
+    // nothing either. An UNEXPORTED declaration is unreachable from outside the file, which is how
+    // both doubles' `const base: IAggregate = { … }` stays clean — the cast-free conformance they
+    // exist to provide.
     const consumed = [
       'export interface ISystemCommand {\n  execute(context: ICommandHostContext): void;\n}\n',
-      'export interface IPort {\n  getSession(): ICommandHostContext;\n}\n',
-      'export interface IPort {\n  getAgentJobCapability(): ICommandHostContext | undefined;\n}\n',
+      'export type TRun = (context: ICommandHostContext) => void;\n',
       'export interface IBox<T extends ICommandHostContext> {\n  readonly it: T;\n}\n',
       'const base: ICommandHostContext = makeIt();\n',
       'interface IUnexported {\n  readonly it: ICommandHostContext;\n}\n',
@@ -519,12 +519,16 @@ describe('findAggregateAliases — renaming the aggregate is the finding, not th
     }
   });
 
-  it('honours a named carve-out for a declaration that must name the aggregate', () => {
-    // Two real sites exist and are listed in the harness config with reasons: the conformant
-    // double's options bag necessarily names the contract it doubles. Recorded here so the rule is
-    // not quietly designed around them.
+  it('honours a named carve-out that states the EXACT type it exempts', () => {
+    // Four real sites exist and are listed in the harness config, each with a reason and the exact
+    // type it exempts: the two role-port methods that reach a sibling aggregate by design, and the
+    // conformant double's two options-bag members. Recorded here so the rule is not quietly
+    // designed around them.
     const source =
       'export interface ICreateTestCommandHostOptions {\n  readonly overrides?: TOverrides<ICommandHostContext>;\n}\n';
+    const carveOuts = new Map([
+      ['double.ts#ICreateTestCommandHostOptions.overrides', 'TOverrides<ICommandHostContext>'],
+    ]);
 
     expect(
       findAggregateAliases(source, 'double.ts', ['ICommandHostContext'], { allowlisted: true }),
@@ -532,24 +536,85 @@ describe('findAggregateAliases — renaming the aggregate is the finding, not th
     expect(
       findAggregateAliases(source, 'double.ts', ['ICommandHostContext'], {
         allowlisted: true,
-        carveOuts: new Set(['double.ts#ICreateTestCommandHostOptions.overrides']),
+        carveOuts,
       }),
     ).toEqual([]);
   });
 
-  it('a carve-out does NOT cover an unwrapped direct handle under the same member name', () => {
-    // The carve-out is keyed by member name, so the entry written for `TOverrides<IAggregate>` was
-    // exempting `overrides?: IAggregate` too — a direct handle. The wrapping is the carve-out's
-    // entire justification, so it is now a condition of it rather than a description of it.
+  it('a carve-out covers ONLY the type it names, not every wrapper under that member name', () => {
+    // Two weaker versions were measured through. Keying on the member NAME alone exempted
+    // `overrides?: IAggregate` under an entry written for `TOverrides<IAggregate>`; requiring
+    // merely "not syntactically bare" then exempted `(I)`, `I & {}`, `I | I`, `I | never` and
+    // `Readonly<I>` — every one a full handle on the surface. The entry now states its type.
+    const carveOuts = new Map([
+      ['double.ts#ICreateTestCommandHostOptions.overrides', 'TOverrides<ICommandHostContext>'],
+    ]);
+    const evasions = [
+      'ICommandHostContext',
+      '(ICommandHostContext)',
+      'ICommandHostContext & {}',
+      'ICommandHostContext | ICommandHostContext',
+      'ICommandHostContext | never',
+      'Readonly<ICommandHostContext>',
+    ];
+
+    for (const type of evasions) {
+      expect(
+        findAggregateAliases(
+          `export interface ICreateTestCommandHostOptions {\n  readonly overrides?: ${type};\n}\n`,
+          'double.ts',
+          ['ICommandHostContext'],
+          { allowlisted: true, carveOuts },
+        ),
+        type,
+      ).toHaveLength(1);
+    }
+  });
+
+  it('a carve-out matches regardless of how the type is FORMATTED', () => {
+    // The exemption asserts a type, not a line break. Whitespace is normalised so reformatting the
+    // member does not silently expire a carve-out that still describes it.
     expect(
       findAggregateAliases(
-        'export interface ICreateTestCommandHostOptions {\n  readonly overrides?: ICommandHostContext;\n}\n',
+        'export interface IOpts {\n  readonly overrides?: TOverrides<\n    ICommandHostContext\n  >;\n}\n',
         'double.ts',
         ['ICommandHostContext'],
         {
           allowlisted: true,
-          carveOuts: new Set(['double.ts#ICreateTestCommandHostOptions.overrides']),
+          carveOuts: new Map([['double.ts#IOpts.overrides', 'TOverrides< ICommandHostContext >']]),
         },
+      ),
+    ).toEqual([]);
+  });
+
+  it('a METHOD signature returning the aggregate is a handle, not a structural exemption', () => {
+    // `MethodSignature` was in the skip set, forced by two sites and exempting every future
+    // method-signature handle in all ten allowlisted files. The identical member in property syntax
+    // was red — a rule keyed on syntax rather than on the property. The two real sites are named
+    // carve-outs now; everything else fires.
+    const handles = [
+      'export interface IHostReach {\n  getEverything(): ICommandHostContext;\n}\n',
+      'export interface IHostReach {\n  (): ICommandHostContext;\n}\n',
+      'export interface IHostReach {\n  new (): ICommandHostContext;\n}\n',
+    ];
+
+    for (const source of handles) {
+      expect(
+        findAggregateAliases(source, 'p.ts', ['ICommandHostContext'], { allowlisted: true }),
+        source,
+      ).toHaveLength(1);
+    }
+  });
+
+  it('treats `export default <identifier>` as exported', () => {
+    // An ExportAssignment, not an ExportDeclaration. Review reproduced the route end to end on the
+    // real tree and compiled a consumer reaching the surface through `typeof theHost`.
+    expect(
+      findAggregateAliases(
+        'declare const theHost: ICommandHostContext;\nexport default theHost;\n',
+        'p.ts',
+        ['ICommandHostContext'],
+        { allowlisted: true },
       ),
     ).toHaveLength(1);
   });
