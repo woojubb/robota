@@ -319,3 +319,30 @@ still serialized the plaintext credential. `IResolvedConfig['provider']` is buil
 a field the type system did not know about was therefore silently not copied; the corrective change
 adds `TEnvResolvedSettings` / `TEnvResolvedProviderProfile` in `config-types.ts` so the derived field
 is declared and the projection cannot drop it unnoticed again.
+
+### [PIPELINE NOT FOLLOWED] — recorded 2026-08-17
+
+Stated as a fact, not as a gate verdict — the actor who did the work may not judge it.
+
+This document did not pass GATE-WRITE → GATE-APPROVAL before implementation. The work was
+implemented first, under the owner's standing instruction quoted above, and this plan was written
+alongside it. The gate catalogue is explicit about what that means: GATE-APPROVAL's NON-COMPLIANCE
+trigger is _"Implementation work (file edits, code commits) was started before this gate ran."_ It
+was.
+
+So the document cannot legitimately be advanced to `done/` by running the gates now. A PASS recorded
+today would assert an ordering that did not happen, and a status of `done` reached that way is a
+worse record than a status of `draft` — it would read as a plan that was approved and then built,
+which is not what occurred.
+
+It stays at `status: draft` deliberately. The implementation is real, merged, and verified — the
+evidence above and the `## User Execution Test Scenarios` section record it — but the PLAN's
+lifecycle stopped where the process actually stopped.
+
+**To dispose of this properly**, an owner has two options, and neither is the agent's to take:
+
+- run `backlog-gate-guard` and let it record the NON-COMPLIANCE, closing the document on an accurate
+  verdict; or
+- accept the work as delivered outside the pipeline and mark the document `rejected` (which
+  `spec-workflow.md` defines as "closed deliberately; not a gate FAIL"), since the plan it holds was
+  never the thing that authorized the work.

@@ -238,3 +238,30 @@ independently reproduced against the code before any change (see the Problem sec
 measurements), and each change is reversible and internal to this repository.
 
 Items 2 and 3 delivered. Item 1's proposed fix is REFUTED by implementation: dropping the three re-exports forces `agent-transport-protocol` to import `agent-core`, which project-structure.md forbids for it. The re-exports are the interface hub the layering requires. The guard widening — the issue's own alternative, and the half it called more important — remains. Emptying the allowlist also exposed that the runtime-facade check measured type-only re-exports too; it now measures what its name claims.
+
+### [PIPELINE NOT FOLLOWED] — recorded 2026-08-17
+
+Stated as a fact, not as a gate verdict — the actor who did the work may not judge it.
+
+This document did not pass GATE-WRITE → GATE-APPROVAL before implementation. The work was
+implemented first, under the owner's standing instruction quoted above, and this plan was written
+alongside it. The gate catalogue is explicit about what that means: GATE-APPROVAL's NON-COMPLIANCE
+trigger is _"Implementation work (file edits, code commits) was started before this gate ran."_ It
+was.
+
+So the document cannot legitimately be advanced to `done/` by running the gates now. A PASS recorded
+today would assert an ordering that did not happen, and a status of `done` reached that way is a
+worse record than a status of `draft` — it would read as a plan that was approved and then built,
+which is not what occurred.
+
+It stays at `status: draft` deliberately. The implementation is real, merged, and verified — the
+evidence above and the `## User Execution Test Scenarios` section record it — but the PLAN's
+lifecycle stopped where the process actually stopped.
+
+**To dispose of this properly**, an owner has two options, and neither is the agent's to take:
+
+- run `backlog-gate-guard` and let it record the NON-COMPLIANCE, closing the document on an accurate
+  verdict; or
+- accept the work as delivered outside the pipeline and mark the document `rejected` (which
+  `spec-workflow.md` defines as "closed deliberately; not a gate FAIL"), since the plan it holds was
+  never the thing that authorized the work.
