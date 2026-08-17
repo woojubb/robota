@@ -295,6 +295,38 @@ describe('SimpleRemoteExecutor Facade', () => {
       expect((yielded[0] as { toolCalls?: unknown[] }).toolCalls).toHaveLength(1);
     });
 
+    it('REFUSES a non-string content instead of shipping it with the content deleted', async () => {
+      // Review finding on the CORE-046 PR. The first version mapped a non-string `content` to `''`,
+      // so a multimodal message reached the remote server with its content SILENTLY REMOVED — a
+      // fallback this repository forbids, and a disagreement with `executeChat`, which validates.
+      // The two entry points must agree on what a valid request is.
+      mockHttpClient.chatStream = vi.fn().mockResolvedValue({ content: 'ok' });
+
+      const multimodal = {
+        ...streamRequest,
+        messages: [
+          {
+            id: 'msg-mm',
+            role: 'user' as const,
+            content: [{ type: 'image', url: 'https://example.invalid/a.png' }],
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
+        options: { model: 'gpt-4' },
+      };
+
+      const iterate = async (): Promise<void> => {
+        for await (const _message of executor.executeChatStream!(multimodal as never)) {
+          // drain
+        }
+      };
+
+      await expect(iterate()).rejects.toThrow(/must be strings/);
+      // And nothing was sent: refusing after the request is on the wire would be no refusal at all.
+      expect(mockHttpClient.chatStream).not.toHaveBeenCalled();
+    });
+
     it('forwards the whole options object, as the non-streaming path does (CORE-044)', async () => {
       mockHttpClient.chatStream = vi.fn().mockResolvedValue({ content: 'ok' });
 
@@ -307,7 +339,7 @@ describe('SimpleRemoteExecutor Facade', () => {
       }
 
       expect(mockHttpClient.chatStream).toHaveBeenCalledWith(
-        expect.anything(),
+        streamRequest.messages,
         streamRequest.provider,
         streamRequest.model,
         expect.any(Function),

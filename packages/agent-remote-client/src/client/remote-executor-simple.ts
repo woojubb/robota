@@ -167,13 +167,15 @@ export class SimpleRemoteExecutor implements IExecutor {
    * live text is what `onTextDelta` is for, and the turn has consumed it that way since CORE-042.
    */
   async *executeChatStream(request: IStreamExecutionRequest): AsyncIterable<TUniversalMessage> {
-    const messages = request.messages.map((message) => ({
-      role: message.role,
-      content: typeof message.content === 'string' ? message.content : '',
-    }));
+    // The SAME validation `executeChat` runs, for the same reason it runs it. The first version of
+    // this method mapped `content` to `''` when it was not a string — a silent fallback that shipped
+    // a message with its content DELETED to the remote server, and made the two executor entry
+    // points disagree about what a valid request is. A non-string content (multimodal, for one) is a
+    // request this seam cannot carry, and saying so is the only honest answer.
+    validateChatExecutionRequest(request);
 
     const response = await this.httpClient.chatStream(
-      messages,
+      request.messages,
       request.provider,
       request.model,
       (delta) => request.options?.onTextDelta?.(delta),
