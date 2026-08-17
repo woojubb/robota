@@ -121,6 +121,14 @@ instruction **verbatim** in the work item, and state which decisions it covered.
 that is paraphrased cannot be checked against what the user actually said, and a session summary is
 not the user.
 
+Enforced by: nothing — whether an
+utterance is a standing authorization, and whether a given decision already sits inside agent
+authority, are both judgements about intent; a check that guessed either would be wrong in exactly
+the cases that matter. What IS mechanized is the boundary this rule may never cross: a merge into
+`main` is refused by `.claude/hooks/merge-gate.sh` and by the `protect-main` ruleset, and a push is
+refused by `.claude/hooks/pre-push-check.sh` until its review exists — so the most expensive way to
+misread a standing authorization is blocked by a machine regardless of how the prose is read.
+
 **Never write "사용자 결정 필요" without first presenting a concrete recommendation.** Every
 open decision in a backlog item must include the agent's recommendation and the reasoning behind it.
 A decision that falls inside agent authority by the four criteria above may be acted on; one that does

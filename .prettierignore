@@ -19,3 +19,11 @@ dist/
 **/dist/
 coverage/
 .next/
+
+# D2: common-mistakes.md is a 88-row catalogue. Prettier's table alignment padded it to 195 KB, of
+# which 156 KB (80%) was alignment whitespace — and AGENTS.md tells every agent to read this file
+# before non-trivial work, so that padding was paid as context on every read. Squeezed to 37 KB.
+# Safe because scan-mistake-mechanisms parses the `**Mechanism:**` TOKEN and a `| <n> |` row opener
+# with `\s*`, never column geometry: verified by re-running it across the squeeze — 88 entries,
+# 39 mechanisms, 49 accepted, before and after.
+.agents/rules/common-mistakes.md
