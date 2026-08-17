@@ -357,18 +357,19 @@ is how the third one survived a fix to the first two.
 
 ### Schema (CORE-015)
 
-| Export                                                                                                    | Kind     | Description                                                                                                               |
-| --------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `zodToJsonSchema`                                                                                         | function | Zod → universal JSON-schema subset conversion (SSOT; moved from the tools package, which now imports it from core)        |
-| `extractEnumValues`                                                                                       | function | Safe Zod enum value extraction                                                                                            |
-| `hasValidationConstraints`                                                                                | function | Whether a Zod schema carries validation checks                                                                            |
-| `getSchemaTypeName`                                                                                       | function | Safe Zod type-name extraction                                                                                             |
-| `IZodSchema` / `IZodSchemaDef` / `IZodParseResult` / `ISchemaConversionOptions`                           | types    | Structural Zod compatibility types (no hard Zod version coupling in signatures)                                           |
-| `IParameterSchema` / `IObjectParameterSchema`                                                             | types    | The universal JSON-schema subset, and its object-root narrowing — see § Universal JSON-Schema Subset (CORE-039)           |
-| `normalizeStructuredOutput`                                                                               | function | Normalize `IRunOptions.output` (Zod schema or `IJsonSchemaOutput`) into `IStructuredOutputSpec`                           |
-| `validateAgainstJsonSchema`                                                                               | function | Structural validation of a value against the universal JSON-schema subset                                                 |
-| `parseStructuredResponseText`                                                                             | function | Parse a model's final text into JSON (tolerates one fenced json code block; value is still strictly validated afterwards) |
-| `IJsonSchemaOutput` / `IStructuredOutputSpec` / `TStructuredOutputSchema` / `TStructuredOutputValidation` | types    | Structured output contract types                                                                                          |
+| Export                                                                                                    | Kind     | Description                                                                                                                                                                                                                                 |
+| --------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `zodToJsonSchema`                                                                                         | function | Zod → universal JSON-schema subset conversion (SSOT; moved from the tools package, which now imports it from core)                                                                                                                          |
+| `extractEnumValues`                                                                                       | function | Safe Zod enum value extraction                                                                                                                                                                                                              |
+| `hasValidationConstraints`                                                                                | function | Whether a Zod schema carries validation checks                                                                                                                                                                                              |
+| `getSchemaTypeName`                                                                                       | function | Safe Zod type-name extraction                                                                                                                                                                                                               |
+| `IZodSchema` / `IZodSchemaDef` / `IZodParseResult` / `ISchemaConversionOptions`                           | types    | Structural Zod compatibility types (no hard Zod version coupling in signatures)                                                                                                                                                             |
+| `IParameterSchema` / `IObjectParameterSchema`                                                             | types    | The universal JSON-schema subset, and its object-root narrowing — see § Universal JSON-Schema Subset (CORE-039)                                                                                                                             |
+| `normalizeStructuredOutput`                                                                               | function | Normalize `IRunOptions.output` (Zod schema or `IJsonSchemaOutput`) into `IStructuredOutputSpec`                                                                                                                                             |
+| `validateAgainstJsonSchema`                                                                               | function | Structural validation of a value against the universal JSON-schema subset                                                                                                                                                                   |
+| `parseStructuredResponseText`                                                                             | function | Parse a model's final text into JSON (tolerates one fenced json code block; value is still strictly validated afterwards)                                                                                                                   |
+| `IJsonSchemaOutput` / `IStructuredOutputSpec` / `TStructuredOutputSchema` / `TStructuredOutputValidation` | types    | Structured output contract types                                                                                                                                                                                                            |
+| `resolveStructuredOutputCapability`                                                                       | function | CORE-048: which transport can carry a schema to a `(provider, model)` pair, and how sure that answer is. Produces the already-public `TStructuredOutputMechanism` / `TStructuredOutputProvenance`; lets a caller ask BEFORE spending a call |
 
 ### Errors
 
@@ -1096,6 +1097,19 @@ from the final `{ done: true, value }` iterator result).
   core seam observes and no core event reports. Read this event as "what the core turn path put on
   the request", not "everything the request carried". Closing the gap needs the boundary rule
   PROV-009 owns.
+- **`resolveStructuredOutputCapability` is exported (CORE-048).** It produces the two public types
+  above, which were reachable while the function that yields them was not — a caller could name the
+  answer but not obtain it. Exporting it also lets a consumer ask, before spending a call, what will
+  happen to their schema against a given `(provider, model)` pair.
+- **`tool_strict` is still not a mechanism, and now for a measured reason (CORE-048).** A forced call
+  to a synthetic tool whose parameters ARE the schema is a real transport, but only for a pair that
+  BOTH lacks a schema parameter AND has enforceable strict tool arguments. Across this workspace that
+  intersection is empty: `strictTools` exists only in `@robota-sdk/agent-provider-openai`, which
+  already resolves to `response_schema`; the providers that lack a schema parameter (`deepseek` →
+  `json_object`, `qwen` → `none`) have no strict-tool support to carry it. A union member nothing
+  produces is a branch every consumer must handle and no test can reach.
+  `packages/agent-provider-defaults/src/forced-tool-transport-applicability.test.ts` fails if a
+  provider ever qualifies, and records the questions that must be answered first.
 - **Endpoint provenance is a separate answer from the capability table.** `IAIProvider` carries
   `endpointIsVendorDefault?()` alongside `capabilityTable?()` rather than a field inside it, because
   the two are independent facts: `@robota-sdk/agent-provider-openai` declares no table by choice
