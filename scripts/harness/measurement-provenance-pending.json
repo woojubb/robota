@@ -16,6 +16,7 @@
     "scripts/harness/scan-no-fake-in-src.mjs",
     "scripts/harness/scan-node-version-single-valued.mjs",
     "scripts/harness/scan-preset-projection.mjs",
+    "scripts/harness/scan-remote-stream-route-spelling.mjs",
     "scripts/harness/scan-product-identity.mjs",
     "scripts/harness/scan-role-port-optionals.mjs",
     "scripts/harness/scan-routing-document-size.mjs",

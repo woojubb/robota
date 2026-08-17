@@ -64,7 +64,7 @@ export const CHAT_OPTION_WIRE_DISPOSITION: Record<
   },
   onTextDelta: {
     kind: 'local',
-    note: 'a function cannot cross a wire; restoring live deltas needs a streaming route, which this repository does not serve — see CORE-046',
+    note: 'a function cannot cross a wire; live deltas arrive instead as SSE `delta` frames from /api/v1/remote/chat/stream, which `executeChatStream` hands to this callback (CORE-046)',
   },
   onProviderNativeRawPayload: {
     kind: 'local',

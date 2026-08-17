@@ -2,7 +2,7 @@
 
 ## Scope
 
-Owns the client-side remote execution layer for Robota SDK. Provides `RemoteExecutor` (implements `IExecutor`) to proxy AI provider calls to a remote server over HTTP (`POST /chat`, `POST /stream`), plus the low-level `HttpClient` used by the executor. The server it calls is an external provider-gateway (out-of-repo), not part of this monorepo. It is NOT `agent-transport-http`/`agent-transport-ws`: those packages serve a different, session-oriented protocol (`/submit`, `/command`, `/messages`) and are not this client's server counterpart.
+Owns the client-side remote execution layer for Robota SDK. Provides `RemoteExecutor` (implements `IExecutor`) to proxy AI provider calls to a remote server over HTTP (`POST /chat`, and `POST /chat/stream` for SSE streaming — CORE-046), plus the low-level `HttpClient` used by the executor. The server it calls is an external provider-gateway (out-of-repo), not part of this monorepo. It is NOT `agent-transport-http`/`agent-transport-ws`: those packages serve a different, session-oriented protocol (`/submit`, `/command`, `/messages`) and are not this client's server counterpart.
 
 ## Boundaries
 
@@ -20,7 +20,13 @@ Single entry point `./` backed by `src/index.ts`.
 
 `HttpClient` (`src/client/http-client.ts`) provides typed `post`, `get`, `chat`, and `chatStream` methods. It uses the Fetch API and delegates the actual chat/stream HTTP logic to `chat-http-methods.ts`. It accepts an injected `ILogger` via `IHttpClientConfig`.
 
-`chat-http-methods.ts` (`src/client/chat-http-methods.ts`) contains the extracted HTTP chat logic: `executeChatRequest` (non-streaming POST to `/chat`) and `executeChatStreamRequest` (SSE streaming POST to `/stream`). Also exports `validateToolCallArray` (internal guard) and defines `IChatRequestMessage` / `IChatResponsePayload` payload shapes. Extracted from `http-client.ts` to keep files under 300 lines.
+`chat-http-methods.ts` (`src/client/chat-http-methods.ts`) contains the non-streaming HTTP chat logic: `executeChatRequest` (POST to `/chat`). Also exports `validateToolCallArray` (internal guard) and defines `IChatRequestMessage` / `IChatResponsePayload` payload shapes. Extracted from `http-client.ts` to keep files under 300 lines.
+
+`chat-stream-http.ts` (`src/client/chat-stream-http.ts`) owns the streaming request: `executeChatStreamRequest` (SSE POST to `/chat/stream`), the `readSseFrames` parser, and `REMOTE_CHAT_STREAM_SUFFIX` — the path constant, exported from the package entry so the SERVER's test can compare it to its own route table.
+
+**This document was wrong about streaming twice, which is why the path is now asserted rather than described.** It claimed `POST /stream` while `request-handler-simple.ts` named `/chat/stream` and no server served either, so every call was a 404; the client's tests were green because they mocked `fetch`, and a mocked transport agrees with whatever the client says. CORE-044 then removed the capability and this file went on describing it as present. One spelling, compared against the server's, is the mechanical answer to both.
+
+**The client does NOT assemble chunks (CORE-046).** The server calls `provider.chat(messages, { onTextDelta })` — already every provider's contract — so the wire carries text deltas plus ONE terminal assembled message. `executeChatStreamRequest` hands each delta to the caller's `onTextDelta` and returns the terminal message; `RemoteExecutor.executeChatStream` yields that single message, because `IExecutor.executeChatStream` yields `TUniversalMessage` and a partial message is not one. Re-implementing an accumulator here would put a second assembler in the world, against a fragmentation behaviour no in-repo test can observe — the failure class CORE-042 existed to end. A stream that ends without a terminal message throws: a truncated turn is a failed one, not a short answer.
 
 `request-handler-simple.ts` (`src/client/request-handler-simple.ts`) provides pure helper functions for request/response transformation: `createChatTransportRequest`, `createStreamTransportRequest`, `transformToAssistantMessage`, `validateChatRequest`, `validateStreamRequest`. These are not exported from the package entry point.
 

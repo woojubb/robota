@@ -46,6 +46,7 @@
     "progress-report-quantification",
     "publish-registry",
     "release-sweep-coverage",
+    "remote-stream-route-spelling",
     "required-check-local-reachability",
     "required-check-needs",
     "resolving-claims",
