@@ -9,17 +9,5 @@
     "sessionFactory",
     "sessionStore",
     "toolDescriptions"
-  ],
-  "IInteractiveSessionStandardOptions": [
-    "automaticMemory",
-    "commandHostAdapters",
-    "orgPolicy",
-    "providerDefinitions",
-    "recallMemory",
-    "remoteCommandPolicy",
-    "sessionName",
-    "sessionStore",
-    "shellExec",
-    "terminalHandoff"
   ]
 }

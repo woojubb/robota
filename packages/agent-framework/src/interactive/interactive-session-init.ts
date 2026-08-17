@@ -271,6 +271,7 @@ export async function initializeInteractiveSessionAsync(
     ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),
     ...(options.defaultTools ? { defaultTools: options.defaultTools } : {}), // ARCH-006
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
+    // ARCH-013 S3: both extension ports; dropping either here is the defect this stage fixed.
     ...(options.guardrails ? { guardrails: options.guardrails } : {}),
     ...(options.retrievalAdapter ? { retrievalAdapter: options.retrievalAdapter } : {}),
     commandDescriptors: deps.commandDescriptors,

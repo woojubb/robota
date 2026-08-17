@@ -556,9 +556,11 @@ one hop later. That is this item's own defect, restated one hop above where I wa
 the change meant to fix it. Nothing excuses it; the lesson is that "the surfaces spread it" was a
 guess about a mechanism I had the means to check in one command.
 
-Conditional spreads rather than `key: undefined`, because `create-session.ts` branches on
-`options.guardrails && Object.keys(...).length > 0` and an explicitly-undefined key is how a spread
-reintroduces an absent member — ARCH-029's lesson, one package over.
+Conditional spreads for consistency with the ~15 optional keys around them, **not** because the
+ARCH-029 spread hazard applies. Review measured that it cannot fire at that site:
+`exactOptionalPropertyTypes` is set nowhere, the consumer branches on truthiness, and the object goes
+straight into `createSession` rather than over a base. An earlier revision of this paragraph cited
+that hazard as the reason — the right shape justified by a mechanism that does not reach it.
 
 ### The chain is proven to COMPLETE, not just to type-check
 
@@ -590,3 +592,56 @@ the same change (_"or the gain is a licence to drop them again"_), which is the 
 exactly as its author intended.
 
 Verified: 122 of 123 scans pass (1 skipped). agent-framework 1380 tests.
+
+### Review rounds 1 and 2 — three of my own claims were wrong, and one would have done harm
+
+**Round 1's first finding is the one to record.** After the first two commits, NEITHER capability was
+reachable from any surface. The fields were added to the published option type and projected into
+`ICreateSessionOptions`, and the ~40-field hand-map in `initializeInteractiveSessionAsync` between
+them was left untouched — so a consumer could set them and get silence. This item's own defect, one
+hop above where it was being fixed, inside the change meant to fix it.
+
+Two supporting claims of mine were false and are corrected where they were made:
+
+- _"The three surfaces spread those options, so all of them gain it at once."_ Inferred from
+  `additionalTools` without measuring. `additionalTools` is spread nowhere — it is re-declared and
+  explicitly forwarded at **eight** sites.
+- The `createSession`-level tests, written to prove the chain completes, were **accidentally green**:
+  all six passed on the pre-fix merge-base because they enter below the hop the change touched. They
+  cover assembler behaviour that genuinely had no test, so they stay — relabelled to say what they
+  guard — and the cases that guard the fix drive `initializeInteractiveSessionAsync`.
+
+**Round 2 found the worst of the three, and it was a fix I had added in response to round 1.** To stop
+the ratchet missing that hop again, I added `IInteractiveSessionStandardOptions` to
+`optionReachability` and reported that it "immediately found TEN more options declared and set by
+nothing", filing them as an issue. That was false for **eight of the ten**. The entry named the
+published type but gave `createInteractiveSession` as its constructor — and that function takes
+`IInitOptions`, so the scan read the hand-map's literal and reported what the hand-map forwards, not
+what a consumer can set. Eight of the ten are set by production code through `buildRuntimeSession` and
+the surface option builders, which the entry never looked at.
+
+The harm was not the wrong count. **Anyone burning that list down would have been pushed to forward
+class-consumed options into the very hand-map this stage had just fixed a drop in — the ratchet would
+have manufactured the defect shape it was added to prevent.** The entry is renamed to `IInitOptions`,
+which is literally what it measures; its baseline is **zero**, not ten; it still catches the real
+defect (removing the two forwarding lines makes it fire); and the issue is closed with the
+measurement corrected.
+
+**The pattern across all three: a mechanical claim asserted from a scan's or a precedent's output
+without checking what that mechanism could see.** Three times in one item, twice after being warned.
+The cheap defence is the one that worked every time it was applied — run the mutation, read what the
+tool actually prints.
+
+### What the seam-level test does and does not prove
+
+`buildRuntimeSession` is the single construction seam the SPEC names for the TUI, print and `--serve`.
+Driving it to a constructed session needs a Session double far past this fixture's scope, so that case
+asserts the type instead: the literal is annotated rather than cast, so it fails to compile if either
+port is missing from the published construction type, and it is assignable with no cast to exactly
+what the seam takes. Removing either field from the published interface produces five typecheck
+errors, so the assertion is load-bearing.
+
+The hop it does not execute is `interactive-session.ts:341-342`, a straight pass-through into
+`initializeInteractiveSessionAsync` — the group above drives that directly and red-proves it. Two
+readers checked that pass-through by hand. It is the one link here carried by review rather than by
+execution, and it is named rather than glossed.

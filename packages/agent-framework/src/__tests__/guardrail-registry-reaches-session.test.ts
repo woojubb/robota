@@ -21,6 +21,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
 import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
+import type {
+  IInteractiveSessionStandardOptions,
+  TInteractiveSessionOptions,
+} from '../interactive/interactive-session-options.js';
 
 const sessionCtorCalls: Array<Record<string, unknown>> = [];
 
@@ -322,6 +326,45 @@ describe('ARCH-013 stage 3 — the PUBLIC surface carries both ports (this is wh
     );
 
     expect(guardrailHooksOf(sessionCtorCalls[0]!)).toHaveLength(0);
-    expect(toolNamesOf(sessionCtorCalls[0]!)).not.toContain('CodebaseRetrieval');
+    const names = toolNamesOf(sessionCtorCalls[0]!);
+    // Populated-list guard, like its siblings: a `not.toContain` over an empty list passes for the
+    // wrong reason, and this file argues that everywhere else.
+    expect(names.length).toBeGreaterThan(3);
+    expect(names).not.toContain('CodebaseRetrieval');
+  });
+});
+
+describe('ARCH-013 stage 3 — buildRuntimeSession, the seam every presentation actually calls', () => {
+  it('accepts both ports on the option type it publishes', () => {
+    // What this proves and what it does not, stated because the distinction is the whole point.
+    //
+    // PROVES: `TInteractiveSessionOptions` — the type `buildRuntimeSession` publishes, and the one
+    // the TUI, print and --serve all construct through — accepts both ports. Written with NO cast, so
+    // it fails to COMPILE if either field is missing from that type. An earlier revision passed
+    // `as never` here, which would have made it pass whether or not the type carried them: a cast in
+    // a type-level assertion asserts nothing.
+    //
+    // DOES NOT PROVE: that the value arrives. `new InteractiveSession(...)` initialises
+    // asynchronously with no public await point, and driving it to completion needs a Session double
+    // far beyond this file's fixture. The hop from there is `interactive-session.ts:341-342`, a
+    // straight pass-through into `initializeInteractiveSessionAsync` — which the group above drives
+    // directly and red-proves. Two readers checked that pass-through by hand; it is the one link here
+    // carried by review rather than by execution, and it is named rather than glossed.
+    // The literal is annotated, not cast, so excess-property checking rejects it if either field is
+    // absent from the published construction type.
+    const options: IInteractiveSessionStandardOptions = {
+      cwd: '/arch-013-stage-3-seam',
+      provider: createMockProvider(),
+      bare: true,
+      config: baseConfig(),
+      guardrails: { neverPasses: NEVER_PASSES },
+      retrievalAdapter: { retrieve: async () => ({ symbols: [], totalTokens: 0 }) },
+    };
+    // …and assignable, with no cast, to exactly what `buildRuntimeSession` takes.
+    const seamOptions: TInteractiveSessionOptions = options;
+
+    expect(options.guardrails).toBeDefined();
+    expect(options.retrievalAdapter).toBeDefined();
+    expect(seamOptions).toBe(options);
   });
 });
