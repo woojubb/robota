@@ -30,8 +30,13 @@
  *     re-export it would demand exactly the pass-through re-exports STRUCT-07 bans. Only types
  *     DECLARED inside the package are required to be on its barrel.
  *
- * Built-ins and utility types (`string`, `Promise`, `Record`, …) are skipped for the same reason: they
- * are nameable everywhere.
+ * Built-ins and utility types (`string`, `Promise`, `Record`, …) fall out of that same gate rather
+ * than needing a list of their own: they are not declared in the package, so `declaredInPackage`
+ * already excludes them. An earlier revision kept a 34-name `AMBIENT_TYPES` set beside this
+ * sentence; round-2 review found the set was consulted nowhere, and restoring the guard would have
+ * been WORSE than deleting it — a package that declares its own `Date` or `Buffer` and exports a
+ * function taking it owes that type on its barrel exactly like any other, and the guard would have
+ * skipped it by name. The behaviour was right; only this sentence was wrong.
  */
 
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
@@ -50,44 +55,6 @@ let examinedBarrels = 0;
 export function examinedBarrelCount() {
   return examinedBarrels;
 }
-
-/** Type names every consumer can already name, so a barrel is not required to export them. */
-const AMBIENT_TYPES = new Set([
-  'string',
-  'number',
-  'boolean',
-  'void',
-  'unknown',
-  'never',
-  'any',
-  'object',
-  'symbol',
-  'bigint',
-  'null',
-  'undefined',
-  'Promise',
-  'Array',
-  'ReadonlyArray',
-  'Readonly',
-  'Record',
-  'Partial',
-  'Required',
-  'Pick',
-  'Omit',
-  'Map',
-  'Set',
-  'ReadonlyMap',
-  'ReadonlySet',
-  'Date',
-  'Error',
-  'RegExp',
-  'AbortSignal',
-  'Iterable',
-  'AsyncIterable',
-  'IteratorResult',
-  'Buffer',
-  'URL',
-]);
 
 /** The tail identifier of a possibly-qualified type name. */
 function tailName(node) {
@@ -131,6 +98,8 @@ export function readBarrel(content, fileName) {
   const exportedNames = new Set();
   const reexports = [];
   const starExports = [];
+  /** local name → where it was imported from, for deferred `export { … };` with no module. */
+  const importedFrom = new Map();
 
   const isExported = (node) =>
     (node.modifiers ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
@@ -141,8 +110,13 @@ export function readBarrel(content, fileName) {
     if (ts.isFunctionDeclaration(node) && isExported(node)) {
       // An overload set declares the same name several times; every signature is part of the
       // published contract, so each is read rather than only the first.
-      const name = node.name?.text ?? (isDefault(node) ? 'default' : undefined);
-      if (name) {
+      // A default export is reachable under BOTH names: `export default function f` is imported
+      // as `default` by `export { default as g } from …` and as `f` by anything in-module. Test
+      // found the single-name registration missing the re-export form entirely.
+      const names = new Set();
+      if (node.name?.text) names.add(node.name.text);
+      if (isDefault(node)) names.add('default');
+      for (const name of names) {
         exportedNames.add(name);
         functions.push({ name, node });
       }
@@ -168,6 +142,18 @@ export function readBarrel(content, fileName) {
     if (ts.isClassDeclaration(node) && isExported(node) && node.name?.text) {
       exportedNames.add(node.name.text);
     }
+    // `import { f } from './impl.js'` — recorded so a DEFERRED `export { f };` below still knows
+    // where `f` comes from. Round-2 review found this idiom evades the floor entirely: the name
+    // lands in `exportedNames` but no edge is followed, so the function's parameters are never read.
+    if (ts.isImportDeclaration(node)) {
+      const module = node.moduleSpecifier?.text;
+      for (const element of node.importClause?.namedBindings?.elements ?? []) {
+        const local = element.name?.text;
+        if (local && module) {
+          importedFrom.set(local, { original: element.propertyName?.text ?? local, module });
+        }
+      }
+    }
     if (ts.isExportDeclaration(node)) {
       const module = node.moduleSpecifier?.text;
       const elements = node.exportClause?.elements;
@@ -181,9 +167,18 @@ export function readBarrel(content, fileName) {
         if (!local) continue;
         exportedNames.add(local);
         // An ALIASED re-export publishes the local name; the original is what the target declares.
-        if (module) reexports.push({ local, original, module });
+        if (module) {
+          reexports.push({ local, original, module });
+        } else {
+          const source = importedFrom.get(original);
+          if (source) reexports.push({ local, original: source.original, module: source.module });
+        }
       }
     }
+    // A `namespace`/`declare module` body is NOT the file's export surface — `export function`
+    // inside one publishes into the namespace, not out of the module. Round-2 review demonstrated
+    // both shapes producing a finding; descending into them treats a nested name as a barrel export.
+    if (ts.isModuleDeclaration(node)) return;
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
@@ -195,7 +190,9 @@ export function readBarrel(content, fileName) {
 function resolveModule(fromFile, specifier, root) {
   if (!specifier?.startsWith('.')) return undefined;
   const base = join(dirname(fromFile), specifier).replace(/\.(js|mjs|cjs)$/, '');
-  for (const candidate of [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`]) {
+  // `index.tsx` is in the list because 10+ exist in this workspace; omitting it makes the walk
+  // stop at a directory edge it should have followed, which under-reports rather than over-reports.
+  for (const candidate of [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`]) {
     if (existsSync(resolve(root, candidate))) return candidate;
   }
   return undefined;
@@ -205,10 +202,13 @@ function resolveModule(fromFile, specifier, root) {
  * Everything a barrel publishes, resolved to a FIXPOINT rather than to a fixed number of hops.
  *
  * Review demonstrated the cost of a hop limit on a configured barrel: `agent-executor`'s
- * `index.ts` → `background-tasks/index.ts` → `runners/index.ts` → the runner modules is THREE hops,
- * and a two-hop walk read 10 of its 13 in-scope functions while the header claimed it read every one.
- * Deleting three parameter types from that barrel left the floor GREEN. A `visited` set makes the
- * depth a property of the tree rather than of this function.
+ * `index.ts` → `background-tasks/index.ts` → `runners/index.ts` → the runner modules is THREE hops.
+ * Measured on that barrel, the two-hop walk collected 11 functions (8 with a named parameter type)
+ * where this fixpoint collects 14 (11 with one) — it was blind to `createManagedShellProcessRunner`,
+ * `createScheduledTaskRunner` and `resolveBackgroundTaskShellCommand`, so deleting their parameter
+ * types from the barrel left the floor GREEN. (An earlier revision of this paragraph said "10 of its
+ * 13"; both numbers were asserted rather than counted, and both are wrong. They are counted now.)
+ * A `visited` set makes the depth a property of the tree rather than of this function.
  */
 export function resolvePublished(barrel, root, readFile) {
   const exportedNames = new Set();
@@ -289,7 +289,10 @@ export function findBarrelParameterTypeFindings(root = process.cwd(), settingsOv
     };
   }
 
-  requireGovernedTree(root, barrels, { scan: 'barrel-parameter-types' });
+  requireGovernedTree(root, barrels, {
+    scan: 'barrel-parameter-types',
+    why: 'each configured barrel is a package entry point this floor reads to decide whether a published function names a type the barrel withholds; a barrel missing from the tree means that package went unchecked, not that it is clean',
+  });
 
   examinedBarrels = 0;
   const findings = [];
@@ -369,12 +372,20 @@ function declaredInPackage(root, barrel, typeName) {
           if (entry !== '__tests__' && entry !== 'node_modules') stack.push(full);
           continue;
         }
-        if (!entry.endsWith('.ts') || entry.endsWith('.test.ts') || entry.endsWith('.ptytest.ts')) {
-          continue;
-        }
+        // `.tsx` counts: round-2 review measured 46 exported types living in `.tsx` files, each of
+        // which a `.ts`-only walk would call "not this package's" and silently skip.
+        const isSource = entry.endsWith('.ts') || entry.endsWith('.tsx');
+        const isTest =
+          entry.endsWith('.test.ts') ||
+          entry.endsWith('.test.tsx') ||
+          entry.endsWith('.ptytest.ts') ||
+          entry.endsWith('.ptytest.tsx');
+        if (!isSource || isTest) continue;
         const content = readFileSync(full, 'utf8');
+        // `abstract` and `const` sit between `export` and the keyword; review found 10+ live
+        // `export abstract class` declarations that the narrower pattern read as undeclared.
         for (const m of content.matchAll(
-          /export (?:declare )?(?:interface|type|class|enum) (\w+)/g,
+          /export (?:declare )?(?:abstract |const )?(?:interface|type|class|enum) (\w+)/g,
         )) {
           declared.add(m[1]);
         }

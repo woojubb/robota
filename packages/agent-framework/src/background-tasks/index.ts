@@ -26,7 +26,7 @@ export {
 // assumed. An earlier revision named two packages; a line-based search had missed the two whose
 // import spans several lines.
 //
-// A LIMIT of the entry, stated because the criterion is per-symbol and the exemption is per-file:
+// Contained — ARCH-039. Stated because the criterion is per-symbol and the exemption is per-file:
 // measured across the workspace, exactly ONE of these ten names — `IBackgroundTaskRunner` — has an
 // external importer (6 files in 4 packages). The other NINE ride along on it. `agent-cli` also
 // imports the runner straight from `agent-executor` (`modes/print-mode.ts`), so for that consumer

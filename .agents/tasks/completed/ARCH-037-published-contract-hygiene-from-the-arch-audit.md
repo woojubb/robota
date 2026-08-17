@@ -141,9 +141,14 @@ second branch instead** — recorded here because the refutations are the useful
 depends on.
 
 **`TActionResponse` stays**, and the Direction ("consumers import from `@robota-sdk/agent-core`") does
-not hold for it. Measured: its one consumer is `agent-transport-gui`, whose documented dependency set
-is "interface-transport + transport-protocol only", and `agent-core` has NO internal dependencies —
-it is the bottom layer, so the type cannot move down either. The re-export is the only path by which a
+not hold for it. Measured — properly this time — its consumers are FOUR files across TWO packages:
+`agent-transport-gui` (`PermissionPrompt.tsx`, `hooks/prompt-state.ts`, `hooks/useSessionClient.ts`)
+and `agent-transport-protocol` (`ws-protocol.ts`). Neither package's documented dependency set admits
+`agent-core`, and `agent-core` has NO internal dependencies — it is the bottom layer, so the type
+cannot move down either. (This paragraph said "its one consumer is `agent-transport-gui`" until
+round-2 review caught it: the count came from a line-based search that cannot see a name inside a
+multi-line import block. Left uncorrected it invited exactly the wrong repair — delete the re-export
+once `agent-transport-gui` is fixed, and break `agent-transport-protocol`.) The re-export is the only path by which a
 permitted consumer can name it. It is now a named exception carrying that reasoning, not an unmarked
 pass-through.
 

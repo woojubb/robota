@@ -230,6 +230,7 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `BUILT_IN_AGENTS`                           | const    | Array of built-in agent definitions (`general-purpose`, `Explore`, `Plan`)                                                                                                                                                                                                           |
 | `getBuiltInAgent`                           | function | Look up a built-in agent by name                                                                                                                                                                                                                                                     |
 | `createDefaultTools`                        | function | Assemble default built-in tools (exported for CLI fork composition)                                                                                                                                                                                                                  |
+| `ICreateDefaultToolsOptions`                | type     | Parameter type of `createDefaultTools`. ARCH-037: the function was published without it, so a caller could invoke it but not name what to pass.                                                                                                                                      |
 | `createSubagentSession`                     | function | Assemble an isolated child session for subagent execution                                                                                                                                                                                                                            |
 | `createSubagentLogger`                      | function | Create an append-only subagent transcript logger                                                                                                                                                                                                                                     |
 | `assembleSubagentPrompt`                    | function | Assemble the full system prompt for a subagent session                                                                                                                                                                                                                               |
@@ -1901,9 +1902,11 @@ Allowed public classes:
   memory, checkpoints, reversible execution, plugin management, and task context helpers.
 - SDK facades: project session store helpers, subagent assembly helpers, agent/background process
   tools, and command host/common APIs that narrow lower-level behavior through SDK contracts.
-- Explicit runtime facades: type-only background-task and subagent lifecycle contracts re-exported
-  through `src/background-tasks/index.ts` and `src/subagents/index.ts`; concrete executor classes remain
-  owner-direct values.
+- Unreachable-elsewhere re-exports: background-task lifecycle contracts re-exported through
+  `src/background-tasks/index.ts` — the ONLY file permitted to carry them. ARCH-031 removed
+  `src/subagents/index.ts` from that set and ARCH-037 retired the "runtime facade" criterion that
+  named it, so adding an `agent-executor` re-export there is rejected by
+  `check-sdk-public-surface.mjs`. Concrete executor classes remain owner-direct values.
 
 Owner-direct APIs:
 
@@ -2231,7 +2234,7 @@ During `createSession()`, hooks from the merged settings configuration are wired
 ## Background Task Execution
 
 `BackgroundTaskManager` is owned and exported as a value only by `agent-executor`; the framework's
-explicit runtime facade re-exports its contract types, not the class. It is the generic lifecycle layer
+background-tasks barrel re-exports its contract types, not the class. It is the generic lifecycle layer
 for foreground/background agent and process jobs. It is provider-neutral and depends only on injected
 runner ports.
 
@@ -2246,9 +2249,11 @@ Responsibilities:
 
 The manager does not create providers, sessions, child processes, worktrees, or TUI state directly. Those concerns belong to runner adapters and outer composition layers. SDK code composes the manager with SDK-owned tools and `InteractiveSession`; it does not own the lifecycle state machine.
 
-SDK runtime facade barrels also re-export runtime-owned helper primitives for bounded output
-capture and cursor-based log pagination so runtime shells can implement process adapters through
-the documented SDK facade instead of importing `agent-executor` directly.
+That same barrel also re-exports runtime-owned helper primitives for bounded output capture and
+cursor-based log pagination, so runtime shells can implement process adapters without importing
+`agent-executor` directly. Note the LIMIT recorded in `docs/PUBLIC-SURFACE.md`: the permission is
+granted per FILE while the criterion is per SYMBOL, and measurement puts an external importer on
+exactly one of that block's ten names. ARCH-039 owns the narrowing.
 
 ### Agent Wake Dedup & Eviction (FLOW-002 / CORE-024)
 

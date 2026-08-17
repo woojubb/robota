@@ -32,15 +32,21 @@ const SDK_SRC_DIR = 'packages/agent-framework/src';
  * block of ten type-only names. By that criterion it did not belong, exactly as ARCH-031 argued when
  * it deleted the sibling entry.
  *
- * But deleting the block turned `pnpm typecheck` RED in two packages, and that is the real reason:
+ * But deleting the block turned `pnpm typecheck` RED, and that is the real reason. Measured, not
+ * counted by eye: `IBackgroundTaskRunner` is imported from this barrel by SIX files across FOUR
+ * packages — `agent-cli`, `agent-product`, `agent-transport` and `agent-transport-tui`. Of those,
+ * `agent-product`'s permitted dependency set is "agent-framework + agent-preset +
+ * agent-capability-pack + type-only agent-interface-transport + agent-core types"
+ * (`.agents/project-structure.md`), and neither `agent-transport-tui` nor `agent-transport` declares
+ * `agent-executor` either, so for all three this barrel is the ONLY permitted path to the type.
+ * (`agent-cli` does depend on `agent-executor` and imports the runner from it directly elsewhere, so
+ * for that consumer alone the entry blesses a path it does not need.)
  *
- *   - `agent-product`'s permitted dependency set is "agent-framework + agent-preset +
- *     agent-capability-pack + type-only agent-interface-transport + agent-core types"
- *     (`.agents/project-structure.md`) — `agent-executor` is not in it;
- *   - `agent-transport-tui` likewise does not depend on `agent-executor`.
+ * An earlier revision of this paragraph said "RED in two packages" and named only the first two —
+ * a line-based search cannot see a name inside a multi-line import block, and the undercount sat
+ * eight lines above a corrected count saying four, i.e. the file contradicted itself.
  *
- * Both name `IBackgroundTaskRunner`, so `agent-framework`'s barrel is their ONLY permitted path to
- * it. The entry is load-bearing; it was simply never load-bearing for the reason written beside it.
+ * The entry is load-bearing; it was simply never load-bearing for the reason written beside it.
  *
  * So the criterion is now DEPENDENCY REACH, not runtime-ness: an entry belongs here when a permitted
  * consumer cannot reach the symbol any other way, and the entry must name that consumer. An entry
@@ -50,7 +56,8 @@ const SDK_SRC_DIR = 'packages/agent-framework/src';
 const SDK_UNREACHABLE_ELSEWHERE_FILES = new Set([
   // `IBackgroundTaskRunner` is reached through this barrel by `agent-product`, `agent-transport-tui`,
   // `agent-transport` and `agent-cli` — none of the first three may depend on `agent-executor`.
-  // Verified by deletion: removing the block reddens their typecheck. LIMIT: the criterion is
+  // Verified by deletion: removing the block reddens their typecheck.
+  // Contained — ARCH-039. The criterion is
   // per-symbol but this entry is per-file, and measurement puts external importers on exactly ONE
   // of the block's ten names, so the other nine ride along. Narrowing it belongs with ARCH-039.
   'packages/agent-framework/src/background-tasks/index.ts',
@@ -239,7 +246,7 @@ async function collectReachableFindings(root, file, visited, findings) {
   const content = await fs.readFile(absoluteFile, 'utf8');
   findings.push(...findExportStarFindings(file, content));
   findings.push(...findOwnerPassThroughFindings(file, content));
-  findings.push(...findUnexpectedRuntimeFacadeFindings(file, content));
+  findings.push(...findUnexpectedExecutorReexportFindings(file, content));
 
   const reachableSources = new Set([
     ...extractReExportDeclarations(content).map((declaration) => declaration.source),
@@ -260,7 +267,7 @@ async function collectReachableFindings(root, file, visited, findings) {
   }
 }
 
-function findUnexpectedRuntimeFacadeFindings(file, content) {
+function findUnexpectedExecutorReexportFindings(file, content) {
   if (SDK_UNREACHABLE_ELSEWHERE_FILES.has(file)) return [];
   return extractPassThroughSources(content)
     .filter((source) => source === EXECUTOR_PACKAGE || source.startsWith(`${EXECUTOR_PACKAGE}/`))

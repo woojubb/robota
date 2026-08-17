@@ -42,6 +42,57 @@ Expect the ratchet pattern this repository already uses: freeze what exists per 
 work to comply, and shrink the frozen set deliberately. A widening that fails the whole tree on day
 one gets switched off.
 
+## Measured — TC-02, 2026-08-18
+
+Run before designing the widening, because "several packages at once" is a guess and a per-package
+count is an input. Measured over every **publishable** package (31 of them; `private: true` excluded)
+by walking each package's own `exports` source roots and following local re-export edges — the same
+graph the real scan builds for `agent-framework`.
+
+Two shapes were counted: `export *` in the public graph (which the scan forbids outright, on the
+grounds that a star export makes owner boundaries unauditable) and re-exports of another
+`@robota-sdk/*` package from the public graph (the pass-through shape).
+
+| Package                            | Public files | `export *` | Cross-pkg re-exports | Re-export sources                         |
+| ---------------------------------- | ------------ | ---------- | -------------------- | ----------------------------------------- |
+| `agent-command`                    | 88           | 27         | 1                    | agent-framework                           |
+| `agent-provider-openai-compatible` | 28           | 21         | 0                    |                                           |
+| `agent-core`                       | 114          | 20         | 0                    |                                           |
+| `agent-framework` (governed)       | 161          | **0**      | 11                   | agent-executor, agent-interface-transport |
+| `agent-plugin`                     | 44           | 8          | 0                    |                                           |
+| `agent-provider-gemini`            | 10           | 8          | 0                    |                                           |
+| `agent-provider-anthropic`         | 5            | 4          | 0                    |                                           |
+| `agent-provider-openai`            | 12           | 4          | 0                    |                                           |
+| `agent-provider-bytedance`         | 4            | 3          | 0                    |                                           |
+| `agent-transport`                  | 13           | 2          | 2                    | agent-core/testing                        |
+| `agent-interface-transport`        | 25           | 1          | 1                    | agent-core                                |
+| `agent-executor`                   | 17           | 0          | 1                    | agent-interface-transport                 |
+| `agent-session`                    | 17           | 0          | 1                    | agent-interface-transport                 |
+| `agent-session-analytics`          | 5            | 0          | 1                    | agent-interface-transport                 |
+| `agent-transport-tui`              | 7            | 0          | 1                    | agent-interface-tui                       |
+
+**15 of 31 publishable packages** carry at least one governed shape: **98 `export *`** and **19
+cross-package re-exports**.
+
+Spot-checked rather than trusted: `agent-framework` has zero `export *` anywhere under `src/`, and
+`agent-command` has exactly 27 — both match the walk. (`agent-core` shows 22 in `src/` against 20 in
+the public graph, i.e. two sit outside the published surface, which is the walk doing its job.)
+
+### What the numbers decide
+
+1. **The governed package is the only one with zero `export *`.** That is the floor working where it
+   is applied and absent everywhere else — it is the evidence for this item, not an argument about it.
+2. **A day-one widening fails ~15 packages at once**, so the ratchet the record predicted is required,
+   not optional. Freeze per package at today's value; new work complies; shrink deliberately.
+3. **`agent-command` is the largest single item** (27 star exports, an `index.ts` that is nothing but
+   `export *` lines). It is likely its own burn-down item rather than part of the widening.
+4. The 19 cross-package re-exports are the shape needing per-package judgement — #1764's refutation
+   showed `agent-interface-transport`'s `agent-core` re-exports are the layering's required hub, and
+   four packages re-export `agent-interface-transport` in what looks like the same hub role. The scan
+   must be able to express "this one is the hub", which is the design question TC-01 names.
+
+Measurement script: not committed — it is a one-shot count, and the widened scan replaces it.
+
 ## Test Plan
 
 | TC-ID | Test Type   | Tool / Approach                                                           | Notes                                                                      |

@@ -75,7 +75,7 @@ export { readTool } from '@robota-sdk/agent-tools/builtins';
     ]);
   });
 
-  it('allows runtime re-exports only from SDK runtime facade barrels', async () => {
+  it('allows agent-executor re-exports only from the unreachable-elsewhere files', async () => {
     const root = await createFixture({
       'packages/agent-framework/src/background-tasks/index.ts':
         "export { BackgroundTaskManager } from '@robota-sdk/agent-executor';\n",
