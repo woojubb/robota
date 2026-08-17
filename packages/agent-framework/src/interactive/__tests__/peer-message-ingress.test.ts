@@ -25,13 +25,20 @@ function ingress(
 }
 
 /** A host that records what reached the runtime, and whose busy state the test drives. */
-function host(): IPeerIngressHost & { delivered: IPeerMessageIngress[]; busy: boolean } {
+function host(): IPeerIngressHost & {
+  delivered: IPeerMessageIngress[];
+  busy: boolean;
+  /** Model a real session: taking a message occupies it until the turn ends. */
+  startsTurnOnDeliver: boolean;
+} {
   const state = {
     delivered: [] as IPeerMessageIngress[],
     busy: false,
+    startsTurnOnDeliver: false,
     isBusy: () => state.busy,
     deliver: (i: IPeerMessageIngress) => {
       state.delivered.push(i);
+      if (state.startsTurnOnDeliver) state.busy = true;
     },
   };
   return state;
@@ -117,6 +124,49 @@ describe('PEER-002 — a busy session queues rather than dropping or interleavin
 
     expect(sut.drain()).toEqual([]);
     expect(sut.pending).toBe(1);
+  });
+
+  it('stops draining the moment a delivered message starts a turn', () => {
+    // The failure this guards: delivering a message MAY start a turn — that is why it is delivered
+    // — so a drain that read `isBusy()` once would hand the whole queue to a session that went busy
+    // on the very first one. That is the concurrent delivery this class exists to prevent, and a
+    // host whose `deliver` does not go busy cannot see it.
+    const h = host();
+    h.busy = true;
+    const sut = new PeerMessageIngress(h);
+    sut.receive(ingress({ id: 'm1', sequence: 1 }));
+    sut.receive(ingress({ id: 'm2', sequence: 2 }));
+    sut.receive(ingress({ id: 'm3', sequence: 3 }));
+
+    h.busy = false;
+    h.startsTurnOnDeliver = true; // a realistic session: the first message occupies it
+    const drained = sut.drain();
+
+    expect(drained.map((d) => d.message.id)).toEqual(['m1']);
+    expect(h.delivered.map((d) => d.message.id)).toEqual(['m1']);
+    expect(sut.pending).toBe(2);
+
+    // ...and the rest are still there, in order, for the next drain.
+    h.busy = false;
+    h.startsTurnOnDeliver = false;
+    expect(sut.drain().map((d) => d.message.id)).toEqual(['m2', 'm3']);
+  });
+
+  it('a message arriving while others wait does not overtake them', () => {
+    // An idle session is not enough to deliver immediately: earlier messages are still queued, and
+    // jumping ahead of them would reach the agent out of arrival order — the only order a peer
+    // conversation has.
+    const h = host();
+    h.busy = true;
+    const sut = new PeerMessageIngress(h);
+    sut.receive(ingress({ id: 'm1', sequence: 1 }));
+
+    h.busy = false;
+    const late = sut.receive(ingress({ id: 'm2', sequence: 2 }));
+
+    expect(late.outcome).toBe('queued');
+    expect(h.delivered).toHaveLength(0);
+    expect(sut.drain().map((d) => d.message.id)).toEqual(['m1', 'm2']);
   });
 
   it('refuses past the bound rather than growing without limit', () => {

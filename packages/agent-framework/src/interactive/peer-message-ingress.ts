@@ -132,7 +132,10 @@ export class PeerMessageIngress {
       };
     }
 
-    if (!this.host.isBusy()) {
+    // The queue has to be empty too, not just the session idle: a message that arrives while
+    // earlier ones are still waiting would otherwise overtake them and reach the agent out of
+    // order. Arrival order is the only order a peer conversation has.
+    if (!this.host.isBusy() && this.queue.length === 0) {
       this.host.deliver(ingress);
       return { outcome: 'delivered', ack: { ...base, state: 'delivered' } };
     }
@@ -168,13 +171,21 @@ export class PeerMessageIngress {
    * Called when the session's turn finishes. Returns what it delivered so a caller can ack them —
    * this module does not send, because a module that both decided and transmitted would be two
    * responsibilities and one of them would be untestable without a transport.
+   *
+   * Busy is re-read BEFORE EVERY hand-over, not once at the top. Delivering a message may start a
+   * turn — that is the point of delivering it — so a loop that checked once would hand the whole
+   * queue to a session that went busy on the first one, which is exactly the concurrent delivery
+   * this class exists to prevent. Whatever is still waiting stays queued for the next drain.
    */
   drain(): readonly IPeerMessageIngress[] {
-    if (this.host.isBusy()) return [];
-    const waiting = [...this.queue];
-    this.queue.length = 0;
-    for (const ingress of waiting) this.host.deliver(ingress);
-    return waiting;
+    const handed: IPeerMessageIngress[] = [];
+    while (!this.host.isBusy()) {
+      const next = this.queue.shift();
+      if (next === undefined) break;
+      this.host.deliver(next);
+      handed.push(next);
+    }
+    return handed;
   }
 
   /**
