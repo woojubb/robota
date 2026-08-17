@@ -89,7 +89,7 @@ describe('RelayMcpTool', () => {
 
     const detail = tool.validateParameters({});
     expect(detail.isValid).toBe(false);
-    expect(detail.errors).toContain('Missing required parameter: text');
+    expect(detail.errors).toContain('.text: required property missing');
   });
 
   it('getDescription() returns the schema description', () => {
