@@ -22,15 +22,18 @@
  * ## The actual defect: two hand-derived surfaces, neither checked against the source
  *
  * A resolved preset reaches a session through exactly two declared shapes, and BOTH are hand-written
- * subsets of the 20-field source with nothing tying them to it:
+ * subsets of the 19-field source with nothing tying them to it:
  *
  *   - `IPresetApplicationOptions` (10 fields) — the LIVE path, what `/preset` re-applies mid-session.
- *   - `IPresetSurfaceOptions` (7 fields) — the STARTUP path, what the shell forwards at launch.
+ *   - `IPresetSurfaceOptions` (7 members, 6 of them preset fields — `activePresetId` is the preset's
+ *     id, not one of its options) — the STARTUP path, what the shell forwards at launch.
  *
  * So this scan asks two questions a reader cannot answer by inspection:
  *
- *   1. **Is every source field projected at all?** A field in neither surface is computed, validated,
- *      and discarded — which is what `defaultTrustLevel` was measured to be.
+ *   1. **Is every source field DECLARED in some projection?** A field in neither surface either
+ *      reaches nothing — which is what `defaultTrustLevel` was measured to be — or is hand-mapped
+ *      somewhere this walk cannot see, which is `model`. The rule does not distinguish them and does
+ *      not claim to; see the stated limit below.
  *   2. **Do the two surfaces agree?** A field one path applies and the other drops means ONE SESSION
  *      HOLDS TWO ANSWERS for the same preset depending on when it was chosen. That is not
  *      hypothetical: `effort` was exactly this — three of the four built-in presets set it, `/preset`
@@ -40,8 +43,10 @@
  * A field that legitimately does not project is listed in `derivationOnly` with a reason — named and
  * expiring, never a structural skip. `autonomy` and `defaultPermissionMode` are the real cases: both
  * are INPUTS to the permission-mode derivation (`resolvePreset` promotes them into `permissionMode`),
- * so they are consumed before any surface sees them. An entry that stops matching a live field is
- * reported, so an exemption cannot outlive its reason.
+ * so the surfaces project the derived field instead. They do survive on the resolved object — the
+ * resolver spreads (`{ ...resolved, permissionMode }`) — so the precise statement is that they are
+ * not projected, not that they are gone. An entry that stops matching a live field is reported, so
+ * an exemption cannot outlive its reason.
  *
  * ## What this does NOT measure, stated because the difference is easy to misread
  *
@@ -86,24 +91,120 @@ export function examinedInterfaceCount() {
  * empty", because those two must not read alike. A renamed or moved interface is the commonest way
  * this kind of floor silently stops measuring anything.
  */
-export function declaredFields(content, fileName, interfaceName) {
+export function declaredFields(content, fileName, interfaceName, resolveAgainst = {}) {
+  const { sourceInterface, sourceFieldNames } = resolveAgainst;
   const sourceFile = ts.createSourceFile(fileName, content);
-  let fields;
+  const byName = new Map();
   const visit = (node) => {
-    if (ts.isInterfaceDeclaration(node) && node.name?.text === interfaceName) {
+    if (ts.isInterfaceDeclaration(node) && node.name?.text) {
       // Accumulate rather than assign: TypeScript merges two declarations of one interface name, and
       // a floor that keeps only the last reads a type the compiler does not have. (ARCH-029 measured
       // this exact evasion on the command-host floor.)
-      fields = [...(fields ?? []), ...(node.members ?? []).map(memberName).filter(Boolean)];
+      const prior = byName.get(node.name.text) ?? { members: [], heritage: [] };
+      prior.members.push(...(node.members ?? []).map(memberName).filter(Boolean));
+      for (const clause of node.heritageClauses ?? []) {
+        prior.heritage.push(...(clause.types ?? []));
+      }
+      byName.set(node.name.text, prior);
     }
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
+
+  const root = byName.get(interfaceName);
+  if (!root) return undefined;
+
+  // Follow `extends`. Review demonstrated both directions of ignoring it: moving two brand-new
+  // unprojected fields onto a base interface the SOURCE extends left the floor green with nothing
+  // reported, and rewriting a SURFACE as `extends Pick<Source, …>` — the very form this file's own
+  // docblock calls "the BETTER form" — produced five false divergences. A floor that blocks the
+  // refactor it exists to encourage gets removed, not obeyed.
+  const fields = [];
+  const unresolved = [];
+  const seen = new Set();
+  const walk = (name) => {
+    if (seen.has(name)) return;
+    seen.add(name);
+    const entry = byName.get(name);
+    if (!entry) return;
+    fields.push(...entry.members);
+    for (const type of entry.heritage) {
+      const picked = pickFromType(
+        type,
+        sourceInterface ?? interfaceName,
+        sourceFile,
+        fileName,
+        sourceFieldNames,
+      );
+      if (picked) {
+        fields.push(...picked.fields);
+        if (picked.unreadable) unresolved.push(picked);
+        continue;
+      }
+      let expr = type.expression ?? type.typeName;
+      while (expr && (ts.isPropertyAccessExpression(expr) || ts.isQualifiedName(expr))) {
+        expr = expr.name ?? expr.right;
+      }
+      const parent = expr?.text ?? expr?.escapedText;
+      if (parent && byName.has(parent)) walk(parent);
+      // A heritage name declared in another file cannot be followed by a single-file walk. It is
+      // recorded so the caller reports it rather than silently reading a narrower type.
+      else unresolved.push({ file: fileName, name: parent ?? '?', external: true });
+    }
+  };
+  walk(interfaceName);
+
+  // Non-enumerable so the returned value still compares as a plain array of names: the unresolved
+  // list is diagnostic output, not part of the field set.
+  Object.defineProperty(fields, 'unresolved', { value: unresolved });
   return fields;
 }
 
 function memberName(member) {
   return member.name?.text ?? member.name?.escapedText ?? undefined;
+}
+
+/** Tail identifier of a type node, following qualified names. */
+function tailOf(node) {
+  let name = node?.typeName ?? node?.expression;
+  while (name && (ts.isQualifiedName(name) || ts.isPropertyAccessExpression(name))) {
+    name = name.right ?? name.name;
+  }
+  return name?.text ?? name?.escapedText;
+}
+
+/**
+ * `{ fields, unreadable }` when `type` is a `Pick<Source, …>` or `Omit<Source, …>`, else undefined.
+ *
+ * `Omit` is `Pick`'s direct sibling and is derived-from-source in exactly the way this file praises,
+ * so treating one as a projection and the other as a defect was arbitrary. An `Omit` projects every
+ * source field EXCEPT the named ones, which is why it needs the source's own field list.
+ */
+function pickFromType(type, sourceInterface, sourceFile, fileName, sourceFieldNames, aliases) {
+  const head = tailOf(type);
+  if (head !== 'Pick' && head !== 'Omit') return undefined;
+  const [target, keys] = type.typeArguments ?? [];
+  const targetName = tailOf(target);
+  const canonical = aliases?.get(targetName) ?? targetName;
+  if (canonical !== sourceInterface || !keys) return undefined;
+
+  const literals = [];
+  const collect = (n) => {
+    if (ts.isLiteralTypeNode(n) && n.literal?.text) literals.push(n.literal.text);
+    ts.forEachChild(n, collect);
+  };
+  collect(keys);
+  const { line } = sourceFile.getLineAndCharacterOfPosition(type.getStart(sourceFile));
+
+  // A `Pick`/`Omit` whose key list yields no literal is UNREADABLE, not empty — `Pick<S, K>` behind a
+  // generic is the real case. An earlier revision claimed the caller reported this and nothing did,
+  // so absence and unreadability printed the same. They no longer do.
+  if (literals.length === 0) {
+    return { file: fileName, line: line + 1, fields: [], unreadable: true, form: head };
+  }
+  const fields =
+    head === 'Pick' ? literals : (sourceFieldNames ?? []).filter((f) => !literals.includes(f));
+  return { file: fileName, line: line + 1, fields, form: head };
 }
 
 /**
@@ -118,29 +219,46 @@ function memberName(member) {
  * `Pick` is also the BETTER form to find, because it is derived from the source type: rename a field
  * and it stops compiling, which a hand-copied interface member does not.
  */
-export function pickedFields(content, fileName, sourceInterface) {
+export function pickedFields(content, fileName, sourceInterface, sourceFieldNames) {
   const sourceFile = ts.createSourceFile(fileName, content);
+
+  // An aliased import renames the source locally and every later `Pick` then names something this
+  // walk was not looking for. Measured on the real tree: rewriting `robota-plumbing.ts`'s import to
+  // `IResolvedPresetOptions as IPresetOpts` turned its three real projections into two false
+  // divergences.
+  const aliases = new Map();
+  const collectAliases = (node) => {
+    if (ts.isImportDeclaration(node)) {
+      for (const element of node.importClause?.namedBindings?.elements ?? []) {
+        const imported = element.propertyName?.text;
+        if (imported === sourceInterface && element.name?.text) {
+          aliases.set(element.name.text, sourceInterface);
+        }
+      }
+    }
+    ts.forEachChild(node, collectAliases);
+  };
+  collectAliases(sourceFile);
+
   const picks = [];
   const visit = (node) => {
-    if (ts.isTypeReferenceNode(node)) {
-      let name = node.typeName;
-      while (name && ts.isQualifiedName(name)) name = name.right;
-      if ((name?.text ?? name?.escapedText) === 'Pick') {
-        const [target, keys] = node.typeArguments ?? [];
-        let targetName = target?.typeName;
-        while (targetName && ts.isQualifiedName(targetName)) targetName = targetName.right;
-        if ((targetName?.text ?? targetName?.escapedText) === sourceInterface && keys) {
-          const literals = [];
-          const collect = (n) => {
-            if (ts.isLiteralTypeNode(n) && n.literal?.text) literals.push(n.literal.text);
-            ts.forEachChild(n, collect);
-          };
-          collect(keys);
-          const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
-          // A `Pick` whose keys this walk cannot read is REPORTED by the caller, not treated as
-          // projecting nothing — absence and unreadability must not print the same.
-          picks.push({ file: fileName, line: line + 1, fields: literals });
-        }
+    // BOTH forms: a plain type reference, and a heritage clause. `interface X extends Pick<S, …>`
+    // parses as an `ExpressionWithTypeArguments`, not a `TypeReferenceNode`, so matching only the
+    // latter made the derived-from-source refactor this file recommends produce false findings.
+    if (ts.isTypeReferenceNode(node) || node.heritageClauses) {
+      const candidates = ts.isTypeReferenceNode(node)
+        ? [node]
+        : (node.heritageClauses ?? []).flatMap((c) => c.types ?? []);
+      for (const candidate of candidates) {
+        const picked = pickFromType(
+          candidate,
+          sourceInterface,
+          sourceFile,
+          fileName,
+          sourceFieldNames,
+          aliases,
+        );
+        if (picked) picks.push(picked);
       }
     }
     ts.forEachChild(node, visit);
@@ -156,7 +274,7 @@ export function pickedFields(content, fileName, sourceInterface) {
  * places to look is a list that stops covering the place somebody adds. A cheap `includes` reject
  * keeps this to the handful of files that mention the source type at all.
  */
-function discoverPicks(root, sourceInterface, settings) {
+function discoverPicks(root, sourceInterface, settings, sourceFieldNames) {
   const files =
     settings.trackedFiles ??
     execFileSync('git', ['ls-files', 'packages', 'apps'], {
@@ -175,8 +293,12 @@ function discoverPicks(root, sourceInterface, settings) {
     } catch {
       continue;
     }
-    if (!content.includes(sourceInterface) || !content.includes('Pick<')) continue;
-    picks.push(...pickedFields(content, file, sourceInterface));
+    // BOTH forms in the cheap reject. An earlier revision tested only `Pick<`, so every `Omit<`
+    // projection was skipped before it was ever parsed — the filter silently narrowed the scan to
+    // half the forms it claimed to support, and its own unit case caught it.
+    const named = content.includes(sourceInterface);
+    if (!named || (!content.includes('Pick<') && !content.includes('Omit<'))) continue;
+    picks.push(...pickedFields(content, file, sourceInterface, sourceFieldNames));
   }
   return picks;
 }
@@ -230,12 +352,29 @@ export function findPresetProjectionFindings(root = process.cwd(), settingsOverr
   }
   examinedInterfaces += 1;
 
+  // Anything the heritage walk could not follow is a finding. A base interface declared in another
+  // file, or a `Pick` whose keys are a generic parameter, leaves this floor reading a NARROWER type
+  // than the compiler does — and a narrower type reports fewer fields, which prints as progress.
+  const reportUnresolved = (list, where) => {
+    for (const entry of list ?? []) {
+      findings.push({
+        rule: 'preset-projection-heritage-unresolved',
+        detail:
+          `${where}: ${entry.external ? `extends \`${entry.name}\`, declared in another file` : `${entry.form}<…> at line ${entry.line} whose key list yields no literal`}. ` +
+          `This floor then reads a narrower type than the compiler does, and a narrower type reports ` +
+          `fewer fields — which prints exactly like progress.`,
+      });
+    }
+  };
+  reportUnresolved(sourceFields.unresolved, `${source.file} ${source.interface}`);
+
   const projected = new Map();
   for (const surface of surfaces) {
     const fields = declaredFields(
       readFileSync(join(root, surface.file), 'utf8'),
       surface.file,
       surface.interface,
+      { sourceInterface: source.interface, sourceFieldNames: sourceFields },
     );
     if (fields === undefined) {
       findings.push({
@@ -248,6 +387,7 @@ export function findPresetProjectionFindings(root = process.cwd(), settingsOverr
       continue;
     }
     examinedInterfaces += 1;
+    reportUnresolved(fields.unresolved, `${surface.file} ${surface.interface}`);
     projected.set(surface.interface, { fields: new Set(fields), surface });
   }
 
@@ -255,7 +395,18 @@ export function findPresetProjectionFindings(root = process.cwd(), settingsOverr
   // path prefixes each surface declares. A Pick under NO declared prefix is reported rather than
   // dropped — otherwise the prefix list could silently narrow what "the startup path" means, which
   // is the same absence-reads-as-a-pass shape the rest of this file refuses.
-  for (const pick of discoverPicks(root, source.interface, settings)) {
+  for (const pick of discoverPicks(root, source.interface, settings, sourceFields)) {
+    if (pick.unreadable) {
+      findings.push({
+        rule: 'preset-projection-heritage-unresolved',
+        detail:
+          `${pick.file}:${pick.line}: ${pick.form}<${source.interface}, …> whose key list yields no ` +
+          `literal — a generic key parameter is the real case. Reporting it is the point: an earlier ` +
+          `revision returned an empty field list here, so a projection this floor could not READ and ` +
+          `one that projects NOTHING printed the same.`,
+      });
+      continue;
+    }
     const owner = surfaces.find((s) =>
       (s.paths ?? []).some((prefix) => pick.file.startsWith(prefix)),
     );
@@ -282,7 +433,7 @@ export function findPresetProjectionFindings(root = process.cwd(), settingsOverr
   // exemption which is unnamed or non-expiring is indistinguishable from no floor. Each entry is
   // visible in review, must name what would resolve it, and is REPORTED the moment it stops
   // matching. The list may shrink and must never grow without a reviewed reason beside it.
-  const pending = new Map((settings.pendingProjection ?? []).map((e) => [e.field, e.reason]));
+  const pending = new Map((settings.pendingProjection ?? []).map((e) => [e.field, e]));
   const sourceFieldSet = new Set(sourceFields);
   for (const [field, list] of [
     ...[...derivationOnly.keys()].map((f) => [f, 'derivationOnly']),
@@ -295,6 +446,35 @@ export function findPresetProjectionFindings(root = process.cwd(), settingsOverr
         `${field} is listed in presetProjection.${list} but ${source.interface} no longer declares ` +
         `it. An exemption that matches no live field describes nothing, and one nobody can see ` +
         `expire is how it outlives its reason.`,
+    });
+  }
+
+  // The burn-down must expire when a field is RESOLVED, not only when it is deleted. Review measured
+  // the gap: declaring a pending field on one surface, on both, or removing its only declaration all
+  // printed GREEN, so the list could not tell anyone when an entry was safe to delete — it was a
+  // baseline with extra words. Each entry now records the surfaces it was measured on, and a live
+  // state that differs in EITHER direction is reported. Stage 1's sibling scan already had this half
+  // ("the unreachable set SHRANK … re-freeze it in the SAME change — or the gain is a licence to drop
+  // them again"); this is that rule, per named field rather than per count.
+  for (const [field, entry] of pending) {
+    if (!sourceFieldSet.has(field)) continue;
+    const live = [...projected.entries()]
+      .filter(([, p]) => p.fields.has(field))
+      .map(([name]) => name)
+      .sort();
+    const recorded = [...(entry.declaredOn ?? [])].sort();
+    if (live.join(',') === recorded.join(',')) continue;
+    findings.push({
+      rule: 'preset-pending-state-changed',
+      field,
+      detail:
+        `${field} is exempted as pendingProjection with declaredOn=${JSON.stringify(recorded)}, but ` +
+        `it is now declared on ${JSON.stringify(live)}. ` +
+        (live.length > recorded.length
+          ? `The exemption has been earned out — remove the entry so the floor holds the gain, or the ` +
+            `progress is a licence to drop it again.`
+          : `The field LOST a declaration while exempted, which is the regression the exemption was ` +
+            `hiding. Restore it, or re-record the state with a reason for the loss.`),
     });
   }
 

@@ -298,8 +298,9 @@ before any exemption was written, which is the demonstration the plan asks for.
 ### What it measures, and the two things it does NOT
 
 A resolved preset reaches a session through exactly two DECLARED shapes, and both are hand-written
-subsets of the 20-field source with nothing tying them to it: `IPresetApplicationOptions` (10 fields,
-the live `/preset` path) and `IPresetSurfaceOptions` (7 fields, the startup path). So the scan asks
+subsets of the 19-field source with nothing tying them to it: `IPresetApplicationOptions` (10 fields,
+the live `/preset` path) and `IPresetSurfaceOptions` (7 members, 6 of them preset fields — `activePresetId`
+is the preset's id, not one of its options; the startup path). So the scan asks
 two questions no reader can answer by inspection — is every source field declared in some projection,
 and do the two surfaces agree.
 
@@ -353,6 +354,44 @@ ignored in interactive TUI and serve mode — the red-first CLI-flag case the Te
 The `IResolvedPresetOptions` doc comment still claims every field maps to an existing seam. It is
 false for five of them and is deliberately left in place, on the same reasoning stage 1 recorded:
 changing the words without changing the fact is the defect, not the fix.
+
+### Review round 1 — five findings, two of them MUST, all applied
+
+An independent review attacked the scan rather than the fields, which is where the risk was. What it
+found, and why each mattered:
+
+- **Heritage was invisible in BOTH directions.** `declaredFields` read only `node.members`, so moving
+  two brand-new fully-unprojected fields onto a base interface the SOURCE extends left the floor
+  **green with nothing reported**. And because `pickedFields` matched only a type reference, rewriting
+  the startup surface as `extends Pick<IResolvedPresetOptions, …>` — the exact derived-from-source
+  form this scan's own header calls "the BETTER form" — produced **five false divergences**. A floor
+  that blocks the refactor it exists to encourage gets removed, not obeyed. Both are fixed: heritage
+  is followed, and a name it cannot follow is reported rather than read as a narrower type.
+
+- **The burn-down did not expire when the work was DONE.** Entries were keyed on the field name
+  alone, so an exemption lapsed only if the field was DELETED — never when it was resolved. All four
+  state changes on a pending field printed green. That made it, as the review put it, a baseline with
+  extra words, and stage 1's sibling scan already had the missing half. Each entry now records the
+  surfaces it was measured on (`declaredOn`) and a live state differing in EITHER direction is
+  reported: gaining a declaration means the exemption is earned out, losing one means the exemption
+  was hiding a regression.
+
+- **`pendingProjection` had zero test coverage** while carrying all ten live findings, and the first
+  commit message claimed "18 unit cases assert each rule in both directions" — untrue of the one rule
+  standing between this floor and red. Now covered in both directions, plus scope (an exemption
+  covers the field it names and nothing else).
+
+- **A comment asserted a report that did not exist.** It said a `Pick` whose keys cannot be read "is
+  REPORTED by the caller"; nothing reported it, so unreadable and empty printed the same. That is the
+  same defect class this whole floor is about, inside its own docblock. The report now exists.
+
+- **`Omit` and aliased imports were unrecognised**, so both produced false findings; and the header
+  said "20-field source" where the source declares **19**. The count was wrong in three places and is
+  corrected from the mechanism rather than re-copied.
+
+One further defect surfaced from the fix itself, caught by a new unit case rather than by reading:
+the cheap file-reject tested only for `Pick<`, so every `Omit<` projection was skipped before it was
+ever parsed — the filter silently narrowed the scan to half the forms it claimed to support.
 
 ### Falsification
 

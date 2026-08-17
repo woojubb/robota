@@ -263,3 +263,156 @@ describe('the floor fails closed rather than measuring nothing', () => {
     expect(findings.map((f) => f.rule)).toEqual(['preset-exemption-unused']);
   });
 });
+
+describe('the burn-down expires when the work is DONE, not only when the field is deleted', () => {
+  // Review measured the earlier version failing exactly this: fixing a pending field printed green,
+  // so the list could not tell anyone when an entry was safe to delete. It was a baseline with extra
+  // words. `declaredOn` records the measured state and a change in EITHER direction is reported.
+  const pendingSettings = (declaredOn) =>
+    settings({
+      pendingProjection: [{ field: 'b', reason: 'needs a product decision', declaredOn }],
+    });
+
+  it('is silent while the recorded state still matches', () => {
+    const root = fixture('arch-013-pending-hold-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts': 'export interface IStartup {\n  a?: string;\n}\n',
+    });
+
+    expect(findPresetProjectionFindings(root, pendingSettings(['ILive'])).findings).toEqual([]);
+  });
+
+  it('reports a pending field that GAINED a declaration — the exemption is earned out', () => {
+    const root = fixture('arch-013-pending-gain-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts': 'export interface IStartup {\n  a?: string;\n  b?: string;\n}\n',
+    });
+
+    const { findings } = findPresetProjectionFindings(root, pendingSettings(['ILive']));
+
+    expect(findings.map((f) => f.rule)).toEqual(['preset-pending-state-changed']);
+    expect(findings[0].detail).toContain('earned out');
+  });
+
+  it('reports a pending field that LOST its only declaration — the regression it was hiding', () => {
+    const root = fixture('arch-013-pending-loss-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n}\n',
+      'startup.ts': 'export interface IStartup {\n  a?: string;\n}\n',
+    });
+
+    const { findings } = findPresetProjectionFindings(root, pendingSettings(['ILive']));
+
+    expect(findings.map((f) => f.rule)).toEqual(['preset-pending-state-changed']);
+    expect(findings[0].detail).toContain('LOST a declaration');
+  });
+
+  it('suppresses the undeclared and divergence rules for a pending field, and only those', () => {
+    // The exemption must cover the field it names and nothing else — otherwise it is a blanket skip.
+    const root = fixture('arch-013-pending-scope-', {
+      'source.ts': 'export interface ISource {\n  a?: string;\n  b?: string;\n  c?: string;\n}\n',
+      'live.ts': 'export interface ILive {\n  a?: string;\n}\n',
+      'startup.ts': 'export interface IStartup {\n  a?: string;\n}\n',
+    });
+
+    const { findings } = findPresetProjectionFindings(
+      root,
+      settings({ pendingProjection: [{ field: 'b', reason: 'pending', declaredOn: [] }] }),
+    );
+
+    expect(findings.map((f) => f.field)).toEqual(['c']);
+  });
+});
+
+describe('a projection derived from the source is recognised in every form it takes', () => {
+  it('sees `extends Pick<Source, …>` on a surface — the form this scan recommends', () => {
+    // Review measured the earlier version producing five FALSE divergences on exactly this refactor
+    // of the real startup surface. A floor that blocks the fix it exists to encourage gets removed.
+    const root = fixture('arch-013-extends-pick-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts': "export interface IStartup extends Pick<ISource, 'a' | 'b'> {}\n",
+    });
+
+    expect(findPresetProjectionFindings(root, settings()).findings).toEqual([]);
+  });
+
+  it('sees fields the SOURCE inherits through `extends`', () => {
+    // Review's D1: two brand-new fully-unprojected knobs added via a base interface left the floor
+    // green with nothing reported at all.
+    const root = fixture('arch-013-source-extends-', {
+      'source.ts':
+        'export interface IExtras {\n  hidden?: string;\n}\nexport interface ISource extends IExtras {\n  a?: string;\n  b?: string;\n}\n',
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts': 'export interface IStartup {\n  a?: string;\n  b?: string;\n}\n',
+    });
+
+    const { findings } = findPresetProjectionFindings(root, settings());
+
+    expect(findings.map((f) => f.field)).toEqual(['hidden']);
+  });
+
+  it('sees `Omit<Source, …>`, which is `Pick`s sibling and equally derived', () => {
+    const root = fixture('arch-013-omit-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts': 'export interface IStartup {\n  a?: string;\n}\n',
+      'startup-plumbing.ts': "export function f(p: Omit<ISource, 'a'>): void {}\n",
+    });
+
+    const { findings } = findPresetProjectionFindings(
+      root,
+      settings({ trackedFiles: ['startup-plumbing.ts'] }),
+    );
+
+    expect(findings).toEqual([]);
+  });
+
+  it('sees a Pick whose source name is an aliased import', () => {
+    const root = fixture('arch-013-alias-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts': 'export interface IStartup {\n  a?: string;\n}\n',
+      'startup-plumbing.ts':
+        "import type { ISource as IAlias } from './source.js';\nexport function f(p: Pick<IAlias, 'b'>): void {}\n",
+    });
+
+    const { findings } = findPresetProjectionFindings(
+      root,
+      settings({ trackedFiles: ['startup-plumbing.ts'] }),
+    );
+
+    expect(findings).toEqual([]);
+  });
+
+  it('REPORTS a Pick whose key list yields no literal, rather than reading it as empty', () => {
+    const root = fixture('arch-013-unreadable-pick-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts': 'export interface IStartup {\n  a?: string;\n  b?: string;\n}\n',
+      'startup-plumbing.ts': 'export type T<K extends keyof ISource> = Pick<ISource, K>;\n',
+    });
+
+    const { findings } = findPresetProjectionFindings(
+      root,
+      settings({ trackedFiles: ['startup-plumbing.ts'] }),
+    );
+
+    expect(findings.map((f) => f.rule)).toEqual(['preset-projection-heritage-unresolved']);
+  });
+
+  it('REPORTS a heritage name declared in another file, rather than reading a narrower type', () => {
+    const root = fixture('arch-013-external-heritage-', {
+      'source.ts':
+        'export interface ISource extends IElsewhere {\n  a?: string;\n  b?: string;\n}\n',
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts': 'export interface IStartup {\n  a?: string;\n  b?: string;\n}\n',
+    });
+
+    const { findings } = findPresetProjectionFindings(root, settings());
+
+    expect(findings.map((f) => f.rule)).toEqual(['preset-projection-heritage-unresolved']);
+  });
+});
