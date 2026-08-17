@@ -41,7 +41,7 @@ function settings(extra = {}) {
 
 describe('declaredFields', () => {
   it('reads the declared property names in order', () => {
-    expect(declaredFields(SOURCE, 'p.ts', 'ISource')).toEqual(['a', 'b']);
+    expect(declaredFields(SOURCE, 'p.ts', 'ISource').fields).toEqual(['a', 'b']);
   });
 
   it('answers undefined for an interface the file does not declare — not an empty list', () => {
@@ -56,7 +56,7 @@ describe('declaredFields', () => {
         'export interface ISource {\n  a?: string;\n}\nexport interface ISource {\n  b?: string;\n}\n',
         'p.ts',
         'ISource',
-      ),
+      ).fields,
     ).toEqual(['a', 'b']);
   });
 });
@@ -284,13 +284,15 @@ describe('the burn-down expires when the work is DONE, not only when the field i
   });
 
   it('reports a pending field that GAINED a declaration — the exemption is earned out', () => {
+    // A gain from none to one surface: still pending on the other, so this is the "earned out"
+    // message rather than the stronger fully-projected one.
     const root = fixture('arch-013-pending-gain-', {
       'source.ts': SOURCE,
       'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
-      'startup.ts': 'export interface IStartup {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts': 'export interface IStartup {\n  a?: string;\n}\n',
     });
 
-    const { findings } = findPresetProjectionFindings(root, pendingSettings(['ILive']));
+    const { findings } = findPresetProjectionFindings(root, pendingSettings([]));
 
     expect(findings.map((f) => f.rule)).toEqual(['preset-pending-state-changed']);
     expect(findings[0].detail).toContain('earned out');
@@ -414,5 +416,111 @@ describe('a projection derived from the source is recognised in every form it ta
     const { findings } = findPresetProjectionFindings(root, settings());
 
     expect(findings.map((f) => f.rule)).toEqual(['preset-projection-heritage-unresolved']);
+  });
+});
+
+describe('name resolution is SCOPED, so a nested declaration cannot widen the read type', () => {
+  it('ignores an interface nested inside a function body', () => {
+    // Review round 2: `byName` collected every declaration at any depth, so a nested
+    // `interface IStartup { b }` made `b` count as declared by the configured surface. Wider masks
+    // findings rather than inventing them, which is the direction that prints as progress.
+    const root = fixture('arch-013-nested-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts':
+        'export interface IStartup {\n  a?: string;\n}\nexport function f(): void {\n  interface IStartup {\n    b?: string;\n  }\n}\n',
+    });
+
+    const { findings } = findPresetProjectionFindings(root, settings());
+
+    expect(findings.map((f) => f.rule)).toEqual(['preset-surface-divergence']);
+  });
+
+  it('does not let a nested declaration CANCEL an external-heritage report', () => {
+    // The worse half of the same defect: the nested declaration supplied the wrong fields AND
+    // suppressed the fail-closed report the external base should have produced.
+    const root = fixture('arch-013-nested-cancel-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts':
+        'export interface IStartup extends IBase {\n  a?: string;\n}\nexport function f(): void {\n  interface IBase {\n    b?: string;\n  }\n}\n',
+    });
+
+    const { findings } = findPresetProjectionFindings(root, settings());
+
+    expect(findings.map((f) => f.rule)).toContain('preset-projection-heritage-unresolved');
+  });
+});
+
+describe('the shared alias map reaches BOTH readers', () => {
+  it('resolves `extends Pick<AliasedSource, …>` without a false unresolved report', () => {
+    // Round 1's MUST recurring one level in: the alias map lived only in `pickedFields`, so the
+    // heritage walk fell through to the external branch and reported a projection it had in fact
+    // already counted.
+    const root = fixture('arch-013-alias-heritage-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts':
+        "import type { ISource as ISrc } from './source.js';\nexport interface IStartup extends Pick<ISrc, 'a' | 'b'> {}\n",
+    });
+
+    expect(findPresetProjectionFindings(root, settings()).findings).toEqual([]);
+  });
+});
+
+describe('an exemption expires when it stops describing a defect', () => {
+  it('reports a pending entry whose field is now declared on EVERY surface', () => {
+    // Gaming by telling the truth: a correctly-recorded entry for a field with no defect left is
+    // otherwise permanent and silent, suppressing both rules forever.
+    const root = fixture('arch-013-pending-inert-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts': 'export interface IStartup {\n  a?: string;\n  b?: string;\n}\n',
+    });
+
+    const { findings } = findPresetProjectionFindings(
+      root,
+      settings({
+        pendingProjection: [{ field: 'b', reason: 'pending', declaredOn: ['ILive', 'IStartup'] }],
+      }),
+    );
+
+    expect(findings.map((f) => f.rule)).toEqual(['preset-pending-state-changed']);
+    expect(findings[0].detail).toContain('nothing left to be pending about');
+  });
+
+  it('calls a one-for-one SWAP a move, not a loss', () => {
+    // Equal lengths, so a length comparison called it a loss. It is the field moving between paths —
+    // the `effort`/`agentName` divergence shape.
+    const root = fixture('arch-013-pending-swap-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n}\n',
+      'startup.ts': 'export interface IStartup {\n  a?: string;\n  b?: string;\n}\n',
+    });
+
+    const { findings } = findPresetProjectionFindings(
+      root,
+      settings({ pendingProjection: [{ field: 'b', reason: 'pending', declaredOn: ['ILive'] }] }),
+    );
+
+    expect(findings.map((f) => f.rule)).toEqual(['preset-pending-state-changed']);
+    expect(findings[0].detail).toContain('MOVED between surfaces');
+  });
+});
+
+describe('an unmodelled utility type in a heritage clause is named for what it is', () => {
+  it('does not call `Partial<Source>` a base interface declared in another file', () => {
+    const root = fixture('arch-013-utility-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts': 'export interface IStartup extends Partial<ISource> {}\n',
+    });
+
+    const { findings } = findPresetProjectionFindings(root, settings());
+
+    expect(findings.map((f) => f.rule)).toContain('preset-projection-heritage-unresolved');
+    expect(
+      findings.find((f) => f.rule === 'preset-projection-heritage-unresolved').detail,
+    ).toContain('a utility type this walk does not model');
   });
 });

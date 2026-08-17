@@ -91,25 +91,59 @@ export function examinedInterfaceCount() {
  * empty", because those two must not read alike. A renamed or moved interface is the commonest way
  * this kind of floor silently stops measuring anything.
  */
-export function declaredFields(content, fileName, interfaceName, resolveAgainst = {}) {
-  const { sourceInterface, sourceFieldNames } = resolveAgainst;
-  const sourceFile = ts.createSourceFile(fileName, content);
-  const byName = new Map();
+/**
+ * Local names bound to `sourceInterface` by an aliased import in this file.
+ *
+ * Extracted so BOTH readers share it. Review round 2 found the alias map living only in
+ * `pickedFields`, so `declaredFields`' heritage walk called `pickFromType` without it and a surface
+ * written as `extends Pick<AliasedSource, …>` produced a FALSE `preset-projection-heritage-unresolved`
+ * — the recommended derived form plus an aliased import, which is round 1's MUST recurring one level
+ * in. One map, one call site each, so the two cannot drift apart again.
+ */
+function importAliases(sourceFile, sourceInterface) {
+  const aliases = new Map();
+  if (!sourceInterface) return aliases;
   const visit = (node) => {
-    if (ts.isInterfaceDeclaration(node) && node.name?.text) {
-      // Accumulate rather than assign: TypeScript merges two declarations of one interface name, and
-      // a floor that keeps only the last reads a type the compiler does not have. (ARCH-029 measured
-      // this exact evasion on the command-host floor.)
-      const prior = byName.get(node.name.text) ?? { members: [], heritage: [] };
-      prior.members.push(...(node.members ?? []).map(memberName).filter(Boolean));
-      for (const clause of node.heritageClauses ?? []) {
-        prior.heritage.push(...(clause.types ?? []));
+    if (ts.isImportDeclaration(node)) {
+      for (const element of node.importClause?.namedBindings?.elements ?? []) {
+        if (element.propertyName?.text === sourceInterface && element.name?.text) {
+          aliases.set(element.name.text, sourceInterface);
+        }
       }
-      byName.set(node.name.text, prior);
     }
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
+  return aliases;
+}
+
+export function declaredFields(content, fileName, interfaceName, resolveAgainst = {}) {
+  const { sourceInterface, sourceFieldNames } = resolveAgainst;
+  const sourceFile = ts.createSourceFile(fileName, content);
+  const aliases = importAliases(sourceFile, sourceInterface);
+  const byName = new Map();
+
+  // MODULE SCOPE ONLY. TypeScript merges declarations that share a scope, so collecting every
+  // `interface` at any nesting depth reads a WIDER type than the compiler has — and wider masks
+  // findings rather than inventing them, which is the direction that prints as progress. Review
+  // measured both halves of the damage: a nested `interface IStartup { b }` inside a function body
+  // made `b` count as declared by the configured surface, AND, combined with an external `extends`,
+  // it cancelled the `preset-projection-heritage-unresolved` report that should have fired — turning
+  // a fail-closed signal into a silent pass with the wrong type.
+  // Only TOP-LEVEL declarations. A nested one is a different scope, so merging it in would read a
+  // type the compiler does not have; a namespaced one is also a different scope, and leaving it out
+  // makes a namespaced surface report "not declared", which fails closed rather than guessing.
+  for (const statement of sourceFile.statements ?? []) {
+    if (!ts.isInterfaceDeclaration(statement) || !statement.name?.text) continue;
+    // Accumulate rather than assign: two declarations of one name in ONE scope ARE merged by
+    // TypeScript, and a floor that keeps only the last reads a type the compiler does not have.
+    const prior = byName.get(statement.name.text) ?? { members: [], heritage: [] };
+    prior.members.push(...(statement.members ?? []).map(memberName).filter(Boolean));
+    for (const clause of statement.heritageClauses ?? []) {
+      prior.heritage.push(...(clause.types ?? []));
+    }
+    byName.set(statement.name.text, prior);
+  }
 
   const root = byName.get(interfaceName);
   if (!root) return undefined;
@@ -135,6 +169,7 @@ export function declaredFields(content, fileName, interfaceName, resolveAgainst 
         sourceFile,
         fileName,
         sourceFieldNames,
+        aliases,
       );
       if (picked) {
         fields.push(...picked.fields);
@@ -149,16 +184,38 @@ export function declaredFields(content, fileName, interfaceName, resolveAgainst 
       if (parent && byName.has(parent)) walk(parent);
       // A heritage name declared in another file cannot be followed by a single-file walk. It is
       // recorded so the caller reports it rather than silently reading a narrower type.
-      else unresolved.push({ file: fileName, name: parent ?? '?', external: true });
+      else if (parent && KNOWN_UTILITY_TYPES.has(parent)) {
+        unresolved.push({ file: fileName, name: parent, utility: true });
+      } else unresolved.push({ file: fileName, name: parent ?? '?', external: true });
     }
   };
   walk(interfaceName);
 
-  // Non-enumerable so the returned value still compares as a plain array of names: the unresolved
-  // list is diagnostic output, not part of the field set.
-  Object.defineProperty(fields, 'unresolved', { value: unresolved });
-  return fields;
+  // A RECORD, not an array carrying a hidden property. An earlier revision attached `unresolved`
+  // non-enumerably, and review measured it surviving `.sort()` but vanishing silently through
+  // `.filter()`, `.map()` and spread — so losing the diagnostic took one ordinary refactor and
+  // failed in the direction this file's own thesis names: fewer reported problems prints as
+  // progress. Losing it now requires deleting code.
+  return { fields, unresolved };
 }
+
+/**
+ * Utility types that WRAP a type rather than name a declaration. Reporting `extends Partial<ISource>`
+ * as "a base interface declared in another file" sent the reader to look for a file declaring
+ * `Partial`. Failing closed is right; pointing at the wrong thing is not.
+ */
+const KNOWN_UTILITY_TYPES = new Set([
+  'Partial',
+  'Required',
+  'Readonly',
+  'Record',
+  'Exclude',
+  'Extract',
+  'NonNullable',
+  'Parameters',
+  'ReturnType',
+  'InstanceType',
+]);
 
 function memberName(member) {
   return member.name?.text ?? member.name?.escapedText ?? undefined;
@@ -226,19 +283,7 @@ export function pickedFields(content, fileName, sourceInterface, sourceFieldName
   // walk was not looking for. Measured on the real tree: rewriting `robota-plumbing.ts`'s import to
   // `IResolvedPresetOptions as IPresetOpts` turned its three real projections into two false
   // divergences.
-  const aliases = new Map();
-  const collectAliases = (node) => {
-    if (ts.isImportDeclaration(node)) {
-      for (const element of node.importClause?.namedBindings?.elements ?? []) {
-        const imported = element.propertyName?.text;
-        if (imported === sourceInterface && element.name?.text) {
-          aliases.set(element.name.text, sourceInterface);
-        }
-      }
-    }
-    ts.forEachChild(node, collectAliases);
-  };
-  collectAliases(sourceFile);
+  const aliases = importAliases(sourceFile, sourceInterface);
 
   const picks = [];
   const visit = (node) => {
@@ -335,12 +380,12 @@ export function findPresetProjectionFindings(root = process.cwd(), settingsOverr
   examinedInterfaces = 0;
   const findings = [];
 
-  const sourceFields = declaredFields(
+  const sourceRead = declaredFields(
     readFileSync(join(root, source.file), 'utf8'),
     source.file,
     source.interface,
   );
-  if (sourceFields === undefined) {
+  if (sourceRead === undefined) {
     findings.push({
       rule: 'preset-projection-source-missing',
       detail:
@@ -350,6 +395,7 @@ export function findPresetProjectionFindings(root = process.cwd(), settingsOverr
     });
     return { findings, examined: examinedInterfaces };
   }
+  const sourceFields = sourceRead.fields;
   examinedInterfaces += 1;
 
   // Anything the heritage walk could not follow is a finding. A base interface declared in another
@@ -360,23 +406,29 @@ export function findPresetProjectionFindings(root = process.cwd(), settingsOverr
       findings.push({
         rule: 'preset-projection-heritage-unresolved',
         detail:
-          `${where}: ${entry.external ? `extends \`${entry.name}\`, declared in another file` : `${entry.form}<…> at line ${entry.line} whose key list yields no literal`}. ` +
+          `${where}: ${
+            entry.utility
+              ? `extends \`${entry.name}<…>\`, a utility type this walk does not model — it wraps a type rather than naming a declaration`
+              : entry.external
+                ? `extends \`${entry.name}\`, declared in another file`
+                : `${entry.form}<…> at line ${entry.line} whose key list yields no literal`
+          }. ` +
           `This floor then reads a narrower type than the compiler does, and a narrower type reports ` +
           `fewer fields — which prints exactly like progress.`,
       });
     }
   };
-  reportUnresolved(sourceFields.unresolved, `${source.file} ${source.interface}`);
+  reportUnresolved(sourceRead.unresolved, `${source.file} ${source.interface}`);
 
   const projected = new Map();
   for (const surface of surfaces) {
-    const fields = declaredFields(
+    const read = declaredFields(
       readFileSync(join(root, surface.file), 'utf8'),
       surface.file,
       surface.interface,
       { sourceInterface: source.interface, sourceFieldNames: sourceFields },
     );
-    if (fields === undefined) {
+    if (read === undefined) {
       findings.push({
         rule: 'preset-projection-surface-missing',
         detail:
@@ -387,8 +439,8 @@ export function findPresetProjectionFindings(root = process.cwd(), settingsOverr
       continue;
     }
     examinedInterfaces += 1;
-    reportUnresolved(fields.unresolved, `${surface.file} ${surface.interface}`);
-    projected.set(surface.interface, { fields: new Set(fields), surface });
+    reportUnresolved(read.unresolved, `${surface.file} ${surface.interface}`);
+    projected.set(surface.interface, { fields: new Set(read.fields), surface });
   }
 
   // Discovered projections: every `Pick<Source, …>` in the tracked tree, attributed to a role by the
@@ -463,18 +515,42 @@ export function findPresetProjectionFindings(root = process.cwd(), settingsOverr
       .map(([name]) => name)
       .sort();
     const recorded = [...(entry.declaredOn ?? [])].sort();
+
+    // A truthfully-recorded entry for a field with NO defect left is inert and permanent: it
+    // suppresses both rules forever while its recorded state never changes. Review found this the
+    // one way the burn-down can be gamed by telling the truth, so "fully projected" expires too.
+    if (live.length === projected.size && projected.size > 0) {
+      findings.push({
+        rule: 'preset-pending-state-changed',
+        field,
+        detail:
+          `${field} is exempted as pendingProjection but is now declared on every configured ` +
+          `surface (${JSON.stringify(live)}). There is nothing left to be pending about — remove the ` +
+          `entry, or the exemption silently suppresses both rules for a field that no longer needs it.`,
+      });
+      continue;
+    }
+
     if (live.join(',') === recorded.join(',')) continue;
+    const gained = live.filter((n) => !recorded.includes(n));
+    const lost = recorded.filter((n) => !live.includes(n));
     findings.push({
       rule: 'preset-pending-state-changed',
       field,
       detail:
         `${field} is exempted as pendingProjection with declaredOn=${JSON.stringify(recorded)}, but ` +
         `it is now declared on ${JSON.stringify(live)}. ` +
-        (live.length > recorded.length
-          ? `The exemption has been earned out — remove the entry so the floor holds the gain, or the ` +
-            `progress is a licence to drop it again.`
-          : `The field LOST a declaration while exempted, which is the regression the exemption was ` +
-            `hiding. Restore it, or re-record the state with a reason for the loss.`),
+        // Sets, not lengths. A one-for-one SWAP has equal lengths and is neither a gain nor a loss —
+        // it is the field moving between paths, which is the `effort`/`agentName` divergence shape,
+        // and an earlier revision reported it as a loss.
+        (gained.length > 0 && lost.length > 0
+          ? `It MOVED between surfaces (gained ${JSON.stringify(gained)}, lost ${JSON.stringify(lost)}) — ` +
+            `which is the divergence shape this floor exists to catch, not progress.`
+          : gained.length > 0
+            ? `The exemption has been earned out — remove the entry so the floor holds the gain, or ` +
+              `the progress is a licence to drop it again.`
+            : `The field LOST a declaration while exempted, which is the regression the exemption was ` +
+              `hiding. Restore it, or re-record the state with a reason for the loss.`),
     });
   }
 

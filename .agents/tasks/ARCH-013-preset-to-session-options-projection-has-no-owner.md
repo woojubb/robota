@@ -393,6 +393,38 @@ One further defect surfaced from the fix itself, caught by a new unit case rathe
 the cheap file-reject tested only for `Pick<`, so every `Omit<` projection was skipped before it was
 ever parsed — the filter silently narrowed the scan to half the forms it claimed to support.
 
+### Review round 2 — two more, both in the resolution layer
+
+The round-1 fixes were verified by mutation rather than by reading, and two new defects surfaced,
+both of the same shape as round 1's:
+
+- **Name resolution was scope-blind.** Every `interface` at any nesting depth was collected, keyed
+  only by name, so the walk read a WIDER type than the compiler — and wider MASKS findings, which is
+  the direction that prints as progress. A nested `interface IStartup { b }` inside a function body
+  made `b` count as declared by the configured surface; combined with an external `extends`, the same
+  nested declaration also CANCELLED the fail-closed report that should have fired, turning a signal
+  into a silent pass with the wrong type. Only top-level declarations are collected now: a nested or
+  namespaced one is a different scope, and a namespaced surface reports "not declared" rather than
+  being guessed at.
+
+- **Round 1's MUST recurred one level in.** The alias map added in round 1 lived only in
+  `pickedFields`, so the heritage walk called `pickFromType` without it and a surface written as
+  `extends Pick<AliasedSource, …>` produced a FALSE unresolved report — the recommended derived form
+  plus an aliased import, still red. The collector is extracted and shared, so the two readers cannot
+  drift apart again.
+
+Three further gaps, each closed: an exemption recorded truthfully for a field with NO defect left was
+permanent and silent (gaming the burn-down by telling the truth), so "declared on every surface" now
+expires too; a one-for-one SWAP between surfaces was reported as a loss because the direction was
+chosen by list LENGTH rather than by set difference, when a move is precisely the divergence shape
+this floor exists to catch; and `extends Partial<ISource>` was reported as "a base interface declared
+in another file", sending the reader to look for a file that declares `Partial`.
+
+The `unresolved` diagnostic was returned as a non-enumerable property on the field array. Review
+measured it surviving `.sort()` but vanishing silently through `.filter()`, `.map()` and spread — so
+losing it took one ordinary refactor, and it failed in the direction this floor's own thesis names.
+It is a record now; losing it requires deleting code.
+
 ### Falsification
 
 The scan was mutated against the real tree before being trusted, because a floor that cannot fail is
