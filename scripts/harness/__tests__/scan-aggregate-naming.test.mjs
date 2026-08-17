@@ -226,6 +226,39 @@ describe('collectAggregateNaming fails closed on scope', () => {
   });
 });
 
+describe('the ratchet requires its subject to exist', () => {
+  it('flags a guarded aggregate that no scanned file declares', () => {
+    // A count falls for two reasons that look identical from outside: the consumers migrated, or
+    // the subject stopped existing under that name. Measured with only a renamed declaration
+    // present, the scan counted 0 against a frozen 18 and passed — reading as a finished migration.
+    const root = mkdtempSync(join(tmpdir(), 'arch-029-gone-'));
+    mkdirSync(join(root, 'packages'), { recursive: true });
+    writeFileSync(join(root, 'a.ts'), 'export interface IAgentJobHostContextRenamed {}\n');
+
+    const { declaredIn } = collectAggregateNaming(
+      root,
+      { aggregateNaming: { aggregates: ['IAgentJobHostContext'], allowlist: [] } },
+      ['a.ts'],
+    );
+
+    expect(declaredIn.get('IAgentJobHostContext')).toEqual([]);
+  });
+
+  it('records the file that DOES declare it', () => {
+    const root = mkdtempSync(join(tmpdir(), 'arch-029-home-'));
+    mkdirSync(join(root, 'packages'), { recursive: true });
+    writeFileSync(join(root, 'a.ts'), 'export interface ICommandHostContext {}\n');
+
+    const { declaredIn } = collectAggregateNaming(
+      root,
+      { aggregateNaming: { aggregates: ['ICommandHostContext'], allowlist: [] } },
+      ['a.ts'],
+    );
+
+    expect(declaredIn.get('ICommandHostContext')).toEqual(['a.ts']);
+  });
+});
+
 describe('an empty aggregate list fails closed', () => {
   it('flags an empty `aggregates` config instead of returning a clean result', () => {
     // Deleting one config array switched the load-bearing floor off silently: it returned
@@ -328,6 +361,55 @@ describe('findAggregateAliases — renaming the aggregate is the finding, not th
       findAggregateAliases('export class Host implements ICommandHostContext {}\n', 'p.ts', [
         'ICommandHostContext',
       ]),
+    ).toEqual([]);
+  });
+
+  it('flags a WRAPPED alias inside an ALLOWLISTED file, where nothing counts references', () => {
+    // Round 5's route. `directlyNamedAggregate` is exact, and exactness is right where references
+    // are still counted — but an allowlisted file's references are NOT counted, so both channels
+    // were off and two characters defeated the ban. Measured green from an allowlisted file before
+    // this: `& {}`, `Omit<I, never>`, `Pick<I, keyof I>`, `Readonly<I>`, a conditional resolving to
+    // `I`, `extends Omit<I, never>`, and bare parentheses.
+    const wrapped = [
+      'export type IHostAll = ICommandHostContext & {};\n',
+      'export type IHostAll = Omit<ICommandHostContext, never>;\n',
+      'export type IHostAll = Readonly<ICommandHostContext>;\n',
+      'export type IHostAll = (ICommandHostContext);\n',
+      'export interface IHostAll extends Omit<ICommandHostContext, never> {}\n',
+    ];
+
+    for (const source of wrapped) {
+      expect(
+        findAggregateAliases(source, 'p.ts', ['ICommandHostContext'], { allowlisted: true }),
+        source,
+      ).toHaveLength(1);
+    }
+  });
+
+  it('does NOT flag a member type inside an allowlisted file — a use is not a new name', () => {
+    // `ISystemCommand.execute(context: ICommandHostContext)` is the dispatch contract every command
+    // is assigned to, and it is allowlisted precisely so it can name the widest type. A rename is
+    // minted on a type alias's right-hand side or in a heritage clause; a member's type is a use.
+    expect(
+      findAggregateAliases(
+        'export interface ISystemCommand {\n  execute(context: ICommandHostContext): void;\n}\n',
+        'p.ts',
+        ['ICommandHostContext'],
+        { allowlisted: true },
+      ),
+    ).toEqual([]);
+  });
+
+  it('does NOT flag a narrowing alias outside the allowlist, which the count already guards', () => {
+    // Real code in this repo: `type TPermissionMode = ReturnType<ICommandSessionRuntime['…']>`.
+    // It names one member's return type, not the surface, and it is counted as a reference — so
+    // applying the allowlisted "mentions anywhere" rule everywhere would fire on honest test code.
+    expect(
+      findAggregateAliases(
+        "type TPermissionMode = ReturnType<ICommandSessionRuntime['getPermissionMode']>;\n",
+        'p.ts',
+        ['ICommandSessionRuntime'],
+      ),
     ).toEqual([]);
   });
 

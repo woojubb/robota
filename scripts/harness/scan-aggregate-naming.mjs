@@ -81,22 +81,52 @@ export function examinedFileCount() {
  * guarded aggregate repeatedly; a text scan would flag itself.
  */
 /**
+ * The tail identifier of a type node that names something, or `undefined`.
+ */
+function tailName(type) {
+  // A heritage clause type is an `ExpressionWithTypeArguments` and carries `.expression`; a type
+  // reference carries `.typeName`; an `import()` type carries `.qualifier`. Reading the property
+  // rather than testing the node kind covers all three without a guard this AST may not export.
+  let tail = type?.typeName ?? type?.qualifier ?? type?.expression;
+  while (tail && (ts.isQualifiedName(tail) || ts.isPropertyAccessExpression(tail))) {
+    tail = tail.right ?? tail.name;
+  }
+  return tail?.text ?? tail?.escapedText;
+}
+
+/**
  * The aggregate a type node names DIRECTLY — `IAggregate`, `ns.IAggregate`, or
  * `import('pkg').IAggregate` — or `undefined`. A wrapped use (`Partial<IAggregate>`,
  * `IAggregate['x']`, `() => IAggregate`) is a reference, not a rename, so it is not matched here.
  */
 function directlyNamedAggregate(type, aggregates) {
   if (!type) return undefined;
-  let tail;
-  if (ts.isTypeReferenceNode(type)) {
-    tail = type.typeName;
-    while (tail && ts.isQualifiedName(tail)) tail = tail.right;
-  } else if (ts.isImportTypeNode(type)) {
-    tail = type.qualifier;
-    while (tail && ts.isQualifiedName(tail)) tail = tail.right;
-  }
-  const name = tail && ts.isIdentifier(tail) ? tail.text : undefined;
+  const name = tailName(type);
   return name && aggregates.includes(name) ? name : undefined;
+}
+
+/**
+ * The first guarded aggregate named ANYWHERE inside `type`, however deeply wrapped.
+ *
+ * Used only for allowlisted files. `directlyNamedAggregate` is exact about what a rename is, and
+ * exactness is right where references are still counted — but an allowlisted file's references are
+ * NOT counted, so both channels are off there and two characters were enough to slip through:
+ * `type IHostAll = ICommandHostContext & {}` measured green, as did `Omit<I, never>`,
+ * `Pick<I, keyof I>`, `Readonly<I>`, a conditional resolving to `I`, and bare parentheses. Chasing
+ * wrapper shapes one at a time is the loop this whole review has been about, so inside an
+ * allowlisted file the question stops being "which wrapper is this" and becomes "does this
+ * declaration mint a NEW NAME from the aggregate at all".
+ */
+function mentionsAggregate(type, aggregates) {
+  let found;
+  const walk = (node) => {
+    if (found) return;
+    const name = tailName(node);
+    if (name && aggregates.includes(name)) found = name;
+    else ts.forEachChild(node, walk);
+  };
+  if (type) walk(type);
+  return found;
 }
 
 /**
@@ -120,13 +150,22 @@ function directlyNamedAggregate(type, aggregates) {
  * consumer naming the alias, left the real tree GREEN. The allowlist exempts a file from having its
  * REFERENCES counted; it never had a reason to exempt it from the rename ban.
  */
-export function findAggregateAliases(content, fileName, aggregates) {
+export function findAggregateAliases(content, fileName, aggregates, { allowlisted = false } = {}) {
   const sourceFile = ts.createSourceFile(fileName, content);
   const aliases = [];
   const note = (aggregate, alias, node, form) => {
     const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
     aliases.push({ aggregate, alias, line: line + 1, form });
   };
+  // Inside an allowlisted file the aggregate may be NAMED — that is the whole reason each entry
+  // exists — but a name it MINTS is a second handle on the surface that nothing downstream counts.
+  // The two places a declaration can mint one are a type alias's right-hand side and a heritage
+  // clause; a member's type is a use, not a new name, which is why `ISystemCommand.execute(context:
+  // ICommandHostContext)` and `ReturnType<ICommandSessionRuntime['getPermissionMode']>` are left
+  // alone. Verified against the tree at the time of writing: zero such declarations in the ten
+  // allowlisted files, so this rule starts at zero rather than being written around existing sites.
+  const renamedBy = (type) =>
+    allowlisted ? mentionsAggregate(type, aggregates) : directlyNamedAggregate(type, aggregates);
   const visit = (node) => {
     const clause = ts.isImportDeclaration(node) ? node.importClause?.namedBindings : undefined;
     const exported = ts.isExportDeclaration(node) ? node.exportClause : undefined;
@@ -138,18 +177,14 @@ export function findAggregateAliases(content, fileName, aggregates) {
       }
     }
     if (ts.isTypeAliasDeclaration(node)) {
-      const aggregate = directlyNamedAggregate(node.type, aggregates);
+      const aggregate = renamedBy(node.type);
       if (aggregate) note(aggregate, node.name.text, node, 'a type alias');
     }
     if (ts.isInterfaceDeclaration(node)) {
       for (const clause of node.heritageClauses ?? []) {
         for (const type of clause.types ?? []) {
-          let expr = type.expression;
-          while (expr && ts.isPropertyAccessExpression(expr)) expr = expr.name;
-          const name = expr?.text ?? expr?.escapedText;
-          if (name && aggregates.includes(name)) {
-            note(name, node.name.text, type, 'an interface that extends it');
-          }
+          const aggregate = renamedBy(type);
+          if (aggregate) note(aggregate, node.name.text, type, 'an interface that extends it');
         }
       }
     }
@@ -234,6 +269,31 @@ export function findAggregateReferences(content, fileName, aggregates) {
   return found;
 }
 
+/**
+ * Which guarded aggregates `content` DECLARES, as an interface or a type alias.
+ *
+ * The ratchet freezes a reference count, and a count falls for two reasons that look identical from
+ * outside: the consumers migrated, or the subject stopped existing under that name. Measured: with
+ * only `IAgentJobHostContextRenamed` present, this scan counted 0 references for
+ * `IAgentJobHostContext` against a frozen 18 and passed — reading as "the consumer migration
+ * finished". The two aggregates frozen at 18 and 4 are exactly the ones that failure would misreport.
+ */
+export function findAggregateDeclarations(content, fileName, aggregates) {
+  const sourceFile = ts.createSourceFile(fileName, content);
+  const declared = new Set();
+  const visit = (node) => {
+    if (
+      (ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) &&
+      aggregates.includes(node.name?.text)
+    ) {
+      declared.add(node.name.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return [...declared];
+}
+
 function trackedSources(root) {
   const out = execFileSync('git', ['ls-files', 'packages', 'apps'], {
     cwd: root,
@@ -266,6 +326,7 @@ export function collectAggregateNaming(
   const allowlist = new Set((settings.allowlist ?? []).map((entry) => entry.file));
 
   const counts = new Map(aggregates.map((name) => [name, { references: 0, files: new Map() }]));
+  const declaredIn = new Map(aggregates.map((name) => [name, []]));
   const aliasFindings = [];
   let examined = 0;
   examinedFiles = 0;
@@ -277,13 +338,19 @@ export function collectAggregateNaming(
     // A cheap reject before the RPC parse: most files never mention any aggregate at all.
     if (!aggregates.some((name) => content.includes(name))) continue;
 
+    for (const name of findAggregateDeclarations(content, file, aggregates)) {
+      declaredIn.get(name).push(file);
+    }
+
     // The rename ban runs on EVERY file, allowlisted included. The allowlist's reason is always
     // "this file must name the aggregate" — never "this file may give it a second name" — and
     // placing the ban behind the skip meant the ten files most entitled to name it were the ten
     // that could rename it. Demonstrated on the real tree: one `export type IHostAll =
     // ICommandHostContext;` in the allowlisted declaration site, plus an ordinary consumer using
     // `IHostAll`, left the scan green at its frozen baseline.
-    for (const alias of findAggregateAliases(content, file, aggregates)) {
+    for (const alias of findAggregateAliases(content, file, aggregates, {
+      allowlisted: allowlist.has(file),
+    })) {
       aliasFindings.push({
         rule: 'aggregate-renamed',
         detail:
@@ -303,7 +370,7 @@ export function collectAggregateNaming(
     }
   }
 
-  return { counts, examined, aliasFindings };
+  return { counts, examined, aliasFindings, declaredIn };
 }
 
 export function findAggregateNamingFindings(root = process.cwd(), config = loadHarnessConfig()) {
@@ -330,7 +397,7 @@ export function findAggregateNamingFindings(root = process.cwd(), config = loadH
   // Fail CLOSED over a root without the governed tree: a scan that reported "no findings" for a
   // tree it never read is indistinguishable from a clean repo, and this is the floor the design
   // marks load-bearing.
-  const { counts, examined, aliasFindings } = collectAggregateNaming(root, config);
+  const { counts, examined, aliasFindings, declaredIn } = collectAggregateNaming(root, config);
 
   let baseline = {};
   try {
@@ -340,6 +407,23 @@ export function findAggregateNamingFindings(root = process.cwd(), config = loadH
   }
 
   const findings = [...aliasFindings];
+
+  // The ratchet's subject must exist. A count of 0 for an aggregate nothing declares is not a
+  // finished migration — it is a check with no subject, and it reads identically to success.
+  for (const [aggregate, homes] of declaredIn ?? []) {
+    if (homes.length === 0) {
+      findings.push({
+        rule: 'aggregate-declaration-missing',
+        aggregate,
+        detail:
+          `${aggregate} is guarded by this ratchet but is declared nowhere in the scanned tree. ` +
+          `Its reference count falls to 0 either because every consumer migrated or because the ` +
+          `subject stopped existing under that name, and those read identically — so the second is ` +
+          `a finding. Update aggregateNaming.aggregates if the rename was intended.`,
+      });
+    }
+  }
+
   for (const [aggregate, bucket] of counts) {
     const frozen = baseline[aggregate];
     if (frozen === undefined) {

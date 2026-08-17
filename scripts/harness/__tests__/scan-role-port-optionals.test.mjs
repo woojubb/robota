@@ -329,9 +329,9 @@ describe('an aggregate with members of its own is a finding (TC-04, mechanised)'
 });
 
 describe('a construct this floor cannot model is a finding, not a silent pass', () => {
-  it('flags a namespace-scoped declaration that would otherwise merge into a real port', () => {
-    // Route F2. The walk addresses declarations by top-level name, so a namespaced decoy read as a
-    // second declaration of the top-level interface and overwrote it.
+  it('flags a namespaced name that COLLIDES with a top-level one in the same file', () => {
+    // Route F2. Which of the two declarations the floor read is not apparent from the source, and a
+    // decoy is placed exactly where that is unclear.
     const root = fixture('arch-029-ns-', {
       'ports.ts':
         'declare namespace decoy {\n  export interface IPortA {\n    harmless(): void;\n  }\n}\n' +
@@ -349,6 +349,28 @@ describe('a construct this floor cannot model is a finding, not a silent pass', 
       'namespace-scoped-declaration',
       'role-port-optional-member',
     ]);
+  });
+
+  it('does NOT flag ordinary augmentation, which collides with nothing', () => {
+    // The over-fire review measured: an earlier revision reported EVERY namespaced interface, so
+    // `declare global { interface Window … }` and a `declare module 'vitest'` augmentation each
+    // turned the floor red on their own. Both are things a real contributor writes, and a floor
+    // that fires on them gets allowlisted into silence.
+    const root = fixture('arch-029-ns-ok-', {
+      'ports.ts':
+        'declare global {\n  interface Window {\n    thing: string;\n  }\n}\n' +
+        "declare module 'vitest' {\n  interface Assertion {\n    toBeThing(): void;\n  }\n}\n" +
+        'export interface IPortA {\n  a(): void;\n}\n' +
+        'export interface IAgg extends IPortA {}\n',
+    });
+
+    const { findings } = findRolePortOptionalFindings(root, {
+      files: ['ports.ts'],
+      aggregates: ['IAgg'],
+      carveOuts: [],
+    });
+
+    expect(findings).toEqual([]);
   });
 
   it('flags a heritage expression no name can be read from', () => {
@@ -413,6 +435,47 @@ describe('a construct this floor cannot model is a finding, not a silent pass', 
     });
 
     expect(findings).toEqual([]);
+  });
+});
+
+describe('a configured aggregate that resolves to nothing is a finding', () => {
+  it('flags an aggregate declared in NO scanned file, while the others still resolve', () => {
+    // A regression this scan introduced while fixing the class it belongs to: `homes.length === 0`
+    // fell through with no finding and no queue entry, so deleting or renaming one aggregate took
+    // every role port it composes out of scope and the floor printed a pass. `role-port-scope-empty`
+    // cannot cover it — that needs EVERY aggregate to vanish, and here one still resolves.
+    const root = fixture('arch-029-missing-agg-', {
+      'ports.ts':
+        'export interface IPortA {\n  a(): void;\n}\n' +
+        'export interface IAggOne extends IPortA {}\n',
+    });
+
+    const { findings } = findRolePortOptionalFindings(root, {
+      files: ['ports.ts'],
+      aggregates: ['IAggOne', 'IAggGone'],
+      carveOuts: [],
+    });
+
+    expect(findings.map((f) => f.rule)).toEqual(['aggregate-declaration-missing']);
+    expect(findings[0].detail).toContain('IAggGone');
+  });
+});
+
+describe('`examined` cannot overstate what was read', () => {
+  it('counts a path listed twice in `files` once', () => {
+    const root = fixture('arch-029-dupe-path-', {
+      'ports.ts':
+        'export interface IPortA {\n  a(): void;\n}\nexport interface IAgg extends IPortA {}\n',
+    });
+
+    const { examined } = findRolePortOptionalFindings(root, {
+      files: ['ports.ts', 'ports.ts'],
+      aggregates: ['IAgg'],
+      carveOuts: [],
+    });
+
+    expect(examined).toBe(1);
+    expect(examinedFileCount()).toBe(1);
   });
 });
 

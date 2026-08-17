@@ -236,7 +236,24 @@ export function resolveScope(fileDecls, aggregates, fileSet) {
       });
       continue;
     }
-    if (homes.length === 1) queue.push({ file: homes[0][0], name: aggregate });
+    if (homes.length === 1) {
+      queue.push({ file: homes[0][0], name: aggregate });
+      continue;
+    }
+    // `homes.length === 0` used to fall through with no finding and no queue entry — a regression
+    // this scan introduced while fixing the very class it belongs to, and review caught it on the
+    // real contract: deleting or renaming `ICommandHostContext` left the floor GREEN and took the
+    // ~15 role ports it composes out of scope unchecked. `role-port-scope-empty` cannot cover it,
+    // because it needs EVERY aggregate to vanish and the other two still resolve. The configured
+    // aggregate is this floor's subject, and a subject that resolves nowhere is the loudest failure
+    // available, not the quietest.
+    findings.push({
+      rule: 'aggregate-declaration-missing',
+      detail:
+        `${aggregate} is configured as an aggregate but is declared in none of the scanned files. ` +
+        `Every role port it composes is therefore out of scope and unchecked, and the floor would ` +
+        `otherwise print a pass for a contract it never read.`,
+    });
   }
 
   while (queue.length > 0) {
@@ -263,9 +280,11 @@ export function resolveScope(fileDecls, aggregates, fileSet) {
         detail:
           `${file}: ${name} extends ${parent}, which resolves to no declaration this floor read ` +
           `(${imported ? `imported from '${imported.module}'` : 'not declared in this file and not imported'}). ` +
-          `Its members are reachable through the aggregate and went unchecked — add the declaring ` +
-          `file to rolePortOptionals.files. Renaming on import is how a decoy is substituted for a ` +
-          `real port, so a name that does not resolve is a finding rather than a skip.`,
+          `Its members are reachable through the aggregate and went unchecked. Either the declaring ` +
+          `file is missing from rolePortOptionals.files, or the import reaches it through a ` +
+          `re-export hop, which this floor deliberately does not follow — it resolves a specifier to ` +
+          `one file and reads the declaration there. Renaming on import is how a decoy is ` +
+          `substituted for a real port, so a name that does not resolve is a finding, not a skip.`,
       });
     }
   }
@@ -315,13 +334,16 @@ export function findRolePortOptionalFindings(root = process.cwd(), settingsOverr
   // repo-wide name map is the defect round four demonstrated: a name then resolves to whichever
   // scanned file happens to declare it rather than to the file the declaring file's own imports
   // point at.
-  examinedFiles = 0;
+  // `fileSet` is the deduped scope, and `examined` counts it rather than the raw list: a path listed
+  // twice used to increment the counter twice while `fileDecls` deduped, so the asserted output
+  // could exceed the number of files actually read. This file makes `examined` an asserted output
+  // under measurement-provenance; a count that can overstate weakens exactly that.
   const fileSet = new Set(files);
   const fileDecls = new Map();
-  for (const file of files) {
+  for (const file of fileSet) {
     fileDecls.set(file, declarationsOf(readFileSync(join(root, file), 'utf8'), file));
-    examinedFiles += 1;
   }
+  examinedFiles = fileDecls.size;
 
   const findings = [];
 
@@ -336,16 +358,22 @@ export function findRolePortOptionalFindings(root = process.cwd(), settingsOverr
           `Silence here is indistinguishable from safety, so it fails instead.`,
       });
     }
-    // A namespace-scoped declaration is a construct this floor cannot model, so it says so instead
-    // of guessing. Left unreported, `declare namespace d { interface IPortA { … } }` is read as a
-    // second declaration of a top-level `IPortA` and merged into the real one.
+    // Only a namespaced name that COLLIDES with a top-level one in the same file. An earlier
+    // revision reported every namespaced interface, which review measured firing on
+    // `declare global { interface Window … }` and `declare module 'vitest' { interface Assertion … }`
+    // — ordinary code, and an over-firing floor gets allowlisted into silence, which is the state
+    // this whole scan exists to avoid. The merge hazard the rule was written for cannot occur (the
+    // walk never folds a nested declaration into `interfaces`), and a real port genuinely inside a
+    // namespace is already caught by `role-port-declaration-unscanned`. What remains is the
+    // collision: two same-named declarations where a reader cannot tell which one the floor read.
     for (const entry of decls.nested) {
+      if (!decls.interfaces.has(entry.name)) continue;
       findings.push({
         rule: 'namespace-scoped-declaration',
         detail:
-          `${file}: ${entry.name} is declared inside a namespace. This floor addresses declarations ` +
-          `by top-level name and cannot tell a namespaced interface from a second declaration of the ` +
-          `top-level one, so a namespaced decoy would merge into a real role port.`,
+          `${file}: ${entry.name} is declared both inside a namespace and at the top level. This ` +
+          `floor addresses declarations by top-level name, so which of the two it read is not ` +
+          `apparent from the source — and a decoy is placed exactly where that is unclear.`,
       });
     }
   }
