@@ -178,6 +178,18 @@ Every backlog that changes runnable user-facing behavior, command behavior, TUI/
 workflow behavior must include a `## User Execution Test Scenarios` section before implementation
 starts.
 
+**Mechanized** by `scripts/harness/scan-spec-user-execution-section.mjs` (`harness:scan`
+`spec-user-execution-section`): a spec document in a folder whose status means implementation has
+started — `active/` and `done/`, derived from [spec-workflow.md](spec-workflow.md)'s own
+status→folder table rather than copied — must carry the section. Work that delivers no runnable
+user-facing behavior satisfies it with the reasoned not-applicable entry the bullets below require,
+so the scan asks for the SECTION, never for an invented scenario.
+
+Documents that predate the scan are frozen by name in
+`scripts/harness/spec-user-execution-baseline.json`. That baseline is an exempt **set**, not a count:
+a new document can never borrow an older one's exemption, the set may only shrink, and an exemption
+is keyed to the document's folder so a gate transition re-governs it.
+
 **Script home**: disposable live-verification scripts (evidence runs, repro probes)
 live in `scratch/src/` — a gitignored workspace home whose committed skeleton resolves
 `@robota-sdk/*` imports. Never park them inside `packages/` or `apps/`; the

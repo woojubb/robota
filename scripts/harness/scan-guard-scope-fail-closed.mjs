@@ -102,6 +102,13 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'it probes the runtime a WORKSPACE script actually receives; with no workspace tree there is no such script, so a pass would report agreement between a declaration and a measurement that was never taken',
   },
   {
+    // Measured as `findMissingSectionFindings(bare)`: throws `governed tree(s) absent under <root>`.
+    file: 'scan-spec-user-execution-section.mjs',
+    finder: 'findMissingSectionFindings',
+    tree: 'done',
+    why: 'it judges spec documents that reached implementation without a user-execution gate section; over a root with no spec tree there is no document to judge, and "zero documents are missing the section" reads exactly like "every document carries it" — while the defect it exists to catch is seven documents implemented and reported complete with no section at all',
+  },
+  {
     // Measured the way this harness calls it — `collectToolClassification(bare)`: throws
     // `governed tree(s) absent under <root>: packages`.
     file: 'scan-tool-classification.mjs',

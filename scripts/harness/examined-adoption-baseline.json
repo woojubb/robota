@@ -57,6 +57,7 @@
     "spec-doc-frontmatter",
     "spec-paths",
     "spec-research",
+    "spec-user-execution-section",
     "spec-whitebox-leakage",
     "stub-markers",
     "task-archival",
