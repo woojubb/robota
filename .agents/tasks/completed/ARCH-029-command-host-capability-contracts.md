@@ -56,8 +56,18 @@ graphs.
 
 ## User Execution Test Scenarios
 
-Applies. Exact agent-executable commands, prerequisites, output, cleanup, and empty evidence fields
-will be authored at this item's scenario-planning gate before implementation.
+**Applies**, and the scenario is authored with its evidence in the design document:
+[`.agents/spec-docs/done/ARCH-029-command-host-capability-roles.md`](../../spec-docs/done/ARCH-029-command-host-capability-roles.md)
+→ `## User Execution Test Scenarios`.
+
+This placeholder previously said the scenario "will be authored at this item's scenario-planning gate
+before implementation", and it never was — while the close-out row below was ticked. The gap was
+caught by `scan-spec-user-execution-section`, a floor that landed on `develop` while this branch was
+in review, not by anyone re-reading the promise.
+
+The user here is an SDK consumer building a host, which is the audience the `major` bump and the
+published `./testing` doubles exist for. It does not apply to end-user runtime behaviour: both
+deleted second paths were measured dead in production before deletion.
 
 ## Plan
 

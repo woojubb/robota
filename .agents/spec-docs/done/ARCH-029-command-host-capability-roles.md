@@ -288,6 +288,51 @@ Four seams, each independently green and each leaving the tree honest:
   proves consumers stopped naming the aggregate. **The real design risk and the bulk of the work sit here.**
 - **S4** — TC-06, TC-08, TC-09: required members, the replay-log hook resolved, and the `?? default` sites deleted.
 
+## User Execution Test Scenarios
+
+**Applies**, and the user here is an SDK consumer building a host — the audience the `major` bump and
+the published `./testing` doubles exist for. It does NOT apply to end-user runtime behaviour, and that
+is measured rather than assumed: both deleted second paths were dead in production. The production
+host implemented `clearConversationHistory` before this change
+(`interactive-session.ts:733` at the merge base), so its fallback never ran; and no host implemented
+`validateCurrentSessionReplayLog`, so the framework default was already the only path. Nothing an
+end user can do behaves differently.
+
+- **Prerequisites:** the repo built (`pnpm --filter @robota-sdk/agent-framework build`). No provider
+  key, server, or fixture project. The disposable `scratch` workspace already depends on the package.
+- **Steps:**
+  1. Write `scratch/src/arch-029-role-ports.ts` constructing a host with `createTestCommandHost` from
+     `@robota-sdk/agent-framework/testing`, annotated `ICommandHostContext`, **with no cast**.
+  2. Pass that one host to three framework command-API functions that each declare only the single
+     role they read — `formatCommandHelpMessage(ICommandHostCatalog)`,
+     `readCommandContextState(ICommandHostContextWindow)`,
+     `readCommandSessionInfo(ICommandHostSessionAccess)`.
+  3. Build an object literal implementing **only** `ICommandHostContextWindow` (5 members) and pass it
+     to `readCommandContextState`.
+  4. Typecheck: `cd scratch && npx tsgo --noEmit -p tsconfig.json`.
+  5. Run: `pnpm --filter robota-scratch run run src/arch-029-role-ports.ts`.
+- **Expected observable result:** step 4 reports zero errors for the file, and step 5 prints a value
+  from each of the four calls. Step 3 is the delivered capability — a command author declares the one
+  role they read, and a host providing only that role satisfies it.
+- **Expected before the fix, for contrast:** step 1 could not be written honestly. The contract had 46
+  members, 32 optional, and every one of the 21 fixture sites reached it through
+  `as unknown as ICommandHostContext`; step 3 was impossible, because there was no role to implement.
+- **Cleanup:** delete `scratch/src/arch-029-role-ports.ts` (`scratch/src` is gitignored).
+- **Evidence:** executed 2026-08-17. Typecheck: **0 errors** in the scenario file. Run output:
+
+  ```
+  cwd via the aggregate                : /scenario/workspace
+  help via ICommandHostCatalog         : Available commands:
+  context via ICommandHostContextWindow: {"maxTokens":0,"usedTokens":0,"usedPercentage":0,"remainingPercentage":100}
+  session via ICommandHostSessionAccess: {"sessionId":"test-command-host-1","messageCount":0}
+  context via a WINDOW-ONLY host       : {"usedTokens":1234,"maxTokens":200000,"usedPercentage":0.6,"remainingPercentage":99.4}
+  ```
+
+  **The typecheck is load-bearing and caught three real errors in the scenario itself**, all of which
+  `tsx` had run past without complaint — a wrong `IContextWindowState` shape and two members the
+  window-only literal invented. Running a type-level scenario without typechecking it proves nothing,
+  which is this item's own subject arriving one level up.
+
 ## Tasks
 
 Broken down in the task file, one task per Completion Criterion, grouped by seam:
