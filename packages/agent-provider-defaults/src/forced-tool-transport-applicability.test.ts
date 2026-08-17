@@ -56,6 +56,48 @@ import {
 } from '@robota-sdk/agent-provider-openai-compatible';
 
 import type { IAIProvider, TStructuredOutputMechanism } from '@robota-sdk/agent-core';
+import type { IAnthropicProviderOptions } from '@robota-sdk/agent-provider-anthropic';
+import type { IGeminiProviderOptions } from '@robota-sdk/agent-provider-gemini';
+import type { IOpenAIProviderOptions } from '@robota-sdk/agent-provider-openai';
+import type {
+  IDeepSeekProviderOptions,
+  IGemmaProviderOptions,
+  IQwenProviderOptions,
+} from '@robota-sdk/agent-provider-openai-compatible';
+
+/**
+ * Drop index signatures, so `'strictTools' extends keyof T` asks about a DECLARED member.
+ *
+ * `IGemmaProviderOptions` carries `[key: string]: TGemmaProviderOptionValue`, which makes
+ * `keyof T` include `string` and would answer `true` for every name ever spelled — the check would
+ * report that every open-ended options bag supports strict tool arguments.
+ */
+type DeclaredKeys<T> = {
+  [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K];
+};
+
+/**
+ * Whether a provider's published options DECLARE strict tool arguments — CORE-048.
+ *
+ * Derived by the compiler from the interface itself, not written down. That distinction is the
+ * whole point and was got wrong once: this table held hand-written booleans while the docblock
+ * claimed they were "asserted by presence in the provider's published options". They were not, so a
+ * provider that GAINED the capability would have left its `false` in place and silently disabled the
+ * tripwire — a check that cannot fail, which is the defect this file exists to prevent, one level up.
+ *
+ * Now a provider that adds `strictTools` flips this type to `true`, and the `false` recorded below
+ * stops type-checking. The failure is a compile error, before any test runs.
+ */
+type DeclaresStrictTools<T> = 'strictTools' extends keyof DeclaredKeys<T> ? true : false;
+
+const STRICT_TOOL_SUPPORT = {
+  openai: true satisfies DeclaresStrictTools<IOpenAIProviderOptions>,
+  anthropic: false satisfies DeclaresStrictTools<IAnthropicProviderOptions>,
+  gemini: false satisfies DeclaresStrictTools<IGeminiProviderOptions>,
+  gemma: false satisfies DeclaresStrictTools<IGemmaProviderOptions>,
+  deepseek: false satisfies DeclaresStrictTools<IDeepSeekProviderOptions>,
+  qwen: false satisfies DeclaresStrictTools<IQwenProviderOptions>,
+} as const;
 
 const NOT_USED = 'not-used-no-request-is-sent';
 
@@ -78,16 +120,17 @@ function resolveFor(provider: IAIProvider, model: string): TStructuredOutputMech
 }
 
 /**
- * EVERY provider this workspace ships — all six — with a representative model and whether its
- * package exposes enforceable strict tool arguments.
+ * EVERY provider this workspace ships — all six — with a representative model.
  *
  * "Every" is load-bearing and was got wrong once: `gemma` was omitted while this file's own docblock
  * and `agent-core`'s SPEC both named six. A tripwire with a hole in its coverage is worse than no
- * tripwire, because it reads as a check. `providerCoverage` below asserts the count against the
- * documented set so the next omission fails instead of passing quietly.
+ * tripwire, because it reads as a check. The first case below asserts the matrix against the
+ * documented set, so the next omission fails instead of passing quietly.
  *
- * `strictTools` is asserted by presence in the provider's published options rather than assumed, so
- * a provider that GAINS the capability changes this table by failing, not by being forgotten.
+ * Strict-tool support is read from {@link STRICT_TOOL_SUPPORT}, which the COMPILER derives from each
+ * provider's published options interface — so a provider that GAINS the capability changes this
+ * table by failing to build, not by being forgotten. Verified by giving `IDeepSeekProviderOptions`
+ * a `strictTools` member: `Type 'false' does not satisfy the expected type 'true'`.
  */
 function providerMatrix(): Array<{
   name: string;
@@ -100,19 +143,19 @@ function providerMatrix(): Array<{
       name: 'openai',
       provider: new OpenAIProvider({ apiKey: NOT_USED }),
       model: 'gpt-5',
-      hasStrictToolArguments: true,
+      hasStrictToolArguments: STRICT_TOOL_SUPPORT.openai,
     },
     {
       name: 'anthropic',
       provider: new AnthropicProvider({ apiKey: NOT_USED }),
       model: 'claude-sonnet-4-6',
-      hasStrictToolArguments: false,
+      hasStrictToolArguments: STRICT_TOOL_SUPPORT.anthropic,
     },
     {
       name: 'gemini',
       provider: new GeminiProvider({ apiKey: NOT_USED }),
       model: 'gemini-2.5-pro',
-      hasStrictToolArguments: false,
+      hasStrictToolArguments: STRICT_TOOL_SUPPORT.gemini,
     },
     {
       name: 'gemma',
@@ -124,19 +167,19 @@ function providerMatrix(): Array<{
         baseURL: 'https://example.invalid/v1',
       }) as unknown as IAIProvider,
       model: 'gemma-3-27b-it',
-      hasStrictToolArguments: false,
+      hasStrictToolArguments: STRICT_TOOL_SUPPORT.gemma,
     },
     {
       name: 'deepseek',
       provider: new DeepSeekProvider({ apiKey: NOT_USED }),
       model: 'deepseek-chat',
-      hasStrictToolArguments: false,
+      hasStrictToolArguments: STRICT_TOOL_SUPPORT.deepseek,
     },
     {
       name: 'qwen',
       provider: new QwenProvider({ apiKey: NOT_USED, baseURL: 'https://example.invalid/v1' }),
       model: 'qwen-max',
-      hasStrictToolArguments: false,
+      hasStrictToolArguments: STRICT_TOOL_SUPPORT.qwen,
     },
   ];
 }
