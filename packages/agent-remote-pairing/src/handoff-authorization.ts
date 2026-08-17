@@ -30,6 +30,8 @@
  * private key, and every field it could tamper with is signed.
  */
 
+import { ab } from './crypto-primitives.js';
+
 const SIGN_PARAMS = { name: 'ECDSA', hash: 'SHA-256' } as const;
 
 const webcrypto = globalThis.crypto;
@@ -95,7 +97,7 @@ export async function issueHandoffGrant(
   const signature = await webcrypto.subtle.sign(
     SIGN_PARAMS,
     sourcePrivateKey,
-    grantBytes(claims) as unknown as ArrayBuffer,
+    ab(grantBytes(claims)),
   );
   return { ...claims, signature: toBase64Url(new Uint8Array(signature)) };
 }
@@ -151,8 +153,8 @@ export async function verifyHandoffGrant(
   const signatureOk = await webcrypto.subtle.verify(
     SIGN_PARAMS,
     options.sourcePublicKey,
-    fromBase64Url(signature) as unknown as ArrayBuffer,
-    grantBytes(claims) as unknown as ArrayBuffer,
+    ab(fromBase64Url(signature)),
+    ab(grantBytes(claims)),
   );
   if (!signatureOk) return { authorized: false, rejection: 'signature-invalid' };
 

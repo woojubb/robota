@@ -31,6 +31,7 @@
  * primitives the reconnect challenge already uses.
  */
 
+import { ab } from './crypto-primitives.js';
 import { deriveIdentityId, exportPublicKey, importPublicKey } from './device-identity.js';
 
 const ECDSA_PARAMS = { name: 'ECDSA', namedCurve: 'P-256' } as const;
@@ -129,7 +130,7 @@ export async function issueDeviceCertificate(
   const signature = await webcrypto.subtle.sign(
     SIGN_PARAMS,
     options.rootPrivateKey,
-    certificateBytes(unsigned) as unknown as ArrayBuffer,
+    ab(certificateBytes(unsigned)),
   );
   return { ...unsigned, signature: toBase64Url(new Uint8Array(signature)) };
 }
@@ -168,8 +169,8 @@ export async function verifyDeviceCertificate(
   const signatureOk = await webcrypto.subtle.verify(
     SIGN_PARAMS,
     options.rootPublicKey,
-    fromBase64Url(signature) as unknown as ArrayBuffer,
-    certificateBytes(unsigned) as unknown as ArrayBuffer,
+    ab(fromBase64Url(signature)),
+    ab(certificateBytes(unsigned)),
   );
   if (!signatureOk) return { valid: false, rejection: 'signature-invalid' };
 
@@ -198,10 +199,5 @@ export async function verifyDevicePossession(
   signature: Uint8Array,
 ): Promise<boolean> {
   const devicePublicKey = await importPublicKey(certificate.devicePublicKey);
-  return webcrypto.subtle.verify(
-    SIGN_PARAMS,
-    devicePublicKey,
-    signature as unknown as ArrayBuffer,
-    challenge as unknown as ArrayBuffer,
-  );
+  return webcrypto.subtle.verify(SIGN_PARAMS, devicePublicKey, ab(signature), ab(challenge));
 }
