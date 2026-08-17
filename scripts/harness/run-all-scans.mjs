@@ -459,6 +459,13 @@ export const SCAN_COMMANDS = [
     name: 'spec-user-execution-section',
     command: ['node', 'scripts/harness/scan-spec-user-execution-section.mjs'],
   },
+  // D1. operational.md requires the three routing documents to stay lean, and scan-file-size scopes
+  // itself to packages/apps, so nothing could see them — three of three were in violation. The
+  // ratchet enforces the direction; the gap to the 80-line target is reported every run.
+  {
+    name: 'routing-document-size',
+    command: ['node', 'scripts/harness/scan-routing-document-size.mjs'],
+  },
   { name: 'shell-portability', command: ['node', 'scripts/harness/scan-shell-portability.mjs'] },
   { name: 'ci-base-history', command: ['node', 'scripts/harness/scan-ci-base-history.mjs'] },
   {

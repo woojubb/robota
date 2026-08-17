@@ -79,8 +79,16 @@ release suite a second time. The root command remains available as an explicit l
 
 ### Git Operations
 
-- No `git commit` or `git push` without explicit user approval.
-- Conventional commit format: `<type>(<scope>): <message>` (max 72 chars).
+- Conventional commit format: `<type>(<scope>): <message>`, subject **max 100 characters** — the
+  value `commitlint` actually enforces (`config-conventional`'s `header-max-length`), verified by
+  running it. This line used to say 72, which nothing enforced.
+
+  The 72 was amended to match the configuration rather than the reverse,
+  because the measurement went against tightening: of the last 100 subjects, **43 fall between 73 and
+  100 characters**, and GitHub appends the ` (#NNNN)` pull-request suffix — **8 characters the author
+  never typed** — on every squash merge. A 72-character ceiling would reject nearly half of this
+  repository's normal practice, partly for text the author cannot control.
+
 - Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`.
 
 ### Commit Cadence
@@ -93,6 +101,18 @@ progress is safe across a compaction, whereas a large uncommitted working tree i
 reads as stalling. Avoid the opposite failure too: do not fragment into many trivial commits. The
 context window filling is **not** a reason to stop implementing or to switch to planning-only; keep
 implementing and keep committing. (Owner directive.)
+
+**Committing needs no separate approval; PUBLISHING does.** This section used to sit six lines below
+"No `git commit` or `git push` without explicit user approval", and the two could not both hold in an
+autonomous run: one required asking before every commit, the other forbade deferring them. The
+ask-first line was deleted rather than qualified — `agent-conduct.md`
+already outranked it, which had made it a dead letter that still read as absolute, and the observed
+failure was the cadence side: commits deferred to the context limit.
+
+What remains gated is the **outward-facing** step, and it is gated by mechanism rather than by prose:
+a push runs `.claude/hooks/pre-push-check.sh`, a merge runs `.claude/hooks/merge-gate.sh`, and a
+merge into `main` is the user's alone (Feature Branch Workflow below). Working on a feature branch is
+reversible; those three are not.
 
 ### Disabling the Gate is Prohibited
 

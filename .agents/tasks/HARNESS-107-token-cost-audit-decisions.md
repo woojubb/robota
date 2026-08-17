@@ -1,10 +1,43 @@
+---
+title: 'HARNESS-107: harness token-cost audit — the decisions it raised, and their dispositions'
+status: in-progress
+created: 2026-08-09
+priority: medium
+urgency: soon
+area: .agents/rules, AGENTS.md, scripts/harness, .claude/hooks
+depends_on: []
+---
+
 # Harness audit — decisions open, work done
 
 Measured 2026-08-09 from `~/.claude/projects/-home-ubuntu-dev-robota/*.jsonl` and from the tree.
 
 **This is an open action item, not a reference document.** Everything under "Decisions" needs an
-owner's answer; nothing there can be settled by reading the code. When all of them are answered and
-the checklist is clear, delete this file and its row in `AGENTS.md`.
+owner's answer; nothing there can be settled by reading the code.
+
+**Moved here from `.agents/token-cost-report.md` on 2026-08-17 (D10).** It sat at the top of
+`AGENTS.md` behind an "Open action" blockquote plus a row in the document table, so it cost
+always-loaded context on every turn while it stayed open. `AGENTS.md` routes work items to
+`.agents/tasks/`, and a document with a decision checklist is exactly that class — so it lives here
+and `AGENTS.md` keeps no pointer at all. Delete this file when the checklist is clear.
+
+## Disposition (owner decisions, 2026-08-17)
+
+Recorded verbatim: _"D4,D8 빼고 나머지 모두 추천안 수용한다"_ — every recommendation below accepted
+except D4 and D8, which stay open.
+
+| Decision | Disposition                                                                                                                                                                                                                                                                                     |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1       | **Accepted (a)** — enforce the size rule; slim the three documents and let the scan read its own document list from `operational.md`                                                                                                                                                            |
+| D2       | **Accepted (a)** — `.prettierignore` + squeeze, after verifying `scan-mistake-mechanisms` reads the `**Mechanism:**` token rather than column geometry                                                                                                                                          |
+| D3       | **Done** — the ask-first line was deleted; `git-branch.md` § Git Operations / Commit Cadence records why                                                                                                                                                                                        |
+| D4       | **OPEN** — build-after-every-commit needs owner knowledge of the CI shape                                                                                                                                                                                                                       |
+| D5       | **Done** — standing authorization written into `backlog-execution.md` § Agent Decision Authority, with the four carve-outs                                                                                                                                                                      |
+| D6       | **Accepted** — hook-refusal card in `AGENTS.md`, sequenced after D1 funds the space                                                                                                                                                                                                             |
+| D7       | **Accepted (a)** — `no-foreground-wait.sh`; ack variable and sleep budget decided at implementation                                                                                                                                                                                             |
+| D8       | **OPEN** — skill descriptions and the unregistered-41 boundary are the skill owners' call                                                                                                                                                                                                       |
+| D9       | **Done, one row inverted** — `ban-ts-comment` tightened to `error` (0 errors tree-wide); the 72-character subject rule was amended to the enforced 100 instead of tightening the config, because 43 of the last 100 subjects exceed 72 and GitHub appends 8 uncontrollable characters on squash |
+| D10      | **Done** — this move                                                                                                                                                                                                                                                                            |
 
 > **Counting note — read before re-measuring.** Claude Code writes **one JSONL record per content
 > block**, and every block of one response carries an **identical copy** of `message.usage`. This

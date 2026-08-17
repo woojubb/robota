@@ -18,6 +18,7 @@
     "scripts/harness/scan-preset-projection.mjs",
     "scripts/harness/scan-product-identity.mjs",
     "scripts/harness/scan-role-port-optionals.mjs",
+    "scripts/harness/scan-routing-document-size.mjs",
     "scripts/harness/scan-spec-user-execution-section.mjs",
     "scripts/harness/scan-tool-classification.mjs",
     "scripts/harness/scan-transport-conformance.mjs",

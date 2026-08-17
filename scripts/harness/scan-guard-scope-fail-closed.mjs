@@ -150,6 +150,13 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'over a root without the contract file there is no port to inspect, and "0 optional members" reads exactly like a fully-required contract. This scan already shipped one silent version — it read `questionToken`, which the native AST never populates on a type member, so it reported zero for every input; failing closed on scope is the other half of that lesson',
   },
   {
+    // Measured as `findRoutingSizeFindings(bare)`: throws `governed tree(s) absent under <root>`.
+    file: 'scan-routing-document-size.mjs',
+    finder: 'findRoutingSizeFindings',
+    tree: '.agents/rules/operational.md',
+    why: 'the rule it reads states BOTH which documents are routing documents and how lean they must be; over a root without it there is no list and no target, so "no findings" would mean "nothing was measured" while reading exactly like "every routing document is lean"',
+  },
+  {
     // Measured the way this harness calls it — `collectToolClassification(bare)`: throws
     // `governed tree(s) absent under <root>: packages`.
     file: 'scan-tool-classification.mjs',

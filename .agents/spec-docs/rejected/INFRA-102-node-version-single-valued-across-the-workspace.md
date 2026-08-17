@@ -1,5 +1,5 @@
 ---
-status: draft
+status: rejected
 type: INFRA
 tags: [cli, typescript]
 ---
@@ -249,3 +249,44 @@ independently reproduced against the code before any change (see the Problem sec
 measurements), and each change is reversible and internal to this repository.
 
 Every workspace manifest resolves to the root pin (66 examined); `node -v` in a package directory is 22.14.0, was 24.19.0. The MEASURED edge was added during implementation because `volta.extends` fixes bare `node` but not what pnpm hands its scripts (volta-cli/volta#1562) — no manifest edit can, so the deliverable is a check that says so with the host remediation. 9 unit tests, 117 scans.
+
+### [PIPELINE NOT FOLLOWED] — recorded 2026-08-17
+
+Stated as a fact, not as a gate verdict — the actor who did the work may not judge it.
+
+This document did not pass GATE-WRITE → GATE-APPROVAL before implementation. The work was
+implemented first, under the owner's standing instruction quoted above, and this plan was written
+alongside it. The gate catalogue is explicit about what that means: GATE-APPROVAL's NON-COMPLIANCE
+trigger is _"Implementation work (file edits, code commits) was started before this gate ran."_ It
+was.
+
+So the document cannot legitimately be advanced to `done/` by running the gates now. A PASS recorded
+today would assert an ordering that did not happen, and a status of `done` reached that way is a
+worse record than a status of `draft` — it would read as a plan that was approved and then built,
+which is not what occurred.
+
+It stays at `status: draft` deliberately. The implementation is real, merged, and verified — the
+evidence above and the `## User Execution Test Scenarios` section record it — but the PLAN's
+lifecycle stopped where the process actually stopped.
+
+**To dispose of this properly**, an owner has two options, and neither is the agent's to take:
+
+- run `backlog-gate-guard` and let it record the NON-COMPLIANCE, closing the document on an accurate
+  verdict; or
+- accept the work as delivered outside the pipeline and mark the document `rejected` (which
+  `spec-workflow.md` defines as "closed deliberately; not a gate FAIL"), since the plan it holds was
+  never the thing that authorized the work.
+
+### [DISPOSITION] — closed deliberately | 2026-08-17
+
+`status: draft` → `status: rejected`, on the owner's decision of 2026-08-17, recorded verbatim:
+"D4,D8 빼고 나머지 모두 추천안 수용한다" — accepting the recommendation that these documents be
+closed rather than advanced.
+
+`spec-workflow.md` defines `rejected` as "closed deliberately; **not** a gate FAIL", which is the
+accurate description: the work in this document is implemented, merged and verified, and the plan is
+being closed because it was never the artifact that authorized that work. Advancing it to `done`
+would have asserted an approval-then-build ordering that did not occur.
+
+The implementation record is not closed with it — it lives in the task file under `.agents/tasks/`,
+in the merged commits, and in this document's own evidence and scenario sections above.
