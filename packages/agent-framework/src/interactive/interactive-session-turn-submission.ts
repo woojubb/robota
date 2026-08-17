@@ -6,13 +6,29 @@ import type {
   ITurnOptions,
   SessionExecutionController,
 } from './interactive-session-execution-controller.js';
-import type { ITurnHandle, TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { ISubmitOptions, ITurnHandle, TDriverId } from '@robota-sdk/agent-interface-transport';
 
 export interface INewTurnSubmissionDeps {
   readonly execCtrl: SessionExecutionController;
   readonly ensureInitialized: () => Promise<void>;
   readonly executeAcceptedTurn: (entry: IQueuedInput) => Promise<void>;
   readonly emitDropped: (driverId: TDriverId, maxDepth: number) => void;
+}
+
+/**
+ * The PUBLIC submission fields, projected one by one.
+ *
+ * An allowlist, not a convenience. `submit` is reachable from untyped callers — a transport frame, a
+ * JavaScript consumer — and a wholesale spread would carry whatever they sent into the internal turn
+ * options, including `resumeTurnId`, which lets a caller name an EXISTING turn's identity instead of
+ * being minted one. RUNTIME-006 removed that option for exactly that reason and a test pins it, so
+ * every field here is one somebody decided a caller may set.
+ */
+export function publicTurnOptions(options: ISubmitOptions): ITurnOptions {
+  return {
+    ...(options.driverId !== undefined ? { driverId: options.driverId } : {}),
+    ...(options.turnSource !== undefined ? { turnSource: options.turnSource } : {}),
+  };
 }
 
 /** Accept and either execute or queue one NEW turn. Queued resumption never re-enters this path. */

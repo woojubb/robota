@@ -6,6 +6,7 @@
  */
 
 import type { TCommandUiIntent } from './command-contracts.js';
+import type { TTurnSource } from './turn-contracts.js';
 
 /**
  * REMOTE-014 E5 co-drive attribution: a stable, SERVER-ASSIGNED id for the driver of an input/turn. It is
@@ -23,6 +24,16 @@ export const AGENT_DRIVER_ID: TDriverId = 'agent';
 /** REMOTE-014 E5: options for `submit` — carries the SERVER-ASSIGNED driver id for co-drive attribution. */
 export interface ISubmitOptions {
   readonly driverId?: TDriverId;
+  /**
+   * PEER-002 (#1809): where this turn came from, when it is not an ordinary user prompt.
+   *
+   * Carried here beside `driverId` because it is the same KIND of fact and travels with it: both
+   * describe the turn's origin, both are set by whoever accepted the submission, and neither is an
+   * authorization input. What stops a caller from simply declaring itself a peer is not this field
+   * — it is that a `'peer'` turn is REFUSED unless it also names the peer's driver id, so the
+   * origin cannot be claimed without also being attributed.
+   */
+  readonly turnSource?: TTurnSource;
 }
 
 /**

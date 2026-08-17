@@ -13,17 +13,9 @@
  * callers. Exported only via `@robota-sdk/agent-framework/testing`; never import from runtime code.
  */
 
-import {
-  mkdtempSync,
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  existsSync,
-} from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, sep } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 import {
   createScriptedProvider,
@@ -31,6 +23,16 @@ import {
   createRecordingProvider,
 } from '@robota-sdk/agent-core/testing';
 
+import { peerTurnOptions } from './harness-peer-driver.js';
+import {
+  logEntriesOf,
+  logsDirOf,
+  readWorkspaceFile,
+  transcriptOf,
+  transcriptPathOf,
+  workspaceFileExists,
+  workspaceFiles,
+} from './harness-workspace-inspectors.js';
 import { InteractiveSession } from '../interactive/index.js';
 import { createProjectSessionStore } from '../interactive/index.js';
 
@@ -308,6 +310,13 @@ export class ScriptedSessionHarness {
     return this.nextSettledTurn();
   }
 
+  /** PEER-002 (#1809): deliver a message from ANOTHER SESSION; see `peerTurnOptions`. */
+  async submitPeer(text: string, peerSessionId: string): Promise<IExecutionResult> {
+    const settled = this.nextSettledTurn();
+    await this.session.submit(text, undefined, undefined, peerTurnOptions(peerSessionId));
+    return settled;
+  }
+
   /** Resolve with the args of the next `event` (optionally matching `predicate`). */
   awaitEvent<E extends TInteractiveEventName>(
     event: E,
@@ -373,30 +382,25 @@ export class ScriptedSessionHarness {
 
   /** The real session-log directory the framework writes to (`{cwd}/.robota/logs`). */
   logsDir(): string {
-    return join(this.cwd, '.robota', 'logs');
+    return logsDirOf(this.cwd);
   }
 
   /** Path of the real JSONL transcript the framework writes for this session. */
   transcriptPath(): string {
-    return join(this.logsDir(), `${this.session.getSession().getSessionId()}.jsonl`);
+    return transcriptPathOf(this.cwd, this.session.getSession().getSessionId());
   }
 
   /** Raw contents of the real session transcript (`''` if none was written). */
   transcript(): string {
-    const path = this.transcriptPath();
-    return existsSync(path) ? readFileSync(path, 'utf8') : '';
+    return transcriptOf(this.cwd, this.session.getSession().getSessionId());
   }
 
   /**
    * The real session transcript parsed into structured log entries — the durable record the
-   * framework itself writes (`{ timestamp, sessionId, event, ... }` per line). Leverages the
-   * system's own logging as a verification surface, not just in-memory state.
+   * framework itself writes. Leverages the system's own logging as a verification surface.
    */
   logEntries(): Array<Record<string, unknown>> {
-    return this.transcript()
-      .split('\n')
-      .filter((line) => line.trim().length > 0)
-      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    return logEntriesOf(this.cwd, this.session.getSession().getSessionId());
   }
 
   /** Every tool call the agent made across all completed turns, in order. */
@@ -413,27 +417,17 @@ export class ScriptedSessionHarness {
 
   /** Read a workspace file (UTF-8). */
   readFile(relPath: string): string {
-    return readFileSync(join(this.cwd, relPath), 'utf8');
+    return readWorkspaceFile(this.cwd, relPath);
   }
 
   /** Whether a workspace file exists. */
   exists(relPath: string): boolean {
-    return existsSync(join(this.cwd, relPath));
+    return workspaceFileExists(this.cwd, relPath);
   }
 
   /** List workspace files (relative paths), excluding the `.robota` session/log dir. */
   files(): string[] {
-    const out: string[] = [];
-    const walk = (dir: string): void => {
-      for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        if (entry.name === '.robota') continue;
-        const abs = join(dir, entry.name);
-        if (entry.isDirectory()) walk(abs);
-        else out.push(relative(this.cwd, abs).split(sep).join('/'));
-      }
-    };
-    walk(this.cwd);
-    return out.sort();
+    return workspaceFiles(this.cwd);
   }
 
   // ── Lifecycle ──────────────────────────────────────────────
