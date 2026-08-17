@@ -36,6 +36,30 @@ protocol is shared, not duplicated.
   written-reason requirement lives in `resolveAdmission` in `@robota-sdk/agent-transport-protocol`, so the sibling
   transports cannot drift apart on what counts as an answer.
 
+- **Owns the local-peer channel GATE, not the local-peer policy (SEC-010, #1810).** When `localPeer` is
+  configured, an accepted handshake is not enough: the peer must also present the nonce it was issued at the
+  guarded rendezvous, and only then is the session exposed. This package holds the state machine and the
+  frame; single-use, expiry and revocation belong to the grant ledger in
+  `@robota-sdk/agent-remote-pairing/local`, which is injected as a `redeem` port. That keeps the
+  cryptographic/OS policy out of the transport (the issue is explicit about this) and keeps `node:fs` out of
+  this package.
+
+  **Why both edges of the step are load-bearing.** The handshake binds the CHANNEL — after it, the channel
+  provably terminates at the peer that knew the secret — and says nothing about where that peer runs. The
+  guarded rendezvous binds the ENVIRONMENT and says nothing about which channel that peer later opens.
+  Presenting the nonce OVER the already-bound channel joins them. Earlier than that and the nonce would be
+  handed to an unproven counterpart; later than that and a peer would already be talking to the session, where
+  refusing it is not refusing it.
+
+  Every non-admitted path closes the channel: a refused nonce, a frame that is not a proof frame, and a ledger
+  that throws. "Not reached" is not "allowed", and a gate that merely ignored a bad frame would park with the
+  channel open — a hang, which is fail-open wearing a stall's clothes. The consumer is notified on refusals as
+  well as admissions, because "no local peer connected" and "a local peer was refused" call for different
+  operator responses. The result carries an explicit trust level rather than a boolean.
+
+  Absent `localPeer`, behaviour is exactly as before — a remote peer has no rendezvous to have reached, and
+  demanding one unconditionally would refuse every legitimate remote session.
+
 ## Architecture Overview
 
 `WebRtcTransport` preserves `IConfigurableTransport<IInteractiveSession>` for declaration compatibility

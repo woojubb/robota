@@ -14,21 +14,25 @@
  *
  * When no E3 `reconnect` config is supplied the gate is **exactly** the B4 first-pair-only gate (eager host
  * `pair-nonce`, no enrollment, no reconnect) — preserving existing behavior.
+ *
+ * SEC-010 adds an optional `local-proof` step between handshake acceptance and session exposure; see
+ * `local-peer-proof.ts` for why both of those edges are load-bearing.
  */
 
 import {
   deriveIdentityId,
   importPublicKey,
-  startHostReconnect,
   startPairingHandshake,
   type IPairingResult,
   type TPairingRole,
 } from '@robota-sdk/agent-remote-pairing';
 import { createWsHandler, type SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
 
-import { createChannelDelivery } from './channel-delivery.js';
+import { judgeLocalProof, type ILocalPeerProof } from './local-peer-proof.js';
 import { pairingChannel } from './pairing-channel-lifecycle.js';
+import { startFirstPairController, startReconnectController } from './pairing-controllers.js';
 import { isEnrollFrame, isPairingFrame, isReconnectFrame } from './pairing-frames.js';
+import { attachSession } from './session-attachment.js';
 
 import type { IEnrollFrame } from './pairing-frames.js';
 import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
@@ -81,13 +85,21 @@ export interface IPairingGateOptions {
    * narrowing and is not one. Stated as what it is.
    */
   readonly onDeliveryError?: (error: Error, event: string) => void;
+  /** SEC-010: require a rendezvous nonce before exposing the session. Absent → unchanged behavior. */
+  readonly localPeer?: ILocalPeerProof;
   /** Injection seams (default to the real implementations). */
   readonly startHandshake?: typeof startPairingHandshake;
   readonly createHandler?: typeof createWsHandler;
 }
 
 type TGateState =
-  'awaiting-mode' | 'pairing' | 'enrolling' | 'reconnecting' | 'accepted' | 'closed';
+  | 'awaiting-mode'
+  | 'pairing'
+  | 'enrolling'
+  | 'reconnecting'
+  | 'local-proof'
+  | 'accepted'
+  | 'closed';
 
 export class PairingGate {
   private state: TGateState;
@@ -95,9 +107,11 @@ export class PairingGate {
   private onSessionMessage?: (data: string) => void;
   private handlerCleanup?: () => void;
   private pairingController?: ReturnType<typeof startPairingHandshake>;
-  private reconnectController?: ReturnType<typeof startHostReconnect>;
+  private reconnectController?: ReturnType<typeof startReconnectController>;
   /** The first-pair result, held so it can be surfaced on accept (E4 uses its sessionKey). */
   private pendingResult?: IPairingResult;
+  /** Held across the local-proof step so the reconnect ordering rule survives the detour. */
+  private pendingViaReconnect = false;
 
   constructor(private readonly options: IPairingGateOptions) {
     if (options.reconnect) {
@@ -153,6 +167,14 @@ export class PairingGate {
       return;
     }
 
+    if (this.state === 'local-proof') {
+      const admission = judgeLocalProof(parsed, this.options.localPeer);
+      this.options.localPeer?.onAdmission?.(admission);
+      if (admission.admitted) this.accept(this.pendingResult, this.pendingViaReconnect);
+      else this.rejectAndClose();
+      return;
+    }
+
     if (this.state === 'enrolling') {
       // Awaiting the peer's identity public key to pin, then expose the session.
       if (isEnrollFrame(parsed)) this.completeEnrollment(parsed.spki);
@@ -169,19 +191,15 @@ export class PairingGate {
   }
 
   private startFirstPair(): void {
-    const start = this.options.startHandshake ?? startPairingHandshake;
-    const controller = start({
-      secret: this.options.secret,
-      role: this.options.role,
-      localFingerprint: this.options.localFingerprint,
-      remoteFingerprint: this.options.remoteFingerprint,
-      send: (frame) => pairingChannel.send(this.options.channel, JSON.stringify(frame)),
-      ...(this.options.timeoutMs !== undefined ? { timeoutMs: this.options.timeoutMs } : {}),
-    });
-    this.pairingController = controller;
-    controller.result.then(
+    // `IPairingGateOptions` already carries every field `IControllerContext` asks for, so it is
+    // passed straight through — projecting it field by field would be a copy to keep in step.
+    this.pairingController = startFirstPairController(
+      this.options,
+      this.options.secret,
+      this.options.role,
       (result) => this.onFirstPairAccepted(result),
       () => this.rejectAndClose(),
+      this.options.startHandshake ?? startPairingHandshake,
     );
   }
 
@@ -191,18 +209,11 @@ export class PairingGate {
       this.rejectAndClose();
       return;
     }
-    const controller = startHostReconnect({
-      hostIdentityId: cfg.hostIdentityId,
-      localFingerprint: this.options.localFingerprint,
-      remoteFingerprint: this.options.remoteFingerprint,
-      hostPrivateKey: cfg.hostPrivateKey,
-      resolveDevicePublicKey: cfg.resolveDevicePublicKey,
-      send: (frame) => pairingChannel.send(this.options.channel, JSON.stringify(frame)),
-      ...(this.options.timeoutMs !== undefined ? { timeoutMs: this.options.timeoutMs } : {}),
-    });
-    this.reconnectController = controller;
-    controller.result.then(
-      () => this.accept(undefined, true), // reconnect → hold live forwarding until the client's resume replays
+    this.reconnectController = startReconnectController(
+      this.options,
+      cfg,
+      // reconnect → hold live forwarding until the client's resume replays
+      () => this.accept(undefined, true),
       () => this.rejectAndClose(),
     );
   }
@@ -247,29 +258,20 @@ export class PairingGate {
 
   private accept(result?: IPairingResult, viaReconnect = false): void {
     if (this.state === 'closed' || this.state === 'accepted') return;
-    const bridge = this.options.resumeBridge;
-    if (bridge) {
-      // REMOTE-013 E4: route the session through the persistent bridge. Attach this channel as the sink; on a
-      // RECONNECT, hold live forwarding until the client's `resume` replays the buffered tail (ordering fix).
-      // post-accept inbound frames (incl. resume/ack) go to the bridge; cleanup DETACHES (session survives).
-      bridge.attach((data) => this.options.channel.send(data), {
-        awaitResume: viaReconnect,
-        onDeliveryError: (error, event) => this.handleSessionDeliveryError(error, event),
-      });
-      this.onSessionMessage = (data) => bridge.onClientMessage(data);
-      this.handlerCleanup = () => bridge.detach();
-    } else {
-      const create = this.options.createHandler ?? createWsHandler;
-      // ARCH-030: the gate is the carrier on this branch — its own channel sink, its own failure policy.
-      const { onMessage, cleanup } = create({
-        session: this.options.session,
-        deliver: createChannelDelivery(this.options.channel, (error, event) =>
-          this.handleSessionDeliveryError(error, event),
-        ),
-      });
-      this.onSessionMessage = onMessage;
-      this.handlerCleanup = cleanup;
+    // SEC-010 TC-08: the handshake bound the CHANNEL; the rendezvous nonce binds the ENVIRONMENT.
+    // Demanded here rather than earlier because the channel must already be authenticated, and
+    // before anything below because that is where the session becomes reachable.
+    if (this.options.localPeer && this.state !== 'local-proof') {
+      this.pendingResult = result ?? this.pendingResult;
+      this.pendingViaReconnect = viaReconnect;
+      this.state = 'local-proof';
+      return;
     }
+    const attached = attachSession(this.options, viaReconnect, (error, event) =>
+      this.handleSessionDeliveryError(error, event),
+    );
+    this.onSessionMessage = attached.onSessionMessage;
+    this.handlerCleanup = attached.cleanup;
     this.state = 'accepted';
     this.options.onAccept?.(result);
   }
