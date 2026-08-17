@@ -1,5 +1,5 @@
 ---
-status: draft
+status: rejected
 type: INFRA
 tags: [typescript]
 ---
@@ -270,3 +270,17 @@ lifecycle stopped where the process actually stopped.
 - accept the work as delivered outside the pipeline and mark the document `rejected` (which
   `spec-workflow.md` defines as "closed deliberately; not a gate FAIL"), since the plan it holds was
   never the thing that authorized the work.
+
+### [DISPOSITION] — closed deliberately | 2026-08-17
+
+`status: draft` → `status: rejected`, on the owner's decision of 2026-08-17, recorded verbatim:
+"D4,D8 빼고 나머지 모두 추천안 수용한다" — accepting the recommendation that these documents be
+closed rather than advanced.
+
+`spec-workflow.md` defines `rejected` as "closed deliberately; **not** a gate FAIL", which is the
+accurate description: the work in this document is implemented, merged and verified, and the plan is
+being closed because it was never the artifact that authorized that work. Advancing it to `done`
+would have asserted an approval-then-build ordering that did not occur.
+
+The implementation record is not closed with it — it lives in the task file under `.agents/tasks/`,
+in the merged commits, and in this document's own evidence and scenario sections above.
