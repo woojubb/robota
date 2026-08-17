@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, mkdirSync, symlinkSync, writeFileSync, rmSync } from 'node:fs';
+import { chmodSync, mkdtempSync, symlinkSync, writeFileSync, rmSync } from 'node:fs';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -157,7 +157,6 @@ describe('SEC-010 — the socket must be inside the directory that vouches for i
   it('refuses a socket that resolves OUTSIDE the guarded directory', () => {
     // Not redundant with the directory check: without containment, a caller could pass a valid
     // directory and a path elsewhere, and the result would assert a guarantee about a different file.
-    const guarded = guardedDir(0o700);
     const elsewhere = guardedDir(0o700);
     const escaping = path.join(elsewhere, 'peer.sock');
 
