@@ -203,6 +203,15 @@ const REGISTRY = [
       'establish and tells the human to read the review — pinned by merge-gate-decision.test.mjs',
   },
   {
+    hook: 'no-foreground-wait.sh',
+    verb: 'pnpm build',
+    // The statement this guard must be held to: a long-running command is NOT a wait. A build or a
+    // test suite may occupy the foreground for minutes and that is correct work — what it refuses
+    // is spending the turn waiting for something ELSE to change.
+    setup: () => scratchDir('guard-no-wait-'),
+    command: 'pnpm build',
+  },
+  {
     hook: 'pre-push-check.sh',
     verb: 'git push',
     setup: () => {

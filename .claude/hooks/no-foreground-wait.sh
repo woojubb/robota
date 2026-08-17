@@ -4,10 +4,15 @@
 # Refuses a FOREGROUND Bash call that spends its time waiting: a sleep budget over the threshold, or
 # a loop polling a remote status endpoint. Names the background path in the refusal.
 #
-# fail-direction: PERMIT. This guard judges a cost, not a correctness or safety property — a wait it
-# cannot parse is a wait it has no evidence about, and refusing on no evidence would block correct
-# work to prevent a slow turn. That is the opposite trade from branch-guard or merge-gate, where the
-# thing being prevented is irreversible, and the difference is deliberate.
+# fail-direction: refuse — an unreadable PAYLOAD means this guard does not know what it was asked to
+# judge, and a hook that refuses things must refuse what it cannot read; permitting there would make
+# a malformed payload the way past it. That is the whole-repository invariant and it holds here even
+# though the thing being prevented is only a slow turn.
+#
+# The distinction that matters, because it is easy to collapse: an unreadable payload is not the same
+# as a readable command that simply is not a wait. The first is "no evidence" and is refused; the
+# second is "evidence of no finding" and is permitted, which is why a build or a test suite running
+# for minutes in the foreground passes untouched.
 #
 # WHY IT EXISTS. `operational.md` already says "A Wait Is Not Idle Time", and it was violated for 34
 # days: 61 turns died to Bash timeouts, almost all foreground continuous-integration polling of the
@@ -32,12 +37,21 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
 # above it the wait is the whole cost of the turn.
 FOREGROUND_WAIT_BUDGET_SECONDS=60
 
-# PERMIT on an unreadable payload — see fail-direction above. A cost guard that cannot read the
-# command has no evidence, and silence about a cost is not the same class of harm as silence about a
-# destructive command.
-TOOL_NAME=$(hook_tool_name_of "$INPUT") || exit 0
+# Refuse an unreadable payload — see fail-direction above. Left bare, a non-zero return would abort
+# the assignment and exit with nothing said, which the hook protocol treats as non-blocking: silent
+# exit and "it is fine" are the two states this file must not conflate.
+if ! TOOL_NAME=$(hook_tool_name_of "$INPUT"); then
+  echo "[no-foreground-wait] Blocked: the hook payload names no tool, so nothing can be judged." >&2
+  exit 2
+fi
+
 [[ "$TOOL_NAME" == "Bash" ]] || exit 0
-COMMAND=$(hook_command_of "$INPUT") || exit 0
+
+if ! COMMAND=$(hook_command_of "$INPUT"); then
+  echo "[no-foreground-wait] Blocked: the tool command could not be decoded, so it cannot be judged." >&2
+  echo "[no-foreground-wait] Install jq or python3 so this guard can read what it is judging." >&2
+  exit 2
+fi
 
 # Read the override off the MASKED text, so a token merely NAMED inside a quoted argument or a
 # heredoc body cannot switch the guard off. Same reasoning, and same helper shape, as branch-guard's
