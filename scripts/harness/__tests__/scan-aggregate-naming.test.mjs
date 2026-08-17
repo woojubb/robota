@@ -8,6 +8,7 @@ import {
   collectAggregateNaming,
   findAggregateAliases,
   examinedFileCount,
+  findAggregateNamingFindings,
   findAggregateReferences,
 } from '../scan-aggregate-naming.mjs';
 
@@ -163,7 +164,11 @@ describe('collectAggregateNaming — the `examined` counter is an output, and is
     expect(examinedFileCount(), 'the counter accumulates across runs').toBe(2);
   });
 
-  it('does not examine an allowlisted file — the count reflects the exclusion', () => {
+  it('does not COUNT an allowlisted file, but still reads it', () => {
+    // The allowlist exempts a file's references from the count and nothing else — so the file is
+    // read (its renames are still checked) while contributing zero references. Round 4 found the
+    // rename ban sitting behind the skip, which made the ten files most entitled to NAME the
+    // aggregate the ten that could freely RENAME it.
     const root = mkdtempSync(join(tmpdir(), 'arch-029-allow-'));
     mkdirSync(join(root, 'packages'), { recursive: true });
     writeFileSync(join(root, 'a.ts'), 'export function f(c: ICommandHostContext): void {}\n');
@@ -180,8 +185,32 @@ describe('collectAggregateNaming — the `examined` counter is an output, and is
       ['a.ts', 'b.ts'],
     );
 
-    expect(examined).toBe(1);
+    expect(examined).toBe(2);
     expect(counts.get('ICommandHostContext').references).toBe(1);
+  });
+
+  it('flags a rename inside an ALLOWLISTED file', () => {
+    // Route H, reproduced by review on the real tree: one `export type IHostAll =
+    // ICommandHostContext;` in the allowlisted declaration site, plus an ordinary consumer naming
+    // `IHostAll` in type position and in `extends`, left the scan green at its frozen baseline.
+    const root = mkdtempSync(join(tmpdir(), 'arch-029-allow-rename-'));
+    mkdirSync(join(root, 'packages'), { recursive: true });
+    writeFileSync(join(root, 'b.ts'), 'export type IHostAll = ICommandHostContext;\n');
+
+    const { aliasFindings } = collectAggregateNaming(
+      root,
+      {
+        aggregateNaming: {
+          aggregates: ['ICommandHostContext'],
+          allowlist: [{ file: 'b.ts', reason: 'the declaration site' }],
+        },
+      },
+      ['b.ts'],
+    );
+
+    expect(aliasFindings).toHaveLength(1);
+    expect(aliasFindings[0].rule).toBe('aggregate-renamed');
+    expect(aliasFindings[0].detail).toContain('IHostAll');
   });
 });
 
@@ -197,6 +226,19 @@ describe('collectAggregateNaming fails closed on scope', () => {
   });
 });
 
+describe('an empty aggregate list fails closed', () => {
+  it('flags an empty `aggregates` config instead of returning a clean result', () => {
+    // Deleting one config array switched the load-bearing floor off silently: it returned
+    // `{ findings: [] }` and `main()` printed a pass. Same "absence reads as a pass" shape as the
+    // rest of this round, moved one layer out into the config.
+    const bare = mkdtempSync(join(tmpdir(), 'arch-029-noagg-'));
+
+    const { findings } = findAggregateNamingFindings(bare, { aggregateNaming: {} });
+
+    expect(findings.map((f) => f.rule)).toEqual(['aggregate-scope-empty']);
+  });
+});
+
 describe('findAggregateAliases — renaming the aggregate is the finding, not the reference count', () => {
   it('flags an aliased IMPORT', () => {
     // Round 2's route: `as IHost` made every downstream reference invisible.
@@ -206,7 +248,9 @@ describe('findAggregateAliases — renaming the aggregate is the finding, not th
       ['ICommandHostContext'],
     );
 
-    expect(found).toEqual([{ aggregate: 'ICommandHostContext', alias: 'IHost', line: 1 }]);
+    expect(found).toEqual([
+      { aggregate: 'ICommandHostContext', alias: 'IHost', line: 1, form: 'an aliased import' },
+    ]);
   });
 
   it('flags an aliased RE-EXPORT, which the import-only fix did not see', () => {
@@ -239,5 +283,77 @@ describe('findAggregateAliases — renaming the aggregate is the finding, not th
         'ICommandHostContext',
       ]),
     ).toEqual([]);
+  });
+
+  it('flags a TYPE ALIAS, the form that made the allowlist a rename channel', () => {
+    // Round 4's route H. The previous revision inspected import/export SPECIFIERS only, so the
+    // one-line form that needs no import at all was invisible everywhere, allowlisted or not.
+    const found = findAggregateAliases('export type IHostAll = ICommandHostContext;\n', 'p.ts', [
+      'ICommandHostContext',
+    ]);
+
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ alias: 'IHostAll', form: 'a type alias' });
+  });
+
+  it('flags a type alias written through an `import()` type', () => {
+    const found = findAggregateAliases(
+      "type IHostAll = import('@robota-sdk/agent-framework').ICommandHostContext;\n",
+      'p.ts',
+      ['ICommandHostContext'],
+    );
+
+    expect(found).toHaveLength(1);
+    expect(found[0].alias).toBe('IHostAll');
+  });
+
+  it('flags an INTERFACE that extends the aggregate — a second name for the whole surface', () => {
+    const found = findAggregateAliases(
+      'export interface IAlsoEverything extends ICommandHostContext {}\n',
+      'p.ts',
+      ['ICommandHostContext'],
+    );
+
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({
+      alias: 'IAlsoEverything',
+      form: 'an interface that extends it',
+    });
+  });
+
+  it('does NOT flag a class that IMPLEMENTS the aggregate — that is conformance, not a rename', () => {
+    // The production host declares `implements ICommandHostContext`, and TC-01 installed exactly
+    // that as the compiler-checked conformance. Banning it would ban the check.
+    expect(
+      findAggregateAliases('export class Host implements ICommandHostContext {}\n', 'p.ts', [
+        'ICommandHostContext',
+      ]),
+    ).toEqual([]);
+  });
+
+  it('does NOT flag a WRAPPED use, which is a reference and already counted', () => {
+    expect(
+      findAggregateAliases(
+        "type A = Partial<ICommandHostContext>;\ntype B = ICommandHostContext['getCwd'];\ntype C = () => ICommandHostContext;\n",
+        'p.ts',
+        ['ICommandHostContext'],
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('an `import()` type is a type-position reference', () => {
+  it('counts `import(...).IAggregate`, which needs no import statement to name the surface', () => {
+    // Round 4: three such uses in one consumer left the ratchet GREEN, while the equivalent plain
+    // annotation went red. The header claims this definition is broader than a `: IAggregate` grep;
+    // this is a form the grep would have caught and the AST walk did not.
+    const found = findAggregateReferences(
+      "export function f(c: import('@robota-sdk/agent-framework').ICommandHostContext): void {}\n",
+      'probe.ts',
+      AGGREGATES,
+    );
+
+    expect(found).toHaveLength(1);
+    expect(found[0].aggregate).toBe('ICommandHostContext');
   });
 });

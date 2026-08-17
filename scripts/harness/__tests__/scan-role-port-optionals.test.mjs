@@ -5,11 +5,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
-  closeOverHeritage,
+  declarationsOf,
   examinedFileCount,
   findOptionalMembers,
   findRolePortOptionalFindings,
-  heritageOf,
+  resolveModuleFile,
 } from '../scan-role-port-optionals.mjs';
 
 /**
@@ -20,6 +20,14 @@ import {
  */
 function optionalsOf(source, name = 'IPort') {
   return findOptionalMembers(source, 'probe.ts').get(name)?.optional ?? [];
+}
+
+/** A fixture root holding `files`, as `{ name: contents }`. */
+function fixture(prefix, files) {
+  const root = mkdtempSync(join(tmpdir(), prefix));
+  mkdirSync(join(root, 'packages'), { recursive: true });
+  for (const [name, contents] of Object.entries(files)) writeFileSync(join(root, name), contents);
+  return root;
 }
 
 describe('findOptionalMembers', () => {
@@ -76,33 +84,78 @@ describe('findOptionalMembers', () => {
       optionalsOf('export interface IPort {\n  a?(): void;\n  b(): void;\n  c?(): void;\n}\n'),
     ).toEqual(['a', 'c']);
   });
+
+  it('ACCUMULATES members across two declarations of one name, as TypeScript merges them', () => {
+    // Route G. `Map.set` per declaration kept only the LAST, so writing the decoy half FIRST hid a
+    // real optional member. Demonstrated by review on the real `host-roles.ts`, compiling clean
+    // under `--strict`, with the floor printing `0 optional member(s)`.
+    const found = findOptionalMembers(
+      'export interface IPort {\n  sneaky?(): void;\n}\nexport interface IPort {\n  harmless(): void;\n}\n',
+      'probe.ts',
+    );
+
+    expect(found.get('IPort').optional).toEqual(['sneaky']);
+    expect(found.get('IPort').members).toEqual(['sneaky', 'harmless']);
+    expect(found.get('IPort').declarations).toBe(2);
+  });
+});
+
+describe('declarationsOf resolves names in the file that declares them', () => {
+  it('records a named import so a heritage name can be followed to its declaring file', () => {
+    const { imports } = declarationsOf(
+      "import type { IReal as ILocal } from './other.js';\nexport interface IAgg extends ILocal {}\n",
+      'probe.ts',
+    );
+
+    expect(imports.get('ILocal')).toEqual({ module: './other.js', exported: 'IReal' });
+  });
+
+  it('reports a namespace-nested interface separately from a top-level one of the same name', () => {
+    const { interfaces, nested } = declarationsOf(
+      'declare namespace decoy {\n  export interface IPort {\n    harmless(): void;\n  }\n}\n' +
+        'export interface IPort {\n  sneaky?(): void;\n}\n',
+      'probe.ts',
+    );
+
+    expect(nested).toEqual([{ name: 'IPort' }]);
+    expect(interfaces.get('IPort').optional).toEqual(['sneaky']);
+  });
+});
+
+describe('resolveModuleFile', () => {
+  it('follows a relative specifier to the scanned .ts file its .js extension names', () => {
+    expect(
+      resolveModuleFile('pkg/src/a/host.ts', './roles.js', new Set(['pkg/src/a/roles.ts'])),
+    ).toBe('pkg/src/a/roles.ts');
+  });
+
+  it('answers undefined for a package specifier, which can never be a scanned file', () => {
+    expect(resolveModuleFile('pkg/src/a/host.ts', '@robota-sdk/x', new Set())).toBeUndefined();
+  });
+
+  it('answers undefined when the target is not in the scanned set', () => {
+    expect(resolveModuleFile('pkg/src/a/host.ts', './hidden.js', new Set())).toBeUndefined();
+  });
 });
 
 describe('findRolePortOptionalFindings — `examined` is an output, and is asserted as one', () => {
   it('examines EXACTLY the files it is given and flags exactly the port optionals in them', () => {
     // Fixture of known size: 1 file, 3 optionals declared, 1 of them on a DATA shape the scope
     // excludes and 1 carved out — so exactly one finding.
-    const root = mkdtempSync(join(tmpdir(), 'arch-029-ports-'));
-    mkdirSync(join(root, 'packages'), { recursive: true });
-    writeFileSync(
-      join(root, 'ports.ts'),
-      'export interface IOptionsBag {\n  x?: string;\n}\n' +
+    const root = fixture('arch-029-ports-', {
+      'ports.ts':
+        'export interface IOptionsBag {\n  x?: string;\n}\n' +
         'export interface IPortA {\n  a?(): void;\n}\n' +
         'export interface IPortB {\n  b?(): void;\n}\n' +
         'export interface IAgg extends IPortA, IPortB {}\n',
-    );
-
-    const { findings, examined } = findRolePortOptionalFindings(root, {
-      files: ['ports.ts'],
-      aggregates: ['IAgg'],
-      carveOuts: [{ interface: 'IPortB', member: 'b', reason: 'variational by design' }],
     });
-
     const settings = {
       files: ['ports.ts'],
       aggregates: ['IAgg'],
       carveOuts: [{ interface: 'IPortB', member: 'b', reason: 'variational by design' }],
     };
+
+    const { findings, examined } = findRolePortOptionalFindings(root, settings);
 
     expect(examined).toBe(1);
     expect(examinedFileCount(), 'the walk was miscounted').toBe(1);
@@ -121,13 +174,11 @@ describe('a port declared outside the scanned files is a finding, not a silent p
     // but their declarations were only searched inside the configured file list. A new file with an
     // optional member, added to the aggregate, printed "0 optional member(s)" — an optional member
     // reachable through the aggregate that the floor never read.
-    const root = mkdtempSync(join(tmpdir(), 'arch-029-unscanned-'));
-    mkdirSync(join(root, 'packages'), { recursive: true });
-    writeFileSync(
-      join(root, 'ports.ts'),
-      'export interface IPortA {\n  a(): void;\n}\n' +
+    const root = fixture('arch-029-unscanned-', {
+      'ports.ts':
+        'export interface IPortA {\n  a(): void;\n}\n' +
         'export interface IAgg extends IPortA, IPortElsewhere {}\n',
-    );
+    });
 
     const { findings } = findRolePortOptionalFindings(root, {
       files: ['ports.ts'],
@@ -141,10 +192,10 @@ describe('a port declared outside the scanned files is a finding, not a silent p
   });
 
   it('does not flag a port that IS declared in a scanned file', () => {
-    const root = mkdtempSync(join(tmpdir(), 'arch-029-scanned-'));
-    mkdirSync(join(root, 'packages'), { recursive: true });
-    writeFileSync(join(root, 'a.ts'), 'export interface IPortA {\n  a(): void;\n}\n');
-    writeFileSync(join(root, 'b.ts'), 'export interface IAgg extends IPortA {}\n');
+    const root = fixture('arch-029-scanned-', {
+      'a.ts': 'export interface IPortA {\n  a(): void;\n}\n',
+      'b.ts': "import type { IPortA } from './a.js';\nexport interface IAgg extends IPortA {}\n",
+    });
 
     const { findings } = findRolePortOptionalFindings(root, {
       files: ['a.ts', 'b.ts'],
@@ -154,6 +205,50 @@ describe('a port declared outside the scanned files is a finding, not a silent p
 
     expect(findings).toEqual([]);
   });
+
+  it('flags an import that renames an UNSCANNED port to the name of a scanned one', () => {
+    // Route F, and the reason names resolve through the declaring file rather than a repo-wide map.
+    // The aggregate's file extends `IPortA`, but ITS `IPortA` is imported from an unscanned file.
+    // A bare-name map resolved that edge to the innocent sibling declaration, so the evil members
+    // were live on the aggregate and completely unread. Reproduced by review on the real role file.
+    const root = fixture('arch-029-shadow-', {
+      'a.ts': 'export interface IPortA {\n  harmless(): void;\n}\n',
+      'b.ts':
+        "import type { IEvil as IPortA } from './hidden.js';\n" +
+        'export interface IAgg extends IPortA {}\n',
+      'hidden.ts': 'export interface IEvil {\n  sneaky?(): void;\n}\n',
+    });
+
+    const { findings } = findRolePortOptionalFindings(root, {
+      files: ['a.ts', 'b.ts'],
+      aggregates: ['IAgg'],
+      carveOuts: [],
+    });
+
+    expect(findings.map((f) => f.rule)).toEqual(['role-port-declaration-unscanned']);
+    expect(findings[0].detail).toContain("imported from './hidden.js'");
+  });
+
+  it('sees the optional member through an import that DOES resolve to a scanned file', () => {
+    // The control for the case above: same shape, target scanned. Resolution must follow the
+    // import to the real declaration rather than fail closed on everything imported.
+    const root = fixture('arch-029-shadow-ok-', {
+      'a.ts': 'export interface IPortA {\n  harmless(): void;\n}\n',
+      'b.ts':
+        "import type { IEvil as IPortA } from './hidden.js';\n" +
+        'export interface IAgg extends IPortA {}\n',
+      'hidden.ts': 'export interface IEvil {\n  sneaky?(): void;\n}\n',
+    });
+
+    const { findings } = findRolePortOptionalFindings(root, {
+      files: ['a.ts', 'b.ts', 'hidden.ts'],
+      aggregates: ['IAgg'],
+      carveOuts: [],
+    });
+
+    expect(findings.map((f) => f.rule)).toEqual(['role-port-optional-member']);
+    expect(findings[0].detail).toContain('IEvil.sneaky?');
+  });
 });
 
 describe('an aggregate with members of its own is a finding (TC-04, mechanised)', () => {
@@ -161,13 +256,11 @@ describe('an aggregate with members of its own is a finding (TC-04, mechanised)'
     // The optional case is caught by the closure; this catches the required one, which the closure
     // cannot. TC-04 says "each aggregate is an empty `extends`" and review found that mechanised
     // nowhere — so the shape the trajectory table actually measures had no floor at all.
-    const root = mkdtempSync(join(tmpdir(), 'arch-029-agg-'));
-    mkdirSync(join(root, 'packages'), { recursive: true });
-    writeFileSync(
-      join(root, 'ports.ts'),
-      'export interface IPortA {\n  a(): void;\n}\n' +
+    const root = fixture('arch-029-agg-', {
+      'ports.ts':
+        'export interface IPortA {\n  a(): void;\n}\n' +
         'export interface IAgg extends IPortA {\n  accreted(): void;\n}\n',
-    );
+    });
 
     const { findings } = findRolePortOptionalFindings(root, {
       files: ['ports.ts'],
@@ -180,13 +273,50 @@ describe('an aggregate with members of its own is a finding (TC-04, mechanised)'
     expect(findings[0].detail).toContain('accreted');
   });
 
+  it('flags a member added through a SECOND declaration of the aggregate in the same file', () => {
+    // Route G2. Declaration merging put the member on the aggregate with the decoy half written
+    // first, and the last-write-wins map silenced this rule entirely.
+    const root = fixture('arch-029-agg-merged-', {
+      'ports.ts':
+        'export interface IAgg {\n  accreted(): void;\n}\n' +
+        'export interface IPortA {\n  a(): void;\n}\n' +
+        'export interface IAgg extends IPortA {}\n',
+    });
+
+    const { findings } = findRolePortOptionalFindings(root, {
+      files: ['ports.ts'],
+      aggregates: ['IAgg'],
+      carveOuts: [],
+    });
+
+    expect(findings.map((f) => f.rule)).toEqual(['aggregate-has-own-members']);
+    expect(findings[0].detail).toContain('across 2 merged declarations');
+  });
+
+  it('names an unnamed member by its source text rather than `<unnamed>`', () => {
+    // Index, call and construct signatures all reach this rule and have no name. `<unnamed>` names
+    // nothing a reader can act on.
+    const root = fixture('arch-029-agg-index-', {
+      'ports.ts':
+        'export interface IPortA {\n  a(): void;\n}\n' +
+        'export interface IAgg extends IPortA {\n  [key: string]: unknown;\n}\n',
+    });
+
+    const { findings } = findRolePortOptionalFindings(root, {
+      files: ['ports.ts'],
+      aggregates: ['IAgg'],
+      carveOuts: [],
+    });
+
+    expect(findings[0].rule).toBe('aggregate-has-own-members');
+    expect(findings[0].detail).toContain('[key: string]: unknown');
+  });
+
   it('does not flag an aggregate that is a genuinely empty extends', () => {
-    const root = mkdtempSync(join(tmpdir(), 'arch-029-agg-ok-'));
-    mkdirSync(join(root, 'packages'), { recursive: true });
-    writeFileSync(
-      join(root, 'ports.ts'),
-      'export interface IPortA {\n  a(): void;\n}\nexport interface IAgg extends IPortA {}\n',
-    );
+    const root = fixture('arch-029-agg-ok-', {
+      'ports.ts':
+        'export interface IPortA {\n  a(): void;\n}\nexport interface IAgg extends IPortA {}\n',
+    });
 
     const { findings } = findRolePortOptionalFindings(root, {
       files: ['ports.ts'],
@@ -198,18 +328,64 @@ describe('an aggregate with members of its own is a finding (TC-04, mechanised)'
   });
 });
 
-describe('a duplicate scoped declaration is a finding, not a silent overwrite', () => {
-  it('flags a same-named interface in a later scanned file', () => {
-    // Route D. The maps were keyed by bare name, last-write-wins, so ONE unexported decoy line in a
-    // later file replaced the real record — hiding a real optional member (D1) and masking
-    // `aggregate-has-own-members` on the aggregate itself (D2).
-    const root = mkdtempSync(join(tmpdir(), 'arch-029-dup-'));
-    mkdirSync(join(root, 'packages'), { recursive: true });
-    writeFileSync(
-      join(root, 'a.ts'),
-      'export interface IPortA {\n  sneaky?(): void;\n}\nexport interface IAgg extends IPortA {}\n',
-    );
-    writeFileSync(join(root, 'b.ts'), 'interface IPortA {\n  harmless(): void;\n}\n');
+describe('a construct this floor cannot model is a finding, not a silent pass', () => {
+  it('flags a namespace-scoped declaration that would otherwise merge into a real port', () => {
+    // Route F2. The walk addresses declarations by top-level name, so a namespaced decoy read as a
+    // second declaration of the top-level interface and overwrote it.
+    const root = fixture('arch-029-ns-', {
+      'ports.ts':
+        'declare namespace decoy {\n  export interface IPortA {\n    harmless(): void;\n  }\n}\n' +
+        'export interface IPortA {\n  sneaky?(): void;\n}\n' +
+        'export interface IAgg extends IPortA {}\n',
+    });
+
+    const { findings } = findRolePortOptionalFindings(root, {
+      files: ['ports.ts'],
+      aggregates: ['IAgg'],
+      carveOuts: [],
+    });
+
+    expect(findings.map((f) => f.rule)).toEqual([
+      'namespace-scoped-declaration',
+      'role-port-optional-member',
+    ]);
+  });
+
+  it('flags a heritage expression no name can be read from', () => {
+    // The backstop for a form the walker does not understand. Review measured that no VALID
+    // TypeScript reaches it — every legal heritage form resolves — so it is a guard against a
+    // parser divergence, and this case is what proves it is not simply unreachable code.
+    const root = fixture('arch-029-unreadable-', {
+      'ports.ts': 'export interface IAgg extends IPortA["x"] {}\n',
+    });
+
+    const { findings } = findRolePortOptionalFindings(root, {
+      files: ['ports.ts'],
+      aggregates: ['IAgg'],
+      carveOuts: [],
+    });
+
+    expect(findings.map((f) => f.rule)).toContain('heritage-name-unresolvable');
+  });
+
+  it('does NOT fire the unreadable rule for any legal heritage form', () => {
+    const legal = [
+      'export interface IAgg extends IPortA {}\n',
+      'export interface IAgg extends IPortA<string> {}\n',
+      'export interface IAgg extends ns.IPortA {}\n',
+      'export interface IAgg extends a.b.c.IPortA {}\n',
+    ];
+
+    for (const source of legal) {
+      expect(declarationsOf(source, 'probe.ts').unreadable, source).toEqual([]);
+    }
+  });
+
+  it('flags an aggregate declared in two different scanned files as ambiguous', () => {
+    const root = fixture('arch-029-two-homes-', {
+      'a.ts': 'export interface IAgg {\n  accreted(): void;\n}\n',
+      'b.ts': 'export interface IAgg {}\n',
+    });
 
     const { findings } = findRolePortOptionalFindings(root, {
       files: ['a.ts', 'b.ts'],
@@ -217,6 +393,50 @@ describe('a duplicate scoped declaration is a finding, not a silent overwrite', 
       carveOuts: [],
     });
 
-    expect(findings.map((f) => f.rule)).toContain('duplicate-scoped-declaration');
+    expect(findings.map((f) => f.rule)).toContain('aggregate-declared-in-multiple-files');
+  });
+
+  it('does NOT flag two unrelated data shapes that happen to share a name across files', () => {
+    // The over-fire review demonstrated in the previous revision, which reported a cross-file
+    // duplicate as a finding. Resolution is per declaring file now, so a shared name outside the
+    // closure is simply not this floor's business — and a floor that fires on options bags it
+    // explicitly disclaims jurisdiction over is a floor that gets allowlisted into silence.
+    const root = fixture('arch-029-dup-ok-', {
+      'a.ts': 'export interface IOptions {\n  x?: string;\n}\nexport interface IAgg {}\n',
+      'b.ts': 'export interface IOptions {\n  y?: number;\n}\n',
+    });
+
+    const { findings } = findRolePortOptionalFindings(root, {
+      files: ['a.ts', 'b.ts'],
+      aggregates: ['IAgg'],
+      carveOuts: [],
+    });
+
+    expect(findings).toEqual([]);
+  });
+});
+
+describe('an empty scope fails closed at BOTH config keys', () => {
+  it('flags an empty `files` list instead of returning a clean result', () => {
+    // Deleting one config array silenced the floor: it returned `{ findings: [] }` before any
+    // fail-closed check and `main()` printed a pass. That is the same "absence reads as a pass"
+    // shape this floor exists to close, moved one layer out into the config.
+    const { findings } = findRolePortOptionalFindings(process.cwd(), {
+      files: [],
+      aggregates: ['IAgg'],
+      carveOuts: [],
+    });
+
+    expect(findings.map((f) => f.rule)).toEqual(['role-port-scope-empty']);
+  });
+
+  it('flags an empty `aggregates` list', () => {
+    const { findings } = findRolePortOptionalFindings(process.cwd(), {
+      files: ['ports.ts'],
+      aggregates: [],
+      carveOuts: [],
+    });
+
+    expect(findings.map((f) => f.rule)).toEqual(['role-port-scope-empty']);
   });
 });

@@ -1,5 +1,6 @@
 import { createTestAgentJobHost } from './agent-job-host-double.js';
 import { FAKE_ROOT, NEVER } from './double-constants.js';
+import { mergeOverrides, type TOverrides } from './double-overrides.js';
 import { createFileSystemMemoryStore } from '../memory/file-system-memory-store.js';
 
 import type { IEditCheckpointRestoreResult } from '../checkpoints/edit-checkpoint-types.js';
@@ -121,36 +122,6 @@ export function createTestSessionRuntime(
     setParallelSubagentsEnabled: () => {},
   };
   return mergeOverrides(base, overrides);
-}
-
-/**
- * An override may replace a member, never remove one.
- *
- * `Partial<T>` admits `{ setPlan: undefined }`, and object spread then writes that `undefined` over
- * the double's answer — reintroducing an ABSENT member at runtime, fully type-checked, which is the
- * exact state ARCH-029 S4 removed.
- *
- * The type alone does NOT close it, and an earlier revision of this comment claimed it did.
- * Measured: `NonNullable` strips `undefined` from the VALUE type, but the `?` modifier re-admits it
- * unless `exactOptionalPropertyTypes` is on, and it is set nowhere in this repo. So the guarantee is
- * enforced where it actually holds — {@link mergeOverrides} drops `undefined` values at merge time,
- * which is flag-independent. The type is kept because it states the intent at the call site.
- */
-type TOverrides<T> = { [K in keyof T]?: NonNullable<T[K]> };
-
-/**
- * Spread `overrides` over `base`, ignoring any key whose value is `undefined`.
- *
- * This is the enforcement, not the type. `{ ...base, ...overrides }` writes an explicit `undefined`
- * straight through and removes a member the contract requires.
- */
-function mergeOverrides<T extends object>(base: T, overrides?: TOverrides<T>): T {
-  const merged = { ...base };
-  for (const [key, value] of Object.entries(overrides ?? {})) {
-    if (value === undefined) continue;
-    (merged as Record<string, unknown>)[key] = value;
-  }
-  return merged;
 }
 
 export interface ICreateTestCommandHostOptions {

@@ -81,18 +81,52 @@ export function examinedFileCount() {
  * guarded aggregate repeatedly; a text scan would flag itself.
  */
 /**
- * Every place `content` RENAMES a guarded aggregate — an aliased import or an aliased re-export.
+ * The aggregate a type node names DIRECTLY — `IAggregate`, `ns.IAggregate`, or
+ * `import('pkg').IAggregate` — or `undefined`. A wrapped use (`Partial<IAggregate>`,
+ * `IAggregate['x']`, `() => IAggregate`) is a reference, not a rename, so it is not matched here.
+ */
+function directlyNamedAggregate(type, aggregates) {
+  if (!type) return undefined;
+  let tail;
+  if (ts.isTypeReferenceNode(type)) {
+    tail = type.typeName;
+    while (tail && ts.isQualifiedName(tail)) tail = tail.right;
+  } else if (ts.isImportTypeNode(type)) {
+    tail = type.qualifier;
+    while (tail && ts.isQualifiedName(tail)) tail = tail.right;
+  }
+  const name = tail && ts.isIdentifier(tail) ? tail.text : undefined;
+  return name && aggregates.includes(name) ? name : undefined;
+}
+
+/**
+ * Every place `content` RENAMES a guarded aggregate — gives its whole surface a second name that
+ * this ratchet is not looking for.
  *
- * This exists because patching syntactic forms did not converge. Three review rounds closed a
- * heritage clause, then an aliased import, then an aliased re-export, and a fourth form would have
- * followed: the scan resolves names per file, so ANY renaming indirection defeats it. The class is
- * closed instead of the form — there is no legitimate reason to rename these aggregates, so renaming
- * one is itself the finding, and the reference count stops being the only thing standing between a
- * consumer and the whole 46-member surface.
+ * This exists because patching syntactic forms did not converge. Four review rounds closed a
+ * heritage clause, an aliased import, an aliased re-export, and then a type alias: the scan resolves
+ * names per file, so ANY renaming indirection defeats it. The class is closed instead of the form —
+ * there is no legitimate reason to rename these aggregates, so renaming one is itself the finding,
+ * and the reference count stops being the only thing standing between a consumer and the whole
+ * 46-member surface. Verified against the tree at the time of writing: zero legitimate sites.
+ *
+ * Four forms, all demonstrated to leave the ratchet at its baseline before this covered them:
+ * an import specifier rename, an export specifier rename, `type IHostAll = IAggregate`, and
+ * `interface IAlsoEverything extends IAggregate`. A class `implements IAggregate` is NOT a rename —
+ * that is conformance to the contract, which is what the production host is supposed to declare.
+ *
+ * Round four's finding: this check used to sit AFTER the allowlist skip, so the ten allowlisted
+ * files — which include the declaration site — could rename freely. One line there, plus an ordinary
+ * consumer naming the alias, left the real tree GREEN. The allowlist exempts a file from having its
+ * REFERENCES counted; it never had a reason to exempt it from the rename ban.
  */
 export function findAggregateAliases(content, fileName, aggregates) {
   const sourceFile = ts.createSourceFile(fileName, content);
   const aliases = [];
+  const note = (aggregate, alias, node, form) => {
+    const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+    aliases.push({ aggregate, alias, line: line + 1, form });
+  };
   const visit = (node) => {
     const clause = ts.isImportDeclaration(node) ? node.importClause?.namedBindings : undefined;
     const exported = ts.isExportDeclaration(node) ? node.exportClause : undefined;
@@ -100,8 +134,23 @@ export function findAggregateAliases(content, fileName, aggregates) {
       const imported = element.propertyName?.text;
       const local = element.name?.text;
       if (imported && local && imported !== local && aggregates.includes(imported)) {
-        const { line } = sourceFile.getLineAndCharacterOfPosition(element.getStart(sourceFile));
-        aliases.push({ aggregate: imported, alias: local, line: line + 1 });
+        note(imported, local, element, clause ? 'an aliased import' : 'an aliased re-export');
+      }
+    }
+    if (ts.isTypeAliasDeclaration(node)) {
+      const aggregate = directlyNamedAggregate(node.type, aggregates);
+      if (aggregate) note(aggregate, node.name.text, node, 'a type alias');
+    }
+    if (ts.isInterfaceDeclaration(node)) {
+      for (const clause of node.heritageClauses ?? []) {
+        for (const type of clause.types ?? []) {
+          let expr = type.expression;
+          while (expr && ts.isPropertyAccessExpression(expr)) expr = expr.name;
+          const name = expr?.text ?? expr?.escapedText;
+          if (name && aggregates.includes(name)) {
+            note(name, node.name.text, type, 'an interface that extends it');
+          }
+        }
       }
     }
     ts.forEachChild(node, visit);
@@ -167,6 +216,17 @@ export function findAggregateReferences(content, fileName, aggregates) {
       while (name && ts.isQualifiedName(name)) name = name.right;
       note(name && ts.isIdentifier(name) ? name.text : undefined, node);
     }
+    if (ts.isImportTypeNode(node)) {
+      // `import('@robota-sdk/agent-framework').ICommandHostContext` is a type-position reference to
+      // the aggregate that needs no import statement at all, and it parses as an ImportTypeNode
+      // rather than a TypeReferenceNode. Round four demonstrated three such uses in one consumer
+      // leaving the ratchet GREEN while the equivalent annotation went red — the header claims this
+      // definition is broader than a `: IAggregate` grep, and this is a form the grep would catch
+      // and the AST walk did not.
+      let name = node.qualifier;
+      while (name && ts.isQualifiedName(name)) name = name.right;
+      note(name && ts.isIdentifier(name) ? name.text : undefined, node);
+    }
     ts.forEachChild(node, visit);
   };
 
@@ -182,7 +242,9 @@ function trackedSources(root) {
   });
   return out
     .split('\n')
-    .filter((f) => f.endsWith('.ts') || f.endsWith('.tsx') || f.endsWith('.mts'));
+    .filter(
+      (f) => f.endsWith('.ts') || f.endsWith('.tsx') || f.endsWith('.mts') || f.endsWith('.cts'),
+    );
 }
 
 /**
@@ -209,22 +271,31 @@ export function collectAggregateNaming(
   examinedFiles = 0;
 
   for (const file of files) {
-    if (allowlist.has(file)) continue;
     const content = readFileSync(join(root, file), 'utf8');
     examined += 1;
     examinedFiles += 1;
     // A cheap reject before the RPC parse: most files never mention any aggregate at all.
     if (!aggregates.some((name) => content.includes(name))) continue;
+
+    // The rename ban runs on EVERY file, allowlisted included. The allowlist's reason is always
+    // "this file must name the aggregate" — never "this file may give it a second name" — and
+    // placing the ban behind the skip meant the ten files most entitled to name it were the ten
+    // that could rename it. Demonstrated on the real tree: one `export type IHostAll =
+    // ICommandHostContext;` in the allowlisted declaration site, plus an ordinary consumer using
+    // `IHostAll`, left the scan green at its frozen baseline.
     for (const alias of findAggregateAliases(content, file, aggregates)) {
       aliasFindings.push({
         rule: 'aggregate-renamed',
         detail:
-          `${file}:${alias.line}: ${alias.aggregate} is renamed to ${alias.alias}. Renaming a guarded ` +
-          `aggregate makes every downstream reference invisible to this ratchet — an aliased import ` +
-          `or re-export is a one-line way to keep the whole surface while the count reads zero. ` +
-          `There is no legitimate reason to rename it; declare the role port instead.`,
+          `${file}:${alias.line}: ${alias.aggregate} is renamed to ${alias.alias} through ${alias.form}. ` +
+          `Renaming a guarded aggregate makes every downstream reference invisible to this ratchet — ` +
+          `one line is enough to keep the whole surface while the count reads zero. There is no ` +
+          `legitimate reason to rename it; declare the role port instead.`,
       });
     }
+
+    // The allowlist exempts a file's REFERENCES from the count, and nothing else.
+    if (allowlist.has(file)) continue;
     for (const hit of findAggregateReferences(content, file, aggregates)) {
       const bucket = counts.get(hit.aggregate);
       bucket.references += 1;
@@ -235,11 +306,26 @@ export function collectAggregateNaming(
   return { counts, examined, aliasFindings };
 }
 
-export function findAggregateNamingFindings(root = process.cwd()) {
-  const config = loadHarnessConfig(root);
+export function findAggregateNamingFindings(root = process.cwd(), config = loadHarnessConfig()) {
   const settings = config.aggregateNaming ?? {};
   const aggregates = settings.aggregates ?? [];
-  if (aggregates.length === 0) return { findings: [], examined: 0, counts: new Map() };
+  if (aggregates.length === 0) {
+    // Fail CLOSED. Returning "no findings" here made deleting one config array a silent way to
+    // switch the load-bearing floor off — the same "absence reads as a pass" shape this scan exists
+    // to close, moved one layer out into the config. Found by review round four.
+    return {
+      findings: [
+        {
+          rule: 'aggregate-scope-empty',
+          detail:
+            'aggregateNaming.aggregates is empty, so this floor guards nothing and prints the same ' +
+            'result as a repository with zero references. The scope is the check.',
+        },
+      ],
+      examined: 0,
+      counts: new Map(),
+    };
+  }
 
   // Fail CLOSED over a root without the governed tree: a scan that reported "no findings" for a
   // tree it never read is indistinguishable from a clean repo, and this is the floor the design

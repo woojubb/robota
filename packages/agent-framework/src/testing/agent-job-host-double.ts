@@ -6,6 +6,7 @@
  */
 
 import { FAKE_ROOT, NEVER } from './double-constants.js';
+import { mergeOverrides, type TOverrides } from './double-overrides.js';
 
 import type { IAgentJobHostContext } from '../command-api/host-context.js';
 import type {
@@ -65,9 +66,9 @@ const EMPTY_BACKGROUND_TASK: IBackgroundTaskState = {
   unread: false,
 };
 
-export function createTestAgentJobHost(overrides?: {
-  [K in keyof IAgentJobHostContext]?: NonNullable<IAgentJobHostContext[K]>;
-}): IAgentJobHostContext {
+export function createTestAgentJobHost(
+  overrides?: TOverrides<IAgentJobHostContext>,
+): IAgentJobHostContext {
   const base: IAgentJobHostContext = {
     listAgentDefinitions: () => [],
     listAgentJobs: () => [],
@@ -85,12 +86,5 @@ export function createTestAgentJobHost(overrides?: {
     spawnMonitorWake: () => Promise.resolve(EMPTY_BACKGROUND_TASK),
     readBackgroundTaskLog: (taskId: string) => Promise.resolve({ taskId, lines: [] }),
   };
-  // Same reason as the sibling double: an explicit `undefined` in a spread removes a required
-  // member, and the type cannot stop it while `exactOptionalPropertyTypes` is off.
-  const merged = { ...base };
-  for (const [key, value] of Object.entries(overrides ?? {})) {
-    if (value === undefined) continue;
-    (merged as Record<string, unknown>)[key] = value;
-  }
-  return merged;
+  return mergeOverrides(base, overrides);
 }
