@@ -89,9 +89,15 @@ WAIT_TEXT=$(printf '%s' "$WORDS" | tr '\n' ' ')
 # Summed rather than "any single sleep over the budget", because the observed shape was a loop of
 # SHORT sleeps and a per-sleep threshold reads every one of those as compliant. Fractional and
 # suffixed forms (`sleep 0.5`, `sleep 2m`) are normalised to seconds.
-SLEEP_TOTAL=$(printf '%s\n' "$WORDS" |
+# Split by POSITION, not just summed. A sleep in the loop BODY runs once per iteration; a sleep
+# before or after the loop runs once, however many times the loop spins. Multiplying both by the
+# iteration count refused `sleep 10 && for i in 1 2 3 4 5 6 7; do echo $i; done` — a 10-second wait
+# read as 70 — which is a correct command blocked, the failure mode this guard has already produced
+# three times. `do` and `done` are their own words in the split, so the body is delimited exactly.
+SLEEP_SPLIT=$(printf '%s\n' "$WORDS" |
   awk '
     { gsub(/;$/, "", $0) }
+    $0 == "do" { depth += 1 }
     prev == "sleep" && $0 ~ /^[0-9]+(\.[0-9]+)?[smhd]?$/ {
       unit = "s"; v = $0
       if (v ~ /[smhd]$/) { unit = substr(v, length(v), 1); v = substr(v, 1, length(v) - 1) }
@@ -99,10 +105,13 @@ SLEEP_TOTAL=$(printf '%s\n' "$WORDS" |
       if (unit == "m") mult = 60
       else if (unit == "h") mult = 3600
       else if (unit == "d") mult = 86400
-      total += v * mult
+      if (depth > 0) inside += v * mult; else outside += v * mult
     }
+    $0 == "done" && depth > 0 { depth -= 1 }
     { prev = $0 }
-    END { printf "%d", total + 0 }')
+    END { printf "%d %d", outside + 0, inside + 0 }')
+SLEEP_OUTSIDE=${SLEEP_SPLIT% *}
+SLEEP_INSIDE=${SLEEP_SPLIT#* }
 
 # A sleep inside a loop runs once per iteration. A bounded `for n in 1 2 3` names its own count; an
 # unbounded `while`/`until` has none, so the sleep alone decides — which is the honest reading, since
@@ -114,7 +123,7 @@ if printf '%s' "$WAIT_TEXT" | grep -qE '\bfor[[:space:]]+[[:alnum:]_]+[[:space:]
     head -1 | sed -E 's/^for[[:space:]]+[[:alnum:]_]+[[:space:]]+in[[:space:]]+//' | wc -w)
   [[ "$ITEMS" -gt 1 ]] && LOOP_FACTOR="$ITEMS"
 fi
-SLEEP_BUDGET=$((SLEEP_TOTAL * LOOP_FACTOR))
+SLEEP_BUDGET=$((SLEEP_OUTSIDE + SLEEP_INSIDE * LOOP_FACTOR))
 
 # --- 2. Remote status polling --------------------------------------------------------------------
 # An UNBOUNDED loop around a remote status read is a wait whatever its sleep budget: it ends when the

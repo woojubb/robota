@@ -48,6 +48,25 @@ describe('no-foreground-wait — refuses a turn spent waiting (D7)', () => {
     expect(verdict('while ! git ls-remote origin main; do sleep 10; done')).toBe(2);
   });
 
+  it('does NOT multiply a sleep OUTSIDE the loop by the loop count', () => {
+    // Reported on the pull request. `SLEEP_TOTAL * LOOP_FACTOR` multiplied every sleep in the
+    // command by the iteration count, including ones the loop never runs: this waits 10 seconds and
+    // was read as 70. The suite had no "sleep outside + unrelated bounded loop" case, which is why
+    // the regression could land — so the case is here now, not just the fix.
+    expect(verdict('sleep 10 && for i in 1 2 3 4 5 6 7; do echo $i; done')).toBe(0);
+  });
+
+  it('still multiplies a sleep INSIDE the loop body, which is the case that matters', () => {
+    // The other side of the same split: 8 × 15s is a real 120-second wait and must still refuse.
+    expect(verdict('for i in 1 2 3 4 5 6 7 8; do sleep 15; done')).toBe(2);
+  });
+
+  it('adds the outside sleep to the multiplied inside one', () => {
+    // 150 outside + 5 × 30 inside = 300s. The original CI-polling shape, still caught after the
+    // split — a fix that had made the outside sleep free would have let it through.
+    expect(verdict('sleep 150; for n in 1 2 3 4 5; do gh pr checks 1815; sleep 30; done')).toBe(2);
+  });
+
   it('permits a BOUNDED retry around the same call', () => {
     // Refused three times on this guard's own author while the network was dropping calls. A retry
     // ends on the first SUCCESS and its cost is capped by its iteration count, which the sleep
