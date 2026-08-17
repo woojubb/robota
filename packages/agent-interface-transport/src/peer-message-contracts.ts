@@ -149,9 +149,7 @@ export function isTerminalPeerDelivery(
  * a general permission. It answers exactly one question, and narrows `origin` to present at the same
  * time — an admitted peer whose origin is missing is not a peer this can vouch for.
  */
-export function isSameEnvironmentPeer(
-  admission: IPeerAdmission,
-): admission is IPeerAdmission & {
+export function isSameEnvironmentPeer(admission: IPeerAdmission): admission is IPeerAdmission & {
   readonly trust: 'same-user-same-host';
   readonly origin: IPeerOrigin;
 } {
