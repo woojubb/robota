@@ -29,6 +29,38 @@ never executing untrusted PR content with write credentials.
 
 ## Progress
 
+### 2026-08-17 — detection landed; trusted provenance remains an owner decision
+
+`scripts/harness/scan-workflow-provenance.mjs` is registered in `pnpm harness:scan`.
+
+**What it establishes.** The guarded set is derived from `.github/required-status-checks.json`, the
+SSOT two other scans already read — today that resolves to `ci.yml` and `review-gate.yml`, the only
+two files providing a required context. Both are `on: pull_request`, so both load their definition
+from the pull request under test, and the scan reports that standing exposure on every run rather
+than only when someone touches a file. Given `--base-ref`, it fails a change that edits a guarded
+workflow and names which contexts that change can move.
+
+The adversarial case the Test Plan asks for is covered: a fixture pull request that rewrites its own
+required `build` job to `run: exit 0` is flagged, while an unguarded workflow, and ordinary work that
+leaves the control plane alone, draw no comment. Fail-closed on an absent or workflow-less registry.
+
+**What it deliberately does NOT establish, stated so the item is not read as finished.** It does not
+make the control plane trusted. A reviewer can still approve a self-edit and a maintainer can still
+merge one — the edit is merely no longer invisible. Trusted provenance needs a control plane the
+pull request cannot reach:
+
+| Option                                   | Why it is not takeable here                                                                                                 |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Organization-level required workflow     | Needs org configuration outside this repository                                                                             |
+| `pull_request_target` split              | Needs a design that never runs PR content with write credentials; changing `ci.yml`'s trigger is a repository-policy change |
+| External GitHub App publishing the check | Needs an app registration and its credentials                                                                               |
+
+Each is an owner decision. Note the shape of the constraint: **wiring the scan's `--base-ref` mode
+into `ci.yml` would itself be an edit to a guarded workflow**, which this very scan would flag — so
+that step is left to the owner rather than taken quietly.
+
+### 2026-08-14
+
 ### 2026-08-14
 
 - Discovered during INFRA-096 Round A: exact-base checkout protects loaded scripts but not the

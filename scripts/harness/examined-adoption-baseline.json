@@ -70,6 +70,7 @@
     "transport-conformance",
     "vitest-resource-ceiling",
     "workflow-permissions",
+    "workflow-provenance",
     "workspace-refs"
   ]
 }

@@ -473,6 +473,13 @@ export const SCAN_COMMANDS = [
     name: 'main-required-checks',
     command: ['node', 'scripts/harness/scan-main-required-checks.mjs'],
   },
+  // INFRA-097. A required check triggered by `pull_request` loads its YAML from the PR, so the
+  // change carries the control plane that judges it. This makes such an edit visible; it does not
+  // make the control plane trusted — that needs configuration outside this repository.
+  {
+    name: 'workflow-provenance',
+    command: ['node', 'scripts/harness/scan-workflow-provenance.mjs'],
+  },
   {
     name: 'new-rule-declares-enforcement',
     command: ['node', 'scripts/harness/scan-new-rule-declares-enforcement.mjs'],
