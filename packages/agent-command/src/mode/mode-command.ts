@@ -8,7 +8,11 @@ import {
   writeCommandPermissionMode,
 } from '@robota-sdk/agent-framework';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type {
+  ICommandHostAdapterAccess,
+  ICommandHostSessionAccess,
+  ICommandHostUserInteraction,
+} from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 /**
@@ -16,8 +20,10 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
  * `undefined` when no interactive renderer is attached or the user cancelled — the caller then reports
  * the current mode instead of changing it (never a silent guess).
  */
-async function resolveModeViaAsk(context: ICommandHostContext): Promise<string | undefined> {
-  const ui = context.getUserInteraction?.();
+async function resolveModeViaAsk(
+  context: ICommandHostUserInteraction,
+): Promise<string | undefined> {
+  const ui = context.getUserInteraction();
   if (!ui) return undefined;
   const options = buildPermissionModeSubcommands().map((sub) => ({
     value: sub.name,
@@ -29,7 +35,7 @@ async function resolveModeViaAsk(context: ICommandHostContext): Promise<string |
 }
 
 export async function executeModeCommand(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess & ICommandHostSessionAccess & ICommandHostUserInteraction,
   args: string,
 ): Promise<ICommandResult> {
   let arg: string | undefined = parsePermissionModeArgument(args);

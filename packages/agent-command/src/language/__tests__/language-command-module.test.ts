@@ -5,6 +5,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createLanguageCommandModule } from '../language-command-module.js';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 function createCheckpointResult(): IEditCheckpointRestoreResult {
   return {
@@ -22,29 +23,31 @@ function createCheckpointResult(): IEditCheckpointRestoreResult {
   };
 }
 
-const commandHostContext: ICommandHostContext = {
-  getSession: () => {
-    throw new Error('language command should not read session runtime');
+const commandHostContext = createTestCommandHost({
+  overrides: {
+    getSession: () => {
+      throw new Error('language command should not read session runtime');
+    },
+    getContextState: () => ({
+      usedTokens: 0,
+      maxTokens: 1,
+      usedPercentage: 0,
+      remainingPercentage: 100,
+    }),
+    getAutoCompactThreshold: () => 0.835,
+    compactContext: async () => undefined,
+    getCwd: () => '/workspace',
+    listEditCheckpoints: () => [],
+    restoreEditCheckpoint: async () => createCheckpointResult(),
+    rollbackEditCheckpoint: async () => createCheckpointResult(),
+    getUsedMemoryReferences: () => [],
+    recordMemoryEvent: () => undefined,
+    listBackgroundTasks: () => [],
+    readBackgroundTaskLog: async () => ({ taskId: 'task_1', lines: [] }),
+    cancelBackgroundTask: async () => undefined,
+    closeBackgroundTask: async () => undefined,
   },
-  getContextState: () => ({
-    usedTokens: 0,
-    maxTokens: 1,
-    usedPercentage: 0,
-    remainingPercentage: 100,
-  }),
-  getAutoCompactThreshold: () => 0.835,
-  compactContext: async () => undefined,
-  getCwd: () => '/workspace',
-  listEditCheckpoints: () => [],
-  restoreEditCheckpoint: async () => createCheckpointResult(),
-  rollbackEditCheckpoint: async () => createCheckpointResult(),
-  getUsedMemoryReferences: () => [],
-  recordMemoryEvent: () => undefined,
-  listBackgroundTasks: () => [],
-  readBackgroundTaskLog: async () => ({ taskId: 'task_1', lines: [] }),
-  cancelBackgroundTask: async () => undefined,
-  closeBackgroundTask: async () => undefined,
-};
+});
 
 describe('createLanguageCommandModule', () => {
   it('provides language metadata and executable command from one module owner', () => {
@@ -107,10 +110,12 @@ describe('createLanguageCommandModule', () => {
     const executor = new SystemCommandExecutor([
       ...(createLanguageCommandModule().systemCommands ?? []),
     ]);
-    const contextWithAsk: ICommandHostContext = {
-      ...commandHostContext,
-      getUserInteraction: () => ({ ask: async () => ({ type: 'answer', values: ['ko'] }) }),
-    };
+    const contextWithAsk = createTestCommandHost({
+      overrides: {
+        ...commandHostContext,
+        getUserInteraction: () => ({ ask: async () => ({ type: 'answer', values: ['ko'] }) }),
+      },
+    });
 
     const result = await executor.execute('language', contextWithAsk, '');
 

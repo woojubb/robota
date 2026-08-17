@@ -11,8 +11,9 @@ import { executeWorkflowsValidate } from '../validate-command.js';
 import { createWorkflowsCommandModule } from '../workflows-command-module.js';
 
 import type { ICommandHostContext, ISystemCommand } from '@robota-sdk/agent-framework';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
-const FAKE_CONTEXT = { getCwd: () => process.cwd() } as unknown as ICommandHostContext;
+const FAKE_CONTEXT = createTestCommandHost({ cwd: process.cwd() });
 
 function workflowsCommand(): ISystemCommand {
   const cmd = createWorkflowsCommandModule().systemCommands?.[0];

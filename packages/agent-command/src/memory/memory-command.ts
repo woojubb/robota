@@ -9,7 +9,8 @@ import {
 
 import type {
   IAppendMemoryInput,
-  ICommandHostContext,
+  ICommandHostMemory,
+  ICommandHostWorkspace,
   IMemoryStore,
 } from '@robota-sdk/agent-framework';
 import type { ICommandResult, IMemoryEvent } from '@robota-sdk/agent-interface-transport';
@@ -104,12 +105,12 @@ async function formatPending(store: IMemoryStore): Promise<ICommandResult> {
   };
 }
 
-function recordEvent(context: ICommandHostContext, event: Omit<IMemoryEvent, 'at'>): void {
+function recordEvent(context: ICommandHostMemory, event: Omit<IMemoryEvent, 'at'>): void {
   recordCommandMemoryEvent(context, event);
 }
 
 async function approvePending(
-  context: ICommandHostContext,
+  context: ICommandHostMemory,
   store: IMemoryStore,
   id: string | undefined,
 ): Promise<ICommandResult> {
@@ -149,7 +150,7 @@ async function approvePending(
 }
 
 async function rejectPending(
-  context: ICommandHostContext,
+  context: ICommandHostMemory,
   store: IMemoryStore,
   id: string | undefined,
 ): Promise<ICommandResult> {
@@ -172,7 +173,7 @@ async function rejectPending(
   }
 }
 
-function formatUsed(context: ICommandHostContext): ICommandResult {
+function formatUsed(context: ICommandHostMemory): ICommandResult {
   const references = listCommandUsedMemoryReferences(context);
   const lines =
     references.length > 0
@@ -190,7 +191,7 @@ function formatUsed(context: ICommandHostContext): ICommandResult {
 }
 
 export async function executeMemoryCommand(
-  context: ICommandHostContext,
+  context: ICommandHostMemory & ICommandHostWorkspace,
   rawArgs: string,
 ): Promise<ICommandResult> {
   const args = rawArgs.trim().split(/\s+/).filter(Boolean);

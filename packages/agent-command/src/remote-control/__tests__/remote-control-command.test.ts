@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { executeRemoteControlCommand } from '../remote-control-command.js';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 import type {
-  ICommandHostContext,
   ICommandRemoteControlAdapter,
   TRemoteControlStatus,
 } from '@robota-sdk/agent-framework';
@@ -13,12 +13,14 @@ import type {
  * status read over the injected `remoteControl` adapter.
  */
 
-function ctx(status?: TRemoteControlStatus): ICommandHostContext {
+function ctx(status?: TRemoteControlStatus) {
   const adapter: ICommandRemoteControlAdapter | undefined =
     status === undefined ? undefined : { getStatus: () => status };
-  return {
-    getCommandHostAdapters: () => (adapter ? { remoteControl: adapter } : {}),
-  } as unknown as ICommandHostContext;
+  return createTestCommandHost({
+    overrides: {
+      getCommandHostAdapters: () => (adapter ? { remoteControl: adapter } : {}),
+    },
+  });
 }
 
 describe('executeRemoteControlCommand (REMOTE-008)', () => {
@@ -74,11 +76,11 @@ describe('executeRemoteControlCommand (REMOTE-008)', () => {
   });
 
   // REMOTE-012 E3 — trusted-device management verbs.
-  function e3ctx(over: Partial<ICommandRemoteControlAdapter>): ICommandHostContext {
+  function e3ctx(over: Partial<ICommandRemoteControlAdapter>) {
     const adapter: ICommandRemoteControlAdapter = { getStatus: () => ({ state: 'off' }), ...over };
-    return {
-      getCommandHostAdapters: () => ({ remoteControl: adapter }),
-    } as unknown as ICommandHostContext;
+    return createTestCommandHost({
+      overrides: { getCommandHostAdapters: () => ({ remoteControl: adapter }) },
+    });
   }
 
   it('`devices` lists enrolled trusted devices', () => {

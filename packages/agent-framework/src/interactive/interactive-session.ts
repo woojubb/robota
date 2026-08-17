@@ -94,7 +94,7 @@ const PROMPT_BACKSTOP_MS = 30 * 60 * 1000;
 
 export class InteractiveSession
   extends InteractiveSessionBase
-  implements ISession, IAgentJobHostContext, IInteractiveSession
+  implements ISession, IAgentJobHostContext, IInteractiveSession, ICommandHostContext
 {
   private session: Session | null = null;
   private readonly listeners = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -218,7 +218,8 @@ export class InteractiveSession
       commandModules,
       cwd,
       commandHostAdapters,
-      () => this as unknown as ICommandHostContext,
+      // ARCH-029 S1: no cast — `implements ICommandHostContext` above makes this compiler-checked.
+      () => this,
       () => this.session?.getSessionId() ?? '',
       (prompt, displayInput, rawInput) => this.submit(prompt, displayInput, rawInput),
       (result) => this.execCtrl.applyForkSkillResult(result),

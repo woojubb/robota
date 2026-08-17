@@ -2,9 +2,13 @@ import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/ag
 import { describe, expect, it } from 'vitest';
 import { createHelpCommandModule } from '../help-command-module.js';
 import { executeHelpCommand } from '../help-command.js';
+import {
+  createTestCommandHost,
+  createTestSessionRuntime,
+} from '@robota-sdk/agent-framework/testing';
 
-function createCommandSessionRuntime(): ICommandSessionRuntime {
-  return {
+function createCommandSessionRuntime() {
+  return createTestSessionRuntime({
     clearHistory: () => undefined,
     compact: async () => undefined,
     getContextState: () => ({
@@ -21,10 +25,10 @@ function createCommandSessionRuntime(): ICommandSessionRuntime {
     getAutoCompactThreshold: () => false,
     getFullHistory: () => [],
     getHistory: () => [],
-  };
+  });
 }
 
-function createCommandHostContext(): ICommandHostContext {
+function createCommandHostContext() {
   const checkpoint = {
     id: 'checkpoint_1',
     sessionId: 'session_1',
@@ -33,59 +37,61 @@ function createCommandHostContext(): ICommandHostContext {
     createdAt: '2026-05-03T00:00:00.000Z',
     fileCount: 0,
   };
-  return {
-    getSession: () => createCommandSessionRuntime(),
-    getContextState: () => ({
-      maxTokens: 100,
-      usedTokens: 10,
-      usedPercentage: 10,
-      remainingPercentage: 90,
-    }),
-    getAutoCompactThreshold: () => 0.8,
-    compactContext: async () => undefined,
-    getCwd: () => '/workspace',
-    listCommands: () => [
-      {
-        name: 'help',
-        displayName: 'Help',
-        description: 'Show available commands',
-        modelInvocable: true,
-      },
-      {
-        name: 'provider',
-        displayName: 'Provider Setup',
-        description: 'Manage provider profiles',
-        modelInvocable: true,
-      },
-      // SEC-008: `plugin` installs and enables code, so it is NOT model-invocable — the fixture says
-      // what the real command says rather than the value that happened to compile.
-      {
-        name: 'plugin',
-        displayName: 'Plugins',
-        description: 'Manage plugins',
-        modelInvocable: false,
-      },
-    ],
-    listEditCheckpoints: () => [],
-    restoreEditCheckpoint: async () => ({
-      target: checkpoint,
-      restoredCheckpointCount: 0,
-      restoredFileCount: 0,
-      removedCheckpointCount: 0,
-    }),
-    rollbackEditCheckpoint: async () => ({
-      target: checkpoint,
-      restoredCheckpointCount: 0,
-      restoredFileCount: 0,
-      removedCheckpointCount: 0,
-    }),
-    getUsedMemoryReferences: () => [],
-    recordMemoryEvent: () => undefined,
-    listBackgroundTasks: () => [],
-    readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
-    cancelBackgroundTask: async () => undefined,
-    closeBackgroundTask: async () => undefined,
-  };
+  return createTestCommandHost({
+    overrides: {
+      getSession: () => createCommandSessionRuntime(),
+      getContextState: () => ({
+        maxTokens: 100,
+        usedTokens: 10,
+        usedPercentage: 10,
+        remainingPercentage: 90,
+      }),
+      getAutoCompactThreshold: () => 0.8,
+      compactContext: async () => undefined,
+      getCwd: () => '/workspace',
+      listCommands: () => [
+        {
+          name: 'help',
+          displayName: 'Help',
+          description: 'Show available commands',
+          modelInvocable: true,
+        },
+        {
+          name: 'provider',
+          displayName: 'Provider Setup',
+          description: 'Manage provider profiles',
+          modelInvocable: true,
+        },
+        // SEC-008: `plugin` installs and enables code, so it is NOT model-invocable — the fixture says
+        // what the real command says rather than the value that happened to compile.
+        {
+          name: 'plugin',
+          displayName: 'Plugins',
+          description: 'Manage plugins',
+          modelInvocable: false,
+        },
+      ],
+      listEditCheckpoints: () => [],
+      restoreEditCheckpoint: async () => ({
+        target: checkpoint,
+        restoredCheckpointCount: 0,
+        restoredFileCount: 0,
+        removedCheckpointCount: 0,
+      }),
+      rollbackEditCheckpoint: async () => ({
+        target: checkpoint,
+        restoredCheckpointCount: 0,
+        restoredFileCount: 0,
+        removedCheckpointCount: 0,
+      }),
+      getUsedMemoryReferences: () => [],
+      recordMemoryEvent: () => undefined,
+      listBackgroundTasks: () => [],
+      readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
+      cancelBackgroundTask: async () => undefined,
+      closeBackgroundTask: async () => undefined,
+    },
+  });
 }
 
 describe('createHelpCommandModule', () => {

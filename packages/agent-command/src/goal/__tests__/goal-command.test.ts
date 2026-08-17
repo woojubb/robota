@@ -2,8 +2,11 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { executeGoalCommand } from '../goal-command.js';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
 import type { IGoalState } from '@robota-sdk/agent-interface-transport';
+import {
+  createTestCommandHost,
+  type ICreateTestCommandHostOptions,
+} from '@robota-sdk/agent-framework/testing';
 
 function goal(overrides: Partial<IGoalState> = {}): IGoalState {
   return {
@@ -18,8 +21,10 @@ function goal(overrides: Partial<IGoalState> = {}): IGoalState {
   };
 }
 
-function host(overrides: Partial<ICommandHostContext> = {}): ICommandHostContext {
-  return overrides as unknown as ICommandHostContext;
+function host(overrides: ICreateTestCommandHostOptions['overrides'] = {}) {
+  // ARCH-029: the partial is now an OVERRIDE over a conformant host, not a cast that turns the
+  // check off. A fixture that names three members no longer claims to satisfy 46.
+  return createTestCommandHost({ overrides });
 }
 
 describe('executeGoalCommand', () => {

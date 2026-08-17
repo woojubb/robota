@@ -122,7 +122,7 @@
         "createProviderFromSettings",
         "loadExternalPresets"
       ],
-      "reason": "agent-product is the pure, IO-free, product-neutral assembler (assembleProduct). Its L129 carve-out holds ONLY while it takes no concrete transport/TUI/CLI dep (a), reads no fs/env/settings (b \u2014 resolved data is fed in from the shell), and branches on no product identity (c)."
+      "reason": "agent-product is the pure, IO-free, product-neutral assembler (assembleProduct). Its L129 carve-out holds ONLY while it takes no concrete transport/TUI/CLI dep (a), reads no fs/env/settings (b — resolved data is fed in from the shell), and branches on no product identity (c)."
     },
     {
       "dir": "packages/agent-capability-pack",
@@ -146,7 +146,7 @@
         "createProviderFromSettings",
         "loadExternalPresets"
       ],
-      "reason": "HARNESS-048: agent-capability-pack is the other half of the ARCH-005 composition contract \u2014 the additive capability-bundle type plus the pure mergeCapabilityPacks fold that assembleProduct applies. It is an equally pure PUBLISHED contract package, so the same three guards apply: it must take no concrete transport/TUI/CLI dep (a), read no fs/env/settings (b), and branch on no product identity (c) \u2014 a merger that special-cases one product's pack ids is a shared product factory wearing a merge function's clothes."
+      "reason": "HARNESS-048: agent-capability-pack is the other half of the ARCH-005 composition contract — the additive capability-bundle type plus the pure mergeCapabilityPacks fold that assembleProduct applies. It is an equally pure PUBLISHED contract package, so the same three guards apply: it must take no concrete transport/TUI/CLI dep (a), read no fs/env/settings (b), and branch on no product identity (c) — a merger that special-cases one product's pack ids is a shared product factory wearing a merge function's clothes."
     }
   ],
   "neutrality": {
@@ -191,15 +191,15 @@
     "evalsContentTypeNames": ["IEvalDefinition", "IMetric"]
   },
   "progressReportQuantification": {
-    "$comment": "Policy DATA for scan-progress-report-quantification.mjs (HARNESS-026). The ENGINE (transcript streaming, narrative extraction, bare-ratio detection, suppression) lives in scripts/harness/scan-progress-report-quantification.mjs; the host-specific transcript root, the enforcement cutoff, and the keyword vocabulary live here. `*Pattern` fields are RegExp sources matched case-insensitively. transcriptRoot is the agent harness's per-project session-transcript directory (a leading `~` expands to the home directory); when it has no directory for this workspace the scan SKIPS with an explicit reason. enforceSinceIso is a TIME RATCHET: conversation before it cannot be edited, so only sessions from adoption onward are judged \u2014 move it forward only to adopt a deliberate, reviewed reset. completionKeywordPattern gates a line to completion/progress context; identifierNounPattern suppresses reference forms (Step 2/3, lines 54/146) that are not counts.",
+    "$comment": "Policy DATA for scan-progress-report-quantification.mjs (HARNESS-026). The ENGINE (transcript streaming, narrative extraction, bare-ratio detection, suppression) lives in scripts/harness/scan-progress-report-quantification.mjs; the host-specific transcript root, the enforcement cutoff, and the keyword vocabulary live here. `*Pattern` fields are RegExp sources matched case-insensitively. transcriptRoot is the agent harness's per-project session-transcript directory (a leading `~` expands to the home directory); when it has no directory for this workspace the scan SKIPS with an explicit reason. enforceSinceIso is a TIME RATCHET: conversation before it cannot be edited, so only sessions from adoption onward are judged — move it forward only to adopt a deliberate, reviewed reset. completionKeywordPattern gates a line to completion/progress context; identifierNounPattern suppresses reference forms (Step 2/3, lines 54/146) that are not counts.",
     "transcriptRoot": "~/.claude/projects",
     "enforceSinceIso": "2026-07-25T00:00:00Z",
-    "completionKeywordPattern": "\\b(?:done|complete[ds]?|completing|finished|remaining|remains|left to (?:do|go)|progress|resolved|migrated|converted|processed)\\b|\uc644\ub8cc|\uc9c4\ud589",
-    "identifierNounPattern": "\\b(?:step|steps|stage|stages|phase|phases|round|rounds|pass|passes|line|lines|item|items?\\s*#|section|sections|chapter|week|weeks|day|days|v|version|\ub2e8\uacc4|\ub77c\uc6b4\ub4dc|\uc904)\\s*$",
-    "identifierNounSuffixPattern": "^\\s*(?:\ub2e8\uacc4|\ubc88\uc9f8|steps?\\b|stages?\\b|phases?\\b|rounds?\\b)"
+    "completionKeywordPattern": "\\b(?:done|complete[ds]?|completing|finished|remaining|remains|left to (?:do|go)|progress|resolved|migrated|converted|processed)\\b|완료|진행",
+    "identifierNounPattern": "\\b(?:step|steps|stage|stages|phase|phases|round|rounds|pass|passes|line|lines|item|items?\\s*#|section|sections|chapter|week|weeks|day|days|v|version|단계|라운드|줄)\\s*$",
+    "identifierNounSuffixPattern": "^\\s*(?:단계|번째|steps?\\b|stages?\\b|phases?\\b|rounds?\\b)"
   },
   "promptProse": {
-    "$comment": "Policy DATA for scan-prompt-prose.mjs (NEUT-006, audit 2026-07-24 gap #6). The ENGINE (literal extraction, prose heuristic, frozen-baseline ratchet, role-vocab conjunction) lives in scripts/harness/scan-prompt-prose.mjs; the Robota-specific scan roots, prompt-sink patterns, exemptions, and role vocabulary live here. `pattern` fields are RegExp sources. exemptPathIncludes lists the CHARTERED opinion homes (audit: personas/presets are quarantined opinion, not neutral-library debt); roleVocabulary flags a workflow role name AND a concrete model id in the SAME file (the role\u2192model opinion) outside allowedPathIncludes.",
+    "$comment": "Policy DATA for scan-prompt-prose.mjs (NEUT-006, audit 2026-07-24 gap #6). The ENGINE (literal extraction, prose heuristic, frozen-baseline ratchet, role-vocab conjunction) lives in scripts/harness/scan-prompt-prose.mjs; the Robota-specific scan roots, prompt-sink patterns, exemptions, and role vocabulary live here. `pattern` fields are RegExp sources. exemptPathIncludes lists the CHARTERED opinion homes (audit: personas/presets are quarantined opinion, not neutral-library debt); roleVocabulary flags a workflow role name AND a concrete model id in the SAME file (the role→model opinion) outside allowedPathIncludes.",
     "scanRoots": ["packages"],
     "srcPathIncludes": ["/src/"],
     "excludePathIncludes": ["__tests__", ".test.", ".spec.", "/dist/", "/node_modules/"],
@@ -270,20 +270,109 @@
       "scope": ["packages/dag-worker/src"]
     }
   ],
+  "rolePortOptionals": {
+    "$comment": "ARCH-029 TC-06: role ports carry zero optional members. An aggregate-level ceiling would NOT have caught the regression this guards — `getAgentJobCapability?()` adds 15 reachable members while contributing 1 to any optional count, and `getSession()` adds 18 while contributing 0. A member may be optional only when its VALUE is genuinely variational, never because a host might not implement it; each such member is carved out below with a reason.",
+    "files": [
+      "packages/agent-framework/src/command-api/host-roles.ts",
+      "packages/agent-framework/src/command-api/session-roles.ts",
+      "packages/agent-framework/src/command-api/agent-job-roles.ts"
+    ],
+    "aggregates": ["ICommandHostContext", "ICommandSessionRuntime", "IAgentJobHostContext"],
+    "carveOuts": [
+      {
+        "interface": "ICommandHostAdapterAccess",
+        "member": "getCommandHostAdapters",
+        "reason": "A genuinely variational adapter bag: its CONTENTS differ by host by design, so requiring it would force every host to answer a question with no single answer. This is the distinction the rule keeps — variational value, not unimplemented member."
+      }
+    ]
+  },
+  "aggregateNaming": {
+    "$comment": "ARCH-029: the load-bearing floor. A god contract is not fixed by decomposing it — it is fixed when consumers stop NAMING it, and REFACTOR-006 proved those are different events (it closed green on the same contract, which then grew 20 members/50% optional to 46/70%). Type-position references to each aggregate are frozen in scripts/harness/aggregate-naming-baseline.json; they may fall and must never rise. The target is 0, not 'falling'.",
+    "aggregates": ["ICommandHostContext", "IAgentJobHostContext", "ICommandSessionRuntime"],
+    "$scopeNote": "ICommandHostContext is the criterion ARCH-029 drives to ZERO (TC-05). The other two aggregates were decomposed by the same change but their consumer migration is NOT in this item's approved scope — they are frozen at what they measure today so the decomposition cannot regrow, and reaching zero is tracked separately. Freezing them at a non-zero number is the split the design sanctions ('TC-05a freezes, TC-05b reaches 0'), not a weakening of TC-05.",
+    "allowlist": [
+      {
+        "file": "packages/agent-framework/src/command-api/host-roles.ts",
+        "reason": "Declares ICommandHostContext as an empty `extends` over its role ports."
+      },
+      {
+        "file": "packages/agent-framework/src/command-api/session-roles.ts",
+        "reason": "Declares ICommandSessionRuntime as an empty `extends` over its role ports."
+      },
+      {
+        "file": "packages/agent-framework/src/command-api/agent-job-roles.ts",
+        "reason": "Declares IAgentJobHostContext as an empty `extends` over its role ports."
+      },
+      {
+        "file": "packages/agent-framework/src/testing/agent-job-host-double.ts",
+        "reason": "The conformant IAgentJobHostContext double — it exists to be checked against the whole aggregate with no cast."
+      },
+      {
+        "file": "packages/agent-framework/src/command-api/host-context.ts",
+        "reason": "The declaration site. The aggregate is defined here as an empty `extends` over the role ports."
+      },
+      {
+        "file": "packages/agent-framework/src/command-api/contracts.ts",
+        "reason": "`ISystemCommand.execute`'s parameter — the dispatch contract every command is assigned to. A command narrows its own declared role against this by contravariance; this one site must name the widest type."
+      },
+      {
+        "file": "packages/agent-framework/src/commands/system-command-executor.ts",
+        "reason": "The dispatch spine. It holds the host and hands it to an arbitrary `ISystemCommand.execute`, so it cannot know which roles the callee needs and must name the widest type — the same reason the contract itself is allowlisted."
+      },
+      {
+        "file": "packages/agent-framework/src/interactive/interactive-session-skill-router.ts",
+        "reason": "Supplies the host to that same dispatch spine (`getSession: () => ICommandHostContext`). Narrowing here would narrow what every routed command can reach."
+      },
+      {
+        "file": "packages/agent-framework/src/interactive/interactive-session.ts",
+        "reason": "The production host. `implements ICommandHostContext` is the compiler-checked conformance ARCH-029 TC-01 installed; naming it here is the check, not a leak."
+      },
+      {
+        "file": "packages/agent-framework/src/testing/command-host-double.ts",
+        "reason": "The conformant double. It exists to be checked against the whole aggregate with no cast — that is its entire property."
+      }
+    ],
+    "renameCarveOuts": [
+      {
+        "file": "packages/agent-framework/src/command-api/host-roles.ts",
+        "declaration": "ICommandHostSessionAccess.getSession",
+        "type": "ICommandSessionRuntime",
+        "reason": "The role-port method that reaches the session aggregate — the decomposition's own wiring. ICommandHostContext composes ICommandHostSessionAccess, and a command narrows to this port precisely so it can reach the session runtime; a host that could not return it would not be a host. Named here rather than exempted structurally: a blanket MethodSignature skip is an unnamed, non-expiring exemption over an unbounded set, and it covered every future method-signature handle in all ten allowlisted files in order to spare this site and one other."
+      },
+      {
+        "file": "packages/agent-framework/src/command-api/host-roles.ts",
+        "declaration": "ICommandHostAgentJobs.getAgentJobCapability",
+        "type": "IAgentJobHostContext | undefined",
+        "reason": "The second and last site that forces a method-signature exemption. Same reason as the sibling entry: the agent-job aggregate is reached through this port by design. The `| undefined` is part of the asserted type, so narrowing or widening it expires this carve-out and rename-carve-out-unused reports it."
+      },
+      {
+        "file": "packages/agent-framework/src/testing/command-host-double.ts",
+        "declaration": "ICreateTestCommandHostOptions.overrides",
+        "type": "TOverrides<ICommandHostContext>",
+        "reason": "The options bag of the conformant ICommandHostContext double. A double that exists to be checked against the whole aggregate with no cast must let a caller state overrides against that same aggregate, so this member cannot be written any other way. It IS an addressable handle and this carve-out does not claim otherwise: review compiled the proof that keyof over TOverrides<ICommandHostContext> yields the full member-name list and that each member type is recoverable and callable by indexed access, with the aggregate never named. That is a STATED LIMIT of a name-only walk, recorded in scan-aggregate-naming.mjs alongside the ReturnType<typeof createTestCommandHost> route; closing either needs the type checker. An earlier revision of this reason claimed a mapped type hands out no second handle, and that was false."
+      },
+      {
+        "file": "packages/agent-framework/src/testing/command-host-double.ts",
+        "declaration": "ICreateTestCommandHostOptions.session",
+        "type": "TOverrides<ICommandSessionRuntime>",
+        "reason": "Same site, same reason and the same stated limit, for the session-runtime half of the double options bag."
+      }
+    ]
+  },
   "contractCastRatchet": {
     "$comment": "ARCH-012: contracts whose `as X` cast count is frozen by scan-contract-cast-ratchet. A cast is a partial re-implementation nothing checks against the real contract; the count may fall and never rise while capability-scoped ports are designed.",
-    "contracts": ["IInteractiveSession"]
+    "contracts": ["IInteractiveSession", "ICommandHostContext", "IAgentJobHostContext"]
   },
   "optionReachability": [
     {
       "name": "ICreateSessionOptions",
       "file": "packages/agent-framework/src/assembly/create-session-types.ts",
       "constructors": ["createSession"],
-      "reason": "The session-construction option surface. `guardrails` (SELFHOST-005) and `retrievalAdapter` (SELFHOST-003) were declared, read at the consuming end, and set by no production call to createSession \u2014 two documented capabilities no shipped surface could turn on."
+      "reason": "The session-construction option surface. `guardrails` (SELFHOST-005) and `retrievalAdapter` (SELFHOST-003) were declared, read at the consuming end, and set by no production call to createSession — two documented capabilities no shipped surface could turn on."
     }
   ],
   "productIdentity": {
-    "$comment": "NEUT-009: a library must not name its consumer's product. Per-package occurrence counts are frozen in scripts/harness/product-identity-baseline.json \u2014 they may fall and must never rise. Markers must NOT overlap: `~/.robota` was removed because `.robota` already matches it and every such line was counted twice.",
+    "$comment": "NEUT-009: a library must not name its consumer's product. Per-package occurrence counts are frozen in scripts/harness/product-identity-baseline.json — they may fall and must never rise. Markers must NOT overlap: `~/.robota` was removed because `.robota` already matches it and every such line was counted twice.",
     "markers": [".robota", "robota-cli"],
     "packages": [
       "packages/agent-core",

@@ -6,7 +6,7 @@
  * per-call confirmed).
  */
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type { ICommandHostPlan } from '@robota-sdk/agent-framework';
 import type { ICommandResult, IPlanArtifact } from '@robota-sdk/agent-interface-transport';
 
 export const PLAN_COMMAND_DESCRIPTION =
@@ -30,7 +30,7 @@ function formatPlan(plan: IPlanArtifact): string {
 }
 
 export async function executePlanCommand(
-  context: ICommandHostContext,
+  context: ICommandHostPlan,
   args: string,
 ): Promise<ICommandResult> {
   const trimmed = args.trim();
@@ -41,17 +41,14 @@ export async function executePlanCommand(
   }
 
   if (verb === 'status') {
-    const plan = context.getPlanState?.() ?? null;
+    const plan = context.getPlanState();
     return plan
       ? { message: formatPlan(plan), success: true, data: { phase: plan.phase } }
       : { message: 'No plan is active.', success: true };
   }
 
   if (verb === 'approve') {
-    if (!context.approvePlan) {
-      return { message: 'Plan mode is not available in this session.', success: false };
-    }
-    if (!(context.getPlanState?.() ?? null)) {
+    if (!context.getPlanState()) {
       return { message: 'No plan to approve. Start one with /plan <objective>.', success: false };
     }
     try {
@@ -68,10 +65,7 @@ export async function executePlanCommand(
   }
 
   if (verb === 'revert') {
-    if (!context.revertPlan) {
-      return { message: 'Plan mode is not available in this session.', success: false };
-    }
-    if (!(context.getPlanState?.() ?? null)) {
+    if (!context.getPlanState()) {
       return { message: 'No plan to revert.', success: false };
     }
     const plan = context.revertPlan();
@@ -82,9 +76,6 @@ export async function executePlanCommand(
     };
   }
 
-  if (!context.setPlan) {
-    return { message: 'Plan mode is not available in this session.', success: false };
-  }
   let plan: IPlanArtifact;
   try {
     plan = await context.setPlan(trimmed);

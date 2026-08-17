@@ -2,15 +2,19 @@ import { selectAction } from '@robota-sdk/agent-core';
 import { applyPresetToSession } from '@robota-sdk/agent-framework';
 import { getPreset, listPresets, resolvePreset } from '@robota-sdk/agent-preset';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type {
+  ICommandHostPresetApplication,
+  ICommandHostSessionAccess,
+  ICommandHostUserInteraction,
+} from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 /** Default active preset id reported when the runtime has no recorded active preset. */
 const DEFAULT_ACTIVE_PRESET_ID = 'default';
 
 /** Read the active preset id from the session, defaulting when the optional seam is absent. */
-function readActivePresetId(context: ICommandHostContext): string {
-  return context.getSession().getActivePresetId?.() ?? DEFAULT_ACTIVE_PRESET_ID;
+function readActivePresetId(context: ICommandHostSessionAccess): string {
+  return context.getSession().getActivePresetId();
 }
 
 /** Build the `/preset` listing: one line per preset, marking the active one with a `*` prefix. */
@@ -31,7 +35,7 @@ function formatUnknownPresetMessage(id: string): string {
 }
 
 /** The `/preset` (or `/preset list`) listing result. */
-function presetListResult(context: ICommandHostContext): ICommandResult {
+function presetListResult(context: ICommandHostSessionAccess): ICommandResult {
   const active = readActivePresetId(context);
   return {
     message: formatPresetList(active),
@@ -44,8 +48,10 @@ function presetListResult(context: ICommandHostContext): ICommandResult {
  * Ask the user to pick a preset (CMD-004 inline ask). Returns the chosen id, or `undefined` when no
  * interactive renderer is attached or the user cancelled — the caller then shows the preset list.
  */
-async function resolvePresetViaAsk(context: ICommandHostContext): Promise<string | undefined> {
-  const ui = context.getUserInteraction?.();
+async function resolvePresetViaAsk(
+  context: ICommandHostUserInteraction,
+): Promise<string | undefined> {
+  const ui = context.getUserInteraction();
   if (!ui) return undefined;
   const options = listPresets().map((preset) => ({
     value: preset.id,
@@ -57,7 +63,7 @@ async function resolvePresetViaAsk(context: ICommandHostContext): Promise<string
 }
 
 export async function executePresetCommand(
-  context: ICommandHostContext,
+  context: ICommandHostPresetApplication & ICommandHostSessionAccess & ICommandHostUserInteraction,
   args: string,
 ): Promise<ICommandResult> {
   let id: string | undefined = args.trim().split(/\s+/)[0];

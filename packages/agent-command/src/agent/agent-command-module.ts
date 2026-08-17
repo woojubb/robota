@@ -2,14 +2,14 @@ import { executeAgentCommand } from './agent-command.js';
 
 import type {
   IAgentJobHostContext,
-  ICommandHostContext,
+  ICommandHostAgentJobs,
   ICommandModule,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
 import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-transport';
 
-function getAgentHostContext(context: ICommandHostContext): IAgentJobHostContext {
-  const cap = context.getAgentJobCapability?.();
+function getAgentHostContext(context: ICommandHostAgentJobs): IAgentJobHostContext {
+  const cap = context.getAgentJobCapability();
   if (!cap) throw new Error('Agent job capability is not available in this context.');
   return cap;
 }

@@ -21,6 +21,7 @@ import {
   buildWorkspaceTaskSpawner,
   readWorkspaceDetail,
 } from './interactive-session-workspace.js';
+import { computeSessionReplayValidationReport } from '../command-api/session/session-command-api.js';
 
 import type { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import type { SessionExecutionController } from './interactive-session-execution-controller.js';
@@ -43,6 +44,7 @@ import type {
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
 } from '../checkpoints/edit-checkpoint-types.js';
+import type { ICommandSessionReplayValidationReport } from '../command-api/index.js';
 import type {
   ICommandHostAdapters,
   ICommandListEntry,
@@ -118,6 +120,15 @@ export abstract class InteractiveSessionBase {
     await this.ensureInitialized();
     return this.skillRouter.executeModelCommand(name, args);
   }
+  /**
+   * ARCH-029 TC-08 — delegates to the SAME helper the framework used as its default, so there is
+   * one computed path with one owner and no fallback branch beside it.
+   */
+  validateCurrentSessionReplayLog(): ICommandSessionReplayValidationReport {
+    const sessionId = this.getSessionOrThrow().getSessionId();
+    return computeSessionReplayValidationReport(this.getCwd(), sessionId);
+  }
+
   getCommandInvocationSource(): TCommandInvocationSource {
     return this.skillRouter.getCommandInvocationSource();
   }

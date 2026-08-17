@@ -7,11 +7,14 @@ import {
   writeCommandPermissionMode,
 } from '@robota-sdk/agent-framework';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type {
+  ICommandHostAdapterAccess,
+  ICommandHostSessionAccess,
+} from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 export function executePermissionsCommand(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess & ICommandHostSessionAccess,
   args: string,
 ): ICommandResult {
   const arg = parsePermissionModeArgument(args);

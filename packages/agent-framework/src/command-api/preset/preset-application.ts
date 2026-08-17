@@ -1,7 +1,8 @@
 import { writeCommandPermissionMode } from '../permissions/permission-mode-command-api.js';
 
 import type {
-  ICommandHostContext,
+  ICommandHostPresetApplication,
+  ICommandHostSessionAccess,
   IModelReapplyOptions,
   IUnknownCommandModuleName,
 } from '../host-context.js';
@@ -55,28 +56,28 @@ export interface IPresetApplicationResult {
  * Re-apply a resolved preset to a live session and record it as the active preset.
  *
  * This is the single entry point for live preset switching. It first records the active preset id
- * (PRESET-011 runtime state) — the runtime's `setActivePresetId` is optional, so it is invoked
- * defensively. It then re-applies each option group it owns; PRESET-012 applies the permission
+ * (PRESET-011 runtime state) — required since ARCH-029 TC-06, so it is called directly. It
+ * re-applies each option group it owns; PRESET-012 applies the permission
  * posture via the existing `writeCommandPermissionMode` seam, and PRESET-013 re-applies the model
- * group (`model`/`effort`/`temperature`/`maxOutputTokens`) via the runtime's optional
- * `applyModelOptions`. PRESET-014 re-applies the `persona` group via the host context's optional
+ * group (`model`/`effort`/`temperature`/`maxOutputTokens`) via the runtime's
+ * `applyModelOptions`. PRESET-014 re-applies the `persona` group via the host context's
  * `applyPersona` seam. PRESET-015 re-applies the command-module selection group via the host
- * context's optional `applyCommandModuleSelection` seam. PRESET-016 toggles the parallel-subagents
- * runtime gate via the runtime's optional `setParallelSubagentsEnabled` seam. PRESET-017 toggles
- * the verify-before-done self-verification section via the host context's optional
+ * context's `applyCommandModuleSelection` seam. PRESET-016 toggles the parallel-subagents
+ * runtime gate via the runtime's `setParallelSubagentsEnabled` seam. PRESET-017 toggles
+ * the verify-before-done self-verification section via the host context's
  * `applySelfVerification` seam. Groups absent from `options` are left untouched and reported under
  * `skipped`.
  */
 export async function applyPresetToSession(
-  context: ICommandHostContext,
+  context: ICommandHostPresetApplication & ICommandHostSessionAccess,
   presetId: string,
   options: IPresetApplicationOptions,
 ): Promise<IPresetApplicationResult> {
   const applied: string[] = [];
   const skipped: string[] = [];
 
-  // PRESET-011 state — optional runtime method, applied defensively.
-  context.getSession().setActivePresetId?.(presetId);
+  // PRESET-011 state — required runtime method (ARCH-029 TC-06).
+  context.getSession().setActivePresetId(presetId);
 
   if (options.permissionMode !== undefined) {
     writeCommandPermissionMode(context, options.permissionMode);
@@ -85,7 +86,7 @@ export async function applyPresetToSession(
     skipped.push('permissionMode');
   }
 
-  // PRESET-013 model group — re-applied via the runtime's optional applyModelOptions seam.
+  // PRESET-013 model group — re-applied via the runtime's applyModelOptions seam.
   const modelOptions: IModelReapplyOptions = {
     ...(options.model !== undefined && { model: options.model }),
     ...(options.effort !== undefined && { effort: options.effort }),
@@ -100,28 +101,28 @@ export async function applyPresetToSession(
     }
   }
   if (Object.keys(modelOptions).length > 0) {
-    await context.getSession().applyModelOptions?.(modelOptions);
+    await context.getSession().applyModelOptions(modelOptions);
   }
 
-  // PRESET-014 persona group — re-applied via the host context's optional applyPersona seam.
+  // PRESET-014 persona group — re-applied via the host context's applyPersona seam.
   if (options.persona !== undefined) {
-    context.applyPersona?.(options.persona);
+    context.applyPersona(options.persona);
     applied.push('persona');
   } else {
     skipped.push('persona');
   }
 
-  // PRESET-015 command-module group — re-applied via the host context's optional
+  // PRESET-015 command-module group — re-applied via the host context's
   // applyCommandModuleSelection seam (re-filters the session-start module set).
   const hasCommandModuleSelection =
     options.enabledCommandModules !== undefined || options.disabledCommandModules !== undefined;
   // INFRA-032: the seam returns any names that matched no live module; run it exactly once, only
   // when the group is present, and carry the unknowns up so `/preset` can surface a non-fatal notice.
   const unknownCommandModules: readonly IUnknownCommandModuleName[] = hasCommandModuleSelection
-    ? (context.applyCommandModuleSelection?.(
+    ? context.applyCommandModuleSelection(
         options.enabledCommandModules,
         options.disabledCommandModules,
-      ) ?? [])
+      )
     : [];
   if (hasCommandModuleSelection) {
     applied.push('commandModules');
@@ -129,19 +130,19 @@ export async function applyPresetToSession(
     skipped.push('commandModules');
   }
 
-  // PRESET-016 parallel-subagents gate — toggled via the runtime's optional
+  // PRESET-016 parallel-subagents gate — toggled via the runtime's
   // setParallelSubagentsEnabled seam (live gate on an already-constructed session).
   if (options.enableParallelSubagents !== undefined) {
-    context.getSession().setParallelSubagentsEnabled?.(options.enableParallelSubagents);
+    context.getSession().setParallelSubagentsEnabled(options.enableParallelSubagents);
     applied.push('enableParallelSubagents');
   } else {
     skipped.push('enableParallelSubagents');
   }
 
-  // PRESET-017 self-verification group — toggled via the host context's optional
+  // PRESET-017 self-verification group — toggled via the host context's
   // applySelfVerification seam (recomposes the live system prompt).
   if (options.selfVerification !== undefined) {
-    context.applySelfVerification?.(options.selfVerification);
+    context.applySelfVerification(options.selfVerification);
     applied.push('selfVerification');
   } else {
     skipped.push('selfVerification');

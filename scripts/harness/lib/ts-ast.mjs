@@ -47,6 +47,20 @@
  *     re-exported here so call sites keep the legacy shape. Three guards are also RENAMED
  *     (`isParameter`, `isMethodSignature`, `isPropertySignature`); they are aliased back below.
  *
+ *  5. OPTIONALITY OF A TYPE MEMBER IS `postfixToken`, NOT `questionToken`. The native AST leaves
+ *     `questionToken` undefined on a `PropertySignature`/`MethodSignature`, so a caller reading it
+ *     sees `a?(): void` and `b(): void` as identical and reports zero optional members for every
+ *     input. That is silent: the scan passes, and its floor can never fail. `postfixToken` carries
+ *     the `QuestionToken` and additionally distinguishes an optional MEMBER from a required member
+ *     with an optional PARAMETER, which `questionToken` on the parameter would conflate.
+ *
+ *  6. A TYPE PARAMETER'S DEFAULT IS `defaultType`, NOT `default`, AND `forEachChild` DOES NOT VISIT
+ *     IT. `interface IBox<T = IThing>` answers `undefined` for `.default`, and walking the
+ *     `TypeParameterDeclaration` with `forEachChild` yields only its `Identifier` — neither the
+ *     default nor the `constraint`. So a rule about generic defaults written either way is silently
+ *     unable to fire, and a generic subtree walk does not rescue it. `constraint` keeps its name.
+ *     Found by falsifying the rule against a real evasion, not by reading the code.
+ *
  * Everything else the scans rely on — `node.parent`, `pos`/`end`, `getStart()`, `getText()`,
  * `getLineAndCharacterOfPosition()`, `modifiers`, `heritageClauses`, `elements`, `.text` on
  * identifiers and string literals — is present with the same names and the same semantics.

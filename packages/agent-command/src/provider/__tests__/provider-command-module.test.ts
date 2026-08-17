@@ -8,6 +8,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 import { createProviderCommandModule } from '../provider-command-module.js';
 import { scriptedContext } from './scripted-interaction.js';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 const providerDefinitions: readonly IProviderDefinition[] = [
   {
@@ -95,7 +96,7 @@ function createExecutor(adapter: IProviderCommandSettingsAdapter): SystemCommand
 }
 
 /** Context with no interactive renderer attached (headless/automation). */
-const headlessContext = {} as ICommandHostContext;
+const headlessContext = createTestCommandHost();
 
 describe('createProviderCommandModule', () => {
   it('contributes /provider metadata and executable command from the provider package', () => {

@@ -4,6 +4,10 @@ import { applyPresetToSession } from '../preset-application.js';
 
 import type { ICommandHostContext, ICommandSessionRuntime } from '../../host-context.js';
 import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-core';
+import {
+  createTestCommandHost,
+  createTestSessionRuntime,
+} from '@robota-sdk/agent-framework/testing';
 
 const CONTEXT_STATE: IContextWindowState = {
   maxTokens: 100,
@@ -42,7 +46,7 @@ function createContext(
   includeSetParallelSubagentsEnabled = true,
   includeApplySelfVerification = true,
 ): {
-  context: ICommandHostContext;
+  context: ReturnType<typeof createTestCommandHost>;
   spies: IRuntimeSpies;
 } {
   let mode: TPermissionMode = 'default';
@@ -50,59 +54,55 @@ function createContext(
     mode = next;
   });
   const spies: IRuntimeSpies = { setPermissionMode };
+  const recordSpy = (name: keyof IRuntimeSpies) => {
+    const spy = vi.fn();
+    spies[name] = spy;
+    return spy;
+  };
 
-  const runtime: ICommandSessionRuntime = {
-    clearHistory: () => undefined,
-    compact: async () => undefined,
+  // ARCH-029 TC-06: every runtime member is now REQUIRED, so "a runtime without member X" is no
+  // longer a representable host. What the `include*` flags used to model — the caller surviving a
+  // host that does not participate in a group — is now modelled the way the design says it must be:
+  // the member is PRESENT and does nothing. The distinction the contract keeps is between a value
+  // that is legitimately empty and a member that is absent; only the first one survives.
+  //
+  // The assertions are unchanged: a flag left false simply does not install a recording spy, so
+  // `spies.X` is still undefined and the case still proves the caller does not depend on the spy.
+  const runtime = createTestSessionRuntime({
     getContextState: () => CONTEXT_STATE,
     getPermissionMode: () => mode,
     setPermissionMode,
     getSessionId: () => 'session_1',
-    getMessageCount: () => 0,
-    getSessionAllowedTools: () => [],
     getAutoCompactThreshold: () => 0.8,
-    getFullHistory: () => [],
-    getHistory: () => [],
-  };
+    ...(includeActivePreset && { setActivePresetId: recordSpy('setActivePresetId') }),
+    ...(includeApplyModelOptions && { applyModelOptions: recordSpy('applyModelOptions') }),
+    ...(includeSetParallelSubagentsEnabled && {
+      setParallelSubagentsEnabled: recordSpy('setParallelSubagentsEnabled'),
+    }),
+  });
 
-  if (includeActivePreset) {
-    const setActivePresetId = vi.fn();
-    runtime.setActivePresetId = setActivePresetId;
-    spies.setActivePresetId = setActivePresetId;
-  }
-
-  if (includeApplyModelOptions) {
-    const applyModelOptions = vi.fn();
-    runtime.applyModelOptions = applyModelOptions;
-    spies.applyModelOptions = applyModelOptions;
-  }
-
-  if (includeSetParallelSubagentsEnabled) {
-    const setParallelSubagentsEnabled = vi.fn();
-    runtime.setParallelSubagentsEnabled = setParallelSubagentsEnabled;
-    spies.setParallelSubagentsEnabled = setParallelSubagentsEnabled;
-  }
-
-  const context: ICommandHostContext = {
-    getSession: () => runtime,
-    getContextState: () => CONTEXT_STATE,
-    getAutoCompactThreshold: () => 0.8,
-    compactContext: async () => undefined,
-    getCwd: () => '/workspace',
-    listEditCheckpoints: () => [],
-    restoreEditCheckpoint: async () => {
-      throw new Error('not used');
+  const context = createTestCommandHost({
+    overrides: {
+      getSession: () => runtime,
+      getContextState: () => CONTEXT_STATE,
+      getAutoCompactThreshold: () => 0.8,
+      compactContext: async () => undefined,
+      getCwd: () => '/workspace',
+      listEditCheckpoints: () => [],
+      restoreEditCheckpoint: async () => {
+        throw new Error('not used');
+      },
+      rollbackEditCheckpoint: async () => {
+        throw new Error('not used');
+      },
+      getUsedMemoryReferences: () => [],
+      recordMemoryEvent: () => undefined,
+      listBackgroundTasks: () => [],
+      readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
+      cancelBackgroundTask: async () => undefined,
+      closeBackgroundTask: async () => undefined,
     },
-    rollbackEditCheckpoint: async () => {
-      throw new Error('not used');
-    },
-    getUsedMemoryReferences: () => [],
-    recordMemoryEvent: () => undefined,
-    listBackgroundTasks: () => [],
-    readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
-    cancelBackgroundTask: async () => undefined,
-    closeBackgroundTask: async () => undefined,
-  };
+  });
 
   if (includeApplyPersona) {
     const applyPersona = vi.fn();
@@ -152,13 +152,20 @@ describe('applyPresetToSession (PRESET-012)', () => {
     expect(result.applied).toContain('permissionMode');
   });
 
-  it('TC-05: runtime without setActivePresetId still applies safely (optional chaining)', async () => {
+  it('ARCH-029: a runtime whose setActivePresetId does NOTHING still applies the rest', async () => {
+    // Rewritten, not kept. The old title read "runtime without setActivePresetId" and the member is
+    // now required, so that host is unrepresentable — and the body only asserted that the FIXTURE
+    // had not installed a spy, which is a fact about the helper rather than about production code.
+    // The distinction the contract keeps is value-level: the member is present and inert.
     const { context, spies } = createContext(false);
-    expect(spies.setActivePresetId).toBeUndefined();
-    await expect(
-      applyPresetToSession(context, 'careful-reviewer', { permissionMode: 'plan' }),
-    ).resolves.toBeDefined();
+
+    const result = await applyPresetToSession(context, 'careful-reviewer', {
+      permissionMode: 'plan',
+    });
+
+    expect(context.getSession().setActivePresetId).toBeTypeOf('function');
     expect(spies.setPermissionMode).toHaveBeenCalledWith('plan');
+    expect(result.applied).toContain('permissionMode');
   });
 });
 
@@ -192,12 +199,17 @@ describe('applyPresetToSession model group (PRESET-013)', () => {
     expect(result.skipped).toContain('maxOutputTokens');
   });
 
-  it('TC-06: runtime without applyModelOptions still applies safely (optional chaining)', async () => {
-    const { context, spies } = createContext(true, false);
-    expect(spies.applyModelOptions).toBeUndefined();
-    await expect(
-      applyPresetToSession(context, 'careful-reviewer', { effort: 'high' }),
-    ).resolves.toBeDefined();
+  it('ARCH-029: an inert applyModelOptions still leaves the model group applied', async () => {
+    // ARCH-029: rewritten. The old title said "without <member>" and the member is now required,
+    // so that host is unrepresentable; the old body asserted only that the FIXTURE had installed
+    // no spy. What survives is the value-level distinction the contract keeps: the member is
+    // PRESENT and inert, and the group is still reported as applied.
+    const { context } = createContext(true, false);
+
+    const result = await applyPresetToSession(context, 'careful-reviewer', { effort: 'high' });
+
+    expect(context.getSession().applyModelOptions).toBeTypeOf('function');
+    expect(result.applied).toContain('effort');
   });
 });
 
@@ -219,12 +231,17 @@ describe('applyPresetToSession persona group (PRESET-014)', () => {
     expect(result.applied).not.toContain('persona');
   });
 
-  it('TC-05: context without applyPersona still applies safely (optional chaining)', async () => {
-    const { context, spies } = createContext(true, true, false);
-    expect(spies.applyPersona).toBeUndefined();
-    await expect(
-      applyPresetToSession(context, 'careful-reviewer', { persona: 'P' }),
-    ).resolves.toBeDefined();
+  it('ARCH-029: an inert applyPersona still leaves the persona group applied', async () => {
+    // ARCH-029: rewritten. The old title said "without <member>" and the member is now required,
+    // so that host is unrepresentable; the old body asserted only that the FIXTURE had installed
+    // no spy. What survives is the value-level distinction the contract keeps: the member is
+    // PRESENT and inert, and the group is still reported as applied.
+    const { context } = createContext(true, true, false);
+
+    const result = await applyPresetToSession(context, 'careful-reviewer', { persona: 'P' });
+
+    expect(context.applyPersona).toBeTypeOf('function');
+    expect(result.applied).toContain('persona');
   });
 });
 
@@ -248,14 +265,22 @@ describe('applyPresetToSession command-module group (PRESET-015)', () => {
     expect(result.applied).not.toContain('commandModules');
   });
 
-  it('TC-06: context without applyCommandModuleSelection still applies safely (optional chaining)', async () => {
-    const { context, spies } = createContext(true, true, true, false);
-    expect(spies.applyCommandModuleSelection).toBeUndefined();
+  it('ARCH-029: an inert applyCommandModuleSelection reports no unknowns, as a VALUE', async () => {
+    // ARCH-029: rewritten. The old title said "without <member>" and the member is now required,
+    // so that host is unrepresentable; the old body asserted only that the FIXTURE had installed
+    // no spy. What survives is the value-level distinction the contract keeps: the member is
+    // PRESENT and inert, and the group is still reported as applied.
+    // The empty array is now unambiguous: it means "every name matched" (INFRA-032), not "the seam
+    // was absent so nothing could be detected". Those two readings were indistinguishable before.
+    const { context } = createContext(true, true, true, false);
+
     const result = await applyPresetToSession(context, 'careful-reviewer', {
       enabledCommandModules: ['a'],
     });
-    // Optional seam absent → no unknowns can be detected; the field is an empty array, not missing.
+
+    expect(context.applyCommandModuleSelection).toBeTypeOf('function');
     expect(result.unknownCommandModules).toEqual([]);
+    expect(result.applied).toContain('commandModules');
   });
 
   it('INFRA-032: unknowns returned by the seam are carried on result.unknownCommandModules', async () => {
@@ -296,12 +321,19 @@ describe('applyPresetToSession parallel-subagents gate (PRESET-016)', () => {
     expect(result.applied).not.toContain('enableParallelSubagents');
   });
 
-  it('TC-06b: runtime without setParallelSubagentsEnabled still applies safely (optional chaining)', async () => {
-    const { context, spies } = createContext(true, true, true, true, false);
-    expect(spies.setParallelSubagentsEnabled).toBeUndefined();
-    await expect(
-      applyPresetToSession(context, 'careful-reviewer', { enableParallelSubagents: true }),
-    ).resolves.toBeDefined();
+  it('ARCH-029: an inert setParallelSubagentsEnabled still leaves the gate applied', async () => {
+    // ARCH-029: rewritten. The old title said "without <member>" and the member is now required,
+    // so that host is unrepresentable; the old body asserted only that the FIXTURE had installed
+    // no spy. What survives is the value-level distinction the contract keeps: the member is
+    // PRESENT and inert, and the group is still reported as applied.
+    const { context } = createContext(true, true, true, true, false);
+
+    const result = await applyPresetToSession(context, 'careful-reviewer', {
+      enableParallelSubagents: true,
+    });
+
+    expect(context.getSession().setParallelSubagentsEnabled).toBeTypeOf('function');
+    expect(result.applied).toContain('enableParallelSubagents');
   });
 });
 
@@ -325,11 +357,18 @@ describe('applyPresetToSession self-verification group (PRESET-017)', () => {
     expect(result.applied).not.toContain('selfVerification');
   });
 
-  it('TC-05: context without applySelfVerification still applies safely (optional chaining)', async () => {
-    const { context, spies } = createContext(true, true, true, true, true, false);
-    expect(spies.applySelfVerification).toBeUndefined();
-    await expect(
-      applyPresetToSession(context, 'careful-reviewer', { selfVerification: true }),
-    ).resolves.toBeDefined();
+  it('ARCH-029: an inert applySelfVerification still leaves the group applied', async () => {
+    // ARCH-029: rewritten. The old title said "without <member>" and the member is now required,
+    // so that host is unrepresentable; the old body asserted only that the FIXTURE had installed
+    // no spy. What survives is the value-level distinction the contract keeps: the member is
+    // PRESENT and inert, and the group is still reported as applied.
+    const { context } = createContext(true, true, true, true, true, false);
+
+    const result = await applyPresetToSession(context, 'careful-reviewer', {
+      selfVerification: true,
+    });
+
+    expect(context.applySelfVerification).toBeTypeOf('function');
+    expect(result.applied).toContain('selfVerification');
   });
 });

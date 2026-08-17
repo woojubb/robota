@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { ICommandHostContext } from '@robota-sdk/agent-framework';
 import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createStatusLineCommandModule } from '../statusline-command-module.js';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
-const COMMAND_CONTEXT = {} as ICommandHostContext;
+const COMMAND_CONTEXT = createTestCommandHost();
 
 describe('createStatusLineCommandModule', () => {
   it('provides statusline metadata and user-only executable command from one module owner', () => {
