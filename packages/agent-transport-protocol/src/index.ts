@@ -36,3 +36,18 @@ export {
   mintTransportToken,
   resolveAdmission,
 } from './admission.js';
+
+// PEER-001 (#1809): the receiver's record of what it has already taken responsibility for. Lives
+// here rather than in a carrier because duplicate, retry and gap are questions about what was SEEN
+// BEFORE, and no socket or frame codec has the memory to answer them.
+export {
+  acknowledgePeerMessage,
+  admitPeerMessage,
+  createPeerMessageLedger,
+  forgetPeerOrigin,
+} from './peer-message-ledger.js';
+export type {
+  IPeerMessageLedger,
+  IPeerMessageRejection,
+  IPeerMessageVerdict,
+} from './peer-message-ledger.js';

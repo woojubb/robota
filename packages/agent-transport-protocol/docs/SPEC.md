@@ -118,21 +118,41 @@ they do not rebuild anonymous intersections or require the unrelated lifecycle/g
   (verified). Transport implementations (`-ws`, `-webrtc`) depend DOWN on this package; it depends on none of
   them (no cycle).
 
+### Peer-message ledger (PEER-001, #1809)
+
+The issue requires delivery, acknowledgement, duplicate, retry and shutdown to produce
+"deterministic, documented outcomes". Every one is a question about what the receiver has **seen
+before**, which no carrier can answer — a data channel redelivers on reconnect, a retry repeats a
+message, and neither the socket nor the frame codec has memory to consult. So the decision lives here
+once and the carriers stay dumb.
+
+| Rule                                            | Why it is this way                                                                                                                                                                                                                                            |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A repeated `id` returns the **original** ack    | A message must never get two contradictory answers; a retry of a refusal stays refused                                                                                                                                                                        |
+| Sequence is **per origin**                      | Two peers are independent senders; a shared counter makes one peer's traffic look like the other's gap                                                                                                                                                        |
+| A gap is **reported, never reordered**          | Buffer-and-reorder is a session-layer policy; inventing it here would hide a lost message behind an apparent success                                                                                                                                          |
+| A new id on a **delivered** sequence is refused | A retry repeats its id, so this is a protocol error rather than a duplicate. Membership, not a high-water mark: a gap that arrives LATE was never delivered, and refusing it would contradict the row above by denying the session the choice it was promised |
+| Nothing survives the ledger                     | State is per connection by construction — a reconnecting peer gets a fresh sequence space                                                                                                                                                                     |
+
 ## Public API Surface
 
 | Export                                  | Kind      |
 | --------------------------------------- | --------- |
-| `resolveAdmission`                      | Function  | SEC-008: the one place a transport asks what credential it requires (secure by default) |
-| `mintTransportToken`                    | Function  | SEC-008: mint a per-launch credential; throws rather than returning a weak one          |
-| `credentialMatches`                     | Function  | SEC-008: constant-time comparison of a presented credential against the required one    |
-| `bearerCredential`                      | Function  | SEC-008: extract a bearer credential from an `Authorization` header value               |
+| `resolveAdmission`                      | Function  | SEC-008: the one place a transport asks what credential it requires (secure by default)    |
+| `createPeerMessageLedger`               | Function  | PEER-001: fresh per-connection receive state for peer messaging                            |
+| `admitPeerMessage`                      | Function  | PEER-001: record a peer message and decide deliver / duplicate / refused, reporting gaps   |
+| `acknowledgePeerMessage`                | Function  | PEER-001: promote a delivered message to acknowledged (a different question from delivery) |
+| `forgetPeerOrigin`                      | Function  | PEER-001: drop one peer's sequence space on disconnect, so a reconnect starts fresh        |
+| `mintTransportToken`                    | Function  | SEC-008: mint a per-launch credential; throws rather than returning a weak one             |
+| `credentialMatches`                     | Function  | SEC-008: constant-time comparison of a presented credential against the required one       |
+| `bearerCredential`                      | Function  | SEC-008: extract a bearer credential from an `Authorization` header value                  |
 | `createWsHandler`                       | function  |
 | `IWsHandlerOptions`                     | interface |
-| `createOutboundDelivery`                | function  | ARCH-030: the ONLY producer of a connection's outbound delivery boundary                |
-| `TOutboundDeliver`                      | type      | ARCH-030: the branded boundary a carrier passes down as `IWsHandlerOptions.deliver`     |
-| `TDeliveryErrorHandler`                 | type      | ARCH-030: a carrier's failure policy — required, invoked at most once per boundary      |
-| `PROTOCOL_SESSION_EVENT_CLASSIFICATION` | constant  | Exhaustive protocol surface policy for every shared session-event key                   |
-| `TProtocolSessionEventClassification`   | type      | The classification vocabulary the constant is keyed by                                  |
+| `createOutboundDelivery`                | function  | ARCH-030: the ONLY producer of a connection's outbound delivery boundary                   |
+| `TOutboundDeliver`                      | type      | ARCH-030: the branded boundary a carrier passes down as `IWsHandlerOptions.deliver`        |
+| `TDeliveryErrorHandler`                 | type      | ARCH-030: a carrier's failure policy — required, invoked at most once per boundary         |
+| `PROTOCOL_SESSION_EVENT_CLASSIFICATION` | constant  | Exhaustive protocol surface policy for every shared session-event key                      |
+| `TProtocolSessionEventClassification`   | type      | The classification vocabulary the constant is keyed by                                     |
 | `TClientMessage`                        | type      |
 | `TServerMessage`                        | type      |
 | `TSeqServerMessage`                     | type      |

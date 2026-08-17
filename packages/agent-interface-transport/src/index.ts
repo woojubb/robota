@@ -276,3 +276,17 @@ export type { IResumableSessionSummary } from './session-summary-contracts.js';
 // SEC-008: the SHAPE of an admission decision. The machinery that produces it lives in
 // @robota-sdk/agent-transport-protocol — an interface package carries no runtime dependency edge.
 export type { ITransportAdmission, ITransportAdmissionConfig } from './admission.js';
+
+// PEER-001 (#1809): the transport-neutral peer-message contract. The two discriminators are this
+// package's own vocabulary — a contract may publish those; the wire machinery may not live here.
+export type {
+  IPeerAdmission,
+  IPeerMessage,
+  IPeerMessageAck,
+  IPeerMessageIngress,
+  IPeerOrigin,
+  ISessionPeerMessagingPort,
+  TPeerDeliveryState,
+  TPeerTrust,
+} from './peer-message-contracts.js';
+export { isSameEnvironmentPeer, isTerminalPeerDelivery } from './peer-message-contracts.js';
