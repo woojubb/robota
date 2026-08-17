@@ -576,6 +576,13 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-role-port-optionals.mjs'],
   },
   {
+    // ARCH-037: a barrel-exported function's parameter types must be exported from the same barrel.
+    // A published function whose argument cannot be named is one the consumer reverse-engineers or
+    // casts into. ARCH-025 fixed that shape once and it recurred, which is why it is a floor.
+    name: 'barrel-parameter-types',
+    command: ['node', 'scripts/harness/scan-barrel-parameter-types.mjs'],
+  },
+  {
     // ARCH-013 stage 2: a resolved-preset field must reach a declared projection surface, and the
     // startup and live-/preset surfaces must agree. Stage 1's scan-option-reachability covers the
     // LAST hop of the same chain (a declared session option nothing assigns); this covers the FIRST.

@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-037: three published-contract hygiene defects, each invisible because its guard is narrower than the rule it enforces'
-status: in-progress
+status: done
+completed: 2026-08-18
 created: 2026-08-17
 priority: medium
 urgency: soon
@@ -117,3 +118,69 @@ Fix the three instances, and in each case widen the guard rather than only corre
 ## Blockers
 
 None.
+
+## Implementation
+
+All three addressed. **Two of the three Directions were refuted by the compiler and took the item's
+second branch instead** — recorded here because the refutations are the useful part.
+
+### 1. Re-published `agent-core` types — two removed, one kept as a NAMED exception
+
+`IActionRequest` and `TBackgroundPermissionPolicy` are gone: every consumer already imported them from
+`agent-core`, so the re-exports were second names nobody reached. `agent-executor` reached
+`TBackgroundPermissionPolicy` through the barrel and now takes it from the SSOT, which it already
+depends on.
+
+**`TActionResponse` stays**, and the Direction ("consumers import from `@robota-sdk/agent-core`") does
+not hold for it. Measured: its one consumer is `agent-transport-gui`, whose documented dependency set
+is "interface-transport + transport-protocol only", and `agent-core` has NO internal dependencies —
+it is the bottom layer, so the type cannot move down either. The re-export is the only path by which a
+permitted consumer can name it. It is now a named exception carrying that reasoning, not an unmarked
+pass-through.
+
+### 2. `ISubagentExecutionEnvelope` — already fixed; the MECHANISM was the missing half
+
+Both barrels already export it. What did not exist was the check, and the item was right that a third
+note would not have helped: `scripts/harness/scan-barrel-parameter-types.mjs` now fails when a
+barrel-exported function has a parameter type the same barrel does not export.
+
+It found a live instance immediately — `createDefaultTools` published with
+`ICreateDefaultToolsOptions` unexported, the same shape as `IScheduleEditPatch` and
+`ISubagentExecutionEnvelope`, on a third function. Fixed.
+
+Scoped deliberately: return types are excluded (a caller can hold a value without naming its type),
+and so are other packages' types — requiring a barrel to re-export those would demand exactly the
+pass-through re-exports STRUCT-07 bans, i.e. the rule would contradict a rule. Both exclusions have
+silent-direction tests.
+
+### 3. The runtime-facade allowlist — the criterion was wrong, not the entry
+
+Emptying `SDK_RUNTIME_FACADE_FILES` was tried first, as the Direction's first branch asks. The
+compiler refuted it: `agent-product` and `agent-transport-tui` both name `IBackgroundTaskRunner` and
+neither may depend on `agent-executor`, so `agent-framework`'s barrel is their only permitted path.
+
+The entry was load-bearing — just never for the reason written beside it. Counted, its
+`agent-executor` re-exports are ten type-only names and zero runtime values, so "runtime facade"
+disqualified it exactly as ARCH-031 argued. The criterion is now **dependency reach**: an entry
+belongs when a permitted consumer cannot reach the symbol any other way, and it must NAME that
+consumer. ARCH-031's sentence survives the change of criterion — an entry that cannot name one is the
+next reader's false permission.
+
+Inside `agent-framework` the redirect stands: this package does depend on `agent-executor`, so its own
+files now import these from the SSOT rather than through their own barrel.
+
+### What this item does NOT close
+
+Widening `check-sdk-public-surface` beyond `agent-framework` — the shared cause the item names — is
+**ARCH-039**, filed separately and still open. The new floor covers the parameter-type rule across
+configured barrels (`agent-executor` and `agent-framework` today), so that one rule is no longer
+agent-framework-only; the rest of the scan still is.
+
+### Falsification
+
+The new floor was mutated before being trusted: removing the `ICreateDefaultToolsOptions` export
+reddens it, reproducing ARCH-037's own defect-2 shape (deleting
+`ISubagentExecutionEnvelope` from `agent-executor`'s barrel) reddens it, and an empty barrel list
+fails closed. 12 unit cases assert each rule in both directions, including the two exclusions.
+
+Verified: 124 of 126 scans pass (2 skipped). agent-framework 1395 tests, agent-executor 104.

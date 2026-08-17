@@ -142,6 +142,14 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'ARCH-029 marks this the load-bearing floor — a god contract is fixed only when consumers stop NAMING it, and this is the only thing that measures that. Over a root with no packages there is nothing to name, and "0 references" reads exactly like "the decomposition landed" — which is the state REFACTOR-006 shipped while the facade survived untouched',
   },
   {
+    // Measured as `findBarrelParameterTypeFindings(bare)`: throws
+    // `barrel-parameter-types: … missing from <root>`.
+    file: 'scan-barrel-parameter-types.mjs',
+    finder: 'findBarrelParameterTypeFindings',
+    tree: 'packages',
+    why: 'it reads the configured package barrels to check that a published function\'s parameter types are published too; over a root with no packages there is no barrel to read, and "no unexported parameter types" reads exactly like a clean public surface — while the defect it exists to catch has already recurred once after being fixed by hand',
+  },
+  {
     // Measured as this harness calls it — `findPresetProjectionFindings(bare)`: throws
     // `preset-projection: … missing from <root>`.
     file: 'scan-preset-projection.mjs',

@@ -13,12 +13,38 @@ const WORKSPACE_ROOT = process.cwd();
 const SDK_PACKAGE_JSON = 'packages/agent-framework/package.json';
 const SDK_PACKAGE_DIR = path.posix.dirname(SDK_PACKAGE_JSON);
 const SDK_SRC_DIR = 'packages/agent-framework/src';
+/**
+ * Files permitted to re-export `agent-executor` symbols, with the REAL reason each is here.
+ *
+ * ARCH-037 asked for one of two things: apply this set's stated criterion to its surviving entry and
+ * empty the set, or replace the comment with the real distinguishing reason. Emptying it was tried
+ * first and REFUTED by the compiler, so this is the second branch — and the refutation is the useful
+ * part, because the old comment was wrong in a way that reading could not reveal.
+ *
+ * The old justification was "runtime facade": a file re-exporting executor RUNTIME VALUES. Counted,
+ * the surviving entry has none — its `agent-executor` re-exports are a single `export type { … }`
+ * block of ten type-only names. By that criterion it did not belong, exactly as ARCH-031 argued when
+ * it deleted the sibling entry.
+ *
+ * But deleting the block turned `pnpm typecheck` RED in two packages, and that is the real reason:
+ *
+ *   - `agent-product`'s permitted dependency set is "agent-framework + agent-preset +
+ *     agent-capability-pack + type-only agent-interface-transport + agent-core types"
+ *     (`.agents/project-structure.md`) — `agent-executor` is not in it;
+ *   - `agent-transport-tui` likewise does not depend on `agent-executor`.
+ *
+ * Both name `IBackgroundTaskRunner`, so `agent-framework`'s barrel is their ONLY permitted path to
+ * it. The entry is load-bearing; it was simply never load-bearing for the reason written beside it.
+ *
+ * So the criterion is now DEPENDENCY REACH, not runtime-ness: an entry belongs here when a permitted
+ * consumer cannot reach the symbol any other way, and the entry must name that consumer. An entry
+ * that cannot name one is the next reader's false permission — ARCH-031's sentence, which holds
+ * whichever criterion is in force.
+ */
 const SDK_RUNTIME_FACADE_FILES = new Set([
+  // Reached by `agent-product` and `agent-transport-tui`, neither of which may depend on
+  // `agent-executor`. Verified by deletion: removing the block reddens both packages' typecheck.
   'packages/agent-framework/src/background-tasks/index.ts',
-  // ARCH-031 removed `packages/agent-framework/src/subagents/index.ts` from this set. It held eleven
-  // executor pass-throughs that were TYPES ONLY — zero runtime values — so it was never the runtime
-  // facade this exception exists for, and an allowlist entry with nothing behind it is the next
-  // reader's false permission.
 ]);
 const FORBIDDEN_TOP_LEVEL_OWNER_PACKAGES = [
   '@robota-sdk/agent-core',

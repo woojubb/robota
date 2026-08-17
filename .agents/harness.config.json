@@ -475,5 +475,9 @@
         "declaredOn": []
       }
     ]
+  },
+  "barrelParameterTypes": {
+    "$comment": "ARCH-037: a barrel-exported function whose parameter type is not exported from the same barrel leaves a consumer unable to name what it must pass. ARCH-025 fixed that shape for IScheduleEditPatch and ARCH-037 found it again on subagentExecutionRoot, which is the argument for a mechanism rather than a third note. Return types and other packages types are deliberately out of scope — see the scan header.",
+    "barrels": ["packages/agent-executor/src/index.ts", "packages/agent-framework/src/index.ts"]
   }
 }

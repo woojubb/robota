@@ -15,9 +15,9 @@ import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-
 
 import type { ICreateSessionOptions } from './create-session-types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
-import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import type { IAIProvider, IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
+import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
 import type { ISessionLogger } from '@robota-sdk/agent-session';
 
