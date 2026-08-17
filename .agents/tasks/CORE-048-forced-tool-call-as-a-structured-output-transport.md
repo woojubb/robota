@@ -11,7 +11,7 @@ depends_on: [CORE-043]
 # CORE-048: forced-tool-call transport, now that something can decide when to use it
 
 CORE-038 proposed this and was judged `DEPTH: FOUNDATIONAL` — the transport may well be right, but it
-was stated one layer above its cause. [CORE-043](CORE-043-structured-output-capability-has-no-runtime-representation.md)
+was stated one layer above its cause. [CORE-043](completed/CORE-043-structured-output-capability-has-no-runtime-representation.md)
 built that layer: a `(provider, model)` pair now resolves to a `TStructuredOutputMechanism`, and the
 request is shaped to match at one seam. This is the remaining question, and it is now answerable.
 

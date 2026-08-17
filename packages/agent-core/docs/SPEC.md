@@ -1020,6 +1020,15 @@ from the final `{ done: true, value }` iterator result).
   (`json_schema` / `json_object` / `omitted`), and whether the schema went into the prompt. It
   reports what the request DID, not what a catalog says; `provenance: 'unverified-endpoint'` marks a
   provider pointed at a custom `baseURL`, where the vendor's guarantees may not be the ones in force.
+  **The report is scoped to what CORE supplied.** `@robota-sdk/agent-provider-openai` publishes
+  `responseFormat` / `jsonSchema` as CONSTRUCTION-time options and merges them with the per-call ones
+  (`mergeChatResponseFormat`). A per-call value wins, so a request core shaped is reported correctly.
+  The gap is the turn core does not shape at all: a run WITHOUT `output` resolves no transport and
+  emits no `structured_output_transport` event, yet a provider constructed with
+  `responseFormat: 'json_schema'` still puts `response_format` on the wire — shaped by a channel no
+  core seam observes and no core event reports. Read this event as "what the core turn path put on
+  the request", not "everything the request carried". Closing the gap needs the boundary rule
+  PROV-009 owns.
 - **Endpoint provenance is a separate answer from the capability table.** `IAIProvider` carries
   `endpointIsVendorDefault?()` alongside `capabilityTable?()` rather than a field inside it, because
   the two are independent facts: `@robota-sdk/agent-provider-openai` declares no table by choice
