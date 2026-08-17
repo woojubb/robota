@@ -32,10 +32,25 @@ import type {
   TPeerDeliveryState,
 } from '@robota-sdk/agent-interface-transport';
 
-/** What the receiver has seen from one origin. */
-interface IOriginRecord {
-  /** The highest sequence delivered from this origin. */
+/**
+ * What the receiver has seen from one origin.
+ *
+ * `delivered` is a SET, not just a high-water mark, and that distinction is the whole of review
+ * finding #1. A high-water mark cannot tell "sequence 2 was already used" from "sequence 2 is the
+ * gap we reported and it has just arrived" — and answering the second as if it were the first
+ * refuses a message that was never delivered, permanently. `highestSequence` is kept alongside it
+ * because reporting a gap needs the frontier, not the membership.
+ *
+ * Exported because it is reachable from `IPeerMessageLedger`. A public interface whose field type is
+ * unexported is a name a consumer cannot write down (review finding #2). Measured: `tsdown` inlines
+ * it into the bundled declaration so no TS4033 is raised today — the finding's build-breakage claim
+ * does not reproduce — but a type nobody can name is still a bad public surface.
+ */
+export interface IOriginRecord {
+  /** The highest sequence delivered from this origin — the frontier a gap is measured against. */
   highestSequence: number;
+  /** Every sequence actually delivered. Membership, not a range: gaps get filled out of order. */
+  delivered: Set<number>;
   /** Acks already issued, by message id, so a retry gets the original answer back. */
   issued: Map<string, IPeerMessageAck>;
 }
@@ -89,7 +104,7 @@ export function admitPeerMessage(
   const originId = message.origin.sessionId;
   let record = ledger.origins.get(originId);
   if (record === undefined) {
-    record = { highestSequence: 0, issued: new Map() };
+    record = { highestSequence: 0, delivered: new Set(), issued: new Map() };
     ledger.origins.set(originId, record);
   }
 
@@ -112,17 +127,23 @@ export function admitPeerMessage(
     return { ack, deliver: false };
   }
 
-  // Behind or equal to what has already been delivered: the id is new, so this is not a retry — it
-  // is a sender reusing a sequence, which is a protocol error rather than a duplicate.
-  if (message.sequence <= record.highestSequence) {
+  // A sequence this origin ACTUALLY delivered before, under a different id: a sender reusing a
+  // sequence, which is a protocol error rather than a duplicate.
+  //
+  // Membership, not `<= highestSequence`. The high-water form refused the late arrival of a gap it
+  // had itself reported — deliver 1, receive 3 (gap at 2 reported), then 2 arrives and is rejected
+  // as "already used" although it was never delivered. That contradicted this module's own stated
+  // rule that a gap is reported so the SESSION layer can decide, since the session never got the
+  // chance. Found in review.
+  if (record.delivered.has(message.sequence)) {
     const ack: IPeerMessageAck = {
       id: message.id,
       sequence: message.sequence,
       state: 'refused',
       reason:
-        `sequence ${message.sequence} was already used by this origin (highest delivered: ` +
-        `${record.highestSequence}). A retry must repeat its message id; a new id on an old ` +
-        'sequence cannot be ordered against what was already delivered.',
+        `sequence ${message.sequence} was already delivered by this origin under a different ` +
+        'message id. A retry must repeat its id; a new id on a delivered sequence cannot be ' +
+        'ordered against what the receiver already has.',
     };
     record.issued.set(message.id, ack);
     return { ack, deliver: false };
@@ -137,7 +158,10 @@ export function admitPeerMessage(
     state: 'delivered',
   };
   record.issued.set(message.id, ack);
-  record.highestSequence = message.sequence;
+  record.delivered.add(message.sequence);
+  // The frontier only moves FORWARD. A gap arriving late fills membership without rewinding what a
+  // later gap is measured against.
+  record.highestSequence = Math.max(record.highestSequence, message.sequence);
 
   return gapBefore === undefined ? { ack, deliver: true } : { ack, deliver: true, gapBefore };
 }

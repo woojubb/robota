@@ -89,6 +89,35 @@ describe('PEER-001 — sequence is per origin (#1809)', () => {
     expect(ahead.gapBefore).toBe(2);
   });
 
+  it('delivers a gap when it arrives LATE, instead of refusing what it reported as missing', () => {
+    // Found in review. The high-water form refused this: deliver 1, receive 3 (gap at 2 reported),
+    // then 2 arrives and is rejected as "already used" — although it was never delivered. That
+    // contradicted this module's own rule that a gap is REPORTED so the session layer can decide,
+    // because the session never got the chance.
+    const ledger = createPeerMessageLedger();
+    admitPeerMessage(ledger, message({ id: 'm1', sequence: 1 }));
+    const ahead = admitPeerMessage(ledger, message({ id: 'm3', sequence: 3 }));
+
+    const late = admitPeerMessage(ledger, message({ id: 'm2', sequence: 2 }));
+
+    expect(ahead.gapBefore).toBe(2);
+    expect(late.deliver).toBe(true);
+    expect(late.ack.state).toBe('delivered');
+  });
+
+  it('does not rewind the frontier when a gap is filled late', () => {
+    // The frontier only moves forward, so a LATER gap is still measured against the highest
+    // sequence seen — filling 2 after 3 must not make 4 look like it follows 2.
+    const ledger = createPeerMessageLedger();
+    admitPeerMessage(ledger, message({ id: 'm1', sequence: 1 }));
+    admitPeerMessage(ledger, message({ id: 'm3', sequence: 3 }));
+    admitPeerMessage(ledger, message({ id: 'm2', sequence: 2 }));
+
+    const next = admitPeerMessage(ledger, message({ id: 'm5', sequence: 5 }));
+
+    expect(next.gapBefore).toBe(4);
+  });
+
   it('refuses a NEW id reusing an old sequence — that is a protocol error, not a retry', () => {
     // A retry repeats its id. A new id on an already-used sequence cannot be ordered against what
     // was delivered, so it is refused with the reason rather than guessed at.
@@ -99,7 +128,7 @@ describe('PEER-001 — sequence is per origin (#1809)', () => {
 
     expect(reused.deliver).toBe(false);
     expect(reused.ack.state).toBe('refused');
-    expect(reused.ack.reason).toMatch(/already used by this origin/);
+    expect(reused.ack.reason).toMatch(/already delivered by this origin/);
   });
 });
 

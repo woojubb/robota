@@ -126,13 +126,13 @@ before**, which no carrier can answer — a data channel redelivers on reconnect
 message, and neither the socket nor the frame codec has memory to consult. So the decision lives here
 once and the carriers stay dumb.
 
-| Rule                                         | Why it is this way                                                                                                               |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| A repeated `id` returns the **original** ack | A message must never get two contradictory answers; a retry of a refusal stays refused                                           |
-| Sequence is **per origin**                   | Two peers are independent senders; a shared counter makes one peer's traffic look like the other's gap                           |
-| A gap is **reported, never reordered**       | Buffer-and-reorder is a session-layer policy; inventing it here would hide a lost message behind an apparent success             |
-| A new id on a used sequence is **refused**   | A retry repeats its id, so this is a protocol error rather than a duplicate, and it cannot be ordered against what was delivered |
-| Nothing survives the ledger                  | State is per connection by construction — a reconnecting peer gets a fresh sequence space                                        |
+| Rule                                            | Why it is this way                                                                                                                                                                                                                                            |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A repeated `id` returns the **original** ack    | A message must never get two contradictory answers; a retry of a refusal stays refused                                                                                                                                                                        |
+| Sequence is **per origin**                      | Two peers are independent senders; a shared counter makes one peer's traffic look like the other's gap                                                                                                                                                        |
+| A gap is **reported, never reordered**          | Buffer-and-reorder is a session-layer policy; inventing it here would hide a lost message behind an apparent success                                                                                                                                          |
+| A new id on a **delivered** sequence is refused | A retry repeats its id, so this is a protocol error rather than a duplicate. Membership, not a high-water mark: a gap that arrives LATE was never delivered, and refusing it would contradict the row above by denying the session the choice it was promised |
+| Nothing survives the ledger                     | State is per connection by construction — a reconnecting peer gets a fresh sequence space                                                                                                                                                                     |
 
 ## Public API Surface
 
