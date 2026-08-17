@@ -48,6 +48,16 @@ export function acceptSubmission(
   options: ITurnOptions,
   execCtrl: SessionExecutionController,
 ): IAcceptedSubmission {
+  // PEER-002 (#1809): a peer turn has no default. Falling through to the owner would attribute
+  // another session's message to the operator — the same mis-attribution the agent id exists to
+  // prevent for autonomous turns, and worse here because a peer is a different party entirely.
+  // There is no id we could invent that would be true, so the caller must supply one.
+  if (options.turnSource === 'peer' && options.driverId === undefined) {
+    throw new Error(
+      'a peer turn must carry the peer driver id: defaulting to the owner would attribute another ' +
+        "session's message to the operator.",
+    );
+  }
   const driverId =
     options.driverId ?? (options.turnSource === 'agent-wakeup' ? AGENT_DRIVER_ID : OWNER_DRIVER_ID);
   const { turnId, completed } = execCtrl.turns.begin();

@@ -8,71 +8,86 @@
  * peer origin and can trigger an agent response". Both halves matter, and the second is why the
  * origin cannot be flattened into the text: an agent that answers a peer must be able to tell that
  * it is answering a PEER rather than its own operator, because the two carry different authority.
+ * So the message is submitted with `turnSource: 'peer'` and the peer's driver id — origin the
+ * runtime can branch on, not prose it would have to parse.
  *
  * `TDriverId` is display attribution and must never become an authorization input — the contract
- * says so and asserts it. This module keeps that separation on the runtime side: the trust level
- * travels beside the text, and the renderer gets the driver id.
+ * says so and asserts it. The trust level travels separately, in the admission this module checks.
  *
- * ## Concurrency, which the issue requires documented rather than discovered
+ * ## What this module does NOT do, and why that is the whole design
  *
- * A session may already be running a turn when a peer message arrives. The repository already owns
- * that question — `InteractiveExecutionClaimOwner` refuses a second concurrent claim — so this does
- * NOT invent a second answer. It reads the claim and reports what happened:
+ * A peer message arriving while a turn is running is an instance of "an input arrived mid-turn", and
+ * this repository already answered that question: `submitNewTurn` checks the execution claim,
+ * `PendingInputQueue` holds what cannot run yet under a bounded depth, and every entry that will
+ * never run settles its caller's handle with a typed `TTurnNotRunReason` (RUNTIME-003).
  *
- * - **idle** → the message is delivered and may start a turn.
- * - **busy** → the message is QUEUED, not dropped and not run concurrently. Dropping would lose a
- *   peer's message with an ack that said `delivered`; running concurrently would violate the
- *   single-foreground-claim invariant that the rest of the session depends on.
+ * The first draft of this file re-implemented all four of those — its own busy check, its own queue,
+ * its own bound, its own drain — which is a second answer to a settled question, and the review that
+ * caught it found two defects in the copy that the original had never had. There is no queue here
+ * now. This module owns only what is genuinely peer-specific:
  *
- * The queue is bounded. An unbounded one turns a chatty peer into a memory leak, and the bound is
- * surfaced as a refusal so the sender learns rather than being silently dropped — the same principle
- * the ledger applies to duplicates.
+ *  1. **Fail closed on admission.** A message from a peer that was not admitted never reaches the
+ *     runtime, and the stricter same-environment posture is available for a caller that wants it.
+ *  2. **Preserve origin.** Submit as a peer turn, attributed to the peer.
+ *  3. **Translate settlement into an ack.** The turn handle settles — with a result, or with a
+ *     `TurnNotRunError` naming why it never ran — and that is what the sender is told.
+ *
+ * ## Concurrency semantics, which the issue requires documented rather than discovered
+ *
+ * - **Idle session** → the message runs as a turn and the ack settles `acknowledged`.
+ * - **Busy session** → the existing pending queue holds it; the ack is `pending` until it settles.
+ * - **Superseded** → the pending queue coalesces a same-driver tail (last-wins per driver), so a
+ *   second message from one peer arriving mid-turn replaces the first. The replaced one is NOT lost
+ *   silently: it settles `refused` with reason `coalesced`, so the sender learns. Whether peer input
+ *   should be exempt from that policy is a question about the REMOTE-014 E5 queue rather than about
+ *   this module, and it is filed rather than worked around here.
+ * - **Queue full** → settles `refused` with reason `dropped`.
+ * - **Shutdown/cancel** → settles `refused` with reason `cancelled`.
  */
 
-import {
-  isSameEnvironmentPeer,
-  type IPeerMessageAck,
-  type IPeerMessageIngress,
+import { isSameEnvironmentPeer } from '@robota-sdk/agent-interface-transport';
+
+import type {
+  IPeerMessageAck,
+  IPeerMessageIngress,
+  IPeerOrigin,
+  ITurnHandle,
+  ITurnNotRunError,
 } from '@robota-sdk/agent-interface-transport';
 
-/** What the session did with an arriving peer message. */
+/** What happened to an arriving peer message at the moment it was received. */
 export type TIngressOutcome =
-  /** Handed to the runtime now. */
-  | 'delivered'
-  /** Held because a turn is running; will be handed over when the claim frees. */
-  | 'queued'
-  /** Refused — the queue is full, or admission did not establish enough. */
+  /** Handed to the session. Whether it runs now or waits is the session's existing decision. */
+  | 'accepted'
+  /** Never reached the runtime — admission did not establish enough, or the session is closing. */
   | 'refused';
 
 export interface IIngressResult {
   readonly outcome: TIngressOutcome;
+  /** The immediate ack: `pending` for an accepted message, `refused` for one that was not. */
   readonly ack: IPeerMessageAck;
-  /** How many messages are waiting behind this one. Present when queued. */
-  readonly queueDepth?: number;
+  /**
+   * The FINAL ack, once the turn ran or was settled as never-run.
+   *
+   * Present only when accepted. Separate from `ack` because the sender needs an answer before the
+   * turn finishes — a message queued behind a long turn would otherwise leave it silent for minutes
+   * — and a promise is the honest way to say "this is not settled yet".
+   */
+  readonly settled?: Promise<IPeerMessageAck>;
 }
 
 /**
  * The narrow view of a session this module needs.
  *
- * Deliberately not the session itself: the ingress decision depends on exactly two facts — whether a
- * turn is running, and where to put a message that is ready. Taking the whole session would let this
- * module grow into a second place that knows how sessions work.
+ * Exactly one operation, because that is the whole dependency: submit a peer turn and hand back the
+ * handle it settles on. Taking the session itself would let this module grow into a second place
+ * that knows how sessions work — which is the mistake this file already made once.
  */
 export interface IPeerIngressHost {
-  /** Is a foreground turn running right now? Reads the session's existing execution claim. */
-  isBusy(): boolean;
-  /** Hand a message to the runtime, with its origin and trust intact. */
-  deliver(ingress: IPeerMessageIngress): void;
+  submit(input: string, origin: IPeerOrigin): Promise<ITurnHandle>;
 }
 
 export interface IPeerIngressOptions {
-  /**
-   * How many messages may wait while a turn runs.
-   *
-   * Bounded on purpose: an unbounded queue turns a chatty peer into a memory leak, and a silent
-   * drop would contradict the `delivered` ack the sender already holds.
-   */
-  readonly maxQueued?: number;
   /**
    * Require the strongest local proof before a message reaches the runtime.
    *
@@ -83,120 +98,67 @@ export interface IPeerIngressOptions {
   readonly requireSameEnvironment?: boolean;
 }
 
-const DEFAULT_MAX_QUEUED = 32;
+function isTurnNotRun(error: unknown): error is ITurnNotRunError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    (error as { name: unknown }).name === 'TurnNotRunError'
+  );
+}
 
-/**
- * The receiving side of peer messaging for one session.
- *
- * Holds the queue and nothing else — the ordering, duplicate and retry decisions belong to the
- * protocol ledger, and re-deciding them here would be a second answer to one question.
- */
+/** The receiving side of peer messaging for one session. */
 export class PeerMessageIngress {
-  private readonly queue: IPeerMessageIngress[] = [];
-
   constructor(
     private readonly host: IPeerIngressHost,
     private readonly options: IPeerIngressOptions = {},
   ) {}
 
-  get pending(): number {
-    return this.queue.length;
-  }
-
-  /** Take an admitted peer message and decide what happens to it now. */
-  receive(ingress: IPeerMessageIngress): IIngressResult {
+  /** Take a peer message and either submit it to the session or refuse it. */
+  async receive(ingress: IPeerMessageIngress): Promise<IIngressResult> {
     const base = { id: ingress.message.id, sequence: ingress.message.sequence };
+    const refuse = (reason: string): IIngressResult => ({
+      outcome: 'refused',
+      ack: { ...base, state: 'refused', reason },
+    });
 
     if (!ingress.admission.admitted) {
-      return {
-        outcome: 'refused',
-        ack: {
-          ...base,
-          state: 'refused',
-          reason: ingress.admission.reason ?? 'the peer was not admitted',
-        },
-      };
+      return refuse(ingress.admission.reason ?? 'the peer was not admitted');
     }
 
     if (this.options.requireSameEnvironment === true && !isSameEnvironmentPeer(ingress.admission)) {
-      return {
-        outcome: 'refused',
-        ack: {
-          ...base,
-          state: 'refused',
-          reason:
-            `this session requires a same-environment peer; admission established ` +
-            `'${ingress.admission.trust}'. A token proves possession, which is copyable, and says ` +
-            'nothing about where the peer runs.',
-        },
-      };
+      return refuse(
+        `this session requires a same-environment peer; admission established ` +
+          `'${ingress.admission.trust}'. A token proves possession, which is copyable, and says ` +
+          'nothing about where the peer runs.',
+      );
     }
 
-    // The queue has to be empty too, not just the session idle: a message that arrives while
-    // earlier ones are still waiting would otherwise overtake them and reach the agent out of
-    // order. Arrival order is the only order a peer conversation has.
-    if (!this.host.isBusy() && this.queue.length === 0) {
-      this.host.deliver(ingress);
-      return { outcome: 'delivered', ack: { ...base, state: 'delivered' } };
+    let handle: ITurnHandle;
+    try {
+      handle = await this.host.submit(ingress.message.text, ingress.message.origin);
+    } catch (error) {
+      // A session that is shutting down rejects the submission outright. That is a refusal the
+      // sender must hear rather than a crash in whatever is pumping the channel.
+      return refuse(error instanceof Error ? error.message : 'the session refused the submission');
     }
 
-    const limit = this.options.maxQueued ?? DEFAULT_MAX_QUEUED;
-    if (this.queue.length >= limit) {
-      return {
-        outcome: 'refused',
-        ack: {
-          ...base,
-          state: 'refused',
-          reason:
-            `this session already has ${limit} peer message(s) waiting for the running turn. ` +
-            'Refused rather than dropped: the sender holds the ack, so a silent drop would leave it ' +
-            'believing a message landed that never will.',
-        },
-      };
-    }
-
-    this.queue.push(ingress);
     return {
-      outcome: 'queued',
-      // `delivered` would be a lie while it sits in a queue, and `pending` is the contract's word
-      // for "not settled yet" — the sender keeps waiting, which is the truth.
+      outcome: 'accepted',
+      // `delivered` would claim the runtime has it in hand; it may be waiting behind a turn.
+      // `pending` is the contract's word for "not settled", which is what is true right now.
       ack: { ...base, state: 'pending' },
-      queueDepth: this.queue.length,
+      settled: handle.completed.then(
+        (): IPeerMessageAck => ({ ...base, state: 'acknowledged' }),
+        (error: unknown): IPeerMessageAck => ({
+          ...base,
+          state: 'refused',
+          // The typed reason is the point of RUNTIME-003: 'coalesced' (a newer message from this
+          // peer superseded it) and 'dropped' (the queue was full) are different facts, and a
+          // sender forced to regex a message string to tell them apart has learned nothing.
+          reason: isTurnNotRun(error) ? error.reason : 'the turn failed',
+        }),
+      ),
     };
-  }
-
-  /**
-   * Hand over everything that was waiting, in arrival order.
-   *
-   * Called when the session's turn finishes. Returns what it delivered so a caller can ack them —
-   * this module does not send, because a module that both decided and transmitted would be two
-   * responsibilities and one of them would be untestable without a transport.
-   *
-   * Busy is re-read BEFORE EVERY hand-over, not once at the top. Delivering a message may start a
-   * turn — that is the point of delivering it — so a loop that checked once would hand the whole
-   * queue to a session that went busy on the first one, which is exactly the concurrent delivery
-   * this class exists to prevent. Whatever is still waiting stays queued for the next drain.
-   */
-  drain(): readonly IPeerMessageIngress[] {
-    const handed: IPeerMessageIngress[] = [];
-    while (!this.host.isBusy()) {
-      const next = this.queue.shift();
-      if (next === undefined) break;
-      this.host.deliver(next);
-      handed.push(next);
-    }
-    return handed;
-  }
-
-  /**
-   * Drop everything waiting — the peer disconnected, or the session is shutting down.
-   *
-   * Returns the abandoned messages so the caller can tell the sender, if the channel still exists.
-   * Silently discarding them would leave a sender that holds a `pending` ack waiting forever.
-   */
-  abandon(): readonly IPeerMessageIngress[] {
-    const waiting = [...this.queue];
-    this.queue.length = 0;
-    return waiting;
   }
 }

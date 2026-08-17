@@ -38,7 +38,7 @@ import type {
   ISessionTurnSubmission,
   ISessionWorkspaceLocation,
 } from './session-capability-contracts.js';
-import type { IExecutionResult } from './turn-contracts.js';
+import type { IExecutionResult, TTurnSource } from './turn-contracts.js';
 import type { IExecutionWorkspaceEvent } from './workspace-contracts.js';
 import type {
   IActionRequest,
@@ -224,12 +224,13 @@ export interface IToolSummary {
   args: string;
 }
 
-// RUNTIME-003: a submission's identity and the ways it can end live in `./turn-contracts.js`.
+// RUNTIME-003: a submission's identity, its ORIGIN (PEER-002) and the ways it can end live there.
 export type {
   IExecutionResult,
   ITurnHandle,
   ITurnNotRunError,
   TTurnNotRunReason,
+  TTurnSource,
 } from './turn-contracts.js';
 
 /** Permission handler delegate — clients provide their own UI. */
@@ -277,8 +278,7 @@ export interface IPromptResolvedEvent {
 export interface IContextFileRefreshedEvent {
   filePath: string;
 }
-/** Origin of a turn — distinguishes a human prompt from an agent-wakeup re-entry (FLOW-002). */
-export type TTurnSource = 'user' | 'agent-wakeup';
+// is at its size ratchet, so a new member splits rather than extends (PEER-002, #1809).
 /** SELFHOST-007: a checkpoint/branch lifecycle transition a surface renders. */
 type TCheckpointEventKind = `checkpoint_${'created' | 'restored' | 'rolled_back'}`;
 type TBranchEventKind = `branch_${'forked' | 'switched'}`;
