@@ -494,6 +494,20 @@ must never destroy it. The contract:
    is untouched by rule 2, which is the point: an abort during auto-compaction used to run the
    provider anyway and then replace the whole conversation with a summary the user had asked not to
    produce.
+5. **Nothing to summarise is a no-op, not a summary (CORE-031).** `Session.compact()` decides
+   emptiness against the messages it will actually compact — the history with system messages
+   filtered out — and returns without touching the conversation when there are none. Guarding on
+   the FULL history instead let a system-messages-only conversation through, which is exactly what a
+   fresh session holds before its first turn, and the replacement wrote an empty `[Context Summary]`
+   over it. `CompactionOrchestrator.compact()` correspondingly throws `CompactionError` on an empty
+   `history` rather than returning `''`: whether there is anything worth compacting is the caller's
+   judgement, made before it commits to replacing anything, so an empty history arriving at the
+   orchestrator means that judgement was wrong. No hook fires and no `context_compact` event is
+   written for a no-op. The abort contract in rule 4 is unaffected: `Session.compact()` checks the
+   signal before this guard, so a cancelled turn is reported as cancelled whether or not there was
+   anything to compact — the orchestrator used to make that check on the caller's behalf, and the
+   no-op return would otherwise have narrowed the promise to "rejects if cancelled AND there was
+   work".
 
 ### Auto-Compaction
 

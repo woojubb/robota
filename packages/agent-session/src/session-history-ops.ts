@@ -81,14 +81,26 @@ export async function compact(
   ctx: ICompactContext,
   signal?: AbortSignal,
 ): Promise<void> {
+  // RUNTIME-004: before the CORE-031 guard, so a cancelled turn is reported as cancelled whether or
+  // not there was anything to compact. The orchestrator used to make this check for us, and the early
+  // return below would otherwise resolve an aborted compaction quietly — a narrower abort contract
+  // ("rejects if cancelled AND there was work") for no gain over the one already in force.
+  signal?.throwIfAborted();
+
   const history = ctx.robota.getHistory();
-  if (history.length === 0) return;
+
+  // Exclude system messages from compaction — they are preserved and re-injected after
+  const nonSystemHistory = history.filter((msg) => msg.role !== 'system');
+  // CORE-031: guard on what will actually be compacted, not on the full history. Guarding on
+  // `history` and then compacting `nonSystemHistory` let a system-messages-only conversation through
+  // — a fresh session before its first turn holds exactly that — and the replacement below wrote an
+  // empty `[Context Summary]` over it. There is nothing to summarise here, and nothing to summarise
+  // is a no-op, not a failure: the conversation is left exactly as it was found.
+  if (nonSystemHistory.length === 0) return;
 
   ctx.contextTracker.updateFromHistory(history);
   const before = ctx.contextTracker.getContextState();
 
-  // Exclude system messages from compaction — they are preserved and re-injected after
-  const nonSystemHistory = history.filter((msg) => msg.role !== 'system');
   // RUNTIME-004: the orchestrator throws if the turn was cancelled, so the history replacement below
   // is not reached — the same guarantee CORE-019 gives for an invalid summary.
   const summary = await ctx.compactionOrchestrator.compact(
