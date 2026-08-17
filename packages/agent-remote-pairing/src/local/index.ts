@@ -16,3 +16,10 @@ export type {
   ILocalPeerBinding,
   TLocalPeerTrust,
 } from './peer-credential.js';
+export { DEFAULT_GRANT_TTL_MS, RendezvousGrantLedger } from './rendezvous-nonce.js';
+export type {
+  IIssueOptions,
+  IRendezvousGrant,
+  IRendezvousRedemption,
+  TNonceRejection,
+} from './rendezvous-nonce.js';
