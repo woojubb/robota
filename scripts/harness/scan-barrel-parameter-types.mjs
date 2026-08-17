@@ -63,20 +63,39 @@ function tailName(node) {
   return tail?.text ?? tail?.escapedText;
 }
 
-/** Every named type appearing anywhere inside `node`'s parameter list. */
-export function parameterTypeNames(fn) {
-  const names = new Set();
+/** The LEFTMOST identifier of a possibly-qualified type name — `other` in `other.IThing`. */
+function rootName(node) {
+  let head = node?.typeName ?? node?.exprName;
+  while (head && ts.isQualifiedName(head)) head = head.left;
+  return head?.text ?? head?.escapedText;
+}
+
+/**
+ * Every named type in `node`'s parameter list, each with the ROOT of its qualified name.
+ *
+ * The root is what distinguishes `IThing` from `other.IThing`. Round-4 review showed the tail alone
+ * is not enough: `import * as other from '@robota-sdk/other'` records no named binding, so a
+ * parameter typed `other.IThing` reduced to `IThing` and was decided by name — one unrelated local
+ * `IThing` in the package and the floor fired on correct code.
+ */
+export function parameterTypeRefs(fn) {
+  const refs = new Map();
   const walk = (node) => {
     if (ts.isTypeReferenceNode(node)) {
       const name = tailName(node);
-      if (name) names.add(name);
+      if (name && !refs.has(name)) refs.set(name, rootName(node));
     }
     ts.forEachChild(node, walk);
   };
   for (const parameter of fn.parameters ?? []) {
     if (parameter.type) walk(parameter.type);
   }
-  return [...names];
+  return [...refs].map(([name, root]) => ({ name, root }));
+}
+
+/** Every named type appearing anywhere inside `node`'s parameter list. */
+export function parameterTypeNames(fn) {
+  return parameterTypeRefs(fn).map((ref) => ref.name);
 }
 
 /**
@@ -88,16 +107,27 @@ export function parameterTypeNames(fn) {
  * deferred `export { f };` whose binding came from an import. A floor that reads one declaration
  * form reports zero for every other, which is the shape this whole item is about.
  *
- * It does NOT cover every shape, and an earlier revision of this sentence claimed it did. Known
- * gaps, all confirmed silent by fixture and none present in any package `src` today:
+ * It does NOT cover every shape. An earlier revision claimed it did; the revision after that listed
+ * five gaps, and review found the list itself wrong in two places — one entry described behaviour
+ * the code does not have, and the entry with 38 live instances was missing. Each remaining gap
+ * below was re-confirmed by fixture:
  *   - `function f(…) {} export default f;` — an export ASSIGNMENT, not a modifier;
  *   - `export default (a: IThing) => {};` — an anonymous default;
- *   - `export * as ns from './impl.js'` — a namespace re-export, not followed;
  *   - a `class`'s CONSTRUCTOR parameters, which a consumer equally cannot name;
  *   - an inline `import('./thing.js').IThing` parameter type (`ImportTypeNode` carries `qualifier`,
  *     not `typeName`, so `tailName` reads nothing).
- * Each is under-reporting, which is the dangerous direction — so they are listed rather than left
- * for the next reader to discover the way review discovered the last four.
+ * Each under-reports, which is the dangerous direction — so they are listed rather than left for
+ * the next reader to find the way review found these.
+ *
+ * `export * as ns from '…'` is NOT in that list: a `NamespaceExport` clause carries no `elements`,
+ * so it is followed as a star export. That is the right answer for this floor's question — every
+ * name in the target is nameable by the consumer, as `ns.X` — even though the names are unioned
+ * bare. A previous revision listed it as an unfollowed gap, which was the opposite of the truth.
+ *
+ * A REAL limit, stated because it is the half of the round-3 collision fix that is still open:
+ * `exportedNames` is a flat set of names, so a barrel that publishes its own `IThing` silences a
+ * finding about a DIFFERENT `IThing` reaching the signature from a submodule. Closing it needs
+ * declaration identity (`file#name`) rather than a name set; it is HARNESS-108's TC-02.
  *
  * `starExports` is tracked rather than ignored for the same reason, and it cut BOTH ways before it
  * was: a function published by `export *` was never checked, and a TYPE published by `export *` was
@@ -111,13 +141,41 @@ export function readBarrel(content, fileName) {
   const starExports = [];
   /** local name → where it was imported from, for deferred `export { … };` with no module. */
   const importedFrom = new Map();
+  /** local namespace alias → module, for a qualified parameter type like `other.IThing`. */
+  const importedNamespaces = new Map();
 
   const isExported = (node) =>
     (node.modifiers ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
   const isDefault = (node) =>
     (node.modifiers ?? []).some((m) => m.kind === ts.SyntaxKind.DefaultKeyword);
 
+  /**
+   * Callables declared in this file WITHOUT `export`, keyed by name. A deferred `export { f };`
+   * publishes them, and round-4 review measured 38 live instances of exactly that shape — a
+   * `function Card({…}: Props)` followed by `export { Card };`. Collecting only `isExported`
+   * declarations made every one of them invisible, which is under-reporting.
+   */
+  const localCallables = new Map();
+
   const visit = (node) => {
+    if (ts.isFunctionDeclaration(node) && !isExported(node) && node.name?.text) {
+      const existing = localCallables.get(node.name.text) ?? [];
+      existing.push(node);
+      localCallables.set(node.name.text, existing);
+    }
+    if (
+      ts.isVariableStatement(node) &&
+      !isExported(node) &&
+      (node.declarationList?.declarations ?? []).length > 0
+    ) {
+      for (const declaration of node.declarationList.declarations) {
+        const name = declaration.name?.text;
+        if (!name || !declaration.initializer?.parameters) continue;
+        const existing = localCallables.get(name) ?? [];
+        existing.push(declaration.initializer);
+        localCallables.set(name, existing);
+      }
+    }
     if (ts.isFunctionDeclaration(node) && isExported(node)) {
       // An overload set declares the same name several times; every signature is part of the
       // published contract, so each is read rather than only the first.
@@ -170,6 +228,12 @@ export function readBarrel(content, fileName) {
       if (defaultLocal && module) {
         importedFrom.set(defaultLocal, { original: 'default', module });
       }
+      // `import * as other from '…'` binds a NAMESPACE. It publishes no name of its own, so it is
+      // kept apart from `importedFrom`: it answers "where does `other.X` live", never "what is X".
+      const namespaceLocal = node.importClause?.namedBindings?.name?.text;
+      if (namespaceLocal && module && !node.importClause?.namedBindings?.elements) {
+        importedNamespaces.set(namespaceLocal, module);
+      }
     }
     if (ts.isExportDeclaration(node)) {
       const module = node.moduleSpecifier?.text;
@@ -188,7 +252,15 @@ export function readBarrel(content, fileName) {
           reexports.push({ local, original, module });
         } else {
           const source = importedFrom.get(original);
-          if (source) reexports.push({ local, original: source.original, module: source.module });
+          if (source) {
+            reexports.push({ local, original: source.original, module: source.module });
+          } else {
+            // Not an import — the name was DECLARED here without `export` and is published by
+            // this statement. There is no edge to follow; the declaration is right here.
+            for (const node of localCallables.get(original) ?? []) {
+              functions.push({ name: local, node });
+            }
+          }
         }
       }
     }
@@ -200,7 +272,7 @@ export function readBarrel(content, fileName) {
   };
   visit(sourceFile);
 
-  return { functions, exportedNames, reexports, starExports, importedFrom };
+  return { functions, exportedNames, reexports, starExports, importedFrom, importedNamespaces };
 }
 
 /** Resolve a relative module specifier to a file inside the package, or undefined. */
@@ -258,13 +330,23 @@ export function resolvePublished(barrel, root, readFile) {
     if (wanted === undefined) {
       for (const name of read.exportedNames) exportedNames.add(name);
       for (const fn of read.functions) {
-        functions.push({ ...fn, declaredIn: file, imports: read.importedFrom });
+        functions.push({
+          ...fn,
+          declaredIn: file,
+          imports: read.importedFrom,
+          namespaces: read.importedNamespaces,
+        });
       }
     } else {
       if (read.exportedNames.has(wanted)) exportedNames.add(wanted);
       for (const fn of read.functions) {
         if (fn.name === wanted) {
-          functions.push({ ...fn, declaredIn: file, imports: read.importedFrom });
+          functions.push({
+            ...fn,
+            declaredIn: file,
+            imports: read.importedFrom,
+            namespaces: read.importedNamespaces,
+          });
         }
       }
     }
@@ -310,6 +392,11 @@ export function findBarrelParameterTypeFindings(root = process.cwd(), settingsOv
     };
   }
 
+  // Contained — HARNESS-108. This floor reads 2 of the workspace's 55 package barrels; the other 53
+  // hold 16 findings, and widening before the declaration-identity limit above is closed would
+  // redden CI on correct code. The label lives here rather than beside the list in
+  // `.agents/harness.config.json`, because no label reader scans JSON — a containment nobody can
+  // verify is the shape this whole item is about.
   requireGovernedTree(root, barrels, {
     scan: 'barrel-parameter-types',
     why: 'each configured barrel is a package entry point this floor reads to decide whether a published function names a type the barrel withholds; a barrel missing from the tree means that package went unchecked, not that it is clean',
@@ -335,8 +422,18 @@ export function findBarrelParameterTypeFindings(root = process.cwd(), settingsOv
       const ownTypeParameters = new Set(
         (fn.node.typeParameters ?? []).map((p) => p.name?.text).filter(Boolean),
       );
-      for (const typeName of parameterTypeNames(fn.node)) {
+      // `typeRoot`, not `root`: the enclosing `root` is the repository root this whole scan resolves
+      // against, and shadowing it silently handed `declaredInPackage` a type name where it expected
+      // a path. The tests caught it; the name is explicit now so they do not have to again.
+      for (const { name: typeName, root: typeRoot } of parameterTypeRefs(fn.node)) {
         if (ownTypeParameters.has(typeName)) continue;
+        // A QUALIFIED type resolves through its root, not its tail. `other.IThing` where `other` is
+        // a namespace import from another package is that package's type however many local
+        // `IThing`s exist.
+        if (typeRoot && typeRoot !== typeName) {
+          const viaNamespace = fn.namespaces?.get(typeRoot);
+          if (viaNamespace && !viaNamespace.startsWith('.')) continue;
+        }
         if (exportedNames.has(typeName)) continue;
         // RESOLVE rather than look the name up. `declaredInPackage` alone asks "does any file under
         // this package declare something called X?", so an unrelated local `IForeign` anywhere in

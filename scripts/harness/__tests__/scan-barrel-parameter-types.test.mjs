@@ -120,9 +120,13 @@ describe('the two deliberate exclusions, which keep it from firing on correct co
   it('does NOT flag a type owned by ANOTHER package', () => {
     // Requiring the barrel to re-export it would demand exactly the pass-through re-exports
     // STRUCT-07 bans — the rule would contradict a rule.
+    // The unrelated declaration is the point: without it `declaredInPackage` is false anyway and
+    // this case passes with the foreign-package exclusion deleted, which is what round-4 mutation
+    // testing showed. A guard's own test must die when the guard does.
     const root = fixture('arch-037-foreign-', {
       [BARREL]:
         "import type { IForeign } from '@robota-sdk/other';\nexport function f(a: IForeign): void {}\n",
+      'packages/p/src/unrelated.ts': 'export interface IForeign {\n  local: true;\n}\n',
     });
 
     expect(findBarrelParameterTypeFindings(root, settings()).findings).toEqual([]);
@@ -401,5 +405,147 @@ describe('foreignness is decided by RESOLUTION, not by a name lookup', () => {
     });
 
     expect(findBarrelParameterTypeFindings(root, settings()).findings).toEqual([]);
+  });
+});
+
+describe('shapes round-4 review measured the reader missing', () => {
+  it('reads a function declared WITHOUT export and published by a deferred export', () => {
+    // Review counted 38 live instances of this shape in one package — `function Card({…}: Props)`
+    // followed by `export { Card };`. Collecting only `export`ed declarations made every one
+    // invisible, and the header claimed no such instance existed.
+    const root = fixture('arch-037-local-decl-', {
+      [BARREL]: "export { f } from './impl.js';\n",
+      'packages/p/src/impl.ts':
+        'export interface IThing {}\nfunction f(a: IThing): void {}\nexport { f };\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings.map((f) => f.rule)).toEqual([
+      'barrel-parameter-type-unexported',
+    ]);
+  });
+
+  it('reads an unexported const-arrow published by a deferred export', () => {
+    const root = fixture('arch-037-local-arrow-', {
+      [BARREL]: "export { f } from './impl.js';\n",
+      'packages/p/src/impl.ts':
+        'export interface IThing {}\nconst f = (a: IThing): void => {};\nexport { f };\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings.map((f) => f.rule)).toEqual([
+      'barrel-parameter-type-unexported',
+    ]);
+  });
+
+  it('does NOT flag a QUALIFIED type whose namespace comes from another package', () => {
+    // `import * as other from '@robota-sdk/other'` records no named binding, so `other.IThing`
+    // reduced to `IThing` and was decided by name — one unrelated local `IThing` and the floor
+    // fired on correct code. Namespace imports are live in the packages the widening covers.
+    const root = fixture('arch-037-ns-import-', {
+      [BARREL]:
+        "import * as other from '@robota-sdk/other';\n" +
+        'export function f(a: other.IThing): void {}\n',
+      'packages/p/src/unrelated.ts': 'export interface IThing {\n  local: true;\n}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings).toEqual([]);
+  });
+
+  it('still flags a QUALIFIED type whose namespace is a LOCAL module', () => {
+    // The mirror: a namespace root must not become a blanket skip.
+    const root = fixture('arch-037-ns-local-', {
+      [BARREL]:
+        "import * as inner from './inner.js';\nexport function f(a: inner.IThing): void {}\n",
+      'packages/p/src/inner.ts': 'export interface IThing {}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings.map((f) => f.rule)).toEqual([
+      'barrel-parameter-type-unexported',
+    ]);
+  });
+});
+
+/**
+ * Round-4 mutation testing found six single-point mutations the suite did not kill. Four of them
+ * guard OVER-firing — a regression there reddens CI on correct code with no allowlist, which is the
+ * failure mode that gets a floor switched off. Each gets a case here.
+ */
+describe('the over-fire guards the header credits, each with a case', () => {
+  it('counts an interface published by `export *` as published', () => {
+    // The header credits this registration with "ten false positives on `agent-core` alone".
+    const root = fixture('arch-037-star-type-', {
+      [BARREL]: "export * from './impl.js';\n",
+      'packages/p/src/impl.ts':
+        'export interface IThing {}\nexport function f(a: IThing): void {}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings).toEqual([]);
+  });
+
+  it('counts a barrel-declared CLASS as a nameable parameter type', () => {
+    const root = fixture('arch-037-class-param-', {
+      [BARREL]: 'export class CThing {}\nexport function f(a: CThing): void {}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings).toEqual([]);
+  });
+
+  it('does not follow a named re-export the barrel never asked for', () => {
+    // The intermediate hub re-exports two names; the barrel asks for one. Following the OTHER edge
+    // reports `g`, which this barrel never publishes — a finding against code no consumer can even
+    // reach. An earlier draft put both functions in one module, so the guard was never on the path
+    // and the case survived the mutation that deletes it.
+    const root = fixture('arch-037-over-follow-', {
+      [BARREL]: "export { f } from './hub.js';\n",
+      'packages/p/src/hub.ts': "export { f } from './a.js';\nexport { g } from './b.js';\n",
+      'packages/p/src/a.ts':
+        'export interface IPublic {}\nexport function f(a: IPublic): void {}\n',
+      'packages/p/src/b.ts':
+        'export interface IPrivate {}\nexport function g(b: IPrivate): void {}\n',
+    });
+
+    const { findings } = findBarrelParameterTypeFindings(root, settings());
+
+    expect(
+      findings.some((f) => f.detail.includes('`g`')),
+      'a name the barrel never published was reported',
+    ).toBe(false);
+  });
+
+  it('resolves an ALIASED re-export through the name the TARGET declares', () => {
+    // `export { g as f }` publishes `f`; the declaration to read is `g`. Resolving by the published
+    // name finds nothing and the function goes unchecked.
+    const root = fixture('arch-037-alias-', {
+      [BARREL]: "export { g as f } from './impl.js';\n",
+      'packages/p/src/impl.ts':
+        'export interface IThing {}\nexport function g(a: IThing): void {}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings.map((f) => f.rule)).toEqual([
+      'barrel-parameter-type-unexported',
+    ]);
+  });
+
+  it('resolves a directory edge that lands on a plain index file', () => {
+    const root = fixture('arch-037-index-ts-', {
+      [BARREL]: "export { f } from './sub.js';\n",
+      'packages/p/src/sub/index.ts':
+        'export interface IThing {}\nexport function f(a: IThing): void {}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings.map((f) => f.rule)).toEqual([
+      'barrel-parameter-type-unexported',
+    ]);
+  });
+
+  it('reads the TAIL of a qualified type name', () => {
+    const root = fixture('arch-037-qualified-tail-', {
+      [BARREL]:
+        "import * as inner from './inner.js';\n" + 'export function f(a: inner.IThing): void {}\n',
+      'packages/p/src/inner.ts': 'export interface IThing {}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings.map((f) => f.rule)).toEqual([
+      'barrel-parameter-type-unexported',
+    ]);
   });
 });

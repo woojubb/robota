@@ -216,7 +216,14 @@ const-arrow and default exports, overloads and the generic exclusion were all co
 Twelve more were added and each was RUN against that pre-fix reader before being kept: 11 fail there
 and pass here. (The twelfth guards a defect that existed only in an uncommitted revision, so it has
 no commit to be proved against; the test file says so rather than letting a reader assume otherwise.)
-Four more followed from round-3 review. Every behaviour the scan claims is now mutation-checked: nine
-single-point mutations, nine caught.
+Four more followed from round-3 review and ten from round-4, for 38.
+
+The mutation claim needs the same care, because the previous version of this sentence — "nine
+single-point mutations, nine caught" — was itself an unverified count, and round-4 review refuted it
+by finding six survivors. Re-measured after adding cases for them: eight targeted mutations, eight
+caught, including the two the earlier sweep had missed through a broken mutation script (a shell
+quoting bug had silently turned two mutations into no-ops, so they "survived" without ever being
+applied). The lesson is the one this whole item keeps re-learning: a green result from a tool you
+wrote proves nothing until you have watched the tool go red.
 
 Verified: 124 of 126 scans pass (2 skipped). agent-framework 1395 tests, agent-executor 104.

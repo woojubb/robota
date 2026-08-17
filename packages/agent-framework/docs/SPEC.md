@@ -1916,7 +1916,10 @@ Owner-direct APIs:
 - `agent-session` owns generic session APIs and terminal output primitives.
 
 `pnpm harness:scan:sdk-public-surface` prevents broad `export *` barrels, top-level lower-owner
-pass-through exports, and runtime re-exports outside the documented SDK facade barrels.
+pass-through exports, and `agent-executor` re-exports outside the ONE file where a permitted
+consumer cannot reach the symbol any other way. Note "re-exports", not "runtime re-exports": the
+check is about the LOCATION of a pass-through, and its own tests assert that a type-only one outside
+that file is flagged too.
 
 ### History Types — Owner Package
 

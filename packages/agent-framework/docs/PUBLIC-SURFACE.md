@@ -15,7 +15,7 @@ therefore attached to the published graph rather than to one hard-coded entry fi
 | Unreachable elsewhere | A symbol a permitted consumer has no other legal import path to            | the background-task lifecycle types. ARCH-037 retired the older "runtime facade" wording: whether a re-export is type-only or runtime says nothing about whether a consumer can reach it |
 | Owner-direct API      | General-purpose lower package surface that consumers import from the owner | history helpers from `agent-core`, tool exports from `agent-tools`, generic session APIs from `agent-session`                                                                            |
 
-## Files Exempt Because the Symbol Is Unreachable Elsewhere
+## The File Exempt Because Its Symbols Are Unreachable Elsewhere
 
 `agent-executor` re-exports are allowed in exactly one file:
 
