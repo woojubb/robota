@@ -227,9 +227,23 @@ reserved members. The flattened host has a null prototype and a final non-overri
 
 **`createTestInteractiveSession` lives here, with the contract.** A double existed before, published
 from `@robota-sdk/agent-framework` and documented in its SPEC — with zero consumers, because every
-transport package sits BELOW `agent-framework` and could not import it. The 41 hand-rolled
+transport package sits BELOW `agent-framework` and could not import it. The hand-rolled
 `as unknown as IInteractiveSession` partials were not an oversight; they were the only thing those
-packages could reach. The sole published owner is
+packages could reach.
+
+**Two figures are on record for those partials, and they measure different things** — quote whichever
+you mean, never one as the other:
+
+| Figure             | What it measures                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------- |
+| **37**             | The AST ratchet baseline ARCH-012's TC-04 actually drove to zero. This is the number that was MIGRATED. |
+| 41 across 29 files | The corrected pre-work audit count, taken by hand before the ratchet existed.                           |
+
+This SPEC previously carried the 41 alone. A package SPEC is a package-level SSOT, so a reader
+comparing a later migration against ARCH-012 would have taken 41 as the number that was migrated; it
+was not.
+
+The sole published owner is
 `@robota-sdk/agent-interface-transport/testing`; `agent-framework` intentionally does not re-export it,
 because pass-through re-exports would create two apparent owners for one contract.
 

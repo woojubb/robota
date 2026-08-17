@@ -1,6 +1,10 @@
 /**
  * ARCH-029: the conformant `IAgentJobHostContext` double.
  *
+ * It exists so a test never needs an `as unknown as IAgentJobHostContext` partial. Building the real
+ * shape once, here, is what lets every consumer drop that assertion — the double IS the removal of
+ * the cast, not a place to hide one.
+ *
  * Split out of `command-host-double.ts` when that file passed the anti-monolith limit. The seam is
  * the same one the role ports draw: one file per contract axis.
  */

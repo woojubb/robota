@@ -3,6 +3,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { requireGovernedTree } from './governed-tree.mjs';
+import * as ts from './lib/ts-ast.mjs';
 import { listWorkspaceScopes, pathExists, readText } from './shared.mjs';
 import { normalizeSpecHeading, readSpecSectionContract } from './spec-sections.mjs';
 
@@ -201,6 +202,47 @@ function grepLines(args, what) {
   return result.status === 1 || output === '' ? [] : output.split(/\r?\n/);
 }
 
+/**
+ * Does this file contain a REAL blind assertion, as an AST node rather than as text?
+ *
+ * The text form counted a docblock EXPLAINING the rule as a violation of it. Measured: while
+ * ARCH-029 landed, `command-host-double.ts` and `agent-job-host-double.ts` — the conformant,
+ * cast-free doubles built to REMOVE those assertions — were both flagged, because each explains in
+ * prose why it exists. Splitting one file into two raised the frozen count by one. It was worked
+ * around by rewording the prose, which puts the pressure on the documentation instead of the code
+ * and leaves the next accurate docblock to trip it again.
+ *
+ * The same defect was fixed once already in this repository: `scan-subagent-runner-composition.mjs`
+ * moved from a regex to `lib/ts-ast.mjs` for exactly this reason, and its test file carries a case
+ * named "does NOT flag prose that merely names the symbols". This follows that precedent.
+ *
+ * `as unknown as T` parses as `AsExpression(AsExpression(expr, unknown), T)`, so the OUTER node is
+ * found by asking whether its own expression is an `unknown` assertion — which is why the two kinds
+ * are not one predicate with a different string.
+ */
+export function hasBlindAssertion(sourceText, fileName, kind) {
+  let found = false;
+  const sf = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true);
+  const typeTextOf = (node) => (node.type ? node.type.getText().trim() : '');
+  const visit = (node) => {
+    if (found) return;
+    if (ts.isAsExpression(node)) {
+      if (kind === 'any' && typeTextOf(node) === 'any') found = true;
+      else if (
+        kind === 'unknown' &&
+        node.expression &&
+        ts.isAsExpression(node.expression) &&
+        typeTextOf(node.expression) === 'unknown'
+      ) {
+        found = true;
+      }
+    }
+    if (!found) ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(sf, visit);
+  return found;
+}
+
 async function checkBoundaryValidation(findings) {
   // Scan for blind type assertions in production code (not tests).
   //
@@ -216,18 +258,22 @@ async function checkBoundaryValidation(findings) {
   // boundary, so it stays open.
   const patterns = [
     {
+      // develop tightened the prefilter to word boundaries; this change adds the AST `kind`.
+      // Both are kept: the regex is the cheap prefilter, `kind` selects the judge that runs on it.
       regex: '\\bas any\\b',
+      kind: 'any',
       type: 'blind-assertion-any',
       detail: 'Blind `as any` assertion in production code.',
     },
     {
       regex: '\\bas unknown as\\b',
+      kind: 'unknown',
       type: 'blind-assertion-unknown',
       detail: 'Blind `as unknown as T` assertion in production code.',
     },
   ];
 
-  for (const { regex, type, detail } of patterns) {
+  for (const { regex, type, detail, kind } of patterns) {
     const files = grepLines(
       [
         '-rn',
@@ -250,6 +296,10 @@ async function checkBoundaryValidation(findings) {
       ) {
         continue;
       }
+
+      // `grep` is the cheap prefilter; the AST is the judge. A file whose only match is in a
+      // comment or a string literal has no assertion to report.
+      if (!hasBlindAssertion(await readText(file), file, kind)) continue;
 
       findings.push({
         file,

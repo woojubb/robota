@@ -14,6 +14,8 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
+
 /**
  * HARNESS-069 — a script that could only succeed.
  *
@@ -467,5 +469,73 @@ describe('fail-closed over a root it cannot judge (HARNESS-069)', () => {
     // The SHARED `requireGovernedTree` message (HARNESS-052), not a private copy of the rule — a
     // same-named local twin would have broken the property that helper exists for.
     expect(result.stderr).toMatch(/cleanup-drift: packages missing from/);
+  });
+});
+
+describe('a docblock explaining the rule is not a violation of it (#1803)', () => {
+  // `blind-assertion-*` counted the literal text, so prose EXPLAINING the rule was reported as
+  // breaking it. Measured while ARCH-029 landed: the two conformant, cast-free doubles built to
+  // REMOVE those assertions were both flagged for the docblock saying why they exist, and splitting
+  // one file into two raised the frozen count by one. It was worked around by rewording the prose,
+  // which puts the pressure on documentation instead of code and leaves the next accurate docblock
+  // to trip it again.
+  //
+  // The same defect was fixed once before here: scan-subagent-runner-composition moved from a regex
+  // to lib/ts-ast.mjs, and its suite carries "does NOT flag prose that merely names the symbols".
+
+  const source = (body) => body;
+
+  it('does NOT flag prose that merely names the assertion', async () => {
+    const { hasBlindAssertion } = await import('../cleanup-drift.mjs');
+
+    const prose = source(
+      [
+        '/**',
+        ' * Exists so a test never needs an `as unknown as IThing` partial.',
+        ' */',
+        'export const a = 1;',
+      ].join('\n'),
+    );
+
+    expect(hasBlindAssertion(prose, 'double.ts', 'unknown')).toBe(false);
+  });
+
+  it('does NOT flag `as any` inside a comment or a string', async () => {
+    const { hasBlindAssertion } = await import('../cleanup-drift.mjs');
+
+    expect(hasBlindAssertion('// never write `as any` here\nconst a = 1;', 'f.ts', 'any')).toBe(
+      false,
+    );
+    expect(hasBlindAssertion('const msg = "as any is banned";', 'f.ts', 'any')).toBe(false);
+  });
+
+  it('DOES flag a real assertion, so the narrowing did not disarm the check', async () => {
+    const { hasBlindAssertion } = await import('../cleanup-drift.mjs');
+
+    // Red proof for the fix itself: if the AST walk were wrong in the permissive direction, every
+    // assertion in the repository would stop being reported and the floor would silently vanish.
+    expect(hasBlindAssertion('const a = x as unknown as Foo;', 'f.ts', 'unknown')).toBe(true);
+    expect(hasBlindAssertion('const b = y as any;', 'f.ts', 'any')).toBe(true);
+  });
+
+  it('reads `as unknown as T` as the outer node, not as a bare `unknown` cast', async () => {
+    const { hasBlindAssertion } = await import('../cleanup-drift.mjs');
+
+    // `as unknown as T` parses as AsExpression(AsExpression(expr, unknown), T). A lone `as unknown`
+    // is not the banned double assertion and must not be counted as one.
+    expect(hasBlindAssertion('const a = x as unknown;', 'f.ts', 'unknown')).toBe(false);
+  });
+
+  it('holds on the real doubles the issue named', async () => {
+    const { hasBlindAssertion } = await import('../cleanup-drift.mjs');
+    const file = path.join(
+      WORKSPACE_ROOT,
+      'packages/agent-framework/src/testing/agent-job-host-double.ts',
+    );
+    const text = readFileSync(file, 'utf8');
+
+    // The docblock states the rule accurately — the text check counts that as a violation.
+    expect(text).toMatch(/as unknown as/);
+    expect(hasBlindAssertion(text, file, 'unknown')).toBe(false);
   });
 });
