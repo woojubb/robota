@@ -180,6 +180,40 @@ export class ToolExecutionError extends RobotaError {
 }
 
 /**
+ * The same-tool-input loop guard tripped — CORE-035.
+ *
+ * A tool was invoked with byte-identical serialized inputs more times than `maxSameToolInputs`
+ * allows, so the turn stopped rather than looping. This is the AGENT giving up, not the user
+ * cancelling: the SPEC used to promise an `AbortError` here, which `isAbortFailure` resolves as
+ * `success: true, interrupted: true` — reporting a run that produced no answer as a success.
+ *
+ * Named rather than a bare `Error` for the reason the SPEC was reaching for by naming a type at all:
+ * a caller must be able to tell "the agent looped" from "the network died". `RobotaError` carries
+ * `code`/`category`/`recoverable` out through CORE-027's failure path intact.
+ *
+ * `recoverable` is TRUE: the loop is a property of this turn's prompt and tool set, not of the
+ * system, and a caller that varies either can reasonably try again.
+ */
+export class SameToolInputLoopError extends RobotaError {
+  readonly code = 'SAME_TOOL_INPUT_LOOP';
+  readonly category = 'system' as const;
+  readonly recoverable = true;
+
+  constructor(
+    public readonly toolName: string,
+    public readonly callCount: number,
+    public readonly maxSameToolInputs: number,
+    context?: TErrorContextData,
+  ) {
+    super(
+      `Tool "${toolName}" was called with identical input ${callCount} times, past the ` +
+        `maxSameToolInputs limit of ${maxSameToolInputs} — stopping the turn to break the loop`,
+      context,
+    );
+  }
+}
+
+/**
  * Model not available errors
  */
 export class ModelNotAvailableError extends RobotaError {
@@ -250,61 +284,5 @@ export class CacheIntegrityError extends RobotaError {
 
   constructor(message: string, context?: TErrorContextData) {
     super(`Cache Integrity Error: ${message}`, context);
-  }
-}
-
-/**
- * Error utility functions
- */
-export class ErrorUtils {
-  /**
-   * Check if error is recoverable
-   */
-  static isRecoverable(error: Error): boolean {
-    if (error instanceof RobotaError) {
-      return error.recoverable;
-    }
-    return false;
-  }
-
-  /**
-   * Extract error code from any error
-   */
-  static getErrorCode(error: Error): string {
-    if (error instanceof RobotaError) {
-      return error.code;
-    }
-    return 'UNKNOWN_ERROR';
-  }
-
-  /**
-   * Create error from unknown value
-   */
-  static fromUnknown(
-    error: TErrorExternalInput,
-    defaultMessage = 'An unknown error occurred',
-  ): RobotaError {
-    if (error instanceof RobotaError) {
-      return error;
-    }
-
-    if (error instanceof Error) {
-      return new ConfigurationError(error.message || defaultMessage);
-    }
-
-    const message = typeof error === 'string' ? error : defaultMessage;
-    return new ConfigurationError(message);
-  }
-
-  /**
-   * Wrap external errors
-   */
-  static wrapProviderError(
-    error: TErrorExternalInput,
-    provider: string,
-    operation: string,
-  ): ProviderError {
-    const originalError = error instanceof Error ? error : new Error(String(error));
-    return new ProviderError(`Failed to ${operation}`, provider, originalError, { operation });
   }
 }

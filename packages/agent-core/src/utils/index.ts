@@ -7,6 +7,7 @@ export * from './abort-classification';
 export * from './message-converter';
 export * from './logger';
 export * from './validation';
+export * from './error-utils';
 export * from './errors';
 export * from './periodic-task';
 export * from './platform-shell';

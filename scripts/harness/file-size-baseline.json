@@ -17,7 +17,6 @@
   "packages/agent-core/src/services/execution-round.ts": 304,
   "packages/agent-core/src/services/execution-service-helpers.ts": 313,
   "packages/agent-core/src/services/execution-service.ts": 305,
-  "packages/agent-core/src/utils/errors.ts": 311,
   "packages/agent-executor/src/background-tasks/background-task-manager.ts": 398,
   "packages/agent-framework/src/checkpoints/edit-checkpoint-store.ts": 390,
   "packages/agent-framework/src/index.ts": 689,
