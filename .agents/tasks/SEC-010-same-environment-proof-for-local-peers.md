@@ -1,6 +1,6 @@
 ---
 title: 'SEC-010: local agent-cli peers have no proof of shared environment — certificate possession is copyable, and channel binding authenticates a channel rather than a machine'
-status: todo
+status: in-progress
 created: 2026-08-17
 priority: high
 urgency: soon
@@ -137,6 +137,22 @@ The issue requires these to be defined, not left to implementation:
 - **Trust limit, documented for the user**: this proves _same machine, same user account_. It does
   not defend against another process running AS THAT USER on that machine. That is the correct
   boundary for a local-peer feature and must be stated rather than implied.
+
+## Implementation status
+
+The recommendation was accepted and the security core is complete. The three links of Alternative D
+are in, each where the ownership rules put it:
+
+| Link            | Where                                                           | Landed  |
+| --------------- | --------------------------------------------------------------- | ------- |
+| The environment | `agent-remote-pairing/local` — `admitLocalPeerDirectory/Socket` | earlier |
+| The grant       | `agent-remote-pairing/local` — `RendezvousGrantLedger`          | #1839   |
+| The binding     | `agent-transport-webrtc` — the gate's `local-proof` step        | #1841   |
+
+TC-01 through TC-08 are covered. What remains is composition, not security: `agent-cli` creating
+the guarded runtime directory, issuing grants at the rendezvous, wiring `localPeer` into the
+transport, and the peer side that sends the proof frame. The user-execution scenario below is
+written for that step and is what closes this item.
 
 ## Test Plan
 
