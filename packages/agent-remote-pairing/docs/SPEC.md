@@ -57,6 +57,27 @@ detection is a **directional, nonce-bound HMAC key-confirmation** bound to both 
 | `deriveReconnectSeed`       | function | HKDF a per-device reconnect seed from the pairing `sessionKey` (REMOTE-013 E4).                       |
 | `deriveReconnectRendezvous` | function | HKDF a fresh reconnect rendezvous id from `(seed, counter)` — single-use room per reconnect (E4).     |
 
+### `/local` subpath — SEC-010 local-peer admission (node-only)
+
+A SEPARATE entry point, not part of the surface above. The main entry is isomorphic (WebCrypto, no
+Node built-ins) and runs in the browser remote client; this needs the filesystem, and a browser has
+no local peers and no directory permissions to judge.
+
+| Export                    | Kind     | Purpose                                                                                                  |
+| ------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
+| `admitLocalPeerDirectory` | function | Establish that a rendezvous directory is user-owned and mode 0700 — the evidence the kernel enforces.    |
+| `admitLocalPeerSocket`    | function | The same, plus the socket path resolving INSIDE that directory.                                          |
+| `refuseLocalPeer`         | function | Build a refusal in one place, so no call site can construct an admitted-looking result without evidence. |
+
+**What this proves, and what it does not.** Reaching a socket inside a 0700 user-owned directory
+means the peer is on this machine as this user, because the kernel refuses the traversal to anyone
+else — the evidence is not an artifact the peer supplies, so there is nothing to copy. It does NOT
+distinguish two processes of the same user; the boundary is the account.
+
+`SO_PEERCRED` would have been the more direct reading, and it is unavailable: Node exposes no
+peer-credential accessor on a connected socket handle (measured). Building on it would have produced
+a mechanism that compiles, passes a mocked test, and refuses every real peer.
+
 ## Type Ownership
 
 | Type                                                                                                              | Location                 | Purpose                              |

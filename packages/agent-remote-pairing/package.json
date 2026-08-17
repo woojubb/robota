@@ -17,6 +17,18 @@
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
       }
+    },
+    "./local": {
+      "types": "./dist/node/local/index.d.ts",
+      "source": "./src/local/index.ts",
+      "node": {
+        "import": "./dist/node/local/index.js",
+        "require": "./dist/node/local/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/local/index.js",
+        "require": "./dist/node/local/index.cjs"
+      }
     }
   },
   "repository": {
