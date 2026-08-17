@@ -505,3 +505,57 @@ both directions.
 
 Unchanged: `guardrails` and `retrievalAdapter`, both advertised capabilities (SELFHOST-005,
 SELFHOST-003) that no surface can turn on, plus the two unbridged `guardrails` shapes.
+
+## Implementation — stage 3 of 3
+
+`guardrails` (SELFHOST-005) and `retrievalAdapter` (SELFHOST-003) now reach the session, and stage 1's
+frozen unreachable set falls from **11 keys to 9**.
+
+### A correction to this item's own analysis
+
+The task recorded that the two `guardrails` shapes — `ICreateSessionOptions.guardrails` as a
+`Record<string, TGuardrail>` and the config schema's `guardrails` as a `string[]` — "cannot satisfy
+each other, no code bridges them", and that reconciling them was part of stage 3. **That is wrong, and
+it is recorded rather than quietly dropped, because a plan built on a wrong map is worse than no
+plan.**
+
+They are not rivals. The config array sits on a guardrail HOOK definition
+(`GuardrailHookDefinitionSchema`) and selects WHICH registered guardrails that hook runs, by name —
+its own comment says so: _"Names of registered guardrails to run; omitted = run ALL registered
+guardrails."_ The session option is the REGISTRY that supplies the functions. And
+`resolveGuardrailHooks` (`create-session.ts:78-91`) is the bridge, which has existed all along: given
+a non-empty registry and no already-declared guardrail hook, it installs a `PreToolUse` one.
+
+So nothing needed reconciling. The defect was narrower and entirely mechanical: **the registry had no
+way in.** Both consuming ends already worked; the option stopped at `createSession` and no public
+surface carried it.
+
+### Why that made them unreachable rather than merely unused
+
+Neither has any implementation in this repo — they are consumer-supplied extension ports. That is
+what turns a broken chain into a removed capability: an SDK consumer with a guardrail function in hand
+had no way to hand it over. `additionalTools` is the working precedent for the same shape (product →
+`IInitOptions` → all three surfaces → `createSession`), and both of these were absent from
+`IInitOptions` entirely.
+
+### The change
+
+Both fields added to `IInitOptions` **and** `IInteractiveSessionStandardOptions` — the two
+hand-duplicate ~40 fields, and adding a field to one is exactly how the next silent drop starts (L2
+F16, which this item already flagged as needing inclusion) — and projected in
+`buildCreateSessionOptions`, the single owner stage 1 extracted. The three surfaces spread those
+options, so all of them gain it at once.
+
+Conditional spreads rather than `key: undefined`, because `create-session.ts` branches on
+`options.guardrails && Object.keys(...).length > 0` and an explicitly-undefined key is how a spread
+reintroduces an absent member — ARCH-029's lesson, one package over.
+
+### Falsification
+
+Red-proved by deletion rather than asserted: removing the two projection lines turns 2 of the 4 new
+cases red, and restoring them turns them green. Stage 1's ratchet then did its own job unprompted —
+it detected that the unreachable set had SHRUNK and refused to pass until the gain was re-frozen in
+the same change (_"or the gain is a licence to drop them again"_), which is the mechanism working
+exactly as its author intended.
+
+Verified: 121 of 123 scans pass (2 skipped). agent-framework 1371 tests.

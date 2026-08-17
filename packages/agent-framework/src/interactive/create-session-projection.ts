@@ -56,6 +56,30 @@ export function buildCreateSessionOptions(
     appendSystemPrompt: options.appendSystemPrompt,
     ...(options.persona !== undefined ? { persona: options.persona } : {}),
     ...(options.systemPrompt ? { systemPromptBuilder: () => options.systemPrompt! } : {}),
+    // ARCH-013 stage 3 — the two consumer-supplied extension ports, and the one place they were lost.
+    //
+    // Both CONSUMING ends already worked: `create-session.ts` installs a `PreToolUse` guardrail hook
+    // whenever the registry is non-empty, and `create-tools.ts` gates `CodebaseRetrieval` on the
+    // adapter. Neither could be SET, because this projection dropped them — so two documented
+    // capabilities (SELFHOST-005, SELFHOST-003) were UNREACHABLE from every public surface rather
+    // than merely unused. The repo ships no implementation of either; they are extension ports, which
+    // is precisely why a broken chain removed the capability instead of leaving it idle.
+    //
+    // A correction to this item's own analysis, recorded because a plan built on a wrong map is worse
+    // than no plan: the task states that `ICreateSessionOptions.guardrails` (a name → function map)
+    // and the config schema's `guardrails` (a string array) "cannot satisfy each other, no code
+    // bridges them". They are not rivals. The config array sits on a guardrail HOOK definition and
+    // selects WHICH registered guardrails run; this option is the registry that supplies them; and
+    // `resolveGuardrailHooks` at `create-session.ts` is the bridge, which has existed all along.
+    // Nothing needed reconciling — the registry simply had no way in.
+    //
+    // Conditional spreads, not `key: undefined`: `create-session.ts` branches on
+    // `options.guardrails && Object.keys(...).length > 0`, and an explicitly-undefined key is how a
+    // spread reintroduces an absent member (ARCH-029's lesson, one package over).
+    ...(options.guardrails !== undefined ? { guardrails: options.guardrails } : {}),
+    ...(options.retrievalAdapter !== undefined
+      ? { retrievalAdapter: options.retrievalAdapter }
+      : {}),
     backgroundTaskRunners: options.backgroundTaskRunners,
     subagentRunnerFactory: options.subagentRunnerFactory,
     // ARCH-005: composition-root-contributed subagent definitions (capability packs).
