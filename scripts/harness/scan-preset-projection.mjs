@@ -58,6 +58,13 @@
  * was filed about — *"resolved intent is mapped to session options by hand at four sites and checked
  * at none"* — so the floor is right to name it, and the message says which of the two it means.
  *
+ * The two readers deliberately disagree about SCOPE, and the difference is worth stating because it
+ * looks like an inconsistency. `declaredFields` collects module-scope declarations only, because a
+ * nested `interface` is a scope TypeScript does not merge — folding it in would read a type the
+ * compiler does not have. `pickedFields` walks recursively, because a `Pick<Source, …>` written as a
+ * type annotation inside a function body IS a real projection of real code, whatever scope it sits
+ * in. One is about which declaration exists; the other is about which fields something consumes.
+ *
  * Deciding "is this field read ANYWHERE" instead would need the type checker: the value arrives in
  * `cli.ts` as `preset.options` through an interface member, so no syntactic walk can tell that
  * identifier apart from any other. An earlier revision of this file tried, and its messages asserted
@@ -85,13 +92,6 @@ export function examinedInterfaceCount() {
 }
 
 /**
- * The declared property names of one interface in `content`, in declaration order.
- *
- * Returns `undefined` when the interface is not declared in this file — distinct from "declared and
- * empty", because those two must not read alike. A renamed or moved interface is the commonest way
- * this kind of floor silently stops measuring anything.
- */
-/**
  * Local names bound to `sourceInterface` by an aliased import in this file.
  *
  * Extracted so BOTH readers share it. Review round 2 found the alias map living only in
@@ -117,6 +117,19 @@ function importAliases(sourceFile, sourceInterface) {
   return aliases;
 }
 
+/**
+ * `{ fields, unresolved }` for one MODULE-SCOPE interface in `content`, following `extends`.
+ *
+ * `fields` is every property name the interface declares or inherits, in declaration order.
+ * `unresolved` is every heritage clause the walk could not follow — a base in another file, an
+ * unmodelled utility type, or a `Pick`/`Omit` whose key list yields no literal. The caller reports
+ * those: a heritage name read as nothing leaves this floor seeing a NARROWER type than the compiler,
+ * and fewer fields prints exactly like progress.
+ *
+ * Returns `undefined` when no module-scope declaration of that name exists — distinct from "declared
+ * and empty", because those two must not read alike. A renamed, moved or namespaced interface is the
+ * commonest way this kind of floor silently stops measuring anything.
+ */
 export function declaredFields(content, fileName, interfaceName, resolveAgainst = {}) {
   const { sourceInterface, sourceFieldNames } = resolveAgainst;
   const sourceFile = ts.createSourceFile(fileName, content);
@@ -204,10 +217,9 @@ export function declaredFields(content, fileName, interfaceName, resolveAgainst 
  * as "a base interface declared in another file" sent the reader to look for a file declaring
  * `Partial`. Failing closed is right; pointing at the wrong thing is not.
  */
+const IDENTITY_WRAPPERS = new Set(['Readonly', 'Required', 'Partial']);
+
 const KNOWN_UTILITY_TYPES = new Set([
-  'Partial',
-  'Required',
-  'Readonly',
   'Record',
   'Exclude',
   'Extract',
@@ -239,6 +251,17 @@ function tailOf(node) {
  */
 function pickFromType(type, sourceInterface, sourceFile, fileName, sourceFieldNames, aliases) {
   const head = tailOf(type);
+  // `Readonly`/`Required`/`Partial` preserve the KEY SET exactly, so a surface written as
+  // `extends Readonly<Source>` is a fully correct derived projection of every field. Treating it as
+  // unresolvable made it maximally red — round 1's MUST one wrapper over, where the floor blocks the
+  // refactor it exists to encourage. They take no key list, so they resolve straight to the source's
+  // own fields.
+  if (IDENTITY_WRAPPERS.has(head)) {
+    const target = tailOf((type.typeArguments ?? [])[0]);
+    if ((aliases?.get(target) ?? target) !== sourceInterface) return undefined;
+    const { line } = sourceFile.getLineAndCharacterOfPosition(type.getStart(sourceFile));
+    return { file: fileName, line: line + 1, fields: [...(sourceFieldNames ?? [])], form: head };
+  }
   if (head !== 'Pick' && head !== 'Omit') return undefined;
   const [target, keys] = type.typeArguments ?? [];
   const targetName = tailOf(target);
@@ -432,8 +455,10 @@ export function findPresetProjectionFindings(root = process.cwd(), settingsOverr
       findings.push({
         rule: 'preset-projection-surface-missing',
         detail:
-          `${surface.file} declares no interface named ${surface.interface}. A surface this floor ` +
-          `cannot read is treated as a finding rather than as "projects nothing", because the ` +
+          `${surface.file} declares no MODULE-SCOPE interface named ${surface.interface}. It may be ` +
+          `absent, renamed, or declared inside a namespace — this walk reads top-level statements ` +
+          `only, because a nested declaration is a scope TypeScript does not merge. A surface this ` +
+          `floor cannot read is treated as a finding rather than as "projects nothing", because the ` +
           `second would silently widen every other rule here.`,
       });
       continue;
@@ -508,8 +533,28 @@ export function findPresetProjectionFindings(root = process.cwd(), settingsOverr
   // state that differs in EITHER direction is reported. Stage 1's sibling scan already had this half
   // ("the unreachable set SHRANK … re-freeze it in the SAME change — or the gain is a licence to drop
   // them again"); this is that rule, per named field rather than per count.
+  // The pending-state rules compare the live projection against a RECORDED one, so they are only
+  // meaningful when every configured surface was actually read. Review measured the alternative on
+  // the real tree: renaming one surface produced the correct `preset-projection-surface-missing`
+  // PLUS four false findings, three of them instructing the reader to delete live exemptions for
+  // fields that are still one-sidedly declared, and one claiming a field had lost a declaration that
+  // nothing had touched. The run is red either way, so this was never a fail-open — it was a message
+  // asserting a conclusion the scan had, one finding earlier, declared it could not reach. That is
+  // the defect class every round of this review has closed, and it is not exempt here.
+  if (pending.size > 0 && projected.size !== surfaces.length) {
+    findings.push({
+      rule: 'preset-pending-state-unknowable',
+      detail:
+        `${projected.size} of ${surfaces.length} configured surface(s) could be read, so the ` +
+        `recorded \`declaredOn\` state of ${pending.size} pending exemption(s) cannot be compared ` +
+        `against the live one. Those rules are SKIPPED for this run rather than answered from a set ` +
+        `the scan already knows is incomplete — fix the unreadable surface above first.`,
+    });
+  }
+
   for (const [field, entry] of pending) {
     if (!sourceFieldSet.has(field)) continue;
+    if (projected.size !== surfaces.length) continue;
     const live = [...projected.entries()]
       .filter(([, p]) => p.fields.has(field))
       .map(([name]) => name)

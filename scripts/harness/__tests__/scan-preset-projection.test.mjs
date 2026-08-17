@@ -509,11 +509,13 @@ describe('an exemption expires when it stops describing a defect', () => {
 });
 
 describe('an unmodelled utility type in a heritage clause is named for what it is', () => {
-  it('does not call `Partial<Source>` a base interface declared in another file', () => {
+  it('does not call an unmodelled utility a base interface declared in another file', () => {
+    // `Partial` was this case's example until identity-preserving wrappers were resolved properly;
+    // it is now GREEN and correct, so the case moved to one that genuinely is not modelled.
     const root = fixture('arch-013-utility-', {
       'source.ts': SOURCE,
       'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
-      'startup.ts': 'export interface IStartup extends Partial<ISource> {}\n',
+      'startup.ts': 'export interface IStartup extends NonNullable<ISource> {}\n',
     });
 
     const { findings } = findPresetProjectionFindings(root, settings());
@@ -522,5 +524,73 @@ describe('an unmodelled utility type in a heritage clause is named for what it i
     expect(
       findings.find((f) => f.rule === 'preset-projection-heritage-unresolved').detail,
     ).toContain('a utility type this walk does not model');
+  });
+});
+
+describe('a comparison the scan cannot make is skipped, not answered from a partial set', () => {
+  it('skips the pending-state rules when a configured surface could not be read', () => {
+    // Review round 3, measured live: comparing against the surfaces successfully READ rather than
+    // the surfaces CONFIGURED produced four false findings when one surface was renamed — three of
+    // them instructing the reader to delete live exemptions. The run was red either way, so this was
+    // never a fail-open; it was a message asserting a conclusion the scan had already said it could
+    // not reach, which is the defect class every round here has closed.
+    const root = fixture('arch-013-partial-surfaces-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts': 'export interface IRenamed {\n  a?: string;\n}\n',
+    });
+
+    const { findings } = findPresetProjectionFindings(
+      root,
+      settings({ pendingProjection: [{ field: 'b', reason: 'pending', declaredOn: [] }] }),
+    );
+
+    expect(findings.map((f) => f.rule)).toEqual([
+      'preset-projection-surface-missing',
+      'preset-pending-state-unknowable',
+    ]);
+    expect(findings.map((f) => f.detail).join(' ')).not.toContain('nothing left to be pending');
+  });
+
+  it('names a namespaced surface as out of scope rather than as absent', () => {
+    const root = fixture('arch-013-namespaced-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts':
+        'export namespace N {\n  export interface IStartup {\n    a?: string;\n    b?: string;\n  }\n}\n',
+    });
+
+    const { findings } = findPresetProjectionFindings(root, settings());
+
+    expect(findings.map((f) => f.rule)).toContain('preset-projection-surface-missing');
+    expect(findings[0].detail).toContain('MODULE-SCOPE');
+  });
+});
+
+describe('an identity-preserving wrapper over the source is a correct derived surface', () => {
+  it('resolves `extends Readonly<Source>` to every source field', () => {
+    // Round 1's MUST one wrapper over: `Readonly`/`Required`/`Partial` preserve the key set exactly,
+    // so treating them as unresolvable made a fully correct derived surface maximally red.
+    for (const wrapper of ['Readonly', 'Required', 'Partial']) {
+      const root = fixture(`arch-013-identity-${wrapper}-`, {
+        'source.ts': SOURCE,
+        'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+        'startup.ts': `export interface IStartup extends ${wrapper}<ISource> {}\n`,
+      });
+
+      expect(findPresetProjectionFindings(root, settings()).findings, wrapper).toEqual([]);
+    }
+  });
+
+  it('still fails closed on a wrapper it does not model', () => {
+    const root = fixture('arch-013-unmodelled-wrapper-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts': 'export interface IStartup extends Awaited<ISource> {}\n',
+    });
+
+    const { findings } = findPresetProjectionFindings(root, settings());
+
+    expect(findings.map((f) => f.rule)).toContain('preset-projection-heritage-unresolved');
   });
 });

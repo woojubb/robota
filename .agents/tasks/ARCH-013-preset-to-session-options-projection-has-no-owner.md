@@ -425,6 +425,44 @@ measured it surviving `.sort()` but vanishing silently through `.filter()`, `.ma
 losing it took one ordinary refactor, and it failed in the direction this floor's own thesis names.
 It is a record now; losing it requires deleting code.
 
+### Review round 3 — one live defect, and one wrapper too narrow
+
+- **A comparison the scan could not make was answered anyway.** The pending-state rules compared the
+  live projection against the surfaces successfully READ rather than the surfaces CONFIGURED.
+  Measured on the real tree: renaming one surface produced the correct
+  `preset-projection-surface-missing` PLUS four false findings — three instructing the reader to
+  delete live exemptions for fields still one-sidedly declared, and one claiming a field had lost a
+  declaration nothing had touched. The run was red either way, so this was never a fail-open; it was
+  a message asserting a conclusion the scan had, one finding earlier, declared it could not reach.
+  Those rules are now SKIPPED when any surface is unreadable, and the skip says so
+  (`preset-pending-state-unknowable`). The same mutation now yields exactly two findings and zero
+  false instructions.
+
+- **Identity-preserving wrappers were treated as unresolvable.** `Readonly`, `Required` and `Partial`
+  preserve the key set exactly, so `extends Readonly<IResolvedPresetOptions>` is a fully correct
+  derived surface — and it was maximally red. That is round 1's MUST one wrapper over: a floor
+  blocking the refactor it exists to encourage. They resolve to the source's own field list now, and
+  a wrapper still NOT modelled continues to fail closed.
+
+Two wording defects closed with them: a namespaced surface was reported as "declares no interface
+named X", which is false — it is declared, just not at module scope — and `declaredFields`' docblock
+had been stranded above the helper inserted in round 2, still stating a contract the function no
+longer had.
+
+The two readers deliberately disagree about scope, and that is now stated in the header rather than
+left to be discovered: `declaredFields` collects module-scope declarations only, because a nested
+`interface` is a scope TypeScript does not merge; `pickedFields` walks recursively, because a `Pick`
+written inside a function body is a real projection of real code. One asks which declaration exists,
+the other which fields something consumes.
+
+**A second wrong expectation of my own, recorded for the same reason as the first.** Rewriting the
+real startup surface as `extends Readonly<IResolvedPresetOptions>` is RED with 11 findings, and I had
+predicted green. The scan is right: that wrapper genuinely widens the startup projection from 6
+preset fields to all 19, which changes nine recorded states and creates two real divergences. Zero of
+the eleven are `heritage-unresolved`, which is what proves the resolution itself works. The
+fixture-level test is the correct proof of the mechanism; the real-tree probe measures a different
+thing, and conflating them is how a correct scan gets "fixed".
+
 ### Falsification
 
 The scan was mutated against the real tree before being trusted, because a floor that cannot fail is
