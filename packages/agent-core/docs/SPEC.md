@@ -913,6 +913,29 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 
 `provider_response_raw.responseKind` is `provider-normalized-message` until provider packages add provider-owned SDK-payload capture hooks. This keeps replay validation deterministic without making core depend on concrete provider SDK response types.
 
+**The families are emitted on the ABNORMAL paths too (CORE-033), and history stays append-only.** The
+invariant a consumer relies on is that replaying every `history_mutation` append, in order,
+reconstructs the conversation the turn produced. Three engine sites appended without announcing it,
+so the reconstruction diverged at exactly the moments a reader goes to the log:
+
+- **The forced-summary call at the round cap** now emits `provider_request` (with
+  `forcedSummary: true`, and the ASSEMBLED messages — see below), then `assistant_message_committed`
+  and `history_mutation` for the summary it commits. Without them, the last thing the user reads was
+  absent from every replay, and the call that produced it was invisible.
+- **The hard-capacity block** emits `history_mutation` for its diagnostic. That message is the only
+  explanation of why the turn stopped.
+- **A provider failure** emits `history_mutation` for the `Request failed: …` record it appends.
+
+The forced-summary call's synthetic round-limit instruction is a per-call prompt artifact and is
+**never written to the conversation store** — it exists only in the outgoing array, the same shape
+`applyStructuredOutputTransport` uses for a schema instruction. It previously was appended, sent, and
+then removed with `clear()` + re-add: a non-append rewrite of an append-only history that no event in
+this vocabulary can describe. `mutation` therefore has no removal member, and needs none.
+
+`history_mutation` announces the message read back OUT of the store, not the one the caller intended
+to append — an event built from the caller's intent could disagree with what the store holds, which
+is the class of divergence this contract exists to prevent.
+
 ### Signal Propagation
 
 AbortSignal flows through: Session -> `robota.run()` -> ExecutionService -> `callProviderWithCache` -> `provider.chat()` -> `streamWithAbort`.
