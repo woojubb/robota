@@ -100,12 +100,15 @@ reserved for E4). Without `reconnect`, the gate is exactly the B4 first-pair-onl
 
 ## Type Ownership
 
-| Type                                 | Location                  | Purpose                                                                                                                     |
-| ------------------------------------ | ------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `IWebRtcTransportOptions`            | `src/webrtc-transport.ts` | Construction options (injected signaling, optional ICE servers, pairing `secret` OR `open`+`openReason` — one is required). |
-| `ISignalingClient`, `ISignalMessage` | `src/signaling.ts`        | Signaling port + opaque SDP/ICE message envelope.                                                                           |
-| `IWeriftModule`, `TModuleResolver`   | `src/werift-loader.ts`    | Lazy-loaded werift surface + injectable resolver seam.                                                                      |
-| `PairingGate`, `IPairingGateOptions` | `src/pairing-gate.ts`     | REMOTE-008 fail-closed routing switch (pairing frames → handshake; session only post-accept).                               |
+| Type                                        | Location                          | Purpose                                                                                                                     |
+| ------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `IWebRtcTransportOptions`, `IIceServer`     | `src/webrtc-transport-options.ts` | Construction options (injected signaling, optional ICE servers, pairing `secret` OR `open`+`openReason` — one is required). |
+| `ISignalingClient`, `ISignalMessage`        | `src/signaling.ts`                | Signaling port + opaque SDP/ICE message envelope.                                                                           |
+| `IWeriftModule`, `TModuleResolver`          | `src/werift-loader.ts`            | Lazy-loaded werift surface + injectable resolver seam.                                                                      |
+| `PairingGate`, `IPairingGateOptions`        | `src/pairing-gate.ts`             | REMOTE-008 fail-closed routing switch (pairing frames → handshake; session only post-accept).                               |
+| `ILocalPeerProof`, `ILocalProofFrame`       | `src/local-peer-proof.ts`         | SEC-010 local-peer proof port + the frame that carries the rendezvous nonce. The judge and predicate stay internal.         |
+| `IAttachSessionOptions`, `IAttachedSession` | `src/session-attachment.ts`       | How an admitted channel is wired to the session (bridge or handler).                                                        |
+| `IControllerContext`                        | `src/pairing-controllers.ts`      | What the first-pair and reconnect controllers need to talk on the channel.                                                  |
 
 `TClientMessage`/`TServerMessage`/`IWsHandlerOptions` are re-consumed from `@robota-sdk/agent-transport-protocol`
 (their SSOT) — this package does not re-declare them.
@@ -184,8 +187,9 @@ None.
 
 ### Cross-Package Port Consumers
 
-| Owner                                                                   | Consumer                         | Location                                         |
-| ----------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------ |
-| `agent-interface-transport` `IConfigurableTransport`                    | `WebRtcTransport`                | `src/webrtc-transport.ts`                        |
-| `agent-transport-protocol` `createWsHandler`                            | `WebRtcTransport`, `PairingGate` | `src/webrtc-transport.ts`, `src/pairing-gate.ts` |
-| `agent-remote-pairing` `startPairingHandshake`/`extractDtlsFingerprint` | `PairingGate`, `WebRtcTransport` | `src/pairing-gate.ts`, `src/webrtc-transport.ts` |
+| Owner                                                               | Consumer                           | Location                                               |
+| ------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------ |
+| `agent-interface-transport` `IConfigurableTransport`                | `WebRtcTransport`                  | `src/webrtc-transport.ts`                              |
+| `agent-transport-protocol` `createWsHandler`                        | `WebRtcTransport`, `attachSession` | `src/webrtc-transport.ts`, `src/session-attachment.ts` |
+| `agent-remote-pairing` `startPairingHandshake`/`startHostReconnect` | the pairing controllers            | `src/pairing-controllers.ts`                           |
+| `agent-remote-pairing` `extractDtlsFingerprint`                     | `WebRtcTransport`                  | `src/webrtc-transport.ts`                              |
