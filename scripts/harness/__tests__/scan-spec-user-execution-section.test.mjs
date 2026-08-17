@@ -50,7 +50,16 @@ describe('spec-user-execution-section — criteria are READ, never copied (HARNE
     }
   });
 
-  it('fails closed when the rule does not state the heading', () => {
+  it('takes whatever heading the rule names, rather than confirming one it already knows', () => {
+    // The point of deriving: rename the section in the rule and the scan follows. A pattern
+    // carrying the heading text would pass this input by returning undefined — reading its own
+    // assumption back instead of the rule.
+    expect(
+      parseRequiredHeading('must include a `## Some Other Name` section before implementation'),
+    ).toBe('## Some Other Name');
+  });
+
+  it('fails closed when the rule states no such mandate', () => {
     // A floor that cannot read its own criterion has verified nothing, so `undefined` is the
     // signal the caller turns into an error — never an empty requirement that passes vacuously.
     expect(parseRequiredHeading('# a rule with no such sentence')).toBeUndefined();

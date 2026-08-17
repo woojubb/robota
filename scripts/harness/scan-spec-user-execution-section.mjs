@@ -60,13 +60,18 @@ const IMPLEMENTATION_STARTED = ['in-progress', 'verifying', 'done'];
 /**
  * Read the required section heading out of the rule that owns it.
  *
- * The rule states it inline as a backticked `## …` reference; that sentence is the criterion, so it
- * is parsed rather than copied. Returns undefined when the rule does not state it — the caller
- * treats that as a failure, never as "no heading is required".
+ * Matched on the SENTENCE, not on the heading text: the rule's mandate reads "must include a
+ * `## …` section before implementation starts", so the pattern anchors on that phrasing and takes
+ * whatever heading it names. Putting the heading text in the pattern would have made this a
+ * confirmation that the rule still says what this file already believes — a check reading its own
+ * assumption back, which is the shape the harness exists to reject.
+ *
+ * Returns undefined when the rule states no such mandate — the caller treats that as a failure,
+ * never as "no heading is required".
  */
 export function parseRequiredHeading(ruleText) {
-  const match = ruleText.match(/`(##\s+User Execution Test Scenarios)`/);
-  return match ? match[1].replace(/\s+/g, ' ') : undefined;
+  const match = ruleText.match(/must include an?\s+`(##[^`\n]+)`\s+section/);
+  return match ? match[1].trim().replace(/\s+/g, ' ') : undefined;
 }
 
 /** The governed folders, derived from spec-workflow.md's own status→folder table. */
