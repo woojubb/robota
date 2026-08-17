@@ -36,3 +36,30 @@ export type {
   IHostReconnectOptions,
   TReconnectFrame,
 } from './reconnect.js';
+
+// SEC-011 (#1812): same-USER proof across two computers. Distinct from device identity above —
+// a key identifies a machine, and a machine is not a person. The user holds one root that signs
+// each device key, so the proof travels WITH the destination rather than being asserted by the
+// source (which would be an authorization list wearing an authentication's clothes).
+export {
+  deriveUserId,
+  generateUserRootKeyPair,
+  issueDeviceCertificate,
+  verifyDeviceCertificate,
+  verifyDevicePossession,
+} from './user-identity.js';
+export type {
+  ICertificateVerification,
+  IIssueCertificateOptions,
+  IUserDeviceCertificate,
+  IVerifyCertificateOptions,
+  TCertificateRejection,
+} from './user-identity.js';
+export { issueHandoffGrant, verifyHandoffGrant } from './handoff-authorization.js';
+export type {
+  IHandoffAuthorization,
+  IHandoffGrant,
+  IHandoffGrantClaims,
+  IVerifyGrantOptions,
+  TGrantRejection,
+} from './handoff-authorization.js';
