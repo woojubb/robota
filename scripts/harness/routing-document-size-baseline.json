@@ -1,0 +1,9 @@
+{
+  "_comment": "D1. Frozen line counts for the routing documents operational.md names. A document may only shrink. Re-freeze with --write-baseline ONLY after a real reduction; never to admit growth.",
+  "_target": 80,
+  "frozen": {
+    ".agents/rules/index.md": 99,
+    ".agents/project-structure.md": 385,
+    "AGENTS.md": 112
+  }
+}

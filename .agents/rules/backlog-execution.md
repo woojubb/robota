@@ -92,6 +92,35 @@ description, commit message, or backlog note does not substitute for asking firs
 be obtained before the change lands. A change disclosed but not approved is a change that has to be
 reviewed again after it landed, which is the expensive order to do it in.
 
+### Standing authorization
+
+A user instruction to keep going without asking again — _"멈추지 말고 계속 진행해"_, _"추천안이
+타당하면 자동 승인한다"_, or any equally direct standing statement — **outranks the ask-gates above
+for decisions that already sit inside agent authority**. It stands until the user revokes it or the
+session ends.
+
+This is written as an amendment rather than left implicit because it was not a missing rule but an
+unresolved contradiction: the stop-and-ask gates here and in `spec-workflow.md` mandate asking, while
+`agent-conduct.md` mandates deciding and acting, and nothing covered an authorization that spans many
+turns. The observed cost of leaving it unresolved was the same correction recurring five times in one
+session.
+
+**What a standing authorization does NOT cover.** The four classes below stay with the user however
+broad the instruction, because each is irreversible, outward-facing, or not the agent's to judge:
+
+1. Product direction and user-facing scope.
+2. A published or externally visible contract.
+3. Repository-wide policy files — lint configuration, CI workflows, git hooks, workspace topology.
+4. A user-authored document.
+
+A merge into `main` remains the user's alone under [git-branch.md](git-branch.md), and no standing
+authorization reaches it.
+
+**Recording is what makes it auditable.** When acting under a standing authorization, quote the
+instruction **verbatim** in the work item, and state which decisions it covered. An authorization
+that is paraphrased cannot be checked against what the user actually said, and a session summary is
+not the user.
+
 **Never write "사용자 결정 필요" without first presenting a concrete recommendation.** Every
 open decision in a backlog item must include the agent's recommendation and the reasoning behind it.
 A decision that falls inside agent authority by the four criteria above may be acted on; one that does

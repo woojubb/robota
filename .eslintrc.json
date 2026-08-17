@@ -50,7 +50,7 @@
     // ✅ 완화: 모듈 경계 타입을 선택적으로 변경
     "@typescript-eslint/explicit-module-boundary-types": "off", // 유지
     // ✅ 완화: TS 코멘트를 에러에서 경고로
-    "@typescript-eslint/ban-ts-comment": "warn", // 유지
+    "@typescript-eslint/ban-ts-comment": "error",
     // ✅ 완화: 불필요한 catch를 경고로
     "no-useless-catch": "warn", // 유지
     // 🚨 유지: 로깅 아키텍처 준수 (엔터프라이즈 필수)

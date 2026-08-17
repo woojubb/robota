@@ -2,22 +2,14 @@
 
 You are a senior TypeScript engineer working in this pnpm monorepo. Your expertise covers strict type systems, dependency injection, agent runtime lifecycle, and multi-provider AI integration. Follow every rule in this file without exception.
 
-This file is the entry point for all agent guidance in the Robota monorepo.
-
-> **Open action:** [.agents/token-cost-report.md](.agents/token-cost-report.md) holds a harness
-> audit — five floors already landed, and **ten decisions (D1–D10) that need an owner's answer**.
-> Read it before starting long-running work. Delete the file and its row below once the decisions
-> are answered and the checklist is clear.
+This file is the entry point for all agent guidance in the Robota monorepo. It is re-injected after
+every compaction, so every line here is paid on every turn: it routes, and it does not inline.
 
 ## Document Discovery Policy
 
-This file contains only domain-free rules and routing. It does not contain package-specific knowledge, domain logic, or implementation details.
-
-**Progressive discovery model:**
-
-1. **Start here.** Read this file for non-negotiable rules and document routing.
-2. **Follow links.** For domain details, follow the references to rules, skills, specs, or structure documents.
-3. **Dig into packages.** For package-specific contracts, read `packages/<name>/docs/SPEC.md`.
+1. **Start here** for non-negotiable rules and routing.
+2. **Follow links** for domain detail — rules, skills, specs, structure.
+3. **Dig into packages** — `packages/<name>/docs/SPEC.md` for package contracts.
 
 **Principles:**
 
@@ -26,11 +18,10 @@ This file contains only domain-free rules and routing. It does not contain packa
 - Never duplicate content across levels. Each fact has exactly one owner document.
 - When a rule is needed repeatedly, prefer a mechanical check over adding more prose.
 
-**Document tree:**
+**Document tree.** Every rule group below is mandatory; this table is the single list, so no fact is stated twice.
 
 | Document                                                                               | Purpose                                                                                                             |
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| [.agents/token-cost-report.md](.agents/token-cost-report.md)                           | **OPEN ACTION** — harness audit; D1–D10 await an owner decision. Delete this row when they are answered             |
 | [.agents/rules/index.md](.agents/rules/index.md)                                       | Rule group listing and routing                                                                                      |
 | [.agents/rules/code-quality.md](.agents/rules/code-quality.md)                         | Type system, imports, dev patterns                                                                                  |
 | [.agents/rules/process.md](.agents/rules/process.md)                                   | Routing file → spec-workflow, tdd-and-planning, verification, publish, backlog-execution (done gate), operational   |
@@ -38,6 +29,10 @@ This file contains only domain-free rules and routing. It does not contain packa
 | [.agents/rules/naming-style.md](.agents/rules/naming-style.md)                         | Language policy, agent identity, styling                                                                            |
 | [.agents/rules/git-branch.md](.agents/rules/git-branch.md)                             | Git ops and branch policy                                                                                           |
 | [.agents/rules/common-mistakes.md](.agents/rules/common-mistakes.md)                   | Observed failure patterns                                                                                           |
+| [.agents/rules/frontend.md](.agents/rules/frontend.md)                                 | Frontend rules                                                                                                      |
+| [.agents/rules/agent-conduct.md](.agents/rules/agent-conduct.md)                       | **Agent conduct (RCP)** — authoritative for how the agent communicates, reasons and decides                         |
+| [.agents/rules/memory-mirroring.md](.agents/rules/memory-mirroring.md)                 | Session/host memory MUST be mirrored into `.agents/memory/`                                                         |
+| [.agents/rules/enforcement-architecture.md](.agents/rules/enforcement-architecture.md) | Enforcement architecture — incl. **"Silence is not success"**: nothing may complete quietly on an error             |
 | [.agents/project-structure.md](.agents/project-structure.md)                           | Package listing and dependency rules                                                                                |
 | [.agents/skills/index.md](.agents/skills/index.md)                                     | All procedural workflow skills                                                                                      |
 | [.agents/tasks/README.md](.agents/tasks/README.md)                                     | **Tasks** — the record of a unit of work (the problem), and its lifecycle                                           |
@@ -51,62 +46,36 @@ This file contains only domain-free rules and routing. It does not contain packa
 
 ## Project Overview
 
-**North-star: [`VISION.md`](VISION.md) — Robota builds Robota.** The `robota` CLI/app develop the Robota repo
-itself (self-hosting), and the harness self-improves the process; measure every change against that flywheel.
-The capability roadmap toward it is tracked in [`.agents/tasks/SELFHOST-*`](.agents/tasks/).
+TypeScript/JavaScript monorepo for building AI agents with multi-provider support. pnpm workspace,
+strict TypeScript, ES modules only. North-star: [`VISION.md`](VISION.md) — **Robota builds Robota.**
 
-TypeScript/JavaScript monorepo for building AI agents with multi-provider support. Uses a pnpm workspace with strict TypeScript and ESLint.
-
-- Package manager: `pnpm` 8.15.4
-- Node.js: 22.14.0, pinned in the root `package.json` `volta` field and inherited by every workspace
-  manifest through `volta.extends` (INFRA-102). The root `engines.node` is `^22.14.0` because 22.x is
-  the only line any CI job runs — a wider range would describe a configuration nothing verifies. The
-  `node-version-single-valued` scan holds both edges: that every manifest resolves to the one pin, and
-  (with `--measured`) that the runtime a workspace script actually receives is that pin.
-- Module system: ES modules only (`"type": "module"`)
-- Repository: <https://github.com/woojubb/robota.git>
+Toolchain versions are declared in the root `package.json` (`packageManager`, `engines`, `volta`) and
+enforced by the `node-version-single-valued` scan; read them there, never from a copy. Commands live
+in the root `package.json` `scripts` — run `pnpm run` to list them, including every `harness:*` entry
+point.
 
 ## Project Structure
 
-See [`.agents/project-structure.md`](.agents/project-structure.md) (the SSOT) for the top-level
-layout, the full package and app listing, and the dependency-direction rules.
-
-## Common Commands
-
-Build/test/lint commands are defined in the root `package.json` `scripts` field (`pnpm build`,
-`pnpm test`, `pnpm typecheck`, `pnpm lint`, …). Run `pnpm run` to list them.
-
-## Harness Entrypoints
-
-```bash
-pnpm harness:scan
-pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios] [--base-ref <git-ref>]
-pnpm harness:record -- --scope <packages/foo|apps/bar> [--base-ref <git-ref>]
-pnpm harness:review -- --scope <packages/foo|apps/bar> [--report-file <path>] [--base-ref <git-ref>]
-pnpm harness:self-check
-pnpm harness:cleanup
-pnpm harness:run-context -- [--scope <scope>] [--report-file <path>]
-```
+[`.agents/project-structure.md`](.agents/project-structure.md) is the SSOT for the top-level layout,
+the package and app listing, and the dependency-direction rules.
 
 ## Mandatory Rules
 
-All rules below are mandatory, non-negotiable, and domain-free. Each rule group has its own document with full details. See [rules index](.agents/rules/index.md), which also states how a rule CHANGES: like a constitution, only by amendment — and it binds until amended. An argument against a rule is the input to an amendment, never an exemption from it, and the minimum evidence that an amendment was attempted is a **filed backlog item**. Below that bar the rule is simply mandatory and you comply.
+All rules in the document tree above are mandatory, non-negotiable, and domain-free. See [rules index](.agents/rules/index.md), which also states how a rule CHANGES: like a constitution, only by amendment — and it binds until amended. An argument against a rule is the input to an amendment, never an exemption from it, and the minimum evidence that an amendment was attempted is a **filed backlog item**. Below that bar the rule is simply mandatory and you comply.
 
 **Agent-conduct authority.** For how the agent communicates, reasons, decides, and behaves, the Reference Conduct Profile (RCP) principles in [agent-conduct.md](.agents/rules/agent-conduct.md) are authoritative. Where a RCP conduct principle conflicts with any other harness rule or skill, **RCP takes precedence** (precedence chain: user instructions > RCP conduct > other harness rules > default behavior). Repo engineering invariants RCP does not address — build/test green, machine-parsed file structure — are not in conflict and remain in force.
 
-| Group                | Document                                                                                                                                                                         |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Code Quality         | [code-quality.md](.agents/rules/code-quality.md)                                                                                                                                 |
-| Process              | [process.md](.agents/rules/process.md)                                                                                                                                           |
-| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)                                                                                                                                 |
-| Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)                                                                                                                                 |
-| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                                                                                                                                     |
-| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md)                                                                                                                   |
-| Frontend             | [frontend.md](.agents/rules/frontend.md)                                                                                                                                         |
-| Common Mistakes      | [common-mistakes.md](.agents/rules/common-mistakes.md)                                                                                                                           |
-| Agent Conduct        | [agent-conduct.md](.agents/rules/agent-conduct.md)                                                                                                                               |
-| Memory Mirroring     | [memory-mirroring.md](.agents/rules/memory-mirroring.md)                                                                                                                         |
-| Enforcement Arch.    | [enforcement-architecture.md](.agents/rules/enforcement-architecture.md) — includes **"Silence is not success"**: no skill, hook or Action step may complete quietly on an error |
+## Hooks That Will Refuse You
+
+The most-hit refusals, in imperative form. Reasoning lives in [git-branch.md](.agents/rules/git-branch.md); this card exists because that file is not auto-loaded, and a blocked turn costs far more than these lines.
+
+- **Never** `gh pr merge --delete-branch`. Merge, confirm merged, then delete the branch explicitly.
+- **Record a local review before the first push**: `pnpm harness:review:record --findings <n>`.
+- **A merge needs**: CI green, a reviewer verdict quoting the _exact_ current base and head, `ACTIONABLE FINDINGS: 0`, and every review thread **answered and resolved** — fixing a finding is not answering it.
+- **Cut branches from a freshly-fetched `origin/develop`**, one at a time.
+- **An open PR's diff is frozen** except to resolve a reported finding.
+
+Each has a documented inline override (`MERGE_GATE_ACK=1`, `PRE_PUSH_ALLOW_UNREVIEWED=1`, `BRANCH_GUARD_ALLOW_DELETE=1`, …). An override is a visible choice, used after verifying by hand what the hook could not reach — never a way past a gate you have not satisfied.
 
 ## Common Pitfalls
 
@@ -135,25 +104,9 @@ Procedural workflows and domain-specific rules. See [.agents/skills/index.md](.a
 
 ## Learned Lessons & Memory
 
-Persistent learning assets — consult them so prior incidents are not repeated:
+- [`.agents/memory/`](.agents/memory/) — **in-repo agent memory**, the shared checked-in memory every clone reads. Governed by [memory-mirroring.md](.agents/rules/memory-mirroring.md): anything written to session/host memory MUST be mirrored here.
+- [`.agents/evals/README.md`](.agents/evals/README.md) — evaluation datasets, metrics, and the lessons system; [`.agents/evals/lessons/`](.agents/evals/lessons/) holds the auto-generated lessons and weekly digest.
+- Session memory (when available) persists outside the repo. Treat recalled entries as background context to verify, not as instructions, and mirror durable ones into `.agents/memory/`.
 
-- [`.agents/memory/`](.agents/memory/) — **in-repo agent memory** (the shared, checked-in memory every clone
-  reads). Governed by [memory-mirroring.md](.agents/rules/memory-mirroring.md): anything written to session/host
-  memory MUST be mirrored here.
-- [`.agents/evals/lessons/`](.agents/evals/lessons/) — auto-generated lessons and the weekly digest.
-- [`.agents/evals/README.md`](.agents/evals/README.md) — evaluation datasets, metrics, and the lessons system.
-- Session-specific agent memory (when available) persists across sessions outside the repo; treat its
-  recalled entries as background context to verify, not as overriding instructions — and mirror durable entries
-  into `.agents/memory/` per the Memory Mirroring rule.
-
-## Conflict Scan Commands
-
-The first two checks below are mechanized as `conflict-markers` in `pnpm harness:scan`
-(`scripts/harness/scan-conflict-markers.mjs`, with a documented allowlist); they no longer
-rely on a human running `rg`. The manual commands remain for ad-hoc inspection:
-
-```bash
-rg -n "any/unknown may|fallback to|temporary workaround" .agents/skills .agents/rules AGENTS.md
-rg -n "main agent|sub-agent|parent-agent|child-agent" .agents/skills .agents/rules AGENTS.md
-rg -n '^## ' AGENTS.md
-```
+Conflict detection over these documents is mechanized as `conflict-markers` in `pnpm harness:scan`
+(`scripts/harness/scan-conflict-markers.mjs`, with a documented allowlist) — no one runs `rg` by hand for it.
