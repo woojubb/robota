@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-103: a GitHub outage read as a repository defect — three wrong diagnoses before anyone checked whether GitHub was up'
+title: 'INFRA-103: a GitHub outage read as a repository defect — three wrong diagnoses before anyone checked whether GitHub was up (one residual unexplained)'
 status: done
 created: 2026-08-17
 completed: 2026-08-17
@@ -20,11 +20,12 @@ request body and no filter to validate.
 
 ## The cause
 
-**A GitHub incident.** Opened 13:40 UTC, impact critical, roughly **20% error rates on web and API
-traffic**, with API Requests, Actions, Issues and Pull Requests all degraded. The first failure here
-was at 13:30; every run at 13:15 and earlier passed.
+**A GitHub incident**, on the evidence available. Opened 13:40 UTC, impact critical, roughly **20%
+error rates on web and API traffic**, with API Requests, Actions, Issues and Pull Requests all
+degraded. The first failure here was at 13:30; every run at 13:15 and earlier passed.
 
-No change in this repository was involved, and nothing here needed fixing.
+No change in this repository was involved, and nothing here needed fixing. The incident does not
+account for the failure's PERSISTENCE, which is set out below rather than smoothed over.
 
 ## Why this is recorded as a task rather than closed as noise
 
@@ -32,14 +33,38 @@ Because of how long it took, and because the shape is one that will recur. An ou
 labelled; it arrives as your own tooling failing in a way that looks specific to you. Every step
 below was a reasonable-sounding inference from real evidence, and every one was wrong.
 
-| #   | Diagnosis                                                          | What killed it                                                                                                                    |
-| --- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | A throttle, hidden because `gh` does not surface the response body | `gh` DOES surface it — `Validation Failed` is GitHub's own `message` field                                                        |
-| 2   | The job lacks `issues: read` while reading an Issues-API endpoint  | The same permissions and workflow revision succeeded fifteen minutes earlier                                                      |
-| 3   | The reader's `--slurp`/`per_page` flags are the difference         | Inferred from ONE job where the plain call passed and this one failed — at a 20% error rate, that is a coin toss read as a signal |
+| #   | Diagnosis                                                          | What killed it                                                                                                                     |
+| --- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | A throttle, hidden because `gh` does not surface the response body | `gh` DOES surface it — `Validation Failed` is GitHub's own `message` field                                                         |
+| 2   | The job lacks `issues: read` while reading an Issues-API endpoint  | The same permissions and workflow revision succeeded fifteen minutes earlier                                                       |
+| 3   | The reader's `--slurp`/`per_page` flags are the difference         | Inferred from ONE job where the plain call passed and this one failed — one sample, during an outage. **Not disproven**; see below |
 
 Diagnosis 2 was one command from being committed. What stopped it was checking the last passing run
 rather than the failing one.
+
+## What the incident does NOT explain, kept open rather than tidied away
+
+The incident reports "approximately 20% error rates". The failure here is **not 20% and not random**:
+
+- In CI it has failed on **every** run from 13:30 onward — six consecutive `review-gate` runs across
+  three PRs, over roughly an hour.
+- From a developer machine the identical call succeeded **six times out of six** in that same window.
+- At 13:19, in CI, with `CODE_CHANGED: true`, the same reader read the same endpoint and the gate
+  reported `PASS (clean)`.
+
+A uniform 20% error rate does not produce that. Two possibilities remain, and this item is closed
+without choosing between them because neither is actionable from inside the repository:
+
+1. The incident is not uniform — a specific backend or path is failing much harder than the headline
+   aggregate, and the Actions token's route hits it.
+2. Something about this call shape genuinely fails under the CI token, and the incident is a
+   coincidence that merely started at the same minute.
+
+The one observation that would separate them is the one still unexplained: inside a SINGLE job, the
+plain `gh api --paginate` read of the labels succeeded while this reader's call failed seconds later.
+That is one sample and it was taken during an outage, so it proves nothing on its own — but it is
+also not dismissible, and calling it a coin toss (as an earlier draft of this file did) was reading
+the evidence to fit the conclusion. If the failure outlives the incident, start there.
 
 ## What was nearly shipped, and must still not be
 
