@@ -369,6 +369,12 @@
       "file": "packages/agent-framework/src/assembly/create-session-types.ts",
       "constructors": ["createSession"],
       "reason": "The session-construction option surface. `guardrails` (SELFHOST-005) and `retrievalAdapter` (SELFHOST-003) were declared, read at the consuming end, and set by no production call to createSession — two documented capabilities no shipped surface could turn on."
+    },
+    {
+      "name": "IInitOptions",
+      "file": "packages/agent-framework/src/interactive/interactive-session-options.ts",
+      "constructors": ["createInteractiveSession"],
+      "reason": "The INIT option shape, watched because ARCH-013 stage 3 dropped two fields in the ~40-field hand-map that builds it and stage 1's ICreateSessionOptions-only ratchet could not see the drop. Named IInitOptions rather than the published IInteractiveSessionStandardOptions because that is literally what it measures: the single production literal it reads is the createInteractiveSession(...) call, which takes IInitOptions. An earlier revision named the published type, and review measured the difference — 8 of the 10 keys it then reported ARE set by production code through buildRuntimeSession and the surface option builders, so the entry asserted unreachability it had not established, and burning it down would have pushed class-consumed options into the very hand-map this stage fixed."
     }
   ],
   "productIdentity": {

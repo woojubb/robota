@@ -2506,6 +2506,31 @@ tier: the FIRST entry for a name wins and later duplicates are dropped, so a pac
 shadows a built-in yields one roster entry, never two. (For a tier with no duplicate names — the
 historic `BUILT_IN_AGENTS` alone — the dedupe is a no-op.)
 
+### Consumer-supplied extension ports (`guardrails` / `retrievalAdapter`, ARCH-013 stage 3)
+
+Two ports the framework READS but ships no implementation of. Both are available on
+`IInteractiveSessionStandardOptions` / `IInitOptions` / `ICreateSessionOptions`, and both were
+declared and settable by nothing until ARCH-013 stage 3 — a documented capability no surface could
+turn on, which is a different state from one nobody had used.
+
+| Port               | Consumed at                                   | Effect when supplied                                                        |
+| ------------------ | --------------------------------------------- | --------------------------------------------------------------------------- |
+| `guardrails`       | `createSession` → `GuardrailExecutor`         | Registers the executor AND auto-injects a `PreToolUse` guardrail hook       |
+| `retrievalAdapter` | `assembleSessionTools` → `createDefaultTools` | Surfaces the `CodebaseRetrieval` tool; absent ⇒ the tool is absent entirely |
+
+**`guardrails` is a REGISTRY, not a selector, and the two are easy to confuse because they share a
+name.** `ICreateSessionOptions.guardrails` is `Record<string, TGuardrail>` — name → function. A
+`{ type: 'guardrail' }` hook definition in config carries its own `guardrails?: string[]`, which
+SELECTS which registered guardrails that hook runs (omitted = all). They are complementary:
+`resolveGuardrailHooks` is the bridge, and it auto-injects a blanket `PreToolUse` group only when a
+non-empty registry is supplied and the config declares no guardrail hook of its own. Registering a
+registry alone does nothing — the executor needs a hook definition on an enforcing event to fire.
+
+**`retrievalAdapter` interacts with `defaultTools`.** The adapter is passed to `createDefaultTools`,
+so a consumer who REPLACES that tier via `defaultTools` (ARCH-006, below) owns the retrieval tool too
+and the adapter reaches nothing. The two options are independent seams and this interaction is not
+mediated.
+
 ### Session-level tool composition (`defaultTools` / `additionalTools`, ARCH-006)
 
 The tool axis has the same two-seam shape as the subagent axis above, and the same precedence
