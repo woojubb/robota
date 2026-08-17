@@ -68,7 +68,6 @@ export function createRobotaDelegates(state: IRobotaDelegateState): {
     state.getAiProviders,
     state.getTools,
     state.getEventService,
-    state.getIsFullyInitialized,
     state.ensureFullyInitialized,
     state.getConfig,
     (c: IAgentConfig) => state.setConfig(c),

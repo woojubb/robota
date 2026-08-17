@@ -526,11 +526,24 @@ framework→provider seam, `execution-round-provider.ts` defaults it to `'high'`
 providers map it to their request parameter; providers without a native effort concept ignore it as a
 documented no-op. Core must not branch on provider names to apply effort.
 
-`setModel` requires the agent to be fully initialized (providers registered + current provider set),
-which otherwise happens lazily on the first `run()`. `Robota.ensureReady()` performs that
-initialization without running a turn (idempotent), so callers that mutate runtime configuration
-before the first turn — e.g. live preset/model switching on a fresh interactive session — call
-`ensureReady()` first instead of hitting the "must be fully initialized" guard.
+**The model-configuration API answers from construction (CORE-047).** `getModel`, `setModel` and
+`swapDefaultProvider` work on a freshly built agent, before any turn and without `ensureReady()`. The
+state they read — the provider registry and the current `(provider, model)` pair — is established by
+the CONSTRUCTOR (`applyConstructedModelConfig`), because both steps are synchronous and derived
+entirely from the config `validateAgentConfig` has just accepted. They previously lived in the async
+initializer, next to work that genuinely is async, and the cost was a readiness guard that made you
+ask the model a question before you could ask which model you were using.
+
+`performAsyncInitialization` must not repeat those two steps: doing so would revert a `setModel()`
+made before the first run back to `config.defaultModel` when the run initializes.
+
+A **destroyed** agent still refuses, and the refusal comes from the provider manager's own disposal
+check — `"AIProviders was disposed"`, not `"must be fully initialized"`. Reporting teardown as
+missing initialization is what sent CORE-045's investigation looking for an await that did not exist.
+
+`Robota.ensureReady()` remains the public, idempotent way to complete the genuinely asynchronous half
+(modules, plugins, the execution service) without running a turn. It is no longer a precondition for
+reading or changing the model.
 
 ### Provider-Native Replay Payloads
 

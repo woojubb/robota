@@ -17,12 +17,11 @@ import {
   injectMessage,
   injectRawMessage,
 } from './robota-history';
-import { performDoAsyncInit } from './robota-initializer';
+import { createConfiguredProviders, performDoAsyncInit } from './robota-initializer';
 import { buildAgentStats, destroyAgent, type IDestroyResult } from './robota-lifecycle';
 import { RunQueue } from './robota-run-queue';
 import { DEFAULT_ABSTRACT_EVENT_SERVICE, bindWithOwnerPath } from '../event-service/index';
 import { AgentFactory } from '../managers/agent-factory';
-import { AIProviders } from '../managers/ai-provider-manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ModuleRegistry } from '../managers/module-registry';
 import { Tools } from '../managers/tool-manager';
@@ -42,6 +41,7 @@ import type {
 import type { IEventService, IAgentEventData } from '../interfaces/event-service';
 import type { IHistoryEntry } from '../interfaces/messages';
 import type { IAIProvider } from '../interfaces/provider';
+import type { AIProviders } from '../managers/ai-provider-manager';
 import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 import type { IJsonSchemaOutput } from '../schema/structured-output';
 import type { ExecutionService } from '../services/execution-service';
@@ -98,7 +98,7 @@ export class Robota
 
     validateAgentConfig(config);
 
-    this.aiProviders = new AIProviders();
+    this.aiProviders = createConfiguredProviders(config); // CORE-047 — see its docblock for why here
     this.tools = new Tools();
     this.agentFactory = new AgentFactory();
     this.conversationHistory = new ConversationHistory();
@@ -141,11 +141,9 @@ export class Robota
   }
 
   /**
-   * Ensure the agent is fully initialized (providers registered, current provider set, execution
-   * service built) WITHOUT running a turn. Idempotent. Lets callers that mutate runtime
-   * configuration before the first `run()` (e.g. live preset/model switching on a fresh
-   * interactive session) bring the agent to a ready state first, instead of failing the
-   * "must be fully initialized" guard.
+   * Build the asynchronous half — modules, plugins, the execution service — WITHOUT running a turn.
+   * Idempotent. The provider registry and current model are NOT part of it: they are established by
+   * the constructor (CORE-047), so reading or changing the model never needs this first.
    */
   async ensureReady(): Promise<void> {
     await this.ensureFullyInitialized();

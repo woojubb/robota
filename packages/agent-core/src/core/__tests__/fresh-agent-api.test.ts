@@ -74,25 +74,23 @@ describe('CORE-045 — a freshly constructed agent', () => {
     expect(scripted.chatOptions[0]?.tools ?? []).toHaveLength(0);
   });
 
-  it('reaches the provider manager for swapDefaultProvider, and is stopped by a DIFFERENT guard', () => {
-    // The sweep found the same symptom on `swapDefaultProvider`, but not the same cause. Its first
-    // statement -- `aiProviders.addProvider` -- used to throw `AIProviders is not initialized` and no
-    // longer does. Its second statement is `configManager.setModel`, which refuses on the AGENT-level
-    // `isFullyInitialized` flag, and that flag guards genuinely asynchronous work.
+  it('swapDefaultProvider works on a fresh agent — the case that flipped when CORE-047 landed', () => {
+    // The sweep found the same symptom here as on `registerTool`, but not the same cause. Its first
+    // statement -- `aiProviders.addProvider` -- threw `AIProviders is not initialized`, which CORE-045
+    // fixed. Its second -- `configManager.setModel` -- refused on the AGENT-level
+    // `isFullyInitialized` flag, and that was filed separately as CORE-047 because the flag looked
+    // like it guarded real asynchronous work.
     //
-    // That is CORE-047, filed rather than folded in: the agent has no public way to become ready, so
-    // the fix is a design choice (expose the initializer, narrow the guard, or make the constructor
-    // async) rather than a defect with one right answer. Pinned here so the two causes stay separable
-    // and so this case is the one that flips when CORE-047 lands.
+    // It did not. The state `setModel` needed -- the provider registry and the current
+    // (provider, model) pair -- was established synchronously from already-validated config, merely
+    // written inside the async initializer. CORE-047 moved both steps into the constructor, so the
+    // guard protected nothing and is gone. Kept as an explicit case rather than folded into the
+    // enumeration below, because the two causes reaching one symptom is the thing worth pinning.
     const { robota } = buildAgent();
     const replacement = createScriptedProvider([{ text: 'from the replacement' }]);
 
-    expect(() => robota.swapDefaultProvider(replacement.provider, 'swapped-model')).toThrow(
-      /must be fully initialized/,
-    );
-    expect(() => robota.swapDefaultProvider(replacement.provider, 'swapped-model')).not.toThrow(
-      /AIProviders is not initialized/,
-    );
+    expect(() => robota.swapDefaultProvider(replacement.provider, 'swapped-model')).not.toThrow();
+    expect(robota.getModel().provider).toBe(replacement.provider.name);
   });
 
   it('still refuses after the agent is destroyed, and says THAT rather than "not initialized"', async () => {
@@ -119,13 +117,18 @@ describe('CORE-045 — a freshly constructed agent', () => {
       ['registerTool', () => robota.registerTool(new EchoTool())],
       ['unregisterTool', () => robota.unregisterTool('echo_tool')],
       ['updateSystemPrompt', () => robota.updateSystemPrompt('be brief')],
+      // CORE-047: these three were listed as named exceptions here, blocked on the agent-level
+      // readiness flag. That flag turned out to guard state the constructor could establish, so they
+      // are now part of the enumerated surface rather than an exception to it. The surface has no
+      // named exceptions left; if one is ever added again it belongs in a list like the old one, not
+      // omitted -- an omission is how `registerTool` stayed broken with nobody noticing.
+      ['getModel', () => robota.getModel()],
+      ['setModel', () => robota.setModel({ provider: PROVIDER_NAME, model: 'another-model' })],
+      [
+        'swapDefaultProvider',
+        () => robota.swapDefaultProvider(createScriptedProvider([]).provider, 'swapped-model'),
+      ],
     ];
-
-    // Named exceptions rather than an omission: these refuse on the agent-level readiness flag,
-    // which guards real asynchronous work and has no public entry point. That is CORE-047. Listing
-    // them here keeps the surface enumerated and keeps the exception traceable to an open item --
-    // the alternative, leaving them out, is how `registerTool` stayed broken with nobody noticing.
-    const blockedByCore047 = ['getModel', 'setModel', 'swapDefaultProvider'];
 
     const threw: string[] = [];
     for (const [name, call] of calls) {
@@ -137,6 +140,5 @@ describe('CORE-045 — a freshly constructed agent', () => {
     }
 
     expect(threw).toEqual([]);
-    expect(blockedByCore047).toHaveLength(3);
   });
 });
