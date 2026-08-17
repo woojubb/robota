@@ -117,10 +117,18 @@ fi
 SLEEP_BUDGET=$((SLEEP_TOTAL * LOOP_FACTOR))
 
 # --- 2. Remote status polling --------------------------------------------------------------------
-# A loop around a remote status read is a wait whatever its sleep budget: the turn ends when the
-# REMOTE changes, which is precisely the thing a background command or a Monitor is for.
+# An UNBOUNDED loop around a remote status read is a wait whatever its sleep budget: it ends when the
+# REMOTE changes, and nothing in the command says when that is.
+#
+# A BOUNDED loop around the same call is a different thing and must not be refused. `for i in 1 2 3;
+# do gh api … && break; sleep 6; done` is a retry against a flaky network: it ends on the first
+# SUCCESS, its cost is capped by its own iteration count, and the sleep budget above already judges
+# that cost. The first version of this branch ignored the distinction and refused retries — three
+# times, on this guard's own author, while the network was dropping calls. A guard that fires on the
+# workaround for an unrelated failure teaches people to pass the ack by reflex, which is how a guard
+# stops being read.
 POLLS_REMOTE=0
-if printf '%s' "$WAIT_TEXT" | grep -qE '\b(while|until|for)\b' &&
+if printf '%s' "$WAIT_TEXT" | grep -qE '\b(while|until)\b' &&
   printf '%s' "$WAIT_TEXT" |
   grep -qE '\bgh[[:space:]]+(pr[[:space:]]+(checks|view)|run[[:space:]]+(view|watch)|api)\b|\bgit[[:space:]]+ls-remote\b'; then
   POLLS_REMOTE=1

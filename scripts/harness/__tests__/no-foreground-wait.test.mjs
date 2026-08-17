@@ -42,9 +42,20 @@ describe('no-foreground-wait — refuses a turn spent waiting (D7)', () => {
     expect(verdict('for i in 1 2 3 4 5 6 7 8; do sleep 15; done')).toBe(2);
   });
 
-  it('refuses a loop around a remote status read whatever its sleep budget', () => {
-    // The turn ends when the REMOTE changes — the sleep length is not what makes this a wait.
+  it('refuses an UNBOUNDED loop around a remote status read whatever its sleep budget', () => {
+    // The turn ends when the REMOTE changes, and nothing in the command says when that is.
     expect(verdict('until gh pr view 1815 --json state; do sleep 30; done')).toBe(2);
+    expect(verdict('while ! git ls-remote origin main; do sleep 10; done')).toBe(2);
+  });
+
+  it('permits a BOUNDED retry around the same call', () => {
+    // Refused three times on this guard's own author while the network was dropping calls. A retry
+    // ends on the first SUCCESS and its cost is capped by its iteration count, which the sleep
+    // budget already judges — so the remote read alone must not condemn it. A guard that fires on
+    // the workaround for an unrelated failure teaches people to pass the ack by reflex.
+    expect(verdict('for i in 1 2 3; do gh api repos/o/r --jq .name && break; sleep 6; done')).toBe(
+      0,
+    );
   });
 });
 
