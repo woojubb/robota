@@ -163,6 +163,9 @@ once and the carriers stay dumb.
 | `commitHandoff`                         | Function  | HANDOFF-001: the only path to `committed`, and only on a durable acknowledgement           |
 | `sourceStillOwns`                       | Function  | HANDOFF-001: is the source authoritative? Delegates to the contract's predicate            |
 | `handoffOutcome`                        | Function  | HANDOFF-001: the reportable outcome, derived rather than assembled per call site           |
+| `buildHandoffManifest`                  | Function  | HANDOFF-001: classify the inventory and seal the payload, or REFUSE on in-flight work      |
+| `sealHandoffRecord`                     | Function  | HANDOFF-001: serialize once and describe those exact bytes, so send and digest agree       |
+| `verifyHandoffPayload`                  | Function  | HANDOFF-001: length before digest — a truncation must not be reported as tampering         |
 | `mintTransportToken`                    | Function  | SEC-008: mint a per-launch credential; throws rather than returning a weak one             |
 | `credentialMatches`                     | Function  | SEC-008: constant-time comparison of a presented credential against the required one       |
 | `bearerCredential`                      | Function  | SEC-008: extract a bearer credential from an `Authorization` header value                  |

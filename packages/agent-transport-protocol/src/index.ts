@@ -62,3 +62,15 @@ export {
   sourceStillOwns,
 } from './handoff-ownership.js';
 export type { ICommitResult, IHandoffTransaction, ITransitionResult } from './handoff-ownership.js';
+export {
+  buildHandoffManifest,
+  sealHandoffRecord,
+  verifyHandoffPayload,
+} from './handoff-manifest.js';
+export type {
+  IBuildManifestInput,
+  IIntegrityVerdict,
+  ISourceRuntimeState,
+  TIntegrityFailure,
+  TManifestResult,
+} from './handoff-manifest.js';
