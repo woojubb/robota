@@ -57,7 +57,7 @@ projection is the section below.
 - [x] ARCH-010 — done — `.agents/tasks/completed/ARCH-010-execution-root-carried-by-no-contract.md`
 - [x] ARCH-011 — done — `.agents/tasks/completed/ARCH-011-transport-adapter-is-a-lifecycle-stub.md`
 - [x] ARCH-012 — done — `.agents/tasks/completed/ARCH-012-interactive-session-god-contract.md`
-- [ ] ARCH-013 — in-progress — `.agents/tasks/ARCH-013-preset-to-session-options-projection-has-no-owner.md`
+- [x] ARCH-013 — done — `.agents/tasks/completed/ARCH-013-preset-to-session-options-projection-has-no-owner.md`
 - [x] ARCH-019 — done — `.agents/tasks/completed/ARCH-019-interactive-session-getSession-contract-understated.md`
 - [x] ARCH-029 — done — `.agents/tasks/completed/ARCH-029-command-host-capability-contracts.md`
 - [x] INFRA-098 — done — `.agents/tasks/completed/INFRA-098-review-every-integration-base-child-pr.md`
