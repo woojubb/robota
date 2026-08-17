@@ -21,10 +21,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
 import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
-import type {
-  IInteractiveSessionStandardOptions,
-  TInteractiveSessionOptions,
-} from '../interactive/interactive-session-options.js';
+import type { IInteractiveSessionStandardOptions } from '../interactive/interactive-session-options.js';
 
 const sessionCtorCalls: Array<Record<string, unknown>> = [];
 
@@ -334,24 +331,29 @@ describe('ARCH-013 stage 3 — the PUBLIC surface carries both ports (this is wh
   });
 });
 
-describe('ARCH-013 stage 3 — buildRuntimeSession, the seam every presentation actually calls', () => {
-  it('accepts both ports on the option type it publishes', () => {
-    // What this proves and what it does not, stated because the distinction is the whole point.
+describe('ARCH-013 stage 3 — the ports are pinned to the PUBLISHED construction type', () => {
+  it('accepts both ports on `IInteractiveSessionStandardOptions` itself', () => {
+    // WHAT THIS ADDS, stated narrowly because an earlier docblock here claimed more than it does.
     //
-    // PROVES: `TInteractiveSessionOptions` — the type `buildRuntimeSession` publishes, and the one
-    // the TUI, print and --serve all construct through — accepts both ports. Written with NO cast, so
-    // it fails to COMPILE if either field is missing from that type. An earlier revision passed
-    // `as never` here, which would have made it pass whether or not the type carried them: a cast in
-    // a type-level assertion asserts nothing.
+    // The one guard distinct to this case: both ports are pinned to the PUBLISHED construction type
+    // independently of `initializeInteractiveSessionAsync`'s parameter type. Everything else that
+    // could fail here already fails elsewhere — review measured that of the five typecheck errors
+    // produced by removing a port, three come from other sites that would break anyway.
     //
-    // DOES NOT PROVE: that the value arrives. `new InteractiveSession(...)` initialises
+    // It is enforced by `pnpm typecheck`, never by `vitest`, which is unlike every other case in this
+    // file. The runtime expectations below are incidental; the annotation is the assertion.
+    //
+    // An earlier revision also wrote `const seamOptions: TInteractiveSessionOptions = options` and
+    // asserted `toBe(options)`. That is a widening that cannot fail once the annotation above holds,
+    // followed by a tautology — the same shape as the `as never` this case started with, which is
+    // what makes it worth deleting rather than keeping as belt-and-braces.
+    //
+    // NOT proven here: that a value set this way arrives. `new InteractiveSession(...)` initialises
     // asynchronously with no public await point, and driving it to completion needs a Session double
-    // far beyond this file's fixture. The hop from there is `interactive-session.ts:341-342`, a
-    // straight pass-through into `initializeInteractiveSessionAsync` — which the group above drives
-    // directly and red-proves. Two readers checked that pass-through by hand; it is the one link here
-    // carried by review rather than by execution, and it is named rather than glossed.
-    // The literal is annotated, not cast, so excess-property checking rejects it if either field is
-    // absent from the published construction type.
+    // far past this fixture. The next hop is `interactive-session.ts:341-342`, a straight
+    // pass-through into `initializeInteractiveSessionAsync` — which the group above drives directly
+    // and red-proves. Two readers checked that pass-through by hand; it is the one link in this file
+    // carried by review rather than by execution.
     const options: IInteractiveSessionStandardOptions = {
       cwd: '/arch-013-stage-3-seam',
       provider: createMockProvider(),
@@ -360,11 +362,8 @@ describe('ARCH-013 stage 3 — buildRuntimeSession, the seam every presentation 
       guardrails: { neverPasses: NEVER_PASSES },
       retrievalAdapter: { retrieve: async () => ({ symbols: [], totalTokens: 0 }) },
     };
-    // …and assignable, with no cast, to exactly what `buildRuntimeSession` takes.
-    const seamOptions: TInteractiveSessionOptions = options;
 
     expect(options.guardrails).toBeDefined();
     expect(options.retrievalAdapter).toBeDefined();
-    expect(seamOptions).toBe(options);
   });
 });

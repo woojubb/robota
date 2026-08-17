@@ -614,11 +614,14 @@ Two supporting claims of mine were false and are corrected where they were made:
 **Round 2 found the worst of the three, and it was a fix I had added in response to round 1.** To stop
 the ratchet missing that hop again, I added `IInteractiveSessionStandardOptions` to
 `optionReachability` and reported that it "immediately found TEN more options declared and set by
-nothing", filing them as an issue. That was false for **eight of the ten**. The entry named the
+nothing", filing them as an issue. That was false for **nine of the ten**. The entry named the
 published type but gave `createInteractiveSession` as its constructor — and that function takes
 `IInitOptions`, so the scan read the hand-map's literal and reported what the hand-map forwards, not
-what a consumer can set. Eight of the ten are set by production code through `buildRuntimeSession` and
-the surface option builders, which the entry never looked at.
+what a consumer can set. Nine of the ten are set by production code through `buildRuntimeSession`, the surface option
+builders, and a `new InteractiveSession({…})` literal — none of which the entry looked at. (Eight was
+review's own count, corrected a round later when `orgPolicy` turned out to be set at
+`packages/agent-framework/src/runtime/agent-runtime.ts:121`; the same assignment-shaped search that
+produced my false ten missed it. The only key with no setter anywhere is `providerDefinitions`.)
 
 The harm was not the wrong count. **Anyone burning that list down would have been pushed to forward
 class-consumed options into the very hand-map this stage had just fixed a drop in — the ratchet would
@@ -639,7 +642,8 @@ Driving it to a constructed session needs a Session double far past this fixture
 asserts the type instead: the literal is annotated rather than cast, so it fails to compile if either
 port is missing from the published construction type, and it is assignable with no cast to exactly
 what the seam takes. Removing either field from the published interface produces five typecheck
-errors, so the assertion is load-bearing.
+errors — two of them from that case, three of them borrowed from sites that would fail anyway — so
+the assertion is load-bearing, but by less than the raw count suggests.
 
 The hop it does not execute is `interactive-session.ts:341-342`, a straight pass-through into
 `initializeInteractiveSessionAsync` — the group above drives that directly and red-proves it. Two
