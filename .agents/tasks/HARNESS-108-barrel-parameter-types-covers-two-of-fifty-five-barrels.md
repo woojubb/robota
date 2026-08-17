@@ -50,7 +50,12 @@ Round-3 review re-ran the measurement independently and inspected all 16; none i
 this file is the later reading, and #1851's Done-when quotes an earlier wording of the config
 comment. Reconcile the issue when this item is picked up.)
 
-Two were read against the source rather than trusted from scan output:
+Two of the sixteen were read line-by-line against the source when this item was filed; round-3
+review then re-ran the sweep independently and inspected all sixteen, finding no false positive. So
+the strongest true statement is "sixteen reproduced twice by independent runs, all sixteen
+inspected, two read in full detail" — an earlier draft of this file said both "all 16 inspected" and
+"two rather than trusted from scan output" eight lines apart, which are not the same claim. The two
+read in full:
 
 - `agent-tools` exports `createGlobTool` but not its parameter type `IContainedBuiltinToolOptions` —
   while exporting `IGrepToolOptions` and `IShellToolOptions` right beside it. The inconsistency is

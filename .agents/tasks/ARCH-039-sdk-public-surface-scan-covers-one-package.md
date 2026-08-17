@@ -96,6 +96,34 @@ the public graph, i.e. two sit outside the published surface, which is the walk 
 
 Measurement script: not committed — it is a one-shot count, and the widened scan replaces it.
 
+## Also owned here — narrowing the one exemption entry to the symbol it earns
+
+Four places in the tree defer this to ARCH-039 by name (`scripts/harness/check-sdk-public-surface.mjs`,
+`packages/agent-framework/src/background-tasks/index.ts`, `packages/agent-framework/docs/PUBLIC-SURFACE.md`
+and that package's `docs/SPEC.md`). Round-5 review pointed out that the assignment was one-way: the
+labels named this item, and this item said nothing about the work. It does now.
+
+The criterion `check-sdk-public-surface.mjs` enforces is per SYMBOL — an `agent-executor` re-export
+is permitted where a package allowed to consume that symbol has no other legal import path to it.
+The exemption is granted per FILE. `packages/agent-framework/src/background-tasks/index.ts`
+re-exports ten names; measured across the workspace, exactly ONE (`IBackgroundTaskRunner`, in 6
+files across `agent-cli`, `agent-product`, `agent-transport` and `agent-transport-tui`) has any
+external importer. The other nine ride along on it, and `agent-cli` additionally imports the runner
+straight from `agent-executor`, so for that consumer the entry blesses a path it does not need.
+
+This belongs with the widening rather than before it because both need the same thing: a check that
+can say WHICH symbol an exemption covers. Narrowing the entry by hand today would be a nine-name
+deletion nothing stops from growing back.
+
+## Done when
+
+- The scan governs every publishable package, or a package left out names why — with the per-package
+  ratchet the measurement above shows is required (15 of 31 packages carry a governed shape today).
+- Exemptions are expressed per symbol, so the ten-name block narrows to the name it earns and a new
+  name cannot join it silently.
+- The four `Contained — ARCH-039.` labels are removed, because they no longer describe anything.
+- `agent-command`'s 27 star exports are handled as their own burn-down, not folded in here.
+
 ## Test Plan
 
 | TC-ID | Test Type   | Tool / Approach                                                                                                                                    | Notes                                                                                           |
@@ -105,3 +133,5 @@ Measurement script: not committed — it is a one-shot count, and the widened sc
 | TC-03 | Unit test   | Tighten a package's frozen value by one and assert the scan fails                                                                                  | Red proof — a ratchet nobody proved can fail is not a ratchet                                   |
 | TC-04 | Unit test   | `agent-interface-transport`'s surviving `agent-core` re-export (`TActionResponse`) stays green, and the two ARCH-037 removed are not demanded back | Pins ARCH-037's per-symbol result so a widening neither undoes the deletions nor breaks the hub |
 | TC-05 | CI pipeline | `pnpm harness:scan`, `pnpm typecheck`, `pnpm test`                                                                                                 | Whole-repository gate for a published-surface change                                            |
+| TC-06 | Unit test   | Add an eleventh name to the exempted block and assert the scan reports it                                                                          | Red proof that the per-symbol form actually narrows, rather than renaming the per-file grant    |
+| TC-07 | Unit test   | `IBackgroundTaskRunner` stays green after the narrowing                                                                                            | The one name the entry earns must survive it                                                    |

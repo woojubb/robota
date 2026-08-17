@@ -549,3 +549,114 @@ describe('the over-fire guards the header credits, each with a case', () => {
     ]);
   });
 });
+
+describe('defects round-5 review constructed, and the behaviours nothing covered', () => {
+  it('does not let a FOREIGN qualified type suppress a genuine one sharing its tail', () => {
+    // Refs were keyed by the tail alone, first root wins: `other.IThing` and a real `IThing`
+    // collapsed into one ref carrying the foreign root, so the finding vanished. Reversing the
+    // parameter order made it fire — a suppression that depended on argument order.
+    const root = fixture('arch-037-tail-collide-', {
+      [BARREL]:
+        "import * as other from '@robota-sdk/other';\n" +
+        "import type { IThing } from './thing.js';\n" +
+        'export function f(a: other.IThing, b: IThing): void {}\n',
+      'packages/p/src/thing.ts': 'export interface IThing {}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings.map((f) => f.rule)).toEqual([
+      'barrel-parameter-type-unexported',
+    ]);
+  });
+
+  it('does not publish a CLOSURE-scoped callable under a top-level exported name', () => {
+    // `visit` recursed into bodies, so the nested `f` was registered under the bare name the
+    // top-level `export { f };` publishes, and its purely internal parameter type was reported.
+    const root = fixture('arch-037-closure-', {
+      [BARREL]: "export { f } from './impl.js';\n",
+      'packages/p/src/impl.ts':
+        'export interface IPublic {}\n' +
+        'export interface ISecret {}\n' +
+        'export function outer(): void {\n  function f(x: ISecret): void {}\n  f({});\n}\n' +
+        'function f(a: IPublic): void {}\n' +
+        'export { f };\n',
+      'packages/p/src/unused.ts': 'export const unused = 1;\n',
+    });
+
+    const { findings } = findBarrelParameterTypeFindings(root, settings());
+
+    expect(
+      findings.some((f) => f.detail.includes('ISecret')),
+      'a closure-scoped signature was published',
+    ).toBe(false);
+  });
+
+  it('threads the wanted name through a `export *` hub rather than widening at it', () => {
+    // The star edge passes `wanted` along. Widening there republishes the hub's whole surface, so
+    // a type the barrel never published counts as published and the finding disappears.
+    const root = fixture('arch-037-star-wanted-', {
+      [BARREL]: "export { f } from './hub.js';\n",
+      'packages/p/src/hub.ts': "export * from './impl.js';\n",
+      'packages/p/src/impl.ts':
+        'export interface IThing {}\nexport function f(a: IThing): void {}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings.map((f) => f.rule)).toEqual([
+      'barrel-parameter-type-unexported',
+    ]);
+  });
+
+  it('visits one module twice when two different names are wanted from it', () => {
+    // The `visited` key carries `wanted`. Keying by file alone stops at the first name, so the
+    // second function published from the same module is never read.
+    const root = fixture('arch-037-visited-key-', {
+      [BARREL]: "export { f } from './impl.js';\nexport { g } from './impl.js';\n",
+      'packages/p/src/impl.ts':
+        'export interface IOne {}\n' +
+        'export interface ITwo {}\n' +
+        'export function f(a: IOne): void {}\n' +
+        'export function g(b: ITwo): void {}\n',
+    });
+
+    const details = findBarrelParameterTypeFindings(root, settings()).findings.map((f) => f.detail);
+
+    expect(details.some((d) => d.includes('IOne'))).toBe(true);
+    expect(
+      details.some((d) => d.includes('ITwo')),
+      'the second wanted name was never read',
+    ).toBe(true);
+  });
+
+  it('excludes a type declared under a `__tests__` DIRECTORY, not only by filename suffix', () => {
+    const root = fixture('arch-037-tests-dir-', {
+      [BARREL]: 'export function f(a: IFixture): void {}\n',
+      'packages/p/src/__tests__/helpers.ts': 'export interface IFixture {}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings).toEqual([]);
+  });
+
+  it('resolves a SIBLING `.tsx` module, not only a directory index', () => {
+    const root = fixture('arch-037-sibling-tsx-', {
+      [BARREL]: "export { f } from './widget.js';\n",
+      'packages/p/src/widget.tsx':
+        'export interface IThing {}\nexport function f(a: IThing): void {}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings.map((f) => f.rule)).toEqual([
+      'barrel-parameter-type-unexported',
+    ]);
+  });
+
+  it('recognises `export enum` as a declaration of this package', () => {
+    const root = fixture('arch-037-enum-', {
+      [BARREL]: "export { f } from './impl.js';\n",
+      'packages/p/src/impl.ts':
+        "import { EKind } from './kind.js';\nexport function f(a: EKind): void {}\n",
+      'packages/p/src/kind.ts': 'export enum EKind {\n  One,\n}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings.map((f) => f.rule)).toEqual([
+      'barrel-parameter-type-unexported',
+    ]);
+  });
+});

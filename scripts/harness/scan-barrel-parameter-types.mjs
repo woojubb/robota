@@ -79,18 +79,24 @@ function rootName(node) {
  * `IThing` in the package and the floor fired on correct code.
  */
 export function parameterTypeRefs(fn) {
+  // Keyed by name AND root. An earlier revision keyed by the tail alone and kept the first root,
+  // so `f(a: other.IThing, b: IThing)` collapsed to one ref carrying the FOREIGN root — and the
+  // genuine `IThing` was suppressed by the namespace skip. Reversing the parameter order made it
+  // fire, which is how review demonstrated it.
   const refs = new Map();
   const walk = (node) => {
     if (ts.isTypeReferenceNode(node)) {
       const name = tailName(node);
-      if (name && !refs.has(name)) refs.set(name, rootName(node));
+      if (!name) return ts.forEachChild(node, walk);
+      const root = rootName(node);
+      refs.set(`${root ?? ''}.${name}`, { name, root });
     }
     ts.forEachChild(node, walk);
   };
   for (const parameter of fn.parameters ?? []) {
     if (parameter.type) walk(parameter.type);
   }
-  return [...refs].map(([name, root]) => ({ name, root }));
+  return [...refs.values()];
 }
 
 /** Every named type appearing anywhere inside `node`'s parameter list. */
@@ -127,7 +133,7 @@ export function parameterTypeNames(fn) {
  * A REAL limit, stated because it is the half of the round-3 collision fix that is still open:
  * `exportedNames` is a flat set of names, so a barrel that publishes its own `IThing` silences a
  * finding about a DIFFERENT `IThing` reaching the signature from a submodule. Closing it needs
- * declaration identity (`file#name`) rather than a name set; it is HARNESS-108's TC-02.
+ * declaration identity (`file#name`) rather than a name set; it is HARNESS-108's TC-01.
  *
  * `starExports` is tracked rather than ignored for the same reason, and it cut BOTH ways before it
  * was: a function published by `export *` was never checked, and a TYPE published by `export *` was
@@ -151,19 +157,32 @@ export function readBarrel(content, fileName) {
 
   /**
    * Callables declared in this file WITHOUT `export`, keyed by name. A deferred `export { f };`
-   * publishes them, and round-4 review measured 38 live instances of exactly that shape — a
-   * `function Card({…}: Props)` followed by `export { Card };`. Collecting only `isExported`
-   * declarations made every one of them invisible, which is under-reporting.
+   * publishes them, and collecting only `isExported` declarations missed the shape entirely.
+   *
+   * On the IMPACT, because the first version of this comment got it wrong: review counted 38 live
+   * instances of the shape, all in one package's UI components, and I wrote that the reader had
+   * been blind to all 38. Re-measured across all 55 package barrels, the reader collects 695
+   * functions (466 with a named parameter type) BOTH before and after this change — identical.
+   * None of the 38 sits on a published graph, because that package's barrel is a single
+   * `export *` over a directory those files are not under. So this closes a real shape with zero
+   * measured effect on today's tree, which is worth having before the widening and is not worth
+   * claiming as a fix for 38 invisible functions.
    */
   const localCallables = new Map();
 
-  const visit = (node) => {
-    if (ts.isFunctionDeclaration(node) && !isExported(node) && node.name?.text) {
+  const visit = (node, atTopLevel = false) => {
+    // ONLY a top-level declaration can be published by a later `export { … };`. `visit` recurses
+    // into bodies, so an earlier revision registered closure-scoped callables under their bare
+    // names — `export function outer() { function f(x: ISecret) {} }` beside a top-level
+    // `function f(a: IPublic) {}` reported `ISecret`, a purely internal type, on a name the
+    // barrel does publish. Over-firing is the direction that gets a floor switched off.
+    if (atTopLevel && ts.isFunctionDeclaration(node) && !isExported(node) && node.name?.text) {
       const existing = localCallables.get(node.name.text) ?? [];
       existing.push(node);
       localCallables.set(node.name.text, existing);
     }
     if (
+      atTopLevel &&
       ts.isVariableStatement(node) &&
       !isExported(node) &&
       (node.declarationList?.declarations ?? []).length > 0
@@ -268,9 +287,9 @@ export function readBarrel(content, fileName) {
     // inside one publishes into the namespace, not out of the module. Round-2 review demonstrated
     // both shapes producing a finding; descending into them treats a nested name as a barrel export.
     if (ts.isModuleDeclaration(node)) return;
-    ts.forEachChild(node, visit);
+    ts.forEachChild(node, (child) => visit(child, false));
   };
-  visit(sourceFile);
+  ts.forEachChild(sourceFile, (statement) => visit(statement, true));
 
   return { functions, exportedNames, reexports, starExports, importedFrom, importedNamespaces };
 }
