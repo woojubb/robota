@@ -550,10 +550,31 @@ Conditional spreads rather than `key: undefined`, because `create-session.ts` br
 `options.guardrails && Object.keys(...).length > 0` and an explicitly-undefined key is how a spread
 reintroduces an absent member — ARCH-029's lesson, one package over.
 
+### The chain is proven to COMPLETE, not just to type-check
+
+The projection test alone would have let this change claim a capability it had not restored: a
+projection can carry a field into an option bag that then drops it again. So the assembled session is
+asserted directly, and the gap that made this necessary was real —
+**`guardrails` appeared in no `createSession` test before this one.**
+
+- A supplied registry makes `createSession` auto-inject the `PreToolUse` guardrail group; omitting it,
+  and supplying an EMPTY registry, both inject nothing. Those two negatives are what make the
+  positive mean something.
+- Idempotence is pinned too: a consumer who declares their own guardrail hook gets exactly one, and it
+  is theirs — that branch is what makes auto-injection safe to ship.
+- For retrieval, `create-tools.test.ts:98` already covered the last hop. The hop nothing covered was
+  `createSession` → `assemble-session-tools` → `createDefaultTools`, so "the adapter reaches the
+  session" was an inference across two separately-tested halves rather than a measured fact. It is
+  measured now.
+
+The negative retrieval assertion also asserts the tool list is populated. A `not.toContain` over an
+empty list passes for the wrong reason, and checking that was not idle: it is the same vacuous-check
+shape this repo has now shipped three times.
+
 ### Falsification
 
-Red-proved by deletion rather than asserted: removing the two projection lines turns 2 of the 4 new
-cases red, and restoring them turns them green. Stage 1's ratchet then did its own job unprompted —
+Red-proved by deletion rather than asserted: removing the two projection lines turns 2 of the 4
+projection cases red, and restoring them turns them green. Stage 1's ratchet then did its own job unprompted —
 it detected that the unreachable set had SHRUNK and refused to pass until the gain was re-frozen in
 the same change (_"or the gain is a licence to drop them again"_), which is the mechanism working
 exactly as its author intended.
