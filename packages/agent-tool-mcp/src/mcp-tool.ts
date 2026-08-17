@@ -9,6 +9,7 @@ import {
   sendMCPRequest,
   terminateMCPSession,
 } from './mcp-protocol';
+import { ThirdPartySchemaValidator, type TUnenforceableSchemaReporter } from './third-party-schema';
 
 import type {
   ITool,
@@ -36,7 +37,14 @@ export class MCPTool implements ITool {
   private connectionStatus: TMCPConnectionStatus = 'disconnected';
   private sessionId: string | undefined;
 
-  constructor(config: IMCPConfig, schema: IToolSchema) {
+  /** CORE-040: built on first use and reused — narrowing is a property of the schema, not the call. */
+  private validator?: ThirdPartySchemaValidator;
+
+  constructor(
+    config: IMCPConfig,
+    schema: IToolSchema,
+    private readonly onUnenforceableSchema?: TUnenforceableSchemaReporter,
+  ) {
     this.mcpConfig = {
       timeout: 30000,
       retries: 3,
@@ -120,22 +128,20 @@ export class MCPTool implements ITool {
   }
 
   /**
-   * Validate tool parameters with detailed result
+   * Validate tool parameters with detailed result.
+   *
+   * CORE-040: routed through the universal-subset walk, narrowed to what it can enforce for a
+   * THIRD-PARTY schema. This used to be a presence check over the top-level `required` list and
+   * nothing else, so declared types, enums, bounds and every nested field were advertised to the
+   * model and enforced by nobody.
    */
   validateParameters(parameters: TToolParameters): IParameterValidationResult {
-    const required = this.schema.parameters.required || [];
-    const errors: string[] = [];
-
-    for (const field of required) {
-      if (!(field in parameters)) {
-        errors.push(`Missing required parameter: ${field}`);
-      }
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors,
-    };
+    this.validator ??= new ThirdPartySchemaValidator(
+      this.schema.name,
+      this.schema.parameters,
+      this.onUnenforceableSchema,
+    );
+    return this.validator.validate(parameters);
   }
 
   /**

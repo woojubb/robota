@@ -36,14 +36,18 @@ All `ITool`-related types (`ITool`, `IToolResult`, `IToolExecutionContext`, `TTo
 
 ## Public API Surface
 
-| Export             | Kind      | Description                                                                |
-| ------------------ | --------- | -------------------------------------------------------------------------- |
-| `MCPTool`          | class     | `ITool` implementation for JSON-RPC 2.0 MCP server communication           |
-| `createMCPTool`    | function  | Factory: `(config: IMCPConfig, schema: IToolSchema) => MCPTool`            |
-| `RelayMcpTool`     | class     | Relay adapter that bridges MCP commands into Robota agent flows            |
-| `IMCPConfig`       | interface | MCP server connection configuration (`endpoint`, `apiKey`, `timeout`, ...) |
-| `IRelayMcpOptions` | interface | `RelayMcpTool` constructor options (`schema`, `run`)                       |
-| `IRelayMcpContext` | interface | Context passed to `RelayMcpTool.run()` callback                            |
+| Export                         | Kind      | Description                                                                                            |
+| ------------------------------ | --------- | ------------------------------------------------------------------------------------------------------ |
+| `MCPTool`                      | class     | `ITool` implementation for JSON-RPC 2.0 MCP server communication                                       |
+| `createMCPTool`                | function  | Factory: `(config: IMCPConfig, schema: IToolSchema) => MCPTool`                                        |
+| `RelayMcpTool`                 | class     | Relay adapter that bridges MCP commands into Robota agent flows                                        |
+| `IMCPConfig`                   | interface | MCP server connection configuration (`endpoint`, `apiKey`, `timeout`, ...)                             |
+| `IRelayMcpOptions`             | interface | `RelayMcpTool` constructor options (`schema`, `run`, `onUnenforceableSchema`)                          |
+| `IRelayMcpContext`             | interface | Context passed to `RelayMcpTool.run()` callback                                                        |
+| `narrowToUniversalSubset`      | function  | CORE-040: narrow a third-party schema to the part the universal subset can enforce, reporting the rest |
+| `ThirdPartySchemaValidator`    | class     | CORE-040: the parameter validator BOTH tool classes use — one owner for the trust-boundary decision    |
+| `INarrowedSchema`              | interface | `{ schema, unenforceable }` — the enforceable copy and the paths dropped from it                       |
+| `TUnenforceableSchemaReporter` | type      | `(toolName, paths) => void` — told once per tool when part of its schema cannot be enforced            |
 
 ## Extension Points
 
@@ -52,6 +56,36 @@ All `ITool`-related types (`ITool`, `IToolResult`, `IToolExecutionContext`, `TTo
 - `IMCPConfig.headers` — additional HTTP headers sent on every MCP request.
 - `IMCPConfig.apiKey` — sent as `Authorization: Bearer <apiKey>` on every MCP request.
 - `IRelayMcpOptions.run` — inject the relay executor callback that creates and runs a Robota agent flow.
+- `IRelayMcpOptions.onUnenforceableSchema` / `MCPTool`'s third constructor argument — told once, with
+  the paths, when part of a tool's schema lies outside the universal subset. Omitting it logs a
+  warning; it is never silent.
+
+## Parameter Validation Across the Third-Party Trust Boundary (CORE-040)
+
+An MCP tool's `inputSchema` is authored by a **third-party server**, and `parameters` is the contract
+the model is shown. Both tool classes previously hand-rolled the same check — presence of the
+schema's TOP-LEVEL `required` keys, and nothing else. No types, no enums, no bounds, no nested
+traversal, and two character-identical copies of the decision. A payload with the right key names and
+entirely wrong values reached the tool handler unchallenged.
+
+Both now route through `ThirdPartySchemaValidator`, which is the single owner, and through
+`validateAgainstJsonSchema` — the one complete walk over the universal subset (CORE-039).
+
+**A schema the subset cannot express is NARROWED, not refused.** The walk rejects a node outside the
+subset (`unsupported schema type`, or `declares neither a type nor anyOf` for `oneOf` / `allOf` /
+`$ref`). Handing a third-party schema to it unchanged would refuse _every_ payload for that tool,
+breaking a working tool over a limitation that is this repo's rather than the server's. So:
+
+1. Inexpressible property subtrees are replaced with an accepts-anything `anyOf` node — **replaced,
+   not deleted**, because an object node declaring `properties` is CLOSED, so deleting a key would
+   turn the server's own declared parameter into an "unexpected additional property" and refuse the
+   payload for the opposite reason.
+2. `required` is carried through untouched. A narrowed property is one whose VALUE cannot be checked,
+   not one that stopped being required — an omitted key is still an error.
+3. Everything expressible is enforced completely, including nested objects and array items.
+4. The dropped paths are **reported** — once per tool, not once per call, since narrowing is a pure
+   function of a schema that does not change. Silence here would be a downgrade nobody could see
+   (`enforcement-architecture.md`).
 
 ## Error Taxonomy
 

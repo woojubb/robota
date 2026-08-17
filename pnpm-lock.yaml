@@ -3651,6 +3651,9 @@ importers:
       '@robota-sdk/agent-testing':
         specifier: workspace:*
         version: link:../packages/agent-testing
+      '@robota-sdk/agent-tool-mcp':
+        specifier: workspace:*
+        version: link:../packages/agent-tool-mcp
       '@robota-sdk/agent-tools':
         specifier: workspace:*
         version: link:../packages/agent-tools
