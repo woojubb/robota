@@ -1003,9 +1003,9 @@ no separate nested form. Splitting the two is what let a nested object be emitte
 ### Zod construct coverage
 
 `zodToJsonSchema` supports: `ZodString`, `ZodNumber`, `ZodBoolean`, `ZodArray`, `ZodObject`,
-`ZodEnum`, `ZodLiteral`, `ZodUnion`, `ZodDiscriminatedUnion`, `ZodRecord`, `ZodOptional`,
-`ZodNullable`, `ZodDefault`, and `ZodEffects` (`.refine()` / `.transform()`, unwrapped at the root
-and at every nested level).
+`ZodEnum`, `ZodNativeEnum`, `ZodDate`, `ZodLiteral`, `ZodUnion`, `ZodDiscriminatedUnion`,
+`ZodRecord`, `ZodOptional`, `ZodNullable`, `ZodDefault`, and `ZodEffects` (`.refine()` /
+`.transform()`, unwrapped at the root and at every nested level).
 
 - `ZodUnion` / `ZodDiscriminatedUnion` → `anyOf`.
 - `ZodLiteral` → a single-value `enum` of the literal's own primitive type; `z.literal(null)` →
@@ -1015,14 +1015,36 @@ and at every nested level).
   enforced it becomes a rejection of a payload the author's own Zod schema accepts.
 - `ZodOptional` / `ZodDefault` are transparent — optionality is carried by the enclosing object's
   `required` list, not by the property's own shape.
+- `ZodNativeEnum` → an `enum` of the enum's VALUES (CORE-041). A numeric TypeScript enum compiles
+  with a reverse mapping, so `Object.values` also yields the member NAMES; emitting those would
+  advertise `"Low"` as acceptable for a field that accepts `0`. When any numeric value is present,
+  the numeric half is the value set and the node is `type: 'number'`.
+- `ZodDate` → `{ type: 'string', format: 'date-time' }` (CORE-041). JSON has no date type, so a
+  string is what a provider receives either way — this is the faithful description of the payload,
+  not a lossy stand-in.
 
 A wrapper chain deeper than 64 levels is refused rather than followed. Real Zod never builds one,
 but `IZodSchema` is a structural stand-in at an exported boundary, so a hand-built cycle is
 reachable and hanging is not an acceptable answer to it.
 
-Anything else throws `Unsupported Zod type: <name>` at conversion — the limit is declared here
-rather than discovered at tool-construction time. `ZodTuple`, `ZodDate`, `ZodIntersection`,
-`ZodLazy` and `ZodNativeEnum` are the known remainder (CORE-041).
+**The remainder, and why it is a boundary rather than a backlog (CORE-041).** `ZodTuple`,
+`ZodIntersection` and `ZodLazy` throw at conversion. They are not "not done yet": a tuple needs
+POSITIONAL `items`, which this subset models as one schema; an intersection needs `allOf`; recursion
+needs `$ref`. None of the three exists in `IParameterSchema`, and none would survive the
+field-enumerated provider mappers if it did.
+
+That is also the answer to whether adopting `zod-to-json-schema` dissolves this, which CORE-039
+deferred and this item was told to re-run. It does not. The library emits exactly the constructs the
+mappers drop, so adopting it relocates the same decision into a normalizing pass and adds a
+dependency; the difficulty was never PARSING Zod, it is that the target language cannot say these
+things.
+
+Mapping them lossily is worse than throwing. A tuple flattened to `array of anyOf[...]` would tell
+the model that any order and any length are acceptable — a contract the author did not write.
+
+The error names the construct, states why the subset cannot carry it, and names a Zod expression to
+write instead, so the boundary is PUBLISHED rather than discovered. The default branch keeps working
+for a construct nobody has named yet.
 
 Zod's three unknown-key modes map distinctly, which they previously did not: `.passthrough()` and
 the default `strip` both emit `additionalProperties: true`, and `.strict()` emits `false`. `strip`
