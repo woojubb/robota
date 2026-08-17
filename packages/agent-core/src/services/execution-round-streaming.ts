@@ -1,3 +1,4 @@
+import { announceAppend } from './execution-event-helpers';
 import { callProviderWithCache } from './execution-round-provider';
 import { resolveToolChoiceForRound } from './execution-service-helpers';
 import { isAbortFailure } from '../utils/abort-classification';
@@ -198,6 +199,12 @@ export async function callRoundProviderWithEvents(
     const errMsg = providerError instanceof Error ? providerError.message : String(providerError);
     logger.error('[ROUND] Provider call failed', { error: errMsg, round: currentRound });
     conversationStore.addAssistantMessage(`Request failed: ${errMsg}`, [], {
+      round: currentRound,
+      providerError: true,
+    });
+    // CORE-033: announced like every other append. A failed turn is precisely when a reader goes to
+    // the session log, and this record was the one message the log never contained.
+    announceAppend(conversationStore, fullContext, executionId, fullContext.conversationId, {
       round: currentRound,
       providerError: true,
     });

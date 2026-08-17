@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { handleContextCapacityBlock } from './execution-round-context';
 
 import type { IExecutionRoundState } from './execution-types';
+import type { IExecutionContext } from './execution-types';
 import type { IAgentConfig } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IAIProvider } from '../interfaces/provider';
@@ -54,7 +55,10 @@ function runCapacityBlock(config: IAgentConfig): string {
     makeRoundState(),
     store,
     logger,
-    1,
+    // CORE-033: the block now announces its append. This unit exercises the message text, not the
+    // event, so it is given a context that records nothing; the event itself is asserted end-to-end
+    // in `__tests__/abnormal-path-replay-events.test.ts`.
+    { fullContext: {} as IExecutionContext, executionId: 'exec-test', conversationId: 'conv-test' },
   );
   expect(blocked).toBe(true);
   expect(addAssistantMessage).toHaveBeenCalledTimes(1);

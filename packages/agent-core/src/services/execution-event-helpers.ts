@@ -1,7 +1,9 @@
 import { EXECUTION_EVENT_PREFIX } from './execution-constants';
 import { TOOL_EVENT_PREFIX } from './tool-execution-service';
 
+import type { TExecutionEventCallback, TExecutionEventData } from '../interfaces/agent';
 import type { IEventContext, IOwnerPathSegment } from '../interfaces/event-service';
+import type { TUniversalMessage } from '../interfaces/messages';
 
 /**
  * Build the owner path from an optional IExecutionContextInjection.
@@ -132,4 +134,40 @@ export function buildResponseOwnerContext(
     ownerId: executionId,
     ownerPath: path,
   };
+}
+
+/**
+ * Announce the message just appended to the conversation store — CORE-033.
+ *
+ * `history_mutation` is a REQUIRED family (`agent-core/docs/SPEC.md`), and `agent-session` builds
+ * its session log from it: a consumer replays the appends to reconstruct the conversation. Three
+ * sites appended without announcing — the forced summary, the hard-capacity diagnostic, and the
+ * provider-failure record — so a replay diverged from the store at exactly the abnormal moments a
+ * reader most needs it to agree.
+ *
+ * It reads the appended message back out of the store rather than taking it as an argument, because
+ * the store is what a replay must reproduce: an event built from what the CALLER meant to append
+ * could disagree with what the store holds, which is the class of defect this exists to close.
+ */
+export function announceAppend(
+  store: { getMessages(): TUniversalMessage[] },
+  context: { onExecutionEvent?: TExecutionEventCallback },
+  executionId: string,
+  // `string | undefined`, matching every sibling emit in this engine: a turn without one emits the
+  // field absent rather than as a fabricated empty string, which a consumer would read as an id.
+  conversationId: string | undefined,
+  extra: TExecutionEventData = {},
+): void {
+  if (context.onExecutionEvent === undefined) return;
+  const messages = store.getMessages();
+  const appended = messages.at(-1);
+  if (appended === undefined) return;
+  context.onExecutionEvent('history_mutation', {
+    executionId,
+    conversationId,
+    ...extra,
+    mutation: 'append_message',
+    index: messages.length - 1,
+    message: appended,
+  } as TExecutionEventData);
 }

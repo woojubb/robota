@@ -1,5 +1,6 @@
 import { EXECUTION_EVENTS } from './execution-constants';
 import { buildFinalResult } from './execution-failure';
+import { forceSummaryCall } from './execution-forced-summary';
 import { executeRound } from './execution-round';
 import { callProviderWithIdleTimeout } from './execution-round-provider';
 import {
@@ -15,7 +16,7 @@ import { randomId } from '../utils/random-id.js';
 import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
 import type { ToolExecutionService } from './tool-execution-service';
-import type { IAgentConfig } from '../interfaces/agent';
+import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
 import type { IChatOptions } from '../interfaces/provider';
 import type { TMetadata } from '../interfaces/types';
 import type { ConversationStore } from '../managers/conversation-history-manager';
@@ -112,107 +113,6 @@ export async function runExecutionLoop(
       deps.logger,
       maxRounds,
     );
-  }
-}
-
-/**
- * When max rounds are exhausted without a text response, force one final provider call
- * to generate a summary.
- */
-async function forceSummaryCall(
-  conversationStore: ConversationStore,
-  resolved: IResolvedProviderInfo,
-  config: IAgentConfig,
-  executionId: string,
-  roundState: IExecutionRoundState,
-  conversationId: string,
-  fullContext: IExecutionContext,
-  logger: ILogger,
-  maxRounds: number = DEFAULT_MAX_EXECUTION_ROUNDS,
-): Promise<void> {
-  logger.warn('No final text response — forcing summary call', {
-    maxRounds: maxRounds === UNLIMITED_EXECUTION_ROUNDS ? 'unlimited' : maxRounds,
-    currentRound: roundState.currentRound,
-    conversationId,
-  });
-  try {
-    const syntheticMsg =
-      roundState.forcedSummaryInstruction ??
-      'Tool round limit reached. Provide your response based on the information gathered so far. If results are incomplete, let the user know what was covered and what remains — the user can request additional analysis in a follow-up message.';
-    conversationStore.addUserMessage(syntheticMsg);
-    const summaryMessages = conversationStore.getMessages();
-    const systemMsg = config.systemMessage ?? '';
-
-    const hasSystemMsg = summaryMessages.some(
-      (m) => m.role === 'system' && m.content === systemMsg,
-    );
-    const messagesForProvider =
-      systemMsg && !hasSystemMsg
-        ? [
-            {
-              id: randomId(),
-              role: 'system' as const,
-              content: systemMsg,
-              state: 'complete' as const,
-              timestamp: new Date(),
-            },
-            ...summaryMessages,
-          ]
-        : summaryMessages;
-
-    // CORE-042: this was the one provider call in the turn built by hand -- `{ model, onTextDelta }`,
-    // carrying no `signal`, no `effort` and no idle timeout. That was survivable while the streaming
-    // path had its own engine; now that the streaming entry awaits the turn when its consumer walks
-    // away, an unabortable call here is a hang on the public streaming API. It goes through the same
-    // helper every round call goes through, so there is one implementation of "call the provider".
-    // Tools stay deliberately absent: this call exists to END the tool loop, not to extend it.
-    const chatOptions: IChatOptions = {
-      model: resolved.aiProviderInfo.model,
-      effort: config.defaultModel?.effort ?? 'high',
-      ...(config.defaultModel?.maxTokens !== undefined && {
-        maxTokens: config.defaultModel.maxTokens,
-      }),
-      ...(config.defaultModel?.temperature !== undefined && {
-        temperature: config.defaultModel.temperature,
-      }),
-      ...(fullContext.signal && { signal: fullContext.signal }),
-      ...(fullContext.onTextDelta && { onTextDelta: fullContext.onTextDelta }),
-    };
-
-    const forceResponse = await callProviderWithIdleTimeout(
-      resolved.provider.chat.bind(resolved.provider),
-      messagesForProvider,
-      chatOptions,
-      config.timeout,
-    );
-
-    // Remove synthetic message from history to avoid polluting conversation
-    const currentMessages = conversationStore.getMessages();
-    const syntheticIndex = currentMessages.findIndex(
-      (m) => m.role === 'user' && m.content === syntheticMsg,
-    );
-    if (syntheticIndex !== -1) {
-      const cleaned = currentMessages.filter(
-        (m) => !(m.role === 'user' && m.content === syntheticMsg),
-      );
-      conversationStore.clear();
-      for (const m of cleaned) {
-        conversationStore.addMessage(m);
-      }
-    }
-
-    const responseText = typeof forceResponse.content === 'string' ? forceResponse.content : '';
-    if (responseText) {
-      conversationStore.addAssistantMessage(responseText, [], forceResponse.metadata);
-    } else {
-      conversationStore.addAssistantMessage(
-        'Maximum rounds reached. Partial results available in conversation history.',
-      );
-    }
-  } catch (forceErr) {
-    logger.warn('Forced summary call failed', {
-      error: forceErr instanceof Error ? forceErr.message : String(forceErr),
-    });
   }
 }
 

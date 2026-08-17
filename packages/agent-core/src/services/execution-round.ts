@@ -137,7 +137,7 @@ export async function executeRound(
       roundState,
       conversationStore,
       logger,
-      currentRound,
+      { fullContext, executionId, conversationId },
     )
   ) {
     return true;
