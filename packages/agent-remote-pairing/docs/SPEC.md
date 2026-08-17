@@ -56,6 +56,41 @@ detection is a **directional, nonce-bound HMAC key-confirmation** bound to both 
 | `startHostReconnect`        | function | Host-side mutual reconnect controller; verifies the device before accept.                             |
 | `deriveReconnectSeed`       | function | HKDF a per-device reconnect seed from the pairing `sessionKey` (REMOTE-013 E4).                       |
 | `deriveReconnectRendezvous` | function | HKDF a fresh reconnect rendezvous id from `(seed, counter)` — single-use room per reconnect (E4).     |
+| `generateUserRootKeyPair`   | function | SEC-011: the USER's root ECDSA keypair — one per person, not per machine.                             |
+| `deriveUserId`              | function | SEC-011: stable `SHA-256(SPKI)` id of a user root.                                                    |
+| `issueDeviceCertificate`    | function | SEC-011: sign a device key into this user's set. Same root ⇒ same user.                               |
+| `verifyDeviceCertificate`   | function | SEC-011: check a certificate against an expected user, now — signature first, then the signed fields. |
+| `verifyDevicePossession`    | function | SEC-011: confirm the presenter HOLDS the device key its certificate names.                            |
+| `issueHandoffGrant`         | function | SEC-011: authorize ONE transfer, to ONE destination, over ONE channel.                                |
+| `verifyHandoffGrant`        | function | SEC-011: verify a grant against this destination, transfer and channel.                               |
+
+### SEC-011 — same USER, across two computers (#1812)
+
+`device-identity.ts` proves possession of a **machine's** key; `ITrustedDeviceRecord` records that a
+machine was enrolled somewhere; a completed WebRTC connection proves two endpoints negotiated a
+channel. None says **whose** machine, and a hand-off must not move a session to someone else's
+device.
+
+**Why the proof travels with the destination.** Transitive trust — "the source has both devices in
+its store, so they are one user" — inverts the direction of the proof: the list lives on the machine
+making the claim, so a mistaken or compromised source can assert any destination is its user's while
+the destination presents nothing. That is an authorization list wearing an authentication's clothes.
+
+So the user holds one **root keypair** that signs each device's identity key. A device proves
+same-user by presenting that certificate AND demonstrating possession of the device private key —
+two separate calls, because a certificate is a public document and proves nothing about who is
+holding it.
+
+**The grant binds one transfer.** A same-user proof reused for a second transfer is the failure
+#1812 names, so every binding is INSIDE the signature: user, source and destination device ids,
+hand-off id, session id, nonce, channel fingerprint, and expiry. A signature over a subset would
+leave the omitted field attacker-editable while still verifying.
+
+**Signaling stays a rendezvous.** The grant is minted by the source and verified by the destination
+end to end, so a signaling server that reads every byte still cannot authorize a transfer.
+
+**Trust levels stay distinct.** `same-user-different-host` must never satisfy a check that wanted
+SEC-010's `same-user-same-host`, or a local admission could authorize a cross-device transfer.
 
 ### `/local` subpath — SEC-010 local-peer admission (node-only)
 
