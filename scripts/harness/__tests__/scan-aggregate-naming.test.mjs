@@ -257,6 +257,33 @@ describe('the ratchet requires its subject to exist', () => {
 
     expect(declaredIn.get('ICommandHostContext')).toEqual(['a.ts']);
   });
+
+  it('is NOT satisfied by a decoy declaration outside the declaration site', () => {
+    // "Declared somewhere in the tree" was satisfiable by one bare `interface ICommandHostContext {}`
+    // in an unimported file — cheaper than any rename route, and it left the scan green against a
+    // frozen baseline. The site is pinned to the allowlist, which already names each real
+    // declaration file with a reason.
+    const root = mkdtempSync(join(tmpdir(), 'arch-029-decoy-'));
+    mkdirSync(join(root, 'packages'), { recursive: true });
+    writeFileSync(join(root, 'site.ts'), 'export interface ICommandHostContextRenamed {}\n');
+    writeFileSync(join(root, 'decoy.ts'), 'export interface ICommandHostContext {}\n');
+
+    const settings = {
+      aggregateNaming: {
+        aggregates: ['ICommandHostContext'],
+        allowlist: [{ file: 'site.ts', reason: 'the declaration site' }],
+      },
+    };
+
+    const { findings } = findAggregateNamingFindings(root, settings, ['site.ts', 'decoy.ts']);
+
+    expect(findings.map((f) => f.rule)).toContain('aggregate-declaration-missing');
+
+    // Control: with the real declaration back at the allowlisted site, the rule is silent.
+    writeFileSync(join(root, 'site.ts'), 'export interface ICommandHostContext {}\n');
+    const after = findAggregateNamingFindings(root, settings, ['site.ts', 'decoy.ts']);
+    expect(after.findings.map((f) => f.rule)).not.toContain('aggregate-declaration-missing');
+  });
 });
 
 describe('an empty aggregate list fails closed', () => {
@@ -386,16 +413,79 @@ describe('findAggregateAliases — renaming the aggregate is the finding, not th
     }
   });
 
-  it('does NOT flag a member type inside an allowlisted file — a use is not a new name', () => {
-    // `ISystemCommand.execute(context: ICommandHostContext)` is the dispatch contract every command
-    // is assigned to, and it is allowlisted precisely so it can name the widest type. A rename is
-    // minted on a type alias's right-hand side or in a heritage clause; a member's type is a use.
+  it('flags every position an allowlisted declaration can MINT a handle from', () => {
+    // Round 6. The previous revision applied the mint rule at two positions — a type alias RHS and
+    // a heritage clause — and review measured three more taking the whole surface with the ratchet
+    // unmoved: a member type reached as `IHostBox['it']`, an exported const reached as
+    // `typeof theHost`, and a generic default reached as `IBox['it']`. The rule was right and the
+    // implementation was positional.
+    const minted = [
+      'export interface IHostBox {\n  readonly it: ICommandHostContext;\n}\n',
+      'export interface IHostBox {\n  readonly it: Readonly<ICommandHostContext>;\n}\n',
+      'export declare const theHost: ICommandHostContext;\n',
+      'export interface IBox<T = ICommandHostContext> {\n  readonly it: T;\n}\n',
+    ];
+
+    for (const source of minted) {
+      expect(
+        findAggregateAliases(source, 'p.ts', ['ICommandHostContext'], { allowlisted: true }),
+        source,
+      ).toHaveLength(1);
+    }
+  });
+
+  it('does NOT flag the CONSUMED positions, which mint nothing', () => {
+    // The direction that makes `execute(context: I)` harmless is not that it is a member — it is
+    // that nothing outside can address the aggregate through it. Same for a function-type return:
+    // `getSession: () => ICommandHostContext` on the skill router and `getSession(): I` on a role
+    // port are both real allowlisted sites, and flagging them would flag the decomposition's own
+    // wiring. A generic CONSTRAINT mints nothing either. An UNEXPORTED declaration is unreachable
+    // from outside the file, which is how both doubles' `const base: IAggregate = { … }` stays
+    // clean — that is the cast-free conformance they exist to provide.
+    const consumed = [
+      'export interface ISystemCommand {\n  execute(context: ICommandHostContext): void;\n}\n',
+      'export interface IRouter {\n  getSession: () => ICommandHostContext;\n}\n',
+      'export interface IPort {\n  getSession(): ICommandHostContext;\n}\n',
+      'export interface IBox<T extends ICommandHostContext> {\n  readonly it: T;\n}\n',
+      'const base: ICommandHostContext = makeIt();\n',
+      'interface IUnexported {\n  readonly it: ICommandHostContext;\n}\n',
+    ];
+
+    for (const source of consumed) {
+      expect(
+        findAggregateAliases(source, 'p.ts', ['ICommandHostContext'], { allowlisted: true }),
+        source,
+      ).toEqual([]);
+    }
+  });
+
+  it('honours a named carve-out for a declaration that must name the aggregate', () => {
+    // Two real sites exist and are listed in the harness config with reasons: the conformant
+    // double's options bag necessarily names the contract it doubles. Recorded here so the rule is
+    // not quietly designed around them.
+    const source =
+      'export interface ICreateTestCommandHostOptions {\n  readonly overrides?: TOverrides<ICommandHostContext>;\n}\n';
+
+    expect(
+      findAggregateAliases(source, 'double.ts', ['ICommandHostContext'], { allowlisted: true }),
+    ).toHaveLength(1);
+    expect(
+      findAggregateAliases(source, 'double.ts', ['ICommandHostContext'], {
+        allowlisted: true,
+        carveOuts: new Set(['double.ts#ICreateTestCommandHostOptions.overrides']),
+      }),
+    ).toEqual([]);
+  });
+
+  it('does NOT apply the mint rule outside the allowlist — the reference count guards those', () => {
+    // A member type naming the aggregate in an ordinary consumer is a REFERENCE, and the ratchet
+    // already counts and freezes it. Applying "mentions anywhere" there would double-report every
+    // honest site and fire on the narrowing aliases this repo's tests genuinely use.
     expect(
       findAggregateAliases(
-        'export interface ISystemCommand {\n  execute(context: ICommandHostContext): void;\n}\n',
+        'export interface IHostBox {\n  readonly it: ICommandHostContext;\n}\n',
         'p.ts',
         ['ICommandHostContext'],
-        { allowlisted: true },
       ),
     ).toEqual([]);
   });

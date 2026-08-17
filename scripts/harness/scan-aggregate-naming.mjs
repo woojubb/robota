@@ -106,7 +106,8 @@ function directlyNamedAggregate(type, aggregates) {
 }
 
 /**
- * The first guarded aggregate named ANYWHERE inside `type`, however deeply wrapped.
+ * The first guarded aggregate named ANYWHERE inside `type`, however deeply wrapped — skipping the
+ * two positions where naming it is a USE rather than a new handle.
  *
  * Used only for allowlisted files. `directlyNamedAggregate` is exact about what a rename is, and
  * exactness is right where references are still counted — but an allowlisted file's references are
@@ -116,11 +117,42 @@ function directlyNamedAggregate(type, aggregates) {
  * wrapper shapes one at a time is the loop this whole review has been about, so inside an
  * allowlisted file the question stops being "which wrapper is this" and becomes "does this
  * declaration mint a NEW NAME from the aggregate at all".
+ *
+ * ## The two skipped positions, and why the line is drawn there
+ *
+ * The distinction is not syntactic position but DIRECTION: a type that something outside can
+ * address mints a handle; a type that is only consumed does not.
+ *
+ *   - **Parameters.** `ISystemCommand.execute(context: ICommandHostContext)` is the dispatch
+ *     contract every command is assigned to, and naming the widest type there is the entire reason
+ *     that file is allowlisted. Nothing can address the aggregate through it.
+ *   - **Function-like types and their returns.** `getSession: () => ICommandHostContext` on the
+ *     skill router, and `getSession(): ICommandSessionRuntime` on a role port, are both real
+ *     allowlisted sites. Flagging them would flag the decomposition's own wiring.
+ *
+ * ## A stated limit
+ *
+ * A factory's return type is addressable — `type IHostAll = ReturnType<typeof createTestCommandHost>`
+ * takes the whole surface in one line with NO allowlisted file modified — and this scan cannot
+ * close it. `createTestCommandHost` must return `ICommandHostContext`; that is what makes it a
+ * conformant double. Closing that route needs the type checker, not a name walk. It is written here
+ * rather than left implicit because an undocumented limit is what the preceding review rounds were
+ * about.
  */
+const CONSUMED_POSITIONS = new Set([
+  ts.SyntaxKind.Parameter,
+  ts.SyntaxKind.FunctionType,
+  ts.SyntaxKind.ConstructorType,
+  ts.SyntaxKind.MethodSignature,
+  ts.SyntaxKind.CallSignature,
+  ts.SyntaxKind.ConstructSignature,
+]);
+
 function mentionsAggregate(type, aggregates) {
   let found;
   const walk = (node) => {
     if (found) return;
+    if (CONSUMED_POSITIONS.has(node.kind)) return;
     const name = tailName(node);
     if (name && aggregates.includes(name)) found = name;
     else ts.forEachChild(node, walk);
@@ -150,7 +182,16 @@ function mentionsAggregate(type, aggregates) {
  * consumer naming the alias, left the real tree GREEN. The allowlist exempts a file from having its
  * REFERENCES counted; it never had a reason to exempt it from the rename ban.
  */
-export function findAggregateAliases(content, fileName, aggregates, { allowlisted = false } = {}) {
+function isExported(node) {
+  return (node.modifiers ?? []).some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
+}
+
+export function findAggregateAliases(
+  content,
+  fileName,
+  aggregates,
+  { allowlisted = false, carveOuts = new Set() } = {},
+) {
   const sourceFile = ts.createSourceFile(fileName, content);
   const aliases = [];
   const note = (aggregate, alias, node, form) => {
@@ -159,11 +200,17 @@ export function findAggregateAliases(content, fileName, aggregates, { allowliste
   };
   // Inside an allowlisted file the aggregate may be NAMED — that is the whole reason each entry
   // exists — but a name it MINTS is a second handle on the surface that nothing downstream counts.
-  // The two places a declaration can mint one are a type alias's right-hand side and a heritage
-  // clause; a member's type is a use, not a new name, which is why `ISystemCommand.execute(context:
-  // ICommandHostContext)` and `ReturnType<ICommandSessionRuntime['getPermissionMode']>` are left
-  // alone. Verified against the tree at the time of writing: zero such declarations in the ten
-  // allowlisted files, so this rule starts at zero rather than being written around existing sites.
+  //
+  // An earlier revision applied this at two positions only, a type alias's right-hand side and a
+  // heritage clause, on the reasoning that "a member's type is a use". Review measured that costing
+  // three routes, each taking the whole 46-member surface with the ratchet unmoved: a member type
+  // reached as `IHostBox['it']`, an exported const reached as `typeof theHost`, and a generic
+  // default reached as `IBox['it']`. The reasoning was right and the implementation was positional:
+  // what makes `execute(context: I)` harmless is not that it is a member, it is that nothing outside
+  // can address the aggregate THROUGH it. {@link mentionsAggregate} skips exactly those consumed
+  // positions and inspects everything else.
+  //
+  // Verified against the tree at the time of writing: zero findings across the ten allowlisted files.
   const renamedBy = (type) =>
     allowlisted ? mentionsAggregate(type, aggregates) : directlyNamedAggregate(type, aggregates);
   const visit = (node) => {
@@ -185,6 +232,42 @@ export function findAggregateAliases(content, fileName, aggregates, { allowliste
         for (const type of clause.types ?? []) {
           const aggregate = renamedBy(type);
           if (aggregate) note(aggregate, node.name.text, type, 'an interface that extends it');
+        }
+      }
+      // Members and generic defaults, in an allowlisted and EXPORTED declaration only.
+      // `IHostBox['it']` and `IBox['it']` address the aggregate from outside just as an alias does
+      // — but only if the declaration carrying them is exported. Requiring `export` is not a
+      // loosening: an unexported declaration mints no handle anything outside the file can reach,
+      // which is the whole property this rule is about.
+      if (allowlisted && isExported(node)) {
+        for (const member of node.members ?? []) {
+          const aggregate = renamedBy(member);
+          const alias = `${node.name.text}.${member.name?.text ?? '?'}`;
+          if (aggregate && !carveOuts.has(`${fileName}#${alias}`)) {
+            note(aggregate, alias, member, 'a member type');
+          }
+        }
+        for (const parameter of node.typeParameters ?? []) {
+          // `defaultType`, NOT `default` — see the divergence list in `lib/ts-ast.mjs`. Reading
+          // `.default` answered `undefined` for every type parameter, so this rule was written and
+          // shipped unable to fire; `forEachChild` does not descend into it either, so a generic
+          // walk would not have saved it. Caught by falsifying the route rather than by review.
+          const aggregate = renamedBy(parameter.defaultType);
+          if (aggregate) {
+            note(aggregate, node.name.text, parameter, 'a generic parameter default');
+          }
+        }
+      }
+    }
+    // An exported `const` typed as the aggregate is addressable as `typeof theHost`. A LOCAL one is
+    // not, which is why the export check matters here too: both doubles build their answer as
+    // `const base: IAggregate = { … }` inside the factory, and that is the cast-free conformance
+    // the doubles exist to provide, not a handle anything can reach.
+    if (allowlisted && ts.isVariableStatement(node) && isExported(node)) {
+      for (const declaration of node.declarationList?.declarations ?? []) {
+        const aggregate = renamedBy(declaration.type);
+        if (aggregate) {
+          note(aggregate, declaration.name?.text ?? '?', declaration, 'a typed binding');
         }
       }
     }
@@ -324,6 +407,12 @@ export function collectAggregateNaming(
   const settings = config.aggregateNaming ?? {};
   const aggregates = settings.aggregates ?? [];
   const allowlist = new Set((settings.allowlist ?? []).map((entry) => entry.file));
+  // Named, reasoned exceptions to the mint rule, in the same idiom as `rolePortOptionals.carveOuts`.
+  // There are two, both on the doubles' own options bags, and they are listed rather than designed
+  // around: an options type for a conformant double necessarily names the contract it doubles.
+  const renameCarveOuts = new Set(
+    (settings.renameCarveOuts ?? []).map((entry) => `${entry.file}#${entry.declaration}`),
+  );
 
   const counts = new Map(aggregates.map((name) => [name, { references: 0, files: new Map() }]));
   const declaredIn = new Map(aggregates.map((name) => [name, []]));
@@ -350,6 +439,7 @@ export function collectAggregateNaming(
     // `IHostAll`, left the scan green at its frozen baseline.
     for (const alias of findAggregateAliases(content, file, aggregates, {
       allowlisted: allowlist.has(file),
+      carveOuts: renameCarveOuts,
     })) {
       aliasFindings.push({
         rule: 'aggregate-renamed',
@@ -373,7 +463,11 @@ export function collectAggregateNaming(
   return { counts, examined, aliasFindings, declaredIn };
 }
 
-export function findAggregateNamingFindings(root = process.cwd(), config = loadHarnessConfig()) {
+export function findAggregateNamingFindings(
+  root = process.cwd(),
+  config = loadHarnessConfig(),
+  files,
+) {
   const settings = config.aggregateNaming ?? {};
   const aggregates = settings.aggregates ?? [];
   if (aggregates.length === 0) {
@@ -397,7 +491,11 @@ export function findAggregateNamingFindings(root = process.cwd(), config = loadH
   // Fail CLOSED over a root without the governed tree: a scan that reported "no findings" for a
   // tree it never read is indistinguishable from a clean repo, and this is the floor the design
   // marks load-bearing.
-  const { counts, examined, aliasFindings, declaredIn } = collectAggregateNaming(root, config);
+  const { counts, examined, aliasFindings, declaredIn } = collectAggregateNaming(
+    root,
+    config,
+    files ?? trackedSources(root),
+  );
 
   let baseline = {};
   try {
@@ -408,20 +506,30 @@ export function findAggregateNamingFindings(root = process.cwd(), config = loadH
 
   const findings = [...aliasFindings];
 
-  // The ratchet's subject must exist. A count of 0 for an aggregate nothing declares is not a
-  // finished migration — it is a check with no subject, and it reads identically to success.
+  // The ratchet's subject must exist AT ITS DECLARATION SITE. A count of 0 for an aggregate nothing
+  // declares is not a finished migration — it is a check with no subject, and it reads identically
+  // to success.
+  //
+  // "Declared somewhere in the tree" is not enough, and review measured why: renaming the real
+  // aggregate and dropping a bare `interface ICommandHostContext {}` into an unimported `.d.ts`
+  // satisfied the predicate and the scan went green against a frozen baseline. A decoy declaration
+  // is a cheaper evasion than any of the rename routes. The allowlist already names each real
+  // declaration site with a reason of the form "Declares X as an empty `extends` over its role
+  // ports", so the site is pinned rather than merely counted.
+  const allowlistedFiles = new Set((settings.allowlist ?? []).map((entry) => entry.file));
   for (const [aggregate, homes] of declaredIn ?? []) {
-    if (homes.length === 0) {
-      findings.push({
-        rule: 'aggregate-declaration-missing',
-        aggregate,
-        detail:
-          `${aggregate} is guarded by this ratchet but is declared nowhere in the scanned tree. ` +
-          `Its reference count falls to 0 either because every consumer migrated or because the ` +
-          `subject stopped existing under that name, and those read identically — so the second is ` +
-          `a finding. Update aggregateNaming.aggregates if the rename was intended.`,
-      });
-    }
+    const atSite = homes.filter((file) => allowlistedFiles.has(file));
+    if (atSite.length > 0) continue;
+    findings.push({
+      rule: 'aggregate-declaration-missing',
+      aggregate,
+      detail:
+        `${aggregate} is guarded by this ratchet but is declared in no allowlisted declaration site ` +
+        `${homes.length > 0 ? `(found only in ${homes.join(', ')}, which the allowlist does not name) ` : '(declared nowhere in the scanned tree) '}` +
+        `— so its reference count measures nothing. A count falls either because every consumer ` +
+        `migrated or because the subject stopped existing under that name, and those read ` +
+        `identically. Update aggregateNaming.aggregates and its allowlist if the move was intended.`,
+    });
   }
 
   for (const [aggregate, bucket] of counts) {
