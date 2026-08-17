@@ -1,7 +1,8 @@
 ---
 title: 'CORE-043: structured-output capability has no representation the runtime reads — agent-core emits `responseFormat` unconditionally, each provider silently maps or discards it, the seam cannot tell which, and the fact is a property of the instantiated PACKAGE rather than the endpoint and model actually called, so the documented gateway configuration reports enforcement it does not have'
-status: in-progress
+status: done
 created: 2026-08-16
+completed: 2026-08-17
 priority: critical
 urgency: now
 area: packages/agent-core, packages/agent-provider-openai, packages/agent-provider-anthropic, packages/agent-provider-openai-compatible, packages/agent-provider-gemini, packages/agent-provider-replay, packages/agent-session
@@ -10,8 +11,8 @@ depends_on: [PROV-007, PROV-006, PROV-008]
 
 # CORE-043: structured-output capability is not represented at runtime
 
-Root item filed under [finding-depth.md](../rules/finding-depth.md) for the `DEPTH: FOUNDATIONAL`
-verdict on [CORE-038](completed/CORE-038-forced-tool-call-as-structured-output-fallback-transport.md)
+Root item filed under [finding-depth.md](../../rules/finding-depth.md) for the `DEPTH: FOUNDATIONAL`
+verdict on [CORE-038](CORE-038-forced-tool-call-as-structured-output-fallback-transport.md)
 (2026-08-16). Registered as [issue #1750](https://github.com/woojubb/robota/issues/1750); the
 proposal it was raised from is [issue #1738](https://github.com/woojubb/robota/issues/1738).
 CORE-038 proposed a transport (forced tool call instead of a prose re-prompt); the
@@ -119,7 +120,7 @@ published-contract change, semver/changeset gate."
 > `3.0.0-beta.79`. There has never been a stable release, so no consumer holds a compatibility claim
 > against any of these surfaces.
 >
-> [code-quality.md](../rules/code-quality.md) already says so twice as an owner directive: cost,
+> [code-quality.md](../../rules/code-quality.md) already says so twice as an owner directive: cost,
 > scale and churn "are NOT reasons to prefer a lesser design ... **(unreleased — no backward-compat
 > constraint)**" (`:50`), and "**Legacy is disposable in service of the correct structure** ...
 > Pre-release, existing files, rules, packages, or names are not preserved for their own sake"
@@ -259,3 +260,24 @@ Also corrected along the way: `execution-round-provider.ts` used the caller's hi
 cache key; it now keys on what was actually sent. And the Anthropic 429→`RateLimitError` mapping
 existed character-for-character on both the streaming and non-streaming paths — extracted to
 `anthropic/errors.ts`, since two copies of a taxonomy decision is how PROV-004's drift starts.
+
+## Scope of the transport report (PROV-009)
+
+[PROV-009](../PROV-009-provider-packages-shape-requests-outside-any-core-seam.md) requires this item to
+scope its report claim to the core turn path until that boundary rule lands, and it is right to. The
+`structured_output_transport` event describes **what core supplied**, not everything the request
+carried. `@robota-sdk/agent-provider-openai` publishes `responseFormat` / `jsonSchema` as
+construction-time options and merges them with the per-call ones in
+`packages/agent-provider-openai/src/openai/openai-request-format.ts` — the per-call value wins, so a
+request core shaped is reported correctly. The gap is the turn core does not shape at all: a run
+without `output` resolves no transport and emits no event, yet a provider constructed with
+`responseFormat: 'json_schema'` still puts `response_format` on the wire. (Note the case this is NOT:
+`mechanism: 'none'` cannot arise for that provider, which declares no capability table at all, so
+every structured turn against it resolves `response_schema` / `undeclared`.) Recorded in
+`packages/agent-core/docs/SPEC.md` under the Structured Output Contract; widening the report to cover
+that channel is PROV-009's to decide, not this item's to assume.
+
+Also correcting an assertion this item's design made: it claimed the constructor caller set for those
+options was "verified empty". It is not — the sweep that produced it excluded `*.test.*`, and
+`packages/agent-provider-openai/src/openai/provider.test.ts` constructs the provider with
+`responseFormat: 'json_schema'` and asserts the mapping. PROV-009 caught it.

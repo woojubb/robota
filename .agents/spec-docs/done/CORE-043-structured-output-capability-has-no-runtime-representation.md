@@ -1,12 +1,12 @@
 ---
-status: draft
+status: done
 type: DATA
 tags: [typescript, json-schema]
 ---
 
 # CORE-043: structured-output capability is not represented at runtime
 
-Design for Task [`.agents/tasks/CORE-043-structured-output-capability-has-no-runtime-representation.md`](../../tasks/CORE-043-structured-output-capability-has-no-runtime-representation.md)
+Design for Task [`.agents/tasks/completed/CORE-043-structured-output-capability-has-no-runtime-representation.md`](../../tasks/completed/CORE-043-structured-output-capability-has-no-runtime-representation.md)
 (issue [#1750](https://github.com/woojubb/robota/issues/1750)), the root item for CORE-038 / issue
 [#1738](https://github.com/woojubb/robota/issues/1738).
 
@@ -1229,6 +1229,23 @@ actually changes, not whether the number went up or down.
 - **TC-08** PROV-006 is closed: all six `TProviderModelCapability` flags resolve through the step-1
   seam, and the deepseek `supportsTools()`-vs-catalog contradiction is gone as a consequence rather
   than as a separate fix.
+
+## User Execution Test Scenarios
+
+Both scenarios are `agent-executable` and provider-free — no API key, no network, no live credential.
+They were authored before implementation and executed against the landed change; the full observed
+output is recorded as the gate evidence in
+[the Task](../../tasks/completed/CORE-043-structured-output-capability-has-no-runtime-representation.md#user-execution-test-scenarios),
+which is the SSOT for the evidence and is not duplicated here.
+
+| #   | Command                                                                                      | Expected observable result                                                                                                                                                                                                                           | Outcome |
+| --- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| 1   | `cd scratch && node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-043-s1.ts` | A structured `run` against a provider whose capability is `json_object` resolves in ONE provider call, the wire option is downgraded from `json_schema`, and the schema is stated to the model on attempt one.                                       | PASS    |
+| 2   | `cd scratch && node ../node_modules/tsx/dist/cli.mjs --conditions=source src/core-043-s2.ts` | The real `OpenAIProvider` reports `endpointIsVendorDefault()` as `false` behind a configured `baseURL` while declaring no capability table, and a structured turn emits a `structured_output_transport` event naming what the request actually sent. | PASS    |
+
+The end-to-end gateway half is deliberately not claimed: scenario 2 proves the provider reports the
+gateway honestly, which is the part this repository owns. What an arbitrary gateway does with the
+parameter is not ours to assert.
 
 ## Evidence Log
 
