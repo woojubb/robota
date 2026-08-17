@@ -286,3 +286,222 @@ of the detector mis-read `TActionResponse as TUserActionResponse` as dead when i
 in one PR is a pattern, not bad luck. A warning-COUNT ratchet — frozen at today's 1927, may fall,
 never rise — is the neutral mechanism that would have caught all eight, and it is filed as HARNESS-070
 rather than added here, because this change is already carrying one new scan.
+
+## Implementation — stage 2 of 3
+
+The item's Test Plan opens with a **required red-first regression**: _"assert that every field of
+`IResolvedPresetOptions` reaches the constructed session — i.e. make the type's own claim
+mechanical."_ That is stage 2's deliverable, and it now exists as
+`scripts/harness/scan-preset-projection.mjs`. It went red on the current tree with **10 findings**
+before any exemption was written, which is the demonstration the plan asks for.
+
+### What it measures, and the two things it does NOT
+
+A resolved preset reaches a session through exactly two DECLARED shapes, and both are hand-written
+subsets of the 19-field source with nothing tying them to it: `IPresetApplicationOptions` (10 fields,
+the live `/preset` path) and `IPresetSurfaceOptions` (7 members, 6 of them preset fields — `activePresetId`
+is the preset's id, not one of its options; the startup path). So the scan asks
+two questions no reader can answer by inspection — is every source field declared in some projection,
+and do the two surfaces agree.
+
+Two corrections were forced by measuring rather than reasoning, and both are recorded because each
+would have made the floor lie:
+
+1. **A `Pick` of the source is a projection.** The first run reported the command-module group as a
+   startup/live divergence. It is not: `robota-plumbing.ts` projects it through
+   `Pick<IResolvedPresetOptions, 'enabledCommandModules' | 'disabledCommandModules'>`, which is the
+   _better_ form — it is derived from the source, so renaming a field stops compiling. Calling a real
+   projection a defect is how a floor gets allowlisted into silence.
+2. **"Undeclared" is not "dropped".** The first messages said an undeclared field was "resolved,
+   validated, and then discarded". That is false for `model`: `cli.ts:262` computes
+   `resolvedPreset.model ?? providerSettings.model` and threads it to all three construction sites, so
+   the value does reach the session — it is HAND-MAPPED rather than declared, which is this item's
+   cause rather than its exception. Answering "is this field read anywhere" instead would need the
+   type checker, because the value arrives in `cli.ts` as `preset.options` through an interface
+   member. The rule was narrowed to what it can decide instead of left claiming more than it knows.
+
+### The measurement
+
+Ten findings, all real: **6 undeclared** (`systemPrompt`, `appendSystemPrompt`, `language`,
+`defaultTrustLevel`, `allowedTools`, `deniedTools`) and **4 surface divergences** (`model`,
+`temperature`, `maxOutputTokens`, `agentName`).
+
+`agentName` is the one nobody had named, and it runs the OPPOSITE way to `effort`: startup declares it
+and the live path does not, so starting with a preset sets the agent name while switching to the same
+preset mid-session leaves the old one.
+
+`autonomy` and `defaultPermissionMode` are **not** findings — both are derivation inputs that
+`resolvePreset` promotes into `permissionMode` (`resolve-preset.ts:238-242`, verified at those lines,
+not taken from the docblock), so a second projection would be a second answer to one question.
+
+### What stage 2 does NOT close
+
+Every one of the ten needs a decision with user-visible consequences that this scan cannot make and
+this task file does not answer — the merge order for prompt text, where the `?? providerSettings.model`
+fallback lives, whether a preset tool allowlist composes or replaces, whether `/preset` renames the
+agent mid-session. Guessing at those inside a change whose subject is "nothing checks this" would be
+the same defect one level up.
+
+They are therefore recorded as **named, expiring exemptions** in `presetProjection.pendingProjection`,
+one entry per field with its own reason and what would resolve it — not an opaque count. A stale entry
+is reported as `preset-exemption-unused`, and emptying the list turns the floor red with all ten, which
+was verified. The decisions are filed as [#1820](https://github.com/woojubb/robota/issues/1820).
+
+Also measured and filed there: `buildAppendSystemPrompt` has exactly ONE caller
+(`print-mode.ts:91`), so `--task-file`, `--json-schema` and `--append-system-prompt` are silently
+ignored in interactive TUI and serve mode — the red-first CLI-flag case the Test Plan names.
+
+The `IResolvedPresetOptions` doc comment still claims every field maps to an existing seam. It is
+false for five of them and is deliberately left in place, on the same reasoning stage 1 recorded:
+changing the words without changing the fact is the defect, not the fix.
+
+### Review round 1 — five findings, two of them MUST, all applied
+
+An independent review attacked the scan rather than the fields, which is where the risk was. What it
+found, and why each mattered:
+
+- **Heritage was invisible in BOTH directions.** `declaredFields` read only `node.members`, so moving
+  two brand-new fully-unprojected fields onto a base interface the SOURCE extends left the floor
+  **green with nothing reported**. And because `pickedFields` matched only a type reference, rewriting
+  the startup surface as `extends Pick<IResolvedPresetOptions, …>` — the exact derived-from-source
+  form this scan's own header calls "the BETTER form" — produced **five false divergences**. A floor
+  that blocks the refactor it exists to encourage gets removed, not obeyed. Both are fixed: heritage
+  is followed, and a name it cannot follow is reported rather than read as a narrower type.
+
+- **The burn-down did not expire when the work was DONE.** Entries were keyed on the field name
+  alone, so an exemption lapsed only if the field was DELETED — never when it was resolved. All four
+  state changes on a pending field printed green. That made it, as the review put it, a baseline with
+  extra words, and stage 1's sibling scan already had the missing half. Each entry now records the
+  surfaces it was measured on (`declaredOn`) and a live state differing in EITHER direction is
+  reported: gaining a declaration means the exemption is earned out, losing one means the exemption
+  was hiding a regression.
+
+- **`pendingProjection` had zero test coverage** while carrying all ten live findings, and the first
+  commit message claimed "18 unit cases assert each rule in both directions" — untrue of the one rule
+  standing between this floor and red. Now covered in both directions, plus scope (an exemption
+  covers the field it names and nothing else).
+
+- **A comment asserted a report that did not exist.** It said a `Pick` whose keys cannot be read "is
+  REPORTED by the caller"; nothing reported it, so unreadable and empty printed the same. That is the
+  same defect class this whole floor is about, inside its own docblock. The report now exists.
+
+- **`Omit` and aliased imports were unrecognised**, so both produced false findings; and the header
+  said "20-field source" where the source declares **19**. The count was wrong in three places and is
+  corrected from the mechanism rather than re-copied.
+
+One further defect surfaced from the fix itself, caught by a new unit case rather than by reading:
+the cheap file-reject tested only for `Pick<`, so every `Omit<` projection was skipped before it was
+ever parsed — the filter silently narrowed the scan to half the forms it claimed to support.
+
+### Review round 2 — two more, both in the resolution layer
+
+The round-1 fixes were verified by mutation rather than by reading, and two new defects surfaced,
+both of the same shape as round 1's:
+
+- **Name resolution was scope-blind.** Every `interface` at any nesting depth was collected, keyed
+  only by name, so the walk read a WIDER type than the compiler — and wider MASKS findings, which is
+  the direction that prints as progress. A nested `interface IStartup { b }` inside a function body
+  made `b` count as declared by the configured surface; combined with an external `extends`, the same
+  nested declaration also CANCELLED the fail-closed report that should have fired, turning a signal
+  into a silent pass with the wrong type. Only top-level declarations are collected now: a nested or
+  namespaced one is a different scope, and a namespaced surface reports "not declared" rather than
+  being guessed at.
+
+- **Round 1's MUST recurred one level in.** The alias map added in round 1 lived only in
+  `pickedFields`, so the heritage walk called `pickFromType` without it and a surface written as
+  `extends Pick<AliasedSource, …>` produced a FALSE unresolved report — the recommended derived form
+  plus an aliased import, still red. The collector is extracted and shared, so the two readers cannot
+  drift apart again.
+
+Three further gaps, each closed: an exemption recorded truthfully for a field with NO defect left was
+permanent and silent (gaming the burn-down by telling the truth), so "declared on every surface" now
+expires too; a one-for-one SWAP between surfaces was reported as a loss because the direction was
+chosen by list LENGTH rather than by set difference, when a move is precisely the divergence shape
+this floor exists to catch; and `extends Partial<ISource>` was reported as "a base interface declared
+in another file", sending the reader to look for a file that declares `Partial`.
+
+The `unresolved` diagnostic was returned as a non-enumerable property on the field array. Review
+measured it surviving `.sort()` but vanishing silently through `.filter()`, `.map()` and spread — so
+losing it took one ordinary refactor, and it failed in the direction this floor's own thesis names.
+It is a record now; losing it requires deleting code.
+
+### Review round 3 — one live defect, and one wrapper too narrow
+
+- **A comparison the scan could not make was answered anyway.** The pending-state rules compared the
+  live projection against the surfaces successfully READ rather than the surfaces CONFIGURED.
+  Measured on the real tree: renaming one surface produced the correct
+  `preset-projection-surface-missing` PLUS four false findings — three instructing the reader to
+  delete live exemptions for fields still one-sidedly declared, and one claiming a field had lost a
+  declaration nothing had touched. The run was red either way, so this was never a fail-open; it was
+  a message asserting a conclusion the scan had, one finding earlier, declared it could not reach.
+  Those rules are now SKIPPED when any surface is unreadable, and the skip says so
+  (`preset-pending-state-unknowable`). The same mutation now yields exactly two findings and zero
+  false instructions.
+
+- **Identity-preserving wrappers were treated as unresolvable.** `Readonly`, `Required` and `Partial`
+  preserve the key set exactly, so `extends Readonly<IResolvedPresetOptions>` is a fully correct
+  derived surface — and it was maximally red. That is round 1's MUST one wrapper over: a floor
+  blocking the refactor it exists to encourage. They resolve to the source's own field list now, and
+  a wrapper still NOT modelled continues to fail closed.
+
+Two wording defects closed with them: a namespaced surface was reported as "declares no interface
+named X", which is false — it is declared, just not at module scope — and `declaredFields`' docblock
+had been stranded above the helper inserted in round 2, still stating a contract the function no
+longer had.
+
+The two readers deliberately disagree about scope, and that is now stated in the header rather than
+left to be discovered: `declaredFields` collects module-scope declarations only, because a nested
+`interface` is a scope TypeScript does not merge; `pickedFields` walks recursively, because a `Pick`
+written inside a function body is a real projection of real code. One asks which declaration exists,
+the other which fields something consumes.
+
+**A second wrong expectation of my own, recorded for the same reason as the first.** Rewriting the
+real startup surface as `extends Readonly<IResolvedPresetOptions>` is RED with 11 findings, and I had
+predicted green. The scan is right: that wrapper genuinely widens the startup projection from 6
+preset fields to all 19, which changes nine recorded states and creates two real divergences. Zero of
+the eleven are `heritage-unresolved`, which is what proves the resolution itself works. The
+fixture-level test is the correct proof of the mechanism; the real-tree probe measures a different
+thing, and conflating them is how a correct scan gets "fixed".
+
+### Review round 4 — zero actionable, and the round-1 objection closed on measurement
+
+Three wording/seam NITs, all applied. Splitting the identity wrappers into their own set had
+reintroduced round 3's wording defect for exactly those three names when they wrap something OTHER
+than the source; and the identity-wrapper and `Omit` branches both returned an EMPTY projection when
+called without the source's field list — absence and unreadability printing the same, on the exported
+seam, in the file whose thesis is that they must not. Unreachable from `main()`, but a trap is still
+a trap. The fully-projected comparison now reads `surfaces.length` directly so its invariant is local
+rather than remembered ten lines away.
+
+The reviewer's round-1 objection — that the burn-down was "half honest", a baseline with reasons
+attached — is withdrawn on re-measurement rather than on agreement. An entry now expires in **five**
+independent directions, each verified by mutation: the field gains a declaration, loses one, moves
+between surfaces, becomes declared on every configured surface, or is deleted from the source. And
+when the comparison cannot be made the scan says so instead of guessing. That is a stronger contract
+than stage 1's sibling scan, which ratchets a count; this ratchets a named per-field state.
+
+One honest residual, recorded rather than closed: nothing mechanically resists `pendingProjection`
+GROWING. A future undeclared field goes red, and the cheapest green is a new entry with a reason.
+That is human-reviewed only, where stage 1 freezes a baseline file. It meets the standard ARCH-029
+converged on — named, expiring, visible in the diff — so it is a follow-up rather than a blocker, and
+it is written here so the next person does not have to rediscover it.
+
+**A probe-reading trap all three of us hit, worth writing where the next person will find it.** A
+fixture asks _"does the rule fire"_. A real-tree mutation asks _"is the tree still true"_. A mutation
+that changes the tree's MEANING — the reviewer's `Omit` rewrite, my `Readonly` rewrite, my nested
+decoy — is answering the second while you are reading it as the first. Each time, the scan was right
+and the expectation was wrong. Conflating the two is how a correct scan gets "fixed".
+
+### Falsification
+
+The scan was mutated against the real tree before being trusted, because a floor that cannot fail is
+worse than none — this repo has shipped two of those (`questionToken`, `.default`), both caught this
+way rather than by reading. Removing the real `Pick` returns the two command-module findings; adding
+`temperature` to the startup surface drops the count by one; renaming the source interface fails
+closed with `preset-projection-source-missing` rather than passing. 18 unit cases assert each rule in
+both directions.
+
+### Remaining — stage 3
+
+Unchanged: `guardrails` and `retrievalAdapter`, both advertised capabilities (SELFHOST-005,
+SELFHOST-003) that no surface can turn on, plus the two unbridged `guardrails` shapes.

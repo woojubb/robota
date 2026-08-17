@@ -134,6 +134,14 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'ARCH-029 marks this the load-bearing floor — a god contract is fixed only when consumers stop NAMING it, and this is the only thing that measures that. Over a root with no packages there is nothing to name, and "0 references" reads exactly like "the decomposition landed" — which is the state REFACTOR-006 shipped while the facade survived untouched',
   },
   {
+    // Measured as this harness calls it — `findPresetProjectionFindings(bare)`: throws
+    // `preset-projection: … missing from <root>`.
+    file: 'scan-preset-projection.mjs',
+    finder: 'findPresetProjectionFindings',
+    tree: 'packages',
+    why: 'it judges whether every resolved-preset field reaches a projection surface; over a root with no packages there is no surface to read, and "no unprojected fields" reads exactly like a finished projection — while the defect it exists to catch is six fields resolved, validated and discarded, and four more that one path applies and the other drops',
+  },
+  {
     // Measured: `findRolePortOptionalFindings(bare)` throws
     // `role-port-optionals: packages/agent-framework/src/command-api/host-context.ts missing from <root>`.
     file: 'scan-role-port-optionals.mjs',

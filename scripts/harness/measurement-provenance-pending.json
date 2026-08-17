@@ -15,6 +15,7 @@
     "scripts/harness/scan-memory-mirror.mjs",
     "scripts/harness/scan-no-fake-in-src.mjs",
     "scripts/harness/scan-node-version-single-valued.mjs",
+    "scripts/harness/scan-preset-projection.mjs",
     "scripts/harness/scan-product-identity.mjs",
     "scripts/harness/scan-role-port-optionals.mjs",
     "scripts/harness/scan-spec-user-execution-section.mjs",
