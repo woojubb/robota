@@ -103,11 +103,38 @@ no local peers and no directory permissions to judge.
 | `admitLocalPeerDirectory` | function | Establish that a rendezvous directory is user-owned and mode 0700 — the evidence the kernel enforces.    |
 | `admitLocalPeerSocket`    | function | The same, plus the socket path resolving INSIDE that directory.                                          |
 | `refuseLocalPeer`         | function | Build a refusal in one place, so no call site can construct an admitted-looking result without evidence. |
+| `RendezvousGrantLedger`   | class    | The single-use, time-bounded, revocable grants that carry the rendezvous proof onto the channel.         |
+| `DEFAULT_GRANT_TTL_MS`    | const    | How long a grant stays admissible (30s — a channel handshake, not a session).                            |
 
 **What this proves, and what it does not.** Reaching a socket inside a 0700 user-owned directory
 means the peer is on this machine as this user, because the kernel refuses the traversal to anyone
 else — the evidence is not an artifact the peer supplies, so there is nothing to copy. It does NOT
 distinguish two processes of the same user; the boundary is the account.
+
+**Why the grant ledger is part of the proof rather than a convenience.** The directory check
+establishes the environment at the RENDEZVOUS, but the session's messages travel over a different
+carrier. Without a binding, a peer could pass the kernel's check at the socket and then hand the
+channel to somebody else, and the admission would still read `same-user-same-host` — the environment
+proof would be true and useless. The ledger issues a nonce at the rendezvous that the channel's
+pairing confirmation must present back.
+
+Its lifetime rules are the security properties, not bookkeeping:
+
+- **Single use.** A nonce honoured twice has become a copyable credential — the exact failure SEC-010
+  exists to prevent. A presentation spends the value even when the presentation is then refused,
+  so probing does not preserve it for a later real attempt.
+- **Bounded window.** Admission expires, so a value left in a log or a crashed process is not a
+  standing invitation.
+- **Revocation is the entry.** `revokeRendezvous` ends admissibility for everything a departing
+  session handed out.
+- **Deterministic under concurrency.** Two peers presenting one nonce cannot both win; the loser is
+  refused rather than queued, because a race resolved by timing is a decision nobody made.
+
+A replay is reported as `replayed` rather than folded into `unknown`. The usual argument for merging
+them — not telling a prober which values once existed — does not apply at this boundary: the only
+party who can reach this rendezvous already passed the kernel's check as this user, and could read
+the process's memory outright. An operator who cannot distinguish a replay from a slow peer cannot
+act on either.
 
 `SO_PEERCRED` would have been the more direct reading, and it is unavailable: Node exposes no
 peer-credential accessor on a connected socket handle (measured). Building on it would have produced
