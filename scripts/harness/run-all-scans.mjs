@@ -556,6 +556,15 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-role-port-optionals.mjs'],
   },
   {
+    // ARCH-013 stage 2: a resolved-preset field must reach a declared projection surface, and the
+    // startup and live-/preset surfaces must agree. Stage 1's scan-option-reachability covers the
+    // LAST hop of the same chain (a declared session option nothing assigns); this covers the FIRST.
+    // The divergence half is the `effort` class: a field one path applies and the other drops means
+    // one session holds two answers for the same preset depending on when it was chosen.
+    name: 'preset-projection',
+    command: ['node', 'scripts/harness/scan-preset-projection.mjs'],
+  },
+  {
     name: 'literal-cast-union',
     command: ['node', 'scripts/harness/scan-literal-cast-union.mjs'],
   },

@@ -286,3 +286,84 @@ of the detector mis-read `TActionResponse as TUserActionResponse` as dead when i
 in one PR is a pattern, not bad luck. A warning-COUNT ratchet — frozen at today's 1927, may fall,
 never rise — is the neutral mechanism that would have caught all eight, and it is filed as HARNESS-070
 rather than added here, because this change is already carrying one new scan.
+
+## Implementation — stage 2 of 3
+
+The item's Test Plan opens with a **required red-first regression**: _"assert that every field of
+`IResolvedPresetOptions` reaches the constructed session — i.e. make the type's own claim
+mechanical."_ That is stage 2's deliverable, and it now exists as
+`scripts/harness/scan-preset-projection.mjs`. It went red on the current tree with **10 findings**
+before any exemption was written, which is the demonstration the plan asks for.
+
+### What it measures, and the two things it does NOT
+
+A resolved preset reaches a session through exactly two DECLARED shapes, and both are hand-written
+subsets of the 20-field source with nothing tying them to it: `IPresetApplicationOptions` (10 fields,
+the live `/preset` path) and `IPresetSurfaceOptions` (7 fields, the startup path). So the scan asks
+two questions no reader can answer by inspection — is every source field declared in some projection,
+and do the two surfaces agree.
+
+Two corrections were forced by measuring rather than reasoning, and both are recorded because each
+would have made the floor lie:
+
+1. **A `Pick` of the source is a projection.** The first run reported the command-module group as a
+   startup/live divergence. It is not: `robota-plumbing.ts` projects it through
+   `Pick<IResolvedPresetOptions, 'enabledCommandModules' | 'disabledCommandModules'>`, which is the
+   _better_ form — it is derived from the source, so renaming a field stops compiling. Calling a real
+   projection a defect is how a floor gets allowlisted into silence.
+2. **"Undeclared" is not "dropped".** The first messages said an undeclared field was "resolved,
+   validated, and then discarded". That is false for `model`: `cli.ts:262` computes
+   `resolvedPreset.model ?? providerSettings.model` and threads it to all three construction sites, so
+   the value does reach the session — it is HAND-MAPPED rather than declared, which is this item's
+   cause rather than its exception. Answering "is this field read anywhere" instead would need the
+   type checker, because the value arrives in `cli.ts` as `preset.options` through an interface
+   member. The rule was narrowed to what it can decide instead of left claiming more than it knows.
+
+### The measurement
+
+Ten findings, all real: **6 undeclared** (`systemPrompt`, `appendSystemPrompt`, `language`,
+`defaultTrustLevel`, `allowedTools`, `deniedTools`) and **4 surface divergences** (`model`,
+`temperature`, `maxOutputTokens`, `agentName`).
+
+`agentName` is the one nobody had named, and it runs the OPPOSITE way to `effort`: startup declares it
+and the live path does not, so starting with a preset sets the agent name while switching to the same
+preset mid-session leaves the old one.
+
+`autonomy` and `defaultPermissionMode` are **not** findings — both are derivation inputs that
+`resolvePreset` promotes into `permissionMode` (`resolve-preset.ts:238-242`, verified at those lines,
+not taken from the docblock), so a second projection would be a second answer to one question.
+
+### What stage 2 does NOT close
+
+Every one of the ten needs a decision with user-visible consequences that this scan cannot make and
+this task file does not answer — the merge order for prompt text, where the `?? providerSettings.model`
+fallback lives, whether a preset tool allowlist composes or replaces, whether `/preset` renames the
+agent mid-session. Guessing at those inside a change whose subject is "nothing checks this" would be
+the same defect one level up.
+
+They are therefore recorded as **named, expiring exemptions** in `presetProjection.pendingProjection`,
+one entry per field with its own reason and what would resolve it — not an opaque count. A stale entry
+is reported as `preset-exemption-unused`, and emptying the list turns the floor red with all ten, which
+was verified. The decisions are filed as [#1820](https://github.com/woojubb/robota/issues/1820).
+
+Also measured and filed there: `buildAppendSystemPrompt` has exactly ONE caller
+(`print-mode.ts:91`), so `--task-file`, `--json-schema` and `--append-system-prompt` are silently
+ignored in interactive TUI and serve mode — the red-first CLI-flag case the Test Plan names.
+
+The `IResolvedPresetOptions` doc comment still claims every field maps to an existing seam. It is
+false for five of them and is deliberately left in place, on the same reasoning stage 1 recorded:
+changing the words without changing the fact is the defect, not the fix.
+
+### Falsification
+
+The scan was mutated against the real tree before being trusted, because a floor that cannot fail is
+worse than none — this repo has shipped two of those (`questionToken`, `.default`), both caught this
+way rather than by reading. Removing the real `Pick` returns the two command-module findings; adding
+`temperature` to the startup surface drops the count by one; renaming the source interface fails
+closed with `preset-projection-source-missing` rather than passing. 18 unit cases assert each rule in
+both directions.
+
+### Remaining — stage 3
+
+Unchanged: `guardrails` and `retrievalAdapter`, both advertised capabilities (SELFHOST-005,
+SELFHOST-003) that no surface can turn on, plus the two unbridged `guardrails` shapes.

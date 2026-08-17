@@ -382,5 +382,82 @@
       "packages/agent-command",
       "packages/agent-framework"
     ]
+  },
+  "presetProjection": {
+    "$comment": "ARCH-013 stage 2: every IResolvedPresetOptions field must appear in a DECLARED projection — a surface interface member or a Pick of the source — and the startup and live-/preset surfaces must not diverge. Stage 1 covered the LAST hop of this chain (a declared ICreateSessionOptions key nothing assigns); this covers the FIRST. The divergence half is the `effort` class: a field one path declares and the other does not means one session can hold two answers for the same preset depending on when it was chosen.",
+    "source": {
+      "file": "packages/agent-preset/src/preset-types.ts",
+      "interface": "IResolvedPresetOptions"
+    },
+    "surfaces": [
+      {
+        "file": "packages/agent-framework/src/command-api/preset/preset-application.ts",
+        "interface": "IPresetApplicationOptions",
+        "role": "live /preset re-application",
+        "paths": [
+          "packages/agent-framework/src/command-api/preset/",
+          "packages/agent-command/src/preset/"
+        ]
+      },
+      {
+        "file": "packages/agent-cli/src/startup/preset-surface-options.ts",
+        "interface": "IPresetSurfaceOptions",
+        "role": "startup shell surfaces",
+        "paths": ["packages/agent-cli/src/", "packages/agent-product/src/"]
+      }
+    ],
+    "derivationOnly": [
+      {
+        "field": "autonomy",
+        "reason": "An INPUT to the permission-mode derivation, not a projected option. `resolvePreset` maps it through AUTONOMY_TO_PERMISSION_MODE into `permissionMode` (packages/agent-preset/src/resolve-preset.ts:241-242) before any surface sees the resolved object, so `permissionMode` carries its effect and a second projection would be a second answer to one question. Verified at that line, not assumed from the docblock."
+      },
+      {
+        "field": "defaultPermissionMode",
+        "reason": "The same derivation, one precedence step earlier: `resolvePreset` promotes it to `permissionMode` when no explicit `permissionMode` is set (packages/agent-preset/src/resolve-preset.ts:238-239). Precedence is explicit `permissionMode` > `defaultPermissionMode` > `autonomy` mapping, so all three collapse into the one field the surfaces project."
+      }
+    ],
+    "$pendingComment": "The burn-down. Each entry is a field this floor HAS measured as undeclared whose fix needs a decision this scan cannot make — recorded as a NAMED, EXPIRING exemption rather than an opaque count, because an exemption that is unnamed or non-expiring is indistinguishable from no floor. A stale entry is reported as `preset-exemption-unused`. This list may shrink and must never grow without a reviewed reason beside it. Tracked as GitHub issue #1820.",
+    "pendingProjection": [
+      {
+        "field": "model",
+        "reason": "NOT dropped — hand-mapped. `cli.ts:262` computes `resolvedPreset.model ?? providerSettings.model` and threads the result into all three construction sites, so the value reaches the session; what is missing is the DECLARED projection. Resolving it means moving the field onto IPresetSurfaceOptions, which requires deciding where the `?? providerSettings.model` fallback lives, because the surface is built after the model id is first needed (cli.ts:330 vs :262)."
+      },
+      {
+        "field": "temperature",
+        "reason": "Applied by the live /preset path via `applyModelOptions` (preset-application.ts), and by nothing at startup. Unlike `model` there is no `ICreateSessionOptions` seam at all — the value would have to reach the provider config, so this is a new seam rather than a re-declaration. Same class as `effort` before stage 1."
+      },
+      {
+        "field": "maxOutputTokens",
+        "reason": "Identical to `temperature`: live-only via `applyModelOptions`, no session-construction seam, needs a provider-config route. The two travel together in the model group and should be resolved together."
+      },
+      {
+        "field": "agentName",
+        "reason": "The REVERSE divergence, and the one nobody had named: startup declares it (IPresetSurfaceOptions) and the live /preset path does not, so starting with a preset sets the agent name while switching to the same preset mid-session leaves the old one. Resolving it needs a product decision — whether `/preset` should rename the agent mid-session — not just a seam."
+      },
+      {
+        "field": "systemPrompt",
+        "reason": "Declared on the source with no `ICreateSessionOptions` counterpart under any name (all 54 keys enumerated). The framework composes the system prompt through `systemPromptBuilder` and `appendSystemPrompt`, so honouring a preset-supplied full `systemPrompt` means deciding whether it REPLACES the composed prompt or seeds it — a semantic decision with user-visible consequences."
+      },
+      {
+        "field": "appendSystemPrompt",
+        "reason": "A session seam DOES exist (`ICreateSessionOptions.appendSystemPrompt`, projected by create-session-projection.ts), so the last hop is ready. The first hop is missing, and wiring it requires deciding the merge order against the CLI-sourced append text that `buildAppendSystemPrompt` produces — today that helper is called only from print-mode.ts, so `--task-file`/`--json-schema`/`--append-system-prompt` are themselves dropped in TUI and serve mode."
+      },
+      {
+        "field": "language",
+        "reason": "No session or assembly seam under any name. Whether a preset-declared language becomes a persona section, an appended instruction, or a provider parameter is undecided, and each choice is user-visible."
+      },
+      {
+        "field": "defaultTrustLevel",
+        "reason": "Measured fully dead by the ARCH-013 audit: validated by preset-validation and then read by nothing, with no seam anywhere. Removing an unconsumed public contract is a product decision rather than a grep result, so it stays declared and exempted until its owner decides between wiring it to the permission/trust axis and dropping it."
+      },
+      {
+        "field": "allowedTools",
+        "reason": "A session seam exists (`ICreateSessionOptions.allowedTools`) and create-session-projection.ts already forwards it from IInitOptions, so only the preset→surface hop is missing. Wiring it requires deciding how a preset allowlist composes with the session-level and pack-level tool sets rather than replacing them."
+      },
+      {
+        "field": "deniedTools",
+        "reason": "The denylist half of the same decision as `allowedTools`, and it must be resolved with it: an allowlist that composes and a denylist that replaces would contradict each other."
+      }
+    ]
   }
 }

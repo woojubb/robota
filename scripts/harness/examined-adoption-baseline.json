@@ -41,6 +41,7 @@
     "node-version-single-valued",
     "orchestration-map",
     "orchestration-neutrality",
+    "preset-projection",
     "product-identity",
     "progress-report-quantification",
     "publish-registry",
