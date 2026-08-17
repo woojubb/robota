@@ -87,6 +87,14 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Measured as `findWorkflowProvenanceFindings(bare)`: throws `governed tree(s) absent under
+    // <root>` before it can read which workflows are guarded.
+    file: 'scan-workflow-provenance.mjs',
+    finder: 'findWorkflowProvenanceFindings',
+    tree: '.github/required-status-checks.json',
+    why: 'the registry is the only statement of which workflows provide a required check; over a root without it the guarded set is empty, and "no workflow was edited" reads exactly like "the control plane was left alone" — while the exposure it tracks is that a pull request carries the YAML that judges it',
+  },
+  {
     // Measured as this harness calls it — `findDeclaredPinFindings(bare)`: throws
     // `governed tree(s) absent under <root>: package.json, packages`.
     file: 'scan-node-version-single-valued.mjs',
