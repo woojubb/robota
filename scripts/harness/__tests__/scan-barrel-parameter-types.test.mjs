@@ -660,3 +660,26 @@ describe('defects round-5 review constructed, and the behaviours nothing covered
     ]);
   });
 });
+
+describe('the closure guard, in both declaration forms', () => {
+  it('does not publish a closure-scoped CONST-ARROW under a top-level exported name', () => {
+    // The function-declaration half of this guard had a case; the variable-statement half did not,
+    // and a mutation removing its top-level check survived the suite. Same defect, other syntax.
+    const root = fixture('arch-037-closure-arrow-', {
+      [BARREL]: "export { f } from './impl.js';\n",
+      'packages/p/src/impl.ts':
+        'export interface IPublic {}\n' +
+        'export interface ISecret {}\n' +
+        'export function outer(): void {\n  const f = (x: ISecret): void => {};\n  f({});\n}\n' +
+        'const f = (a: IPublic): void => {};\n' +
+        'export { f };\n',
+    });
+
+    const { findings } = findBarrelParameterTypeFindings(root, settings());
+
+    expect(
+      findings.some((d) => d.detail.includes('ISecret')),
+      'a closure-scoped arrow signature was published',
+    ).toBe(false);
+  });
+});

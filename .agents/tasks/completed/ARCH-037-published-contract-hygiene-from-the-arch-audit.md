@@ -207,7 +207,7 @@ agent-framework-only; the rest of the scan still is.
 The new floor was mutated before being trusted: removing the `ICreateDefaultToolsOptions` export
 reddens it, reproducing ARCH-037's own defect-2 shape (deleting
 `ISubagentExecutionEnvelope` from `agent-executor`'s barrel) reddens it, and an empty barrel list
-fails closed. 45 unit cases assert each rule in both directions, including the two exclusions.
+fails closed. 46 unit cases assert each rule in both directions, including the two exclusions.
 
 The case count is the second half of the story, and the more important one. The first twelve cases
 shipped NON-LOAD-BEARING: review found the test file byte-identical across the commit that fixed the
@@ -216,14 +216,22 @@ const-arrow and default exports, overloads and the generic exclusion were all co
 Twelve more were added and each was RUN against that pre-fix reader before being kept: 11 fail there
 and pass here. (The twelfth guards a defect that existed only in an uncommitted revision, so it has
 no commit to be proved against; the test file says so rather than letting a reader assume otherwise.)
-Four more followed from round-3 review, ten from round-4 and seven from round-5, for 45.
+Four more followed from round-3 review, ten from round-4 and eight from round-5, for 46.
 
-The mutation claim needs the same care, because the previous version of this sentence — "nine
-single-point mutations, nine caught" — was itself an unverified count, and round-4 review refuted it
-by finding six survivors. Re-measured after adding cases for them: eight targeted mutations, eight
-caught, including the two the earlier sweep had missed through a broken mutation script (a shell
-quoting bug had silently turned two mutations into no-ops, so they "survived" without ever being
-applied). The lesson is the one this whole item keeps re-learning: a green result from a tool you
-wrote proves nothing until you have watched the tool go red.
+The mutation claim needs the same care, because two earlier versions of this sentence were wrong.
+"Nine single-point mutations, nine caught" was refuted by round-4 review, which found six survivors.
+The sweep behind it had a shell quoting bug that silently turned mutations into no-ops, so they
+"survived" without ever being applied — and the same bug recurred on the next sweep, reporting all
+37 mutations as survivors when none had been written to disk.
+
+The sweep now VERIFIES that each mutation reached the file before running the suite, and refuses to
+score one that did not. Final measurement: **37 single-point mutations of the scan, 37 caught by the
+46-case suite** — every skip, every guard, every module-resolution candidate, every declaration
+form, and the fail-closed empty-scope branch. One survivor found on the way (the closure guard's
+variable-statement half, which had a case only for its function-declaration half) has a case now.
+
+The lesson is the one this item kept re-learning across six review rounds: a green result from a
+tool you wrote proves nothing until you have watched that tool go red, and "I ran it" is not the
+same claim as "I checked it ran".
 
 Verified: 124 of 126 scans pass (2 skipped). agent-framework 1395 tests, agent-executor 104.
