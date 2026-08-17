@@ -202,15 +202,26 @@ function grepLines(args, what) {
 }
 
 async function checkBoundaryValidation(findings) {
-  // Scan for blind type assertions in production code (not tests)
+  // Scan for blind type assertions in production code (not tests).
+  //
+  // Word-anchored (issue #1803). Unanchored, `as any` matched INSIDE ordinary words — `w[as any]thing`,
+  // `h[as any] way` — so English prose in a docblock counted as a type assertion. That was not a rare
+  // edge: at the time this was anchored, BOTH files the unanchored pattern reported were comments, and
+  // the true count of blind `as any` assertions in production code under packages/ was zero. A detector
+  // whose entire measured population is false positives cannot be read as evidence of anything, and it
+  // punished writing the comment that explains the code.
+  //
+  // #1803 also covers a second false-positive class this does not fix: a REAL `as any` written inside a
+  // comment (quoting the pattern to explain it) still counts. That needs comment-stripping, not a
+  // boundary, so it stays open.
   const patterns = [
     {
-      regex: 'as any',
+      regex: '\\bas any\\b',
       type: 'blind-assertion-any',
       detail: 'Blind `as any` assertion in production code.',
     },
     {
-      regex: 'as unknown as',
+      regex: '\\bas unknown as\\b',
       type: 'blind-assertion-unknown',
       detail: 'Blind `as unknown as T` assertion in production code.',
     },

@@ -83,14 +83,16 @@ export class CompactionOrchestrator {
   /**
    * Run compaction — summarize the conversation to free context space.
    * @param provider - The AI provider to use for summarization
-   * @param history - Current conversation history
+   * @param history - The messages to summarise. Must not be empty: whether there is anything worth
+   *   compacting is the caller's judgement, made before it commits to replacing the conversation
+   *   (CORE-031).
    * @param instructions - Optional focus instructions for the summary
    * @param signal - The turn's cancellation signal (RUNTIME-004). Checked before the provider call
    *   and again after it: an abort throws rather than returning, so the caller's existing
    *   leave-history-untouched path covers a cancel as well as a failure.
    * @returns The generated summary string (always a non-empty string)
-   * @throws {CompactionError} when the provider returns a non-string or empty summary —
-   *   callers must leave the conversation history untouched in that case
+   * @throws {CompactionError} when `history` is empty, or when the provider returns a non-string or
+   *   empty summary — callers must leave the conversation history untouched in every such case
    */
   async compact(
     provider: IAIProvider,
@@ -99,13 +101,20 @@ export class CompactionOrchestrator {
     signal?: AbortSignal,
     trigger: TCompactTrigger = 'manual',
   ): Promise<string> {
-    // RUNTIME-004: FIRST, before the empty-history shortcut. Review found that ordering the other way
-    // returned `''` for an already-cancelled turn — and the caller replaces the conversation with
-    // whatever this returns, so a cancel could still clear it and inject an empty summary. The
-    // shortcut is reachable with a non-empty conversation, because the caller filters system messages
-    // out before calling.
+    // RUNTIME-004: FIRST, before the emptiness check. Review found that ordering the other way
+    // returned a summary for an already-cancelled turn — and the caller replaces the conversation
+    // with whatever this returns, so a cancel could still clear it and inject an empty summary.
     signal?.throwIfAborted();
-    if (history.length === 0) return '';
+    // CORE-031: this used to `return ''`, contradicting the contract two lines of docblock above it
+    // ("always a non-empty string") — and the caller wrote that empty string over the conversation as
+    // a summary. Deciding that an empty conversation is a no-op is the CALLER's judgement, made
+    // before it commits to replacing anything; by the time execution is here, the caller has already
+    // decided there is something to summarise, so an empty history means that decision was wrong.
+    if (history.length === 0) {
+      throw new CompactionError(
+        'Compaction was asked to summarise an empty history; conversation history preserved untouched',
+      );
+    }
 
     // Fire PreCompact hook
     const preHookInput: IHookInput = {

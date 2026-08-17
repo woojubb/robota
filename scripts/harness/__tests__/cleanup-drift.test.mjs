@@ -208,6 +208,90 @@ describe('cleanup-drift publishes its verdict (HARNESS-069)', () => {
     expect(result.stdout).toMatch(/class contract registry/i);
   });
 
+  it('does not count English prose as a blind `as any` assertion (#1803)', () => {
+    // Unanchored, `as any` matched INSIDE ordinary words — `w[as any]thing`, `h[as any] way` — so a
+    // docblock explaining the code counted as a type assertion. Both files the unanchored pattern
+    // reported against the real tree were comments; the true count was zero. Without this case, the
+    // anchor can be dropped and every other test here stays green, because the frozen baseline would
+    // simply be re-frozen at whatever prose happens to be in the tree that day.
+    const root = mkdtempSync(path.join(tmpdir(), 'cleanup-drift-prose-'));
+    dirs.push(root);
+    mkdirSync(path.join(root, 'packages/widget/src'), { recursive: true });
+    writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+    writeFileSync(
+      path.join(root, 'packages/widget/package.json'),
+      JSON.stringify({ name: '@x/widget', version: '0.0.0' }),
+    );
+    mkdirSync(path.join(root, '.agents/skills/spec-writing-standard'), { recursive: true });
+    writeFileSync(
+      path.join(root, '.agents/skills/index.md'),
+      '# Skills\n\n- [spec-writing-standard](spec-writing-standard/SKILL.md)\n',
+    );
+    copyFileSync(
+      path.join(ROOT, '.agents/skills/spec-writing-standard/SKILL.md'),
+      path.join(root, '.agents/skills/spec-writing-standard/SKILL.md'),
+    );
+    // Prose only. Not one type assertion in the file.
+    writeFileSync(
+      path.join(root, 'packages/widget/src/prose.ts'),
+      [
+        '// Returns early whether or not there was anything to do.',
+        '// Nothing downstream has any way to tell which branch ran.',
+        'export const widget = 1;',
+        '',
+      ].join('\n'),
+    );
+    const baseline = path.join(root, 'b.json');
+    writeFileSync(baseline, JSON.stringify({ 'blind-assertion-any': 0 }));
+
+    const result = spawnSync('node', [path.join(ROOT, 'scripts/harness/cleanup-drift.mjs')], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120_000,
+      env: { ...process.env, CLEANUP_DRIFT_BASELINE: baseline },
+    });
+
+    expect(result.stdout).not.toMatch(/blind-assertion-any/);
+    expect(result.stderr).not.toMatch(/drift GREW/);
+  });
+
+  it('still counts a real blind `as any` assertion (#1803)', () => {
+    // The anchor must not be a way to stop measuring. Same fixture shape, one actual assertion.
+    const root = mkdtempSync(path.join(tmpdir(), 'cleanup-drift-real-'));
+    dirs.push(root);
+    mkdirSync(path.join(root, 'packages/widget/src'), { recursive: true });
+    writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+    writeFileSync(
+      path.join(root, 'packages/widget/package.json'),
+      JSON.stringify({ name: '@x/widget', version: '0.0.0' }),
+    );
+    mkdirSync(path.join(root, '.agents/skills/spec-writing-standard'), { recursive: true });
+    writeFileSync(
+      path.join(root, '.agents/skills/index.md'),
+      '# Skills\n\n- [spec-writing-standard](spec-writing-standard/SKILL.md)\n',
+    );
+    copyFileSync(
+      path.join(ROOT, '.agents/skills/spec-writing-standard/SKILL.md'),
+      path.join(root, '.agents/skills/spec-writing-standard/SKILL.md'),
+    );
+    writeFileSync(
+      path.join(root, 'packages/widget/src/blind.ts'),
+      'export const widget = (JSON.parse("1") as any).value;\n',
+    );
+    const baseline = path.join(root, 'b.json');
+    writeFileSync(baseline, JSON.stringify({ 'blind-assertion-any': 0 }));
+
+    const result = spawnSync('node', [path.join(ROOT, 'scripts/harness/cleanup-drift.mjs')], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120_000,
+      env: { ...process.env, CLEANUP_DRIFT_BASELINE: baseline },
+    });
+
+    expect(result.stdout).toMatch(/blind-assertion-any/);
+    expect(result.stderr).toMatch(/drift GREW/);
+  });
+
   it('the frozen baseline is the one the script actually measures', () => {
     // A number nobody can reproduce is not a baseline. The pass above already proves agreement;
     // this pins that the file is non-empty, so an emptied one cannot masquerade as a clean tree.
