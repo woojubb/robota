@@ -60,30 +60,55 @@ Both sessions read the same file; possession of its contents is the proof.
   what the issue warns about, and it degrades silently — a synced home directory (Dropbox, rsync,
   a container bind-mount) exports the credential to another machine with no signal at either end.
 
-### Alternative C — the kernel vouches for the peer (recommended)
+### Alternative C — the kernel NAMES the peer (`SO_PEERCRED`) — **not available, measured**
 
-Rendezvous over a Unix domain socket (POSIX) or a named pipe (Windows) in a user-owned runtime
-directory, and read the peer's credentials **from the operating system**: `SO_PEERCRED` /
-`LOCAL_PEERCRED` give the connecting process's uid, gid and pid; Windows named pipes give the
-client's token via `GetNamedPipeClientProcessId` and impersonation.
+Read the connecting process's uid/gid/pid from the operating system via `SO_PEERCRED` /
+`LOCAL_PEERCRED`.
 
-- **For**: the evidence is not an artifact the peer supplies, so **there is nothing to copy**. The
-  kernel states who is on the other end, and it can only state it for a process on this machine as
-  this user. It answers both halves — same machine AND same user — which neither A nor B does.
-- **Against**: platform-divergent implementation (two backends), and it does not by itself bind the
-  subsequent WebRTC data channel; that still needs the existing fingerprint binding.
+**This was the original recommendation and it is not implementable in Node.** Probed on this runtime:
+a connected `net.Socket`'s handle exposes no `getpeercred` and no peer-credential accessor under any
+name — the enumerated handle prototype has zero members matching `/peer|cred/i`. Reaching the syscall
+needs a native addon, which this repository does not ship.
 
-### Alternative D — C for the environment proof, then bind the existing channel to it
+Recording it as measured rather than deleting it, because the failure mode it would have produced is
+the one worth remembering: the code compiles, a mocked test passes, and **every real peer is
+refused**. A security mechanism that is merely inert is worse than none, because the feature above it
+looks implemented.
 
-The recommendation. The kernel-vouched rendezvous establishes the environment and exchanges a
+### Alternative C′ — the kernel ENFORCES who can reach the peer (recommended)
+
+The other half of the same kernel guarantee. Rendezvous over a Unix socket inside a directory that is
+**owned by this user and mode 0700**: no other account can traverse it, so the kernel refuses the
+connection before any protocol runs.
+
+Where `SO_PEERCRED` would say _"the peer is uid N"_, this says _"no uid but ours could have got
+here"_ — for an admission decision, the same answer reached from the opposite side. It is what an SSH
+agent socket and a Docker socket already rely on.
+
+- **For**: the evidence is still not an artifact the peer supplies, so **there is nothing to copy**,
+  and it answers both halves — same machine AND same user. Implementable today, with no addon.
+- **Against**: the peer's uid and pid are never learned, so an audit record cannot name the process
+  on the other end. Admission does not need that; a diagnostic might, and would need the addon.
+- **The sharp edge**: the guarantee is entirely in the directory mode. `0755` looks harmless and
+  silently destroys it — every account on the host can then reach the socket, and reaching it proves
+  nothing. That is why the mode and owner are validated **before** the socket is bound, and why the
+  refusal cases are the larger half of the test suite.
+
+### Alternative D — C′ for the environment proof, then bind the existing channel to it
+
+The recommendation. The kernel-enforced rendezvous establishes the environment and exchanges a
 short-lived nonce; that nonce is then bound into the existing pairing confirmation so the WebRTC
-channel admitted is provably the same peer the kernel vouched for.
+channel admitted is provably the same peer that reached the guarded rendezvous.
 
 ## Recommendation
 
-**Alternative D.** It is the only option where the environment claim rests on something the peer
-cannot fabricate or carry to another machine, and it reuses rather than replaces the channel binding
-that already exists.
+**Alternative D, over C′.** It is the only option where the environment claim rests on something the
+peer cannot fabricate or carry to another machine, and it reuses rather than replaces the channel
+binding that already exists.
+
+The substitution of C′ for C is not a weakening — both rest on the kernel and neither is copyable.
+What changed is which side of the guarantee is read, and that was forced by measurement rather than
+chosen.
 
 It also keeps the layering the issue asks for: the cryptographic and OS-level proof lives in a
 security leaf, `agent-transport-webrtc` consumes a **result** and implements no policy, and
