@@ -25,10 +25,12 @@ re-export placed in the wrong package, or a symbol published from a package that
 is visible in exactly one package's diff and invisible in all the others.
 
 The refutation of #1764's item 1 is what makes this worth filing rather than dropping. That item
-proposed removing three `agent-core` re-exports from `agent-interface-transport`; doing so forced
-`agent-transport-protocol` to import `agent-core` directly, which `.agents/project-structure.md`
-forbids for that package. So the re-exports are the interface hub the layering requires — they are
-correct. What remains true is the reason someone looked: **nothing tells you whether a given
+proposed removing three `agent-core` re-exports from `agent-interface-transport`. ARCH-037 then
+measured them one by one, and they did not turn out alike: `IActionRequest` and
+`TBackgroundPermissionPolicy` had no consumer that needed a hub and were REMOVED, while
+`TActionResponse` stays — dropping it forces `agent-transport-gui` and `agent-transport-protocol` to
+import `agent-core` directly, which `.agents/project-structure.md` forbids for both. So exactly one
+of the three is the interface hub the layering requires. What remains true is the reason someone looked: **nothing tells you whether a given
 re-export is the required hub or an accident**, in any package but one.
 
 ## Why this is its own item and not a line in #1764
@@ -86,19 +88,20 @@ the public graph, i.e. two sit outside the published surface, which is the walk 
    not optional. Freeze per package at today's value; new work complies; shrink deliberately.
 3. **`agent-command` is the largest single item** (27 star exports, an `index.ts` that is nothing but
    `export *` lines). It is likely its own burn-down item rather than part of the widening.
-4. The 19 cross-package re-exports are the shape needing per-package judgement — #1764's refutation
-   showed `agent-interface-transport`'s `agent-core` re-exports are the layering's required hub, and
-   four packages re-export `agent-interface-transport` in what looks like the same hub role. The scan
+4. The 19 cross-package re-exports are the shape needing per-package judgement — and ARCH-037 showed
+   the judgement is per SYMBOL, not per package: of `agent-interface-transport`'s three `agent-core`
+   re-exports, one was the layering's required hub and two were second names nobody reached. Four
+   packages re-export `agent-interface-transport` in what looks like the same hub role. The scan
    must be able to express "this one is the hub", which is the design question TC-01 names.
 
 Measurement script: not committed — it is a one-shot count, and the widened scan replaces it.
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                           | Notes                                                                      |
-| ----- | ----------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| TC-01 | Unit test   | Fixture packages with a correct hub re-export and a misplaced one         | The scan must separate the two, which is the whole design question         |
-| TC-02 | Unit test   | Run the widened scan over the real tree and record the per-package counts | The measurement that decides whether a ratchet is needed and at what value |
-| TC-03 | Unit test   | Tighten a package's frozen value by one and assert the scan fails         | Red proof — a ratchet nobody proved can fail is not a ratchet              |
-| TC-04 | Unit test   | `agent-interface-transport`'s three `agent-core` re-exports stay green    | Pins the refutation from #1764 so a later widening cannot silently undo it |
-| TC-05 | CI pipeline | `pnpm harness:scan`, `pnpm typecheck`, `pnpm test`                        | Whole-repository gate for a published-surface change                       |
+| TC-ID | Test Type   | Tool / Approach                                                                                                                                    | Notes                                                                                           |
+| ----- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| TC-01 | Unit test   | Fixture packages with a correct hub re-export and a misplaced one                                                                                  | The scan must separate the two, which is the whole design question                              |
+| TC-02 | Unit test   | Run the widened scan over the real tree and record the per-package counts                                                                          | The measurement that decides whether a ratchet is needed and at what value                      |
+| TC-03 | Unit test   | Tighten a package's frozen value by one and assert the scan fails                                                                                  | Red proof — a ratchet nobody proved can fail is not a ratchet                                   |
+| TC-04 | Unit test   | `agent-interface-transport`'s surviving `agent-core` re-export (`TActionResponse`) stays green, and the two ARCH-037 removed are not demanded back | Pins ARCH-037's per-symbol result so a widening neither undoes the deletions nor breaks the hub |
+| TC-05 | CI pipeline | `pnpm harness:scan`, `pnpm typecheck`, `pnpm test`                                                                                                 | Whole-repository gate for a published-surface change                                            |

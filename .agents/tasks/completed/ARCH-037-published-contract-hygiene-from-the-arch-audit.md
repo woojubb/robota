@@ -207,6 +207,16 @@ agent-framework-only; the rest of the scan still is.
 The new floor was mutated before being trusted: removing the `ICreateDefaultToolsOptions` export
 reddens it, reproducing ARCH-037's own defect-2 shape (deleting
 `ISubagentExecutionEnvelope` from `agent-executor`'s barrel) reddens it, and an empty barrel list
-fails closed. 12 unit cases assert each rule in both directions, including the two exclusions.
+fails closed. 28 unit cases assert each rule in both directions, including the two exclusions.
+
+The case count is the second half of the story, and the more important one. The first twelve cases
+shipped NON-LOAD-BEARING: review found the test file byte-identical across the commit that fixed the
+hop-limit defect, and passing 12/12 against the pre-fix reader — so the fixpoint walk, `export *`,
+const-arrow and default exports, overloads and the generic exclusion were all covered by nothing.
+Twelve more were added and each was RUN against that pre-fix reader before being kept: 11 fail there
+and pass here. (The twelfth guards a defect that existed only in an uncommitted revision, so it has
+no commit to be proved against; the test file says so rather than letting a reader assume otherwise.)
+Four more followed from round-3 review. Every behaviour the scan claims is now mutation-checked: nine
+single-point mutations, nine caught.
 
 Verified: 124 of 126 scans pass (2 skipped). agent-framework 1395 tests, agent-executor 104.

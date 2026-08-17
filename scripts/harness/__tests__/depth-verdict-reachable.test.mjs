@@ -307,7 +307,7 @@ describe('a containment label names a root item that exists', () => {
       .filter(Boolean);
 
   const trackedMarkdown = tracked('*.md');
-  // The code half's corpus. It carries no label today, and saying so is more useful than pretending
+  // The code half's corpus. ARCH-037 added the first two (check-sdk-public-surface.mjs and the framework background-tasks barrel), and saying so is more useful than pretending
   // otherwise: the markdown half had none either until PROC-005 wrote the first one. What the case
   // asserts is over the whole tracked tree, so the first code label to appear is read on the run it
   // appears — which is the property, not the current count.

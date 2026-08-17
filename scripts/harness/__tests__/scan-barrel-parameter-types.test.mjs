@@ -314,7 +314,11 @@ describe('evasions and over-fires closed in round 2', () => {
 
   it('resolves a directory edge that lands on `index.tsx`', () => {
     const root = fixture('arch-037-index-tsx-', {
-      [BARREL]: "export { f } from './ui/index.js';\n",
+      // The specifier below must point at the DIRECTORY, not at its index file. Spelling out the
+      // index resolves on the sibling-file candidate, which predates this branch, so the
+      // directory-index candidate added here is never reached. Round-3 mutation testing proved the
+      // point — replacing that candidate with a dead path left the suite green.
+      [BARREL]: "export { f } from './ui.js';\n",
       'packages/p/src/ui/index.tsx':
         'export interface IThing {}\nexport function f(a: IThing): void {}\n',
     });
@@ -341,5 +345,61 @@ describe('evasions and over-fires closed in round 2', () => {
 
     expect(findings.map((f) => f.rule)).toEqual(['barrel-parameter-type-unexported']);
     expect(findings[0].detail, 'the built-ins in `g` must not be reported').toContain('Date');
+  });
+});
+
+describe('foreignness is decided by RESOLUTION, not by a name lookup', () => {
+  it('stays silent on a foreign type even when the package declares that name elsewhere', () => {
+    // Round-3 review constructed this: `declaredInPackage` asks "does any file under this package
+    // declare something called X?", so one unrelated collision made a genuinely foreign type look
+    // local and the floor fired on correct code. At two barrels that was theoretical; across all 55
+    // it is one common name away from reddening CI with no allowlist.
+    const root = fixture('arch-037-collision-', {
+      [BARREL]:
+        "import type { IForeign } from '@robota-sdk/other';\n" +
+        'export function f(a: IForeign): void {}\n',
+      'packages/p/src/unrelated.ts': 'export interface IForeign {\n  local: true;\n}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings).toEqual([]);
+  });
+
+  it('still fires when the same name is imported from a LOCAL module', () => {
+    // The mirror: resolution must not become a blanket "it was imported, so skip it".
+    const root = fixture('arch-037-local-import-', {
+      [BARREL]:
+        "import type { IThing } from './thing.js';\nexport function f(a: IThing): void {}\n",
+      'packages/p/src/thing.ts': 'export interface IThing {}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings.map((f) => f.rule)).toEqual([
+      'barrel-parameter-type-unexported',
+    ]);
+  });
+
+  it('follows a deferred export through a DEFAULT import', () => {
+    const root = fixture('arch-037-default-import-', {
+      [BARREL]: "import f from './impl.js';\nexport { f };\n",
+      'packages/p/src/impl.ts':
+        'export interface IThing {}\nexport default function f(a: IThing): void {}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings.map((f) => f.rule)).toEqual([
+      'barrel-parameter-type-unexported',
+    ]);
+  });
+
+  it('does not count a type declared in a sibling test file as the package’s own', () => {
+    // The `*.test.ts` exclusion had no test: round-3 mutation testing deleted the guard and the
+    // suite stayed green, so the documented fix for a measured over-fire was itself unguarded.
+    // The parameter type is deliberately NOT imported, so `declaredInPackage` — the code under
+    // test — is actually consulted. An earlier draft imported it from another package, which made
+    // the foreign-resolution skip fire first and the assertion prove nothing.
+    const root = fixture('arch-037-testfile-', {
+      [BARREL]: 'export function f(a: IFixture): void {}\n',
+      'packages/p/src/thing.test.ts': 'export interface IFixture {}\n',
+    });
+
+    expect(findBarrelParameterTypeFindings(root, settings()).findings).toEqual([]);
   });
 });

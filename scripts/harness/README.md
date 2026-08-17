@@ -57,7 +57,7 @@ These scripts are the executable layer of the Robota harness.
 
 - verifies that `agent-sdk` public barrels do not use broad export-star pass-throughs
 - verifies that the top-level SDK entrypoint does not hide `agent-core`, `agent-sessions`, or `agent-tools` ownership
-- verifies that `agent-runtime` re-exports stay in the one file where a permitted consumer cannot reach the symbol any other way (ARCH-037 retired the older "runtime facade" criterion, which described a set that has had one entry since ARCH-031)
+- verifies that `@robota-sdk/agent-executor` re-exports stay in the one file where a permitted consumer cannot reach the symbol any other way (ARCH-037 retired the older "runtime facade" criterion, which described a set that has had one entry since ARCH-031)
 
 ### `check-test-coverage-scripts.mjs`
 

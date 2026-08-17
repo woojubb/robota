@@ -1,12 +1,15 @@
 ---
-'@robota-sdk/agent-interface-transport': minor
+'@robota-sdk/agent-interface-transport': major
 '@robota-sdk/agent-framework': minor
 '@robota-sdk/agent-executor': patch
 ---
 
 ARCH-037 — published-contract hygiene.
 
-**Breaking for anyone importing these from `@robota-sdk/agent-interface-transport`.** The package is
+**Breaking for anyone importing these from `@robota-sdk/agent-interface-transport`** — hence `major`,
+matching ARCH-031's precedent for a barrel that loses names (a `minor` would file the removal under
+"Minor Changes" and a beta consumer scanning for breaking changes would meet it as a `TS2305` after
+upgrading instead). The package is
 pre-release and the repo keeps no compatibility shims, so the names are removed rather than deprecated;
 both are re-exports of types `@robota-sdk/agent-core` owns and still exports under the same names.
 

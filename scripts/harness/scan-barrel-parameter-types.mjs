@@ -82,11 +82,22 @@ export function parameterTypeNames(fn) {
 /**
  * What one file declares and publishes: `{ functions, exportedNames, reexports, starExports }`.
  *
- * `functions` covers every shape a barrel can publish a callable in, because review measured seven
- * that an earlier revision missed silently — `export const f = (…) => …`, `export default function`,
- * an overload set (only the first signature was read, so the dirty overload was invisible), and a
- * name arriving through `export * from`. A floor that reads one declaration form reports zero for
- * every other, which is the shape this whole item is about.
+ * `functions` covers the shapes review MEASURED an earlier revision missing silently:
+ * `export const f = (…) => …`, `export default function`, an overload set (only the first signature
+ * was read, so the dirty overload was invisible), a name arriving through `export * from`, and a
+ * deferred `export { f };` whose binding came from an import. A floor that reads one declaration
+ * form reports zero for every other, which is the shape this whole item is about.
+ *
+ * It does NOT cover every shape, and an earlier revision of this sentence claimed it did. Known
+ * gaps, all confirmed silent by fixture and none present in any package `src` today:
+ *   - `function f(…) {} export default f;` — an export ASSIGNMENT, not a modifier;
+ *   - `export default (a: IThing) => {};` — an anonymous default;
+ *   - `export * as ns from './impl.js'` — a namespace re-export, not followed;
+ *   - a `class`'s CONSTRUCTOR parameters, which a consumer equally cannot name;
+ *   - an inline `import('./thing.js').IThing` parameter type (`ImportTypeNode` carries `qualifier`,
+ *     not `typeName`, so `tailName` reads nothing).
+ * Each is under-reporting, which is the dangerous direction — so they are listed rather than left
+ * for the next reader to discover the way review discovered the last four.
  *
  * `starExports` is tracked rather than ignored for the same reason, and it cut BOTH ways before it
  * was: a function published by `export *` was never checked, and a TYPE published by `export *` was
@@ -153,6 +164,12 @@ export function readBarrel(content, fileName) {
           importedFrom.set(local, { original: element.propertyName?.text ?? local, module });
         }
       }
+      // `import f from './impl.js'` binds a default under a local name; without this the deferred
+      // `export { f };` form still evades through the default-import door.
+      const defaultLocal = node.importClause?.name?.text;
+      if (defaultLocal && module) {
+        importedFrom.set(defaultLocal, { original: 'default', module });
+      }
     }
     if (ts.isExportDeclaration(node)) {
       const module = node.moduleSpecifier?.text;
@@ -183,7 +200,7 @@ export function readBarrel(content, fileName) {
   };
   visit(sourceFile);
 
-  return { functions, exportedNames, reexports, starExports };
+  return { functions, exportedNames, reexports, starExports, importedFrom };
 }
 
 /** Resolve a relative module specifier to a file inside the package, or undefined. */
@@ -240,11 +257,15 @@ export function resolvePublished(barrel, root, readFile) {
 
     if (wanted === undefined) {
       for (const name of read.exportedNames) exportedNames.add(name);
-      for (const fn of read.functions) functions.push({ ...fn, declaredIn: file });
+      for (const fn of read.functions) {
+        functions.push({ ...fn, declaredIn: file, imports: read.importedFrom });
+      }
     } else {
       if (read.exportedNames.has(wanted)) exportedNames.add(wanted);
       for (const fn of read.functions) {
-        if (fn.name === wanted) functions.push({ ...fn, declaredIn: file });
+        if (fn.name === wanted) {
+          functions.push({ ...fn, declaredIn: file, imports: read.importedFrom });
+        }
       }
     }
 
@@ -317,6 +338,12 @@ export function findBarrelParameterTypeFindings(root = process.cwd(), settingsOv
       for (const typeName of parameterTypeNames(fn.node)) {
         if (ownTypeParameters.has(typeName)) continue;
         if (exportedNames.has(typeName)) continue;
+        // RESOLVE rather than look the name up. `declaredInPackage` alone asks "does any file under
+        // this package declare something called X?", so an unrelated local `IForeign` anywhere in
+        // the package made a genuinely foreign parameter type look local and the floor fired on
+        // correct code. Asking the DECLARING file where ITS `X` comes from cannot collide.
+        const boundTo = fn.imports?.get(typeName);
+        if (boundTo && !boundTo.module.startsWith('.')) continue;
         if (!declaredInPackage(root, barrel, typeName)) continue;
         findings.push({
           rule: 'barrel-parameter-type-unexported',

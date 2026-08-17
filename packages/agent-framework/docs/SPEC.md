@@ -2359,8 +2359,13 @@ The product-composed `/background` command module maps to these APIs:
 
 ### SubagentManager
 
-`SubagentManager` is owned and exported as a value only by `agent-executor`; the framework's explicit
-runtime facade re-exports its contract types, not the class. It is the managed subagent facade. It depends
+`SubagentManager` is owned and exported as a value only by `agent-executor`. The framework re-exports
+NEITHER the class nor its contract types: ARCH-031 removed the subagent block from
+`src/subagents/index.ts`, and `check-sdk-public-surface.mjs` rejects re-adding it. Import the contract
+types from `@robota-sdk/agent-executor` (the SPI) and `@robota-sdk/agent-interface-transport` (the
+data contracts). This paragraph said "the framework's explicit runtime facade re-exports its contract
+types" until round-3 review caught it — a retired criterion applied in the present tense to a barrel
+that had already been emptied. It is the managed subagent facade. It depends
 on an injected `ISubagentRunner` port or an injected `IBackgroundTaskManager` and maps subagent jobs to
 `BackgroundTaskManager` agent tasks.
 
