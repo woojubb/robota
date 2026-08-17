@@ -94,6 +94,19 @@ export interface IRunHooksResult {
   updatedInput?: Record<string, unknown>;
   /** Highest-priority permissionDecision from PreToolUse hooks (PreToolUse only). */
   permissionDecision?: 'allow' | 'deny' | 'ask' | 'defer';
+  /**
+   * Hook types that were configured but had no registered executor, so nothing ran for them.
+   *
+   * Reported rather than logged. `AGENTS.md` makes "silence is not success" a rule-level invariant,
+   * and a runner that skipped an unrecognised type quietly broke it: a config declaring
+   * `{ type: 'guardrail', … }` with no guardrail registry supplied DISABLED the gate, and the author
+   * saw no error at all. A `console.warn` would satisfy the letter of that comment while still being
+   * invisible to a caller and untestable; a field on the result is something the caller can act on
+   * and a test can assert.
+   *
+   * Absent when every configured hook had an executor — the ordinary case draws no attention.
+   */
+  unknownHookTypes?: readonly string[];
 }
 
 /**
@@ -116,6 +129,7 @@ export async function runHooks(
 ): Promise<IRunHooksResult> {
   if (!config) return { blocked: false, stdout: '' };
 
+  const unknownHookTypes = new Set<string>();
   const groups = config[event];
   if (!groups || groups.length === 0) return { blocked: false, stdout: '' };
 
@@ -142,7 +156,9 @@ export async function runHooks(
     for (const hook of group.hooks) {
       const executor = executorMap.get(hook.type);
       if (!executor) {
-        // Unknown hook type — skip with warning
+        // Nothing runs for this hook, and the caller is TOLD so — see `unknownHookTypes`. The
+        // comment here used to promise a warning that was never emitted.
+        unknownHookTypes.add(hook.type);
         continue;
       }
 
@@ -154,6 +170,9 @@ export async function runHooks(
           blocked: true,
           reason: result.stderr || 'Blocked by hook',
           stdout: stdoutParts.join('\n'),
+          // Carried on the blocked path too: which hooks never ran is a fact the caller
+          // needs whatever the outcome, and an answer that depends on the path is a new trap.
+          ...(unknownHookTypes.size > 0 && { unknownHookTypes: [...unknownHookTypes].sort() }),
         };
       }
 
@@ -173,6 +192,9 @@ export async function runHooks(
             blocked: true,
             reason: stopReason,
             stdout: stdoutParts.join('\n'),
+            // Carried on the blocked path too: which hooks never ran is a fact the caller
+            // needs whatever the outcome, and an answer that depends on the path is a new trap.
+            ...(unknownHookTypes.size > 0 && { unknownHookTypes: [...unknownHookTypes].sort() }),
           };
         }
 
@@ -191,6 +213,9 @@ export async function runHooks(
             stdout: additionalContext
               ? [...stdoutParts, additionalContext].join('\n')
               : stdoutParts.join('\n'),
+            // Carried on the blocked path too: which hooks never ran is a fact the caller
+            // needs whatever the outcome, and an answer that depends on the path is a new trap.
+            ...(unknownHookTypes.size > 0 && { unknownHookTypes: [...unknownHookTypes].sort() }),
           };
         }
 
@@ -226,6 +251,11 @@ export async function runHooks(
                   reason: 'Blocked by hook (permissionDecision: deny)',
                   stdout: stdoutParts.join('\n'),
                   permissionDecision: 'deny',
+                  // Carried on the blocked path too: which hooks never ran is a fact the caller
+                  // needs whatever the outcome, and an answer that depends on the path is a new trap.
+                  ...(unknownHookTypes.size > 0 && {
+                    unknownHookTypes: [...unknownHookTypes].sort(),
+                  }),
                 };
               }
               // Track updatedInput from the highest-priority decision
@@ -257,6 +287,9 @@ export async function runHooks(
   }
   if (lastUpdatedInput !== undefined) {
     finalResult.updatedInput = lastUpdatedInput;
+  }
+  if (unknownHookTypes.size > 0) {
+    finalResult.unknownHookTypes = [...unknownHookTypes].sort();
   }
 
   return finalResult;
