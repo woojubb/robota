@@ -594,3 +594,42 @@ describe('an identity-preserving wrapper over the source is a correct derived su
     expect(findings.map((f) => f.rule)).toContain('preset-projection-heritage-unresolved');
   });
 });
+
+describe('the exported seam cannot be called into a silent empty answer', () => {
+  it('marks a form that NEEDS the source field list as unreadable when called without it', () => {
+    // `Readonly<Source>` and `Omit<Source, …>` are both defined in terms of the source's own fields.
+    // Called without them they returned an EMPTY projection — absence and unreadability printing the
+    // same, in the one file whose thesis is that they must not. Unreachable from `main()`, but a trap
+    // on the exported seam is still a trap.
+    for (const form of ['Readonly<ISource>', "Omit<ISource, 'a'>"]) {
+      const picks = pickedFields(`type T = ${form};\n`, 'p.ts', 'ISource');
+      expect(picks, form).toHaveLength(1);
+      expect(picks[0].unreadable, form).toBe(true);
+    }
+  });
+
+  it('resolves those same forms when the field list IS supplied', () => {
+    expect(
+      pickedFields('type T = Readonly<ISource>;\n', 'p.ts', 'ISource', ['a', 'b'])[0].fields,
+    ).toEqual(['a', 'b']);
+    expect(
+      pickedFields("type T = Omit<ISource, 'a'>;\n", 'p.ts', 'ISource', ['a', 'b'])[0].fields,
+    ).toEqual(['b']);
+  });
+
+  it('words an identity wrapper over a NON-source type as a utility, not as a missing base', () => {
+    // Splitting the identity wrappers into their own set reintroduced round 3's wording defect for
+    // exactly those three names when they wrap something else.
+    const root = fixture('arch-013-wrapper-other-', {
+      'source.ts': SOURCE,
+      'live.ts': 'export interface ILive {\n  a?: string;\n  b?: string;\n}\n',
+      'startup.ts': 'export interface IStartup extends Readonly<IUnrelated> {}\n',
+    });
+
+    const { findings } = findPresetProjectionFindings(root, settings());
+    const unresolved = findings.find((f) => f.rule === 'preset-projection-heritage-unresolved');
+
+    expect(unresolved).toBeDefined();
+    expect(unresolved.detail).toContain('a utility type this walk does not model');
+  });
+});

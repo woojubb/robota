@@ -213,13 +213,23 @@ export function declaredFields(content, fileName, interfaceName, resolveAgainst 
 }
 
 /**
- * Utility types that WRAP a type rather than name a declaration. Reporting `extends Partial<ISource>`
+ * Utility types that WRAP a type rather than name a declaration. Reporting `extends Readonly<IOther>`
  * as "a base interface declared in another file" sent the reader to look for a file declaring
- * `Partial`. Failing closed is right; pointing at the wrong thing is not.
+ * `Readonly`. Failing closed is right; pointing at the wrong thing is not. The three identity
+ * wrappers appear here too — resolving them applies only when they wrap the source.
+ */
+/**
+ * Wrappers that preserve the source's KEY SET exactly, so `extends Readonly<Source>` projects every
+ * field. They are also members of {@link KNOWN_UTILITY_TYPES}: resolving them applies only when they
+ * wrap the SOURCE, and wrapping anything else must still be worded as a utility rather than as a
+ * base interface in another file.
  */
 const IDENTITY_WRAPPERS = new Set(['Readonly', 'Required', 'Partial']);
 
 const KNOWN_UTILITY_TYPES = new Set([
+  'Readonly',
+  'Required',
+  'Partial',
   'Record',
   'Exclude',
   'Extract',
@@ -260,7 +270,13 @@ function pickFromType(type, sourceInterface, sourceFile, fileName, sourceFieldNa
     const target = tailOf((type.typeArguments ?? [])[0]);
     if ((aliases?.get(target) ?? target) !== sourceInterface) return undefined;
     const { line } = sourceFile.getLineAndCharacterOfPosition(type.getStart(sourceFile));
-    return { file: fileName, line: line + 1, fields: [...(sourceFieldNames ?? [])], form: head };
+    // Needs the source's own field list to mean anything. Called without it this returned an EMPTY
+    // set — absence and unreadability printing the same, in the one file whose thesis is that they
+    // must not. Unreachable from `main()`, but it is a trap on the exported seam.
+    if (!sourceFieldNames) {
+      return { file: fileName, line: line + 1, fields: [], unreadable: true, form: head };
+    }
+    return { file: fileName, line: line + 1, fields: [...sourceFieldNames], form: head };
   }
   if (head !== 'Pick' && head !== 'Omit') return undefined;
   const [target, keys] = type.typeArguments ?? [];
@@ -282,8 +298,12 @@ function pickFromType(type, sourceInterface, sourceFile, fileName, sourceFieldNa
   if (literals.length === 0) {
     return { file: fileName, line: line + 1, fields: [], unreadable: true, form: head };
   }
-  const fields =
-    head === 'Pick' ? literals : (sourceFieldNames ?? []).filter((f) => !literals.includes(f));
+  // Same trap as the identity wrappers: `Omit` is defined by SUBTRACTION from the source, so without
+  // the source's field list it subtracts from nothing and reports an empty projection.
+  if (head === 'Omit' && !sourceFieldNames) {
+    return { file: fileName, line: line + 1, fields: [], unreadable: true, form: head };
+  }
+  const fields = head === 'Pick' ? literals : sourceFieldNames.filter((f) => !literals.includes(f));
   return { file: fileName, line: line + 1, fields, form: head };
 }
 
@@ -564,7 +584,7 @@ export function findPresetProjectionFindings(root = process.cwd(), settingsOverr
     // A truthfully-recorded entry for a field with NO defect left is inert and permanent: it
     // suppresses both rules forever while its recorded state never changes. Review found this the
     // one way the burn-down can be gamed by telling the truth, so "fully projected" expires too.
-    if (live.length === projected.size && projected.size > 0) {
+    if (live.length === surfaces.length && surfaces.length > 0) {
       findings.push({
         rule: 'preset-pending-state-changed',
         field,

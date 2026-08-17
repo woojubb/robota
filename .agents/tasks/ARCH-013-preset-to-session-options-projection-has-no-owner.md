@@ -463,6 +463,35 @@ the eleven are `heritage-unresolved`, which is what proves the resolution itself
 fixture-level test is the correct proof of the mechanism; the real-tree probe measures a different
 thing, and conflating them is how a correct scan gets "fixed".
 
+### Review round 4 — zero actionable, and the round-1 objection closed on measurement
+
+Three wording/seam NITs, all applied. Splitting the identity wrappers into their own set had
+reintroduced round 3's wording defect for exactly those three names when they wrap something OTHER
+than the source; and the identity-wrapper and `Omit` branches both returned an EMPTY projection when
+called without the source's field list — absence and unreadability printing the same, on the exported
+seam, in the file whose thesis is that they must not. Unreachable from `main()`, but a trap is still
+a trap. The fully-projected comparison now reads `surfaces.length` directly so its invariant is local
+rather than remembered ten lines away.
+
+The reviewer's round-1 objection — that the burn-down was "half honest", a baseline with reasons
+attached — is withdrawn on re-measurement rather than on agreement. An entry now expires in **five**
+independent directions, each verified by mutation: the field gains a declaration, loses one, moves
+between surfaces, becomes declared on every configured surface, or is deleted from the source. And
+when the comparison cannot be made the scan says so instead of guessing. That is a stronger contract
+than stage 1's sibling scan, which ratchets a count; this ratchets a named per-field state.
+
+One honest residual, recorded rather than closed: nothing mechanically resists `pendingProjection`
+GROWING. A future undeclared field goes red, and the cheapest green is a new entry with a reason.
+That is human-reviewed only, where stage 1 freezes a baseline file. It meets the standard ARCH-029
+converged on — named, expiring, visible in the diff — so it is a follow-up rather than a blocker, and
+it is written here so the next person does not have to rediscover it.
+
+**A probe-reading trap all three of us hit, worth writing where the next person will find it.** A
+fixture asks _"does the rule fire"_. A real-tree mutation asks _"is the tree still true"_. A mutation
+that changes the tree's MEANING — the reviewer's `Omit` rewrite, my `Readonly` rewrite, my nested
+decoy — is answering the second while you are reading it as the first. Each time, the scan was right
+and the expectation was wrong. Conflating the two is how a correct scan gets "fixed".
+
 ### Falsification
 
 The scan was mutated against the real tree before being trusted, because a floor that cannot fail is
