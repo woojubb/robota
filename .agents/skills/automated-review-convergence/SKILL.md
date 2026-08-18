@@ -136,3 +136,17 @@ observed the round-2 push and returned nothing.
 | Merge, or decide when to arm the merge     | the merge procedure the git rules own                                |
 
 If you find yourself restating a rule here, stop — link the rule instead.
+
+## Record the run
+
+Open a ledger entry before the first round, record each round's finding count, and close it with the
+terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
+`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
+run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
+what each terminal reason means).
+
+```bash
+node scripts/harness/loop-run.mjs open  --loop automated-review-convergence
+node scripts/harness/loop-run.mjs round --loop automated-review-convergence --run <id> --findings <n>
+node scripts/harness/loop-run.mjs close --loop automated-review-convergence --run <id> --terminal <reason>
+```

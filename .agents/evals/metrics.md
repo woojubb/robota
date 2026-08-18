@@ -24,15 +24,33 @@
 - **목표**: ≥ 50% (6개 tool 중 3개 이상 사용)
 - **의미**: 단일 tool에 의존하지 않고 적절한 tool을 선택하는 능력
 
+### 4. Loop Rework Rate (advisory, a declared proxy)
+
+- **정의**: 기록된 CLOSED 루프 실행 중 종료 사유가 `converged`가 **아닌** 것의 비율. 분모는 닫힌 실행이며,
+  OPEN 실행은 제외하고 따로 보고한다 — 끝나지 않은 실행은 수렴한 것도 아니고 수렴하지 못한 것도 아니다.
+- **측정**: `pnpm harness:loop:report` (`scripts/harness/loop-economics.mjs`), `.agents/loop-runs/` 대장을 읽는다.
+- **목표**: 아직 없음. 코퍼스가 비어 있는 상태에서 시작하므로, 이 저장소 자신의 실행이 아니라 외부 주장에서
+  가져온 임계값은 `measurement-provenance.md`가 거부하는 동어반복이다. 관측된 분포가 임계값을 정한다.
+- **PROXY임을 명시한다.** 실제로 원하는 값은 **cost per accepted change**이고, 이것은 그 대리 지표다.
+  DORA가 2024년 deployment rework rate를 도입할 때와 같은 이유 — 직접 측정 불가능한 양의 명시적 대리.
+- **관측하지 못하는 것**: 토큰과 실시간 비용. OpenTelemetry GenAI 규약상 토큰 사용량은 모델 호출 지점에서
+  계측 클라이언트가 방출하며(`gen_ai.usage.input_tokens` / `output_tokens`), 이 하네스에는 그 지점이 없다.
+  또한 수렴한 실행의 산출물이 나중에 되돌려졌는지도 알지 못한다.
+- **advisory이며 아무것도 차단하지 않는다** — `patch-coverage` 선례. 필수 컨텍스트는 실패할 수 있어야 하고,
+  임계값이 없는 지표는 실패할 수 없다.
+- **왜 필요한가**: `record-local-review.mjs`가 이 숫자를 손으로 딱 한 번 측정한 기록을 담고 있다 — 5개 PR에
+  리뷰 라운드 38회, 그중 24회가 블로킹, 라운드당 CI 6-10분. 그 측정이 local-review 기록과 pre-push 거부를
+  낳았다. 즉 이 숫자는 실제로 결정을 바꾼다. 그런데 다시 측정할 방법이 없었다.
+
 ## Secondary Metrics
 
-### 4. Spec Conformance
+### 5. Spec Conformance
 
 - **정의**: 변경된 패키지의 SPEC.md가 코드와 일치하는 비율
 - **목표**: 100%
 - **측정**: spec-code-conformance 스킬 실행 결과
 
-### 5. Build Verification Rate
+### 6. Build Verification Rate
 
 - **정의**: 커밋 전 빌드/테스트를 실행한 비율
 - **목표**: 100%

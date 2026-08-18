@@ -236,3 +236,17 @@ It MUST honor [git-branch.md](../../rules/git-branch.md):
 | Verify the landing / delete the branch | [post-merge-cycle](../post-merge-cycle/SKILL.md) |
 
 If you find yourself reviewing, writing, or fixing inside this skill, stop — route to the owning agent instead.
+
+## Record the run
+
+Open a ledger entry before the first round, record each round's finding count, and close it with the
+terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
+`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
+run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
+what each terminal reason means).
+
+```bash
+node scripts/harness/loop-run.mjs open  --loop pr-finding-resolution-loop
+node scripts/harness/loop-run.mjs round --loop pr-finding-resolution-loop --run <id> --findings <n>
+node scripts/harness/loop-run.mjs close --loop pr-finding-resolution-loop --run <id> --terminal <reason>
+```

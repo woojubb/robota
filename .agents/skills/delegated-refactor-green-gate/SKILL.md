@@ -107,3 +107,17 @@ state, and do not proceed.
 | Run several delegated items concurrently      | [worktree-parallel-orchestration](../worktree-parallel-orchestration/SKILL.md) |
 
 If you find yourself editing, or forming a judgement about the diff, stop — dispatch the owning agent.
+
+## Record the run
+
+Open a ledger entry before the first round, record each round's finding count, and close it with the
+terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
+`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
+run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
+what each terminal reason means).
+
+```bash
+node scripts/harness/loop-run.mjs open  --loop delegated-refactor-green-gate
+node scripts/harness/loop-run.mjs round --loop delegated-refactor-green-gate --run <id> --findings <n>
+node scripts/harness/loop-run.mjs close --loop delegated-refactor-green-gate --run <id> --terminal <reason>
+```

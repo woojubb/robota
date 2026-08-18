@@ -87,6 +87,22 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Measured as `findLoopProofFindings(bare)`: throws `.agents/skills missing from <root>` before it
+    // reads a baseline or a ledger.
+    file: 'scan-loop-proof.mjs',
+    finder: 'findLoopProofFindings',
+    tree: '.agents/skills',
+    why: 'the skills tree IS the population this floor governs — over a root without it there is no skill to prove, and "no findings" would mean "every loop is proven" when nothing was examined',
+  },
+  {
+    // Measured as `findLoopRunRecordFindings(bare)`: throws `.agents/skills missing from <root>`
+    // before it reads a single ledger.
+    file: 'scan-loop-run-records.mjs',
+    finder: 'findLoopRunRecordFindings',
+    tree: '.agents/skills',
+    why: 'the skills tree is the population these ledgers belong to — over a root missing it, every ledger is unattributable and the skill-wiring half examines nothing, so "no findings" would mean "nothing was examined". The LEDGER directory is deliberately not governed: its absence is a legitimate state, because it is created by the first recorded run',
+  },
+  {
     // Measured as `findRouteSpellingFindings(bare)`: throws `apps, packages missing from <root>`
     // before it can read either spelling.
     file: 'scan-remote-stream-route-spelling.mjs',

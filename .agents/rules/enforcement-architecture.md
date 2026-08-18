@@ -104,6 +104,43 @@ On a guardian FAIL the orchestrator rewinds. Two shapes, both already in the rep
 - **Halt-for-user (human-decision gates)** — the orchestrator stops and surfaces the verdict for the user to
   decide (the current GATE-APPROVAL shape). Use where a human sign-off is the point.
 
+## A loop run is recorded
+
+A declaration says what a loop's escape IS. It cannot say whether the escape ever fired, and for as long
+as nothing recorded a run, `escape=no-progress` was a claim no check could reach — the scan that requires
+it reads only the tree, and a run is not in the tree.
+
+**Every run of a loop-driving skill is recorded**, through
+`node scripts/harness/loop-run.mjs`, into the skill's ledger under `.agents/loop-runs/` — one entry per
+run, appended when it opens and sealed when it closes:
+
+```bash
+node scripts/harness/loop-run.mjs open  --loop <skill>
+node scripts/harness/loop-run.mjs round --loop <skill> --run <id> --findings <n>
+node scripts/harness/loop-run.mjs close --loop <skill> --run <id> --terminal <reason>
+```
+
+Three properties, and each exists because its absence collapses two states into one:
+
+- **How a run ended comes from a CLOSED vocabulary** — `converged`, `no-progress`, `bound-reached`,
+  `halted-for-user`, `abandoned` — never inferred by a reader. A terminal reason the skill's declaration
+  cannot reach is refused: recording `no-progress` for a loop that declares no such escape is a record
+  describing some other loop.
+- **A run that stopped without reaching an ending is closed as `abandoned`**, not left open and not left
+  out. Not-closed is a STATE, not an absence; this is § "Silence is not success" applied to the record
+  itself, because a dropped run and a run that never started are otherwise the same silence.
+- **The round count is not stored.** `roundFindings.length` is the count, everywhere. A second stored
+  number is a second source, and two sources agree until the day the number is needed
+  ([measurement-provenance.md](measurement-provenance.md) clause 1).
+
+The ceiling, stated rather than implied: a run that is never opened leaves no line, and nothing that reads
+this tree can see it. This rule makes a run recordable and its record coherent; it does not prove that
+every run was recorded.
+
+Enforced by: `scripts/harness/scan-loop-run-records.mjs`, registered as `loop-run-records`. It refuses a
+ledger naming no loop-declaring skill, a line that does not parse, a terminal reason the declaration
+cannot reach, and a run left open past seven days.
+
 ## Applying it to a new enforced step
 
 1. Name the **worker** (produces the artifact), the **guardian** (judges it, emits a verdict), and the
