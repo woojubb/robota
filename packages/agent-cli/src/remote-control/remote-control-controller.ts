@@ -5,7 +5,9 @@ import {
   importPublicKey,
   toPairingUrl,
 } from '@robota-sdk/agent-remote-pairing';
-import { WsSignalingClient, WebRtcTransport } from '@robota-sdk/agent-transport-webrtc';
+import { WsSignalingClient } from '@robota-sdk/agent-transport-webrtc';
+
+import { defaultCreateTransport } from './default-transport-factory.js';
 import { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
 
 import { hasTurnServer } from './ice-config.js';
@@ -456,29 +458,4 @@ function defaultCreateSignaling(url: string, rendezvous: string): ISignalingClie
 function defaultSchedule(callback: () => void, delayMs: number): () => void {
   const timer = setTimeout(callback, delayMs);
   return () => clearTimeout(timer);
-}
-
-function defaultCreateTransport(
-  signaling: ISignalingClient,
-  secret: string,
-  hooks: {
-    onPaired: (result?: IPairingResult) => void;
-    onPairingFailed: () => void;
-    onDropped?: () => void;
-  },
-  ice: { iceServers?: readonly IIceServer[]; forceTurn?: boolean },
-  reconnect?: IHostReconnectConfig,
-  resumeBridge?: SessionResumeBridge,
-): IConfigurableTransport<IInteractiveSession> {
-  return new WebRtcTransport({
-    signaling,
-    secret,
-    onPaired: hooks.onPaired,
-    onPairingFailed: hooks.onPairingFailed,
-    ...(hooks.onDropped ? { onDropped: hooks.onDropped } : {}),
-    ...(ice.iceServers ? { iceServers: ice.iceServers } : {}),
-    ...(ice.forceTurn ? { forceTurn: ice.forceTurn } : {}),
-    ...(reconnect ? { reconnect } : {}),
-    ...(resumeBridge ? { resumeBridge } : {}),
-  });
 }
