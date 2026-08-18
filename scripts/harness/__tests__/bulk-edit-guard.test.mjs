@@ -66,19 +66,42 @@ describe('a file-writing tool naming the dependency store', () => {
     expect(write('docs/my_node_modules_notes/why.md').status).toBe(0);
   });
 
-  it('refuses a path that reaches the store only after symlink resolution', () => {
-    // The spelled path names nothing suspicious; only `readlink -f` shows where the write lands.
-    // This is the case a text-only check misses, and it is the exact shape pnpm creates.
+  /** A store directory reachable through a symlink whose own name says nothing. */
+  function symlinkedStore() {
     const dir = mkdtempSync(path.join(tmpdir(), 'bulk-edit-guard-'));
     scratch.push(dir);
     mkdirSync(path.join(dir, 'node_modules/pkg/src'), { recursive: true });
     writeFileSync(path.join(dir, 'node_modules/pkg/src/index.ts'), 'export {};\n');
     mkdirSync(path.join(dir, 'app'), { recursive: true });
     symlinkSync(path.join(dir, 'node_modules/pkg'), path.join(dir, 'app/vendored'));
+    return dir;
+  }
 
-    const { status, stderr } = write(path.join(dir, 'app/vendored/src/index.ts'));
+  it('refuses an EXISTING path that reaches the store only after symlink resolution', () => {
+    // The spelled path names nothing suspicious; only resolution shows where the write lands. This
+    // is the case a text-only check misses, and it is the exact shape pnpm creates.
+    const { status, stderr } = write(path.join(symlinkedStore(), 'app/vendored/src/index.ts'));
     expect(status).toBe(2);
     expect(stderr).toContain('->');
+  });
+
+  it('refuses a NEW file inside a symlinked directory', () => {
+    // Reported in review of this change, and the sharper half of the finding is about the case
+    // above: it pre-created the target, so it proved resolution worked on a path that did not need
+    // it. `Write` exists to create files that are not there yet, and the guard tested `-e
+    // "$FILE_PATH"` — false for exactly that. The parent directory carries the symlink, and it is
+    // there whether or not the file is.
+    const { status } = write(path.join(symlinkedStore(), 'app/vendored/src/brand-new.ts'));
+    expect(status).toBe(2);
+  });
+
+  it('permits a NEW file inside an ordinary directory', () => {
+    // The other direction of the same change: moving the existence test to the parent must not make
+    // every creation suspicious.
+    const dir = mkdtempSync(path.join(tmpdir(), 'bulk-edit-guard-ok-'));
+    scratch.push(dir);
+    mkdirSync(path.join(dir, 'packages/p/src'), { recursive: true });
+    expect(write(path.join(dir, 'packages/p/src/brand-new.ts')).status).toBe(0);
   });
 });
 
@@ -175,6 +198,27 @@ describe('the documented escape', () => {
     // `grep -R`, `rg --follow` and `glob.glob`. Writing them must not require the ack.
     const doc = 'cat > notes.md <<EOF\navoid find -L, grep -R, rg --follow and glob.glob(...)\nEOF';
     expect(bash(doc).status).toBe(0);
+  });
+});
+
+describe('what review of this change corrected', () => {
+  it('attributes a flag past a wrapper that took its own argument', () => {
+    // `sudo -u deploy find -L …` — the walk this replaced promoted `deploy`, a wrapper FLAG'S
+    // ARGUMENT, to current command, so `find` was never recognised and its `-L` sailed through.
+    // Segment membership needs no list of which wrapper flags take a value.
+    expect(bash('sudo -u deploy find -L packages/vendor -name "*.ts"').status).toBe(2);
+    expect(bash('nice -n 10 find -L packages -name x').status).toBe(2);
+  });
+
+  it('still separates a pipeline, which is what the attribution was for', () => {
+    expect(bash('find packages -name "*.ts" | xargs grep -L createSession').status).toBe(0);
+  });
+
+  it('requires the editor and the store path in ONE segment', () => {
+    // Two independent substring greps over a whole command cannot tell a conjunction from a
+    // coincidence: this refused an edit to `src/` that merely stood beside an `ls` of node_modules.
+    expect(bash('sed -i "s/a/b/" src/a.ts && ls node_modules/.bin').status).toBe(0);
+    expect(bash('sed -i "s/a/b/" packages/a/node_modules/b/src/x.ts').status).toBe(2);
   });
 });
 

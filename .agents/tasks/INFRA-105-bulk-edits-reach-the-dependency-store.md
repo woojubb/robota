@@ -73,6 +73,11 @@ all — but a `find` without `-L` is not the hazard the report claimed it was.
 - [x] TC-12: a redirect is judged on its TARGET — reading from the store and writing outside it is
       permitted, writing into it is refused.
 - [x] TC-13: a leading environment assignment does not take the command-name slot.
+- [x] TC-14: a NEW file inside a symlinked directory is refused, and a new file inside an ordinary
+      directory is not.
+- [x] TC-15: a flag is attributed past a wrapper that took its own argument (`sudo -u deploy find -L`)
+      while a pipeline is still separated.
+- [x] TC-16: an in-place editor and a store path must stand in ONE segment.
 
 ## Test Plan
 
@@ -127,3 +132,27 @@ A self-review pass before the push found two more, both false-positive direction
 - **A leading environment assignment took the command-name slot.** `FOO=bar find -L …` set the
   current command to `FOO=bar`, so the real one was never judged: a miss, not a false positive, and
   the mirror image of the ack-read hole.
+
+Review of the pull request then found three more, and all three were right:
+
+- **The symlink resolution never ran for a file being created.** It tested `-e "$FILE_PATH"`, which
+  is false for exactly what `Write` exists to do. A brand-new file inside a symlinked directory
+  skipped the block entirely and reached the store. The sharper half of the finding is about the
+  TEST: the case that was supposed to cover this pre-created its target with `writeFileSync`, so it
+  proved resolution worked on a path that did not need resolving. The existence test now sits on the
+  parent directory — which is what carries pnpm's symlink, and which is there whether or not the file
+  is — and both directions are cases.
+- **A wrapper's own flag argument took the command-name slot.** `sudo -u deploy find -L …` promoted
+  `deploy` to current command, so `find` was never recognised and its `-L` sailed through. `nice -n
+10 find -L` the same. Fixing the walk would mean maintaining a list of which wrapper flags take a
+  value, wrong the day it falls behind; attribution is now SEGMENT MEMBERSHIP — a flag belongs to a
+  command whose word stands earlier in the same run between separators — which needs no list. Stated
+  limit, and the price of dropping the walk: `find … -exec grep -L {} \;` inherits `find`'s
+  attribution and is refused. A pipeline, the common shape, is still separated.
+- **The in-place-editor rule was two unscoped substring greps.** "An editor anywhere AND a store path
+  anywhere" refused `sed -i 's/a/b/' src/a.ts && ls node_modules/.bin`, where the two have nothing to
+  do with each other — a conjunction read out of a coincidence. Both must now stand in one segment.
+
+Red-proofed one at a time: restoring the file-existence test fails exactly the new-file case,
+removing the segment split fails exactly three, and removing the editor rule's segment reset fails
+exactly one.

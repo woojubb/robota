@@ -78,16 +78,24 @@ if [[ "$TOOL_NAME" == "Write" || "$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Mult
   fi
 
   # RESOLVED as well as spelled. A path can reach the store without naming it — `packages/a/nm-link/x`
-  # where `nm-link` is a symlink into node_modules. Only checked when the path exists, because
-  # resolving a path being CREATED says nothing about where the write lands.
+  # where `nm-link` is a symlink into node_modules.
+  #
+  # The existence test is on the PARENT DIRECTORY, not on the file. Review of this change caught the
+  # first version testing `-e "$FILE_PATH"`, which is false for exactly the case `Write` exists to
+  # serve: a file being CREATED. A brand-new file inside a symlinked directory skipped the whole
+  # block and reached the store unrefused. The directory is what carries the symlink — pnpm links
+  # DIRECTORIES — and it is already there whether or not the file is.
+  #
+  # The test that was supposed to cover this pre-created the target with `writeFileSync`, so it
+  # proved the resolution worked on a path that did not need it. That is the more useful half of the
+  # finding: the case existed and was measuring the wrong thing.
   #
   # `cd` + `pwd -P` rather than `readlink -f`: the `-f` form is GNU-only and fails unhelpfully on
   # BSD/macOS, which `shell-portability` refuses (see "Host Platform Is Read, Never Assumed"). `pwd
-  # -P` is POSIX and resolves the DIRECTORY chain, which is exactly the level pnpm's symlinks live at
-  # — `packages/a/node_modules/@scope/b` is a symlinked directory, not a symlinked file.
-  if [[ -e "$FILE_PATH" ]]; then
-    RESOLVED=$( (cd "$(dirname -- "$FILE_PATH")" 2>/dev/null &&
-      printf '%s/%s' "$(pwd -P)" "$(basename -- "$FILE_PATH")") || printf '')
+  # -P` is POSIX and resolves the DIRECTORY chain, which is the level pnpm's symlinks live at.
+  PARENT=$(dirname -- "$FILE_PATH")
+  if [[ -d "$PARENT" ]]; then
+    RESOLVED=$( (cd "$PARENT" 2>/dev/null && printf '%s/%s' "$(pwd -P)" "$(basename -- "$FILE_PATH")") || printf '')
     if [[ -n "$RESOLVED" ]] && printf '%s' "$RESOLVED" | grep -qE "$STORE_SEGMENT_RE"; then
       refuse_path "$FILE_PATH -> $RESOLVED"
     fi
@@ -115,6 +123,57 @@ if printf '%s' "$MASK" |
   exit 0
 fi
 
+# --- The word reading, and the two questions asked of it ------------------------------------------
+WORDS=$(hook_statement_all_words "$COMMAND" 2>/dev/null || printf '%s' "$COMMAND")
+
+# Was FLAG passed TO COMMAND — not "does the flag appear anywhere". The difference is a real command
+# this guard refused during development: `find packages -name '*.ts' | xargs grep -L foo` carries a
+# `-L`, but it belongs to `grep`, where it means files-without-match and follows nothing. Attributing
+# it to `find` refuses a correct pipeline, and a guard that does that gets its ack pasted by reflex.
+#
+# The unit is the SEGMENT — the run of words between two separators (`|`, `;`, `&&`, `||`). A flag is
+# attributed to a command when that command's own word stands earlier in the same segment.
+#
+# This replaces a "current command" walk that tracked which word was the command in progress. Review
+# of this change measured its failure: `sudo -u deploy find -L …` promoted `deploy` — a wrapper
+# FLAG'S ARGUMENT — to current command, so `find` was never recognised and its `-L` sailed through.
+# Fixing that walk means knowing which wrapper flags take a value, which is a list that has to be
+# maintained and is wrong the day it falls behind. Segment membership needs no such list.
+#
+# STATED LIMIT, because it is the price of dropping the walk: a second command inside one segment
+# inherits the first one's attribution. `find … -exec grep -L {} \;` is read as `find` carrying `-L`
+# and is refused. That is a false positive, and it is the trade taken deliberately — a pipeline is
+# the common shape and is still separated, `-exec grep -L` is not, and the ack is one word away.
+segments() {
+  printf '%s\n' "$WORDS" | awk '
+    function is_sep(w) { return w == "|" || w == ";" || w == "&" || w == "&&" || w == "||" || w == "(" || w == ")" }
+    is_sep($0) { print "\034"; next }
+    { print }'
+}
+
+cmd_flag() {
+  segments | awk -v CMD="$1" -v FLAG="$2" '
+    $0 == "\034" { seen = 0; next }
+    seen && $0 ~ /^-/ && $0 ~ FLAG { found = 1 }
+    $0 == CMD { seen = 1 }
+    END { exit(found ? 0 : 1) }'
+}
+
+# An in-place editor and a store path standing in ONE segment. See the note on the rule above for
+# what the segment scope is correcting.
+segment_has_editor_and_store_path() {
+  segments | awk '
+    function reset() { editor = 0; store = 0; sed_or_perl = 0 }
+    BEGIN { reset() }
+    $0 == "\034" { reset(); next }
+    $0 == "sed" || $0 == "perl" { sed_or_perl = 1 }
+    sed_or_perl && $0 ~ /^-[[:alnum:]]*i/ { editor = 1 }
+    $0 == "tee" || $0 == "truncate" { editor = 1 }
+    $0 ~ /(node_modules|\.pnpm)\// { store = 1 }
+    editor && store { found = 1 }
+    END { exit(found ? 0 : 1) }'
+}
+
 # --- 2. A content write whose target names the store ---------------------------------------------
 # Scoped to CONTENT writes on purpose. `rm -rf node_modules` and `mv node_modules …` are the reinstall
 # idioms every contributor runs; refusing them would be a correct command blocked, which is how a
@@ -126,11 +185,15 @@ if printf '%s' "$MASK" | grep -qE '>>?[[:space:]]*[^[:space:]|;&]*(node_modules|
   refuse_path "the command redirects output into node_modules or .pnpm"
 fi
 
-# The in-place editors take their targets as ARGUMENTS, so "an editor is present AND a store path is
-# present" is already tight — there is no other place the path could be going.
-if printf '%s' "$MASK" | grep -qE '(node_modules|\.pnpm)/' &&
-  printf '%s' "$MASK" | grep -qE '(sed[[:space:]]+(-[[:alnum:]]*[[:space:]]+)*-i|perl[[:space:]]+(-[[:alnum:]]*[[:space:]]+)*-i|[[:space:]]tee[[:space:]]|truncate[[:space:]])'; then
-  refuse_path "the command writes content to a path naming node_modules or .pnpm"
+# The in-place editors take their targets as ARGUMENTS, so an editor and a store path in the SAME
+# SEGMENT is tight — there is no other place the path could be going.
+#
+# The segment scope is the correction. "An editor anywhere AND a store path anywhere" refused
+# `sed -i 's/a/b/' src/a.ts && ls node_modules/.bin`, where the edit and the store path have nothing
+# to do with each other: two independent substring greps over one command text cannot tell a
+# conjunction from a coincidence. Reported in review of this change.
+if segment_has_editor_and_store_path; then
+  refuse_path "an in-place editor is given a path naming node_modules or .pnpm"
 fi
 
 # --- 3. The four measured symlink-following enumerators ------------------------------------------
@@ -139,31 +202,6 @@ fi
 # acked instead of fixed.
 FOUND=''
 add_finding() { FOUND="${FOUND}[bulk-edit-guard]   $1"$'\n'; }
-
-WORDS=$(hook_statement_all_words "$COMMAND" 2>/dev/null || printf '%s' "$COMMAND")
-
-# Was FLAG passed TO COMMAND — not "does the flag appear anywhere". The difference is a real command
-# this guard refused during development: `find packages -name '*.ts' | xargs grep -L foo` carries a
-# `-L`, but it belongs to `grep`, where it means files-without-match and follows nothing. Attributing
-# it to `find` refuses a correct pipeline, and a guard that does that gets its ack pasted by reflex.
-#
-# So the word list is walked: a separator (`|`, `;`, `&&`, …) ends the current command, the first
-# non-flag word after one BECOMES the current command, and a wrapper (`xargs`, `env`, `sudo`, …)
-# hands that role to the word after it. A flag counts only while its own command is current.
-cmd_flag() {
-  printf '%s\n' "$WORDS" | awk -v CMD="$1" -v FLAG="$2" '
-    function is_sep(w) { return w == "|" || w == ";" || w == "&" || w == "&&" || w == "||" || w == "(" || w == ")" }
-    function is_wrapper(w) { return w == "xargs" || w == "env" || w == "sudo" || w == "time" || w == "nice" || w == "command" }
-    BEGIN { cur = "" }
-    { w = $0 }
-    is_sep(w) { cur = ""; next }
-    # A leading assignment (`FOO=bar find -L …`) is not the command. Without this it BECAME the
-    # current command and the real one was never judged.
-    cur == "" && w ~ /^[A-Za-z_][A-Za-z0-9_]*=/ { next }
-    cur == "" && w !~ /^-/ { if (!is_wrapper(w)) cur = w; next }
-    cur == CMD && w ~ /^-/ && w ~ FLAG { found = 1 }
-    END { exit(found ? 0 : 1) }'
-}
 
 if cmd_flag find '^(-L|-follow)$'; then
   add_finding "find -L follows symlinks. Drop -L: plain find does not (measured)."
