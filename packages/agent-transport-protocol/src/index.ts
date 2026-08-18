@@ -67,6 +67,18 @@ export {
   sealHandoffRecord,
   verifyHandoffPayload,
 } from './handoff-manifest.js';
+export {
+  chunkCountFor,
+  chunkHandoffPayload,
+  DEFAULT_MAX_CHUNK_BYTES,
+  HandoffChunkAssembler,
+} from './handoff-chunking.js';
+export type {
+  IChunkResult,
+  IHandoffChunk,
+  TChunkOutcome,
+  TChunkRejection,
+} from './handoff-chunking.js';
 export type {
   IBuildManifestInput,
   IIntegrityVerdict,

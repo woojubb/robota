@@ -166,6 +166,10 @@ once and the carriers stay dumb.
 | `buildHandoffManifest`                  | Function  | HANDOFF-001: classify the inventory and seal the payload, or REFUSE on in-flight work      |
 | `sealHandoffRecord`                     | Function  | HANDOFF-001: serialize once and describe those exact bytes, so send and digest agree       |
 | `verifyHandoffPayload`                  | Function  | HANDOFF-001: length before digest — a truncation must not be reported as tampering         |
+| `chunkHandoffPayload`                   | Function  | HANDOFF-001: cut a sealed payload on BYTES, so the channel's byte budget is exact          |
+| `HandoffChunkAssembler`                 | Class     | HANDOFF-001: reassemble one transfer under reordering and retries; refuse inconsistency    |
+| `chunkCountFor`                         | Function  | HANDOFF-001: how many chunks a payload takes, from the manifest, without building them     |
+| `DEFAULT_MAX_CHUNK_BYTES`               | const     | 16 KiB — what every SCTP implementation carries without negotiation                        |
 | `mintTransportToken`                    | Function  | SEC-008: mint a per-launch credential; throws rather than returning a weak one             |
 | `credentialMatches`                     | Function  | SEC-008: constant-time comparison of a presented credential against the required one       |
 | `bearerCredential`                      | Function  | SEC-008: extract a bearer credential from an `Authorization` header value                  |
