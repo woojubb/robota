@@ -17,7 +17,9 @@ import {
   decidePromotionCloses,
   examinedIssueCount,
   findMissingKeywords,
+  parseCommitSubjects,
 } from '../scan-promotion-closes.mjs';
+import { parsePullRequestNumbers } from '../promotion-closes.mjs';
 
 describe('findMissingKeywords', () => {
   it('finds an issue the body never mentions', () => {
@@ -106,5 +108,41 @@ describe('the published examined size', () => {
     findMissingKeywords({ body: 'Closes #1750', requiredIssues: [1750, 1722, 1804] });
     decidePromotionCloses({ baseRef: 'develop', body: '', requiredIssues: [] });
     expect(examinedIssueCount()).toBe(0);
+  });
+});
+
+describe('parseCommitSubjects', () => {
+  it('takes only the subject of a multi-line message', () => {
+    const stdout = [
+      JSON.stringify('feat(x): a thing (#1841)\n\nBody line one.\nBody line two.'),
+      JSON.stringify('fix(y): another (#1843)'),
+    ].join('\n');
+
+    expect(parseCommitSubjects(stdout)).toEqual([
+      'feat(x): a thing (#1841)',
+      'fix(y): another (#1843)',
+    ]);
+  });
+
+  it('does not read a body line that quotes another pull request as a carried one', () => {
+    // The reason this guard needed the encoding: with raw `gh` output this body line arrived as its
+    // own line of stdout, and `(#9999)` made it a pull request the promotion never carried. This
+    // guard is required on `protect-main`, so that reading blocks a correct promotion.
+    const stdout = JSON.stringify(
+      'feat(z): the real subject (#1850)\n\nSupersedes the approach taken in (#9999)',
+    );
+
+    expect(parsePullRequestNumbers(parseCommitSubjects(stdout))).toEqual([1850]);
+  });
+
+  it('throws rather than guessing when a line is not JSON-encoded', () => {
+    // The caller turns a throw into UNAVAILABLE, which BLOCKS. A silently dropped line would read as
+    // "no pull requests carried", which PASSES — the direction a guard must never fail in.
+    expect(() => parseCommitSubjects('feat(x): raw, unencoded (#1)')).toThrow(/not JSON-encoded/);
+  });
+
+  it('is empty for empty output', () => {
+    expect(parseCommitSubjects('')).toEqual([]);
+    expect(parseCommitSubjects(undefined)).toEqual([]);
   });
 });

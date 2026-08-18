@@ -144,6 +144,38 @@ function readPull(repo, pullNumber) {
   return JSON.parse(response.stdout);
 }
 
+/**
+ * Subjects out of the raw `gh` stdout, one JSON-encoded commit message per line.
+ *
+ * The encoding is not decoration. `--jq '.[].commit.message'` prints a scalar RAW, so a squash
+ * message's body arrives as further lines of stdout and every one of them reads as another commit's
+ * subject. A body line that happens to end in `(#123)` — quoting another pull request, which a
+ * promotion body routinely does — then enters `parsePullRequestNumbers` as a carried pull request,
+ * and this guard is a required check on `protect-main`: the promotion is blocked on an issue no
+ * commit here carries. `@json` puts each message on exactly ONE line, which is the shape the caller
+ * always assumed, and this function is where the assumption is now testable.
+ */
+export function parseCommitSubjects(stdout) {
+  return (stdout ?? '')
+    .split('\n')
+    .filter((line) => line.trim() !== '')
+    .map((line) => {
+      let message;
+      try {
+        message = JSON.parse(line);
+      } catch {
+        // Fail loudly: the caller turns a throw into UNAVAILABLE, which BLOCKS. Guessing at a
+        // half-decoded line would let a mis-parse read as "no pull requests carried" — a pass.
+        throw new Error(`commit message line is not JSON-encoded: ${line.slice(0, 80)}`);
+      }
+      if (typeof message !== 'string') {
+        throw new Error(`commit message is not a string: ${line.slice(0, 80)}`);
+      }
+      return message.split('\n')[0].trim();
+    })
+    .filter((subject) => subject !== '');
+}
+
 function pullCommitSubjects(repo, pullNumber) {
   const response = readWithBackoff(
     ghRunner,
@@ -152,14 +184,11 @@ function pullCommitSubjects(repo, pullNumber) {
       '--paginate',
       `repos/${repo}/pulls/${pullNumber}/commits?per_page=100`,
       '--jq',
-      '.[].commit.message',
+      '.[].commit.message | @json',
     ],
     `pulls/${pullNumber}/commits`,
   );
-  return (response.stdout ?? '')
-    .split('\n')
-    .map((message) => message.split('\\n')[0].trim())
-    .filter((subject) => subject !== '');
+  return parseCommitSubjects(response.stdout);
 }
 
 /** allow-unpaginated: a pull request by number is ONE resource, not a collection; no count derived. */
