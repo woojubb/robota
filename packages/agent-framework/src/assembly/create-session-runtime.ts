@@ -11,13 +11,13 @@ import { formatProjectedModelCommandToolPromptDescription } from '../tools/model
 
 import type { ICreateSessionOptions } from './create-session-types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
-import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
 import type { createModelCommandToolProjection } from '../tools/model-command-tool-projection.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
+import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type { Session } from '@robota-sdk/agent-session';
 
 // Re-exported so existing importers of the assembly module keep one entry point.

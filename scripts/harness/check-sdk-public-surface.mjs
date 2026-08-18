@@ -13,12 +13,54 @@ const WORKSPACE_ROOT = process.cwd();
 const SDK_PACKAGE_JSON = 'packages/agent-framework/package.json';
 const SDK_PACKAGE_DIR = path.posix.dirname(SDK_PACKAGE_JSON);
 const SDK_SRC_DIR = 'packages/agent-framework/src';
-const SDK_RUNTIME_FACADE_FILES = new Set([
+/**
+ * Files permitted to re-export `agent-executor` symbols, with the REAL reason each is here.
+ *
+ * RENAMED from `SDK_RUNTIME_FACADE_FILES` by ARCH-037. The old name and the failure message below
+ * both still announced the retired "runtime facade" criterion, so the mechanism a developer meets
+ * would have kept teaching the rule this docblock had already disproved — and the next audit would
+ * have re-raised the same finding verbatim. A criterion that lives only in a comment is the
+ * narrower-than-the-rule shape this item exists to remove.
+ *
+ * ARCH-037 asked for one of two things: apply this set's stated criterion to its surviving entry and
+ * empty the set, or replace the comment with the real distinguishing reason. Emptying it was tried
+ * first and REFUTED by the compiler, so this is the second branch — and the refutation is the useful
+ * part, because the old comment was wrong in a way that reading could not reveal.
+ *
+ * The old justification was "runtime facade": a file re-exporting executor RUNTIME VALUES. Counted,
+ * the surviving entry has none — its `agent-executor` re-exports are a single `export type { … }`
+ * block of ten type-only names. By that criterion it did not belong, exactly as ARCH-031 argued when
+ * it deleted the sibling entry.
+ *
+ * But deleting the block turned `pnpm typecheck` RED, and that is the real reason. Measured, not
+ * counted by eye: `IBackgroundTaskRunner` is imported from this barrel by SIX files across FOUR
+ * packages — `agent-cli`, `agent-product`, `agent-transport` and `agent-transport-tui`. Of those,
+ * `agent-product`'s permitted dependency set is "agent-framework + agent-preset +
+ * agent-capability-pack + type-only agent-interface-transport + agent-core types"
+ * (`.agents/project-structure.md`), and neither `agent-transport-tui` nor `agent-transport` declares
+ * `agent-executor` either, so for all three this barrel is the ONLY permitted path to the type.
+ * (`agent-cli` does depend on `agent-executor` and imports the runner from it directly elsewhere, so
+ * for that consumer alone the entry blesses a path it does not need.)
+ *
+ * An earlier revision of this paragraph said "RED in two packages" and named only the first two —
+ * a line-based search cannot see a name inside a multi-line import block, and the undercount sat
+ * eight lines above a corrected count saying four, i.e. the file contradicted itself.
+ *
+ * The entry is load-bearing; it was simply never load-bearing for the reason written beside it.
+ *
+ * So the criterion is now DEPENDENCY REACH, not runtime-ness: an entry belongs here when a permitted
+ * consumer cannot reach the symbol any other way, and the entry must name that consumer. An entry
+ * that cannot name one is the next reader's false permission — ARCH-031's sentence, which holds
+ * whichever criterion is in force.
+ */
+const SDK_UNREACHABLE_ELSEWHERE_FILES = new Set([
+  // `IBackgroundTaskRunner` is reached through this barrel by `agent-product`, `agent-transport-tui`,
+  // `agent-transport` and `agent-cli` — none of the first three may depend on `agent-executor`.
+  // Verified by deletion: removing the block reddens their typecheck.
+  // Contained — ARCH-039. The criterion is
+  // per-symbol but this entry is per-file, and measurement puts external importers on exactly ONE
+  // of the block's ten names, so the other nine ride along. Narrowing it belongs with ARCH-039.
   'packages/agent-framework/src/background-tasks/index.ts',
-  // ARCH-031 removed `packages/agent-framework/src/subagents/index.ts` from this set. It held eleven
-  // executor pass-throughs that were TYPES ONLY — zero runtime values — so it was never the runtime
-  // facade this exception exists for, and an allowlist entry with nothing behind it is the next
-  // reader's false permission.
 ]);
 const FORBIDDEN_TOP_LEVEL_OWNER_PACKAGES = [
   '@robota-sdk/agent-core',
@@ -204,7 +246,7 @@ async function collectReachableFindings(root, file, visited, findings) {
   const content = await fs.readFile(absoluteFile, 'utf8');
   findings.push(...findExportStarFindings(file, content));
   findings.push(...findOwnerPassThroughFindings(file, content));
-  findings.push(...findUnexpectedRuntimeFacadeFindings(file, content));
+  findings.push(...findUnexpectedExecutorReexportFindings(file, content));
 
   const reachableSources = new Set([
     ...extractReExportDeclarations(content).map((declaration) => declaration.source),
@@ -225,15 +267,15 @@ async function collectReachableFindings(root, file, visited, findings) {
   }
 }
 
-function findUnexpectedRuntimeFacadeFindings(file, content) {
-  if (SDK_RUNTIME_FACADE_FILES.has(file)) return [];
+function findUnexpectedExecutorReexportFindings(file, content) {
+  if (SDK_UNREACHABLE_ELSEWHERE_FILES.has(file)) return [];
   return extractPassThroughSources(content)
     .filter((source) => source === EXECUTOR_PACKAGE || source.startsWith(`${EXECUTOR_PACKAGE}/`))
     .map(() => ({
       file,
-      type: 'sdk-runtime-facade-location',
+      type: 'sdk-unreachable-elsewhere-location',
       detail:
-        'agent-executor public re-exports must stay in SDK runtime facade barrels, not arbitrary SDK files.',
+        'agent-executor public re-exports belong only where a permitted consumer cannot reach the symbol any other way (see SDK_UNREACHABLE_ELSEWHERE_FILES), not in arbitrary SDK files.',
     }));
 }
 

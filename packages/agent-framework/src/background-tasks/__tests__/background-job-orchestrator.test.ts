@@ -6,12 +6,12 @@ import {
   summarizeBackgroundJobGroup,
 } from '../background-job-orchestrator.js';
 
+import type { TBackgroundJobGroupEvent } from '../index.js';
 import type {
   IBackgroundTaskHandle,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
-  TBackgroundJobGroupEvent,
-} from '../index.js';
+} from '@robota-sdk/agent-executor';
 import type {
   IBackgroundTaskResult,
   TBackgroundTaskRequest,

@@ -6,6 +6,10 @@
  * here for intra-package use; the package's PUBLIC index does not re-export them.
  */
 
+// ARCH-037: sourced from the `agent-core` SSOT, not from `agent-interface-transport`'s
+// pass-through re-export, which is deleted. Re-exported at the end of this file for the package's
+// own barrel chain — a type this file genuinely consumes, not a second name for someone else's.
+import type { TBackgroundPermissionPolicy } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskError,
   IBackgroundTaskInput,
@@ -25,7 +29,6 @@ export type {
   TBackgroundTaskMode,
   TBackgroundTaskIsolation,
   TBackgroundTaskStatus,
-  TBackgroundPermissionPolicy,
   TBackgroundTaskTimeoutReason,
   TBackgroundTaskErrorCategory,
   TBackgroundPrimitive,
@@ -148,3 +151,5 @@ export interface IBackgroundTaskManagerOptions {
   repetitionWindow?: number;
   repetitionThreshold?: number;
 }
+
+export type { TBackgroundPermissionPolicy };

@@ -1,4 +1,4 @@
-import type { IBackgroundTaskManager } from './index.js';
+import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 
 const sessionBackgroundTaskManagers = new WeakMap<object, IBackgroundTaskManager>();
 

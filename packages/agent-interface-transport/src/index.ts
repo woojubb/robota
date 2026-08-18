@@ -1,9 +1,25 @@
 // @robota-sdk/agent-interface-transport
 
-// ── Interaction primitives re-exported for transports (REMOTE-007) ──
-// The transport-neutral prompt events (IAskRequestEvent/IPermissionRequestEvent) reference these
-// agent-core SSOT types; re-export them here so transport adapters keep a single import hub.
-export type { IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
+// ── One interaction primitive, re-exported for a structural reason (ARCH-037) ──
+//
+// `TActionResponse`'s SSOT is `agent-core`, and this is a pass-through re-export, which STRUCT-07
+// bans. It survives as a NAMED exception because the ban has no answer here, and that was measured
+// rather than assumed:
+//
+//   - its consumers are FOUR files across TWO packages — `agent-transport-gui` (three) and
+//     `agent-transport-protocol` (one) — and neither package's documented dependency set
+//     (`.agents/project-structure.md`) admits `agent-core`. An earlier revision said "the one
+//     consumer is `agent-transport-gui`": a line-based count cannot see a multi-line import;
+//   - `agent-core` has NO internal dependencies — it is the bottom layer — so the type cannot move
+//     here instead.
+//
+// So this re-export is the only path by which a permitted consumer can name the type. ARCH-037's
+// stated direction was to drop these and have consumers "import from `@robota-sdk/agent-core`";
+// that holds for the two dropped alongside it and NOT for this one.
+//
+// `IActionRequest` was re-exported here too and is gone: every consumer already imported it from
+// `agent-core` directly, so the re-export was a second name for a type nobody reached this way.
+export type { TActionResponse } from '@robota-sdk/agent-core';
 
 // ── Transport adapter contracts ──────────────────────────────
 export type {
@@ -140,7 +156,6 @@ export type {
   TBackgroundTaskMode,
   TBackgroundTaskIsolation,
   TBackgroundTaskStatus,
-  TBackgroundPermissionPolicy,
   TBackgroundTaskTimeoutReason,
   TBackgroundTaskErrorCategory,
   TBackgroundPrimitive,

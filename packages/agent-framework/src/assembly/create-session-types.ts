@@ -1,5 +1,4 @@
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
-import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
 import type { ISystemCommandSemanticRoles } from '../command-api/index.js';
@@ -24,6 +23,7 @@ import type {
   TToolArgs,
   IUserInteraction,
 } from '@robota-sdk/agent-core';
+import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 import type {
   Session,

@@ -7,6 +7,7 @@
     "arch-map-paths",
     "authority-bypass",
     "automerge-disarm-permission",
+    "barrel-parameter-types",
     "browser-package-node-subpath",
     "build-contracts",
     "ci-base-history",

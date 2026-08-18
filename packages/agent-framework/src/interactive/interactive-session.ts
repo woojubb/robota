@@ -48,7 +48,6 @@ import type {
   IInteractiveSessionEvents,
   IExecutionResult,
 } from './types.js';
-import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 import type { ICommandHostContext } from '../command-api/index.js';
 import type {
   IAgentJobHostContext,
@@ -69,6 +68,7 @@ import type {
   TActionResponse,
 } from '@robota-sdk/agent-core';
 import type { ISession } from '@robota-sdk/agent-core';
+import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type {
   ITransportAdapter,
   IGoalState,

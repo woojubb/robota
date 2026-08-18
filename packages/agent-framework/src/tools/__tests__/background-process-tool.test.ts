@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createBackgroundProcessTool } from '../background-process-tool.js';
 
-import type { IBackgroundTaskManager } from '../../background-tasks/index.js';
+import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type { IToolResult } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskState,
