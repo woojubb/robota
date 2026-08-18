@@ -1,9 +1,3 @@
-// ARCH-037: sourced from the `agent-core` SSOT, not from `agent-interface-transport`'s
-// pass-through re-export, which is deleted. Re-exported below for this package's own barrel chain —
-// a re-export of a type this package genuinely consumes, not a second name for someone else's.
-import type { TBackgroundPermissionPolicy } from '@robota-sdk/agent-core';
-
-export type { TBackgroundPermissionPolicy };
 /**
  * Background-task runtime SPI (runner/manager ports, handles, error class).
  *
@@ -12,6 +6,10 @@ export type { TBackgroundPermissionPolicy };
  * here for intra-package use; the package's PUBLIC index does not re-export them.
  */
 
+// ARCH-037: sourced from the `agent-core` SSOT, not from `agent-interface-transport`'s
+// pass-through re-export, which is deleted. Re-exported at the end of this file for the package's
+// own barrel chain — a type this file genuinely consumes, not a second name for someone else's.
+import type { TBackgroundPermissionPolicy } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskError,
   IBackgroundTaskInput,
@@ -153,3 +151,5 @@ export interface IBackgroundTaskManagerOptions {
   repetitionWindow?: number;
   repetitionThreshold?: number;
 }
+
+export type { TBackgroundPermissionPolicy };

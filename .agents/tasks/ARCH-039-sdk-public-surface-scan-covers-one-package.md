@@ -121,7 +121,9 @@ deletion nothing stops from growing back.
   ratchet the measurement above shows is required (15 of 31 packages carry a governed shape today).
 - Exemptions are expressed per symbol, so the ten-name block narrows to the name it earns and a new
   name cannot join it silently.
-- The four `Contained — ARCH-039.` labels are removed, because they no longer describe anything.
+- The two `Contained — ARCH-039.` labels are removed, because they no longer describe anything.
+  (Two more places refer to this item in prose rather than as a label — `PUBLIC-SURFACE.md` and the
+  framework SPEC — so a grep for the label form finds two, not four. Update those too.)
 - `agent-command`'s 27 star exports are handled as their own burn-down, not folded in here.
 
 ## Test Plan

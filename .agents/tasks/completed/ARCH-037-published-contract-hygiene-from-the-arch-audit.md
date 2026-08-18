@@ -226,12 +226,21 @@ The sweep behind it had a shell quoting bug that silently turned mutations into 
 
 The sweep now VERIFIES that each mutation reached the file before running the suite, and refuses to
 score one that did not. Final measurement: **37 single-point mutations of the scan, 37 caught by the
-46-case suite** — every skip, every guard, every module-resolution candidate, every declaration
-form, and the fail-closed empty-scope branch. One survivor found on the way (the closure guard's
+46-case suite** — every skip, every module-resolution candidate, every declaration form, and the
+fail-closed empty-scope branch. One guard is the exception and is named rather than folded in: the
+`requireGovernedTree` call is killed by `scan-guard-scope-fail-closed.mjs`, not by this suite, so
+"every guard" would have credited the wrong mechanism. Round-6 review's independent 64-mutation
+sweep put the suite at 57 kills and the harness as a whole at 58, with **no test that no mutation
+kills** — which is the number that matters, and the first time in six rounds it was zero.
+
+The sweep script is NOT committed: it is a one-shot generated from the file it mutates, and would
+rot against the next edit. Said plainly because on a branch where two sweeps scored unapplied
+mutations, an unreproducible sweep is the one claim a reader should want to re-run — the round-6
+review's sweep is the independent corroboration. One survivor found on the way (the closure guard's
 variable-statement half, which had a case only for its function-declaration half) has a case now.
 
 The lesson is the one this item kept re-learning across six review rounds: a green result from a
 tool you wrote proves nothing until you have watched that tool go red, and "I ran it" is not the
 same claim as "I checked it ran".
 
-Verified: 124 of 126 scans pass (2 skipped). agent-framework 1395 tests, agent-executor 104.
+Verified: 125 of 126 scans pass (99.2%), 1 skipped. agent-framework 1395 tests, agent-executor 104.

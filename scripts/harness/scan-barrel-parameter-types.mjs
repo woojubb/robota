@@ -58,14 +58,14 @@ export function examinedBarrelCount() {
 
 /** The tail identifier of a possibly-qualified type name. */
 function tailName(node) {
-  let tail = node?.typeName ?? node?.exprName;
+  let tail = node?.typeName;
   while (tail && ts.isQualifiedName(tail)) tail = tail.right;
   return tail?.text ?? tail?.escapedText;
 }
 
 /** The LEFTMOST identifier of a possibly-qualified type name — `other` in `other.IThing`. */
 function rootName(node) {
-  let head = node?.typeName ?? node?.exprName;
+  let head = node?.typeName;
   while (head && ts.isQualifiedName(head)) head = head.left;
   return head?.text ?? head?.escapedText;
 }
@@ -115,13 +115,20 @@ export function parameterTypeNames(fn) {
  *
  * It does NOT cover every shape. An earlier revision claimed it did; the revision after that listed
  * five gaps, and review found the list itself wrong in two places — one entry described behaviour
- * the code does not have, and the entry with 38 live instances was missing. Each remaining gap
- * below was re-confirmed by fixture:
+ * the code does not have, and the entry with 38 live instances was missing. So this is "the gaps
+ * found SO FAR", not a closed set, and each was confirmed by fixture:
  *   - `function f(…) {} export default f;` — an export ASSIGNMENT, not a modifier;
  *   - `export default (a: IThing) => {};` — an anonymous default;
  *   - a `class`'s CONSTRUCTOR parameters, which a consumer equally cannot name;
  *   - an inline `import('./thing.js').IThing` parameter type (`ImportTypeNode` carries `qualifier`,
- *     not `typeName`, so `tailName` reads nothing).
+ *     not `typeName`, so `tailName` reads nothing);
+ *   - `export const f = wrap((a: IThing) => {})` — the initializer is a call, so it has no
+ *     `.parameters` to read;
+ *   - a method on an exported object literal, `export const api = { run(a: IThing) {} }`;
+ *   - `export { f };` placed BEFORE the `function f` it publishes — declarations are collected in
+ *     source order, so a hoisted export finds nothing yet.
+ * Measured: zero live instances of any of the three across every package, so none hides a finding
+ * today. They are listed because the previous two revisions of this list were wrong by omission.
  * Each under-reports, which is the dangerous direction — so they are listed rather than left for
  * the next reader to find the way review found these.
  *
@@ -465,7 +472,8 @@ export function findBarrelParameterTypeFindings(root = process.cwd(), settingsOv
           rule: 'barrel-parameter-type-unexported',
           detail:
             `${barrel}: \`${fn.name}\` (declared in ${fn.declaredIn}) is exported but its parameter ` +
-            `type \`${typeName}\` is not. A consumer of the function cannot name what it must pass, ` +
+            `type \`${typeRoot && typeRoot !== typeName ? `${typeRoot}.${typeName}` : typeName}\` is not. ` +
+            `A consumer of the function cannot name what it must pass, ` +
             `so they reverse-engineer the shape or cast into it — which is the defect ARCH-025 fixed ` +
             `for \`IScheduleEditPatch\` and ARCH-037 found again on \`subagentExecutionRoot\` and ` +
             `\`createDefaultTools\`. Export it from this barrel.`,
