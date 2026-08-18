@@ -1,6 +1,6 @@
 ---
 title: 'HANDOFF-001: moving a live session to another computer needs an ownership transaction, and there is no atomic commit across two machines'
-status: todo
+status: in-progress
 created: 2026-08-17
 priority: high
 urgency: soon
@@ -79,6 +79,28 @@ transferable half.
 Semantic SSOT `agent-interface-transport`; wire SSOT `agent-transport-protocol`; orchestration
 `agent-framework`; carrier `agent-transport-webrtc` consuming SEC-011's result; `agent-cli` owns
 commands, consent UX and composition only.
+
+## Implementation status
+
+The wire layer is complete; the orchestration is not. What has landed, and where:
+
+| Piece                                                                | Package                     | Change  |
+| -------------------------------------------------------------------- | --------------------------- | ------- |
+| Phase contracts and `sourceRetainsAuthority`                         | `agent-interface-transport` | earlier |
+| The ownership transaction — every failure keeps the source in charge | `agent-transport-protocol`  | #1835   |
+| Manifest, inventory classification, integrity seal/verify            | `agent-transport-protocol`  | #1843   |
+| Chunking and reassembly                                              | `agent-transport-protocol`  | #1856   |
+
+**TC-01, TC-05, TC-06, TC-08 and TC-09 are covered.** TC-02, TC-03, TC-04, TC-07 and TC-10 are not,
+and cannot be: they are about what the source and destination DO across a real transfer, not about
+the frames. They need the framework orchestration and the CLI commands, which are what remains.
+
+One classification changed during implementation and the table above still reflects the original
+wording. `THandoffDisposition` gained `never-transferred`, split from `source-local`, because the two
+were not the same statement: uncommitted working-tree changes stay behind as a product decision that
+could be revisited, while a provider credential stays behind because SEC-009 forbids a resolved
+secret crossing a process boundary — and a machine boundary is strictly worse. Collapsed together,
+nothing in the type would stop a later change from helpfully carrying the credential along.
 
 ## Test Plan
 
