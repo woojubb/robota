@@ -1,7 +1,8 @@
 ---
 title: 'CMD-006: /workflows per-subcommand modelInvocable:false is decorative — a model can auto-run an arbitrary on-disk workflow (LLM/http/file nodes) with no permission gate'
-status: in-progress
+status: done
 created: 2026-08-13
+completed: 2026-08-19
 priority: critical
 urgency: now
 area: packages/agent-command-workflows, packages/agent-framework
@@ -36,6 +37,23 @@ auto-approved and executes an arbitrary on-disk DAG.
   `executeWorkflowsRun` → `run-command.ts`, which resolves the path against cwd and executes the DAG
   (LLM/http/file/in-process-tool nodes) with no gate. The only permission seam is an opt-in
   `remoteCommandPolicy` that applies to `source === 'remote'`, not the model path.
+
+## Resolution
+
+Fixed in [#1877](https://github.com/woojubb/robota/pull/1877), filed as
+[issue #1872](https://github.com/woojubb/robota/issues/1872).
+
+The gate lives in `executeWorkflowsCommand` and reads `WORKFLOWS_SUBCOMMANDS` — the same registry
+that declares the flag. That is the part worth keeping: a subcommand added as
+`modelInvocable: false` is gated BY EXISTING TO BE FOUND, not by someone remembering to add a case
+to a second list. A gate with its own copy of the list would have been the same defect one layer up.
+
+`create` stays open (it is what the model is meant to use), a user-typed `run` is untouched (the
+gate is about who asked), and an unknown subcommand still gets the dispatcher's own answer.
+
+Two harness ratchets caught the test fixture and both were right — a hand-rolled partial cast to the
+host contract (contract-cast), and naming the aggregate in a return type (aggregate-naming). Both
+replaced with the published conformant double and an inferred type.
 
 ## Direction
 
