@@ -110,6 +110,7 @@
     "examples:typecheck": "pnpm --filter \"./examples/**\" run typecheck",
     "harness:scan:conflict-markers": "node scripts/harness/scan-conflict-markers.mjs",
     "harness:scan:reference-kind-qualified": "node scripts/harness/scan-reference-kind-qualified.mjs",
+    "harness:scan:symlink-following-enumeration": "node scripts/harness/scan-symlink-following-enumeration.mjs",
     "harness:scan:deprecated-markers": "node scripts/harness/scan-deprecated-markers.mjs",
     "harness:scan:orphan-exports": "node scripts/harness/check-orphan-exports.mjs",
     "test:mutation": "stryker run",

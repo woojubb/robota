@@ -116,7 +116,12 @@ function ambientWithoutDecisionInputs() {
   const clean = { ...process.env };
   for (const name of DECISION_INPUTS) delete clean[name];
   for (const name of Object.keys(clean)) {
-    if (/_ALLOW_/.test(name)) delete clean[name];
+    // `*_ALLOW_*` AND `*_ACK` — the two spellings this directory's overrides use. Only the first was
+    // scrubbed, which left `MERGE_GATE_ACK`, `FOREGROUND_WAIT_ACK` and `BULK_EDIT_ACK` inherited
+    // from whatever session runs the suite. An exported one disarms its guard, so the row would pass
+    // because nothing was checked — the accidental green named two paragraphs up, in the other
+    // spelling.
+    if (/_ALLOW_|_ACK$/.test(name)) delete clean[name];
   }
   return clean;
 }
@@ -210,6 +215,29 @@ const REGISTRY = [
     // is spending the turn waiting for something ELSE to change.
     setup: () => scratchDir('guard-no-wait-'),
     command: 'pnpm build',
+  },
+  {
+    hook: 'bulk-edit-guard.sh',
+    verb: 'a bulk edit sourced from git ls-files',
+    // The invocation the rule ASKS FOR. A guard against reaching node_modules that also complains
+    // about the sanctioned way to enumerate would make the sanctioned way feel no safer than the
+    // hazardous one, and the rule would be read as noise.
+    setup: () => scratchDir('guard-bulk-edit-'),
+    command: "git ls-files -z '*.ts' | xargs -0 sed -i 's/a/b/'",
+  },
+  {
+    hook: 'bulk-edit-guard.sh',
+    verb: 'Write of package source',
+    setup: () => {
+      const dir = scratchDir('guard-bulk-write-');
+      mkdirSync(path.join(dir, 'packages/p/src'), { recursive: true });
+      return dir;
+    },
+    payload: (dir) =>
+      JSON.stringify({
+        tool_name: 'Write',
+        tool_input: { file_path: path.join(dir, 'packages/p/src/a.ts'), content: 'export {};\n' },
+      }),
   },
   {
     hook: 'pre-push-check.sh',

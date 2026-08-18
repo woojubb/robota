@@ -123,6 +123,39 @@ looks like the command worked.
 - Never claim a file exists or was produced without actually creating it; verify paths before
   asserting presence; surface deliverables explicitly (share the file, not a folder).
 
+### A Bulk Edit Enumerates Through `git ls-files`
+
+A bulk edit takes its file list from `git ls-files`, never from a filesystem walk. `git ls-files`
+cannot return a `node_modules` path; a filesystem walk can, and in a pnpm workspace it does —
+`packages/<a>/node_modules/@scope/<b>` is a symlink to `packages/<b>`, and `node_modules/.pnpm` holds
+content hard-linked into every other project on the machine.
+
+A write that lands there is unobservable, which is why this is a rule and not a preference: `git
+status` does not look outside the work tree, every scan here reads `git ls-files`, and the store
+survives `pnpm install` because it believes the content is already correct.
+
+Four spellings follow symlinks, and each has a sibling that does not:
+
+| refuse                            | use                              |
+| --------------------------------- | -------------------------------- |
+| `find -L`                         | `find`                           |
+| `grep -R`                         | `grep -r`                        |
+| `rg --follow`                     | `rg` (also honours `.gitignore`) |
+| python `glob.glob` / `glob.iglob` | `pathlib.Path(...).rglob`        |
+
+Shell `**` under `globstar`, zsh `**`, and Node's `fs.globSync` do not traverse symlinked
+directories and are unrestricted. `bulk-edit-guard.sh` refuses the four at the command,
+`scan-symlink-following-enumeration` refuses them in a committed script, and both refuse a write
+whose path resolves inside the store. The declared exception is `BULK_EDIT_ACK=1` inline, after
+checking by hand where the enumeration reaches.
+
+Enforced by: `bulk-edit-guard` (the command) and `symlink-following-enumeration` (the committed
+script). Neither reaches a python program passed through a heredoc, nor a two-step edit that
+enumerates in one call and writes in the next; those are the reader's obligation.
+
+The measurements behind the table, and the exposure they corrected, are in
+[INFRA-105](../tasks/INFRA-105-bulk-edits-reach-the-dependency-store.md).
+
 ### A Wait Is Not Idle Time
 
 When work is blocked on something that takes minutes and is not yours to speed up — a continuous

@@ -69,6 +69,7 @@
     "spec-user-execution-section",
     "spec-whitebox-leakage",
     "stub-markers",
+    "symlink-following-enumeration",
     "task-archival",
     "test-plans",
     "test-selection-tolerance",

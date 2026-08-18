@@ -1,0 +1,199 @@
+/**
+ * INFRA-105 (#1884) — a bulk edit must not be able to reach the pnpm store.
+ *
+ * The incident this guards against is invisible after the fact: `packages/<a>/node_modules/@scope/<b>`
+ * is a symlink to `packages/<b>`, and `node_modules/.pnpm` is hard-linked into every other project on
+ * the machine. `git status` cannot see a write that lands there, and every harness scan reads
+ * `git ls-files`, which cannot list `node_modules` at all. So the check has to happen BEFORE the write.
+ *
+ * Every rule is asserted in BOTH directions — the hazardous spelling refused AND its safe sibling
+ * permitted. A guard that has only ever been shown to say no is a guard nobody has shown can say yes,
+ * and that is the shape that gets switched off the first time it blocks correct work. The sibling
+ * halves are not padding: `find` without `-L`, `grep -r`, `rg` without `--follow`, `Path.rglob`,
+ * bash `**` under globstar and `fs.globSync` were each MEASURED not to traverse a symlink, which is
+ * why the guard aims at four spellings rather than at recursive enumeration in general.
+ */
+
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+
+import { afterAll, describe, expect, it } from 'vitest';
+
+const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
+const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/bulk-edit-guard.sh');
+
+const scratch = [];
+afterAll(() => {
+  while (scratch.length > 0) rmSync(scratch.pop(), { recursive: true, force: true });
+});
+
+function run(payload) {
+  const result = spawnSync('bash', [HOOK], {
+    input: typeof payload === 'string' ? payload : JSON.stringify(payload),
+    encoding: 'utf8',
+    env: { ...process.env, CLAUDE_PROJECT_DIR: WORKSPACE_ROOT, BULK_EDIT_ACK: '0' },
+  });
+  return { status: result.status, stderr: result.stderr ?? '' };
+}
+
+const bash = (command) => run({ tool_name: 'Bash', tool_input: { command } });
+const write = (filePath) => run({ tool_name: 'Write', tool_input: { file_path: filePath } });
+
+describe('a file-writing tool naming the dependency store', () => {
+  it('refuses a path with a node_modules segment', () => {
+    const { status, stderr } = write(
+      'packages/agent-cli/node_modules/@robota-sdk/agent-core/src/x.ts',
+    );
+    expect(status).toBe(2);
+    expect(stderr).toContain('dependency store');
+  });
+
+  it('refuses a path inside the .pnpm store', () => {
+    expect(write('node_modules/.pnpm/vitest@3.0.0/node_modules/vitest/dist/index.js').status).toBe(
+      2,
+    );
+  });
+
+  it('permits an ordinary workspace source path', () => {
+    expect(write('packages/agent-cli/src/remote-control/local-peer-registry.ts').status).toBe(0);
+  });
+
+  it('permits a directory that merely contains the letters', () => {
+    // Anchored on separators. `my_node_modules_notes/` is not the store, and a guard that cannot
+    // tell them apart refuses documentation about itself.
+    expect(write('docs/my_node_modules_notes/why.md').status).toBe(0);
+  });
+
+  it('refuses a path that reaches the store only after symlink resolution', () => {
+    // The spelled path names nothing suspicious; only `readlink -f` shows where the write lands.
+    // This is the case a text-only check misses, and it is the exact shape pnpm creates.
+    const dir = mkdtempSync(path.join(tmpdir(), 'bulk-edit-guard-'));
+    scratch.push(dir);
+    mkdirSync(path.join(dir, 'node_modules/pkg/src'), { recursive: true });
+    writeFileSync(path.join(dir, 'node_modules/pkg/src/index.ts'), 'export {};\n');
+    mkdirSync(path.join(dir, 'app'), { recursive: true });
+    symlinkSync(path.join(dir, 'node_modules/pkg'), path.join(dir, 'app/vendored'));
+
+    const { status, stderr } = write(path.join(dir, 'app/vendored/src/index.ts'));
+    expect(status).toBe(2);
+    expect(stderr).toContain('->');
+  });
+});
+
+describe('the four measured symlink-following enumerators', () => {
+  const cases = [
+    ['find -L', 'find -L packages -name "*.ts"', 'find packages -name "*.ts"'],
+    ['grep -R', 'grep -Rl createSession packages', 'grep -rl createSession packages'],
+    ['rg --follow', 'rg --follow -l createSession packages', 'rg -l createSession packages'],
+    [
+      'python glob.glob',
+      'python3 -c "import glob; print(glob.glob(1))"',
+      'python3 -c "from pathlib import Path; print(Path(1).rglob(2))"',
+    ],
+  ];
+
+  it.each(cases)('refuses %s', (_name, hazardous) => {
+    expect(bash(hazardous).status).toBe(2);
+  });
+
+  it.each(cases)('permits the safe sibling of %s', (_name, _hazardous, safe) => {
+    expect(bash(safe).status).toBe(0);
+  });
+
+  it('permits grep -L, which is files-without-match and follows nothing', () => {
+    // The flag is attributed to the command that RECEIVED it. `-L` after `find` follows symlinks;
+    // `-L` after `grep` does not. Reading the flag without its command refused this correct
+    // pipeline during development.
+    expect(bash('find packages -name "*.ts" | xargs grep -L createSession').status).toBe(0);
+  });
+
+  it('still sees a hazardous flag on the first command of a pipeline', () => {
+    expect(bash('find -L packages -name "*.ts" | xargs grep -l createSession').status).toBe(2);
+  });
+
+  it('sees a command introduced by a wrapper', () => {
+    expect(bash('cat list.txt | xargs -0 find -L -name "*.ts"').status).toBe(2);
+  });
+
+  it('permits an unrelated command carrying the same letters', () => {
+    expect(bash('ls -L packages').status).toBe(0);
+  });
+});
+
+describe('a content write whose target names the store', () => {
+  it('refuses an in-place sed', () => {
+    expect(bash('sed -i "s/a/b/" packages/a/node_modules/@robota-sdk/b/src/x.ts').status).toBe(2);
+  });
+
+  it('refuses a redirection into the store', () => {
+    expect(bash('echo broken > node_modules/.pnpm/pkg/index.js').status).toBe(2);
+  });
+
+  it('permits the reinstall idioms', () => {
+    // `rm -rf node_modules && pnpm install` is what every contributor runs. Refusing it would be a
+    // correct command blocked, which is how a guard's ack starts being pasted without being read.
+    expect(bash('rm -rf node_modules && pnpm install').status).toBe(0);
+    expect(bash('mv node_modules node_modules.bak').status).toBe(0);
+  });
+});
+
+describe('reading the payload', () => {
+  it('refuses an empty payload rather than permitting it', () => {
+    // fail-direction. "I could not look" is not "there was nothing there", and permitting here would
+    // make a malformed payload the way past the guard.
+    const { status, stderr } = run('');
+    expect(status).toBe(2);
+    expect(stderr).toContain('empty');
+  });
+
+  it('refuses a payload that names no tool', () => {
+    expect(run({ tool_input: { command: 'echo hi' } }).status).toBe(2);
+  });
+
+  it('ignores a tool it does not judge', () => {
+    expect(run({ tool_name: 'Read', tool_input: { file_path: 'node_modules/x.js' } }).status).toBe(
+      0,
+    );
+  });
+});
+
+describe('the documented escape', () => {
+  it('permits an inline BULK_EDIT_ACK=1', () => {
+    expect(bash('BULK_EDIT_ACK=1 find -L packages -name "*.ts"').status).toBe(0);
+  });
+
+  it('does not accept the ack merely NAMED inside a quoted argument', () => {
+    // Read off the masked text, the same rule branch-guard arrived at after four holes. A guard that
+    // can be switched off by a string it is scanning is not a guard.
+    expect(bash('echo "BULK_EDIT_ACK=1 " && find -L packages -name "*.ts"').status).toBe(2);
+  });
+
+  it('does not trip on the four spellings written into a heredoc body', () => {
+    // This repository's rule text, task record and the hook's own comments all discuss `find -L`,
+    // `grep -R`, `rg --follow` and `glob.glob`. Writing them must not require the ack.
+    const doc = 'cat > notes.md <<EOF\navoid find -L, grep -R, rg --follow and glob.glob(...)\nEOF';
+    expect(bash(doc).status).toBe(0);
+  });
+});
+
+describe('what the self-review pass corrected', () => {
+  it('judges a redirect on its TARGET, not on the command containing it', () => {
+    // Reading FROM the store and writing outside it is ordinary — inspecting an installed package's
+    // manifest. The first cut refused this, because it asked only whether a store path appeared
+    // anywhere in the command.
+    expect(bash('cat node_modules/.pnpm/pkg/package.json > /tmp/out.json').status).toBe(0);
+    expect(bash('echo broken > node_modules/.pnpm/pkg/index.js').status).toBe(2);
+  });
+
+  it('does not let a leading assignment take the command name slot', () => {
+    // `FOO=bar find -L …` — without skipping the assignment it BECAME the current command, and the
+    // real one was never judged. This is the same hole in the opposite direction from the ack read.
+    expect(bash('FOO=bar find -L packages -name "*.ts"').status).toBe(2);
+  });
+
+  it('sees the command after a wrapper that itself takes flags', () => {
+    expect(bash('sudo find -L /srv -name "*.ts"').status).toBe(2);
+  });
+});
