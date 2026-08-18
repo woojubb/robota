@@ -96,6 +96,21 @@ describe('decideScanReuse — every refusing direction', () => {
   });
 });
 
+describe('a requested side effect is never swallowed by the cache', () => {
+  it('refuses reuse when --write-adoption-baseline asked for an observed pass', () => {
+    // Review finding on #1888: with a receipt hit the run returned early, so the re-freeze the
+    // caller explicitly asked for silently did not happen and the output said only "not re-run".
+    const decision = decide({ writeAdoption: true });
+    expect(decision.reuse).toBe(false);
+    expect(decision.reason).toContain('--write-adoption-baseline');
+  });
+
+  it('refuses it even on an otherwise perfectly reusable identity', () => {
+    expect(decide({ writeAdoption: true, clean: true }).reuse).toBe(false);
+    expect(decide({ writeAdoption: false }).reuse).toBe(true);
+  });
+});
+
 describe('scans whose inputs are not in the tree', () => {
   it('names them, so adding one later is a visible change', () => {
     expect([...TREE_EXTERNAL_SCANS].sort()).toEqual(['build-contracts', 'dist']);

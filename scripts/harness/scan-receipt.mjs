@@ -119,7 +119,24 @@ export function readScanReceipt(root) {
  * Returns the reason in BOTH directions: a run that could not be reused has to say why, or the
  * operator learns the receipt is doing nothing only by watching the clock.
  */
-export function decideScanReuse({ scanNames, identity, receipt, clean, dirtyReason }) {
+export function decideScanReuse({
+  scanNames,
+  identity,
+  receipt,
+  clean,
+  dirtyReason,
+  writeAdoption = false,
+}) {
+  if (writeAdoption) {
+    // A re-freeze is a request to OBSERVE a pass, not to be told one happened earlier. Reusing here
+    // would leave the baseline unwritten and the run looking successful — the caller asked for a
+    // side effect, and a cache that swallows a requested side effect is a defect, not a saving.
+    return {
+      reuse: false,
+      eligible: false,
+      reason: '--write-adoption-baseline re-freezes from an observed pass',
+    };
+  }
   if (!scanSetIsEligible(scanNames)) {
     const external = scanNames.filter((name) => TREE_EXTERNAL_SCANS.has(name)).sort();
     return {
@@ -168,9 +185,15 @@ export function writeScanReceipt({ scanNames, root, scannedAt = new Date().toISO
 }
 
 /** The read half, wired for a real repository: identity + receipt + cleanliness in one call. */
-export function planScanReuse({ scanNames, root }) {
-  if (!scanSetIsEligible(scanNames)) {
-    return decideScanReuse({ scanNames, identity: null, receipt: null, clean: false });
+export function planScanReuse({ scanNames, root, writeAdoption = false }) {
+  if (writeAdoption || !scanSetIsEligible(scanNames)) {
+    return decideScanReuse({
+      scanNames,
+      identity: null,
+      receipt: null,
+      clean: false,
+      writeAdoption,
+    });
   }
   const dirty = realDirtyLines(root);
   return decideScanReuse({

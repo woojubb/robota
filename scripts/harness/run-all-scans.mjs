@@ -969,7 +969,7 @@ export async function main() {
   // HARNESS-109: the same tree is not scanned twice. A miss says WHY, because a reuse mechanism that
   // silently never fires is indistinguishable from one that is not wired at all.
   const scanNames = scans.map((scan) => scan.name);
-  const reuse = planScanReuse({ scanNames, root: WORKSPACE_ROOT });
+  const reuse = planScanReuse({ scanNames, root: WORKSPACE_ROOT, writeAdoption });
   if (reuse.reuse) {
     process.stdout.write(
       `${scanNames.length} scans not re-run: ${reuse.reason}.\n` +
