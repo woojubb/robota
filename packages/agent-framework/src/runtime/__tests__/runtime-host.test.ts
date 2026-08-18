@@ -84,6 +84,30 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     await host.shutdown();
   });
 
+  it('shutdown() leaves no timer holding the event loop open (#1852)', async () => {
+    // The bound exists so a WEDGED subsystem cannot block exit. Its own timer must therefore not
+    // become a reason to stay alive: the losing side of a `Promise.race` is not cancelled, so an
+    // un-unref'd bound keeps the process alive for its full 5s even when shutdown finished in 1ms.
+    //
+    // Measured on `robota --serve` before the fix: teardown done at 1ms, process exit at 5006ms,
+    // with zero handles and a single `Timeout` as the only live resource. The bintest's 8s budget
+    // was passing with a 3s margin over a cost paid on every shutdown.
+    //
+    // Asserted on `getActiveResourcesInfo` rather than on elapsed time, because a timing assertion
+    // would pass on a fast machine for the wrong reason.
+    const registry = stubRegistry();
+    const host = await startRuntimeHost({
+      session: { cwd, provider: stubProvider() },
+      transportRegistry: registry,
+    });
+
+    const before = process.getActiveResourcesInfo().filter((r) => r === 'Timeout').length;
+    await host.shutdown();
+    const after = process.getActiveResourcesInfo().filter((r) => r === 'Timeout').length;
+
+    expect(after).toBeLessThanOrEqual(before);
+  });
+
   it('shutdown() stops the transports and is idempotent', async () => {
     const registry = stubRegistry();
     const host = await startRuntimeHost({
