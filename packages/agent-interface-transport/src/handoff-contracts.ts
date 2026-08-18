@@ -57,7 +57,19 @@ export type THandoffDisposition =
   /** Carried as a REFERENCE the destination must resolve locally (a path, a snapshot id). */
   | 'rehydrated'
   /** Stays on the source. Reported to the user rather than silently dropped. */
-  | 'source-local';
+  | 'source-local'
+  /**
+   * MUST NOT cross the boundary, by rule rather than by circumstance.
+   *
+   * Split from `source-local` because the two are not the same statement. Uncommitted working-tree
+   * changes stay behind as a product decision that could be revisited; a resolved provider
+   * credential stays behind because SEC-009 established that it must not cross a process boundary,
+   * and a machine boundary is strictly worse. Collapsing them would leave nothing in the type to
+   * stop a later change from helpfully starting to carry the credential along — and the destination
+   * resolving its OWN credential is what makes a hand-off to a machine without one fail loudly at
+   * commit instead of silently later.
+   */
+  | 'never-transferred';
 
 /**
  * One classified piece of state.
