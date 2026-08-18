@@ -50,9 +50,13 @@ export function nonReproducibleCapabilities(context: IRobotaPackContext): readon
  * measured breach there was a subagent reading outside its root — so a capability the child cannot
  * reproduce must stop the process, not be silently dropped.
  *
- * Stated precisely: this runs at composition time inside `startCli`, so the effect is that robota
- * refuses to START, not that an individual spawn is refused. That is the safe direction and the
- * message says so — an earlier wording described a spawn refusal that does not exist.
+ * Stated precisely: this runs inside `createRobotaPackSet`, which `startCli` calls at composition
+ * time, so the effect is that robota refuses to START rather than refusing an individual spawn. That
+ * is the safe direction and the message says so.
+ *
+ * Two earlier wordings of this paragraph were wrong, which is why it now names its own call site: the
+ * first described a spawn refusal that does not exist, and the second claimed to run inside `startCli`
+ * while nothing called this function at all.
  *
  * Robota supplies no sandbox client today, so this is correct-by-construction now and binds the
  * moment a sandbox input is added. That second reason is why it is worth having.
@@ -148,12 +152,35 @@ export function createRobotaChildProcessSubagentRunner(options: {
  * from. Today there is exactly one construction site and one consumer; that is convention, not
  * construction. Tightening it means passing this whole result rather than a bare context.
  */
-export function createRobotaPackSet(cwd: string): {
+export function createRobotaPackSet(
+  cwd: string,
+  capabilities: Omit<IRobotaPackContext, 'cwd'> = {},
+): {
   readonly packContext: IRobotaPackContext;
   readonly packs: readonly TRobotaPack[];
   readonly packCommandModules: readonly string[];
 } {
-  const packContext: IRobotaPackContext = { cwd };
+  // ARCH-033: the capabilities are a PARAMETER, not a hard-coded `{ cwd }`.
+  //
+  // This is why the guard below was inert. The signature took only `cwd`, so `packContext` could
+  // never carry a `sandboxClient` and `nonReproducibleCapabilities()` returned `[]` by construction —
+  // not because robota supplies no sandbox, but because this function had no way to receive one. A
+  // guard whose input cannot vary is a guard that cannot fire, and the unit tests missed it because
+  // they built the context themselves and called the guard directly.
+  //
+  // `robota` still passes nothing today, so its behaviour is unchanged. What changed is that the
+  // guard is now reachable: a composition root that DOES supply a sandbox gets the refusal instead of
+  // silently spawning children that cannot reproduce it.
+  const packContext: IRobotaPackContext = { cwd, ...capabilities };
+  // ARCH-033: the fail-closed guard runs HERE, on the same context the packs are built from.
+  //
+  // It was previously exported, unit-tested, and called by nothing — a fail-closed guard that never
+  // runs is not fail-closed, it is decoration. Its own docblock claimed "this runs at composition
+  // time inside `startCli`", which was false: `cli.ts` imports `createRobotaPackSet` and
+  // `createRobotaChildProcessSubagentRunner` from this module and never the guard. Wiring it into the
+  // one function the real path already calls is what makes the claim true, and puts the check on the
+  // exact value the packs were composed with rather than on a re-derived one.
+  assertChildProcessSubagentsCanReproduce(packContext);
   // ARCH-006: scoped to the cwd they are built with.
   const packs = createRobotaPacks(packContext);
   return { packContext, packs, packCommandModules: packCommandModuleNames(packs) };

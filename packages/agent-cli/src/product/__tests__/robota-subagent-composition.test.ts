@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createRobotaPacks } from '../robota-profile.js';
 import {
   assertChildProcessSubagentsCanReproduce,
+  createRobotaPackSet,
   createRobotaSubagentComposition,
   nonReproducibleCapabilities,
   packTools,
@@ -107,5 +108,28 @@ describe('ARCH-021 — robota composes its own child-process subagents', () => {
     expect(toolNames(packTools({ cwd: CWD }))).toEqual(
       toolNames(createRobotaSubagentComposition().createTools({ cwd: CWD })),
     );
+  });
+});
+
+describe('ARCH-033 — the guard runs on the real composition path, not just in its own test', () => {
+  it('refuses to compose a pack set when a capability the child cannot reproduce is present', () => {
+    // The reason this case exists: `assertChildProcessSubagentsCanReproduce` was exported,
+    // unit-tested and called by NOTHING. Calling it directly (as the cases above do) proves the
+    // function works; it does not prove the product ever asks. This asserts through
+    // `createRobotaPackSet`, which is what `cli.ts` actually calls, so deleting the guard's call site
+    // turns this red while the direct-call cases above stay green.
+    // A minimal stand-in rather than a real client: the guard asks whether the capability is
+    // PRESENT, never what it does, and `agent-cli` takes no dependency on `agent-tools`.
+    const sandboxClient = {
+      run: async () => ({ stdout: '', stderr: '', exitCode: 0 }),
+      readFile: async () => '',
+      writeFile: async () => {},
+    } as IRobotaPackContext['sandboxClient'];
+
+    expect(() => createRobotaPackSet(CWD, { sandboxClient })).toThrow(/sandboxClient/);
+  });
+
+  it('composes normally when every capability is reproducible', () => {
+    expect(() => createRobotaPackSet(CWD)).not.toThrow();
   });
 });
