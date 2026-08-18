@@ -1,10 +1,11 @@
 ---
 title: 'ARCH-035: the tool surface has no defaults-aggregator leaf, so it cannot be cut by a manifest edge'
-status: todo
+status: done
+completed: 2026-08-19
 created: 2026-08-16
 priority: high
 urgency: soon
-area: packages/agent-framework, packages/agent-tools, packages/agent-subagent-runner
+area: packages/agent-tool-defaults, packages/agent-framework, packages/pack-coding, packages/agent-subagent-runner
 depends_on: []
 issue: https://github.com/woojubb/robota/issues/1787
 ---
@@ -558,6 +559,102 @@ robota-sdk-agent-tool-defaults-3.0.0-beta.79.tgz` (line 21 of the run, closure o
 (`69 assertions`, no C5 additions) does not match its written expected result (`n > 69` plus four named
 C5 assertions), and one unmet criterion is a FAIL regardless of the rest.
 
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-19
+
+**Status upgrade:** scenario written → scenario executed (second run of this gate, after the ❌ FAIL
+above; frontmatter `status: todo` left untouched — completion is the orchestrator's act on this verdict,
+not part of it)
+
+**Ordering:** PASS. `DONE-GATE-STAGE-1` shows `✅ PASS | 2026-08-18` in this section. Input state
+"scenarios written, implementation complete" holds, now including `3b8aca066` on
+`fix/arch-035-single-owner-default-tool-set` (`scripts/external-proof/fixture/src/mode-c.ts`, +49/-5).
+`pnpm build` exits `0`. Working tree carries no uncommitted change to the implementation.
+
+- **The agent directly executed every scenario against the completed implementation** — MET. All three
+  re-run by this guard against a freshly rebuilt tree; none of the caller's results were accepted, and
+  the caller had still not run S-2.
+- **The observed result matched the expected observable result for every scenario** — MET, all three.
+  **S-1** — `pnpm --filter @robota-sdk/agent-framework scenario:verify` → exit `0`, 4 records, final line
+  byte-identical to the written expectation:
+  `{"scenario":"ARCH-035","createSessionReturnedSynchronously":true,"providerObservedTools":["AskUserQuestion","BackgroundProcess","Bash","Edit","Glob","Grep","Read","Shell","WebFetch","WebSearch","Write","report_goal_status"],"cleanupRemoved":true}`.
+  `createSessionReturnedSynchronously:true` — the dynamic-import seam did not turn
+  `IAgentRuntime.createSession` into a `Promise`, which is the trap S-1 exists to catch.
+  **S-2** — repo-local `packages/agent-cli/bin/robota.cjs` (post-build), scratch project with a dummy-key
+  `.robota/settings.json`, `HOME` redirected, `VOLTA_HOME` preserved:
+  `robota -p "hello" --bare --session-log packages/agent-cli/src/__tests__/e2e/fixtures/cross-fidelity.jsonl`
+  → exit `0`; stdout exactly `CROSS_FIDELITY_OK` (18 bytes); stderr only the pre-existing NEUT-010
+  `No metadata registered for model` warning the scenario fences out. The single `provider_request` event
+  in `.robota/logs/session_1787077935935_pwnqj0jod.jsonl` carried **19** names, sorted:
+  `["AskUserQuestion","BackgroundProcess","Bash","Edit","Glob","Grep","Read","Shell","WebFetch","WebSearch","Write","report_goal_status","robota_command_agent","robota_command_compact","robota_command_memory","robota_command_monitor","robota_command_schedule","robota_command_skills","robota_command_workflows"]`
+  — identical to the pre-change measurement and to this guard's first run. **No regression: `pack-coding`
+  consuming the leaf did not move the shipped tool surface.** Scratch dirs removed; `git status
+--porcelain` shows the run wrote nothing inside the repo.
+  **S-3** — `pnpm build && node scripts/external-proof/run-external-proof.mjs` → both exit `0`.
+  `EXTERNAL PROOF PASSED — 72 assertions across Modes A, B and C` satisfies `n > 69` (was 69 at the
+  failed run). Step `[1/5]` logged `packed @robota-sdk/agent-tool-defaults →
+robota-sdk-agent-tool-defaults-3.0.0-beta.79.tgz` in an 18-package closure — the hard `dependencies`
+  edge. All four named C5 assertions are present and emitted `ok`. "C1-C4 and Modes A/B unchanged"
+  verified mechanically, not assumed: the 62 non-C5 `ok` lines are byte-identical between the failed
+  69-assertion run and this 72-assertion run (`diff` clean); C5 went 7 → 10 (7 − 1 replaced + 4 added),
+  and 62 + 10 = 72, so exactly one assertion was removed and the removal is visible in the arithmetic
+  rather than silent.
+- **Assertion 4 probed for vacuity rather than accepted** — it is NOT vacuous. Re-ran the proof with
+  `--keep` and inspected the consumer environment directly. `import * as frameworkNamespace from
+'@robota-sdk/agent-framework'` resolves to
+  `consumer/node_modules/@robota-sdk/agent-framework/dist/node/index.js`, installed from the packed
+  `file:` tarball — the published artifact, not a workspace link. The object is a real ESM namespace
+  (`[object Module]`) carrying **297** exports. Positive controls on the SAME object:
+  `hasOwnProperty('InteractiveSession')` → `true`, `hasOwnProperty('createSession')` → `true`; the
+  assertion's target `hasOwnProperty('createDefaultTools')` → `false`. The identical predicate applied to
+  the leaf's namespace returns `true`, so it discriminates rather than always-passing. The absence is
+  also complete across the published surface: the framework declares only two export subpaths (`.` and
+  `./testing`), `./testing` does not export it either, and the only occurrence of the name in the packed
+  runtime is the call site `await import('@robota-sdk/agent-tool-defaults')` inside the assembly seam —
+  `0` re-exports of it from that chunk. The concern was well placed; the assertion survives it.
+- **Replacing the old parity check was correct, and did not lose coverage** — verified from source and
+  by measurement, not from the author's reading. The old check compared `codingPackToolNames` with
+  `frameworkDefaultToolNames`; after S2 `createCodingPack` builds its tools as
+  `createDefaultTools(toolOptions)` (`packages/pack-coding/src/coding-pack.ts:87`) with
+  `toolOptions = { cwd, ...(sandboxClient ? { sandboxClient } : {}) }`, and `mode-c.ts:39` constructs the
+  pack with `{ cwd: process.cwd() }` while `mode-c.ts:179` calls `createDefaultTools({ cwd:
+process.cwd() })` — the same function with identical options on both sides, so the equality was a
+  tautology that could not fail. Confirmed empirically in the consumer environment (`pack==leaf` → `true`
+  by construction). The replacements are strictly stronger: pinning leaf == literal AND pack == literal
+  entails the old pack == leaf claim and additionally pins the contents. The pack surface also remains
+  exercised by the surviving C5 assertions at `mode-c.ts:240,273`. The removal carries its own
+  justification in the fixture comment and the commit message, so it is not a silent deletion.
+- **New assertions red-proved independently** — the caller's "drop one name turns three RED" was
+  reproduced by this guard rather than trusted, from the packed tarballs in the kept consumer dir:
+  with the real expected set all three set assertions are `true`; with `Grep` dropped from it, all three
+  flip to `false`. The published `pack-coding` manifest also declares
+  `"@robota-sdk/agent-tool-defaults": "3.0.0-beta.79"` as a hard dependency, so "both from the leaf" is
+  provable from the published surface and not only from repo source.
+- **Concrete evidence recorded under each scenario's evidence field** — MET, and checked for accuracy
+  rather than presence. S-1, S-2 and S-3 each carry the command and the observed result; every figure
+  quoted there (4 records, the 12-name array, exit 0, `CROSS_FIDELITY_OK`, the 19 names, 72 assertions,
+  the `packed` line) matches what this guard observed independently. S-2's field states the run was the
+  gate guard's and that the author had not produced it — an accurate attribution, not a borrowed claim.
+- **Engineering verification cited as evidence** — no breach. Re-verified: `proof:external` appears only
+  at root `package.json:110`, in no `.github/workflows/` file and no `scripts/harness/` script; the
+  harness's `scenario:verify` references are `scan-consistency.mjs` (asserts the script exists),
+  `self-check.mjs` (agent-core's) and `ci.yml:859` (agent-executor's windows-shell one) — none is the
+  agent-framework chain, which is `tsx examples/verify-*.ts`, not vitest. S-2 drives the shipped `robota`
+  binary; S-3's fixture is a third-party consumer installing packed tarballs. The `pnpm build` in S-3's
+  command is a precondition of packing, not the observable.
+- **Unprobed capability-absence claim** — N/A, recorded rather than skipped: no scenario was skipped and
+  no exception claimed, so there is no absence to probe. S-3's one external dependency (the npm registry)
+  was exercised for real, twice.
+- **Durable repository artifacts** — MET. All referenced paths exist:
+  `packages/agent-framework/examples/verify-zero-config-default-tools.ts`,
+  `packages/agent-cli/src/__tests__/e2e/fixtures/cross-fidelity.jsonl`,
+  `scripts/external-proof/run-external-proof.mjs`, `scripts/external-proof/fixture/src/mode-c.ts`,
+  `packages/pack-coding/src/coding-pack.ts`, `packages/agent-tool-defaults/`.
+- **`manual-only` exception** — N/A. None claimed; all three scenarios were executable and were executed.
+
+**Verdict:** PASS — the criterion that failed the first run, "the observed result matched the expected
+observable result for every scenario", is now met for S-3 (72 assertions > 69, all four named C5
+assertions present, non-vacuous and red-proved), with S-1 and S-2 unchanged and matching.
+
 ## Blockers
 
 - None. The product question that blocked this item — does any consumer construct a session without
@@ -567,4 +664,45 @@ C5 assertions), and one unmet criterion is a FAIL regardless of the rest.
 
 ## Result
 
-Pending.
+Delivered as `@robota-sdk/agent-tool-defaults`, a composition leaf, across five commits.
+
+**The guarantee, proved rather than asserted.** A temporary probe in `agent-subagent-runner` was
+compiled both ways and then removed: importing from the leaf is `TS2307` (the module does not resolve
+there at all — no manifest edge), and the old route through `agent-framework`'s barrel is `TS2305`
+(no such export). Under pnpm's isolated layout the leaf is linked into `agent-framework` and absent
+from the runner, so this is the type system refusing, not a scan finding. The provider axis got this
+from ARCH-021; the tool axis has it now.
+
+**What the leaf did NOT become.** `agent-framework` takes a hard `dependencies` edge and reaches it by
+dynamic `import()` only. The manifest field matters: the external proof's closure walks `dependencies`
+only, so an `optionalDependencies` edge — the shape the DAG precedent uses for its own reasons — would
+have kept the leaf out of the published closure entirely and made the README's "built-in tools are
+assembled for SDK sessions" throw under `--omit=optional`. The guarantee comes from the import syntax,
+which is what Rule 8 in `scripts/harness/check-dependency-direction.mjs` matches.
+
+**Three defects surfaced that were not the item's subject**, each fixed here rather than filed:
+
+- `TC-09` asserted `expect(() => createSession(...)).not.toThrow()`. Once the factory went async that
+  covered only building the promise; the assembly it meant to cover happens after the await, and its
+  own ctor-call assertion would have read zero. It could not fail.
+- `pack-coding`'s tool list was pinned to the defaults BY NAME. That pin is why ARCH-021's first TC-05
+  passed while being unable to fail — comparing tool names cannot distinguish a pack-composed surface
+  from an imported-default one when the two are pinned. Consuming the leaf makes the relationship
+  structural, and the case now asserts what is still falsifiable.
+- The leaf cast every factory result to `IToolWithEventService`, and that erasure was lossy in the one
+  direction that mattered: `ICapabilityPack.tools` is `readonly FunctionTool[]`, so a consuming pack
+  needed a second cast back. Every factory already returns `FunctionTool`. Both casts are gone.
+
+**Gate history.** `DONE-GATE-STAGE-2` FAILED first, correctly: the external proof reported 69
+assertions against a scenario expecting more, because the four C5 assertions the scenario named as
+"the work must build" had not been written. The repoint proved only that the fixture COMPILES against
+the leaf, which is a typecheck property this gate excludes by name. They exist now, the proof reports
+72, and they were red-proved — dropping one name from the expected set turns three of the four red.
+The guard also ran S-2, which I had not, and confirmed the shipped tool surface is unchanged at 19
+names.
+
+**Not closed here.** The agent axis (`?? getBuiltInAgent`, absent from the composition scan's
+`FORBIDDEN_IMPORTS`) is the same shape and belongs to #1854, as does the question of whether a
+defaults aggregator should be published at all. `DEFAULT_TOOL_DESCRIPTIONS` stayed in `agent-framework`
+beside its only consumer, and this change knowingly widened the coupling between that inventory and the
+tools it describes from in-file to cross-package — recorded as widened rather than left unsaid.
