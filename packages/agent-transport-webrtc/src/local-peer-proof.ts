@@ -118,3 +118,18 @@ export function judgeLocalProof(
     );
   }
 }
+
+/**
+ * Build the frame a local peer presents on the channel.
+ *
+ * Lives beside the judge that reads it, so the two cannot drift: a sender that hand-built the object
+ * would keep compiling after the frame gains a field, and the failure would surface as a refusal on
+ * the far side with no hint that the SENDER is the stale half.
+ *
+ * Deliberately not a "send" — it returns the frame and leaves transmission to whoever owns the
+ * channel. A helper that both built and sent would need a channel to be testable, and would put the
+ * frame's shape and the carrier's lifecycle in one place.
+ */
+export function localProofFrame(nonce: string): ILocalProofFrame {
+  return { t: 'local-proof', nonce };
+}

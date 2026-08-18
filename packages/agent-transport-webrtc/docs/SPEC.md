@@ -126,6 +126,9 @@ reserved for E4). Without `reconnect`, the gate is exactly the B4 first-pair-onl
 | `IWsSignalingClientOptions`   | type     | `WsSignalingClient` options (url, rendezvous, onError, onReady, socket factory).                         |
 | `IWebSocketLike`              | type     | Minimal socket surface `WsSignalingClient` needs (injectable in tests).                                  |
 | `ISignalingClient`            | type     | Signaling port (send/onSignal/close by rendezvous).                                                      |
+| `ILocalPeerProof`             | type     | SEC-010 local-peer proof port the gate consumes: `redeem` plus an admission observer.                    |
+| `ILocalProofFrame`            | type     | The frame a local peer presents to show it reached the guarded rendezvous.                               |
+| `localProofFrame`             | function | Build that frame. Beside the judge that reads it, so a sender cannot drift from the shape checked.       |
 | `ISignalMessage`              | type     | Opaque SDP/ICE envelope.                                                                                 |
 | `TSignalKind`                 | type     | `'offer' \| 'answer' \| 'ice'`.                                                                          |
 | `loadWerift`                  | function | Lazy-load the optional `werift` peer dep (throws on absence).                                            |

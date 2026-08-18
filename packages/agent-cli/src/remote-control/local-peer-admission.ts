@@ -97,3 +97,31 @@ export function openLocalPeerRendezvous(options: IOpenRendezvousOptions): ILocal
     revokeAll: (): number => ledger.revokeRendezvous(rendezvous),
   };
 }
+
+/**
+ * Bind a rendezvous to a process lifetime.
+ *
+ * SEC-010 says the entry IS the grant: once the owning session is gone, nothing it handed out may
+ * still be admitted. Relying on the grant TTL instead would leave a window equal to that TTL after
+ * exit — small, but the whole point of the mechanism is that the window is closed by the session
+ * ending rather than by a clock.
+ *
+ * Returns the unsubscribe so a caller can detach without exiting: a test, and a session that is
+ * torn down while the process lives on. Without it the only way to stop revoking would be to exit,
+ * which is the thing being tested.
+ */
+export function revokeRendezvousOnExit(
+  rendezvous: ILocalPeerRendezvous,
+  on: (event: 'exit', handler: () => void) => void = (event, handler) => {
+    process.on(event, handler);
+  },
+  off?: (event: 'exit', handler: () => void) => void,
+): () => void {
+  const handler = (): void => {
+    rendezvous.revokeAll();
+  };
+  on('exit', handler);
+  return () => {
+    (off ?? ((event, h) => process.off(event, h)))('exit', handler);
+  };
+}
