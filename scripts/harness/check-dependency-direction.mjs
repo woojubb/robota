@@ -310,6 +310,20 @@ export function checkDagNodesLeaf(packages) {
  * `apps/*`). Keep this list tight: adding a sanctioned importer is a deliberate decision.
  */
 const GUARDED_AGGREGATORS = {
+  // ARCH-035. `agent-framework` is deliberately NOT sanctioned: it reaches this leaf by dynamic
+  // `import()` (no `from` token, so this rule does not match it), and sanctioning it would disable
+  // the rule for that package WHOLESALE — the check `continue`s on a sanctioned name before it ever
+  // reads the files, so a later static VALUE import would pass silently. That is the exact regression
+  // this entry exists to prevent, and granting the floor's own target a blanket exemption in the
+  // change that builds the floor would be the shape `enforcement-architecture.md` refuses.
+  // The set is exactly as wide as what it sanctions: `pack-coding` joined it in the same commit that
+  // gave it a static import (ARCH-035 S2). It is a capability pack declaring "my tools ARE the default
+  // tool set", which is the honest edge; the lazy alternative would have forced `createCodingPack`,
+  // `createRobotaPacks` and `assembleProduct` async for no layering gain, since none of them is a
+  // mid-layer library reaching past its own tier.
+  [`${HARNESS.npmScopePrefix}agent-tool-defaults`]: new Set([
+    `${HARNESS.npmScopePrefix}pack-coding`,
+  ]),
   '@robota-sdk/dag-nodes-default': new Set([
     '@robota-sdk/agent-command-workflows',
     '@robota-sdk/dag-cli',

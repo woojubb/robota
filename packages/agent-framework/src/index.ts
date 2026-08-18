@@ -404,7 +404,6 @@ export { BUILT_IN_AGENTS, getBuiltInAgent } from './agents/index.js';
 
 export {
   createSession,
-  createDefaultTools,
   getSubagentSuffix,
   getForkWorkerSuffix,
   assembleSubagentPrompt,
@@ -414,7 +413,6 @@ export {
   deriveContextCapacityHint,
 } from './assembly/index.js';
 export type {
-  ICreateDefaultToolsOptions, // ARCH-037
   ISubagentPromptOptions,
   ISubagentOptions,
   TSubagentSuffix,

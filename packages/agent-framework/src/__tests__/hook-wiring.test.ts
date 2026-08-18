@@ -320,7 +320,7 @@ describe('Hook wiring via createSession', () => {
     // Import createSession dynamically (mocks must be set up first)
     const { createSession } = await import('../assembly/create-session.js');
 
-    const session = createSession({
+    const session = await createSession({
       config: {
         defaultTrustLevel: 'moderate',
         provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
@@ -349,7 +349,7 @@ describe('Hook wiring via createSession', () => {
     const mockProviderFactory = vi.fn();
     const mockSessionFactory = vi.fn();
 
-    createSession({
+    await createSession({
       config: {
         defaultTrustLevel: 'moderate',
         provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },

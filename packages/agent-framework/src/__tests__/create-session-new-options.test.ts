@@ -93,7 +93,7 @@ describe('createSession — allowedTools option', () => {
   it('passes allowedTools as ToolName(*) patterns in permissions.allow', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -111,7 +111,7 @@ describe('createSession — allowedTools option', () => {
   it('permissions.allow includes Bash(*) and Read(*) alongside default allow patterns', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -132,7 +132,7 @@ describe('createSession — allowedTools option', () => {
   it('empty allowedTools produces no extra ToolName(*) patterns beyond defaults', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -151,7 +151,7 @@ describe('createSession — allowedTools option', () => {
   it('omitting allowedTools does not add any ToolName(*) patterns', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -176,7 +176,7 @@ describe('createSession — appendSystemPrompt option', () => {
   it('appends text to system message separated by double newline', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -193,7 +193,7 @@ describe('createSession — appendSystemPrompt option', () => {
   it('system message without appendSystemPrompt does not have trailing double newline', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -210,7 +210,7 @@ describe('createSession — appendSystemPrompt option', () => {
     const { createSession } = await import('../assembly/create-session.js');
     const extraText = 'You must respond only in JSON format.';
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -227,7 +227,7 @@ describe('createSession — appendSystemPrompt option', () => {
   it('does not include agent metadata unless agent runtime is enabled', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -259,7 +259,7 @@ describe('createSession — appendSystemPrompt option', () => {
     );
 
     try {
-      createSession({
+      await createSession({
         config: baseConfig(),
         cwd,
         context: { agentsMd: '', projectNotesMd: '' },
@@ -288,7 +288,7 @@ describe('createSession — command descriptor tool guidance', () => {
   it('does not register projected command tools when no command descriptor is model-invocable', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -324,7 +324,7 @@ describe('createSession — command descriptor tool guidance', () => {
     );
 
     try {
-      createSession({
+      await createSession({
         config: baseConfig(),
         cwd,
         context: { agentsMd: '', projectNotesMd: '' },
@@ -352,7 +352,7 @@ describe('createSession — command descriptor tool guidance', () => {
     );
 
     try {
-      createSession({
+      await createSession({
         config: baseConfig(),
         cwd,
         context: { agentsMd: '', projectNotesMd: '' },
@@ -392,7 +392,7 @@ describe('createSession — command descriptor tool guidance', () => {
       'utf-8',
     );
     try {
-      createSession({
+      await createSession({
         config: baseConfig(),
         cwd,
         context: { agentsMd: '', projectNotesMd: '' },
@@ -417,7 +417,7 @@ describe('createSession — command descriptor tool guidance', () => {
   it('projects registered command descriptors into provider-safe command tools', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -458,7 +458,7 @@ describe('createSession — provider timeout option', () => {
     const config = baseConfig();
     config.provider.timeout = 4321;
 
-    createSession({
+    await createSession({
       config,
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -471,7 +471,7 @@ describe('createSession — provider timeout option', () => {
   it('passes the SDK default provider timeout when config omits timeout', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -493,7 +493,7 @@ describe('createSession — sandbox client option', () => {
       runHandler: () => ({ stdout: 'from sandbox', stderr: '', exitCode: 0 }),
     });
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -519,7 +519,7 @@ describe('createSession — sandbox client option', () => {
       runHandler: () => ({ stdout: 'isolated', stderr: '', exitCode: 0 }),
     });
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -571,7 +571,7 @@ describe('createSession — subagent runner factory option', () => {
       start: vi.fn(),
     });
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: 'agent context', projectNotesMd: 'claude context' },
       terminal: MOCK_TERMINAL,
@@ -597,7 +597,7 @@ describe('createSession — PRESET-004 execution capabilities', () => {
     const { createSession } = await import('../assembly/create-session.js');
     const subagentRunnerFactory = vi.fn().mockReturnValue({ start: vi.fn() });
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: 'agent context', projectNotesMd: 'claude context' },
       terminal: MOCK_TERMINAL,
@@ -618,7 +618,7 @@ describe('createSession — PRESET-004 execution capabilities', () => {
     const { createSession } = await import('../assembly/create-session.js');
     const subagentRunnerFactory = vi.fn().mockReturnValue({ start: vi.fn() });
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -641,8 +641,11 @@ describe('createSession — PRESET-004 execution capabilities', () => {
 
     // The flag is a real, typed option on ICreateSessionOptions (threaded for executor/framework).
     expect(options.selfVerification).toBe(true);
-    // Assembling with the flag set is accepted and does not throw.
-    expect(() => createSession(options)).not.toThrow();
+    // Assembling with the flag set is accepted and does not reject.
+    // ARCH-035: `createSession` is async now, so a synchronous `.not.toThrow()` would only assert that
+    // building the PROMISE did not throw — the assembly it is meant to cover happens after the await,
+    // and the ctor-call assertion below would read zero. `rejects` is what actually covers it.
+    await expect(createSession(options)).resolves.toBeDefined();
     expect(sessionCtorCalls.length).toBe(1);
   });
 });

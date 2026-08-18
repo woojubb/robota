@@ -20,7 +20,8 @@
  * neutrality guards forbid — so the ordering delta is recorded in the ARCH-005 evidence log instead.
  */
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { BUILT_IN_AGENTS, createDefaultTools } from '@robota-sdk/agent-framework';
+import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import {
   DEFAULT_AGENT_NAME,
   clearExternalPresets,

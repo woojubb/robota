@@ -26,7 +26,7 @@ This package does NOT own: provider implementations, generic session run loop, t
 - Self-hosting verification: `planSelfHostingVerification()`, `transitionSelfHostingLoop()`
 - Evals-as-code (SELFHOST-011): the neutral eval-definition/runner surface — `defineEval()`, `runEval(def, runFn)`, and the default `createSessionRunFn(runtime)` (captures a session's `complete`-event `IExecutionResult`). A metric is a pure function over the SSOT `IExecutionResult` (`IMetric`; P3: `score(result, evalCase?)` threads the case so a per-case metric can read `evalCase.expected`); concrete metrics/datasets are consumer-supplied — NO eval content ships here. P3 adds **mechanism-only** helpers: metric factories `exactMatch`/`includesText`/`regexMatch`/`responseIsJson`/`usedTool`, the pure `parseEvalCases(text, format)` dataset parser, and the shared `formatEvalReport(report)` (the CLI adopts it).
 - Background job orchestration: `BackgroundJobOrchestrator`, execution workspace projections
-- Subagent assembly: `createSubagentSession()`, `createInProcessSubagentRunner()`, `createDefaultTools()`
+- Subagent assembly: `createSubagentSession()`, `createInProcessSubagentRunner()`. The default tool set moved to `@robota-sdk/agent-tool-defaults` (ARCH-035) and is no longer exported here
 - Multi-agent orchestration mechanism (SELFHOST-001): `runSequential()` / `runParallel()` / `runHandoff()` / `runHierarchical()` / `runGroupChat()` — IMPLEMENT the neutral orchestration contracts agent-core OWNS (`src/orchestration/`), composing over `agent-executor`'s `ISubagentManager`/`ISubagentRunner` port; spawn/wait/event mechanics are factored into `src/orchestration/shared.ts`. The framework never depends on `agent-subagent-runner` (would be a cycle); the concrete runner is injected at the `agent-cli` composition root. P1 ships `sequential`; P2 adds `parallel` (bounded concurrency + aggregation) and `handoff` (control-transfer); P3 adds `hierarchical` (manager-delegation) and `group-chat` (turn-taking) — completing the five named primitives.
 - Bundle plugin management: `BundlePluginLoader`, `BundlePluginInstaller`, `MarketplaceClient`, `PluginSettingsStore`
 - Agent tool: `createAgentTool()`, `storeAgentToolDeps()`, `retrieveAgentToolDeps()`
@@ -229,8 +229,6 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `MarketplaceClient`                         | class    | Plugin discovery and install from remote marketplace                                                                                                                                                                                                                                 |
 | `BUILT_IN_AGENTS`                           | const    | Array of built-in agent definitions (`general-purpose`, `Explore`, `Plan`)                                                                                                                                                                                                           |
 | `getBuiltInAgent`                           | function | Look up a built-in agent by name                                                                                                                                                                                                                                                     |
-| `createDefaultTools`                        | function | Assemble default built-in tools (exported for CLI fork composition)                                                                                                                                                                                                                  |
-| `ICreateDefaultToolsOptions`                | type     | Parameter type of `createDefaultTools`. ARCH-037: the function was published without it, so a caller could invoke it but not name what to pass.                                                                                                                                      |
 | `createSubagentSession`                     | function | Assemble an isolated child session for subagent execution                                                                                                                                                                                                                            |
 | `createSubagentLogger`                      | function | Create an append-only subagent transcript logger                                                                                                                                                                                                                                     |
 | `assembleSubagentPrompt`                    | function | Assemble the full system prompt for a subagent session                                                                                                                                                                                                                               |
@@ -737,7 +735,7 @@ agent-framework      ← InteractiveSession (single entry point)
   ├── extension: ICommandModule command/source/session-requirement injection
   ├── optional: agent runtime deps + AgentDefinitionLoader when a module requests agent-executor
   ├── composed: agent-executor manager/runner ports plus SDK-owned orchestration
-  ├── internal: createSession(), createDefaultTools(), loadConfig(), loadContext()
+  ├── internal: createSession(), loadConfig(), loadContext()
   ├── optional: sandboxClient injection for sandbox-aware built-in tool execution
   ├── optional: workspaceManifest application through agent-tools sandbox ports
   ├── optional: sandbox snapshot hydration through agent-tools sandbox ports
@@ -850,7 +848,7 @@ agent-framework (assembly layer — SDK-specific features only)
 │   ├── skill-source.ts         ← SkillCommandSource: discovers SKILL.md files
 │   ├── plugin-source.ts        ← PluginCommandSource: discovers plugin commands (moved from agent-cli)
 │   └── system-command.ts       ← SDK core command factory; currently empty because user-visible built-ins are command modules
-├── src/assembly/               ← Session factory: createSession (internal), createDefaultTools (internal)
+├── src/assembly/               ← Session factory: createSession (internal). The default tool tier is loaded from @robota-sdk/agent-tool-defaults by dynamic import (ARCH-035)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
 ├── src/context/                ← AGENTS.md/CLAUDE.md/memory discovery, project detection, system prompt
 │   ├── context-reference-inventory.ts ← session context reference metadata, active/observed status, and bounded inventory policy
@@ -2526,10 +2524,10 @@ Two ports the framework READS but ships no implementation of. Both are available
 declared and settable by nothing until ARCH-013 stage 3 — a documented capability no surface could
 turn on, which is a different state from one nobody had used.
 
-| Port               | Consumed at                                   | Effect when supplied                                                        |
-| ------------------ | --------------------------------------------- | --------------------------------------------------------------------------- |
-| `guardrails`       | `createSession` → `GuardrailExecutor`         | Registers the executor AND auto-injects a `PreToolUse` guardrail hook       |
-| `retrievalAdapter` | `assembleSessionTools` → `createDefaultTools` | Surfaces the `CodebaseRetrieval` tool; absent ⇒ the tool is absent entirely |
+| Port               | Consumed at                                             | Effect when supplied                                                        |
+| ------------------ | ------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `guardrails`       | `createSession` → `GuardrailExecutor`                   | Registers the executor AND auto-injects a `PreToolUse` guardrail hook       |
+| `retrievalAdapter` | `assembleSessionTools` → the `agent-tool-defaults` leaf | Surfaces the `CodebaseRetrieval` tool; absent ⇒ the tool is absent entirely |
 
 **`guardrails` is a REGISTRY, not a selector, and the two are easy to confuse because they share a
 name.** `ICreateSessionOptions.guardrails` is `Record<string, TGuardrail>` — name → function. A
@@ -2539,7 +2537,7 @@ SELECTS which registered guardrails that hook runs (omitted = all). They are com
 non-empty registry is supplied and the config declares no guardrail hook of its own. Registering a
 registry alone does nothing — the executor needs a hook definition on an enforcing event to fire.
 
-**`retrievalAdapter` interacts with `defaultTools`.** The adapter is passed to `createDefaultTools`,
+**`retrievalAdapter` interacts with `defaultTools`.** The adapter is passed to the leaf's `createDefaultTools`,
 so a consumer who REPLACES that tier via `defaultTools` (ARCH-006, below) owns the retrieval tool too
 and the adapter reaches nothing. The two options are independent seams and this interaction is not
 mediated.
@@ -2552,7 +2550,7 @@ question answered explicitly. Both options are available on `IInteractiveSession
 
 | Seam                      | Semantics                                                         | Set with no framework defaults |
 | ------------------------- | ----------------------------------------------------------------- | ------------------------------ |
-| `defaultTools` (ARCH-006) | REPLACES the `createDefaultTools()` tier                          | pass `[]`                      |
+| `defaultTools` (ARCH-006) | REPLACES the tier the `agent-tool-defaults` leaf builds           | pass `[]`                      |
 | `additionalTools`         | APPENDS to that tier; contributes NEW names only (see precedence) | n/a                            |
 
 `createSession` assembles the fixed tier order `defaultTools ⊕ additionalTools ⊕ goalTool` and then
