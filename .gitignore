@@ -157,3 +157,10 @@ stryker.log
 # the only place that can say so is a file the next reader will actually see. Ignoring the
 # explanation along with the data is how a demoted artefact keeps looking authoritative.
 !.agents/local-reviews/README.md
+
+# HARNESS-109: per-clone agent-harness configuration, written by the tool and never committed.
+# Not merely noise: `verification-receipt.mjs` refuses to stand behind a receipt while the tree is
+# dirty, so an untracked file present in EVERY agent clone made `readVerificationReceipt()` return
+# null for whole sessions and every push re-ran the full gate — the same regression its header
+# records for the lessons churn.
+.claude/settings.local.json
