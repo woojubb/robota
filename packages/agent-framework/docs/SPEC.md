@@ -1581,13 +1581,10 @@ Note: `BackgroundTaskManager`, `BackgroundTaskError`, `createLimitedOutputCaptur
 | `EXECUTION_ORIGIN_METADATA_KEYS`        | const     | Canonical keys for execution origin metadata bag                        |
 | `IBackgroundTaskManager`                | interface | Generic manager API for spawn/wait/list/get/cancel/close/shutdown/send  |
 | `IBackgroundTaskRunner`                 | interface | Port implemented by agent/process runner adapters                       |
-| `ILimitedOutputCapture`                 | interface | Runtime-owned bounded output capture contract                           |
-| `TBackgroundTaskIdFactory`              | type      | Request-aware task ID factory used by composed managers                 |
 | `IBackgroundTaskState`                  | interface | Runtime lifecycle state for one background task                         |
 | `TBackgroundTaskRequest`                | type      | Discriminated union of agent/process background task requests           |
 | `IBackgroundTaskResult`                 | interface | Completed background task output                                        |
 | `TBackgroundTaskEvent`                  | type      | Runtime-owned lifecycle/progress event union                            |
-| `TBackgroundTaskRunnerEvent`            | type      | Runner-owned progress event union without task IDs                      |
 | `TBackgroundTaskMode`                   | type      | `foreground` or `background`                                            |
 | `TBackgroundTaskStatus`                 | type      | Shared task lifecycle status union                                      |
 | `IBackgroundJobGroupState`              | interface | Parent-session-scoped background task group snapshot                    |
@@ -2253,9 +2250,8 @@ The manager does not create providers, sessions, child processes, worktrees, or 
 
 That same barrel also re-exports runtime-owned helper primitives for bounded output capture and
 cursor-based log pagination, so runtime shells can implement process adapters without importing
-`agent-executor` directly. Note the LIMIT recorded in `docs/PUBLIC-SURFACE.md`: the permission is
-granted per FILE while the criterion is per SYMBOL, and measurement puts an external importer on
-exactly one of that block's ten names. ARCH-039 owns the narrowing.
+`agent-executor` directly. ARCH-039 made that permission per SYMBOL: the block carries `IBackgroundTaskRunner` alone, which is
+the only one of its former ten names measured to have an external importer.
 
 ### Agent Wake Dedup & Eviction (FLOW-002 / CORE-024)
 

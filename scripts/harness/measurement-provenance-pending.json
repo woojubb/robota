@@ -4,6 +4,7 @@
   "covered": [
     "scripts/harness/check-contract-disposition.mjs",
     "scripts/harness/check-fixture-floor.mjs",
+    "scripts/harness/check-sdk-public-surface.mjs",
     "scripts/harness/check-spec-whitebox-leakage.mjs",
     "scripts/harness/check-stub-markers.mjs",
     "scripts/harness/check-workspace-refs.mjs",

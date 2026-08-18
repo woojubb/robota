@@ -53,15 +53,19 @@ const SDK_SRC_DIR = 'packages/agent-framework/src';
  * that cannot name one is the next reader's false permission — ARCH-031's sentence, which holds
  * whichever criterion is in force.
  */
-const SDK_UNREACHABLE_ELSEWHERE_FILES = new Set([
-  // `IBackgroundTaskRunner` is reached through this barrel by `agent-product`, `agent-transport-tui`,
-  // `agent-transport` and `agent-cli` — none of the first three may depend on `agent-executor`.
-  // Verified by deletion: removing the block reddens their typecheck.
-  // Contained — ARCH-039. The criterion is
-  // per-symbol but this entry is per-file, and measurement puts external importers on exactly ONE
-  // of the block's ten names, so the other nine ride along. Narrowing it belongs with ARCH-039.
-  'packages/agent-framework/src/background-tasks/index.ts',
-]);
+const SDK_UNREACHABLE_ELSEWHERE_SYMBOLS = {
+  // ARCH-039 narrowed this from a per-FILE grant to a per-SYMBOL one. The criterion was always per
+  // symbol — a re-export is permitted where a package allowed to consume THAT symbol has no other
+  // legal import path to it — while the grant covered whole files, so nine names rode along on the
+  // one that earned it. Measured across the workspace: of the ten names this file re-exported,
+  // exactly `IBackgroundTaskRunner` had an external importer (6 files across agent-cli,
+  // agent-product, agent-transport and agent-transport-tui), and of those only agent-cli can reach
+  // `agent-executor` directly.
+  //
+  // Listing the symbol rather than the file is what stops a new name joining silently: adding one to
+  // the block is now a finding until it is added here too, with a consumer that needs it.
+  'packages/agent-framework/src/background-tasks/index.ts': new Set(['IBackgroundTaskRunner']),
+};
 const FORBIDDEN_TOP_LEVEL_OWNER_PACKAGES = [
   '@robota-sdk/agent-core',
   '@robota-sdk/agent-session',
@@ -160,12 +164,16 @@ function collectSourceTargets(value, targets) {
   for (const nested of Object.values(value)) collectSourceTargets(nested, targets);
 }
 
-async function readPublicSourceRoots(root) {
-  const packageJsonPath = path.join(root, SDK_PACKAGE_JSON);
-  const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'));
+async function readPublicSourceRoots(root, packageJsonRelative) {
+  const packageDir = path.posix.dirname(packageJsonRelative);
+  const packageJson = JSON.parse(await fs.readFile(path.join(root, packageJsonRelative), 'utf8'));
   const exportEntries = packageJson.exports;
   if (exportEntries === null || typeof exportEntries !== 'object') {
-    throw new Error('sdk-public-surface: agent-framework package.json has no exports map.');
+    // ARCH-039: not every publishable package declares an exports map. Reporting that as a THROW
+    // when the scan covered one package was right — the one package definitely had one. Across 31 it
+    // would turn a package's shape into an infrastructure failure, so a package with no exports map
+    // simply contributes no roots and the caller reports the count it examined.
+    return [];
   }
 
   const targets = [];
@@ -174,21 +182,51 @@ async function readPublicSourceRoots(root) {
       collectSourceTargets(exportEntry.source, targets);
     }
   }
-  if (targets.length === 0) {
-    throw new Error(
-      'sdk-public-surface: agent-framework package exports declare no source entry roots.',
-    );
-  }
-
   return [...new Set(targets)].map((target) =>
-    toWorkspaceRelative(root, path.resolve(root, SDK_PACKAGE_DIR, target)),
+    toWorkspaceRelative(root, path.resolve(root, packageDir, target)),
   );
+}
+
+/**
+ * Every publishable package, as `package.json` paths relative to the root.
+ *
+ * ARCH-039: the scan governed `agent-framework` alone, so a pass-through placed in any other package
+ * was invisible. `private: true` packages are excluded — they never reach npm, so there is no
+ * published surface to protect.
+ */
+async function readPublishablePackageJsonPaths(root) {
+  const packagesDir = path.join(root, 'packages');
+  const entries = await fs.readdir(packagesDir, { withFileTypes: true });
+  const found = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const relative = `packages/${entry.name}/package.json`;
+    if (!(await pathExists(path.join(root, relative)))) continue;
+    const manifest = JSON.parse(await fs.readFile(path.join(root, relative), 'utf8'));
+    if (manifest.private === true) continue;
+    found.push(relative);
+  }
+  return found.sort();
+}
+
+/** The `packages/<name>/src` a workspace-relative file sits under. */
+function packageSrcDirOf(file) {
+  const marker = '/src/';
+  const index = file.indexOf(marker);
+  return index === -1 ? path.posix.dirname(file) : file.slice(0, index + marker.length - 1);
 }
 
 async function resolveLocalReExport(root, file, source) {
   const absoluteBase = path.resolve(root, path.dirname(file), source);
-  const sourceRoot = path.resolve(root, SDK_SRC_DIR);
-  if (absoluteBase !== sourceRoot && !absoluteBase.startsWith(`${sourceRoot}${path.sep}`)) {
+  // ARCH-039: the containment root is the package the FILE belongs to, not a hard-coded
+  // `agent-framework/src`. While the scan governed one package those were the same string; once it
+  // governs 31 they are not, and the hard-coded form rejected every other package's own files as
+  // "unresolved" — 233 findings that were a resolver defect, not debt.
+  const packageSourceRoot = path.resolve(root, packageSrcDirOf(file));
+  if (
+    absoluteBase !== packageSourceRoot &&
+    !absoluteBase.startsWith(`${packageSourceRoot}${path.sep}`)
+  ) {
     return undefined;
   }
 
@@ -268,16 +306,98 @@ async function collectReachableFindings(root, file, visited, findings) {
 }
 
 function findUnexpectedExecutorReexportFindings(file, content) {
-  if (SDK_UNREACHABLE_ELSEWHERE_FILES.has(file)) return [];
-  return extractPassThroughSources(content)
-    .filter((source) => source === EXECUTOR_PACKAGE || source.startsWith(`${EXECUTOR_PACKAGE}/`))
-    .map(() => ({
-      file,
-      type: 'sdk-unreachable-elsewhere-location',
-      detail:
-        'agent-executor public re-exports belong only where a permitted consumer cannot reach the symbol any other way (see SDK_UNREACHABLE_ELSEWHERE_FILES), not in arbitrary SDK files.',
-    }));
+  const permitted = SDK_UNREACHABLE_ELSEWHERE_SYMBOLS[file];
+  const findings = [];
+  for (const { source, symbols } of extractExecutorReexportedSymbols(content)) {
+    if (source !== EXECUTOR_PACKAGE && !source.startsWith(`${EXECUTOR_PACKAGE}/`)) continue;
+    if (permitted === undefined) {
+      findings.push({
+        file,
+        type: 'sdk-unreachable-elsewhere-location',
+        detail:
+          'agent-executor public re-exports belong only where a permitted consumer cannot reach the symbol any other way (see SDK_UNREACHABLE_ELSEWHERE_SYMBOLS), not in arbitrary SDK files.',
+      });
+      continue;
+    }
+    // A file on the list still only earns the NAMES on it. An `export *` cannot be checked per
+    // symbol at all, so it is refused outright rather than trusted — that is the shape a per-symbol
+    // grant exists to prevent.
+    if (symbols === undefined) {
+      findings.push({
+        file,
+        type: 'sdk-unreachable-elsewhere-symbol',
+        detail: `\`export *\` from ${source} cannot be checked per symbol, so it cannot be permitted here. List the names this file actually needs.`,
+      });
+      continue;
+    }
+    for (const symbol of symbols) {
+      if (permitted.has(symbol)) continue;
+      findings.push({
+        file,
+        type: 'sdk-unreachable-elsewhere-symbol',
+        detail: `\`${symbol}\` is re-exported from ${source} but is not one of the names this file is permitted to carry (${[...permitted].join(', ')}). A permitted name is one a legal consumer cannot reach any other way; add it to SDK_UNREACHABLE_ELSEWHERE_SYMBOLS with that consumer named, or import it from its owner.`,
+      });
+    }
+  }
+  return findings;
 }
+
+/**
+ * Every re-export of `agent-executor`, with the symbol NAMES it publishes.
+ *
+ * `symbols: undefined` means `export *` — a form whose names cannot be read from this file, which is
+ * why the rule refuses it inside a permitted file rather than assuming it carries only earned names.
+ */
+function extractExecutorReexportedSymbols(content) {
+  const results = [];
+  for (const declaration of extractReExportDeclarations(content)) {
+    const clause = declaration.statement.match(/\{([\s\S]*?)\}/);
+    results.push({
+      source: declaration.source,
+      symbols: clause ? extractNamedBindings(clause[1], true) : undefined,
+    });
+  }
+  const exportedBindings = extractLocalExportBindings(content);
+  for (const declaration of extractImportDeclarations(content)) {
+    const carried = declaration.bindings.filter((binding) => exportedBindings.has(binding));
+    if (carried.length > 0) results.push({ source: declaration.source, symbols: carried });
+  }
+  return results;
+}
+
+/** What the last run examined. Exported so a test asserts the number the scan prints. */
+let examinedPackages = 0;
+
+export function examinedPackageCount() {
+  return examinedPackages;
+}
+
+/**
+ * Per-package frozen counts — the burn-down ARCH-039's measurement showed is required.
+ *
+ * Widening this scan from one package to every publishable one surfaces 105 pre-existing findings,
+ * 98 of them `export *` barrels. Failing the whole tree on day one gets a floor switched off, so
+ * what exists is frozen per package and may only SHRINK. A package absent from this map must be
+ * clean: that is what stops the debt spreading to packages that do not have it today.
+ *
+ * `agent-framework` is deliberately absent and therefore held at zero — it is the package the scan
+ * governed before the widening, and it has no findings to freeze.
+ */
+const FROZEN_FINDING_COUNTS = {
+  'agent-command': 27,
+  'agent-core': 20,
+  'agent-executor': 2,
+  'agent-interface-transport': 2,
+  'agent-plugin': 8,
+  'agent-provider-anthropic': 4,
+  'agent-provider-bytedance': 3,
+  'agent-provider-gemini': 8,
+  'agent-provider-openai': 4,
+  'agent-provider-openai-compatible': 21,
+  'agent-session': 1,
+  'agent-transport': 4,
+  'agent-transport-tui': 1,
+};
 
 export async function findSdkPublicSurfaceFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, [SDK_PACKAGE_JSON, SDK_SRC_DIR], {
@@ -286,22 +406,80 @@ export async function findSdkPublicSurfaceFindings(root = WORKSPACE_ROOT) {
   });
   const findings = [];
   const visited = new Set();
-  for (const file of await readPublicSourceRoots(root)) {
-    await collectReachableFindings(root, file, visited, findings);
+  const packageJsonPaths = await readPublishablePackageJsonPaths(root);
+  examinedPackages = 0;
+  for (const packageJsonRelative of packageJsonPaths) {
+    const roots = await readPublicSourceRoots(root, packageJsonRelative);
+    if (roots.length === 0) continue;
+    examinedPackages += 1;
+    for (const file of roots) {
+      await collectReachableFindings(root, file, visited, findings);
+    }
   }
   return findings;
 }
 
+/** Which package a workspace-relative file belongs to. */
+function packageNameOf(file) {
+  return file.split('/')[1] ?? '';
+}
+
+/**
+ * Findings above what their package has frozen, plus a report of any package that IMPROVED.
+ *
+ * A count that fell without the baseline being re-frozen is reported too, and deliberately as a
+ * failure: an unlocked gain is a licence to grow back to the old number.
+ */
+export function applyFrozenCounts(findings) {
+  const counted = new Map();
+  for (const finding of findings) {
+    const name = packageNameOf(finding.file);
+    counted.set(name, (counted.get(name) ?? 0) + 1);
+  }
+  const over = [];
+  const under = [];
+  for (const [name, frozen] of Object.entries(FROZEN_FINDING_COUNTS)) {
+    const actual = counted.get(name) ?? 0;
+    if (actual > frozen) over.push({ name, actual, frozen });
+    if (actual < frozen) under.push({ name, actual, frozen });
+  }
+  for (const [name, actual] of counted) {
+    if (!(name in FROZEN_FINDING_COUNTS)) over.push({ name, actual, frozen: 0 });
+  }
+  return { over, under };
+}
+
 async function main() {
   const findings = await findSdkPublicSurfaceFindings();
-  if (findings.length > 0) {
+  const { over, under } = applyFrozenCounts(findings);
+  if (over.length > 0 || under.length > 0) {
+    for (const { name, actual, frozen } of over) {
+      console.error(
+        `[sdk-public-surface-grew] ${name}: ${actual} finding(s), above its frozen ${frozen}. ` +
+          `Pre-existing debt may shrink but never grow.`,
+      );
+      for (const finding of findings.filter((f) => packageNameOf(f.file) === name)) {
+        console.error(`  [${finding.type}] ${finding.file}: ${finding.detail}`);
+      }
+    }
+    for (const { name, actual, frozen } of under) {
+      console.error(
+        `[sdk-public-surface-shrank] ${name}: ${actual} finding(s), below its frozen ${frozen}. ` +
+          `Re-freeze in the SAME change so the ratchet keeps the gain.`,
+      );
+    }
+    process.exitCode = 1;
+    return;
+  }
+  if (false) {
     for (const finding of findings) {
       console.error(`[${finding.type}] ${finding.file}: ${finding.detail}`);
     }
     process.exitCode = 1;
     return;
   }
-  console.log('sdk public surface scan passed.');
+  console.log(`::examined:: ${examinedPackageCount()} publishable packages`);
+  console.log(`sdk public surface scan passed (${examinedPackageCount()} package(s) examined).`);
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {

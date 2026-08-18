@@ -454,23 +454,18 @@ export {
   parseExecutionWorkspaceEntryId,
   summarizeBackgroundJobGroup,
 } from './background-tasks/index.js';
+// ARCH-039: nine `agent-executor` names were re-exported here through the background-tasks barrel
+// and had NO external importer — this barrel was their only consumer, re-publishing what nothing
+// asked for. The per-symbol exemption made that visible; they are imported from
+// `@robota-sdk/agent-executor` by anyone who needs them.
 export type {
-  IBackgroundTaskHandle,
-  IBackgroundTaskManager,
-  IBackgroundTaskManagerOptions,
   IBackgroundTaskRunner,
-  IBackgroundTaskStart,
   IBackgroundJobOrchestratorOptions,
   IBackgroundTaskSpawnerGroupRequest,
   ICreateExecutionWorkspaceTaskSpawnerOptions,
   IExecutionWorkspaceTaskSpawner,
   ISpawnAgentTaskRequest,
   ISpawnProcessTaskRequest,
-  TBackgroundTaskIdFactory,
-  TBackgroundTaskRunnerEvent,
-  TBackgroundTaskTransitionEvent,
-  ICreateLimitedOutputCaptureOptions,
-  ILimitedOutputCapture,
 } from './background-tasks/index.js';
 
 // ── Subagent process manager contracts ─────────────────────
