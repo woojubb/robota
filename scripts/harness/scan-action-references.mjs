@@ -60,12 +60,13 @@
  * not, or could not be checked.
  */
 
-import { execFile } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
+import { isRateLimited, retryDelaySeconds } from './github-api.mjs';
 import { envWithoutGitVars } from './shared.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -326,23 +327,103 @@ function oneLine(value) {
   return text.length > 200 ? `${text.slice(0, 200)}…` : text;
 }
 
+/**
+ * One authenticated read of a repository path at a commit — 200, 404, or throw.
+ *
+ * INFRA-107. This used an unauthenticated `fetch` of `raw.githubusercontent.com`, which is
+ * rate-limited per source address while GitHub-hosted runners share theirs. Measured on two
+ * consecutive runs of unchanged workflow files: 2 findings, then 15, every one `HTTP 429`. The rerun
+ * being WORSE is the point — a retry does not recover that budget, it spends more of it — and this
+ * scan is fail-closed by design, so the gate went red for a reason no change here could affect.
+ *
+ * Measured before the switch: the authenticated contents endpoint answers 200 for a present manifest
+ * and a clean 404 for an absent one, on a 5,000-per-hour budget, and reports what is left. The
+ * anonymous endpoint publishes no rate-limit headers at all, which is the difference between a limit
+ * that can be diagnosed and one that can only be suffered.
+ *
+ * It goes through `gh`, the runner this harness uses everywhere else, so the request is authenticated
+ * by construction and the rate-limit reading in `github-api.mjs` applies unchanged. A second network
+ * path with its own retry rules would be a second place for this to go wrong.
+ */
+function ghContentsRunner(args) {
+  return spawnSync('gh', args, {
+    encoding: 'utf8',
+    timeout: HTTP_TIMEOUT_MS,
+    maxBuffer: 8 * 1024 * 1024,
+  });
+}
+
+/** Whether the failure the runner reported is the endpoint saying "no such path". */
+function isNotFound(stderr) {
+  return /HTTP 404|Not Found/i.test(stderr ?? '');
+}
+
+/**
+ * `true` when the path exists at that commit, `false` when it does not, throw otherwise.
+ *
+ * A 404 is a NEGATIVE ANSWER, not an error. "This SHA carries no manifest" is the finding this scan
+ * exists to report, and folding it into the transport's error channel would turn a real finding into
+ * an outage report — the same collapse, one level down, that the rate limit produced.
+ */
+export async function pathExistsAtCommit(
+  reference,
+  sha,
+  filePath,
+  { runner = ghContentsRunner, attempts = 3, sleep = sleepSeconds } = {},
+) {
+  const endpoint = `repos/${reference.owner}/${reference.repo}/contents/${filePath}?ref=${sha}`;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const response = runner(['api', endpoint, '--silent']);
+    if (response.status === 0) return true;
+    const stderr = (response.stderr ?? '').trim();
+    if (isNotFound(stderr)) return false;
+    if (!isRateLimited(stderr)) {
+      throw new Error(`${endpoint}: ${oneLine(stderr || describeExit(response))}`);
+    }
+    if (attempt === attempts) {
+      throw new Error(
+        `${endpoint}: rate limited by the GitHub API and still limited after ${attempts} attempts. ` +
+          'This is a budget to wait out, not a defect to work around. Last response: ' +
+          `${oneLine(stderr || 'no stderr')}`,
+      );
+    }
+    await sleep(retryDelaySeconds(stderr));
+  }
+  // Unreachable: the loop either returns or throws on its final attempt. Stated rather than left to
+  // an implicit `undefined`, which a caller would read as "no manifest".
+  throw new Error(`${endpoint}: exhausted ${attempts} attempts without a verdict.`);
+}
+
+/**
+ * Why the runner produced no stderr to quote.
+ *
+ * `status: null` means the process was KILLED — by the timeout here, or by a signal — and the first
+ * version of this reported it as `gh exited null`, which names neither the cause nor the remedy. A
+ * probe whose failure message cannot be acted on is the same defect as one that fails for an
+ * unreadable reason, one layer up.
+ */
+function describeExit(response) {
+  if (response.error) return `gh could not run: ${response.error.message}`;
+  if (response.signal) return `gh was killed by ${response.signal} (timeout ${HTTP_TIMEOUT_MS}ms)`;
+  if (response.status === null) return `gh produced no exit status (timeout ${HTTP_TIMEOUT_MS}ms)`;
+  return `gh exited ${response.status} with no stderr`;
+}
+
+function sleepSeconds(seconds) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, Math.max(0, seconds) * 1000);
+  });
+}
+
 /** The manifest the runner itself needs, at the exact commit the ref resolved to. */
-async function manifestExists(reference, sha) {
-  const base = `https://raw.githubusercontent.com/${reference.owner}/${reference.repo}/${sha}`;
+async function manifestExists(reference, sha, options = {}) {
   const prefix = reference.subpath ? `${reference.subpath}/` : '';
   // A reusable workflow reference IS its own manifest — its subpath names the file.
   const candidates = /\.ya?ml$/.test(reference.subpath ?? '')
-    ? [`${base}/${reference.subpath}`]
-    : MANIFEST_NAMES.map((name) => `${base}/${prefix}${name}`);
+    ? [reference.subpath]
+    : MANIFEST_NAMES.map((name) => `${prefix}${name}`);
   for (const candidate of candidates) {
-    const response = await fetch(candidate, {
-      method: 'HEAD',
-      signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
-    });
-    if (response.ok) return true;
-    if (response.status !== 404) {
-      throw new Error(`HTTP ${response.status} for ${candidate}`);
-    }
+    if (await pathExistsAtCommit(reference, sha, candidate, options)) return true;
   }
   return false;
 }
