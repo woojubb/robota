@@ -39,16 +39,26 @@ async function invoke(
 }
 
 describe("codingPack — contributes exactly robota's current coding toolset", () => {
-  it("bundles the same tools (by name) that robota's createDefaultTools() ships by default", () => {
-    // No adapters supplied → the always-present coding toolset (retrieval/computer are adapter-gated, absent).
-    // ARCH-010 — `createDefaultTools` now requires the root. It is `CWD`, the same root the pack under
-    // test is built with, so the two sides of this comparison are assembled alike; only NAMES are read.
-    const defaultToolNames = createDefaultTools({ cwd: CWD }).map((tool) => tool.getName());
-    const packToolNames = (createCodingPack({ cwd: CWD }).tools ?? []).map((tool) =>
-      tool.getName(),
-    );
+  it('contributes the default tool set itself, not a copy of it', () => {
+    // ARCH-035 replaced a NAME-equality pin here. That pin compared this pack's hand-built list against
+    // `createDefaultTools()` and could not fail once the two were kept in sync by hand — it is the pin
+    // that let ARCH-021's first TC-05 pass while being unable to fail, because comparing tool names
+    // cannot distinguish a pack-composed surface from an imported-default one.
+    //
+    // The pack CONSUMES the set now, so the interesting question changed. Name equality is no longer
+    // evidence of anything — it is guaranteed by construction. What is worth asserting is that nothing
+    // was added, dropped or reordered on the way through, and that the pack still supplies no adapter,
+    // so the adapter-gated tools stay absent. ARCH-010 — the root is required and is `CWD` on both
+    // sides, so the two are assembled alike.
+    const expected = createDefaultTools({ cwd: CWD });
+    const packTools = createCodingPack({ cwd: CWD }).tools ?? [];
 
-    expect(packToolNames).toEqual(defaultToolNames);
+    expect(packTools.map((tool) => tool.getName())).toEqual(expected.map((tool) => tool.getName()));
+    expect(packTools).toHaveLength(expected.length);
+    expect(
+      packTools.map((tool) => tool.getName()),
+      'an adapter-gated tool reached the pack, which supplies no adapter',
+    ).not.toContain('CodebaseRetrieval');
   });
 
   it("bundles robota's built-in coding subagents", () => {

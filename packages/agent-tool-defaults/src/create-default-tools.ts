@@ -32,12 +32,12 @@ import {
   webSearchTool,
 } from '@robota-sdk/agent-tools';
 
-import type { IToolWithEventService } from '@robota-sdk/agent-core';
+import type { FunctionTool } from '@robota-sdk/agent-core';
 import type { ISandboxClient, IRetrievalAdapter, IComputerDriver } from '@robota-sdk/agent-tools';
 
 /**
  * Create the default set of CLI tools.
- * Returns the standard tools as IToolWithEventService[].
+ * Returns the standard tools.
  */
 export interface ICreateDefaultToolsOptions {
   sandboxClient?: ISandboxClient;
@@ -60,29 +60,36 @@ export interface ICreateDefaultToolsOptions {
   computerDriver?: IComputerDriver;
 }
 
-export function createDefaultTools(options: ICreateDefaultToolsOptions): IToolWithEventService[] {
+/**
+ * ARCH-035: returns `FunctionTool[]`, which is what every factory below actually returns.
+ *
+ * An earlier revision cast each one to `IToolWithEventService` because session assembly consumes that
+ * interface. The cast was lossy in the direction that mattered: `ICapabilityPack.tools` is
+ * `readonly FunctionTool[]`, so a pack CONSUMING this set could not assign it without a second cast
+ * back — one erasure creating the need for another. `FunctionTool` satisfies `IToolWithEventService`,
+ * so session assembly is unaffected and no cast is needed at either end.
+ */
+export function createDefaultTools(options: ICreateDefaultToolsOptions): FunctionTool[] {
   return [
-    createShellTool(options) as IToolWithEventService,
-    createBashTool(options) as IToolWithEventService,
-    createReadTool(options) as IToolWithEventService,
-    createWriteTool(options) as IToolWithEventService,
-    createEditTool(options) as IToolWithEventService,
+    createShellTool(options),
+    createBashTool(options),
+    createReadTool(options),
+    createWriteTool(options),
+    createEditTool(options),
     // SEC-007: built per call, NOT the module-level singletons. A singleton is context-free by
     // construction, so registering one meant `Glob`/`Grep` could enumerate outside the session's
     // working directory while `Read`/`Write`/`Edit` were contained.
-    createGlobTool(options) as IToolWithEventService,
-    createGrepTool(options) as IToolWithEventService,
-    webFetchTool as IToolWithEventService,
-    webSearchTool as IToolWithEventService,
-    createAskUserQuestionTool() as IToolWithEventService,
+    createGlobTool(options),
+    createGrepTool(options),
+    webFetchTool,
+    webSearchTool,
+    createAskUserQuestionTool(),
     // Retrieval is adapter-gated: absent when no adapter is supplied (there is no host fallback).
     ...(options.retrievalAdapter
-      ? [createRetrievalTool({ adapter: options.retrievalAdapter }) as IToolWithEventService]
+      ? [createRetrievalTool({ adapter: options.retrievalAdapter })]
       : []),
     // Computer-use is adapter-gated on the driver: absent when no driver is supplied. There is NO host
     // fallback (unlike the shell tool's host spawn) — no library-side "local" screen exists.
-    ...(options.computerDriver
-      ? (createComputerTool({ driver: options.computerDriver }) as IToolWithEventService[])
-      : []),
+    ...(options.computerDriver ? createComputerTool({ driver: options.computerDriver }) : []),
   ];
 }

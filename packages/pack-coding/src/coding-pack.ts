@@ -1,17 +1,6 @@
 import { createEditorCommandModule, createShellCommandModule } from '@robota-sdk/agent-command';
 import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
-import {
-  createAskUserQuestionTool,
-  createBashTool,
-  createEditTool,
-  createGlobTool,
-  createGrepTool,
-  createReadTool,
-  createShellTool,
-  createWriteTool,
-  webFetchTool,
-  webSearchTool,
-} from '@robota-sdk/agent-tools';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
@@ -52,12 +41,14 @@ export interface ICodingPackOptions {
  * `assembleProduct` on top of any product's base — and, since ARCH-006, can OWN the product's tool surface
  * outright when the profile suppresses the framework tier with `defaultTools: []`.
  *
- * - **tools** — the built-in coding tools, mirroring `agent-framework`'s `createDefaultTools()`
- *   ALWAYS-PRESENT set (shell/bash/read/write/edit/glob/grep/webFetch/webSearch/askUserQuestion), built
- *   from the published `@robota-sdk/agent-tools` factories directly (NOT re-implemented) and bound to
- *   `options`. The adapter-gated tools (`CodebaseRetrieval`, `Computer`) are deliberately excluded — they
- *   exist only when their adapter/driver is injected at session-assembly time. The pack test pins these to
- *   `createDefaultTools()` by name, so the pack cannot silently drift from robota's actual default toolset.
+ * - **tools** — `createDefaultTools()` from `@robota-sdk/agent-tool-defaults`, CONSUMED rather than
+ *   mirrored (ARCH-035). That set is shell/bash/read/write/edit/glob/grep/webFetch/webSearch/
+ *   askUserQuestion; the adapter-gated tools (`CodebaseRetrieval`, `Computer`) appear only when their
+ *   adapter or driver is supplied, and this pack supplies neither. Until ARCH-035 the list was rebuilt
+ *   here from the `@robota-sdk/agent-tools` factories and held to the defaults by a NAME-equality test
+ *   — a pin that let ARCH-021's first TC-05 pass while being unable to fail, because comparing names
+ *   cannot distinguish a pack-composed surface from an imported-default one when the two are pinned.
+ *   The relationship is structural now, so there is no drift left to pin.
  * - **commandModules** — the coding command modules: `/shell` and `/editor` (the capability-level command
  *   modules, distinct from product-shell/settings/provider command infrastructure).
  * - **subagents** — robota's built-in coding subagents (`general-purpose`, `Explore`, `Plan`).
@@ -81,21 +72,19 @@ export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
     title: 'Coding',
     description:
       "Robota's built-in coding capability: file/shell tools, /shell + /editor commands, and the coding subagents.",
-    tools: [
-      createShellTool(toolOptions),
-      createBashTool(toolOptions),
-      createReadTool(toolOptions),
-      createWriteTool(toolOptions),
-      createEditTool(toolOptions),
-      // SEC-007: bound to `options.cwd` like the rest, not the context-free singletons. This pack
-      // makes `cwd` REQUIRED so the file-tool guard cannot be disarmed by omission; registering an
-      // uncontained `Glob`/`Grep` alongside contained file tools defeated exactly that intent.
-      createGlobTool(toolOptions),
-      createGrepTool(toolOptions),
-      webFetchTool,
-      webSearchTool,
-      createAskUserQuestionTool(),
-    ],
+    // ARCH-035: the always-present default set, consumed from its owner rather than rebuilt here.
+    //
+    // This list used to be hand-maintained, identical to `createDefaultTools()`'s always-present
+    // tier, and the two were held together by a test asserting their NAMES matched. That pin is what
+    // let ARCH-021's first TC-05 pass without being able to fail: comparing tool names cannot tell a
+    // pack-composed surface from an imported-default one when the pack is pinned to the defaults.
+    // Consuming the set makes the relationship structural, so there is nothing left to drift.
+    //
+    // The adapter-gated tools stay out, as before: `createDefaultTools` adds `CodebaseRetrieval` only
+    // when given a `retrievalAdapter` and the Computer tools only when given a `computerDriver`, and
+    // this pack supplies neither. SEC-007 still holds — `cwd` is REQUIRED here, so the file-tool
+    // guard cannot be disarmed by omission, and the leaf threads it into every tool it builds.
+    tools: createDefaultTools(toolOptions),
     commandModules: [createShellCommandModule(), createEditorCommandModule()],
     subagents: BUILT_IN_AGENTS,
   };

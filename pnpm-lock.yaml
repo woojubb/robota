@@ -2064,9 +2064,6 @@ importers:
       tsdown:
         specifier: ^0.22.14
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)
@@ -3636,13 +3633,13 @@ importers:
       '@robota-sdk/agent-framework':
         specifier: workspace:*
         version: link:../agent-framework
+      '@robota-sdk/agent-tool-defaults':
+        specifier: workspace:*
+        version: link:../agent-tool-defaults
       '@robota-sdk/agent-tools':
         specifier: workspace:*
         version: link:../agent-tools
     devDependencies:
-      '@robota-sdk/agent-tool-defaults':
-        specifier: workspace:*
-        version: link:../agent-tool-defaults
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10

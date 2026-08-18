@@ -45,10 +45,10 @@
     "@robota-sdk/agent-capability-pack": "workspace:*",
     "@robota-sdk/agent-command": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
+    "@robota-sdk/agent-tool-defaults": "workspace:*",
     "@robota-sdk/agent-tools": "workspace:*"
   },
   "devDependencies": {
-    "@robota-sdk/agent-tool-defaults": "workspace:*",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",
