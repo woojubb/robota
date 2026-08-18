@@ -88,7 +88,7 @@ input.
 #1884's third item — that a name-based rewrite should confirm each site imports the symbol being
 changed rather than merely spelling it — is a real defect and is not addressed here. It is the same
 problem ARCH-037 spent six review rounds on, it needs a resolver, and folding it into a path guard
-would produce neither. It is filed separately.
+would produce neither. Filed as #1887.
 
 ## Progress
 
