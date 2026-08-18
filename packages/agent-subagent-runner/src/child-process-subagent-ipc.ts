@@ -40,6 +40,13 @@ export interface ISubagentWorkerStartPayload {
    * Absent ⇒ the parent holds no sandbox, which is every product that has not registered one.
    */
   sandboxProjection?: ISandboxProjection;
+  /**
+   * ARCH-034: which session-assembly tiers the parent's surface carried.
+   *
+   * A property of the parent's SESSION rather than of the child's root, so it rides on the payload
+   * beside the request instead of being derived at the child. Absent ⇒ the parent had none.
+   */
+  sessionTiers?: { readonly includeGoalTool?: boolean };
   permissionMode?: TPermissionMode;
   logsDir?: string;
 }

@@ -114,9 +114,13 @@ async function runInitialPrompt(
       // ARCH-033: restore the parent's sandbox before building tools, so the child acts where the
       // parent acts. An unregistered type throws here rather than degrading to host tools — a child
       // that was told it is sandboxed and quietly is not is ARCH-010's shape.
+      // ARCH-034: the session tiers cross too, so the runner choice stays a packaging decision
+      // rather than a capability one. `includeGoalTool` rides on the payload because it is a property
+      // of the PARENT'S session, not of this child's root.
       parentTools: composition.createTools({
         cwd: subagentExecutionRoot(payload),
         ...(restoredSandbox !== undefined ? { sandboxClient: restoredSandbox } : {}),
+        ...(payload.sessionTiers !== undefined ? { sessionTiers: payload.sessionTiers } : {}),
       }),
       cwd: subagentExecutionRoot(payload),
       provider,

@@ -33,6 +33,23 @@ export interface ISubagentWorkerComposition {
   createTools(context: {
     readonly cwd: string;
     /**
+     * ARCH-034: the tiers session assembly adds ON TOP of the product's tool set.
+     *
+     * The two runners of `ISubagentRunner` were handing a subagent different surfaces, and the
+     * difference was silent because both paths succeed. In-process passes the parent's fully
+     * ASSEMBLED tools; this path rebuilds the product's set at the child's root. For a product whose
+     * packs own the tool surface those agree — but what session assembly adds AFTER the packs did
+     * not cross: the goal tool (`includeGoalTool`) and edit-checkpoint wrapping.
+     *
+     * Choosing a runner is an isolation and packaging decision. It is not supposed to be a capability
+     * decision, so the composition root states which of those tiers the child should also receive and
+     * the recipe carries the answer rather than the parent's live wrappers.
+     */
+    readonly sessionTiers?: {
+      /** Whether the parent's session included the goal-status tool. */
+      readonly includeGoalTool?: boolean;
+    };
+    /**
      * ARCH-033: the sandbox the child restored, when the parent projected one.
      *
      * Threaded rather than captured, for the same reason `cwd` is: a tool surface built without the

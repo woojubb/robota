@@ -1,5 +1,6 @@
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
 import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
+import { createGoalStatusTool } from '@robota-sdk/agent-framework';
 
 import { createRobotaPacks, packCommandModuleNames } from './robota-profile.js';
 
@@ -119,8 +120,18 @@ export function createRobotaSubagentComposition(
   createPacks: TRobotaPackFactory = createRobotaPacks,
 ): ISubagentWorkerComposition {
   return {
-    createTools: (context: { readonly cwd: string }): IToolWithEventService[] =>
-      packTools({ cwd: context.cwd }, createPacks),
+    createTools: (context: {
+      readonly cwd: string;
+      readonly sessionTiers?: { readonly includeGoalTool?: boolean };
+    }): IToolWithEventService[] => {
+      const tools = packTools({ cwd: context.cwd }, createPacks);
+      // ARCH-034: the goal tool is added by session assembly, not by any pack, so rebuilding the
+      // pack set alone gave a child-process subagent a strictly smaller surface than an in-process
+      // one. Choosing a runner is a packaging decision; this is what stops it being a capability one.
+      return context.sessionTiers?.includeGoalTool === true
+        ? [...tools, createGoalStatusTool() as IToolWithEventService]
+        : tools;
+    },
     providerDefinitions: robotaProviderDefinitions(),
   };
 }

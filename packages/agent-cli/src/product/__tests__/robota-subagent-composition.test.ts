@@ -175,3 +175,44 @@ describe('ARCH-033 — a projectable sandbox is no longer a refusal', () => {
     ).toThrow(/sandboxClient/);
   });
 });
+
+describe('ARCH-034 — the runner choice is packaging, not capability', () => {
+  it('gives a child-process subagent the goal tool when the parent session had it', () => {
+    // In-process subagents receive the parent's fully ASSEMBLED surface, which includes the goal tool
+    // when `includeGoalTool` is set. The child rebuilds the product's set at its own root, and the
+    // goal tool is added by session assembly rather than by any pack — so before this it was missing
+    // from one runner and present in the other, silently, because both paths succeed.
+    const composition = createRobotaSubagentComposition();
+
+    const withTier = composition
+      .createTools({ cwd: CWD, sessionTiers: { includeGoalTool: true } })
+      .map((tool) => tool.getName());
+
+    expect(withTier).toContain('report_goal_status');
+  });
+
+  it('omits it when the parent session did not, rather than adding it unconditionally', () => {
+    // Parity means MATCHING the parent, not maximising. A child that always got the goal tool would
+    // diverge from an in-process sibling in the other direction.
+    const composition = createRobotaSubagentComposition();
+
+    expect(composition.createTools({ cwd: CWD }).map((tool) => tool.getName())).not.toContain(
+      'report_goal_status',
+    );
+    expect(
+      composition
+        .createTools({ cwd: CWD, sessionTiers: { includeGoalTool: false } })
+        .map((tool) => tool.getName()),
+    ).not.toContain('report_goal_status');
+  });
+
+  it('leaves the pack tools identical either way — only the tier differs', () => {
+    const composition = createRobotaSubagentComposition();
+    const base = composition.createTools({ cwd: CWD }).map((tool) => tool.getName());
+    const withTier = composition
+      .createTools({ cwd: CWD, sessionTiers: { includeGoalTool: true } })
+      .map((tool) => tool.getName());
+
+    expect(withTier.filter((name) => name !== 'report_goal_status')).toEqual(base);
+  });
+});
