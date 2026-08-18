@@ -111,7 +111,8 @@ as nothing recorded a run, `escape=no-progress` was a claim no check could reach
 it reads only the tree, and a run is not in the tree.
 
 **Every run of a loop-driving skill is recorded**, through
-`node scripts/harness/loop-run.mjs`, into the skill's append-only ledger under `.agents/loop-runs/`:
+`node scripts/harness/loop-run.mjs`, into the skill's ledger under `.agents/loop-runs/` — one entry per
+run, appended when it opens and sealed when it closes:
 
 ```bash
 node scripts/harness/loop-run.mjs open  --loop <skill>

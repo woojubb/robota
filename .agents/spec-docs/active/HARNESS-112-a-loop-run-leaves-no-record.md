@@ -93,7 +93,8 @@ metadata-only boundary is adopted as a constraint (Alt 3 is rejected on it), and
 ### Affected Scope
 
 - `scripts/harness/loop-run.mjs` — **new.** The recording entry point: `open` / `round` / `close` / `show`.
-- `.agents/loop-runs/<skill>.jsonl` — **new, committed.** One append-only ledger per loop-driving skill.
+- `.agents/loop-runs/<skill>.jsonl` — **new, committed.** One ledger per loop-driving skill; an entry is
+  appended on open and sealed on close, and never removed.
 - `scripts/harness/scan-loop-run-records.mjs` — **new.** Validates every ledger against the declarations.
 - `scripts/harness/__tests__/loop-run.test.mjs`, `…/scan-loop-run-records.test.mjs` — **new.**
 - `scripts/harness/run-all-scans.mjs` — register the scan.
@@ -106,7 +107,7 @@ derivable without them), prompt or transcript capture (rejected as Alt 3), and a
 
 ### Alternatives Considered
 
-**Alt 1 — an append-only JSONL ledger per loop, committed, written through a CLI.**
+**Alt 1 — one JSONL ledger per loop, committed, written through a CLI (an entry appended on open, sealed on close).**
 _Pro:_ one line per run keeps the diff small where a file-per-run would not; aggregation for HARNESS-114
 is a single pass; being committed makes it readable on a fresh checkout, which is what HARNESS-113 needs
 as proof; `release-run.mjs` is an existing precedent for an agent-driven CLI that writes a durable state

@@ -1,7 +1,9 @@
 # Loop runs
 
-One append-only ledger per loop-driving skill: `<skill>.jsonl`, one JSON object per line, one line per
-run of that loop. Written by `scripts/harness/loop-run.mjs`, judged by
+One ledger per loop-driving skill: `<skill>.jsonl`, one JSON object per line, one line per run of that
+loop. An entry is APPENDED when the run opens and SEALED in place when it closes; no entry is ever
+removed or rewritten after its `terminal` is set. It is not append-only in the strict sense, and saying
+so would misdescribe what `close` does. Written by `scripts/harness/loop-run.mjs`, judged by
 `scripts/harness/scan-loop-run-records.mjs`.
 
 ## Why these are committed
