@@ -87,6 +87,14 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Measured as `findLoopProofFindings(bare)`: throws `.agents/skills missing from <root>` before it
+    // reads a baseline or a ledger.
+    file: 'scan-loop-proof.mjs',
+    finder: 'findLoopProofFindings',
+    tree: '.agents/skills',
+    why: 'the skills tree IS the population this floor governs — over a root without it there is no skill to prove, and "no findings" would mean "every loop is proven" when nothing was examined',
+  },
+  {
     // Measured as `findLoopRunRecordFindings(bare)`: throws `.agents/skills missing from <root>`
     // before it reads a single ledger.
     file: 'scan-loop-run-records.mjs',

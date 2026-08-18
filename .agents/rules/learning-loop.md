@@ -106,6 +106,17 @@ an amendment of one.
   paragraphs with no mechanism, no filed item, and no admission that it had neither.
   Enforced by: `new-rule-declares-enforcement`, which reads the change's own diff: a `###` section
   added under `.agents/rules/` must carry one of the two declarations.
+- **Prove the loop.** The clause below is the sibling of "Prove the check", and it exists because the
+  asymmetry ran the wrong way: a wrong scan exits 1 locally and someone reads the message, while a wrong
+  orchestration fails by DISPATCHING — it spends a fan-out before anyone learns the routing was wrong. A
+  new loop-driving skill must have been driven END TO END to a terminal signal at least once before it is
+  registered, and the proof is the ARTIFACT of that run — a closed entry in its `.agents/loop-runs/`
+  ledger — not an assertion that it was tried. Where a real run is genuinely not obtainable, declare
+  `proof: none — <why>` in the skill's frontmatter; both are answers, and silence is what a reader cannot
+  tell from proof. This establishes that a terminal signal was reached once; it does not establish that
+  the run exercised the loop's hard path, and it does not claim to.
+  Enforced by: `scripts/harness/scan-loop-proof.mjs`, registered as `loop-proof`, which reads the skills
+  tree, the ledgers and a shrink-only frozen baseline of the skills that predate the floor.
 - **Fix the class, not the instance.** When a lesson comes from a concrete defect, name the invariant
   (the class), enumerate every current instance of it in the repo, fix them all in the same change, and
   make the mechanism catch the whole class so a future sibling instance fails. Fixing only the triggering

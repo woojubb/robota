@@ -31,6 +31,7 @@
     "literal-cast-union",
     "llms-txt",
     "loop-contract",
+    "loop-proof",
     "loop-run-records",
     "loopback-bound-ownership",
     "main-required-checks",
