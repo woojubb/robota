@@ -20,6 +20,25 @@ When the user explicitly requests Korean content (e.g., a Korean blog post) — 
 default — prefer concise active-voice Korean: avoid translationese markers (`적`/`의`/`것`/`들`,
 `있다` endings, passive `되다` where an active `하다` form exists) by restructuring the sentence.
 
+### Reference Kind Is Named
+
+A `#N` reference states whether it is an issue or a pull request. The two are the same characters,
+they are constantly adjacent — a record cites the issue it came from and the pull request that landed
+it in one paragraph — and a reader who cannot tell them apart has to open one to find out.
+
+```text
+issue #123          PR #456          pull request #456
+```
+
+Exempt: a GitHub closing keyword (`Closes #N`), which GitHub parses in that exact shape and which the
+promotion tooling depends on; an identifier inside a fenced block or code span, which is a specimen
+rather than a claim; and a link target.
+
+Enforced by: `reference-kind-qualified` over tracked documents (a per-file ratchet — counts may fall,
+never rise) and a `reference-kind` commitlint rule over new commit messages. Neither reaches a
+pull-request body or an issue comment: those are not in the tree and are not linted, so there the
+form is the writer's obligation.
+
 ### Agent Identity
 
 - Prohibited: `main agent`, `sub-agent`, `parent-agent`, `child-agent`, and any hierarchy-implying naming.
