@@ -39,7 +39,7 @@
  * skipped it by name. The behaviour was right; only this sentence was wrong.
  */
 
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 import { loadHarnessConfig } from './harness-config.mjs';
@@ -400,7 +400,10 @@ export function resolvePublished(barrel, root, readFile) {
  * fixture of known size rather than self-reported.
  */
 export function findBarrelParameterTypeFindings(root = process.cwd(), settingsOverride) {
-  const settings = settingsOverride ?? loadHarnessConfig(root).barrelParameterTypes ?? {};
+  // `loadHarnessConfig()` takes NO argument — it reads one fixed path. An earlier revision passed
+  // `root`, which was silently discarded while implying a per-root config that does not exist. Tests
+  // inject through `settingsOverride` instead, which is the seam that actually works.
+  const settings = settingsOverride ?? loadHarnessConfig().barrelParameterTypes ?? {};
   const barrels = settings.barrels ?? [];
 
   // Fail CLOSED on an empty scope: a floor that examines nothing prints what a clean tree prints.
@@ -507,19 +510,18 @@ function declaredInPackage(root, barrel, typeName) {
       const dir = stack.pop();
       let entries;
       try {
-        entries = readdirSync(dir);
+        // `withFileTypes` so the directory/file decision comes from the SAME syscall that listed the
+        // entry. The previous shape asked `statSync` and then `readFileSync` about the same path —
+        // check-then-use, which CodeQL flags as `js/file-system-race`: the path can change between
+        // the two, and the read is what actually matters, so it is the read that must be guarded.
+        entries = readdirSync(dir, { withFileTypes: true });
       } catch {
         continue;
       }
-      for (const entry of entries) {
+      for (const dirent of entries) {
+        const entry = dirent.name;
         const full = join(dir, entry);
-        let stat;
-        try {
-          stat = statSync(full);
-        } catch {
-          continue;
-        }
-        if (stat.isDirectory()) {
+        if (dirent.isDirectory()) {
           if (entry !== '__tests__' && entry !== 'node_modules') stack.push(full);
           continue;
         }
@@ -532,7 +534,12 @@ function declaredInPackage(root, barrel, typeName) {
           entry.endsWith('.ptytest.ts') ||
           entry.endsWith('.ptytest.tsx');
         if (!isSource || isTest) continue;
-        const content = readFileSync(full, 'utf8');
+        let content;
+        try {
+          content = readFileSync(full, 'utf8');
+        } catch {
+          continue;
+        }
         // `abstract` and `const` sit between `export` and the keyword; review found 10+ live
         // `export abstract class` declarations that the narrower pattern read as undeclared.
         for (const m of content.matchAll(
