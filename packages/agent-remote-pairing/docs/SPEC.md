@@ -98,13 +98,15 @@ A SEPARATE entry point, not part of the surface above. The main entry is isomorp
 Node built-ins) and runs in the browser remote client; this needs the filesystem, and a browser has
 no local peers and no directory permissions to judge.
 
-| Export                    | Kind     | Purpose                                                                                                  |
-| ------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
-| `admitLocalPeerDirectory` | function | Establish that a rendezvous directory is user-owned and mode 0700 — the evidence the kernel enforces.    |
-| `admitLocalPeerSocket`    | function | The same, plus the socket path resolving INSIDE that directory.                                          |
-| `refuseLocalPeer`         | function | Build a refusal in one place, so no call site can construct an admitted-looking result without evidence. |
-| `RendezvousGrantLedger`   | class    | The single-use, time-bounded, revocable grants that carry the rendezvous proof onto the channel.         |
-| `DEFAULT_GRANT_TTL_MS`    | const    | How long a grant stays admissible (30s — a channel handshake, not a session).                            |
+| Export                    | Kind     | Purpose                                                                                                            |
+| ------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| `admitLocalPeerDirectory` | function | Establish that a rendezvous directory is user-owned and mode 0700 — the evidence the kernel enforces.              |
+| `admitLocalPeerSocket`    | function | The same, plus the socket path resolving INSIDE that directory.                                                    |
+| `refuseLocalPeer`         | function | Build a refusal in one place, so no call site can construct an admitted-looking result without evidence.           |
+| `ensureGuardedDirectory`  | function | Create the rendezvous directory and VERIFY it afterwards with the same judge that validates one we did not create. |
+| `GUARDED_MODE`            | const    | 0700 — owner-only, which is the entire proof.                                                                      |
+| `RendezvousGrantLedger`   | class    | The single-use, time-bounded, revocable grants that carry the rendezvous proof onto the channel.                   |
+| `DEFAULT_GRANT_TTL_MS`    | const    | How long a grant stays admissible (30s — a channel handshake, not a session).                                      |
 
 **What this proves, and what it does not.** Reaching a socket inside a 0700 user-owned directory
 means the peer is on this machine as this user, because the kernel refuses the traversal to anyone

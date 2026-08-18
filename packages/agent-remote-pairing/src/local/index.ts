@@ -16,6 +16,8 @@ export type {
   ILocalPeerBinding,
   TLocalPeerTrust,
 } from './peer-credential.js';
+export { ensureGuardedDirectory, GUARDED_MODE } from './guarded-directory.js';
+export type { IEnsureGuardedOptions } from './guarded-directory.js';
 export { DEFAULT_GRANT_TTL_MS, RendezvousGrantLedger } from './rendezvous-nonce.js';
 export type {
   IIssueOptions,
