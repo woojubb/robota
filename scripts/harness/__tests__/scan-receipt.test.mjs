@@ -3,7 +3,14 @@
  * repository — including the ones that must NOT reuse, which are the branches that matter: a reuse
  * mechanism can only fail in one dangerous direction, and it is this one.
  */
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
+
+import { isCleanTree, realDirtyLines } from '../verification-receipt.mjs';
 
 import {
   TREE_EXTERNAL_SCANS,
@@ -119,5 +126,39 @@ describe('scans whose inputs are not in the tree', () => {
 describe('createScanReceipt', () => {
   it('refuses to create one from an invalid identity', () => {
     expect(() => createScanReceipt({ headTree: 'a' }, '2026-08-19T00:00:00.000Z')).toThrow();
+  });
+});
+
+describe('receipt eligibility in a real agent clone (HARNESS-109)', () => {
+  /**
+   * The hole this closes was not theoretical: an untracked file the agent harness writes into every
+   * clone made `isCleanTree()` false for whole sessions, so no receipt was ever written and every
+   * push re-ran the full gate. The ignore rule is a CLASS, and this asserts the class matches —
+   * without it the assertion would be about git, which is not ours to test.
+   */
+  it('a per-clone harness config file does not make the tree dirty', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'harness-109-'));
+    try {
+      const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
+      git('init', '-q');
+      git('config', 'user.email', 'test@example.com');
+      git('config', 'user.name', 'test');
+      writeFileSync(path.join(root, '.gitignore'), '.claude/*.local.json\n');
+      git('add', '.gitignore');
+      git('commit', '-qm', 'root');
+
+      expect(isCleanTree(root)).toBe(true);
+
+      mkdirSync(path.join(root, '.claude'), { recursive: true });
+      writeFileSync(path.join(root, '.claude', 'settings.local.json'), '{}\n');
+      expect(isCleanTree(root)).toBe(true);
+
+      // The exemption is narrow: anything else still makes the tree unclean, so a receipt can never
+      // stand behind a tree a human changed.
+      writeFileSync(path.join(root, '.claude', 'settings.json'), '{}\n');
+      expect(realDirtyLines(root)).toEqual(['?? .claude/settings.json']);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

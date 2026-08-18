@@ -163,4 +163,9 @@ stryker.log
 # dirty, so an untracked file present in EVERY agent clone made `readVerificationReceipt()` return
 # null for whole sessions and every push re-ran the full gate — the same regression its header
 # records for the lessons churn.
-.claude/settings.local.json
+#
+# A CLASS, not a filename. The first fix named `settings.local.json` alone, which is how the lessons
+# churn was closed too — and naming files one at a time is what let a second instance happen. The
+# `*.local.json` suffix is the tool's own convention for a per-clone file; the shared
+# `.claude/settings.json` stays tracked.
+.claude/*.local.json
