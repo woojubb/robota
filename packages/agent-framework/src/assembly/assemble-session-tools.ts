@@ -8,8 +8,6 @@
  * See `docs/SPEC.md` § "Session-level tool composition" for the published contract.
  */
 
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
-
 import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
 import { createGoalStatusTool } from '../goal/index.js';
 import { wrapReversibleExecutionTools } from '../reversible-execution/index.js';
@@ -52,22 +50,34 @@ export interface IAssembledSessionTools {
 }
 
 /** Assemble the session's tool list from the default tier, the contributed tiers, and the wrappers. */
-export function assembleSessionTools(
+export async function assembleSessionTools(
   options: ICreateSessionOptions,
   cwd: string,
-): IAssembledSessionTools {
+): Promise<IAssembledSessionTools> {
   // The default tool tier is INJECTABLE. `options.defaultTools` REPLACES `createDefaultTools()` outright
   // (an empty array suppresses every framework default), mirroring NEUT-003's `builtInAgents` seam for
   // subagents. Absent ⇒ the framework tier is constructed exactly as before, WITH the session context
   // (cwd → the working-directory path guard, sandbox client, retrieval adapter) — which is why a name
   // collision must never silently displace it (see `dedupeToolsByName`).
-  const defaultTools =
-    options.defaultTools ??
-    createDefaultTools({
+  //
+  // The tier is reached by DYNAMIC import, never a static one. `@robota-sdk/agent-tool-defaults` is a
+  // composition leaf, and a static `from '…'` edge here is exactly what ARCH-035 removed: it would put
+  // the aggregator back within reach of every package that legitimately depends on this one. Rule 8 in
+  // `check-dependency-direction.mjs` enforces that by matching the `from` token — which a dynamic
+  // import does not have — so this line is the sanctioned seam rather than an exemption from the rule.
+  // The manifest edge stays a hard `dependencies` one: the guarantee comes from the import syntax, and
+  // an optional edge would instead make the README's "built-in tools are assembled" promise throw
+  // under `--omit=optional`, and would keep the leaf out of the external-proof closure entirely.
+  const loadDefaultTools = async (): Promise<IToolWithEventService[]> => {
+    // eslint-disable-next-line no-restricted-syntax -- ARCH-035: entry-point-only defaults leaf; a static edge here restores the route this item closed
+    const { createDefaultTools } = await import('@robota-sdk/agent-tool-defaults');
+    return createDefaultTools({
       sandboxClient: options.sandboxClient,
       cwd,
       ...(options.retrievalAdapter ? { retrievalAdapter: options.retrievalAdapter } : {}),
     });
+  };
+  const defaultTools = options.defaultTools ?? (await loadDefaultTools());
   const checkpointAvailable =
     options.editCheckpointRecorder !== undefined && options.sandboxClient === undefined;
   const dedupedTools = dedupeToolsByName([

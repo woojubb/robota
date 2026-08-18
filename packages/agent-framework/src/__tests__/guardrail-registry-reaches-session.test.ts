@@ -120,7 +120,7 @@ describe('createSession registers the guardrail machinery (pre-existing, previou
   it('auto-injects a PreToolUse guardrail hook when a registry is supplied', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -139,7 +139,7 @@ describe('createSession registers the guardrail machinery (pre-existing, previou
     // The contrast that makes the case above mean something: identical call, registry omitted.
     const { createSession } = await import('../assembly/create-session.js');
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -152,7 +152,7 @@ describe('createSession registers the guardrail machinery (pre-existing, previou
   it('injects nothing for an EMPTY registry, which is not the same as a supplied one', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -168,7 +168,7 @@ describe('createSession registers the guardrail machinery (pre-existing, previou
     // on a chosen event must not silently also get a blanket PreToolUse one.
     const { createSession } = await import('../assembly/create-session.js');
 
-    createSession({
+    await createSession({
       config: baseConfig({
         PreToolUse: [
           { matcher: 'Bash', hooks: [{ type: 'guardrail', guardrails: ['neverPasses'] }] },
@@ -204,7 +204,7 @@ describe('createSession gates CodebaseRetrieval on the adapter (pre-existing beh
       retrieve: async () => ({ symbols: [], totalTokens: 0 }),
     };
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -218,7 +218,7 @@ describe('createSession gates CodebaseRetrieval on the adapter (pre-existing beh
   it('does NOT surface it without an adapter — there is no host fallback', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
-    createSession({
+    await createSession({
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,

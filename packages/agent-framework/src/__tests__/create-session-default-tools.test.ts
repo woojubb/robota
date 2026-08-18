@@ -92,7 +92,10 @@ async function assembleToolNames(
   overrides: Record<string, unknown> = {},
 ): Promise<{ names: string[]; tools: IToolWithEventService[] }> {
   const { createSession } = await import('../assembly/create-session.js');
-  createSession({
+  // ARCH-035 made `createSession` async: the default tier is reached by dynamic import now, so the
+  // session is not constructed until that resolves. Without this await the ctor-call spy below reads
+  // an empty array and every case here reports "no tools" as if the tier had vanished.
+  await createSession({
     config: baseConfig(),
     context: { agentsMd: '', projectNotesMd: '' },
     terminal: MOCK_TERMINAL,

@@ -149,7 +149,7 @@ export async function createInteractiveSession(
     options.commandSemanticRoles?.contextReduction,
   );
 
-  const { session, rebuildSystemMessage } = createSession(
+  const { session, rebuildSystemMessage } = await createSession(
     buildCreateSessionOptions(options, {
       mergedConfig,
       cwd,
