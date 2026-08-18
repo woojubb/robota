@@ -91,6 +91,7 @@
     "harness:loop:round": "node scripts/harness/loop-run.mjs round",
     "harness:loop:close": "node scripts/harness/loop-run.mjs close",
     "harness:loop:show": "node scripts/harness/loop-run.mjs show",
+    "harness:loop:report": "node scripts/harness/loop-economics.mjs",
     "harness:release:init": "node scripts/harness/release-run.mjs init",
     "harness:release:check": "node scripts/harness/release-run.mjs check",
     "harness:release:triage": "node scripts/harness/release-run.mjs triage",
