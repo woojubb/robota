@@ -138,7 +138,7 @@ describe('ARCH-006 — additionalTools dedupe by tool name', () => {
   });
 
   it('is byte-identical when no name collides (unchanged order: defaults, then additional)', async () => {
-    const { createDefaultTools } = await import('../assembly/create-tools.js');
+    const { createDefaultTools } = await import('@robota-sdk/agent-tool-defaults');
     const { names } = await assembleToolNames({
       additionalTools: [namedTool('AcmeTicketLookup', 'new')],
     });
@@ -186,7 +186,7 @@ describe('ARCH-006 — the injectable/suppressible default tool tier', () => {
   });
 
   it('leaves the framework tier exactly `createDefaultTools()` when the option is absent', async () => {
-    const { createDefaultTools } = await import('../assembly/create-tools.js');
+    const { createDefaultTools } = await import('@robota-sdk/agent-tool-defaults');
     const { names } = await assembleToolNames();
 
     // Same mirroring as above: the session resolves its root to `process.cwd()` when none is supplied.

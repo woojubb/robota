@@ -8,7 +8,8 @@
  * See `docs/SPEC.md` § "Session-level tool composition" for the published contract.
  */
 
-import { createDefaultTools } from './create-tools.js';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+
 import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
 import { createGoalStatusTool } from '../goal/index.js';
 import { wrapReversibleExecutionTools } from '../reversible-execution/index.js';

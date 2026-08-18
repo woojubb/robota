@@ -1,8 +1,11 @@
 {
-  "name": "@robota-sdk/pack-coding",
+  "name": "@robota-sdk/agent-tool-defaults",
   "version": "3.0.0-beta.79",
-  "description": "Robota's coding capability pack \u2014 an ICapabilityPack bundling the built-in coding tools, coding command modules, and coding subagents",
+  "description": "Default tool-set aggregator for Robota SDK (composition leaf)",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
   "exports": {
@@ -19,44 +22,31 @@
       }
     }
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git"
-  },
-  "homepage": "https://robota.io/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
-  },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "scripts": {
     "build": "tsdown",
     "build:js": "tsdown --no-dts",
     "build:types": "tsdown --dts",
+    "typecheck": "tsgo --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "typecheck": "tsgo --noEmit",
     "lint": "eslint src/ --ext .ts",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
-  "dependencies": {
-    "@robota-sdk/agent-capability-pack": "workspace:*",
-    "@robota-sdk/agent-command": "workspace:*",
-    "@robota-sdk/agent-framework": "workspace:*",
-    "@robota-sdk/agent-tools": "workspace:*"
-  },
   "devDependencies": {
-    "@robota-sdk/agent-tool-defaults": "workspace:*",
+    "@types/node": "^22.19.21",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",
-    "typescript": "^6.0.3",
     "vitest": "^3.2.6"
   },
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
-  "publishConfig": {
-    "access": "public"
+  "dependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-tools": "workspace:*"
   },
   "volta": {
     "extends": "../../package.json"

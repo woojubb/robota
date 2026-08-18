@@ -15,7 +15,8 @@
  */
 
 import { mergeCapabilityPacks } from '@robota-sdk/agent-capability-pack';
-import { createDefaultTools, InteractiveSession } from '@robota-sdk/agent-framework';
+import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
 import { createCodingPack } from '@robota-sdk/pack-coding';

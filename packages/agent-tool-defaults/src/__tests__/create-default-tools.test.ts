@@ -1,7 +1,7 @@
 import { InMemorySandboxClient } from '@robota-sdk/agent-tools';
 import { describe, expect, it } from 'vitest';
 
-import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from '../create-tools';
+import { createDefaultTools } from '../create-default-tools.js';
 
 import type { IRetrievalAdapter, IComputerDriver } from '@robota-sdk/agent-tools';
 
@@ -26,11 +26,6 @@ describe('createDefaultTools', () => {
       'WebSearch',
       'AskUserQuestion',
     ]);
-
-    expect(DEFAULT_TOOL_DESCRIPTIONS).toContain('WebFetch — fetch URL content as text');
-    expect(DEFAULT_TOOL_DESCRIPTIONS).toContain(
-      'WebSearch — search the internet through the configured local tool',
-    );
   });
 
   it('accepts a sandbox client while preserving the default tool list', () => {

@@ -1,5 +1,6 @@
 import { mergeCapabilityPacks } from '@robota-sdk/agent-capability-pack';
-import { BUILT_IN_AGENTS, createDefaultTools } from '@robota-sdk/agent-framework';
+import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { describe, expect, it } from 'vitest';
 
 import { createCodingPack } from '../coding-pack.js';

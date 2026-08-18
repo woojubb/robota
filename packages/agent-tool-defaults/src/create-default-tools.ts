@@ -1,7 +1,22 @@
 /**
- * Default tool set factory — creates the standard set of CLI tools.
+ * The DEFAULT TOOL SET — a composition leaf.
+ *
+ * ARCH-035 moved this out of `@robota-sdk/agent-framework`. It is a defaults aggregator, and
+ * `.agents/project-structure.md` classifies that family as a composition leaf "imported only at
+ * composition roots (entry-point-only)" — not something a mid-layer assembly library owns, publishes
+ * and self-consumes.
+ *
+ * The move is what carries the guarantee. `agent-subagent-runner` may depend on `agent-framework`
+ * (it needs `createSubagentSession` and friends) but has no manifest edge to THIS package, so
+ * `import { createDefaultTools } from '@robota-sdk/agent-tool-defaults'` does not resolve there at
+ * all. A neutral runner composing the product's tool surface is now a compile error rather than a
+ * scan finding — the same shape ARCH-021 achieved on the provider axis with
+ * `@robota-sdk/agent-provider-defaults`.
+ *
+ * `DEFAULT_TOOL_DESCRIPTIONS` deliberately did NOT come along: its only consumer builds the system
+ * prompt synchronously, and dragging it here would force either a static edge back into this leaf or
+ * a second async hop through prompt building. It stays beside its consumer in `agent-framework`.
  */
-
 import {
   createAskUserQuestionTool,
   createShellTool,
@@ -19,20 +34,6 @@ import {
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { ISandboxClient, IRetrievalAdapter, IComputerDriver } from '@robota-sdk/agent-tools';
-
-/** Human-readable descriptions of the built-in tools (for system prompt) */
-export const DEFAULT_TOOL_DESCRIPTIONS = [
-  'Shell — execute host shell commands (OS-aware: bash/PowerShell)',
-  'Bash — alias of Shell (model-familiar name)',
-  'Read — read file contents with line numbers',
-  'Write — write content to a file',
-  'Edit — replace a string in a file',
-  'Glob — find files matching a pattern',
-  'Grep — search file contents with regex',
-  'WebFetch — fetch URL content as text',
-  'WebSearch — search the internet through the configured local tool',
-  'AskUserQuestion — ask the user structured questions (options/multi-select/free text) mid-task',
-];
 
 /**
  * Create the default set of CLI tools.
