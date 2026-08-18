@@ -175,24 +175,6 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 
 ## Public API Surface
 
-| Export                                 | Kind     | Description                                                                                                                                                                             |
-| -------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DEFAULT_BACKGROUND_PERMISSION_POLICY` | const    | ARCH-031: the one definition of the policy a spawn site states when it has no reason to choose another. Replaced two independent `?? 'inherit-allowlist'` fallbacks in two packages     |
-| `clearRegisteredToolProfiles`          | function | Clears the tool permission-profile registry. For tests and for hosts that rebuild a registry                                                                                            |
-| `getToolPermissionProfile`             | function | What a tool's owner has declared about it, or an empty profile when nobody has said                                                                                                     |
-| `resolveModelCapabilities`             | function | PROV-008: the capability set that applies to a model — its verified deviation if it has one, otherwise the vendor default. A miss is never a negative                                   |
-| `closeObjectSchemas`                   | function | PROV-007: closes every object node in the universal subset for providers that reject open-world objects, optionally completing `required` for OpenAI strict mode. One recursion, shared |
-| `modelDeclaresCapability`              | function | PROV-006: whether a model declares a capability. `undefined` when the catalog has said nothing, which is NOT `false` — silence is not a denial                                          |
-| `resolveModelCapability`               | function | PROV-006: the same question with the caller's assumption for silence stated at the call site, so an unstated assumption cannot hide there                                               |
-| `IProviderStructuredOutputCapability`  | type     | CORE-043: which transport can carry a schema to a model (`mechanism`) and how sure that answer is (`provenance`) — two axes, because only the first changes the request                 |
-| `TStructuredOutputMechanism`           | type     | CORE-043: `response_schema` \| `json_object` \| `none` — WHICH transport carries the schema                                                                                             |
-| `TStructuredOutputProvenance`          | type     | CORE-043: `catalog` \| `vendor-default` \| `undeclared` \| `unverified-endpoint` — WHERE the mechanism answer came from                                                                 |
-
-<!-- The rows below live under `###` subheadings. `check-spec-public-surface.mjs` stops counting at the
-     first non-"Public API" heading, so it reads none of them — which is why this package's undocumented
-     baseline is ~147 phantom entries. Filed as issue #1765; this table exists so a genuinely new export
-     is visible to the scan rather than hidden behind that parser defect. -->
-
 ### Core
 
 | Export                                  | Kind           | Description                                                                                                                                                                                                                                             |
@@ -291,11 +273,13 @@ mode) instead of continuing to the allow list.
 | Export                          | Kind     | Description                                                                                                                              |
 | ------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `registerToolPermissionProfile` | function | Declare what the permission system should do with a tool: which argument its patterns are scoped to, and what kind of action it performs |
+| `clearRegisteredToolProfiles`   | function | Clears the tool permission-profile registry. For tests and for hosts that rebuild a registry                                             |
+| `getToolPermissionProfile`      | function | What a tool's owner has declared about it, or an empty profile when nobody has said                                                      |
 
-`clearRegisteredToolProfiles` is public as of ARCH-031 — see its row in the Public API Surface
-table above. It was in-package until the permissions block collapsed to `export *`; the rationale for
-it (tests, and a host rebuilding a registry) is unchanged, but it is now on the barrel and therefore
-part of the contract, so a consumer may rely on it.
+`clearRegisteredToolProfiles` is public as of ARCH-031, and its row is in the table above. It was
+in-package until the permissions block collapsed to `export *`; the rationale for it (tests, and a
+host rebuilding a registry) is unchanged, but it is now on the barrel and therefore part of the
+contract, so a consumer may rely on it.
 
 ### Model Metadata Registry Public API (NEUT-010)
 
@@ -370,6 +354,7 @@ is how the third one survived a fix to the first two.
 | `parseStructuredResponseText`                                                                             | function | Parse a model's final text into JSON (tolerates one fenced json code block; value is still strictly validated afterwards)                                                                                                                   |
 | `IJsonSchemaOutput` / `IStructuredOutputSpec` / `TStructuredOutputSchema` / `TStructuredOutputValidation` | types    | Structured output contract types                                                                                                                                                                                                            |
 | `resolveStructuredOutputCapability`                                                                       | function | CORE-048: which transport can carry a schema to a `(provider, model)` pair, and how sure that answer is. Produces the already-public `TStructuredOutputMechanism` / `TStructuredOutputProvenance`; lets a caller ask BEFORE spending a call |
+| `closeObjectSchemas`                                                                                      | function | PROV-007: closes every object node in the universal subset for providers that reject open-world objects, optionally completing `required` for OpenAI strict mode. One recursion, shared                                                     |
 
 ### Errors
 
@@ -410,20 +395,21 @@ renderer is attached; a tool treats absence as "no human available" (never a sil
 
 ### Permissions
 
-| Export                       | Kind     | Description                                                                                                                                               |
-| ---------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `evaluatePermission`         | function | 4-step deterministic policy: deny list, UNEVALUABLE deny, allow list, mode                                                                                |
-| `resolvePermissionByPolicy`  | function | CORE-025: resolve a background/subagent `TBackgroundPermissionPolicy` (+ task/parent allow-deny) to `allow`/`deny`/`prompt`, pre-empting the session mode |
-| `RISK_CLASS_POLICY`          | const    | Permission mode → risk class → decision. Names no product tool (CORE-030)                                                                                 |
-| `TRUST_TO_MODE`              | const    | Maps TTrustLevel to TPermissionMode                                                                                                                       |
-| `UNCLASSIFIED_TOOL_FALLBACK` | const    | Fallback per mode for a tool whose owner declared no risk class — prompts, and refuses in plan                                                            |
-| `TPermissionMode`            | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'`                                                                                             |
-| `TTrustLevel`                | type     | `'safe' \| 'moderate' \| 'full'`                                                                                                                          |
-| `TPermissionDecision`        | type     | `'auto' \| 'approve' \| 'deny'`                                                                                                                           |
-| `TToolArgs`                  | type     | Tool arguments record for permission matching                                                                                                             |
-| `IPermissionLists`           | type     | Allow/deny pattern lists                                                                                                                                  |
-| `TToolRiskClass`             | type     | `inspect` \| `modify` \| `execute`                                                                                                                        |
-| `IToolPermissionProfile`     | type     | What a tool's owner declares: `argumentKey` and `riskClass`                                                                                               |
+| Export                                 | Kind     | Description                                                                                                                                                                         |
+| -------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `evaluatePermission`                   | function | 4-step deterministic policy: deny list, UNEVALUABLE deny, allow list, mode                                                                                                          |
+| `resolvePermissionByPolicy`            | function | CORE-025: resolve a background/subagent `TBackgroundPermissionPolicy` (+ task/parent allow-deny) to `allow`/`deny`/`prompt`, pre-empting the session mode                           |
+| `RISK_CLASS_POLICY`                    | const    | Permission mode → risk class → decision. Names no product tool (CORE-030)                                                                                                           |
+| `TRUST_TO_MODE`                        | const    | Maps TTrustLevel to TPermissionMode                                                                                                                                                 |
+| `UNCLASSIFIED_TOOL_FALLBACK`           | const    | Fallback per mode for a tool whose owner declared no risk class — prompts, and refuses in plan                                                                                      |
+| `TPermissionMode`                      | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'`                                                                                                                       |
+| `TTrustLevel`                          | type     | `'safe' \| 'moderate' \| 'full'`                                                                                                                                                    |
+| `TPermissionDecision`                  | type     | `'auto' \| 'approve' \| 'deny'`                                                                                                                                                     |
+| `TToolArgs`                            | type     | Tool arguments record for permission matching                                                                                                                                       |
+| `IPermissionLists`                     | type     | Allow/deny pattern lists                                                                                                                                                            |
+| `TToolRiskClass`                       | type     | `inspect` \| `modify` \| `execute`                                                                                                                                                  |
+| `IToolPermissionProfile`               | type     | What a tool's owner declares: `argumentKey` and `riskClass`                                                                                                                         |
+| `DEFAULT_BACKGROUND_PERMISSION_POLICY` | const    | ARCH-031: the one definition of the policy a spawn site states when it has no reason to choose another. Replaced two independent `?? 'inherit-allowlist'` fallbacks in two packages |
 
 ### Environment Reference Utilities
 
@@ -614,6 +600,15 @@ Provider-native web tools are not the same as Robota local function tools:
 - `IAIProvider.configureNativeWebTools()` is an optional provider hook for session/runtime assembly. Session layers may call it to enable provider-owned native web tools without importing concrete provider classes or checking provider names.
 
 Robota local `WebSearch` and `WebFetch` tools remain ordinary function tools owned by the tools layer; they are advertised through tool schemas and do not make `nativeWebTools` supported.
+
+| Export                                | Kind     | Description                                                                                                                                                             |
+| ------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resolveModelCapabilities`            | function | PROV-008: the capability set that applies to a model — its verified deviation if it has one, otherwise the vendor default. A miss is never a negative                   |
+| `modelDeclaresCapability`             | function | PROV-006: whether a model declares a capability. `undefined` when the catalog has said nothing, which is NOT `false` — silence is not a denial                          |
+| `resolveModelCapability`              | function | PROV-006: the same question with the caller's assumption for silence stated at the call site, so an unstated assumption cannot hide there                               |
+| `IProviderStructuredOutputCapability` | type     | CORE-043: which transport can carry a schema to a model (`mechanism`) and how sure that answer is (`provenance`) — two axes, because only the first changes the request |
+| `TStructuredOutputMechanism`          | type     | CORE-043: `response_schema` \| `json_object` \| `none` — WHICH transport carries the schema                                                                             |
+| `TStructuredOutputProvenance`         | type     | CORE-043: `catalog` \| `vendor-default` \| `undeclared` \| `unverified-endpoint` — WHERE the mechanism answer came from                                                 |
 
 ### Context Window Tracking
 
