@@ -17,6 +17,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { planScanReuse, writeScanReceipt } from './scan-receipt.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 /**
@@ -964,6 +966,20 @@ export async function main() {
   // The adoption ratchet is a frozen SET, so it binds over whatever subset ran — CI's
   // `--skip dist --skip build-contracts` included, the one environment the old count-over-a-whole-
   // registry check could never reach (HARNESS-081). It is always judged (unless re-freezing).
+  // HARNESS-109: the same tree is not scanned twice. A miss says WHY, because a reuse mechanism that
+  // silently never fires is indistinguishable from one that is not wired at all.
+  const scanNames = scans.map((scan) => scan.name);
+  const reuse = planScanReuse({ scanNames, root: WORKSPACE_ROOT });
+  if (reuse.reuse) {
+    process.stdout.write(
+      `${scanNames.length} scans not re-run: ${reuse.reason}.\n` +
+        'Change any tracked file, or delete the receipt, to force a full run.\n',
+    );
+    process.exitCode = 0;
+    return;
+  }
+  process.stdout.write(`▶ scan receipt not reused: ${reuse.reason}\n`);
+
   process.exitCode = await runScans(scans, undefined, undefined, {
     checkAdoption: true,
     writeAdoption,
@@ -971,6 +987,15 @@ export async function main() {
     // rotting in the baseline forever. Distinct from a `--skip`'d scan, which is still registered.
     knownNames: SCAN_COMMANDS.map((scan) => scan.name),
   });
+
+  if (process.exitCode === 0) {
+    const written = writeScanReceipt({ scanNames, root: WORKSPACE_ROOT });
+    process.stdout.write(
+      written.written
+        ? 'scan receipt written: an unchanged tree will not be re-scanned.\n'
+        : `scan receipt NOT written: ${written.reason}\n`,
+    );
+  }
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
