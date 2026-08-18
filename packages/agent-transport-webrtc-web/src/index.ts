@@ -10,6 +10,11 @@ export { RemoteClient } from './components/RemoteClient.js';
 export { useRtcSession } from './hooks/useRtcSession.js';
 export type { TSessionStatus } from './hooks/useRtcSession.js';
 export { createRtcSessionClient } from './client/rtc-session-client.js';
-export type { TRtcConnectionStatus } from './client/rtc-session-client.js';
+export type {
+  IRtcSessionClientCallbacks,
+  IRtcSessionClientOptions,
+  TRtcConnectionStatus,
+} from './client/rtc-session-client.js';
 export { createRtcSignalingClient } from './client/rtc-signaling.js';
+export type { IRtcSignalingOptions } from './client/rtc-signaling.js';
 export { parseRemoteClientLocation } from './client/parse-remote-location.js';

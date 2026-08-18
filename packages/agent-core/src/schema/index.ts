@@ -37,3 +37,4 @@ export type {
 // not obtain it. Re-exported from the schema barrel rather than the root: deciding which transport
 // can carry a schema is a schema concern, and the root is at its size ceiling.
 export { resolveStructuredOutputCapability } from '../services/structured-output-transport';
+export type { IStructuredOutputResolutionInput } from '../services/structured-output-transport';

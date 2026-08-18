@@ -122,5 +122,6 @@ export type {
 export { askUserQuestionTool, createAskUserQuestionTool } from './builtins/ask-user-question-tool';
 export type {
   IBuiltinToolDescriptionOptions,
+  IContainedBuiltinToolOptions,
   ISandboxBuiltinToolOptions,
 } from './builtins/tool-options';
