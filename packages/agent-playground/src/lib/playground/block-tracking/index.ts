@@ -18,5 +18,5 @@ export type { IPlaygroundBlockCollector } from './block-collector';
 export { createBlockTrackingHooks, createDelegationTrackingHooks } from './block-hooks';
 
 // Re-export for convenience
-export type { IToolHooks } from './block-hooks';
+export type { IBlockTrackingHookOptions, IToolHooks } from './block-hooks';
 export type { ILogger } from '@robota-sdk/agent-core';

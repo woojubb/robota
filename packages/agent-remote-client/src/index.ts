@@ -18,7 +18,13 @@ export type {
   IRequestMessage,
   ITokenUsage,
 } from './types/message-types.js';
-export type { IHttpRequest, IHttpResponse, IHttpError, THttpMethod } from './types/http-types.js';
+export type {
+  IHttpRequest,
+  IHttpResponse,
+  IHttpError,
+  TDefaultRequestData,
+  THttpMethod,
+} from './types/http-types.js';
 
 // Utility functions
 export {
