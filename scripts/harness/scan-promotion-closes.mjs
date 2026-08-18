@@ -243,6 +243,12 @@ export async function main(argv = process.argv.slice(2)) {
   const { pr, repo, defaultBranch } = parseArgs(argv);
   const pull = readPull(repo, pr);
 
+  // UNAVAILABLE is the STARTING value, and it survives every path that does not actually derive a
+  // requirement: a base that is not the default branch (where `decidePromotionCloses` answers
+  // not-applicable before it reads this at all) and a derivation that threw. Assigning `[]` on the
+  // non-default-branch path — as this did — made the sentinel a dead store, which is what CodeQL
+  // reported, and left "nothing to close" one edit away from being the answer on a path that never
+  // looked.
   let requiredIssues = UNAVAILABLE;
   if (pull.base === defaultBranch) {
     try {
@@ -253,13 +259,11 @@ export async function main(argv = process.argv.slice(2)) {
         readIssueState: (n) => readIssueStateViaApi(repo, n),
       }).issues;
     } catch (error) {
-      // Deliberately NOT rethrown as a crash: the sentinel makes the decision module report the
-      // reason as a verdict on the pull request, rather than leaving it in a runner annotation only.
+      // Deliberately NOT rethrown as a crash: `requiredIssues` is left at UNAVAILABLE so the
+      // decision module reports the reason as a verdict on the pull request, rather than leaving it
+      // in a runner annotation only.
       console.error(`scan-promotion-closes: ${error.message}`);
-      requiredIssues = UNAVAILABLE;
     }
-  } else {
-    requiredIssues = [];
   }
 
   const verdict = decidePromotionCloses({
