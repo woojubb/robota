@@ -1,5 +1,10 @@
 import type { TerminalHandoffController } from './terminal-handoff-controller.js';
-import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IProviderDefinition,
+  IToolWithEventService,
+  TPermissionMode,
+} from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
   IAutomaticMemoryConfig,
@@ -31,6 +36,15 @@ import type {
  * interactive surface at all, and a surface nobody can find is a surface people forget.
  */
 export interface ITuiInteractionChannelOptions {
+  /**
+   * Provider definitions, forwarded to the session so `/provider switch` can construct the provider
+   * it switches TO.
+   *
+   * Not optional-by-accident: without it the session holds an empty list, and the hot-swap fails with
+   * "Unknown provider: <name>. Currently supported: " — an empty supported-list, which is both wrong
+   * and unactionable. The definitions live in the composition root; the session cannot discover them.
+   */
+  providerDefinitions?: readonly IProviderDefinition[];
   cwd: string;
   provider: IAIProvider;
   /**
