@@ -15,7 +15,7 @@ import { initializeInteractiveSessionAsync } from './interactive-session-init.js
 import { persistSession } from './interactive-session-persistence.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
-import { submitNewTurn } from './interactive-session-turn-submission.js';
+import { publicTurnOptions, submitNewTurn } from './interactive-session-turn-submission.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
@@ -471,9 +471,7 @@ export class InteractiveSession
     rawInput?: string,
     options: ISubmitOptions = {},
   ): Promise<ITurnHandle> {
-    return this.submitNewTurn(input, displayInput, rawInput, {
-      ...(options.driverId !== undefined ? { driverId: options.driverId } : {}),
-    });
+    return this.submitNewTurn(input, displayInput, rawInput, publicTurnOptions(options));
   }
   private async submitNewTurn(
     input: string,
