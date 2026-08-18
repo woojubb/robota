@@ -64,7 +64,7 @@ import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetup } from './startup/command-setup.js';
 import {
-  buildRemoteControlHostAdapter,
+  attachCommandHostAdapters,
   createTuiProcessAdapter,
 } from './startup/host-action-adapters.js';
 import { runPrintMode } from './modes/print-mode.js';
@@ -212,7 +212,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const { registry: transportRegistry, wsTransport } = createDefaultTransportRegistry();
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry);
-  commandHostAdapters.remoteControl = buildRemoteControlHostAdapter(remoteControlController);
+  attachCommandHostAdapters(commandHostAdapters, remoteControlController, terminal);
 
   reportUnknownPresetModules(
     (message) => terminal.writeError(message),

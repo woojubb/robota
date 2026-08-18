@@ -11,6 +11,7 @@ import { createHelpCommandModule } from '../help/index.js';
 import { createLanguageCommandModule } from '../language/index.js';
 import { createMemoryCommandModule } from '../memory/index.js';
 import { createModeCommandModule } from '../mode/index.js';
+import { createPeersCommandModule } from '../peers/index.js';
 import { createPermissionsCommandModule } from '../permissions/index.js';
 import { createPlanCommandModule } from '../plan/index.js';
 import { createPluginCommandModule } from '../plugin/index.js';
@@ -110,6 +111,7 @@ export function createDefaultCommandModules({
     createStatusLineCommandModule(),
     createPluginCommandModule(),
     createSettingsCommandModule(),
+    createPeersCommandModule(),
     createRemoteControlCommandModule(),
     createProviderCommandModule({
       providerDefinitions,
