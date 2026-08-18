@@ -1,7 +1,8 @@
 ---
 title: 'SEC-010: local agent-cli peers have no proof of shared environment — certificate possession is copyable, and channel binding authenticates a channel rather than a machine'
-status: in-progress
+status: done
 created: 2026-08-17
+completed: 2026-08-19
 priority: high
 urgency: soon
 area: packages/agent-remote-pairing, packages/agent-transport-webrtc, packages/agent-cli
@@ -97,9 +98,17 @@ agent socket and a Docker socket already rely on.
 
 ### Alternative D — C′ for the environment proof, then bind the existing channel to it
 
-The recommendation. The kernel-enforced rendezvous establishes the environment and exchanges a
-short-lived nonce; that nonce is then bound into the existing pairing confirmation so the WebRTC
-channel admitted is provably the same peer that reached the guarded rendezvous.
+The recommendation, and what was built. The kernel-enforced rendezvous establishes the environment
+and exchanges a short-lived nonce; that nonce is then bound into the channel so the peer admitted is
+provably the one that reached the guarded rendezvous.
+
+As shipped:
+`packages/agent-remote-pairing/src/local/peer-credential.ts` (the directory guarantee),
+`packages/agent-remote-pairing/src/local/guarded-directory.ts` (creating and re-verifying it),
+`packages/agent-remote-pairing/src/local/rendezvous-nonce.ts` (single-use, bounded, revocable
+grants), and `packages/agent-transport-webrtc/src/local-peer-proof.ts` (the gate's `local-proof`
+step). Composed in `packages/agent-cli/src/remote-control/local-peer-rendezvous.ts` and
+`local-peer-admission.ts`.
 
 ## Recommendation
 
@@ -150,7 +159,10 @@ are in, each where the ownership rules put it:
 | The grant       | `agent-remote-pairing/local` — `RendezvousGrantLedger`          | #1839   |
 | The binding     | `agent-transport-webrtc` — the gate's `local-proof` step        | #1841   |
 
-TC-01 through TC-08 are covered.
+**Complete.** TC-01 through TC-08 are covered, and the composition landed as #1869 (where the guarded
+directory lives), #1870 (the grant ledger and the redeem port), #1879 (threading that port into the
+transport) and the proof-frame/revocation pair. The user-execution scenario below is the remaining
+demonstration, not remaining work.
 
 **A correction worth keeping**, because the wrong reason was written down before it was caught.
 `ensureGuardedDirectory`'s chmod was first justified by the umask — that a umask of `0o022` turns a

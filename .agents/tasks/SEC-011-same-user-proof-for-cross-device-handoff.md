@@ -15,7 +15,7 @@ Registered as [issue #1812](https://github.com/woojubb/robota/issues/1812), the 
 [#1811](https://github.com/woojubb/robota/issues/1811), which consumes the authorization result this
 item defines.
 
-Sibling in shape, not in substance, to [SEC-010](SEC-010-same-environment-proof-for-local-peers.md).
+Sibling in shape, not in substance, to [SEC-010](completed/SEC-010-same-environment-proof-for-local-peers.md).
 That item proves _same machine, same account_; this one proves _same person, different machines_.
 **The trust levels must stay distinct** — the issue says so, and collapsing them would let a local
 admission authorize a transfer to another computer.

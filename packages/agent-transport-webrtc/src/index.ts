@@ -3,6 +3,7 @@ export type { IWebRtcTransportOptions, IIceServer } from './webrtc-transport-opt
 export type { IHostReconnectConfig } from './pairing-gate.js';
 // The judge and the frame predicate stay internal: they are this package's policy plumbing, and a
 // composition root only needs to SUPPLY the port and, on the peer side, know the frame's shape.
+export { localProofFrame } from './local-peer-proof.js';
 export type { ILocalPeerProof, ILocalProofFrame } from './local-peer-proof.js';
 export { createInMemorySignalingPair } from './signaling.js';
 export type { ISignalingClient, ISignalMessage, TSignalKind } from './signaling.js';

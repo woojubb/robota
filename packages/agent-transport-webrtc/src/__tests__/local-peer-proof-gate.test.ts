@@ -2,7 +2,7 @@ import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transp
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { judgeLocalProof, type ILocalPeerProof } from '../local-peer-proof.js';
+import { judgeLocalProof, localProofFrame, type ILocalPeerProof } from '../local-peer-proof.js';
 import { PairingGate, type IPairingGateOptions } from '../pairing-gate.js';
 
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
@@ -185,5 +185,29 @@ describe('SEC-010 TC-08 — the judge refuses everything that is not an admitted
     expect(admission.admitted).toBe(false);
     expect(admission.trust).toBe('unproven');
     expect(admission.reason).toMatch(/could not decide/);
+  });
+});
+
+describe('SEC-010 — the sender and the judge agree on the frame', () => {
+  it('a frame built by the helper is accepted by the judge', () => {
+    // The two live in one file so they cannot drift. A sender that hand-built the object would keep
+    // compiling after the frame gains a field, and the failure would surface as a refusal on the FAR
+    // side with no hint that the sender is the stale half.
+    const admission = judgeLocalProof(localProofFrame('n1'), { redeem: () => ADMITTED });
+
+    expect(admission.admitted).toBe(true);
+  });
+
+  it('the helper carries the nonce through unchanged', () => {
+    const seen: string[] = [];
+
+    judgeLocalProof(localProofFrame('the-nonce'), {
+      redeem: (nonce) => {
+        seen.push(nonce);
+        return ADMITTED;
+      },
+    });
+
+    expect(seen).toEqual(['the-nonce']);
   });
 });
