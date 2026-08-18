@@ -31,7 +31,7 @@
  * primitives the reconnect challenge already uses.
  */
 
-import { ab } from './crypto-primitives.js';
+import { ab, toBase64Url } from './crypto-primitives.js';
 import { deriveIdentityId, exportPublicKey, importPublicKey } from './device-identity.js';
 
 const ECDSA_PARAMS = { name: 'ECDSA', namedCurve: 'P-256' } as const;
@@ -39,12 +39,6 @@ const SIGN_PARAMS = { name: 'ECDSA', hash: 'SHA-256' } as const;
 
 const webcrypto = globalThis.crypto;
 const encoder = new TextEncoder();
-
-function toBase64Url(bytes: Uint8Array): string {
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
 
 function fromBase64Url(value: string): Uint8Array {
   const padded = value.replace(/-/g, '+').replace(/_/g, '/');
