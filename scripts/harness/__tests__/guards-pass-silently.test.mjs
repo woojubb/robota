@@ -121,7 +121,12 @@ function ambientWithoutDecisionInputs() {
     // from whatever session runs the suite. An exported one disarms its guard, so the row would pass
     // because nothing was checked — the accidental green named two paragraphs up, in the other
     // spelling.
-    if (/_ALLOW_|_ACK$/.test(name)) delete clean[name];
+    //
+    // String predicates rather than one alternation, because the two clauses ask different
+    // questions: `_ALLOW_` is an infix and `_ACK` is a suffix. Writing them as `/_ALLOW_|_ACK$/`
+    // reads as if the anchor governs both, which is the ambiguity CodeQL's missing-regexp-anchor
+    // rule flagged on this line — and here the plainer spelling is also the more readable one.
+    if (name.includes('_ALLOW_') || name.endsWith('_ACK')) delete clean[name];
   }
   return clean;
 }
