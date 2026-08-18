@@ -48,6 +48,7 @@
     "product-identity",
     "progress-report-quantification",
     "publish-registry",
+    "reference-kind-qualified",
     "release-sweep-coverage",
     "remote-stream-route-spelling",
     "required-check-local-reachability",

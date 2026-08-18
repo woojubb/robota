@@ -445,6 +445,10 @@ export const SCAN_COMMANDS = [
   },
   { name: 'stub-markers', command: ['node', 'scripts/harness/check-stub-markers.mjs'] },
   { name: 'conflict-markers', command: ['node', 'scripts/harness/scan-conflict-markers.mjs'] },
+  {
+    name: 'reference-kind-qualified',
+    command: ['node', 'scripts/harness/scan-reference-kind-qualified.mjs'],
+  },
   // INFRA-102. Only the DECLARED edge runs here: it is hermetic. The `--measured` edge asks the
   // host toolchain what a workspace script actually runs on, which no manifest edit can make true
   // (Volta binds a package tool to its install-time Node), so it is a developer-run check.
