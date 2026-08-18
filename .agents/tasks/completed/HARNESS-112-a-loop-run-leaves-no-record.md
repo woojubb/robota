@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-112: a loop run leaves no record, so escape=no-progress is a claim nothing can check'
-status: in-progress
+status: done
 created: 2026-08-19
+completed: 2026-08-19
 priority: high
 urgency: now
 area: scripts/harness, .agents/loop-runs, .agents/rules, .agents/skills
@@ -23,7 +24,7 @@ converged, one that exhausted, and one that was abandoned at round 1 leave a byt
 
 ## Spec
 
-`.agents/spec-docs/active/HARNESS-112-a-loop-run-leaves-no-record.md`
+`.agents/spec-docs/done/HARNESS-112-a-loop-run-leaves-no-record.md`
 
 ## Plan
 
@@ -72,3 +73,6 @@ header, and HARNESS-113 is what converts it into a requirement for new loops.
   the two would have made the guard refuse on a correct state.
 - **No ledger entries were fabricated.** The corpus is empty, and the empty path is the tested one.
   Writing a record for a run that did not happen is precisely what this item exists to prevent.
+
+- Merged in pull request #1881 as `715ff40248f1a55e68569c773abfbec5bd2da206`; landing verified against
+  `origin/develop` rather than the local tree. Complete.

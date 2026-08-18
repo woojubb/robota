@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-113: a new scan must be proven red-then-green; a new orchestration ships unproven'
-status: in-progress
+status: done
 created: 2026-08-19
+completed: 2026-08-19
 priority: high
 urgency: now
 area: scripts/harness, .agents/rules
@@ -24,7 +25,7 @@ by DISPATCHING, spending a fan-out before anyone learns the routing was wrong.
 
 ## Spec
 
-`.agents/spec-docs/active/HARNESS-113-a-new-orchestration-ships-unproven.md`
+`.agents/spec-docs/done/HARNESS-113-a-new-orchestration-ships-unproven.md`
 
 ## Plan
 
@@ -64,3 +65,6 @@ reached once, not that the run exercised the loop's hard path.
   away — the exact shape `abandoned` exists to make visible.
 - Pinned in `scripts/harness/scan-guard-scope-fail-closed.mjs` as proven fail-closed by execution (76
   guards now proven there).
+
+- Merged in pull request #1881 as `715ff40248f1a55e68569c773abfbec5bd2da206`; landing verified against
+  `origin/develop` rather than the local tree. Complete.
