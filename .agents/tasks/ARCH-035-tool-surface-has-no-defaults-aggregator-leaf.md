@@ -324,7 +324,9 @@ layering guarantee.
 - **Expected:** exit `0`, and a JSON line with `"createSessionReturnedSynchronously":true` and `"providerObservedTools":["AskUserQuestion","BackgroundProcess","Bash","Edit","Glob","Grep","Read","Shell","WebFetch","WebSearch","Write","report_goal_status"]` — byte-identical to the pre-change measurement. A `Promise` from `runtime.createSession({})`, or any missing name, is a failure.
 - **Cleanup:** the example removes its own `mkdtemp` directory.
 - **Why it exists:** this is the only scenario where a broken `await import()` inside `assembleSessionTools` shows up as a BEHAVIOUR difference rather than a green typecheck — i.e. the silently-toolless-agent mode the REJECT round was about.
-- **Evidence:** _(gate time)_
+- **Evidence:** run 2026-08-19 — exit 0, 4 records. The new case emitted
+  `{"scenario":"ARCH-035","createSessionReturnedSynchronously":true,"providerObservedTools":["AskUserQuestion","BackgroundProcess","Bash","Edit","Glob","Grep","Read","Shell","WebFetch","WebSearch","Write","report_goal_status"],"cleanupRemoved":true}`. Reproduced byte-identically
+  by the gate guard.
 
 ### S-2 — the `robota` CLI's live tool surface is unchanged end to end
 
@@ -334,7 +336,11 @@ layering guarantee.
 - **Expected:** exits `0`, prints exactly `CROSS_FIDELITY_OK`; the recorded request carries the 19 names measured before the change (the 12 of S-1 plus the seven `robota_command_*` tools). The `No metadata registered for model` warning on stderr is pre-existing and not part of the assertion.
 - **Cleanup:** remove the two scratch directories. Nothing is written inside the repo.
 - **Why it exists:** it guards S2. `pack-coding` switching from rebuilding the list to consuming the leaf has no honest proof except that the shipped product's tool set did not move — and it is the replacement for the name-equality pin that dissolves in `coding-pack.test.ts`.
-- **Evidence:** _(gate time)_
+- **Evidence:** run 2026-08-19 by the gate guard — I had not run it. Exit 0; stdout exactly
+  `CROSS_FIDELITY_OK`; the `provider_request` event carried the 19 names measured before the
+  change (the 12 of S-1 plus the seven `robota_command_*` tools). **No regression:**
+  `pack-coding` consuming the leaf did not move the shipped tool surface. Nothing was written
+  inside the repo.
 
 ### S-3 — the new leaf is installable and usable by a third party from the published tarballs
 
@@ -343,7 +349,16 @@ layering guarantee.
 - **Command:** `pnpm build && node scripts/external-proof/run-external-proof.mjs`
 - **Expected:** exit `0`, `EXTERNAL PROOF PASSED — <n> assertions` with `n > 69`. Step `[1/5]` must log `packed @robota-sdk/agent-tool-defaults`, which is what proves the hard `dependencies` edge put it in the closure — under `optionalDependencies` it would be absent, and that absence is precisely what this asserts. New C5 assertions: the leaf's `createDefaultTools({ cwd })` returns the ten always-present names; a `retrievalAdapter` adds exactly `CodebaseRetrieval`; `createCodingPack({ cwd }).tools` equals the always-present set STRUCTURALLY (both from the leaf); and `agent-framework` no longer exports `createDefaultTools` from its runtime barrel. C1-C4 and Modes A/B unchanged.
 - **Cleanup:** the runner deletes its own `os.tmpdir()` working directory on success.
-- **Evidence:** _(gate time)_
+- **Evidence:** FAILED on the first gate run 2026-08-19, and was fixed rather than argued down.
+  The proof reported `69 assertions` against a written expectation of `n > 69`, because the four
+  C5 assertions this scenario named as "the work must build" had not been written — unbuilt
+  scope, not a mis-measured baseline. They exist now and the proof reports **72 assertions**,
+  all four emitting `ok`: the leaf ships exactly the ten always-present names; a
+  `retrievalAdapter` adds exactly `CodebaseRetrieval`; `pack-coding`'s tools ARE that set; and
+  `agent-framework` no longer exports `createDefaultTools` from its runtime barrel. Step `[1/5]`
+  logs `packed @robota-sdk/agent-tool-defaults`, the evidence for the hard `dependencies` edge.
+  Red-proved rather than trusted: dropping one name from the expected set turns three of the
+  four RED.
 
 ### Two traps the scenarios exist to catch
 
@@ -451,6 +466,97 @@ matches ARCH-006's recorded "`pnpm proof:external`: 69 assertions, exit 0"; `cro
 `packages/agent-cli/src/__tests__/e2e/fixtures/`.
 
 **Verdict:** PASS — every scenario drives a product surface, and all four criteria are met.
+
+### [DONE-GATE-STAGE-2] — ❌ FAIL | 2026-08-19
+
+**Status remains:** scenario written (frontmatter `status: todo` untouched — a status change follows a
+verdict, it is not part of one)
+
+**Ordering:** PASS. Prior gate `DONE-GATE-STAGE-1` shows `✅ PASS | 2026-08-18` in this same section
+(gate catalogue > Prior-gate map: `DONE-GATE-STAGE-2` ← `DONE-GATE-STAGE-1`). Expected input state
+"scenarios written, implementation complete" holds: three scenarios written with expected observables,
+and the four staged commits are on `fix/arch-035-single-owner-default-tool-set` —
+`4952e9b5b` (S1a extract), `94afd229a` (S1b dynamic seam), `2136db66b` (S2 pack-coding consumes the leaf),
+`3c7a428c1` (S3 docs + scenario). `packages/agent-tool-defaults/` exists; `pnpm build` exits `0`.
+
+**Failed criteria:**
+
+- **The observed result matched the expected observable result for every scenario** — NOT MET for S-3.
+  S-3's written expected observable has four parts. Two matched, two did not.
+  Matched: exit `0`; and step `[1/5]` logged `packed @robota-sdk/agent-tool-defaults →
+robota-sdk-agent-tool-defaults-3.0.0-beta.79.tgz` (line 21 of the run, closure of 18 published
+  packages) — the hard `dependencies` edge is genuinely proven, as written.
+  Did NOT match: the run printed `EXTERNAL PROOF PASSED — 69 assertions across Modes A, B and C`,
+  but the expected result requires `n > 69`; 69 is not greater than 69. And the four enumerated
+  "New C5 assertions" — the leaf's `createDefaultTools({ cwd })` returning the ten always-present
+  names, a `retrievalAdapter` adding exactly `CodebaseRetrieval`, `createCodingPack({ cwd }).tools`
+  equalling the always-present set structurally, and `agent-framework` no longer exporting
+  `createDefaultTools` from its runtime barrel — are absent. Section C5 emitted the same 7 `ok`
+  lines it has emitted since ARCH-006; `git diff 9f2284a52..HEAD -- scripts/external-proof/` is
+  `1 file changed, 2 insertions(+), 1 deletion(-)` — the `mode-c.ts:19` import repoint from S1a and
+  nothing else. The named assertions were listed under S-3's own "Prerequisite the work must build"
+  as well as its expected result, so this is unbuilt scope, not a mis-measured baseline.
+  Judged NOT an acceptable narrowing. The zero net assertions are exactly the ones that would have
+  exercised the NEW leaf's behaviour from the published surface; what remains of S-3 is the closure
+  line plus 69 pre-existing assertions that passed before this branch. The repoint does make the
+  fixture compile against the leaf, but compilation is a typecheck property, which
+  `backlog-execution.md` > Done Gate excludes from this gate by name. The underlying product facts
+  were spot-checked and do hold (`packages/agent-framework/src/index.ts` no longer exports
+  `createDefaultTools`) — but an unasserted true fact is not an observed scenario result.
+  **Required action:** either write the four named C5 assertions so the proof reports `n > 69`, or
+  amend S-3's expected observable — the latter is a change to a written scenario and must be
+  re-judged by `DONE-GATE-STAGE-1` before this stage can be re-run. Not this gate's call.
+
+- **Concrete evidence recorded under each scenario's evidence field** — NOT MET at run time.
+  All three scenarios still read `- **Evidence:** _(gate time)_`. The observed results are recorded
+  in this entry, but the per-scenario evidence fields the criterion names are unfilled, and filling
+  them belongs to the executing actor, not to this guard. Subordinate to the deciding criterion above.
+
+**Criteria met:**
+
+- **The agent directly executed every scenario against the completed implementation** — MET, all three
+  run by this guard against the built tree, not accepted from the caller's report.
+  S-1: `pnpm --filter @robota-sdk/agent-framework scenario:verify` → exit `0`, 4 records, final line
+  byte-identical to the written expectation:
+  `{"scenario":"ARCH-035","createSessionReturnedSynchronously":true,"providerObservedTools":["AskUserQuestion","BackgroundProcess","Bash","Edit","Glob","Grep","Read","Shell","WebFetch","WebSearch","Write","report_goal_status"],"cleanupRemoved":true}`.
+  `createSessionReturnedSynchronously:true` confirms `IAgentRuntime.createSession` did not become
+  `Promise`-returning across the dynamic-import seam — the trap the scenario exists to catch. S-1 MATCHED.
+  S-2: executed (the caller had not run it). Scratch project with `.robota/settings.json` carrying a
+  dummy `anthropic` key, `HOME` redirected to a scratch dir, `VOLTA_HOME` preserved, repo-local binary
+  `packages/agent-cli/bin/robota.cjs` after `pnpm build`:
+  `robota -p "hello" --bare --session-log packages/agent-cli/src/__tests__/e2e/fixtures/cross-fidelity.jsonl`
+  → exit `0`; stdout exactly `CROSS_FIDELITY_OK` (18 bytes, nothing else); stderr carried only the
+  pre-existing `No metadata registered for model "claude-test-model"` (NEUT-010) warning the scenario
+  fences out. The single `provider_request` event in `.robota/logs/session_1787076672154_bevzs3706.jsonl`
+  carried **19** tool names, sorted:
+  `["AskUserQuestion","BackgroundProcess","Bash","Edit","Glob","Grep","Read","Shell","WebFetch","WebSearch","Write","report_goal_status","robota_command_agent","robota_command_compact","robota_command_memory","robota_command_monitor","robota_command_schedule","robota_command_skills","robota_command_workflows"]`
+  — the 12 of S-1 plus the seven `robota_command_*` tools, exactly the pre-change measurement. S-2 MATCHED:
+  `pack-coding` switching to consume the leaf did NOT move the shipped tool surface. Scratch dirs removed;
+  `git status --porcelain` shows nothing written inside the repo by the run.
+  S-3: `pnpm build && node scripts/external-proof/run-external-proof.mjs` → both exit `0`; result judged
+  under Failed criteria above.
+- **Engineering verification not cited as evidence** — MET. Verified rather than assumed: `proof:external`
+  appears only at root `package.json:110` and in no `.github/workflows/` file and no `scripts/harness/`
+  file; the harness's `scenario:verify` references are `scan-consistency.mjs` (asserts the script EXISTS),
+  `self-check.mjs` (runs agent-core's), and `ci.yml:859` (runs agent-executor's windows-shell one) — none
+  is `@robota-sdk/agent-framework scenario:verify`, which is a `tsx examples/verify-*.ts` chain, not vitest.
+  S-2 drives the shipped `robota` binary. No build/test/lint/harness/CI output is offered as the observable
+  for any scenario. The `pnpm build` in S-3's command line is a precondition of packing the tarballs, not
+  the observable.
+- **Unprobed capability-absence claim** — N/A, recorded rather than skipped: no scenario was skipped and no
+  exception was claimed, so no capability-absence reason exists to probe. S-3's one external dependency
+  (the npm registry) was exercised for real — the run packed 18 tarballs and installed the consumer
+  fixture successfully.
+- **Durable repository artifacts** — MET. Every referenced path exists:
+  `packages/agent-framework/examples/verify-zero-config-default-tools.ts`,
+  `packages/agent-cli/src/__tests__/e2e/fixtures/cross-fidelity.jsonl`,
+  `scripts/external-proof/run-external-proof.mjs`, `scripts/external-proof/fixture/src/mode-c.ts`,
+  `packages/agent-tool-defaults/package.json`.
+- **`manual-only` exception** — N/A. No scenario claims it; all three were executable and were executed.
+
+**Verdict:** FAIL — S-1 and S-2 matched their expected observables exactly, but S-3's observed result
+(`69 assertions`, no C5 additions) does not match its written expected result (`n > 69` plus four named
+C5 assertions), and one unmet criterion is a FAIL regardless of the rest.
 
 ## Blockers
 

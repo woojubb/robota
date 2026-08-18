@@ -16,6 +16,7 @@
 
 import { mergeCapabilityPacks } from '@robota-sdk/agent-capability-pack';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import * as frameworkNamespace from '@robota-sdk/agent-framework';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
@@ -184,10 +185,54 @@ export async function runModeC(): Promise<void> {
     !frameworkDefaultToolNames.includes('AcmeTicketLookup') &&
       (options.additionalTools ?? []).some((tool) => tool.getName() === 'AcmeTicketLookup'),
   );
+  // ARCH-035 — the four assertions the item's verification scenario names. Until this change the
+  // aggregator was published by `@robota-sdk/agent-framework` and `pack-coding` rebuilt the same list
+  // by hand; the two were held together by a NAME-equality pin, which is the pin that let ARCH-021's
+  // first TC-05 pass while being unable to fail. The set has ONE owner now, so the questions worth
+  // asking from outside the monorepo changed.
+  const ALWAYS_PRESENT = [
+    'Shell',
+    'Bash',
+    'Read',
+    'Write',
+    'Edit',
+    'Glob',
+    'Grep',
+    'WebFetch',
+    'WebSearch',
+    'AskUserQuestion',
+  ];
   checkEqual(
-    "pack-coding's tools are name-identical to the framework default set (by design)",
-    codingPackToolNames,
+    'ARCH-035: the leaf ships exactly the always-present set, read from the published tarball',
     frameworkDefaultToolNames,
+    ALWAYS_PRESENT,
+  );
+
+  // The adapter gating is the part that made this a SUPERSET rather than a duplicate of the pack's
+  // list, and it is why deleting the tier outright was rejected: `retrievalAdapter` would have been
+  // left declared, threaded, and reaching nothing.
+  const withRetrieval = createDefaultTools({
+    cwd: process.cwd(),
+    retrievalAdapter: { retrieve: async () => ({ symbols: [], totalTokens: 0 }) },
+  }).map((tool) => tool.getName());
+  checkEqual(
+    'ARCH-035: supplying a retrievalAdapter adds exactly CodebaseRetrieval and nothing else',
+    withRetrieval.filter((name) => !ALWAYS_PRESENT.includes(name)),
+    ['CodebaseRetrieval'],
+  );
+
+  checkEqual(
+    "ARCH-035: pack-coding's tools ARE the always-present set — structurally now, not by a name pin",
+    codingPackToolNames,
+    ALWAYS_PRESENT,
+  );
+
+  // The runner's route, closed on the PUBLISHED surface too. The type-level guarantee (the runner has
+  // no manifest edge to the leaf) belongs to `pnpm typecheck`; what a consumer of the tarballs can
+  // observe is that the symbol is simply gone from the framework's runtime barrel.
+  check(
+    'ARCH-035: @robota-sdk/agent-framework no longer exports createDefaultTools',
+    !Object.prototype.hasOwnProperty.call(frameworkNamespace, 'createDefaultTools'),
   );
   check(
     'and every one of them is overlaid — the framework now DEDUPES them by name instead of listing ' +
