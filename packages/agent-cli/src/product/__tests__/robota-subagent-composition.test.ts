@@ -133,3 +133,45 @@ describe('ARCH-033 — the guard runs on the real composition path, not just in 
     expect(() => createRobotaPackSet(CWD)).not.toThrow();
   });
 });
+
+describe('ARCH-033 — a projectable sandbox is no longer a refusal', () => {
+  /** A client that can produce a snapshot reference — the half the parent contributes. */
+  const projectableClient = {
+    run: async () => ({ stdout: '', stderr: '', exitCode: 0 }),
+    readFile: async () => '',
+    writeFile: async () => {},
+    snapshot: async () => 'snap-1',
+    restore: async () => {},
+  } as IRobotaPackContext['sandboxClient'];
+
+  /** A client that cannot: `snapshot()` is optional on the contract, and this one omits it. */
+  const unprojectableClient = {
+    run: async () => ({ stdout: '', stderr: '', exitCode: 0 }),
+    readFile: async () => '',
+    writeFile: async () => {},
+  } as IRobotaPackContext['sandboxClient'];
+
+  it('composes when the sandbox can be snapshotted AND its type is named', () => {
+    // This is the item's whole point: the refusal was never about sandboxes being forbidden, it was
+    // about the child having no way to rebuild one. Give it both halves and there is nothing to
+    // refuse.
+    expect(() =>
+      createRobotaPackSet(CWD, { sandboxClient: projectableClient, sandboxType: 'e2b' }),
+    ).not.toThrow();
+  });
+
+  it('still refuses when the type is unnamed — a snapshot nothing knows how to open', () => {
+    expect(() => createRobotaPackSet(CWD, { sandboxClient: projectableClient })).toThrow(
+      /sandboxClient/,
+    );
+  });
+
+  it('still refuses when the client cannot snapshot, however well-named its type', () => {
+    // `snapshot()` is optional on `ISandboxClient`. A registered factory with no reference to hand it
+    // would rebuild an EMPTY sandbox — a child that looks sandboxed while sharing none of the
+    // parent's state, which is worse than refusing.
+    expect(() =>
+      createRobotaPackSet(CWD, { sandboxClient: unprojectableClient, sandboxType: 'e2b' }),
+    ).toThrow(/sandboxClient/);
+  });
+});

@@ -31,6 +31,15 @@ type TRobotaPack = ReturnType<typeof createRobotaPacks>[number];
  */
 export interface IRobotaPackContext extends ICodingPackOptions {
   readonly cwd: string;
+  /**
+   * ARCH-033: which sandbox type `sandboxClient` is, so a child can rebuild one of the same kind.
+   *
+   * Names a key in the worker composition's `sandboxFactories`. Required alongside a sandbox client
+   * for child-process subagents to be composable — without it the parent has a sandbox nothing on the
+   * other side knows how to construct, and the guard below refuses rather than spawning children that
+   * would silently run on the host.
+   */
+  readonly sandboxType?: string;
 }
 
 /**
@@ -42,7 +51,21 @@ export interface IRobotaPackContext extends ICodingPackOptions {
  * sandboxed parent. Projecting it is #1784 (ARCH-033).
  */
 export function nonReproducibleCapabilities(context: IRobotaPackContext): readonly string[] {
-  return context.sandboxClient ? ['sandboxClient'] : [];
+  // ARCH-033: a sandbox is non-reproducible only while nothing can REBUILD it in the child.
+  //
+  // The projection seam changed what this question means. A live client still cannot cross a process
+  // boundary, but `(type, snapshotId)` can, and `ISubagentWorkerComposition.sandboxFactories` is
+  // where a composition root registers the constructor for a type — the same shape, and the same
+  // reason, as `providerDefinitions`. So a sandbox the root can project is reproducible, and one it
+  // cannot is not.
+  //
+  // Both halves are required and this checks both: `snapshot()` is optional on `ISandboxClient`, so a
+  // client that cannot produce a reference is unprojectable however many factories are registered,
+  // and a registered factory is useless without a reference to hand it.
+  if (!context.sandboxClient) return [];
+  const projectable =
+    typeof context.sandboxClient.snapshot === 'function' && context.sandboxType !== undefined;
+  return projectable ? [] : ['sandboxClient'];
 }
 
 /**

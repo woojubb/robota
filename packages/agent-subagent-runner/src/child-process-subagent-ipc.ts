@@ -9,6 +9,8 @@ export type TSubagentWorkerWireValue = string | number | boolean | null | undefi
 
 type TSubagentWorkerWireRecord = Record<string, TSubagentWorkerWireValue>;
 
+import type { ISandboxProjection } from './worker-composition.js';
+
 export interface ISubagentWorkerStartPayload {
   taskId: string;
   request: ISubagentSpawnRequest;
@@ -26,6 +28,18 @@ export interface ISubagentWorkerStartPayload {
   parentConfig: IInProcessSubagentRunnerDeps['config'];
   parentContext: IInProcessSubagentRunnerDeps['context'];
   providerProfile: ISerializableProviderProfile;
+  /**
+   * ARCH-033: how the child rebuilds the parent's sandbox, as `(type, snapshotId)`.
+   *
+   * The live client cannot cross a process boundary — it is an open session against a remote machine.
+   * This pair can: the type selects a factory the composition root registered, and the snapshot is a
+   * provider-owned reference the parent's `snapshot()` returned. Both halves are required, because a
+   * snapshot with no registry is a reference nothing opens and a registry with no snapshot rebuilds
+   * an EMPTY sandbox — a child that looks sandboxed while sharing none of the parent's state.
+   *
+   * Absent ⇒ the parent holds no sandbox, which is every product that has not registered one.
+   */
+  sandboxProjection?: ISandboxProjection;
   permissionMode?: TPermissionMode;
   logsDir?: string;
 }
