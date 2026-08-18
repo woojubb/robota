@@ -160,9 +160,15 @@ function main() {
       'wall-clock (those are emitted at the model call site, which this harness has no access to), and ' +
       'it does not know whether a converged run was later reverted. Advisory — nothing blocks on it.',
   );
-  console.error(
-    `::examined:: ${examinedRunCount()} loop runs${examinedRunCount() === 0 ? ' ::expected-empty:: no loop run has been recorded yet — the ledgers are created by the first `loop-run.mjs open`' : ''}`,
-  );
+  // Split out of the `::examined::` template rather than inlined. The inline form was valid — backticks
+  // inside a single-quoted string are literal characters, and `node --check` accepted it — but it read
+  // as nested template literals to a reviewer, and a line whose correctness has to be argued is worse
+  // than one that does not raise the question.
+  const expectedEmpty =
+    examinedRunCount() === 0
+      ? ' ::expected-empty:: no loop run has been recorded yet; a ledger is created by the first `loop-run.mjs open`'
+      : '';
+  console.error(`::examined:: ${examinedRunCount()} loop runs${expectedEmpty}`);
   return 0;
 }
 
