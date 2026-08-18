@@ -146,6 +146,55 @@ jobs:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node scripts/harness/scan-promotion-ancestry.mjs
 
+  # INFRA-104: a promotion must CARRY the closing keywords the pull requests inside it declared.
+  # GitHub acts on `Closes #N` only when the pull request targets the DEFAULT branch, so every
+  # feature→develop pull request's keyword is read as prose and the issue stays OPEN after merge
+  # (measured: #1802 `Closes #1750` and #1816 `Closes #1722`, both merged, both issues open for
+  # days). The develop→main promotion is the one pull request whose base IS `main`, so it is where
+  # the keywords have to appear — and a body that silently omits one is indistinguishable from a
+  # promotion that genuinely closes nothing. `promote.mjs` derives the block; this job is what
+  # makes anyone paste it.
+  #
+  # It is a REQUIRED status check on `protect-main` (owner decision D1, 2026-08-18), which puts
+  # INFRA-055's duty on it: a required context must ACTUALLY RUN AND BE ABLE TO FAIL on a `main`
+  # pull request. Five contexts on promotion #1427 were echoes whose every real step was gated on
+  # `base_ref != 'main'`, and branch protection reported green from jobs that did no work. So this
+  # job's `if:` is `== 'main'` — it runs its full check exactly where the check means something —
+  # and NO step below is gated on `base_ref`. `scan-main-required-checks.mjs` (R3/R4/R5) refuses
+  # any other shape.
+  promotion-closes:
+    name: promotion closes
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+
+    # Read-only, declared rather than inherited. The scan reads three collections through `gh api`
+    # — the promotion's commits, each carried pull request's body, and each referenced issue's
+    # state — and writes nothing anywhere.
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+
+    steps:
+      # No `fetch-depth: 0` here, deliberately, and unlike the ancestry gate above: this verdict is
+      # computed entirely from the GitHub API (the pull request's commit subjects, not the local
+      # graph), so a shallow checkout supplies everything it needs — the scripts themselves.
+      - uses: actions/checkout@v7
+
+      # The scan is dependency-free (node:child_process only, so no `pnpm install`), but it is an
+      # ES module using top-level await — pin the runtime like every sibling job rather than
+      # inheriting whatever the runner image ships.
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Assert the promotion body closes what its commits imply
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/harness/scan-promotion-closes.mjs --pr ${{ github.event.pull_request.number }}
+
   # Proportional CI (DX): classify whether a PR touches CODE or is documentation-only, so a docs/harness-markdown
   # PR skips the heavy build/test/e2e matrix. Those gated jobs are NOT required status checks on `protect-main`
   # (required there = promotion ancestry / main PR source guard / release-grade verification), so skipping them
