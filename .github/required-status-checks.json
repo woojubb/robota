@@ -100,7 +100,7 @@
           "reason": "CAN fail as of INFRA-046 — `REGRESSION_RED_PROOF_ENFORCE=1` makes an `accidental-green` verdict exit 1 — so the 'deliberately cannot fail' reason above does NOT apply to it. Excluded for a different reason, by owner decision: `accidental-green` has never fired on a real pull request, and making it required would put an untested refusal in the merge path. One observed firing is the evidence that promotes it. Note this exclusion does not make the job harmless: `merge-gate.sh` refuses any non-CLEAN mergeStateStatus, and GitHub reports UNSTABLE when a NON-required check fails."
         },
         {
-          "context": "promotion ancestry / main PR source guard / release-grade verification",
+          "context": "promotion ancestry / promotion closes / main PR source guard / release-grade verification",
           "reason": "Promotion gates, excluded at the job level on a `develop` PR. They are `protect-main`'s required list, declared under `branches.main`."
         }
       ]
@@ -126,6 +126,16 @@
           "verifies": "#1216 recurrence guard — a PR to `main` comes from `develop`/`release/*`/`hotfix/*` in this repository, never a feature branch and never a fork.",
           "local": {
             "notRunnable": "reads the pull request's head repository and ref from GitHub. Off a real PR there is no head to read, so a local run would either invent the input or report a pass over a source it never saw — the vacuity this guard was added to close."
+          }
+        },
+        {
+          "context": "promotion closes",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "promotion-closes",
+          "verifies": "INFRA-104 \u2014 the promotion body carries a closing keyword for every OPEN issue the pull requests it promotes declared they close. GitHub reads closing keywords only on a default-branch pull request, so the keyword on each feature\u2192develop PR closes nothing (#1802 `Closes #1750`, #1816 `Closes #1722` \u2014 both merged, both issues left open) and the promotion is the only pull request that can carry them. The requirement is DERIVED from the promotion's own commit subjects, not from what the body claims: each `(#NNNN)` suffix resolves to that PR's body, each `Closes #N` in it is confirmed to be an OPEN issue (not a Task ID \u2014 PR #1801's body says `Closes PROV-007.`) through the issues API, and a derivation that cannot complete BLOCKS rather than reporting an empty requirement.",
+          "local": {
+            "entryPoint": "node scripts/harness/scan-promotion-closes.mjs --pr <n> --repo <owner/name>",
+            "note": "the --pr argument is part of the entry point: the verdict is computed from a live pull request's commits, body and referenced issue states. With no PR there is nothing to judge, and a run that invented one would report a pass over a promotion it never saw."
           }
         },
         {

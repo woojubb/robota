@@ -33,6 +33,13 @@
 import path from 'node:path';
 
 import { ADOPTION_BASELINE, evaluatePromotion, runGit } from './scan-promotion-ancestry.mjs';
+import {
+  collectClosingLines,
+  createGitHubReaders,
+  parsePullRequestNumbers,
+  renderBlock,
+  resolveRepository,
+} from './promotion-closes.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 export const DEFAULT_BRANCH = 'release/promote-develop-to-main';
@@ -44,6 +51,27 @@ function flag(argv, name, fallback) {
   const index = argv.indexOf(name);
   if (index < 0) return fallback;
   return argv[index + 1] ?? fallback;
+}
+
+/**
+ * INFRA-104 — the promotion body's closing keywords, derived from the pull requests it carries.
+ *
+ * Reads the pull-request BODIES, not the commit messages: GitHub's squash body concatenates the
+ * commit messages and drops the PR description, so `Closes #N` is not in the commit (measured on
+ * `93d061dd3`, the squash of PR #1802).
+ */
+function defaultClosesBlock({ mainRef, developRef, git }) {
+  const log = git(['log', '--format=%s', `${mainRef}..${developRef}`]);
+  if (log.code !== 0) {
+    throw new Error(`git log ${mainRef}..${developRef} failed: ${log.stderr || log.stdout}`);
+  }
+  const subjects = log.stdout.split('\n').filter((line) => line.trim() !== '');
+  const { lines } = collectClosingLines({
+    pullNumbers: parsePullRequestNumbers(subjects),
+    ...createGitHubReaders(resolveRepository(process.env.GITHUB_REPOSITORY)),
+  });
+  const block = renderBlock(lines);
+  return block ? `\npromote: paste this into the promotion PR body —\n\n${block}` : '';
 }
 
 /**
@@ -59,6 +87,7 @@ export async function main({
   out = (text) => process.stdout.write(text),
   fetch: shouldFetch = true,
   runGitImpl = runGit,
+  closesBlock = defaultClosesBlock,
 } = {}) {
   const git = (args) => runGitImpl(args, cwd);
   const branch = flag(argv, '--branch', DEFAULT_BRANCH);
@@ -199,10 +228,32 @@ export async function main({
       );
     }
 
+    // INFRA-104. The keyword every work PR wrote was ignored — GitHub reads a closing keyword only
+    // on a pull request targeting the DEFAULT branch, and work PRs target `develop`. This promotion
+    // is the only PR that targets `main`, so it is the only place the keywords can act. The block is
+    // derived here and printed for the promotion body; `scan-promotion-closes` (a required check on
+    // `protect-main`) refuses the promotion if the body omits one.
+    let closesSection = '';
+    try {
+      closesSection = closesBlock({ mainRef, developRef, git });
+    } catch (error) {
+      // allow-fallback: the block is an AID to composing the body, not the guarantee — the required
+      // `scan-promotion-closes` check is. A transient GitHub read must not discard an
+      // ancestry-verified promotion branch, and this path is LOUD: it names the failure and says the
+      // promotion will be refused until the lines are supplied, so it can never read as "nothing to
+      // close". Silence here would be the INFRA-104 defect itself, one layer up.
+      closesSection =
+        `\npromote: COULD NOT derive the closing keywords (${error.message}).\n` +
+        'promote: this is NOT "nothing to close". Run `node scripts/harness/promotion-closes.mjs ' +
+        '--base origin/main --head origin/develop` and paste its output into the PR body — the ' +
+        'required `scan-promotion-closes` check will refuse the promotion until you do.\n';
+    }
+
     out(
       `\npromote: ${branch} is ready — A1/A2/A3 hold (non-merge debt on main: ${currentDebt}).` +
         '\npromote: `release-grade verification` runs once in protected CI on the promotion PR.\n' +
         'promote: optional diagnostic before push: `pnpm harness:verify:release`.\n' +
+        closesSection +
         `\nNext (promoting to \`main\` is a release-level action needing explicit user approval):\n` +
         `  git push -u origin ${branch}\n` +
         `  gh pr create --base main --head ${branch} --title "chore(release): promote develop to main"\n` +

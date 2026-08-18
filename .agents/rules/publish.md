@@ -86,6 +86,26 @@ regardless of how the pipeline is driven:
 Version-bump mechanics (changesets, the fixed version group, semver classification, dist-tag expectations)
 are owned by [`version-management`](../skills/version-management/SKILL.md).
 
+### Promotion Body — Closing Keywords
+
+GitHub acts on a closing keyword only on a pull request whose base is the DEFAULT branch. In a
+feature → `develop` → `main` flow the promotion is therefore the only pull request whose keywords do
+anything, and every keyword written on a feature pull request is prose.
+
+- The promotion pull request body MUST carry a closing keyword for every open issue the pull requests
+  it promotes declared they close.
+- That block is DERIVED, never composed by hand: `node scripts/harness/promote.mjs` prints it, from
+  the promotion's own commit subjects. Paste it as printed.
+- A derivation that cannot complete FAILS LOUDLY and blocks. An underivable requirement is not an
+  empty one — a short block is indistinguishable from a promotion that genuinely closes nothing.
+- Only a `#N` that resolves to an OPEN issue is carried. A work-item identifier after a closing
+  keyword is not an issue reference and is dropped.
+
+Enforced by: `scripts/harness/scan-promotion-closes.mjs`, run as the `promotion closes` job in
+`.github/workflows/ci.yml` and required on `protect-main`. It re-derives the requirement from the
+live pull request and blocks a body that omits any of it. Record:
+[INFRA-104](../tasks/INFRA-104-promotion-carries-closing-keywords-to-main.md).
+
 ### CI Failure Triage
 
 Before changing code to fix a failing release or CI gate, the failure class and the planned validation path
