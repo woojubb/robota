@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createWorkflowsCommandModule } from '../workflows-command-module.js';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
+
 import type { TCommandInvocationSource } from '@robota-sdk/agent-interface-transport';
 
 /**
@@ -16,14 +17,17 @@ import type { TCommandInvocationSource } from '@robota-sdk/agent-interface-trans
  * These assert the gate on the DISPATCHER, which is where the per-subcommand flag can be read at
  * all — the framework only ever sees `robota_command_workflows` with a free-form args string.
  */
-function hostContext(source: TCommandInvocationSource, cwd = '/w'): ICommandHostContext {
-  // The command's `execute` takes the FULL host context, while the dispatcher reads only the two
-  // workspace members. A double carrying just those is honest about what is exercised — the cast is
-  // to the signature, not to a pretence that this is a session.
-  return {
-    getCwd: () => cwd,
-    getCommandInvocationSource: () => source,
-  } as unknown as ICommandHostContext;
+/**
+ * The published conformant double, with only the capability under test overridden.
+ *
+ * A hand-rolled partial cast to the host contract would be a re-implementation nothing checks
+ * against the real one — and the contract-cast ratchet says so, which is how the first draft of
+ * this file was caught. The return type is inferred rather than annotated with the aggregate, for
+ * the reason the aggregate-naming scan gives: naming it takes the whole surface instead of the role
+ * actually used.
+ */
+function hostContext(source: TCommandInvocationSource, cwd = '/w') {
+  return createTestCommandHost({ cwd, overrides: { getCommandInvocationSource: () => source } });
 }
 
 function systemCommand() {
