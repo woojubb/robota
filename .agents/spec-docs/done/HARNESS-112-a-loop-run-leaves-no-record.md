@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: done
 type: OBSERVABILITY
 tags: [node]
 ---
@@ -369,3 +369,24 @@ the TC commands are `node scripts/harness/…` invocations and `pnpm harness:sca
 - Deliberately not done, and recorded so its absence is not read as an oversight: **no ledger entry was
   fabricated.** The corpus ships empty. Writing a record for a run that did not happen is the defect
   this item exists to prevent, and the empty-corpus path is the tested one.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-19
+
+**Status upgrade:** verifying → done
+
+- Prior gate GATE-VERIFY passed; status was `verifying`.
+- Merged as part of pull request #1881 (`715ff40248f1a55e68569c773abfbec5bd2da206`) into `develop`.
+  Landing verified against the REMOTE, not the local tree: `origin/develop` is at `715ff4024`, and the
+  four new modules plus `.agents/loop-runs/README.md` and the new rule clause are present in
+  `git ls-tree origin/develop`.
+- Merge gate satisfied in full: CI green on the exact head, a reviewer verdict quoting **BASE
+  `b0b4e6619` / HEAD `a14741b45`** — both matching the live values at merge time — `ACTIONABLE
+FINDINGS: 0`, and every review thread answered and resolved.
+- The one review finding raised on this pull request was a claimed SyntaxError from nested template
+  literals. It was REFUTED with reproducible evidence (`node --check` exit 0, the entry point running,
+  and ten passing cases including one that cannot pass without the module executing), and the construct
+  was rewritten anyway because a line whose correctness must be argued is worse than one that does not
+  raise the question. Both the summary comment and the inline thread carry that answer.
+- One CI failure was infrastructure and not a finding: `Secret scan (gitleaks)` failed on
+  `curl: (35) Recv failure: Connection reset by peer` while downloading the gitleaks binary. Re-run,
+  green, and no code change was made for it.

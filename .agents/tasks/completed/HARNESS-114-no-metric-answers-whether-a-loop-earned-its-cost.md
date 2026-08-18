@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-114: no metric answers whether a convergence loop earned its cost'
-status: in-progress
+status: done
 created: 2026-08-19
+completed: 2026-08-19
 priority: medium
 urgency: soon
 area: scripts/harness, .agents/evals
@@ -26,7 +27,7 @@ Publish the derivable half as an explicit proxy, and say what it cannot see.
 
 ## Spec
 
-`.agents/spec-docs/active/HARNESS-114-no-metric-answers-whether-a-loop-earned-its-cost.md`
+`.agents/spec-docs/done/HARNESS-114-no-metric-answers-whether-a-loop-earned-its-cost.md`
 
 ## Plan
 
@@ -67,3 +68,6 @@ tautology `measurement-provenance.md` refuses.
   what it substitutes for and what it cannot see published beside the number.
 - One test asserts `metrics.md` itself carries the proxy relationship, the unobservable quantities and
   the advisory status. A ceiling published with the number is part of the deliverable.
+
+- Merged in pull request #1881 as `715ff40248f1a55e68569c773abfbec5bd2da206`; landing verified against
+  `origin/develop` rather than the local tree. Complete.
