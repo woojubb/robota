@@ -111,3 +111,17 @@ other work behind this cycle's completion.
 | Judge the merged change's quality              | the code-review gate the rules own |
 
 If you find yourself restating a rule here, stop — link the rule instead.
+
+## Record the run
+
+Open a ledger entry before the first round, record each round's finding count, and close it with the
+terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
+`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
+run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
+what each terminal reason means).
+
+```bash
+node scripts/harness/loop-run.mjs open  --loop post-merge-cycle
+node scripts/harness/loop-run.mjs round --loop post-merge-cycle --run <id> --findings <n>
+node scripts/harness/loop-run.mjs close --loop post-merge-cycle --run <id> --terminal <reason>
+```

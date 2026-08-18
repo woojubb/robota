@@ -62,3 +62,17 @@ The five predefined agents (spawn by `agentType`):
    into the repo's gated backlog.
 
 That is the whole skill. Everything else is the agents'.
+
+## Record the run
+
+Open a ledger entry before the first round, record each round's finding count, and close it with the
+terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
+`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
+run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
+what each terminal reason means).
+
+```bash
+node scripts/harness/loop-run.mjs open  --loop architecture-refresh
+node scripts/harness/loop-run.mjs round --loop architecture-refresh --run <id> --findings <n>
+node scripts/harness/loop-run.mjs close --loop architecture-refresh --run <id> --terminal <reason>
+```

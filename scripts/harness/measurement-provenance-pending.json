@@ -13,6 +13,7 @@
     "scripts/harness/scan-claude-review-coverage.mjs",
     "scripts/harness/scan-conflict-markers.mjs",
     "scripts/harness/scan-interface-runtime.mjs",
+    "scripts/harness/scan-loop-run-records.mjs",
     "scripts/harness/scan-measurement-provenance.mjs",
     "scripts/harness/scan-memory-mirror.mjs",
     "scripts/harness/scan-no-fake-in-src.mjs",
