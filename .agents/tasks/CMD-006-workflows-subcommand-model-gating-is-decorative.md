@@ -1,6 +1,6 @@
 ---
 title: 'CMD-006: /workflows per-subcommand modelInvocable:false is decorative — a model can auto-run an arbitrary on-disk workflow (LLM/http/file nodes) with no permission gate'
-status: todo
+status: in-progress
 created: 2026-08-13
 priority: critical
 urgency: now
