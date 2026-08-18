@@ -15,9 +15,10 @@ Registered as [issue #1810](https://github.com/woojubb/robota/issues/1810), the 
 [#1809](https://github.com/woojubb/robota/issues/1809), which consumes the admission result this item
 defines and can proceed against an injected double until it exists.
 
-**The issue states the precondition this document answers**, and it is the reason nothing is
-implemented yet: _"The issue must define the exact environment proof and its failure/revocation
-semantics before implementation."_
+**The issue stated the precondition this document answers**, and it is why the design came before any
+code: _"The issue must define the exact environment proof and its failure/revocation semantics
+before implementation."_ That precondition is met and the recommendation was implemented — see
+**Implementation status** below for what has landed and what has not.
 
 ## The problem, stated precisely
 
@@ -149,7 +150,16 @@ are in, each where the ownership rules put it:
 | The grant       | `agent-remote-pairing/local` — `RendezvousGrantLedger`          | #1839   |
 | The binding     | `agent-transport-webrtc` — the gate's `local-proof` step        | #1841   |
 
-TC-01 through TC-08 are covered. What remains is composition, not security: `agent-cli` creating
+TC-01 through TC-08 are covered.
+
+**A correction worth keeping**, because the wrong reason was written down before it was caught.
+`ensureGuardedDirectory`'s chmod was first justified by the umask — that a umask of `0o022` turns a
+0700 request into 0755. It does not: a umask only ever CLEARS bits, so the request can come back
+tighter and never looser. Red-proofing exposed it, in the way that is worth noticing — the test
+asserting the umask case PASSED with the chmod removed, and an assertion that holds either way
+asserts nothing. The real reason is that `mkdir` with `recursive: true` leaves an EXISTING
+directory's mode untouched, so one left at 0777 by an earlier process is adopted as ours with a
+successful return and no signal. What remains is composition, not security: `agent-cli` creating
 the guarded runtime directory, issuing grants at the rendezvous, wiring `localPeer` into the
 transport, and the peer side that sends the proof frame. The user-execution scenario below is
 written for that step and is what closes this item.
