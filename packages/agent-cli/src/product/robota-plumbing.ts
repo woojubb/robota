@@ -229,3 +229,23 @@ export function buildRobotaRuntimeOptions(input: IRobotaRuntimeSeamInput): IRobo
     },
   };
 }
+
+/**
+ * The channel-ready handler the TUI calls on every live-channel creation.
+ *
+ * A factory rather than a literal at the call site, because the two things it does are the same
+ * subject — keeping process-level and remote-control state pointed at the channel the user is
+ * actually driving — and neither is about assembling CLI options. It is called again on a
+ * session-switch re-creation, which is why both targets are re-pointed rather than set once: an
+ * enable that attached the previous channel would surface its async failures into a history nobody
+ * is reading.
+ */
+export function createChannelReadyHandler<TChannel extends TLive & TRemote, TLive, TRemote>(
+  setLive: (channel: TLive) => void,
+  setRemoteControl: (channel: TRemote) => void,
+): (channel: TChannel) => void {
+  return (channel) => {
+    setLive(channel);
+    setRemoteControl(channel);
+  };
+}
