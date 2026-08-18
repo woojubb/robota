@@ -28,16 +28,16 @@ by DISPATCHING, spending a fan-out before anyone learns the routing was wrong.
 
 ## Plan
 
-- [ ] TC-01: the scan exits 0 on the tree as shipped, all 16 existing loops accounted for by the baseline.
-- [ ] TC-02: the scan fails a loop-declaring skill with no baseline entry, no `proof:` line, and no ledger
+- [x] TC-01: the scan exits 0 on the tree as shipped, all 16 existing loops accounted for by the baseline.
+- [x] TC-02: the scan fails a loop-declaring skill with no baseline entry, no `proof:` line, and no ledger
       entry — and names it.
-- [ ] TC-03: the same fixture passes once its ledger holds one entry with a non-null `terminal`.
-- [ ] TC-04: `proof: none — <reason>` passes; an empty reason fails.
-- [ ] TC-05: a baseline entry that now has a closed run is a finding (shrink-only ratchet).
-- [ ] TC-06: an unparseable ledger fails; it is not read as "no runs yet".
-- [ ] TC-07: the rule carries `Enforced by:` and `scan-new-rule-declares-enforcement.mjs` exits 0.
-- [ ] TC-08: the scan is `covered` under `measurement-provenance`.
-- [ ] TC-09: `pnpm harness:scan` exits 0 with `loop-proof` registered.
+- [x] TC-03: the same fixture passes once its ledger holds one entry with a non-null `terminal`.
+- [x] TC-04: `proof: none — <reason>` passes; an empty reason fails.
+- [x] TC-05: a baseline entry that now has a closed run is a finding (shrink-only ratchet).
+- [x] TC-06: an unparseable ledger fails; it is not read as "no runs yet".
+- [x] TC-07: the rule carries `Enforced by:` and `scan-new-rule-declares-enforcement.mjs` exits 0.
+- [x] TC-08: the scan is `covered` under `measurement-provenance`.
+- [x] TC-09: `pnpm harness:scan` exits 0 with `loop-proof` registered.
 
 ## Test Plan
 
@@ -48,3 +48,19 @@ rule text. Stated ceiling, carried in the scan's pass line: this establishes tha
 reached once, not that the run exercised the loop's hard path.
 
 ## Progress
+
+### 2026-08-19
+
+- Implemented. `.agents/rules/learning-loop.md` gains **Prove the loop** beside **Prove the check**;
+  `scripts/harness/scan-loop-proof.mjs` enforces it; `scripts/harness/loop-proof-baseline.json` freezes
+  the 15 skills that predate the floor as a shrink-only SET.
+- TC-01…TC-09 all verified: 11 unit tests, `node scripts/harness/scan-loop-proof.mjs` exit 0 on the tree
+  as shipped, `pnpm harness:scan` 126 passed / 2 skipped.
+- The first test is the RED PROOF — an unproven loop-driving skill fails — asserted before any test
+  asserts the floor passes. A floor whose red is never demonstrated is the unfalsifiable check this
+  repository keeps finding one layer up.
+- Decided during implementation and asserted: an OPEN run is **not** proof. A run that has not ended
+  proves no ending, and accepting one would have let a skill be admitted by starting a run and walking
+  away — the exact shape `abandoned` exists to make visible.
+- Pinned in `scripts/harness/scan-guard-scope-fail-closed.mjs` as proven fail-closed by execution (76
+  guards now proven there).

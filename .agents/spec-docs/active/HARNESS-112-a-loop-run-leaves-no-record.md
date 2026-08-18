@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: OBSERVABILITY
 tags: [node]
 ---
@@ -350,3 +350,21 @@ the TC commands are `node scripts/harness/…` invocations and `pnpm harness:sca
 - One-Backlog-At-A-Time satisfied: the previous unit (INFRA-104, PR #1860) merged as `17288be5d`, its
   carried-over review finding merged as `b0b4e6619` (PR #1880), and both branches were deleted before this
   branch was cut from a freshly-fetched `origin/develop`.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-19
+
+**Status upgrade:** in-progress → verifying
+
+- Prior gate GATE-IMPLEMENT passed; status was `in-progress`.
+- TC-01…TC-12 all executed and green. 28 unit tests across `loop-run.test.mjs` (14) and
+  `scan-loop-run-records.test.mjs` (14); `pnpm harness:scan` 126 passed / 2 skipped;
+  `pnpm harness:test` 3851 + 1092 green.
+- TC-12's check is proven able to FAIL: `scan-loop-run-records.test.mjs` drives a fixture skill whose
+  body omits the recorder and asserts exactly one finding naming that file, before the sibling case
+  asserts it passes once the body names it.
+- The scan's fail-closed property was established BY EXECUTION, not by inspection:
+  `scan-guard-scope-fail-closed.mjs` runs `findLoopRunRecordFindings` against a root lacking
+  `.agents/skills` on every scan run and requires it to throw. It is pinned there.
+- Deliberately not done, and recorded so its absence is not read as an oversight: **no ledger entry was
+  fabricated.** The corpus ships empty. Writing a record for a run that did not happen is the defect
+  this item exists to prevent, and the empty-corpus path is the tested one.

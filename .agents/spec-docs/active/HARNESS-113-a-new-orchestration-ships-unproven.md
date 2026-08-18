@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: RULE
 tags: [node]
 ---
@@ -307,3 +307,19 @@ the TC commands are `node scripts/harness/…` invocations and `pnpm harness:sca
 - One-Backlog-At-A-Time satisfied: the previous unit (INFRA-104, PR #1860) merged as `17288be5d`, its
   carried-over review finding merged as `b0b4e6619` (PR #1880), and both branches were deleted before this
   branch was cut from a freshly-fetched `origin/develop`.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-19
+
+**Status upgrade:** in-progress → verifying
+
+- Prior gate GATE-IMPLEMENT passed; status was `in-progress`.
+- TC-01…TC-09 all executed and green. 11 unit tests; `node scripts/harness/scan-loop-proof.mjs` exit 0
+  on the tree as shipped with all 15 loop-driving skills accounted for by the frozen baseline;
+  `pnpm harness:scan` 126 passed / 2 skipped.
+- TC-02 is the RED PROOF and is the first case in the suite, asserted before any case asserts the floor
+  passes: an unproven loop-driving skill produces exactly one finding naming it.
+- Both anti-rot directions are asserted (TC-05, and a baseline entry that drives no loop any more), so
+  the exemption set cannot outlive the need for it in either direction.
+- TC-07 ran `scan-new-rule-declares-enforcement.mjs` against the committed diff: the new rule clause
+  carries its `Enforced by:` line.
+- Pinned in `scan-guard-scope-fail-closed.mjs` as proven fail-closed by execution.

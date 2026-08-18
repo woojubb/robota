@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: OBSERVABILITY
 tags: [node]
 ---
@@ -293,3 +293,21 @@ the TC commands are `node scripts/harness/…` invocations and `pnpm harness:sca
 - One-Backlog-At-A-Time satisfied: the previous unit (INFRA-104, PR #1860) merged as `17288be5d`, its
   carried-over review finding merged as `b0b4e6619` (PR #1880), and both branches were deleted before this
   branch was cut from a freshly-fetched `origin/develop`.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-19
+
+**Status upgrade:** in-progress → verifying
+
+- Prior gate GATE-IMPLEMENT passed; status was `in-progress`.
+- TC-01…TC-08 all executed and green. 10 unit tests; `pnpm harness:scan` 126 passed / 2 skipped;
+  `pnpm harness:test` 3851 + 1092 green.
+- Every rate assertion is EXACT rather than bounded, per `measurement-provenance.md` clause 3: the
+  4-run fixture can only report 50% if the denominator is right, and the rounds fixture uses an array
+  whose length differs from every other number in the record, so a figure read from the wrong field
+  cannot pass by coincidence.
+- TC-06 asserts the published ceiling by reading `.agents/evals/metrics.md` itself — the proxy
+  relationship, the unobservable quantities, and the advisory status.
+- One test was corrected during verification rather than the code: the empty-corpus case asserted the
+  absence of the substring `0%`, which failed because the NO DATA line explains _"a rate over zero runs
+  is not 0%"_ in prose. The property is that no RATE is reported, so the assertion was tightened to
+  `rework <n>%` — the shape a reader acts on. The message was not weakened to satisfy the test.
