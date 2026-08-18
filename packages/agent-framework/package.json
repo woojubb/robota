@@ -48,7 +48,7 @@
     "build:types": "tsdown --dts",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "scenario:verify": "pnpm scenario:verify:external-payload && pnpm scenario:verify:runtime-session-store && pnpm scenario:verify:prompt-resolution",
+    "scenario:verify": "pnpm scenario:verify:external-payload && pnpm scenario:verify:runtime-session-store && pnpm scenario:verify:prompt-resolution && pnpm scenario:verify:zero-config-tools",
     "scenario:verify:external-payload": "pnpm exec tsx --conditions=source examples/verify-session-log-external-payload-replay.ts",
     "scenario:verify:runtime-session-store": "pnpm exec tsx --conditions=source examples/verify-agent-runtime-session-store.ts",
     "scenario:verify:prompt-resolution": "pnpm exec tsx --conditions=source examples/verify-prompt-request-resolution.ts",
@@ -56,7 +56,8 @@
     "typecheck": "tsgo --noEmit",
     "lint": "eslint src/ --ext .ts",
     "clean": "rimraf dist",
-    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh",
+    "scenario:verify:zero-config-tools": "pnpm exec tsx --conditions=source examples/verify-zero-config-default-tools.ts"
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
