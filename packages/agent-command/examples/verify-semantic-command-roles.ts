@@ -114,10 +114,10 @@ async function main(): Promise<void> {
         'agent job provenance omitted the alternate semantic command id',
       );
 
-      const alternatePrompt = readSystemMessage(cwd, 'activate-skill-alt', directSessions, {
+      const alternatePrompt = await readSystemMessage(cwd, 'activate-skill-alt', directSessions, {
         skillActivation: 'activate-skill-alt',
       });
-      const coincidentalPrompt = readSystemMessage(cwd, 'skills', directSessions);
+      const coincidentalPrompt = await readSystemMessage(cwd, 'skills', directSessions);
       assertCondition(
         alternatePrompt.includes('## Skills'),
         'alternate role omitted skill metadata',
