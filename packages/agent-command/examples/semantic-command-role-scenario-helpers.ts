@@ -47,13 +47,18 @@ export function command(
   };
 }
 
-export function readSystemMessage(
+/**
+ * ARCH-035 made `createSession` async. This helper is `async` for that reason alone — awaiting the
+ * result is not a style choice here: `created.session` on an unawaited promise is `undefined`, and
+ * the failure surfaces two frames away as a missing method on the session.
+ */
+export async function readSystemMessage(
   cwd: string,
   commandName: string,
   sessions: TDirectSession[],
   commandSemanticRoles?: ISystemCommandSemanticRoles,
-): string {
-  const created = createSession({
+): Promise<string> {
+  const created = await createSession({
     config,
     cwd,
     context: { agentsMd: '', projectNotesMd: '' },
@@ -162,19 +167,19 @@ export async function verifyOmissionBehaviors(options: {
     subagentSpawn: new SystemCommandExecutor(alternate.slice(0, 2)).getSemanticRoles(),
   };
   const prompts = {
-    skillActivation: readSystemMessage(
+    skillActivation: await readSystemMessage(
       cwd,
       'activate-skill-alt',
       directSessions,
       omissionRoles.skillActivation,
     ),
-    contextReduction: readSystemMessage(
+    contextReduction: await readSystemMessage(
       cwd,
       'activate-skill-alt',
       directSessions,
       omissionRoles.contextReduction,
     ),
-    subagentSpawn: readSystemMessage(
+    subagentSpawn: await readSystemMessage(
       cwd,
       'activate-skill-alt',
       directSessions,
@@ -246,7 +251,12 @@ export async function verifyOmissionBehaviors(options: {
   } finally {
     await unannotatedInteractive.shutdown();
   }
-  const unannotatedPrompt = readSystemMessage(cwd, 'skills', directSessions, unannotatedRoles);
+  const unannotatedPrompt = await readSystemMessage(
+    cwd,
+    'skills',
+    directSessions,
+    unannotatedRoles,
+  );
   const unannotatedSubagent = createTrackedSubagent(
     cwd,
     projectedSpawnTool,
