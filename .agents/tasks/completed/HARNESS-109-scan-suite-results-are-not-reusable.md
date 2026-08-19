@@ -82,7 +82,7 @@ reopen that trade-off.
 
 ## Result
 
-Delivered in two commits. The ignore rule landed first (#1873) because it was measurable on its own;
+Delivered in two commits. The ignore rule landed first (PR #1873) because it was measurable on its own;
 this record closes with the mechanism.
 
 **The measurement that started it.** `isCleanTree()` was false in this clone for one reason — an
