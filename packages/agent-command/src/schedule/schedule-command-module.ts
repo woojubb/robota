@@ -7,7 +7,7 @@ import { executeMonitorCommand, executeScheduleCommand } from './schedule-comman
 
 import type {
   IAgentJobHostContext,
-  ICommandHostContext,
+  ICommandHostAgentJobs,
   ICommandModule,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
@@ -17,8 +17,8 @@ import type {
   ICommandSource,
 } from '@robota-sdk/agent-interface-transport';
 
-function getAgentHostContext(context: ICommandHostContext): IAgentJobHostContext {
-  const cap = context.getAgentJobCapability?.();
+function getAgentHostContext(context: ICommandHostAgentJobs): IAgentJobHostContext {
+  const cap = context.getAgentJobCapability();
   if (!cap) throw new Error('Scheduling requires an active agent runtime.');
   return cap;
 }

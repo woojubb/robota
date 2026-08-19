@@ -15,7 +15,7 @@ import { initializeInteractiveSessionAsync } from './interactive-session-init.js
 import { persistSession } from './interactive-session-persistence.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
-import { submitNewTurn } from './interactive-session-turn-submission.js';
+import { publicTurnOptions, submitNewTurn } from './interactive-session-turn-submission.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
@@ -48,7 +48,6 @@ import type {
   IInteractiveSessionEvents,
   IExecutionResult,
 } from './types.js';
-import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 import type { ICommandHostContext } from '../command-api/index.js';
 import type {
   IAgentJobHostContext,
@@ -69,6 +68,7 @@ import type {
   TActionResponse,
 } from '@robota-sdk/agent-core';
 import type { ISession } from '@robota-sdk/agent-core';
+import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type {
   ITransportAdapter,
   IGoalState,
@@ -94,7 +94,7 @@ const PROMPT_BACKSTOP_MS = 30 * 60 * 1000;
 
 export class InteractiveSession
   extends InteractiveSessionBase
-  implements ISession, IAgentJobHostContext, IInteractiveSession
+  implements ISession, IAgentJobHostContext, IInteractiveSession, ICommandHostContext
 {
   private session: Session | null = null;
   private readonly listeners = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -218,7 +218,8 @@ export class InteractiveSession
       commandModules,
       cwd,
       commandHostAdapters,
-      () => this as unknown as ICommandHostContext,
+      // ARCH-029 S1: no cast — `implements ICommandHostContext` above makes this compiler-checked.
+      () => this,
       () => this.session?.getSessionId() ?? '',
       (prompt, displayInput, rawInput) => this.submit(prompt, displayInput, rawInput),
       (result) => this.execCtrl.applyForkSkillResult(result),
@@ -470,9 +471,7 @@ export class InteractiveSession
     rawInput?: string,
     options: ISubmitOptions = {},
   ): Promise<ITurnHandle> {
-    return this.submitNewTurn(input, displayInput, rawInput, {
-      ...(options.driverId !== undefined ? { driverId: options.driverId } : {}),
-    });
+    return this.submitNewTurn(input, displayInput, rawInput, publicTurnOptions(options));
   }
   private async submitNewTurn(
     input: string,

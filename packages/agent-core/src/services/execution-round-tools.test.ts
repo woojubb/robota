@@ -41,8 +41,12 @@ describe('checkSameToolInputLimit', () => {
     checkSameToolInputLimit([call], state, 3);
     checkSameToolInputLimit([call], state, 3);
 
+    // CORE-035: a named error, not a bare one — the message no longer says "aborting", because an
+    // abort means the caller asked the turn to stop and here the agent gave up. The type and its
+    // failure semantics are pinned in `__tests__/same-tool-input-guard.test.ts`; this case owns the
+    // threshold, which is unchanged.
     expect(() => checkSameToolInputLimit([call], state, 3)).toThrow(
-      '[EXECUTION] Tool "WebFetch" called with identical input 4 times — aborting to prevent infinite loop',
+      /Tool "WebFetch" was called with identical input 4 times/,
     );
   });
 

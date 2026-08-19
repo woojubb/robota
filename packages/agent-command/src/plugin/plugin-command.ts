@@ -3,7 +3,7 @@ import {
   resolvePluginCommandAdapter,
 } from '@robota-sdk/agent-framework';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type { ICommandHostAdapterAccess } from '@robota-sdk/agent-framework';
 import type { ICommandPluginAdapter, ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 function getSubcommandParts(args: string): { subcommand: string; subArgs: string } {
@@ -24,12 +24,12 @@ function usage(message: string): ICommandResult {
   };
 }
 
-function getPluginAdapter(context: ICommandHostContext): ICommandPluginAdapter | undefined {
+function getPluginAdapter(context: ICommandHostAdapterAccess): ICommandPluginAdapter | undefined {
   return resolvePluginCommandAdapter(context);
 }
 
 async function executePluginOperation(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess,
   operation: (adapter: ICommandPluginAdapter) => Promise<string>,
 ): Promise<ICommandResult> {
   const adapter = getPluginAdapter(context);
@@ -55,7 +55,7 @@ async function executePluginOperation(
 }
 
 async function executeMarketplaceCommand(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess,
   subArgs: string,
 ): Promise<ICommandResult> {
   const { subcommand, subArgs: marketplaceArgs } = getSubcommandParts(subArgs);
@@ -101,7 +101,7 @@ type TPluginIdOperation = (
 ) => Promise<string> | string;
 
 function executePluginIdOperation(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess,
   pluginId: string,
   usageMessage: string,
   operation: TPluginIdOperation,
@@ -123,7 +123,7 @@ function executePluginManager(): ICommandResult {
 }
 
 function executeInstallCommand(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess,
   pluginId: string,
 ): Promise<ICommandResult> {
   return executePluginIdOperation(
@@ -138,7 +138,7 @@ function executeInstallCommand(
 }
 
 function executeUninstallCommand(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess,
   pluginId: string,
 ): Promise<ICommandResult> {
   return executePluginIdOperation(
@@ -153,7 +153,7 @@ function executeUninstallCommand(
 }
 
 function executeEnableCommand(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess,
   pluginId: string,
 ): Promise<ICommandResult> {
   return executePluginIdOperation(
@@ -168,7 +168,7 @@ function executeEnableCommand(
 }
 
 function executeDisableCommand(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess,
   pluginId: string,
 ): Promise<ICommandResult> {
   return executePluginIdOperation(
@@ -183,7 +183,7 @@ function executeDisableCommand(
 }
 
 export async function executePluginCommand(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess,
   args: string,
 ): Promise<ICommandResult> {
   const { subcommand, subArgs } = getSubcommandParts(args);
@@ -207,7 +207,7 @@ export async function executePluginCommand(
 }
 
 export async function executeReloadPluginsCommand(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess,
   _args: string,
 ): Promise<ICommandResult> {
   return executePluginOperation(context, async (adapter) => {

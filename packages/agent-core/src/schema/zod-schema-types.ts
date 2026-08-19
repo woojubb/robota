@@ -25,7 +25,11 @@ export interface IZodSchemaDef {
   checks?: Array<{ kind: string; value?: TUniversalValue }>;
   shape?: () => Record<string, IZodSchema>;
   type?: IZodSchema;
-  values?: TUniversalValue[];
+  /**
+   * `ZodEnum` holds an ARRAY here; `ZodNativeEnum` holds the enum OBJECT itself (CORE-041). One Zod
+   * field name, two shapes — the converter narrows before reading it.
+   */
+  values?: TUniversalValue[] | Record<string, TUniversalValue>;
   description?: string;
   unknownKeys?: 'passthrough' | 'strip' | 'strict';
   /** `ZodEffects` (`.refine()` / `.transform()`) holds the schema it wraps here. */

@@ -10,7 +10,6 @@ import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { TInteractivePermissionHandler } from './types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
-import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
@@ -27,6 +26,7 @@ import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
+import type { TGuardrail } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -34,9 +34,11 @@ import type {
   IUserInteraction,
   TToolArgs,
 } from '@robota-sdk/agent-core';
+import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ITerminalHandoff } from '@robota-sdk/agent-interface-transport';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
+import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
 import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
 /** Standard construction: cwd + provider. Config/context loaded internally. */
@@ -153,6 +155,10 @@ export interface IInteractiveSessionStandardOptions {
    * `builtInAgents` seam for subagents. Absent ⇒ unchanged behavior.
    */
   defaultTools?: readonly IToolWithEventService[];
+  /** SELFHOST-005 guardrail REGISTRY (name → function). ARCH-013 S3; see create-session-projection. */
+  guardrails?: Record<string, TGuardrail>;
+  /** SELFHOST-003 retrieval adapter gating `CodebaseRetrieval`. ARCH-013 S3; same seam as above. */
+  retrievalAdapter?: IRetrievalAdapter;
   /** Request structured output from the provider for this session. */
   responseFormat?: { type: 'text' | 'json_object' };
 }
@@ -275,6 +281,10 @@ export interface IInitOptions {
    * `builtInAgents` seam for subagents. Absent ⇒ unchanged behavior.
    */
   defaultTools?: readonly IToolWithEventService[];
+  /** SELFHOST-005 guardrail REGISTRY (name → function). ARCH-013 S3; see create-session-projection. */
+  guardrails?: Record<string, TGuardrail>;
+  /** SELFHOST-003 retrieval adapter gating `CodebaseRetrieval`. ARCH-013 S3; same seam as above. */
+  retrievalAdapter?: IRetrievalAdapter;
   /** Request structured output from the provider for this session. */
   responseFormat?: { type: 'text' | 'json_object' };
 }

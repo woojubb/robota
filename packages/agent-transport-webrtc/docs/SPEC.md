@@ -36,6 +36,30 @@ protocol is shared, not duplicated.
   written-reason requirement lives in `resolveAdmission` in `@robota-sdk/agent-transport-protocol`, so the sibling
   transports cannot drift apart on what counts as an answer.
 
+- **Owns the local-peer channel GATE, not the local-peer policy (SEC-010, #1810).** When `localPeer` is
+  configured, an accepted handshake is not enough: the peer must also present the nonce it was issued at the
+  guarded rendezvous, and only then is the session exposed. This package holds the state machine and the
+  frame; single-use, expiry and revocation belong to the grant ledger in
+  `@robota-sdk/agent-remote-pairing/local`, which is injected as a `redeem` port. That keeps the
+  cryptographic/OS policy out of the transport (the issue is explicit about this) and keeps `node:fs` out of
+  this package.
+
+  **Why both edges of the step are load-bearing.** The handshake binds the CHANNEL — after it, the channel
+  provably terminates at the peer that knew the secret — and says nothing about where that peer runs. The
+  guarded rendezvous binds the ENVIRONMENT and says nothing about which channel that peer later opens.
+  Presenting the nonce OVER the already-bound channel joins them. Earlier than that and the nonce would be
+  handed to an unproven counterpart; later than that and a peer would already be talking to the session, where
+  refusing it is not refusing it.
+
+  Every non-admitted path closes the channel: a refused nonce, a frame that is not a proof frame, and a ledger
+  that throws. "Not reached" is not "allowed", and a gate that merely ignored a bad frame would park with the
+  channel open — a hang, which is fail-open wearing a stall's clothes. The consumer is notified on refusals as
+  well as admissions, because "no local peer connected" and "a local peer was refused" call for different
+  operator responses. The result carries an explicit trust level rather than a boolean.
+
+  Absent `localPeer`, behaviour is exactly as before — a remote peer has no rendezvous to have reached, and
+  demanding one unconditionally would refuse every legitimate remote session.
+
 ## Architecture Overview
 
 `WebRtcTransport` preserves `IConfigurableTransport<IInteractiveSession>` for declaration compatibility
@@ -76,12 +100,15 @@ reserved for E4). Without `reconnect`, the gate is exactly the B4 first-pair-onl
 
 ## Type Ownership
 
-| Type                                 | Location                  | Purpose                                                                                                                     |
-| ------------------------------------ | ------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `IWebRtcTransportOptions`            | `src/webrtc-transport.ts` | Construction options (injected signaling, optional ICE servers, pairing `secret` OR `open`+`openReason` — one is required). |
-| `ISignalingClient`, `ISignalMessage` | `src/signaling.ts`        | Signaling port + opaque SDP/ICE message envelope.                                                                           |
-| `IWeriftModule`, `TModuleResolver`   | `src/werift-loader.ts`    | Lazy-loaded werift surface + injectable resolver seam.                                                                      |
-| `PairingGate`, `IPairingGateOptions` | `src/pairing-gate.ts`     | REMOTE-008 fail-closed routing switch (pairing frames → handshake; session only post-accept).                               |
+| Type                                        | Location                          | Purpose                                                                                                                     |
+| ------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `IWebRtcTransportOptions`, `IIceServer`     | `src/webrtc-transport-options.ts` | Construction options (injected signaling, optional ICE servers, pairing `secret` OR `open`+`openReason` — one is required). |
+| `ISignalingClient`, `ISignalMessage`        | `src/signaling.ts`                | Signaling port + opaque SDP/ICE message envelope.                                                                           |
+| `IWeriftModule`, `TModuleResolver`          | `src/werift-loader.ts`            | Lazy-loaded werift surface + injectable resolver seam.                                                                      |
+| `PairingGate`, `IPairingGateOptions`        | `src/pairing-gate.ts`             | REMOTE-008 fail-closed routing switch (pairing frames → handshake; session only post-accept).                               |
+| `ILocalPeerProof`, `ILocalProofFrame`       | `src/local-peer-proof.ts`         | SEC-010 local-peer proof port + the frame that carries the rendezvous nonce. The judge and predicate stay internal.         |
+| `IAttachSessionOptions`, `IAttachedSession` | `src/session-attachment.ts`       | How an admitted channel is wired to the session (bridge or handler).                                                        |
+| `IControllerContext`                        | `src/pairing-controllers.ts`      | What the first-pair and reconnect controllers need to talk on the channel.                                                  |
 
 `TClientMessage`/`TServerMessage`/`IWsHandlerOptions` are re-consumed from `@robota-sdk/agent-transport-protocol`
 (their SSOT) — this package does not re-declare them.
@@ -99,6 +126,9 @@ reserved for E4). Without `reconnect`, the gate is exactly the B4 first-pair-onl
 | `IWsSignalingClientOptions`   | type     | `WsSignalingClient` options (url, rendezvous, onError, onReady, socket factory).                         |
 | `IWebSocketLike`              | type     | Minimal socket surface `WsSignalingClient` needs (injectable in tests).                                  |
 | `ISignalingClient`            | type     | Signaling port (send/onSignal/close by rendezvous).                                                      |
+| `ILocalPeerProof`             | type     | SEC-010 local-peer proof port the gate consumes: `redeem` plus an admission observer.                    |
+| `ILocalProofFrame`            | type     | The frame a local peer presents to show it reached the guarded rendezvous.                               |
+| `localProofFrame`             | function | Build that frame. Beside the judge that reads it, so a sender cannot drift from the shape checked.       |
 | `ISignalMessage`              | type     | Opaque SDP/ICE envelope.                                                                                 |
 | `TSignalKind`                 | type     | `'offer' \| 'answer' \| 'ice'`.                                                                          |
 | `loadWerift`                  | function | Lazy-load the optional `werift` peer dep (throws on absence).                                            |
@@ -160,8 +190,9 @@ None.
 
 ### Cross-Package Port Consumers
 
-| Owner                                                                   | Consumer                         | Location                                         |
-| ----------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------ |
-| `agent-interface-transport` `IConfigurableTransport`                    | `WebRtcTransport`                | `src/webrtc-transport.ts`                        |
-| `agent-transport-protocol` `createWsHandler`                            | `WebRtcTransport`, `PairingGate` | `src/webrtc-transport.ts`, `src/pairing-gate.ts` |
-| `agent-remote-pairing` `startPairingHandshake`/`extractDtlsFingerprint` | `PairingGate`, `WebRtcTransport` | `src/pairing-gate.ts`, `src/webrtc-transport.ts` |
+| Owner                                                               | Consumer                           | Location                                               |
+| ------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------ |
+| `agent-interface-transport` `IConfigurableTransport`                | `WebRtcTransport`                  | `src/webrtc-transport.ts`                              |
+| `agent-transport-protocol` `createWsHandler`                        | `WebRtcTransport`, `attachSession` | `src/webrtc-transport.ts`, `src/session-attachment.ts` |
+| `agent-remote-pairing` `startPairingHandshake`/`startHostReconnect` | the pairing controllers            | `src/pairing-controllers.ts`                           |
+| `agent-remote-pairing` `extractDtlsFingerprint`                     | `WebRtcTransport`                  | `src/webrtc-transport.ts`                              |

@@ -88,3 +88,19 @@ export interface IExecutionResult {
   usage?: IUsageSnapshot;
   promptFileReferences?: IPromptFileReferenceRecord[];
 }
+
+/**
+ * Origin of a turn — a human prompt, an agent-wakeup re-entry (FLOW-002), or another session's
+ * message (PEER-002, #1809).
+ *
+ * `'peer'` is a MEMBER rather than something a caller encodes into the prompt text, because #1809
+ * requires a peer message to reach the runtime with EXPLICIT origin: an agent answering a peer must
+ * be able to tell that it is answering a peer rather than its own operator, and prose inside the
+ * input is not something code can branch on. WHICH peer it was travels in `driverId`, which stays
+ * display attribution and never becomes an authorization input.
+ *
+ * Declared here rather than in `session-contracts.ts`, where it used to live: that file is at its
+ * size ratchet and the rule is to split rather than extend, and turn origin belongs to turn identity
+ * — the same reasoning that created this file.
+ */
+export type TTurnSource = 'user' | 'agent-wakeup' | 'peer';

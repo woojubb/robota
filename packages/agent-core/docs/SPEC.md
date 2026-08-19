@@ -175,24 +175,6 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 
 ## Public API Surface
 
-| Export                                 | Kind     | Description                                                                                                                                                                             |
-| -------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DEFAULT_BACKGROUND_PERMISSION_POLICY` | const    | ARCH-031: the one definition of the policy a spawn site states when it has no reason to choose another. Replaced two independent `?? 'inherit-allowlist'` fallbacks in two packages     |
-| `clearRegisteredToolProfiles`          | function | Clears the tool permission-profile registry. For tests and for hosts that rebuild a registry                                                                                            |
-| `getToolPermissionProfile`             | function | What a tool's owner has declared about it, or an empty profile when nobody has said                                                                                                     |
-| `resolveModelCapabilities`             | function | PROV-008: the capability set that applies to a model — its verified deviation if it has one, otherwise the vendor default. A miss is never a negative                                   |
-| `closeObjectSchemas`                   | function | PROV-007: closes every object node in the universal subset for providers that reject open-world objects, optionally completing `required` for OpenAI strict mode. One recursion, shared |
-| `modelDeclaresCapability`              | function | PROV-006: whether a model declares a capability. `undefined` when the catalog has said nothing, which is NOT `false` — silence is not a denial                                          |
-| `resolveModelCapability`               | function | PROV-006: the same question with the caller's assumption for silence stated at the call site, so an unstated assumption cannot hide there                                               |
-| `IProviderStructuredOutputCapability`  | type     | CORE-043: which transport can carry a schema to a model (`mechanism`) and how sure that answer is (`provenance`) — two axes, because only the first changes the request                 |
-| `TStructuredOutputMechanism`           | type     | CORE-043: `response_schema` \| `json_object` \| `none` — WHICH transport carries the schema                                                                                             |
-| `TStructuredOutputProvenance`          | type     | CORE-043: `catalog` \| `vendor-default` \| `undeclared` \| `unverified-endpoint` — WHERE the mechanism answer came from                                                                 |
-
-<!-- The rows below live under `###` subheadings. `check-spec-public-surface.mjs` stops counting at the
-     first non-"Public API" heading, so it reads none of them — which is why this package's undocumented
-     baseline is ~147 phantom entries. Filed as issue #1765; this table exists so a genuinely new export
-     is visible to the scan rather than hidden behind that parser defect. -->
-
 ### Core
 
 | Export                                  | Kind           | Description                                                                                                                                                                                                                                             |
@@ -291,11 +273,13 @@ mode) instead of continuing to the allow list.
 | Export                          | Kind     | Description                                                                                                                              |
 | ------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `registerToolPermissionProfile` | function | Declare what the permission system should do with a tool: which argument its patterns are scoped to, and what kind of action it performs |
+| `clearRegisteredToolProfiles`   | function | Clears the tool permission-profile registry. For tests and for hosts that rebuild a registry                                             |
+| `getToolPermissionProfile`      | function | What a tool's owner has declared about it, or an empty profile when nobody has said                                                      |
 
-`clearRegisteredToolProfiles` is public as of ARCH-031 — see its row in the Public API Surface
-table above. It was in-package until the permissions block collapsed to `export *`; the rationale for
-it (tests, and a host rebuilding a registry) is unchanged, but it is now on the barrel and therefore
-part of the contract, so a consumer may rely on it.
+`clearRegisteredToolProfiles` is public as of ARCH-031, and its row is in the table above. It was
+in-package until the permissions block collapsed to `export *`; the rationale for it (tests, and a
+host rebuilding a registry) is unchanged, but it is now on the barrel and therefore part of the
+contract, so a consumer may rely on it.
 
 ### Model Metadata Registry Public API (NEUT-010)
 
@@ -357,18 +341,29 @@ is how the third one survived a fix to the first two.
 
 ### Schema (CORE-015)
 
-| Export                                                                                                    | Kind     | Description                                                                                                               |
-| --------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `zodToJsonSchema`                                                                                         | function | Zod → universal JSON-schema subset conversion (SSOT; moved from the tools package, which now imports it from core)        |
-| `extractEnumValues`                                                                                       | function | Safe Zod enum value extraction                                                                                            |
-| `hasValidationConstraints`                                                                                | function | Whether a Zod schema carries validation checks                                                                            |
-| `getSchemaTypeName`                                                                                       | function | Safe Zod type-name extraction                                                                                             |
-| `IZodSchema` / `IZodSchemaDef` / `IZodParseResult` / `ISchemaConversionOptions`                           | types    | Structural Zod compatibility types (no hard Zod version coupling in signatures)                                           |
-| `IParameterSchema` / `IObjectParameterSchema`                                                             | types    | The universal JSON-schema subset, and its object-root narrowing — see § Universal JSON-Schema Subset (CORE-039)           |
-| `normalizeStructuredOutput`                                                                               | function | Normalize `IRunOptions.output` (Zod schema or `IJsonSchemaOutput`) into `IStructuredOutputSpec`                           |
-| `validateAgainstJsonSchema`                                                                               | function | Structural validation of a value against the universal JSON-schema subset                                                 |
-| `parseStructuredResponseText`                                                                             | function | Parse a model's final text into JSON (tolerates one fenced json code block; value is still strictly validated afterwards) |
-| `IJsonSchemaOutput` / `IStructuredOutputSpec` / `TStructuredOutputSchema` / `TStructuredOutputValidation` | types    | Structured output contract types                                                                                          |
+| Export                                                                                                    | Kind     | Description                                                                                                                                                                                                                                 |
+| --------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `zodToJsonSchema`                                                                                         | function | Zod → universal JSON-schema subset conversion (SSOT; moved from the tools package, which now imports it from core)                                                                                                                          |
+| `extractEnumValues`                                                                                       | function | Safe Zod enum value extraction                                                                                                                                                                                                              |
+| `hasValidationConstraints`                                                                                | function | Whether a Zod schema carries validation checks                                                                                                                                                                                              |
+| `getSchemaTypeName`                                                                                       | function | Safe Zod type-name extraction                                                                                                                                                                                                               |
+| `IZodSchema` / `IZodSchemaDef` / `IZodParseResult` / `ISchemaConversionOptions`                           | types    | Structural Zod compatibility types (no hard Zod version coupling in signatures)                                                                                                                                                             |
+| `IParameterSchema` / `IObjectParameterSchema`                                                             | types    | The universal JSON-schema subset, and its object-root narrowing — see § Universal JSON-Schema Subset (CORE-039)                                                                                                                             |
+| `normalizeStructuredOutput`                                                                               | function | Normalize `IRunOptions.output` (Zod schema or `IJsonSchemaOutput`) into `IStructuredOutputSpec`                                                                                                                                             |
+| `validateAgainstJsonSchema`                                                                               | function | Structural validation of a value against the universal JSON-schema subset                                                                                                                                                                   |
+| `parseStructuredResponseText`                                                                             | function | Parse a model's final text into JSON (tolerates one fenced json code block; value is still strictly validated afterwards)                                                                                                                   |
+| `IJsonSchemaOutput` / `IStructuredOutputSpec` / `TStructuredOutputSchema` / `TStructuredOutputValidation` | types    | Structured output contract types                                                                                                                                                                                                            |
+| `resolveStructuredOutputCapability`                                                                       | function | CORE-048: which transport can carry a schema to a `(provider, model)` pair, and how sure that answer is. Produces the already-public `TStructuredOutputMechanism` / `TStructuredOutputProvenance`; lets a caller ask BEFORE spending a call |
+| `closeObjectSchemas`                                                                                      | function | PROV-007: closes every object node in the universal subset for providers that reject open-world objects, optionally completing `required` for OpenAI strict mode. One recursion, shared                                                     |
+
+### Errors
+
+The full class list, with `code` / `category` / `recoverable` for each, is the § Error Taxonomy
+table. Documented here are the ones a caller is expected to branch on by type.
+
+| Export                   | Kind  | Description                                                                                                                                                                                 |
+| ------------------------ | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SameToolInputLoopError` | class | CORE-035: the identical-tool-input loop guard tripped — the turn FAILED (the agent gave up), it was not aborted. Carries `toolName`, `callCount`, `maxSameToolInputs`. See § Error Taxonomy |
 
 ### Tools
 
@@ -400,20 +395,21 @@ renderer is attached; a tool treats absence as "no human available" (never a sil
 
 ### Permissions
 
-| Export                       | Kind     | Description                                                                                                                                               |
-| ---------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `evaluatePermission`         | function | 4-step deterministic policy: deny list, UNEVALUABLE deny, allow list, mode                                                                                |
-| `resolvePermissionByPolicy`  | function | CORE-025: resolve a background/subagent `TBackgroundPermissionPolicy` (+ task/parent allow-deny) to `allow`/`deny`/`prompt`, pre-empting the session mode |
-| `RISK_CLASS_POLICY`          | const    | Permission mode → risk class → decision. Names no product tool (CORE-030)                                                                                 |
-| `TRUST_TO_MODE`              | const    | Maps TTrustLevel to TPermissionMode                                                                                                                       |
-| `UNCLASSIFIED_TOOL_FALLBACK` | const    | Fallback per mode for a tool whose owner declared no risk class — prompts, and refuses in plan                                                            |
-| `TPermissionMode`            | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'`                                                                                             |
-| `TTrustLevel`                | type     | `'safe' \| 'moderate' \| 'full'`                                                                                                                          |
-| `TPermissionDecision`        | type     | `'auto' \| 'approve' \| 'deny'`                                                                                                                           |
-| `TToolArgs`                  | type     | Tool arguments record for permission matching                                                                                                             |
-| `IPermissionLists`           | type     | Allow/deny pattern lists                                                                                                                                  |
-| `TToolRiskClass`             | type     | `inspect` \| `modify` \| `execute`                                                                                                                        |
-| `IToolPermissionProfile`     | type     | What a tool's owner declares: `argumentKey` and `riskClass`                                                                                               |
+| Export                                 | Kind     | Description                                                                                                                                                                         |
+| -------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `evaluatePermission`                   | function | 4-step deterministic policy: deny list, UNEVALUABLE deny, allow list, mode                                                                                                          |
+| `resolvePermissionByPolicy`            | function | CORE-025: resolve a background/subagent `TBackgroundPermissionPolicy` (+ task/parent allow-deny) to `allow`/`deny`/`prompt`, pre-empting the session mode                           |
+| `RISK_CLASS_POLICY`                    | const    | Permission mode → risk class → decision. Names no product tool (CORE-030)                                                                                                           |
+| `TRUST_TO_MODE`                        | const    | Maps TTrustLevel to TPermissionMode                                                                                                                                                 |
+| `UNCLASSIFIED_TOOL_FALLBACK`           | const    | Fallback per mode for a tool whose owner declared no risk class — prompts, and refuses in plan                                                                                      |
+| `TPermissionMode`                      | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'`                                                                                                                       |
+| `TTrustLevel`                          | type     | `'safe' \| 'moderate' \| 'full'`                                                                                                                                                    |
+| `TPermissionDecision`                  | type     | `'auto' \| 'approve' \| 'deny'`                                                                                                                                                     |
+| `TToolArgs`                            | type     | Tool arguments record for permission matching                                                                                                                                       |
+| `IPermissionLists`                     | type     | Allow/deny pattern lists                                                                                                                                                            |
+| `TToolRiskClass`                       | type     | `inspect` \| `modify` \| `execute`                                                                                                                                                  |
+| `IToolPermissionProfile`               | type     | What a tool's owner declares: `argumentKey` and `riskClass`                                                                                                                         |
+| `DEFAULT_BACKGROUND_PERMISSION_POLICY` | const    | ARCH-031: the one definition of the policy a spawn site states when it has no reason to choose another. Replaced two independent `?? 'inherit-allowlist'` fallbacks in two packages |
 
 ### Environment Reference Utilities
 
@@ -526,11 +522,24 @@ framework→provider seam, `execution-round-provider.ts` defaults it to `'high'`
 providers map it to their request parameter; providers without a native effort concept ignore it as a
 documented no-op. Core must not branch on provider names to apply effort.
 
-`setModel` requires the agent to be fully initialized (providers registered + current provider set),
-which otherwise happens lazily on the first `run()`. `Robota.ensureReady()` performs that
-initialization without running a turn (idempotent), so callers that mutate runtime configuration
-before the first turn — e.g. live preset/model switching on a fresh interactive session — call
-`ensureReady()` first instead of hitting the "must be fully initialized" guard.
+**The model-configuration API answers from construction (CORE-047).** `getModel`, `setModel` and
+`swapDefaultProvider` work on a freshly built agent, before any turn and without `ensureReady()`. The
+state they read — the provider registry and the current `(provider, model)` pair — is established by
+the CONSTRUCTOR (`applyConstructedModelConfig`), because both steps are synchronous and derived
+entirely from the config `validateAgentConfig` has just accepted. They previously lived in the async
+initializer, next to work that genuinely is async, and the cost was a readiness guard that made you
+ask the model a question before you could ask which model you were using.
+
+`performAsyncInitialization` must not repeat those two steps: doing so would revert a `setModel()`
+made before the first run back to `config.defaultModel` when the run initializes.
+
+A **destroyed** agent still refuses, and the refusal comes from the provider manager's own disposal
+check — `"AIProviders was disposed"`, not `"must be fully initialized"`. Reporting teardown as
+missing initialization is what sent CORE-045's investigation looking for an await that did not exist.
+
+`Robota.ensureReady()` remains the public, idempotent way to complete the genuinely asynchronous half
+(modules, plugins, the execution service) without running a turn. It is no longer a precondition for
+reading or changing the model.
 
 ### Provider-Native Replay Payloads
 
@@ -591,6 +600,15 @@ Provider-native web tools are not the same as Robota local function tools:
 - `IAIProvider.configureNativeWebTools()` is an optional provider hook for session/runtime assembly. Session layers may call it to enable provider-owned native web tools without importing concrete provider classes or checking provider names.
 
 Robota local `WebSearch` and `WebFetch` tools remain ordinary function tools owned by the tools layer; they are advertised through tool schemas and do not make `nativeWebTools` supported.
+
+| Export                                | Kind     | Description                                                                                                                                                             |
+| ------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resolveModelCapabilities`            | function | PROV-008: the capability set that applies to a model — its verified deviation if it has one, otherwise the vendor default. A miss is never a negative                   |
+| `modelDeclaresCapability`             | function | PROV-006: whether a model declares a capability. `undefined` when the catalog has said nothing, which is NOT `false` — silence is not a denial                          |
+| `resolveModelCapability`              | function | PROV-006: the same question with the caller's assumption for silence stated at the call site, so an unstated assumption cannot hide there                               |
+| `IProviderStructuredOutputCapability` | type     | CORE-043: which transport can carry a schema to a model (`mechanism`) and how sure that answer is (`provenance`) — two axes, because only the first changes the request |
+| `TStructuredOutputMechanism`          | type     | CORE-043: `response_schema` \| `json_object` \| `none` — WHICH transport carries the schema                                                                             |
+| `TStructuredOutputProvenance`         | type     | CORE-043: `catalog` \| `vendor-default` \| `undeclared` \| `unverified-endpoint` — WHERE the mechanism answer came from                                                 |
 
 ### Context Window Tracking
 
@@ -863,18 +881,18 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 | `IRunOptions`                | `outputRetries?: number`                     | CORE-015: validation-retry budget after the first attempt (default 2); only meaningful with `output`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `IRunOptions`                | `onExecutionEvent?: TExecutionEventCallback` | Per-run replay event callback for provider/tool boundaries                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `IRunOptions`                | `maxExecutionRounds?: number`                | Maximum model/tool rounds for one run. `0` means unlimited.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `IRunOptions`                | `maxSameToolInputs?: number`                 | Abort if the same tool is called with identical inputs N or more times in one run.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `IRunOptions`                | `maxSameToolInputs?: number`                 | The MAXIMUM number of identical calls to one tool allowed in a run; the next one fails the turn (CORE-035).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `IChatOptions`               | `signal?: AbortSignal`                       | Passed to provider `chat()` / `chatStream()` for cancelling calls                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `IChatOptions`               | `responseFormat` `json_schema` variant       | CORE-015: `{ type: 'json_schema', name?, schema }` carries the structured-output schema to provider native surfaces                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `IAgentConfig`               | `timeout?: number`                           | Provider idle timeout in milliseconds for a model call                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `IAgentConfig`               | `retainHistory?: boolean`                    | CORE-014: default `true` (history accumulates; full history sent every call). `false` = run-isolated mode: the conversation store resets after every run settles (success/abort/error), system prompt re-applies next run (CORE-010); pre-run injected context is visible to that run only                                                                                                                                                                                                                                                                                                                                                   |
 | `IAgentConfig`               | `maxExecutionRounds?: number`                | Default maximum model/tool rounds for each run. `0` means unlimited.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `IAgentConfig`               | `maxSameToolInputs?: number`                 | Config-level default for the identical-tool-input abort threshold.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `IAgentConfig`               | `maxSameToolInputs?: number`                 | Config-level default for the identical-tool-input loop guard.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `IExecutionContext`          | `signal?: AbortSignal`                       | Threaded through the execution context for round-level checks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback`           | Run-scoped callback used before provider-level callback fallback                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `IExecutionContext`          | `onExecutionEvent?: TExecutionEventCallback` | Internal replay event callback forwarded to provider/tool rounds                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `IExecutionContext`          | `maxExecutionRounds?: number`                | Run-scoped override for execution round limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `IExecutionContext`          | `maxSameToolInputs?: number`                 | Run-scoped override for the identical-tool-input abort threshold.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `IExecutionContext`          | `maxSameToolInputs?: number`                 | Run-scoped override for the identical-tool-input loop guard.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `ICoreExecutionResult`       | `interrupted?: boolean`                      | Indicates the execution was aborted before natural completion                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `ICoreExecutionResult`       | `success` / `error` on provider failure      | A round ending in a provider failure records the error as an assistant message with `providerError` metadata; `buildFinalResult` must mark that result `success: false` with `error` set (never a successful response), so `robotaRun`'s failed-result throw surfaces it to transports. CORE-027: `error` is the ORIGINAL thrown value, carried out of the round by identity (`IExecutionRoundState.providerFailure`) — class, `code`, `category`, `recoverable`, stack and `cause` survive; a reconstruction from the `Request failed:` display prose is permitted only for a restored store whose failure round predates the carried value |
 | `ICoreExecutionResult`       | `error` REQUIRED on every failed result      | CORE-020: every `success: false` result carries `error: Error`, and `response` never carries error text (no `"Error: ..."` injection) — a failure must reach `run()` callers as a rejection, never as a normal-looking response string. `robotaRun` throws `result.error` for any non-interrupted failed result                                                                                                                                                                                                                                                                                                                              |
@@ -899,6 +917,29 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 | `history_mutation`             | A chat message is appended to canonical history | executionId, conversationId, mutation, index, message                                                                                                                                                                                                                                                                                                         |
 
 `provider_response_raw.responseKind` is `provider-normalized-message` until provider packages add provider-owned SDK-payload capture hooks. This keeps replay validation deterministic without making core depend on concrete provider SDK response types.
+
+**The families are emitted on the ABNORMAL paths too (CORE-033), and history stays append-only.** The
+invariant a consumer relies on is that replaying every `history_mutation` append, in order,
+reconstructs the conversation the turn produced. Three engine sites appended without announcing it,
+so the reconstruction diverged at exactly the moments a reader goes to the log:
+
+- **The forced-summary call at the round cap** now emits `provider_request` (with
+  `forcedSummary: true`, and the ASSEMBLED messages — see below), then `assistant_message_committed`
+  and `history_mutation` for the summary it commits. Without them, the last thing the user reads was
+  absent from every replay, and the call that produced it was invisible.
+- **The hard-capacity block** emits `history_mutation` for its diagnostic. That message is the only
+  explanation of why the turn stopped.
+- **A provider failure** emits `history_mutation` for the `Request failed: …` record it appends.
+
+The forced-summary call's synthetic round-limit instruction is a per-call prompt artifact and is
+**never written to the conversation store** — it exists only in the outgoing array, the same shape
+`applyStructuredOutputTransport` uses for a schema instruction. It previously was appended, sent, and
+then removed with `clear()` + re-add: a non-append rewrite of an append-only history that no event in
+this vocabulary can describe. `mutation` therefore has no removal member, and needs none.
+
+`history_mutation` announces the message read back OUT of the store, not the one the caller intended
+to append — an event built from the caller's intent could disagree with what the store holds, which
+is the class of divergence this contract exists to prevent.
 
 ### Signal Propagation
 
@@ -958,9 +999,9 @@ no separate nested form. Splitting the two is what let a nested object be emitte
 ### Zod construct coverage
 
 `zodToJsonSchema` supports: `ZodString`, `ZodNumber`, `ZodBoolean`, `ZodArray`, `ZodObject`,
-`ZodEnum`, `ZodLiteral`, `ZodUnion`, `ZodDiscriminatedUnion`, `ZodRecord`, `ZodOptional`,
-`ZodNullable`, `ZodDefault`, and `ZodEffects` (`.refine()` / `.transform()`, unwrapped at the root
-and at every nested level).
+`ZodEnum`, `ZodNativeEnum`, `ZodDate`, `ZodLiteral`, `ZodUnion`, `ZodDiscriminatedUnion`,
+`ZodRecord`, `ZodOptional`, `ZodNullable`, `ZodDefault`, and `ZodEffects` (`.refine()` /
+`.transform()`, unwrapped at the root and at every nested level).
 
 - `ZodUnion` / `ZodDiscriminatedUnion` → `anyOf`.
 - `ZodLiteral` → a single-value `enum` of the literal's own primitive type; `z.literal(null)` →
@@ -970,14 +1011,36 @@ and at every nested level).
   enforced it becomes a rejection of a payload the author's own Zod schema accepts.
 - `ZodOptional` / `ZodDefault` are transparent — optionality is carried by the enclosing object's
   `required` list, not by the property's own shape.
+- `ZodNativeEnum` → an `enum` of the enum's VALUES (CORE-041). A numeric TypeScript enum compiles
+  with a reverse mapping, so `Object.values` also yields the member NAMES; emitting those would
+  advertise `"Low"` as acceptable for a field that accepts `0`. When any numeric value is present,
+  the numeric half is the value set and the node is `type: 'number'`.
+- `ZodDate` → `{ type: 'string', format: 'date-time' }` (CORE-041). JSON has no date type, so a
+  string is what a provider receives either way — this is the faithful description of the payload,
+  not a lossy stand-in.
 
 A wrapper chain deeper than 64 levels is refused rather than followed. Real Zod never builds one,
 but `IZodSchema` is a structural stand-in at an exported boundary, so a hand-built cycle is
 reachable and hanging is not an acceptable answer to it.
 
-Anything else throws `Unsupported Zod type: <name>` at conversion — the limit is declared here
-rather than discovered at tool-construction time. `ZodTuple`, `ZodDate`, `ZodIntersection`,
-`ZodLazy` and `ZodNativeEnum` are the known remainder (CORE-041).
+**The remainder, and why it is a boundary rather than a backlog (CORE-041).** `ZodTuple`,
+`ZodIntersection` and `ZodLazy` throw at conversion. They are not "not done yet": a tuple needs
+POSITIONAL `items`, which this subset models as one schema; an intersection needs `allOf`; recursion
+needs `$ref`. None of the three exists in `IParameterSchema`, and none would survive the
+field-enumerated provider mappers if it did.
+
+That is also the answer to whether adopting `zod-to-json-schema` dissolves this, which CORE-039
+deferred and this item was told to re-run. It does not. The library emits exactly the constructs the
+mappers drop, so adopting it relocates the same decision into a normalizing pass and adds a
+dependency; the difficulty was never PARSING Zod, it is that the target language cannot say these
+things.
+
+Mapping them lossily is worse than throwing. A tuple flattened to `array of anyOf[...]` would tell
+the model that any order and any length are acceptable — a contract the author did not write.
+
+The error names the construct, states why the subset cannot carry it, and names a Zod expression to
+write instead, so the boundary is PUBLISHED rather than discovered. The default branch keeps working
+for a construct nobody has named yet.
 
 Zod's three unknown-key modes map distinctly, which they previously did not: `.passthrough()` and
 the default `strip` both emit `additionalProperties: true`, and `.strict()` emits `false`. `strip`
@@ -1020,6 +1083,28 @@ from the final `{ done: true, value }` iterator result).
   (`json_schema` / `json_object` / `omitted`), and whether the schema went into the prompt. It
   reports what the request DID, not what a catalog says; `provenance: 'unverified-endpoint'` marks a
   provider pointed at a custom `baseURL`, where the vendor's guarantees may not be the ones in force.
+  **The report is scoped to what CORE supplied.** `@robota-sdk/agent-provider-openai` publishes
+  `responseFormat` / `jsonSchema` as CONSTRUCTION-time options and merges them with the per-call ones
+  (`mergeChatResponseFormat`). A per-call value wins, so a request core shaped is reported correctly.
+  The gap is the turn core does not shape at all: a run WITHOUT `output` resolves no transport and
+  emits no `structured_output_transport` event, yet a provider constructed with
+  `responseFormat: 'json_schema'` still puts `response_format` on the wire — shaped by a channel no
+  core seam observes and no core event reports. Read this event as "what the core turn path put on
+  the request", not "everything the request carried". Closing the gap needs the boundary rule
+  PROV-009 owns.
+- **`resolveStructuredOutputCapability` is exported (CORE-048).** It produces the two public types
+  above, which were reachable while the function that yields them was not — a caller could name the
+  answer but not obtain it. Exporting it also lets a consumer ask, before spending a call, what will
+  happen to their schema against a given `(provider, model)` pair.
+- **`tool_strict` is still not a mechanism, and now for a measured reason (CORE-048).** A forced call
+  to a synthetic tool whose parameters ARE the schema is a real transport, but only for a pair that
+  BOTH lacks a schema parameter AND has enforceable strict tool arguments. Across this workspace that
+  intersection is empty: `strictTools` exists only in `@robota-sdk/agent-provider-openai`, which
+  already resolves to `response_schema`; the providers that lack a schema parameter (`deepseek` →
+  `json_object`, `qwen` → `none`) have no strict-tool support to carry it. A union member nothing
+  produces is a branch every consumer must handle and no test can reach.
+  `packages/agent-provider-defaults/src/forced-tool-transport-applicability.test.ts` fails if a
+  provider ever qualifies, and records the questions that must be answered first.
 - **Endpoint provenance is a separate answer from the capability table.** `IAIProvider` carries
   `endpointIsVendorDefault?()` alongside `capabilityTable?()` rather than a field inside it, because
   the two are independent facts: `@robota-sdk/agent-provider-openai` declares no table by choice
@@ -1235,6 +1320,7 @@ All errors extend `RobotaError` with `code`, `category`, and `recoverable` prope
 | `PluginError`             | `PLUGIN_ERROR`         | system   | no          |
 | `StorageError`            | `STORAGE_ERROR`        | system   | yes         |
 | `UnsupportedShellError`   | `UNSUPPORTED_SHELL`    | user     | no          |
+| `SameToolInputLoopError`  | `SAME_TOOL_INPUT_LOOP` | system   | yes         |
 
 `ErrorUtils` provides `isRecoverable()`, `getErrorCode()`, `fromUnknown()`, and `wrapProviderError()`.
 
@@ -1242,7 +1328,9 @@ All errors extend `RobotaError` with `code`, `category`, and `recoverable` prope
 
 The default core execution round limit is 10 model/tool rounds. Callers can override it with `IRunOptions.maxExecutionRounds`, `IExecutionContext.maxExecutionRounds`, or `IAgentConfig.maxExecutionRounds`. Run-scoped values win over config defaults. A value of `0` means the execution loop has no round cap and relies on abort, context-window checks, provider idle timeout, and runtime-level controls to stop runaway execution.
 
-**Identical tool-input guard (`maxSameToolInputs`)**: If the same tool is invoked with byte-identical serialized inputs `N` or more times within a single run, the execution loop throws `AbortError` with message `"Tool '<name>' called with the same inputs <N> times. Aborting to prevent infinite loop."`. The threshold is resolved from (in priority order) `IExecutionContext.maxSameToolInputs`, `IRunOptions.maxSameToolInputs`, `IAgentConfig.maxSameToolInputs`. When undefined, the guard is disabled. Introduced in CORE-001.
+**Identical tool-input guard (`maxSameToolInputs`)**: `N` is the MAXIMUM number of byte-identical serialized invocations of one tool allowed within a single run. The Nth is permitted; the **N+1th** throws `SameToolInputLoopError` (`code: 'SAME_TOOL_INPUT_LOOP'`, `category: 'system'`, `recoverable: true`), carrying `toolName`, `callCount` and `maxSameToolInputs`. The threshold is resolved from (in priority order) `IExecutionContext.maxSameToolInputs`, `IRunOptions.maxSameToolInputs`, `IAgentConfig.maxSameToolInputs`. When undefined, the guard is disabled. Introduced in CORE-001.
+
+The guard trip is a **failed run, not an abort** (CORE-035). This SPEC previously documented an `AbortError` thrown at the Nth call, and the type was behavioral, not cosmetic: `isAbortFailure` resolves an `AbortError` as `success: true, interrupted: true`, so a run that detected a pathological loop and produced no answer would have been reported as a success. `AbortError` means the CALLER asked the turn to stop, and here nobody did — the agent gave up. The error is nevertheless named rather than a bare `Error`, which is what naming a type in this SPEC was reaching for: a caller must be able to tell "the agent looped" from "the network died", and CORE-027 carries `code` / `category` / `recoverable` out to them intact.
 
 When the execution loop ends without a final assistant text message (e.g., due to max round limit or context overflow during tool execution):
 

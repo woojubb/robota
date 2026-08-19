@@ -36,3 +36,53 @@ export {
   mintTransportToken,
   resolveAdmission,
 } from './admission.js';
+
+// PEER-001 (#1809): the receiver's record of what it has already taken responsibility for. Lives
+// here rather than in a carrier because duplicate, retry and gap are questions about what was SEEN
+// BEFORE, and no socket or frame codec has the memory to answer them.
+export {
+  acknowledgePeerMessage,
+  admitPeerMessage,
+  createPeerMessageLedger,
+  forgetPeerOrigin,
+} from './peer-message-ledger.js';
+export type {
+  IPeerMessageLedger,
+  IPeerMessageRejection,
+  IPeerMessageVerdict,
+} from './peer-message-ledger.js';
+
+// HANDOFF-001 (#1811): the ownership transaction. Every failure lands in the same place — the source
+// keeps authority — because it only ever gives it up on evidence it holds.
+export {
+  advanceHandoff,
+  beginHandoff,
+  commitHandoff,
+  handoffOutcome,
+  sourceStillOwns,
+} from './handoff-ownership.js';
+export type { ICommitResult, IHandoffTransaction, ITransitionResult } from './handoff-ownership.js';
+export {
+  buildHandoffManifest,
+  sealHandoffRecord,
+  verifyHandoffPayload,
+} from './handoff-manifest.js';
+export {
+  chunkCountFor,
+  chunkHandoffPayload,
+  DEFAULT_MAX_CHUNK_BYTES,
+  HandoffChunkAssembler,
+} from './handoff-chunking.js';
+export type {
+  IChunkResult,
+  IHandoffChunk,
+  TChunkOutcome,
+  TChunkRejection,
+} from './handoff-chunking.js';
+export type {
+  IBuildManifestInput,
+  IIntegrityVerdict,
+  ISourceRuntimeState,
+  TIntegrityFailure,
+  TManifestResult,
+} from './handoff-manifest.js';

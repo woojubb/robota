@@ -26,7 +26,7 @@ This package does NOT own: provider implementations, generic session run loop, t
 - Self-hosting verification: `planSelfHostingVerification()`, `transitionSelfHostingLoop()`
 - Evals-as-code (SELFHOST-011): the neutral eval-definition/runner surface — `defineEval()`, `runEval(def, runFn)`, and the default `createSessionRunFn(runtime)` (captures a session's `complete`-event `IExecutionResult`). A metric is a pure function over the SSOT `IExecutionResult` (`IMetric`; P3: `score(result, evalCase?)` threads the case so a per-case metric can read `evalCase.expected`); concrete metrics/datasets are consumer-supplied — NO eval content ships here. P3 adds **mechanism-only** helpers: metric factories `exactMatch`/`includesText`/`regexMatch`/`responseIsJson`/`usedTool`, the pure `parseEvalCases(text, format)` dataset parser, and the shared `formatEvalReport(report)` (the CLI adopts it).
 - Background job orchestration: `BackgroundJobOrchestrator`, execution workspace projections
-- Subagent assembly: `createSubagentSession()`, `createInProcessSubagentRunner()`, `createDefaultTools()`
+- Subagent assembly: `createSubagentSession()`, `createInProcessSubagentRunner()`. The default tool set moved to `@robota-sdk/agent-tool-defaults` (ARCH-035) and is no longer exported here
 - Multi-agent orchestration mechanism (SELFHOST-001): `runSequential()` / `runParallel()` / `runHandoff()` / `runHierarchical()` / `runGroupChat()` — IMPLEMENT the neutral orchestration contracts agent-core OWNS (`src/orchestration/`), composing over `agent-executor`'s `ISubagentManager`/`ISubagentRunner` port; spawn/wait/event mechanics are factored into `src/orchestration/shared.ts`. The framework never depends on `agent-subagent-runner` (would be a cycle); the concrete runner is injected at the `agent-cli` composition root. P1 ships `sequential`; P2 adds `parallel` (bounded concurrency + aggregation) and `handoff` (control-transfer); P3 adds `hierarchical` (manager-delegation) and `group-chat` (turn-taking) — completing the five named primitives.
 - Bundle plugin management: `BundlePluginLoader`, `BundlePluginInstaller`, `MarketplaceClient`, `PluginSettingsStore`
 - Agent tool: `createAgentTool()`, `storeAgentToolDeps()`, `retrieveAgentToolDeps()`
@@ -165,6 +165,9 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | Export                                      | Kind     | Description                                                                                                                                                                                                                                                                          |
 | ------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `InteractiveSession`                        | class    | Primary SDK entry point; event-driven session wrapper                                                                                                                                                                                                                                |
+| `createTestCommandHost`                     | function | ARCH-029: the conformant, cast-free `ICommandHostContext` double, published from `@robota-sdk/agent-framework/testing`. Every default answers "this host has nothing of that kind"; the compiler refuses it the moment the contract gains a member it does not answer                |
+| `createTestAgentJobHost`                    | function | ARCH-029: the same for `IAgentJobHostContext` — 15 members, none optional                                                                                                                                                                                                            |
+| `createTestSessionRuntime`                  | function | ARCH-029: the same for `ICommandSessionRuntime` — 18 members. Published because making the members required turned every hand-rolled runtime fixture into a compile error with nothing honest to reach for                                                                           |
 | `resolveRoleModel`                          | function | SELFHOST-006: resolve a role's PRIMARY `IModelRef` from a `TRoleModelMap` (opaque key; undefined if unmapped)                                                                                                                                                                        |
 | `resolveRoleFallbackChain`                  | function | SELFHOST-006: the role's full ordered fallback chain (primary first); empty if unmapped                                                                                                                                                                                              |
 | `runWithRoleFallback`                       | function | SELFHOST-006: walk a role's fallback chain, trying each `IModelRef` over the provider DIP until one succeeds (alternate provider+model on error)                                                                                                                                     |
@@ -226,7 +229,6 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `MarketplaceClient`                         | class    | Plugin discovery and install from remote marketplace                                                                                                                                                                                                                                 |
 | `BUILT_IN_AGENTS`                           | const    | Array of built-in agent definitions (`general-purpose`, `Explore`, `Plan`)                                                                                                                                                                                                           |
 | `getBuiltInAgent`                           | function | Look up a built-in agent by name                                                                                                                                                                                                                                                     |
-| `createDefaultTools`                        | function | Assemble default built-in tools (exported for CLI fork composition)                                                                                                                                                                                                                  |
 | `createSubagentSession`                     | function | Assemble an isolated child session for subagent execution                                                                                                                                                                                                                            |
 | `createSubagentLogger`                      | function | Create an append-only subagent transcript logger                                                                                                                                                                                                                                     |
 | `assembleSubagentPrompt`                    | function | Assemble the full system prompt for a subagent session                                                                                                                                                                                                                               |
@@ -733,7 +735,7 @@ agent-framework      ← InteractiveSession (single entry point)
   ├── extension: ICommandModule command/source/session-requirement injection
   ├── optional: agent runtime deps + AgentDefinitionLoader when a module requests agent-executor
   ├── composed: agent-executor manager/runner ports plus SDK-owned orchestration
-  ├── internal: createSession(), createDefaultTools(), loadConfig(), loadContext()
+  ├── internal: createSession(), loadConfig(), loadContext()
   ├── optional: sandboxClient injection for sandbox-aware built-in tool execution
   ├── optional: workspaceManifest application through agent-tools sandbox ports
   ├── optional: sandbox snapshot hydration through agent-tools sandbox ports
@@ -846,7 +848,7 @@ agent-framework (assembly layer — SDK-specific features only)
 │   ├── skill-source.ts         ← SkillCommandSource: discovers SKILL.md files
 │   ├── plugin-source.ts        ← PluginCommandSource: discovers plugin commands (moved from agent-cli)
 │   └── system-command.ts       ← SDK core command factory; currently empty because user-visible built-ins are command modules
-├── src/assembly/               ← Session factory: createSession (internal), createDefaultTools (internal)
+├── src/assembly/               ← Session factory: createSession (internal). The default tool tier is loaded from @robota-sdk/agent-tool-defaults by dynamic import (ARCH-035)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
 ├── src/context/                ← AGENTS.md/CLAUDE.md/memory discovery, project detection, system prompt
 │   ├── context-reference-inventory.ts ← session context reference metadata, active/observed status, and bounded inventory policy
@@ -1613,7 +1615,7 @@ Background agent watchdog configuration is provider-neutral. Agent requests may 
 
 `InteractiveSession` emits `background_job_group_event` with `TBackgroundJobGroupEvent`. When session persistence is enabled, group snapshots and group events are stored alongside background task snapshots/events so resume/debugging can reconstruct group provenance.
 
-`SubagentManager` and `WorktreeSubagentRunner` are owned by `agent-executor` and are NOT exported as values from `@robota-sdk/agent-framework`. Consumers needing these classes must import from `@robota-sdk/agent-executor`. The framework exports only the SDK-owned `createInProcessSubagentRunner` factory. ARCH-031 removed the type-only re-exports of the subagent contracts: they carried zero runtime values, so they bought none of the assembly convenience a runtime facade exists for, while making one field family look like it had three owners. Import the SPI from `@robota-sdk/agent-executor` and the data contracts from `@robota-sdk/agent-interface-transport`.
+`SubagentManager` and `WorktreeSubagentRunner` are owned by `agent-executor` and are NOT exported as values from `@robota-sdk/agent-framework`. Consumers needing these classes must import from `@robota-sdk/agent-executor`. The framework exports only the SDK-owned `createInProcessSubagentRunner` factory. ARCH-031 removed the type-only re-exports of the subagent contracts: they carried zero runtime values, so they bought none of the assembly convenience ARCH-031 then took a facade to be for, while making one field family look like it had three owners. (ARCH-037 later retired "runtime facade" as the criterion — runtime-ness never decided whether a re-export was earned; dependency reach does. The removal stands under the replacement: no permitted consumer was left unable to reach these names.) Import the SPI from `@robota-sdk/agent-executor` and the data contracts from `@robota-sdk/agent-interface-transport`.
 
 ```typescript
 import { createInProcessSubagentRunner } from '@robota-sdk/agent-framework';
@@ -1898,9 +1900,11 @@ Allowed public classes:
   memory, checkpoints, reversible execution, plugin management, and task context helpers.
 - SDK facades: project session store helpers, subagent assembly helpers, agent/background process
   tools, and command host/common APIs that narrow lower-level behavior through SDK contracts.
-- Explicit runtime facades: type-only background-task and subagent lifecycle contracts re-exported
-  through `src/background-tasks/index.ts` and `src/subagents/index.ts`; concrete executor classes remain
-  owner-direct values.
+- Unreachable-elsewhere re-exports: background-task lifecycle contracts re-exported through
+  `src/background-tasks/index.ts` — the ONLY file permitted to carry them. ARCH-031 removed
+  `src/subagents/index.ts` from that set and ARCH-037 retired the "runtime facade" criterion that
+  named it, so adding an `agent-executor` re-export there is rejected by
+  `check-sdk-public-surface.mjs`. Concrete executor classes remain owner-direct values.
 
 Owner-direct APIs:
 
@@ -1910,7 +1914,10 @@ Owner-direct APIs:
 - `agent-session` owns generic session APIs and terminal output primitives.
 
 `pnpm harness:scan:sdk-public-surface` prevents broad `export *` barrels, top-level lower-owner
-pass-through exports, and runtime re-exports outside the documented SDK facade barrels.
+pass-through exports, and `agent-executor` re-exports outside the ONE file where a permitted
+consumer cannot reach the symbol any other way. Note "re-exports", not "runtime re-exports": the
+check is about the LOCATION of a pass-through, and its own tests assert that a type-only one outside
+that file is flagged too.
 
 ### History Types — Owner Package
 
@@ -2228,7 +2235,7 @@ During `createSession()`, hooks from the merged settings configuration are wired
 ## Background Task Execution
 
 `BackgroundTaskManager` is owned and exported as a value only by `agent-executor`; the framework's
-explicit runtime facade re-exports its contract types, not the class. It is the generic lifecycle layer
+background-tasks barrel re-exports its contract types, not the class. It is the generic lifecycle layer
 for foreground/background agent and process jobs. It is provider-neutral and depends only on injected
 runner ports.
 
@@ -2243,9 +2250,11 @@ Responsibilities:
 
 The manager does not create providers, sessions, child processes, worktrees, or TUI state directly. Those concerns belong to runner adapters and outer composition layers. SDK code composes the manager with SDK-owned tools and `InteractiveSession`; it does not own the lifecycle state machine.
 
-SDK runtime facade barrels also re-export runtime-owned helper primitives for bounded output
-capture and cursor-based log pagination so runtime shells can implement process adapters through
-the documented SDK facade instead of importing `agent-executor` directly.
+That same barrel also re-exports runtime-owned helper primitives for bounded output capture and
+cursor-based log pagination, so runtime shells can implement process adapters without importing
+`agent-executor` directly. Note the LIMIT recorded in `docs/PUBLIC-SURFACE.md`: the permission is
+granted per FILE while the criterion is per SYMBOL, and measurement puts an external importer on
+exactly one of that block's ten names. ARCH-039 owns the narrowing.
 
 ### Agent Wake Dedup & Eviction (FLOW-002 / CORE-024)
 
@@ -2351,8 +2360,13 @@ The product-composed `/background` command module maps to these APIs:
 
 ### SubagentManager
 
-`SubagentManager` is owned and exported as a value only by `agent-executor`; the framework's explicit
-runtime facade re-exports its contract types, not the class. It is the managed subagent facade. It depends
+`SubagentManager` is owned and exported as a value only by `agent-executor`. The framework re-exports
+NEITHER the class nor its contract types: ARCH-031 removed the subagent block from
+`src/subagents/index.ts`, and `check-sdk-public-surface.mjs` rejects re-adding it. Import the contract
+types from `@robota-sdk/agent-executor` (the SPI) and `@robota-sdk/agent-interface-transport` (the
+data contracts). This paragraph said "the framework's explicit runtime facade re-exports its contract
+types" until round-3 review caught it — a retired criterion applied in the present tense to a barrel
+that had already been emptied. It is the managed subagent facade. It depends
 on an injected `ISubagentRunner` port or an injected `IBackgroundTaskManager` and maps subagent jobs to
 `BackgroundTaskManager` agent tasks.
 
@@ -2503,6 +2517,31 @@ tier: the FIRST entry for a name wins and later duplicates are dropped, so a pac
 shadows a built-in yields one roster entry, never two. (For a tier with no duplicate names — the
 historic `BUILT_IN_AGENTS` alone — the dedupe is a no-op.)
 
+### Consumer-supplied extension ports (`guardrails` / `retrievalAdapter`, ARCH-013 stage 3)
+
+Two ports the framework READS but ships no implementation of. Both are available on
+`IInteractiveSessionStandardOptions` / `IInitOptions` / `ICreateSessionOptions`, and both were
+declared and settable by nothing until ARCH-013 stage 3 — a documented capability no surface could
+turn on, which is a different state from one nobody had used.
+
+| Port               | Consumed at                                             | Effect when supplied                                                        |
+| ------------------ | ------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `guardrails`       | `createSession` → `GuardrailExecutor`                   | Registers the executor AND auto-injects a `PreToolUse` guardrail hook       |
+| `retrievalAdapter` | `assembleSessionTools` → the `agent-tool-defaults` leaf | Surfaces the `CodebaseRetrieval` tool; absent ⇒ the tool is absent entirely |
+
+**`guardrails` is a REGISTRY, not a selector, and the two are easy to confuse because they share a
+name.** `ICreateSessionOptions.guardrails` is `Record<string, TGuardrail>` — name → function. A
+`{ type: 'guardrail' }` hook definition in config carries its own `guardrails?: string[]`, which
+SELECTS which registered guardrails that hook runs (omitted = all). They are complementary:
+`resolveGuardrailHooks` is the bridge, and it auto-injects a blanket `PreToolUse` group only when a
+non-empty registry is supplied and the config declares no guardrail hook of its own. Registering a
+registry alone does nothing — the executor needs a hook definition on an enforcing event to fire.
+
+**`retrievalAdapter` interacts with `defaultTools`.** The adapter is passed to the leaf's `createDefaultTools`,
+so a consumer who REPLACES that tier via `defaultTools` (ARCH-006, below) owns the retrieval tool too
+and the adapter reaches nothing. The two options are independent seams and this interaction is not
+mediated.
+
 ### Session-level tool composition (`defaultTools` / `additionalTools`, ARCH-006)
 
 The tool axis has the same two-seam shape as the subagent axis above, and the same precedence
@@ -2511,7 +2550,7 @@ question answered explicitly. Both options are available on `IInteractiveSession
 
 | Seam                      | Semantics                                                         | Set with no framework defaults |
 | ------------------------- | ----------------------------------------------------------------- | ------------------------------ |
-| `defaultTools` (ARCH-006) | REPLACES the `createDefaultTools()` tier                          | pass `[]`                      |
+| `defaultTools` (ARCH-006) | REPLACES the tier the `agent-tool-defaults` leaf builds           | pass `[]`                      |
 | `additionalTools`         | APPENDS to that tier; contributes NEW names only (see precedence) | n/a                            |
 
 `createSession` assembles the fixed tier order `defaultTools ⊕ additionalTools ⊕ goalTool` and then

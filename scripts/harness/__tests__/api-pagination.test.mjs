@@ -299,6 +299,33 @@ describe('a rate-limited read waits and retries (github-api)', () => {
     ).toThrow(/attempts must be a positive integer/);
   });
 
+  it('INFRA-103: a failure reports WHAT IT ASKED, not only which endpoint', () => {
+    // The message that cost an afternoon said the endpoint and the status and nothing about the
+    // request. Two steps of one CI job read the SAME endpoint seconds apart — one with these flags
+    // and one without — and only one failed. The flags were the only difference, and they were the
+    // one thing the error did not carry.
+    expect(() =>
+      readWithBackoff(
+        () => ({ status: 1, stderr: 'gh: Validation Failed (HTTP 422)' }),
+        ['api', '--paginate', '--slurp', 'repos/o/r/issues/1/labels?per_page=100'],
+        'repos/o/r/issues/1/labels',
+      ),
+    ).toThrow(/requested: gh api --paginate --slurp repos\/o\/r\/issues\/1\/labels\?per_page=100/);
+  });
+
+  it('INFRA-103: and which gh produced it, since the same read succeeds elsewhere', () => {
+    let threw;
+    try {
+      readWithBackoff(() => ({ status: 1, stderr: 'boom' }), ['api', 'x'], 'x');
+    } catch (error) {
+      threw = error;
+    }
+
+    // Not asserting a version string — the point is that the line is present and answered, so
+    // "which gh was this" stops being a question somebody has to ask by hand.
+    expect(threw?.message).toMatch(/\n {2}gh: .+/);
+  });
+
   it('does NOT retry an ordinary failure — that would hide a real error behind a wait', () => {
     let calls = 0;
     const runner = () => {

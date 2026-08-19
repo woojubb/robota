@@ -404,7 +404,6 @@ export { BUILT_IN_AGENTS, getBuiltInAgent } from './agents/index.js';
 
 export {
   createSession,
-  createDefaultTools,
   getSubagentSuffix,
   getForkWorkerSuffix,
   assembleSubagentPrompt,
@@ -476,10 +475,8 @@ export type {
 
 // ── Subagent process manager contracts ─────────────────────
 export { createInProcessSubagentRunner } from './subagents/index.js';
-// ARCH-031: eleven `agent-executor`-owned types used to be republished here. They were TYPES ONLY —
-// zero runtime values — so they bought none of the assembly convenience a runtime facade exists for,
-// while making one field family look like it had three owners. Consumers import from the owner: the
-// SPI from `@robota-sdk/agent-executor`, the data contracts from `@robota-sdk/agent-interface-transport`.
+// ARCH-031 removed eleven type-only `agent-executor` republications. Import from the owner: the SPI
+// from `@robota-sdk/agent-executor`, data contracts from `@robota-sdk/agent-interface-transport`.
 export type { IInProcessSubagentRunnerDeps, TSubagentRunnerFactory } from './subagents/index.js';
 
 // ── Multi-agent orchestration mechanism (SELFHOST-001) ──────
@@ -653,3 +650,36 @@ export {
 //   loadConfig()           — config loading (used by InteractiveSession internally)
 //   loadContext()          — context loading (used by InteractiveSession internally)
 // ──────────────────────────────────────────────────────────────
+
+// ARCH-029: the command-axis role ports. Named explicitly (the barrels carry no `export *` —
+// sdk-public-surface enforces that, so owner boundaries stay auditable) and sourced straight from
+// the contract module rather than through ./commands, which keeps that barrel under its size floor.
+export type {
+  IAgentJobDispatch,
+  IAgentJobGroups,
+  IAgentJobLogs,
+  IAgentJobMonitors,
+  IAgentJobSchedules,
+  ICommandHostAdapterAccess,
+  ICommandHostAgentJobs,
+  ICommandHostBackgroundTasks,
+  ICommandHostCatalog,
+  ICommandHostCheckpoints,
+  ICommandHostContextReferences,
+  ICommandHostContextWindow,
+  ICommandHostGoal,
+  ICommandHostMemory,
+  ICommandHostNoCapability,
+  ICommandHostPlan,
+  ICommandHostPresetApplication,
+  ICommandHostSessionAccess,
+  ICommandHostTerminalHandoff,
+  ICommandHostUserInteraction,
+  ICommandHostWorkspace,
+  ICommandSessionContextWindow,
+  ICommandSessionHistory,
+  ICommandSessionIdentity,
+  ICommandSessionModel,
+  ICommandSessionPermissions,
+  ICommandSessionPreset,
+} from './command-api/host-context.js';

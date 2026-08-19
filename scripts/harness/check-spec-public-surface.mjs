@@ -106,6 +106,14 @@ function collectSrcText(srcDir) {
  * continues the section and one of the same-or-shallower level ends it. `sectionDepth` is that
  * level; 0 means outside. Keeping the terminating half is what stops the fix from over-counting
  * tables that sit outside the public-surface section.
+ *
+ * CORE-035: the OUTERMOST match owns the extent. HARNESS-104's version re-assigned `sectionDepth` on
+ * every matching heading, so a nested `### … Public API …` inside `## Public API Surface` LOWERED the
+ * boundary from 2 to 3 — and the next sibling `###` then closed the whole `##` section, even though
+ * it had not ended. `agent-core` hit exactly that: `### Abort Classification Public API (CORE-027)`
+ * set the depth to 3, and the `### Schema (CORE-015)` immediately after it terminated the surface,
+ * making every table below invisible. This is HARNESS-104's own defect one level down, which is why
+ * `||` rather than `=`: a match INSIDE an open section is part of it, not a new one.
  */
 export function publicApiIdentifiers(specText) {
   const lines = specText.split('\n');
@@ -115,7 +123,7 @@ export function publicApiIdentifiers(specText) {
     const heading = line.match(HEADING);
     if (heading) {
       const level = heading[0].match(/^#+/)[0].length;
-      if (PUBLIC_API_HEADING.test(heading[1])) sectionDepth = level;
+      if (PUBLIC_API_HEADING.test(heading[1])) sectionDepth = sectionDepth || level;
       else if (sectionDepth && level <= sectionDepth) sectionDepth = 0;
       continue;
     }

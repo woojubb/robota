@@ -2,9 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-framework';
 import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createSessionCommandModule } from '../session-command-module.js';
+import {
+  createTestCommandHost,
+  createTestSessionRuntime,
+} from '@robota-sdk/agent-framework/testing';
 
-function createRuntime(): ICommandSessionRuntime {
-  return {
+function createRuntime() {
+  return createTestSessionRuntime({
     clearHistory: vi.fn(),
     compact: async () => undefined,
     getContextState: () => ({
@@ -21,31 +25,33 @@ function createRuntime(): ICommandSessionRuntime {
     getAutoCompactThreshold: () => false,
     getFullHistory: () => [],
     getHistory: () => [],
-  };
+  });
 }
 
-function createCommandContext(): ICommandHostContext {
+function createCommandContext() {
   const runtime = createRuntime();
-  return {
-    getSession: () => runtime,
-    getContextState: () => runtime.getContextState(),
-    getAutoCompactThreshold: () => 0.835,
-    compactContext: async () => undefined,
-    getCwd: () => '/workspace',
-    listEditCheckpoints: () => [],
-    restoreEditCheckpoint: async () => {
-      throw new Error('not used');
+  return createTestCommandHost({
+    overrides: {
+      getSession: () => runtime,
+      getContextState: () => runtime.getContextState(),
+      getAutoCompactThreshold: () => 0.835,
+      compactContext: async () => undefined,
+      getCwd: () => '/workspace',
+      listEditCheckpoints: () => [],
+      restoreEditCheckpoint: async () => {
+        throw new Error('not used');
+      },
+      rollbackEditCheckpoint: async () => {
+        throw new Error('not used');
+      },
+      getUsedMemoryReferences: () => [],
+      recordMemoryEvent: () => undefined,
+      listBackgroundTasks: () => [],
+      readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
+      cancelBackgroundTask: async () => undefined,
+      closeBackgroundTask: async () => undefined,
     },
-    rollbackEditCheckpoint: async () => {
-      throw new Error('not used');
-    },
-    getUsedMemoryReferences: () => [],
-    recordMemoryEvent: () => undefined,
-    listBackgroundTasks: () => [],
-    readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
-    cancelBackgroundTask: async () => undefined,
-    closeBackgroundTask: async () => undefined,
-  };
+  });
 }
 
 describe('createSessionCommandModule', () => {
@@ -238,11 +244,18 @@ describe('createSessionCommandModule', () => {
     expect(result?.message).toBe('Clear cancelled.');
   });
 
-  it('falls back to runtime clearHistory when the host has not implemented the richer API', async () => {
+  it('ARCH-029 TC-09: /clear takes the host path only — it never reaches past it into the runtime', async () => {
+    // The deleted fallback called `getSession().clearHistory()` when the host member was absent.
+    // Those are not the same operation: the host's clear also broadcasts `history_cleared` to
+    // every attached surface (CMD-004 Stage E), so the fallback cleared ONE surface and left the
+    // others still showing the transcript. With the member required there is one path, and this
+    // pins that the runtime is not reached behind the host's back.
     const runtime = createRuntime();
+    const clearConversationHistory = vi.fn();
     const context = {
       ...createCommandContext(),
       getSession: () => runtime,
+      clearConversationHistory,
     };
     const executor = new SystemCommandExecutor([
       ...(createSessionCommandModule().systemCommands ?? []),
@@ -250,7 +263,8 @@ describe('createSessionCommandModule', () => {
 
     const result = await executor.execute('clear', context, '');
 
-    expect(runtime.clearHistory).toHaveBeenCalledTimes(1);
+    expect(clearConversationHistory).toHaveBeenCalledTimes(1);
+    expect(runtime.clearHistory).not.toHaveBeenCalled();
     expect(result?.success).toBe(true);
   });
 

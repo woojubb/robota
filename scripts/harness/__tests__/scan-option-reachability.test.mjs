@@ -196,18 +196,27 @@ describe('scan-option-reachability', () => {
     expect(reported).toBe(Object.values(frozen).flat().length);
   });
 
-  it('the frozen set still names the two capabilities this exists for', () => {
-    // ARCH-013 is not closed by this scan — `guardrails` and `retrievalAdapter` are still
-    // unreachable. Pinning them here means a future change that silently drops them FROM the
-    // baseline (rather than wiring them) has to explain itself.
+  it('the three capabilities this scan was built for are all WIRED, not baselined', () => {
+    // This case used to pin `guardrails` and `retrievalAdapter` INTO the frozen set, because stage 1
+    // wired only `effort` and the other two were still unreachable. Its comment said a future change
+    // that dropped them from the baseline "rather than wiring them" would have to explain itself.
+    //
+    // ARCH-013 stage 3 is that change, and it wired them: both are now forwarded through
+    // `initializeInteractiveSessionAsync` and projected in `buildCreateSessionOptions`, with the
+    // chain red-proved from the published surface. So the assertion is inverted rather than deleted —
+    // the scan's subject is unchanged, and what it now pins is that none of the three may return.
     const root = path.resolve(import.meta.dirname, '../../..');
     const frozen = JSON.parse(
       readFileSync(path.join(root, 'scripts/harness/option-reachability-baseline.json'), 'utf8'),
     );
-    expect(frozen['ICreateSessionOptions']).toEqual(
-      expect.arrayContaining(['guardrails', 'retrievalAdapter']),
-    );
-    // `effort` was wired by this same change, so it must NOT be here.
-    expect(frozen['ICreateSessionOptions']).not.toContain('effort');
+    for (const wired of ['effort', 'guardrails', 'retrievalAdapter']) {
+      expect(
+        frozen['ICreateSessionOptions'],
+        `${wired} regressed into the frozen set`,
+      ).not.toContain(wired);
+    }
+    // The set is not empty — nine keys remain unreachable, and an empty baseline would make the
+    // assertion above pass for the wrong reason.
+    expect(frozen['ICreateSessionOptions'].length).toBeGreaterThan(0);
   });
 });

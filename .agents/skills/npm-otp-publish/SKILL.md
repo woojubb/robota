@@ -103,3 +103,17 @@ password-consuming decision, so the caller must see the reason rather than a sil
 **at most 3 OTP requests per release** — each consumes the user's attention and a password window,
 and a publish that cannot complete in three is stopped and reported, not retried into. (This number
 lived only in the orchestration map before HARNESS-072; the skill owns it now.)
+
+## Record the run
+
+Open a ledger entry before the first round, record each round's finding count, and close it with the
+terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
+`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
+run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
+what each terminal reason means).
+
+```bash
+node scripts/harness/loop-run.mjs open  --loop npm-otp-publish
+node scripts/harness/loop-run.mjs round --loop npm-otp-publish --run <id> --findings <n>
+node scripts/harness/loop-run.mjs close --loop npm-otp-publish --run <id> --terminal <reason>
+```

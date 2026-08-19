@@ -97,7 +97,7 @@ const host: IRuntimeHostHandle = await startRuntimeHost(options);
 - **createQuery()** — Provider-bound factory for one-shot AI agent interactions with streaming support
 - **Runtime host (RUNTIME-001)** — `startRuntimeHost()` builds and serves a headless session over a loopback WS (used by `robota --serve` and the desktop GUI sidecar); `buildRuntimeSession()` is the shared session-construction seam every presentation builds its `InteractiveSession` through
 - **Session assembly** — Internal factory wires tools, provider, config, and context for `InteractiveSession`
-- **Built-in Tools** — Shell/Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, AskUserQuestion are assembled for SDK sessions; direct tool usage imports from `@robota-sdk/agent-tools`
+- **Built-in Tools** — Shell/Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, AskUserQuestion are assembled for SDK sessions. The set itself lives in `@robota-sdk/agent-tool-defaults` (a composition leaf, ARCH-035) and is loaded lazily; import it from there to compose your own tier, or `@robota-sdk/agent-tools` for individual tools
 - **Sandbox Execution** — Optional `sandboxClient` injection routes Bash and core file tools through a provider-backed execution plane; `workspaceManifest` can prepare a fresh sandbox workspace before session creation
 - **Sandbox Hydration** — Snapshot-capable sandbox clients persist `sandboxSnapshotId` on shutdown and restore it before saved message replay on non-fork resume
 - **Agent Tool** — Sub-agent session creation for multi-agent workflows

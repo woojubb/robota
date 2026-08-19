@@ -1,5 +1,5 @@
 import type { TCommandUiIntent } from '../effects.js';
-import type { ICommandHostContext } from '../host-context.js';
+import type { ICommandHostAdapterAccess } from '../host-context.js';
 import type { ICommand } from '../types.js';
 // Plugin command adapter contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-transport';
@@ -24,7 +24,7 @@ export function createShowPluginManagerIntent(): TCommandUiIntent {
 }
 
 export function resolvePluginCommandAdapter(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess,
 ): ICommandPluginAdapter | undefined {
   return context.getCommandHostAdapters?.().plugin;
 }

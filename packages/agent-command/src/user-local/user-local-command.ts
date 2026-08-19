@@ -3,7 +3,7 @@ import { inspectUserLocalStorage } from '@robota-sdk/agent-framework';
 import { USER_LOCAL_COMMAND_USAGE } from './user-local-command-constants.js';
 import { executeMemoryCommand } from './user-local-memory-command.js';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type { ICommandHostWorkspace } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 export {
   USER_LOCAL_COMMAND_ARGUMENT_HINT,
@@ -191,7 +191,7 @@ export async function executeUserLocalDirectCommand(
 }
 
 export async function executeUserLocalCommand(
-  context: ICommandHostContext,
+  context: ICommandHostWorkspace,
   rawArgs: string,
 ): Promise<ICommandResult> {
   try {

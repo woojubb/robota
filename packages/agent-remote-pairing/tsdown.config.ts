@@ -1,7 +1,9 @@
 import { defineConfig } from 'tsdown';
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  // SEC-010: the /local entry is node-only and is built separately so the main entry stays
+  // isomorphic — a browser bundle must not pull node:fs in through a shared chunk.
+  entry: ['src/index.ts', 'src/local/index.ts'],
   format: ['esm', 'cjs'],
   outDir: 'dist/node',
   platform: 'neutral',

@@ -10,6 +10,9 @@ Key endpoints:
 - `GET /health` -- global liveness check
 - `GET /api/v1/remote/health` -- remote health check with provider list
 - `POST /api/v1/remote/chat` -- provider chat proxy (server-side API key)
+- `POST /api/v1/remote/chat/stream` -- the SAME proxy, streamed as SSE (CORE-046). This is the ONE
+  spelling: it matches `REMOTE_CHAT_STREAM_PATH` in the route table and `REMOTE_CHAT_STREAM_SUFFIX`
+  in `@robota-sdk/agent-remote-client`, and a test compares the two real values
 - `POST /api/v1/byok/chat` -- BYOK chat proxy (caller-supplied API key via `X-Provider-API-Key`)
 - `GET /api/v1/remote/ws/status` -- WebSocket connection stats
 - `WS /ws/playground` -- Playground WebSocket (auth + broadcast)
@@ -29,8 +32,29 @@ Machine-readable API contract: [`openapi.yaml`](../openapi.yaml) (OpenAPI 3.1).
 
 - Host-level composition only. Core package contracts remain in their respective packages.
 - Provider CHAT routes are inlined (formerly in `@robota-sdk/agent-remote-server-core`, now deleted).
-  There is no stream route, and this line used to claim one (CORE-044): the remote client posted to a
-  `/stream` endpoint nobody served while this document said otherwise. Remote streaming is CORE-046.
+- **The stream route exists and this document is checked against it (CORE-046).** This line claimed a
+  stream route for as long as none existed: the client posted to a `/stream` endpoint nobody served,
+  a sibling module named `/chat/stream`, and every call was a 404 — invisible because the client's
+  tests drove a mocked `fetch`, and a mocked transport agrees with whatever the client says. The
+  route is now served, spelled once, and asserted against the real route table with `supertest`
+  rather than a mock.
+- **The SERVER owns chunk assembly, and that is why streaming could be restored.** The handler calls
+  `provider.chat(messages, { …options, onTextDelta })` — already every provider's contract ("stream
+  internally, call this per chunk, and still return the complete assembled message") — so the wire
+  carries text deltas plus ONE terminal assembled message. Tool-call FRAGMENTS never cross it. The
+  client that CORE-044 removed yielded raw provider chunks and depended on a fragment assembler that
+  CORE-042 deleted; re-implementing an accumulator client-side would put a second assembler in the
+  world, against a fragmentation behaviour no in-repo test can observe.
+- SSE frames: `delta` (`{ text }`), `message` (the assembled `TUniversalMessage`), `done`, and
+  `error`. `error` is its own frame rather than a flavour of `done`, so a client cannot mistake a
+  failed stream for a finished one. Request validation runs BEFORE the headers go out, so a rejected
+  request is an ordinary `400` with its `rejected` list rather than an error frame inside a `200`.
+- Streaming cancellation: the client aborting closes the socket, and the handler aborts the provider
+  call — so work stops at both ends rather than continuing at the operator's expense.
+- `createApp({ providers })` may be given providers directly (CORE-046). They were built only from
+  environment API keys, so the streaming route could not be exercised without live credentials, and
+  a route nothing exercises is how the previous gap survived. Injected entries are merged over the
+  env-derived map, so a deployment's behaviour is unchanged when nothing is passed.
 - The chat routes forward the caller's `tools` and per-call `options` into `provider.chat`. Both are
   validated as anonymous network input; a request carrying a recognised option with the wrong type,
   or a tool schema missing its description, is answered `400` with a `rejected` list naming each one.

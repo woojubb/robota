@@ -19,13 +19,13 @@ import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 import type {
   IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupState,
-  IBackgroundTaskManager,
   IExecutionDetailCursor,
   IExecutionDetailPage,
   TBackgroundJobGroupEvent,
   TExecutionWorkspaceUpdateCause,
 } from '../background-tasks/index.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type {
   IBackgroundTaskInput,
   IBackgroundTaskListFilter,

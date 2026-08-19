@@ -180,3 +180,17 @@ Load only what the item needs.
 
 If you find yourself forming a verdict, defining a gate, or doing an owner skill's work here, stop — route
 to the owner instead.
+
+## Record the run
+
+Open a ledger entry before the first round, record each round's finding count, and close it with the
+terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
+`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
+run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
+what each terminal reason means).
+
+```bash
+node scripts/harness/loop-run.mjs open  --loop backlog-execution-orchestrator
+node scripts/harness/loop-run.mjs round --loop backlog-execution-orchestrator --run <id> --findings <n>
+node scripts/harness/loop-run.mjs close --loop backlog-execution-orchestrator --run <id> --terminal <reason>
+```

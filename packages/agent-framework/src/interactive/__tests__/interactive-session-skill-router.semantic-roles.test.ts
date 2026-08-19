@@ -8,6 +8,7 @@ import { SessionSkillRouter } from '../interactive-session-skill-router.js';
 import { stubSubmit } from './helpers/session-stub.js';
 
 import type { ICommandHostContext, ICommandModule, ISystemCommand } from '../../commands/index.js';
+import { createTestCommandHost } from '../../testing/command-host-double.js';
 
 function makeRouter(cwd: string, command: ISystemCommand): SessionSkillRouter {
   const module: ICommandModule = { name: 'semantic-role-test', systemCommands: [command] };
@@ -15,7 +16,7 @@ function makeRouter(cwd: string, command: ISystemCommand): SessionSkillRouter {
     [module],
     cwd,
     undefined,
-    () => ({}) as ICommandHostContext,
+    () => createTestCommandHost(),
     () => 'session-id',
     stubSubmit,
     async () => {},

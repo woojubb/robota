@@ -1,9 +1,15 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { describe, it, expect, vi } from 'vitest';
 
 import { executePlanCommand } from '../plan-command.js';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
 import type { IPlanArtifact } from '@robota-sdk/agent-interface-transport';
+import {
+  createTestCommandHost,
+  type ICreateTestCommandHostOptions,
+} from '@robota-sdk/agent-framework/testing';
 
 function plan(overrides: Partial<IPlanArtifact> = {}): IPlanArtifact {
   return {
@@ -16,8 +22,10 @@ function plan(overrides: Partial<IPlanArtifact> = {}): IPlanArtifact {
   };
 }
 
-function host(overrides: Partial<ICommandHostContext> = {}): ICommandHostContext {
-  return overrides as unknown as ICommandHostContext;
+function host(overrides: ICreateTestCommandHostOptions['overrides'] = {}) {
+  // ARCH-029: the partial is now an OVERRIDE over a conformant host, not a cast that turns the
+  // check off. A fixture that names three members no longer claims to satisfy 46.
+  return createTestCommandHost({ overrides });
 }
 
 describe('executePlanCommand (SELFHOST-002 /plan)', () => {
@@ -97,9 +105,25 @@ describe('executePlanCommand (SELFHOST-002 /plan)', () => {
     expect(result.message).toContain('/plan approve');
   });
 
-  it('reports unavailability when the session cannot plan', async () => {
-    const result = await executePlanCommand(host({}), 'do a thing');
-    expect(result.success).toBe(false);
-    expect(result.message).toContain('not available');
+  it('ARCH-029 TC-09: the availability guards are gone from the source', () => {
+    // Review caught the first attempt at this case: it re-asserted "No plan is active." for a
+    // null-returning host, which `reports when no plan is active` above already pins with a
+    // STRONGER matcher, over an override that is the double's own default. It would have passed
+    // unchanged on the pre-fix code — a check that cannot fail on the thing it names.
+    //
+    // Stated plainly instead: there is NO behavioural test for this deletion, because there was no
+    // behaviour. `if (!context.setPlan) return 'Plan mode is not available in this session.'` was
+    // already unreachable — the members are unconditionally implemented on `InteractiveSession`
+    // over always-constructed controllers, and it is the only host (`implements` is compiler-
+    // checked, casts are ratcheted at 0, and heritage-clause aliases are counted since this
+    // review). Required-ness makes the branch unreachable for the type checker too. So what can be
+    // pinned is that the branch is not in the file, and that is what this asserts.
+    const source = readFileSync(
+      fileURLToPath(new URL('../plan-command.js', import.meta.url)).replace(/\.js$/, '.ts'),
+      'utf8',
+    );
+
+    expect(source).not.toContain('is not available in this session');
+    expect(source).not.toMatch(/if \(!context\.[a-zA-Z]+\)/);
   });
 });

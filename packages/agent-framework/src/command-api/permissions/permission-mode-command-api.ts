@@ -1,5 +1,5 @@
 import type { ICommandPermissionModeAdapter } from '../host-adapters.js';
-import type { ICommandHostContext } from '../host-context.js';
+import type { ICommandHostAdapterAccess, ICommandHostSessionAccess } from '../host-context.js';
 import type { ICommand } from '../types.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
@@ -41,7 +41,7 @@ export function formatInvalidPermissionModeMessage(): string {
 }
 
 export function resolvePermissionModeAdapter(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess & ICommandHostSessionAccess,
 ): ICommandPermissionModeAdapter {
   const adapter = context.getCommandHostAdapters?.().permissionMode;
   if (adapter !== undefined) {
@@ -56,23 +56,27 @@ export function resolvePermissionModeAdapter(
   };
 }
 
-export function readCommandPermissionMode(context: ICommandHostContext): TPermissionMode {
+export function readCommandPermissionMode(
+  context: ICommandHostAdapterAccess & ICommandHostSessionAccess,
+): TPermissionMode {
   return resolvePermissionModeAdapter(context).getPermissionMode();
 }
 
 export function writeCommandPermissionMode(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess & ICommandHostSessionAccess,
   mode: TPermissionMode,
 ): void {
   resolvePermissionModeAdapter(context).setPermissionMode(mode);
 }
 
-export function listCommandSessionAllowedTools(context: ICommandHostContext): readonly string[] {
+export function listCommandSessionAllowedTools(
+  context: ICommandHostAdapterAccess & ICommandHostSessionAccess,
+): readonly string[] {
   return resolvePermissionModeAdapter(context).listSessionAllowedTools();
 }
 
 export function readCommandPermissionsState(
-  context: ICommandHostContext,
+  context: ICommandHostAdapterAccess & ICommandHostSessionAccess,
 ): IPermissionsCommandState {
   return {
     mode: readCommandPermissionMode(context),

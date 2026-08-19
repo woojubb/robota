@@ -12,8 +12,8 @@ import {
   CircuitBreakerOpenError,
   PluginError,
   StorageError,
-  ErrorUtils,
 } from './errors';
+import { ErrorUtils } from './error-utils';
 
 describe('Error Classes', () => {
   describe('ConfigurationError', () => {

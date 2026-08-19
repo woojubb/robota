@@ -7,6 +7,7 @@ packages/
 ├── agent-session/               # Session lifecycle and persistence
 ├── agent-session-analytics/     # Session-log timing analysis + reporting (pure; depends on agent-interface-transport + agent-core)
 ├── agent-tools/                 # Tool factories (createFunctionTool/createZodFunctionTool → core's FunctionTool), built-ins, sandbox ports/manifests
+├── agent-tool-defaults/         # Default tool-set aggregator (composition leaf): createDefaultTools(); deps agent-core + agent-tools only. ARCH-035 — see its docs/SPEC.md
 ├── agent-tool-mcp/              # MCP tool implementations
 ├── agent-framework/             # SDK assembly layer: InteractiveSession, command contracts/common APIs
 ├── agent-preset/                # Preset contract (IPreset) + resolvePreset + built-in presets (depends on agent-framework only)
@@ -265,12 +266,11 @@ same-PR doc updates, document-role sync — live in
 
 ## Related Documents
 
-| Document                                                                                         | Content                                   |
-| ------------------------------------------------------------------------------------------------ | ----------------------------------------- |
-| [specs/ARCHITECTURE-MAP.md](specs/ARCHITECTURE-MAP.md)                                           | Repository-level architecture map router  |
-| [specs/architecture-map/README.md](specs/architecture-map/README.md)                             | Architecture-map document tree            |
-| [publish-registry.md](publish-registry.md)                                                       | npm publish rules, package registry table |
-| [../packages/agent-cli/docs/ARCHITECTURE-MAP.md](../packages/agent-cli/docs/ARCHITECTURE-MAP.md) | CLI architecture map router               |
+| Document                                                                                         | Content                                                            |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| [specs/ARCHITECTURE-MAP.md](specs/ARCHITECTURE-MAP.md)                                           | Architecture map router — its first step is the full document tree |
+| [publish-registry.md](publish-registry.md)                                                       | npm publish rules, package registry table                          |
+| [../packages/agent-cli/docs/ARCHITECTURE-MAP.md](../packages/agent-cli/docs/ARCHITECTURE-MAP.md) | CLI architecture map router                                        |
 
 ## Interaction Channel Contract
 

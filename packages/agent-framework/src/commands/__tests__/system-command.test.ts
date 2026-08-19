@@ -7,22 +7,29 @@ import { SystemCommandExecutor, createSystemCommands } from '../system-command.j
 
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { ICommandHostContext, ISystemCommand } from '../../command-api/index.js';
+import {
+  createTestCommandHost,
+  createTestSessionRuntime,
+} from '../../testing/command-host-double.js';
+import type { IAgentJobHostContext } from '../../command-api/host-context.js';
+import { createTestAgentJobHost } from '../../testing/agent-job-host-double.js';
 
-function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspace') {
-  const underlying = {
-    clearHistory: vi.fn(),
-    getPermissionMode: vi.fn().mockReturnValue('default'),
-    setPermissionMode: vi.fn(),
-    getSessionId: vi.fn().mockReturnValue('test-session-id'),
-    getMessageCount: vi.fn().mockReturnValue(5),
-    getSessionAllowedTools: vi.fn().mockReturnValue([]),
-    getContextState: vi.fn().mockReturnValue({
-      usedTokens: 5000,
-      maxTokens: 200000,
-      usedPercentage: 2.5,
-    }),
-    getAutoCompactThreshold: vi.fn().mockReturnValue(0.835),
-    compact: vi.fn(),
+/**
+ * ARCH-029: session-runtime overrides and host overrides are SEPARATE parameters.
+ *
+ * One `Record<string, unknown>` used to be spread into both. Excess-property checking does not
+ * apply to a spread, so a host member landed silently on the session runtime too — and the only
+ * caller passes `listCommands`, which is a host member, so the runtime was carrying a surplus
+ * property the whole time. Surplus is what the deleted cast hid; a shared bag reintroduces it.
+ */
+function createMockSession(
+  overrides?: {
+    readonly session?: Record<string, unknown>;
+    readonly host?: Record<string, unknown>;
+  },
+  cwd = '/workspace',
+) {
+  const spies = {
     listBackgroundTasks: vi.fn().mockReturnValue([]),
     cancelBackgroundTask: vi.fn(),
     closeBackgroundTask: vi.fn(),
@@ -51,30 +58,55 @@ function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspac
     sendAgentJob: vi.fn(),
     cancelAgentJob: vi.fn(),
     closeAgentJob: vi.fn(),
-    ...overrides,
   };
 
-  return {
-    getSession: () => underlying,
-    getContextState: underlying.getContextState,
-    listBackgroundTasks: underlying.listBackgroundTasks,
-    cancelBackgroundTask: underlying.cancelBackgroundTask,
-    closeBackgroundTask: underlying.closeBackgroundTask,
-    readBackgroundTaskLog: underlying.readBackgroundTaskLog,
-    spawnAgentJob: underlying.spawnAgentJob,
-    waitAgentJob: underlying.waitAgentJob,
-    listAgentJobs: underlying.listAgentJobs,
-    listAgentDefinitions: underlying.listAgentDefinitions,
-    listEditCheckpoints: underlying.listEditCheckpoints,
-    restoreEditCheckpoint: underlying.restoreEditCheckpoint,
-    rollbackEditCheckpoint: underlying.rollbackEditCheckpoint,
-    sendAgentJob: underlying.sendAgentJob,
-    cancelAgentJob: underlying.cancelAgentJob,
-    closeAgentJob: underlying.closeAgentJob,
-    ...overrides,
-    _underlying: underlying,
-    getCwd: () => cwd,
-  } as unknown as ICommandHostContext;
+  // ARCH-029 TC-06: the session runtime is built from the published double, so the fixture
+  // answers all 18 members. The rest of the old literal was never session-runtime members at
+  // all — they are host and agent-job members, and the single mixed object is what let the
+  // fixture get the contract STRUCTURE wrong with nothing able to tell.
+  const underlying = createTestSessionRuntime({
+    clearHistory: vi.fn(),
+    // ARCH-029: these two were MISSING while the cast was in place — the fixture claimed to be a
+    // conformant ICommandSessionRuntime without them. Turning the check on surfaced it.
+    getHistory: vi.fn().mockReturnValue([]),
+    getFullHistory: vi.fn().mockReturnValue([]),
+    getPermissionMode: vi.fn().mockReturnValue('default'),
+    setPermissionMode: vi.fn(),
+    getSessionId: vi.fn().mockReturnValue('test-session-id'),
+    getMessageCount: vi.fn().mockReturnValue(5),
+    getSessionAllowedTools: vi.fn().mockReturnValue([]),
+    getContextState: vi.fn().mockReturnValue({
+      usedTokens: 5000,
+      maxTokens: 200000,
+      usedPercentage: 2.5,
+    }),
+    getAutoCompactThreshold: vi.fn().mockReturnValue(0.835),
+    compact: vi.fn(),
+    ...overrides?.session,
+  });
+
+  // ARCH-029: overrides over a conformant host. The literal this replaced also carried
+  // `_underlying`, a field the contract does not declare and nothing in this file reads —
+  // the cast hid surplus as readily as it hid omissions.
+  return createTestCommandHost({
+    overrides: {
+      getSession: () => underlying,
+      getContextState: underlying.getContextState,
+      listBackgroundTasks: spies.listBackgroundTasks,
+      cancelBackgroundTask: spies.cancelBackgroundTask,
+      closeBackgroundTask: spies.closeBackgroundTask,
+      readBackgroundTaskLog: spies.readBackgroundTaskLog,
+      listEditCheckpoints: spies.listEditCheckpoints,
+      restoreEditCheckpoint: spies.restoreEditCheckpoint,
+      rollbackEditCheckpoint: spies.rollbackEditCheckpoint,
+      // ARCH-029: the agent-job members are `IAgentJobHostContext`'s, reached through this getter —
+      // the cast let the fixture hang them directly off `ICommandHostContext`, so it had the contract
+      // STRUCTURE wrong and nothing could tell.
+      getAgentJobCapability: () => createTestAgentJobHost(spies),
+      ...overrides?.host,
+      getCwd: () => cwd,
+    },
+  });
 }
 
 describe('SystemCommandExecutor', () => {
@@ -120,14 +152,16 @@ describe('SystemCommandExecutor', () => {
 
   it('formats a composed command list through the SDK common API', () => {
     const session = createMockSession({
-      listCommands: vi.fn().mockReturnValue([
-        { name: 'help', displayName: 'Help', description: 'Show available commands' },
-        {
-          name: 'provider',
-          displayName: 'Provider Setup',
-          description: 'Manage provider profiles',
-        },
-      ]),
+      host: {
+        listCommands: vi.fn().mockReturnValue([
+          { name: 'help', displayName: 'Help', description: 'Show available commands' },
+          {
+            name: 'provider',
+            displayName: 'Provider Setup',
+            description: 'Manage provider profiles',
+          },
+        ]),
+      },
     });
 
     const result = formatCommandHelpMessage(session);

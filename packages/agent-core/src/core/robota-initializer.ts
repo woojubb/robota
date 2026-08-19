@@ -4,6 +4,7 @@
  * Extracted from robota.ts to keep the main class under 300 lines.
  */
 import { AbstractTool } from '../abstracts/abstract-tool';
+import { AIProviders } from '../managers/ai-provider-manager';
 import { CacheKeyBuilder, MemoryCacheStorage, ExecutionCacheService } from '../services/cache';
 import { ExecutionService } from '../services/execution-service';
 
@@ -12,7 +13,6 @@ import type { IEventService } from '../interfaces/event-service';
 import type { IToolExecutionContext, TToolParameters } from '../interfaces/tool';
 import type { TUniversalValue } from '../interfaces/types';
 import type { AgentFactory } from '../managers/agent-factory';
-import type { AIProviders } from '../managers/ai-provider-manager';
 import type { ConversationHistory } from '../managers/conversation-history-manager';
 import type { ModuleRegistry } from '../managers/module-registry';
 import type { Tools } from '../managers/tool-manager';
@@ -33,6 +33,39 @@ export interface IRobotaInitContext {
   eventEmitter: EventEmitterPlugin;
   eventService: IEventService;
   logger: ILogger;
+}
+
+/**
+ * Build the provider registry an agent's config describes, with its current model already selected
+ * — CORE-047.
+ *
+ * Registration and selection are synchronous and derived entirely from config the constructor has
+ * already passed through `validateAgentConfig`. They lived inside `performAsyncInitialization` only
+ * because they were written next to work that genuinely is async (modules, plugins, the execution
+ * service), and the cost of that placement was that `getModel()` / `setModel()` /
+ * `swapDefaultProvider()` had to refuse until the agent had run a turn — you could not ask which
+ * model you were using without first asking the model a question.
+ *
+ * Constructing and configuring in one function is the point: there is no intermediate state in which
+ * an `AIProviders` exists without the config's providers in it, so "an agent knows which model it is
+ * configured for from the moment it exists" is true by construction rather than by a flag a caller
+ * has to reach. `Robota` calls it exactly once, from its CONSTRUCTOR;
+ * `performAsyncInitialization` must not repeat the work, or a `setModel()` made before the first run
+ * would be silently reverted to `config.defaultModel` when the run initializes.
+ *
+ * @internal
+ */
+export function createConfiguredProviders(config: IAgentConfig): AIProviders {
+  const aiProviders = new AIProviders();
+  if (config.aiProviders) {
+    for (const provider of config.aiProviders) {
+      aiProviders.addProvider(provider.name, provider);
+    }
+  }
+  if (config.defaultModel) {
+    aiProviders.setCurrentProvider(config.defaultModel.provider, config.defaultModel.model);
+  }
+  return aiProviders;
 }
 
 /**
@@ -58,17 +91,9 @@ async function performAsyncInitialization(ctx: IRobotaInitContext): Promise<Exec
   // Initialize all instance-specific managers
   await Promise.all([aiProviders.initialize(), tools.initialize(), agentFactory.initialize()]);
 
-  // Register AI providers
-  if (config.aiProviders) {
-    for (const provider of config.aiProviders) {
-      aiProviders.addProvider(provider.name, provider);
-    }
-  }
-
-  // Set current provider from defaultModel
-  if (config.defaultModel) {
-    aiProviders.setCurrentProvider(config.defaultModel.provider, config.defaultModel.model);
-  }
+  // CORE-047: provider registration and current-model selection are NOT repeated here. The
+  // constructor did them (`createConfiguredProviders`), and repeating them would revert a
+  // `setModel()` made before the first run back to `config.defaultModel` at run time.
 
   // Register modules if provided
   if (config.modules) {

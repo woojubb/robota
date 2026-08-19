@@ -17,6 +17,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { planScanReuse, writeScanReceipt } from './scan-receipt.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 /**
@@ -445,12 +447,30 @@ export const SCAN_COMMANDS = [
   },
   { name: 'stub-markers', command: ['node', 'scripts/harness/check-stub-markers.mjs'] },
   { name: 'conflict-markers', command: ['node', 'scripts/harness/scan-conflict-markers.mjs'] },
+  {
+    name: 'reference-kind-qualified',
+    command: ['node', 'scripts/harness/scan-reference-kind-qualified.mjs'],
+  },
   // INFRA-102. Only the DECLARED edge runs here: it is hermetic. The `--measured` edge asks the
   // host toolchain what a workspace script actually runs on, which no manifest edit can make true
   // (Volta binds a package tool to its install-time Node), so it is a developer-run check.
   {
     name: 'node-version-single-valued',
     command: ['node', 'scripts/harness/scan-node-version-single-valued.mjs'],
+  },
+  // HARNESS-105. The user-execution gate section is required BEFORE implementation starts, and
+  // nothing enforced it — 217 of 257 `done/` documents had none when this floor was written. The
+  // baseline freezes that set; documents outside it must carry the section.
+  {
+    name: 'spec-user-execution-section',
+    command: ['node', 'scripts/harness/scan-spec-user-execution-section.mjs'],
+  },
+  // D1. operational.md requires the three routing documents to stay lean, and scan-file-size scopes
+  // itself to packages/apps, so nothing could see them — three of three were in violation. The
+  // ratchet enforces the direction; the gap to the 80-line target is reported every run.
+  {
+    name: 'routing-document-size',
+    command: ['node', 'scripts/harness/scan-routing-document-size.mjs'],
   },
   { name: 'shell-portability', command: ['node', 'scripts/harness/scan-shell-portability.mjs'] },
   { name: 'ci-base-history', command: ['node', 'scripts/harness/scan-ci-base-history.mjs'] },
@@ -465,6 +485,13 @@ export const SCAN_COMMANDS = [
   {
     name: 'main-required-checks',
     command: ['node', 'scripts/harness/scan-main-required-checks.mjs'],
+  },
+  // INFRA-097. A required check triggered by `pull_request` loads its YAML from the PR, so the
+  // change carries the control plane that judges it. This makes such an edit visible; it does not
+  // make the control plane trusted — that needs configuration outside this repository.
+  {
+    name: 'workflow-provenance',
+    command: ['node', 'scripts/harness/scan-workflow-provenance.mjs'],
   },
   {
     name: 'new-rule-declares-enforcement',
@@ -536,6 +563,41 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-contract-cast-ratchet.mjs'],
   },
   {
+    // ARCH-029: the load-bearing floor. Decomposing a god contract does not fix it — consumers
+    // must stop NAMING it, and REFACTOR-006 proved those are different events on this very
+    // contract.
+    //
+    // The scan guards THREE aggregates and each has its own frozen count, in
+    // scripts/harness/aggregate-naming-baseline.json. Only `ICommandHostContext` — the god contract
+    // TC-05 drove to zero — is at 0; `IAgentJobHostContext` and `ICommandSessionRuntime` are frozen
+    // above zero and burn down from there. This used to read "Frozen at 0" with no subject, which a
+    // reader would take as covering all three.
+    name: 'aggregate-naming',
+    command: ['node', 'scripts/harness/scan-aggregate-naming.mjs'],
+  },
+  {
+    // ARCH-029 TC-06: role ports carry no optional members. An aggregate-level optional CEILING
+    // would not have caught the regression this guards, which is why the rule is per-port.
+    name: 'role-port-optionals',
+    command: ['node', 'scripts/harness/scan-role-port-optionals.mjs'],
+  },
+  {
+    // ARCH-037: a barrel-exported function's parameter types must be exported from the same barrel.
+    // A published function whose argument cannot be named is one the consumer reverse-engineers or
+    // casts into. ARCH-025 fixed that shape once and it recurred, which is why it is a floor.
+    name: 'barrel-parameter-types',
+    command: ['node', 'scripts/harness/scan-barrel-parameter-types.mjs'],
+  },
+  {
+    // ARCH-013 stage 2: a resolved-preset field must reach a declared projection surface, and the
+    // startup and live-/preset surfaces must agree. Stage 1's scan-option-reachability covers the
+    // LAST hop of the same chain (a declared session option nothing assigns); this covers the FIRST.
+    // The divergence half is the `effort` class: a field one path applies and the other drops means
+    // one session holds two answers for the same preset depending on when it was chosen.
+    name: 'preset-projection',
+    command: ['node', 'scripts/harness/scan-preset-projection.mjs'],
+  },
+  {
     name: 'literal-cast-union',
     command: ['node', 'scripts/harness/scan-literal-cast-union.mjs'],
   },
@@ -572,8 +634,23 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-loop-contract.mjs'],
   },
   {
+    name: 'loop-run-records',
+    command: ['node', 'scripts/harness/scan-loop-run-records.mjs'],
+  },
+  {
+    name: 'loop-proof',
+    command: ['node', 'scripts/harness/scan-loop-proof.mjs'],
+  },
+  {
     name: 'resolving-claims',
     command: ['node', 'scripts/harness/scan-resolving-claims.mjs'],
+  },
+  {
+    // CORE-046: the remote streaming route's spelling, compared across two packages that must not
+    // import each other. No single test can hold both values, which is why the disagreement
+    // survived long enough to make every remote streaming call a 404.
+    name: 'remote-stream-route-spelling',
+    command: ['node', 'scripts/harness/scan-remote-stream-route-spelling.mjs'],
   },
   {
     name: 'mistake-mechanisms',
@@ -893,6 +970,20 @@ export async function main() {
   // The adoption ratchet is a frozen SET, so it binds over whatever subset ran — CI's
   // `--skip dist --skip build-contracts` included, the one environment the old count-over-a-whole-
   // registry check could never reach (HARNESS-081). It is always judged (unless re-freezing).
+  // HARNESS-109: the same tree is not scanned twice. A miss says WHY, because a reuse mechanism that
+  // silently never fires is indistinguishable from one that is not wired at all.
+  const scanNames = scans.map((scan) => scan.name);
+  const reuse = planScanReuse({ scanNames, root: WORKSPACE_ROOT, writeAdoption });
+  if (reuse.reuse) {
+    process.stdout.write(
+      `${scanNames.length} scans not re-run: ${reuse.reason}.\n` +
+        'Change any tracked file, or delete the receipt, to force a full run.\n',
+    );
+    process.exitCode = 0;
+    return;
+  }
+  process.stdout.write(`▶ scan receipt not reused: ${reuse.reason}\n`);
+
   process.exitCode = await runScans(scans, undefined, undefined, {
     checkAdoption: true,
     writeAdoption,
@@ -900,6 +991,15 @@ export async function main() {
     // rotting in the baseline forever. Distinct from a `--skip`'d scan, which is still registered.
     knownNames: SCAN_COMMANDS.map((scan) => scan.name),
   });
+
+  if (process.exitCode === 0) {
+    const written = writeScanReceipt({ scanNames, root: WORKSPACE_ROOT });
+    process.stdout.write(
+      written.written
+        ? 'scan receipt written: an unchanged tree will not be re-scanned.\n'
+        : `scan receipt NOT written: ${written.reason}\n`,
+    );
+  }
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {

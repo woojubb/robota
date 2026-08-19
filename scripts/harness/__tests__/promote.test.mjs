@@ -52,7 +52,14 @@ async function newRepo() {
   return { root, git };
 }
 
-async function run(root, extraArgv = []) {
+/**
+ * INFRA-104 — the closing-keyword derivation reads GitHub, so it is INJECTED in every test.
+ * Without this, the two ready-branch cases below reach the network and time out; a hermetic suite
+ * must not depend on a live API to assert an ancestry invariant.
+ */
+const NO_CLOSES = () => '';
+
+async function run(root, extraArgv = [], options = {}) {
   let output = '';
   // extraArgv first: `flag()` reads the FIRST occurrence, so a test override must precede the defaults.
   const code = await main({
@@ -62,6 +69,8 @@ async function run(root, extraArgv = []) {
       output += text;
     },
     fetch: false,
+    closesBlock: NO_CLOSES,
+    ...options,
   });
   return { code, output };
 }
@@ -73,6 +82,7 @@ async function runWithOptions(root, options) {
     out: (text) => {
       output += text;
     },
+    closesBlock: NO_CLOSES,
     ...options,
   });
   return { code, output };
@@ -299,5 +309,40 @@ describe('promote.mjs (INFRA-051)', () => {
     expect(output).toMatch(/release-grade verification.*protected CI/is);
     expect(output).toMatch(/optional diagnostic.*pnpm harness:verify:release/is);
     expect(output).not.toMatch(/PASSED locally|SKIPPED/);
+  });
+});
+
+describe('promote.mjs — closing keywords for the promotion body (INFRA-104)', () => {
+  it('prints the derived block, because the promotion is the only PR GitHub reads a keyword on', async () => {
+    const { root, git } = await newRepo();
+    commit(root, git, 'feature.txt', 'work\n', 'feat: work (#1802)');
+
+    const { code, output } = await run(root, [], {
+      closesBlock: () => '\npromote: paste this into the promotion PR body —\n\nCloses #1750\n',
+    });
+
+    expect(code).toBe(0);
+    expect(output).toMatch(/Closes #1750/);
+    // Ordering matters: the operator composes the body before running `gh pr create`.
+    expect(output.indexOf('Closes #1750')).toBeLessThan(output.indexOf('gh pr create'));
+  });
+
+  it('says so LOUDLY when the block cannot be derived — silence would read as "nothing to close"', async () => {
+    const { root, git } = await newRepo();
+    commit(root, git, 'feature.txt', 'work\n', 'feat: work (#1802)');
+
+    const { code, output } = await run(root, [], {
+      closesBlock: () => {
+        throw new Error('gh api: connection reset');
+      },
+    });
+
+    // The promotion branch is ancestry-verified and must survive a transient GitHub read...
+    expect(code).toBe(0);
+    // ...but the failure is named, and it is not mistakable for an empty derivation.
+    expect(output).toMatch(/COULD NOT derive the closing keywords/);
+    expect(output).toMatch(/connection reset/);
+    expect(output).toMatch(/NOT "nothing to close"/);
+    expect(output).toMatch(/scan-promotion-closes/);
   });
 });

@@ -1,6 +1,6 @@
 import { DEFAULT_STATUS_LINE_COMMAND_SETTINGS } from '@robota-sdk/agent-framework';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type { ICommandHostNoCapability } from '@robota-sdk/agent-framework';
 import type {
   ICommandResult,
   TStatusLineCommandSettingsPatch,
@@ -64,7 +64,7 @@ function parseStatusLineArgs(args: string): TStatusLineCommandAction {
 }
 
 export function executeStatusLineCommand(
-  _context: ICommandHostContext,
+  _context: ICommandHostNoCapability,
   args: string,
 ): ICommandResult {
   const action = parseStatusLineArgs(args);

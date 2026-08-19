@@ -1,3 +1,5 @@
 {
-  "IInteractiveSession": 0
+  "IInteractiveSession": 0,
+  "ICommandHostContext": 0,
+  "IAgentJobHostContext": 0
 }

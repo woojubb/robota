@@ -77,11 +77,26 @@ export async function startRuntimeHost(opts: IRuntimeHostOptions): Promise<IRunt
         // allow-fallback: best-effort transport teardown — the process is exiting.
         await opts.transportRegistry.stopAll().catch(() => undefined);
       }
+      // The losing side of a `Promise.race` is not cancelled, so the bound's timer outlives the race
+      // it lost. An un-unref'd one keeps the event loop alive for its full duration: measured on
+      // `robota --serve`, teardown finished in 1ms and the process then sat for 5006ms with no
+      // handles and a single `Timeout` as its only live resource. The bound exists so a wedged
+      // subsystem cannot block exit — a bound that DELAYS exit by its own length in the normal case
+      // is the opposite of that.
+      //
+      // Cancelling it is enough, and is what the bound means: once the race has an answer the bound
+      // has done its job, whichever side won. `unref()` would also work — measured, either alone
+      // fixes it — but it leaves the timer armed and merely non-blocking, which is a weaker
+      // statement than "this is finished".
+      let bound: ReturnType<typeof setTimeout> | undefined;
       await Promise.race([
         // allow-fallback: best-effort session shutdown — a wedged subsystem must not block exit.
         session.shutdown({ reason: 'other', message }).catch(() => undefined),
-        new Promise((resolve) => setTimeout(resolve, RUNTIME_SHUTDOWN_TIMEOUT_MS)),
+        new Promise((resolve) => {
+          bound = setTimeout(resolve, RUNTIME_SHUTDOWN_TIMEOUT_MS);
+        }),
       ]);
+      if (bound !== undefined) clearTimeout(bound);
     },
   };
 }

@@ -5,12 +5,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
 import { InteractiveSession } from '../interactive-session.js';
 
+import type { IExecutionWorkspaceEvent } from '../../background-tasks/index.js';
 import type {
   IBackgroundTaskHandle,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
-  IExecutionWorkspaceEvent,
-} from '../../background-tasks/index.js';
+} from '@robota-sdk/agent-executor';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import { createSessionStub as createSharedSessionStub } from './helpers/session-stub.js';
 import type {

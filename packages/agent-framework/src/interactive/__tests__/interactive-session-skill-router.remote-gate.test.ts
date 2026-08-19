@@ -6,6 +6,7 @@ import { stubSubmit } from './helpers/session-stub.js';
 
 import type { ICommandHostContext, ICommandModule, ISystemCommand } from '../../commands/index.js';
 import type { IRemoteCommandPolicy } from '../../commands/index.js';
+import { createTestCommandHost } from '../../testing/command-host-double.js';
 
 /**
  * REMOTE-006 — local == remote. A transport-origin (`source==='remote'`) command runs exactly as a locally-typed
@@ -27,7 +28,7 @@ function makeCommand(name: string, extra: Partial<ISystemCommand>): ISystemComma
 
 function makeRouter(commands: ISystemCommand[], policy?: IRemoteCommandPolicy): SessionSkillRouter {
   const module: ICommandModule = { name: 'test-module', systemCommands: commands };
-  const stubSession = {} as unknown as ICommandHostContext;
+  const stubSession = createTestCommandHost();
   return new SessionSkillRouter(
     [module],
     '/tmp/remote-gate-test',

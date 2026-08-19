@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 import {
   ExitCommandSource,
   createExitCommandEntry,
@@ -7,10 +7,14 @@ import {
   executeExitCommand,
 } from '../index.js';
 
-function contextWithAnswer(value: string): ICommandHostContext {
-  return {
-    getUserInteraction: () => ({ ask: async () => ({ type: 'answer', values: [value] }) }),
-  } as unknown as ICommandHostContext;
+function contextWithAnswer(value: string) {
+  // The double answers "no capability of that kind" by default; this fixture states the one
+  // capability it exercises, so the precondition is declared rather than inherited.
+  return createTestCommandHost({
+    overrides: {
+      getUserInteraction: () => ({ ask: async () => ({ type: 'answer', values: [value] }) }),
+    },
+  });
 }
 
 describe('exit command module', () => {
@@ -31,7 +35,10 @@ describe('exit command module', () => {
   });
 
   it('proceeds to exit with no renderer attached (no human to confirm)', async () => {
-    const result = await executeExitCommand({} as never, '');
+    // ARCH-029 TC-09: "no renderer attached" is a VALUE — `getUserInteraction()` returns undefined —
+    // not an absent member. `{} as never` expressed it as absence, which the required member no
+    // longer permits, and the double's default answers exactly this case.
+    const result = await executeExitCommand(createTestCommandHost(), '');
 
     expect(result).toEqual({
       success: true,

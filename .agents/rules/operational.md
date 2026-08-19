@@ -133,6 +133,14 @@ wall-clock of the whole session.
 The obligation is on the WAIT, not on the amount of work. If a blocking wait is under way and any
 independent item remains, something else advances during it.
 
+Enforced by: `.claude/hooks/no-foreground-wait.sh` — it refuses a foreground Bash call whose sleep
+budget exceeds 60 seconds, or that loops around a remote status read (`gh pr checks`, `gh run view`,
+`git ls-remote`), and names the background path in the refusal. The hook exists because this section
+alone did not hold: 61 turns died to Bash timeouts on that exact shape, and all four existing
+PreToolUse Bash guards exit 0 on it. It fails toward PERMIT — it judges a cost, not a safety
+property, so a wait it cannot parse is one it has no evidence about. Deliberate exception:
+`FOREGROUND_WAIT_ACK=1` inline in the same command.
+
 - **The wait must be real.** Something you cannot make faster and are not permitted to skip. A wait
   invented to avoid interleaving is not a wait.
 - **The second item must be INDEPENDENT** — no source file, no rule document and no frozen baseline

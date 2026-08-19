@@ -10,6 +10,7 @@ import { executeMonitorCommand, executeScheduleCommand } from '../schedule-comma
 import { parseScheduleSpec } from '../schedule-spec-parser.js';
 
 import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
+import { createTestAgentJobHost } from '@robota-sdk/agent-framework/testing';
 
 function mockHost(): {
   host: IAgentJobHostContext;
@@ -35,14 +36,14 @@ function mockHost(): {
   const pauseSchedule = vi.fn().mockResolvedValue(undefined);
   const resumeSchedule = vi.fn().mockResolvedValue(undefined);
   const editSchedule = vi.fn().mockResolvedValue(undefined);
-  const host = {
+  const host = createTestAgentJobHost({
     spawnScheduledWake: scheduled,
     spawnMonitorWake: monitor,
     listSchedules,
     pauseSchedule,
     resumeSchedule,
     editSchedule,
-  } as unknown as IAgentJobHostContext;
+  });
   return { host, scheduled, monitor, listSchedules, pauseSchedule, resumeSchedule, editSchedule };
 }
 

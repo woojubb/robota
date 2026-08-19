@@ -28,6 +28,7 @@ import {
   findStaticFindings,
   liveModeFor,
   parseReferences,
+  pathExistsAtCommit,
   readWorkflowSources,
   resolveAll,
   unverifiedResolvabilityLine,
@@ -487,5 +488,85 @@ describe('unverifiedResolvabilityLine', () => {
     expect(advisory).toContain('--offline');
     expect(advisory).toContain('12 reference(s)');
     expect(advisory).toContain('does not exist passes this run');
+  });
+});
+
+describe('the manifest probe runs over the authenticated endpoint (INFRA-107)', () => {
+  // Driven against a STUBBED runner, so the two answers that cannot be produced on demand against
+  // the live API — a rate limit and a killed process — are cases rather than hopes. The live-endpoint
+  // runs are recorded in the INFRA-107 backlog item.
+  const REF = { owner: 'pnpm', repo: 'action-setup' };
+  const SHA = 'eae0cfeb286e66ffb5155f1a79b90583a127a68b';
+  const noWait = () => Promise.resolve();
+
+  const runner = (...responses) => {
+    const queue = [...responses];
+    const calls = [];
+    const run = (args) => {
+      calls.push(args);
+      return queue.length > 1 ? queue.shift() : queue[0];
+    };
+    run.calls = calls;
+    return run;
+  };
+
+  it('reads a present path as true, through `gh api`', async () => {
+    const run = runner({ status: 0, stdout: '', stderr: '' });
+    await expect(pathExistsAtCommit(REF, SHA, 'action.yml', { runner: run })).resolves.toBe(true);
+    // The endpoint, not a raw host: the whole point is that the request carries credentials.
+    expect(run.calls[0]).toEqual([
+      'api',
+      `repos/pnpm/action-setup/contents/action.yml?ref=${SHA}`,
+      '--silent',
+    ]);
+  });
+
+  it('reads a 404 as FALSE, not as an error', async () => {
+    // "This SHA carries no manifest" is the finding the scan exists to report. Folding it into the
+    // transport's error channel would turn a real finding into an outage report — the same collapse,
+    // one level down, that the rate limit produced.
+    const run = runner({ status: 1, stdout: '', stderr: 'gh: Not Found (HTTP 404)' });
+    await expect(pathExistsAtCommit(REF, SHA, 'nope.yml', { runner: run })).resolves.toBe(false);
+  });
+
+  it('retries a rate limit and succeeds when the budget returns', async () => {
+    const run = runner(
+      { status: 1, stdout: '', stderr: 'API rate limit exceeded\nretry-after: 1' },
+      { status: 0, stdout: '', stderr: '' },
+    );
+    await expect(
+      pathExistsAtCommit(REF, SHA, 'action.yml', { runner: run, sleep: noWait }),
+    ).resolves.toBe(true);
+    expect(run.calls).toHaveLength(2);
+  });
+
+  it('fails CLOSED when the budget does not return within the bound', async () => {
+    // Unreachable is a failure, not a skip — the scan's own rule, and the reason it went red on a
+    // shared runner address. Moving to an authenticated endpoint raises the budget; it does not make
+    // exhausting it a pass.
+    const run = runner({
+      status: 1,
+      stdout: '',
+      stderr: 'API rate limit exceeded\nretry-after: 1',
+    });
+    await expect(
+      pathExistsAtCommit(REF, SHA, 'action.yml', { runner: run, attempts: 2, sleep: noWait }),
+    ).rejects.toThrow(/budget to wait out/);
+  });
+
+  it('fails closed on a transport error that is neither 404 nor a rate limit', async () => {
+    const run = runner({ status: 1, stdout: '', stderr: 'dial tcp: i/o timeout' });
+    await expect(pathExistsAtCommit(REF, SHA, 'action.yml', { runner: run })).rejects.toThrow(
+      /i\/o timeout/,
+    );
+  });
+
+  it('names the timeout when the runner was KILLED and left no stderr', async () => {
+    // The first version reported this as `gh exited null`, which names neither the cause nor the
+    // remedy. A probe whose failure cannot be acted on is the same defect one layer up.
+    const run = runner({ status: null, signal: 'SIGTERM', stdout: '', stderr: '' });
+    await expect(pathExistsAtCommit(REF, SHA, 'action.yml', { runner: run })).rejects.toThrow(
+      /killed by SIGTERM/,
+    );
   });
 });

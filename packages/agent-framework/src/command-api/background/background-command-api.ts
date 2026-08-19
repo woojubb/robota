@@ -1,4 +1,4 @@
-import type { ICommandHostContext } from '../host-context.js';
+import type { ICommandHostBackgroundTasks } from '../host-context.js';
 import type { ICommand } from '../types.js';
 import type {
   IBackgroundTaskListFilter,
@@ -72,14 +72,14 @@ function formatInlineMetadata(value: string): string {
 }
 
 export function listCommandBackgroundTasks(
-  context: ICommandHostContext,
+  context: ICommandHostBackgroundTasks,
   filter?: IBackgroundTaskListFilter,
 ): IBackgroundTaskState[] {
   return context.listBackgroundTasks(filter);
 }
 
 export function readCommandBackgroundTaskLog(
-  context: ICommandHostContext,
+  context: ICommandHostBackgroundTasks,
   taskId: string,
   cursor?: IBackgroundTaskLogCursor,
 ): Promise<IBackgroundTaskLogPage> {
@@ -87,7 +87,7 @@ export function readCommandBackgroundTaskLog(
 }
 
 export function cancelCommandBackgroundTask(
-  context: ICommandHostContext,
+  context: ICommandHostBackgroundTasks,
   taskId: string,
   reason?: string,
 ): Promise<void> {
@@ -95,7 +95,7 @@ export function cancelCommandBackgroundTask(
 }
 
 export function closeCommandBackgroundTask(
-  context: ICommandHostContext,
+  context: ICommandHostBackgroundTasks,
   taskId: string,
 ): Promise<void> {
   return context.closeBackgroundTask(taskId);

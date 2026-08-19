@@ -177,3 +177,17 @@ The verification is complete when ALL of the following are true:
 - **Single-pass verification:** Reading the spec once and declaring "all good" without re-reading after fixes. Gaps cascade — always re-verify.
 - **Fixing code without a test:** Every code fix must have a corresponding contract test. A fix without a test will regress.
 - **Skipping regression:** Passing contract tests is necessary but not sufficient. Regression tests catch unintended side effects.
+
+## Record the run
+
+Open a ledger entry before the first round, record each round's finding count, and close it with the
+terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
+`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
+run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
+what each terminal reason means).
+
+```bash
+node scripts/harness/loop-run.mjs open  --loop spec-code-conformance
+node scripts/harness/loop-run.mjs round --loop spec-code-conformance --run <id> --findings <n>
+node scripts/harness/loop-run.mjs close --loop spec-code-conformance --run <id> --terminal <reason>
+```

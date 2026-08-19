@@ -95,3 +95,17 @@ After phase 3 reports `COMPLETE`:
 
 If you find yourself judging a failure, defining a gate, or running a phase's internal steps here, stop —
 route to the owner instead.
+
+## Record the run
+
+Open a ledger entry before the first round, record each round's finding count, and close it with the
+terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
+`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
+run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
+what each terminal reason means).
+
+```bash
+node scripts/harness/loop-run.mjs open  --loop release-orchestration
+node scripts/harness/loop-run.mjs round --loop release-orchestration --run <id> --findings <n>
+node scripts/harness/loop-run.mjs close --loop release-orchestration --run <id> --terminal <reason>
+```

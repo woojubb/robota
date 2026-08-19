@@ -14,7 +14,7 @@ import type {
   IBackgroundTaskHandle,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
-} from '../../background-tasks/index.js';
+} from '@robota-sdk/agent-executor';
 import type { SessionHistoryTracker } from '../interactive-session-history-tracker.js';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';

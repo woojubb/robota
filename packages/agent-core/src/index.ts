@@ -255,8 +255,8 @@ export type {
   ValidationSeverity,
 } from './interfaces/workflow-validator';
 
-// Execution proxy
-export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';
+export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy'; // #1851
+export type { IExecutionProxyConfig } from './utils/execution-proxy-types';
 
 // Permissions
 // ARCH-031: one re-export of the permissions sub-barrel rather than a hand-listed block. The list it

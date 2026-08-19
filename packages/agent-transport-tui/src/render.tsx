@@ -13,7 +13,11 @@ import { TuiInteractionChannel } from './TuiInteractionChannel.js';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
-import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IToolWithEventService,
+  IProviderDefinition,
+} from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
@@ -38,6 +42,14 @@ export interface IRenderOptions {
   cwd: string;
   provider: IAIProvider;
   providerOverride?: string | undefined;
+  /**
+   * #1844: forwarded to the session so `/provider switch` can construct the provider it switches TO.
+   *
+   * The session cannot discover these — they are assembled at the composition root from the provider
+   * packages. Without them the hot-swap throws with an empty supported-list, which is the failure
+   * this option exists to prevent rather than a nicety.
+   */
+  providerDefinitions?: readonly IProviderDefinition[];
   providerType?: string | undefined;
   modelId?: string;
   /** ARCH-013: resolved preset effort, forwarded to the session's `effort` seam. */
@@ -109,6 +121,7 @@ export function toChannelOptions(
   return {
     cwd: options.cwd,
     provider: options.provider,
+    ...(options.providerDefinitions ? { providerDefinitions: options.providerDefinitions } : {}),
     // CLI-076: the display model id doubles as the session's model override so `--model` actually reaches
     // the provider chat call (header/status line == the model actually called).
     ...(options.modelId !== undefined ? { model: options.modelId } : {}),

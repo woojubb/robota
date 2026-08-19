@@ -12,11 +12,12 @@ import type {
   TUniversalValue,
 } from '@robota-sdk/agent-core';
 
-/**
- * Per-task permission policy. SSOT lives in `agent-core` (the permission-logic home; CORE-025) — re-exported
- * here so existing consumers keep importing it from `agent-interface-transport` unchanged.
- */
-export type { TBackgroundPermissionPolicy } from '@robota-sdk/agent-core';
+// ARCH-037: the `TBackgroundPermissionPolicy` pass-through re-export is removed. Its stated reason
+// was "so existing consumers keep importing it from `agent-interface-transport` unchanged". There was
+// exactly one — `agent-executor` — and it already depends on `agent-core`, so the same change points
+// it at the SSOT; `agent-framework` and `agent-session` were importing from `agent-core` already. An
+// earlier revision of this comment said "there were none", which was wrong about the very consumer
+// this change had to redirect. The type is still imported above for this file's own use.
 
 export type TBackgroundTaskKind = 'agent' | 'process' | 'scheduled';
 

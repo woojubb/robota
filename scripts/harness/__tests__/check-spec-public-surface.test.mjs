@@ -225,6 +225,36 @@ describe('publicApiIdentifiers — hierarchical section extent (HARNESS-104)', (
     expect(publicApiIdentifiers(spec)).toEqual(['deep']);
   });
 
+  it('(CORE-035) a NESTED "Public API" subheading does not shrink the section', () => {
+    // The defect HARNESS-104's fix left behind, one level down. `### … Public API …` re-assigned the
+    // boundary from 2 to 3, so the very next sibling `###` closed the whole `##` section. Against
+    // that, this returns only ['nested'] — everything after `### Schema` disappears.
+    //
+    // Measured on the real tree: `agent-core`'s SPEC has
+    // `### Abort Classification Public API (CORE-027)` followed by `### Schema (CORE-015)`, and the
+    // parser saw 69 of its 143 documented identifiers. Half the package's own Public API table read
+    // as undocumented, including every table below Schema.
+    const spec = [
+      '## Public API Surface',
+      '',
+      table('top'),
+      '',
+      '### Abort Classification Public API',
+      '',
+      table('nested'),
+      '',
+      '### Schema',
+      '',
+      table('afterSibling'),
+      '',
+      '## Type Ownership',
+      '',
+      table('outside'),
+    ].join('\n');
+
+    expect(publicApiIdentifiers(spec)).toEqual(['top', 'nested', 'afterSibling']);
+  });
+
   it('ignores tables that never enter the section at all', () => {
     const spec = ['## Type Ownership', '', table('notSurface')].join('\n');
 

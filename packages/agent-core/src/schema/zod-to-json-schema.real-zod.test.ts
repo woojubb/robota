@@ -202,9 +202,13 @@ describe('zodToJsonSchema with real Zod — effects and rejected roots', () => {
   });
 
   it('still throws for an unsupported type nested one level down', () => {
-    expect(() => zodToJsonSchema(asZod(z.object({ outer: z.object({ when: z.date() }) })))).toThrow(
-      'Unsupported Zod type: ZodDate',
-    );
+    // CORE-041: `ZodDate` used to be the example here and is now SUPPORTED — JSON has no date type,
+    // so `{type:'string', format:'date-time'}` is the faithful description of the payload rather
+    // than a lossy stand-in. `ZodTuple` takes its place: a tuple needs positional `items`, which the
+    // universal subset models as one schema, so it genuinely has no representation.
+    expect(() =>
+      zodToJsonSchema(asZod(z.object({ outer: z.object({ pair: z.tuple([z.string()]) }) }))),
+    ).toThrow(/ZodTuple cannot be carried by the universal JSON-schema subset/);
   });
 });
 

@@ -120,6 +120,23 @@ function ghRunner(args) {
 }
 
 /**
+ * The `gh` build that produced a failure, for the error message only.
+ *
+ * Read ONLY on the failure path: a version probe on every successful read would spend a process per
+ * call to answer a question nobody asked. It matters when a read fails in CI and succeeds on a
+ * developer machine, which is the shape INFRA-103 is stuck on — "which gh" was unanswerable from the
+ * log, so it stayed a hypothesis for as long as it took to ask by hand.
+ *
+ * Its own failure is not an error. This runs while reporting one, and a diagnostic that can throw
+ * would replace the real message with its own.
+ */
+function ghVersion() {
+  const probe = spawnSync('gh', ['--version'], { encoding: 'utf8' });
+  if (probe.status !== 0) return 'unknown';
+  return (probe.stdout ?? '').split('\n')[0]?.trim() || 'unknown';
+}
+
+/**
  * A rate-limited response is not a failed read — it is a read that must be repeated later.
  *
  * The API answers an exhausted budget with 403 (not 429) plus a rate-limit signature, and the
@@ -180,7 +197,14 @@ export function readWithBackoff(
   }
   throw new Error(
     `${endpoint}: \`gh api\` failed (exit ${response.status}): ` +
-      `${(response.stderr ?? '').trim() || 'no stderr'}`,
+      `${(response.stderr ?? '').trim() || 'no stderr'}` +
+      // INFRA-103: the failure said WHICH endpoint but never WHAT IT ASKED. A 422 on this repo's
+      // `issues/{n}/labels` read cost an afternoon precisely because the message could not
+      // distinguish this reader's request from the plain `gh api --paginate` call one step earlier
+      // that succeeded on the same endpoint in the same job — the flags are the only difference and
+      // they were the one thing not reported. Args cost a line and are the first thing anyone asks.
+      `\n  requested: gh ${(args ?? []).join(' ')}` +
+      `\n  gh: ${ghVersion()}`,
   );
 }
 

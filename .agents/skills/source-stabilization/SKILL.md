@@ -73,3 +73,17 @@ Return exactly one to the caller, with the evidence behind it:
 - `HALT` — a stop condition fired, approval is missing, or a cap was exceeded. Name which.
 
 This phase never returns `REGRESSED`: it _is_ the phase a regression returns to.
+
+## Record the run
+
+Open a ledger entry before the first round, record each round's finding count, and close it with the
+terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
+`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
+run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
+what each terminal reason means).
+
+```bash
+node scripts/harness/loop-run.mjs open  --loop source-stabilization
+node scripts/harness/loop-run.mjs round --loop source-stabilization --run <id> --findings <n>
+node scripts/harness/loop-run.mjs close --loop source-stabilization --run <id> --terminal <reason>
+```

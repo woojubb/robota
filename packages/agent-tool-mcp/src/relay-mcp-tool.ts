@@ -1,5 +1,7 @@
 import { ToolExecutionError } from '@robota-sdk/agent-core';
 
+import { ThirdPartySchemaValidator, type TUnenforceableSchemaReporter } from './third-party-schema';
+
 import type {
   TToolParameters,
   IToolResult,
@@ -31,6 +33,12 @@ export interface IRelayMcpOptions {
    * Must not perform ownerPath inference; receives the augmented agent ownerPath.
    */
   run: (parameters: TToolParameters, ctx: IRelayMcpContext) => Promise<IToolResult>;
+  /**
+   * CORE-040: told once, with the paths, when part of this tool's third-party schema is outside the
+   * universal subset and therefore cannot be enforced. Optional — omitting it logs a warning rather
+   * than passing over the gap in silence.
+   */
+  onUnenforceableSchema?: TUnenforceableSchemaReporter;
 }
 
 /**
@@ -46,10 +54,14 @@ export interface IRelayMcpOptions {
 export class RelayMcpTool {
   readonly schema: IToolSchema;
   private readonly runImpl: IRelayMcpOptions['run'];
+  private readonly onUnenforceableSchema?: TUnenforceableSchemaReporter;
+  /** CORE-040: built on first use and reused — narrowing is a property of the schema, not the call. */
+  private validator?: ThirdPartySchemaValidator;
 
   constructor(options: IRelayMcpOptions) {
     this.schema = options.schema;
     this.runImpl = options.run;
+    this.onUnenforceableSchema = options.onUnenforceableSchema;
   }
 
   async execute(
@@ -99,20 +111,21 @@ export class RelayMcpTool {
     return this.validateParameters(parameters).isValid;
   }
 
+  /**
+   * Validate tool parameters with detailed result.
+   *
+   * CORE-040: routed through the universal-subset walk, narrowed to what it can enforce for a
+   * THIRD-PARTY schema. This used to be a presence check over the top-level `required` list and
+   * nothing else, so declared types, enums, bounds and every nested field were advertised to the
+   * model and enforced by nobody.
+   */
   validateParameters(parameters: TToolParameters): IParameterValidationResult {
-    const required = this.schema.parameters.required || [];
-    const errors: string[] = [];
-
-    for (const field of required) {
-      if (!(field in parameters)) {
-        errors.push(`Missing required parameter: ${field}`);
-      }
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors,
-    };
+    this.validator ??= new ThirdPartySchemaValidator(
+      this.schema.name,
+      this.schema.parameters,
+      this.onUnenforceableSchema,
+    );
+    return this.validator.validate(parameters);
   }
 
   getDescription(): string {

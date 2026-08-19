@@ -2,8 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-framework';
 import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createCompactCommandModule } from '../compact-command-module.js';
+import type { ICommandHostContextWindow } from '@robota-sdk/agent-framework';
+import {
+  createTestCommandHost,
+  createTestSessionRuntime,
+} from '@robota-sdk/agent-framework/testing';
 
-type TContextWindowState = ReturnType<ICommandHostContext['getContextState']>;
+type TContextWindowState = ReturnType<ICommandHostContextWindow['getContextState']>;
 type TPermissionMode = ReturnType<ICommandSessionRuntime['getPermissionMode']>;
 
 const BEFORE_CONTEXT: TContextWindowState = {
@@ -20,10 +25,10 @@ const AFTER_CONTEXT: TContextWindowState = {
   remainingPercentage: 65,
 };
 
-function createRuntime(beforeCount = 10, afterCount = 3): ICommandSessionRuntime {
+function createRuntime(beforeCount = 10, afterCount = 3) {
   let mode: TPermissionMode = 'default';
   const getMessageCount = vi.fn().mockReturnValueOnce(beforeCount).mockReturnValue(afterCount);
-  return {
+  return createTestSessionRuntime({
     clearHistory: vi.fn(),
     compact: vi.fn().mockResolvedValue(undefined),
     getContextState: vi.fn().mockReturnValue(AFTER_CONTEXT),
@@ -37,10 +42,10 @@ function createRuntime(beforeCount = 10, afterCount = 3): ICommandSessionRuntime
     getAutoCompactThreshold: () => 0.835,
     getFullHistory: () => [],
     getHistory: () => [],
-  };
+  });
 }
 
-function createCommandHostContext(): ICommandHostContext & {
+function createCommandHostContext(): ReturnType<typeof createTestCommandHost> & {
   compactContext: ReturnType<typeof vi.fn>;
 } {
   const runtime = createRuntime();
@@ -48,23 +53,25 @@ function createCommandHostContext(): ICommandHostContext & {
     .fn()
     .mockReturnValueOnce(BEFORE_CONTEXT)
     .mockReturnValue(AFTER_CONTEXT);
-  return {
-    getSession: () => runtime,
-    getContextState,
-    getAutoCompactThreshold: () => 0.835,
-    compactContext: vi.fn().mockResolvedValue(undefined),
-    getCwd: () => '/workspace',
-    listCommands: () => [],
-    listEditCheckpoints: () => [],
-    restoreEditCheckpoint: vi.fn(),
-    rollbackEditCheckpoint: vi.fn(),
-    getUsedMemoryReferences: () => [],
-    recordMemoryEvent: vi.fn(),
-    listBackgroundTasks: () => [],
-    readBackgroundTaskLog: vi.fn().mockResolvedValue({ taskId: 'task_1', lines: [] }),
-    cancelBackgroundTask: vi.fn(),
-    closeBackgroundTask: vi.fn(),
-  };
+  return createTestCommandHost({
+    overrides: {
+      getSession: () => runtime,
+      getContextState,
+      getAutoCompactThreshold: () => 0.835,
+      compactContext: vi.fn().mockResolvedValue(undefined),
+      getCwd: () => '/workspace',
+      listCommands: () => [],
+      listEditCheckpoints: () => [],
+      restoreEditCheckpoint: vi.fn(),
+      rollbackEditCheckpoint: vi.fn(),
+      getUsedMemoryReferences: () => [],
+      recordMemoryEvent: vi.fn(),
+      listBackgroundTasks: () => [],
+      readBackgroundTaskLog: vi.fn().mockResolvedValue({ taskId: 'task_1', lines: [] }),
+      cancelBackgroundTask: vi.fn(),
+      closeBackgroundTask: vi.fn(),
+    },
+  }) as ReturnType<typeof createCommandHostContext>;
 }
 
 describe('createCompactCommandModule', () => {

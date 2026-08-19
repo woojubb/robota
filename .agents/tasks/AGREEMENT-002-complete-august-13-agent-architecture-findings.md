@@ -125,4 +125,28 @@ user-execution scenario owned by its source child Task.
 
 ## Result
 
-Pending.
+Pending — **and it was asked to close on 2026-08-18, which is how the remaining gap was found.**
+
+All fourteen children are `done` and archived, which is what made the initiative look finished from
+the outside. It is not: two of sixteen completion criteria are unmet.
+
+- **TC-15 — MET.** All fourteen `completed/` paths resolve; `check-done-evidence.mjs` and
+  `check-task-archival.mjs` both pass (exit 0).
+- **TC-08 — NOT MET.** ARCH-021 delivered the composition half inside its declared area and filed the
+  rest as ARCH-033/034/035/036 and SEC-009. ARCH-036 reached `done` on 2026-08-18; the other four are
+  still OPEN, and **SEC-009 carries the criterion's own "keeps credentials parent-side" clause** — an
+  `apiKey` in the subagent IPC start payload.
+- **TC-16 — NOT MET.** `harness:conformance` is green (exit 0), but `harness:verify-like-ci` exits 1.
+
+**The attempt to close it is worth recording, because a check caught what a reading did not.** TC-08
+was ticked using the re-scope treatment TC-13 received, and `scan-resolving-claims` rejected it as
+`ticked-but-unfinished` — every one of `verify-like-ci`'s three failing stages traced to that single
+tick. TC-13 closes onto ARCH-031, which is DONE; this would have closed onto five items of which only
+ARCH-036 has since finished. A criterion may be re-scoped onto work that finished, not onto work that
+has not.
+
+Ticking it would have claimed a security property the repository does not have.
+
+**To close:** SEC-009 lands (ARCH-033/034/035 are `todo` and would need the same judgement; ARCH-036
+landed on 2026-08-18), or the owner re-scopes TC-08 explicitly — the decision this record shows the
+owner making for TC-13 on 2026-08-16. Then TC-16 is re-run green on the closing base and recorded.

@@ -9,8 +9,8 @@ import { renderWorkflowsUsage, WORKFLOWS_SUBCOMMANDS } from './subcommands.js';
 import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
+  ICommandHostWorkspace,
   ICommandModule,
-  ICommandHostContext,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
 import type {
@@ -43,14 +43,53 @@ function splitSubcommand(args: string): { sub: string; rest: string } {
   return { sub: trimmed.slice(0, spaceIdx), rest: trimmed.slice(spaceIdx + 1).trim() };
 }
 
+/**
+ * Refuse a subcommand the registry marks non-model-invocable when the MODEL is the caller.
+ *
+ * Returns `undefined` when there is nothing to refuse, so the dispatcher reads as "gate, then
+ * dispatch" rather than as a branch a reader has to hold in their head.
+ *
+ * An unknown subcommand is NOT refused here — it falls through to the dispatcher's own "Unknown
+ * subcommand" answer, which is a better message and keeps one place deciding what exists.
+ */
+function refuseUngatedModelSubcommand(
+  sub: string,
+  context: ICommandHostWorkspace,
+): ICommandResult | undefined {
+  if (context.getCommandInvocationSource() !== 'model') return undefined;
+  const entry = WORKFLOWS_SUBCOMMANDS.find((candidate) => candidate.name === sub);
+  if (entry === undefined || entry.modelInvocable !== false) return undefined;
+  return {
+    success: false,
+    message:
+      `The model may not run \`workflows ${sub}\`. It is registered as non-model-invocable ` +
+      'because it executes or inspects an on-disk workflow, and a workflow can carry LLM, http and ' +
+      'file nodes. Ask the operator to run it, or use `workflows create` to author one.',
+  };
+}
+
 async function executeWorkflowsCommand(
-  context: ICommandHostContext,
+  context: ICommandHostWorkspace,
   args: string,
   workspace: IWorkspaceLayout,
   providerDefinitions: readonly IProviderDefinition[],
 ): Promise<ICommandResult> {
   const { sub, rest } = splitSubcommand(args);
   const cwd = context.getCwd();
+
+  // CMD-006: the per-subcommand `modelInvocable` flag was DECORATIVE — declared in the registry and
+  // read by nothing. The framework gates the model path per TOP-LEVEL command name, and this
+  // command is model-invocable (the model is meant to author workflows), so a model-issued
+  // `workflows run <file>` inherited that and executed an arbitrary on-disk DAG — LLM, http and
+  // file nodes — with no prompt.
+  //
+  // Enforced HERE rather than in the framework because the flag is per-subcommand and only this
+  // dispatcher knows which subcommand an args string names. Read from the same registry that
+  // declares it, so the two cannot drift: a subcommand added as `modelInvocable: false` is gated by
+  // existing to be found, not by someone remembering to add a case.
+  const refusal = refuseUngatedModelSubcommand(sub, context);
+  if (refusal !== undefined) return refusal;
+
   switch (sub) {
     case '':
       return { success: true, message: USAGE };

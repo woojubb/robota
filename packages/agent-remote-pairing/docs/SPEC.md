@@ -56,6 +56,91 @@ detection is a **directional, nonce-bound HMAC key-confirmation** bound to both 
 | `startHostReconnect`        | function | Host-side mutual reconnect controller; verifies the device before accept.                             |
 | `deriveReconnectSeed`       | function | HKDF a per-device reconnect seed from the pairing `sessionKey` (REMOTE-013 E4).                       |
 | `deriveReconnectRendezvous` | function | HKDF a fresh reconnect rendezvous id from `(seed, counter)` — single-use room per reconnect (E4).     |
+| `generateUserRootKeyPair`   | function | SEC-011: the USER's root ECDSA keypair — one per person, not per machine.                             |
+| `deriveUserId`              | function | SEC-011: stable `SHA-256(SPKI)` id of a user root.                                                    |
+| `issueDeviceCertificate`    | function | SEC-011: sign a device key into this user's set. Same root ⇒ same user.                               |
+| `verifyDeviceCertificate`   | function | SEC-011: check a certificate against an expected user, now — signature first, then the signed fields. |
+| `verifyDevicePossession`    | function | SEC-011: confirm the presenter HOLDS the device key its certificate names.                            |
+| `issueHandoffGrant`         | function | SEC-011: authorize ONE transfer, to ONE destination, over ONE channel.                                |
+| `verifyHandoffGrant`        | function | SEC-011: verify a grant against this destination, transfer and channel.                               |
+
+### SEC-011 — same USER, across two computers (#1812)
+
+`device-identity.ts` proves possession of a **machine's** key; `ITrustedDeviceRecord` records that a
+machine was enrolled somewhere; a completed WebRTC connection proves two endpoints negotiated a
+channel. None says **whose** machine, and a hand-off must not move a session to someone else's
+device.
+
+**Why the proof travels with the destination.** Transitive trust — "the source has both devices in
+its store, so they are one user" — inverts the direction of the proof: the list lives on the machine
+making the claim, so a mistaken or compromised source can assert any destination is its user's while
+the destination presents nothing. That is an authorization list wearing an authentication's clothes.
+
+So the user holds one **root keypair** that signs each device's identity key. A device proves
+same-user by presenting that certificate AND demonstrating possession of the device private key —
+two separate calls, because a certificate is a public document and proves nothing about who is
+holding it.
+
+**The grant binds one transfer.** A same-user proof reused for a second transfer is the failure
+#1812 names, so every binding is INSIDE the signature: user, source and destination device ids,
+hand-off id, session id, nonce, channel fingerprint, and expiry. A signature over a subset would
+leave the omitted field attacker-editable while still verifying.
+
+**Signaling stays a rendezvous.** The grant is minted by the source and verified by the destination
+end to end, so a signaling server that reads every byte still cannot authorize a transfer.
+
+**Trust levels stay distinct.** `same-user-different-host` must never satisfy a check that wanted
+SEC-010's `same-user-same-host`, or a local admission could authorize a cross-device transfer.
+
+### `/local` subpath — SEC-010 local-peer admission (node-only)
+
+A SEPARATE entry point, not part of the surface above. The main entry is isomorphic (WebCrypto, no
+Node built-ins) and runs in the browser remote client; this needs the filesystem, and a browser has
+no local peers and no directory permissions to judge.
+
+| Export                    | Kind     | Purpose                                                                                                            |
+| ------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| `admitLocalPeerDirectory` | function | Establish that a rendezvous directory is user-owned and mode 0700 — the evidence the kernel enforces.              |
+| `admitLocalPeerSocket`    | function | The same, plus the socket path resolving INSIDE that directory.                                                    |
+| `refuseLocalPeer`         | function | Build a refusal in one place, so no call site can construct an admitted-looking result without evidence.           |
+| `ensureGuardedDirectory`  | function | Create the rendezvous directory and VERIFY it afterwards with the same judge that validates one we did not create. |
+| `GUARDED_MODE`            | const    | 0700 — owner-only, which is the entire proof.                                                                      |
+| `RendezvousGrantLedger`   | class    | The single-use, time-bounded, revocable grants that carry the rendezvous proof onto the channel.                   |
+| `DEFAULT_GRANT_TTL_MS`    | const    | How long a grant stays admissible (30s — a channel handshake, not a session).                                      |
+
+**What this proves, and what it does not.** Reaching a socket inside a 0700 user-owned directory
+means the peer is on this machine as this user, because the kernel refuses the traversal to anyone
+else — the evidence is not an artifact the peer supplies, so there is nothing to copy. It does NOT
+distinguish two processes of the same user; the boundary is the account.
+
+**Why the grant ledger is part of the proof rather than a convenience.** The directory check
+establishes the environment at the RENDEZVOUS, but the session's messages travel over a different
+carrier. Without a binding, a peer could pass the kernel's check at the socket and then hand the
+channel to somebody else, and the admission would still read `same-user-same-host` — the environment
+proof would be true and useless. The ledger issues a nonce at the rendezvous that the channel's
+pairing confirmation must present back.
+
+Its lifetime rules are the security properties, not bookkeeping:
+
+- **Single use.** A nonce honoured twice has become a copyable credential — the exact failure SEC-010
+  exists to prevent. A presentation spends the value even when the presentation is then refused,
+  so probing does not preserve it for a later real attempt.
+- **Bounded window.** Admission expires, so a value left in a log or a crashed process is not a
+  standing invitation.
+- **Revocation is the entry.** `revokeRendezvous` ends admissibility for everything a departing
+  session handed out.
+- **Deterministic under concurrency.** Two peers presenting one nonce cannot both win; the loser is
+  refused rather than queued, because a race resolved by timing is a decision nobody made.
+
+A replay is reported as `replayed` rather than folded into `unknown`. The usual argument for merging
+them — not telling a prober which values once existed — does not apply at this boundary: the only
+party who can reach this rendezvous already passed the kernel's check as this user, and could read
+the process's memory outright. An operator who cannot distinguish a replay from a slow peer cannot
+act on either.
+
+`SO_PEERCRED` would have been the more direct reading, and it is unavailable: Node exposes no
+peer-credential accessor on a connected socket handle (measured). Building on it would have produced
+a mechanism that compiles, passes a mocked test, and refuses every real peer.
 
 ## Type Ownership
 

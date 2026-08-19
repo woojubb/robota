@@ -5,6 +5,7 @@ import {
 } from './execution-round-tool-results';
 import { type IExecutionRoundState } from './execution-types';
 import { getModelContextWindow } from '../context/models';
+import { SameToolInputLoopError } from '../utils/errors';
 
 import type { IRoundDependencies } from './execution-round';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
@@ -33,10 +34,10 @@ export function checkSameToolInputLimit(
     const key = `${name}::${args}`;
     const count = (roundState.sameToolInputCounts.get(key) ?? 0) + 1;
     roundState.sameToolInputCounts.set(key, count);
+    // CORE-035: `maxSameToolInputs` names a MAXIMUM, so the Nth identical call is allowed and the
+    // N+1th trips. The SPEC used to say "N or more times", contradicting its own option name.
     if (count > maxSameToolInputs) {
-      throw new Error(
-        `[EXECUTION] Tool "${name}" called with identical input ${count} times — aborting to prevent infinite loop`,
-      );
+      throw new SameToolInputLoopError(name, count, maxSameToolInputs);
     }
   }
 }

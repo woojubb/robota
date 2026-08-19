@@ -1,7 +1,6 @@
 import { TRUST_TO_MODE } from '@robota-sdk/agent-core';
 
 import { buildAgentRuntime } from './build-agent-runtime.js';
-import { DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
 import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { storeSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
@@ -11,14 +10,40 @@ import { formatProjectedModelCommandToolPromptDescription } from '../tools/model
 
 import type { ICreateSessionOptions } from './create-session-types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
-import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
 import type { createModelCommandToolProjection } from '../tools/model-command-tool-projection.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
+import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type { Session } from '@robota-sdk/agent-session';
+
+/**
+ * Human-readable descriptions of the built-in tools, for the system prompt.
+ *
+ * ARCH-035 collocated this here from the deleted `create-tools.ts`. It has exactly one consumer —
+ * the prompt build below — and the internal re-export it used to carry had none at all, so a module
+ * boundary existed for nobody.
+ *
+ * A LIMIT worth meeting head-on now that the list sits beside its consumer: this inventory is
+ * hard-coded and is NOT derived from the tools the session actually assembled. It happens to be
+ * accurate for every in-repo product today. Making it derived is filed separately; putting the list
+ * here is what makes the gap visible at the site that would fix it.
+ */
+/** Human-readable descriptions of the built-in tools (for system prompt) */
+export const DEFAULT_TOOL_DESCRIPTIONS = [
+  'Shell — execute host shell commands (OS-aware: bash/PowerShell)',
+  'Bash — alias of Shell (model-familiar name)',
+  'Read — read file contents with line numbers',
+  'Write — write content to a file',
+  'Edit — replace a string in a file',
+  'Glob — find files matching a pattern',
+  'Grep — search file contents with regex',
+  'WebFetch — fetch URL content as text',
+  'WebSearch — search the internet through the configured local tool',
+  'AskUserQuestion — ask the user structured questions (options/multi-select/free text) mid-task',
+];
 
 // Re-exported so existing importers of the assembly module keep one entry point.
 export { buildAgentRuntime };

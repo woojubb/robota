@@ -49,5 +49,6 @@ function createHookRuntime(
   };
 }
 
-export type { IToolHooks } from './types';
-export type { IBlockTrackingHookOptions } from './types';
+// #1851: the parameter type travels with the function it parameterises — a consumer that can call
+// `createBlockTrackingHooks` must be able to name what it passes.
+export type { IBlockTrackingHookOptions, IToolHooks } from './types';

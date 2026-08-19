@@ -12,18 +12,18 @@ import { formatProviderSetupChoiceLabel } from './provider-setup-flow.js';
 
 import type { IUserInteraction } from '@robota-sdk/agent-core';
 import type {
-  ICommandHostContext,
+  ICommandHostUserInteraction,
   IProviderCommandModuleOptions,
   IProviderProfileSettings,
 } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 export async function executeProviderCommand(
-  context: ICommandHostContext,
+  context: ICommandHostUserInteraction,
   args: string,
   options: IProviderCommandModuleOptions,
 ): Promise<ICommandResult> {
-  const ui = context.getUserInteraction?.();
+  const ui = context.getUserInteraction();
   const settings = options.settings.readMergedSettings();
   const trimmedArgs = args.trim();
   if (trimmedArgs.length === 0) {

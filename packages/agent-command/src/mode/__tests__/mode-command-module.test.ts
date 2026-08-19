@@ -5,6 +5,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createModeCommandModule } from '../mode-command-module.js';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 type TPermissionModeName = 'plan' | 'default' | 'acceptEdits' | 'bypassPermissions';
 type TSetPermissionModeSpy = ReturnType<typeof vi.fn<(nextMode: TPermissionModeName) => void>>;
@@ -25,7 +26,7 @@ function createCheckpointResult(): IEditCheckpointRestoreResult {
   };
 }
 
-function createCommandHostContext(): ICommandHostContext & {
+function createCommandHostContext(): ReturnType<typeof createTestCommandHost> & {
   setPermissionMode: TSetPermissionModeSpy;
 } {
   let mode: TPermissionModeName = 'default';
@@ -34,34 +35,38 @@ function createCommandHostContext(): ICommandHostContext & {
   });
 
   return {
-    getSession: () => {
-      throw new Error('mode command should use the permission mode adapter');
-    },
-    getCommandHostAdapters: () => ({
-      permissionMode: {
-        getPermissionMode: () => mode,
-        setPermissionMode,
-        listSessionAllowedTools: () => [],
+    ...createTestCommandHost({
+      overrides: {
+        getSession: () => {
+          throw new Error('mode command should use the permission mode adapter');
+        },
+        getCommandHostAdapters: () => ({
+          permissionMode: {
+            getPermissionMode: () => mode,
+            setPermissionMode,
+            listSessionAllowedTools: () => [],
+          },
+        }),
+        getContextState: () => ({
+          usedTokens: 0,
+          maxTokens: 1,
+          usedPercentage: 0,
+          remainingPercentage: 100,
+        }),
+        getAutoCompactThreshold: () => 0.835,
+        compactContext: async () => undefined,
+        getCwd: () => '/workspace',
+        listEditCheckpoints: () => [],
+        restoreEditCheckpoint: async () => createCheckpointResult(),
+        rollbackEditCheckpoint: async () => createCheckpointResult(),
+        getUsedMemoryReferences: () => [],
+        recordMemoryEvent: () => undefined,
+        listBackgroundTasks: () => [],
+        readBackgroundTaskLog: async () => ({ taskId: 'task_1', lines: [] }),
+        cancelBackgroundTask: async () => undefined,
+        closeBackgroundTask: async () => undefined,
       },
     }),
-    getContextState: () => ({
-      usedTokens: 0,
-      maxTokens: 1,
-      usedPercentage: 0,
-      remainingPercentage: 100,
-    }),
-    getAutoCompactThreshold: () => 0.835,
-    compactContext: async () => undefined,
-    getCwd: () => '/workspace',
-    listEditCheckpoints: () => [],
-    restoreEditCheckpoint: async () => createCheckpointResult(),
-    rollbackEditCheckpoint: async () => createCheckpointResult(),
-    getUsedMemoryReferences: () => [],
-    recordMemoryEvent: () => undefined,
-    listBackgroundTasks: () => [],
-    readBackgroundTaskLog: async () => ({ taskId: 'task_1', lines: [] }),
-    cancelBackgroundTask: async () => undefined,
-    closeBackgroundTask: async () => undefined,
     setPermissionMode,
   };
 }
@@ -146,10 +151,12 @@ describe('createModeCommandModule', () => {
       ...(createModeCommandModule().systemCommands ?? []),
     ]);
     const context = createCommandHostContext();
-    const contextWithAsk: ICommandHostContext = {
-      ...context,
-      getUserInteraction: () => ({ ask: async () => ({ type: 'answer', values: ['plan'] }) }),
-    };
+    const contextWithAsk = createTestCommandHost({
+      overrides: {
+        ...context,
+        getUserInteraction: () => ({ ask: async () => ({ type: 'answer', values: ['plan'] }) }),
+      },
+    });
 
     const result = await executor.execute('mode', contextWithAsk, '');
 
@@ -163,10 +170,12 @@ describe('createModeCommandModule', () => {
       ...(createModeCommandModule().systemCommands ?? []),
     ]);
     const context = createCommandHostContext();
-    const contextWithAsk: ICommandHostContext = {
-      ...context,
-      getUserInteraction: () => ({ ask: async () => ({ type: 'cancelled' }) }),
-    };
+    const contextWithAsk = createTestCommandHost({
+      overrides: {
+        ...context,
+        getUserInteraction: () => ({ ask: async () => ({ type: 'cancelled' }) }),
+      },
+    });
 
     const result = await executor.execute('mode', contextWithAsk, '');
 

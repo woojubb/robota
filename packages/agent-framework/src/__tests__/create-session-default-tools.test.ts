@@ -92,7 +92,10 @@ async function assembleToolNames(
   overrides: Record<string, unknown> = {},
 ): Promise<{ names: string[]; tools: IToolWithEventService[] }> {
   const { createSession } = await import('../assembly/create-session.js');
-  createSession({
+  // ARCH-035 made `createSession` async: the default tier is reached by dynamic import now, so the
+  // session is not constructed until that resolves. Without this await the ctor-call spy below reads
+  // an empty array and every case here reports "no tools" as if the tier had vanished.
+  await createSession({
     config: baseConfig(),
     context: { agentsMd: '', projectNotesMd: '' },
     terminal: MOCK_TERMINAL,
@@ -138,7 +141,7 @@ describe('ARCH-006 — additionalTools dedupe by tool name', () => {
   });
 
   it('is byte-identical when no name collides (unchanged order: defaults, then additional)', async () => {
-    const { createDefaultTools } = await import('../assembly/create-tools.js');
+    const { createDefaultTools } = await import('@robota-sdk/agent-tool-defaults');
     const { names } = await assembleToolNames({
       additionalTools: [namedTool('AcmeTicketLookup', 'new')],
     });
@@ -186,7 +189,7 @@ describe('ARCH-006 — the injectable/suppressible default tool tier', () => {
   });
 
   it('leaves the framework tier exactly `createDefaultTools()` when the option is absent', async () => {
-    const { createDefaultTools } = await import('../assembly/create-tools.js');
+    const { createDefaultTools } = await import('@robota-sdk/agent-tool-defaults');
     const { names } = await assembleToolNames();
 
     // Same mirroring as above: the session resolves its root to `process.cwd()` when none is supplied.

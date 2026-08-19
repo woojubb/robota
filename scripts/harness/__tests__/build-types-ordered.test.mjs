@@ -93,7 +93,7 @@ describe('createBuildTypeTiers', () => {
     );
     const cli = tiers.flat().find((pkg) => pkg.name === '@robota-sdk/agent-cli');
 
-    expect(packages).toHaveLength(75);
+    expect(packages).toHaveLength(76);
     expect(tiers).toHaveLength(10);
     expect(tierByName.get('@robota-sdk/agent-cli')).toBe(9);
     expect(cli).toBeDefined();

@@ -1,7 +1,8 @@
+import { announceAppend } from './execution-event-helpers';
 import { estimateContextTokensFromMessages } from '../context/estimation';
 import { getModelContextWindow } from '../context/models';
 
-import type { IExecutionRoundState } from './execution-types';
+import type { IExecutionContext, IExecutionRoundState } from './execution-types';
 import type { IAgentConfig } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { ConversationStore } from '../managers/conversation-history-manager';
@@ -62,8 +63,15 @@ export function handleContextCapacityBlock(
   roundState: IExecutionRoundState,
   conversationStore: ConversationStore,
   logger: ILogger,
-  currentRound: number,
+  // CORE-033: the block appends a message, and every append announces itself. Threaded in rather
+  // than reached for globally, so this stays a pure function of what it was given — grouped into one
+  // argument because three more positionals on a six-positional function is a signature nobody can
+  // read at the call site.
+  announce: { fullContext: IExecutionContext; executionId: string; conversationId: string },
 ): boolean {
+  // The round number was also passed in, alongside the `roundState` it is read from — one value
+  // arriving twice is one value that can disagree with itself.
+  const currentRound = roundState.currentRound;
   const contextDecision = getContextCapacityDecision(
     conversationMessages,
     config.defaultModel.model,
@@ -97,6 +105,16 @@ export function handleContextCapacityBlock(
       usageFloorTokens: contextDecision.usageFloorTokens ?? 0,
       usedPercentage: contextDecision.usedPercentage,
     },
+  );
+  // CORE-033: the block ENDS the round, and this diagnostic is the only thing the user sees for it.
+  // Appending it without a `history_mutation` left a replay of the session log short exactly one
+  // message — and the one explaining why the turn stopped.
+  announceAppend(
+    conversationStore,
+    announce.fullContext,
+    announce.executionId,
+    announce.conversationId,
+    { round: currentRound, contextOverflow: true },
   );
   return true;
 }

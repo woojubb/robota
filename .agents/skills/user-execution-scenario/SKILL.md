@@ -113,3 +113,17 @@ Return exactly one to the caller, with the evidence behind it:
 Never return `VERIFIED` on a `NOT-APPLICABLE`, and never return it while any scenario carries an
 unexecuted, unlabelled state. Those are the two ways this gate has historically been passed without
 verifying anything.
+
+## Record the run
+
+Open a ledger entry before the first round, record each round's finding count, and close it with the
+terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
+`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
+run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
+what each terminal reason means).
+
+```bash
+node scripts/harness/loop-run.mjs open  --loop user-execution-scenario
+node scripts/harness/loop-run.mjs round --loop user-execution-scenario --run <id> --findings <n>
+node scripts/harness/loop-run.mjs close --loop user-execution-scenario --run <id> --terminal <reason>
+```

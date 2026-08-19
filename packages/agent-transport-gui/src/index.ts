@@ -15,7 +15,7 @@ export type {
 
 // ── WS session client (loopback / localhost) ────────────────
 export { createWsSessionClient } from './client/ws-session-client.js';
-export type { TConnectionStatus } from './client/ws-session-client.js';
+export type { IWsSessionClientCallbacks, TConnectionStatus } from './client/ws-session-client.js';
 
 // ── Prompt (permission/ask) state ───────────────────────────
 export { applyPromptEvent, permissionResponse, askResponse } from './hooks/prompt-state.js';

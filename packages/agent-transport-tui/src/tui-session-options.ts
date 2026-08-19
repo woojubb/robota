@@ -50,6 +50,9 @@ export function buildTuiSessionOptions(
     enableParallelSubagents: opts.enableParallelSubagents,
     selfVerification: opts.selfVerification,
     terminalHandoff: opts.terminalHandoff,
+    // #1844: the session reads these when `/provider switch` hot-swaps. Absent, the switch throws
+    // "Unknown provider: <name>. Currently supported: " with an EMPTY list — measured, not inferred.
+    ...(opts.providerDefinitions ? { providerDefinitions: opts.providerDefinitions } : {}),
     // SELFHOST-008 P6: forward the surface-resolved memory fields only when present (absent ⇒ OFF).
     ...(opts.memoryStore ? { memoryStore: opts.memoryStore } : {}),
     ...(opts.automaticMemory ? { automaticMemory: opts.automaticMemory } : {}),

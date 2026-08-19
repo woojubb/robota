@@ -87,6 +87,38 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Measured as `findLoopProofFindings(bare)`: throws `.agents/skills missing from <root>` before it
+    // reads a baseline or a ledger.
+    file: 'scan-loop-proof.mjs',
+    finder: 'findLoopProofFindings',
+    tree: '.agents/skills',
+    why: 'the skills tree IS the population this floor governs — over a root without it there is no skill to prove, and "no findings" would mean "every loop is proven" when nothing was examined',
+  },
+  {
+    // Measured as `findLoopRunRecordFindings(bare)`: throws `.agents/skills missing from <root>`
+    // before it reads a single ledger.
+    file: 'scan-loop-run-records.mjs',
+    finder: 'findLoopRunRecordFindings',
+    tree: '.agents/skills',
+    why: 'the skills tree is the population these ledgers belong to — over a root missing it, every ledger is unattributable and the skill-wiring half examines nothing, so "no findings" would mean "nothing was examined". The LEDGER directory is deliberately not governed: its absence is a legitimate state, because it is created by the first recorded run',
+  },
+  {
+    // Measured as `findRouteSpellingFindings(bare)`: throws `apps, packages missing from <root>`
+    // before it can read either spelling.
+    file: 'scan-remote-stream-route-spelling.mjs',
+    finder: 'findRouteSpellingFindings',
+    tree: 'apps',
+    why: 'the check compares a route served by apps/agent-server to a path posted by packages/agent-remote-client; over a root missing either, "the two agree" would be a statement about nothing — and "the two agree" is exactly what was wrongly believed for as long as remote streaming was a 404 (CORE-046)',
+  },
+  {
+    // Measured as `findWorkflowProvenanceFindings(bare)`: throws `governed tree(s) absent under
+    // <root>` before it can read which workflows are guarded.
+    file: 'scan-workflow-provenance.mjs',
+    finder: 'findWorkflowProvenanceFindings',
+    tree: '.github/required-status-checks.json',
+    why: 'the registry is the only statement of which workflows provide a required check; over a root without it the guarded set is empty, and "no workflow was edited" reads exactly like "the control plane was left alone" — while the exposure it tracks is that a pull request carries the YAML that judges it',
+  },
+  {
     // Measured as this harness calls it — `findDeclaredPinFindings(bare)`: throws
     // `governed tree(s) absent under <root>: package.json, packages`.
     file: 'scan-node-version-single-valued.mjs',
@@ -100,6 +132,61 @@ export const MANDATORY_TREE_GUARDS = [
     finder: 'findMeasuredRuntimeFindings',
     tree: 'packages',
     why: 'it probes the runtime a WORKSPACE script actually receives; with no workspace tree there is no such script, so a pass would report agreement between a declaration and a measurement that was never taken',
+  },
+  {
+    // Measured as `findMissingSectionFindings(bare)`: throws `governed tree(s) absent under <root>`.
+    file: 'scan-spec-user-execution-section.mjs',
+    finder: 'findMissingSectionFindings',
+    tree: 'done',
+    why: 'it judges spec documents that reached implementation without a user-execution gate section; over a root with no spec tree there is no document to judge, and "zero documents are missing the section" reads exactly like "every document carries it" — while the defect it exists to catch is seven documents implemented and reported complete with no section at all',
+  },
+  {
+    // Measured: `collectAggregateNaming(bare, …)` throws `aggregate-naming: packages missing from
+    // <root>`. It is pinned separately from the findings wrapper because it is exported and takes a
+    // root, so it is callable on its own — and alone it would have counted 0 over an unread tree.
+    file: 'scan-aggregate-naming.mjs',
+    finder: 'collectAggregateNaming',
+    tree: 'packages',
+    why: 'it is the counter behind the load-bearing ARCH-029 floor; a 0 from a tree it never read is indistinguishable from a finished decomposition',
+  },
+  {
+    // Measured, not assumed: `findAggregateNamingFindings(bare)` throws
+    // `aggregate-naming: packages missing from <root>`.
+    file: 'scan-aggregate-naming.mjs',
+    finder: 'findAggregateNamingFindings',
+    tree: 'packages',
+    why: 'ARCH-029 marks this the load-bearing floor — a god contract is fixed only when consumers stop NAMING it, and this is the only thing that measures that. Over a root with no packages there is nothing to name, and "0 references" reads exactly like "the decomposition landed" — which is the state REFACTOR-006 shipped while the facade survived untouched',
+  },
+  {
+    // Measured as `findBarrelParameterTypeFindings(bare)`: throws
+    // `barrel-parameter-types: … missing from <root>`.
+    file: 'scan-barrel-parameter-types.mjs',
+    finder: 'findBarrelParameterTypeFindings',
+    tree: 'packages',
+    why: 'it reads the configured package barrels to check that a published function\'s parameter types are published too; over a root with no packages there is no barrel to read, and "no unexported parameter types" reads exactly like a clean public surface — while the defect it exists to catch has already recurred once after being fixed by hand',
+  },
+  {
+    // Measured as this harness calls it — `findPresetProjectionFindings(bare)`: throws
+    // `preset-projection: … missing from <root>`.
+    file: 'scan-preset-projection.mjs',
+    finder: 'findPresetProjectionFindings',
+    tree: 'packages',
+    why: 'it judges whether every resolved-preset field reaches a projection surface; over a root with no packages there is no surface to read, and "no unprojected fields" reads exactly like a finished projection — while the defect it exists to catch is six fields resolved, validated and discarded, and four more that one path applies and the other drops',
+  },
+  {
+    // Measured: `findRolePortOptionalFindings(bare)` throws
+    // `role-port-optionals: packages/agent-framework/src/command-api/host-context.ts missing from <root>`.
+    file: 'scan-role-port-optionals.mjs',
+    finder: 'findRolePortOptionalFindings',
+    tree: 'packages/agent-framework/src/command-api/host-roles.ts',
+    why: 'over a root without the contract file there is no port to inspect, and "0 optional members" reads exactly like a fully-required contract. This scan already shipped one silent version — it read `questionToken`, which the native AST never populates on a type member, so it reported zero for every input; failing closed on scope is the other half of that lesson',
+  },
+  {
+    // Measured as `findRoutingSizeFindings(bare)`: throws `governed tree(s) absent under <root>`.
+    file: 'scan-routing-document-size.mjs',
+    finder: 'findRoutingSizeFindings',
+    tree: '.agents/rules/operational.md',
+    why: 'the rule it reads states BOTH which documents are routing documents and how lean they must be; over a root without it there is no list and no target, so "no findings" would mean "nothing was measured" while reading exactly like "every routing document is lean"',
   },
   {
     // Measured the way this harness calls it — `collectToolClassification(bare)`: throws

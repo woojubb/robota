@@ -117,3 +117,17 @@ This skill is the procedural companion to that reminder.
 | `spec-first-development`   | Update package SPEC.md before implementation                                |
 | `tdd-red-green-refactor`   | Implementation cycle                                                        |
 | `repo-change-loop`         | Build and verify after implementation                                       |
+
+## Record the run
+
+Open a ledger entry before the first round, record each round's finding count, and close it with the
+terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
+`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
+run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
+what each terminal reason means).
+
+```bash
+node scripts/harness/loop-run.mjs open  --loop user-request-gate
+node scripts/harness/loop-run.mjs round --loop user-request-gate --run <id> --findings <n>
+node scripts/harness/loop-run.mjs close --loop user-request-gate --run <id> --terminal <reason>
+```

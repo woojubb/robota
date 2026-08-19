@@ -76,7 +76,6 @@ export class RobotaConfigManager {
     private readonly getAIProviders: () => AIProviders,
     private readonly getTools: () => Tools,
     private readonly getEventService: () => IEventService | undefined,
-    private readonly isReady: () => boolean,
     private readonly ensureReady: () => Promise<void>,
     private readonly getConfig: () => IAgentConfig,
     private readonly setConfig: (c: IAgentConfig) => void,
@@ -186,13 +185,11 @@ export class RobotaConfigManager {
       throw new ConfigurationError('Both provider and model are required', { component: 'Robota' });
     }
 
-    if (!this.isReady()) {
-      throw new ConfigurationError(
-        'Agent must be fully initialized before changing model configuration',
-        { component: 'Robota' },
-      );
-    }
-
+    // CORE-047: no readiness guard, and no `isReady` dependency to hold one. The provider registry
+    // and the current (provider, model) pair are established by the `Robota` CONSTRUCTOR
+    // (`createConfiguredProviders`), so there is no asynchronous state left for this to protect. A
+    // destroyed agent is still refused — by the provider manager's own disposal check, which says
+    // "disposed" rather than misreporting teardown as "not initialized".
     const aiProviders = this.getAIProviders();
     const availableProviders = aiProviders.getProviderNames();
     if (!availableProviders.includes(modelConfig.provider)) {
@@ -229,13 +226,7 @@ export class RobotaConfigManager {
     maxTokens?: number;
     topP?: number;
   } {
-    if (!this.isReady()) {
-      throw new ConfigurationError(
-        'Agent must be fully initialized before getting model configuration',
-        { component: 'Robota' },
-      );
-    }
-
+    // CORE-047: no readiness guard — see `setModel`.
     const currentProviderInfo = this.getAIProviders().getCurrentProvider();
     if (!currentProviderInfo) {
       throw new ConfigurationError('No provider is currently set', { component: 'Robota' });

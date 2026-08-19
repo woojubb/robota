@@ -6,17 +6,20 @@
 import { resolveShell } from './resolve-shell.js';
 import { spawnInherited } from './spawn-inherited.js';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type {
+  ICommandHostTerminalHandoff,
+  ICommandHostWorkspace,
+} from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 export const SHELL_COMMAND_DESCRIPTION =
   'Drop to an interactive shell (or run `/shell <command>` interactively), then return to the agent.';
 
 export async function executeShellCommand(
-  context: ICommandHostContext,
+  context: ICommandHostTerminalHandoff & ICommandHostWorkspace,
   args: string,
 ): Promise<ICommandResult> {
-  if (context.canHandoffTerminal?.() !== true || context.runWithTerminal === undefined) {
+  if (!context.canHandoffTerminal()) {
     return {
       message: 'An interactive shell is unavailable here (no interactive terminal).',
       success: false,

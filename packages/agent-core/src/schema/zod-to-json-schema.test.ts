@@ -185,7 +185,10 @@ describe('zodToJsonSchema', () => {
       field: mockZodSchema({ typeName: 'ZodTuple' }),
     });
 
-    expect(() => zodToJsonSchema(schema)).toThrow('Unsupported Zod type');
+    // CORE-041: the message now states the BOUNDARY, not just the construct's own name.
+    expect(() => zodToJsonSchema(schema)).toThrow(
+      /ZodTuple cannot be carried by the universal JSON-schema subset/,
+    );
   });
 
   it('should throw when schema is missing _def', () => {

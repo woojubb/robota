@@ -90,6 +90,120 @@
       "timestamp": "2026-08-16T16:58:49.038Z",
       "ratio": "6/7",
       "reason": "The same omission eighteen minutes later in the same session, in the summary report that mattered most. Two instances in one session is the argument for the scan over the intention — the same reasoning the 2026-08-01 pair records."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:09:29.165Z",
+      "ratio": "3/18",
+      "reason": "ARCH-029 cast-migration progress, reported as a bare ratio. Real violations, all mine, all in one session — and the aggravating detail is that this exact lesson was already in my own persistent memory when I committed them, so a recorded intention did not survive contact with a long task. That is the argument for the scan."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:10:19.297Z",
+      "ratio": "3/18",
+      "reason": "The same violation again (3/18) minutes later in the same session."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:11:23.086Z",
+      "ratio": "5/18",
+      "reason": "The same violation again (5/18) minutes later in the same session."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:12:16.414Z",
+      "ratio": "3/10",
+      "reason": "The same violation again (3/10) minutes later in the same session."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:12:16.414Z",
+      "ratio": "5/18",
+      "reason": "The same violation again (5/18) minutes later in the same session."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:13:15.653Z",
+      "ratio": "8/18",
+      "reason": "The same violation again (8/18) minutes later in the same session."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:13:15.653Z",
+      "ratio": "8/18",
+      "reason": "The same violation again (8/18) minutes later in the same session."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:13:55.897Z",
+      "ratio": "9/18",
+      "reason": "The same violation again (9/18) minutes later in the same session."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:17:19.339Z",
+      "ratio": "10/18",
+      "reason": "The same violation again (10/18) minutes later in the same session."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:19:03.687Z",
+      "ratio": "12/18",
+      "reason": "The same violation again (12/18) minutes later in the same session."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:19:03.687Z",
+      "ratio": "3/10",
+      "reason": "The same violation again (3/10) minutes later in the same session."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:19:03.687Z",
+      "ratio": "12/18",
+      "reason": "The same violation again (12/18) minutes later in the same session."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:20:17.250Z",
+      "ratio": "14/18",
+      "reason": "The same violation again (14/18) minutes later in the same session."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:20:58.753Z",
+      "ratio": "15/18",
+      "reason": "The same violation again (15/18) minutes later in the same session."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:21:25.822Z",
+      "ratio": "15/18",
+      "reason": "The same violation again (15/18) minutes later in the same session."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:21:59.051Z",
+      "ratio": "16/18",
+      "reason": "The same violation again (16/18) minutes later in the same session."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-16T16:22:45.028Z",
+      "ratio": "16/18",
+      "reason": "The same violation again (16/18) minutes later in the same session."
+    },
+    {
+      "transcript": "22469e82-14ef-4e23-9aea-9e5bd3295700.jsonl",
+      "timestamp": "2026-08-17T10:42:03.732Z",
+      "ratio": "2/4",
+      "reason": "A real violation, committed by me: a mid-work status table reported PEER-001 as '계약 2/4 완료' with no percentage (= 50%). Transcripts are append-only, so it is recorded rather than edited. This is the THIRD in this session — the earlier two were 6/7 ratios — which makes it a habit rather than a slip, and the correction is to state the percentage in the same breath as the ratio, not to remember afterwards."
+    },
+    {
+      "transcript": "22469e82-14ef-4e23-9aea-9e5bd3295700.jsonl",
+      "timestamp": "2026-08-17T10:45:45.761Z",
+      "ratio": "2/4",
+      "reason": "The acknowledgement of the previous violation violated the same rule: quoting '계약 2/4 완료' while admitting it lacked a percentage still put a bare ratio in a narrative message. Recorded rather than edited, and worth keeping visible — a rule about how a number is written is broken as easily while apologising for breaking it as while reporting progress. The habit the scan is measuring is writing the ratio at all without its percentage, quotation included."
     }
   ]
 }

@@ -90,7 +90,19 @@ function resolveGuardrailHooks(
   };
 }
 
-export function createSession(options: ICreateSessionOptions): ICreateSessionResult {
+/**
+ * ARCH-035 made this async. The default tool tier now lives in `@robota-sdk/agent-tool-defaults` and is
+ * reached by dynamic import, which is what keeps a static edge to a composition leaf out of this
+ * package — see `assembleSessionTools`. The propagation stops one hop up: the only in-repo caller is
+ * `createInteractiveSession`, already async.
+ *
+ * `IAgentRuntime.createSession` is NOT affected and must stay synchronous. It does not call this
+ * function — it constructs `InteractiveSession` directly and the assembly happens later inside
+ * `initializeInteractiveSessionAsync`. That indirection is load-bearing rather than incidental:
+ * propagating async through it would break every consumer that builds a session without supplying
+ * `defaultTools`, which is the zero-config contract this whole extraction exists to preserve.
+ */
+export async function createSession(options: ICreateSessionOptions): Promise<ICreateSessionResult> {
   if (!options.provider) {
     throw new Error(
       'provider is required. SDK is provider-neutral — consumer must create and pass a provider instance.',
@@ -117,7 +129,7 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     ? skillCommandSource.getModelInvocableSkills()
     : [];
 
-  const { tools } = assembleSessionTools(options, cwd);
+  const { tools } = await assembleSessionTools(options, cwd);
   if (
     modelCommandToolsEnabled &&
     options.modelCommandExecutor !== undefined &&

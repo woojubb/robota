@@ -122,7 +122,7 @@
         "createProviderFromSettings",
         "loadExternalPresets"
       ],
-      "reason": "agent-product is the pure, IO-free, product-neutral assembler (assembleProduct). Its L129 carve-out holds ONLY while it takes no concrete transport/TUI/CLI dep (a), reads no fs/env/settings (b \u2014 resolved data is fed in from the shell), and branches on no product identity (c)."
+      "reason": "agent-product is the pure, IO-free, product-neutral assembler (assembleProduct). Its L129 carve-out holds ONLY while it takes no concrete transport/TUI/CLI dep (a), reads no fs/env/settings (b — resolved data is fed in from the shell), and branches on no product identity (c)."
     },
     {
       "dir": "packages/agent-capability-pack",
@@ -146,7 +146,7 @@
         "createProviderFromSettings",
         "loadExternalPresets"
       ],
-      "reason": "HARNESS-048: agent-capability-pack is the other half of the ARCH-005 composition contract \u2014 the additive capability-bundle type plus the pure mergeCapabilityPacks fold that assembleProduct applies. It is an equally pure PUBLISHED contract package, so the same three guards apply: it must take no concrete transport/TUI/CLI dep (a), read no fs/env/settings (b), and branch on no product identity (c) \u2014 a merger that special-cases one product's pack ids is a shared product factory wearing a merge function's clothes."
+      "reason": "HARNESS-048: agent-capability-pack is the other half of the ARCH-005 composition contract — the additive capability-bundle type plus the pure mergeCapabilityPacks fold that assembleProduct applies. It is an equally pure PUBLISHED contract package, so the same three guards apply: it must take no concrete transport/TUI/CLI dep (a), read no fs/env/settings (b), and branch on no product identity (c) — a merger that special-cases one product's pack ids is a shared product factory wearing a merge function's clothes."
     }
   ],
   "neutrality": {
@@ -191,15 +191,15 @@
     "evalsContentTypeNames": ["IEvalDefinition", "IMetric"]
   },
   "progressReportQuantification": {
-    "$comment": "Policy DATA for scan-progress-report-quantification.mjs (HARNESS-026). The ENGINE (transcript streaming, narrative extraction, bare-ratio detection, suppression) lives in scripts/harness/scan-progress-report-quantification.mjs; the host-specific transcript root, the enforcement cutoff, and the keyword vocabulary live here. `*Pattern` fields are RegExp sources matched case-insensitively. transcriptRoot is the agent harness's per-project session-transcript directory (a leading `~` expands to the home directory); when it has no directory for this workspace the scan SKIPS with an explicit reason. enforceSinceIso is a TIME RATCHET: conversation before it cannot be edited, so only sessions from adoption onward are judged \u2014 move it forward only to adopt a deliberate, reviewed reset. completionKeywordPattern gates a line to completion/progress context; identifierNounPattern suppresses reference forms (Step 2/3, lines 54/146) that are not counts.",
+    "$comment": "Policy DATA for scan-progress-report-quantification.mjs (HARNESS-026). The ENGINE (transcript streaming, narrative extraction, bare-ratio detection, suppression) lives in scripts/harness/scan-progress-report-quantification.mjs; the host-specific transcript root, the enforcement cutoff, and the keyword vocabulary live here. `*Pattern` fields are RegExp sources matched case-insensitively. transcriptRoot is the agent harness's per-project session-transcript directory (a leading `~` expands to the home directory); when it has no directory for this workspace the scan SKIPS with an explicit reason. enforceSinceIso is a TIME RATCHET: conversation before it cannot be edited, so only sessions from adoption onward are judged — move it forward only to adopt a deliberate, reviewed reset. completionKeywordPattern gates a line to completion/progress context; identifierNounPattern suppresses reference forms (Step 2/3, lines 54/146) that are not counts.",
     "transcriptRoot": "~/.claude/projects",
     "enforceSinceIso": "2026-07-25T00:00:00Z",
-    "completionKeywordPattern": "\\b(?:done|complete[ds]?|completing|finished|remaining|remains|left to (?:do|go)|progress|resolved|migrated|converted|processed)\\b|\uc644\ub8cc|\uc9c4\ud589",
-    "identifierNounPattern": "\\b(?:step|steps|stage|stages|phase|phases|round|rounds|pass|passes|line|lines|item|items?\\s*#|section|sections|chapter|week|weeks|day|days|v|version|\ub2e8\uacc4|\ub77c\uc6b4\ub4dc|\uc904)\\s*$",
-    "identifierNounSuffixPattern": "^\\s*(?:\ub2e8\uacc4|\ubc88\uc9f8|steps?\\b|stages?\\b|phases?\\b|rounds?\\b)"
+    "completionKeywordPattern": "\\b(?:done|complete[ds]?|completing|finished|remaining|remains|left to (?:do|go)|progress|resolved|migrated|converted|processed)\\b|완료|진행",
+    "identifierNounPattern": "\\b(?:step|steps|stage|stages|phase|phases|round|rounds|pass|passes|line|lines|item|items?\\s*#|section|sections|chapter|week|weeks|day|days|v|version|단계|라운드|줄)\\s*$",
+    "identifierNounSuffixPattern": "^\\s*(?:단계|번째|steps?\\b|stages?\\b|phases?\\b|rounds?\\b)"
   },
   "promptProse": {
-    "$comment": "Policy DATA for scan-prompt-prose.mjs (NEUT-006, audit 2026-07-24 gap #6). The ENGINE (literal extraction, prose heuristic, frozen-baseline ratchet, role-vocab conjunction) lives in scripts/harness/scan-prompt-prose.mjs; the Robota-specific scan roots, prompt-sink patterns, exemptions, and role vocabulary live here. `pattern` fields are RegExp sources. exemptPathIncludes lists the CHARTERED opinion homes (audit: personas/presets are quarantined opinion, not neutral-library debt); roleVocabulary flags a workflow role name AND a concrete model id in the SAME file (the role\u2192model opinion) outside allowedPathIncludes.",
+    "$comment": "Policy DATA for scan-prompt-prose.mjs (NEUT-006, audit 2026-07-24 gap #6). The ENGINE (literal extraction, prose heuristic, frozen-baseline ratchet, role-vocab conjunction) lives in scripts/harness/scan-prompt-prose.mjs; the Robota-specific scan roots, prompt-sink patterns, exemptions, and role vocabulary live here. `pattern` fields are RegExp sources. exemptPathIncludes lists the CHARTERED opinion homes (audit: personas/presets are quarantined opinion, not neutral-library debt); roleVocabulary flags a workflow role name AND a concrete model id in the SAME file (the role→model opinion) outside allowedPathIncludes.",
     "scanRoots": ["packages"],
     "srcPathIncludes": ["/src/"],
     "excludePathIncludes": ["__tests__", ".test.", ".spec.", "/dist/", "/node_modules/"],
@@ -270,20 +270,115 @@
       "scope": ["packages/dag-worker/src"]
     }
   ],
+  "rolePortOptionals": {
+    "$comment": "ARCH-029 TC-06: role ports carry zero optional members. An aggregate-level ceiling would NOT have caught the regression this guards — `getAgentJobCapability?()` adds 15 reachable members while contributing 1 to any optional count, and `getSession()` adds 18 while contributing 0. A member may be optional only when its VALUE is genuinely variational, never because a host might not implement it; each such member is carved out below with a reason.",
+    "files": [
+      "packages/agent-framework/src/command-api/host-roles.ts",
+      "packages/agent-framework/src/command-api/session-roles.ts",
+      "packages/agent-framework/src/command-api/agent-job-roles.ts"
+    ],
+    "aggregates": ["ICommandHostContext", "ICommandSessionRuntime", "IAgentJobHostContext"],
+    "carveOuts": [
+      {
+        "interface": "ICommandHostAdapterAccess",
+        "member": "getCommandHostAdapters",
+        "reason": "A genuinely variational adapter bag: its CONTENTS differ by host by design, so requiring it would force every host to answer a question with no single answer. This is the distinction the rule keeps — variational value, not unimplemented member."
+      }
+    ]
+  },
+  "aggregateNaming": {
+    "$comment": "ARCH-029: the load-bearing floor. A god contract is not fixed by decomposing it — it is fixed when consumers stop NAMING it, and REFACTOR-006 proved those are different events (it closed green on the same contract, which then grew 20 members/50% optional to 46/70%). Type-position references to each aggregate are frozen in scripts/harness/aggregate-naming-baseline.json; they may fall and must never rise. The target is 0, not 'falling'.",
+    "aggregates": ["ICommandHostContext", "IAgentJobHostContext", "ICommandSessionRuntime"],
+    "$scopeNote": "ICommandHostContext is the criterion ARCH-029 drives to ZERO (TC-05). The other two aggregates were decomposed by the same change but their consumer migration is NOT in this item's approved scope — they are frozen at what they measure today so the decomposition cannot regrow, and reaching zero is tracked separately. Freezing them at a non-zero number is the split the design sanctions ('TC-05a freezes, TC-05b reaches 0'), not a weakening of TC-05.",
+    "allowlist": [
+      {
+        "file": "packages/agent-framework/src/command-api/host-roles.ts",
+        "reason": "Declares ICommandHostContext as an empty `extends` over its role ports."
+      },
+      {
+        "file": "packages/agent-framework/src/command-api/session-roles.ts",
+        "reason": "Declares ICommandSessionRuntime as an empty `extends` over its role ports."
+      },
+      {
+        "file": "packages/agent-framework/src/command-api/agent-job-roles.ts",
+        "reason": "Declares IAgentJobHostContext as an empty `extends` over its role ports."
+      },
+      {
+        "file": "packages/agent-framework/src/testing/agent-job-host-double.ts",
+        "reason": "The conformant IAgentJobHostContext double — it exists to be checked against the whole aggregate with no cast."
+      },
+      {
+        "file": "packages/agent-framework/src/command-api/host-context.ts",
+        "reason": "The declaration site. The aggregate is defined here as an empty `extends` over the role ports."
+      },
+      {
+        "file": "packages/agent-framework/src/command-api/contracts.ts",
+        "reason": "`ISystemCommand.execute`'s parameter — the dispatch contract every command is assigned to. A command narrows its own declared role against this by contravariance; this one site must name the widest type."
+      },
+      {
+        "file": "packages/agent-framework/src/commands/system-command-executor.ts",
+        "reason": "The dispatch spine. It holds the host and hands it to an arbitrary `ISystemCommand.execute`, so it cannot know which roles the callee needs and must name the widest type — the same reason the contract itself is allowlisted."
+      },
+      {
+        "file": "packages/agent-framework/src/interactive/interactive-session-skill-router.ts",
+        "reason": "Supplies the host to that same dispatch spine (`getSession: () => ICommandHostContext`). Narrowing here would narrow what every routed command can reach."
+      },
+      {
+        "file": "packages/agent-framework/src/interactive/interactive-session.ts",
+        "reason": "The production host. `implements ICommandHostContext` is the compiler-checked conformance ARCH-029 TC-01 installed; naming it here is the check, not a leak."
+      },
+      {
+        "file": "packages/agent-framework/src/testing/command-host-double.ts",
+        "reason": "The conformant double. It exists to be checked against the whole aggregate with no cast — that is its entire property."
+      }
+    ],
+    "renameCarveOuts": [
+      {
+        "file": "packages/agent-framework/src/command-api/host-roles.ts",
+        "declaration": "ICommandHostSessionAccess.getSession",
+        "type": "ICommandSessionRuntime",
+        "reason": "The role-port method that reaches the session aggregate — the decomposition's own wiring. ICommandHostContext composes ICommandHostSessionAccess, and a command narrows to this port precisely so it can reach the session runtime; a host that could not return it would not be a host. Named here rather than exempted structurally: a blanket MethodSignature skip is an unnamed, non-expiring exemption over an unbounded set, and it covered every future method-signature handle in all ten allowlisted files in order to spare this site and one other."
+      },
+      {
+        "file": "packages/agent-framework/src/command-api/host-roles.ts",
+        "declaration": "ICommandHostAgentJobs.getAgentJobCapability",
+        "type": "IAgentJobHostContext | undefined",
+        "reason": "The second and last site that forces a method-signature exemption. Same reason as the sibling entry: the agent-job aggregate is reached through this port by design. The `| undefined` is part of the asserted type, so narrowing or widening it expires this carve-out and rename-carve-out-unused reports it."
+      },
+      {
+        "file": "packages/agent-framework/src/testing/command-host-double.ts",
+        "declaration": "ICreateTestCommandHostOptions.overrides",
+        "type": "TOverrides<ICommandHostContext>",
+        "reason": "The options bag of the conformant ICommandHostContext double. A double that exists to be checked against the whole aggregate with no cast must let a caller state overrides against that same aggregate, so this member cannot be written any other way. It IS an addressable handle and this carve-out does not claim otherwise: review compiled the proof that keyof over TOverrides<ICommandHostContext> yields the full member-name list and that each member type is recoverable and callable by indexed access, with the aggregate never named. That is a STATED LIMIT of a name-only walk, recorded in scan-aggregate-naming.mjs alongside the ReturnType<typeof createTestCommandHost> route; closing either needs the type checker. An earlier revision of this reason claimed a mapped type hands out no second handle, and that was false."
+      },
+      {
+        "file": "packages/agent-framework/src/testing/command-host-double.ts",
+        "declaration": "ICreateTestCommandHostOptions.session",
+        "type": "TOverrides<ICommandSessionRuntime>",
+        "reason": "Same site, same reason and the same stated limit, for the session-runtime half of the double options bag."
+      }
+    ]
+  },
   "contractCastRatchet": {
     "$comment": "ARCH-012: contracts whose `as X` cast count is frozen by scan-contract-cast-ratchet. A cast is a partial re-implementation nothing checks against the real contract; the count may fall and never rise while capability-scoped ports are designed.",
-    "contracts": ["IInteractiveSession"]
+    "contracts": ["IInteractiveSession", "ICommandHostContext", "IAgentJobHostContext"]
   },
   "optionReachability": [
     {
       "name": "ICreateSessionOptions",
       "file": "packages/agent-framework/src/assembly/create-session-types.ts",
       "constructors": ["createSession"],
-      "reason": "The session-construction option surface. `guardrails` (SELFHOST-005) and `retrievalAdapter` (SELFHOST-003) were declared, read at the consuming end, and set by no production call to createSession \u2014 two documented capabilities no shipped surface could turn on."
+      "reason": "The session-construction option surface. `guardrails` (SELFHOST-005) and `retrievalAdapter` (SELFHOST-003) were declared, read at the consuming end, and set by no production call to createSession — two documented capabilities no shipped surface could turn on."
+    },
+    {
+      "name": "IInitOptions",
+      "file": "packages/agent-framework/src/interactive/interactive-session-options.ts",
+      "constructors": ["createInteractiveSession"],
+      "reason": "The INIT option shape, watched because ARCH-013 stage 3 dropped two fields in the ~40-field hand-map that builds it and stage 1's ICreateSessionOptions-only ratchet could not see the drop. Named IInitOptions rather than the published IInteractiveSessionStandardOptions because that is literally what it measures: the single production literal it reads is the createInteractiveSession(...) call, which takes IInitOptions. An earlier revision named the published type, and review measured the difference — 8 of the 10 keys it then reported ARE set by production code through buildRuntimeSession and the surface option builders, so the entry asserted unreachability it had not established, and burning it down would have pushed class-consumed options into the very hand-map this stage fixed."
     }
   ],
   "productIdentity": {
-    "$comment": "NEUT-009: a library must not name its consumer's product. Per-package occurrence counts are frozen in scripts/harness/product-identity-baseline.json \u2014 they may fall and must never rise. Markers must NOT overlap: `~/.robota` was removed because `.robota` already matches it and every such line was counted twice.",
+    "$comment": "NEUT-009: a library must not name its consumer's product. Per-package occurrence counts are frozen in scripts/harness/product-identity-baseline.json — they may fall and must never rise. Markers must NOT overlap: `~/.robota` was removed because `.robota` already matches it and every such line was counted twice.",
     "markers": [".robota", "robota-cli"],
     "packages": [
       "packages/agent-core",
@@ -292,6 +387,153 @@
       "packages/agent-preset",
       "packages/agent-command",
       "packages/agent-framework"
+    ]
+  },
+  "presetProjection": {
+    "$comment": "ARCH-013 stage 2: every IResolvedPresetOptions field must appear in a DECLARED projection — a surface interface member or a Pick of the source — and the startup and live-/preset surfaces must not diverge. Stage 1 covered the LAST hop of this chain (a declared ICreateSessionOptions key nothing assigns); this covers the FIRST. The divergence half is the `effort` class: a field one path declares and the other does not means one session can hold two answers for the same preset depending on when it was chosen.",
+    "source": {
+      "file": "packages/agent-preset/src/preset-types.ts",
+      "interface": "IResolvedPresetOptions"
+    },
+    "surfaces": [
+      {
+        "file": "packages/agent-framework/src/command-api/preset/preset-application.ts",
+        "interface": "IPresetApplicationOptions",
+        "role": "live /preset re-application",
+        "paths": [
+          "packages/agent-framework/src/command-api/preset/",
+          "packages/agent-command/src/preset/"
+        ]
+      },
+      {
+        "file": "packages/agent-cli/src/startup/preset-surface-options.ts",
+        "interface": "IPresetSurfaceOptions",
+        "role": "startup shell surfaces",
+        "paths": ["packages/agent-cli/src/", "packages/agent-product/src/"]
+      }
+    ],
+    "derivationOnly": [
+      {
+        "field": "autonomy",
+        "reason": "An INPUT to the permission-mode derivation, not a projected option. `resolvePreset` maps it through AUTONOMY_TO_PERMISSION_MODE into `permissionMode` (packages/agent-preset/src/resolve-preset.ts:241-242) before any surface sees the resolved object, so `permissionMode` carries its effect and a second projection would be a second answer to one question. Verified at that line, not assumed from the docblock."
+      },
+      {
+        "field": "defaultPermissionMode",
+        "reason": "The same derivation, one precedence step earlier: `resolvePreset` promotes it to `permissionMode` when no explicit `permissionMode` is set (packages/agent-preset/src/resolve-preset.ts:238-239). Precedence is explicit `permissionMode` > `defaultPermissionMode` > `autonomy` mapping, so all three collapse into the one field the surfaces project."
+      }
+    ],
+    "$pendingComment": "The burn-down. Each entry is a field this floor HAS measured as undeclared or one-sidedly declared, whose fix needs a decision this scan cannot make — recorded as a NAMED, EXPIRING exemption rather than an opaque count, because an exemption that is unnamed or non-expiring is indistinguishable from no floor. `declaredOn` records the surfaces the field was measured on when the entry was written; if the live state differs in EITHER direction the entry is reported (`preset-pending-state-changed`), so an exemption expires when the work is DONE and not only when the field is deleted. Review measured the earlier version failing exactly that: fixing a pending field printed green, which made the list a baseline with extra words. This list may shrink and must never grow without a reviewed reason. Tracked as GitHub issue #1820.",
+    "pendingProjection": [
+      {
+        "field": "model",
+        "reason": "NOT dropped — hand-mapped. `cli.ts:262` computes `resolvedPreset.model ?? providerSettings.model` and threads the result into all three construction sites, so the value reaches the session; what is missing is the DECLARED projection. Resolving it means moving the field onto IPresetSurfaceOptions, which requires deciding where the `?? providerSettings.model` fallback lives, because the surface is built after the model id is first needed (cli.ts:330 vs :262).",
+        "declaredOn": ["IPresetApplicationOptions"]
+      },
+      {
+        "field": "temperature",
+        "reason": "Applied by the live /preset path via `applyModelOptions` (preset-application.ts), and by nothing at startup. Unlike `model` there is no `ICreateSessionOptions` seam at all — the value would have to reach the provider config, so this is a new seam rather than a re-declaration. Same class as `effort` before stage 1.",
+        "declaredOn": ["IPresetApplicationOptions"]
+      },
+      {
+        "field": "maxOutputTokens",
+        "reason": "Identical to `temperature`: live-only via `applyModelOptions`, no session-construction seam, needs a provider-config route. The two travel together in the model group and should be resolved together.",
+        "declaredOn": ["IPresetApplicationOptions"]
+      },
+      {
+        "field": "agentName",
+        "reason": "The REVERSE divergence, and the one nobody had named: startup declares it (IPresetSurfaceOptions) and the live /preset path does not, so starting with a preset sets the agent name while switching to the same preset mid-session leaves the old one. Resolving it needs a product decision — whether `/preset` should rename the agent mid-session — not just a seam.",
+        "declaredOn": ["IPresetSurfaceOptions"]
+      },
+      {
+        "field": "systemPrompt",
+        "reason": "Declared on the source with no `ICreateSessionOptions` counterpart under any name (all 54 keys enumerated). The framework composes the system prompt through `systemPromptBuilder` and `appendSystemPrompt`, so honouring a preset-supplied full `systemPrompt` means deciding whether it REPLACES the composed prompt or seeds it — a semantic decision with user-visible consequences.",
+        "declaredOn": []
+      },
+      {
+        "field": "appendSystemPrompt",
+        "reason": "A session seam DOES exist (`ICreateSessionOptions.appendSystemPrompt`, projected by create-session-projection.ts), so the last hop is ready. The first hop is missing, and wiring it requires deciding the merge order against the CLI-sourced append text that `buildAppendSystemPrompt` produces — today that helper is called only from print-mode.ts, so `--task-file`/`--json-schema`/`--append-system-prompt` are themselves dropped in TUI and serve mode.",
+        "declaredOn": []
+      },
+      {
+        "field": "language",
+        "reason": "No session or assembly seam under any name. Whether a preset-declared language becomes a persona section, an appended instruction, or a provider parameter is undecided, and each choice is user-visible.",
+        "declaredOn": []
+      },
+      {
+        "field": "defaultTrustLevel",
+        "reason": "Measured fully dead by the ARCH-013 audit: validated by preset-validation and then read by nothing, with no seam anywhere. Removing an unconsumed public contract is a product decision rather than a grep result, so it stays declared and exempted until its owner decides between wiring it to the permission/trust axis and dropping it.",
+        "declaredOn": []
+      },
+      {
+        "field": "allowedTools",
+        "reason": "A session seam exists (`ICreateSessionOptions.allowedTools`) and create-session-projection.ts already forwards it from IInitOptions, so only the preset→surface hop is missing. Wiring it requires deciding how a preset allowlist composes with the session-level and pack-level tool sets rather than replacing them.",
+        "declaredOn": []
+      },
+      {
+        "field": "deniedTools",
+        "reason": "The denylist half of the same decision as `allowedTools`, and it must be resolved with it: an allowlist that composes and a denylist that replaces would contradict each other.",
+        "declaredOn": []
+      }
+    ]
+  },
+  "barrelParameterTypes": {
+    "$comment": "ARCH-037: a barrel-exported function whose parameter type is not exported from the same barrel leaves a consumer unable to name what it must pass. ARCH-025 fixed that shape for IScheduleEditPatch and ARCH-037 found it again on subagentExecutionRoot, which is the argument for a mechanism rather than a third note. Return types and other packages types are deliberately out of scope — see the scan header. Scope: EVERY package barrel in the workspace. It was 2 of 55 until #1851 widened it, because a floor scoped to 4% of the tree reports the same passed a fully-scoped one does — the scope IS the check. The 16 findings that widening exposed were each verified against the source before being fixed (a scan finding is a claim, not a proof), and in every case the type was already exported from its own module and merely absent from the barrel.",
+    "barrels": [
+      "packages/agent-capability-pack/src/index.ts",
+      "packages/agent-cli/src/index.ts",
+      "packages/agent-command-workflows/src/index.ts",
+      "packages/agent-command/src/index.ts",
+      "packages/agent-core/src/index.ts",
+      "packages/agent-executor/src/index.ts",
+      "packages/agent-framework/src/index.ts",
+      "packages/agent-interface-transport/src/index.ts",
+      "packages/agent-interface-tui/src/index.ts",
+      "packages/agent-playground/src/index.ts",
+      "packages/agent-plugin/src/index.ts",
+      "packages/agent-preset/src/index.ts",
+      "packages/agent-process/src/index.ts",
+      "packages/agent-product/src/index.ts",
+      "packages/agent-provider-anthropic/src/index.ts",
+      "packages/agent-provider-bytedance/src/index.ts",
+      "packages/agent-provider-defaults/src/index.ts",
+      "packages/agent-provider-gemini/src/index.ts",
+      "packages/agent-provider-openai-compatible/src/index.ts",
+      "packages/agent-provider-openai/src/index.ts",
+      "packages/agent-provider-replay/src/index.ts",
+      "packages/agent-remote-client/src/index.ts",
+      "packages/agent-remote-pairing/src/index.ts",
+      "packages/agent-session-analytics/src/index.ts",
+      "packages/agent-session/src/index.ts",
+      "packages/agent-subagent-runner/src/index.ts",
+      "packages/agent-testing/src/index.ts",
+      "packages/agent-tool-mcp/src/index.ts",
+      "packages/agent-tools/src/index.ts",
+      "packages/agent-transport-gui/src/index.ts",
+      "packages/agent-transport-http/src/index.ts",
+      "packages/agent-transport-mcp/src/index.ts",
+      "packages/agent-transport-protocol/src/index.ts",
+      "packages/agent-transport-tui/src/index.ts",
+      "packages/agent-transport-webrtc-web/src/index.ts",
+      "packages/agent-transport-webrtc/src/index.ts",
+      "packages/agent-transport-ws/src/index.ts",
+      "packages/agent-transport/src/index.ts",
+      "packages/dag-adapters-local/src/index.ts",
+      "packages/dag-adapters-sqlite/src/index.ts",
+      "packages/dag-api/src/index.ts",
+      "packages/dag-builder/src/index.ts",
+      "packages/dag-cli/src/index.ts",
+      "packages/dag-core/src/index.ts",
+      "packages/dag-cost/src/index.ts",
+      "packages/dag-framework/src/index.ts",
+      "packages/dag-mcp-server/src/index.ts",
+      "packages/dag-node/src/index.ts",
+      "packages/dag-nodes-default/src/index.ts",
+      "packages/dag-orchestration-client/src/index.ts",
+      "packages/dag-projection/src/index.ts",
+      "packages/dag-runtime/src/index.ts",
+      "packages/dag-scheduler/src/index.ts",
+      "packages/dag-worker/src/index.ts",
+      "packages/pack-coding/src/index.ts"
     ]
   }
 }

@@ -10,6 +10,7 @@ import {
   pathHasEverExisted,
   stagedPaths,
 } from './scripts/harness/commit-message-claims.mjs';
+import { unqualifiedReferences } from './scripts/harness/reference-kind.mjs';
 
 /**
  * A commit message describes the DIFF, not the intent (HARNESS-076).
@@ -74,11 +75,60 @@ const claimsResolve = {
   ],
 };
 
+/**
+ * A `#N` says whether it is an issue or a pull request (INFRA-106).
+ *
+ * `#1884` and `#1886` are the same six characters and different things — the issue, and the pull
+ * request that closed it. `git log --oneline` is where the two are least distinguishable and most
+ * often adjacent, so this is the surface where the qualifier earns the most.
+ *
+ * The predicate and every exemption live in `scripts/harness/reference-kind.mjs`, shared with the
+ * tree-side scan. Notably `Closes #N` is exempt: GitHub parses that exact form and INFRA-104 built
+ * the promotion machinery that depends on it, so requiring a qualifier there would trade a
+ * readability gain for a broken automation.
+ *
+ * Unlike the tree-side check this needs no ratchet. It judges the message being written, so it is
+ * green on arrival by construction and every future commit is held to it — the history it cannot
+ * reach is history nobody can rewrite anyway.
+ */
+const referenceKind = {
+  rules: { 'reference-kind': [2, 'always', undefined] },
+  plugins: [
+    {
+      rules: {
+        'reference-kind': ({ raw }) => {
+          const findings = unqualifiedReferences(raw ?? '');
+          if (findings.length === 0) return [true];
+          return [
+            false,
+            findings
+              .map((f) => `\`#${f.number}\` does not say whether it is an issue or a pull request`)
+              .join('\n  ')
+              .concat('\n  Write `issue #N` or `PR #N`. A `Closes #N` footer is exempt.'),
+          ];
+        },
+      },
+    },
+  ],
+};
+
 export default {
   extends: ['@commitlint/config-conventional'],
-  plugins: claimsResolve.plugins,
+  // ONE plugin object carrying both rule implementations, not two plugin entries. Measured: with
+  // `[...claimsResolve.plugins, ...referenceKind.plugins]` commitlint registered only the LAST
+  // entry's rules and then refused the whole config with `Found rules without implementation:
+  // claims-resolve` — a config that fails loudly, but only after the second custom rule exists.
+  plugins: [
+    {
+      rules: {
+        ...claimsResolve.plugins[0].rules,
+        ...referenceKind.plugins[0].rules,
+      },
+    },
+  ],
   rules: {
     ...claimsResolve.rules,
+    ...referenceKind.rules,
     'body-max-line-length': [0],
     'footer-max-line-length': [0],
     // This repo prefixes subjects with uppercase backlog IDs (e.g. "HARNESS-017 — …"),
