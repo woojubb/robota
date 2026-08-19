@@ -12,20 +12,20 @@ depends_on: []
 
 ## Objective
 
-Close the failure class reported in #1884: a bulk edit that enumerates files by filesystem pattern
+Close the failure class reported in issue #1884: a bulk edit that enumerates files by filesystem pattern
 follows pnpm's workspace symlinks into `node_modules`, and from there into `node_modules/.pnpm` —
 whose contents are **hard links shared with every other project on the machine**. A write that lands
 there is invisible to `git status`, invisible to every harness scan (they read `git ls-files`, which
 cannot list `node_modules`), and survives `pnpm install`, because the store believes the content is
 already correct.
 
-The incident that produced #1884 was caught because the edit script happened to print the paths it
+The incident that produced issue #1884 was caught because the edit script happened to print the paths it
 touched. That is luck. This item installs the mechanical control that does not depend on anyone
 looking.
 
 ## What was measured, and where the report was wrong
 
-#1884 named `find`, `grep -r`, `rg` without `--no-follow`, shell `**` under `globstar`, and Node's
+Issue #1884 named `find`, `grep -r`, `rg` without `--no-follow`, shell `**` under `globstar`, and Node's
 `fs.glob` as carrying "the same exposure". That list was asserted, not measured. Measured here, on a
 directory containing one symlink to a tree holding one matching file:
 
@@ -90,10 +90,10 @@ input.
 
 ## Out of scope, and filed rather than dropped
 
-#1884's third item — that a name-based rewrite should confirm each site imports the symbol being
+Issue #1884's third item — that a name-based rewrite should confirm each site imports the symbol being
 changed rather than merely spelling it — is a real defect and is not addressed here. It is the same
 problem ARCH-037 spent six review rounds on, it needs a resolver, and folding it into a path guard
-would produce neither. Filed as #1887.
+would produce neither. Filed as issue #1887.
 
 ## Progress
 
