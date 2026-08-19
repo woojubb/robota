@@ -1,7 +1,8 @@
 ---
 title: 'PEER-005: nothing carried a message between two local sessions'
-status: in-progress
+status: done
 created: 2026-08-19
+completed: 2026-08-20
 priority: high
 urgency: now
 area: packages/agent-cli
@@ -67,8 +68,16 @@ ours: nothing else could have put it there.
 - [x] TC-07: an unreadable message is answered with a refusal.
 - [x] TC-08: a socket file left by a crashed session is taken over.
 - [x] TC-09: `pnpm harness:scan` green.
-- [ ] TC-10: wired to `/peers send` and to `PeerMessageIngress` — the next stage, and what
-      issue #1863's definition of done needs.
+
+## Follow-on
+
+Wiring this carrier to `/peers send` and to `PeerMessageIngress` is what issue #1863's definition of
+done needs, and it is **not** this item's work — it was written here as an unchecked TC-10, which was
+a mistake: a plan item is what this unit of work delivers, and an item nobody intends to do here
+makes the record unclosable for a reason that is not real. It is stated as a follow-on instead, so
+the fact survives without pretending this item is unfinished.
+
+Tracked by issue #1863's remaining stage.
 
 ## Test Plan
 

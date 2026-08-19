@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-108: a breaking signature change reached develop because packages/*/examples is typechecked by nobody'
-status: in-progress
+status: done
 created: 2026-08-20
+completed: 2026-08-20
 priority: high
 urgency: now
 area: packages/agent-command

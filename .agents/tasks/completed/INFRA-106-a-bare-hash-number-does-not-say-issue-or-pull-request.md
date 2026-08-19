@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-106: a bare #N does not say whether it is an issue or a pull request'
-status: in-progress
+status: done
 created: 2026-08-19
+completed: 2026-08-20
 priority: medium
 urgency: next
 area: .agents/rules, scripts/harness, commitlint.config.js
