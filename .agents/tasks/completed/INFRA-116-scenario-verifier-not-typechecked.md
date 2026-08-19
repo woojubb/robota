@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-114: a breaking signature change reached develop because packages/*/examples is typechecked by nobody'
+title: 'INFRA-116: a breaking signature change reached develop because packages/*/examples is typechecked by nobody'
 status: done
 created: 2026-08-20
 completed: 2026-08-20
@@ -9,7 +9,7 @@ area: packages/agent-command
 depends_on: []
 ---
 
-# INFRA-114: the scenario verifier awaits `createSession`, and the gap that let it break
+# INFRA-116: the scenario verifier awaits `createSession`, and the gap that let it break
 
 ## Objective
 
@@ -92,8 +92,19 @@ The commits and the pull request that delivered this work (PR #1901) still say I
 cannot be rewritten. This paragraph is the bridge: a reader who follows `INFRA-108` from a commit
 message lands on issue #1898's item and needs to be told where the other one went.
 
-Checked before choosing: INFRA-109 through INFRA-113 are claimed by issue #1899, issue #1903,
-issue #1904, issue #1905 and issue #1908.
+The number is INFRA-116, and getting there took two tries. The first pass read the issue titles once
+and chose 114 from that reading; between the reading and the choice, five of those issues were
+retitled one number higher, so 114 had become issue #1908's. Review caught it.
+
+The lesson is the one this repository already wrote down as "a claim true when written, not
+re-derived when the facts moved": an ID survey is a measurement with a shelf life, and the moment of
+USE is when it has to be re-taken. Re-derived at the moment of writing this line:
+
+| ID                     | held by                                                                                 |
+| ---------------------- | --------------------------------------------------------------------------------------- |
+| INFRA-109 .. INFRA-114 | issues, including issue #1899 (110) and issue #1908 (114)                               |
+| INFRA-115              | `.agents/tasks/INFRA-115-dependency-review-omits-win32.md`, opened in this same session |
+| INFRA-116              | free — taken here                                                                       |
 
 ## Progress
 
