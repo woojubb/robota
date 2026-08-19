@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-120: the accidental-green gate cannot reach a verdict for a file added in its own range'
-status: in-progress
+status: done
 created: 2026-08-20
+completed: 2026-08-20
 priority: high
 urgency: now
 area: scripts/harness
@@ -67,7 +68,11 @@ that exists.
 - [x] TC-05: the orchestrator reverses to the creating commit rather than the base.
 - [x] TC-06: `NO_EARLIER_STATE` is reported, and the gate does NOT reverse to the file's absence.
 - [x] TC-07: the existing 60 cases still pass.
-- [ ] TC-08: `pnpm harness:pre-push` green.
+- [x] TC-08: `pnpm harness:pre-push` green, and CI clean on PR #1921.
+- [x] TC-09: the summary verdict carries `no-earlier-state` — review caught the first cut skipping
+      the `worst` update and omitting the `rank` entry, so a range whose only pair had no earlier
+      state returned the initial `red-proof-ok`. That is this item's own defect reproduced one level
+      up, which is why it is recorded as a plan item rather than a note.
 
 ## Test Plan
 
