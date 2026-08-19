@@ -221,11 +221,14 @@ is also the slow one; reading each candidate file's own bindings covers the meas
 cost a rewrite can afford per file. A resolver that guessed at the rest would be the regex it
 replaces, wearing a better name.
 
-Enforced by: **nothing mechanical, and that is the honest answer.** A hand-written rewrite runs
-before any check can see it — there is no artefact to scan and no command shape a hook can
-recognise, because the edit arrives as a finished diff. What exists is the tool above and this
-procedure. The reviewable evidence is the resolver's output: a rewrite that names it in its record is
-one another reader can re-run, and one that does not is a claim about scope with nothing behind it.
+Enforced by: nothing — a hand-written rewrite runs before any check can see it. There is no artefact
+to scan and no command shape a hook can recognise, because the edit arrives as a finished diff. That
+is the honest answer rather than a gap: issue #1887 asked whether this is enforceable at all and named
+a documented procedure plus a tool as an acceptable outcome, with silence as the one it refused.
+
+What exists instead is the tool above and this procedure. The reviewable evidence is the resolver's
+output: a rewrite that names it in its record is one another reader can re-run, and one that does not
+is a claim about scope with nothing behind it.
 
 The measurement behind this rule is in
 [INFRA-123](../tasks/INFRA-123-a-rewrite-edits-what-the-name-resolves-to.md).
