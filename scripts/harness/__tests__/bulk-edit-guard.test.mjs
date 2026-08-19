@@ -60,6 +60,19 @@ describe('a file-writing tool naming the dependency store', () => {
     expect(write('packages/agent-cli/src/remote-control/local-peer-registry.ts').status).toBe(0);
   });
 
+  it('attributes a flag to an ABSOLUTE-PATH invocation of the same command', () => {
+    // Reported in review of this change. `$0 == CMD` was a literal match, so `/usr/bin/find -L …`
+    // set nothing and its `-L` was attributed to no command at all — while the committed-script scan,
+    // which matches on a word boundary, reported the very same line. Two halves of one rule
+    // disagreeing on a bypass is worse than either being wrong alone: the green half is the one a
+    // reader trusts. Command words are matched by BASENAME now.
+    expect(bash("/usr/bin/find -L packages -name '*.ts'").status).toBe(2);
+    expect(bash("/usr/bin/sed -i 's/a/b/' packages/a/node_modules/b/x.ts").status).toBe(2);
+    // The safe siblings, spelled the same absolute way, stay permitted.
+    expect(bash("/usr/bin/find packages -name '*.ts'").status).toBe(0);
+    expect(bash("/usr/bin/sed -i 's/a/b/' src/a.ts").status).toBe(0);
+  });
+
   it('permits a redirect and an edit into a directory that merely CONTAINS the letters', () => {
     // Reported in review of this change: the Bash-side checks matched `node_modules/` as a plain
     // substring while the write-tool path anchored it on a separator, so a directory ENDING in those

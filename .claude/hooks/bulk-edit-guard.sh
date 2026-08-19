@@ -162,24 +162,33 @@ segments() {
     { print }'
 }
 
+# A command word is matched by its BASENAME. Reported in review of this change: `$0 == CMD` is a
+# literal match, so `/usr/bin/find -L …` never set `seen` and its `-L` was attributed to nothing —
+# while `scan-symlink-following-enumeration.mjs`, which matches on a word boundary, reported the same
+# line. Two halves of one rule disagreeing on a bypass is worse than either being wrong alone, because
+# the green half is the one a reader trusts. `./find` and `../bin/find` are the same shape.
+basename_of() {
+  printf '%s' 'function base(w) { sub(/^.*\//, "", w); return w }'
+}
+
 cmd_flag() {
-  segments | awk -v CMD="$1" -v FLAG="$2" '
+  segments | awk -v CMD="$1" -v FLAG="$2" "$(basename_of)"'
     $0 == "\034" { seen = 0; next }
     seen && $0 ~ /^-/ && $0 ~ FLAG { found = 1 }
-    $0 == CMD { seen = 1 }
+    base($0) == CMD { seen = 1 }
     END { exit(found ? 0 : 1) }'
 }
 
 # An in-place editor and a store path standing in ONE segment. See the note on the rule above for
 # what the segment scope is correcting.
 segment_has_editor_and_store_path() {
-  segments | awk '
+  segments | awk "$(basename_of)"'
     function reset() { editor = 0; store = 0; sed_or_perl = 0 }
     BEGIN { reset() }
     $0 == "\034" { reset(); next }
-    $0 == "sed" || $0 == "perl" { sed_or_perl = 1 }
+    base($0) == "sed" || base($0) == "perl" { sed_or_perl = 1 }
     sed_or_perl && $0 ~ /^-[[:alnum:]]*i/ { editor = 1 }
-    $0 == "tee" || $0 == "truncate" { editor = 1 }
+    base($0) == "tee" || base($0) == "truncate" { editor = 1 }
     $0 ~ /(^|\/)(node_modules|\.pnpm)\// { store = 1 }
     editor && store { found = 1 }
     END { exit(found ? 0 : 1) }'
