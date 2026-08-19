@@ -52,18 +52,21 @@ One new module in `agent-cli` joins the three ends, and the command surface grow
 
 ## Plan
 
-- [ ] TC-01: a message sent from one session reaches the other's ingress and comes back `pending`.
-- [ ] TC-02: sending to a session id that is not announced is refused with that reason, before any
+- [x] TC-01: a message sent from one session reaches the other's ingress and comes back `pending`.
+- [x] TC-02: sending to a session id that is not announced is refused with that reason, before any
       socket is opened.
-- [ ] TC-03: the submitted turn carries `turnSource: 'peer'` and a driver id derived from the SENDER's
+- [x] TC-03: the submitted turn carries `turnSource: 'peer'` and a driver id derived from the SENDER's
       session id — not the operator's, and not the peer-supplied one.
-- [ ] TC-04: a peer-supplied `origin.driverId` does not become the attributed driver id.
-- [ ] TC-05: sending to this session's own id is refused.
-- [ ] TC-06: `/peers send` with a missing target or missing text explains what it needs.
-- [ ] TC-07: the receiving operator sees the peer origin rendered.
-- [ ] TC-08: two sessions exchange in BOTH directions.
-- [ ] TC-09: the flow and its concurrency behaviour are documented for the CLI.
-- [ ] TC-10: `pnpm harness:pre-push` green.
+- [x] TC-04: a peer-supplied `origin.driverId` does not become the attributed driver id.
+- [x] TC-05: sending to this session's own id is refused.
+- [x] TC-06: `/peers send` with a missing target or missing text explains what it needs.
+- [ ] TC-07: the receiving operator sees the peer origin rendered — the turn is submitted with
+      `turnSource: 'peer'` and a derived driver id, and what the TUI does with that is the renderer's
+      own behaviour rather than this change's. Left open deliberately: ticking it would claim a
+      rendering nobody in this change measured.
+- [x] TC-08: two sessions exchange in BOTH directions.
+- [x] TC-09: the flow and its concurrency behaviour are documented for the CLI.
+- [x] TC-10: `pnpm harness:pre-push` green.
 
 ## Test Plan
 
@@ -104,3 +107,29 @@ peer-supplied driver id through is a one-character change that no other test wou
 
 Opened after PEER-004 (PR #1897) and PEER-005 (PR #1906) both merged, which is what left the two ends
 built and unjoined.
+
+Red-proofed three ways, each applied and each reverted:
+
+| defect injected                                                     | what went red                                                            |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| forward the peer's own `origin` to the ingress                      | both attribution cases, one reading `expected 'owner' not to be 'owner'` |
+| match the subcommand with `/^send/`                                 | the `sender-1` case only                                                 |
+| drop `await createSession` (INFRA-108's defect, checked separately) | the scenario verifier                                                    |
+
+The second of those first reported GREEN because `sed` had not matched the source, so the edit was
+never applied. A red-proof that reports green must be checked for having been APPLIED before it is
+read as evidence; the retry asserts the pattern was found before writing.
+
+The forged-attribution case also had to be rewritten. Its first version drove the send path, which
+never populates `driverId` — so it could not fail on the condition its own name stated. It now writes
+the forged message through the carrier directly, which is what a hostile peer would do.
+
+Two frozen sizes were respected and one improved. The framework's root barrel stays at 685 —
+`PeerMessageIngress` joined the existing `InteractiveSession` export line. `packages/agent-cli/src/cli.ts`
+went 469 -> 466, because shortening `attachCommandHostAdapters` to `attachHostAdapters` let its import
+block fold; the ratchet refused the unlocked gain and the baseline was re-frozen at 467 in the same
+change.
+
+`spec-public-surface` caught `PeerMessageIngress` as a new undocumented export. It is documented
+rather than un-exported, which is the opposite of the answer PEER-004 gave for its three — the
+difference is that this one has a consumer.
