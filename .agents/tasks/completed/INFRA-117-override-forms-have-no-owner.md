@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-117: a hook escape hatch is declared in five places and compared against none'
-status: in-progress
+status: done
 created: 2026-08-20
+completed: 2026-08-20
 priority: high
 urgency: now
 area: .claude/hooks, scripts/harness
@@ -71,7 +72,7 @@ itself that it is not the authority: the hook source is.
 - [x] TC-07: the four live findings are fixed and the scan passes.
 - [x] TC-08: the counter is asserted exactly, and again after a second run of the finder.
 - [x] TC-09: `pnpm harness:scan` green (128 passed, 3 skipped).
-- [ ] TC-10: `pnpm harness:pre-push` green.
+- [x] TC-10: `pnpm harness:pre-push` green, and CI clean on PR #1917.
 
 ## Test Plan
 
