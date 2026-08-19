@@ -28,6 +28,7 @@
     "scripts/harness/scan-role-port-optionals.mjs",
     "scripts/harness/scan-routing-document-size.mjs",
     "scripts/harness/scan-spec-user-execution-section.mjs",
+    "scripts/harness/scan-symlink-following-enumeration.mjs",
     "scripts/harness/scan-tool-classification.mjs",
     "scripts/harness/scan-transport-conformance.mjs",
     "scripts/harness/scan-workflow-permissions.mjs",

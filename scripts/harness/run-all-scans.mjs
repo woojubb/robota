@@ -451,6 +451,10 @@ export const SCAN_COMMANDS = [
     name: 'reference-kind-qualified',
     command: ['node', 'scripts/harness/scan-reference-kind-qualified.mjs'],
   },
+  {
+    name: 'symlink-following-enumeration',
+    command: ['node', 'scripts/harness/scan-symlink-following-enumeration.mjs'],
+  },
   // INFRA-102. Only the DECLARED edge runs here: it is hermetic. The `--measured` edge asks the
   // host toolchain what a workspace script actually runs on, which no manifest edit can make true
   // (Volta binds a package tool to its install-time Node), so it is a developer-run check.
