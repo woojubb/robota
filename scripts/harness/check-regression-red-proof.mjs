@@ -716,6 +716,12 @@ export async function runRegressionRedProof(io = {}) {
     // was offered, where INCONCLUSIVE is the absence of one. Below ACCIDENTAL_GREEN: a case that at
     // least fails is not yet shown to guard nothing.
     [VERDICT.PROOF_UNREACHED]: 3,
+    // Beside INCONCLUSIVE rather than above it: both say the gate reached no verdict, and neither is
+    // a defect in the change. It must not be BELOW `RED_PROOF_OK`, which is the omission review
+    // caught — a range whose only pair has no earlier state would otherwise return the initial
+    // `red-proof-ok`, and the summary would report a proof that was never attempted. That is the same
+    // swallowing this change exists to stop, one level up.
+    [VERDICT.NO_EARLIER_STATE]: 2,
     [VERDICT.INCONCLUSIVE]: 2,
     [VERDICT.RED_PROOF_OK]: 1,
   };
@@ -807,6 +813,10 @@ export async function runRegressionRedProof(io = {}) {
             'state to reverse to. Reversing to the base would delete it and every case would throw, ' +
             'which is not a verdict.',
         );
+        // The summary must carry it too. Skipping this line is what let the top-level verdict stay at
+        // its initial `red-proof-ok` for a range whose only pair could not be judged.
+        if ((rank[VERDICT.NO_EARLIER_STATE] ?? 0) > (rank[worst] ?? 0))
+          worst = VERDICT.NO_EARLIER_STATE;
         continue;
       }
       if (exercised) {

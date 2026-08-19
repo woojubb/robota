@@ -1089,6 +1089,42 @@ describe('INFRA-120 (issue #1905): a source ADDED in the range', () => {
     expect(reversedFrom).toEqual(['CREATED']);
   });
 
+  it('the TOP-LEVEL verdict carries it, not just the per-pair decision', async () => {
+    // Review finding on the pull request: the `continue` skipped the `worst` update and `rank` had no
+    // entry, so a range whose only pair had no earlier state returned the initial `red-proof-ok` —
+    // a summary reporting a proof that was never attempted. The same swallowing this change exists
+    // to stop, one level up.
+    const { verdict, decisions } = await runRegressionRedProof(
+      baseIo({ reversalBase: () => null }),
+    );
+    expect(verdict).toBe(VERDICT.NO_EARLIER_STATE);
+    expect(decisions[0].verdict).toBe(VERDICT.NO_EARLIER_STATE);
+  });
+
+  it('does not let it outrank a real accidental-green elsewhere in the range', async () => {
+    // It sits beside INCONCLUSIVE: both say no verdict was reached. A defect that WAS found must
+    // still be what the summary reports.
+    const source = 'packages/x/src/target.ts';
+    const test = 'packages/x/src/a.test.ts';
+    const files = {
+      [abs(test)]: `import { t } from './target.js';`,
+      [abs(source)]: 'export const t = 1;',
+    };
+    const { verdict } = await runRegressionRedProof(
+      baseIo({
+        changedFiles: [source, test],
+        readText: (p) => files[p] ?? '',
+        fileExists: (p) => Object.prototype.hasOwnProperty.call(files, p),
+        runVitest: () => ({
+          testResults: [
+            { name: abs(test), assertionResults: [{ title: 'a case', status: 'passed' }] },
+          ],
+        }),
+      }),
+    );
+    expect(verdict).toBe(VERDICT.ACCIDENTAL_GREEN);
+  });
+
   it('through the orchestrator: no earlier state is REPORTED, not silently inconclusive', async () => {
     let reversed = false;
     const { decisions } = await runRegressionRedProof(
