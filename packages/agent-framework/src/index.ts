@@ -2,7 +2,7 @@
 // Provider-neutral. InteractiveSession is the single entry point.
 
 // ── InteractiveSession (primary API) ────────────────────────
-export { InteractiveSession } from './interactive/index.js';
+export { InteractiveSession, PeerMessageIngress } from './interactive/index.js';
 
 // ── Autonomous goal pursuit (GOAL-001) ──────────────────────
 export {

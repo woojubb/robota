@@ -9,7 +9,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { attachCommandHostAdapters } from '../host-action-adapters.js';
+import { attachHostAdapters, attachLocalPeerMessaging } from '../host-action-adapters.js';
 
 import type { RemoteControlController } from '../../remote-control/index.js';
 import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
@@ -33,11 +33,12 @@ describe('assembling the host adapters', () => {
     const report = reporter();
     const presence = {
       sessionId: 'session-one',
+      guardedDirectory: '/tmp/rendezvous',
       list: () => [{ sessionId: 'session-one', liveness: 'alive' as const }],
       withdraw: () => undefined,
     };
 
-    attachCommandHostAdapters(adapters, CONTROLLER, report, () => presence);
+    attachHostAdapters(adapters, CONTROLLER, report, () => presence);
 
     expect(adapters.localPeers?.ownSessionId()).toBe('session-one');
     expect(adapters.localPeers?.list()).toEqual([{ sessionId: 'session-one', liveness: 'alive' }]);
@@ -49,9 +50,14 @@ describe('assembling the host adapters', () => {
     // caller for one would let two call sites disagree about what a session is, which is the exact
     // question the registry keys its entries on.
     const seen: string[] = [];
-    attachCommandHostAdapters({}, CONTROLLER, reporter(), (options) => {
+    attachHostAdapters({}, CONTROLLER, reporter(), (options) => {
       seen.push(options.sessionId);
-      return { sessionId: options.sessionId, list: () => [], withdraw: () => undefined };
+      return {
+        sessionId: options.sessionId,
+        guardedDirectory: '/tmp/rendezvous',
+        list: () => [],
+        withdraw: () => undefined,
+      };
     });
     expect(seen[0]).toMatch(/^[0-9a-f-]{36}$/);
   });
@@ -63,7 +69,7 @@ describe('assembling the host adapters', () => {
     const adapters: ICommandHostAdapters = {};
     const report = reporter();
 
-    attachCommandHostAdapters(adapters, CONTROLLER, report, () => {
+    attachHostAdapters(adapters, CONTROLLER, report, () => {
       throw new Error('the rendezvous directory was not admitted');
     });
 
@@ -75,9 +81,155 @@ describe('assembling the host adapters', () => {
 
   it('does not let a refusal stop the session', () => {
     expect(() =>
-      attachCommandHostAdapters({}, CONTROLLER, reporter(), () => {
+      attachHostAdapters({}, CONTROLLER, reporter(), () => {
         throw new Error('no');
       }),
     ).not.toThrow();
+  });
+});
+
+describe('PEER-006 — messaging is attached separately from discovery', () => {
+  const PRESENCE = {
+    sessionId: 'me',
+    guardedDirectory: '/tmp/does-not-matter',
+    list: () => [],
+    withdraw: () => {},
+  };
+
+  it('fills in `send` once messaging starts', async () => {
+    const adapters: ICommandHostAdapters = {};
+    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE);
+
+    expect(adapters.localPeers?.send).toBeUndefined();
+
+    await attachLocalPeerMessaging(
+      adapters,
+      PRESENCE,
+      () => ({ submit: async () => ({}) }) as never,
+      reporter(),
+      (async () => ({
+        socketPath: '/tmp/x.sock',
+        send: async () => ({ id: '1', sequence: 1, state: 'acknowledged' as const }),
+        close: async () => {},
+      })) as never,
+    );
+
+    expect(adapters.localPeers?.send).toBeTypeOf('function');
+    await expect(adapters.localPeers?.send?.('other', 'hi')).resolves.toEqual({
+      state: 'acknowledged',
+    });
+  });
+
+  it('leaves discovery working when messaging cannot start', async () => {
+    const adapters: ICommandHostAdapters = {};
+    const messages: string[] = [];
+    const report = { writeError: (message: string) => messages.push(message) };
+    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE);
+
+    await attachLocalPeerMessaging(adapters, PRESENCE, () => ({}) as never, report, (() =>
+      Promise.reject(new Error('the socket could not bind'))) as never);
+
+    // Listing peers and addressing them are different capabilities. Taking discovery down with
+    // messaging would turn "I cannot send" into "nobody is there", which invites the wrong action.
+    expect(adapters.localPeers?.list).toBeTypeOf('function');
+    expect(adapters.localPeers?.send).toBeUndefined();
+    expect(messages.join('\n')).toContain('though discovery is on');
+  });
+
+  it('does nothing when discovery never came up', async () => {
+    const adapters: ICommandHostAdapters = {};
+    let started = false;
+    await attachLocalPeerMessaging(adapters, undefined, () => ({}) as never, reporter(), (() => {
+      started = true;
+      return Promise.resolve({}) as never;
+    }) as never);
+
+    expect(started).toBe(false);
+  });
+});
+
+describe('PEER-006 — a session switch does not leak a listener', () => {
+  const PRESENCE2 = {
+    sessionId: 'me',
+    guardedDirectory: '/tmp/does-not-matter',
+    list: () => [],
+    withdraw: () => {},
+  };
+
+  it('closes the previous listener before starting the next one', async () => {
+    // `onChannelReady` fires again on every session switch — render.tsx says so on the call itself
+    // — and the socket path is derived from the session id, which does not change. The listener
+    // unlinks the path before binding, so a second bind SUCCEEDS and the first server is orphaned:
+    // nothing errors, and a listener plus its fd accumulates per switch.
+    const adapters: ICommandHostAdapters = {};
+    const closed: number[] = [];
+    let started = 0;
+    const start = (async () => {
+      const id = ++started;
+      return {
+        socketPath: `/tmp/${id}.sock`,
+        send: async () => ({ id: '1', sequence: 1, state: 'acknowledged' as const }),
+        close: async () => {
+          closed.push(id);
+        },
+      };
+    }) as never;
+
+    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE2);
+    const first = await attachLocalPeerMessaging(
+      adapters,
+      PRESENCE2,
+      () => ({}) as never,
+      reporter(),
+      start,
+    );
+    await attachLocalPeerMessaging(
+      adapters,
+      PRESENCE2,
+      () => ({}) as never,
+      reporter(),
+      start,
+      Promise.resolve(first),
+    );
+
+    expect(started).toBe(2);
+    expect(closed).toEqual([1]);
+  });
+
+  it('still starts the new listener when closing the old one throws', async () => {
+    // A single bad close must not end peer messaging for the rest of the process.
+    const adapters: ICommandHostAdapters = {};
+    const messages: string[] = [];
+    const report = { writeError: (message: string) => messages.push(message) };
+    let started = 0;
+    const start = (async () => {
+      started += 1;
+      return {
+        socketPath: '/tmp/x.sock',
+        send: async () => ({ id: '1', sequence: 1, state: 'acknowledged' as const }),
+        close: async () => {},
+      };
+    }) as never;
+
+    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE2);
+    const stubborn = Promise.resolve({
+      socketPath: '/tmp/old.sock',
+      send: async () => ({ id: '1', sequence: 1, state: 'acknowledged' as const }),
+      close: async () => {
+        throw new Error('the socket would not release');
+      },
+    }) as never;
+
+    await attachLocalPeerMessaging(
+      adapters,
+      PRESENCE2,
+      () => ({}) as never,
+      report,
+      start,
+      stubborn,
+    );
+
+    expect(started).toBe(1);
+    expect(messages.join('\n')).toContain('would not release');
   });
 });

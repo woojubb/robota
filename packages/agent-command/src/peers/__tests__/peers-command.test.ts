@@ -27,8 +27,8 @@ function hostWithPeers(peers: readonly TPeerSummary[]): ICommandHostAdapterAcces
 }
 
 describe('what the operator is told', () => {
-  it('lists another live session, and marks which row is this one', () => {
-    const result = executePeersCommand(
+  it('lists another live session, and marks which row is this one', async () => {
+    const result = await executePeersCommand(
       hostWithPeers([
         { sessionId: OWN, liveness: 'alive' },
         { sessionId: 'session-other', name: 'review', liveness: 'alive' },
@@ -40,19 +40,21 @@ describe('what the operator is told', () => {
     expect(result.message).toMatch(/session-self.*\(this session\)/);
   });
 
-  it('says so plainly when this session is the only one', () => {
+  it('says so plainly when this session is the only one', async () => {
     // Not an empty list rendered as a header with nothing under it. "No other live session" is the
     // answer, and it is different from "discovery is unavailable" below.
-    const result = executePeersCommand(hostWithPeers([{ sessionId: OWN, liveness: 'alive' }]));
+    const result = await executePeersCommand(
+      hostWithPeers([{ sessionId: OWN, liveness: 'alive' }]),
+    );
     expect(result.message).toContain('No other live session');
     expect(result.success).toBe(true);
   });
 
-  it('prints `unknown` liveness rather than rounding it to alive', () => {
+  it('prints `unknown` liveness rather than rounding it to alive', async () => {
     // A host that cannot read process start times answers `unknown` for every peer. A reader who is
     // not told that would take a stale entry for a live session — which is the exact guess the
     // registry refuses to make, and it must not be reintroduced by the surface that displays it.
-    const result = executePeersCommand(
+    const result = await executePeersCommand(
       hostWithPeers([
         { sessionId: OWN, liveness: 'alive' },
         { sessionId: 'session-other', liveness: 'unknown' },
@@ -61,10 +63,10 @@ describe('what the operator is told', () => {
     expect(result.message).toContain('liveness unknown');
   });
 
-  it('does not show a dead entry', () => {
+  it('does not show a dead entry', async () => {
     // A crashed session leaves its file behind. That is debris, not a peer, and offering it as one
     // would make the operator address something that cannot answer.
-    const result = executePeersCommand(
+    const result = await executePeersCommand(
       hostWithPeers([
         { sessionId: OWN, liveness: 'alive' },
         { sessionId: 'session-gone', liveness: 'dead' },
@@ -76,13 +78,99 @@ describe('what the operator is told', () => {
 });
 
 describe('when the host wires no discovery', () => {
-  it('says the feature is unavailable rather than reporting no peers', () => {
+  it('says the feature is unavailable rather than reporting no peers', async () => {
     // The two are different facts and the difference matters: "nobody is there" invites the operator
     // to start a second session, and "this build cannot see them" does not.
-    const result = executePeersCommand({
+    const result = await executePeersCommand({
       getCommandHostAdapters: () => ({}),
     } as ICommandHostAdapterAccess);
     expect(result.message).toContain('not available');
     expect(result.message).not.toContain('No other live session');
+  });
+});
+
+describe('PEER-006 — /peers send', () => {
+  function hostWithSend(
+    send: (target: string, text: string) => Promise<{ state: string; reason?: string }>,
+  ): ICommandHostAdapterAccess {
+    return {
+      getCommandHostAdapters: () => ({
+        localPeers: {
+          list: () => [{ sessionId: 'other', liveness: 'alive' as const }],
+          ownSessionId: () => OWN,
+          send,
+        },
+      }),
+    } as unknown as ICommandHostAdapterAccess;
+  }
+
+  it('passes the whole message, not just its first word', async () => {
+    const calls: Array<[string, string]> = [];
+    await executePeersCommand(
+      hostWithSend(async (target, text) => {
+        calls.push([target, text]);
+        return { state: 'acknowledged' };
+      }),
+      'send other look at the failing test in cli.ts',
+    );
+
+    expect(calls).toEqual([['other', 'look at the failing test in cli.ts']]);
+  });
+
+  it('reports `pending` as waiting, never as delivered', async () => {
+    const result = await executePeersCommand(
+      hostWithSend(async () => ({ state: 'pending' })),
+      'send other hello',
+    );
+
+    // The operator has to be able to see the wait. "Delivered" here would hide a turn already
+    // running on the other side, which is the one thing they might want to act on.
+    expect(result.message).toContain('waiting');
+    expect(result.message).not.toContain('Delivered');
+    expect(result.success).toBe(true);
+  });
+
+  it('carries the refusal reason back to the operator', async () => {
+    const result = await executePeersCommand(
+      hostWithSend(async () => ({ state: 'refused', reason: 'no session ghost is announced' })),
+      'send ghost hello',
+    );
+
+    expect(result.message).toContain('no session ghost is announced');
+    expect(result.success).toBe(false);
+  });
+
+  it('explains what it needs when the message is missing', async () => {
+    const result = await executePeersCommand(
+      hostWithSend(async () => ({ state: 'acknowledged' })),
+      'send other',
+    );
+
+    expect(result.message).toContain('Usage: /peers send');
+    expect(result.success).toBe(false);
+  });
+
+  it('does not read a session id beginning with `send` as the subcommand', async () => {
+    // `startsWith('send')` would claim this as `/peers send`, leaving `er-1` as the target.
+    const result = await executePeersCommand(
+      hostWithSend(async () => ({ state: 'acknowledged' })),
+      'sender-1',
+    );
+
+    expect(result.message).toContain('Live sessions:');
+  });
+
+  it('says so when the host can discover peers but not address them', async () => {
+    const result = await executePeersCommand(
+      {
+        getCommandHostAdapters: () => ({
+          localPeers: { list: () => [], ownSessionId: () => OWN },
+        }),
+      } as ICommandHostAdapterAccess,
+      'send other hello',
+    );
+
+    expect(result.message).toContain('cannot address them');
+    expect(result.success).toBe(false);
   });
 });
