@@ -451,6 +451,12 @@ export const SCAN_COMMANDS = [
     name: 'reference-kind-qualified',
     command: ['node', 'scripts/harness/scan-reference-kind-qualified.mjs'],
   },
+  // INFRA-112. The accepted forms are derived from each hook's own source, so this compares the
+  // declarations against the code rather than against a list that would drift beside them.
+  {
+    name: 'hook-override-declarations',
+    command: ['node', 'scripts/harness/scan-hook-override-declarations.mjs'],
+  },
   {
     name: 'symlink-following-enumeration',
     command: ['node', 'scripts/harness/scan-symlink-following-enumeration.mjs'],

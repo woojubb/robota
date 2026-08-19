@@ -75,7 +75,7 @@ The most-hit refusals, in imperative form. Reasoning lives in [git-branch.md](.a
 - **Cut branches from a freshly-fetched `origin/develop`**, one at a time.
 - **An open PR's diff is frozen** except to resolve a reported finding.
 
-Each has a documented inline override (`MERGE_GATE_ACK=1`, `PRE_PUSH_ALLOW_UNREVIEWED=1`, `BRANCH_GUARD_ALLOW_DELETE=1`, …). An override is a visible choice, used after verifying by hand what the hook could not reach — never a way past a gate you have not satisfied.
+Each has a documented override — the FORM differs and is not interchangeable. Most are **inline** (`MERGE_GATE_ACK=1 gh pr merge …`), which excuses only the statement they prefix. A few are read from the **environment** (`HOOK_EDIT_ACK`, `LOCKFILE_CHURN_ACK`), which means they stay armed until unset rather than for one command. [git-branch.md](.agents/rules/git-branch.md) § "Which Form An Override Takes" is the owner; `hook-override-declarations` derives the accepted forms from the hook source and refuses a declaration that names the wrong one. An override is a visible choice, used after verifying by hand what the hook could not reach — never a way past a gate you have not satisfied.
 
 ## Common Pitfalls
 
