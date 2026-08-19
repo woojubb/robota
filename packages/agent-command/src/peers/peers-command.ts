@@ -32,11 +32,77 @@ function describe(peer: TPeerSummary, ownSessionId: string): string {
   return `  ${peer.sessionId}${peer.name ? `  ${peer.name}` : ''}${liveness}${self}`;
 }
 
-export function executePeersCommand(context: ICommandHostAdapterAccess): ICommandResult {
+/**
+ * PEER-006 — `/peers send <session-id> <text>`.
+ *
+ * Split on the FIRST run of whitespace only: everything after the session id is the message, spaces
+ * and all. Splitting on every space would silently truncate any message with more than one word,
+ * which is nearly all of them.
+ */
+function parseSend(args: string): { target: string; text: string } | undefined {
+  const trimmed = args.trim();
+  const at = trimmed.search(/\s/);
+  if (at === -1) return undefined;
+  const text = trimmed.slice(at).trim();
+  if (text === '') return undefined;
+  return { target: trimmed.slice(0, at), text };
+}
+
+/** A state the sender can act on, rendered as a sentence rather than a status word. */
+function describeSend(result: { state: string; reason?: string }, target: string): ICommandResult {
+  const reason = result.reason !== undefined ? ` ${result.reason}` : '';
+  switch (result.state) {
+    case 'acknowledged':
+    case 'delivered':
+      return { message: `Delivered to ${target}.`, success: true };
+    case 'pending':
+      // NOT reported as delivered. The peer has it and has not run it — usually because a turn is
+      // already running there — and telling the operator it landed would hide a wait they can see.
+      return {
+        message: `${target} has the message; it is waiting behind work already running there.`,
+        success: true,
+      };
+    case 'duplicate':
+      return { message: `${target} had already seen that message.`, success: true };
+    default:
+      return { message: `Not delivered to ${target}.${reason}`, success: false };
+  }
+}
+
+async function executeSend(
+  adapter: NonNullable<ICommandHostAdapters['localPeers']>,
+  args: string,
+): Promise<ICommandResult> {
+  if (adapter.send === undefined) {
+    return {
+      message: 'This environment can discover other sessions but cannot address them.',
+      success: false,
+    };
+  }
+  const parsed = parseSend(args);
+  if (parsed === undefined) {
+    return {
+      message: 'Usage: /peers send <session-id> <message>. Run /peers for the session ids.',
+      success: false,
+    };
+  }
+  return describeSend(await adapter.send(parsed.target, parsed.text), parsed.target);
+}
+
+export async function executePeersCommand(
+  context: ICommandHostAdapterAccess,
+  args = '',
+): Promise<ICommandResult> {
   const adapter = context.getCommandHostAdapters?.().localPeers;
   if (!adapter) {
     return { message: 'Local peer discovery is not available in this environment.', success: true };
   }
+
+  // `send` must be a WHOLE word: `startsWith('send')` would also claim a session id beginning with
+  // those four letters, and a uuid that happens to start `send…` is not a subcommand.
+  const trimmed = args.trim();
+  const sendVerb = /^send(?=\s|$)/.exec(trimmed);
+  if (sendVerb !== null) return executeSend(adapter, trimmed.slice(sendVerb[0].length));
 
   const own = adapter.ownSessionId();
   const peers = adapter.list().filter(addressable);
@@ -52,5 +118,8 @@ export function executePeersCommand(context: ICommandHostAdapterAccess): IComman
   }
 
   const lines = peers.map((peer) => describe(peer, own));
-  return { message: `Live sessions:\n${lines.join('\n')}`, success: true };
+  return {
+    message: `Live sessions:\n${lines.join('\n')}\n\nSend to one: /peers send <session-id> <message>`,
+    success: true,
+  };
 }

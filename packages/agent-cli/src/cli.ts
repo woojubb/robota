@@ -63,10 +63,7 @@ import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetup } from './startup/command-setup.js';
-import {
-  attachCommandHostAdapters,
-  createTuiProcessAdapter,
-} from './startup/host-action-adapters.js';
+import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { runServeMode } from './modes/serve-mode.js';
 import {
@@ -212,7 +209,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const { registry: transportRegistry, wsTransport } = createDefaultTransportRegistry();
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry);
-  attachCommandHostAdapters(commandHostAdapters, remoteControlController, terminal);
+  const startPeers = attachHostAdapters(commandHostAdapters, remoteControlController, terminal);
 
   reportUnknownPresetModules(
     (message) => terminal.writeError(message),
@@ -427,7 +424,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   await renderApp({
     providerDefinitions,
-    onChannelReady: createChannelReadyHandler(setLiveChannel, setRemoteControlChannel),
+    onChannelReady: createChannelReadyHandler(setLiveChannel, setRemoteControlChannel, startPeers),
     cwd,
     provider,
     providerOverride: args.provider,

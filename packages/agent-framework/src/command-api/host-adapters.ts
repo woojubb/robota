@@ -93,6 +93,26 @@ export interface ICommandLocalPeersAdapter {
   list(): readonly ILocalPeerSummary[];
   /** This session's own id, so the command can mark which row is the reader. */
   ownSessionId(): string;
+  /**
+   * PEER-006: hand `text` to another announced session, and report what came back.
+   *
+   * Returns a delivery state rather than throwing, because "the peer refused it" and "the carrier
+   * broke" are both answers the operator needs, and an exception would flatten them into one.
+   * Absent on a host that can discover peers but cannot address them.
+   */
+  send?(targetSessionId: string, text: string): Promise<ILocalPeerSendResult>;
+}
+
+/**
+ * PEER-006: what the sender learns, in the vocabulary the operator reads.
+ *
+ * Deliberately not the transport's ack type: the command layer must not import the wire contract to
+ * print a sentence, and `pending` — the honest answer while a message waits behind a running turn —
+ * is a state the operator has to be able to see named.
+ */
+export interface ILocalPeerSendResult {
+  readonly state: 'pending' | 'delivered' | 'acknowledged' | 'duplicate' | 'refused' | 'failed';
+  readonly reason?: string;
 }
 
 export interface ICommandHostAdapters {

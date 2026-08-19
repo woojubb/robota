@@ -7,7 +7,7 @@ export function createPeersCommandEntry(): ICommand {
   return {
     name: 'peers',
     displayName: 'Peers',
-    description: 'List the other live sessions on this host that this one can address',
+    description: 'List the other live sessions on this host, or send one a message',
     source: 'peers',
     // The model does not enumerate the operator's other sessions. Discovery is an operator-facing
     // view of who is at the machine, which is a fact about the person and not about the task.
@@ -25,7 +25,7 @@ function createPeersSystemCommand(): ISystemCommand {
     userInvocable: true,
     modelInvocable: false,
     lifecycle: 'inline',
-    execute: (context) => executePeersCommand(context),
+    execute: (context, args) => executePeersCommand(context, args),
   };
 }
 

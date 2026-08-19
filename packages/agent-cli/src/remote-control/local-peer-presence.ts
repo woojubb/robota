@@ -38,6 +38,14 @@ type TPeerSummary = ReturnType<NonNullable<ICommandHostAdapters['localPeers']>['
 
 export interface ILocalPeerPresence {
   readonly sessionId: string;
+  /**
+   * The verified directory this session was announced into.
+   *
+   * Carried so the messaging leaf binds its socket in the SAME directory the announcement was
+   * admitted against. Re-deriving it there would be a second answer to "which directory is ours",
+   * and the whole same-user-same-host argument rests on there being one.
+   */
+  readonly guardedDirectory: string;
   /** Every announced session, this one included. */
   list(): readonly TPeerSummary[];
   /** Remove this session's entry and stop listening for the exit. Idempotent. */
@@ -101,6 +109,7 @@ export function announceLocalPeerPresence(options: IPresenceOptions): ILocalPeer
 
   return {
     sessionId: options.sessionId,
+    guardedDirectory,
     list: () =>
       listPeers(registry).map((discovered) => ({
         sessionId: discovered.entry.sessionId,

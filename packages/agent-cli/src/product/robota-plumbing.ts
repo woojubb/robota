@@ -243,9 +243,14 @@ export function buildRobotaRuntimeOptions(input: IRobotaRuntimeSeamInput): IRobo
 export function createChannelReadyHandler<TChannel extends TLive & TRemote, TLive, TRemote>(
   setLive: (channel: TLive) => void,
   setRemoteControl: (channel: TRemote) => void,
+  // PEER-006: optional, because the two existing setters are what a channel MUST reach and peer
+  // messaging is a capability a host may not have. A required parameter here would make every
+  // caller — including tests that care about neither peer — declare an opinion about it.
+  startPeers?: (channel: TChannel) => void,
 ): (channel: TChannel) => void {
   return (channel) => {
     setLive(channel);
     setRemoteControl(channel);
+    startPeers?.(channel);
   };
 }
