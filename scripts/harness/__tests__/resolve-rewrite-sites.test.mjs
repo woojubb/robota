@@ -71,6 +71,26 @@ describe('binding forms', () => {
     ).toEqual([]);
   });
 
+  it('reads a named clause that follows a DEFAULT binding', () => {
+    // Review finding: the first regex required `{` immediately after `import`, so this form matched
+    // nothing and a file that genuinely binds the symbol came back `does-not-import-the-symbol` — a
+    // real rewrite site skipped in silence, which is this tool's own failure mode reversed.
+    expect(
+      importSpecifiersFor(`import Default, { createSession } from '${MODULE}';`, 'createSession'),
+    ).toEqual([MODULE]);
+    expect(
+      resolve({ 'a.ts': `import Default, { createSession } from '${MODULE}';\ncreateSession();` }),
+    ).toEqual([SITE.BINDS]);
+  });
+
+  it('does not treat a DEFAULT-only import as binding the name', () => {
+    // The widening must not become "a default import binds everything" — that would admit files the
+    // rewrite must leave alone, which is the original defect in its first direction.
+    expect(importSpecifiersFor(`import createSession from '${MODULE}';`, 'createSession')).toEqual(
+      [],
+    );
+  });
+
   it('reads a type-only import, which still binds the name', () => {
     expect(
       importSpecifiersFor(`import type { createSession } from '${MODULE}';`, 'createSession'),

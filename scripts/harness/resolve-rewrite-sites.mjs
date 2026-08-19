@@ -43,8 +43,16 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-/** `import { a, b as c } from 'x'` — the named-import clause and its module specifier. */
-const NAMED_IMPORT = /import\s*(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
+/**
+ * `import { a, b as c } from 'x'` — the named-import clause and its module specifier.
+ *
+ * The clause may be preceded by a DEFAULT binding: `import Default, { createSession } from 'x'`. The
+ * first cut required `{` immediately after `import`, so that form matched nothing and a file which
+ * genuinely binds the symbol came back `does-not-import-the-symbol` — a real rewrite site skipped in
+ * silence, which is this tool's own failure mode running in the other direction.
+ */
+const NAMED_IMPORT =
+  /import\s+(?:type\s+)?(?:[A-Za-z_$][\w$]*\s*,\s*)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
 
 /** `import * as ns from 'x'` — recorded so a namespace import is reported rather than missed. */
 const NAMESPACE_IMPORT = /import\s*\*\s*as\s+([A-Za-z_$][\w$]*)\s*from\s*['"]([^'"]+)['"]/g;
