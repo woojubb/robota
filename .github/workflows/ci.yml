@@ -490,7 +490,14 @@ jobs:
       # `dist` is a LOCAL pre-CI freshness check (a fresh checkout has no dist to measure — skip printed,
       # never silent); `build-contracts` (INFRA-037) is dist-dependent and runs in the `quality` job after
       # dist restore, so it is skipped here rather than silently no-op'ing on a source/build-change PR.
+      # PR #1891 moved `action-references` onto the authenticated API, where an unverifiable
+      # reference is a FAILURE and not a skip — deliberately, because "could not determine, exit 0"
+      # is the defect that guard exists to catch. This job had no token, so every one of the 80
+      # references was unverifiable and the whole suite went red on arrival. `github.token` is the
+      # same credential the promotion check above already uses.
       - name: Harness scan suite (dist-independent)
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: pnpm harness:scan -- --skip dist --skip build-contracts
 
   dependency-audit:

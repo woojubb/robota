@@ -271,7 +271,7 @@ would catch a broken tier.
 
 The **agent axis** is the same shape and still unguarded: `child-process-subagent-runner.ts:208`
 resolves `?? getBuiltInAgent(agentType)` from `agent-framework`'s barrel, and `getBuiltInAgent` is
-absent from `FORBIDDEN_IMPORTS` (`scan-subagent-runner-composition.mjs:48`). It belongs to #1854.
+absent from `FORBIDDEN_IMPORTS` (`scan-subagent-runner-composition.mjs:48`). It belongs to issue #1854.
 
 Three further defects surfaced while testing premises and are filed separately rather than absorbed.
 Rule 8's edge regex (`check-dependency-direction.mjs:363`) cannot distinguish `import type … from`,
@@ -702,7 +702,7 @@ The guard also ran S-2, which I had not, and confirmed the shipped tool surface 
 names.
 
 **Not closed here.** The agent axis (`?? getBuiltInAgent`, absent from the composition scan's
-`FORBIDDEN_IMPORTS`) is the same shape and belongs to #1854, as does the question of whether a
+`FORBIDDEN_IMPORTS`) is the same shape and belongs to issue #1854, as does the question of whether a
 defaults aggregator should be published at all. `DEFAULT_TOOL_DESCRIPTIONS` stayed in `agent-framework`
 beside its only consumer, and this change knowingly widened the coupling between that inventory and the
 tools it describes from in-file to cross-package — recorded as widened rather than left unsaid.
