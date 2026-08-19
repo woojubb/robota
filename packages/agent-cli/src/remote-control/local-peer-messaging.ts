@@ -73,6 +73,21 @@ export function peerDriverId(peerSessionId: string): string {
   return `peer:${peerSessionId}`;
 }
 
+/**
+ * Report, and never let reporting become the thing that fails.
+ *
+ * This runs inside a detached promise chain. A `report` that throws there produces an unhandled
+ * rejection — which would silence the very channel whose job is to say something went wrong.
+ */
+function reportQuietly(report: ((message: string) => void) | undefined, message: string): void {
+  try {
+    report?.(message);
+  } catch {
+    // allow-fallback: there is nowhere left to report a reporter that throws. Swallowing here is
+    // narrower than the alternative, which is an unhandled rejection taking the process with it.
+  }
+}
+
 function refusal(message: IPeerMessage | undefined, reason: string): IPeerMessageAck {
   return { id: message?.id ?? '', sequence: message?.sequence ?? 0, state: 'refused', reason };
 }
@@ -118,14 +133,29 @@ export async function startLocalPeerMessaging(
 
       // Consumed, not awaited on the wire. A refusal the operator never hears is the failure mode
       // this repository calls "silence is not success".
-      void result.settled?.then((settled) => {
-        if (settled.state === 'refused' || settled.state === 'failed') {
-          options.report?.(
-            `[peers] a message from ${message.origin.sessionId} did not run: ` +
-              `${settled.reason ?? 'no reason was given'}`,
+      //
+      // The rejection handler is not defensive decoration. `settled` today resolves in BOTH
+      // directions — `PeerMessageIngress` attaches its own onRejected — but this module does not own
+      // that promise, and an unhandled rejection here would take out the one channel that reports
+      // failure, which is the same silence one layer up. A `report` that itself throws would do it too.
+      void result.settled?.then(
+        (settled) => {
+          if (settled.state === 'refused' || settled.state === 'failed') {
+            reportQuietly(
+              options.report,
+              `[peers] a message from ${message.origin.sessionId} did not run: ` +
+                `${settled.reason ?? 'no reason was given'}`,
+            );
+          }
+        },
+        (error: unknown) => {
+          reportQuietly(
+            options.report,
+            `[peers] a message from ${message.origin.sessionId} failed after it was accepted: ` +
+              `${error instanceof Error ? error.message : String(error)}`,
           );
-        }
-      });
+        },
+      );
 
       return result.ack;
     },

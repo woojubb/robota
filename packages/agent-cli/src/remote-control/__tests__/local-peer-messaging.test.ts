@@ -216,6 +216,68 @@ describe('PEER-006 — /peers send reaches the other session', () => {
     await a.close();
   });
 
+  it('tells the operator when the settled promise REJECTS, rather than dropping it', async () => {
+    // `PeerMessageIngress` attaches its own onRejected today, so this cannot happen through it. That
+    // is the reason to cover it: this module does not own that promise, and an unhandled rejection
+    // here would take out the one channel whose job is to say something went wrong.
+    const reported: string[] = [];
+    const b = await startLocalPeerMessaging({
+      guardedDirectory,
+      sessionId: 'B',
+      report: (message) => reported.push(message),
+      list: alive('A', 'B'),
+      ingress: {
+        receive: async (ingress) => ({
+          ack: { id: ingress.message.id, sequence: ingress.message.sequence, state: 'pending' },
+          settled: Promise.reject(new Error('the session tore down mid-turn')),
+        }),
+      },
+    });
+    const a = await startLocalPeerMessaging({
+      guardedDirectory,
+      sessionId: 'A',
+      ingress: recordingIngress().port,
+      list: alive('A', 'B'),
+    });
+
+    await a.send('B', 'will never settle cleanly');
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(reported.join('\n')).toContain('tore down mid-turn');
+    await a.close();
+    await b.close();
+  });
+
+  it('survives a reporter that throws, because reporting must not become the failure', async () => {
+    const b = await startLocalPeerMessaging({
+      guardedDirectory,
+      sessionId: 'B',
+      report: () => {
+        throw new Error('the terminal is gone');
+      },
+      list: alive('A', 'B'),
+      ingress: {
+        receive: async (ingress) => ({
+          ack: { id: ingress.message.id, sequence: ingress.message.sequence, state: 'pending' },
+          settled: Promise.reject(new Error('and the turn failed too')),
+        }),
+      },
+    });
+    const a = await startLocalPeerMessaging({
+      guardedDirectory,
+      sessionId: 'A',
+      ingress: recordingIngress().port,
+      list: alive('A', 'B'),
+    });
+
+    const ack = await a.send('B', 'both sides broken');
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(ack.state).toBe('pending');
+    await a.close();
+    await b.close();
+  });
+
   it('tells the operator when an accepted message settles as refused', async () => {
     const reported: string[] = [];
     const b = await startLocalPeerMessaging({
