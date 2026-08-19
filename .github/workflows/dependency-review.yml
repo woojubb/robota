@@ -77,6 +77,18 @@ jobs:
           #   (`LGPL-3.0-or-later`). LGPL stays OFF the general allow-list — a NEW LGPL dep now fails;
           #   only this existing family is exempted. If sharp adds a platform variant, extend THIS
           #   list (not allow-licenses).
+          # - @img/sharp-win32-*: INFRA-115. These are the platform WRAPPERS, not prefabs, and they
+          #   are here because Windows is the one platform where the two are the same package.
+          #   Measured on this lockfile rather than assumed:
+          #     @img/sharp-darwin-arm64  Apache-2.0                        optionalDep -> sharp-libvips-darwin-arm64
+          #     @img/sharp-linux-x64     Apache-2.0                        optionalDep -> sharp-libvips-linux-x64
+          #     @img/sharp-win32-x64     Apache-2.0 AND LGPL-3.0-or-later  NO optionalDep
+          #   Every other wrapper delegates libvips to a `sharp-libvips-*` prefab and stays plain
+          #   Apache-2.0, which `allow-licenses` already passes. The win32 wrappers ship the libvips
+          #   DLLs inside themselves, so they carry the LGPL leaf directly — and `A AND B` passes only
+          #   if BOTH leaves are listed, which is why exactly these three failed and nothing else did.
+          #   `@img/sharp-libvips-win32-*` DOES exist on the registry (1.3.2) but is absent from this
+          #   lockfile, so listing it would exempt a package we do not have.
           allow-dependencies-licenses: >-
             pkg:npm/%40robota-sdk/agent-core,
             pkg:npm/%40robota-sdk/agent-provider,
@@ -90,5 +102,8 @@ jobs:
             pkg:npm/%40img/sharp-libvips-linux-x64,
             pkg:npm/%40img/sharp-libvips-linuxmusl-arm64,
             pkg:npm/%40img/sharp-libvips-linuxmusl-x64,
-            pkg:npm/%40img/sharp-wasm32
+            pkg:npm/%40img/sharp-wasm32,
+            pkg:npm/%40img/sharp-win32-arm64,
+            pkg:npm/%40img/sharp-win32-ia32,
+            pkg:npm/%40img/sharp-win32-x64
           comment-summary-in-pr: on-failure
