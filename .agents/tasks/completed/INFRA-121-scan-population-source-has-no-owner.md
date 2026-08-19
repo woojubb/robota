@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-121: a scan enumerated through the git index, so a file not yet staged was invisible'
-status: in-progress
+status: done
 created: 2026-08-20
+completed: 2026-08-20
 priority: high
 urgency: now
 area: scripts/harness
@@ -60,7 +61,7 @@ learn to skip, which is how a real one would be missed.
 - [x] TC-06: five scans converted — `reference-kind-qualified`, `hook-override-declarations`,
       `aggregate-naming`, `preset-projection` and their shared shape.
 - [x] TC-07: `pnpm harness:scan` green (129 passed, 2 skipped).
-- [ ] TC-08: `pnpm harness:pre-push` green.
+- [x] TC-08: `pnpm harness:pre-push` green, and CI clean on PR #1923.
 
 ## Not converted, and why
 
