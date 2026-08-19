@@ -57,6 +57,11 @@ export const VERDICT = Object.freeze({
   SKIPPED_NOT_FIX: 'skipped-not-fix', // range has no fix: commit
   SKIPPED_NO_PAIR: 'skipped-no-pair', // no same-package source+test pair
   SKIPPED_OPT_OUT: 'skipped-opt-out', // allow-green-at-base: <reason>
+  // INFRA-120: the range ADDED this source and never revised it, so there is no earlier state of it
+  // to reverse to. Reversing to `base` deletes it and every case throws, which reads as a verdict and
+  // is not one. Named rather than folded into INCONCLUSIVE: the two have different remedies —
+  // inconclusive asks for a better pair, this asks for a red proof against a state that exists.
+  NO_EARLIER_STATE: 'no-earlier-state',
 });
 
 // ── Pure: file classification ─────────────────────────────────────────────────────────────────────
@@ -582,6 +587,47 @@ export function defaultReverseApply(base, srcPaths, readDiff = gitRaw, exec = ex
   exec('git', ['apply', '-R'], { cwd: WORKSPACE_ROOT, input: patch });
 }
 
+/**
+ * INFRA-120 (issue #1905) — the base to reverse a source file TO.
+ *
+ * For a file that existed at `base` this is `base`, and the whole-range reversal is the right
+ * mutation. For a file the range ADDED it is not: reversing to `base` DELETES the file, every case
+ * importing it throws, and `classifyVitestOutcome` can then produce neither `all-pass` nor
+ * `added-cases-pass` — the only two outcomes `decidePairVerdict` turns into `ACCIDENTAL_GREEN`. The
+ * gate that exists to catch accidental green is structurally unable to report it for anything the
+ * range introduced.
+ *
+ * Measured on pull request #1886, which added a scan and its test across three review rounds. A case
+ * added in round two passed on the current module, on the current module with the line it guards
+ * deleted, AND on the round-two predecessor that had no such support. The job emitted one verdict,
+ * for a different file, and none for that pair. A human found it.
+ *
+ * The answer is the file's state at the commit that CREATED it: later rounds' revisions are reversed,
+ * the file still exists, and its tests can run and be judged. When the range added the file and never
+ * revised it there is genuinely no earlier state — `null` says so, and the caller reports that rather
+ * than reversing to nothing and reading the wreckage as a verdict.
+ */
+export function reversalBaseFor(source, base, readLog = git) {
+  const touching = readLog(['log', '--format=%H', '--reverse', `${base}..HEAD`, '--', source])
+    .split('\n')
+    .filter(Boolean);
+  if (touching.length === 0) return base;
+
+  const existedAtBase = (() => {
+    try {
+      readLog(['cat-file', '-e', `${base}:${source}`]);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  if (existedAtBase) return base;
+
+  // Added in the range. Its creating commit is the earliest state that HAS the file; anything before
+  // it is the file's absence, which is what makes the reversal unreadable.
+  return touching.length > 1 ? touching[0] : null;
+}
+
 function mergeBase(ref = 'origin/develop') {
   try {
     return git(['merge-base', ref, 'HEAD']);
@@ -649,7 +695,9 @@ export async function runRegressionRedProof(io = {}) {
   const fileExists = io.fileExists ?? existsSync;
   const isDirty =
     io.isDirty ?? ((paths) => git(['status', '--porcelain', '--', ...paths]).length > 0);
-  const reverseApply = io.reverseApply ?? ((srcPaths) => defaultReverseApply(base, srcPaths));
+  const reverseApply =
+    io.reverseApply ?? ((srcPaths, from = base) => defaultReverseApply(from, srcPaths));
+  const reversalBase = io.reversalBase ?? ((source) => reversalBaseFor(source, base));
   const restore = io.restore ?? ((srcPaths) => git(['checkout', '--', ...srcPaths]));
   const runVitest = io.runVitest ?? defaultRunVitest;
   const addedTestCaseDiff =
@@ -741,10 +789,30 @@ export async function runRegressionRedProof(io = {}) {
       let outcome = null;
       let witness = WITNESS.UNKNOWN;
       let runtimeMutation = true;
+      // INFRA-120 — reverse to the earliest state that HAS this file, not to its absence.
+      const from = exercised ? reversalBase(source) : base;
+      if (exercised && from === null) {
+        decisions.push({
+          pkg: pair.pkg,
+          source,
+          verdict: VERDICT.NO_EARLIER_STATE,
+          outcome: null,
+          witness,
+          importsReversedFile: true,
+          relation: 'executed',
+          runtimeMutation: true,
+        });
+        log(
+          `⚠︎ ${source} — the range added this file and never revised it, so there is no earlier ` +
+            'state to reverse to. Reversing to the base would delete it and every case would throw, ' +
+            'which is not a verdict.',
+        );
+        continue;
+      }
       if (exercised) {
         let deciders = [];
         const fixedText = readText(path.resolve(WORKSPACE_ROOT, source));
-        reverseApply([source]);
+        reverseApply([source], from);
         try {
           const sourceAbs = path.resolve(WORKSPACE_ROOT, source);
           const reversedText = fileExists(sourceAbs) ? readText(sourceAbs) : null;

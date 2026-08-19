@@ -30,6 +30,7 @@ import {
   reachableRelativeGraph,
   relativeSpecifiers,
   resolveRelativeImport,
+  reversalBaseFor,
   runRegressionRedProof,
   testExecutesHook,
 } from '../check-regression-red-proof.mjs';
@@ -690,6 +691,10 @@ function baseIo(overrides = {}) {
     readText: (p) => files[p] ?? '',
     fileExists: (p) => Object.prototype.hasOwnProperty.call(files, p),
     isDirty: () => false,
+    // INFRA-120 — injected like every other git-touching seam. Without it these fixtures would shell
+    // out to `git log` for a path that exists only in the fixture, which is the coupling the rest of
+    // this helper exists to avoid.
+    reversalBase: () => 'BASE',
     reverseApply: () => {},
     restore: () => {},
     runVitest: () => ({ testResults: [] }),
@@ -1038,5 +1043,64 @@ describe('what blocks a merge once the gate is enforcing (INFRA-046)', () => {
     const job = ci.slice(ci.indexOf('  regression-red-proof:'), ci.indexOf('  patch-coverage:'));
 
     expect(job).toMatch(/REGRESSION_RED_PROOF_ENFORCE:\s*'1'/);
+  });
+});
+
+describe('INFRA-120 (issue #1905): a source ADDED in the range', () => {
+  it('reverses to the commit that CREATED the file, not to its absence', () => {
+    // Reversing to the base deletes the file, so every case importing it throws — and an all-throwing
+    // run produces neither `all-pass` nor `added-cases-pass`, the only two outcomes that become
+    // ACCIDENTAL_GREEN. The gate cannot report the defect it exists for on anything the range added.
+    const log = (args) => {
+      if (args[0] === 'cat-file') throw new Error('does not exist at base');
+      return 'CREATED\nREVISED\n';
+    };
+    expect(reversalBaseFor('packages/x/src/new.ts', 'BASE', log)).toBe('CREATED');
+  });
+
+  it('returns the base for a file that already existed there', () => {
+    const log = (args) => (args[0] === 'cat-file' ? '' : 'ONE\nTWO\n');
+    expect(reversalBaseFor('packages/x/src/old.ts', 'BASE', log)).toBe('BASE');
+  });
+
+  it('returns null when the range added the file and never revised it', () => {
+    // There is genuinely no earlier state. Saying so is the honest answer; reversing to nothing and
+    // reading the wreckage would not be.
+    const log = (args) => {
+      if (args[0] === 'cat-file') throw new Error('does not exist at base');
+      return 'CREATED\n';
+    };
+    expect(reversalBaseFor('packages/x/src/new.ts', 'BASE', log)).toBeNull();
+  });
+
+  it('returns the base for a file the range never touched', () => {
+    expect(reversalBaseFor('packages/x/src/untouched.ts', 'BASE', () => '')).toBe('BASE');
+  });
+
+  it('through the orchestrator: reverses to the creating commit rather than the base', async () => {
+    const reversedFrom = [];
+    await runRegressionRedProof(
+      baseIo({
+        reversalBase: () => 'CREATED',
+        reverseApply: (paths, from) => reversedFrom.push(from),
+        runVitest: () => ({ testResults: [] }),
+      }),
+    );
+    expect(reversedFrom).toEqual(['CREATED']);
+  });
+
+  it('through the orchestrator: no earlier state is REPORTED, not silently inconclusive', async () => {
+    let reversed = false;
+    const { decisions } = await runRegressionRedProof(
+      baseIo({
+        reversalBase: () => null,
+        reverseApply: () => {
+          reversed = true;
+        },
+      }),
+    );
+    expect(decisions[0].verdict).toBe(VERDICT.NO_EARLIER_STATE);
+    // The point of the branch: it must not reverse to the base and read the resulting throws.
+    expect(reversed, 'reversing to the absence of the file is what this avoids').toBe(false);
   });
 });
