@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-116: a breaking signature change reached develop because packages/*/examples is typechecked by nobody'
+title: 'INFRA-119: a breaking signature change reached develop because packages/*/examples is typechecked by nobody'
 status: done
 created: 2026-08-20
 completed: 2026-08-20
@@ -9,7 +9,7 @@ area: packages/agent-command
 depends_on: []
 ---
 
-# INFRA-116: the scenario verifier awaits `createSession`, and the gap that let it break
+# INFRA-119: the scenario verifier awaits `createSession`, and the gap that let it break
 
 ## Objective
 
@@ -82,7 +82,7 @@ The first is the exact failure this item started from, which is what establishes
 second shows the call sites are load-bearing too, and that they fail with a DIFFERENT message —
 worth recording, because the two shapes look unrelated and lead a reader to two different places.
 
-## Renumbered from INFRA-108
+## Renumbered from INFRA-108, then from INFRA-116
 
 Issue #1898 claimed `INFRA-108` on 2026-08-19, several hours before this record was written, for an
 unrelated item (flag attribution having two implementations). Two work items under one ID breaks
@@ -92,7 +92,7 @@ The commits and the pull request that delivered this work (PR #1901) still say I
 cannot be rewritten. This paragraph is the bridge: a reader who follows `INFRA-108` from a commit
 message lands on issue #1898's item and needs to be told where the other one went.
 
-The number is INFRA-116, and getting there took two tries. The first pass read the issue titles once
+The number is INFRA-119, and getting there took THREE tries. The first pass read the issue titles once
 and chose 114 from that reading; between the reading and the choice, five of those issues were
 retitled one number higher, so 114 had become issue #1908's. Review caught it.
 
