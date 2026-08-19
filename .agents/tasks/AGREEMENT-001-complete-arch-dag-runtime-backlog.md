@@ -53,7 +53,7 @@ projection is the section below.
 
 ## Children
 
-- [ ] ARCH-009 — todo — `.agents/tasks/ARCH-009-preset-registry-through-command-host.md`
+- [x] ARCH-009 — done — `.agents/tasks/completed/ARCH-009-preset-registry-through-command-host.md`
 - [x] ARCH-010 — done — `.agents/tasks/completed/ARCH-010-execution-root-carried-by-no-contract.md`
 - [x] ARCH-011 — done — `.agents/tasks/completed/ARCH-011-transport-adapter-is-a-lifecycle-stub.md`
 - [x] ARCH-012 — done — `.agents/tasks/completed/ARCH-012-interactive-session-god-contract.md`

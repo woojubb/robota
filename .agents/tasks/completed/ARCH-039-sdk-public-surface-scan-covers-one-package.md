@@ -25,7 +25,7 @@ family, the provider packages, `agent-subagent-runner` — has no equivalent flo
 re-export placed in the wrong package, or a symbol published from a package that should not own it,
 is visible in exactly one package's diff and invisible in all the others.
 
-The refutation of #1764's item 1 is what makes this worth filing rather than dropping. That item
+The refutation of issue #1764's item 1 is what makes this worth filing rather than dropping. That item
 proposed removing three `agent-core` re-exports from `agent-interface-transport`. ARCH-037 then
 measured them one by one, and they did not turn out alike: `IActionRequest` and
 `TBackgroundPermissionPolicy` had no consumer that needed a hub and were REMOVED, while
@@ -34,7 +34,7 @@ import `agent-core` directly, which `.agents/project-structure.md` forbids for b
 of the three is the interface hub the layering requires. What remains true is the reason someone looked: **nothing tells you whether a given
 re-export is the required hub or an accident**, in any package but one.
 
-## Why this is its own item and not a line in #1764
+## Why this is its own item and not a line in issue #1764
 
 Widening the scan will almost certainly surface findings across several packages at once. Some will
 be genuine misplacements, and some will be the same shape as the three re-exports above — structural

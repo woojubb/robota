@@ -15,7 +15,7 @@ issue: https://github.com/woojubb/robota/issues/1785
 ## Problem
 
 Found by `proposal-reviewer` while testing ARCH-021's premises. Filed rather than folded in: real,
-but not #1777's cause, and ARCH-021 neither creates nor worsens it.
+but not issue #1777's cause, and ARCH-021 neither creates nor worsens it.
 
 The in-process subagent runner inherits session-level extras the child-process path does not —
 background process, goal tool, projected command tools, checkpoint wrappers. So two runners of the

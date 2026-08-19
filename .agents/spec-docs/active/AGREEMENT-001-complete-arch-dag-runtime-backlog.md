@@ -149,7 +149,7 @@ Execute the twelve existing records without redefining their scope:
 
 ## Completion Criteria
 
-- [ ] TC-01: ARCH-009's `/preset` surface uses the assembled instance registry, and two products in one process expose isolated preset sets without module-global registration.
+- [x] TC-01: ARCH-009's `/preset` surface uses the assembled instance registry, and two products in one process expose isolated preset sets without module-global registration.
 - [x] TC-02: ARCH-010 carries a required, trusted absolute execution root through the DAG node execution path as well as the already-landed session/tool path; missing, empty, or relative roots fail closed, and LLM-authored `config.cwd` may only narrow within that root and never widen it.
 - [ ] TC-03: ARCH-019 first makes the sanctioned full session double honest about submission identity and its declared nested-session surface. ARCH-012 then decomposes `IInteractiveSession` into reachable capability-scoped contracts; real sessions and test doubles conform without unchecked partial casts, absent capability is distinct from a provided-empty result, and the direct `IInteractiveSession` cast ratchet reaches zero. ARCH-029 separately decomposes `ICommandHostContext` into framework-owned command-host capability ports and removes its direct casts. ARCH-011 defines and verifies typed service/runner lifecycle and completion outcomes, registry startup/rollback ownership, TUI presentation reclassification, and the exact six-subject shared conformance roster while leaving protocol-specific admission, cancellation, disconnect, and wire-error policy with their owning packages.
 - [ ] TC-04: ARCH-013 gives every supported `IResolvedPresetOptions` and reachable `ICreateSessionOptions` field one explicit projection/consumption owner or removes the unsupported field; projects resolved language, prompts, temperature, output limits, trust, tool allow/deny, and interactive `--system-prompt`, `--append-system-prompt`, `--task-file`, and `--json-schema` consistently through interactive, headless, serve, startup, and live `/preset`; supplies or deliberately removes the guardrail-registry and retrieval-adapter composition roots; and documents the legitimate distinction between registered guardrail implementations and hook-selected guardrail names rather than treating them as conflicting shapes.
@@ -183,7 +183,7 @@ Execute the twelve existing records without redefining their scope:
 
 ## Tasks
 
-- [ ] ARCH-009 — todo — `.agents/tasks/ARCH-009-preset-registry-through-command-host.md`
+- [x] ARCH-009 — done — `.agents/tasks/completed/ARCH-009-preset-registry-through-command-host.md`
 - [x] ARCH-010 — done — `.agents/tasks/completed/ARCH-010-execution-root-carried-by-no-contract.md`
 - [x] ARCH-011 — done — `.agents/tasks/completed/ARCH-011-transport-adapter-is-a-lifecycle-stub.md`
 - [x] ARCH-012 — done — `.agents/tasks/completed/ARCH-012-interactive-session-god-contract.md`
