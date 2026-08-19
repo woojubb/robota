@@ -418,6 +418,110 @@ describe('ChildProcessSubagentRunner — injected built-in agents (ARCH-036)', (
   });
 });
 
+describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire (ARCH-033/ARCH-034)', () => {
+  // Review of the change that added these two fields found them declared on the payload type and
+  // read by the worker while NOTHING ever set them: every spawned child got `sessionTiers:
+  // undefined` and no sandbox. The tests missed it because they exercised the worker's half —
+  // `composition.createTools()` — and `createStartPayload` is the only production producer.
+  //
+  // Asserted on what the CHILD received, for the reason SEC-009 gives one describe below: a
+  // parent-side assertion on the builder would still pass if the value never reached `send`.
+  const projectionSeenByChild = async (
+    extra: Partial<IInProcessSubagentRunnerDeps>,
+  ): Promise<{
+    sessionTiers: { includeGoalTool?: boolean } | null;
+    sandboxProjection: { type: string; snapshotId: string } | null;
+  }> => {
+    const runner = new ChildProcessSubagentRunner(
+      { ...createDeps(), ...extra },
+      {
+        workerEntry: FIXTURE_WORKER_ENTRY,
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        env: { ROBOTA_FIXTURE_MODE: 'echo-projection' },
+      },
+    );
+    const result = await runner.start(createJob()).result;
+    return JSON.parse((result as { output: string }).output);
+  };
+
+  /** A sandbox whose only interesting property is that it can name a resumable reference. */
+  const snapshottingSandbox = (snapshotId: string) =>
+    ({
+      snapshot: async () => snapshotId,
+    }) as unknown as IInProcessSubagentRunnerDeps['sandboxClient'];
+
+  it(
+    'carries the parent’s session tiers, so the child assembles the same surface (ARCH-034)',
+    async () => {
+      const seen = await projectionSeenByChild({ sessionTiers: { includeGoalTool: true } });
+      expect(seen.sessionTiers).toEqual({ includeGoalTool: true });
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'carries `false` as a real answer, not as an absence',
+    async () => {
+      // `includeGoalTool: false` and "the parent said nothing" are different states, and a producer
+      // that folded them together would make the tier unreadable in exactly the case a product
+      // turns it OFF deliberately.
+      const seen = await projectionSeenByChild({ sessionTiers: { includeGoalTool: false } });
+      expect(seen.sessionTiers).toEqual({ includeGoalTool: false });
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'projects the sandbox as (type, snapshotId) once BOTH halves are present (ARCH-033)',
+    async () => {
+      const seen = await projectionSeenByChild({
+        sandboxClient: snapshottingSandbox('snap-42'),
+        sandboxType: 'e2b',
+      });
+      expect(seen.sandboxProjection).toEqual({ type: 'e2b', snapshotId: 'snap-42' });
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it.each([
+    ['a client with no registered type', { sandboxClient: snapshottingSandbox('snap-42') }],
+    ['a type with no client', { sandboxType: 'e2b' }],
+    ['a client that cannot snapshot', { sandboxClient: {} as never, sandboxType: 'e2b' }],
+  ])(
+    'projects NOTHING for %s',
+    async (_name, extra) => {
+      // Half a projection is worse than none: a snapshot with no registered type is a reference
+      // nothing opens, and a type with no snapshot rebuilds an EMPTY sandbox — a child that looks
+      // sandboxed while sharing none of the parent's state.
+      const seen = await projectionSeenByChild(extra as Partial<IInProcessSubagentRunnerDeps>);
+      expect(seen.sandboxProjection).toBeNull();
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'fails the job when the parent’s sandbox cannot produce a snapshot',
+    async () => {
+      // The alternative is a child that starts with no sandbox after the parent was asked for one,
+      // which is the silent half-capability this whole item exists to prevent.
+      const runner = new ChildProcessSubagentRunner(
+        {
+          ...createDeps(),
+          sandboxClient: {
+            snapshot: async () => {
+              throw new Error('snapshot unavailable');
+            },
+          } as unknown as IInProcessSubagentRunnerDeps['sandboxClient'],
+          sandboxType: 'e2b',
+        },
+        { workerEntry: FIXTURE_WORKER_ENTRY, worktreeAdapter: STUB_WORKTREE_ADAPTER },
+      );
+      await expect(runner.start(createJob()).result).rejects.toThrow(/snapshot unavailable/);
+    },
+    TEST_TIMEOUT_MS,
+  );
+});
+
 describe('ChildProcessSubagentRunner — credential on the wire (SEC-009)', () => {
   // Config loading resolves a `$ENV:` reference into the secret itself, which is right for an
   // in-process provider and wrong for anything that SERIALIZES the config. Copying the resolved

@@ -471,13 +471,6 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  if (false) {
-    for (const finding of findings) {
-      console.error(`[${finding.type}] ${finding.file}: ${finding.detail}`);
-    }
-    process.exitCode = 1;
-    return;
-  }
   console.log(`::examined:: ${examinedPackageCount()} publishable packages`);
   console.log(`sdk public surface scan passed (${examinedPackageCount()} package(s) examined).`);
 }

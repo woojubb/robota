@@ -23,6 +23,7 @@ import type {
   ISubagentRunner,
 } from '@robota-sdk/agent-executor';
 import type { TPermissionHandler } from '@robota-sdk/agent-session';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 
 type TSubagentToolExecutionEvent = Parameters<
   NonNullable<IInProcessSubagentRunnerDeps['onToolExecution']>
@@ -56,6 +57,25 @@ export interface IInProcessSubagentRunnerDeps {
    */
   builtInAgents?: readonly IAgentDefinition[];
   commandSemanticRoles?: ISystemCommandSemanticRoles;
+  /**
+   * ARCH-034: which session-assembly tiers the PARENT's tool surface carried.
+   *
+   * The in-process runner does not read it — it receives the parent's already-assembled `tools`. A
+   * runner that rebuilds the surface in another process does, and this is the only place the parent's
+   * choice is still in scope. Without it the child assembles a DIFFERENT surface from the sibling
+   * that shares this contract, which is the asymmetry ARCH-034 is about.
+   */
+  sessionTiers?: { readonly includeGoalTool?: boolean };
+  /**
+   * ARCH-033: the parent's sandbox and the NAME a child uses to rebuild one like it.
+   *
+   * A live client cannot cross a process boundary; `(type, snapshotId)` can. Both halves are carried
+   * because either alone is worse than neither — a snapshot with no registered type is a reference
+   * nothing opens, and a type with no snapshot rebuilds an EMPTY sandbox, which is a child that looks
+   * sandboxed while sharing none of the parent's state.
+   */
+  sandboxClient?: ISandboxClient;
+  sandboxType?: string;
 }
 
 export type TSubagentRunnerFactory = (deps: IInProcessSubagentRunnerDeps) => ISubagentRunner;
