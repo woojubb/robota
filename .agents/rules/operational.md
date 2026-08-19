@@ -223,8 +223,8 @@ replaces, wearing a better name.
 
 Enforced by: nothing — a hand-written rewrite runs before any check can see it. There is no artefact
 to scan and no command shape a hook can recognise, because the edit arrives as a finished diff. That
-is the honest answer rather than a gap: issue #1887 asked whether this is enforceable at all and named
-a documented procedure plus a tool as an acceptable outcome, with silence as the one it refused.
+is an answer rather than a gap: a documented procedure plus a tool is what remains when a machine
+cannot decide, and saying so is what distinguishes it from a rule nobody enforced and nobody noticed.
 
 What exists instead is the tool above and this procedure. The reviewable evidence is the resolver's
 output: a rewrite that names it in its record is one another reader can re-run, and one that does not
