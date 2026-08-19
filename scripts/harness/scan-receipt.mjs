@@ -18,9 +18,13 @@
  *
  * What a tree hash cannot cover is a scan that reads build OUTPUT. `dist` and `build-contracts`
  * compare `dist/` against `src/`, and `dist/` is ignored: two runs with one tree hash can legitimately
- * disagree. Those scans are therefore declared here, and a run that includes one is not eligible in
- * EITHER direction — it neither reuses a receipt nor writes one. The set CI runs
- * (`--skip dist --skip build-contracts`) is eligible, which is the set `pre-push` repeats.
+ * disagree. Those scans are declared here and are simply ALWAYS RE-RUN — they cost milliseconds,
+ * because they stat files. Making the whole run ineligible instead (HARNESS-109's first shape) meant
+ * a plain `pnpm harness:scan` could never be reused, which is the command the item was filed about.
+ *
+ * They are also excluded from the receipt's identity, so a full local run and CI's
+ * `--skip dist --skip build-contracts` share one receipt: what the receipt asserts is the result of
+ * the scans a tree hash CAN speak for, and that set is the same in both.
  *
  * ## The direction this fails in
  *
@@ -42,7 +46,7 @@ const RECEIPT_FILE = 'robota-verification/harness-scan.json';
 /**
  * Scans whose inputs are NOT in the tree, so a tree hash cannot speak for them. Named, not inferred:
  * a scan added later that reads build output must be added here in the same change, and the test
- * fixture asserting ineligibility is what makes that visible.
+ * asserting they are re-run on a hit is what makes that visible.
  */
 export const TREE_EXTERNAL_SCANS = new Set(['dist', 'build-contracts']);
 
@@ -64,15 +68,20 @@ function hashFile(root, relativePath) {
   }
 }
 
-/** True when every requested scan can be spoken for by a tree hash. */
-export function scanSetIsEligible(scanNames) {
-  return !scanNames.some((name) => TREE_EXTERNAL_SCANS.has(name));
+/** The requested scans a tree hash CAN speak for — the only ones a receipt ever asserts. */
+export function receiptCoveredScans(scanNames) {
+  return [...scanNames].filter((name) => !TREE_EXTERNAL_SCANS.has(name)).sort();
+}
+
+/** The requested scans that must run on every invocation, receipt or not. */
+export function scansThatAlwaysRun(scanNames) {
+  return [...scanNames].filter((name) => TREE_EXTERNAL_SCANS.has(name)).sort();
 }
 
 export function computeScanIdentity({ scanNames, root }) {
   return {
     headTree: run('git', ['rev-parse', 'HEAD^{tree}'], root),
-    scans: [...scanNames].sort(),
+    scans: receiptCoveredScans(scanNames),
     nodeVersion: process.version,
     pnpmVersion: run('pnpm', ['--version'], root),
     lockfileHash: hashFile(root, 'pnpm-lock.yaml'),
@@ -137,13 +146,9 @@ export function decideScanReuse({
       reason: '--write-adoption-baseline re-freezes from an observed pass',
     };
   }
-  if (!scanSetIsEligible(scanNames)) {
-    const external = scanNames.filter((name) => TREE_EXTERNAL_SCANS.has(name)).sort();
-    return {
-      reuse: false,
-      eligible: false,
-      reason: `${external.join(', ')} read build output, which a tree hash cannot speak for`,
-    };
+  if (receiptCoveredScans(scanNames).length === 0) {
+    // Nothing a receipt could assert. Reusing here would report a saving over an empty set.
+    return { reuse: false, eligible: false, reason: 'no scan in this set is covered by a receipt' };
   }
   if (!clean) {
     return { reuse: false, eligible: false, reason: `working tree is not clean: ${dirtyReason}` };
@@ -168,8 +173,8 @@ export function createScanReceipt(identity, scannedAt) {
 }
 
 export function writeScanReceipt({ scanNames, root, scannedAt = new Date().toISOString() }) {
-  if (!scanSetIsEligible(scanNames)) {
-    return { written: false, reason: 'the set includes a scan that reads build output' };
+  if (receiptCoveredScans(scanNames).length === 0) {
+    return { written: false, reason: 'no scan in this set is covered by a receipt' };
   }
   const dirty = realDirtyLines(root);
   if (dirty.length > 0) {
@@ -186,7 +191,7 @@ export function writeScanReceipt({ scanNames, root, scannedAt = new Date().toISO
 
 /** The read half, wired for a real repository: identity + receipt + cleanliness in one call. */
 export function planScanReuse({ scanNames, root, writeAdoption = false }) {
-  if (writeAdoption || !scanSetIsEligible(scanNames)) {
+  if (writeAdoption) {
     return decideScanReuse({
       scanNames,
       identity: null,

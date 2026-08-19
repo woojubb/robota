@@ -17,7 +17,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { planScanReuse, writeScanReceipt } from './scan-receipt.mjs';
+import { planScanReuse, scansThatAlwaysRun, writeScanReceipt } from './scan-receipt.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -975,11 +975,26 @@ export async function main() {
   const scanNames = scans.map((scan) => scan.name);
   const reuse = planScanReuse({ scanNames, root: WORKSPACE_ROOT, writeAdoption });
   if (reuse.reuse) {
+    // A receipt speaks for the scans a tree hash can speak for. The rest — the ones reading build
+    // output — are RE-RUN, not skipped: they cost milliseconds, and a run that quietly stopped
+    // reporting dist staleness would be buying speed with the operator's information.
+    const alwaysRun = new Set(scansThatAlwaysRun(scanNames));
+    const rerun = scans.filter((scan) => alwaysRun.has(scan.name));
     process.stdout.write(
-      `${scanNames.length} scans not re-run: ${reuse.reason}.\n` +
+      `${scanNames.length - rerun.length} scans not re-run: ${reuse.reason}.\n` +
         'Change any tracked file, or delete the receipt, to force a full run.\n',
     );
-    process.exitCode = 0;
+    if (rerun.length === 0) {
+      process.exitCode = 0;
+      return;
+    }
+    process.stdout.write(
+      `re-running ${rerun.length} scan(s) that read outside the tree: ${[...alwaysRun].join(', ')}\n`,
+    );
+    // The adoption ratchet is deliberately NOT judged over this handful: it binds over the set that
+    // ran, and this set is two scans by construction, which would read as every other scan going
+    // missing. The ratchet was judged on the run that wrote the receipt.
+    process.exitCode = await runScans(rerun, undefined, undefined, { checkAdoption: false });
     return;
   }
   process.stdout.write(`▶ scan receipt not reused: ${reuse.reason}\n`);
