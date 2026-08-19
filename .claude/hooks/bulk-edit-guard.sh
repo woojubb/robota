@@ -180,7 +180,7 @@ segment_has_editor_and_store_path() {
     $0 == "sed" || $0 == "perl" { sed_or_perl = 1 }
     sed_or_perl && $0 ~ /^-[[:alnum:]]*i/ { editor = 1 }
     $0 == "tee" || $0 == "truncate" { editor = 1 }
-    $0 ~ /(node_modules|\.pnpm)\// { store = 1 }
+    $0 ~ /(^|\/)(node_modules|\.pnpm)\// { store = 1 }
     editor && store { found = 1 }
     END { exit(found ? 0 : 1) }'
 }
@@ -192,12 +192,18 @@ segment_has_editor_and_store_path() {
 # A REDIRECT is judged on its TARGET, not on the command containing it. `cat node_modules/.pnpm/p/
 # package.json > /tmp/out` reads from the store and writes outside it, and the first cut of this
 # branch refused it, because it asked only whether the command mentioned a store path anywhere.
-if printf '%s' "$MASK" | grep -qE '>>?[[:space:]]*[^[:space:]|;&]*(node_modules|\.pnpm)/'; then
+#
+# The store name is anchored on a SEPARATOR, the same way `STORE_SEGMENT_RE` anchors it for the write
+# tools. Without that, `my_node_modules_old/` — a directory that merely contains the letters — was
+# refused here while the write path permitted it, so one guard contradicted the other on the case both
+# had a test for. Reported in review of this change.
+if printf '%s' "$MASK" | grep -qE '>>?[[:space:]]*([^[:space:]|;&]*/)?(node_modules|\.pnpm)/'; then
   refuse_path "the command redirects output into node_modules or .pnpm"
 fi
 
 # The in-place editors take their targets as ARGUMENTS, so an editor and a store path in the SAME
-# SEGMENT is tight — there is no other place the path could be going.
+# SEGMENT is tight — there is no other place the path could be going. Anchored on a separator for the
+# same reason as the redirect above.
 #
 # The segment scope is the correction. "An editor anywhere AND a store path anywhere" refused
 # `sed -i 's/a/b/' src/a.ts && ls node_modules/.bin`, where the edit and the store path have nothing

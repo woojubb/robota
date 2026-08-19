@@ -60,6 +60,23 @@ describe('a file-writing tool naming the dependency store', () => {
     expect(write('packages/agent-cli/src/remote-control/local-peer-registry.ts').status).toBe(0);
   });
 
+  it('permits a redirect and an edit into a directory that merely CONTAINS the letters', () => {
+    // Reported in review of this change: the Bash-side checks matched `node_modules/` as a plain
+    // substring while the write-tool path anchored it on a separator, so a directory ENDING in those
+    // letters was permitted by one guard and refused by the other — the case both already had a test
+    // for, answered two different ways.
+    //
+    // The name matters. Review's example was `my_node_modules_old/`, which does not contain the
+    // substring `node_modules/` at all and was never refused; `my_node_modules/` does, and is. Taking
+    // the example on trust would have produced a case that passes whether or not the fix is present —
+    // and it did, until the mutation run said so.
+    expect(bash('echo x > packages/app/my_node_modules/notes.txt').status).toBe(0);
+    expect(bash("sed -i 's/a/b/' packages/app/my_node_modules/x.ts").status).toBe(0);
+    // The real store is still refused through both, so anchoring did not simply widen the gate.
+    expect(bash('echo x > packages/app/node_modules/notes.txt').status).toBe(2);
+    expect(bash("sed -i 's/a/b/' packages/a/node_modules/b/src/x.ts").status).toBe(2);
+  });
+
   it('permits a directory that merely contains the letters', () => {
     // Anchored on separators. `my_node_modules_notes/` is not the store, and a guard that cannot
     // tell them apart refuses documentation about itself.

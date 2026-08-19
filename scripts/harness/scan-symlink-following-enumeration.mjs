@@ -31,16 +31,22 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 /**
  * Each rule names the safe sibling, because a finding whose remedy is not stated is a finding people
  * work around. The `pattern` is deliberately shaped so the SAFE form does not match it.
+ *
+ * Every rule allows arbitrary words between the command and its flag, because a flag does not have to
+ * come first: `find packages -name '*.ts' -L` follows symlinks exactly as `find -L packages` does, and
+ * the first cut of `find` and `grep` required the flag to sit in the command's opening flag run, so
+ * the trailing form was reported CLEAN while still reaching the store. Reported in review of this
+ * change. What bounds the search is the SEGMENT — see `segmentsOf` — not the shape of the flag run.
  */
 const RULES = [
   {
     id: 'find -L',
-    pattern: /\bfind\s+(?:-[^\s-][^\s]*\s+)*(?:-L|-follow)\b/,
+    pattern: /\bfind\s+(?:[^\s]+\s+)*?(?:-L|-follow)\b/,
     remedy: 'drop -L; plain find does not follow symlinks (measured)',
   },
   {
     id: 'grep -R',
-    pattern: /\bgrep\s+(?:-[a-z][a-z]*\s+)*(?:-[a-zA-Z]*R[a-zA-Z]*\b|--dereference-recursive\b)/,
+    pattern: /\bgrep\s+(?:[^\s]+\s+)*?(?:-[a-zA-Z]*R[a-zA-Z]*\b|--dereference-recursive\b)/,
     remedy: 'use -r, which does not dereference symlinks (measured)',
   },
   {

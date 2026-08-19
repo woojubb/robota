@@ -43,6 +43,20 @@ describe('the four measured spellings', () => {
     expect(findingsIn(SCRIPT, safe)).toEqual([]);
   });
 
+  it.each([
+    ['find -L', 'find packages -name "*.ts" -L'],
+    ['grep -R', 'grep foo packages -R'],
+    ['grep -R', 'grep -l foo packages --dereference-recursive'],
+    ['rg --follow', 'rg -l foo packages --follow'],
+  ])('reports %s when the flag comes AFTER a positional argument', (id, hazardous) => {
+    // Reported in review of this change. `find` and `grep` required the flag to sit in the command's
+    // opening flag run, so the trailing form — which follows symlinks exactly the same way — was
+    // reported clean while still reaching the store. That is the precise failure the scan exists to
+    // catch, passing its own check. All four rules now allow arbitrary words before the flag, and what
+    // bounds the search is the segment, not the shape of the flag run.
+    expect(findingsIn(SCRIPT, hazardous)).toMatchObject([{ id }]);
+  });
+
   it('reports the line number, so the finding is one edit away from clean', () => {
     const script = ['#!/usr/bin/env bash', 'set -euo pipefail', 'grep -Rl foo packages'].join('\n');
     expect(findingsIn(SCRIPT, script)).toMatchObject([{ line: 3, id: 'grep -R' }]);
