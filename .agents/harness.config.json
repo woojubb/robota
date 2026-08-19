@@ -476,6 +476,15 @@
       }
     ]
   },
+  "fileSizeReexportBarrels": {
+    "$comment": "ARCH-038 (issue #1806): the 300-line limit is an anti-monolith rule, and a barrel is not a monolith in the sense it means. `sdk-public-surface` refuses `export *` — rightly, it is what keeps the published surface auditable — so every public name costs one line wherever it is listed, and a sub-barrel moves lines rather than removing them. ARCH-029 raised agent-framework's frozen entry from 656 to 689 rather than argue this, and adopting debt quietly is indistinguishable from adopting a refactor. The exemption is EARNED, not declared: a listed file is exempt only while every statement in it is a re-export, and the moment one grows a function, a constant or an import the limit applies again and the entry is reported as `reexport-barrel-exemption-unearned`. An entry naming a file the scan does not measure is reported too. Each entry carries its own reason, the way `aggregateNaming` and `rolePortOptionals` do.",
+    "files": [
+      {
+        "file": "packages/agent-framework/src/index.ts",
+        "reason": "The SDK's published surface, one explicit named export per line because `sdk-public-surface` forbids `export *`. Splitting it into per-domain entry points is a change to the package's `exports` map and its consumers, not a size problem — filed as issue #1806's first option and not taken."
+      }
+    ]
+  },
   "barrelParameterTypes": {
     "$comment": "ARCH-037: a barrel-exported function whose parameter type is not exported from the same barrel leaves a consumer unable to name what it must pass. ARCH-025 fixed that shape for IScheduleEditPatch and ARCH-037 found it again on subagentExecutionRoot, which is the argument for a mechanism rather than a third note. Return types and other packages types are deliberately out of scope — see the scan header. Scope: EVERY package barrel in the workspace. It was 2 of 55 until #1851 widened it, because a floor scoped to 4% of the tree reports the same passed a fully-scoped one does — the scope IS the check. The 16 findings that widening exposed were each verified against the source before being fixed (a scan finding is a claim, not a proof), and in every case the type was already exported from its own module and merely absent from the barrel.",
     "barrels": [

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { baselineDriftFindings, evaluateFileSizes } from '../scan-file-size.mjs';
+import {
+  baselineDriftFindings,
+  evaluateFileSizes,
+  isPureReexportBarrel,
+} from '../scan-file-size.mjs';
 
 /**
  * HARNESS-DIET-003 — the file-size RATCHET. The scan was warn-only (vacuous) for a year; these tests
@@ -97,5 +101,99 @@ describe('baseline drift is a failure, not a notice', () => {
   it('reports nothing when the baseline is already tight', () => {
     expect(baselineDriftFindings({ tightenable: [], stale: [] })).toEqual([]);
     expect(baselineDriftFindings()).toEqual([]);
+  });
+});
+
+/**
+ * ARCH-038 (issue #1806) — the re-export-barrel exemption, and the fact that it is EARNED.
+ *
+ * The reason this needs its own cases rather than a config entry and a shrug: an exemption nothing
+ * verifies is the same defect as a guard that cannot fire, one level up. Every case below asks either
+ * "does it apply when it should" or "does it STOP applying when the file stops being a barrel".
+ */
+describe('scan-file-size re-export barrel exemption (ARCH-038)', () => {
+  const MAX = 300;
+  const BARREL = 'packages/x/src/index.ts';
+  const exempt = new Map([[BARREL, 'the published surface']]);
+
+  it('exempts a listed file that is genuinely a pure re-export list', () => {
+    const { findings } = evaluateFileSizes(
+      [{ relPath: BARREL, lineCount: 689, pureReexport: true }],
+      {},
+      MAX,
+      exempt,
+    );
+    expect(findings).toEqual([]);
+  });
+
+  it('does NOT exempt a listed file that has grown real code', () => {
+    // The half that makes the entry falsifiable. Without it the exemption is a licence keyed on a
+    // filename, and the next thing added to that file rides in free.
+    const { findings } = evaluateFileSizes(
+      [{ relPath: BARREL, lineCount: 689, pureReexport: false }],
+      {},
+      MAX,
+      exempt,
+    );
+    expect(findings.map((f) => f.type)).toEqual([
+      'reexport-barrel-exemption-unearned',
+      'file-too-large',
+    ]);
+  });
+
+  it('reports an entry naming a file the scan never measured', () => {
+    // A stale exemption protects nothing and reads in review as if it did — the same shape as a
+    // stale baseline row, which this scan already reports.
+    const { findings } = evaluateFileSizes([], {}, MAX, exempt);
+    expect(findings.map((f) => f.type)).toEqual(['reexport-barrel-exemption-unused']);
+  });
+
+  it('drops an exempt file from the baseline rather than freezing a count for it', () => {
+    const { tightenable } = evaluateFileSizes(
+      [{ relPath: BARREL, lineCount: 689, pureReexport: true }],
+      { [BARREL]: 689 },
+      MAX,
+      exempt,
+    );
+    expect(tightenable).toEqual([BARREL]);
+  });
+
+  it('leaves every unlisted file judged exactly as before', () => {
+    const { findings } = evaluateFileSizes(
+      [{ relPath: 'packages/x/src/other.ts', lineCount: 689, pureReexport: true }],
+      {},
+      MAX,
+      exempt,
+    );
+    // Being a pure barrel is not itself an exemption — someone has to say so, with a reason.
+    expect(findings.map((f) => f.type)).toContain('file-too-large');
+  });
+});
+
+describe('isPureReexportBarrel (ARCH-038)', () => {
+  it.each([
+    ['a single-line named re-export', `export { a, b } from './m.js';`],
+    ['a type re-export', `export type { A } from './m.js';`],
+    ['a multi-line block', `export {\n  a,\n  b as c,\n} from './m.js';`],
+    ['per-specifier type members', `export {\n  a,\n  type B,\n  type C,\n} from './m.js';`],
+    [
+      'a docblock above the exports',
+      `/**\n * why this barrel exists\n */\nexport { a } from './m.js';`,
+    ],
+    ['a line comment', `// note\nexport { a } from './m.js';`],
+    ['an empty file', ''],
+  ])('accepts %s', (_name, content) => {
+    expect(isPureReexportBarrel(content)).toBe(true);
+  });
+
+  it.each([
+    ['an import', `import { x } from './m.js';\nexport { a } from './m.js';`],
+    ['a local const', `export { a } from './m.js';\nconst x = 1;`],
+    ['an exported function', `export function f() {}`],
+    ['a local type alias', `export type T = string;`],
+    ['an exported const', `export const X = 1;`],
+    ['a re-export block that never closes', `export {\n  a,`],
+  ])('rejects %s', (_name, content) => {
+    expect(isPureReexportBarrel(content)).toBe(false);
   });
 });
