@@ -33,6 +33,7 @@ describe('assembling the host adapters', () => {
     const report = reporter();
     const presence = {
       sessionId: 'session-one',
+      guardedDirectory: '/tmp/rendezvous',
       list: () => [{ sessionId: 'session-one', liveness: 'alive' as const }],
       withdraw: () => undefined,
     };
@@ -51,7 +52,12 @@ describe('assembling the host adapters', () => {
     const seen: string[] = [];
     attachHostAdapters({}, CONTROLLER, reporter(), (options) => {
       seen.push(options.sessionId);
-      return { sessionId: options.sessionId, list: () => [], withdraw: () => undefined };
+      return {
+        sessionId: options.sessionId,
+        guardedDirectory: '/tmp/rendezvous',
+        list: () => [],
+        withdraw: () => undefined,
+      };
     });
     expect(seen[0]).toMatch(/^[0-9a-f-]{36}$/);
   });
