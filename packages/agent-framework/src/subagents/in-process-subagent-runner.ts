@@ -56,6 +56,19 @@ export interface IInProcessSubagentRunnerDeps {
    * built-ins. Omitted keeps the documented default three.
    */
   builtInAgents?: readonly IAgentDefinition[];
+  /**
+   * The PARENT's resolved agent roster — discovered definitions merged over the built-in tier.
+   *
+   * Issue #1854, the agent axis. A runner in another process used to resolve an unknown type by
+   * importing `getBuiltInAgent` from this package's barrel, which is the same "compose from imported
+   * defaults instead of from the product" shape ARCH-021 closed on the provider axis and ARCH-035 on
+   * the tool axis. The parent already knows the answer — `buildAgentRuntime` computes this list —
+   * so carrying it is what lets the child stop asking the framework.
+   *
+   * Absent ⇒ the composition root offered no roster, and an unresolved type fails closed rather than
+   * silently falling back to a set the product never chose.
+   */
+  agentDefinitions?: readonly IAgentDefinition[];
   commandSemanticRoles?: ISystemCommandSemanticRoles;
   /**
    * ARCH-034: which session-assembly tiers the PARENT's tool surface carried.

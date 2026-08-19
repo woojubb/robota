@@ -12,7 +12,6 @@ import {
   type ISubagentRunner,
   type ISubagentWorktreeAdapter,
 } from '@robota-sdk/agent-executor';
-import { getBuiltInAgent } from '@robota-sdk/agent-framework';
 import { DEFAULT_KILL_GRACE_MS } from '@robota-sdk/agent-process';
 
 import { projectSandbox, projectSessionTiers } from './child-process-subagent-projection.js';
@@ -187,6 +186,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       job.request.agentType,
       this.deps.customAgentRegistry,
       this.deps.builtInAgents,
+      this.deps.agentDefinitions,
     );
     const base: ISubagentWorkerStartPayload = {
       taskId: job.taskId,
@@ -220,12 +220,12 @@ function resolveAgentDefinition(
   agentType: string,
   customRegistry?: (name: string) => IAgentDefinition | undefined,
   builtInAgents?: readonly IAgentDefinition[],
+  agentDefinitions?: readonly IAgentDefinition[],
 ): IAgentDefinition {
   const definition =
     customRegistry?.(agentType) ??
-    (builtInAgents
-      ? builtInAgents.find((agent) => agent.name === agentType)
-      : getBuiltInAgent(agentType));
+    builtInAgents?.find((agent) => agent.name === agentType) ??
+    agentDefinitions?.find((agent) => agent.name === agentType);
   if (!definition) {
     throw new BackgroundTaskError('validation', `Unknown agent type: ${agentType}`);
   }

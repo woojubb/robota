@@ -413,8 +413,27 @@ describe('ChildProcessSubagentRunner — injected built-in agents (ARCH-036)', (
     expect(() => startWith(depsWithBuiltIns(injected), 'only-this-one')).not.toThrow();
   });
 
-  it('leaves the module built-ins in place when nothing is injected', () => {
-    expect(() => startWith(depsWithBuiltIns(undefined), 'general-purpose')).not.toThrow();
+  it('resolves from the PARENT’s roster when nothing is injected (issue #1854)', () => {
+    // This used to fall back to `getBuiltInAgent` imported from `agent-framework`'s barrel — the
+    // "compose from imported defaults instead of from the product" shape ARCH-021 closed on the
+    // provider axis and ARCH-035 on the tool axis. The parent already computes its roster
+    // (`buildAgentRuntime` sets `agentDefinitions`), so the child reads THAT.
+    const roster = [
+      { name: 'general-purpose', description: 'the parent’s own', systemPrompt: 'do the thing' },
+    ] as unknown as IInProcessSubagentRunnerDeps['agentDefinitions'];
+    expect(() =>
+      startWith({ ...depsWithBuiltIns(undefined), agentDefinitions: roster }, 'general-purpose'),
+    ).not.toThrow();
+  });
+
+  it('fails CLOSED when neither an injection nor a roster names the type', () => {
+    // The behaviour change, stated rather than absorbed: with no import to fall back on, a
+    // composition root that offers nothing gets an error instead of a set it never chose. Silently
+    // supplying the framework's built-ins is exactly what made the runner's surface differ from the
+    // product's.
+    expect(() => startWith(depsWithBuiltIns(undefined), 'general-purpose')).toThrow(
+      /Unknown agent type: general-purpose/,
+    );
   });
 });
 

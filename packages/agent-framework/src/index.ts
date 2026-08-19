@@ -400,7 +400,7 @@ export type {
 } from './plugins/index.js';
 
 export type { IAgentDefinition } from './agents/index.js';
-export { BUILT_IN_AGENTS, getBuiltInAgent } from './agents/index.js';
+export { BUILT_IN_AGENTS } from './agents/index.js';
 
 export {
   createSession,
