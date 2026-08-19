@@ -1,13 +1,35 @@
 import { selectAction } from '@robota-sdk/agent-core';
 import { applyPresetToSession } from '@robota-sdk/agent-framework';
-import { getPreset, listPresets, resolvePreset } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '@robota-sdk/agent-preset';
 
 import type {
+  ICommandHostAdapterAccess,
   ICommandHostPresetApplication,
   ICommandHostSessionAccess,
   ICommandHostUserInteraction,
 } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { IPresetRegistry } from '@robota-sdk/agent-preset';
+
+/**
+ * ARCH-009 — the registry `/preset` discovers through.
+ *
+ * The host supplies the instance it resolved with through the ADAPTER bag — the same path
+ * `/permission-mode` and `/plugin` already take to their host capabilities. A host that supplies none
+ * gets a fresh built-ins registry. That order is the point: while discovery read a module-global
+ * registry directly, two products in one process shared one mutable list, so ARCH-008's per-instance
+ * resolution was only half-true for an embedded host. A command runs with an `ICommandHostContext`
+ * and nothing else, so the context is the only path from here to the instance the shell built.
+ *
+ * The fallback is deliberate rather than transitional, and it is no longer process state: a host that
+ * never loads external presets has nothing to hand over, and `/preset` should still list the
+ * built-ins. `createPresetRegistry()` with no argument is exactly that, constructed per call.
+ */
+function presetRegistry(context: ICommandHostAdapterAccess): IPresetRegistry {
+  const supplied = context.getCommandHostAdapters?.().presetRegistry;
+  if (supplied === undefined) return createPresetRegistry();
+  return supplied as unknown as IPresetRegistry;
+}
 
 /** Default active preset id reported when the runtime has no recorded active preset. */
 const DEFAULT_ACTIVE_PRESET_ID = 'default';
@@ -18,8 +40,8 @@ function readActivePresetId(context: ICommandHostSessionAccess): string {
 }
 
 /** Build the `/preset` listing: one line per preset, marking the active one with a `*` prefix. */
-function formatPresetList(active: string): string {
-  const lines = listPresets().map((preset) => {
+function formatPresetList(active: string, registry: IPresetRegistry): string {
+  const lines = registry.listPresets().map((preset) => {
     const marker = preset.id === active ? '* ' : '  ';
     return `${marker}${preset.id} — ${preset.title}: ${preset.description}`;
   });
@@ -27,20 +49,24 @@ function formatPresetList(active: string): string {
 }
 
 /** Build the rejection message for an unknown preset id, listing the valid ids. */
-function formatUnknownPresetMessage(id: string): string {
-  const ids = listPresets()
+function formatUnknownPresetMessage(id: string, registry: IPresetRegistry): string {
+  const ids = registry
+    .listPresets()
     .map((preset) => preset.id)
     .join(', ');
   return `Unknown preset: ${id}. Available: ${ids}`;
 }
 
 /** The `/preset` (or `/preset list`) listing result. */
-function presetListResult(context: ICommandHostSessionAccess): ICommandResult {
+function presetListResult(
+  context: ICommandHostSessionAccess,
+  registry: IPresetRegistry,
+): ICommandResult {
   const active = readActivePresetId(context);
   return {
-    message: formatPresetList(active),
+    message: formatPresetList(active, registry),
     success: true,
-    data: { presets: listPresets(), active },
+    data: { presets: registry.listPresets(), active },
   };
 }
 
@@ -50,10 +76,11 @@ function presetListResult(context: ICommandHostSessionAccess): ICommandResult {
  */
 async function resolvePresetViaAsk(
   context: ICommandHostUserInteraction,
+  registry: IPresetRegistry,
 ): Promise<string | undefined> {
   const ui = context.getUserInteraction();
   if (!ui) return undefined;
-  const options = listPresets().map((preset) => ({
+  const options = registry.listPresets().map((preset) => ({
     value: preset.id,
     label: preset.id,
     description: preset.description,
@@ -63,30 +90,36 @@ async function resolvePresetViaAsk(
 }
 
 export async function executePresetCommand(
-  context: ICommandHostPresetApplication & ICommandHostSessionAccess & ICommandHostUserInteraction,
+  context: ICommandHostPresetApplication &
+    ICommandHostSessionAccess &
+    ICommandHostUserInteraction &
+    ICommandHostAdapterAccess,
   args: string,
 ): Promise<ICommandResult> {
+  // ARCH-009: resolved ONCE per invocation, so listing, lookup and resolution cannot disagree — a
+  // host that swapped registries mid-command would otherwise report one set and apply another.
+  const registry = presetRegistry(context);
   let id: string | undefined = args.trim().split(/\s+/)[0];
 
   if (id === 'list') {
-    return presetListResult(context);
+    return presetListResult(context, registry);
   }
 
   if (id === undefined || id.length === 0) {
-    id = await resolvePresetViaAsk(context);
+    id = await resolvePresetViaAsk(context, registry);
     if (id === undefined) {
-      return presetListResult(context);
+      return presetListResult(context, registry);
     }
   }
 
-  if (getPreset(id) === undefined) {
+  if (registry.getPreset(id) === undefined) {
     return {
-      message: formatUnknownPresetMessage(id),
+      message: formatUnknownPresetMessage(id, registry),
       success: false,
     };
   }
 
-  const resolved = resolvePreset(id);
+  const resolved = registry.resolvePreset(id);
   const result = await applyPresetToSession(context, id, resolved);
   // INFRA-032: surface any preset command-module name that matched no live module as a non-fatal
   // notice — an in-session `/preset` switch is no longer silent about a short form / typo.

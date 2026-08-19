@@ -10,6 +10,7 @@ export type {
   ICommandPluginAdapter,
   ICommandProcessAdapter,
   ICommandLocalPeersAdapter,
+  ICommandPresetRegistryAdapter,
   ICommandRemoteControlAdapter,
   ICommandResult,
   ICommandSessionReplayValidationReport,

@@ -38,18 +38,6 @@ const BUILT_IN_PRESETS: readonly IPreset[] = [
   neutralExecutorPreset,
 ];
 
-/**
- * Module-level mutable registry of user-authored external presets (PRESET-007).
- * Populated by {@link registerExternalPresets}; the sync readers iterate
- * `[...BUILT_IN_PRESETS, ...externalPresets]` so external presets merge with the built-ins.
- */
-const externalPresets: IPreset[] = [];
-
-/** The merged preset registry: built-ins first, then registered external presets. */
-function allPresets(): readonly IPreset[] {
-  return [...BUILT_IN_PRESETS, ...externalPresets];
-}
-
 /** Lightweight `{ id, title, description }` view of a preset for discovery/UX. */
 export interface IPresetSummary {
   id: string;
@@ -57,25 +45,27 @@ export interface IPresetSummary {
   description: string;
 }
 
-/** Outcome of {@link registerExternalPresets}: which ids registered and which were rejected. */
+/** Outcome of {@link partitionExternalPresets}: which presets were accepted and which rejected. */
 export interface IPresetRegistrationResult {
-  registered: readonly string[];
+  accepted: readonly IPreset[];
   rejected: readonly { id: string; reason: string }[];
 }
 
 /**
- * Register user-authored external presets into the module-level registry.
+ * Apply the external-preset conflict policy to one list, reading and mutating NOTHING outside it.
  *
  * Conflict policy: an external preset whose id matches a BUILT-IN preset is rejected
- * (`'collides with built-in preset'`) — built-ins always win. An external preset whose id
- * matches an already-registered external preset is rejected (`'duplicate preset id'`) — first
- * registration wins. All other presets are appended and counted as registered.
+ * (`'collides with built-in preset'`) — built-ins always win. An external preset whose id matches an
+ * earlier ACCEPTED external preset is rejected (`'duplicate preset id'`) — first one wins.
  *
- * @returns the ids that registered and the `{ id, reason }` of each rejection.
+ * ARCH-009. This is the whole of what the module-global registry used to be, minus the register:
+ * the policy was never the process's to hold, only the list it was applied to was. Both callers —
+ * {@link createPresetRegistry} and the external-preset loader — now pass their own list, so two
+ * products in one process cannot see each other's presets, and a repeated load cannot accumulate.
  */
-export function registerExternalPresets(presets: readonly IPreset[]): IPresetRegistrationResult {
+export function partitionExternalPresets(presets: readonly IPreset[]): IPresetRegistrationResult {
   const builtInIds = new Set(BUILT_IN_PRESETS.map((preset) => preset.id));
-  const registered: string[] = [];
+  const accepted: IPreset[] = [];
   const rejected: { id: string; reason: string }[] = [];
 
   for (const preset of presets) {
@@ -83,23 +73,14 @@ export function registerExternalPresets(presets: readonly IPreset[]): IPresetReg
       rejected.push({ id: preset.id, reason: 'collides with built-in preset' });
       continue;
     }
-    if (externalPresets.some((existing) => existing.id === preset.id)) {
+    if (accepted.some((existing) => existing.id === preset.id)) {
       rejected.push({ id: preset.id, reason: 'duplicate preset id' });
       continue;
     }
-    externalPresets.push(preset);
-    registered.push(preset.id);
+    accepted.push(preset);
   }
 
-  return { registered, rejected };
-}
-
-/**
- * Remove every registered external preset, leaving only the built-ins.
- * Used at startup before a fresh re-load and for test isolation.
- */
-export function clearExternalPresets(): void {
-  externalPresets.length = 0;
+  return { accepted, rejected };
 }
 
 /**
@@ -109,16 +90,6 @@ export function clearExternalPresets(): void {
 export interface IResolvePresetContext {
   cliOverrides?: IResolvedPresetOptions;
   explicit?: IResolvedPresetOptions;
-}
-
-/** Return the `{ id, title, description }` summary of every registered preset. */
-export function listPresets(): readonly IPresetSummary[] {
-  return allPresets().map(({ id, title, description }) => ({ id, title, description }));
-}
-
-/** Look up a registered preset by id, or `undefined` if none matches. */
-export function getPreset(id: string): IPreset | undefined {
-  return allPresets().find((preset) => preset.id === id);
 }
 
 /** Strip the identity triple from a preset, leaving only resolvable option overrides. */
@@ -144,25 +115,13 @@ function mergeDefined(
 }
 
 /**
- * Resolve a preset id into framework option overrides.
+ * Pure resolve over an explicit preset list — the core every {@link createPresetRegistry} instance
+ * resolves through. Reads only its arguments; performs the precedence merge + permission-mode
+ * derivation.
  *
- * Precedence LOW → HIGH: preset options < `context.cliOverrides` < `context.explicit`
- * (later layers win; `undefined` values are skipped). For the no-op `'default'` preset the
- * result equals the merged overrides, guaranteeing no regression.
- *
- * @throws Error when `id` does not match a registered preset.
- */
-export function resolvePreset(
-  id: string,
-  context: IResolvePresetContext = {},
-): IResolvedPresetOptions {
-  return resolvePresetFrom(allPresets(), id, context);
-}
-
-/**
- * Pure resolve over an explicit preset list — the shared core of both the module-global
- * {@link resolvePreset} and the instance-scoped {@link createPresetRegistry} resolvers. Reads only its
- * arguments; performs the same precedence merge + permission-mode derivation.
+ * Precedence LOW → HIGH: preset options < `context.cliOverrides` < `context.explicit` (later layers
+ * win; `undefined` values are skipped). For the no-op `'default'` preset the result equals the
+ * merged overrides.
  *
  * @throws Error when `id` does not match a preset in `presets`.
  */
@@ -184,15 +143,16 @@ function resolvePresetFrom(
 }
 
 /**
- * A per-call, instance-scoped preset registry (ARCH-005 R8). Unlike the module-global
- * {@link registerExternalPresets} / {@link resolvePreset} path, a registry created here holds its OWN
- * merged list `[built-ins, ...externalPresets]` and never touches the module-level `externalPresets`
- * global — so two products in one process do not share one registry and repeat construction does not
- * accumulate. The `@robota-sdk/agent-product` assembler builds one of these per `assembleProduct` call,
- * keeping its fold pure w.r.t. process state.
+ * A per-call, instance-scoped preset registry (ARCH-005 R8) — since ARCH-009 the ONLY one there is.
+ *
+ * A registry holds its own merged list `[built-ins, ...accepted externals]`, so two products in one
+ * process do not share one and repeat construction does not accumulate. The
+ * `@robota-sdk/agent-product` assembler builds one per `assembleProduct` call and surfaces it on the
+ * command-host context, which is how `/preset` inside a live session reaches THIS product's presets
+ * rather than the process's.
  */
 export interface IPresetRegistry {
-  /** Resolve a preset id against this registry's presets (same precedence/derivation as the global). */
+  /** Resolve a preset id against this registry's presets. */
   resolvePreset(id: string, context?: IResolvePresetContext): IResolvedPresetOptions;
   /** Look up a preset by id within this registry, or `undefined`. */
   getPreset(id: string): IPreset | undefined;
@@ -203,20 +163,17 @@ export interface IPresetRegistry {
 /**
  * Build an instance-scoped {@link IPresetRegistry} over `[built-ins, ...externalPresets]`.
  *
- * Conflict policy mirrors {@link registerExternalPresets} but is applied to the instance list only:
- * built-ins always win (an external preset whose id collides with a built-in is dropped), and among the
- * external presets the first registration wins (a later duplicate id is dropped). No module-level state is
- * read or mutated — this is a pure factory.
+ * The conflict policy is {@link partitionExternalPresets}, applied to the argument list only: built-ins
+ * always win, and among the external presets the first one wins. No module-level state is read or
+ * mutated — this is a pure factory, and since ARCH-009 there is no module-level state to read.
+ *
+ * Called with no argument it is the BUILT-INS, which is the registry a host that supplies none gets.
  */
 export function createPresetRegistry(externalPresets: readonly IPreset[] = []): IPresetRegistry {
-  const builtInIds = new Set(BUILT_IN_PRESETS.map((preset) => preset.id));
-  const registered: IPreset[] = [];
-  for (const preset of externalPresets) {
-    if (builtInIds.has(preset.id)) continue; // built-ins win
-    if (registered.some((existing) => existing.id === preset.id)) continue; // first registration wins
-    registered.push(preset);
-  }
-  const merged: readonly IPreset[] = [...BUILT_IN_PRESETS, ...registered];
+  const merged: readonly IPreset[] = [
+    ...BUILT_IN_PRESETS,
+    ...partitionExternalPresets(externalPresets).accepted,
+  ];
 
   return {
     resolvePreset: (id, context = {}) => resolvePresetFrom(merged, id, context),

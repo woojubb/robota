@@ -204,6 +204,12 @@
       "timestamp": "2026-08-17T10:45:45.761Z",
       "ratio": "2/4",
       "reason": "The acknowledgement of the previous violation violated the same rule: quoting '계약 2/4 완료' while admitting it lacked a percentage still put a bare ratio in a narrative message. Recorded rather than edited, and worth keeping visible — a rule about how a number is written is broken as easily while apologising for breaking it as while reporting progress. The habit the scan is measuring is writing the ratio at all without its percentage, quotation included."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-19T00:34:31.854Z",
+      "ratio": "6/7",
+      "reason": "A real violation, committed by me: a backlog status reported 6/7 items closed with no percentage. Recorded rather than fixed, because a transcript is append-only — the message cannot be rewritten, and a permanently red scan is one that gets suppressed."
     }
   ]
 }

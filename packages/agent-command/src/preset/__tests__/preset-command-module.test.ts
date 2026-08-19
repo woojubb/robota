@@ -1,9 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  clearExternalPresets,
-  listPresets,
-  registerExternalPresets,
-} from '@robota-sdk/agent-preset';
+import { describe, expect, it, vi } from 'vitest';
+import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import type {
   ICommandHostContext,
   ICommandSessionRuntime,
@@ -105,7 +101,7 @@ describe('preset command module', () => {
     const result = await executePresetCommand(context, '');
 
     expect(result.success).toBe(true);
-    for (const preset of listPresets()) {
+    for (const preset of createPresetRegistry().listPresets()) {
       expect(result.message).toContain(preset.id);
     }
     // The active preset is marked with the `* ` prefix.
@@ -145,7 +141,7 @@ describe('preset command module', () => {
     const result = await executePresetCommand(context, '__nope__');
 
     expect(result.success).toBe(false);
-    for (const preset of listPresets()) {
+    for (const preset of createPresetRegistry().listPresets()) {
       expect(result.message).toContain(preset.id);
     }
     expect(setActivePresetId).not.toHaveBeenCalled();
@@ -188,10 +184,11 @@ describe('preset command module', () => {
   });
 
   describe('INFRA-032: unmatched command-module names surface in the /preset result', () => {
-    afterEach(() => clearExternalPresets());
-
     it('a preset disabling an unknown module name reports it (no longer silent)', async () => {
-      registerExternalPresets([
+      // ARCH-009: the external preset reaches `/preset` through the HOST, not through a process-wide
+      // registration this case used to perform and then have to undo in an afterEach. This is the
+      // seam the item added, exercised by a case that already needed an external preset.
+      const registry = createPresetRegistry([
         {
           id: 'ext-unknown-module',
           title: 'Ext Unknown Module',
@@ -202,7 +199,10 @@ describe('preset command module', () => {
       const unknowns: readonly IUnknownCommandModuleName[] = [{ name: 'editor', kind: 'disabled' }];
       const applyCommandModuleSelection = vi.fn(() => unknowns);
       const runtime = createSessionRuntime({ setActivePresetId: vi.fn() });
-      const context = createCommandHostContext(runtime, { applyCommandModuleSelection });
+      const context = createCommandHostContext(runtime, {
+        applyCommandModuleSelection,
+        getCommandHostAdapters: () => ({ presetRegistry: registry }),
+      });
 
       const result = await executePresetCommand(context, 'ext-unknown-module');
 

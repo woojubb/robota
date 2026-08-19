@@ -13,10 +13,11 @@ import type {
 } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
+  ICommandHostAdapters,
   ICommandModule,
   TInteractiveSessionOptions,
 } from '@robota-sdk/agent-framework';
-import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import type { IPresetRegistry, IResolvedPresetOptions } from '@robota-sdk/agent-preset';
 
 export const PRODUCT_PROFILE_FIELD_POLICIES = {
   id: 'surfaced',
@@ -43,6 +44,8 @@ interface IOverlayMaterials {
   tools: readonly FunctionTool[];
   subagents: readonly IAgentDefinition[];
   defaultPermissionMode: TPermissionMode | undefined;
+  /** ARCH-009: the instance preset registry, so `/preset` discovers this product's presets. */
+  presetRegistry: IPresetRegistry;
 }
 
 /**
@@ -70,12 +73,21 @@ function overlaySessionOptions(
   // silently undo that narrowing, so the assembled set is overlaid only when the caller left it unset —
   // the same "only when the shell left it unset" rule `permissionMode` already follows.
   const commandModules = base.commandModules ?? materials.commandModules;
+  // ARCH-009: MERGED into the shell's bag, never substituted for it. The shell wires its own adapters
+  // there (remote control, process, settings) and the registry stands beside them; replacing the bag
+  // would silently drop capabilities this assembler knows nothing about. Both arms get it — an
+  // injected session is exactly the embedded-host case the item is about.
+  const commandHostAdapters: ICommandHostAdapters = {
+    ...base.commandHostAdapters,
+    presetRegistry: materials.presetRegistry,
+  };
 
   if ('session' in base) {
     return {
       ...base,
       provider,
       commandModules,
+      commandHostAdapters,
       ...permissionModeOverlay,
     };
   }
@@ -90,6 +102,7 @@ function overlaySessionOptions(
     ...base,
     provider,
     commandModules,
+    commandHostAdapters,
     additionalTools: [
       ...(base.additionalTools ?? []),
       ...(materials.tools as readonly IToolWithEventService[]),
@@ -166,6 +179,11 @@ export function assembleProduct(profile: IProductProfile): IAssembledProduct {
       tools: merged.tools,
       subagents: merged.subagents,
       defaultPermissionMode: defaultPreset?.permissionMode,
+      // ARCH-009: the instance registry reaches the SESSION through the host-adapter bag, so
+      // `/preset` discovers through the same presets this product resolved with. It was already
+      // assembled here and surfaced on the product; what was missing was the last hop, which is why
+      // `/preset` read a module global and why two products in one process shared one mutable list.
+      presetRegistry: presets,
     });
 
   return {

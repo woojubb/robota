@@ -2,11 +2,29 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { loadExternalPresetsFromDir } from '../load-external-presets.js';
 import { validateExternalPreset } from '../preset-validation.js';
-import { clearExternalPresets, listPresets } from '../resolve-preset.js';
+import { createPresetRegistry } from '../resolve-preset.js';
+
+import type { IExternalPresetLoadResult } from '../load-external-presets.js';
+
+/**
+ * ARCH-009: a load registers nothing, so what a load makes visible is asked of a registry built over
+ * what it RETURNED. These cases used to read the module-global `listPresets()`, which is why they
+ * needed a clear before and after each one; a value nobody shares needs neither.
+ */
+function listAfter(result: IExternalPresetLoadResult): readonly string[] {
+  return createPresetRegistry(result.presets)
+    .listPresets()
+    .map((preset) => preset.id);
+}
+
+/** The ids a registry holds when no external preset reaches it. */
+const BUILT_IN_IDS = createPresetRegistry()
+  .listPresets()
+  .map((preset) => preset.id);
 
 /** Create a fresh unique temp directory for a single test case. */
 function makeTempDir(): string {
@@ -21,12 +39,7 @@ function writePreset(dir: string, fileName: string, value: unknown): void {
 describe('loadExternalPresetsFromDir', () => {
   const tempDirs: string[] = [];
 
-  beforeEach(() => {
-    clearExternalPresets();
-  });
-
   afterEach(() => {
-    clearExternalPresets();
     for (const dir of tempDirs.splice(0)) {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -46,7 +59,7 @@ describe('loadExternalPresetsFromDir', () => {
 
     expect(result.loaded).toContain('my-style');
     expect(result.errors).toEqual([]);
-    expect(listPresets().some((preset) => preset.id === 'my-style')).toBe(true);
+    expect(listAfter(result)).toContain('my-style');
   });
 
   it('TC-02: skips a schema-violating preset, loads the valid one, and reports the error', () => {
@@ -69,8 +82,8 @@ describe('loadExternalPresetsFromDir', () => {
     expect(result.loaded).toContain('good-style');
     expect(result.loaded).not.toContain('bad-style');
     expect(result.errors.some((entry) => entry.file === 'bad.json')).toBe(true);
-    expect(listPresets().some((preset) => preset.id === 'good-style')).toBe(true);
-    expect(listPresets().some((preset) => preset.id === 'bad-style')).toBe(false);
+    expect(listAfter(result)).toContain('good-style');
+    expect(listAfter(result)).not.toContain('bad-style');
   });
 
   it('TC-03: rejects an external preset whose id collides with a built-in', () => {
@@ -90,31 +103,32 @@ describe('loadExternalPresetsFromDir', () => {
       true,
     );
     // The built-in default survives and remains the only `default` entry.
-    const defaults = listPresets().filter((preset) => preset.id === 'default');
+    const defaults = createPresetRegistry(result.presets)
+      .listPresets()
+      .filter((preset) => preset.id === 'default');
     expect(defaults).toHaveLength(1);
     expect(defaults[0]?.title).toBe('Default');
   });
 
-  it('TC-04: a non-existent directory returns empty and listPresets() is unchanged', () => {
-    const baseline = listPresets();
+  it('TC-04: a non-existent directory returns empty and adds nothing to a registry', () => {
     const missingDir = join(makeTempDir(), 'does-not-exist');
 
     const result = loadExternalPresetsFromDir(missingDir);
 
     expect(result.loaded).toEqual([]);
+    expect(result.presets).toEqual([]);
     expect(result.errors).toEqual([]);
-    expect(listPresets()).toEqual(baseline);
+    expect(listAfter(result)).toEqual(BUILT_IN_IDS);
   });
 
   it('TC-04: an empty directory returns empty loaded and only the built-ins remain', () => {
     const dir = makeTempDir();
     tempDirs.push(dir);
-    const baseline = listPresets();
 
     const result = loadExternalPresetsFromDir(dir);
 
     expect(result.loaded).toEqual([]);
-    expect(listPresets()).toEqual(baseline);
+    expect(listAfter(result)).toEqual(BUILT_IN_IDS);
   });
 
   it('directory creation helper does not interfere with nested dir reads', () => {
@@ -134,14 +148,6 @@ describe('loadExternalPresetsFromDir', () => {
 });
 
 describe('validateExternalPreset', () => {
-  beforeEach(() => {
-    clearExternalPresets();
-  });
-
-  afterEach(() => {
-    clearExternalPresets();
-  });
-
   it('rejects a preset with a bogus effort value', () => {
     const result = validateExternalPreset({
       id: 'x',

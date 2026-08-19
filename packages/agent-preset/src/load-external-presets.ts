@@ -3,12 +3,20 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { validateExternalPreset } from './preset-validation.js';
-import { registerExternalPresets } from './resolve-preset.js';
+import { partitionExternalPresets } from './resolve-preset.js';
 
 import type { IPreset } from './preset-types.js';
 
-/** Outcome of an external-preset load: which ids loaded and per-file load/validation errors. */
+/**
+ * Outcome of an external-preset load: the presets themselves, their ids, and per-file errors.
+ *
+ * ARCH-009 added `presets`. `loaded` used to be the only way out, because the presets went into a
+ * module-global registry and the caller read them back by id — which is what made the global
+ * load-bearing at startup. The caller now receives the values it loaded and builds its own registry
+ * over them, so nothing has to be looked up from process state.
+ */
 export interface IExternalPresetLoadResult {
+  presets: readonly IPreset[];
   loaded: readonly string[];
   errors: readonly { file: string; error: string }[];
 }
@@ -19,16 +27,18 @@ export function defaultExternalPresetDir(): string {
 }
 
 /**
- * Load, validate, and register every `*.json` external preset from `dir`.
+ * Load and validate every `*.json` external preset from `dir`.
  *
  * A missing directory yields an empty result (no error). Each file is JSON-parsed and validated;
  * a parse or validation failure is recorded as a per-file error and skipped — the remaining files
- * still load. Validated presets are registered via {@link registerExternalPresets}; registry
- * rejections (built-in id collision or duplicate id) are folded into `errors` against their file.
+ * still load. The surviving presets go through {@link partitionExternalPresets}, whose rejections
+ * (built-in id collision or duplicate id) are folded into `errors` against their file.
+ *
+ * Loading REGISTERS NOTHING. The result is a value the caller owns.
  */
 export function loadExternalPresetsFromDir(dir: string): IExternalPresetLoadResult {
   if (!existsSync(dir)) {
-    return { loaded: [], errors: [] };
+    return { presets: [], loaded: [], errors: [] };
   }
 
   const errors: { file: string; error: string }[] = [];
@@ -58,12 +68,12 @@ export function loadExternalPresetsFromDir(dir: string): IExternalPresetLoadResu
     fileById.set(result.preset.id, name);
   }
 
-  const registration = registerExternalPresets(validPresets);
-  for (const rejection of registration.rejected) {
+  const { accepted, rejected } = partitionExternalPresets(validPresets);
+  for (const rejection of rejected) {
     errors.push({ file: fileById.get(rejection.id) ?? rejection.id, error: rejection.reason });
   }
 
-  return { loaded: registration.registered, errors };
+  return { presets: accepted, loaded: accepted.map((preset) => preset.id), errors };
 }
 
 /**

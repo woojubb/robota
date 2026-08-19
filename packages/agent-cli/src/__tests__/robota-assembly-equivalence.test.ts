@@ -22,14 +22,7 @@
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
-import {
-  DEFAULT_AGENT_NAME,
-  clearExternalPresets,
-  getPreset,
-  listPresets,
-  registerExternalPresets,
-  resolvePreset,
-} from '@robota-sdk/agent-preset';
+import { DEFAULT_AGENT_NAME, createPresetRegistry } from '@robota-sdk/agent-preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
 import { describe, expect, it } from 'vitest';
@@ -353,14 +346,17 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
 
   it('resolves presets identically (built-ins reachable through the instance registry)', () => {
     const { product } = assembleRobota();
+    // ARCH-009: the comparison partner used to be agent-preset's module-global resolver. It is now a
+    // registry constructed with no external presets, which is the same built-ins by construction —
+    // and the registry a host that supplies none gets.
+    const builtIns = createPresetRegistry();
 
-    expect(resolvePreset('default')).toEqual(BASELINE_DEFAULT_PRESET_OPTIONS);
+    expect(builtIns.resolvePreset('default')).toEqual(BASELINE_DEFAULT_PRESET_OPTIONS);
     expect(product.resolvePreset('default')).toEqual(BASELINE_DEFAULT_PRESET_OPTIONS);
 
     const carefulReviewer = product.resolvePreset('careful-reviewer');
     expect(carefulReviewer).toMatchObject(BASELINE_CAREFUL_REVIEWER_POSTURE);
-    // …and identical to the module-global resolver the `/preset` command still reads.
-    expect(carefulReviewer).toEqual(resolvePreset('careful-reviewer'));
+    expect(carefulReviewer).toEqual(builtIns.resolvePreset('careful-reviewer'));
   });
 });
 
@@ -439,41 +435,39 @@ describe('ARCH-008 — robota resolves presets through the kernel’s per-call r
         ARCH_008_EXTERNAL.id,
       ),
     ).toBeDefined();
-    // …and no external preset ever leaked into the module-global registry the `/preset` command reads.
-    expect(listPresets().map((p) => p.id)).not.toContain(ARCH_008_EXTERNAL.id);
+    // …and a registry built afterwards still starts at the built-ins, so nothing accumulated anywhere
+    // a later host would read. Before ARCH-009 this asked the module-global registry; there is none.
+    expect(
+      createPresetRegistry()
+        .listPresets()
+        .map((p) => p.id),
+    ).not.toContain(ARCH_008_EXTERNAL.id);
   });
 
-  it('does not resolve robota’s startup preset from the module-global registry', () => {
-    // Same id, two different postures: one registered in the module-global registry, one handed to the
-    // shell. A resolution that read the global would return 'FROM-THE-GLOBAL'. Asserting the VALUE (not
-    // just that something resolved) is what makes this fail when the global is back on the path — an
-    // "unknown id throws" assertion would still pass, thrown one layer later by the kernel.
+  it('resolves robota’s startup preset from the shell’s list, by VALUE not by id', () => {
+    // ARCH-008 wrote this as "same id in the module-global registry and in the shell's list; a
+    // resolution that read the global returns FROM-THE-GLOBAL". ARCH-009 deleted the global, so that
+    // spelling could no longer fail on the condition it named — the defect class this repository
+    // scans for, and it would have sat inside the change that removed the condition.
+    //
+    // What survives is the half that can still fail: the VALUE comes from the list the shell handed
+    // over. Asserting the value rather than "something resolved" is what makes a wrong source visible;
+    // an "unknown id throws" assertion would pass no matter which list answered.
     const id = 'arch-008-dual';
-    registerExternalPresets([
+    const { product, preset } = assembleRobota(
+      {},
       {
-        id,
-        title: 'global copy',
-        description: 'module-global posture',
-        persona: 'FROM-THE-GLOBAL',
+        externalPresets: [
+          { id, title: 'shell copy', description: 'shell posture', persona: 'FROM-THE-SHELL' },
+        ],
+        args: { ...MINIMAL_ARGS, preset: id } as unknown as IParsedCliArgs,
       },
-    ]);
-    try {
-      expect(getPreset(id)?.persona).toBe('FROM-THE-GLOBAL');
+    );
 
-      const { product, preset } = assembleRobota(
-        {},
-        {
-          externalPresets: [
-            { id, title: 'shell copy', description: 'shell posture', persona: 'FROM-THE-SHELL' },
-          ],
-          args: { ...MINIMAL_ARGS, preset: id } as unknown as IParsedCliArgs,
-        },
-      );
-
-      expect(preset.options.persona).toBe('FROM-THE-SHELL');
-      expect(product.defaultPreset?.persona).toBe('FROM-THE-SHELL');
-    } finally {
-      clearExternalPresets();
-    }
+    expect(preset.options.persona).toBe('FROM-THE-SHELL');
+    expect(product.defaultPreset?.persona).toBe('FROM-THE-SHELL');
+    // And a registry built with no externals does not know the id at all — the source is the list,
+    // never an ambient one.
+    expect(createPresetRegistry().getPreset(id)).toBeUndefined();
   });
 });
