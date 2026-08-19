@@ -64,6 +64,9 @@ function witnessIo(overrides = {}) {
     readText: (p) => files[p] ?? '',
     fileExists: (p) => Object.prototype.hasOwnProperty.call(files, p),
     isDirty: () => false,
+    // INFRA-120 — injected like every other git-touching seam. Without it these fixtures shell out
+    // to `git log` for a path that exists only here.
+    reversalBase: () => 'BASE',
     reverseApply: () => {},
     restore: () => {},
     addedTestCaseDiff: () => "+    it('the new regression case', () => {",
