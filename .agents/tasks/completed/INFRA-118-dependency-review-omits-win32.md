@@ -1,14 +1,25 @@
 ---
-title: 'INFRA-115: dependency-review blocks every lockfile-touching pull request on a coverage hole'
-status: in-progress
+title: 'INFRA-118: dependency-review blocks every lockfile-touching pull request on a coverage hole'
+status: done
 created: 2026-08-20
+completed: 2026-08-20
 priority: high
 urgency: now
 area: .github/workflows
 depends_on: []
 ---
 
-# INFRA-115: the sharp allow-list covers four platforms and there are five
+# INFRA-118: the sharp allow-list covers four platforms and there are five
+
+## Renumbered from INFRA-115
+
+Issue #1912 claimed `INFRA-115` on 2026-08-19T16:52:03Z, before this record was written. The earlier
+claim wins, so this one moved. PR #1914 and its commits still say INFRA-115 and cannot be rewritten;
+this paragraph is the bridge for a reader who follows the old number out of one.
+
+Re-derived at the moment of writing: issues hold INFRA-103 and INFRA-109 through INFRA-116, the tree
+holds INFRA-100 and INFRA-102 through INFRA-107, and INFRA-117 is taken by an open pull request. 118
+is the first free one.
 
 ## Objective
 
@@ -77,7 +88,9 @@ which is the mechanism working rather than failing.
 - [x] TC-04: `@img/sharp-libvips-win32-*` was checked for existence AND for presence in the lockfile;
       it exists and is absent, so it is deliberately not listed.
 - [x] TC-05: the workflow still parses as YAML and the job name is unchanged.
-- [ ] TC-06: `Dependency review` is green on a pull request that touches `pnpm-lock.yaml`.
+- [x] TC-06: `Dependency review` is green on a pull request that touches `pnpm-lock.yaml` —
+      PR #1909 merged 2026-08-19T18:00:18Z, an hour after the fix, and its `Dependency review` reports
+      SUCCESS. That is the gate itself, not a re-reading of the workflow file.
 
 ## Test Plan
 
@@ -97,7 +110,9 @@ passed.
 - Steps: open it against `develop` and read the `Dependency review` check.
 - Expected: green. Before this change it reported the three `@img/sharp-win32-*` names on any such
   pull request.
-- Evidence: _to be filled once a lockfile-touching pull request has run_
+- Evidence: PR #1909 touched `pnpm-lock.yaml` and merged 2026-08-19T18:00:18Z with
+  `Dependency review: SUCCESS`. Before this change the same file produced three `@img/sharp-win32-*`
+  findings on any such pull request.
 
 ## Progress
 
