@@ -173,6 +173,63 @@ outside that list is unread.
 The measurements behind the table, and the exposure they corrected, are in
 [INFRA-105](../tasks/INFRA-105-bulk-edits-reach-the-dependency-store.md).
 
+### A Rewrite Edits What The Name RESOLVES To
+
+A bulk rename decides by NAME: it greps for a symbol's spelling and rewrites every site that matches.
+That is wrong whenever the name is not unique, which for ordinary names is most of the time. A
+rewrite site is correct when the identifier at that position **resolves to the declaration being
+changed** — not when it spells the same thing.
+
+Measured: a rewrite adding `await` to `createSession(` call sites edited three files that define
+their own local helper of that name and import nothing from the package that changed. Each was
+reverted before it was committed, and it was caught by luck — the script printed what it touched and
+the paths looked wrong for an unrelated reason.
+
+This is a different failure from the enumeration one above, and a worse one. That rule bounds where
+an edit can REACH; this is about whether the sites it reaches are the right ones. A rewrite sourced
+correctly from `git ls-files`, staying inside `packages/*/src`, still edits every unrelated spelling
+in the workspace — and produces no test failure when the local helper happens to be compatible, only
+a silent semantic change. The enumeration failure announced itself in the printed paths. This does
+not announce itself at all.
+
+**Decide sites with `scripts/harness/resolve-rewrite-sites.mjs`, not with a grep.**
+
+```text
+node scripts/harness/resolve-rewrite-sites.mjs <symbol> <module> <file>...
+```
+
+Only a `binds` verdict may be rewritten. `shadowed-by-local-declaration`,
+`does-not-import-the-symbol` and `imports-that-name-from-another-module` are the three ways a
+same-spelled identifier is a different thing.
+
+| verdict                                  | meaning                                                                       |
+| ---------------------------------------- | ----------------------------------------------------------------------------- |
+| `binds`                                  | the file imports the symbol from that module and nothing shadows it — rewrite |
+| `shadowed-by-local-declaration`          | the file declares its own binding of that name — leave                        |
+| `does-not-import-the-symbol`             | the name is not bound to anything from that module — leave                    |
+| `imports-that-name-from-another-module`  | a different declaration with the same spelling — leave                        |
+| `namespace-import-present-cannot-decide` | a namespace import of the target module is present — **decide by hand**       |
+
+The last one exits non-zero on purpose. `ns.createSession(...)` is a real site the resolver cannot
+see, and reporting it as "no" would silently skip it — the same silence as the name-based rewrite, in
+the other direction.
+
+**What it deliberately does not resolve**, stated rather than mis-answered: a re-export chain, a
+namespace import used through an alias, and a symbol reaching the file through a barrel under a
+different specifier. The accurate answer is a TypeScript program built once over the workspace, which
+is also the slow one; reading each candidate file's own bindings covers the measured failure at a
+cost a rewrite can afford per file. A resolver that guessed at the rest would be the regex it
+replaces, wearing a better name.
+
+Enforced by: **nothing mechanical, and that is the honest answer.** A hand-written rewrite runs
+before any check can see it — there is no artefact to scan and no command shape a hook can
+recognise, because the edit arrives as a finished diff. What exists is the tool above and this
+procedure. The reviewable evidence is the resolver's output: a rewrite that names it in its record is
+one another reader can re-run, and one that does not is a claim about scope with nothing behind it.
+
+The measurement behind this rule is in
+[INFRA-123](../tasks/INFRA-123-a-rewrite-edits-what-the-name-resolves-to.md).
+
 ### A Wait Is Not Idle Time
 
 When work is blocked on something that takes minutes and is not yours to speed up — a continuous

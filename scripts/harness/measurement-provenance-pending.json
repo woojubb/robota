@@ -11,6 +11,7 @@
     "scripts/harness/enumerate-files.mjs",
     "scripts/harness/loop-economics.mjs",
     "scripts/harness/promotion-closes.mjs",
+    "scripts/harness/resolve-rewrite-sites.mjs",
     "scripts/harness/scan-aggregate-naming.mjs",
     "scripts/harness/scan-barrel-parameter-types.mjs",
     "scripts/harness/scan-claude-review-coverage.mjs",
