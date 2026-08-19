@@ -89,6 +89,23 @@ function trackedFiles() {
   return out.split('\0').filter((entry) => entry.length > 0);
 }
 
+/**
+ * Split one line into command SEGMENTS — the runs between `|`, `||`, `&`, `&&` and `;`.
+ *
+ * A flag belongs to the command that received it, and a line is not one command. Reported in the
+ * review of this change against `bulk-edit-guard.sh` and true here for the same reason: matching
+ * `rg …` and a later `-L` anywhere on the line flags `rg -l foo src | xargs grep -L bar`, where the
+ * `-L` is grep's files-without-match and follows nothing. A scan that refuses correct scripts is one
+ * that gets deleted, and unlike the hook this half has no ack to fall back on.
+ *
+ * STATED LIMIT, the same one the hook carries: a second command inside ONE segment inherits the
+ * first's attribution, so `find … -exec grep -L {} \;` reads as `find` carrying `-L`. The pipeline is
+ * the common shape and is separated; `-exec` is not.
+ */
+function segmentsOf(line) {
+  return line.split(/\|\|?|&&?|;/);
+}
+
 /** A shell/JS line comment or a markdown-ish prose line is discussion, not an invocation. */
 function isCommentary(line) {
   const trimmed = line.trim();
@@ -108,16 +125,16 @@ export function findingsIn(relativePath, content) {
   const lines = content.split('\n');
   for (const [index, line] of lines.entries()) {
     if (isCommentary(line)) continue;
+    const segments = segmentsOf(line);
     for (const rule of RULES) {
-      if (rule.pattern.test(line)) {
-        findings.push({
-          file: relativePath,
-          line: index + 1,
-          id: rule.id,
-          remedy: rule.remedy,
-          text: line.trim(),
-        });
-      }
+      if (!segments.some((segment) => rule.pattern.test(segment))) continue;
+      findings.push({
+        file: relativePath,
+        line: index + 1,
+        id: rule.id,
+        remedy: rule.remedy,
+        text: line.trim(),
+      });
     }
   }
   return findings;

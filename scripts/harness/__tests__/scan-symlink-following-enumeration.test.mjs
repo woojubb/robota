@@ -81,6 +81,30 @@ describe('what it does not report', () => {
       [],
     );
   });
+
+  it('does not read -L as an rg flag when it belongs to a later command in the pipeline', () => {
+    // Found reviewing this change for merge, and it is the finding review already reported against
+    // the hook: `rg`'s pattern accepted any words between the command and the flag, so a `-L` two
+    // commands downstream was attributed to it. `rg -l` is files-with-matches and `grep -L` is
+    // files-without-match — neither follows anything.
+    //
+    // The fix is the segment split the hook uses. It matters more here: the hook has an ack for a
+    // refusal you disagree with, and a scan has none — a false positive is a correct script that
+    // cannot be committed.
+    expect(findingsIn(SCRIPT, 'rg -l createSession src | xargs grep -L export')).toEqual([]);
+    // The hazardous spelling in the SAME shape is still reported, so the split did not simply
+    // silence the rule.
+    expect(findingsIn(SCRIPT, 'rg --follow -l createSession src | xargs wc -l')).toMatchObject([
+      { id: 'rg --follow' },
+    ]);
+  });
+
+  it('attributes a flag to the command after && that received it', () => {
+    expect(findingsIn(SCRIPT, 'cd packages && find -L . -name "*.ts"')).toMatchObject([
+      { id: 'find -L' },
+    ]);
+    expect(findingsIn(SCRIPT, 'find . -name "*.ts" && grep -L foo out.txt')).toEqual([]);
+  });
 });
 
 describe('the size it declares', () => {
