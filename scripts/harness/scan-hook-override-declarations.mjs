@@ -19,10 +19,10 @@
  * - `phantom` — a document declares a hatch no hook reads. It reads as a supported bypass and is not.
  */
 
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { enumerateFiles } from './enumerate-files.mjs';
 import { collectAcceptedForms, examinedHookCount } from './hook-overrides.mjs';
 
 /**
@@ -38,14 +38,8 @@ export { collectAcceptedForms, examinedHookCount };
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
-function trackedFiles() {
-  const out = execFileSync('git', ['ls-files', '-z'], {
-    cwd: WORKSPACE_ROOT,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  return out.split('\0').filter((entry) => entry.length > 0);
-}
+// INFRA-121 — through the shared owner, so a hook or rule written and not yet staged is judged.
+const trackedFiles = () => enumerateFiles();
 
 /** Where a hatch may be declared. Hook sources are included: a refusal message is a declaration. */
 const DECLARATION_GLOBS = [

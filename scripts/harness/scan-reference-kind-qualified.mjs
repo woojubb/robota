@@ -20,6 +20,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { enumerateFiles } from './enumerate-files.mjs';
 import { unqualifiedReferences } from './reference-kind.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -34,16 +35,17 @@ const BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/reference-kind-
  */
 const EXCLUDED = [/(^|\/)CHANGELOG\.md$/, /(^|\/)node_modules\//];
 
+/**
+ * INFRA-121 — enumerated through the shared owner, which includes untracked-but-not-ignored files.
+ *
+ * This scan is where the false green was measured: a task document written and not yet staged passed
+ * before `git add` and failed after, while the run printed a size and a pass. A writer checking their
+ * own work is exactly who this scan is for, and that is the moment it could not see them.
+ */
 function trackedDocuments() {
-  const out = execFileSync('git', ['ls-files', '-z', '*.md'], {
-    cwd: WORKSPACE_ROOT,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  return out
-    .split('\0')
-    .filter((entry) => entry.length > 0)
-    .filter((entry) => !EXCLUDED.some((pattern) => pattern.test(entry)));
+  return enumerateFiles(['*.md']).filter(
+    (entry) => !EXCLUDED.some((pattern) => pattern.test(entry)),
+  );
 }
 
 let examinedDocuments = 0;
