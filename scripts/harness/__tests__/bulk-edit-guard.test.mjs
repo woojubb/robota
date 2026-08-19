@@ -95,6 +95,19 @@ describe('a file-writing tool naming the dependency store', () => {
     expect(status).toBe(2);
   });
 
+  it('refuses a NEW file inside a NEW subdirectory of a symlinked directory', () => {
+    // Reported in review of this change, one level below the case above and the same defect: the
+    // parent `app/vendored/newdir` does not exist either, so a test that stops at the parent skips
+    // the block again — while the write still lands in the store through `app/vendored`. Some
+    // ANCESTOR always exists, which is why the walk cannot recede a third time.
+    const { status, stderr } = write(
+      path.join(symlinkedStore(), 'app/vendored/newdir/brand-new.ts'),
+    );
+    expect(status).toBe(2);
+    // The reported path carries the unresolved tail, so the operator sees where it actually lands.
+    expect(stderr).toContain('newdir/brand-new.ts');
+  });
+
   it('permits a NEW file inside an ordinary directory', () => {
     // The other direction of the same change: moving the existence test to the parent must not make
     // every creation suspicious.
@@ -102,6 +115,15 @@ describe('a file-writing tool naming the dependency store', () => {
     scratch.push(dir);
     mkdirSync(path.join(dir, 'packages/p/src'), { recursive: true });
     expect(write(path.join(dir, 'packages/p/src/brand-new.ts')).status).toBe(0);
+  });
+
+  it('permits a NEW file inside a NEW subdirectory of an ordinary directory', () => {
+    // The same direction one level deeper. Walking up to an existing ancestor must not turn every
+    // mkdir-and-write into a refusal — that is how an ack starts being pasted without being read.
+    const dir = mkdtempSync(path.join(tmpdir(), 'bulk-edit-guard-ok-'));
+    scratch.push(dir);
+    mkdirSync(path.join(dir, 'packages/p'), { recursive: true });
+    expect(write(path.join(dir, 'packages/p/src/nested/brand-new.ts')).status).toBe(0);
   });
 });
 

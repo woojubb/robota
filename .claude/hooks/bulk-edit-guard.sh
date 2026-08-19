@@ -80,22 +80,33 @@ if [[ "$TOOL_NAME" == "Write" || "$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Mult
   # RESOLVED as well as spelled. A path can reach the store without naming it — `packages/a/nm-link/x`
   # where `nm-link` is a symlink into node_modules.
   #
-  # The existence test is on the PARENT DIRECTORY, not on the file. Review of this change caught the
-  # first version testing `-e "$FILE_PATH"`, which is false for exactly the case `Write` exists to
-  # serve: a file being CREATED. A brand-new file inside a symlinked directory skipped the whole
-  # block and reached the store unrefused. The directory is what carries the symlink — pnpm links
-  # DIRECTORIES — and it is already there whether or not the file is.
+  # The existence test walks UP to the NEAREST EXISTING ANCESTOR. Review of this change reported the
+  # same defect twice, one level apart. The first version tested `-e "$FILE_PATH"`, false for exactly
+  # what `Write` exists to do — create a file that is not there yet — so a new file inside a
+  # symlinked directory skipped the block entirely. Moving the test to `-d "$PARENT"` fixed that one
+  # and left the next depth down: a write into a subdirectory that does not exist YET, under the
+  # directory that carries the link. Its parent does not exist either, so the block is skipped again
+  # — and the write still lands in the store.
   #
-  # The test that was supposed to cover this pre-created the target with `writeFileSync`, so it
-  # proved the resolution worked on a path that did not need it. That is the more useful half of the
-  # finding: the case existed and was measuring the wrong thing.
+  # An ancestor is what CARRIES the symlink — pnpm links DIRECTORIES — and some ancestor always
+  # exists, so that is the level the test belongs at and the level at which it cannot recede again.
+  # The unresolved tail is carried along and re-appended, so the reported path is the one asked for.
+  #
+  # The test that was supposed to cover the first case pre-created its target with `writeFileSync`,
+  # so it proved resolution worked on a path that did not need it. That is the more useful half of
+  # the finding, and it is why each depth below is now a case of its own.
   #
   # `cd` + `pwd -P` rather than `readlink -f`: the `-f` form is GNU-only and fails unhelpfully on
   # BSD/macOS, which `shell-portability` refuses (see "Host Platform Is Read, Never Assumed"). `pwd
   # -P` is POSIX and resolves the DIRECTORY chain, which is the level pnpm's symlinks live at.
-  PARENT=$(dirname -- "$FILE_PATH")
-  if [[ -d "$PARENT" ]]; then
-    RESOLVED=$( (cd "$PARENT" 2>/dev/null && printf '%s/%s' "$(pwd -P)" "$(basename -- "$FILE_PATH")") || printf '')
+  ANCESTOR=$(dirname -- "$FILE_PATH")
+  TAIL=$(basename -- "$FILE_PATH")
+  while [[ ! -d "$ANCESTOR" && "$ANCESTOR" != "/" && "$ANCESTOR" != "." ]]; do
+    TAIL="$(basename -- "$ANCESTOR")/$TAIL"
+    ANCESTOR=$(dirname -- "$ANCESTOR")
+  done
+  if [[ -d "$ANCESTOR" ]]; then
+    RESOLVED=$( (cd "$ANCESTOR" 2>/dev/null && printf '%s/%s' "$(pwd -P)" "$TAIL") || printf '')
     if [[ -n "$RESOLVED" ]] && printf '%s' "$RESOLVED" | grep -qE "$STORE_SEGMENT_RE"; then
       refuse_path "$FILE_PATH -> $RESOLVED"
     fi
