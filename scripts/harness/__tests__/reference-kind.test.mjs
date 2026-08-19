@@ -129,3 +129,47 @@ describe('what the first run corrected', () => {
     expect(unqualifiedReferences('```\n#1\n```\nsee #1884').map((f) => f.number)).toEqual([1884]);
   });
 });
+
+describe('INFRA-122 (issue #1913): one qualifier governing several references', () => {
+  it('accepts a range written with a hyphen', () => {
+    expect(unqualifiedReferences('Measured over PRs #1525-#1530: twelve runs')).toEqual([]);
+  });
+
+  it('accepts a range written with an en dash, which is what this repository uses', () => {
+    // A check that only knew the hyphen would be right about the form nobody writes.
+    expect(unqualifiedReferences('Measured over PRs #1525–#1530: twelve runs')).toEqual([]);
+  });
+
+  it('accepts a comma list, with and without a closing conjunction', () => {
+    expect(unqualifiedReferences('claimed by issues #1899, #1903, #1904')).toEqual([]);
+    expect(unqualifiedReferences('claimed by issues #1899, #1903 and #1904')).toEqual([]);
+  });
+
+  it('accepts `A and B` and `A to B`', () => {
+    expect(unqualifiedReferences('pull requests #10 and #12')).toEqual([]);
+    expect(unqualifiedReferences('issues #10 to #12')).toEqual([]);
+  });
+
+  it('still refuses a second reference separated by a VERB', () => {
+    // The point is to recognise a phrase, not to forgive proximity. A verb between them means the
+    // second is a different claim, and treating nearness as governance would let a real bare
+    // reference hide behind an unrelated qualified one on the same line.
+    expect(unqualifiedReferences('PR #10 broke #12')).toHaveLength(1);
+    expect(unqualifiedReferences('PR #10 supersedes #12')).toHaveLength(1);
+  });
+
+  it('still refuses a second reference in a new sentence', () => {
+    expect(unqualifiedReferences('issue #10. Also #12')).toHaveLength(1);
+    expect(unqualifiedReferences('issue #10; #12 is separate')).toHaveLength(1);
+  });
+
+  it('does not let an UNqualified first member govern the rest', () => {
+    // Chaining carries a qualifier forward; it does not invent one.
+    expect(unqualifiedReferences('See #10 and #12')).toHaveLength(2);
+    expect(unqualifiedReferences('#10-#12 are open')).toHaveLength(2);
+  });
+
+  it('breaks the chain when a word stands between the members', () => {
+    expect(unqualifiedReferences('issue #10 and a bare #12')).toHaveLength(1);
+  });
+});

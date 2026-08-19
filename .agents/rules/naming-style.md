@@ -30,6 +30,19 @@ it in one paragraph — and a reader who cannot tell them apart has to open one 
 issue #123          PR #456          pull request #456
 ```
 
+One qualifier governs a whole phrase. A range, a comma list, and an `A and B` pair are one thing a
+reader resolves without opening anything, so the qualifier before the first member covers the rest:
+
+```text
+PRs #1525–#1530          issues #10, #12 and #14          pull requests #10 to #12
+```
+
+The chain breaks at anything that is not a separator — a verb, a new sentence, an intervening word.
+`PR #10 broke #12` stays two references, because the second is a different claim and treating
+nearness as governance would let a bare reference hide behind an unrelated qualified one on the same
+line. Chaining also carries a qualifier forward; it never invents one, so `See #10 and #12` is two
+findings.
+
 Exempt: a GitHub closing keyword (`Closes #N`), which GitHub parses in that exact shape and which the
 promotion tooling depends on; an identifier inside a fenced block or code span, which is a specimen
 rather than a claim; and a link target.
