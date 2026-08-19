@@ -16,6 +16,7 @@ import { announceLocalPeerPresence } from '../remote-control/local-peer-presence
 import { startLocalPeerMessaging } from '../remote-control/local-peer-messaging.js';
 
 import type { ILocalPeerPresence } from '../remote-control/local-peer-presence.js';
+import type { IPeerMessaging } from '../remote-control/local-peer-messaging.js';
 import type { ITurnHandle } from '@robota-sdk/agent-interface-transport';
 
 /** The one session operation peer messaging needs — narrow, so this file cannot grow a second one. */
@@ -134,10 +135,47 @@ export function attachLocalPeerMessaging(
   getSession: () => IPeerIngressSession,
   report: IAdapterReporter,
   start: typeof startLocalPeerMessaging = startLocalPeerMessaging,
-): Promise<void> {
+  previous?: Promise<IPeerMessaging | undefined>,
+): Promise<IPeerMessaging | undefined> {
   const adapter = adapters.localPeers;
-  if (presence === undefined || adapter === undefined) return Promise.resolve();
+  if (presence === undefined || adapter === undefined) return Promise.resolve(undefined);
 
+  // The PREVIOUS listener is closed before a new one binds. `onChannelReady` fires again on every
+  // session switch — render.tsx says so on the call itself — and the socket path is derived from the
+  // session id, which does not change. `listenForPeerMessages` unlinks the path before binding, so a
+  // second bind SUCCEEDS and the first server is simply orphaned: a listener and its fd per switch,
+  // leaking silently because nothing errors.
+  return closeQuietly(previous, report).then(() =>
+    startMessaging(adapter, presence, getSession, report, start),
+  );
+}
+
+/** Close a prior listener without letting its failure block the new one. */
+async function closeQuietly(
+  previous: Promise<IPeerMessaging | undefined> | undefined,
+  report: IAdapterReporter,
+): Promise<void> {
+  if (previous === undefined) return;
+  try {
+    await (await previous)?.close();
+  } catch (error) {
+    // A listener that cannot be closed is worth saying out loud — it is the leak this guard exists
+    // to prevent — but it must not stop the new one from binding, or a single bad close would end
+    // peer messaging for the rest of the process.
+    report.writeError(
+      `A previous local peer listener could not be closed: ` +
+        `${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+function startMessaging(
+  adapter: NonNullable<ICommandHostAdapters['localPeers']>,
+  presence: ILocalPeerPresence,
+  getSession: () => IPeerIngressSession,
+  report: IAdapterReporter,
+  start: typeof startLocalPeerMessaging,
+): Promise<IPeerMessaging | undefined> {
   return start({
     guardedDirectory: presence.guardedDirectory,
     sessionId: presence.sessionId,
@@ -159,12 +197,14 @@ export function attachLocalPeerMessaging(
         const ack = await messaging.send(targetSessionId, text);
         return { state: ack.state, ...(ack.reason !== undefined ? { reason: ack.reason } : {}) };
       };
+      return messaging;
     },
     (error: unknown) => {
       report.writeError(
         `Local peer messaging is off for this session, though discovery is on: ` +
           `${error instanceof Error ? error.message : String(error)}`,
       );
+      return undefined;
     },
   );
 }
@@ -187,10 +227,22 @@ export function attachHostAdapters(
   adapters.remoteControl = buildRemoteControlHostAdapter(controller);
   const presence = attachLocalPeerDiscovery(adapters, report, announce);
   // Returns the ACTIVATOR rather than the presence, so the composition root names one thing and
-  // never learns what messaging needs from it. `void` on the promise is deliberate: channel-ready is
-  // a synchronous notification, and every failure inside is already reported to the operator.
-  return (channel) =>
-    void attachLocalPeerMessaging(adapters, presence, () => channel.getSession(), report);
+  // never learns what messaging needs from it.
+  //
+  // The handle is carried across calls because channel-ready fires AGAIN on every session switch.
+  // Threading it here rather than inside the attach keeps that state owned by the thing whose
+  // lifetime it matches — one activator per process — instead of a module-level variable.
+  let running: Promise<IPeerMessaging | undefined> | undefined;
+  return (channel) => {
+    running = attachLocalPeerMessaging(
+      adapters,
+      presence,
+      () => channel.getSession(),
+      report,
+      startLocalPeerMessaging,
+      running,
+    );
+  };
 }
 
 /** Delay before delivering the shutdown signal, so the command result renders first. */

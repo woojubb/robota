@@ -147,3 +147,89 @@ describe('PEER-006 — messaging is attached separately from discovery', () => {
     expect(started).toBe(false);
   });
 });
+
+describe('PEER-006 — a session switch does not leak a listener', () => {
+  const PRESENCE2 = {
+    sessionId: 'me',
+    guardedDirectory: '/tmp/does-not-matter',
+    list: () => [],
+    withdraw: () => {},
+  };
+
+  it('closes the previous listener before starting the next one', async () => {
+    // `onChannelReady` fires again on every session switch — render.tsx says so on the call itself
+    // — and the socket path is derived from the session id, which does not change. The listener
+    // unlinks the path before binding, so a second bind SUCCEEDS and the first server is orphaned:
+    // nothing errors, and a listener plus its fd accumulates per switch.
+    const adapters: ICommandHostAdapters = {};
+    const closed: number[] = [];
+    let started = 0;
+    const start = (async () => {
+      const id = ++started;
+      return {
+        socketPath: `/tmp/${id}.sock`,
+        send: async () => ({ id: '1', sequence: 1, state: 'acknowledged' as const }),
+        close: async () => {
+          closed.push(id);
+        },
+      };
+    }) as never;
+
+    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE2);
+    const first = await attachLocalPeerMessaging(
+      adapters,
+      PRESENCE2,
+      () => ({}) as never,
+      reporter(),
+      start,
+    );
+    await attachLocalPeerMessaging(
+      adapters,
+      PRESENCE2,
+      () => ({}) as never,
+      reporter(),
+      start,
+      Promise.resolve(first),
+    );
+
+    expect(started).toBe(2);
+    expect(closed).toEqual([1]);
+  });
+
+  it('still starts the new listener when closing the old one throws', async () => {
+    // A single bad close must not end peer messaging for the rest of the process.
+    const adapters: ICommandHostAdapters = {};
+    const messages: string[] = [];
+    const report = { writeError: (message: string) => messages.push(message) };
+    let started = 0;
+    const start = (async () => {
+      started += 1;
+      return {
+        socketPath: '/tmp/x.sock',
+        send: async () => ({ id: '1', sequence: 1, state: 'acknowledged' as const }),
+        close: async () => {},
+      };
+    }) as never;
+
+    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE2);
+    const stubborn = Promise.resolve({
+      socketPath: '/tmp/old.sock',
+      send: async () => ({ id: '1', sequence: 1, state: 'acknowledged' as const }),
+      close: async () => {
+        throw new Error('the socket would not release');
+      },
+    }) as never;
+
+    await attachLocalPeerMessaging(
+      adapters,
+      PRESENCE2,
+      () => ({}) as never,
+      report,
+      start,
+      stubborn,
+    );
+
+    expect(started).toBe(1);
+    expect(messages.join('\n')).toContain('would not release');
+  });
+});
