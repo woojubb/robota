@@ -76,6 +76,7 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 
+import { enumerateFiles } from './enumerate-files.mjs';
 import { loadHarnessConfig } from './harness-config.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 import * as ts from './lib/ts-ast.mjs';
@@ -363,15 +364,10 @@ export function pickedFields(content, fileName, sourceInterface, sourceFieldName
  * keeps this to the handful of files that mention the source type at all.
  */
 function discoverPicks(root, sourceInterface, settings, sourceFieldNames) {
-  const files =
-    settings.trackedFiles ??
-    execFileSync('git', ['ls-files', 'packages', 'apps'], {
-      cwd: root,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-    })
-      .split('\n')
-      .filter((f) => f.endsWith('.ts') || f.endsWith('.tsx') || f.endsWith('.mts'));
+  // INFRA-121 — through the shared owner, so a source written and not yet staged is judged too.
+  const files = (
+    settings.trackedFiles ?? enumerateFiles(['packages', 'apps'], { cwd: root })
+  ).filter((f) => f.endsWith('.ts') || f.endsWith('.tsx') || f.endsWith('.mts'));
 
   const picks = [];
   for (const file of files) {

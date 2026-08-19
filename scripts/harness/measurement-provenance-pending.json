@@ -8,6 +8,7 @@
     "scripts/harness/check-spec-whitebox-leakage.mjs",
     "scripts/harness/check-stub-markers.mjs",
     "scripts/harness/check-workspace-refs.mjs",
+    "scripts/harness/enumerate-files.mjs",
     "scripts/harness/loop-economics.mjs",
     "scripts/harness/promotion-closes.mjs",
     "scripts/harness/scan-aggregate-naming.mjs",
