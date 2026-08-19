@@ -60,9 +60,11 @@ export type {
   ICommandPermissionModeAdapter,
   ICommandPickerAdapter,
   ICommandProcessAdapter,
+  ICommandLocalPeersAdapter,
   ICommandRemoteControlAdapter,
   ICommandSettingsAdapter,
   ICommandSettingsDocument,
+  ILocalPeerSummary,
   TRemoteControlStatus,
 } from './host-adapters.js';
 export type {

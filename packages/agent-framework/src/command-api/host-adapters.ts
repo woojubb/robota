@@ -69,10 +69,37 @@ export interface ICommandRemoteControlAdapter {
   stop?(): string | Promise<string>;
 }
 
+/**
+ * PEER-004 (#1863): a live session this one can address, as the operator sees it.
+ *
+ * Display data only. `sessionId` names the peer for a later `send`; `liveness` is carried rather
+ * than filtered so the operator can tell "I could not determine" from "not running" — a host with no
+ * way to read process start times answers `unknown`, and collapsing that into either verdict would
+ * be the guess the registry refuses to make.
+ */
+export interface ILocalPeerSummary {
+  readonly sessionId: string;
+  readonly name?: string;
+  readonly liveness: 'alive' | 'dead' | 'unknown';
+}
+
+/**
+ * PEER-004: what `/peers` reads. The registry, the guarded directory and the liveness rule all live
+ * in the composition root — a command never touches the filesystem, for the same reason it never
+ * constructs a transport.
+ */
+export interface ICommandLocalPeersAdapter {
+  /** Every announced session, this one included. Ordering is the adapter's. */
+  list(): readonly ILocalPeerSummary[];
+  /** This session's own id, so the command can mark which row is the reader. */
+  ownSessionId(): string;
+}
+
 export interface ICommandHostAdapters {
   settings?: ICommandSettingsAdapter;
   process?: ICommandProcessAdapter;
   permissionMode?: ICommandPermissionModeAdapter;
   plugin?: ICommandPluginAdapter;
   remoteControl?: ICommandRemoteControlAdapter;
+  localPeers?: ICommandLocalPeersAdapter;
 }

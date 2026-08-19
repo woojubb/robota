@@ -53,7 +53,14 @@ import type { IPreset } from '@robota-sdk/agent-preset';
 
 /* ── PRE-CHANGE BASELINE (captured from the hand-wired root before the collapse) ──────────────────── */
 
-/** The full command-module set `startCli` assembled with no preset delta: defaults + `/workflows`. */
+/**
+ * The full command-module set `startCli` assembled with no preset delta: defaults + `/workflows`.
+ *
+ * This is a SET equality, not a floor, so a module added on purpose is recorded here in the same
+ * change that adds it — which is the point: the baseline exists to make an accidental gain or loss
+ * visible, and an entry appearing without a reason in the diff is the thing it catches.
+ * `agent-command-peers` was added by PEER-004 (issue #1863).
+ */
 const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-skills',
   'agent-command-help',
@@ -79,6 +86,7 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-statusline',
   'agent-command-plugin',
   'agent-command-settings',
+  'agent-command-peers',
   'agent-command-remote-control',
   'agent-command-provider',
   'agent-command-workflows',
