@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-transport",
   "version": "3.0.0-beta.79",
-  "description": "Core transport package for Robota SDK — headless adapter, scripted-provider testing fixtures, and the transport registry",
+  "description": "Core transport package for Robota SDK \u2014 headless adapter, scripted-provider testing fixtures, and the transport registry",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -74,7 +74,7 @@
     "build": "tsdown",
     "build:js": "tsdown --no-dts",
     "build:types": "tsdown --dts",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-session-event-delivery.ts",

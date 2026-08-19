@@ -53,7 +53,7 @@
     "scenario:verify:runtime-session-store": "pnpm exec tsx --conditions=source examples/verify-agent-runtime-session-store.ts",
     "scenario:verify:prompt-resolution": "pnpm exec tsx --conditions=source examples/verify-prompt-request-resolution.ts",
     "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-framework --output examples/scenarios/framework-offline-scenarios.record.json -- pnpm scenario:verify",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit",
     "lint": "eslint src/ --ext .ts",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh",

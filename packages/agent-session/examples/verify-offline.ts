@@ -15,9 +15,11 @@ class MockAIProvider extends AbstractAIProvider {
     const content = typeof last?.content === 'string' ? last.content : '';
 
     return {
+      id: `example-${Date.now()}-2`,
       role: 'assistant',
       content: `session:${content}`,
       timestamp: new Date(),
+      state: 'complete',
     };
   }
 
@@ -26,14 +28,25 @@ class MockAIProvider extends AbstractAIProvider {
     _options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage> {
     yield {
+      id: `example-${Date.now()}-3`,
       role: 'assistant',
       content: 'session-stream',
       timestamp: new Date(),
+      state: 'complete',
     };
   }
 }
 
 const silentTerminal: ITerminalOutput = {
+  writeError(_text: string): void {},
+  async prompt(): Promise<string> {
+    // A silent example terminal answers nothing rather than blocking; `ITerminalOutput` requires the
+    // member, and a stub that omitted it only compiled because nothing typechecked this directory.
+    return '';
+  },
+  async select(_options: string[], initialIndex = 0): Promise<number> {
+    return initialIndex;
+  },
   write(_text: string): void {},
   writeLine(_text: string): void {},
   writeMarkdown(_md: string): void {},
