@@ -52,9 +52,9 @@ Two separable things, and this item does only the first:
 
 1. **The break** — `readSystemMessage` becomes `async` and awaits, and its four call sites await it.
    That is the whole fix; nothing else about the scenario changes.
-2. **The gap** — bringing `packages/*/examples/` under a typecheck. Filed separately, because it is a
-   nine-package change whose blast radius has to be measured against a full declaration build before
-   anyone can say what it costs, and develop is red NOW.
+2. **The gap** — bringing `packages/*/examples/` under a typecheck. Filed as issue #1902, because it
+   is a nine-package change whose blast radius has to be measured against a full declaration build
+   before anyone can say what it costs, and develop is red NOW.
 
 ## Plan
 
@@ -63,7 +63,7 @@ Two separable things, and this item does only the first:
       attributed to the right change.
 - [x] TC-03: the real frame was established by unmasking it, not by inference.
 - [x] TC-04: `pnpm harness:pre-push` is green.
-- [ ] TC-05: the typecheck gap is filed as its own issue.
+- [x] TC-05: opened issue #1902 for the typecheck gap, with the measured scope it needs.
 
 ## Test Plan
 
