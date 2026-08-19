@@ -9,7 +9,12 @@ import type {
   ICommandHostUserInteraction,
 } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
-import type { IPresetRegistry } from '@robota-sdk/agent-preset';
+import type {
+  IPreset,
+  IPresetRegistry,
+  IPresetSummary,
+  IResolvedPresetOptions,
+} from '@robota-sdk/agent-preset';
 
 /**
  * ARCH-009 — the registry `/preset` discovers through.
@@ -28,7 +33,16 @@ import type { IPresetRegistry } from '@robota-sdk/agent-preset';
 function presetRegistry(context: ICommandHostAdapterAccess): IPresetRegistry {
   const supplied = context.getCommandHostAdapters?.().presetRegistry;
   if (supplied === undefined) return createPresetRegistry();
-  return supplied as unknown as IPresetRegistry;
+  // The adapter states its returns loosely, so `agent-framework` need not name `agent-preset`'s
+  // contract to carry a value it only hands along. Narrowing happens HERE, once, in the one file
+  // where both types are in scope — rather than with a blind `as unknown as`, which asserts a whole
+  // shape nothing looked at and would hide a registry that stopped satisfying it.
+  return {
+    listPresets: () => supplied.listPresets() as readonly IPresetSummary[],
+    getPreset: (id) => supplied.getPreset(id) as IPreset | undefined,
+    resolvePreset: (id, resolveContext) =>
+      supplied.resolvePreset(id, resolveContext) as IResolvedPresetOptions,
+  };
 }
 
 /** Default active preset id reported when the runtime has no recorded active preset. */
