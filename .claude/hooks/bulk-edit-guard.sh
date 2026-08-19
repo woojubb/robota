@@ -179,6 +179,24 @@ cmd_flag() {
     END { exit(found ? 0 : 1) }'
 }
 
+# The store name as a PATH SEGMENT, for the awk-side rules. Same anchoring as `STORE_SEGMENT_RE`,
+# spelled for awk because a shell variable does not reach inside the program text.
+STORE_IN_AWK='function is_store(w) { return w ~ /(^|\/)(node_modules|\.pnpm)(\/|$)/ }'
+
+# A copying command whose DESTINATION names the store. `dd` states its destination as `of=`; the rest
+# take it as the last non-flag word, so the SOURCE may be anywhere, including inside the store.
+segment_copies_into_store() {
+  segments | awk "$(basename_of) $STORE_IN_AWK"'
+    function reset() { copier = 0; dest = "" }
+    function flush() { if (copier && dest != "" && is_store(dest)) found = 1; reset() }
+    BEGIN { reset() }
+    $0 == "\034" { flush(); next }
+    base($0) == "cp" || base($0) == "mv" || base($0) == "rsync" || base($0) == "install" || base($0) == "dd" { copier = 1; next }
+    copier && $0 ~ /^of=/ { d = $0; sub(/^of=/, "", d); if (is_store(d)) found = 1; next }
+    copier && $0 !~ /^-/ { dest = $0 }
+    END { flush(); exit(found ? 0 : 1) }'
+}
+
 # An in-place editor and a store path standing in ONE segment. See the note on the rule above for
 # what the segment scope is correcting.
 segment_has_editor_and_store_path() {
@@ -220,6 +238,19 @@ fi
 # conjunction from a coincidence. Reported in review of this change.
 if segment_has_editor_and_store_path; then
   refuse_path "an in-place editor is given a path naming node_modules or .pnpm"
+fi
+
+# A COPY whose destination is inside the store. Reported in review of this change: the redirect and
+# in-place-editor rules cover two ways of writing content, and `cp`, single-file `mv`, `rsync`,
+# `install` and `dd` are a third — `cp dist/patched.js …/node_modules/lodash/index.js` lands in the
+# hard-linked store exactly as this file's rationale describes, and matched nothing.
+#
+# Judged on the DESTINATION, like the redirect. That is what keeps the reinstall idioms working:
+# `mv node_modules /tmp/backup` and `cp -r node_modules /tmp/x` READ from the store and write outside
+# it, so they pass; `mv node_modules node_modules.bak` passes because the name is anchored on a
+# separator. Only a write INTO the store is refused.
+if segment_copies_into_store; then
+  refuse_path "a copy's destination is inside node_modules or .pnpm"
 fi
 
 # --- 3. The four measured symlink-following enumerators ------------------------------------------

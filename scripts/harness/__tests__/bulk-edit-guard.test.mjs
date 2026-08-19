@@ -60,6 +60,34 @@ describe('a file-writing tool naming the dependency store', () => {
     expect(write('packages/agent-cli/src/remote-control/local-peer-registry.ts').status).toBe(0);
   });
 
+  it.each([
+    ['cp', 'cp dist/patched-index.js packages/a/node_modules/.pnpm/lodash@4.17.21/x.js'],
+    ['mv', 'mv src/a.ts packages/a/node_modules/b/x.ts'],
+    ['rsync', 'rsync -a dist/ packages/a/node_modules/b/'],
+    ['install', 'install -m 644 x.js node_modules/pkg/x.js'],
+    ['dd', 'dd if=/dev/zero of=node_modules/pkg/x.bin'],
+  ])('refuses %s when its DESTINATION is inside the store', (_name, command) => {
+    // Reported in review of this change. A redirect and an in-place editor are two ways of writing
+    // content; a copy is a third, and it landed in the hard-linked store while matching no rule.
+    expect(bash(command).status).toBe(2);
+  });
+
+  it.each([
+    ['the reinstall idiom', 'rm -rf node_modules && pnpm install'],
+    ['moving the store aside', 'mv node_modules /tmp/backup'],
+    ['renaming the store', 'mv node_modules node_modules.bak'],
+    ['copying OUT of the store', 'cp -r node_modules /tmp/x'],
+    ['an ordinary copy', 'cp dist/a.js packages/app/src/a.js'],
+    [
+      'a directory that only contains the letters',
+      'cp dist/a.js packages/app/my_node_modules/a.js',
+    ],
+  ])('permits %s', (_name, command) => {
+    // The copy rule is judged on the DESTINATION for exactly this reason: every one of these READS
+    // from the store or writes past it, and refusing them is how a guard earns its ack being pasted.
+    expect(bash(command).status).toBe(0);
+  });
+
   it('attributes a flag to an ABSOLUTE-PATH invocation of the same command', () => {
     // Reported in review of this change. `$0 == CMD` was a literal match, so `/usr/bin/find -L …`
     // set nothing and its `-L` was attributed to no command at all — while the committed-script scan,
