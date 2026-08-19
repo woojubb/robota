@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-107: action-references probes an anonymous endpoint, so a shared CI address turns it red'
-status: in-progress
+status: done
 created: 2026-08-19
+completed: 2026-08-20
 priority: high
 urgency: now
 area: scripts/harness
