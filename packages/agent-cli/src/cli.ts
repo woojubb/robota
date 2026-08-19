@@ -24,7 +24,7 @@ import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
 import { resolveShellPreset } from './startup/preset-selection.js';
 import type { IShellPresetResolution } from './startup/preset-selection.js';
-import { DEFAULT_AGENT_NAME, getPreset, loadExternalPresets } from '@robota-sdk/agent-preset';
+import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-preset';
 import { buildPresetSurfaceOptions } from './startup/preset-surface-options.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
 import { createRobotaProfile } from './product/robota-profile.js';
@@ -166,23 +166,21 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     process.exit(1);
   }
 
-  // PRESET-002/004/007/011 + ARCH-008: the shell's ONE preset resolution. `loadExternalPresets` reads
-  // `~/.robota/presets/*.json` (per-file problems are warnings, never fatal) and also registers them into
-  // agent-preset's module-global registry — which is now the in-session `/preset` DISCOVERY surface only,
-  // NOT this resolution path. `resolveShellPreset` builds the kernel's per-call registry (R8) over the
-  // same loaded presets and resolves the selected id over it, returning registry + id + override context
-  // as one value that travels whole into the profile, so `assembleProduct` adopts that same registry. Both
-  // surfaces come from this one load, so they cannot disagree (anti-split gate). Resolved before command
-  // setup so the preset's module-selection delta can reach createDefaultCommandModules.
+  // PRESET-002/004/007/011 + ARCH-008/ARCH-009: the shell's ONE preset resolution. `loadExternalPresets`
+  // reads `~/.robota/presets/*.json` (per-file problems are warnings, never fatal) and REGISTERS NOTHING —
+  // it returns the presets it loaded. `resolveShellPreset` builds the kernel's per-call registry (R8) over
+  // them and resolves the selected id over it, returning registry + id + override context as one value that
+  // travels whole into the profile, so `assembleProduct` adopts that same registry and surfaces it on the
+  // command host — which is where in-session `/preset` discovery reads it. One registry, one load, no
+  // process state: the two surfaces cannot disagree because there is only one of them. Resolved before
+  // command setup so the preset's module-selection delta can reach createDefaultCommandModules.
   const userSettings = readSettings(getUserSettingsPath());
   const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
   const externalPresetLoad = loadExternalPresets();
   for (const { file, error } of externalPresetLoad.errors) {
     terminal.writeError(`Skipped external preset "${file}": ${error}`);
   }
-  const externalPresets = externalPresetLoad.loaded
-    .map((id) => getPreset(id))
-    .filter((entry): entry is IPreset => entry !== undefined);
+  const externalPresets: readonly IPreset[] = externalPresetLoad.presets;
   let preset: IShellPresetResolution;
   try {
     preset = resolveShellPreset(externalPresets, args, settingsPreset);

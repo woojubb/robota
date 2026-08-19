@@ -129,8 +129,6 @@
   ".agents/specs/harness-composition-design.md": 1,
   ".agents/specs/harness-composition-inventory.md": 4,
   ".agents/tasks/AGREEMENT-002-complete-august-13-agent-architecture-findings.md": 1,
-  ".agents/tasks/ARCH-034-in-process-and-child-process-subagents-get-different-tool-surfaces.md": 1,
-  ".agents/tasks/ARCH-039-sdk-public-surface-scan-covers-one-package.md": 2,
   ".agents/tasks/CLI-034-plugin-publish-one-official.md": 1,
   ".agents/tasks/HANDOFF-001-cross-device-session-transfer.md": 5,
   ".agents/tasks/HARNESS-049-rule-to-skill-agent-refactor.md": 10,

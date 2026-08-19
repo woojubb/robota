@@ -195,6 +195,20 @@ export interface ICreateSessionOptions {
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
   /**
+   * ARCH-033: the NAME a child process uses to rebuild a sandbox like this one.
+   *
+   * A live client cannot cross a process boundary. `(type, snapshotId)` can: the type selects a
+   * factory the composition root registered on the worker side, and the snapshot is a provider-owned
+   * reference `sandboxClient.snapshot()` returned. Carried beside the client rather than derived
+   * from it, because a client's class name is not a registry key and guessing one would be the
+   * silent half-capability this is here to prevent.
+   *
+   * Absent alongside a `sandboxClient` ⇒ the sandbox does NOT cross to a child-process subagent, and
+   * `assertChildProcessSubagentsCanReproduce` says so at the composition root rather than letting a
+   * child run un-sandboxed while looking sandboxed.
+   */
+  sandboxType?: string;
+  /**
    * SELFHOST-003: optional codebase-retrieval adapter (built from a surface-supplied source parser +
    * corpus). When present, the adapter-gated `CodebaseRetrieval` tool joins the default set; absent otherwise.
    */

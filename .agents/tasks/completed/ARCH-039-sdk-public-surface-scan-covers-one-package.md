@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-039: check-sdk-public-surface only reads agent-framework, so the published surface of every other package is ungoverned'
-status: todo
+status: done
+completed: 2026-08-19
 created: 2026-08-17
 priority: medium
 urgency: soon
@@ -24,7 +25,7 @@ family, the provider packages, `agent-subagent-runner` — has no equivalent flo
 re-export placed in the wrong package, or a symbol published from a package that should not own it,
 is visible in exactly one package's diff and invisible in all the others.
 
-The refutation of #1764's item 1 is what makes this worth filing rather than dropping. That item
+The refutation of issue #1764's item 1 is what makes this worth filing rather than dropping. That item
 proposed removing three `agent-core` re-exports from `agent-interface-transport`. ARCH-037 then
 measured them one by one, and they did not turn out alike: `IActionRequest` and
 `TBackgroundPermissionPolicy` had no consumer that needed a hub and were REMOVED, while
@@ -33,7 +34,7 @@ import `agent-core` directly, which `.agents/project-structure.md` forbids for b
 of the three is the interface hub the layering requires. What remains true is the reason someone looked: **nothing tells you whether a given
 re-export is the required hub or an accident**, in any package but one.
 
-## Why this is its own item and not a line in #1764
+## Why this is its own item and not a line in issue #1764
 
 Widening the scan will almost certainly surface findings across several packages at once. Some will
 be genuine misplacements, and some will be the same shape as the three re-exports above — structural
@@ -125,6 +126,53 @@ deletion nothing stops from growing back.
   (Two more places refer to this item in prose rather than as a label — `PUBLIC-SURFACE.md` and the
   framework SPEC — so a grep for the label form finds two, not four. Update those too.)
 - `agent-command`'s 27 star exports are handled as their own burn-down, not folded in here.
+
+## Result
+
+Delivered. Both halves, and each surfaced something the item had not predicted.
+
+**Per symbol.** `SDK_UNREACHABLE_ELSEWHERE_FILES` became
+`SDK_UNREACHABLE_ELSEWHERE_SYMBOLS`: a file no longer earns a blanket grant, it earns NAMES. The
+narrowing followed immediately — the ten-name block is one name, `IBackgroundTaskRunner`, the only one
+measured to have an external importer.
+
+Removing the nine exposed who the consumer actually was: nine typecheck errors, every one inside
+`agent-framework`, because its own public barrel re-published them. The barrel was the only thing
+asking for names nothing outside had ever imported. Those went too, along with three phantom rows in
+the package SPEC that advertised them.
+
+`export *` inside a permitted file is refused rather than trusted — its names cannot be read from that
+file, so trusting it would reinstate the per-file grant under another spelling.
+
+**Every publishable package.** 32 examined, `private: true` excluded. A package with no exports map
+contributes no roots instead of throwing: that throw was right for one package and would have turned a
+package's shape into an infrastructure failure across 31.
+
+**A defect of the scan's own, found before any debt.** Local re-exports resolved against a hard-coded
+`agent-framework/src`, so every other package's own files read as unresolvable — 233 findings that
+were a bug, not debt. Containment is the file's own package now, and 233 fell to 1.
+
+**The debt, frozen per package.** 105 findings across 13 packages, 98 of them `export *` barrels —
+matching this item's own TC-02 measurement of 98. May only shrink. A package absent from the map must
+be clean, which is what stops the debt spreading to packages that do not carry it today.
+
+### Test plan outcomes
+
+- **TC-01** — the fixtures separate a permitted name from an unearned one in the SAME file, which the
+  per-file grant could not express. 18 cases pass.
+- **TC-02** — 105 findings / 13 packages / 98 `export *`, reproducing the measurement recorded above.
+- **TC-03** — red-proved: tightening one package's frozen value by one fires `sdk-public-surface-grew`;
+  adding an `export *` to a clean package fires it too.
+- **TC-04** — `agent-interface-transport` stays green and nothing demands back the two names ARCH-037
+  removed.
+- **TC-05** — 126 scans pass; typecheck 0.
+- **TC-06** — red-proved: an eleventh name beside the earned one is reported.
+- **TC-07** — `IBackgroundTaskRunner` survives the narrowing.
+
+### Not folded in
+
+`agent-command`'s 27 star exports remain its own burn-down, as this item said they should be. They are
+frozen at 27 and cannot grow.
 
 ## Test Plan
 

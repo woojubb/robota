@@ -1,6 +1,11 @@
 /**
- * @robota-sdk/agent-preset — IPreset contract, the `resolvePreset` precedence merger,
- * and built-in preset definitions. Depends only on `@robota-sdk/agent-framework` (option types).
+ * @robota-sdk/agent-preset — IPreset contract, the instance-scoped preset registry and its
+ * precedence merger, and built-in preset definitions. Depends only on `@robota-sdk/agent-framework`
+ * (option types).
+ *
+ * ARCH-009 removed the module-global registry (`registerExternalPresets`, `clearExternalPresets`,
+ * and the process-wide `resolvePreset`/`listPresets`/`getPreset`). Every reader now comes from a
+ * registry someone constructed and owns — `createPresetRegistry()` with no argument is the built-ins.
  */
 
 export type {
@@ -18,12 +23,8 @@ export { autonomousBuilderPreset } from './presets/autonomous-builder.js';
 
 export {
   DEFAULT_AGENT_NAME,
-  resolvePreset,
   createPresetRegistry,
-  listPresets,
-  getPreset,
-  registerExternalPresets,
-  clearExternalPresets,
+  partitionExternalPresets,
 } from './resolve-preset.js';
 
 export type {

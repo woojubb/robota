@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_AGENT_NAME, getPreset, listPresets, resolvePreset } from '../resolve-preset.js';
+import { DEFAULT_AGENT_NAME, createPresetRegistry } from '../resolve-preset.js';
+
+// ARCH-009 removed the module-global readers. The built-ins are what a registry constructed with no
+// external presets holds, which is exactly what these cases were always about — the difference is
+// that the list is now this test's, not the process's.
+const { resolvePreset, listPresets, getPreset } = createPresetRegistry();
 
 import type { IPreset, IResolvedPresetOptions } from '../preset-types.js';
 import type { IPresetApplicationOptions } from '@robota-sdk/agent-framework';

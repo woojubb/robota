@@ -15,6 +15,7 @@ import {
 import { getBuiltInAgent } from '@robota-sdk/agent-framework';
 import { DEFAULT_KILL_GRACE_MS } from '@robota-sdk/agent-process';
 
+import { projectSandbox, projectSessionTiers } from './child-process-subagent-projection.js';
 import {
   createCancellationResult,
   createChildProcessSubagentResult,
@@ -164,13 +165,30 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     };
   }
 
-  private createStartPayload(job: ISubagentJobStart): ISubagentWorkerStartPayload {
+  /**
+   * The payload the child is started with — ASYNC, because projecting the parent's sandbox means
+   * asking it for a snapshot and `snapshot()` returns a promise.
+   *
+   * Review of ARCH-033/ARCH-034 found this method building neither `sessionTiers` nor
+   * `sandboxProjection`: both were declared on the wire type and read by the worker, and nothing
+   * ever set them, so every spawned child ran with `sessionTiers: undefined` and no sandbox. The
+   * tests missed it because they called `composition.createTools()` directly — the worker's half —
+   * and this is the only production site that constructs a payload. A field the worker reads and no
+   * producer writes is a capability that cannot be turned on, which is the same defect ARCH-033 was
+   * filed for, one layer up.
+   */
+  private createStartPayload(job: ISubagentJobStart): Promise<ISubagentWorkerStartPayload> {
+    // NOT an `async` function, deliberately. `resolveAgentDefinition` throws for an unknown agent
+    // type, and `start()` has always surfaced that SYNCHRONOUSLY — an `async` body would turn it
+    // into a rejected result promise, which is a contract change no caller asked for and which the
+    // ARCH-036 cases caught immediately. Everything that can be known now is computed now; only the
+    // sandbox half waits.
     const definition = resolveAgentDefinition(
       job.request.agentType,
       this.deps.customAgentRegistry,
       this.deps.builtInAgents,
     );
-    return {
+    const base: ISubagentWorkerStartPayload = {
       taskId: job.taskId,
       request: job.request,
       ...(job.worktree ? { worktree: job.worktree } : {}),
@@ -179,8 +197,10 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       parentContext: this.deps.context,
       providerProfile: createProviderProfile(this.providerConfig, this.deps, job),
       permissionMode: this.deps.permissionMode,
+      ...projectSessionTiers(this.deps),
       ...(this.logsDir ? { logsDir: this.logsDir } : {}),
     };
+    return projectSandbox(this.deps).then((sandbox) => ({ ...base, ...sandbox }));
   }
 
   private resolveTranscriptPath(job: ISubagentJobStart): string | undefined {

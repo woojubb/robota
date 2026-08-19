@@ -36,6 +36,21 @@ process.on('message', (message) => {
       setTimeout(() => process.exit(0), 0);
       return;
     }
+    // ARCH-033/ARCH-034: echoes the two projected fields EXACTLY as they crossed the boundary, for
+    // the same reason `echo-profile` exists — review found both declared here and read by the worker
+    // while nothing ever SET them, and a parent-side assertion on the builder would not have caught
+    // that the value never reached the wire.
+    if (process.env.ROBOTA_FIXTURE_MODE === 'echo-projection') {
+      process.send?.({
+        type: 'result',
+        output: JSON.stringify({
+          sessionTiers: message.payload?.sessionTiers ?? null,
+          sandboxProjection: message.payload?.sandboxProjection ?? null,
+        }),
+      });
+      setTimeout(() => process.exit(0), 0);
+      return;
+    }
     // ARCH-031: reports the forked process's own OS working directory, so a test can observe where
     // the child actually landed rather than where the request said it should.
     if (process.env.ROBOTA_FIXTURE_MODE === 'cwd') {

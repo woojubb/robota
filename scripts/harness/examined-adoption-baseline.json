@@ -61,6 +61,7 @@
     "rule-case-narrative",
     "run-advancement-owner",
     "runner-wait",
+    "sdk-public-surface",
     "shell-portability",
     "skill-registration",
     "spec-doc-frontmatter",

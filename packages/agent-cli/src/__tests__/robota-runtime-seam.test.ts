@@ -13,13 +13,7 @@
  */
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import {
-  DEFAULT_AGENT_NAME,
-  getPreset,
-  listPresets,
-  registerExternalPresets,
-  resolvePreset,
-} from '@robota-sdk/agent-preset';
+import { DEFAULT_AGENT_NAME, createPresetRegistry } from '@robota-sdk/agent-preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { describe, expect, it } from 'vitest';
 
@@ -213,11 +207,12 @@ describe('ARCH-007 — the kernel overlay is robota’s single assembly path', (
   });
 
   it('keeps ONE preset SSOT — the same external preset resolves identically on both paths (B2)', () => {
-    // ARCH-007 B2, decided: the shell keeps `agent-preset`'s MODULE-GLOBAL registry as the SSOT, because
-    // the resolved preset is needed BEFORE the base command modules are built (its module-selection delta
-    // feeds them) and because the in-session `/preset` command reads that same registry. The kernel's
-    // per-call instance registry (R8) is the EXTERNAL-consumer path; the two cannot split, because the
-    // shell feeds the very presets it registered into the profile. This test is the anti-split gate.
+    // ARCH-007 B2 decided the shell would keep `agent-preset`'s MODULE-GLOBAL registry as the SSOT,
+    // because the resolved preset is needed BEFORE the base command modules are built and because
+    // in-session `/preset` read that same registry. ARCH-009 removed the global: BOTH surfaces now read
+    // the instance registry the shell built, and the product adopts that very instance. The gate is
+    // unchanged in what it protects — the two paths must not split — but there is now one registry to
+    // split FROM rather than two that happen to agree.
     const external: IPreset = {
       id: 'arch-007-probe',
       title: 'probe',
@@ -225,15 +220,17 @@ describe('ARCH-007 — the kernel overlay is robota’s single assembly path', (
       persona: 'probe persona',
       autonomy: 'ask-first',
     };
-    registerExternalPresets([external]);
+    const shellRegistry = createPresetRegistry([external]);
 
-    // (a) visible to the module-global registry the startup delta + `/preset` read…
-    expect(getPreset('arch-007-probe')).toBeDefined();
-    expect(listPresets().map((p) => p.id)).toContain('arch-007-probe');
+    // (a) visible to the registry the startup delta + `/preset` discovery read…
+    expect(shellRegistry.getPreset('arch-007-probe')).toBeDefined();
+    expect(shellRegistry.listPresets().map((p) => p.id)).toContain('arch-007-probe');
 
-    // (b) …and to the kernel's instance registry, resolving to exactly the same options.
+    // (b) …and to the assembled product, resolving to exactly the same options.
     const { product } = robotaProduct({ presets: [external] });
-    expect(product.resolvePreset('arch-007-probe')).toEqual(resolvePreset('arch-007-probe'));
+    expect(product.resolvePreset('arch-007-probe')).toEqual(
+      shellRegistry.resolvePreset('arch-007-probe'),
+    );
     expect(product.resolvePreset('arch-007-probe')).toMatchObject({
       persona: 'probe persona',
       permissionMode: 'default',

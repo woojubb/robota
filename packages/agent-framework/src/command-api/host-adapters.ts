@@ -1,4 +1,5 @@
 import type { ICommandPluginAdapter } from './plugin/plugin-command-api.js';
+import type { IPresetApplicationOptions } from './preset/preset-application.js';
 import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 
 export interface ICommandSettingsDocument {
@@ -115,6 +116,39 @@ export interface ILocalPeerSendResult {
   readonly reason?: string;
 }
 
+/**
+ * ARCH-009 — the discovery half of a preset registry, named HERE rather than imported.
+ *
+ * `agent-preset` depends on `agent-framework`, not the other way round, so importing its
+ * `IPresetRegistry` would invert the layering to describe a value this package only hands to a
+ * command. Structural typing means the registry `agent-preset` builds satisfies this without either
+ * package naming the other.
+ *
+ * Only the three members `/preset` actually calls are named. A port that mirrors a whole contract it
+ * does not use is a second copy of that contract waiting to drift.
+ *
+ * It is an ADAPTER and not a host-role member, because that is what it is: a capability the
+ * composition root supplies, reached the way `/permission-mode` and `/plugin` already reach theirs.
+ * Absent ⇒ the host loaded no external presets, and `/preset` lists the built-ins.
+ */
+export interface ICommandPresetRegistryAdapter {
+  /**
+   * `title` and `description` are REQUIRED, because `/preset list` renders both. Optional members
+   * here would let a conforming host typecheck and then print `id — undefined: undefined`; review of
+   * ARCH-009 reported exactly that. A port requires what its consumer needs, and variation belongs in
+   * the VALUE, not in whether the member exists.
+   */
+  listPresets(): readonly { id: string; title: string; description: string }[];
+  /** PRESENCE only — `/preset` asks whether the id is known, never what it holds. */
+  getPreset(id: string): unknown;
+  /**
+   * The re-appliable option subset. `IPresetApplicationOptions` is framework-owned and
+   * `agent-preset`'s `IResolvedPresetOptions` satisfies it structurally, so naming it here crosses no
+   * layer and leaves nothing for a consumer to assert about a value it did not check.
+   */
+  resolvePreset(id: string, context?: unknown): IPresetApplicationOptions;
+}
+
 export interface ICommandHostAdapters {
   settings?: ICommandSettingsAdapter;
   process?: ICommandProcessAdapter;
@@ -122,4 +156,11 @@ export interface ICommandHostAdapters {
   plugin?: ICommandPluginAdapter;
   remoteControl?: ICommandRemoteControlAdapter;
   localPeers?: ICommandLocalPeersAdapter;
+  /**
+   * ARCH-009 — the instance registry the host resolved with, so in-session `/preset` discovers THIS
+   * product's presets. Its absence is why `agent-preset` had to keep a module-global registry: a
+   * command runs with an `ICommandHostContext` and nothing else, so this bag is the path from the
+   * shell to the command.
+   */
+  presetRegistry?: ICommandPresetRegistryAdapter;
 }

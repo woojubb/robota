@@ -28,11 +28,10 @@ name it and none of them may depend on `agent-executor`. The subagents barrel di
 ARCH-031 removed it; ARCH-037 removed the "two named facade barrels" wording this section still
 carried afterwards, which described a set that had had one entry ever since.
 
-A known LIMIT, stated because a reader will otherwise assume more than the check delivers: the
-criterion is per-symbol and the exemption is per-file. Measured across the workspace, exactly one of
-the block's ten names — `IBackgroundTaskRunner`, imported in 6 files across 4 packages — has an
-external importer; the other nine are covered without individually earning it. ARCH-039 owns the
-narrowing.
+ARCH-039 closed the per-file/per-symbol gap this section used to record as a limit. The exemption is
+expressed per SYMBOL now, so the block carries exactly `IBackgroundTaskRunner` — the one name measured
+to have an external importer — and a new name cannot join it without being listed with the consumer
+that needs it.
 
 The top-level SDK entrypoint may re-export from this SDK-local barrel. It must not directly
 re-export from `@robota-sdk/agent-core`, `@robota-sdk/agent-session`, or `@robota-sdk/agent-tools`;

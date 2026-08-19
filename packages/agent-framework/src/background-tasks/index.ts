@@ -26,27 +26,20 @@ export {
 // assumed. An earlier revision named two packages; a line-based search had missed the two whose
 // import spans several lines.
 //
-// Contained — ARCH-039. Stated because the criterion is per-symbol and the exemption is per-file:
-// measured across the workspace, exactly ONE of these ten names — `IBackgroundTaskRunner` — has an
-// external importer (6 files in 4 packages). The other NINE ride along on it. `agent-cli` also
-// imports the runner straight from `agent-executor` (`modes/print-mode.ts`), so for that consumer
-// the entry blesses a path it does not need. Narrowing the block to the one name it earns is the
-// honest next step and belongs with the guard-widening item (ARCH-039) rather than here.
+// ARCH-039 CLOSED the gap this comment used to hold open. The exemption is granted per SYMBOL now,
+// not per file, so the nine names that rode along on `IBackgroundTaskRunner` are gone — measured,
+// none of them had an external importer at all. `agent-cli` still imports the runner straight from
+// `agent-executor` as well, so for that one consumer this path is redundant; the three that cannot
+// (`agent-product`, `agent-transport`, `agent-transport-tui`) are why it stays.
 //
 // INSIDE `agent-framework` the story is different and the redirect stands: this package does depend
 // on `agent-executor`, so its own files import these from the SSOT directly.
-export type {
-  IBackgroundTaskHandle,
-  IBackgroundTaskManager,
-  IBackgroundTaskManagerOptions,
-  IBackgroundTaskRunner,
-  IBackgroundTaskStart,
-  TBackgroundTaskIdFactory,
-  TBackgroundTaskRunnerEvent,
-  TBackgroundTaskTransitionEvent,
-  ICreateLimitedOutputCaptureOptions,
-  ILimitedOutputCapture,
-} from '@robota-sdk/agent-executor';
+// ARCH-039 narrowed this block from ten names to the ONE that earns it. The exemption is now granted
+// per SYMBOL rather than per file, so the other nine — which had no external importer at all — are
+// gone rather than riding along. `IBackgroundTaskRunner` stays because `agent-product`,
+// `agent-transport` and `agent-transport-tui` name it and none of them may depend on
+// `agent-executor`; the remaining nine are imported from the SSOT by anyone who needs them.
+export type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 export type {
   IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupSummary,

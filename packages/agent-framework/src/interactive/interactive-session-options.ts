@@ -114,6 +114,8 @@ export interface IInteractiveSessionStandardOptions {
   reversibleExecution?: IReversibleExecutionOptions;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
+  /** ARCH-033: the name a child process uses to rebuild a sandbox like this one. */
+  sandboxType?: string;
   /**
    * SELFHOST-008: optional durable-memory store injected by the surface. Threads to startup-memory
    * injection; absent, the neutral filesystem reference adapter is the default (memory unchanged).
@@ -254,6 +256,8 @@ export interface IInitOptions {
   reversibleExecution?: IReversibleExecutionOptions;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
+  /** ARCH-033: the name a child process uses to rebuild a sandbox like this one. */
+  sandboxType?: string;
   /**
    * SELFHOST-008: optional durable-memory store. When present, startup-memory injection reads through
    * it; absent, the neutral filesystem reference adapter is the default (memory works unchanged).

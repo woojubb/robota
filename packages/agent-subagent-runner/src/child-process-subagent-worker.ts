@@ -8,6 +8,7 @@ import {
   type TSubagentWorkerChildMessage,
   type TSubagentWorkerWireValue,
 } from './child-process-subagent-ipc.js';
+import { restoreProjectedSandbox } from './worker-composition.js';
 
 import type { ISubagentWorkerComposition } from './worker-composition.js';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
@@ -87,6 +88,10 @@ async function runInitialPrompt(
   try {
     // ARCH-021: the PRODUCT's registry, not an imported six-vendor default. A custom provider type
     // used to throw `Unknown provider` here while the parent ran on it perfectly well.
+    const restoredSandbox = await restoreProjectedSandbox(
+      payload.sandboxProjection,
+      composition.sandboxFactories,
+    );
     const provider = createProviderFromProfile(
       payload.providerProfile,
       payload.request.model,
@@ -106,7 +111,17 @@ async function runInitialPrompt(
       // ARCH-021: the product's tool surface, built at THIS child's execution root. Previously
       // `createDefaultTools(...)`, which meant dropping a pack did not drop its tools from a
       // child-process subagent — ARCH-006's invariant was true in the parent and false here.
-      parentTools: composition.createTools({ cwd: subagentExecutionRoot(payload) }),
+      // ARCH-033: restore the parent's sandbox before building tools, so the child acts where the
+      // parent acts. An unregistered type throws here rather than degrading to host tools — a child
+      // that was told it is sandboxed and quietly is not is ARCH-010's shape.
+      // ARCH-034: the session tiers cross too, so the runner choice stays a packaging decision
+      // rather than a capability one. `includeGoalTool` rides on the payload because it is a property
+      // of the PARENT'S session, not of this child's root.
+      parentTools: composition.createTools({
+        cwd: subagentExecutionRoot(payload),
+        ...(restoredSandbox !== undefined ? { sandboxClient: restoredSandbox } : {}),
+        ...(payload.sessionTiers !== undefined ? { sessionTiers: payload.sessionTiers } : {}),
+      }),
       cwd: subagentExecutionRoot(payload),
       provider,
       terminal: NOOP_TERMINAL,
