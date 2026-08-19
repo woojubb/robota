@@ -499,6 +499,46 @@ malformed, duplicate, stale, or unreadable markers. Deliberate exception: `MERGE
 in the same command**, which prints that the gate did not verify — an override is a visible choice,
 not a silent one.
 
+## Which Form An Override Takes
+
+Every guard here declares an escape hatch, and **the form is not interchangeable**. There are two,
+they have different lifetimes, and using the wrong one fails silently — the command runs, the guard
+refuses anyway, and the reader concludes the guard is broken.
+
+**Inline** — `VAR=1 <command>`, in the same statement. The hook reads the command STRING, so the
+assignment must prefix the guarded command. It excuses only the statement it prefixes: `VAR=1 date;
+git push` does not disarm the push. This is the safer form, and most hatches use it.
+
+**Environment** — `export VAR=1`. The hook reads `${VAR}` from its own environment. A PreToolUse hook
+runs as a separate process and never sees an inline assignment on the agent's command, so only an
+exported variable reaches it. It then stays armed for every later command until unset, which is the
+opposite lifetime from inline and the reason this form is worth naming rather than assuming.
+
+| variable                                                                                          | hook                          | form        |
+| ------------------------------------------------------------------------------------------------- | ----------------------------- | ----------- |
+| `MERGE_GATE_ACK`                                                                                  | `merge-gate.sh`               | inline      |
+| `PRE_PUSH_ALLOW_UNREVIEWED`                                                                       | `pre-push-check.sh`           | inline      |
+| `WORKTREE_CWD_GUARD_ALLOW_MAIN`                                                                   | `worktree-cwd-guard.sh`       | inline      |
+| `BRANCH_GUARD_ALLOW_DELETE`, `_BASE`, `_BRANCH_COPY`, `_OPEN_BRANCHES`, `_BADNAME`, `_MAIN_MERGE` | `branch-guard.sh`             | either      |
+| `BULK_EDIT_ACK`                                                                                   | `bulk-edit-guard.sh`          | either      |
+| `FOREGROUND_WAIT_ACK`                                                                             | `no-foreground-wait.sh`       | either      |
+| `HOOK_EDIT_ACK`                                                                                   | `check-forbidden-patterns.sh` | environment |
+| `LOCKFILE_CHURN_ACK`                                                                              | `pre-push-check.sh`           | environment |
+
+`BRANCH_GUARD_ALLOW_BADNAME` exempts a branch name from the naming convention, and
+`BRANCH_GUARD_ALLOW_MAIN_MERGE` a push or merge into `main` for a release the user approved. Both
+were accepted by the hook and named in no rule until this section; an undeclared bypass is worse than
+a declared one, because the reader who needs it cannot find it and the reader auditing the guard does
+not know it is there.
+
+This table is NOT the authority on what works — the hook source is. It is the declaration the scan
+compares against that source, in both directions.
+
+Enforced by: `hook-override-declarations` (`scripts/harness/scan-hook-override-declarations.mjs`),
+which DERIVES the accepted forms from each hook's own code rather than from a list. A hand-kept list
+of accepted forms would be one more copy of exactly the thing that drifted — the declaration existed
+in up to five places and nothing compared any of them to the code.
+
 The hook deliberately does NOT judge whether a prose finding was addressed; that is the reviewer's
 call, and a hook guessing at it would be a check measuring the wrong thing. It establishes only that
 CI is green and that a current review exists to be read.

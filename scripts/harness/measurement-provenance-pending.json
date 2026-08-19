@@ -14,6 +14,7 @@
     "scripts/harness/scan-barrel-parameter-types.mjs",
     "scripts/harness/scan-claude-review-coverage.mjs",
     "scripts/harness/scan-conflict-markers.mjs",
+    "scripts/harness/scan-hook-override-declarations.mjs",
     "scripts/harness/scan-interface-runtime.mjs",
     "scripts/harness/scan-loop-proof.mjs",
     "scripts/harness/scan-loop-run-records.mjs",

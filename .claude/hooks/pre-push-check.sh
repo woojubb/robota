@@ -723,7 +723,8 @@ if [ -z "${LOCKFILE_CHURN_ACK:-}" ]; then
       echo "[pre-push-check] and a resolution moving a package into the production graph is what" >&2
       echo "[pre-push-check] dependency-review refuses, one CI cycle later." >&2
       echo "[pre-push-check] Restore it:  git checkout origin/develop -- pnpm-lock.yaml" >&2
-      echo "[pre-push-check] Deliberate resolution change with no manifest edit: LOCKFILE_CHURN_ACK=1 inline." >&2
+      echo "[pre-push-check] Deliberate resolution change with no manifest edit: export LOCKFILE_CHURN_ACK=1" >&2
+      echo "[pre-push-check] (read from the environment, NOT inline — this check runs after the hook is invoked)" >&2
       exit 2
     fi
   fi
