@@ -5,16 +5,12 @@ import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import type {
   ICommandHostAdapterAccess,
   ICommandHostPresetApplication,
+  IPresetApplicationOptions,
   ICommandHostSessionAccess,
   ICommandHostUserInteraction,
 } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
-import type {
-  IPreset,
-  IPresetRegistry,
-  IPresetSummary,
-  IResolvedPresetOptions,
-} from '@robota-sdk/agent-preset';
+import type { IPresetSummary } from '@robota-sdk/agent-preset';
 
 /**
  * ARCH-009 — the registry `/preset` discovers through.
@@ -30,19 +26,25 @@ import type {
  * never loads external presets has nothing to hand over, and `/preset` should still list the
  * built-ins. `createPresetRegistry()` with no argument is exactly that, constructed per call.
  */
-function presetRegistry(context: ICommandHostAdapterAccess): IPresetRegistry {
-  const supplied = context.getCommandHostAdapters?.().presetRegistry;
-  if (supplied === undefined) return createPresetRegistry();
-  // The adapter states its returns loosely, so `agent-framework` need not name `agent-preset`'s
-  // contract to carry a value it only hands along. Narrowing happens HERE, once, in the one file
-  // where both types are in scope — rather than with a blind `as unknown as`, which asserts a whole
-  // shape nothing looked at and would hide a registry that stopped satisfying it.
-  return {
-    listPresets: () => supplied.listPresets() as readonly IPresetSummary[],
-    getPreset: (id) => supplied.getPreset(id) as IPreset | undefined,
-    resolvePreset: (id, resolveContext) =>
-      supplied.resolvePreset(id, resolveContext) as IResolvedPresetOptions,
-  };
+/**
+ * What `/preset` actually needs from a registry — three members, no assertion.
+ *
+ * Narrower than `agent-preset`'s `IPresetRegistry` on purpose. Review of ARCH-009 reported the first
+ * version reaching that contract with three casts, one of which (`listPresets()`) widened optional
+ * `title`/`description` into required ones and would have printed `id — undefined: undefined` for a
+ * host that typechecked. The fix is not a better cast: it is asking for the shape the command uses,
+ * so both the built-in registry and a host adapter satisfy it STRUCTURALLY and nothing is asserted.
+ *
+ * `getPreset` returns `unknown` because presence is the whole question here.
+ */
+interface IPresetDiscovery {
+  listPresets(): readonly IPresetSummary[];
+  getPreset(id: string): unknown;
+  resolvePreset(id: string, context?: unknown): IPresetApplicationOptions;
+}
+
+function presetRegistry(context: ICommandHostAdapterAccess): IPresetDiscovery {
+  return context.getCommandHostAdapters?.().presetRegistry ?? createPresetRegistry();
 }
 
 /** Default active preset id reported when the runtime has no recorded active preset. */
@@ -54,7 +56,7 @@ function readActivePresetId(context: ICommandHostSessionAccess): string {
 }
 
 /** Build the `/preset` listing: one line per preset, marking the active one with a `*` prefix. */
-function formatPresetList(active: string, registry: IPresetRegistry): string {
+function formatPresetList(active: string, registry: IPresetDiscovery): string {
   const lines = registry.listPresets().map((preset) => {
     const marker = preset.id === active ? '* ' : '  ';
     return `${marker}${preset.id} — ${preset.title}: ${preset.description}`;
@@ -63,7 +65,7 @@ function formatPresetList(active: string, registry: IPresetRegistry): string {
 }
 
 /** Build the rejection message for an unknown preset id, listing the valid ids. */
-function formatUnknownPresetMessage(id: string, registry: IPresetRegistry): string {
+function formatUnknownPresetMessage(id: string, registry: IPresetDiscovery): string {
   const ids = registry
     .listPresets()
     .map((preset) => preset.id)
@@ -74,7 +76,7 @@ function formatUnknownPresetMessage(id: string, registry: IPresetRegistry): stri
 /** The `/preset` (or `/preset list`) listing result. */
 function presetListResult(
   context: ICommandHostSessionAccess,
-  registry: IPresetRegistry,
+  registry: IPresetDiscovery,
 ): ICommandResult {
   const active = readActivePresetId(context);
   return {
@@ -90,7 +92,7 @@ function presetListResult(
  */
 async function resolvePresetViaAsk(
   context: ICommandHostUserInteraction,
-  registry: IPresetRegistry,
+  registry: IPresetDiscovery,
 ): Promise<string | undefined> {
   const ui = context.getUserInteraction();
   if (!ui) return undefined;

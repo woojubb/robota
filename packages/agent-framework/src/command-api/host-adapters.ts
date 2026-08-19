@@ -1,4 +1,5 @@
 import type { ICommandPluginAdapter } from './plugin/plugin-command-api.js';
+import type { IPresetApplicationOptions } from './preset/preset-application.js';
 import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 
 export interface ICommandSettingsDocument {
@@ -131,9 +132,21 @@ export interface ILocalPeerSendResult {
  * Absent ⇒ the host loaded no external presets, and `/preset` lists the built-ins.
  */
 export interface ICommandPresetRegistryAdapter {
-  listPresets(): readonly { id: string; title?: string; description?: string }[];
+  /**
+   * `title` and `description` are REQUIRED, because `/preset list` renders both. Optional members
+   * here would let a conforming host typecheck and then print `id — undefined: undefined`; review of
+   * ARCH-009 reported exactly that. A port requires what its consumer needs, and variation belongs in
+   * the VALUE, not in whether the member exists.
+   */
+  listPresets(): readonly { id: string; title: string; description: string }[];
+  /** PRESENCE only — `/preset` asks whether the id is known, never what it holds. */
   getPreset(id: string): unknown;
-  resolvePreset(id: string, context?: unknown): unknown;
+  /**
+   * The re-appliable option subset. `IPresetApplicationOptions` is framework-owned and
+   * `agent-preset`'s `IResolvedPresetOptions` satisfies it structurally, so naming it here crosses no
+   * layer and leaves nothing for a consumer to assert about a value it did not check.
+   */
+  resolvePreset(id: string, context?: unknown): IPresetApplicationOptions;
 }
 
 export interface ICommandHostAdapters {
