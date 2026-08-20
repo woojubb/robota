@@ -12,6 +12,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { PermissionEnforcer } from '../permission-enforcer.js';
+import { buildPermissionEnforcer } from '../session-components.js';
 
 import type { IPermissionEnforcerOptions, TPermissionResult } from '../permission-types.js';
 import type { ITerminalOutput, TToolArgs } from '@robota-sdk/agent-core';
@@ -237,6 +238,29 @@ describe('PermissionEnforcer — a preset re-applied live (ARCH-040 Group C)', (
       presetFreePermissions: { allow: ['Base(*)'], deny: ['BaseDenied(*)'] },
     });
   }
+
+  it('the composition root wires the base to where the enforcer READS it', () => {
+    // `makeEnforcer` above constructs the enforcer directly, so it cannot see a wiring mistake in
+    // `buildPermissionEnforcer` — which is where one was: `presetFreePermissions` went INSIDE
+    // `config` while the constructor reads it at the top level, so production always fell back to
+    // the contaminated rules and every case here stayed green. Excess-property checking did not
+    // catch it either: the conditional-spread idiom this repository uses for
+    // `exactOptionalPropertyTypes` suppresses it.
+    const enforcer = buildPermissionEnforcer(
+      {
+        permissions: { allow: ['Base(*)', 'First(*)'], deny: [] },
+        presetFreePermissions: { allow: ['Base(*)'], deny: [] },
+        terminal: makeNoopTerminal(),
+      } as never,
+      'test-session',
+      '/tmp',
+      () => 'default',
+      undefined,
+    );
+    enforcer.applyPresetToolLists({ allowedTools: ['Second'] });
+
+    expect(enforcer.currentPermissionRules().allow).toEqual(['Base(*)', 'Second(*)']);
+  });
 
   it('an allowlist REPLACES the previous preset rather than accumulating', () => {
     const enforcer = enforcerStartedWithAPreset();
