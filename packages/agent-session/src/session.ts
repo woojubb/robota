@@ -178,7 +178,7 @@ export class Session extends SessionBase {
   async run(
     message: string,
     rawInput?: string,
-    options?: { ephemeralSystemContext?: string },
+    options?: { ephemeralSystemContext?: string; driverId?: string }, // PEER-007 (issue #1915)
   ): Promise<string> {
     const controller = this.turnClaim.claim(); // Synchronously, before any await.
     const { signal } = controller;

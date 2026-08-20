@@ -210,6 +210,18 @@
       "timestamp": "2026-08-19T00:34:31.854Z",
       "ratio": "6/7",
       "reason": "A real violation, committed by me: a backlog status reported 6/7 items closed with no percentage. Recorded rather than fixed, because a transcript is append-only — the message cannot be rewritten, and a permanently red scan is one that gets suppressed."
+    },
+    {
+      "transcript": "22469e82-14ef-4e23-9aea-9e5bd3295700.jsonl",
+      "timestamp": "2026-08-19T19:29:31.721Z",
+      "ratio": "3/4",
+      "reason": "Mine. A status table reported issue #1863 as \"3/4 완료\" with no percentage — a mid-work ratio over a countable set, which is exactly what the rule governs. The transcript is append-only, so it is recorded rather than corrected."
+    },
+    {
+      "transcript": "22469e82-14ef-4e23-9aea-9e5bd3295700.jsonl",
+      "timestamp": "2026-08-19T19:35:49.172Z",
+      "ratio": "3/4",
+      "reason": "The same 3/4 six minutes later, in the very message acknowledging the first — the sentence naming the omission repeated the bare ratio while naming it. That is the argument for the scan rather than for intending harder, and it is the second time this file records a repeat inside one session."
     }
   ]
 }

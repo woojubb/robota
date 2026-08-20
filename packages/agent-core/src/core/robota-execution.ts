@@ -29,6 +29,7 @@ function buildRunContext(
     conversationId: deps.conversationId,
     ...(options.sessionId && { sessionId: options.sessionId }),
     ...(options.userId && { userId: options.userId }),
+    ...(options.driverId && { driverId: options.driverId }),
     ...(options.metadata && { metadata: options.metadata }),
     ...(options.signal && { signal: options.signal }),
     ...(options.onTextDelta && { onTextDelta: options.onTextDelta }),

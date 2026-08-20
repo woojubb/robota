@@ -5,17 +5,14 @@
  * out of React hooks and into a plain TypeScript class.
  */
 
-import {
-  createSystemMessage,
-  createUserMessage,
-  messageToHistoryEntry,
-} from '@robota-sdk/agent-core';
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import {
   CommandRegistry,
   buildRuntimeSession,
   generateSessionName,
 } from '@robota-sdk/agent-framework';
 
+import { attributedUserEcho } from './attributed-user-echo.js';
 import { createSessionInitPoller } from './flows/session-init-poller.js';
 import { applySystemCommandResult } from './hooks/command-result-handler.js';
 import { bindTuiSessionEvent, bindTuiSessionNoticeEvents } from './tui-session-binding.js';
@@ -432,7 +429,7 @@ export class TuiInteractionChannel {
 
     const onUserMessage = (content: string): void => {
       this.handleAutoNaming(content);
-      manager.addEntry(messageToHistoryEntry(createUserMessage(content)));
+      manager.addEntry(attributedUserEcho(content, session));
     };
     const onComplete = (result: IExecutionResult): void => {
       manager.onComplete(result);

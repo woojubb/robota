@@ -11,6 +11,7 @@ import {
   createSystemMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
 
 import {
   isAbortError,
@@ -29,12 +30,36 @@ import type { IPromptFileReferenceRecord } from '../context/prompt-file-referenc
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { Session } from '@robota-sdk/agent-session';
 
+/**
+ * The per-turn optional inputs to a prompt turn: the ephemeral recall block (SELFHOST-008 P3) and
+ * the `driverId` the turn is attributed to for DISPLAY (PEER-007, issue #1915).
+ *
+ * The OWNER is elided rather than stamped on every message: every surface already reads an
+ * unattributed message as the operator's, so carrying the constant would mark each stored message and
+ * change the `run()` call shape for the dominant path to say nothing new. Display only — a driver id
+ * is never an authorization input (issue #1809).
+ */
+export function promptTurnAttribution(
+  ephemeralSystemContext?: string,
+  driverId?: string,
+): { ephemeralSystemContext?: string; driverId?: string } {
+  return {
+    ...(ephemeralSystemContext !== undefined && { ephemeralSystemContext }),
+    ...(driverId !== undefined && driverId !== OWNER_DRIVER_ID && { driverId }),
+  };
+}
+
 export interface IPromptTurnContext {
   /**
    * SELFHOST-008 P3: an EPHEMERAL per-turn system block (rendered recalled memory) to include in THIS
    * turn's model call only — passed through to `session.run` and never persisted. Absent ⇒ no injection.
    */
   ephemeralSystemContext?: string;
+  /**
+   * PEER-007 (issue #1915): who drove this turn (`owner`, `agent`, or `peer:<session-id>`), carried to
+   * the stored user message so the transcript attributes it. Display only — never authorization.
+   */
+  driverId?: string;
   getSession: () => Session;
   getCwd: () => string;
   getHistory: () => IHistoryEntry[];
@@ -85,13 +110,19 @@ export async function executePromptTurn(
     ctx.recordPromptContextReferences(preparedPrompt.promptFileReferenceRecords);
 
     await ctx.beginEditCheckpointTurn(displayInput ?? input);
-    // SELFHOST-008 P3: pass the ephemeral recall block only when present, preserving the 2-arg call shape
-    // for the (dominant) no-recall path so existing run() call contracts are unchanged.
+    // SELFHOST-008 P3 / PEER-007: pass per-turn options only when present, preserving the 2-arg call
+    // shape for the (dominant) plain path so existing run() call contracts are unchanged.
+    const runOptions = {
+      ...(ctx.ephemeralSystemContext !== undefined
+        ? { ephemeralSystemContext: ctx.ephemeralSystemContext }
+        : {}),
+      ...(ctx.driverId !== undefined ? { driverId: ctx.driverId } : {}),
+    };
     const response =
-      ctx.ephemeralSystemContext !== undefined
-        ? await ctx.getSession().run(preparedPrompt.modelInput, preparedPrompt.hookInput, {
-            ephemeralSystemContext: ctx.ephemeralSystemContext,
-          })
+      Object.keys(runOptions).length > 0
+        ? await ctx
+            .getSession()
+            .run(preparedPrompt.modelInput, preparedPrompt.hookInput, runOptions)
         : await ctx.getSession().run(preparedPrompt.modelInput, preparedPrompt.hookInput);
     ctx.flushStreaming();
     pushToolSummaryToHistory({ activeTools: ctx.getActiveTools(), history });

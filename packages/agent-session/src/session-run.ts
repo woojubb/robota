@@ -13,6 +13,7 @@ import {
   runHooks,
 } from '@robota-sdk/agent-core';
 
+import { perTurnRunOptions } from './session-run-options.js';
 import {
   createToolExecutionBridge,
   forwardToolExecutionEvent,
@@ -20,7 +21,7 @@ import {
 
 import type { ContextWindowTracker } from './context-window-tracker.js';
 import type { TSessionLogData } from './session-logger.js';
-import type { ISessionOptions } from './session-types.js';
+import type { ISessionOptions, ISessionRunOptions } from './session-types.js';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -108,7 +109,7 @@ export async function executeRun(
   rawInput: string | undefined,
   ctx: IRunContext,
   abortSignal: AbortSignal,
-  runOptions?: { ephemeralSystemContext?: string },
+  runOptions?: ISessionRunOptions,
 ): Promise<string> {
   // Auto-compact BEFORE processing the new message (not after).
   // This prevents compaction from interfering with the current response stream.
@@ -195,10 +196,8 @@ export async function executeRun(
     response = await ctx.robota.run(enrichedMessage, {
       signal: abortSignal,
       maxExecutionRounds: ctx.maxTurns ?? 0,
-      // SELFHOST-008 P3: thin pass-through of the ephemeral per-turn system block to agent-core.
-      ...(runOptions?.ephemeralSystemContext !== undefined && {
-        ephemeralSystemContext: runOptions.ephemeralSystemContext,
-      }),
+      // Thin pass-through of the per-turn options to agent-core (SELFHOST-008 P3, PEER-007).
+      ...perTurnRunOptions(runOptions),
       onExecutionEvent: (event, data) => {
         ctx.log(event, data as TSessionLogData);
         forwardToolExecutionEvent(toolExecutionBridge, event, data);

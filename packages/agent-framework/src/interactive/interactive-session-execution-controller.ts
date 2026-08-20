@@ -21,7 +21,7 @@ import {
 } from './interactive-session-execution-events.js';
 import { PendingInputQueue } from './interactive-session-pending-queue.js';
 import { capturePostTurnMemory } from './interactive-session-post-turn-memory.js';
-import { executePromptTurn } from './interactive-session-prompt.js';
+import { executePromptTurn, promptTurnAttribution } from './interactive-session-prompt.js';
 import { STREAMING_FLUSH_INTERVAL_MS } from './interactive-session-streaming.js';
 import { TurnSettlerRegistry } from './turn-settler-registry.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
@@ -260,7 +260,7 @@ export class SessionExecutionController {
         }
       }
       await executePromptTurn(input, displayInput, rawInput, {
-        ...(ephemeralSystemContext !== undefined ? { ephemeralSystemContext } : {}),
+        ...promptTurnAttribution(ephemeralSystemContext, turnOptions.driverId),
         getSession: () => this.callbacks.getSessionOrThrow(),
         getCwd: () => this.callbacks.getCwd(),
         getHistory: () => this.histTracker.getHistory(),

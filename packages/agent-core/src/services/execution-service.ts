@@ -16,6 +16,7 @@ import {
   type ICoreExecutionResult,
   type IExecutionServicePluginStats,
 } from './execution-types';
+import { userMessageMetadata } from './execution-user-message';
 import { callPluginHook, type TPluginWithHooks } from './plugin-hook-dispatcher';
 import { ToolExecutionService } from './tool-execution-service';
 import { isAbortFailure } from '../utils/abort-classification';
@@ -158,7 +159,7 @@ export class ExecutionService {
 
     try {
       const messageCountBeforeUser = conversationStore.getMessages().length;
-      conversationStore.addUserMessage(input, { executionId });
+      conversationStore.addUserMessage(input, userMessageMetadata(executionId, context?.driverId));
       const userMessage = conversationStore.getMessages()[messageCountBeforeUser];
       if (userMessage) {
         fullContext.onExecutionEvent?.('history_mutation', {
@@ -282,9 +283,7 @@ export class ExecutionService {
   ): AsyncGenerator<string, ICoreExecutionResult> {
     // CORE-042: a streaming ENTRY into `execute`, not a second engine. Everything the turn does is
     // the turn's; this hands it a delta sink and yields what arrives.
-    return yield* executeStreamFn(input, messages, config, context, (i, m, c, ctx) =>
-      this.execute(i, m, c, ctx),
-    );
+    return yield* executeStreamFn(input, messages, config, context, this.execute.bind(this));
   }
 
   /** Get execution statistics from plugins */

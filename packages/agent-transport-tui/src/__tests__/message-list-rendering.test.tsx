@@ -385,3 +385,42 @@ describe('MessageList rendering', () => {
     expect(output).toContain('Robota:');
   });
 });
+
+/**
+ * PEER-007 (issue #1915) — a co-driven transcript must say WHO drove each turn.
+ *
+ * Before this, every user message rendered `You:`, so a peer session's message was
+ * indistinguishable from the operator's own — the transcript asserted something false about who
+ * spoke. The label reads the DERIVED driver id (`peer:<session-id>`) carried on the message; it is
+ * display attribution and never an authorization signal (issue #1809).
+ */
+describe('MessageList driver attribution (PEER-007)', () => {
+  it("labels a peer-driven message with the peer's id instead of You:", () => {
+    const entry = messageToHistoryEntry(
+      createUserMessage('deploy the staging branch', {
+        metadata: { driverId: 'peer:session-abc' },
+      }),
+    );
+    const { lastFrame } = render(<MessageList history={[entry]} />);
+    const output = chalk.reset(lastFrame() ?? '');
+
+    expect(output).toContain('peer:session-abc:');
+    expect(output).not.toContain('You:');
+  });
+
+  it('still labels the owner as You:', () => {
+    const entry = messageToHistoryEntry(
+      createUserMessage('deploy the staging branch', { metadata: { driverId: 'owner' } }),
+    );
+    const { lastFrame } = render(<MessageList history={[entry]} />);
+
+    expect(chalk.reset(lastFrame() ?? '')).toContain('You:');
+  });
+
+  it('labels an unattributed message You: — the pre-PEER-007 transcript is unchanged', () => {
+    const entry = messageToHistoryEntry(createUserMessage('deploy the staging branch'));
+    const { lastFrame } = render(<MessageList history={[entry]} />);
+
+    expect(chalk.reset(lastFrame() ?? '')).toContain('You:');
+  });
+});
