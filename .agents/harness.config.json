@@ -456,12 +456,12 @@
       },
       {
         "field": "allowedTools",
-        "reason": "A session seam exists (`ICreateSessionOptions.allowedTools`) and create-session-projection.ts already forwards it from IInitOptions, so only the preset→surface hop is missing. Wiring it requires deciding how a preset allowlist composes with the session-level and pack-level tool sets rather than replacing them.",
+        "reason": "A session seam exists (`ICreateSessionOptions.allowedTools`) and create-session-projection.ts forwards it, so the STARTUP hop is one line. The live half is not a wiring gap: `create-session.ts` turns both lists into permission PATTERNS merged into the enforcer's allow/deny sets AT CONSTRUCTION, and `PermissionEnforcer` exposes only an additive `sessionAllowedTools` set (the 'always allow' prompt path) — there is no way to REPLACE the configured rules on a live session. Wiring startup alone would CREATE the divergence this scan measures, so both wait on a live permission-rule re-application seam, which is its own capability. Owner decided the combine rule on 2026-08-20: allow REPLACES, deny UNIONS — see ARCH-040.",
         "declaredOn": []
       },
       {
         "field": "deniedTools",
-        "reason": "The denylist half of the same decision as `allowedTools`, and it must be resolved with it: an allowlist that composes and a denylist that replaces would contradict each other.",
+        "reason": "The denylist half of the same decision as `allowedTools`, blocked on the same missing capability, and it must ship with it: an allowlist that replaces and a denylist that unions is one rule, and half of it is a contradiction. The union belongs in `resolvePreset`'s `mergeDefined` rather than at a surface, because precedence is the resolver's job — a union applied by one of three shells is a rule the other two disagree with.",
         "declaredOn": []
       }
     ]

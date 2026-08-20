@@ -45,7 +45,9 @@ projection, and where the fallback lives is an implementation choice made in thi
 - [x] Group A — remove `defaultTrustLevel` from `IResolvedPresetOptions` and its validator.
 - [ ] Group B — `agentName` on the live `/preset` path. **PARKED on a measured cost the decision did
       not have in front of it** (see below); every other group is independent of it.
-- [ ] Group C — `allowedTools` (replace) and `deniedTools` (compose), resolved together.
+- [ ] Group C — `allowedTools` (replace) and `deniedTools` (compose), resolved together. **BLOCKED on a
+      missing capability**, see below. The RULE is decided and its home is identified; only the live
+      seam is absent.
 - [ ] Group D — `systemPrompt` (seed) and `appendSystemPrompt` (merge order).
 - [ ] Group E — the model group: `model` declared, `temperature` and `maxOutputTokens` wired.
 - [ ] Group F — `language` as a persona-section instruction.
@@ -120,3 +122,36 @@ times over.
 item rather than folded in — the repository's own rule. It could not be filed as a GitHub issue in
 this session because GitHub was unreachable (both `git push` and `api.github.com` time out); FILE IT
 before Groups C–F resume.
+
+## Group C is blocked on a capability, not on a decision
+
+The combine rule is settled — allow REPLACES, deny UNIONS — and its home is
+`resolvePreset`'s `mergeDefined`, not a surface: precedence is the resolver's job, and a union
+applied by one of three shells is a rule the other two disagree with.
+
+**What is missing is a live seam.** `create-session.ts` turns both lists into permission PATTERNS and
+merges them into the enforcer's allow/deny sets **at construction**. `PermissionEnforcer` exposes only
+an additive `sessionAllowedTools` set — the "always allow" prompt path — so there is no way to REPLACE
+the configured rules on a running session.
+
+Wiring the startup half alone would have been worse than leaving both: it CREATES the divergence this
+scan exists to measure, with startup applying a preset's tool lists and `/preset` silently not. The
+implementation was written, measured against the scan, and reverted for that reason rather than
+landed half-applied.
+
+**What it needs:** live permission-rule re-application on `PermissionEnforcer` — a real capability
+with its own consequences (what happens to a tool mid-call, whether a denial can be added to a session
+that already allowed it), and therefore its own item.
+
+## The shape the remaining groups actually have
+
+Checked after C, so the next reader does not discover it one group at a time:
+
+| group           | live seam                                            | startup seam                    | verdict                 |
+| --------------- | ---------------------------------------------------- | ------------------------------- | ----------------------- |
+| C — tools       | **absent** (patterns fixed at construction)          | present                         | blocked on a capability |
+| D — prompts     | present (`applyPersona` rebuilds the system message) | present                         | feasible                |
+| E — model group | present (`applyModelOptions` already applies both)   | absent (session `defaultModel`) | feasible                |
+| F — `language`  | present, once it is a persona section                | present                         | feasible                |
+
+Groups B and C are the two that need a capability. D, E and F are wiring on seams that already exist.
