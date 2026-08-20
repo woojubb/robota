@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [typescript, process-boundary, composition-root, ipc]
 ---
@@ -8,12 +8,12 @@ tags: [typescript, process-boundary, composition-root, ipc]
 
 Design for Task [`.agents/tasks/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`](../../tasks/completed/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md),
 re-scoped by owner approval to be the root item filed as
-[#1777](https://github.com/woojubb/robota/issues/1777) after a `finding-depth-triager` verdict of
+[issue #1777](https://github.com/woojubb/robota/issues/1777) after a `finding-depth-triager` verdict of
 FOUNDATIONAL.
 
 > **The premise changed under this item.** Its original Direction specified a capability broker. That
 > was written when the worker was a standalone neutral module located on disk. DIST-006
-> ([#1783](https://github.com/woojubb/robota/pull/1783), merged 2026-08-16) made the worker
+> ([PR #1783](https://github.com/woojubb/robota/pull/1783), merged 2026-08-16) made the worker
 > **robota's own entry**, re-executed with `--__robota-subagent-worker`. The product's profile is now
 > already compiled into the child. Every citation below was verified against `develop` at
 > `774d44b87` (post-DIST-006).
@@ -179,7 +179,7 @@ This matters and is not a footnote: the tool axis is the one with the failure hi
 (unconfined child tools) and ARCH-006 (pack-owned tool surface) are both tool-surface findings at this
 seam. Claiming a compile-time guarantee across both would be an overclaim on exactly the axis that has
 failed twice. The underlying cause — the tool surface has no defaults-aggregator leaf that a manifest
-edge could remove — is filed as [#1787](https://github.com/woojubb/robota/issues/1787) (ARCH-035) and
+edge could remove — is filed as [issue #1787](https://github.com/woojubb/robota/issues/1787) (ARCH-035) and
 deliberately **not** folded in: it implies a package extraction and a change to `agent-framework`'s
 default tool tier.
 
@@ -298,6 +298,34 @@ layer or product-family boundary is reclassified. (b) Reuse is at the shared con
 dependency and **loses** one (`agent-provider-defaults`). The dependency direction is unchanged —
 composition root → neutral package.
 
+## User Execution Test Scenarios
+
+**Applies** — subagents are a CLI product surface. The scenarios were written, executed and recorded
+in the Task record; this is the spec's own copy of the verdict, added when the document moved to
+`done/` and the floor caught its absence. The full text, including the evidence transcript, is in
+`.agents/tasks/completed/ARCH-021-child-process-subagent-worker-bypasses-product-composition.md`
+§ User Execution Test Scenarios — pointed at rather than duplicated, because two copies of a scenario
+are two things to keep in step.
+
+**S1 — manual-only: the subagent runs on the product's surface.** Manual-only because the replay
+provider is injected into the PARENT and does not cross the process boundary, so a subagent turn
+cannot be made deterministic without a live model. It is also **weak evidence for this item**, and the
+record says so: `pack-coding` is pinned by name to the framework's default tool set, so the divergence
+was latent for `robota` and the scenario passed before the fix too. That is why S2 exists.
+
+**S2 — agent-runnable, EXECUTED: the built artifact declares the surface it composed.** Spawn the
+built CLI entry in worker mode over IPC and read its `ready` message
+(`packages/agent-cli/src/__tests__/e2e/subagent-worker-entry.bintest.ts`, via
+`pnpm --filter @robota-sdk/agent-cli test:bin`). The child reports the tool names the PRODUCT's packs
+contribute. Executed 2026-08-16 against the built entry; `test:bin` 8/8, and composing an empty tool
+set turns exactly that case red while the other seven stay green — measured, not assumed.
+
+**Why the originally-written scenario was not runnable**, stated because the Done Gate asks for the
+reason and not only the substitution: it required a scratch product/pack contributing a uniquely-named
+tool to reach the BUILT CLI, and there is no runtime pack-injection path — the binary composes
+statically, external presets are JSON, plugins contribute commands rather than tools, and the worker
+spawn forwards no user argv.
+
 ## Completion Criteria
 
 - [ ] TC-01: a scratch pack contributing a uniquely-named tool reaches a **child-process** subagent —
@@ -322,7 +350,7 @@ composition root → neutral package.
 | TC-01 | Cross-process integration | A test entry module in `agent-subagent-runner` calling `runSubagentWorkerMain(scratchComposition)`, spawned over a real IPC channel                               | Red-first. This is the level at which a scratch composition is CONSTRUCTIBLE: the built binary composes statically, there is no runtime pack-injection path, and the worker spawn forwards no user argv |
 | TC-02 | E2E (build-gated)         | Extend `packages/agent-cli/src/__tests__/e2e/subagent-worker-entry.bintest.ts` to assert the built binary's worker reports robota's pack tool-name set in `ready` | Uses Alt-3's adopted parity declaration. Needs no model provider and no scratch pack, runs the REAL artifact, and is red against unfixed code                                                           |
 | TC-03 | Type                      | `tsgo --noEmit` against a fixture omitting the argument                                                                                                           | A required parameter is the mechanism; an optional one reinstates the defect                                                                                                                            |
-| TC-04 | Static                    | A `scripts/harness/scan-*.mjs` check in `pnpm harness:scan`, alongside `scan-interface-runtime.mjs`                                                               | The repo's enforcement family for "package X's `src/` must not import Y". This is the floor on the TOOL axis, which the manifest edge cannot cut (see #1787)                                            |
+| TC-04 | Static                    | A `scripts/harness/scan-*.mjs` check in `pnpm harness:scan`, alongside `scan-interface-runtime.mjs`                                                               | The repo's enforcement family for "package X's `src/` must not import Y". This is the floor on the TOOL axis, which the manifest edge cannot cut (see issue #1787)                                      |
 | TC-05 | Unit                      | Vitest in `agent-cli`, comparing name sets from the two call sites                                                                                                | Drift between the two sites becomes a failing test rather than a third finding at this line                                                                                                             |
 | TC-06 | Unit                      | Vitest at robota's composition root, pack context carrying a `sandboxClient`                                                                                      | Fail-closed; the error must name the capability. Robota supplies none today, so this pins the guard rather than a live path                                                                             |
 | TC-07 | Manual                    | `pnpm harness:verify-like-ci`                                                                                                                                     | Manual gate run before PR; mirrors the required checks of `develop`                                                                                                                                     |
@@ -345,17 +373,17 @@ Every item below is **actually filed** with an ID. An earlier revision of this d
 deferrals without filings, which `finding-depth.md` treats as indistinguishable from ignoring the
 finding — a hold labelled with an ID that resolves to nothing is not a hold.
 
-- **[#1784](https://github.com/woojubb/robota/issues/1784) (ARCH-033)** — projecting live owner-bound
+- **[issue #1784](https://github.com/woojubb/robota/issues/1784) (ARCH-033)** — projecting live owner-bound
   capability across the boundary (sandbox snapshot handoff, live services). This is the honest residue
-  of #1777 and needed an ID **distinct from #1777**, because #1777 is the item this document closes.
-- **[#1785](https://github.com/woojubb/robota/issues/1785) (ARCH-034)** — in-process vs child-process
-  subagent surface divergence. Real, but not #1777's cause; this change neither creates nor worsens it.
-- **[#1786](https://github.com/woojubb/robota/issues/1786) (SEC-009)** — `apiKey` in the IPC start
+  of issue #1777 and needed an ID **distinct from issue #1777**, because issue #1777 is the item this document closes.
+- **[issue #1785](https://github.com/woojubb/robota/issues/1785) (ARCH-034)** — in-process vs child-process
+  subagent surface divergence. Real, but not issue #1777's cause; this change neither creates nor worsens it.
+- **[issue #1786](https://github.com/woojubb/robota/issues/1786) (SEC-009)** — `apiKey` in the IPC start
   payload. Every comparable product uses the child's environment instead.
-- **[#1787](https://github.com/woojubb/robota/issues/1787) (ARCH-035)** — the tool surface has no
+- **[issue #1787](https://github.com/woojubb/robota/issues/1787) (ARCH-035)** — the tool surface has no
   defaults-aggregator leaf, which is why this design's compile-time guarantee reaches the provider axis
   only. Implies a package extraction and a change to `agent-framework`'s default tool tier.
-- **[#1788](https://github.com/woojubb/robota/issues/1788) (ARCH-036)** — the child-process runner
+- **[issue #1788](https://github.com/woojubb/robota/issues/1788) (ARCH-036)** — the child-process runner
   drops `deps.builtInAgents` (NEUT-003). Same defect class as the dropped `deps.tools`, in the same
   file, latent today; outside this Decision's stated scope.
 
@@ -648,7 +676,7 @@ ARCH-033/034/035/036 having GitHub issues but no task files, so they did not res
 created, each carrying its issue URL).
 
 **Reviewer's closing recommendation:** approve Alternative 2 — the composition recipe — exactly as
-written, with the tool axis held by TC-04's scan until #1787 lands, and the `sandboxClient` refusal
+written, with the tool axis held by TC-04's scan until issue #1787 lands, and the `sandboxClient` refusal
 fail-closed off one named pack context.
 
 ### [GATE-APPROVAL] — 🔴 NON-COMPLIANCE | 2026-08-16
@@ -733,7 +761,7 @@ the evidence surface, not unfinished authoring:
   reads `SEC-009` and `gh issue view 1786` confirms the retitle
   ("SEC-009: the subagent IPC start payload carries apiKey", OPEN).
 - Deferral task files: `ARCH-033`, `ARCH-034`, `ARCH-035`, `ARCH-036` all exist under `.agents/tasks/`
-  with `issue:` frontmatter pointing at #1784, #1785, #1787, #1788 respectively; all four issues are
+  with `issue:` frontmatter pointing at issues issue #1784, issue #1785, issue #1787 and issue #1788 respectively; all four issues are
   OPEN with matching titles.
 - **Also observed, not a GATE-APPROVAL criterion:** `SEC-009` has **no** task file under
   `.agents/tasks/` (only `SEC-005`, `SEC-007` are present; `SEC-008` is in `completed/`), so under the
