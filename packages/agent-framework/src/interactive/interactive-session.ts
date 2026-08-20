@@ -48,6 +48,7 @@ import type {
   IInteractiveSessionEvents,
   IExecutionResult,
 } from './types.js';
+import type { TLivePromptOverrides } from '../assembly/create-session-runtime.js';
 import type { ICommandHostContext } from '../command-api/index.js';
 import type {
   IAgentJobHostContext,
@@ -607,33 +608,32 @@ export class InteractiveSession
   }
 
   /**
-   * PRESET-014: re-apply a preset persona to the live system prompt. Recomposes the system
-   * message from the currently tracked AGENTS.md/CLAUDE.md entries (the same content the staleness
-   * refresh uses) plus the new persona, then propagates it to the session. No-op before init,
-   * when the rebuild closure is not yet available.
+   * The ONE way a preset field is re-applied to the live prompt: recompose from the tracked
+   * AGENTS.md/CLAUDE.md entries — what the staleness refresh uses — plus the override. No-op before
+   * init. ARCH-040 extracted it; a third copy is how the next one diverges.
    */
-  applyPersona(persona: string): void {
+  private rebuildLivePrompt(overrides: TLivePromptOverrides): void {
     if (this.rebuildSystemMessage === null) return;
-    const currentAgents = this.agentsFileEntries.map((e) => e.content).join('\n\n');
-    const currentClaude = this.projectNotesFileEntries.map((e) => e.content).join('\n\n');
-    const msg = this.rebuildSystemMessage(currentAgents, currentClaude, { persona });
-    this.getSessionOrThrow().updateSystemMessage(msg);
+    const agents = this.agentsFileEntries.map((e) => e.content).join('\n\n');
+    const notes = this.projectNotesFileEntries.map((e) => e.content).join('\n\n');
+    this.getSessionOrThrow().updateSystemMessage(
+      this.rebuildSystemMessage(agents, notes, overrides),
+    );
   }
 
-  /**
-   * PRESET-017: toggle the verify-before-done self-verification section on the live system prompt.
-   * Recomposes the system message from the currently tracked AGENTS.md/CLAUDE.md entries plus the
-   * new selfVerification flag, then propagates it to the session. No-op before init, when the
-   * rebuild closure is not yet available.
-   */
+  /** PRESET-014: re-apply a preset persona to the live system prompt. */
+  applyPersona(persona: string): void {
+    this.rebuildLivePrompt({ persona });
+  }
+
+  /** PRESET-017: toggle the verify-before-done section on the live system prompt. */
   applySelfVerification(enabled: boolean): void {
-    if (this.rebuildSystemMessage === null) return;
-    const currentAgents = this.agentsFileEntries.map((e) => e.content).join('\n\n');
-    const currentClaude = this.projectNotesFileEntries.map((e) => e.content).join('\n\n');
-    const msg = this.rebuildSystemMessage(currentAgents, currentClaude, {
-      selfVerification: enabled,
-    });
-    this.getSessionOrThrow().updateSystemMessage(msg);
+    this.rebuildLivePrompt({ selfVerification: enabled });
+  }
+
+  /** ARCH-040: re-apply the preset's response language to the live system prompt. */
+  applyResponseLanguage(language: string): void {
+    this.rebuildLivePrompt({ language });
   }
 
   /**

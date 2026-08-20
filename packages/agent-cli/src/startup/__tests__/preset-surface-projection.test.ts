@@ -46,6 +46,7 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
       effort: 'high',
       temperature: 0.2,
       maxOutputTokens: 4096,
+      language: 'ko',
     };
 
     const print: IPrintModePresetOptions = everyField;
@@ -72,6 +73,14 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
     const surface = buildPresetSurfaceOptions(resolved, 'acme', 'default');
     expect(surface.temperature).toBe(0.2);
     expect(surface.maxOutputTokens).toBe(4096);
+  });
+
+  it('projects `language` (ARCH-040 Group F)', () => {
+    // Decided as a PROMPT instruction rather than a provider parameter — and the framework already
+    // composes a response-language section, so this wires the existing mechanism. A preset stating a
+    // language is more specific than the ambient `config.language`, so it wins at the session level.
+    const resolved = { language: 'ko' } as IResolvedPresetOptions;
+    expect(buildPresetSurfaceOptions(resolved, 'acme', 'default').language).toBe('ko');
   });
 
   it('omits `model` entirely when the preset names none, so the shell’s fallback survives', () => {

@@ -50,6 +50,8 @@ export interface IPresetSurfaceOptions {
    */
   temperature?: number;
   maxOutputTokens?: number;
+  /** ARCH-040: response language, composed as a prompt section rather than a provider parameter. */
+  language?: string;
 }
 
 /**
@@ -80,5 +82,6 @@ export function buildPresetSurfaceOptions(
     ...(resolved.maxOutputTokens !== undefined
       ? { maxOutputTokens: resolved.maxOutputTokens }
       : {}),
+    ...(resolved.language !== undefined ? { language: resolved.language } : {}),
   };
 }

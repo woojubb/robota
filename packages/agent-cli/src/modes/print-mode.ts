@@ -123,6 +123,7 @@ export async function runPrintMode(
     ...(presetOptions.maxOutputTokens !== undefined
       ? { maxOutputTokens: presetOptions.maxOutputTokens }
       : {}),
+    ...(presetOptions.language !== undefined ? { language: presetOptions.language } : {}),
     ...(presetOptions.selfVerification !== undefined
       ? { selfVerification: presetOptions.selfVerification }
       : {}),

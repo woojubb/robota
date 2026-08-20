@@ -123,6 +123,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     ...(preset.effort !== undefined ? { effort: preset.effort } : {}),
     ...(preset.temperature !== undefined ? { temperature: preset.temperature } : {}),
     ...(preset.maxOutputTokens !== undefined ? { maxOutputTokens: preset.maxOutputTokens } : {}),
+    ...(preset.language !== undefined ? { language: preset.language } : {}),
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...(opts.memorySessionOptions ?? {}),
   };

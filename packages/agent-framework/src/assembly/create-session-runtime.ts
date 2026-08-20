@@ -49,6 +49,20 @@ export const DEFAULT_TOOL_DESCRIPTIONS = [
 export { buildAgentRuntime };
 export type { IAgentRuntimeResult } from './build-agent-runtime.js';
 
+/**
+ * ARCH-040: what a live preset switch may re-apply to the system prompt.
+ *
+ * One type rather than an inline literal at each site, because it is now written in four places —
+ * the closure's parameter, the interface that declares it, the session's applier, and the host role.
+ * Three of those were an inline `{ persona?; selfVerification? }` and the fourth would have been the
+ * copy that forgets a field.
+ */
+export interface TLivePromptOverrides {
+  persona?: string;
+  selfVerification?: boolean | string;
+  language?: string;
+}
+
 export interface IBackgroundProcessResult {
   backgroundProcessToolDeps: IBackgroundProcessToolDeps | undefined;
 }
@@ -81,7 +95,7 @@ export interface ISystemPromptResult {
   rebuildSystemMessage: (
     agentsMd: string,
     projectNotesMd: string,
-    overrides?: { persona?: string; selfVerification?: boolean | string },
+    overrides?: TLivePromptOverrides,
   ) => string;
 }
 
@@ -113,7 +127,6 @@ function buildStaticPromptParams(
       options.permissionMode ?? TRUST_TO_MODE[options.config.defaultTrustLevel] ?? 'default',
     projectInfo: options.projectInfo ?? { type: 'unknown', language: 'unknown' },
     cwd,
-    language: options.config.language,
     skills: modelVisibleSkills.map((skill) => ({
       name: skill.name,
       description: skill.description,
@@ -173,8 +186,18 @@ export function buildSessionSystemPrompt(
   // keep the most recently applied value.
   let currentSelfVerification = options.selfVerification;
 
-  // Persona/selfVerification are composed per-build (initial + each rebuild) so the mutable closure
-  // values always win; they are therefore excluded from these static params.
+  // ARCH-040: language is mutable for the lifetime of this closure, mirroring persona. A live preset
+  // switch re-applies the response-language section mid-session; later staleness rebuilds (no
+  // override) must keep the most recently applied value.
+  //
+  // Sourced from `config.language`, which is where a preset's language already ARRIVES — the
+  // interactive init merges `options.language` into the config. Adding a second key on
+  // `ICreateSessionOptions` would have been a second route to one value, which is the shape this
+  // whole item is about; it was written, and removed for that reason.
+  let currentLanguage = options.config.language;
+
+  // Persona/selfVerification/language are composed per-build (initial + each rebuild) so the mutable
+  // closure values always win; they are therefore excluded from these static params.
   const staticPromptParams = buildStaticPromptParams(
     options,
     cwd,
@@ -186,6 +209,7 @@ export function buildSessionSystemPrompt(
     ...staticPromptParams,
     ...(currentPersona !== undefined ? { persona: currentPersona } : {}),
     ...(currentSelfVerification !== undefined ? { selfVerification: currentSelfVerification } : {}),
+    ...(currentLanguage !== undefined ? { language: currentLanguage } : {}),
   });
   const finalSystemMessage = options.appendSystemPrompt
     ? `${systemMessage}\n\n${options.appendSystemPrompt}`
@@ -194,7 +218,7 @@ export function buildSessionSystemPrompt(
   const rebuildSystemMessage = (
     newAgentsMd: string,
     newProjectNotesMd: string,
-    overrides?: { persona?: string; selfVerification?: boolean | string },
+    overrides?: TLivePromptOverrides,
   ): string => {
     // PRESET-014: a persona override mutates the retained persona so subsequent rebuilds
     // (e.g. staleness refresh, which passes no override) keep the latest applied persona.
@@ -206,12 +230,16 @@ export function buildSessionSystemPrompt(
     if (overrides?.selfVerification !== undefined) {
       currentSelfVerification = overrides.selfVerification;
     }
+    if (overrides?.language !== undefined) {
+      currentLanguage = overrides.language;
+    }
     const rebuilt = buildPrompt({
       ...staticPromptParams,
       ...(currentPersona !== undefined ? { persona: currentPersona } : {}),
       ...(currentSelfVerification !== undefined
         ? { selfVerification: currentSelfVerification }
         : {}),
+      ...(currentLanguage !== undefined ? { language: currentLanguage } : {}),
       agentsMd: newAgentsMd,
       projectNotesMd: newProjectNotesMd,
     });
