@@ -17,7 +17,7 @@ import type { TUniversalMessage } from '@robota-sdk/agent-core';
  * labelled with WHO drove it, so a co-driven transcript can be read after the fact. `owner` is the
  * operator, so it reads as `You:` too; anything else prints as itself (`peer:<session-id>`, `agent`).
  */
-export function driverLabel(driverId: string): string {
+function driverLabel(driverId: string): string {
   return driverId === OWNER_DRIVER_ID ? 'You' : driverId;
 }
 
