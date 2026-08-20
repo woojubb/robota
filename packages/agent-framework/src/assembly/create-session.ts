@@ -217,13 +217,14 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
 
   // ARCH-040 Group C (issue #1934): one translation, shared with the live `/preset` re-application,
   // so the two paths cannot disagree about what the same preset permits.
-  const mergedPermissions = applyPresetToolLists(
-    {
-      allow: [...defaultAllow, ...commandAutoAllow, ...(options.config.permissions.allow ?? [])],
-      deny: options.config.permissions.deny ?? [],
-    },
-    options,
-  );
+  // The rules independent of any preset. Kept as its own value because the enforcer needs it to
+  // re-apply a preset live: deriving it later from `mergedPermissions` would already include this
+  // preset's patterns, and the first preset's allowlist would then survive every later switch.
+  const presetFreePermissions = {
+    allow: [...defaultAllow, ...commandAutoAllow, ...(options.config.permissions.allow ?? [])],
+    deny: options.config.permissions.deny ?? [],
+  };
+  const mergedPermissions = applyPresetToolLists(presetFreePermissions, options);
 
   const projectSettingsPath = join(cwd, '.robota', 'settings.local.json');
   function onProjectAllowTool(toolName: string): void {
@@ -255,6 +256,7 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
     // disagree the moment a caller supplied `options.cwd`.
     cwd,
     permissions: mergedPermissions,
+    presetFreePermissions,
     hooks: resolvedHooks,
     permissionMode: options.permissionMode,
     defaultTrustLevel: options.config.defaultTrustLevel,

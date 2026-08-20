@@ -61,6 +61,16 @@ export interface ISessionOptions {
   cwd: string;
   /** Permission and hook configuration */
   permissions?: { allow: string[]; deny: string[] };
+  /**
+   * ARCH-040 Group C (issue #1934): the permission rules BEFORE any preset contributed.
+   *
+   * Passed rather than inferred. `permissions` above already has the startup preset's patterns baked
+   * in, so an enforcer that captured its own base from it on the first live `/preset` would keep the
+   * FIRST preset's allowlist forever — the accumulation the replace rule exists to prevent, arriving
+   * through the base instead of through the merge. Absent ⇒ no preset contributed and the two are
+   * the same.
+   */
+  presetFreePermissions?: { allow: readonly string[]; deny: readonly string[] };
   hooks?: Record<string, unknown>;
   /** Initial permission mode */
   permissionMode?: TPermissionMode;

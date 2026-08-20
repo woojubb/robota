@@ -26,6 +26,9 @@ export function buildPermissionEnforcer(
     getPermissionMode,
     config: {
       permissions: options.permissions ?? { allow: [], deny: [] },
+      ...(options.presetFreePermissions !== undefined
+        ? { presetFreePermissions: options.presetFreePermissions }
+        : {}),
       hooks: options.hooks,
     },
     terminal: options.terminal,
