@@ -1,7 +1,8 @@
 ---
 title: 'PEER-006: the carrier and the ingress exist, and nothing joins them'
-status: in-progress
+status: done
 created: 2026-08-20
+completed: 2026-08-21
 priority: high
 urgency: now
 area: packages/agent-cli, packages/agent-command
@@ -60,10 +61,11 @@ One new module in `agent-cli` joins the three ends, and the command surface grow
 - [x] TC-04: a peer-supplied `origin.driverId` does not become the attributed driver id.
 - [x] TC-05: sending to this session's own id is refused.
 - [x] TC-06: `/peers send` with a missing target or missing text explains what it needs.
-- [ ] TC-07: the receiving operator sees the peer origin rendered — the turn is submitted with
-      `turnSource: 'peer'` and a derived driver id, and what the TUI does with that is the renderer's
-      own behaviour rather than this change's. Left open deliberately: ticking it would claim a
-      rendering nobody in this change measured.
+- [x] TC-07: the receiving operator sees the peer origin rendered. Left open by this change on
+      purpose — ticking it would have claimed a rendering nobody here had measured — and closed by
+      PEER-007 (issue #1915, PR #1935), which measured it: the receiving session rendered
+      `peer:<sender-session-id>` against a control session that rendered `You:`, with the two labels
+      mutually exclusive across the transcripts. Ticked on that measurement, not on this change's.
 - [x] TC-08: two sessions exchange in BOTH directions.
 - [x] TC-09: the flow and its concurrency behaviour are documented for the CLI.
 - [x] TC-10: `pnpm harness:pre-push` green.
