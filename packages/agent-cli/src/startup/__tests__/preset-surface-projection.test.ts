@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildPresetSurfaceOptions } from '../preset-surface-options.js';
+import { buildPresetSurfaceOptions, toSessionOptions } from '../preset-surface-options.js';
 
 import type { IServeModePresetOptions } from '../../modes/serve-mode.js';
 import type { IPrintModePresetOptions } from '../../modes/print-mode.js';
@@ -46,6 +46,8 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
       effort: 'high',
       temperature: 0.2,
       maxOutputTokens: 4096,
+      language: 'ko',
+      systemPrompt: 'seed text',
     };
 
     const print: IPrintModePresetOptions = everyField;
@@ -72,6 +74,29 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
     const surface = buildPresetSurfaceOptions(resolved, 'acme', 'default');
     expect(surface.temperature).toBe(0.2);
     expect(surface.maxOutputTokens).toBe(4096);
+  });
+
+  it('projects `language` (ARCH-040 Group F)', () => {
+    // Decided as a PROMPT instruction rather than a provider parameter — and the framework already
+    // composes a response-language section, so this wires the existing mechanism. A preset stating a
+    // language is more specific than the ambient `config.language`, so it wins at the session level.
+    const resolved = { language: 'ko' } as IResolvedPresetOptions;
+    expect(buildPresetSurfaceOptions(resolved, 'acme', 'default').language).toBe('ko');
+  });
+
+  it('renames the seed onto the SESSION key that seeds, never the one that replaces', () => {
+    // The session has two options one letter apart: `systemPrompt` REPLACES the composed prompt and
+    // `presetSystemPrompt` SEEDS it. A bare `...presetSurface` would land a preset's text on the
+    // replacing one and silently drop the AGENTS.md and capability sections — the opposite of the
+    // decision, and invisible. Renamed in ONE place so the three shells cannot disagree.
+    const surface = buildPresetSurfaceOptions(
+      { systemPrompt: 'seed text' } as IResolvedPresetOptions,
+      'acme',
+      'default',
+    );
+    const sessionOptions = toSessionOptions(surface);
+    expect(sessionOptions.presetSystemPrompt).toBe('seed text');
+    expect('systemPrompt' in sessionOptions).toBe(false);
   });
 
   it('omits `model` entirely when the preset names none, so the shell’s fallback survives', () => {

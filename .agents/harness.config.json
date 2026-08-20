@@ -372,9 +372,9 @@
     },
     {
       "name": "IInitOptions",
-      "file": "packages/agent-framework/src/interactive/interactive-session-options.ts",
+      "file": "packages/agent-framework/src/interactive/interactive-session-init-options.ts",
       "constructors": ["createInteractiveSession"],
-      "reason": "The INIT option shape, watched because ARCH-013 stage 3 dropped two fields in the ~40-field hand-map that builds it and stage 1's ICreateSessionOptions-only ratchet could not see the drop. Named IInitOptions rather than the published IInteractiveSessionStandardOptions because that is literally what it measures: the single production literal it reads is the createInteractiveSession(...) call, which takes IInitOptions. An earlier revision named the published type, and review measured the difference — 8 of the 10 keys it then reported ARE set by production code through buildRuntimeSession and the surface option builders, so the entry asserted unreachability it had not established, and burning it down would have pushed class-consumed options into the very hand-map this stage fixed."
+      "reason": "The INIT option shape, watched because ARCH-013 stage 3 dropped two fields in the ~40-field hand-map that builds it and stage 1's ICreateSessionOptions-only ratchet could not see the drop. Named IInitOptions rather than the published IInteractiveSessionStandardOptions because that is literally what it measures: the single production literal it reads is the createInteractiveSession(...) call, which takes IInitOptions. An earlier revision named the published type, and review measured the difference — 8 of the 10 keys it then reported ARE set by production code through buildRuntimeSession and the surface option builders, so the entry asserted unreachability it had not established, and burning it down would have pushed class-consumed options into the very hand-map this stage fixed. ARCH-040 split it into its own module: the original file held three interfaces restating one option list, so every preset field had to be added three times and the anti-monolith floor refused the fourth. This scan fail-closed on the move rather than passing, which is what the entry is for."
     }
   ],
   "productIdentity": {
@@ -430,18 +430,8 @@
         "declaredOn": ["IPresetSurfaceOptions"]
       },
       {
-        "field": "systemPrompt",
-        "reason": "Declared on the source with no `ICreateSessionOptions` counterpart under any name (all 54 keys enumerated). The framework composes the system prompt through `systemPromptBuilder` and `appendSystemPrompt`, so honouring a preset-supplied full `systemPrompt` means deciding whether it REPLACES the composed prompt or seeds it — a semantic decision with user-visible consequences.",
-        "declaredOn": []
-      },
-      {
         "field": "appendSystemPrompt",
         "reason": "A session seam DOES exist (`ICreateSessionOptions.appendSystemPrompt`, projected by create-session-projection.ts), so the last hop is ready. The first hop is missing, and wiring it requires deciding the merge order against the CLI-sourced append text that `buildAppendSystemPrompt` produces — today that helper is called only from print-mode.ts, so `--task-file`/`--json-schema`/`--append-system-prompt` are themselves dropped in TUI and serve mode.",
-        "declaredOn": []
-      },
-      {
-        "field": "language",
-        "reason": "No session or assembly seam under any name. Whether a preset-declared language becomes a persona section, an appended instruction, or a provider parameter is undecided, and each choice is user-visible.",
         "declaredOn": []
       },
       {

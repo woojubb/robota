@@ -48,9 +48,9 @@ projection, and where the fallback lives is an implementation choice made in thi
 - [ ] Group C — `allowedTools` (replace) and `deniedTools` (compose), resolved together. **BLOCKED on a
       missing capability**, see below. The RULE is decided and its home is identified; only the live
       seam is absent.
-- [ ] Group D — `systemPrompt` (seed) and `appendSystemPrompt` (merge order).
+- [x] Group D — `systemPrompt` (seed) done. `appendSystemPrompt` split to issue #1937: its merge order is not expressible while the CLI-sourced text reaches one surface of three.
 - [x] Group E — the model group: `model` declared (ARCH-041), `temperature` and `maxOutputTokens` wired.
-- [ ] Group F — `language` as a persona-section instruction.
+- [x] Group F — `language` as a prompt-section instruction, live and at startup.
 - [ ] Empty `presetProjection.pendingProjection`, and make the `IResolvedPresetOptions` docblock TRUE.
 
 ## Test Plan

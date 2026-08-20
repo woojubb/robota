@@ -78,6 +78,10 @@ export interface ICommandHostPresetApplication {
   applyPersona(persona: string): void;
   /** PRESET-017 — toggle the verify-before-done self-verification section on the live prompt. */
   applySelfVerification(enabled: boolean): void;
+  /** ARCH-040 — re-apply the preset's response language to the live system prompt. */
+  applyResponseLanguage(language: string): void;
+  /** ARCH-040 — re-apply the preset's seeding system prompt to the live system prompt. */
+  applyPresetSystemPrompt(text: string): void;
   /**
    * PRESET-015 — re-apply command-module selection to the live session. Returns any
    * `enabled`/`disabled` names that matched no live command module (INFRA-032) so the `/preset`

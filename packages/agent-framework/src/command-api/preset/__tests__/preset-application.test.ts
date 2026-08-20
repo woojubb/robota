@@ -21,6 +21,7 @@ interface IRuntimeSpies {
   setActivePresetId?: ReturnType<typeof vi.fn>;
   applyModelOptions?: ReturnType<typeof vi.fn>;
   applyPersona?: ReturnType<typeof vi.fn>;
+  applyResponseLanguage?: ReturnType<typeof vi.fn>;
   applyCommandModuleSelection?: ReturnType<typeof vi.fn>;
   setParallelSubagentsEnabled?: ReturnType<typeof vi.fn>;
   applySelfVerification?: ReturnType<typeof vi.fn>;
@@ -210,6 +211,64 @@ describe('applyPresetToSession model group (PRESET-013)', () => {
 
     expect(context.getSession().applyModelOptions).toBeTypeOf('function');
     expect(result.applied).toContain('effort');
+  });
+});
+
+describe('applyPresetToSession language group (ARCH-040)', () => {
+  // `language` had no seam anywhere and was the last of the ten fields to be decidable from an
+  // existing mechanism: the framework already composes a response-language prompt section, so the
+  // owner's decision — a prompt instruction, not a provider parameter — wires what is there rather
+  // than inventing a second place for the same idea.
+  it('re-applies the language through the live rebuild seam', async () => {
+    const { context } = createContext();
+    const applyResponseLanguage = vi.fn();
+    (context as unknown as Record<string, unknown>)['applyResponseLanguage'] =
+      applyResponseLanguage;
+
+    const result = await applyPresetToSession(context, 'acme', { language: 'ko' });
+
+    expect(applyResponseLanguage).toHaveBeenCalledWith('ko');
+    expect(result.applied).toContain('language');
+  });
+
+  it('reports the group skipped when the preset names no language', async () => {
+    // "this preset said nothing about language" and "the language was set to undefined" are
+    // different statements, and only one of them is true.
+    const { context } = createContext();
+    const applyResponseLanguage = vi.fn();
+    (context as unknown as Record<string, unknown>)['applyResponseLanguage'] =
+      applyResponseLanguage;
+
+    const result = await applyPresetToSession(context, 'acme', { permissionMode: 'default' });
+
+    expect(applyResponseLanguage).not.toHaveBeenCalled();
+    expect(result.skipped).toContain('language');
+  });
+});
+
+describe('applyPresetToSession seeding-prompt group (ARCH-040)', () => {
+  it('re-applies the preset system prompt through the live rebuild seam', async () => {
+    const { context } = createContext();
+    const applyPresetSystemPrompt = vi.fn();
+    (context as unknown as Record<string, unknown>)['applyPresetSystemPrompt'] =
+      applyPresetSystemPrompt;
+
+    const result = await applyPresetToSession(context, 'acme', { systemPrompt: 'seed text' });
+
+    expect(applyPresetSystemPrompt).toHaveBeenCalledWith('seed text');
+    expect(result.applied).toContain('systemPrompt');
+  });
+
+  it('reports the group skipped when the preset names none', async () => {
+    const { context } = createContext();
+    const applyPresetSystemPrompt = vi.fn();
+    (context as unknown as Record<string, unknown>)['applyPresetSystemPrompt'] =
+      applyPresetSystemPrompt;
+
+    const result = await applyPresetToSession(context, 'acme', { permissionMode: 'default' });
+
+    expect(applyPresetSystemPrompt).not.toHaveBeenCalled();
+    expect(result.skipped).toContain('systemPrompt');
   });
 });
 

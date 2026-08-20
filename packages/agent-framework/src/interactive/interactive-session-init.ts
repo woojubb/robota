@@ -16,6 +16,7 @@ import { detectProject } from '../context/project-detector.js';
 import { projectPaths } from '../paths.js';
 import {
   applyInteractiveWorkspaceManifest,
+  interactivePresetOptions,
   interactiveSandboxOptions,
   restoreInteractiveSandboxSnapshot,
 } from './interactive-session-init-workspace.js';
@@ -245,8 +246,6 @@ export async function initializeInteractiveSessionAsync(
     deniedTools: options.deniedTools,
     model: options.model,
     ...(options.effort !== undefined ? { effort: options.effort } : {}),
-    ...(options.temperature !== undefined ? { temperature: options.temperature } : {}), // ARCH-040
-    ...(options.maxOutputTokens !== undefined ? { maxOutputTokens: options.maxOutputTokens } : {}),
     appendSystemPrompt: options.appendSystemPrompt,
     ...(options.persona !== undefined ? { persona: options.persona } : {}),
     ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
@@ -259,6 +258,7 @@ export async function initializeInteractiveSessionAsync(
     editCheckpointRecorder: checkpointStore,
     ...(options.reversibleExecution ? { reversibleExecution: options.reversibleExecution } : {}),
     ...interactiveSandboxOptions(options, deps.sandboxSnapshotId),
+    ...interactivePresetOptions(options),
     ...(options.memoryStore ? { memoryStore: options.memoryStore } : {}),
     ...(options.agentName ? { agentName: options.agentName } : {}),
     ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),

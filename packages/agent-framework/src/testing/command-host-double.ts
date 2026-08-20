@@ -158,6 +158,8 @@ export function createTestCommandHost(
     getUserInteraction: () => undefined,
     applyPersona: () => {},
     applySelfVerification: () => {},
+    applyResponseLanguage: () => {},
+    applyPresetSystemPrompt: () => {},
     // An empty array is "every name matched" (INFRA-032), not "nothing was applied".
     applyCommandModuleSelection: () => [],
     getAutoCompactThresholdSource: () => 'session',

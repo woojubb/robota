@@ -123,6 +123,11 @@ export async function runPrintMode(
     ...(presetOptions.maxOutputTokens !== undefined
       ? { maxOutputTokens: presetOptions.maxOutputTokens }
       : {}),
+    ...(presetOptions.language !== undefined ? { language: presetOptions.language } : {}),
+    // ARCH-040: onto the SEED key, never onto `systemPrompt` — that one replaces the composed prompt.
+    ...(presetOptions.systemPrompt !== undefined
+      ? { presetSystemPrompt: presetOptions.systemPrompt }
+      : {}),
     ...(presetOptions.selfVerification !== undefined
       ? { selfVerification: presetOptions.selfVerification }
       : {}),
