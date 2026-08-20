@@ -152,17 +152,25 @@ export function collectRewriteSites(
     if (declaresLocally(source, symbol)) return { file, verdict: SITE.SHADOWED };
 
     const specifiers = importSpecifiersFor(source, symbol);
-    if (specifiers.length === 0) {
-      const namespaces = namespaceImports(source);
-      if (namespaces.some((entry) => specifierNames(entry.from, file, module))) {
-        return { file, verdict: SITE.UNRESOLVED };
-      }
-      return { file, verdict: SITE.NOT_IMPORTED };
-    }
     if (specifiers.some((specifier) => specifierNames(specifier, file, module))) {
       return { file, verdict: SITE.BINDS };
     }
-    return { file, verdict: SITE.IMPORTED_ELSEWHERE };
+
+    // No NAMED import of the symbol resolves to the module — but a namespace import of it still
+    // reaches the symbol as a member access, and nothing here can tell whether it is used. So this
+    // check runs whenever the named ones came up empty-handed, NOT only when the file names the
+    // symbol nowhere: gating it on `specifiers.length === 0` let one named import from an unrelated
+    // module hide a namespace import of the real one, answering `imports-that-name-from-another-module`
+    // — a leave-it-alone verdict — over a live rewrite site. That is this tool's own failure mode
+    // running one level up: same spelling, different thing, answered "no" instead of flagged.
+    const namespaces = namespaceImports(source);
+    if (namespaces.some((entry) => specifierNames(entry.from, file, module))) {
+      return { file, verdict: SITE.UNRESOLVED };
+    }
+    return {
+      file,
+      verdict: specifiers.length === 0 ? SITE.NOT_IMPORTED : SITE.IMPORTED_ELSEWHERE,
+    };
   });
 }
 

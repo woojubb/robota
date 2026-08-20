@@ -135,6 +135,36 @@ describe('the limits it reports rather than guesses at', () => {
       SITE.NOT_IMPORTED,
     ]);
   });
+
+  it('sees a namespace import that a named import from ANOTHER module would otherwise hide', () => {
+    // The namespace check used to run only when the file named the symbol nowhere. So one named
+    // import from an unrelated module was enough to hide a namespace import of the REAL one, and the
+    // file came back `imports-that-name-from-another-module` — a leave-it-alone verdict — over a live
+    // `fw.createSession()` site. Same spelling, different thing, answered "no" instead of flagged:
+    // this tool's own failure mode, one level up.
+    expect(
+      resolve({
+        'a.ts':
+          `import { createSession } from './local.js';\n` +
+          `import * as fw from '${MODULE}';\n` +
+          `createSession();\nfw.createSession();`,
+      }),
+    ).toEqual([SITE.UNRESOLVED]);
+  });
+
+  it('still reports a named import from another module as such when no namespace reaches the target', () => {
+    // The guard on the case above: widening the namespace check must not turn every file that
+    // imports the name from elsewhere into "cannot decide", which would readmit the whole set the
+    // rewrite is supposed to leave alone.
+    expect(
+      resolve({
+        'a.ts':
+          `import { createSession } from './local.js';\n` +
+          `import * as other from '@robota-sdk/unrelated';\n` +
+          `createSession();`,
+      }),
+    ).toEqual([SITE.IMPORTED_ELSEWHERE]);
+  });
 });
 
 describe('the size it reports', () => {
