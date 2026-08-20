@@ -3,6 +3,6 @@
   "packages/agent-tools": 0,
   "packages/agent-session": 3,
   "packages/agent-preset": 3,
-  "packages/agent-command": 8,
+  "packages/agent-command": 7,
   "packages/agent-framework": 52
 }

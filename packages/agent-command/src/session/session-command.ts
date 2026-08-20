@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { closeSync, constants, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import { confirmAction, isConfirmed } from '@robota-sdk/agent-core';
 import {
@@ -77,13 +77,14 @@ interface IBudgetConfig {
 }
 
 function readBudget(cwd: string): IBudgetConfig | undefined {
-  const file = join(cwd, BUDGET_FILE);
-  if (!existsSync(file)) return undefined;
   let raw: string;
   try {
-    raw = readFileSync(file, 'utf-8');
+    // No `existsSync` first: the catch already answers the question it asked, and asking twice is
+    // the check-then-use shape CodeQL flags — here it was merely redundant, in `clearBudget` it was
+    // exploitable.
+    raw = readFileSync(join(cwd, BUDGET_FILE), 'utf-8');
   } catch {
-    // allow-fallback: budget file read failure disables feature gracefully
+    // allow-fallback: an absent or unreadable budget file disables the feature gracefully
     return undefined;
   }
   try {
@@ -94,17 +95,78 @@ function readBudget(cwd: string): IBudgetConfig | undefined {
   }
 }
 
-function writeBudget(cwd: string, config: IBudgetConfig): void {
-  const dir = join(cwd, '.robota');
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(cwd, BUDGET_FILE), JSON.stringify(config, null, 2));
+/**
+ * Write the budget document, refusing to follow a symlink at that path.
+ *
+ * Two separate problems were reachable here, and only one of them was the reported race:
+ *
+ * 1. `clearBudget` checked `existsSync` and then wrote — CodeQL `js/file-system-race`, high. Swapping
+ *    the path for a symlink inside that window made the write land on the target instead. Removing
+ *    the check closes the window, because there is no longer a moment between asking and acting.
+ * 2. That alone is not enough. A symlink planted BEFORE the call is still followed, so removing the
+ *    check fixes the race and leaves the redirection. Demonstrated both ways before and after.
+ *
+ * `O_NOFOLLOW` closes the second: the open itself fails with `ELOOP` when the final path component is
+ * a symlink, so the decision is made by the kernel at open time rather than by a check that can go
+ * stale. Windows has no such flag — `O_NOFOLLOW` is undefined there — so the write falls back to the
+ * plain one rather than silently claiming a protection the platform cannot give.
+ */
+function writeBudgetFile(cwd: string, contents: string): void {
+  mkdirSync(join(cwd, dirname(BUDGET_FILE)), { recursive: true });
+  const file = join(cwd, BUDGET_FILE);
+  const noFollow = constants.O_NOFOLLOW;
+  if (noFollow === undefined) {
+    writeFileSync(file, contents);
+    return;
+  }
+  const handle = openSync(
+    file,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | noFollow,
+  );
+  try {
+    writeFileSync(handle, contents);
+  } finally {
+    closeSync(handle);
+  }
 }
 
+function writeBudget(cwd: string, config: IBudgetConfig): void {
+  writeBudgetFile(cwd, JSON.stringify(config, null, 2));
+}
+
+/**
+ * Clear the budget by writing an empty document.
+ *
+ * The `existsSync` that used to guard this write was a check-then-use race — CodeQL
+ * `js/file-system-race`, high severity. Demonstrated rather than assumed: replacing the path with a
+ * symlink between the check and the write makes the write follow it and overwrite the target, so the
+ * guard let a caller reach a file outside the session directory entirely.
+ *
+ * The guard also bought nothing. `readBudget` reads an absent file, an empty document and malformed
+ * JSON all as "no budget set", so writing unconditionally says exactly what the check was protecting.
+ * The only visible change is that clearing on a project that never had the file now creates one
+ * holding `{}` — the same meaning, written down.
+ */
 function clearBudget(cwd: string): void {
-  const file = join(cwd, BUDGET_FILE);
-  if (existsSync(file)) {
-    writeFileSync(file, '{}');
+  writeBudgetFile(cwd, '{}');
+}
+
+/**
+ * What to tell the operator when the budget write was refused.
+ *
+ * `ELOOP` is the guard firing, not a bug: the path is a symlink and the open declined to follow it.
+ * Naming that specifically matters — "could not write the budget" would send someone looking at
+ * permissions, when the thing to look at is what the budget file points to.
+ */
+function describeBudgetWriteFailure(error: unknown): string {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  if (code === 'ELOOP') {
+    return (
+      `Refused: ${BUDGET_FILE} is a symbolic link, and the budget is never written through one. ` +
+      'Replace it with a regular file, or remove it.'
+    );
   }
+  return `Could not write the budget: ${error instanceof Error ? error.message : String(error)}`;
 }
 
 function buildCostOutput(context: ICommandHostSessionAccess & ICommandHostWorkspace): {
@@ -166,7 +228,11 @@ export function executeCostCommand(
     const budgetArg = trimmed.slice('budget'.length).trim();
 
     if (budgetArg === 'clear') {
-      clearBudget(context.getCwd());
+      try {
+        clearBudget(context.getCwd());
+      } catch (error) {
+        return { success: false, message: describeBudgetWriteFailure(error) };
+      }
       return { success: true, message: 'Monthly budget cleared.' };
     }
 
@@ -188,7 +254,11 @@ export function executeCostCommand(
         message: 'Usage: /cost budget <amount>  (e.g. /cost budget 5.00)',
       };
     }
-    writeBudget(context.getCwd(), { monthly: amount });
+    try {
+      writeBudget(context.getCwd(), { monthly: amount });
+    } catch (error) {
+      return { success: false, message: describeBudgetWriteFailure(error) };
+    }
     return { success: true, message: `Monthly budget set to ${formatUsd(amount)}.` };
   }
 
