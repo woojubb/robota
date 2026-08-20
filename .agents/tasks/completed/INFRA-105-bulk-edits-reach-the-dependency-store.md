@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-105: a bulk edit can reach the shared pnpm store, where git cannot see it'
-status: in-progress
+status: done
+completed: 2026-08-21
 created: 2026-08-19
 priority: high
 urgency: now
@@ -156,3 +157,16 @@ Review of the pull request then found three more, and all three were right:
 Red-proofed one at a time: restoring the file-existence test fails exactly the new-file case,
 removing the segment split fails exactly three, and removing the editor rule's segment reset fails
 exactly one.
+
+### 2026-08-21
+
+Closed. The implementation is `420409f80` (pull request #1886, squashing issue #1884's fix), on `develop`. The
+follow-up review of that pull request produced three items that are NOT this task and were filed as
+their own: issue #1898 (flag attribution has two implementations), issue #1899 (the guard hand-rolls
+path canonicalization and fails open) and issue #1903 (a redirect target has no owner). Each is a
+shared-ownership gap the guard exposed rather than a defect in the guard's own verdicts, which is why
+they are separate causes and not reopened plan items here.
+
+Verification at close: `pnpm harness:scan` 129 scans, 0 failures (5 advisory `dist`-staleness notes,
+which are not verdicts); `pnpm harness:test` 221 files / 4087 tests and 73 files / 1113 tests, all
+passed, exit 0.

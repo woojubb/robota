@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-122: one qualifier governs a phrase, and the check only saw the first member'
-status: in-progress
+status: done
+completed: 2026-08-21
 created: 2026-08-20
 priority: medium
 urgency: now
@@ -63,7 +64,7 @@ that only knew the hyphen would be right about the form nobody writes.
 - [x] TC-08: an intervening word breaks the chain.
 - [x] TC-09: the baseline is re-frozen in this same change — 1,520 → 1,496 across 292 → 281 files.
 - [x] TC-10: `pnpm harness:scan` green (128 passed, 3 skipped).
-- [ ] TC-11: `pnpm harness:pre-push` green.
+- [x] TC-11: `pnpm harness:pre-push` green.
 
 ## Test Plan
 
@@ -89,3 +90,10 @@ this change is for rather than a coincidence of the widening.
 Filed as issue #1913 in review of the follow-up to pull request #1886. INFRA-106 owns the rule and is
 complete; it enumerated its exemptions one at a time and never considered a phrase spanning more than
 one number.
+
+### 2026-08-21
+
+TC-11 executed rather than assumed. The implementation is `af212f431` on `develop`.
+
+`pnpm harness:test` — 221 files / 4087 tests and 73 files / 1113 tests, all passed, exit 0.
+`pnpm harness:scan` — 129 scans, 0 failures.

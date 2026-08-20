@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-125: a bulk rename decides by spelling, and edits every same-named thing in the workspace'
-status: in-progress
+status: done
+completed: 2026-08-21
 created: 2026-08-20
 priority: medium
 urgency: now
@@ -85,7 +86,7 @@ other direction.
 - [x] TC-11: run against the three real files — all three `shadowed`, and the file that genuinely
       needed the edit `binds`.
 - [x] TC-12: every verdict name in the code appears in the rule, checked mechanically.
-- [ ] TC-13: `pnpm harness:pre-push` green.
+- [x] TC-13: `pnpm harness:pre-push` green.
 
 ## Test Plan
 
@@ -103,3 +104,10 @@ Filed as issue #1887 from issue #1884's third item. The issue asks for three des
 settled rather than answered after the fact, and the third — "whether this is enforceable at all" —
 is answered `no`, in the rule, with the reason. A rule that claimed enforcement it does not have
 would be the more comfortable and the less true option.
+
+### 2026-08-21
+
+TC-13 executed rather than assumed. The implementation is `cbd64e8be` (pull request #1927) on `develop`.
+
+`pnpm harness:test` — 221 files / 4087 tests and 73 files / 1113 tests, all passed, exit 0.
+`pnpm harness:scan` — 129 scans, 0 failures.

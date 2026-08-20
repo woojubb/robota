@@ -171,7 +171,7 @@ outside that list is unread.
 > they describe one population is held only in prose. Those are the reader's obligation.
 
 The measurements behind the table, and the exposure they corrected, are in
-[INFRA-105](../tasks/INFRA-105-bulk-edits-reach-the-dependency-store.md).
+[INFRA-105](../tasks/completed/INFRA-105-bulk-edits-reach-the-dependency-store.md).
 
 ### A Rewrite Edits What The Name RESOLVES To
 
@@ -231,7 +231,7 @@ output: a rewrite that names it in its record is one another reader can re-run, 
 is a claim about scope with nothing behind it.
 
 The measurement behind this rule is in
-[INFRA-125](../tasks/INFRA-125-a-rewrite-edits-what-the-name-resolves-to.md).
+[INFRA-125](../tasks/completed/INFRA-125-a-rewrite-edits-what-the-name-resolves-to.md).
 
 ### A Wait Is Not Idle Time
 

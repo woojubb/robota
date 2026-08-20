@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-124: packages/*/examples was read by no typechecker, so a breaking signature change landed green'
-status: in-progress
+status: done
+completed: 2026-08-21
 created: 2026-08-20
 priority: high
 urgency: now
@@ -69,17 +70,28 @@ runs it. Wiring into the EXISTING gate rather than adding a new one: `quality` a
 - [x] TC-03: all nine packages typecheck their examples at zero.
 - [x] TC-04: `scenario:verify` still passes — the edits are type-level, and the behaviour is unchanged.
 - [x] TC-05: reintroducing the INFRA-119 defect is caught at TYPECHECK time, not scenario runtime —
-      the issue's definition of done, verified by actually reintroducing it.
-- [ ] TC-06: `pnpm harness:pre-push` green.
+      the issue's definition of done, verified by actually reintroducing it. Dropping the `Awaited<>`
+      from `packages/agent-command/examples/semantic-command-role-scenario-helpers.ts:19` makes that
+      package's `pnpm typecheck` report
+      `semantic-command-role-scenario-helpers.ts(19,63): error TS2339: Property 'session' does not
+  exist on type 'Promise<ICreateSessionResult>'`; restoring it returns the run to exit 0. Re-run
+      on 2026-08-21 at close, not carried over as a claim.
+- [x] TC-06: `pnpm harness:pre-push` green.
 
 ## Test Plan
 
 The compiler is the test. What needs proving is that it now READS this directory, which a passing
 typecheck cannot show on its own — a config that included nothing would also pass.
 
-So the proof is the red-proof: dropping the `await` that INFRA-119 added produces
-`Property 'session' does not exist on type 'Promise<ICreateSessionResult>'` from `pnpm typecheck`,
-where before this change it produced nothing until the scenario ran and threw two frames away.
+So the proof is the red-proof: dropping the `Awaited<>` from the `TDirectSession` alias in
+`packages/agent-command/examples/semantic-command-role-scenario-helpers.ts:19` produces
+`error TS2339: Property 'session' does not exist on type 'Promise<ICreateSessionResult>'` from
+`pnpm typecheck`, where before this change it produced nothing until the scenario ran and threw two
+frames away.
+
+The mutated token is the `Awaited<>` in the ALIAS, not the `await` on the call INFRA-119 fixed —
+those are one line apart, and naming the wrong one is what let the alias resolve to `never` in
+silence in the first place.
 
 ## Progress
 
@@ -89,3 +101,10 @@ Filed as issue #1902 from INFRA-119, where the gap let a sync-to-async signature
 The count came in an order of magnitude under the earlier estimate, which is worth recording: the
 first probe's noise was an artefact of how it was taken, and had it been believed this would have been
 deferred as a nine-package migration rather than done as a thirteen-error fix.
+
+### 2026-08-21
+
+TC-06 executed rather than assumed. The implementation is `18dbba14a` (pull request #1936) on `develop`.
+
+`pnpm harness:test` — 221 files / 4087 tests and 73 files / 1113 tests, all passed, exit 0.
+`pnpm harness:scan` — 129 scans, 0 failures.
