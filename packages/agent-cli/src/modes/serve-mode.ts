@@ -16,6 +16,7 @@ import {
 } from './serve-monitor-ui.js';
 import { settleOnServeTransportFailure } from './serve-transport-failure.js';
 import { startRuntimeHost } from '@robota-sdk/agent-framework';
+import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type { ICreateSessionOptions } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
@@ -37,16 +38,10 @@ import type {
 } from '@robota-sdk/agent-interface-transport';
 
 /** Preset-resolved identity/posture the thin-shell CLI forwards into the headless runtime session. */
-export interface IServeModePresetOptions {
-  agentName?: string;
-  activePresetId?: string;
-  persona?: string;
-  permissionMode?: TInteractiveSessionOptions['permissionMode'];
-  enableParallelSubagents?: boolean;
-  selfVerification?: boolean;
-  /** ARCH-013: resolved preset effort, forwarded to the session's `effort` seam. */
-  effort?: ICreateSessionOptions['effort'];
-}
+/**
+ * ARCH-041: ONE declaration — see the note on `IPrintModePresetOptions`. This was the third copy.
+ */
+export type IServeModePresetOptions = Partial<IPresetSurfaceOptions>;
 
 export interface IServeModeOptions {
   cwd: string;

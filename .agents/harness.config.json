@@ -425,11 +425,6 @@
     "$pendingComment": "The burn-down. Each entry is a field this floor HAS measured as undeclared or one-sidedly declared, whose fix needs a decision this scan cannot make — recorded as a NAMED, EXPIRING exemption rather than an opaque count, because an exemption that is unnamed or non-expiring is indistinguishable from no floor. `declaredOn` records the surfaces the field was measured on when the entry was written; if the live state differs in EITHER direction the entry is reported (`preset-pending-state-changed`), so an exemption expires when the work is DONE and not only when the field is deleted. Review measured the earlier version failing exactly that: fixing a pending field printed green, which made the list a baseline with extra words. This list may shrink and must never grow without a reviewed reason. Tracked as GitHub issue #1820.",
     "pendingProjection": [
       {
-        "field": "model",
-        "reason": "NOT dropped — hand-mapped. `cli.ts:262` computes `resolvedPreset.model ?? providerSettings.model` and threads the result into all three construction sites, so the value reaches the session; what is missing is the DECLARED projection. Resolving it means moving the field onto IPresetSurfaceOptions, which requires deciding where the `?? providerSettings.model` fallback lives, because the surface is built after the model id is first needed (cli.ts:330 vs :262).",
-        "declaredOn": ["IPresetApplicationOptions"]
-      },
-      {
         "field": "temperature",
         "reason": "Applied by the live /preset path via `applyModelOptions` (preset-application.ts), and by nothing at startup. Unlike `model` there is no `ICreateSessionOptions` seam at all — the value would have to reach the provider config, so this is a new seam rather than a re-declaration. Same class as `effort` before stage 1.",
         "declaredOn": ["IPresetApplicationOptions"]

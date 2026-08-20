@@ -1,4 +1,5 @@
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
+import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type {
   IAgentDefinition,
   ICommandHostAdapters,
@@ -32,28 +33,15 @@ export interface IPrintModeSessionResolution {
 }
 
 /** Preset-resolved identity/persona the thin-shell CLI forwards into the headless session. */
-export interface IPrintModePresetOptions {
-  /**
-   * CLI-076: the resolved model id (the same value the CLI header displays — `resolvedPreset.model ??
-   * providerSettings.model`). Forwarded to the headless session so an explicit `--model` override reaches
-   * the provider chat call rather than being silently replaced by the session's default model.
-   */
-  model?: string;
-  /** Resolved agent name (preset value, else agent-preset DEFAULT_AGENT_NAME). */
-  agentName?: string;
-  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
-  activePresetId?: string;
-  /** Resolved preset persona block composed as a `source: 'persona'` system-prompt section. */
-  persona?: string;
-  /** Resolved preset permission mode (overridden by an explicit CLI --permission-mode flag). */
-  permissionMode?: TPermissionMode;
-  /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
-  enableParallelSubagents?: boolean;
-  /** Preset execution capability: run a post-task self-verification step. */
-  selfVerification?: boolean;
-  /** ARCH-013: resolved preset effort, forwarded to the session's `effort` seam. */
-  effort?: ICreateSessionOptions['effort'];
-}
+/**
+ * ARCH-041: ONE declaration. This used to be a hand-written copy of `IPresetSurfaceOptions`, and the
+ * two had already drifted — `model` was declared here and on neither of the other two surfaces,
+ * which is the shape ARCH-013 was filed about surviving the extraction meant to end it.
+ *
+ * `Partial` because a caller may supply none of it; the shared type states which fields exist, this
+ * states only that they are all optional here.
+ */
+export type IPrintModePresetOptions = Partial<IPresetSurfaceOptions>;
 
 export async function runPrintMode(
   cwd: string,
