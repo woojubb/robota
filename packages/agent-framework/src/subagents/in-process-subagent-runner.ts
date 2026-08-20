@@ -65,8 +65,10 @@ export interface IInProcessSubagentRunnerDeps {
    * the tool axis. The parent already knows the answer — `buildAgentRuntime` computes this list —
    * so carrying it is what lets the child stop asking the framework.
    *
-   * Absent ⇒ the composition root offered no roster, and an unresolved type fails closed rather than
-   * silently falling back to a set the product never chose.
+   * Consulted AFTER `customAgentRegistry` and `builtInAgents`, by both runners. Absent ⇒ the
+   * composition root offered no roster; `agent-subagent-runner` then fails closed rather than
+   * silently resolving against a set the product never chose, while the in-process runner — which
+   * lives in the package that OWNS the built-ins — falls back to them.
    */
   agentDefinitions?: readonly IAgentDefinition[];
   commandSemanticRoles?: ISystemCommandSemanticRoles;
@@ -93,15 +95,32 @@ export interface IInProcessSubagentRunnerDeps {
 
 export type TSubagentRunnerFactory = (deps: IInProcessSubagentRunnerDeps) => ISubagentRunner;
 
+/**
+ * Both runners consult the same sources in the same ORDER: custom registry, injected set, then the
+ * parent's roster. They differ only in the last resort, and only because of where each one lives.
+ *
+ * Reported in review of issue #1854's agent axis: the first cut documented `agentDefinitions` on the
+ * shared deps type and wired it in the child-process runner alone, so a caller that supplied it saw
+ * it silently ignored here. A field one implementer honours and the other drops is the asymmetry
+ * ARCH-034 was about, reintroduced by the change closing its sibling.
+ *
+ * This runner keeps `getBuiltInAgent` as the last resort, and that is not the axis violation: it is
+ * the framework's own runner reading the framework's own built-ins, in the package that owns them.
+ * The violation was a NEUTRAL package importing them across a process boundary to compose a surface
+ * the product had already decided — which is why `agent-subagent-runner` fails closed instead.
+ */
 function resolveAgentDefinition(
   agentType: string,
-  deps: Pick<IInProcessSubagentRunnerDeps, 'customAgentRegistry' | 'builtInAgents'>,
+  deps: Pick<
+    IInProcessSubagentRunnerDeps,
+    'customAgentRegistry' | 'builtInAgents' | 'agentDefinitions'
+  >,
 ): IAgentDefinition {
   const definition =
     deps.customAgentRegistry?.(agentType) ??
-    (deps.builtInAgents
-      ? deps.builtInAgents.find((agent) => agent.name === agentType)
-      : getBuiltInAgent(agentType));
+    deps.builtInAgents?.find((agent) => agent.name === agentType) ??
+    deps.agentDefinitions?.find((agent) => agent.name === agentType) ??
+    getBuiltInAgent(agentType);
   if (!definition) {
     throw new Error(`Unknown agent type: ${agentType}`);
   }
