@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-123: a bulk rename decides by spelling, and edits every same-named thing in the workspace'
+title: 'INFRA-125: a bulk rename decides by spelling, and edits every same-named thing in the workspace'
 status: in-progress
 created: 2026-08-20
 priority: medium
@@ -8,7 +8,7 @@ area: scripts/harness
 depends_on: []
 ---
 
-# INFRA-123: a rewrite site is where the name RESOLVES, not where it matches
+# INFRA-125: a rewrite site is where the name RESOLVES, not where it matches
 
 ## Objective
 

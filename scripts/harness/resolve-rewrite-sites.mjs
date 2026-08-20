@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * INFRA-123 (issue #1887) — which files actually BIND a symbol to the declaration being changed.
+ * INFRA-125 (issue #1887) — which files actually BIND a symbol to the declaration being changed.
  *
  * A bulk rename decides by NAME: it greps for a symbol's spelling and rewrites every site that
  * matches. That is wrong whenever the name is not unique, which for ordinary names is most of the

@@ -231,7 +231,7 @@ output: a rewrite that names it in its record is one another reader can re-run, 
 is a claim about scope with nothing behind it.
 
 The measurement behind this rule is in
-[INFRA-123](../tasks/INFRA-123-a-rewrite-edits-what-the-name-resolves-to.md).
+[INFRA-125](../tasks/INFRA-125-a-rewrite-edits-what-the-name-resolves-to.md).
 
 ### A Wait Is Not Idle Time
 

@@ -1,5 +1,5 @@
 /**
- * INFRA-123 (issue #1887) — a rewrite site is correct when the identifier RESOLVES to the declaration
+ * INFRA-125 (issue #1887) — a rewrite site is correct when the identifier RESOLVES to the declaration
  * being changed, not when it spells the same thing.
  *
  * The cases that carry the weight are the three real files a name-based rewrite edited wrongly, and
