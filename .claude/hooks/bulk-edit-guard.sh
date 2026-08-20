@@ -37,6 +37,8 @@ INPUT=$(cat)
 
 # shellcheck source=lib/hook-facts.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
+# shellcheck source=lib/flag-attribution.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/flag-attribution.sh"
 
 if [ -z "${INPUT//[[:space:]]/}" ]; then
   echo "[bulk-edit-guard] Blocked: the hook payload was empty, so nothing was judged." >&2
@@ -181,37 +183,17 @@ WORDS=$(hook_statement_all_words "$COMMAND" 2>/dev/null || printf '%s' "$COMMAND
 # inherits the first one's attribution. `find … -exec grep -L {} \;` is read as `find` carrying `-L`
 # and is refused. That is a false positive, and it is the trade taken deliberately — a pipeline is
 # the common shape and is still separated, `-exec grep -L` is not, and the ack is one word away.
-# Contained — INFRA-109. This file answers "which command received this flag" privately, and
-# `scan-symlink-following-enumeration.mjs` answers it again with four regexes of its own, so the two
-# halves of one rule disagree. Measured: a NEWLINE does not separate here (the reader drops the token
-# before `is_sep` can see it), so two statements on two lines share a segment, while the library's
-# `hook_statement_ranges` splits them correctly; and `segment_has_editor_and_store_path` below
-# hand-rolls a SECOND attribution rather than using `cmd_flag`, recognising only a short flag. The
-# readers to consume already exist — `command-scan.sh` for statement splitting, and the portability
-# scan for walked long-form options.
-segments() {
-  printf '%s\n' "$WORDS" | awk '
-    function is_sep(w) { return w == "|" || w == ";" || w == "&" || w == "&&" || w == "||" || w == "(" || w == ")" }
-    is_sep($0) { print "\034"; next }
-    { print }'
-}
+# INFRA-109 discharged the containment note that stood here. Segmentation, option walking and the
+# hazard list are all in `lib/flag-attribution.sh` and `scan-symlink-following-enumeration.mjs` reads
+# the same table, so the two halves of one rule can no longer be corrected separately. Two of this
+# file's own defects went with it: a NEWLINE now separates, because the segments come from
+# `hook_statement_ranges` instead of a private walk that never received the token; and the
+# in-place-editor rule below no longer hand-rolls a second attribution, so `sed --in-place` is
+# recognised wherever `sed -i` is.
 
-# A command word is matched by its BASENAME. Reported in review of this change: `$0 == CMD` is a
-# literal match, so `/usr/bin/find -L …` never set `seen` and its `-L` was attributed to nothing —
-# while `scan-symlink-following-enumeration.mjs`, which matches on a word boundary, reported the same
-# line. Two halves of one rule disagreeing on a bypass is worse than either being wrong alone, because
-# the green half is the one a reader trusts. `./find` and `../bin/find` are the same shape.
-basename_of() {
-  printf '%s' 'function base(w) { sub(/^.*\//, "", w); return w }'
-}
-
-cmd_flag() {
-  segments | awk -v CMD="$1" -v FLAG="$2" "$(basename_of)"'
-    $0 == "\034" { seen = 0; next }
-    seen && $0 ~ /^-/ && $0 ~ FLAG { found = 1 }
-    base($0) == CMD { seen = 1 }
-    END { exit(found ? 0 : 1) }'
-}
+# A statement's words, computed once. Every rule below reads THIS, so there is one segmentation.
+SEGMENTS=$(hook_statement_segments "$COMMAND" 2>/dev/null || printf '%s' "$WORDS")
+segments() { printf '%s\n' "$SEGMENTS"; }
 
 # The store name as a PATH SEGMENT, for the awk-side rules. Same anchoring as `STORE_SEGMENT_RE`,
 # spelled for awk because a shell variable does not reach inside the program text.
@@ -220,7 +202,7 @@ STORE_IN_AWK='function is_store(w) { return w ~ /(^|\/)(node_modules|\.pnpm)(\/|
 # A copying command whose DESTINATION names the store. `dd` states its destination as `of=`; the rest
 # take it as the last non-flag word, so the SOURCE may be anywhere, including inside the store.
 segment_copies_into_store() {
-  segments | awk "$(basename_of) $STORE_IN_AWK"'
+  segments | awk "$HOOK_ATTRIBUTION_AWK $STORE_IN_AWK"'
     function reset() { copier = 0; dest = "" }
     function flush() { if (copier && dest != "" && is_store(dest)) found = 1; reset() }
     BEGIN { reset() }
@@ -233,15 +215,26 @@ segment_copies_into_store() {
 
 # An in-place editor and a store path standing in ONE segment. See the note on the rule above for
 # what the segment scope is correcting.
+# The in-place flag is walked as an OPTION through the shared `has_option`, not matched as a pattern.
+# It used to be `/^-[[:alnum:]]*i/`, which recognised `-i` and `-ni` and NOT `--in-place` — so
+# `sed --in-place s/a/b/ node_modules/x` was permitted while `sed -i` on the same path was refused.
+# `perl -i` has no long form; `sed` has both, and the row states both. (INFRA-109 TC-5)
 segment_has_editor_and_store_path() {
-  segments | awk "$(basename_of)"'
+  segments | awk "$HOOK_ATTRIBUTION_AWK $STORE_IN_AWK"'
     function reset() { editor = 0; store = 0; sed_or_perl = 0 }
     BEGIN { reset() }
     $0 == "\034" { reset(); next }
     base($0) == "sed" || base($0) == "perl" { sed_or_perl = 1 }
-    sed_or_perl && $0 ~ /^-[[:alnum:]]*i/ { editor = 1 }
+    sed_or_perl && has_option($0, "i", "--in-place") { editor = 1 }
     base($0) == "tee" || base($0) == "truncate" { editor = 1 }
-    $0 ~ /(^|\/)(node_modules|\.pnpm)\// { store = 1 }
+    # `is_store`, the same anchored predicate the copy and write rules use, rather than a second
+    # spelling of the name in this rule alone. One guard contradicting itself about what the store IS
+    # was already fixed once here, for `my_node_modules_old/`.
+    #
+    # NOTE: this awk program is a single-quoted shell string, so an apostrophe in a comment CLOSES
+    # it and the file then fails to source at all. The note on the words branch in command-scan.sh
+    # says so, and this comment was written with one anyway. Write around them.
+    is_store($0) { store = 1 }
     editor && store { found = 1 }
     END { exit(found ? 0 : 1) }'
 }
@@ -305,14 +298,26 @@ fi
 FOUND=''
 add_finding() { FOUND="${FOUND}[bulk-edit-guard]   $1"$'\n'; }
 
-if cmd_flag find '^(-L|-follow)$'; then
-  add_finding "find -L follows symlinks. Drop -L: plain find does not (measured)."
+# The rows come from the table the scan also reads, so a fifth spelling is ONE edit and lands in both
+# enforcers at once. A table this guard cannot read is a refusal, not an empty list — see the fail
+# direction in this file's header.
+HAZARD_TABLE="$(dirname "${BASH_SOURCE[0]}")/../../scripts/harness/symlink-following-hazards.tsv"
+if ! HAZARD_ROWS=$(hazard_rows "$HAZARD_TABLE"); then
+  echo "[bulk-edit-guard] Blocked: could not read the hazard table at $HAZARD_TABLE, so nothing was judged." >&2
+  exit 2
 fi
-if cmd_flag grep '^(-[[:alnum:]]*R[[:alnum:]]*|--dereference-recursive)$'; then
-  add_finding "grep -R dereferences every symlink. Use -r, which does not (measured)."
-fi
-if cmd_flag rg '^(--follow|-[[:alnum:]]*L[[:alnum:]]*)$' || cmd_flag ripgrep '^(--follow|-[[:alnum:]]*L[[:alnum:]]*)$'; then
-  add_finding "rg --follow follows symlinks. Drop it: rg does not follow, and honours .gitignore."
+
+while IFS=$'\t' read -r HZ_ID HZ_CMD HZ_SHORT HZ_LONG HZ_REMEDY; do
+  [[ -z "$HZ_CMD" ]] && continue
+  if attributed_option "$COMMAND" "$HZ_CMD" "$HZ_SHORT" "$HZ_LONG"; then
+    add_finding "$HZ_ID follows symlinks. $HZ_REMEDY"
+  fi
+done <<< "$HAZARD_ROWS"
+
+# `ripgrep` is the same program under its other installed name, and carries no row of its own —
+# a row per alias would put the same hazard in the table twice.
+if attributed_option "$COMMAND" ripgrep L --follow; then
+  add_finding "rg --follow follows symlinks. drop --follow; rg does not follow, and honours .gitignore"
 fi
 if printf '%s' "$MASK" | grep -qE '\bglob\.(glob|iglob)\('; then
   add_finding "python glob.glob follows symlinks. pathlib Path(...).rglob does not (measured)."

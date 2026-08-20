@@ -22,6 +22,7 @@
  * Exit 0 = clean, 1 = findings.
  */
 
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -30,32 +31,56 @@ import { extensionOf, scriptFilters } from './script-language.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
+export const HAZARD_TABLE = path.join(
+  WORKSPACE_ROOT,
+  'scripts/harness/symlink-following-hazards.tsv',
+);
+const ATTRIBUTE_LINES = path.join(WORKSPACE_ROOT, '.claude/hooks/lib/attribute-lines.sh');
+
 /**
- * Each rule names the safe sibling, because a finding whose remedy is not stated is a finding people
- * work around. The `pattern` is deliberately shaped so the SAFE form does not match it.
+ * The hazardous spellings — read from the table `.claude/hooks/bulk-edit-guard.sh` also reads.
  *
- * Every rule allows arbitrary words between the command and its flag, because a flag does not have to
- * come first: `find packages -name '*.ts' -L` follows symlinks exactly as `find -L packages` does, and
- * the first cut of `find` and `grep` required the flag to sit in the command's opening flag run, so
- * the trailing form was reported CLEAN while still reaching the store. Reported in review of this
- * change. What bounds the search is the SEGMENT — see `segmentsOf` — not the shape of the flag run.
+ * They used to be four regexes here and four rules there, and only the hook's were ever corrected.
+ * Worse, each entry here hand-rolled its own bound on what may stand between a command and its flag,
+ * and the three that had one were all DIFFERENT: `find` used `(?:-[^\s-][^\s]*\s+)*`, `grep` used
+ * `(?:-[a-z][a-z]*\s+)*`, and `rg` used a lazy unbounded `(?:[^\s]+\s+)*?` that crossed `|`, `;`
+ * and `&&` alike. Correcting one left the others standing and guaranteed a fifth ad-hoc bound the
+ * next time a spelling was added. (INFRA-109)
  */
-const RULES = [
-  {
-    id: 'find -L',
-    pattern: /\bfind\s+(?:[^\s]+\s+)*?(?:-L|-follow)\b/,
-    remedy: 'drop -L; plain find does not follow symlinks (measured)',
-  },
-  {
-    id: 'grep -R',
-    pattern: /\bgrep\s+(?:[^\s]+\s+)*?(?:-[a-zA-Z]*R[a-zA-Z]*\b|--dereference-recursive\b)/,
-    remedy: 'use -r, which does not dereference symlinks (measured)',
-  },
-  {
-    id: 'rg --follow',
-    pattern: /\brg\s+(?:[^\s]+\s+)*?(?:--follow\b|-[a-zA-Z]*L[a-zA-Z]*\b)/,
-    remedy: 'drop --follow; rg does not follow, and honours .gitignore',
-  },
+export function hazardRows(tablePath = HAZARD_TABLE) {
+  return readFileSync(tablePath, 'utf8')
+    .split('\n')
+    .filter((line) => line && !line.startsWith('#'))
+    .map((line) => line.split('\t'))
+    .filter((fields) => fields.length >= 5 && fields[0] && fields[0] !== 'id')
+    .map(([id, command, short, long, remedy]) => ({ id, command, short, long, remedy }));
+}
+
+/**
+ * The fallback matcher, for a file whose language is NOT shell.
+ *
+ * There is ONE bound and it is generated, so adding a row adds no pattern to invent — which is the
+ * property the four hand-written bounds did not have. It is still a weaker reading than the shell
+ * one below: a `.mjs` or `.yml` line is matched as TEXT, because shell tokenization of a JavaScript
+ * statement is not a reading of anything. Naming the language of a payload embedded in another
+ * language — a `run:` block, an `execSync` argument, a heredoc body — is INFRA-123, and this is the
+ * limit that item exists for. Stated here rather than left for the next reviewer to measure.
+ */
+export function fallbackPattern({ command, short, long }) {
+  const spellings = [];
+  if (short && short !== '-') spellings.push(`-[a-zA-Z]*${short}[a-zA-Z]*`);
+  for (const form of (long ?? '').split(',')) {
+    if (form && form !== '-') spellings.push(form.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  }
+  return new RegExp(String.raw`\b${command}\s+(?:[^\s]+\s+)*?(?:${spellings.join('|')})\b`);
+}
+
+/**
+ * The one rule that is not a command-and-flag, so it is not in the table: `glob.glob` is a CALL, and
+ * there is no option to attribute. Keeping it here rather than inventing a table column for a shape
+ * with one member.
+ */
+const CALL_RULES = [
   {
     id: 'python glob.glob',
     pattern: /\bglob\.(?:glob|iglob)\s*\(/,
@@ -83,6 +108,16 @@ const ALLOWED_FILES = new Set([
   'scripts/harness/__tests__/scan-symlink-following-enumeration.test.mjs',
   'scripts/harness/__tests__/bulk-edit-guard.test.mjs',
   '.claude/hooks/bulk-edit-guard.sh',
+  // INFRA-109's case table. It is a `.mjs` file, so it is read by the FALLBACK pattern rather than
+  // by the shared shell reading, and the difference is visible here rather than argued: the shared
+  // reading returns nothing for every row, because each spelling sits inside a quoted string and the
+  // tokenizer knows that is data. The pattern cannot, and reported eleven rows — including
+  // `['find without -L', "find packages -name '*.ts'", []]`, whose whole point is that it carries no
+  // hazardous flag, matched by reading across the quotes into the expectation beside it.
+  //
+  // That is the strongest available evidence for the limit stated on `fallbackPattern`, and it is
+  // why this entry is an allowlist line rather than a reason to widen the pattern.
+  'scripts/harness/__tests__/flag-attribution.one-owner.test.mjs',
 ]);
 
 /**
@@ -159,16 +194,46 @@ function isScannedScript(relativePath, content) {
   return SCRIPTS.isScript(relativePath, content);
 }
 
-export function findingsIn(relativePath, content) {
+/**
+ * Every finding in one file.
+ *
+ * `attributeLine` is the SHARED reading — `(relativePath, lineNumber) => string[] | undefined`, the
+ * hazard command names that line actually passes an option to, as
+ * `.claude/hooks/lib/attribute-lines.sh` reports them. When it answers for a line, its answer is
+ * used and no pattern is consulted: that is what makes the two enforcers one implementation rather
+ * than two that happen to agree today.
+ *
+ * It is a PARAMETER rather than a call inside this function because attribution is batched — one
+ * bash process for the whole run, not one per line — and because this function stays pure and
+ * synchronous so a case can drive it against a fixture. `main()` supplies it; a caller that omits it
+ * gets the fallback pattern, which is also what a non-shell file gets. (INFRA-109)
+ */
+export function findingsIn(relativePath, content, attributeLine = undefined) {
   if (ALLOWED_FILES.has(relativePath)) return [];
   if (!isScannedScript(relativePath, content)) return [];
 
+  const rows = hazardRows();
   const findings = [];
   const lines = content.split('\n');
   for (const [index, line] of lines.entries()) {
     if (isCommentary(line)) continue;
+    const attributed = attributeLine?.(relativePath, index + 1);
     const segments = segmentsOf(line);
-    for (const rule of RULES) {
+    for (const row of rows) {
+      const hit =
+        attributed === undefined
+          ? segments.some((segment) => fallbackPattern(row).test(segment))
+          : attributed.includes(row.id);
+      if (!hit) continue;
+      findings.push({
+        file: relativePath,
+        line: index + 1,
+        id: row.id,
+        remedy: row.remedy,
+        text: line.trim(),
+      });
+    }
+    for (const rule of CALL_RULES) {
       if (!segments.some((segment) => rule.pattern.test(segment))) continue;
       findings.push({
         file: relativePath,
@@ -204,7 +269,7 @@ export function examinedScriptCount() {
  * back empty-handed; this function throws if one does, because skipping there is the invisibility
  * the whole rule is about. A caller writing a reader reads this, not the loop below.
  */
-export function scanTrackedFiles(trackedPaths, readFile) {
+export function scanTrackedFiles(trackedPaths, readFile, attributeLine = undefined) {
   examinedScripts = 0;
   const findings = [];
   for (const file of trackedPaths) {
@@ -233,9 +298,86 @@ export function scanTrackedFiles(trackedPaths, readFile) {
     }
     if (!isScannedScript(file, content)) continue;
     examinedScripts += 1;
-    findings.push(...findingsIn(file, content));
+    findings.push(...findingsIn(file, content, attributeLine));
   }
   return findings;
+}
+
+/**
+ * The SHARED reading, for the population where shell grammar is a reading of anything.
+ *
+ * Collects every candidate line out of the tracked SHELL scripts, hands them to
+ * `.claude/hooks/lib/attribute-lines.sh` in ONE process, and returns a lookup the scan consults per
+ * line. That script is the hook's own attribution, so a spelling this scan reports and a spelling
+ * the hook refuses are decided by the same code rather than by two implementations that agree today.
+ *
+ * MEASURED before choosing the shape: 161 candidate lines across 27 shell scripts, ~1.1s for the
+ * batch. A process per line would have been ~40s, and a scan that slow on the pre-push path is one
+ * that gets moved off it. The cost is a number here rather than an assumption because the same
+ * question — is a shared reader affordable — is what INFRA-110 has to answer for a PreToolUse hook,
+ * where the answer may well be different.
+ *
+ * A NON-SHELL script gets no entry and falls back to the pattern. That is the honest limit: a `.mjs`
+ * line calling `execSync` and a `.yml` `run:` block both hold shell inside another language, and
+ * naming the language of an embedded payload is INFRA-123. 801 of the 962 candidate lines are in
+ * that population, so this is most of the subject, not a corner of it.
+ *
+ * Returns `undefined` — meaning "use the fallback everywhere" — when the helper cannot be run at
+ * all. It does NOT return an empty map: an empty map says "every line is clean", and a scan must not
+ * report a pass over a population it could not read.
+ */
+function sharedAttribution(trackedPaths, readFile) {
+  const shell = scriptFilters(['shell']);
+  const candidates = [];
+  const index = new Map();
+  const mentionsAHazard = new RegExp(
+    `\\b(${hazardRows()
+      .map((row) => row.command)
+      .join('|')})\\b`,
+  );
+
+  for (const file of trackedPaths) {
+    if (ALLOWED_FILES.has(file)) continue;
+    if (!SCRIPTS.hasScriptExtension(file) && extensionOf(file) !== '') continue;
+    const content = readFile(file, !SCRIPTS.hasScriptExtension(file));
+    if (content === null || content === undefined) continue;
+    if (!shell.isScript(file, content)) continue;
+    for (const [i, line] of content.split('\n').entries()) {
+      if (isCommentary(line) || !mentionsAHazard.test(line)) continue;
+      index.set(`${file}:${i + 1}`, candidates.length);
+      candidates.push(line);
+    }
+  }
+
+  const result = spawnSync('bash', [ATTRIBUTE_LINES, HAZARD_TABLE], {
+    input: candidates.map((line) => `${line}\0`).join(''),
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (result.status !== 0) {
+    console.error(
+      `symlink-following-enumeration: could not run ${ATTRIBUTE_LINES} ` +
+        `(${result.stderr?.trim() || result.error?.message || `exit ${result.status}`}). ` +
+        'Falling back to pattern matching for every file, which is a WEAKER reading — reported ' +
+        'rather than taken silently.',
+    );
+    return undefined;
+  }
+
+  const hits = new Map();
+  for (const line of result.stdout.split('\n')) {
+    if (!line) continue;
+    const [slot, command] = line.split('\t');
+    const key = Number(slot);
+    if (!hits.has(key)) hits.set(key, []);
+    hits.get(key).push(command);
+  }
+
+  return (file, lineNumber) => {
+    const slot = index.get(`${file}:${lineNumber}`);
+    if (slot === undefined) return undefined;
+    return hits.get(slot) ?? [];
+  };
 }
 
 function main() {
@@ -252,7 +394,8 @@ function main() {
     }
   };
 
-  const findings = scanTrackedFiles(trackedFiles(), read);
+  const tracked = trackedFiles();
+  const findings = scanTrackedFiles(tracked, read, sharedAttribution(tracked, read));
 
   console.log(`::examined:: ${examinedScriptCount()} tracked script(s)`);
 
