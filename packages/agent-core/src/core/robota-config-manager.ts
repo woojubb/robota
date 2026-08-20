@@ -139,12 +139,21 @@ export class RobotaConfigManager {
     return { version };
   }
 
-  /** Update configuration partially. Currently supports tools. */
+  /**
+   * Update configuration partially — `tools` and `name`. ARCH-040 added `name`: `RobotaBase.name`
+   * reads through `config`, so writing it here IS the rename, with no second copy to forget.
+   */
   async updateConfiguration(patch: Partial<IAgentConfig>): Promise<{ version: number }> {
     if (patch.tools) {
       return this.updateTools(patch.tools);
     }
-    throw new ConfigurationError('updateConfiguration: only tools patch is supported at this time');
+    if (patch.name !== undefined) {
+      this.setConfig({ ...this.getConfig(), name: patch.name });
+      const version = this.bumpConfigVersion();
+      this.setConfigUpdatedAt(Date.now());
+      return { version };
+    }
+    throw new ConfigurationError('updateConfiguration: only `tools` and `name` are supported');
   }
 
   /** Read-only configuration overview for UI. */

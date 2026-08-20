@@ -43,8 +43,8 @@ projection, and where the fallback lives is an implementation choice made in thi
 ## Plan
 
 - [x] Group A — remove `defaultTrustLevel` from `IResolvedPresetOptions` and its validator.
-- [ ] Group B — `agentName` on the live `/preset` path. **PARKED on a measured cost the decision did
-      not have in front of it** (see below); every other group is independent of it.
+- [x] Group B — `agentName` on the live `/preset` path. The parked cost turned out to have a third
+      option the first analysis missed — see below.
 - [ ] Group C — `allowedTools` (replace) and `deniedTools` (compose), resolved together. **BLOCKED on a
       missing capability**, see below. The RULE is decided and its home is identified; only the live
       seam is absent.
@@ -69,7 +69,7 @@ session/assembly seam"_. It is false today for `systemPrompt`, `language`, `temp
 `maxOutputTokens` and `defaultTrustLevel`. Changing the words without changing the fact is the
 defect, not the fix; this item makes it true.
 
-## Group B is parked, and why
+## Group B: parked, then unparked — the first analysis was too narrow
 
 The owner decided `/preset` should rename the agent. Implementing it turned up a cost the decision
 was not made against, so it is recorded here rather than paid silently.
@@ -155,3 +155,25 @@ Checked after C, so the next reader does not discover it one group at a time:
 | F — `language`  | present, once it is a persona section                | present                         | feasible                |
 
 Groups B and C are the two that need a capability. D, E and F are wiring on seams that already exist.
+
+### How it was actually done
+
+The parked analysis offered two options — a mutable field on a core class, or splitting a 411-line
+frozen file — and called them the only two. There was a third, and missing it is what parked the
+group for a day:
+
+`Robota` declares `protected override config`, which means the BASE already declares `config`. So
+`name` could become a getter reading `this.config.name`, placed on `RobotaBase` — where `config`
+lives — and both the field declaration and its constructor assignment could leave `robota.ts`
+entirely. That file got three lines SMALLER, and its ratchet was re-frozen at the gain.
+
+The rename itself is then `updateConfiguration({ name })`, the agent's existing config seam, extended
+to accept `name` beside `tools`. Because `name` reads through `config`, writing the config IS the
+rename — there is no second copy on the instance to leave stale, which is exactly what the original
+"mutable field" sketch would have created.
+
+One more guard had to be satisfied honestly rather than dodged: `product-identity` refused the single
+new call because `agent-session`'s agent field was named `robota` — the consumer's product name in a
+neutral library, frozen at 30 occurrences with no exemption mechanism. Renaming the field to `agent`
+took the count to 3 (the remainder is the real `~/.robota` directory). Re-spelling the call to avoid
+the marker was the alternative, and it is the failure this repository has scans about.

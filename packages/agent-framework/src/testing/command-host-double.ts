@@ -117,6 +117,7 @@ export function createTestSessionRuntime(
     getSessionTokenUsage: () => undefined,
     getModelId: () => undefined,
     applyModelOptions: () => {},
+    applyAgentName: () => {},
     getActivePresetId: () => 'default',
     setActivePresetId: () => {},
     setParallelSubagentsEnabled: () => {},

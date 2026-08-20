@@ -425,11 +425,6 @@
     "$pendingComment": "The burn-down. Each entry is a field this floor HAS measured as undeclared or one-sidedly declared, whose fix needs a decision this scan cannot make — recorded as a NAMED, EXPIRING exemption rather than an opaque count, because an exemption that is unnamed or non-expiring is indistinguishable from no floor. `declaredOn` records the surfaces the field was measured on when the entry was written; if the live state differs in EITHER direction the entry is reported (`preset-pending-state-changed`), so an exemption expires when the work is DONE and not only when the field is deleted. Review measured the earlier version failing exactly that: fixing a pending field printed green, which made the list a baseline with extra words. This list may shrink and must never grow without a reviewed reason. Tracked as GitHub issue #1820.",
     "pendingProjection": [
       {
-        "field": "agentName",
-        "reason": "The REVERSE divergence: startup declares it (IPresetSurfaceOptions) and the live /preset path does not, so starting with a preset sets the agent name while switching to the SAME preset mid-session leaves the old one. The owner decided on 2026-08-20 that /preset SHOULD rename. Implementation is parked on a measured cost the decision did not have in front of it: the field's only reader is `Robota.name`, a `public readonly` identity label that no surface displays, and making it renameable needs either a mutable core field or a split of a 411-line frozen core file. Re-decide against that cost before wiring — see ARCH-040.",
-        "declaredOn": ["IPresetSurfaceOptions"]
-      },
-      {
         "field": "appendSystemPrompt",
         "reason": "A session seam DOES exist (`ICreateSessionOptions.appendSystemPrompt`, projected by create-session-projection.ts), so the last hop is ready. The first hop is missing, and wiring it requires deciding the merge order against the CLI-sourced append text that `buildAppendSystemPrompt` produces — today that helper is called only from print-mode.ts, so `--task-file`/`--json-schema`/`--append-system-prompt` are themselves dropped in TUI and serve mode.",
         "declaredOn": []
