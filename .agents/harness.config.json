@@ -425,23 +425,8 @@
     "$pendingComment": "The burn-down. Each entry is a field this floor HAS measured as undeclared or one-sidedly declared, whose fix needs a decision this scan cannot make — recorded as a NAMED, EXPIRING exemption rather than an opaque count, because an exemption that is unnamed or non-expiring is indistinguishable from no floor. `declaredOn` records the surfaces the field was measured on when the entry was written; if the live state differs in EITHER direction the entry is reported (`preset-pending-state-changed`), so an exemption expires when the work is DONE and not only when the field is deleted. Review measured the earlier version failing exactly that: fixing a pending field printed green, which made the list a baseline with extra words. This list may shrink and must never grow without a reviewed reason. Tracked as GitHub issue #1820.",
     "pendingProjection": [
       {
-        "field": "model",
-        "reason": "NOT dropped — hand-mapped. `cli.ts:262` computes `resolvedPreset.model ?? providerSettings.model` and threads the result into all three construction sites, so the value reaches the session; what is missing is the DECLARED projection. Resolving it means moving the field onto IPresetSurfaceOptions, which requires deciding where the `?? providerSettings.model` fallback lives, because the surface is built after the model id is first needed (cli.ts:330 vs :262).",
-        "declaredOn": ["IPresetApplicationOptions"]
-      },
-      {
-        "field": "temperature",
-        "reason": "Applied by the live /preset path via `applyModelOptions` (preset-application.ts), and by nothing at startup. Unlike `model` there is no `ICreateSessionOptions` seam at all — the value would have to reach the provider config, so this is a new seam rather than a re-declaration. Same class as `effort` before stage 1.",
-        "declaredOn": ["IPresetApplicationOptions"]
-      },
-      {
-        "field": "maxOutputTokens",
-        "reason": "Identical to `temperature`: live-only via `applyModelOptions`, no session-construction seam, needs a provider-config route. The two travel together in the model group and should be resolved together.",
-        "declaredOn": ["IPresetApplicationOptions"]
-      },
-      {
         "field": "agentName",
-        "reason": "The REVERSE divergence, and the one nobody had named: startup declares it (IPresetSurfaceOptions) and the live /preset path does not, so starting with a preset sets the agent name while switching to the same preset mid-session leaves the old one. Resolving it needs a product decision — whether `/preset` should rename the agent mid-session — not just a seam.",
+        "reason": "The REVERSE divergence: startup declares it (IPresetSurfaceOptions) and the live /preset path does not, so starting with a preset sets the agent name while switching to the SAME preset mid-session leaves the old one. The owner decided on 2026-08-20 that /preset SHOULD rename. Implementation is parked on a measured cost the decision did not have in front of it: the field's only reader is `Robota.name`, a `public readonly` identity label that no surface displays, and making it renameable needs either a mutable core field or a split of a 411-line frozen core file. Re-decide against that cost before wiring — see ARCH-040.",
         "declaredOn": ["IPresetSurfaceOptions"]
       },
       {
@@ -460,18 +445,13 @@
         "declaredOn": []
       },
       {
-        "field": "defaultTrustLevel",
-        "reason": "Measured fully dead by the ARCH-013 audit: validated by preset-validation and then read by nothing, with no seam anywhere. Removing an unconsumed public contract is a product decision rather than a grep result, so it stays declared and exempted until its owner decides between wiring it to the permission/trust axis and dropping it.",
-        "declaredOn": []
-      },
-      {
         "field": "allowedTools",
-        "reason": "A session seam exists (`ICreateSessionOptions.allowedTools`) and create-session-projection.ts already forwards it from IInitOptions, so only the preset→surface hop is missing. Wiring it requires deciding how a preset allowlist composes with the session-level and pack-level tool sets rather than replacing them.",
+        "reason": "A session seam exists (`ICreateSessionOptions.allowedTools`) and create-session-projection.ts forwards it, so the STARTUP hop is one line. The live half is not a wiring gap: `create-session.ts` turns both lists into permission PATTERNS merged into the enforcer's allow/deny sets AT CONSTRUCTION, and `PermissionEnforcer` exposes only an additive `sessionAllowedTools` set (the 'always allow' prompt path) — there is no way to REPLACE the configured rules on a live session. Wiring startup alone would CREATE the divergence this scan measures, so both wait on a live permission-rule re-application seam, which is its own capability. Owner decided the combine rule on 2026-08-20: allow REPLACES, deny UNIONS — see ARCH-040.",
         "declaredOn": []
       },
       {
         "field": "deniedTools",
-        "reason": "The denylist half of the same decision as `allowedTools`, and it must be resolved with it: an allowlist that composes and a denylist that replaces would contradict each other.",
+        "reason": "The denylist half of the same decision as `allowedTools`, blocked on the same missing capability, and it must ship with it: an allowlist that replaces and a denylist that unions is one rule, and half of it is a contradiction. The union belongs in `resolvePreset`'s `mergeDefined` rather than at a surface, because precedence is the resolver's job — a union applied by one of three shells is a rule the other two disagree with.",
         "declaredOn": []
       }
     ]

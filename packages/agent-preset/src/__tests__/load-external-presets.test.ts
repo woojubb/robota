@@ -179,6 +179,26 @@ describe('validateExternalPreset', () => {
     }
   });
 
+  it('drops `defaultTrustLevel`, which the preset contract no longer carries (ARCH-040)', () => {
+    // Removed by owner decision, and the reason is stronger than "nothing read it": a preset already
+    // states its posture three ways — `permissionMode`, `defaultPermissionMode` and `autonomy`, the
+    // last two of which `resolvePreset` PROMOTES into the first. A fourth spelling would be a second
+    // answer to one question, which is exactly what the projection scan calls `derivationOnly`.
+    //
+    // The trust axis itself is untouched: `config.defaultTrustLevel` still reaches the session and
+    // still maps to a permission mode. What is gone is the preset's own copy of it.
+    const result = validateExternalPreset({
+      id: 'x',
+      title: 'X',
+      description: 'd',
+      defaultTrustLevel: 'full',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect('defaultTrustLevel' in result.preset).toBe(false);
+    }
+  });
+
   it('drops unrecognised keys from the built preset', () => {
     const result = validateExternalPreset({
       id: 'x',

@@ -11,13 +11,10 @@ import type { ICreateSessionOptions } from '@robota-sdk/agent-framework';
 export type TPresetEffort = NonNullable<ICreateSessionOptions['effort']>;
 
 /**
- * Behavioural autonomy posture. Drives the permission posture
- * (`permissionMode` / `defaultTrustLevel`) — it is a mechanism mapping, not a display label.
+ * Behavioural autonomy posture. Drives the permission posture (`permissionMode`) — it is a mechanism
+ * mapping, not a display label.
  */
 export type TPresetAutonomy = 'ask-first' | 'balanced' | 'act-first';
-
-/** Default trust level applied when the preset opts into a coarse permission posture. */
-export type TPresetTrustLevel = 'safe' | 'moderate' | 'full';
 
 /**
  * Permission mode reused from the framework option SSOT (`ICreateSessionOptions`).
@@ -61,7 +58,6 @@ export interface IResolvedPresetOptions {
    * `permissionMode`), {@link resolvePreset} promotes it to `permissionMode`.
    */
   defaultPermissionMode?: TPresetPermissionMode;
-  defaultTrustLevel?: TPresetTrustLevel;
   allowedTools?: readonly string[];
   deniedTools?: readonly string[];
 

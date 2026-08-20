@@ -157,4 +157,14 @@ export interface ISessionOptions {
    * request builder. When unset, the framework→provider seam defaults it to `'high'`.
    */
   effort?: TModelEffort;
+  /**
+   * ARCH-040: sampling temperature and output cap, threaded to the agent config at CONSTRUCTION.
+   *
+   * The live `/preset` path has always applied both through `applyModelOptions`, and startup applied
+   * neither — so one session held two answers for the same preset depending on WHEN it was chosen,
+   * which is what `effort` did before ARCH-013 stage 1 fixed it. `maxOutputTokens` maps to the
+   * agent's `maxTokens` channel, the same name `applyModelOptions` already writes.
+   */
+  temperature?: number;
+  maxOutputTokens?: number;
 }

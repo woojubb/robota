@@ -284,6 +284,8 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
     ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
     ...(options.effort !== undefined ? { effort: options.effort } : {}),
+    ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+    ...(options.maxOutputTokens !== undefined ? { maxOutputTokens: options.maxOutputTokens } : {}),
   });
   wireSessionDeps(session, agentToolDeps, backgroundProcessToolDeps, backgroundTaskManager);
 

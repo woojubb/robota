@@ -56,6 +56,23 @@ const DEEPSEEK = definition({
 });
 const DEFINITIONS = [ANTHROPIC, OPENAI_NO_MODEL, GEMINI, GEMMA_LITERAL_KEY, DEEPSEEK];
 
+/**
+ * The settings files a TEST means when it says "this project's".
+ *
+ * Issue #1929: the production default also reads `~/.robota/settings.json` and `~/.claude/settings.json`,
+ * which no `cwd` isolates. A case whose premise is "no settings anywhere" was therefore true only on a
+ * machine whose developer had never configured the CLI — and read that developer's real profile
+ * otherwise. Stating the list makes the premise true by construction.
+ */
+function projectSettingsPaths(root: string): string[] {
+  return [
+    join(root, '.robota', 'settings.json'),
+    join(root, '.robota', 'settings.local.json'),
+    join(root, '.claude', 'settings.json'),
+    join(root, '.claude', 'settings.local.json'),
+  ];
+}
+
 describe('resolveEnvDefaultProvider (CLI-066)', () => {
   it('TC-01: synthesizes the anthropic config from definition defaults when its env key is set', () => {
     const config = resolveEnvDefaultProvider(DEFINITIONS, { ANTHROPIC_API_KEY: 'sk-test' });
@@ -130,6 +147,9 @@ describe('readProviderSettings env-default integration (CLI-066)', () => {
     const config = readProviderSettings(cwd, {
       providerDefinitions: DEFINITIONS,
       env: { ANTHROPIC_API_KEY: 'sk-test' },
+      // Issue #1929: the default list reaches the developer's real `~/.robota/settings.json`, which
+      // no `cwd` isolates — "no settings anywhere" has to be stated, not hoped for.
+      settingsPaths: projectSettingsPaths(cwd),
     });
 
     expect(config.name).toBe('anthropic');
@@ -165,7 +185,11 @@ describe('readProviderSettings env-default integration (CLI-066)', () => {
     cwd = mkdtempSync(join(tmpdir(), 'robota-env-default-'));
 
     expect(() =>
-      readProviderSettings(cwd as string, { providerDefinitions: DEFINITIONS, env: {} }),
+      readProviderSettings(cwd as string, {
+        providerDefinitions: DEFINITIONS,
+        env: {},
+        settingsPaths: projectSettingsPaths(cwd as string),
+      }),
     ).toThrow(ProviderConfigError);
   });
 });

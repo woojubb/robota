@@ -53,6 +53,8 @@ export function buildCreateSessionOptions(
     deniedTools: options.deniedTools,
     model: options.model,
     ...(options.effort !== undefined ? { effort: options.effort } : {}),
+    ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+    ...(options.maxOutputTokens !== undefined ? { maxOutputTokens: options.maxOutputTokens } : {}),
     appendSystemPrompt: options.appendSystemPrompt,
     ...(options.persona !== undefined ? { persona: options.persona } : {}),
     ...(options.systemPrompt ? { systemPromptBuilder: () => options.systemPrompt! } : {}),
