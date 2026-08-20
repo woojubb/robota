@@ -165,10 +165,12 @@ that enumerates in one call and writes in the next. The scan reads a file whose 
 a script, or — having no extension — whose shebang names an interpreter, so a script in a language
 outside that list is unread.
 
-> **Contained — [INFRA-115](../tasks/INFRA-115-is-this-file-a-script-and-in-what-language.md).**
-> Three of those interpreter names have no matching extension, so the same script is judged under one
-> filename and clean under another. The two filters are hand-written constants and the invariant that
-> they describe one population is held only in prose. Those are the reader's obligation.
+Which files that is — and in which language — is owned by `scripts/harness/script-language.mjs`
+([INFRA-115](../tasks/completed/INFRA-115-is-this-file-a-script-and-in-what-language.md)), where a
+language's extensions ARE its interpreter map rather than a second list beside it. The obligation
+this paragraph used to hand the reader — that three interpreter names had no matching extension, so
+the same script was judged under one filename and clean under another — is discharged: there is no
+longer a second place for the two halves to disagree.
 
 The measurements behind the table, and the exposure they corrected, are in
 [INFRA-105](../tasks/completed/INFRA-105-bulk-edits-reach-the-dependency-store.md).

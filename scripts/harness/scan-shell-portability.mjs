@@ -35,35 +35,30 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+import { extensionOf, scriptFilters } from './script-language.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 /** Script trees whose contents this repo actually executes. */
 const SCAN_ROOTS = ['scripts', '.husky', '.claude/hooks'];
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage', '__tests__', 'fixtures']);
-const EXTENSIONS = /\.(sh|bash|zsh)$/;
 /**
- * An extensionless file is a shell script if it SAYS SO. Husky hooks carry no extension, and so may
- * any hook added later.
+ * Which files are shell scripts — INFRA-115.
  *
- * This replaces a set of directories that were allowed to hold extensionless scripts. That set had
- * two problems, both raised in review of #1590: `.claude/hooks` was not in it even though it is a
- * governed root, and the membership test compared against the FIRST path segment, so a
+ * An extensionless file is a shell script if it SAYS SO. Husky hooks carry no extension, and so may
+ * any hook added later. That replaced a set of directories allowed to hold extensionless scripts,
+ * which had two problems raised in review of #1590: `.claude/hooks` was not in it even though it is
+ * a governed root, and the membership test compared against the FIRST path segment, so a
  * multi-segment root could never have matched even after being added. A property of the file beats
  * a list of places the property is assumed to hold — the list is what goes stale.
- */
-const SHEBANG = /^#!.*\b(sh|bash|zsh|dash|ksh|ash)\b/;
-
-/**
- * Whether a filename has an EXTENSION — a leading dot is not one.
  *
- * The first spelling was `/\.[^.\/]+$/`, which classified `.bashrc` and `.hookrc` as extensioned.
- * Such a file then matched neither branch: not `.sh`, and never shebang-tested. A real shell script
- * with that name would have been skipped in silence, which is the failure mode this whole scan is
- * against. (#1590 review)
+ * Both halves now come from `script-language.mjs`. THIS FILE IS WHERE THE ASYMMETRY STARTED: it
+ * admitted `dash`, `ksh` and `ash` by shebang against `/\.(sh|bash|zsh)$/`, and
+ * `scan-symlink-following-enumeration.mjs` copied the three names — into the file whose comment
+ * cites this scan as the lesson to follow. Fixing only the copy would have left the original
+ * self-disagreeing, which is why the owner is a table both read rather than a correction to one.
  */
-function hasExtension(name) {
-  return name.slice(1).includes('.');
-}
+const SCRIPTS = scriptFilters(['shell']);
 
 /**
  * One entry per command, read as OPTIONS rather than matched as text.
@@ -341,7 +336,7 @@ function logicalLines(text) {
  */
 function isShellShebang(absolute) {
   try {
-    return SHEBANG.test(readFileSync(absolute, 'utf8').split('\n', 1)[0] ?? '');
+    return SCRIPTS.shebang.test(readFileSync(absolute, 'utf8').split('\n', 1)[0] ?? '');
   } catch (error) {
     if (error?.code === 'ENOENT') return false;
     throw new Error(
@@ -364,9 +359,9 @@ function walk(root, relDir, out, skipped) {
       }
       walk(root, rel, out, skipped);
     } else if (entry.isFile()) {
-      if (EXTENSIONS.test(entry.name)) {
+      if (SCRIPTS.hasScriptExtension(entry.name)) {
         out.push(rel);
-      } else if (!hasExtension(entry.name) && isShellShebang(path.join(root, rel))) {
+      } else if (extensionOf(entry.name) === '' && isShellShebang(path.join(root, rel))) {
         out.push(rel);
       }
     }

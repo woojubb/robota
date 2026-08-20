@@ -26,6 +26,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { enumerateFiles } from './enumerate-files.mjs';
+import { extensionOf, scriptFilters } from './script-language.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -62,18 +63,15 @@ const RULES = [
   },
 ];
 
-const SCANNED_EXTENSIONS = new Set([
-  '.sh',
-  '.bash',
-  '.zsh',
-  '.mjs',
-  '.cjs',
-  '.js',
-  '.ts',
-  '.py',
-  '.yml',
-  '.yaml',
-]);
+/**
+ * Which files this scan reads, and in what language — INFRA-115.
+ *
+ * Both halves come from ONE row of `script-language.mjs`. They used to be two hand-written
+ * constants in this file, and they disagreed: `dash`, `ksh` and `ash` were admitted by shebang with
+ * no matching extension, so `scripts/sweep` was reported and `scripts/sweep.ksh` — same content —
+ * was clean.
+ */
+const SCRIPTS = scriptFilters(['shell', 'javascript', 'typescript', 'python', 'yaml']);
 
 /**
  * Files that DESCRIBE the hazardous spellings rather than run them. Every entry is the guard, its
@@ -143,32 +141,22 @@ function isCommentary(line) {
  * review of #1590, and states the reason: a property of the file beats a list of places the property
  * is assumed to hold, because the list is what goes stale.
  *
- * The interpreters listed are exactly the ones `SCANNED_EXTENSIONS` also admits, and no more. A cut
- * that added `ruby` and `perl` — which have no matching extension — judged the same script when
- * written without one and ignored it when written as `sweep.rb`: two filters inside one file
- * disagreeing about one population. Adding a language means adding both.
- *
- * `path.extname` returns '' for a leading-dot name, so `.bashrc` is shebang-tested rather than
- * classified as carrying a `.bashrc` extension and then matching neither branch.
+ * Both halves of "is this a script, and in what language" come from `script-language.mjs`
+ * (INFRA-115). A cut that added `ruby` and `perl` — which have no matching extension — judged the
+ * same script when written without one and ignored it when written as `sweep.rb`: two filters inside
+ * one file disagreeing about one population. Adding a language means adding both, which the table
+ * now enforces rather than describes.
  */
 /*
- * Contained — INFRA-115. `dash`, `ksh` and `ash` are here with no matching entry in
- * `SCANNED_EXTENSIONS`, so the paragraph above overstates: measured, `#!/bin/ksh` carrying a
- * hazardous spelling is reported when the file is named `sweep` and clean when it is named
- * `sweep.ksh` — the same file disagreeing with itself, which is the failure that paragraph names.
- *
- * The three names were copied verbatim out of `scan-shell-portability.mjs`, which carries the
- * identical asymmetry, into the file whose comment cites that scan as the lesson. Aligning three
- * names here would leave the first copy self-disagreeing, leave the invariant held in prose in both,
- * and leave the next scan to hand-write a third pair. The predicate — is this committed file a
- * script, and in what language — needs an owner, which is the item.
+ * INFRA-115 discharged the containment note that stood here. `dash`, `ksh` and `ash` were listed as
+ * interpreters with no matching entry in the extension set, and the paragraph above asserted the
+ * opposite. Both halves now come from one table, so the sentence is a data structure and cannot
+ * overstate again. Adding a language means adding both of its halves, which is what the table
+ * refuses to let a caller skip.
  */
-const SHEBANG = /^#!.*\b(sh|bash|zsh|dash|ksh|ash|python[0-9.]*|node)\b/;
 
 function isScannedScript(relativePath, content) {
-  const extension = path.extname(relativePath);
-  if (SCANNED_EXTENSIONS.has(extension)) return true;
-  return extension === '' && SHEBANG.test(content);
+  return SCRIPTS.isScript(relativePath, content);
 }
 
 export function findingsIn(relativePath, content) {
@@ -225,14 +213,14 @@ export function scanTrackedFiles(trackedPaths, readFile) {
     // empty — the declared size and the judged population differing by a constant, which is what
     // `measurement-provenance.md` clause 1 is about and what this file's own case asserts.
     if (ALLOWED_FILES.has(file)) continue;
-    const extension = path.extname(file);
-    if (!SCANNED_EXTENSIONS.has(extension) && extension !== '') continue;
+    const extension = extensionOf(file);
+    if (!SCRIPTS.hasScriptExtension(file) && extension !== '') continue;
     // Strictness is decided HERE, where the extension is already known, rather than left to whatever
     // reader is injected. An extensionless file has to be READ to be classified, so only those fifty
     // are opened at all, and that read is the optional one: a tracked extensionless path that cannot
     // be read as text is one of the things "is this a script" answers no to (twelve symlinks to
     // directories under `.claude/skills/` are tracked, so it is routine rather than an exception).
-    const optional = !SCANNED_EXTENSIONS.has(extension);
+    const optional = !SCRIPTS.hasScriptExtension(file);
     const content = readFile(file, optional);
     if (content === null || content === undefined) {
       if (!optional) {
