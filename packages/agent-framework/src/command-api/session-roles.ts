@@ -36,6 +36,20 @@ export interface ICommandSessionPermissions {
   getPermissionMode(): TPermissionMode;
   setPermissionMode(mode: TPermissionMode): void;
   getSessionAllowedTools(): readonly string[];
+  /**
+   * ARCH-040 Group C (issue #1934): re-apply a preset's tool lists to the LIVE enforcer.
+   *
+   * REQUIRED, not optional. An optional member would let every consumer invent its own answer for an
+   * absent one, and the answer here governs permissions — a runtime that quietly did nothing would
+   * be the startup/live divergence this seam exists to close, wearing a different hat.
+   *
+   * Without it the startup path could apply a preset's tool lists and `/preset` could not: one
+   * session holding two answers for the same preset depending on WHEN it was chosen.
+   */
+  applyPresetToolLists(preset: {
+    allowedTools?: readonly string[];
+    deniedTools?: readonly string[];
+  }): void;
 }
 
 /** Who this session is, and what it has spent. */

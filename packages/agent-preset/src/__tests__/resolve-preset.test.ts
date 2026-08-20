@@ -48,6 +48,52 @@ describe('resolvePreset', () => {
   });
 });
 
+/**
+ * ARCH-040 Group C (issue #1934) — the two tool lists combine DIFFERENTLY, and a rule about
+ * combination can fail in either direction. Both are asserted because asserting one leaves the other
+ * free to be an accident: a union that should replace looks identical to a replace on a case where
+ * the earlier layer was empty.
+ */
+describe('preset tool lists combine by the decided rule (ARCH-040 Group C)', () => {
+  it('an allowlist REPLACES — it states the complete permitted set', () => {
+    const result = resolvePreset('default', {
+      cliOverrides: { allowedTools: ['Read', 'Grep'] },
+      explicit: { allowedTools: ['Bash'] },
+    });
+    // NOT ['Read','Grep','Bash']: a later, more specific layer supersedes the earlier answer rather
+    // than widening it, and NOT [] either — intersecting would let an earlier layer veto a tool the
+    // operator just named.
+    expect(result.allowedTools).toEqual(['Bash']);
+  });
+
+  it('a denylist UNIONS — a denial is not weakened by a layer that forgot to repeat it', () => {
+    const result = resolvePreset('default', {
+      cliOverrides: { deniedTools: ['Bash'] },
+      explicit: { deniedTools: ['WebFetch'] },
+    });
+    expect(result.deniedTools).toEqual(['Bash', 'WebFetch']);
+  });
+
+  it('the denylist union drops duplicates rather than repeating a denial', () => {
+    const result = resolvePreset('default', {
+      cliOverrides: { deniedTools: ['Bash', 'WebFetch'] },
+      explicit: { deniedTools: ['WebFetch'] },
+    });
+    expect(result.deniedTools).toEqual(['Bash', 'WebFetch']);
+  });
+
+  it('a layer that states neither list changes neither', () => {
+    // The guard on the two above: `mergeDefined` must not manufacture an empty denylist for a layer
+    // that never mentioned one, which would read as "nothing is denied" on the surface.
+    const result = resolvePreset('default', {
+      cliOverrides: { deniedTools: ['Bash'] },
+      explicit: { model: 'x' },
+    });
+    expect(result.deniedTools).toEqual(['Bash']);
+    expect(result.allowedTools).toBeUndefined();
+  });
+});
+
 describe('listPresets', () => {
   it('TC-07: contains an entry with id === "default"', () => {
     const presets = listPresets();

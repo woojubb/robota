@@ -65,6 +65,17 @@ export interface IPresetSurfaceOptions {
    */
   systemPrompt?: string;
   /**
+   * ARCH-040 Group C (issue #1934): the preset's tool lists.
+   *
+   * Declared on BOTH surfaces and shipped together. Wiring startup alone was written once and
+   * reverted, because it CREATES the divergence `scan-preset-projection` exists to measure: starting
+   * with a preset would apply its tool lists and switching to the same preset mid-session would
+   * silently not. Half-applied is worse than absent — the operator gets two answers for one preset
+   * and no way to tell which they have.
+   */
+  allowedTools?: readonly string[];
+  deniedTools?: readonly string[];
+  /**
    * The CLI-sourced system-prompt addition — `--append-system-prompt`, `--task-file` and
    * `--json-schema`, composed into one block.
    *
@@ -123,6 +134,8 @@ export function buildPresetSurfaceOptions(
       : {}),
     ...(resolved.language !== undefined ? { language: resolved.language } : {}),
     ...(resolved.systemPrompt !== undefined ? { systemPrompt: resolved.systemPrompt } : {}),
+    ...(resolved.allowedTools !== undefined ? { allowedTools: resolved.allowedTools } : {}),
+    ...(resolved.deniedTools !== undefined ? { deniedTools: resolved.deniedTools } : {}),
     ...(cliAppendSystemPrompt !== undefined ? { cliAppendSystemPrompt } : {}),
   };
 }

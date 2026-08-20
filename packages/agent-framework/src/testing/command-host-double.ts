@@ -101,6 +101,10 @@ export function createTestSessionRuntime(
   // members of an 18-member contract — the exact defect this double exists to remove, inside the file
   // that removes it. A double built through a helper that casts satisfies the ratchet and guarantees
   // nothing; `scan-contract-cast-ratchet.mjs` says so in its own header.
+  const appliedPresetToolLists: {
+    allowedTools?: readonly string[];
+    deniedTools?: readonly string[];
+  }[] = [];
   const base: ICommandSessionRuntime = {
     getSessionId: () => `test-command-host-${doublesCreated}`,
     getHistory: () => [],
@@ -112,6 +116,11 @@ export function createTestSessionRuntime(
     getPermissionMode: () => 'default',
     setPermissionMode: () => {},
     getSessionAllowedTools: () => [],
+    // ARCH-040 Group C: recorded rather than ignored, so a case can assert the live re-application
+    // happened. A double that silently swallows a permission change would let the seam regress green.
+    applyPresetToolLists: (preset) => {
+      appliedPresetToolLists.push(preset);
+    },
     getAutoCompactThreshold: () => false,
     setAutoCompactThreshold: () => {},
     getSessionTokenUsage: () => undefined,

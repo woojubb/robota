@@ -28,6 +28,14 @@ export function buildPermissionEnforcer(
       permissions: options.permissions ?? { allow: [], deny: [] },
       hooks: options.hooks,
     },
+    // Top level, beside `config` and not inside it — the constructor reads
+    // `options.presetFreePermissions`. Nested, it was silently `undefined` on the only wiring that
+    // matters, so the enforcer fell back to `config.permissions` (startup preset already baked in)
+    // and reproduced the exact bug this change fixes. Excess-property checking does not catch this:
+    // the conditional-spread idiom suppresses it.
+    ...(options.presetFreePermissions !== undefined
+      ? { presetFreePermissions: options.presetFreePermissions }
+      : {}),
     terminal: options.terminal,
     permissionHandler: options.permissionHandler,
     promptForApprovalFn: options.promptForApproval,

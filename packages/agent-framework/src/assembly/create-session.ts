@@ -5,7 +5,7 @@
 
 import { join } from 'node:path';
 
-import { GuardrailExecutor } from '@robota-sdk/agent-core';
+import { applyPresetToolLists, GuardrailExecutor } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
 import { assembleSessionTools } from './assemble-session-tools.js';
@@ -215,17 +215,16 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
         .map((t) => t.toolName)
     : [];
 
-  const allowedToolPatterns = (options.allowedTools ?? []).map((name) => `${name}(*)`);
-  const deniedToolPatterns = (options.deniedTools ?? []).map((name) => `${name}(*)`);
-  const mergedPermissions = {
-    allow: [
-      ...defaultAllow,
-      ...commandAutoAllow,
-      ...(options.config.permissions.allow ?? []),
-      ...allowedToolPatterns,
-    ],
-    deny: [...(options.config.permissions.deny ?? []), ...deniedToolPatterns],
+  // ARCH-040 Group C (issue #1934): one translation, shared with the live `/preset` re-application,
+  // so the two paths cannot disagree about what the same preset permits.
+  // The rules independent of any preset. Kept as its own value because the enforcer needs it to
+  // re-apply a preset live: deriving it later from `mergedPermissions` would already include this
+  // preset's patterns, and the first preset's allowlist would then survive every later switch.
+  const presetFreePermissions = {
+    allow: [...defaultAllow, ...commandAutoAllow, ...(options.config.permissions.allow ?? [])],
+    deny: options.config.permissions.deny ?? [],
   };
+  const mergedPermissions = applyPresetToolLists(presetFreePermissions, options);
 
   const projectSettingsPath = join(cwd, '.robota', 'settings.local.json');
   function onProjectAllowTool(toolName: string): void {
@@ -257,6 +256,7 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
     // disagree the moment a caller supplied `options.cwd`.
     cwd,
     permissions: mergedPermissions,
+    presetFreePermissions,
     hooks: resolvedHooks,
     permissionMode: options.permissionMode,
     defaultTrustLevel: options.config.defaultTrustLevel,

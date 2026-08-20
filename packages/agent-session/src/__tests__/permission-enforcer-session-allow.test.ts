@@ -12,6 +12,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { PermissionEnforcer } from '../permission-enforcer.js';
+import { buildPermissionEnforcer } from '../session-components.js';
 
 import type { IPermissionEnforcerOptions, TPermissionResult } from '../permission-types.js';
 import type { ITerminalOutput, TToolArgs } from '@robota-sdk/agent-core';
@@ -212,5 +213,81 @@ describe('PermissionEnforcer — getSessionAllowedTools', () => {
     enforcer.clearSessionAllowedTools();
 
     expect(enforcer.getSessionAllowedTools()).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ARCH-040 Group C (issue #1934) — live preset re-application
+// ---------------------------------------------------------------------------
+
+describe('PermissionEnforcer — a preset re-applied live (ARCH-040 Group C)', () => {
+  /**
+   * The startup preset's patterns are already in `config.permissions` when the session begins —
+   * `create-session.ts` bakes them in. So the base the enforcer composes onto must be SUPPLIED, not
+   * read back out of the configured rules. Review found the first cut capturing it lazily, which
+   * left the first preset's allowlist in the base forever: every later switch kept permitting a tool
+   * the newly chosen preset never named, while the code comment two lines above described exactly
+   * that failure.
+   */
+  function enforcerStartedWithAPreset(): PermissionEnforcer {
+    return makeEnforcer({
+      config: {
+        // what the session actually starts with: base + the startup preset's `First(*)`
+        permissions: { allow: ['Base(*)', 'First(*)'], deny: ['BaseDenied(*)'] },
+      },
+      presetFreePermissions: { allow: ['Base(*)'], deny: ['BaseDenied(*)'] },
+    });
+  }
+
+  it('the composition root wires the base to where the enforcer READS it', () => {
+    // `makeEnforcer` above constructs the enforcer directly, so it cannot see a wiring mistake in
+    // `buildPermissionEnforcer` — which is where one was: `presetFreePermissions` went INSIDE
+    // `config` while the constructor reads it at the top level, so production always fell back to
+    // the contaminated rules and every case here stayed green. Excess-property checking did not
+    // catch it either: the conditional-spread idiom this repository uses for
+    // `exactOptionalPropertyTypes` suppresses it.
+    const enforcer = buildPermissionEnforcer(
+      {
+        permissions: { allow: ['Base(*)', 'First(*)'], deny: [] },
+        presetFreePermissions: { allow: ['Base(*)'], deny: [] },
+        terminal: makeNoopTerminal(),
+      } as never,
+      'test-session',
+      '/tmp',
+      () => 'default',
+      undefined,
+    );
+    enforcer.applyPresetToolLists({ allowedTools: ['Second'] });
+
+    expect(enforcer.currentPermissionRules().allow).toEqual(['Base(*)', 'Second(*)']);
+  });
+
+  it('an allowlist REPLACES the previous preset rather than accumulating', () => {
+    const enforcer = enforcerStartedWithAPreset();
+    enforcer.applyPresetToolLists({ allowedTools: ['Second'] });
+
+    const allow = enforcer.currentPermissionRules().allow;
+    expect(allow).toContain('Base(*)');
+    expect(allow).toContain('Second(*)');
+    // the whole finding: the startup preset's tool must be gone
+    expect(allow).not.toContain('First(*)');
+  });
+
+  it('the base survives every switch, so a preset chooses among what the session permits', () => {
+    const enforcer = enforcerStartedWithAPreset();
+    enforcer.applyPresetToolLists({ allowedTools: ['Second'] });
+    enforcer.applyPresetToolLists({ allowedTools: ['Third'] });
+
+    const allow = enforcer.currentPermissionRules().allow;
+    expect(allow).toEqual(['Base(*)', 'Third(*)']);
+  });
+
+  it('a denial UNIONS onto the base and is not dropped by a later preset', () => {
+    const enforcer = enforcerStartedWithAPreset();
+    enforcer.applyPresetToolLists({ deniedTools: ['Dangerous'] });
+    enforcer.applyPresetToolLists({ allowedTools: ['Third'] });
+
+    // the base denial survives; the preset denial does not outlive the preset that stated it
+    expect(enforcer.currentPermissionRules().deny).toEqual(['BaseDenied(*)']);
   });
 });

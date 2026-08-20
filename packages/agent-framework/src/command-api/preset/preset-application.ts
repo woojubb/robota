@@ -34,6 +34,16 @@ export interface IPresetApplicationOptions {
   language?: string;
   /** ARCH-040 — a preset-supplied system prompt that SEEDS the composed prompt (priority 4). */
   systemPrompt?: string;
+  /**
+   * ARCH-040 Group C — the preset's tool lists, re-applied to the live enforcer.
+   *
+   * An allowlist REPLACES what the preset layer previously contributed; a denylist UNIONS, because a
+   * denial is not weakened by a later layer that forgot to repeat it. Both halves ship together: an
+   * allowlist that replaces while its paired denylist stayed behind would widen what the session
+   * permits, which is the failure the pairing exists to prevent.
+   */
+  allowedTools?: readonly string[];
+  deniedTools?: readonly string[];
   /** PRESET-015 — allowlist of command-module names to keep on the live session. */
   enabledCommandModules?: readonly string[];
   /** PRESET-015 — denylist of command-module names to remove from the live session. */
@@ -90,6 +100,18 @@ export async function applyPresetToSession(
     applied.push('permissionMode');
   } else {
     skipped.push('permissionMode');
+  }
+
+  // ARCH-040 Group C (issue #1934). Skipped only when the preset states neither list — never because
+  // a runtime could not apply them, which the required role member makes unrepresentable.
+  if (options.allowedTools !== undefined || options.deniedTools !== undefined) {
+    context.getSession().applyPresetToolLists({
+      ...(options.allowedTools !== undefined && { allowedTools: options.allowedTools }),
+      ...(options.deniedTools !== undefined && { deniedTools: options.deniedTools }),
+    });
+    applied.push('toolLists');
+  } else {
+    skipped.push('toolLists');
   }
 
   // PRESET-013 model group — re-applied via the runtime's applyModelOptions seam.
