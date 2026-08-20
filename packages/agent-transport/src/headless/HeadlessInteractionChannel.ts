@@ -48,8 +48,8 @@ export interface IHeadlessInteractionChannelOptions {
   forkSession?: boolean;
   sessionName?: string;
   bare?: boolean;
-  allowedTools?: string[];
-  deniedTools?: string[];
+  allowedTools?: readonly string[];
+  deniedTools?: readonly string[];
   appendSystemPrompt?: string;
   systemPrompt?: string;
   /** Name reported to the underlying agent config (resolved by the CLI, e.g. preset agentName). */

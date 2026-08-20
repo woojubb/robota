@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runPrintMode } from '../print-mode.js';
 import { buildServeSessionOptions } from '../serve-mode.js';
+import { presetSessionFields } from '../../startup/preset-session-fields.js';
 import {
   buildPresetSurfaceOptions,
   toSessionOptions,
@@ -313,6 +314,45 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
       preset: { cliAppendSystemPrompt: 'SERVED-ADDITION' },
     } as never) as { appendSystemPrompt?: string };
     expect(options.appendSystemPrompt).toBe('SERVED-ADDITION');
+  });
+
+  it('the shared mapper takes the tool lists from the PRESET SURFACE (issue #1934)', () => {
+    // The claim the projection test could not make. It asserts the mode surfaces ACCEPT every field
+    // — a compile-time property — and both modes accepted `allowedTools` while reading
+    // `parseToolList(args.…)` instead. Accepting a field and reading it are different claims.
+    expect(
+      presetSessionFields({
+        allowedTools: ['FromPreset'],
+        deniedTools: ['DeniedByPreset'],
+        cliAppendSystemPrompt: 'CLI-TEXT',
+      }),
+    ).toEqual({
+      allowedTools: ['FromPreset'],
+      deniedTools: ['DeniedByPreset'],
+      appendSystemPrompt: 'CLI-TEXT',
+    });
+  });
+
+  it('the mapper omits what the surface did not state, rather than emptying it', () => {
+    // The guard: returning `allowedTools: []` for a surface that named none would read as "nothing is
+    // permitted" at the session, which is the opposite of absent.
+    expect(presetSessionFields({})).toEqual({});
+  });
+
+  it('serve mode reads the RESOLVED tool lists, not the raw flags (issue #1934)', () => {
+    // The review finding this pins: both modes took `IPresetSurfaceOptions` and read
+    // `parseToolList(args.…)` anyway, so a preset's lists were applied in the TUI and silently
+    // ignored under `-p` and `--serve` — the half-applied divergence the item exists to close,
+    // reintroduced at two of three shells. The projection test above cannot catch it: it asserts the
+    // surfaces ACCEPT the field, which is a compile-time property, not that they READ it.
+    const options = buildServeSessionOptions({
+      cwd,
+      args: makeArgs({ allowedTools: 'FromFlag', deniedTools: 'FromFlag' }),
+      preset: { allowedTools: ['FromPreset'], deniedTools: ['DeniedByPreset'] },
+    } as never) as { allowedTools?: readonly string[]; deniedTools?: readonly string[] };
+
+    expect(options.allowedTools).toEqual(['FromPreset']);
+    expect(options.deniedTools).toEqual(['DeniedByPreset']);
   });
 
   it('the projection carries what the three flags compose, so every surface reads one value', () => {

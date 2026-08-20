@@ -7,7 +7,6 @@
  * imports only the runtime host + framework/interface types, never a presentation package.
  */
 
-import { parseToolList } from '../utils/cli-args.js';
 import {
   openInBrowser,
   resolveWebRoot,
@@ -16,6 +15,7 @@ import {
 } from './serve-monitor-ui.js';
 import { settleOnServeTransportFailure } from './serve-transport-failure.js';
 import { startRuntimeHost } from '@robota-sdk/agent-framework';
+import { presetSessionFields } from '../startup/preset-session-fields.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type { ICreateSessionOptions } from '@robota-sdk/agent-framework';
 
@@ -106,11 +106,6 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     permissionMode: args.permissionMode ?? preset.permissionMode,
     // Issue #1937: the CLI-sourced prompt addition, composed once at the projection. Before this it
     // was built at print mode only, so these flags did nothing in a served session.
-    ...(preset.cliAppendSystemPrompt !== undefined
-      ? { appendSystemPrompt: preset.cliAppendSystemPrompt }
-      : {}),
-    // Issue #1937: the CLI-sourced prompt addition, composed once at the projection. Before this it
-    // was built at print mode only, so these flags did nothing in a served session.
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : opts.sessionStore,
     resumeSessionId: opts.resumeSessionId,
@@ -125,8 +120,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     commandHostAdapters: opts.commandHostAdapters,
     ...(opts.remoteCommandPolicy ? { remoteCommandPolicy: opts.remoteCommandPolicy } : {}),
     language: args.language,
-    allowedTools: parseToolList(args.allowedTools),
-    deniedTools: parseToolList(args.deniedTools),
+    ...presetSessionFields(preset),
     ...(args.systemPrompt ? { systemPrompt: args.systemPrompt } : {}),
     ...(preset.agentName !== undefined ? { agentName: preset.agentName } : {}),
     ...(preset.activePresetId !== undefined ? { activePresetId: preset.activePresetId } : {}),

@@ -8,10 +8,10 @@ import type {
 } from '@robota-sdk/agent-framework';
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
 import { HeadlessInteractionChannel } from '@robota-sdk/agent-transport/headless';
+import { presetSessionFields } from '../startup/preset-session-fields.js';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
-import { parseToolList } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
 
 /**
@@ -98,20 +98,13 @@ export async function runPrintMode(
     // provider's error and a non-zero exit, instead of a silent substitution succeeding with exit 0).
     ...(presetOptions.model !== undefined ? { model: presetOptions.model } : {}),
     permissionMode: args.permissionMode ?? presetOptions.permissionMode ?? 'bypassPermissions',
-    // Issue #1937: the CLI-sourced addition, composed once at the projection. It lands on the
-    // SESSION's `appendSystemPrompt`; the preset's own field of that name is still unprojected, and
-    // how the two merge is ARCH-040 Group D's decision, not this hop's.
-    ...(presetOptions.cliAppendSystemPrompt !== undefined
-      ? { appendSystemPrompt: presetOptions.cliAppendSystemPrompt }
-      : {}),
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     resumeSessionId: sessionResolution.resumeSessionId,
     forkSession: sessionResolution.forkSession,
     sessionName: args.sessionName,
     bare: args.bare || undefined,
-    allowedTools: parseToolList(args.allowedTools),
-    deniedTools: parseToolList(args.deniedTools),
+    ...presetSessionFields(presetOptions),
     ...(presetOptions.persona !== undefined ? { persona: presetOptions.persona } : {}),
     ...(presetOptions.agentName !== undefined ? { agentName: presetOptions.agentName } : {}),
     ...(presetOptions.activePresetId !== undefined
