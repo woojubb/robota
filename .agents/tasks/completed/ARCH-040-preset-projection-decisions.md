@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-040: ten resolved-preset fields need a projection DECISION, not just a seam'
-status: in-progress
+status: done
+completed: 2026-08-21
 created: 2026-08-20
 priority: medium
 urgency: soon
@@ -177,3 +178,44 @@ new call because `agent-session`'s agent field was named `robota` — the consum
 neutral library, frozen at 30 occurrences with no exemption mechanism. Renaming the field to `agent`
 took the count to 3 (the remainder is the real `~/.robota` directory). Re-spelling the call to avoid
 the marker was the alternative, and it is the failure this repository has scans about.
+
+## Result
+
+Seven of the ten fields resolved; three split into their own items with the blocking cause named.
+Delivered across PRs #1931, #1938 and #1940. `presetProjection.pendingProjection`: 10 exemptions → 3.
+
+| group                                             | outcome                                                           |
+| ------------------------------------------------- | ----------------------------------------------------------------- |
+| A — `defaultTrustLevel`                           | removed from the contract                                         |
+| E — `temperature`, `maxOutputTokens`, and `model` | carried to construction / declared                                |
+| F — `language`                                    | applied as a prompt section, live and at startup                  |
+| D — `systemPrompt`                                | seeds the composed prompt at priority 4, live and at startup      |
+| B — `agentName`                                   | `/preset` renames the live agent                                  |
+| C — `allowedTools`, `deniedTools`                 | issue #1934: needs a live permission-rule capability              |
+| D — `appendSystemPrompt`                          | issue #1937: needs the CLI text to reach all three surfaces first |
+
+The two split items are NOT deferrals. Each was traced to a prerequisite that does not exist, and the
+tool half was written, measured against `scan-preset-projection`, and reverted — wiring its startup
+side alone CREATES the divergence that scan exists to measure, which is worse than leaving both.
+
+### What this item cost, and what that bought
+
+Three of the six groups were blocked by a repository gate, and in every case the gate was right and the
+fix was to change what it pointed at rather than the gate:
+
+- `option-reachability` refused keys declared with nothing assigning them — twice. The hop was wired;
+  the declaration was not deleted.
+- The anti-monolith floor refused the fourth addition to a file holding three interfaces restating one
+  option list. That produced the `IInitOptions` split, which is the right shape independent of the
+  size number — and `option-reachability` then **fail-closed on the move** rather than passing.
+- `product-identity` refused one new call because a neutral library's agent field was named after the
+  consumer's product. Re-spelling the call to avoid the marker was available and is the failure this
+  repository has scans about; the field was renamed instead and the count fell 30 → 3.
+
+### The correction worth keeping
+
+Group B was parked for a day on an analysis that named two options — a mutable core field, or splitting
+a 411-line frozen file — and called them the only two. Both were wrong: `Robota` declares
+`protected override config`, so the BASE already owns `config`, and putting the getter there made
+`robota.ts` three lines SMALLER. The parked note is left above rather than deleted, because a narrow
+analysis that looked complete is the more useful record.
