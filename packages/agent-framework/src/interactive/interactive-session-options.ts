@@ -54,9 +54,9 @@ export interface IInteractiveSessionStandardOptions {
   /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
   bare?: boolean;
   /** Pre-approved tool names passed to createSession. */
-  allowedTools?: string[];
+  allowedTools?: readonly string[];
   /** Denied tool names — added to permissions.deny. denied > allowed. */
-  deniedTools?: string[];
+  deniedTools?: readonly string[];
   /** Override the model from config. When set, takes precedence over config.provider.model. */
   model?: string;
   /**

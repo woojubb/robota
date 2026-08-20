@@ -5,7 +5,7 @@
 
 import { join } from 'node:path';
 
-import { GuardrailExecutor } from '@robota-sdk/agent-core';
+import { applyPresetToolLists, GuardrailExecutor } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
 import { assembleSessionTools } from './assemble-session-tools.js';
@@ -215,17 +215,15 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
         .map((t) => t.toolName)
     : [];
 
-  const allowedToolPatterns = (options.allowedTools ?? []).map((name) => `${name}(*)`);
-  const deniedToolPatterns = (options.deniedTools ?? []).map((name) => `${name}(*)`);
-  const mergedPermissions = {
-    allow: [
-      ...defaultAllow,
-      ...commandAutoAllow,
-      ...(options.config.permissions.allow ?? []),
-      ...allowedToolPatterns,
-    ],
-    deny: [...(options.config.permissions.deny ?? []), ...deniedToolPatterns],
-  };
+  // ARCH-040 Group C (issue #1934): one translation, shared with the live `/preset` re-application,
+  // so the two paths cannot disagree about what the same preset permits.
+  const mergedPermissions = applyPresetToolLists(
+    {
+      allow: [...defaultAllow, ...commandAutoAllow, ...(options.config.permissions.allow ?? [])],
+      deny: options.config.permissions.deny ?? [],
+    },
+    options,
+  );
 
   const projectSettingsPath = join(cwd, '.robota', 'settings.local.json');
   function onProjectAllowTool(toolName: string): void {

@@ -57,8 +57,8 @@ export interface IRenderOptions {
   language?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
-  allowedTools?: string[];
-  deniedTools?: string[];
+  allowedTools?: readonly string[];
+  deniedTools?: readonly string[];
   version?: string;
   sessionStore?: IInteractiveSessionStore;
   resumeSessionId?: string;

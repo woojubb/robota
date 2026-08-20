@@ -164,9 +164,9 @@ export interface ICreateSessionOptions {
   /** Override session ID (used when resuming a session to reuse the original ID) */
   sessionId?: string;
   /** Pre-approved tool names — added to permissions.allow as ToolName(*) patterns. */
-  allowedTools?: string[];
+  allowedTools?: readonly string[];
   /** Denied tool names — added to permissions.deny as ToolName(*) patterns. denied > allowed. */
-  deniedTools?: string[];
+  deniedTools?: readonly string[];
   /** Override the model from config. When set, takes precedence over config.provider.model. */
   model?: string;
   /**

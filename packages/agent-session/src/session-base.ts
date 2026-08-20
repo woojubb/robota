@@ -158,6 +158,21 @@ export abstract class SessionBase {
   }
 
   /** Get tools that have been session-approved (via "Allow always" choice). */
+  /**
+   * ARCH-040 Group C (issue #1934): re-apply a preset's tool lists to the live enforcer.
+   *
+   * The BASE it composes onto is the session's configured rules minus whatever a previous preset
+   * contributed — which is why the enforcer keeps the original: an allowlist REPLACES the preset
+   * layer's contribution rather than accumulating across successive `/preset` switches, while a
+   * denial UNIONS because it must not be weakened by a later layer that forgot to repeat it.
+   */
+  applyPresetToolLists(preset: {
+    allowedTools?: readonly string[];
+    deniedTools?: readonly string[];
+  }): void {
+    this.permissionEnforcer.applyPresetToolLists(preset);
+  }
+
   getSessionAllowedTools(): string[] {
     return this.permissionEnforcer.getSessionAllowedTools();
   }

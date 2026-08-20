@@ -103,7 +103,21 @@ function definedEntries(source: IResolvedPresetOptions): Partial<IResolvedPreset
   return Object.fromEntries(Object.entries(source).filter(([, value]) => value !== undefined));
 }
 
-/** Merge `source` onto `target`, skipping `undefined` values so later layers only override set keys. */
+/**
+ * Merge `source` onto `target`, skipping `undefined` values so later layers only override set keys.
+ *
+ * ARCH-040 Group C (issue #1934): the two tool lists combine differently, and the difference is the
+ * decision rather than an implementation detail.
+ *
+ * - **`allowedTools` REPLACES.** An allowlist is a statement of the COMPLETE permitted set, so a
+ *   later, more specific layer stating one supersedes the earlier answer. Intersecting would let an
+ *   earlier layer veto a tool the operator just named, and unioning would let it smuggle one in.
+ * - **`deniedTools` UNIONS.** A denial is not weakened by a later layer that forgot to repeat it —
+ *   forgetting is the common case, and the cost of the two mistakes is not symmetric.
+ *
+ * This lives HERE, in the resolver, because precedence is the resolver's job: a union applied by one
+ * of three shells is a rule the other two disagree with, which is the class ARCH-013 exists over.
+ */
 function mergeDefined(
   target: IResolvedPresetOptions,
   source: IResolvedPresetOptions | undefined,
@@ -111,7 +125,18 @@ function mergeDefined(
   if (!source) {
     return target;
   }
-  return { ...target, ...definedEntries(source) };
+  const merged = { ...target, ...definedEntries(source) };
+  return source.deniedTools !== undefined || target.deniedTools !== undefined
+    ? { ...merged, deniedTools: unionTools(target.deniedTools, source.deniedTools) }
+    : merged;
+}
+
+/** Every denial either layer stated, order preserved and duplicates dropped. */
+function unionTools(
+  earlier: readonly string[] | undefined,
+  later: readonly string[] | undefined,
+): string[] {
+  return [...new Set([...(earlier ?? []), ...(later ?? [])])];
 }
 
 /**
