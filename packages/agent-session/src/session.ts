@@ -178,7 +178,11 @@ export class Session extends SessionBase {
   async run(
     message: string,
     rawInput?: string,
-    options?: { ephemeralSystemContext?: string },
+    // PEER-007 (issue #1915): `driverId` is DISPLAY attribution carried onto the stored message, so a
+    // transcript reader can tell a peer's turn from the operator's. It is never an authorization
+    // input — issue #1809 fixed that, and the value here is derived from the peer's session id rather
+    // than taken from anything the peer supplied.
+    options?: { ephemeralSystemContext?: string; driverId?: string },
   ): Promise<string> {
     const controller = this.turnClaim.claim(); // Synchronously, before any await.
     const { signal } = controller;

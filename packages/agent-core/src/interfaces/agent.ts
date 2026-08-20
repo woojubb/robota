@@ -209,6 +209,14 @@ export interface IRunOptions {
   toolChoice?: TToolChoice;
   sessionId?: string;
   userId?: string;
+  /**
+   * PEER-007 (issue #1915): who this RUN is attributed to, for display.
+   *
+   * Per-run rather than on the agent config, because it changes per turn: the same session serves the
+   * operator and any peer that addresses it. Carried through to the stored user message so a reader
+   * of the transcript — which is all that survives the turn — can tell the two apart.
+   */
+  driverId?: string;
   metadata?: TMetadata;
   /**
    * Run-scoped EPHEMERAL system context (SELFHOST-008 P3). A transient system-role block included in THIS

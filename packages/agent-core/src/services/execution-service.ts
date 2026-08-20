@@ -158,7 +158,12 @@ export class ExecutionService {
 
     try {
       const messageCountBeforeUser = conversationStore.getMessages().length;
-      conversationStore.addUserMessage(input, { executionId });
+      // PEER-007: the driver id rides on the message, not just the turn, because the transcript is
+      // what a reader has after the turn ends.
+      conversationStore.addUserMessage(input, {
+        executionId,
+        ...(context?.driverId !== undefined ? { driverId: context.driverId } : {}),
+      });
       const userMessage = conversationStore.getMessages()[messageCountBeforeUser];
       if (userMessage) {
         fullContext.onExecutionEvent?.('history_mutation', {

@@ -1,4 +1,5 @@
 import { isToolMessage, isAssistantMessage } from '@robota-sdk/agent-core';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
 import { Box, Text } from 'ink';
 import React from 'react';
 
@@ -20,12 +21,27 @@ interface IProps {
   history: IHistoryEntry[];
 }
 
-function RoleLabel({ role }: { role: TUniversalMessage['role'] }): React.ReactElement {
+/**
+ * PEER-007 (issue #1915): the operator's own turns stay `You:`; a turn driven by anyone else is
+ * labelled with WHO drove it, so a co-driven transcript can be read after the fact. `owner` is the
+ * operator, so it reads as `You:` too; anything else prints as itself (`peer:<session-id>`, `agent`).
+ */
+function driverLabel(driverId: string): string {
+  return driverId === OWNER_DRIVER_ID ? 'You' : driverId;
+}
+
+function RoleLabel({
+  role,
+  driverId,
+}: {
+  role: TUniversalMessage['role'];
+  driverId?: string;
+}): React.ReactElement {
   switch (role) {
     case 'user':
       return (
         <Text color={PALETTE.text.success} bold>
-          You:{' '}
+          {driverId !== undefined ? driverLabel(driverId) : 'You'}:{' '}
         </Text>
       );
     case 'assistant':
@@ -162,7 +178,12 @@ const MessageItem = React.memo(function MessageItem({
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <RoleLabel role={message.role} />
+        <RoleLabel
+          role={message.role}
+          {...(typeof message.metadata?.driverId === 'string'
+            ? { driverId: message.metadata.driverId }
+            : {})}
+        />
       </Box>
       <Text> </Text>
       <Box marginLeft={2}>

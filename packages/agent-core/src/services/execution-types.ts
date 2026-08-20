@@ -124,6 +124,14 @@ export function isExecutionError(error: Error): error is IExecutionError {
  * Applies Type Deduplication Rule: Use standardized metadata type
  */
 export interface IExecutionContext {
+  /**
+   * PEER-007 (issue #1915): who this execution is attributed to, for DISPLAY only.
+   *
+   * Stored on the user message so a transcript reader can tell a peer session's turn from the
+   * operator's. Never an authorization input — issue #1809 settled that, and the value reaching here
+   * is derived from the peer's session id rather than taken from anything the peer supplied.
+   */
+  driverId?: string;
   conversationId?: string;
   sessionId?: string;
   userId?: string;

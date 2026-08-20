@@ -108,7 +108,7 @@ export async function executeRun(
   rawInput: string | undefined,
   ctx: IRunContext,
   abortSignal: AbortSignal,
-  runOptions?: { ephemeralSystemContext?: string },
+  runOptions?: { ephemeralSystemContext?: string; driverId?: string },
 ): Promise<string> {
   // Auto-compact BEFORE processing the new message (not after).
   // This prevents compaction from interfering with the current response stream.
@@ -196,6 +196,8 @@ export async function executeRun(
       signal: abortSignal,
       maxExecutionRounds: ctx.maxTurns ?? 0,
       // SELFHOST-008 P3: thin pass-through of the ephemeral per-turn system block to agent-core.
+      // PEER-007: display attribution for the stored message, absent for an operator turn.
+      ...(runOptions?.driverId !== undefined && { driverId: runOptions.driverId }),
       ...(runOptions?.ephemeralSystemContext !== undefined && {
         ephemeralSystemContext: runOptions.ephemeralSystemContext,
       }),

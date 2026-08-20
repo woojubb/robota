@@ -432,7 +432,24 @@ export class TuiInteractionChannel {
 
     const onUserMessage = (content: string): void => {
       this.handleAutoNaming(content);
-      manager.addEntry(messageToHistoryEntry(createUserMessage(content)));
+      // PEER-007 (issue #1915): attribute the echo to the ACTIVE turn's driver, so a peer's message is
+      // labelled as theirs the moment it appears rather than reading as the operator's own for the whole
+      // turn. The id is the framework's DERIVED one (`peer:<session-id>`) — never peer-supplied text.
+      //
+      // Guarded because attribution is an ADDITION to the message, never a precondition for it: a
+      // session that cannot answer who drove the turn must still get the message on screen. Unguarded,
+      // a throw here loses the user's message entirely and the transcript says nothing happened.
+      let driverId: string | null = null;
+      try {
+        driverId = session.getActiveDriverId?.() ?? null;
+      } catch {
+        driverId = null;
+      }
+      manager.addEntry(
+        messageToHistoryEntry(
+          createUserMessage(content, driverId ? { metadata: { driverId } } : {}),
+        ),
+      );
     };
     const onComplete = (result: IExecutionResult): void => {
       manager.onComplete(result);
