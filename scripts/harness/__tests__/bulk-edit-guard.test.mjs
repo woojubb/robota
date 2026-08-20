@@ -39,6 +39,16 @@ function run(payload) {
 }
 
 const bash = (command) => run({ tool_name: 'Bash', tool_input: { command } });
+
+/** The same call with the ack EXPORTED rather than inline — the only form a tool write can take. */
+function runAcked(payload) {
+  const result = spawnSync('bash', [HOOK], {
+    input: typeof payload === 'string' ? payload : JSON.stringify(payload),
+    encoding: 'utf8',
+    env: { ...process.env, CLAUDE_PROJECT_DIR: WORKSPACE_ROOT, BULK_EDIT_ACK: '1' },
+  });
+  return { status: result.status, stderr: result.stderr ?? '' };
+}
 const write = (filePath) => run({ tool_name: 'Write', tool_input: { file_path: filePath } });
 
 describe('a file-writing tool naming the dependency store', () => {
@@ -234,6 +244,13 @@ describe('a content write whose target names the store', () => {
     expect(bash('echo broken > node_modules/.pnpm/pkg/index.js').status).toBe(2);
   });
 
+  it("refuses the noclobber-override redirect, which is the same rule's own subject", () => {
+    // `>|` is bash's "write even under noclobber". The rule read `>>?` and then a target, so the
+    // `|` fell into the excluded prefix class and the whole spelling walked through.
+    expect(bash('echo x >| node_modules/y').status).toBe(2);
+    expect(bash('echo x >| /tmp/y').status).toBe(0);
+  });
+
   it('permits the reinstall idioms', () => {
     // `rm -rf node_modules && pnpm install` is what every contributor runs. Refusing it would be a
     // correct command blocked, which is how a guard's ack starts being pasted without being read.
@@ -263,6 +280,35 @@ describe('reading the payload', () => {
 });
 
 describe('the documented escape', () => {
+  it('honours the EXPORTED ack on a tool write, which is the only form one can carry', () => {
+    // The refusal advertises `BULK_EDIT_ACK=1`, and the tool branch used to exit above the check
+    // that reads it — so the escape named in the message could not be taken. A Write carries no
+    // command, so there is nowhere to put an inline assignment; the env form is the whole mechanism.
+    expect(
+      runAcked({ tool_name: 'Write', tool_input: { file_path: 'node_modules/x.js' } }).status,
+    ).toBe(0);
+    expect(write('node_modules/x.js').status).toBe(2);
+  });
+
+  it('refuses an unreadable payload EVEN under the ack, which is the ordering the header asserts', () => {
+    // The ack short-circuits the decode refusals inside the tool branch deliberately: it means "I
+    // have checked this by hand". It must NOT reach above these two, because neither says WHAT was
+    // acked, and a malformed payload would then be the way past the guard.
+    expect(runAcked('').status).toBe(2);
+    expect(runAcked({ tool_input: { command: 'echo hi' } }).status).toBe(2);
+    // THE case the ordering fix actually moved, and the one this file did not have. Both refusals
+    // above already stood above the ack in the version being corrected, so they were green either
+    // way — a late invariant both versions satisfy. A payload naming a tool whose OWN field cannot
+    // be decoded is refused on the integration branch and was permitted by the first cut, which
+    // read the ack at the top of the file.
+    expect(runAcked({ tool_name: 'Bash', tool_input: {} }).status).toBe(2);
+  });
+
+  it("permits Node's fs.glob, which was measured NOT to follow", () => {
+    // The widening that looks obvious — matching a bare `glob(` — refuses this.
+    expect(bash('node -e "console.log(fs.globSync(1))"').status).toBe(0);
+  });
+
   it('permits an inline BULK_EDIT_ACK=1', () => {
     expect(bash('BULK_EDIT_ACK=1 find -L packages -name "*.ts"').status).toBe(0);
   });
