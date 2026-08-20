@@ -1,7 +1,8 @@
 ---
 title: 'PEER-004: local peer discovery was built and called by nothing'
-status: in-progress
+status: done
 created: 2026-08-19
+completed: 2026-08-21
 priority: high
 urgency: now
 area: packages/agent-cli, packages/agent-command, packages/agent-framework
