@@ -258,15 +258,20 @@ segment_has_editor_and_store_path() {
 # tools. Without that, `my_node_modules_old/` — a directory that merely contains the letters — was
 # refused here while the write path permitted it, so one guard contradicted the other on the case both
 # had a test for. Reported in review of this change.
-if printf '%s' "$MASK" | grep -qE '>>?\|?[[:space:]]*([^[:space:]|;&]*/)?(node_modules|\.pnpm)/'; then
-  # Contained — INFRA-111. The `>&` family walks through this rule — `>& node_modules/y`, `>&x`,
-  # `2>&`, `>&"x"` and `>>&` are all permitted while `>`, `>>`, `>|`, `&>` and `2>` are refused.
-  # Adding the character would be the fourth cut of one regex; the third certified its own
-  # exhaustiveness and was wrong by five. `branch-guard.sh` hand-rolls the same question for
-  # `.husky/` with a DIFFERENT hole set, and `command-scan.sh` already parses redirections privately,
-  # its own comment recording the identical `>&` versus `&>` miss.
-  refuse_path "the command redirects output into node_modules or .pnpm"
-fi
+#
+# INFRA-111 closed the containment note that stood here. The rule used to be a regex over redirection
+# spellings, and the `>&` family walked straight through it: `>& node_modules/y`, `>&x` and `>&"x"`
+# were permitted while `>`, `>>`, `>|`, `&>` and `2>` were refused. That was the third cut of one
+# regex, and the second cut's commit had claimed `>|` was "the only miss across eight probed
+# spellings". `hook_redirect_targets` now answers it from the tokenizer that already had to parse
+# redirections to keep an `&` from splitting a statement, so a spelling added to the grammar reaches
+# this rule and `branch-guard.sh` at once instead of being enumerated twice.
+while IFS= read -r target; do
+  [[ -z "$target" ]] && continue
+  if printf '%s' "$target" | grep -qE "$STORE_SEGMENT_RE"; then
+    refuse_path "the command redirects output into node_modules or .pnpm"
+  fi
+done < <(hook_redirect_targets "$COMMAND")
 
 # The in-place editors take their targets as ARGUMENTS, so an editor and a store path in the SAME
 # SEGMENT is tight — there is no other place the path could be going. Anchored on a separator for the
