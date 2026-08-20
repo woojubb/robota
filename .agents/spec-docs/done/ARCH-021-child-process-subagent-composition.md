@@ -13,7 +13,7 @@ FOUNDATIONAL.
 
 > **The premise changed under this item.** Its original Direction specified a capability broker. That
 > was written when the worker was a standalone neutral module located on disk. DIST-006
-> ([issue #1783](https://github.com/woojubb/robota/issues/1783), merged 2026-08-16) made the worker
+> ([PR #1783](https://github.com/woojubb/robota/pull/1783), merged 2026-08-16) made the worker
 > **robota's own entry**, re-executed with `--__robota-subagent-worker`. The product's profile is now
 > already compiled into the child. Every citation below was verified against `develop` at
 > `774d44b87` (post-DIST-006).
