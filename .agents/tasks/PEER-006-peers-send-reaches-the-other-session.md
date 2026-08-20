@@ -93,13 +93,75 @@ peer-supplied driver id through is a one-character change that no other test wou
 - Terminal A: `/peers send <B's session id> hello back`
 - Expect in B: the same, in the other direction.
 - Cleanup: exit both sessions; `/peers` in a third session shows neither.
-- Evidence: _to be filled after implementation_
+- Evidence: **EXECUTED 2026-08-20** against `feat/peer-origin-rendered` (PEER-007 merged into the same
+  tree), two real `pnpm cli:dev` sessions driven through PTYs on this host as this user.
+
+  A alone:
+
+  ```
+  System:
+    No other live session is announced. Start a second session on this host, as this user, and it appears here.
+  ```
+
+  B, after A was already up:
+
+  ```
+  System:
+    Live sessions:
+      b8319b98-bb7b-486c-a499-cf1585b39e61  (this session)
+      97ffafe3-f770-4877-90a4-bd86df6be010
+    Send to one: /peers send <session-id> <message>
+  ```
+
+  `/peers send 97ffafe3-… hello from B` — what A rendered:
+
+  ```
+  peer:b8319b98-bb7b-486c-a499-cf1585b39e61:
+    hello from B
+  Robota:
+    STUB-ACK: …
+  ```
+
+  The label carries B's session id exactly as `/peers` reported it, and the agent answered the peer's
+  turn. B saw the delivery acknowledged: `97ffafe3-… has the message; it is waiting behind work already
+running there.`
+
+  **The control run is what makes this mean anything.** A separate session where the operator typed the
+  message rendered `You:`. Counted across the two transcripts, the labels are mutually exclusive — the
+  peer-driven transcript contains `peer:<id>:` and zero occurrences of `You:`; the operator transcript
+  contains `You:` and zero occurrences of `peer:`. Without that second run the first only shows that a
+  label appears, not that the two are told apart.
+
+  **Both directions, run separately 2026-08-21.** Issue #1863's definition of done says _both_, and one
+  direction only shows that a label appears — not that it names the right peer. A second pair:
+
+  | direction | label the receiver rendered                 | sender's id from `/peers` |
+  | --------- | ------------------------------------------- | ------------------------- |
+  | B → A     | `peer:620c8924-9ee6-4058-9e65-2d0204b2a103` | B = `620c8924-…`          |
+  | A → B     | `peer:dfad4f56-7bc3-4eb4-b1e2-e86f10960333` | A = `dfad4f56-…`          |
+
+  Each session labelled the OTHER one. A single direction would pass even if the label were wired to
+  the wrong end.
+
+  Provider: no credential was present (probed: no `ANTHROPIC_*`/`OPENAI_*`/`GEMINI_*` in the
+  environment, no `.env` — only `.env.example`, no settings under `~/.robota`, and no Ollama on
+  :11434). A local OpenAI-compatible stub stood in so the sessions could reach a prompt. It serves the
+  model call only; discovery, delivery and attribution are the product's own code and are what this
+  scenario observes.
 
 **Scenario 2 — a target that is not there**
 
 - Terminal A: `/peers send 00000000-0000-0000-0000-000000000000 hello`
 - Expect: a refusal naming the unannounced target, not a socket error and not a hang.
-- Evidence: _to be filled after implementation_
+- Evidence: **EXECUTED 2026-08-20**, same pair of sessions:
+
+  ```
+  System:
+    Not delivered to 00000000-0000-0000-0000-000000000000. no session 00000000-0000-0000-0000-000000000000
+    is announced on this host. Run /peers to see which are.
+  ```
+
+  It names the target, says where to look, and returns immediately — no socket error, no hang.
 
 ## Progress
 

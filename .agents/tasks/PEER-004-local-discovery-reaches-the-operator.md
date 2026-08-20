@@ -67,8 +67,34 @@ session is, which is the question the registry keys its entries on.
 - [x] TC-06: the assembly wires the adapter, generates the id, and reports a refusal without
       throwing or taking the other adapter down with it.
 - [x] TC-07: `pnpm harness:scan` green and the three touched packages' suites green.
-- [ ] TC-08 (user-execution): two `agent-cli` sessions on one host, `/peers` in each showing the
-      other. Runnable once this ships.
+- [x] TC-08 (user-execution): two `agent-cli` sessions on one host, `/peers` in each showing the
+      other. Executed 2026-08-20 — evidence below.
+
+## User Execution Evidence
+
+**TC-08, executed 2026-08-20.** Two real `pnpm cli:dev` sessions driven through PTYs, same host, same
+user.
+
+The first, alone:
+
+```
+No other live session is announced. Start a second session on this host, as this user, and it
+appears here.
+```
+
+Once the second was up, its `/peers`:
+
+```
+Live sessions:
+  b8319b98-bb7b-486c-a499-cf1585b39e61  (this session)
+  97ffafe3-f770-4877-90a4-bd86df6be010
+```
+
+TC-05's distinction is what the first output shows: "no other session" reads as its own sentence with
+a next step, not as an empty list a reader would have to interpret.
+
+Full transcripts and the `/peers send` half, including both directions, are recorded in
+[PEER-006](PEER-006-peers-send-reaches-the-other-session.md).
 
 ## Test Plan
 
