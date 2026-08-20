@@ -39,6 +39,8 @@ INPUT=$(cat)
 source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
 # shellcheck source=lib/flag-attribution.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/flag-attribution.sh"
+# shellcheck source=lib/canonical-path.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/canonical-path.sh"
 
 if [ -z "${INPUT//[[:space:]]/}" ]; then
   echo "[bulk-edit-guard] Blocked: the hook payload was empty, so nothing was judged." >&2
@@ -115,28 +117,45 @@ if [[ "$TOOL_NAME" == "Write" || "$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Mult
   # so it proved resolution worked on a path that did not need it. That is the more useful half of
   # the finding, and it is why each depth below is now a case of its own.
   #
-  # `cd` + `pwd -P` rather than `readlink -f`: the `-f` form is GNU-only and fails unhelpfully on
-  # BSD/macOS, which `shell-portability` refuses (see "Host Platform Is Read, Never Assumed"). `pwd
-  # -P` is POSIX and resolves the DIRECTORY chain, which is the level pnpm's symlinks live at.
-  # Contained — INFRA-110. The climb below is hand-rolled canonicalization with no stated domain, and
-  # three measured input classes get past it: an exported `CDPATH` makes `cd` select a different
-  # directory and print it to stdout (a fail-OPEN, against this file's declared refuse direction); a
-  # `..` after a missing segment is re-attached verbatim and never normalised; and the FINAL
-  # component is never resolved, so a symlinked FILE into the store is permitted while the sibling
-  # symlinked DIRECTORY is refused. Each is a one-line patch and all three together are a realpath
-  # with four special cases and still no domain, which is the item rather than this function.
-  ANCESTOR=$(dirname -- "$FILE_PATH")
-  TAIL=$(basename -- "$FILE_PATH")
-  while [[ ! -d "$ANCESTOR" && "$ANCESTOR" != "/" && "$ANCESTOR" != "." ]]; do
-    TAIL="$(basename -- "$ANCESTOR")/$TAIL"
-    ANCESTOR=$(dirname -- "$ANCESTOR")
-  done
-  if [[ -d "$ANCESTOR" ]]; then
-    RESOLVED=$( (cd "$ANCESTOR" 2>/dev/null && printf '%s/%s' "$(pwd -P)" "$TAIL") || printf '')
-    if [[ -n "$RESOLVED" ]] && printf '%s' "$RESOLVED" | grep -qE "$STORE_SEGMENT_RE"; then
-      refuse_path "$FILE_PATH -> $RESOLVED"
-    fi
+  # WHERE IT LANDS is asked of `canonical-path.sh`, which has a stated domain (INFRA-110). The climb
+  # that stood here was hand-rolled canonicalization with none, and three review rounds each found a
+  # new input class it got wrong.
+  #
+  # Two were still live when it was replaced. Measured on a sandbox holding two links into the same
+  # vendored package — a DIRECTORY link, which is what pnpm creates, and a FILE link beside it:
+  #
+  #   the file link                 PERMITTED — the FINAL component was never resolved, so a
+  #                                 symlinked FILE into the store passed while the sibling symlinked
+  #                                 DIRECTORY was refused
+  #   a `..` after a missing        PERMITTED — it was re-attached verbatim and never normalised, so
+  #   segment                       the write walked back out of the missing directory and into the
+  #                                 store unseen
+  #
+  # and a third only for a RELATIVE path: `cd` consults `CDPATH` for a relative operand, so an
+  # exported `CDPATH` selected a different directory AND printed it to stdout, making `RESOLVED` two
+  # newline-separated paths. A fail-OPEN, against the refuse direction this file declares. The item
+  # that filed it did not have the relative/absolute distinction; measuring it added that.
+  #
+  # A path is made absolute against the PAYLOAD's `cwd`, not the directory this hook happens to run
+  # in. Those are not the same directory, and resolving against the wrong one is a wrong answer that
+  # looks like a right one.
+  #
+  # An unresolvable path — relative with no usable base, or a symlink loop — is a REFUSAL. "Could not
+  # resolve" and "resolved to somewhere safe" must not be the same outcome, which is the fail
+  # direction stated in this file's header.
+  PAYLOAD_CWD=$(hook_cwd_of "$INPUT" 2>/dev/null || printf '')
+  [[ "$PAYLOAD_CWD" == /* ]] || PAYLOAD_CWD="${CLAUDE_PROJECT_DIR:-$PWD}"
+
+  if ! RESOLVED=$(canonical_path_from "$PAYLOAD_CWD" "$FILE_PATH"); then
+    echo "[bulk-edit-guard] Blocked: could not resolve where '$FILE_PATH' lands (relative with no" >&2
+    echo "[bulk-edit-guard] usable base, or a symlink loop), so it was not judged." >&2
+    exit 2
   fi
+
+  if printf '%s' "$RESOLVED" | grep -qE "$STORE_SEGMENT_RE"; then
+    refuse_path "$FILE_PATH -> $RESOLVED"
+  fi
+
   exit 0
 fi
 
