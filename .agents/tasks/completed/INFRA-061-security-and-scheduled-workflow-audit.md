@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-061: security and scheduled workflow audit — can each scan fail, and does it check the right thing'
-status: in-progress
+status: done
+completed: 2026-08-21
 created: 2026-07-26
 priority: high
 urgency: soon
@@ -30,14 +31,14 @@ red. Anything not falsified is recorded below as a hypothesis, not a conclusion.
 
 ## Per-workflow verdict
 
-| Workflow                  | Purpose (one line)                                                             | Behaviour matches?                                                                                                 | Falsified?                                                                                          |
-| ------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `gitleaks.yml`            | Catch a secret committed in a PR's diff.                                       | **Wrong thing** — the allowlist exempted every test/e2e/fixture/evals path from the ENTIRE ruleset. Fixed.         | **Yes.** Planted `ghp_…` PAT: caught in `src/`, invisible in `__tests__/`.                          |
-| `security-scheduled.yml`  | Weekly osv-scan of the full lockfile, catching advisories against pinned deps. | **Wrong thing (scope)** — scanned `develop` only; `main`, the released branch, was on no schedule. Fixed (matrix). | **Yes.** Planted `lodash@4.17.15` → 4 advisories, exit 1. Clean lockfile → exit 0.                  |
-| `live-provider-smoke.yml` | One real turn per credentialed provider, to catch vendor wire drift.           | **Wrong thing** — 0 providers ever called; every green run verified nothing. Disclosure fixed; posture filed.      | **Yes.** Ran the real script: 1 live Anthropic turn green; 0-provider run now annotated.            |
-| `mutation-nightly.yml`    | Nightly mutation score over core logic, to find accidental-green tests.        | **Matches, narrowly** — 3 chosen FILES, not 3 packages; advisory by design. Score was unreadable. Now surfaced.    | **Partly.** Empty-mutate-glob no-op falsified (Stryker exits 1). Low score cannot fail — by design. |
-| `codeql.yml`              | SAST over JS/TS, findings in the code-scanning tab.                            | **Matches.** develop analysis = 80 results = the exact open-alert inventory. Scope now documented.                 | **No — hypothesis.** Alert inventory proves it reports; no defect planted in a PR.                  |
-| `dependency-review.yml`   | Gate PR-added deps by vulnerability + license allow-list.                      | **Matches.** Dependency graph verified to carry the transitive lockfile closure, not just manifest ranges.         | **No — hypothesis.** See "Open" below.                                                              |
+| Workflow                  | Purpose (one line)                                                             | Behaviour matches?                                                                                                 | Falsified?                                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `gitleaks.yml`            | Catch a secret committed in a PR's diff.                                       | **Wrong thing** — the allowlist exempted every test/e2e/fixture/evals path from the ENTIRE ruleset. Fixed.         | **Yes.** Planted `ghp_…` PAT: caught in `src/`, invisible in `__tests__/`.                           |
+| `security-scheduled.yml`  | Weekly osv-scan of the full lockfile, catching advisories against pinned deps. | **Wrong thing (scope)** — scanned `develop` only; `main`, the released branch, was on no schedule. Fixed (matrix). | **Yes.** Planted `lodash@4.17.15` → 4 advisories, exit 1. Clean lockfile → exit 0.                   |
+| `live-provider-smoke.yml` | One real turn per credentialed provider, to catch vendor wire drift.           | **Wrong thing** — 0 providers ever called; every green run verified nothing. Disclosure fixed; posture filed.      | **Yes.** Ran the real script: 1 live Anthropic turn green; 0-provider run now annotated.             |
+| `mutation-nightly.yml`    | Nightly mutation score over core logic, to find accidental-green tests.        | **Matches, narrowly** — 3 chosen FILES, not 3 packages; advisory by design. Score was unreadable. Now surfaced.    | **Partly.** Empty-mutate-glob no-op falsified (Stryker exits 1). Low score cannot fail — by design.  |
+| `codeql.yml`              | SAST over JS/TS, findings in the code-scanning tab.                            | **Matches.** develop analysis = 80 results = the exact open-alert inventory. Scope now documented.                 | **Yes** (2026-08-21). Four alerts annotated on PR #1945's own new lines; one blocked the merge gate. |
+| `dependency-review.yml`   | Gate PR-added deps by vulnerability + license allow-list.                      | **Matches, for RUNTIME deps only** — a development-scoped dep is outside the gate entirely (issue #1951).          | **Yes** (2026-08-21). Planted `GPL-3.0-only` runtime dep in PR #1950 → named and refused.            |
 
 ## What was fixed
 
@@ -136,7 +137,7 @@ to see their own guard's blind spot.
 
 ### 7. `harness:test` was red on develop, unrelated to this branch
 
-The ci.yml audit (#1474) landed two scans after `scan-guard-scope-fail-closed` (#1480) without
+The ci.yml audit (PR #1474) landed two scans after `scan-guard-scope-fail-closed` (PR #1480) without
 classifying them, which that guard fails on by design. Measured both by execution, twice each, and
 recorded them honestly rather than pinning them as sound:
 
@@ -234,21 +235,57 @@ were executed`. A guard there would catch nothing and add surface.
 Both are recorded as hypotheses. Each has strong structural evidence and no planted defect, and the
 difference matters: this repo has five recent cases of a green check that was doing nothing.
 
-**`dependency-review.yml`.** Falsifying it means opening a PR that ADDS a dependency whose license is
-outside the allow-list and watching the check go red. The cleanest probe is a package with a
-permissive-but-unlisted leaf rather than real copyleft — e.g. `pako`, whose SPDX expression is
-`(MIT AND Zlib)`: `AND` requires every leaf to be allowed, and `Zlib` is not on the list, so it should
-be denied without dragging actual copyleft into the graph.
+**`dependency-review.yml` — FALSIFIED 2026-08-21, and it found more than the audit expected.**
 
-That was deliberately not done here. It requires editing `pnpm-lock.yaml` and a `package.json` —
-neither owned by this audit, and the lockfile is the single most conflict-prone file in this monorepo
-while other agents are working in it. It should be done from a throwaway PR by an agent that owns the
-lockfile, which is the same pattern as the throwaway #1465 used for the auto-merge permission probe.
+Done from the throwaway PR this section called for: PR #1950, opened against `develop` and closed
+unmerged, carrying `@substrate/connect-extension-protocol@2.2.2` — `GPL-3.0-only` with ZERO
+dependencies, so the lockfile moved by seven lines.
 
-**`codeql.yml`.** Falsifying it means landing a CodeQL-detectable defect in changed code on a PR
-branch and confirming a new alert is annotated — remembering that PR analyses are diff-informed, so
-the defect must be in the diff. The 80-result develop analysis proves the workflow reports; it does
-not prove the PR-annotation path works.
+A real copyleft package rather than the `pako` probe suggested here, and that turned out to be the
+stronger choice: it exercises the case the policy actually exists for, and `pako`'s
+permissive-but-unlisted leaf would not have exposed what follows.
+
+**Two runs, and only the second means anything.** Same package, version, license and lockfile entry;
+only the dependency SCOPE differs:
+
+| form              | `Licenses` group                  | check       |
+| ----------------- | --------------------------------- | ----------- |
+| `devDependencies` | **empty**                         | SUCCESS     |
+| `dependencies`    | `…@2.2.2 – License: GPL-3.0-only` | **FAILURE** |
+
+So the check CAN fail and it names the right thing — for runtime dependencies. A DEVELOPMENT-scoped
+dependency is outside the gate entirely: the action defaults `fail-on-scopes` to `runtime` and the
+workflow sets no override. The empty `Licenses` group in the first run is what "not evaluated" looks
+like, as distinct from "evaluated and allowed".
+
+That is exactly the failure shape this audit exists to find — a green trusted for more than it
+measures — and it was invisible to the structural evidence that put this row at "Matches". Filed as
+issue #1951 rather than fixed here, because choosing between "state the exemption" and "extend the
+gate" is a licence-policy decision.
+
+INFRA-047's Test Plan is the corroboration: it says "a test PR introducing a GPL DEV-dep is BLOCKED",
+which is a case that cannot fail. Written by someone who believed dev deps were gated.
+
+**`codeql.yml` — FALSIFIED 2026-08-21, by an unplanted defect.**
+
+The PR-annotation path this section says was unproven is proven by PR #1945, and the defect was real
+rather than planted — which is the stronger evidence, because a planted one is written to be found.
+
+Four alerts were annotated by `github-advanced-security` on lines the PR itself added, in
+`scripts/harness/__tests__/redirect-target-has-one-owner.test.mjs`:
+
+| alert                                            | severity | outcome                             |
+| ------------------------------------------------ | -------- | ----------------------------------- |
+| `js/unnecessary-use-of-cat`                      | error    | **blocked the merge gate**          |
+| `js/shell-command-injection-from-environment` ×3 | warning  | annotated on lines 125, 176 and 193 |
+
+So the workflow reports, the alerts reach the PR as review threads on the exact lines, and
+`review-gate` routes on the blocking one. Both halves of the path are exercised.
+
+Both alerts were fixed rather than acknowledged: `readFileSync` in place of the `cat` process, and
+the library path passed as an ARGUMENT rather than interpolated into a `bash -c` program text.
+
+This leaves NO check in this audit resting on a hypothesis.
 
 ## The mechanical ceiling
 
@@ -260,8 +297,10 @@ Stated plainly, because this sweep is not exhaustive and should not be read as s
   vulnerability class it has no query for. Both would stay green, and no scan I can write detects that.
 - **The gitleaks measurement covers the current tree.** "0 findings on a clean tree" is a statement
   about today's files. It bounds the noise the narrowing adds now, not forever.
-- **CodeQL and dependency-review were not falsified.** Their failure paths are inferred from GitHub's
-  documented behaviour plus the alert/graph inventories, not from a planted defect.
+- **Every check in this audit has now been falsified** (the last two on 2026-08-21). That closes the
+  audit's own weakest claim, and it was worth doing: falsifying `dependency-review` found a scope gap
+  the structural evidence had rated "Matches". The ceiling below still applies — a falsified check is
+  one proven able to fail on the case tried, not one proven to catch everything.
 - **"All 76 scans passed" is weaker evidence than it reads.** This audit's own verification leans on
   `pnpm harness:scan` being green, and HARNESS-052 measured ~30 entries of that same suite reporting a
   pass over an absent governed tree. None of THIS item's findings rest on those scans — every one is
@@ -411,3 +450,26 @@ post-fix ci.yml + genuine artifact    exit 0   Scanned … 2130 packages / Filte
 
 Both osv-scanner steps were exercised in every row. Independently recomputed digest:
 `3abcfd7126c453a00421487e721b296e0cb68085bd431d6cef60872774170fc8` (41,324,728 bytes).
+
+## Progress
+
+### 2026-08-21 — the two hypotheses are now measurements
+
+This item's per-workflow table carried two rows at "No — hypothesis", and its own text says why that
+mattered: "this repo has five recent cases of a green check that was doing nothing". Both are closed.
+
+**`dependency-review.yml`** — falsified from the throwaway PR the item called for (PR #1950, closed
+unmerged). It found more than the audit expected: the check fires correctly on a runtime dependency
+and does not evaluate a DEVELOPMENT-scoped one at all. Filed as issue #1951, because choosing between
+"state the exemption" and "extend the gate" is a licence-policy decision rather than a CI fix. The
+audit had rated this row "Matches" on structural evidence; falsification is what corrected it.
+
+**`codeql.yml`** — falsified by PR #1945, from a defect nobody planted. Four alerts annotated on
+lines that PR added, one of them blocking `review-gate`. An unplanted defect is stronger evidence
+than a planted one, because a planted defect is written to be found.
+
+Neither needed new tooling. What they needed was a change that actually carried a defect through the
+gate, which is the point the item makes about structural evidence.
+
+The mechanical ceiling stated in this item is unchanged and still applies: a falsified check is one
+proven able to fail on the case tried, not one proven to catch everything.

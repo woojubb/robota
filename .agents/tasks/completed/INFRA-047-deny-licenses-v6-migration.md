@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-047: migrate dependency-review deny-licenses → allow-licenses before the v6 bump'
-status: in-progress
+status: done
+completed: 2026-08-21
 created: 2026-07-25
 priority: low
 urgency: later
@@ -13,7 +14,7 @@ depends_on: []
 ## Problem
 
 `dependency-review-action` deprecates `deny-licenses` for possible removal in v6 (noted in-file when v5
-landed, #1313). The deny list is LOAD-BEARING for the dual-license policy (blocks GPL/AGPL ingress).
+landed, PR #1313). The deny list is LOAD-BEARING for the dual-license policy (blocks GPL/AGPL ingress).
 
 ## What
 
@@ -39,7 +40,7 @@ carries `allow-licenses: 0BSD, Apache-2.0, BSD-2-Clause, BSD-3-Clause, BlueOak-1
 CC0-1.0, ISC, MIT, MIT-0, MPL-2.0, Python-2.0, Unlicense, WTFPL`, with `allow-dependencies-licenses`
 purl exemptions for the `@robota-sdk/*` self-deps and the LGPL `@img/sharp-libvips-*` family. There is
 **no `deny-licenses` key and no deprecation note left in the file**. Merged as
-[#1339](https://github.com/woojubb/robota/pull/1339) (`2026-07-24T15:51:34Z`). The v6-bump gate the
+[PR #1339](https://github.com/woojubb/robota/pull/1339) (`2026-07-24T15:51:34Z`). The v6-bump gate the
 item exists to protect is therefore satisfied — a Dependabot v6 bump is now safe to accept.
 
 **Not done — the item's only stated closing condition.** The GPL-fixture red test has never been run:
@@ -85,3 +86,52 @@ Two things to decide together, both owner-level:
 
 Recorded rather than acted on: changing an allowed-license set is a licence-compliance decision, not
 a side effect of an unrelated pull request.
+
+## Progress
+
+### 2026-08-21 — the red test ran, and it falsified this item's own Test Plan
+
+The fixture PR was PR #1950, opened against `develop` and closed unmerged. `@substrate/connect-extension-protocol@2.2.2`
+— `GPL-3.0-only`, ZERO dependencies, so the lockfile moved by seven lines and the run measured the
+license rule rather than a wave of transitive churn.
+
+**It took two runs, and the second is the one that means anything.** Same package, same version, same
+license, same lockfile entry; only the dependency SCOPE differs:
+
+| form                            | `Licenses` group                                                      | check       |
+| ------------------------------- | --------------------------------------------------------------------- | ----------- |
+| `devDependencies` (`e775fd0f9`) | **empty**                                                             | SUCCESS     |
+| `dependencies` (`8c45caf6b`)    | `@substrate/connect-extension-protocol@2.2.2 – License: GPL-3.0-only` | **FAILURE** |
+
+```
+The following dependencies have incompatible licenses:
+pnpm-lock.yaml » @substrate/connect-extension-protocol@2.2.2 – License: GPL-3.0-only
+##[error]Dependency review detected incompatible licenses.
+```
+
+**The substantive condition is satisfied.** The allow-list blocks copyleft ingress: a GPL-3.0-only
+package added as a runtime dependency is refused by name and by license. That is what this item
+migrated the input for, and it is now a measurement rather than an argument about a config file.
+
+**The Test Plan as written named a case that cannot fail.** It says "a test PR introducing a GPL
+DEV-dep is BLOCKED". A dev-dep is never blocked: `dependency-review-action` defaults `fail-on-scopes`
+to `runtime` and the workflow sets no override, so a development-scoped package is exempt from the
+license gate whatever its license is. Run literally and stopped at the first green, this item would
+have recorded a pass that meant nothing — or concluded the allow-list was broken.
+
+The first run is the evidence for that rather than a stumble: the `Licenses` group came back EMPTY,
+which is what "not evaluated" looks like, as distinct from "evaluated and allowed".
+
+**Why two runs were needed.** After the first green there were two candidate causes — scope, or
+GitHub not knowing this package's license. The empty `Licenses` group and
+`OpenSSF Scorecard Score: undefined` were consistent with both, and guessing between them would have
+left the measurement saying nothing. Moving the same package to a runtime dependency separates them,
+and it did: GitHub knew the license all along.
+
+**Filed, not folded in.** That development-scope dependencies bypass the license gate is a property
+of the workflow, not of this item, and it is nowhere stated in a file that documents everything else
+about this policy at length. Issue #1951.
+
+The win32 gap this item recorded on 2026-08-16 is already closed on `develop`:
+`allow-dependencies-licenses` now carries `@img/sharp-win32-arm64`, `-ia32` and `-x64` with the
+measurement beside them.
