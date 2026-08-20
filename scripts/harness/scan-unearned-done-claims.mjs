@@ -269,15 +269,45 @@ const EVIDENCE_HEADING_PATTERN = /\b(proof|evidence|verification|verified|검증
  */
 const PLANNED_HEADING_PATTERN = /\b(plan|planned|strategy|approach|checklist|계획)\b/i;
 
+/**
+ * Which lines are the DOCUMENT's own text, as opposed to pasted output inside a fence.
+ *
+ * A `#` at the start of a line inside a ```` ```bash ```` block is a shell COMMENT, not a markdown
+ * heading. `sectionsOf` and the U3 heading collector both read every line, so a comment like
+ * `# 1. genuine bytes — the verification CI performs` became an evidence heading whose body cites
+ * nothing — a finding on a completion record whose actual evidence is the fenced command right
+ * under it. Measured on `INFRA-061`, where the "uncited evidence section" was a line of bash.
+ *
+ * U3 already skipped fences for its BODY reading and its own comment says so; the same file
+ * collected headings out of those fences one loop earlier. One helper, so the two halves cannot
+ * disagree again.
+ */
+export function outsideFences(lines) {
+  const outside = [];
+  let inFence = false;
+  for (const line of lines) {
+    if (/^\s*(?:```|~~~)/.test(line)) {
+      inFence = !inFence;
+      outside.push(false);
+      continue;
+    }
+    outside.push(!inFence);
+  }
+  return outside;
+}
+
 /** Sections of the document: heading, its level, and the body down to the next same-or-higher heading. */
 export function sectionsOf(lines) {
+  const outside = outsideFences(lines);
   const sections = [];
   for (let i = 0; i < lines.length; i++) {
+    if (!outside[i]) continue;
     const match = HEADING_PATTERN.exec(lines[i]);
     if (!match) continue;
     const level = match[1].length;
     let end = lines.length;
     for (let j = i + 1; j < lines.length; j++) {
+      if (!outside[j]) continue;
       const inner = HEADING_PATTERN.exec(lines[j]);
       if (inner && inner[1].length <= level) {
         end = j;
@@ -382,19 +412,19 @@ function headingResolves(headingText, name) {
 
 function findU3(lines) {
   const findings = [];
+  const outside = outsideFences(lines);
   const headings = [];
   for (let i = 0; i < lines.length; i++) {
+    // A `#` line inside a fence is a shell comment, not a heading a reference can resolve to. This
+    // loop used to read every line while the body loop below skipped fences — the same file
+    // disagreeing with itself about what a heading is.
+    if (!outside[i]) continue;
     const match = HEADING_PATTERN.exec(lines[i]);
     if (match) headings.push({ text: match[2], line: i + 1 });
   }
 
-  let inFence = false;
   for (let i = 0; i < lines.length; i++) {
-    if (/^\s*(?:```|~~~)/.test(lines[i])) {
-      inFence = !inFence;
-      continue;
-    }
-    if (inFence) continue; // pasted output is quoted material, not the document's own claim
+    if (!outside[i]) continue; // pasted output is quoted material, not the document's own claim
     if (HEADING_PATTERN.test(lines[i])) continue;
     const line = maskQuotations(lines[i]);
 
