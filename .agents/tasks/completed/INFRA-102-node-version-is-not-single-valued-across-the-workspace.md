@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-102: the Node version is not single-valued across the workspace, so every package tests on an unpinned runtime'
-status: in-progress
+status: done
+completed: 2026-08-21
 created: 2026-08-17
 priority: high
 urgency: now
@@ -85,3 +86,55 @@ added.
 - Discovered while completing ARCH-031; the seam change is unrelated (it reproduces identically with
   those changes stashed).
 - GitHub issue #1768.
+
+## Progress
+
+### 2026-08-21
+
+Closed — but the item was NOT finished when it was found, and the gap was in the guard rather than in
+the pins.
+
+**What was already there.** `volta.extends` on 67 manifests, `scan-node-version-single-valued`
+registered and passing, and the pin binding correctly in `packages/dag-adapters-sqlite` — the package
+whose ABI mismatch made the problem visible in the first place.
+
+**What the guard could not see.** `listWorkspaceManifests` enumerated `packages/*` and `apps/*` ONE
+level deep. `packages/dag-nodes/*` is a NESTED group declared in `pnpm-workspace.yaml`, so its twenty
+manifests were outside the population entirely. Measured on this tree before the fix:
+
+- 20 of 20 carried no `volta` field.
+- Every one resolved to **Node 24.19.0** against a root declaring **22.14.0**.
+- Each has a `test` script, so `pnpm test` ran them on an undeclared runtime — the exact condition
+  this item exists to remove.
+- The scan reported the workspace single-valued over **67 of its 87** manifests.
+
+Red-proofed rather than argued: with the one-level walk restored AND a nested pin deleted, the scan
+reports **passed**. A guard whose population excludes the failures is a guard that cannot fire, which
+is the same shape as the defect one level up.
+
+**The fix is delegation, not a second glob.** `scripts/harness/workspace-packages.mjs` was written
+for precisely this class — its own header says "several harness scans used a one-level `readdirSync`
+loop and therefore silently skipped NESTED package groups (INFRA-021)" — and this scan was one more
+copy of it. It now calls `listWorkspacePackageDirs`, and the declared size went 67 → 87.
+
+The twenty manifests then got `volta.extends: ../../../package.json`. Written as a TEXT append rather
+than a JSON round-trip: the first pass used `json.dumps` and re-encoded the em-dash in seven
+`description` fields to `\u2014`, changing lines the edit had no business touching.
+
+**Verified by running it**, not by reading the config: `cd packages/dag-nodes/file-read && node -v`
+now reports `v22.14.0` where it reported `v24.19.0`, and that package's suite passes (2 files, 9
+tests) on the declared runtime.
+
+Three cases added, and one of them was wrong first: `resolves a nested package through its
+three-level extends` mutated the manifest PATH instead of the `extends` TARGET, so it compared a
+package with itself and passed either way. Rewritten to build a second fixture whose `extends` is the
+`../../` a copy-paste from a top-level sibling would produce — which resolves to the group directory,
+where there is no manifest.
+
+| mutation                          | fails                             |
+| --------------------------------- | --------------------------------- |
+| the one-level population restored | exactly 3 — every new nested case |
+| one nested pin deleted            | exactly 1, naming that manifest   |
+
+`pnpm harness:scan` — 129 passed, 2 skipped.
+`npx vitest run scripts/harness/__tests__/` — 225 files, 4277 tests, all passed.
