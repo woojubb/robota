@@ -55,5 +55,5 @@ keeps the call spelling, which needs no subject, and its rule table says so.
 
 Filed from the fifth review round of the follow-up to pull request #1886, where four of five commits
 re-answered "whose language is this?" and each answer was measured wrong in a different direction.
-Related: [INFRA-109](INFRA-109-flag-attribution-has-two-implementations.md), which owns the
+Related: [INFRA-109](completed/INFRA-109-flag-attribution-has-two-implementations.md), which owns the
 command-side half of the same missing reader.
