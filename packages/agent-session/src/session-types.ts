@@ -158,3 +158,22 @@ export interface ISessionOptions {
    */
   effort?: TModelEffort;
 }
+
+/**
+ * The per-TURN options a caller may attach to one `Session.run()`.
+ *
+ * Both are optional and independent, and both are absent on the dominant path, so they are spread
+ * as a group rather than tested one at a time at each call site.
+ */
+export interface ISessionRunOptions {
+  /**
+   * SELFHOST-008 P3: a transient system-role block for THIS turn's provider request only. Never
+   * written to the conversation store.
+   */
+  ephemeralSystemContext?: string;
+  /**
+   * PEER-007 (issue #1915): display attribution for the stored user message — who drove this turn.
+   * Never an authorization input (issue #1809).
+   */
+  driverId?: string;
+}

@@ -11,7 +11,6 @@ import {
   createSystemMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
 
 import { InteractiveExecutionClaimOwner } from './interactive-execution-claim.js';
 import { checkAndRefreshContextIfStale } from './interactive-session-context-refresh.js';
@@ -22,7 +21,7 @@ import {
 } from './interactive-session-execution-events.js';
 import { PendingInputQueue } from './interactive-session-pending-queue.js';
 import { capturePostTurnMemory } from './interactive-session-post-turn-memory.js';
-import { executePromptTurn } from './interactive-session-prompt.js';
+import { executePromptTurn, promptTurnAttribution } from './interactive-session-prompt.js';
 import { STREAMING_FLUSH_INTERVAL_MS } from './interactive-session-streaming.js';
 import { TurnSettlerRegistry } from './turn-settler-registry.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
@@ -261,15 +260,7 @@ export class SessionExecutionController {
         }
       }
       await executePromptTurn(input, displayInput, rawInput, {
-        ...(ephemeralSystemContext !== undefined ? { ephemeralSystemContext } : {}),
-        // PEER-007 (issue #1915): the ACTIVE turn's driver, so the stored user message says who drove
-        // it. Display attribution only — never an authorization input (issue #1809). The OWNER is
-        // elided: every surface already reads an unattributed message as the operator's, so carrying
-        // the constant would stamp a field on every message and change the run() call shape for the
-        // dominant path to say nothing new.
-        ...(turnOptions.driverId !== undefined && turnOptions.driverId !== OWNER_DRIVER_ID
-          ? { driverId: turnOptions.driverId }
-          : {}),
+        ...promptTurnAttribution(ephemeralSystemContext, turnOptions.driverId),
         getSession: () => this.callbacks.getSessionOrThrow(),
         getCwd: () => this.callbacks.getCwd(),
         getHistory: () => this.histTracker.getHistory(),

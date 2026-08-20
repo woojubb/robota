@@ -1,11 +1,11 @@
 import { isToolMessage, isAssistantMessage } from '@robota-sdk/agent-core';
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
 import { Box, Text } from 'ink';
 import React from 'react';
 
 import { formatCommandOutputSummary } from './command-output-summary.js';
 import { humanizeToolName } from './humanize-tool-name.js';
 import { renderMarkdown } from './render-markdown.js';
+import { RoleLabel } from './RoleLabel.js';
 import { STATUS_GLYPH } from './status-glyph.js';
 import { getToolSummaryLabel, toolSummaryStatusKind } from './tool-summary-status.js';
 import ToolCommandOutput from './ToolCommandOutput.js';
@@ -19,50 +19,6 @@ import type { IHistoryEntry, TUniversalMessage, TUniversalValue } from '@robota-
 
 interface IProps {
   history: IHistoryEntry[];
-}
-
-/**
- * PEER-007 (issue #1915): the operator's own turns stay `You:`; a turn driven by anyone else is
- * labelled with WHO drove it, so a co-driven transcript can be read after the fact. `owner` is the
- * operator, so it reads as `You:` too; anything else prints as itself (`peer:<session-id>`, `agent`).
- */
-function driverLabel(driverId: string): string {
-  return driverId === OWNER_DRIVER_ID ? 'You' : driverId;
-}
-
-function RoleLabel({
-  role,
-  driverId,
-}: {
-  role: TUniversalMessage['role'];
-  driverId?: string;
-}): React.ReactElement {
-  switch (role) {
-    case 'user':
-      return (
-        <Text color={PALETTE.text.success} bold>
-          {driverId !== undefined ? driverLabel(driverId) : 'You'}:{' '}
-        </Text>
-      );
-    case 'assistant':
-      return (
-        <Text color={PALETTE.text.accent} bold>
-          Robota:{' '}
-        </Text>
-      );
-    case 'system':
-      return (
-        <Text color={PALETTE.text.warning} bold>
-          System:{' '}
-        </Text>
-      );
-    case 'tool':
-      return (
-        <Text color={PALETTE.text.emphasis} bold>
-          Tool:{' '}
-        </Text>
-      );
-  }
 }
 
 function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactElement {

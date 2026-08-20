@@ -11,6 +11,7 @@ import {
   createSystemMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
 
 import {
   isAbortError,
@@ -28,6 +29,25 @@ import type { IContextReferenceItem } from '../context/context-reference-invento
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { Session } from '@robota-sdk/agent-session';
+
+/**
+ * The per-turn optional inputs to a prompt turn: the ephemeral recall block (SELFHOST-008 P3) and
+ * the `driverId` the turn is attributed to for DISPLAY (PEER-007, issue #1915).
+ *
+ * The OWNER is elided rather than stamped on every message: every surface already reads an
+ * unattributed message as the operator's, so carrying the constant would mark each stored message and
+ * change the `run()` call shape for the dominant path to say nothing new. Display only — a driver id
+ * is never an authorization input (issue #1809).
+ */
+export function promptTurnAttribution(
+  ephemeralSystemContext?: string,
+  driverId?: string,
+): { ephemeralSystemContext?: string; driverId?: string } {
+  return {
+    ...(ephemeralSystemContext !== undefined && { ephemeralSystemContext }),
+    ...(driverId !== undefined && driverId !== OWNER_DRIVER_ID && { driverId }),
+  };
+}
 
 export interface IPromptTurnContext {
   /**

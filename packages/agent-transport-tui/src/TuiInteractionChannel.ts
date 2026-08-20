@@ -5,17 +5,14 @@
  * out of React hooks and into a plain TypeScript class.
  */
 
-import {
-  createSystemMessage,
-  createUserMessage,
-  messageToHistoryEntry,
-} from '@robota-sdk/agent-core';
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import {
   CommandRegistry,
   buildRuntimeSession,
   generateSessionName,
 } from '@robota-sdk/agent-framework';
 
+import { attributedUserEcho } from './attributed-user-echo.js';
 import { createSessionInitPoller } from './flows/session-init-poller.js';
 import { applySystemCommandResult } from './hooks/command-result-handler.js';
 import { bindTuiSessionEvent, bindTuiSessionNoticeEvents } from './tui-session-binding.js';
@@ -432,24 +429,7 @@ export class TuiInteractionChannel {
 
     const onUserMessage = (content: string): void => {
       this.handleAutoNaming(content);
-      // PEER-007 (issue #1915): attribute the echo to the ACTIVE turn's driver, so a peer's message is
-      // labelled as theirs the moment it appears rather than reading as the operator's own for the whole
-      // turn. The id is the framework's DERIVED one (`peer:<session-id>`) — never peer-supplied text.
-      //
-      // Guarded because attribution is an ADDITION to the message, never a precondition for it: a
-      // session that cannot answer who drove the turn must still get the message on screen. Unguarded,
-      // a throw here loses the user's message entirely and the transcript says nothing happened.
-      let driverId: string | null = null;
-      try {
-        driverId = session.getActiveDriverId?.() ?? null;
-      } catch {
-        driverId = null;
-      }
-      manager.addEntry(
-        messageToHistoryEntry(
-          createUserMessage(content, driverId ? { metadata: { driverId } } : {}),
-        ),
-      );
+      manager.addEntry(attributedUserEcho(content, session));
     };
     const onComplete = (result: IExecutionResult): void => {
       manager.onComplete(result);
