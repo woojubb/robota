@@ -144,14 +144,31 @@ Four spellings follow symlinks, and each has a sibling that does not:
 | python `glob.glob` / `glob.iglob` | `pathlib.Path(...).rglob`        |
 
 Shell `**` under `globstar`, zsh `**`, and Node's `fs.globSync` do not traverse symlinked
-directories and are unrestricted. `bulk-edit-guard.sh` refuses the four at the command,
-`scan-symlink-following-enumeration` refuses them in a committed script, and both refuse a write
-whose path resolves inside the store. The declared exception is `BULK_EDIT_ACK=1` inline, after
-checking by hand where the enumeration reaches.
+directories and are unrestricted. `bulk-edit-guard.sh` refuses the four at the command and
+`scan-symlink-following-enumeration` refuses them in a committed script. Only the hook resolves a
+path, and only for a file-writing tool's own target: a redirect and an in-place editor are judged on
+how the path is SPELLED, and the scan resolves nothing.
+
+The declared exception is `BULK_EDIT_ACK=1`, after checking by hand where the enumeration reaches —
+INLINE in the same command, or EXPORTED, which is the only form a file-writing tool can carry
+because such a tool runs no command to put an assignment in front of. They differ in LIFETIME as well
+as spelling: the inline form is scoped to the one command that carries it, and the exported one holds
+for the rest of the session and covers the file-writing tools too. Prefer the inline form. Neither
+reaches above the guard's payload refusals: an ack says a write was checked, not that an unreadable
+payload was.
 
 Enforced by: `bulk-edit-guard` (the command) and `symlink-following-enumeration` (the committed
-script). Neither reaches a python program passed through a heredoc, nor a two-step edit that
-enumerates in one call and writes in the next; those are the reader's obligation.
+script). The HOOK does not reach a python program passed through a heredoc — the body is masked as
+quoted content, which is the blindness every guard in that directory has. The SCAN does reach one,
+because in a committed file a heredoc body is ordinary file text. Neither reaches a two-step edit
+that enumerates in one call and writes in the next. The scan reads a file whose extension says it is
+a script, or — having no extension — whose shebang names an interpreter, so a script in a language
+outside that list is unread.
+
+> **Contained — [INFRA-115](../tasks/INFRA-115-is-this-file-a-script-and-in-what-language.md).**
+> Three of those interpreter names have no matching extension, so the same script is judged under one
+> filename and clean under another. The two filters are hand-written constants and the invariant that
+> they describe one population is held only in prose. Those are the reader's obligation.
 
 The measurements behind the table, and the exposure they corrected, are in
 [INFRA-105](../tasks/INFRA-105-bulk-edits-reach-the-dependency-store.md).

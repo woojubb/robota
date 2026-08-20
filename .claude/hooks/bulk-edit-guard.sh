@@ -60,7 +60,9 @@ refuse_path() {
   echo "[bulk-edit-guard] edit and git can see it — or content HARD-LINKED into the shared store," >&2
   echo "[bulk-edit-guard] where a write silently changes every project on this machine and survives" >&2
   echo "[bulk-edit-guard] pnpm install." >&2
-  echo "[bulk-edit-guard] Deliberate exception: BULK_EDIT_ACK=1 inline in the same command." >&2
+  echo "[bulk-edit-guard] Deliberate exception: BULK_EDIT_ACK=1 — inline in the same command, or" >&2
+  echo "[bulk-edit-guard] exported, which is the only form a tool write can carry because it runs no" >&2
+  echo "[bulk-edit-guard] command to put an assignment in front of. Exported stays armed until unset." >&2
   exit 2
 }
 
@@ -72,6 +74,21 @@ if [[ "$TOOL_NAME" == "Write" || "$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Mult
     exit 2
   fi
   [[ -n "$FILE_PATH" ]] || exit 0
+
+  # The env-form ack, read HERE: below this branch's own decode refusal, above its judgement.
+  #
+  # It has to exist at all because the refusal advertises `BULK_EDIT_ACK=1` and a `Write` carrying it
+  # exported was refused anyway — the tool branch exits before the check the Bash branch uses, so the
+  # escape named in the message could not be taken by the tool that most needs it. A write carries no
+  # command, so the exported form is the only one it can spell.
+  #
+  # It has to sit HERE rather than at the top of the file, which was the first cut and was measured
+  # wrong: above the decode refusals an ack turned an UNREADABLE payload into a permitted one, on a
+  # guard whose header declares it fails toward refusal. Every sibling in this directory already
+  # reads its ack below its own decode refusal — `check-forbidden-patterns.sh`, `no-foreground-wait`,
+  # `merge-gate` — and the ack means "I checked this write by hand", which is not a claim anyone can
+  # make about a payload nothing could read.
+  if [[ "${BULK_EDIT_ACK:-0}" == "1" ]]; then exit 0; fi
 
   if printf '%s' "$FILE_PATH" | grep -qE "$STORE_SEGMENT_RE"; then
     refuse_path "$FILE_PATH"
@@ -99,6 +116,13 @@ if [[ "$TOOL_NAME" == "Write" || "$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Mult
   # `cd` + `pwd -P` rather than `readlink -f`: the `-f` form is GNU-only and fails unhelpfully on
   # BSD/macOS, which `shell-portability` refuses (see "Host Platform Is Read, Never Assumed"). `pwd
   # -P` is POSIX and resolves the DIRECTORY chain, which is the level pnpm's symlinks live at.
+  # Contained — INFRA-110. The climb below is hand-rolled canonicalization with no stated domain, and
+  # three measured input classes get past it: an exported `CDPATH` makes `cd` select a different
+  # directory and print it to stdout (a fail-OPEN, against this file's declared refuse direction); a
+  # `..` after a missing segment is re-attached verbatim and never normalised; and the FINAL
+  # component is never resolved, so a symlinked FILE into the store is permitted while the sibling
+  # symlinked DIRECTORY is refused. Each is a one-line patch and all three together are a realpath
+  # with four special cases and still no domain, which is the item rather than this function.
   ANCESTOR=$(dirname -- "$FILE_PATH")
   TAIL=$(basename -- "$FILE_PATH")
   while [[ ! -d "$ANCESTOR" && "$ANCESTOR" != "/" && "$ANCESTOR" != "." ]]; do
@@ -128,7 +152,9 @@ fi
 # trip the guard that reads them.
 MASK=$(hook_verb_scan "$COMMAND" 2>/dev/null || printf '%s' "$COMMAND")
 
+# The same env-form ack, below this branch's decode refusal for the same reason.
 if [[ "${BULK_EDIT_ACK:-0}" == "1" ]]; then exit 0; fi
+
 if printf '%s' "$MASK" |
   grep -qE '(^|[;&|]|&&)[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*BULK_EDIT_ACK=1[[:space:]]'; then
   exit 0
@@ -155,6 +181,14 @@ WORDS=$(hook_statement_all_words "$COMMAND" 2>/dev/null || printf '%s' "$COMMAND
 # inherits the first one's attribution. `find … -exec grep -L {} \;` is read as `find` carrying `-L`
 # and is refused. That is a false positive, and it is the trade taken deliberately — a pipeline is
 # the common shape and is still separated, `-exec grep -L` is not, and the ack is one word away.
+# Contained — INFRA-109. This file answers "which command received this flag" privately, and
+# `scan-symlink-following-enumeration.mjs` answers it again with four regexes of its own, so the two
+# halves of one rule disagree. Measured: a NEWLINE does not separate here (the reader drops the token
+# before `is_sep` can see it), so two statements on two lines share a segment, while the library's
+# `hook_statement_ranges` splits them correctly; and `segment_has_editor_and_store_path` below
+# hand-rolls a SECOND attribution rather than using `cmd_flag`, recognising only a short flag. The
+# readers to consume already exist — `command-scan.sh` for statement splitting, and the portability
+# scan for walked long-form options.
 segments() {
   printf '%s\n' "$WORDS" | awk '
     function is_sep(w) { return w == "|" || w == ";" || w == "&" || w == "&&" || w == "||" || w == "(" || w == ")" }
@@ -224,7 +258,13 @@ segment_has_editor_and_store_path() {
 # tools. Without that, `my_node_modules_old/` — a directory that merely contains the letters — was
 # refused here while the write path permitted it, so one guard contradicted the other on the case both
 # had a test for. Reported in review of this change.
-if printf '%s' "$MASK" | grep -qE '>>?[[:space:]]*([^[:space:]|;&]*/)?(node_modules|\.pnpm)/'; then
+if printf '%s' "$MASK" | grep -qE '>>?\|?[[:space:]]*([^[:space:]|;&]*/)?(node_modules|\.pnpm)/'; then
+  # Contained — INFRA-111. The `>&` family walks through this rule — `>& node_modules/y`, `>&x`,
+  # `2>&`, `>&"x"` and `>>&` are all permitted while `>`, `>>`, `>|`, `&>` and `2>` are refused.
+  # Adding the character would be the fourth cut of one regex; the third certified its own
+  # exhaustiveness and was wrong by five. `branch-guard.sh` hand-rolls the same question for
+  # `.husky/` with a DIFFERENT hole set, and `command-scan.sh` already parses redirections privately,
+  # its own comment recording the identical `>&` versus `&>` miss.
   refuse_path "the command redirects output into node_modules or .pnpm"
 fi
 
