@@ -460,11 +460,6 @@
         "declaredOn": []
       },
       {
-        "field": "defaultTrustLevel",
-        "reason": "Measured fully dead by the ARCH-013 audit: validated by preset-validation and then read by nothing, with no seam anywhere. Removing an unconsumed public contract is a product decision rather than a grep result, so it stays declared and exempted until its owner decides between wiring it to the permission/trust axis and dropping it.",
-        "declaredOn": []
-      },
-      {
         "field": "allowedTools",
         "reason": "A session seam exists (`ICreateSessionOptions.allowedTools`) and create-session-projection.ts already forwards it from IInitOptions, so only the preset→surface hop is missing. Wiring it requires deciding how a preset allowlist composes with the session-level and pack-level tool sets rather than replacing them.",
         "declaredOn": []

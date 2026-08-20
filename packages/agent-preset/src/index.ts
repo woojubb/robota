@@ -11,7 +11,6 @@
 export type {
   TPresetEffort,
   TPresetAutonomy,
-  TPresetTrustLevel,
   TPresetPermissionMode,
   IResolvedPresetOptions,
   IPreset,

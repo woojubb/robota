@@ -51,7 +51,6 @@ Types owned by this package (SSOT):
 | `IResolvedPresetOptions`    | `preset-types.ts`          | Framework-facing option subset a preset resolves into                     |
 | `TPresetEffort`             | `preset-types.ts`          | Effort dial: `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`            |
 | `TPresetAutonomy`           | `preset-types.ts`          | Behaviour posture: `'ask-first' \| 'balanced' \| 'act-first'`             |
-| `TPresetTrustLevel`         | `preset-types.ts`          | Trust profile: `'safe' \| 'moderate' \| 'full'`                           |
 | `TPresetPermissionMode`     | `preset-types.ts`          | Reused from `ICreateSessionOptions['permissionMode']` (framework SSOT)    |
 | `IPresetSummary`            | `resolve-preset.ts`        | `{ id, title, description }` discovery view of a preset                   |
 | `IResolvePresetContext`     | `resolve-preset.ts`        | `{ cliOverrides?, explicit? }` override layers for `resolvePreset`        |
@@ -71,7 +70,6 @@ indexed access rather than redefining the permission-mode union.
 | `IResolvedPresetOptions`     | Interface | Resolved framework-option subset                                                                                                                                                                                        |
 | `TPresetEffort`              | Type      | Effort dial union                                                                                                                                                                                                       |
 | `TPresetAutonomy`            | Type      | Autonomy posture union                                                                                                                                                                                                  |
-| `TPresetTrustLevel`          | Type      | Trust-level union                                                                                                                                                                                                       |
 | `TPresetPermissionMode`      | Type      | Permission-mode union (reused from framework)                                                                                                                                                                           |
 | `IPresetSummary`             | Interface | `{ id, title, description }` summary                                                                                                                                                                                    |
 | `IResolvePresetContext`      | Interface | Override layers for resolution                                                                                                                                                                                          |
@@ -144,6 +142,17 @@ caller builds a `createPresetRegistry(...)` over them and owns it. Policy:
 - **A load registers nothing** (ARCH-009). There is no module-global registry to clear, and no
   teardown to forget: a second load in the same process cannot see the first one's presets, and two
   products in one process each read only their own.
+
+### Removed: `defaultTrustLevel` (ARCH-040)
+
+The preset contract carried a `defaultTrustLevel` that nothing read. It was removed by owner decision
+rather than wired, and the reason is stronger than "unconsumed": a preset already states its posture
+three ways — `permissionMode`, `defaultPermissionMode` and `autonomy` — and `resolvePreset` PROMOTES
+the last two into the first. A fourth spelling would be a second answer to one question, which is what
+the projection scan calls `derivationOnly`.
+
+The trust axis itself is untouched: `config.defaultTrustLevel` still reaches the session and still
+maps to a permission mode. What is gone is the preset's own copy of it.
 
 ## Error Taxonomy
 
