@@ -91,3 +91,32 @@ against three days earlier.
 construction-time identity, and the STARTUP surface should stop implying otherwise?
 
 Nothing about this blocks Groups C–F, which touch neither the field nor the file.
+
+## Found while starting Group C: the projection is still written THREE times
+
+`IPresetSurfaceOptions` says of itself that "adding a field here now reaches every surface at once,
+which is the only property that makes this worth extracting." That property does not hold. Two of the
+three shell surfaces declare their OWN copy of the projection:
+
+| interface                 | file                                                       | carries `model`? |
+| ------------------------- | ---------------------------------------------------------- | ---------------- |
+| `IPresetSurfaceOptions`   | `packages/agent-cli/src/startup/preset-surface-options.ts` | no               |
+| `IPrintModePresetOptions` | `packages/agent-cli/src/modes/print-mode.ts`               | **yes**          |
+| `IServeModePresetOptions` | `packages/agent-cli/src/modes/serve-mode.ts`               | no               |
+
+They have already drifted — `model` reached print mode and neither of the others, which is the exact
+shape ARCH-013 was filed about, surviving the extraction meant to end it.
+
+**The measurement has the same blind spot.** `presetProjection.surfaces` in
+`.agents/harness.config.json` lists two interfaces, and neither of the two mode copies is one of
+them, so the divergence rule cannot see the surfaces that actually diverged.
+
+**Why it blocks the remaining groups rather than being an aside.** Every one of C, D, E and F adds a
+field to the projection. With three copies, each field must be added in three places and the scan
+checks two of them — so the work would install exactly the defect this item exists to remove, three
+times over.
+
+**Disposition.** This is a separate cause, one level under ARCH-040, and it should be filed as its own
+item rather than folded in — the repository's own rule. It could not be filed as a GitHub issue in
+this session because GitHub was unreachable (both `git push` and `api.github.com` time out); FILE IT
+before Groups C–F resume.
