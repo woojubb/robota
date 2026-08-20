@@ -59,6 +59,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
+      '@substrate/connect-extension-protocol':
+        specifier: 2.2.2
+        version: 2.2.2
       zod:
         specifier: ^3.25.76
         version: 3.25.76
@@ -81,9 +84,6 @@ importers:
       '@stryker-mutator/vitest-runner':
         specifier: ^9.6.1
         version: 9.6.1(@stryker-mutator/core@9.6.1)(vitest@3.2.6)
-      '@substrate/connect-extension-protocol':
-        specifier: 2.2.2
-        version: 2.2.2
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
@@ -9730,7 +9730,7 @@ packages:
 
   /@substrate/connect-extension-protocol@2.2.2:
     resolution: {integrity: sha512-t66jwrXA0s5Goq82ZtjagLNd7DPGCNjHeehRlE/gcJmJ+G56C0W+2plqOMRicJ8XGR1/YFnUSEqUFiSNbjGrAA==}
-    dev: true
+    dev: false
 
   /@swc/core-darwin-arm64@1.15.46:
     resolution: {integrity: sha512-IsISIT22EfktVJrlvIpnAxG2u/A9aob9l99HMlx80x72WlFmFPk1V3UhkEzx86eJP8hw049KTFv/RISho2cq2Q==}
@@ -11281,7 +11281,7 @@ packages:
       '@vitest/spy': 3.2.6
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 8.0.16(@types/node@22.19.21)(tsx@4.23.1)
+      vite: 8.0.16(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.23.1)
     dev: true
 
   /@vitest/pretty-format@3.2.6:
@@ -23381,7 +23381,7 @@ packages:
       expect-type: 1.3.0
       magic-string: 0.30.21
       pathe: 2.0.3
-      picomatch: 4.0.4
+      picomatch: 4.0.5
       std-env: 3.10.0
       tinybench: 2.9.0
       tinyexec: 0.3.2
