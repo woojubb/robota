@@ -839,6 +839,13 @@ HOOK_SCAN_AWK='
           }
           if (i < len && substr(mask, i + 1, 1) == ">") continue
         }
+        # `>|` is the CLOBBERING REDIRECTION, one operator, not an arrow beside a pipe. Splitting
+        # there put the operator in one statement and its target in the next, so a per-statement
+        # caller asking what this command writes to got nothing from either half — and
+        # `branch-guard.sh` therefore could not see `echo x >| .husky/pre-push` as overwriting a
+        # hook. Exactly the shape of the `&` case above, found the same way: by driving the
+        # redirection reader per statement instead of over the whole command. (INFRA-111)
+        if (c == "|" && i > 1 && substr(mask, i - 1, 1) == ">") continue
         if (c == ";" || c == "&" || c == "|" || c == "\n") {
           if (i > start) { print start " " (i - start) }
           start = i + 1
@@ -862,6 +869,74 @@ HOOK_SCAN_AWK='
     mask = substr(mask, ws, wl)
 
     if (MODE == "mask") { print mask; exit }
+
+    # ---- what this command WRITES to, one target path per line ----
+    #
+    # Added by INFRA-111. Two guards asked this question and each answered it with its own regex over
+    # redirection spellings, so each had its own holes and the two sets were DIFFERENT: the bulk-edit
+    # guard missed `>&`, `branch-guard` missed `>&` and `>|`, and every round of hand-enumeration
+    # certified itself exhaustive and was wrong the next round. The grammar was already here — the
+    # `ranges` branch above has to know where a redirection is, to keep its `&` from splitting a
+    # statement — and kept it private.
+    #
+    # The operator set was MEASURED against bash rather than enumerated, and the measurement moved
+    # two rows of the item that filed this:
+    #
+    #   > >> >| &> &>> 2> >& >&NAME <>      create or write the named file
+    #   2>& NAME                            bash: ambiguous redirect — writes NOTHING
+    #   >>& NAME                            bash: syntax error — writes nothing
+    #   2>&1  >&2  1>&2  >&-                duplicate or close a descriptor; no file
+    #
+    # So two spellings the filing item listed as holes are commands bash itself refuses. They are
+    # still REPORTED here, because the reader decides by shape and a fd-qualified `>&` is not worth a
+    # second rule to permit something that cannot run: over-reporting a command bash rejects costs a
+    # refusal of nothing, while under-reporting one it accepts is a bypass.
+    #
+    # `<>` opens for reading AND writing, and was in neither guard regex. Verified by running it:
+    # `echo x <> FILE` creates FILE.
+    #
+    # A target is skipped only when the `&` form names a DESCRIPTOR — all digits, `-`, or digits with
+    # a trailing `-`. Everything else after an arrow is a path.
+    #
+    # STATED LIMIT: the target is read from the ORIGINAL at the mask offset, the same split every
+    # other reader here uses, so a quoted target is returned unquoted and a spliced one joined. A
+    # target built by a SUBSTITUTION (`> "$(mktemp)"`) comes back as the substitution text, not as
+    # what it will expand to — no reader in this file expands, and a caller matching a protected
+    # prefix against it will simply not match.
+    if (MODE == "redirs") {
+      i = 1
+      while (i <= len) {
+        if (substr(mask, i, 1) != ">") { i++; continue }
+        k = i + 1
+        if (substr(mask, k, 1) == ">") { k++ }
+        dup = 0
+        if (substr(mask, k, 1) == "&") { dup = 1; k++ }
+        else if (substr(mask, k, 1) == "|") { k++ }
+
+        # Whitespace between the operator and its target, where the shell really sees whitespace.
+        while (k <= len && substr(mask, k, 1) ~ /[ \t]/ && substr(s, k, 1) ~ /[ \t]/) { k++ }
+
+        word = ""
+        started = 0
+        while (k <= len) {
+          mc = substr(mask, k, 1)
+          rc = substr(s, k, 1)
+          if ((mc == " " || mc == "\t" || mc == "\n") && rc ~ /[ \t\n]/) { break }
+          if (mc == ";" || mc == "&" || mc == "|" || mc == ">" || mc == "<" || mc == ")") { break }
+          started = 1
+          # A quote DELIMITER shows as a space in the mask and contributes no character.
+          if (mc == " ") { k++; continue }
+          # An unquoted backslash splices the next character.
+          if (mc == "\\" && rc == "\\") { k++; continue }
+          # Masked content is data, and here the data IS the name — read it from the original.
+          word = word rc
+          k++
+        }
+        if (started && word != "" && !(dup && word ~ /^[0-9]*-?$/)) { print word }
+        i = (k > i ? k : i + 1)
+      }
+      exit
+    }
 
     # ---- the WORDS the shell builds, one per line ----
     #
@@ -1055,6 +1130,16 @@ hook_verb_scan() {
 # whether its letters appear somewhere. See the `words` branch for why it lives here.
 hook_statement_words() {
   printf '%s\n' "$1" | awk -v MODE=words -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+}
+
+# The paths this command REDIRECTS INTO, one per line, in the order they appear.
+#
+# Ask this when the question is "does this command write to somewhere I protect". Do NOT ask
+# `hook_statement_words` and look for `>` — that was the shape both guards had, and a word split
+# cannot tell `>&2` from `>&node_modules/x`. $2/$3 narrow the reading to one statement, as
+# everywhere else. See the `redirs` branch for the operator set and the measurement behind it.
+hook_redirect_targets() {
+  printf '%s\n' "$1" | awk -v MODE=redirs -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
 # The same split with SUBSTITUTION CONTENTS included, each delimiter a word break. Ask this when the
