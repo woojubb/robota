@@ -88,14 +88,29 @@ export interface IServeModeOptions {
  * Build the runtime session options (mirroring the interactive mapping — NOT print-mode's autonomous
  * `bypassPermissions` default) and run the host until SIGTERM/SIGINT, then shut down and exit 0.
  */
-export async function runServeMode(opts: IServeModeOptions): Promise<void> {
+/**
+ * The session options a served runtime starts with.
+ *
+ * Extracted so a case can assert what serve mode forwards WITHOUT starting a server. Issue #1937 is
+ * the reason: a field can be declared on the projection, forwarded by two shells and dropped by the
+ * third, and nothing would have said so — `buildAppendSystemPrompt` had exactly one caller for that
+ * whole time. A test of the helper is green in that state; a test of this is not.
+ */
+export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveSessionOptions {
   const { args, preset } = opts;
-  const sessionOptions: TInteractiveSessionOptions = {
+  return {
     cwd: opts.cwd,
     provider: opts.provider,
     // CLI-076: forward the resolved model so `--model` takes effect in the served runtime session.
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     permissionMode: args.permissionMode ?? preset.permissionMode,
+    // Issue #1937: the CLI-sourced prompt addition, composed once at the projection. Before this it
+    // was built at print mode only, so these flags did nothing in a served session.
+    ...(preset.cliAppendSystemPrompt !== undefined
+      ? { appendSystemPrompt: preset.cliAppendSystemPrompt }
+      : {}),
+    // Issue #1937: the CLI-sourced prompt addition, composed once at the projection. Before this it
+    // was built at print mode only, so these flags did nothing in a served session.
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : opts.sessionStore,
     resumeSessionId: opts.resumeSessionId,
@@ -129,6 +144,11 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...(opts.memorySessionOptions ?? {}),
   };
+}
+
+export async function runServeMode(opts: IServeModeOptions): Promise<void> {
+  const { args } = opts;
+  const sessionOptions = buildServeSessionOptions(opts);
 
   const host = await startRuntimeHost({
     session: sessionOptions,

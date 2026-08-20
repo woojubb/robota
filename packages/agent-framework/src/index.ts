@@ -611,6 +611,7 @@ export {
   CLI_UPDATE_REGISTRY_URL,
   CLI_UPDATE_TIMEOUT_MS,
 } from './update-check/update-check.js';
+export { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 export type {
   ICheckForCliUpdateOptions,
   ICliUpdateNotice,

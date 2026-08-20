@@ -1,10 +1,14 @@
 import { DEFAULT_AGENT_NAME } from '@robota-sdk/agent-preset';
 
+import { buildAppendSystemPrompt } from './append-system-prompt.js';
+
+import type { IParsedCliArgs } from '../utils/cli-args.js';
+
 import type { ICreateSessionOptions } from '@robota-sdk/agent-framework';
 import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
 
 /**
- * The preset fields every shell surface forwards, projected once.
+ * What every shell surface forwards, projected once.
  *
  * ARCH-013: this literal was written out three times inside `cli.ts` alone — once for print mode,
  * once for serve mode, once for the interactive renderer — and the three were kept in step by
@@ -60,6 +64,26 @@ export interface IPresetSurfaceOptions {
    * capability sections without saying so. Two names because they are two different things.
    */
   systemPrompt?: string;
+  /**
+   * The CLI-sourced system-prompt addition — `--append-system-prompt`, `--task-file` and
+   * `--json-schema`, composed into one block.
+   *
+   * Not a preset field, and it rides here for the same reason `activePresetId` does: this is the one
+   * shape all three shells already read, and that is the property the projection exists to provide.
+   * It moved here because it was composed at ONE shell — `buildAppendSystemPrompt` had a single
+   * caller, print mode, so in interactive and serve the three flags were parsed, validated and then
+   * dropped while `cli-args.ts` advertised them with no hint that two surfaces ignore them (issue
+   * #1937). Calling the helper from two more places would have been a third copy of the same call,
+   * which is the shape ARCH-041 removed from this file.
+   *
+   * **Named `cliAppendSystemPrompt`, deliberately.** A preset has its own `appendSystemPrompt`
+   * (`IPresetOptions`), still unprojected and still listed as `pendingProjection`. Putting the CLI
+   * text on that name would have silently decided the merge order between the two — CLI wins, preset
+   * dropped — and that decision belongs to ARCH-040 Group D, which cannot make it until the CLI text
+   * reaches all three surfaces. This item is the prerequisite for that decision, so it must not
+   * pre-empt it. Two origins, two names, and the merge stays expressible.
+   */
+  cliAppendSystemPrompt?: string;
 }
 
 /**
@@ -67,12 +91,19 @@ export interface IPresetSurfaceOptions {
  * @param presetId   The selected preset's id, which is not a field of the resolved options.
  * @param permissionMode The posture the KERNEL resolved (explicit `--permission-mode`, else the
  *   preset's). ARCH-007: it comes back out of the kernel overlay rather than being re-derived here.
+ * @param cli The parsed CLI args and cwd, from which the prompt addition is composed HERE — once,
+ *   where the projection is built, so all three shells receive the same text. Absent in callers that
+ *   have no CLI (tests, and the live `/preset` path). Kept distinct from the preset's own
+ *   `appendSystemPrompt`, whose merge order against this is ARCH-040 Group D's call.
  */
 export function buildPresetSurfaceOptions(
   resolved: IResolvedPresetOptions,
   presetId: string,
   permissionMode: ICreateSessionOptions['permissionMode'] | undefined,
+  cli?: { cwd: string; args: IParsedCliArgs },
 ): IPresetSurfaceOptions {
+  const cliAppendSystemPrompt =
+    cli !== undefined ? buildAppendSystemPrompt(cli.cwd, cli.args) : undefined;
   return {
     ...(resolved.model !== undefined ? { model: resolved.model } : {}),
     agentName: resolved.agentName ?? DEFAULT_AGENT_NAME,
@@ -92,6 +123,7 @@ export function buildPresetSurfaceOptions(
       : {}),
     ...(resolved.language !== undefined ? { language: resolved.language } : {}),
     ...(resolved.systemPrompt !== undefined ? { systemPrompt: resolved.systemPrompt } : {}),
+    ...(cliAppendSystemPrompt !== undefined ? { cliAppendSystemPrompt } : {}),
   };
 }
 
@@ -107,12 +139,21 @@ export function buildPresetSurfaceOptions(
  * Renamed here rather than at each shell, so the shells cannot disagree about which option a preset
  * means. That is the same reason `buildPresetSurfaceOptions` exists at all.
  */
-export function toSessionOptions(
-  surface: IPresetSurfaceOptions,
-): Omit<IPresetSurfaceOptions, 'systemPrompt'> & { presetSystemPrompt?: string } {
-  const { systemPrompt, ...rest } = surface;
+export function toSessionOptions(surface: IPresetSurfaceOptions): Omit<
+  IPresetSurfaceOptions,
+  'systemPrompt' | 'cliAppendSystemPrompt'
+> & {
+  presetSystemPrompt?: string;
+  appendSystemPrompt?: string;
+} {
+  const { systemPrompt, cliAppendSystemPrompt, ...rest } = surface;
   return {
     ...rest,
     ...(systemPrompt !== undefined ? { presetSystemPrompt: systemPrompt } : {}),
+    // Issue #1937: the CLI-sourced text lands on the SESSION's `appendSystemPrompt`. Renamed here
+    // rather than at each shell, for the reason this function exists — and kept distinct from the
+    // preset's own field of that name all the way to this hop, so ARCH-040 Group D can still decide
+    // how they merge instead of inheriting an answer nobody chose.
+    ...(cliAppendSystemPrompt !== undefined ? { appendSystemPrompt: cliAppendSystemPrompt } : {}),
   };
 }
