@@ -1,0 +1,27 @@
+# INFRA-123 — hazardous spellings that only mean something IN A LANGUAGE, and the language they mean
+# it in.
+#
+# Read by BOTH enforcers: `.claude/hooks/bulk-edit-guard.sh` (the command, before it runs) and
+# `scripts/harness/scan-symlink-following-enumeration.mjs` (the committed script).
+#
+# WHY THESE NEED A LANGUAGE AND THE OTHER TABLE DOES NOT. `find -L` is a command and a flag: the
+# shell grammar is enough to attribute it, which is what `symlink-following-hazards.tsv` does. An
+# IMPORT is different. `from glob import glob; glob(...)` is the symlink-following enumerator wearing
+# an import the call site does not spell, and the identical text in JavaScript
+# (`import glob from 'glob'`) is a package this repository depends on that does NOT follow. Reporting
+# both is refusing the safe sibling; reporting neither is the rule the follow-up to PR #1886 withdrew
+# rather than ship unenforced.
+#
+# So the subject is the PAYLOAD, and the reader for it is `hook_interpreter_payloads` in
+# `.claude/hooks/lib/command-scan.sh`. `language` is matched against the interpreter that owns the
+# payload, mapped through `scripts/harness/script-language.mjs` (INFRA-115) — so `python3`,
+# `python3.12` and a `#!/usr/bin/env python` heredoc are one language, named once.
+#
+# COLUMNS, tab-separated:
+#   id         the name this hazard is REPORTED under
+#   language   the language row from `script-language.mjs` whose payloads this applies to
+#   pattern    an ERE, matched against the payload TEXT
+#   remedy     the safe sibling, stated at the finding
+id	language	pattern	remedy
+python glob import	python	(^|[^A-Za-z0-9_.])from[ \t]+glob[ \t]+import[ \t]+(glob|iglob)\b	use pathlib Path(...).rglob, which does not follow symlinks (measured)
+python glob alias	python	(^|[^A-Za-z0-9_.])import[ \t]+glob[ \t]+as[ \t]+[A-Za-z_][A-Za-z0-9_]*	use pathlib Path(...).rglob, which does not follow symlinks (measured)

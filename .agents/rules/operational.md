@@ -143,6 +143,13 @@ Four spellings follow symlinks, and each has a sibling that does not:
 | `rg --follow`                     | `rg` (also honours `.gitignore`) |
 | python `glob.glob` / `glob.iglob` | `pathlib.Path(...).rglob`        |
 
+The python one is refused by its IMPORT as well as by its call — `from glob import glob` and
+`import glob as g` bind the same enumerator to a name the call site does not spell. That half is
+judged inside the PAYLOAD, so the identical text in JavaScript is not refused: `import glob from
+'glob'` is a package this repository depends on and it does not follow. [INFRA-123](../tasks/completed/INFRA-123-nothing-can-name-the-language-of-an-embedded-payload.md) is why the
+distinction is enforceable rather than stated; before it, the rule table would have claimed a scope
+neither enforcer had a subject for.
+
 Shell `**` under `globstar`, zsh `**`, and Node's `fs.globSync` do not traverse symlinked
 directories and are unrestricted. `bulk-edit-guard.sh` refuses the four at the command and
 `scan-symlink-following-enumeration` refuses them in a committed script. Only the hook resolves a

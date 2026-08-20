@@ -526,9 +526,37 @@ HOOK_TOKENIZER_AWK='
   # applying shell quoting to it would be a second approximation dressed as a parse. Those are kept
   # verbatim, which over-reads (a mention inside python source still shows) — the direction that
   # refuses work rather than the one that lets a `python3 -c "os.system(\047git push\047)"` through.
+  # The interpreter word an IRE match names, basename-only.
+  #
+  # The LAST match in the prefix, not the first: a shell interpreter wrapping a python one has two,
+  # and the one that owns the quote about to open is the nearest to it. `match()` returns the first,
+  # so the search walks forward until no further match remains.
+  #
+  # NOTE: this awk program is a single-quoted shell string. An apostrophe in a comment CLOSES it and
+  # the file then fails to source at all. Write around them.
+  function tk_interp_name(pre, IRE,   best, rest, n, a, w) {
+    best = ""
+    rest = pre
+    while (match(rest, IRE)) {
+      best = substr(rest, RSTART, RLENGTH)
+      rest = substr(rest, RSTART + 1)
+    }
+    if (best == "") { return "" }
+    sub(/^[^A-Za-z0-9_\/.]+/, "", best)
+    n = split(best, a, /[ \t]+/)
+    w = (n > 0) ? a[1] : ""
+    sub(/^.*\//, "", w)
+    return w
+  }
+
+  # INFRA-123: the payload REGIONS are recorded as they open and close, into the globals
+  # `TK_PN` / `TK_PS` / `TK_PL` / `TK_PI`. The masker already has to decide that a quoted string is
+  # an interpreter payload — that is what `kind[sp] = "TOK"` means — and then throws the boundary
+  # away, which is why nothing downstream can say whose language a line is written in. Recording it
+  # costs two assignments at the open and one at the close.
   function tk_mask(s, m, IRE, SRE,
                    len, i, j, w, c, c2, c3, nx, k, q, spaced, ch,
-                   sp, kind, fend, fdep, fterm, fdash, fquo,
+                   sp, kind, fend, fdep, fterm, fdash, fquo, pstart, pinterp,
                    hn, hterm, hdash, hquo, dash, quoted, term, dc, eol, e, line, cand) {
     len = length(s)
 
@@ -568,7 +596,20 @@ HOOK_TOKENIZER_AWK='
         if (c == "\\" && fend[sp] != "\047") {
           m[i] = c; if (i + 1 <= len) { m[i + 1] = substr(s, i + 1, 1) }; i += 2; continue
         }
-        if (c == fend[sp]) { m[i] = " "; sp--; i++; continue }
+        if (c == fend[sp]) {
+          # INFRA-123: this is where an interpreter payload ENDS, so this is where its extent is
+          # known. The other `fend[sp] == c` site one screen down closes a region that is about to be
+          # opened, not one being read — recording there produced zero payloads, which is how the
+          # difference was found.
+          if (pstart[sp] != "" && pinterp[sp] != "") {
+            TK_PN++
+            TK_PS[TK_PN] = pstart[sp]
+            TK_PL[TK_PN] = i - pstart[sp]
+            TK_PI[TK_PN] = pinterp[sp]
+            pstart[sp] = ""
+          }
+          m[i] = " "; sp--; i++; continue
+        }
         m[i] = c; i++; continue
       }
 
@@ -763,7 +804,13 @@ HOOK_TOKENIZER_AWK='
           m[i] = " "; sp++; kind[sp] = "CMD"; fend[sp] = q; fdep[sp] = 0; i++; continue
         }
         if (substr(s, 1, i - 1) ~ IRE) {
-          m[i] = " "; sp++; kind[sp] = "TOK"; fend[sp] = q; fdep[sp] = 0; i++; continue
+          m[i] = " "; sp++; kind[sp] = "TOK"; fend[sp] = q; fdep[sp] = 0
+          # INFRA-123: the extent of this payload is everything after the quote, up to the one that
+          # closes it. Recorded here because this is the only place that knows the string is CODE and
+          # whose language it is.
+          pstart[sp] = i + 1
+          pinterp[sp] = tk_interp_name(substr(s, 1, i - 1), IRE)
+          i++; continue
         }
         spaced = 0
         j = i + 1
@@ -869,6 +916,31 @@ HOOK_SCAN_AWK='
     mask = substr(mask, ws, wl)
 
     if (MODE == "mask") { print mask; exit }
+
+    # ---- the EMBEDDED PAYLOADS, one `INTERPRETER START LENGTH` line each ----
+    #
+    # INFRA-123. Every reader in this file EXPANDS an interpreter payload — that is what makes
+    # `python3 -c "…"` readable at all — and then nothing downstream can say where the payload began
+    # or whose language it is. So a rule scoped to one language has no subject: measured on this
+    # tree, python lives in **zero** tracked `.py` files and **zero** python-shebang files, against
+    # 14 files containing `python3 -c`, every one of them `.sh`, `.mjs`, `.md` or `.yml`. A
+    # file-scoped rule would enforce nothing while the rule table said it did; an unscoped one
+    # reports `import glob from "glob"` in JavaScript, which is refusing the safe sibling.
+    #
+    # The unit with a language is the PAYLOAD, and this is the reader for it. Three earlier cuts
+    # tried to reach it from the command instead — a whole-command conjunction, a nearest-interpreter
+    # walk with a hand-written reset list, and a separator reset — and each refused a correct
+    # command, because after expansion the payload’s own `;`, `|` and `&` are indistinguishable from
+    # the shell’s.
+    #
+    # STATED LIMIT: a HEREDOC body is not reported here. The masker treats it as quoted content and
+    # never opens a payload for it, so its interpreter is knowable but its extent is not recorded by
+    # this pass. In a COMMITTED FILE a heredoc body is ordinary file text, which is the half the scan
+    # side reads; at the command it stays the blindness every guard in this directory has.
+    if (MODE == "payloads") {
+      for (i = 1; i <= TK_PN; i++) { print TK_PI[i] " " TK_PS[i] " " TK_PL[i] }
+      exit
+    }
 
     # ---- what this command WRITES to, one target path per line ----
     #
@@ -1130,6 +1202,20 @@ hook_verb_scan() {
 # whether its letters appear somewhere. See the `words` branch for why it lives here.
 hook_statement_words() {
   printf '%s\n' "$1" | awk -v MODE=words -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+}
+
+# The interpreter payloads embedded in this command: `INTERPRETER START LENGTH`, one per line.
+#
+# `START`/`LENGTH` index into the command exactly as `hook_statement_ranges` does, so a caller can
+# narrow any other reader to a payload — or, for a rule that is about the payload TEXT, cut it out
+# with the same offsets. The interpreter is the basename of the command word that owns the payload
+# (`python3`, `node`, `ruby`); map it to a language with `scripts/harness/script-language.mjs`, which
+# owns that table (INFRA-115).
+#
+# Ask this before applying a language-scoped rule to a command. See the `payloads` branch for the
+# measurement, and for the heredoc limit.
+hook_interpreter_payloads() {
+  printf '%s\n' "$1" | awk -v MODE=payloads -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
 # The paths this command REDIRECTS INTO, one per line, in the order they appear.
