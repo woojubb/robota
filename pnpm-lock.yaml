@@ -81,6 +81,9 @@ importers:
       '@stryker-mutator/vitest-runner':
         specifier: ^9.6.1
         version: 9.6.1(@stryker-mutator/core@9.6.1)(vitest@3.2.6)
+      '@substrate/connect-extension-protocol':
+        specifier: 2.2.2
+        version: 2.2.2
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
@@ -9723,6 +9726,10 @@ packages:
       semver: 7.8.5
       tslib: 2.8.1
       vitest: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)
+    dev: true
+
+  /@substrate/connect-extension-protocol@2.2.2:
+    resolution: {integrity: sha512-t66jwrXA0s5Goq82ZtjagLNd7DPGCNjHeehRlE/gcJmJ+G56C0W+2plqOMRicJ8XGR1/YFnUSEqUFiSNbjGrAA==}
     dev: true
 
   /@swc/core-darwin-arm64@1.15.46:
