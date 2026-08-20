@@ -172,7 +172,7 @@ describe('the turn signal reaches compaction through the run context (RUNTIME-00
         shouldAutoCompact: () => true,
         getContextState: () => ({}),
       },
-      robota: { getHistory: () => [] },
+      agent: { getHistory: () => [] },
       aiProvider: {},
       compact: (signal?: AbortSignal) => {
         received = signal;

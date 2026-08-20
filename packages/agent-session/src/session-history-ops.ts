@@ -31,7 +31,7 @@ export interface ICompactContext {
   sessionId: string;
   cwd: string;
   systemMessage: string;
-  robota: Robota;
+  agent: Robota;
   aiProvider: IAIProvider;
   compactionOrchestrator: CompactionOrchestrator;
   contextTracker: ContextWindowTracker;
@@ -87,7 +87,7 @@ export async function compact(
   // ("rejects if cancelled AND there was work") for no gain over the one already in force.
   signal?.throwIfAborted();
 
-  const history = ctx.robota.getHistory();
+  const history = ctx.agent.getHistory();
 
   // Exclude system messages from compaction — they are preserved and re-injected after
   const nonSystemHistory = history.filter((msg) => msg.role !== 'system');
@@ -114,12 +114,12 @@ export async function compact(
   // Clear history, re-inject system message, then inject summary.
   // System message must persist across compactions — it contains project context
   // (cwd, AGENTS.md, CLAUDE.md) that the AI needs for every response.
-  ctx.robota.clearHistory();
-  ctx.robota.injectMessage('system', ctx.systemMessage);
-  ctx.robota.injectMessage('assistant', `[Context Summary]\n${summary}`);
+  ctx.agent.clearHistory();
+  ctx.agent.injectMessage('system', ctx.systemMessage);
+  ctx.agent.injectMessage('assistant', `[Context Summary]\n${summary}`);
 
   // Reset token tracking based on the new shorter history
-  ctx.contextTracker.updateFromHistory(ctx.robota.getHistory());
+  ctx.contextTracker.updateFromHistory(ctx.agent.getHistory());
 
   // Fire PostCompact hook after history replacement is complete
   const postHookInput: IHookInput = {
@@ -156,7 +156,7 @@ export interface IPersistContext {
   systemPrompt: string;
   toolSchemas: IToolSchema[];
   sessionStore: IInteractiveSessionStore;
-  robota: Robota;
+  agent: Robota;
   getFullHistory: () => Array<{
     id: string;
     timestamp: Date;
@@ -168,7 +168,7 @@ export interface IPersistContext {
 
 /** Persist the current session to the store */
 export function persistSession(ctx: IPersistContext): void {
-  const history = ctx.robota.getHistory();
+  const history = ctx.agent.getHistory();
   const now = new Date().toISOString();
 
   const existing = ctx.sessionStore.load(ctx.sessionId);

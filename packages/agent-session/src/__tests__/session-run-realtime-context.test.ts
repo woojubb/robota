@@ -34,7 +34,7 @@ function assistantMessage(id: string, contentLength: number): TUniversalMessage 
  * usedTokens is non-decreasing across emissions.
  */
 function createFakeRobota(rounds: number): {
-  robota: Robota;
+  agent: Robota;
   run: ReturnType<typeof vi.fn>;
 } {
   const messages: TUniversalMessage[] = [];
@@ -73,14 +73,14 @@ function createProvider(): IAIProvider {
 }
 
 function createContext(
-  robota: Robota,
+  agent: Robota,
   onContextUpdate: (state: IContextWindowState) => void,
 ): IRunContext {
   return {
     sessionId: 'test-session',
     cwd: '/tmp/test',
     model: 'test-model',
-    robota,
+    agent,
     aiProvider: createProvider(),
     // autoCompactThreshold=false so executeRun never tries to compact in this test.
     contextTracker: new ContextWindowTracker('test-model', undefined, false),
