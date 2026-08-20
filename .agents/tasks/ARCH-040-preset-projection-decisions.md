@@ -43,7 +43,8 @@ projection, and where the fallback lives is an implementation choice made in thi
 ## Plan
 
 - [x] Group A — remove `defaultTrustLevel` from `IResolvedPresetOptions` and its validator.
-- [ ] Group B — `agentName` on the live `/preset` path.
+- [ ] Group B — `agentName` on the live `/preset` path. **PARKED on a measured cost the decision did
+      not have in front of it** (see below); every other group is independent of it.
 - [ ] Group C — `allowedTools` (replace) and `deniedTools` (compose), resolved together.
 - [ ] Group D — `systemPrompt` (seed) and `appendSystemPrompt` (merge order).
 - [ ] Group E — the model group: `model` declared, `temperature` and `maxOutputTokens` wired.
@@ -65,3 +66,28 @@ asserted in BOTH directions, since a rule about combination can fail either way.
 session/assembly seam"_. It is false today for `systemPrompt`, `language`, `temperature`,
 `maxOutputTokens` and `defaultTrustLevel`. Changing the words without changing the fact is the
 defect, not the fix; this item makes it true.
+
+## Group B is parked, and why
+
+The owner decided `/preset` should rename the agent. Implementing it turned up a cost the decision
+was not made against, so it is recorded here rather than paid silently.
+
+**What `agentName` actually reaches.** Its only reader is `Robota.name` — a `public readonly`
+identity label. No surface displays it: the TUI's `agentName` option is forwarded straight into
+session construction and rendered nowhere, and `Robota.name` is read by the module-manager
+construction and by `getConfig()`/`getStats()`. So a mid-session rename changes a label almost
+nothing observes.
+
+**What it costs.** `Robota.name` is assigned once in the constructor and declared `readonly`.
+`updateConfiguration` is not a general seam — it throws for any patch that is not `tools`. Making the
+name renameable therefore means either a mutable field on a core class or a split of
+`packages/agent-core/src/core/robota.ts`, which the file-size ratchet freezes at 411 lines. A
+first cut measured +25 lines; compressed to the minimum it is still +8, and offsetting that by
+trimming unrelated code in the same file is the "regenerate the baseline" move ARCH-038 argued
+against three days earlier.
+
+**The question to re-decide:** is a renameable identity label worth a mutable field on
+`Robota`, or is the honest resolution of the divergence the other direction — `agentName` is
+construction-time identity, and the STARTUP surface should stop implying otherwise?
+
+Nothing about this blocks Groups C–F, which touch neither the field nor the file.
