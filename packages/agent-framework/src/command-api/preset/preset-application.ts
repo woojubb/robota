@@ -30,6 +30,8 @@ export interface IPresetApplicationOptions {
   persona?: string;
   /** ARCH-040 — response language, re-applied as a prompt section. */
   language?: string;
+  /** ARCH-040 — a preset-supplied system prompt that SEEDS the composed prompt (priority 4). */
+  systemPrompt?: string;
   /** PRESET-015 — allowlist of command-module names to keep on the live session. */
   enabledCommandModules?: readonly string[];
   /** PRESET-015 — denylist of command-module names to remove from the live session. */
@@ -121,6 +123,15 @@ export async function applyPresetToSession(
     applied.push('language');
   } else {
     skipped.push('language');
+  }
+
+  // ARCH-040 seeding-prompt group. `systemPrompt` SEEDS rather than replaces — the framework's own
+  // replace seam would drop the AGENTS.md and capability sections without saying so.
+  if (options.systemPrompt !== undefined) {
+    context.applyPresetSystemPrompt(options.systemPrompt);
+    applied.push('systemPrompt');
+  } else {
+    skipped.push('systemPrompt');
   }
 
   // PRESET-015 command-module group — re-applied via the host context's

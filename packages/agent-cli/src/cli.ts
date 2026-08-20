@@ -25,7 +25,7 @@ import type { IParsedCliArgs } from './utils/cli-args.js';
 import { resolveShellPreset } from './startup/preset-selection.js';
 import type { IShellPresetResolution } from './startup/preset-selection.js';
 import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-preset';
-import { buildPresetSurfaceOptions } from './startup/preset-surface-options.js';
+import { buildPresetSurfaceOptions, toSessionOptions } from './startup/preset-surface-options.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
 import { createRobotaProfile } from './product/robota-profile.js';
 import {
@@ -458,7 +458,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     ...memorySessionOptions,
     cliAdapter: createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource }),
     reloadPluginCommandSource,
-    ...presetSurface,
+    ...toSessionOptions(presetSurface),
   });
   process.exit(0);
 }

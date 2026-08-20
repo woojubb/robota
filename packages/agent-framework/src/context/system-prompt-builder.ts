@@ -5,6 +5,7 @@ import {
   createProjectNotesSection,
   createPermissionSection,
   createPersonaSection,
+  createPresetSystemPromptSection,
   createProjectMemorySection,
   createProjectSection,
   createResponseLanguageSection,
@@ -25,6 +26,11 @@ export interface ISystemPromptParams {
    * composed as a `source: 'persona'` section with priority 5; empty/undefined adds no section.
    */
   persona?: string;
+  /**
+   * ARCH-040: a preset-supplied system prompt, composed as a priority-4 section ABOVE persona. It
+   * seeds the prompt rather than replacing it — see `createPresetSystemPromptSection`.
+   */
+  presetSystemPrompt?: string;
   /**
    * PRESET-017: when enabled, a concise verify-before-done directive is composed as a
    * `source: 'self-verification'` section with priority 6; false/undefined adds no section.
@@ -115,6 +121,12 @@ function buildCapabilityDescriptors(params: ISystemPromptParams): ICapabilityDes
 export function buildSystemPrompt(params: ISystemPromptParams): string {
   const sections: ISystemPromptSection[] = [];
 
+  appendOptionalSection(
+    sections,
+    params.presetSystemPrompt !== undefined && params.presetSystemPrompt.trim().length > 0
+      ? createPresetSystemPromptSection(params.presetSystemPrompt)
+      : undefined,
+  );
   appendOptionalSection(
     sections,
     params.persona !== undefined && params.persona.trim().length > 0

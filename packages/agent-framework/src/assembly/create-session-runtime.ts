@@ -61,6 +61,7 @@ export interface TLivePromptOverrides {
   persona?: string;
   selfVerification?: boolean | string;
   language?: string;
+  presetSystemPrompt?: string;
 }
 
 export interface IBackgroundProcessResult {
@@ -196,6 +197,12 @@ export function buildSessionSystemPrompt(
   // whole item is about; it was written, and removed for that reason.
   let currentLanguage = options.config.language;
 
+  // ARCH-040: a preset-supplied system prompt, mutable for the lifetime of this closure like the
+  // three above it. It SEEDS the composed prompt as a priority-4 section — the framework's own
+  // `systemPrompt` option is the REPLACE seam, and a preset pointing at that would drop the
+  // AGENTS.md and capability sections without saying so.
+  let currentPresetSystemPrompt = options.presetSystemPrompt;
+
   // Persona/selfVerification/language are composed per-build (initial + each rebuild) so the mutable
   // closure values always win; they are therefore excluded from these static params.
   const staticPromptParams = buildStaticPromptParams(
@@ -210,6 +217,9 @@ export function buildSessionSystemPrompt(
     ...(currentPersona !== undefined ? { persona: currentPersona } : {}),
     ...(currentSelfVerification !== undefined ? { selfVerification: currentSelfVerification } : {}),
     ...(currentLanguage !== undefined ? { language: currentLanguage } : {}),
+    ...(currentPresetSystemPrompt !== undefined
+      ? { presetSystemPrompt: currentPresetSystemPrompt }
+      : {}),
   });
   const finalSystemMessage = options.appendSystemPrompt
     ? `${systemMessage}\n\n${options.appendSystemPrompt}`
@@ -233,6 +243,9 @@ export function buildSessionSystemPrompt(
     if (overrides?.language !== undefined) {
       currentLanguage = overrides.language;
     }
+    if (overrides?.presetSystemPrompt !== undefined) {
+      currentPresetSystemPrompt = overrides.presetSystemPrompt;
+    }
     const rebuilt = buildPrompt({
       ...staticPromptParams,
       ...(currentPersona !== undefined ? { persona: currentPersona } : {}),
@@ -240,6 +253,9 @@ export function buildSessionSystemPrompt(
         ? { selfVerification: currentSelfVerification }
         : {}),
       ...(currentLanguage !== undefined ? { language: currentLanguage } : {}),
+      ...(currentPresetSystemPrompt !== undefined
+        ? { presetSystemPrompt: currentPresetSystemPrompt }
+        : {}),
       agentsMd: newAgentsMd,
       projectNotesMd: newProjectNotesMd,
     });

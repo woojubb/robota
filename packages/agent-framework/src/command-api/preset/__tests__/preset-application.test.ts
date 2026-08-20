@@ -246,6 +246,32 @@ describe('applyPresetToSession language group (ARCH-040)', () => {
   });
 });
 
+describe('applyPresetToSession seeding-prompt group (ARCH-040)', () => {
+  it('re-applies the preset system prompt through the live rebuild seam', async () => {
+    const { context } = createContext();
+    const applyPresetSystemPrompt = vi.fn();
+    (context as unknown as Record<string, unknown>)['applyPresetSystemPrompt'] =
+      applyPresetSystemPrompt;
+
+    const result = await applyPresetToSession(context, 'acme', { systemPrompt: 'seed text' });
+
+    expect(applyPresetSystemPrompt).toHaveBeenCalledWith('seed text');
+    expect(result.applied).toContain('systemPrompt');
+  });
+
+  it('reports the group skipped when the preset names none', async () => {
+    const { context } = createContext();
+    const applyPresetSystemPrompt = vi.fn();
+    (context as unknown as Record<string, unknown>)['applyPresetSystemPrompt'] =
+      applyPresetSystemPrompt;
+
+    const result = await applyPresetToSession(context, 'acme', { permissionMode: 'default' });
+
+    expect(applyPresetSystemPrompt).not.toHaveBeenCalled();
+    expect(result.skipped).toContain('systemPrompt');
+  });
+});
+
 describe('applyPresetToSession persona group (PRESET-014)', () => {
   it('TC-03: persona present → applyPersona called with it, result.applied lists persona', async () => {
     const { context, spies } = createContext();

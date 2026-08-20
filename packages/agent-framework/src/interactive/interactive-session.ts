@@ -608,32 +608,32 @@ export class InteractiveSession
   }
 
   /**
-   * The ONE way a preset field is re-applied to the live prompt: recompose from the tracked
-   * AGENTS.md/CLAUDE.md entries — what the staleness refresh uses — plus the override. No-op before
-   * init. ARCH-040 extracted it; a third copy is how the next one diverges.
+   * The ONE way a preset field reaches the live prompt — recompose from the tracked context entries
+   * plus the override. No-op before init. Extracted by ARCH-040: PRESET-014 and PRESET-017 were the
+   * same five lines twice, and a third copy is how the next one diverges.
    */
   private rebuildLivePrompt(overrides: TLivePromptOverrides): void {
     if (this.rebuildSystemMessage === null) return;
     const agents = this.agentsFileEntries.map((e) => e.content).join('\n\n');
     const notes = this.projectNotesFileEntries.map((e) => e.content).join('\n\n');
-    this.getSessionOrThrow().updateSystemMessage(
-      this.rebuildSystemMessage(agents, notes, overrides),
-    );
+    const rebuilt = this.rebuildSystemMessage(agents, notes, overrides);
+    this.getSessionOrThrow().updateSystemMessage(rebuilt);
   }
 
-  /** PRESET-014: re-apply a preset persona to the live system prompt. */
   applyPersona(persona: string): void {
     this.rebuildLivePrompt({ persona });
   }
 
-  /** PRESET-017: toggle the verify-before-done section on the live system prompt. */
   applySelfVerification(enabled: boolean): void {
     this.rebuildLivePrompt({ selfVerification: enabled });
   }
 
-  /** ARCH-040: re-apply the preset's response language to the live system prompt. */
   applyResponseLanguage(language: string): void {
     this.rebuildLivePrompt({ language });
+  }
+
+  applyPresetSystemPrompt(text: string): void {
+    this.rebuildLivePrompt({ presetSystemPrompt: text });
   }
 
   /**

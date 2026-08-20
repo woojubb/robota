@@ -52,6 +52,14 @@ export interface IPresetSurfaceOptions {
   maxOutputTokens?: number;
   /** ARCH-040: response language, composed as a prompt section rather than a provider parameter. */
   language?: string;
+  /**
+   * ARCH-040: a preset-supplied system prompt that SEEDS the composed prompt.
+   *
+   * Named `presetSystemPrompt` on the SESSION, deliberately: the session's own `systemPrompt` option
+   * REPLACES the composed prompt, and a preset pointing at that would drop the AGENTS.md and
+   * capability sections without saying so. Two names because they are two different things.
+   */
+  systemPrompt?: string;
 }
 
 /**
@@ -83,5 +91,28 @@ export function buildPresetSurfaceOptions(
       ? { maxOutputTokens: resolved.maxOutputTokens }
       : {}),
     ...(resolved.language !== undefined ? { language: resolved.language } : {}),
+    ...(resolved.systemPrompt !== undefined ? { systemPrompt: resolved.systemPrompt } : {}),
+  };
+}
+
+/**
+ * The projection as SESSION OPTIONS — one member renamed on the way.
+ *
+ * ARCH-040: the surface declares `systemPrompt`, because that is what the field is called on
+ * `IResolvedPresetOptions` and the projection scan matches by name. The SESSION has two options one
+ * letter apart: `systemPrompt` REPLACES the composed prompt, and `presetSystemPrompt` SEEDS it. A
+ * bare `...presetSurface` therefore lands a preset's prompt on the replacing one and silently drops
+ * the AGENTS.md and capability sections — the opposite of the decision, and invisible.
+ *
+ * Renamed here rather than at each shell, so the shells cannot disagree about which option a preset
+ * means. That is the same reason `buildPresetSurfaceOptions` exists at all.
+ */
+export function toSessionOptions(
+  surface: IPresetSurfaceOptions,
+): Omit<IPresetSurfaceOptions, 'systemPrompt'> & { presetSystemPrompt?: string } {
+  const { systemPrompt, ...rest } = surface;
+  return {
+    ...rest,
+    ...(systemPrompt !== undefined ? { presetSystemPrompt: systemPrompt } : {}),
   };
 }

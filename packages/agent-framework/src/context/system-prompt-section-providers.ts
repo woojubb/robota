@@ -19,6 +19,19 @@ function createSection(
 }
 
 /**
+ * ARCH-040: a preset-supplied system prompt SEEDS the composed prompt — it does not replace it.
+ *
+ * Owner decision 2026-08-20. `IInteractiveSessionStandardOptions.systemPrompt` already offers a
+ * REPLACE seam, and pointing a preset at it would silently drop the AGENTS.md, project-notes, skill
+ * and capability sections the framework composes — context the person choosing a preset did not ask
+ * to lose. A section instead: priority `4` puts it above persona (5) and therefore above AGENTS.md
+ * (10), so it establishes the frame everything else is read in, which is what "seed" means here.
+ */
+export function createPresetSystemPromptSection(text: string): ISystemPromptSection {
+  return createSection('preset-system-prompt', undefined, 4, text, 'preset-system-prompt');
+}
+
+/**
  * PRESET-003: a preset persona is a normal section with a declared priority, not a
  * hardcoded slot. Priority `5` sits in the top band (5 < AGENTS.md=10) so the persona
  * establishes identity/behaviour before project instructions — the position is decided

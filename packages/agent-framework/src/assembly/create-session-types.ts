@@ -185,6 +185,14 @@ export interface ICreateSessionOptions {
   maxOutputTokens?: number;
   /** Text to append to the generated system prompt. */
   appendSystemPrompt?: string;
+  /**
+   * ARCH-040: a PRESET-supplied system prompt, composed as a priority-4 section above persona.
+   *
+   * Distinct from `systemPrompt`, which REPLACES the composed prompt. A preset pointing at that seam
+   * would silently drop the AGENTS.md, project-notes, skill and capability sections — context the
+   * person choosing a preset did not ask to lose. Owner decision 2026-08-20: seed, do not replace.
+   */
+  presetSystemPrompt?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
   persona?: string;
   /** Model command execution bridge. */

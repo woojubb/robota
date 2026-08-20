@@ -372,9 +372,9 @@
     },
     {
       "name": "IInitOptions",
-      "file": "packages/agent-framework/src/interactive/interactive-session-options.ts",
+      "file": "packages/agent-framework/src/interactive/interactive-session-init-options.ts",
       "constructors": ["createInteractiveSession"],
-      "reason": "The INIT option shape, watched because ARCH-013 stage 3 dropped two fields in the ~40-field hand-map that builds it and stage 1's ICreateSessionOptions-only ratchet could not see the drop. Named IInitOptions rather than the published IInteractiveSessionStandardOptions because that is literally what it measures: the single production literal it reads is the createInteractiveSession(...) call, which takes IInitOptions. An earlier revision named the published type, and review measured the difference — 8 of the 10 keys it then reported ARE set by production code through buildRuntimeSession and the surface option builders, so the entry asserted unreachability it had not established, and burning it down would have pushed class-consumed options into the very hand-map this stage fixed."
+      "reason": "The INIT option shape, watched because ARCH-013 stage 3 dropped two fields in the ~40-field hand-map that builds it and stage 1's ICreateSessionOptions-only ratchet could not see the drop. Named IInitOptions rather than the published IInteractiveSessionStandardOptions because that is literally what it measures: the single production literal it reads is the createInteractiveSession(...) call, which takes IInitOptions. An earlier revision named the published type, and review measured the difference — 8 of the 10 keys it then reported ARE set by production code through buildRuntimeSession and the surface option builders, so the entry asserted unreachability it had not established, and burning it down would have pushed class-consumed options into the very hand-map this stage fixed. ARCH-040 split it into its own module: the original file held three interfaces restating one option list, so every preset field had to be added three times and the anti-monolith floor refused the fourth. This scan fail-closed on the move rather than passing, which is what the entry is for."
     }
   ],
   "productIdentity": {
@@ -428,11 +428,6 @@
         "field": "agentName",
         "reason": "The REVERSE divergence: startup declares it (IPresetSurfaceOptions) and the live /preset path does not, so starting with a preset sets the agent name while switching to the SAME preset mid-session leaves the old one. The owner decided on 2026-08-20 that /preset SHOULD rename. Implementation is parked on a measured cost the decision did not have in front of it: the field's only reader is `Robota.name`, a `public readonly` identity label that no surface displays, and making it renameable needs either a mutable core field or a split of a 411-line frozen core file. Re-decide against that cost before wiring — see ARCH-040.",
         "declaredOn": ["IPresetSurfaceOptions"]
-      },
-      {
-        "field": "systemPrompt",
-        "reason": "Declared on the source with no `ICreateSessionOptions` counterpart under any name (all 54 keys enumerated). The framework composes the system prompt through `systemPromptBuilder` and `appendSystemPrompt`, so honouring a preset-supplied full `systemPrompt` means deciding whether it REPLACES the composed prompt or seeds it — a semantic decision with user-visible consequences.",
-        "declaredOn": []
       },
       {
         "field": "appendSystemPrompt",
