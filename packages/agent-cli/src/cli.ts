@@ -3,8 +3,6 @@
  * Parses arguments and delegates to startup modules, mode runners, and transports.
  */
 
-import { execSync } from 'node:child_process';
-
 import { PrintTerminal, promptInput } from '@robota-sdk/agent-transport/headless';
 import {
   createProjectSessionStore,
@@ -14,7 +12,7 @@ import {
   readProviderSettings,
   checkForCliUpdate,
   formatCliUpdateCheckMessage,
-  formatCliUpdateNotice,
+  resolveCliUpdateNotice,
   ProviderConfigError,
   readSettings,
   getUserSettingsPath,
@@ -25,6 +23,7 @@ import type { IParsedCliArgs } from './utils/cli-args.js';
 import { resolveShellPreset } from './startup/preset-selection.js';
 import type { IShellPresetResolution } from './startup/preset-selection.js';
 import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-preset';
+import { runShellCommand } from './startup/shell-exec.js';
 import { buildPresetSurfaceOptions, toSessionOptions } from './startup/preset-surface-options.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
 import { createRobotaProfile } from './product/robota-profile.js';
@@ -321,9 +320,13 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     terminal.writeError(`Capability ${kind} "${id}" was not composed: ${reason}.`);
   }
 
-  // ARCH-013: the preset fields every surface forwards, projected ONCE. This literal used to be
-  // written out three times below — print, serve, interactive — kept in step by memory.
-  const presetSurface = buildPresetSurfaceOptions(resolvedPreset, selectedPresetId, permissionMode);
+  const cli = { cwd, args };
+  const presetSurface = buildPresetSurfaceOptions(
+    resolvedPreset,
+    selectedPresetId,
+    permissionMode,
+    cli,
+  );
 
   const sessionStore = createProjectSessionStore(cwd);
   let resumeSessionId: string | undefined;
@@ -446,11 +449,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     commandModules,
     commandHostAdapters,
     remoteCommandPolicy,
-    shellExec: (command: string) =>
-      execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd(),
-    startupUpdateNotice: startupUpdateNoticePromise
-      ? startupUpdateNoticePromise.then((n) => (n ? formatCliUpdateNotice(n) : undefined))
-      : undefined,
+    shellExec: runShellCommand,
+    startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
     // CMD-004 Stage C: remote-control enable/stop run HOST-side via the `remoteControl` command
     // host adapter (wired above) — no TUI-prop wiring remains.

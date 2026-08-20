@@ -48,6 +48,7 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
       maxOutputTokens: 4096,
       language: 'ko',
       systemPrompt: 'seed text',
+      cliAppendSystemPrompt: 'cli-sourced addition',
     };
 
     const print: IPrintModePresetOptions = everyField;
