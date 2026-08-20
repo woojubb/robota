@@ -72,10 +72,9 @@ runs it. Wiring into the EXISTING gate rather than adding a new one: `quality` a
 - [x] TC-05: reintroducing the INFRA-119 defect is caught at TYPECHECK time, not scenario runtime —
       the issue's definition of done, verified by actually reintroducing it. Dropping the `Awaited<>`
       from `packages/agent-command/examples/semantic-command-role-scenario-helpers.ts:19` makes that
-      package's `pnpm typecheck` report
-      `semantic-command-role-scenario-helpers.ts(19,63): error TS2339: Property 'session' does not
-  exist on type 'Promise<ICreateSessionResult>'`; restoring it returns the run to exit 0. Re-run
-      on 2026-08-21 at close, not carried over as a claim.
+      package's `pnpm typecheck` fail at line 19, column 63 with TS2339 — property `session` does not
+      exist on type `Promise<ICreateSessionResult>` — and restoring it returns the run to exit 0.
+      Re-run on 2026-08-21 at close, not carried over as a claim.
 - [x] TC-06: `pnpm harness:pre-push` green.
 
 ## Test Plan

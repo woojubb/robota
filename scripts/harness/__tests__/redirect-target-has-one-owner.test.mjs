@@ -33,7 +33,15 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -109,7 +117,10 @@ const fill = (shape, protectedPath) => shape.replaceAll('<P>', protectedPath);
 function targetsOf(command) {
   const result = spawnSync(
     'bash',
-    ['-c', `source ${JSON.stringify(LIB)}; hook_redirect_targets "$1"`, 'sh', command],
+    // The library path is an ARGUMENT, not interpolated into the program text. Nothing here is
+    // attacker-controlled, but a test that reads a shell command out of a template is the shape this
+    // very file is about, and CodeQL says so.
+    ['-c', 'source "$1"; hook_redirect_targets "$2"', 'sh', LIB, command],
     { encoding: 'utf8', timeout: 60_000 },
   );
   return (result.stdout ?? '')
@@ -160,7 +171,7 @@ describe('hook_redirect_targets names what a command writes to', () => {
 function statementTargetsOf(command) {
   const ranges = spawnSync(
     'bash',
-    ['-c', `source ${JSON.stringify(LIB)}; hook_statement_ranges "$1"`, 'sh', command],
+    ['-c', 'source "$1"; hook_statement_ranges "$2"', 'sh', LIB, command],
     { encoding: 'utf8', timeout: 60_000 },
   );
   const found = [];
@@ -171,8 +182,9 @@ function statementTargetsOf(command) {
       'bash',
       [
         '-c',
-        `source ${JSON.stringify(LIB)}; hook_redirect_targets "$1" "$2" "$3"`,
+        'source "$1"; hook_redirect_targets "$2" "$3" "$4"',
         'sh',
+        LIB,
         command,
         start,
         length,
@@ -324,7 +336,7 @@ describe('the redirection grammar has exactly one implementation', () => {
     // redirections in their own diagnostics. It is that neither may DECIDE a redirect target from a
     // pattern of its own, which is what `hook_redirect_targets` now owns. Both must call it.
     for (const guard of ['bulk-edit-guard.sh', 'branch-guard.sh']) {
-      const source = execFileSync('cat', [path.join(HOOKS_SRC, guard)], { encoding: 'utf8' });
+      const source = readFileSync(path.join(HOOKS_SRC, guard), 'utf8');
       expect(source, `${guard} must read redirect targets from the shared owner`).toContain(
         'hook_redirect_targets',
       );
