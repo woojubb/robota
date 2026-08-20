@@ -13,7 +13,10 @@ import {
   type ISystemCommandSemanticRoles,
 } from '@robota-sdk/agent-framework';
 
-export type TDirectSession = ReturnType<typeof createSession>['session'];
+// ARCH-035 made `createSession` async, so its ReturnType is a Promise. INFRA-119 awaited the CALL and
+// left this alias reading `.session` off the promise — a `never`, silently, because nothing typechecked
+// this directory. It is the same defect one line over, and the reason issue #1902 exists.
+export type TDirectSession = Awaited<ReturnType<typeof createSession>>['session'];
 export type TSubagentSession = ReturnType<typeof createSubagentSession>;
 
 export const config: IResolvedConfig = {
@@ -69,6 +72,7 @@ export async function readSystemMessage(
         name: commandName,
         kind: 'builtin-command',
         description: 'Activate a skill',
+        userInvocable: true,
         modelInvocable: true,
       },
     ],

@@ -25,9 +25,13 @@ class MockAIProvider extends AbstractAIProvider {
     options?.onTextDelta?.(content);
 
     return {
+      // `IBaseMessage` requires `id` and `state`; this literal predates both and only compiled
+      // because nothing typechecked this directory (issue #1902).
+      id: `offline-${Date.now()}`,
       role: 'assistant',
       content: `offline:${content}`,
       timestamp: new Date(),
+      state: 'complete',
     };
   }
 }

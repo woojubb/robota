@@ -41,9 +41,11 @@ class OfflineCompactionProvider extends AbstractAIProvider {
     _options?: IChatOptions,
   ): Promise<TUniversalMessage> {
     return {
+      id: `example-${Date.now()}-1`,
       role: 'assistant',
       content: 'deterministic compact summary',
       timestamp: new Date('2026-08-15T00:00:00.000Z'),
+      state: 'complete',
     };
   }
 
@@ -56,6 +58,15 @@ class OfflineCompactionProvider extends AbstractAIProvider {
 }
 
 const silentTerminal: ITerminalOutput = {
+  writeError(_text: string): void {},
+  async prompt(): Promise<string> {
+    // A silent example terminal answers nothing rather than blocking; `ITerminalOutput` requires the
+    // member, and a stub that omitted it only compiled because nothing typechecked this directory.
+    return '';
+  },
+  async select(_options: string[], initialIndex = 0): Promise<number> {
+    return initialIndex;
+  },
   write(): void {},
   writeLine(): void {},
   writeMarkdown(): void {},

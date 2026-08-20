@@ -38,7 +38,7 @@
     "build": "tsdown",
     "build:js": "tsdown --no-dts",
     "build:types": "tsdown --dts",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-session-event-rendering.ts",

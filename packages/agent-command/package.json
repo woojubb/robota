@@ -27,7 +27,7 @@
     "build": "tsdown",
     "build:js": "tsdown --no-dts",
     "build:types": "tsdown --dts",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "scenario:verify": "pnpm scenario:verify:semantic-command-roles",

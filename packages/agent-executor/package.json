@@ -44,7 +44,7 @@
     "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-shell-resolution-contract.ts",
     "scenario:verify:windows-shell": "pnpm exec tsx --conditions=source examples/verify-windows-shell-runners.ts",
     "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-executor --output examples/scenarios/shell-resolution-contract.record.json -- pnpm scenario:verify",
-    "typecheck": "tsgo -p tsconfig.json --noEmit",
+    "typecheck": "tsgo -p tsconfig.json --noEmit && tsgo -p tsconfig.examples.json --noEmit",
     "lint": "eslint src --ext .ts",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
