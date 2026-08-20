@@ -176,6 +176,13 @@ export interface ICreateSessionOptions {
    * parameter; providers without native effort ignore it as a documented no-op.
    */
   effort?: TModelEffort;
+  /**
+   * ARCH-040: sampling temperature and output cap. Same shape as `effort` one line up, and the same
+   * cause — the live `/preset` path applied both through `applyModelOptions` and startup applied
+   * neither, so one session held two answers for the same preset depending on when it was chosen.
+   */
+  temperature?: number;
+  maxOutputTokens?: number;
   /** Text to append to the generated system prompt. */
   appendSystemPrompt?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */

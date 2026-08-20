@@ -119,6 +119,10 @@ export async function runPrintMode(
       ? { enableParallelSubagents: presetOptions.enableParallelSubagents }
       : {}),
     ...(presetOptions.effort !== undefined ? { effort: presetOptions.effort } : {}),
+    ...(presetOptions.temperature !== undefined ? { temperature: presetOptions.temperature } : {}),
+    ...(presetOptions.maxOutputTokens !== undefined
+      ? { maxOutputTokens: presetOptions.maxOutputTokens }
+      : {}),
     ...(presetOptions.selfVerification !== undefined
       ? { selfVerification: presetOptions.selfVerification }
       : {}),

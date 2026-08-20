@@ -82,6 +82,10 @@ export function buildRobota(
       provider: provider.name,
       model,
       ...(options.effort !== undefined && { effort: options.effort }),
+      // ARCH-040: the same two channels `applyModelOptions` writes on a live session, so the
+      // startup answer and the mid-session answer are the same answer.
+      ...(options.temperature !== undefined && { temperature: options.temperature }),
+      ...(options.maxOutputTokens !== undefined && { maxTokens: options.maxOutputTokens }),
     },
     // Single source of truth for the system prompt (agent-level, not model config).
     systemMessage,

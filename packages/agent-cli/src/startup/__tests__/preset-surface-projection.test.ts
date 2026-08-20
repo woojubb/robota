@@ -44,6 +44,8 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
       enableParallelSubagents: true,
       selfVerification: true,
       effort: 'high',
+      temperature: 0.2,
+      maxOutputTokens: 4096,
     };
 
     const print: IPrintModePresetOptions = everyField;
@@ -58,6 +60,18 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
     // three surfaces rather than at the one someone remembered.
     const resolved = { model: 'preset-model', agentName: 'acme-bot' } as IResolvedPresetOptions;
     expect(buildPresetSurfaceOptions(resolved, 'acme', 'default').model).toBe('preset-model');
+  });
+
+  it('projects the model group’s other two dials (ARCH-040 Group E)', () => {
+    // `temperature` and `maxOutputTokens` were applied by the live `/preset` path through
+    // `applyModelOptions` and by NOTHING at startup — one session holding two answers for the same
+    // preset depending on when it was chosen, which is exactly what `effort` did before ARCH-013
+    // stage 1. They reach the session's agent config at construction now, on the same two channels
+    // `applyModelOptions` writes, so the two answers are one answer.
+    const resolved = { temperature: 0.2, maxOutputTokens: 4096 } as IResolvedPresetOptions;
+    const surface = buildPresetSurfaceOptions(resolved, 'acme', 'default');
+    expect(surface.temperature).toBe(0.2);
+    expect(surface.maxOutputTokens).toBe(4096);
   });
 
   it('omits `model` entirely when the preset names none, so the shell’s fallback survives', () => {

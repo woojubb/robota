@@ -49,7 +49,7 @@ projection, and where the fallback lives is an implementation choice made in thi
       missing capability**, see below. The RULE is decided and its home is identified; only the live
       seam is absent.
 - [ ] Group D — `systemPrompt` (seed) and `appendSystemPrompt` (merge order).
-- [ ] Group E — the model group: `model` declared, `temperature` and `maxOutputTokens` wired.
+- [x] Group E — the model group: `model` declared (ARCH-041), `temperature` and `maxOutputTokens` wired.
 - [ ] Group F — `language` as a persona-section instruction.
 - [ ] Empty `presetProjection.pendingProjection`, and make the `IResolvedPresetOptions` docblock TRUE.
 

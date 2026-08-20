@@ -121,6 +121,8 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       : {}),
     ...(preset.selfVerification !== undefined ? { selfVerification: preset.selfVerification } : {}),
     ...(preset.effort !== undefined ? { effort: preset.effort } : {}),
+    ...(preset.temperature !== undefined ? { temperature: preset.temperature } : {}),
+    ...(preset.maxOutputTokens !== undefined ? { maxOutputTokens: preset.maxOutputTokens } : {}),
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...(opts.memorySessionOptions ?? {}),
   };

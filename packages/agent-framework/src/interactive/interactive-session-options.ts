@@ -65,6 +65,9 @@ export interface IInteractiveSessionStandardOptions {
    * Typed FROM the seam, not re-declared beside it — that is how the two drift apart again.
    */
   effort?: ICreateSessionOptions['effort'];
+  /** ARCH-040: see {@link ICreateSessionOptions.temperature} — same cause as `effort`. */
+  temperature?: number;
+  maxOutputTokens?: number;
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
@@ -224,6 +227,8 @@ export interface IInitOptions {
    * Typed FROM the seam, not re-declared beside it — that is how the two drift apart again.
    */
   effort?: ICreateSessionOptions['effort'];
+  temperature?: number;
+  maxOutputTokens?: number;
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */

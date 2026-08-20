@@ -43,6 +43,13 @@ export interface IPresetSurfaceOptions {
   enableParallelSubagents?: boolean;
   selfVerification?: boolean;
   effort?: ICreateSessionOptions['effort'];
+  /**
+   * ARCH-040: the model group's other two dials. The live `/preset` path has always applied both
+   * through `applyModelOptions`; startup applied neither, so one session held two answers for the
+   * same preset depending on when it was chosen — what `effort` did before ARCH-013 stage 1.
+   */
+  temperature?: number;
+  maxOutputTokens?: number;
 }
 
 /**
@@ -69,5 +76,9 @@ export function buildPresetSurfaceOptions(
       ? { selfVerification: resolved.selfVerification }
       : {}),
     ...(resolved.effort !== undefined ? { effort: resolved.effort } : {}),
+    ...(resolved.temperature !== undefined ? { temperature: resolved.temperature } : {}),
+    ...(resolved.maxOutputTokens !== undefined
+      ? { maxOutputTokens: resolved.maxOutputTokens }
+      : {}),
   };
 }
