@@ -59,6 +59,13 @@ import type { IBackgroundTaskManager } from '@robota-sdk/agent-framework';
 // ARCH-031: the subagent SPI is agent-executor's — import it from the owner.
 import type { ISubagentManager } from '@robota-sdk/agent-executor';
 
+// Issue #1854: `BUILT_IN_AGENTS` is composition DATA a capability pack folds into its own roster.
+// `getBuiltInAgent` left this barrel with it — a lookup is what invites a neutral runner to resolve
+// from an imported default set instead of from the product's roster, which is the shape ARCH-021
+// closed on the provider axis and ARCH-035 on the tool axis. `scan-subagent-runner-composition`
+// forbids both names in `agent-subagent-runner`, which is where the route actually ran.
+import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
+
 // Concrete runtime classes remain owner-direct values.
 import { BackgroundTaskManager, SubagentManager } from '@robota-sdk/agent-executor';
 ```

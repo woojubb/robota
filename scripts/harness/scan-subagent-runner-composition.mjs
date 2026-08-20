@@ -45,7 +45,16 @@ import * as ts from './lib/ts-ast.mjs';
 
 const PACKAGE_DIR = 'packages/agent-subagent-runner';
 const SRC_DIR = join(PACKAGE_DIR, 'src');
-const FORBIDDEN_IMPORTS = ['createDefaultTools', 'createDefaultProviderDefinitions'];
+// Issue #1854, the agent axis. `getBuiltInAgent`/`BUILT_IN_AGENTS` joined the list once the runner
+// stopped needing them: it resolves an unknown type from the PARENT's roster, which the parent
+// already computes, instead of importing a default set the product never chose. Adding the names
+// without removing the need would only have installed a check nobody could satisfy.
+const FORBIDDEN_IMPORTS = [
+  'createDefaultTools',
+  'createDefaultProviderDefinitions',
+  'getBuiltInAgent',
+  'BUILT_IN_AGENTS',
+];
 // Built from the configured scope, not hardcoded: a hardcoded scope does not FAIL when the scope
 // changes — it matches nothing, and that reads as a pass.
 const HARNESS = loadHarnessConfig();
