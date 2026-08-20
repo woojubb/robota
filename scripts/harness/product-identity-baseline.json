@@ -1,7 +1,7 @@
 {
   "packages/agent-core": 0,
   "packages/agent-tools": 0,
-  "packages/agent-session": 30,
+  "packages/agent-session": 3,
   "packages/agent-preset": 3,
   "packages/agent-command": 8,
   "packages/agent-framework": 52

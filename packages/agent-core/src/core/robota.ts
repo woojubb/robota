@@ -57,7 +57,6 @@ export class Robota
   extends RobotaBase
   implements IAgent<IAgentConfig, IRunOptions, TUniversalMessage>
 {
-  public readonly name: string;
   public readonly version: string = '1.0.0';
 
   private aiProviders: AIProviders;
@@ -69,7 +68,6 @@ export class Robota
   private executionService!: ExecutionService;
   private eventService: IEventService;
   private agentEventService: IEventService;
-  protected override config: IAgentConfig;
   private conversationId: string;
   private logger: ILogger;
   private initializationPromise?: Promise<void> | undefined;
@@ -83,7 +81,6 @@ export class Robota
 
   constructor(config: IAgentConfig) {
     super();
-    this.name = config.name;
     this.config = config;
     this.conversationId =
       config.conversationId ||

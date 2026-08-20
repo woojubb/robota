@@ -20,6 +20,7 @@ interface IRuntimeSpies {
   setPermissionMode: ReturnType<typeof vi.fn>;
   setActivePresetId?: ReturnType<typeof vi.fn>;
   applyModelOptions?: ReturnType<typeof vi.fn>;
+  applyAgentName?: ReturnType<typeof vi.fn>;
   applyPersona?: ReturnType<typeof vi.fn>;
   applyResponseLanguage?: ReturnType<typeof vi.fn>;
   applyCommandModuleSelection?: ReturnType<typeof vi.fn>;
@@ -77,6 +78,7 @@ function createContext(
     getAutoCompactThreshold: () => 0.8,
     ...(includeActivePreset && { setActivePresetId: recordSpy('setActivePresetId') }),
     ...(includeApplyModelOptions && { applyModelOptions: recordSpy('applyModelOptions') }),
+    applyAgentName: recordSpy('applyAgentName'),
     ...(includeSetParallelSubagentsEnabled && {
       setParallelSubagentsEnabled: recordSpy('setParallelSubagentsEnabled'),
     }),
@@ -211,6 +213,27 @@ describe('applyPresetToSession model group (PRESET-013)', () => {
 
     expect(context.getSession().applyModelOptions).toBeTypeOf('function');
     expect(result.applied).toContain('effort');
+  });
+});
+
+describe('applyPresetToSession identity group (ARCH-040)', () => {
+  // The REVERSE divergence, and the one nobody had named: startup applied the preset's `agentName`
+  // and the live path did not, so switching to the SAME preset mid-session left the old name. One
+  // preset, two answers, decided by WHEN it was chosen. Owner decision 2026-08-20: `/preset` renames.
+  it('renames the live agent when the preset carries an agentName', async () => {
+    const { context, spies } = createContext();
+    const result = await applyPresetToSession(context, 'acme', { agentName: 'acme-bot' });
+    expect(spies.applyAgentName).toHaveBeenCalledWith('acme-bot');
+    expect(result.applied).toContain('agentName');
+  });
+
+  it('leaves the name alone when the preset carries none, and says so', async () => {
+    // `skipped` is the honest report: "this preset said nothing about the name" is a different
+    // statement from "the name was set to undefined", and only one of them is true.
+    const { context, spies } = createContext();
+    const result = await applyPresetToSession(context, 'acme', { permissionMode: 'default' });
+    expect(spies.applyAgentName).not.toHaveBeenCalled();
+    expect(result.skipped).toContain('agentName');
   });
 });
 

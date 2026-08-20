@@ -59,7 +59,7 @@ const ID_RANDOM_LENGTH = 9;
 
 /** Wraps a Robota agent with project context, permission state, and optional persistence. */
 export class Session extends SessionBase {
-  protected readonly robota: Robota;
+  protected readonly agent: Robota;
   /**
    * SELFHOST-004: session-owned observable event bus. Injected into the agent so tools (incl. the
    * `FunctionTool` span-completion emit) publish here; the interactive turn subscribes to it to
@@ -150,7 +150,7 @@ export class Session extends SessionBase {
     );
     this.contextTracker = contextTracker;
     this.compactionOrchestrator = compactionOrchestrator;
-    this.robota = buildRobota(
+    this.agent = buildRobota(
       options,
       this.permissionEnforcer,
       tools,
@@ -211,7 +211,7 @@ export class Session extends SessionBase {
       systemPrompt: this.systemMessage,
       toolSchemas: this.toolSchemas,
       sessionStore: this.sessionStore,
-      robota: this.robota,
+      agent: this.agent,
       getFullHistory: () => this.getFullHistory(),
     });
   }
@@ -254,14 +254,14 @@ export class Session extends SessionBase {
       // CORE-022 (SPEC § Disposal Chain Contract): shutdown drives agent destruction —
       // plugins are disposed so no timers/listeners survive and the process can exit.
       await step('destroy-agent', async () => {
-        await this.robota.destroy();
+        await this.agent.destroy();
       });
     })();
     return this.shutdownPromise;
   }
 
   swapProvider(newProvider: IAIProvider, model: string): void {
-    this.robota.swapDefaultProvider(newProvider, model);
+    this.agent.swapDefaultProvider(newProvider, model);
     newProvider.configureNativeWebTools?.({ webSearch: true });
     if ('onServerToolUse' in newProvider) {
       (
@@ -292,7 +292,7 @@ export class Session extends SessionBase {
       sessionId: this.sessionId,
       cwd: this.cwd,
       model: this.model,
-      robota: this.robota,
+      agent: this.agent,
       aiProvider: this.aiProvider,
       contextTracker: this.contextTracker,
       hooks: this.hooks,

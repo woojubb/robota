@@ -28,6 +28,8 @@ export interface IPresetApplicationOptions {
   maxOutputTokens?: number;
   /** PRESET-014 — preset persona re-applied to the live system prompt. */
   persona?: string;
+  /** ARCH-040 — the agent's identity label, re-applied to the live agent. */
+  agentName?: string;
   /** ARCH-040 — response language, re-applied as a prompt section. */
   language?: string;
   /** ARCH-040 — a preset-supplied system prompt that SEEDS the composed prompt (priority 4). */
@@ -132,6 +134,16 @@ export async function applyPresetToSession(
     applied.push('systemPrompt');
   } else {
     skipped.push('systemPrompt');
+  }
+
+  // ARCH-040 identity group — the REVERSE divergence, and the one nobody had named: startup applied
+  // the preset's `agentName` and the live path did not, so switching to the SAME preset mid-session
+  // left the old name. Owner decision 2026-08-20: `/preset` renames.
+  if (options.agentName !== undefined) {
+    await context.getSession().applyAgentName(options.agentName);
+    applied.push('agentName');
+  } else {
+    skipped.push('agentName');
   }
 
   // PRESET-015 command-module group — re-applied via the host context's

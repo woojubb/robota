@@ -82,7 +82,7 @@ function createProvider(): IAIProvider {
 }
 
 function createContext(
-  robota: Robota,
+  agent: Robota,
   hooks: THooksConfig,
   executor: IHookTypeExecutor,
 ): IRunContext {
@@ -90,7 +90,7 @@ function createContext(
     sessionId: 'test-session',
     cwd: '/tmp/test',
     model: 'test-model',
-    robota,
+    agent,
     aiProvider: createProvider(),
     contextTracker: new ContextWindowTracker('test-model', undefined, false),
     hooks: hooks as unknown as Record<string, unknown>,

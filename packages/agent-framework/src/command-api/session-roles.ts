@@ -53,6 +53,13 @@ export interface ICommandSessionModel {
    * configuration, so callers must await the result.
    */
   applyModelOptions(options: IModelReapplyOptions): void | Promise<void>;
+  /**
+   * ARCH-040 — re-apply the preset's `agentName` to the live agent.
+   *
+   * REQUIRED, like every other member of this role port: an optional one would make each consumer
+   * decide what "no rename seam" means, and `/preset` would decide it alone.
+   */
+  applyAgentName(name: string): void | Promise<void>;
 }
 
 /** Live preset state carried by the session. */

@@ -44,6 +44,27 @@ export abstract class RobotaBase extends AbstractAgent<
 > {
   protected moduleManager!: IModuleManagerProxy;
   protected pluginManager!: IPluginManagerProxy;
+  /**
+   * Narrowed from `AbstractAgent`'s optional `config`: a Robota agent always has one, assigned in the
+   * constructor. Declared HERE so `name` below can read it without a fallback that would lie.
+   */
+  declare protected config: IAgentConfig;
+
+  /**
+   * The agent's identity label, read THROUGH `config` rather than copied at construction.
+   *
+   * ARCH-040 (issue #1820): a preset carries `agentName`, and it reached the agent only when the
+   * agent was built — so starting with a preset set the name while switching to the SAME preset
+   * mid-session left the old one. One preset with two answers, decided by when it was chosen.
+   *
+   * Reading through `config` makes `updateConfiguration({ name })` the rename, so there is one way
+   * to change it and `getConfig()`, `getStats()` and `getName()` cannot disagree about what this
+   * agent is called. It lives on the BASE because `config` does; the subclass keeps no copy to
+   * forget to update.
+   */
+  get name(): string {
+    return this.config.name;
+  }
 
   addPlugin(plugin: TPlugin): void {
     this.pluginManager.addPlugin(plugin);
