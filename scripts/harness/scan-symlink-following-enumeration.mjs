@@ -27,7 +27,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { enumerateFiles } from './enumerate-files.mjs';
-import { extensionOf, scriptFilters } from './script-language.mjs';
+import { SCRIPT_LANGUAGES, extensionOf, scriptFilters } from './script-language.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -73,6 +73,136 @@ export function fallbackPattern({ command, short, long }) {
     if (form && form !== '-') spellings.push(form.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   }
   return new RegExp(String.raw`\b${command}\s+(?:[^\s]+\s+)*?(?:${spellings.join('|')})\b`);
+}
+
+export const PAYLOAD_TABLE = path.join(
+  WORKSPACE_ROOT,
+  'scripts/harness/payload-language-hazards.tsv',
+);
+const PAYLOAD_LINES = path.join(WORKSPACE_ROOT, '.claude/hooks/lib/payload-lines.sh');
+
+/**
+ * Hazards that only mean something IN A LANGUAGE — read from the table the hook also reads.
+ *
+ * `find -L` is a command and a flag, and shell grammar is enough to attribute it. An IMPORT is not:
+ * `from glob import glob; glob(...)` is this enumerator wearing an import the call site does not
+ * spell, and the identical text in JavaScript (`import glob from 'glob'`) is a package this
+ * repository depends on that does NOT follow. (INFRA-123)
+ */
+export function payloadRows(tablePath = PAYLOAD_TABLE) {
+  return readFileSync(tablePath, 'utf8')
+    .split('\n')
+    .filter((line) => line && !line.startsWith('#'))
+    .map((line) => line.split('\t'))
+    .filter((fields) => fields.length >= 4 && fields[0] && fields[0] !== 'id')
+    .map(([id, language, pattern, remedy]) => ({ id, language, pattern, remedy }));
+}
+
+/**
+ * The language a committed file is ITSELF written in, or null.
+ *
+ * A `.py` file is not a shell script embedding a python payload — the whole file IS the payload.
+ * Measured when this was written: this tree has ZERO tracked `.py` files and zero python-shebang
+ * files, which is why the item that filed this said a file-scoped rule "would enforce nothing while
+ * the rule table said it did". It is implemented anyway, because it costs one lookup and it makes
+ * the rule non-vacuous the day such a file appears — which is the opposite of the shape the item
+ * was refusing.
+ */
+export function fileLanguageOf(relativePath, content) {
+  const extension = extensionOf(relativePath);
+  for (const row of SCRIPT_LANGUAGES) {
+    if (row.extensions.includes(extension)) return row.language;
+  }
+  if (extension !== '') return null;
+  for (const row of SCRIPT_LANGUAGES) {
+    for (const interpreter of row.interpreters) {
+      if (new RegExp(String.raw`^#!.*\b(?:${interpreter})\b`).test(content)) return row.language;
+    }
+  }
+  return null;
+}
+
+/**
+ * HEREDOC bodies, with the interpreter that will run them.
+ *
+ * The hook cannot reach these — the masker treats a heredoc body as quoted content and never opens a
+ * payload for it, and that limit is stated at the `payloads` branch. In a COMMITTED FILE the body is
+ * ordinary text, which is exactly the asymmetry the two enforcers exist to cover for each other: the
+ * scan reads what the hook is blind to.
+ *
+ * STATED LIMIT: the interpreter is read from the same line as the `<<`. A heredoc opened on one line
+ * and piped to an interpreter on another is not attributed, and no case in this tree has that shape.
+ */
+export function heredocPayloads(content) {
+  const lines = content.split('\n');
+  const payloads = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    // Parsed by INDEX and by WORDS, not by a regex with a lazy prefix and a nested quantifier.
+    //
+    // The first cut used `/(?:^|[\s;&|(])([A-Za-z0-9_.\/-]+)\s*(?:-\S+\s*)*$/`, which CodeQL
+    // flagged as `js/redos` — correctly. Measured before replacing it: `\S+` may stop at any
+    // interior dash, so a run of them has exponentially many parses, and a tail that cannot match
+    // forces the engine through all of them.
+    //
+    //   16 interior dashes    2.8 ms
+    //   20                   41.4 ms
+    //   24                  631.8 ms
+    //   26                 2543.2 ms
+    //
+    // Roughly fourfold per added dash. This scan reads every tracked file, so that is a scan any
+    // committed line can stall.
+    const marker = lines[i].indexOf('<<');
+    if (marker === -1) continue;
+    let tail = lines[i].slice(marker + 2);
+    if (tail.startsWith('-')) tail = tail.slice(1);
+    tail = tail.trim();
+    if (tail.startsWith("'") || tail.startsWith('"')) {
+      const quote = tail[0];
+      const close = tail.indexOf(quote, 1);
+      if (close === -1) continue;
+      if (tail.slice(close + 1).trim() !== '') continue;
+      tail = tail.slice(1, close);
+    }
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(tail)) continue;
+    const delimiter = tail;
+
+    // The command word: the last word before the `<<` that is not an option. Walking words backwards
+    // cannot backtrack, which is the whole point of doing it this way.
+    const words = lines[i]
+      .slice(0, marker)
+      .split(/[\s;&|(]+/)
+      .filter(Boolean);
+    let interpreter;
+    for (let w = words.length - 1; w >= 0; w -= 1) {
+      if (words[w].startsWith('-')) continue;
+      interpreter = words[w];
+      break;
+    }
+    if (!interpreter) continue;
+    const body = [];
+    let end = i + 1;
+    while (end < lines.length && lines[end].trim() !== delimiter) {
+      body.push(lines[end]);
+      end += 1;
+    }
+    payloads.push({
+      interpreter: interpreter.replace(/^.*\//, ''),
+      text: body.join('\n'),
+      line: i + 1,
+    });
+    i = end;
+  }
+  return payloads;
+}
+
+/** The language an interpreter name belongs to, from the table INFRA-115 owns. */
+export function languageOfInterpreter(name) {
+  for (const row of SCRIPT_LANGUAGES) {
+    for (const spelling of row.interpreters) {
+      if (new RegExp(`^(?:${spelling})$`).test(name)) return row.language;
+    }
+  }
+  return null;
 }
 
 /**
@@ -208,7 +338,12 @@ function isScannedScript(relativePath, content) {
  * synchronous so a case can drive it against a fixture. `main()` supplies it; a caller that omits it
  * gets the fallback pattern, which is also what a non-shell file gets. (INFRA-109)
  */
-export function findingsIn(relativePath, content, attributeLine = undefined) {
+export function findingsIn(
+  relativePath,
+  content,
+  attributeLine = undefined,
+  embeddedPayloads = undefined,
+) {
   if (ALLOWED_FILES.has(relativePath)) return [];
   if (!isScannedScript(relativePath, content)) return [];
 
@@ -244,6 +379,62 @@ export function findingsIn(relativePath, content, attributeLine = undefined) {
       });
     }
   }
+  findings.push(...payloadFindings(relativePath, content, embeddedPayloads));
+  return findings;
+}
+
+/**
+ * Findings from spellings that only mean something IN A LANGUAGE (INFRA-123).
+ *
+ * Three payload sources, in the order they cost anything:
+ *
+ *   the FILE itself   a `.py` file is not a shell script embedding python — it IS python
+ *   a HEREDOC body    the half the hook is blind to, because its masker treats one as quoted text
+ *   a `-c` argument   read by `hook_interpreter_payloads`, the same reader the hook uses, supplied
+ *                     by `main()` as `embeddedPayloads` so the process is spawned once for the run
+ *
+ * STATED LIMIT: a payload embedded in a NON-shell file is not read — a `run:` block in a workflow, an
+ * `execSync` argument in a `.mjs`. Those need the language of a payload inside ANOTHER language's
+ * syntax, which this reader gets from shell grammar and shell grammar alone. It is the same boundary
+ * INFRA-109 records for its fallback, and it is why that limit is stated in both places rather than
+ * discovered once.
+ */
+function payloadFindings(relativePath, content, embeddedPayloads) {
+  const rows = payloadRows();
+  if (rows.length === 0) return [];
+
+  const payloads = [];
+  const own = fileLanguageOf(relativePath, content);
+  if (own !== null) payloads.push({ language: own, text: content, line: 1 });
+  for (const heredoc of heredocPayloads(content)) {
+    const language = languageOfInterpreter(heredoc.interpreter);
+    if (language !== null) payloads.push({ language, text: heredoc.text, line: heredoc.line });
+  }
+  for (const embedded of embeddedPayloads?.(relativePath) ?? []) {
+    const language = languageOfInterpreter(embedded.interpreter);
+    if (language !== null) payloads.push({ language, text: embedded.text, line: embedded.line });
+  }
+
+  const findings = [];
+  const seen = new Set();
+  for (const payload of payloads) {
+    for (const row of rows) {
+      if (row.language !== payload.language) continue;
+      if (!new RegExp(row.pattern).test(payload.text)) continue;
+      // One finding per (rule, line): the file-language payload and a heredoc inside it can both
+      // match the same spelling, and reporting it twice reads as two defects.
+      const key = `${row.id}:${payload.line}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      findings.push({
+        file: relativePath,
+        line: payload.line,
+        id: row.id,
+        remedy: row.remedy,
+        text: (payload.text.split('\n').find((l) => new RegExp(row.pattern).test(l)) ?? '').trim(),
+      });
+    }
+  }
   return findings;
 }
 
@@ -269,7 +460,12 @@ export function examinedScriptCount() {
  * back empty-handed; this function throws if one does, because skipping there is the invisibility
  * the whole rule is about. A caller writing a reader reads this, not the loop below.
  */
-export function scanTrackedFiles(trackedPaths, readFile, attributeLine = undefined) {
+export function scanTrackedFiles(
+  trackedPaths,
+  readFile,
+  attributeLine = undefined,
+  embeddedPayloads = undefined,
+) {
   examinedScripts = 0;
   const findings = [];
   for (const file of trackedPaths) {
@@ -298,7 +494,7 @@ export function scanTrackedFiles(trackedPaths, readFile, attributeLine = undefin
     }
     if (!isScannedScript(file, content)) continue;
     examinedScripts += 1;
-    findings.push(...findingsIn(file, content, attributeLine));
+    findings.push(...findingsIn(file, content, attributeLine, embeddedPayloads));
   }
   return findings;
 }
@@ -380,6 +576,64 @@ function sharedAttribution(trackedPaths, readFile) {
   };
 }
 
+/**
+ * The `-c`-style payloads embedded in each tracked SHELL file, read by the hook's own reader.
+ *
+ * One process for the whole run (`payload-lines.sh`), same reason as `sharedAttribution`. Whole
+ * FILES go in, not lines: a payload can span lines, and reading line by line would cut every
+ * multi-line `-c` argument in half.
+ *
+ * Returns `undefined` — meaning "no embedded-payload source" — when the helper cannot run, rather
+ * than an empty map. An empty map says "no file embeds a payload", and a scan must not report a pass
+ * over a population it could not read.
+ */
+function embeddedPayloadSource(trackedPaths, readFile) {
+  const shell = scriptFilters(['shell']);
+  const documents = [];
+  const owners = [];
+  const contents = [];
+
+  for (const file of trackedPaths) {
+    if (ALLOWED_FILES.has(file)) continue;
+    if (!SCRIPTS.hasScriptExtension(file) && extensionOf(file) !== '') continue;
+    const content = readFile(file, !SCRIPTS.hasScriptExtension(file));
+    if (content === null || content === undefined) continue;
+    if (!shell.isScript(file, content)) continue;
+    owners.push(file);
+    contents.push(content);
+    documents.push(content);
+  }
+
+  const result = spawnSync('bash', [PAYLOAD_LINES], {
+    input: documents.map((doc) => `${doc}\0`).join(''),
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (result.status !== 0) {
+    console.error(
+      `symlink-following-enumeration: could not run ${PAYLOAD_LINES} ` +
+        `(${result.stderr?.trim() || result.error?.message || `exit ${result.status}`}). ` +
+        'Embedded payloads are NOT read on this run — reported rather than taken silently.',
+    );
+    return undefined;
+  }
+
+  const byFile = new Map();
+  for (const row of result.stdout.split('\n')) {
+    if (!row.trim()) continue;
+    const [slot, interpreter, start, length] = row.trim().split(/\s+/);
+    const file = owners[Number(slot)];
+    if (file === undefined) continue;
+    const content = contents[Number(slot)];
+    const text = content.slice(Number(start) - 1, Number(start) - 1 + Number(length));
+    const line = content.slice(0, Number(start) - 1).split('\n').length;
+    if (!byFile.has(file)) byFile.set(file, []);
+    byFile.get(file).push({ interpreter, text, line });
+  }
+
+  return (file) => byFile.get(file) ?? [];
+}
+
 function main() {
   const read = (file, optional = false) => {
     try {
@@ -395,7 +649,12 @@ function main() {
   };
 
   const tracked = trackedFiles();
-  const findings = scanTrackedFiles(tracked, read, sharedAttribution(tracked, read));
+  const findings = scanTrackedFiles(
+    tracked,
+    read,
+    sharedAttribution(tracked, read),
+    embeddedPayloadSource(tracked, read),
+  );
 
   console.log(`::examined:: ${examinedScriptCount()} tracked script(s)`);
 

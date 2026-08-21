@@ -123,11 +123,56 @@ attributed_options() {
 # The shared hazard table, one row per line as `command<TAB>short<TAB>long<TAB>remedy`.
 # Comments, the header row and blank lines are dropped, so both readers see the same rows.
 hazard_rows() {
-  local table="${1:?hazard_rows needs the table path}"
-  if [[ ! -r "$table" ]]; then
-    # A guard that cannot read its own list must not report "nothing hazardous here". Callers treat
-    # a non-zero exit as a refusal, the same direction the rest of this directory takes.
-    return 1
-  fi
-  awk -F'\t' '!/^#/ && NF >= 5 && $1 != "id" && $1 != "" { print }' "$table"
+  table_rows "${1:?hazard_rows needs the table path}" 5
+}
+
+# Every data row of a tab-separated harness table: comments, the header and blank lines dropped, so
+# both readers of a table see the same rows.
+#
+# `$2` is the column count a row must have. A table that cannot be READ is a non-zero exit and no
+# output, never an empty list — callers treat that as a refusal, the same direction the rest of this
+# directory takes. "Nothing hazardous here" and "I could not look" must not be the same output.
+table_rows() {
+  local table="${1:?table_rows needs the table path}" columns="${2:?table_rows needs a column count}"
+  [[ -r "$table" ]] || return 1
+  awk -F'\t' -v N="$columns" '!/^#/ && NF >= N && $1 != "id" && $1 != "" { print }' "$table"
+}
+
+# The LANGUAGE an interpreter name belongs to, or "" when the table has no row for it.
+#
+# INFRA-115 owns that table in `scripts/harness/script-language.mjs`, where a language declares its
+# interpreters and the extensions that name its files together, so the two halves cannot disagree.
+# This is the shell-side reader of the same rows, and it goes through `node` deliberately: the
+# alternative is a second copy of the table in TSV, which is the defect INFRA-115 removed.
+#
+# The cost is one `node` start, and it is paid ONLY when a command actually carries an interpreter
+# payload — the common case is no payload at all and no call. Measured at ~40ms for the call against
+# ~18ms for a whole hook run with no payload.
+#
+# fail-direction: an unreadable table returns "" for every interpreter, which makes every
+# language-scoped rule inapplicable rather than universally applicable. A rule that fired on every
+# payload because the language could not be read would refuse correct work, and this file argues
+# throughout that such a guard gets switched off.
+payload_language() {
+  local interpreter="$1" root
+  [[ -n "$interpreter" ]] || return 0
+  # From `.claude/hooks/lib` the repository root is THREE levels up, not two. The two-level form
+  # resolved to `.claude` and every lookup came back empty — which, by the fail direction above, made
+  # every language-scoped rule inapplicable rather than loud. Caught by probing the function.
+  root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
+  node -e '
+    import(process.argv[1] + "/scripts/harness/script-language.mjs")
+      .then(({ SCRIPT_LANGUAGES }) => {
+        const name = process.argv[2];
+        for (const row of SCRIPT_LANGUAGES) {
+          for (const spelling of row.interpreters) {
+            if (new RegExp("^(?:" + spelling + ")$").test(name)) {
+              process.stdout.write(row.language);
+              return;
+            }
+          }
+        }
+      })
+      .catch(() => {});
+  ' "$root" "$interpreter" 2>/dev/null
 }

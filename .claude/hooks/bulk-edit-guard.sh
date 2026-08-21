@@ -342,6 +342,34 @@ if printf '%s' "$MASK" | grep -qE '\bglob\.(glob|iglob)\('; then
   add_finding "python glob.glob follows symlinks. pathlib Path(...).rglob does not (measured)."
 fi
 
+# --- 4. Spellings that only mean something INSIDE A LANGUAGE ------------------------------------
+# INFRA-123. The call spelling above needs no subject: `glob.glob(` means one thing wherever it
+# appears. An IMPORT does not. `from glob import glob; glob(...)` is the same enumerator wearing an
+# import the call site does not spell, and the identical text in JavaScript
+# (`import glob from 'glob'`) is a package this repository depends on that does NOT follow.
+#
+# Three earlier cuts tried to reach this from the COMMAND — a whole-command conjunction, a
+# nearest-interpreter walk, a separator reset — and each refused a correct command, because once a
+# payload is expanded its own `;`, `|` and `&` are indistinguishable from the shell ones. The unit
+# with a language is the PAYLOAD, and `hook_interpreter_payloads` is the reader for it.
+PAYLOAD_TABLE="$(dirname "${BASH_SOURCE[0]}")/../../scripts/harness/payload-language-hazards.tsv"
+if ! PAYLOAD_ROWS=$(table_rows "$PAYLOAD_TABLE" 4); then
+  echo "[bulk-edit-guard] Blocked: could not read the payload hazard table at $PAYLOAD_TABLE." >&2
+  exit 2
+fi
+
+while read -r PL_INTERP PL_START PL_LEN; do
+  [[ -z "$PL_INTERP" ]] && continue
+  PL_LANG=$(payload_language "$PL_INTERP")
+  PL_TEXT="${COMMAND:$((PL_START - 1)):$PL_LEN}"
+  while IFS=$'\t' read -r PR_ID PR_LANG PR_PATTERN PR_REMEDY; do
+    [[ -z "$PR_ID" || "$PR_LANG" != "$PL_LANG" ]] && continue
+    if printf '%s' "$PL_TEXT" | grep -qE "$PR_PATTERN"; then
+      add_finding "$PR_ID follows symlinks. $PR_REMEDY"
+    fi
+  done <<< "$PAYLOAD_ROWS"
+done < <(hook_interpreter_payloads "$COMMAND")
+
 [[ -n "$FOUND" ]] || exit 0
 
 echo "[bulk-edit-guard] Blocked: this command enumerates files by following symlinks, which in a" >&2
