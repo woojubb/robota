@@ -120,3 +120,15 @@ repeat it without noticing.
 Left `in-progress` deliberately. The implementation, the required-context wiring and TC-01…TC-09 are
 complete; only the observation is outstanding, and manufacturing work to observe it would be worse
 than waiting for it to arise.
+
+### 2026-08-22 — re-measured, and the disposition confirmed with the owner
+
+`develop` is 70 commits ahead of `main`. Every `Closes` / `Fixes` / `Resolves` reference in the
+commits `develop` carries and `main` does not names an issue that is ALREADY CLOSED — re-checked
+against the live issue states, not against the record. So a promotion run today would derive an
+empty block for the second time, and TC-10 would still not be observed.
+
+Put to the owner on 2026-08-22 with three options: leave it, promote now, or manufacture a candidate
+by reopening one of the issues this session hand-closed. **Chosen: leave it `in-progress`.**
+Manufacturing the condition would satisfy the checkbox by arranging the evidence, which is the shape
+this repository refuses everywhere else.

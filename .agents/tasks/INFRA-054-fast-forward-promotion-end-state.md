@@ -103,3 +103,21 @@ Two further constraints measured on 2026-08-21, both of which narrow the design 
   `develop` is 62 commits ahead of `main`, and performing a promotion is a release action.
 
 Recorded as `blocked` rather than `todo`: the work is not unstarted, it is unauthorised.
+
+### 2026-08-22 — confirmed with the owner: blocked, decisions outstanding
+
+Re-stated so the block is actionable rather than vague. Three decisions, all from this item's own
+
+## Direction section, none of them technical:
+
+1. must `hotfix/*` route through `develop` first — without it, fast-forward breaks on the first
+   hotfix and `main-pr-source-guard` needs tightening;
+2. if Dependabot is re-enabled, does it target `develop`;
+3. is losing the promotion PR — and with it CodeQL's annotations on the promotion — acceptable,
+   given every promoted commit already passed CI on its own pull request.
+
+The third is load-bearing and is a policy judgement.
+
+Once those are settled the implementation is ordinary and this agent can do it: the vehicle is a
+`workflow_dispatch` workflow, a trigger this repository already uses, so unlike INFRA-042 and
+INFRA-065 this item is NOT blocked by the 2026-08-04 cron directive.

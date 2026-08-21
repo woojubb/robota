@@ -113,3 +113,20 @@ guarded workflow fails the PR — is still not taken, and for the reason the ent
 quietly would be the thing the item is about.
 
 Recorded as `blocked` rather than `todo` so it is not read as unstarted work.
+
+### 2026-08-22 — one candidate action re-examined and declined, with the owner
+
+`scan-workflow-provenance` DOES accept `--base-ref` — its own header documents it, and given one it
+fails a change that edits a guarded workflow and names which contexts that change can move. Wiring
+that into CI is the only step short of trusted provenance that an agent could take, so it was put to
+the owner rather than left unexamined.
+
+**Declined, and the reason is what the item is about rather than the wiring difficulty.** It would
+improve DETECTION — an edit becomes a PR-time failure instead of a standing advisory line — and it
+would not make the control plane trusted, because the guard would live in the same file the pull
+request under test can edit. Landing it would close no part of this item's stated objective while
+making the item look closer to done than it is.
+
+`blocked` therefore remains accurate: the objective needs an organization-level required workflow, a
+`pull_request_target` split, or an external GitHub App, and every one of those is configuration
+outside this repository.

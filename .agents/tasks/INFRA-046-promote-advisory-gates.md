@@ -133,11 +133,27 @@ A four-way recurrence audit measured what these two floors are currently worth:
   `ci.yml`'s `regression-red-proof (advisory)`, exits 0 on failure, and its enforcing branch is
   gated on `REGRESSION_RED_PROOF_ENFORCE` — **set in no workflow**. Same shape for
   `check-patch-coverage`.
+
+  > **Half of this is STALE as of 2026-08-04, re-measured 2026-08-22.** The flag IS set:
+  > `.github/workflows/ci.yml` carries `REGRESSION_RED_PROOF_ENFORCE: '1'` with the owner decision
+  > recorded beside it, and the job is now named `regression-red-proof (enforcing: accidental-green
+only)`. So it CAN fail, and "nothing can fail on it" below is no longer true of this gate.
+  >
+  > What still holds: it is not registered in `run-all-scans` — verified by grep, no entry — and
+  > that is correct rather than a gap. It reads `PR_BODY` and a merge-base diff, so it has no
+  > hermetic tree to judge; registering it would put a check that cannot reach a verdict into a
+  > suite whose passes are read as verdicts. `promotion-closes` is excluded from `harness:scan` for
+  > the same reason and says so.
+  >
+  > `check-patch-coverage` is unchanged: still advisory, still `PATCH_COVERAGE_ENFORCE`-gated, and
+  > excluded from the required list on the ground that a required context must be able to fail.
+
 - The defect it exists to catch recurred **twice in one session** (ARCH-004 RUNTIME-14, CORE-026
   RUNTIME-12) and is `common-mistakes` #82.
 
 So the repository has a built, tested floor for its accidental-green class and **nothing can fail on
-it**. The change is two environment variables and moving two contexts to required — the smallest
+it**. (Half-corrected above: the flag has since been set, so `regression-red-proof` CAN fail; only
+the required-list half remains.) The change is two environment variables and moving two contexts to required — the smallest
 mechanical prevention on the whole audit's list, against a class with confirmed recurrence.
 
 ## Promotion Audit 2026-07-31 — NOT PROMOTED (neither flag flipped)
@@ -255,3 +271,26 @@ duplicate build, not the advisory posture.
 
 So the block is not "waiting for a credential". It is waiting for evidence, and the credential after
 it. Recorded as `blocked` rather than `todo` so the distinction is readable.
+
+### 2026-08-22 — the remaining action, stated exactly, and why it is not taken
+
+Re-measured rather than repeated:
+
+| claim                                               | state                                                                                                    |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `REGRESSION_RED_PROOF_ENFORCE` set in no workflow   | **STALE** — set in `ci.yml`, with the 2026-08-04 owner decision recorded at the line                     |
+| `check-regression-red-proof` not in `run-all-scans` | **HOLDS**, and is correct: it reads `PR_BODY` and a merge-base diff, so it has no hermetic tree to judge |
+| the two contexts are not required                   | **HOLDS** — `protect-develop` (id 18715844) requires nine contexts and neither of these is among them    |
+
+The nine: `build`, `quality`, `scans`, `dependency audit`, `commitlint`, `tui-e2e`,
+`examples-typecheck`, `windows-shell`, `review-gate`.
+
+**The remaining action is one `gh api -X PUT` against that ruleset, and it needs repo-admin scope
+this agent does not have.** The command shape is in ## Owner Action above.
+
+**It should also not be run yet, on this item's own reasoning.** `accidental-green` has never fired
+on a real pull request, so requiring it would put an untested refusal in the merge path; one observed
+firing is what promotes it. Confirmed with the owner on 2026-08-22, who chose not to add it now.
+
+So `blocked` is the accurate status and it is blocked on EVIDENCE first, a credential second — not
+merely waiting for permission.
