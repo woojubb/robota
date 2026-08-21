@@ -1,6 +1,6 @@
 import type { IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
 import type { IPeerAdmission } from '@robota-sdk/agent-interface-transport';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { createHandoffConsent } from '../handoff/handoff-consent.js';
 
