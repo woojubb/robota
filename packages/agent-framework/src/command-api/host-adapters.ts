@@ -149,6 +149,58 @@ export interface ICommandPresetRegistryAdapter {
   resolvePreset(id: string, context?: unknown): IPresetApplicationOptions;
 }
 
+/**
+ * HANDOFF-001 (issue #1864): what a hand-off looks like to the operator, in the operator's words.
+ *
+ * Deliberately not the wire package's `THandoffPhase`. The command layer must not import the wire
+ * contract to print a sentence, and the two vocabularies answer different questions — `staged` is a
+ * protocol state, while "the other machine has it and is not running it yet" is what the person
+ * standing at the keyboard needs to be told.
+ */
+export interface IHandoffProgress {
+  readonly state: 'offered' | 'sending' | 'awaiting-confirmation' | 'done' | 'stopped';
+  /** Present when the transfer stopped without completing. Named so the operator can act on it. */
+  readonly reason?: string;
+  /** Is THIS machine still in charge of the session? The single question the whole design answers. */
+  readonly stillMine: boolean;
+}
+
+/** What stays behind, surfaced BEFORE the operator confirms, because it is their choice to lose it. */
+export interface IHandoffStaysBehind {
+  readonly uncommittedChanges: boolean;
+  readonly subprocesses: number;
+}
+
+/**
+ * What `/handoff` reads. The carrier, the wire composition and the device identity all live in the
+ * composition root — a command never constructs a transport.
+ */
+export interface ICommandHandoffAdapter {
+  /** The machines this session could be moved to. Empty is an answer, not an error. */
+  destinations(): Promise<readonly { readonly deviceId: string; readonly name?: string }[]>;
+  /**
+   * What will not travel, so the operator is asked with the facts in front of them.
+   *
+   * Read before the confirmation prompt rather than after: uncommitted work and running
+   * subprocesses stay on this machine by design, and a consent that did not mention them is not
+   * consent to lose them.
+   */
+  staysBehind(): Promise<IHandoffStaysBehind>;
+  /**
+   * Move this session to `deviceId`, reporting progress as it goes.
+   *
+   * Returns the final progress rather than throwing: "the destination cannot run it" and "the link
+   * broke" are both answers the operator needs, and an exception would flatten them into one. In
+   * every non-`done` outcome `stillMine` is true — that is the invariant the command prints.
+   */
+  transfer(
+    deviceId: string,
+    onProgress?: (progress: IHandoffProgress) => void,
+  ): Promise<IHandoffProgress>;
+  /** Is this machine still authoritative? Asked without starting anything. */
+  status(): IHandoffProgress;
+}
+
 export interface ICommandHostAdapters {
   settings?: ICommandSettingsAdapter;
   process?: ICommandProcessAdapter;
@@ -163,4 +215,9 @@ export interface ICommandHostAdapters {
    * shell to the command.
    */
   presetRegistry?: ICommandPresetRegistryAdapter;
+  /**
+   * HANDOFF-001 (issue #1864). Absent on a host with no carrier — `/handoff` then says so rather
+   * than offering a transfer it cannot perform.
+   */
+  handoff?: ICommandHandoffAdapter;
 }

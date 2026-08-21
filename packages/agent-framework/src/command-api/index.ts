@@ -57,6 +57,7 @@ export type {
 } from './host-context.js';
 export type {
   ICommandHostAdapters,
+  ICommandHandoffAdapter,
   ICommandPermissionModeAdapter,
   ICommandPickerAdapter,
   ICommandProcessAdapter,
@@ -65,6 +66,8 @@ export type {
   ICommandRemoteControlAdapter,
   ICommandSettingsAdapter,
   ICommandSettingsDocument,
+  IHandoffProgress,
+  IHandoffStaysBehind,
   ILocalPeerSummary,
   TRemoteControlStatus,
 } from './host-adapters.js';

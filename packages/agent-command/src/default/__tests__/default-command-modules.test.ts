@@ -44,7 +44,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     // `/plan`; PEER-004 added `/peers`). The list below is the assertion that matters — a length on
     // its own can be restored by any substitution, and the count exists only to catch an addition
     // that also removed something.
-    expect(names).toHaveLength(27);
+    expect(names).toHaveLength(28);
     expect(names).toEqual([
       'agent-command-skills',
       'agent-command-help',
@@ -71,6 +71,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
       'agent-command-plugin',
       'agent-command-settings',
       'agent-command-peers',
+      'agent-command-handoff',
       'agent-command-remote-control',
       'agent-command-provider',
     ]);

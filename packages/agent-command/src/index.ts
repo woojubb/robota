@@ -2,6 +2,14 @@ export * from './agent/index.js';
 export * from './default/index.js';
 export * from './background/index.js';
 export * from './goal/index.js';
+// HANDOFF-001 (issue #1864). Named rather than `export *`: the star form is frozen pre-existing
+// debt in this barrel, and `sdk-public-surface` lets it shrink but never grow.
+export {
+  HandoffCommandSource,
+  createHandoffCommandEntry,
+  createHandoffCommandModule,
+  executeHandoffCommand,
+} from './handoff/index.js';
 export * from './plan/index.js';
 export * from './compact/index.js';
 export * from './context/index.js';

@@ -52,7 +52,8 @@ import type { IPreset } from '@robota-sdk/agent-preset';
  * This is a SET equality, not a floor, so a module added on purpose is recorded here in the same
  * change that adds it — which is the point: the baseline exists to make an accidental gain or loss
  * visible, and an entry appearing without a reason in the diff is the thing it catches.
- * `agent-command-peers` was added by PEER-004 (issue #1863).
+ * `agent-command-peers` was added by PEER-004 (issue #1863); `agent-command-handoff` by
+ * HANDOFF-001 (issue #1864).
  */
 const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-skills',
@@ -80,6 +81,7 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-plugin',
   'agent-command-settings',
   'agent-command-peers',
+  'agent-command-handoff',
   'agent-command-remote-control',
   'agent-command-provider',
   'agent-command-workflows',
