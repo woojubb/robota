@@ -106,7 +106,18 @@ async function createWindow(): Promise<void> {
 ipcMain.handle('agent-gui:endpoint', () => (endpoint ? endpointUrl(endpoint) : null));
 ipcMain.on('agent-gui:ready', () => supervisor?.markReady());
 
-app.whenReady().then(createWindow);
+// INFRA-040: the rejection is ROUTED. `createWindow` awaits a free port, mints a token and loads
+// the renderer; if any of that fails the app has no window and, before this, no message either —
+// the process just sat there. `.catch` after `.then`, not `.then(fn, onRejected)`, because the
+// second argument handles a rejection of `whenReady()` alone and would let a `createWindow`
+// failure float on unchanged.
+app
+  .whenReady()
+  .then(createWindow)
+  .catch((error) => {
+    console.error('[agent-app] failed to create the main window:', error);
+    app.quit();
+  });
 
 app.on('window-all-closed', () => {
   supervisor?.shutdown();

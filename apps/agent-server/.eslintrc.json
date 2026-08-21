@@ -1,7 +1,9 @@
 {
   "extends": "../../.eslintrc.json",
   "plugins": ["import"],
+  "parserOptions": { "project": "./tsconfig.eslint.json" },
   "rules": {
+    "@typescript-eslint/no-floating-promises": "error",
     "no-console": "off",
     "no-restricted-syntax": "off",
     "import/order": [

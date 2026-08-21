@@ -1,3 +1,7 @@
 {
-  "extends": "../../../.eslintrc.json"
+  "extends": "../../../.eslintrc.json",
+  "parserOptions": { "project": "./tsconfig.eslint.json" },
+  "rules": {
+    "@typescript-eslint/no-floating-promises": "error"
+  }
 }

@@ -137,7 +137,12 @@ function SubmitTrigger({
 }): React.ReactElement {
   useInput((input) => {
     if (input.startsWith('s:')) {
-      onSubmit(input.slice(2));
+      // INFRA-040: `useInput` takes a SYNCHRONOUS handler, so there is no caller to await this. The
+      // rejection is routed to the test runner rather than dropped — a submit that throws would
+      // otherwise leave the case green while the behaviour it drives never happened.
+      onSubmit(input.slice(2)).catch((error: unknown) => {
+        throw error instanceof Error ? error : new Error(String(error));
+      });
     }
   });
   return <></>;

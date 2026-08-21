@@ -180,12 +180,12 @@ describe('HttpClient', () => {
 
       mockFetch.mockResolvedValue(mockResponse);
 
-      clientWithSlash.get('/data');
+      await clientWithSlash.get('/data');
 
       expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/data'), expect.any(Object));
     });
 
-    it('should handle paths correctly', () => {
+    it('should handle paths correctly', async () => {
       const mockResponse = {
         ok: true,
         status: 200,
@@ -195,7 +195,7 @@ describe('HttpClient', () => {
 
       mockFetch.mockResolvedValue(mockResponse);
 
-      httpClient.get('/api/test');
+      await httpClient.get('/api/test');
 
       expect(mockFetch).toHaveBeenCalledWith('https://api.test.com/api/test', expect.any(Object));
     });
