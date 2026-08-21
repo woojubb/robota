@@ -137,11 +137,47 @@ export function heredocPayloads(content) {
   const lines = content.split('\n');
   const payloads = [];
   for (let i = 0; i < lines.length; i += 1) {
-    const opener = /^(.*?)<<-?\s*['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?\s*$/.exec(lines[i]);
-    if (!opener) continue;
-    const before = opener[1];
-    const delimiter = opener[2];
-    const interpreter = /(?:^|[\s;&|(])([A-Za-z0-9_.\/-]+)\s*(?:-\S+\s*)*$/.exec(before)?.[1];
+    // Parsed by INDEX and by WORDS, not by a regex with a lazy prefix and a nested quantifier.
+    //
+    // The first cut used `/(?:^|[\s;&|(])([A-Za-z0-9_.\/-]+)\s*(?:-\S+\s*)*$/`, which CodeQL
+    // flagged as `js/redos` — correctly. Measured before replacing it: `\S+` may stop at any
+    // interior dash, so a run of them has exponentially many parses, and a tail that cannot match
+    // forces the engine through all of them.
+    //
+    //   16 interior dashes    2.8 ms
+    //   20                   41.4 ms
+    //   24                  631.8 ms
+    //   26                 2543.2 ms
+    //
+    // Roughly fourfold per added dash. This scan reads every tracked file, so that is a scan any
+    // committed line can stall.
+    const marker = lines[i].indexOf('<<');
+    if (marker === -1) continue;
+    let tail = lines[i].slice(marker + 2);
+    if (tail.startsWith('-')) tail = tail.slice(1);
+    tail = tail.trim();
+    if (tail.startsWith("'") || tail.startsWith('"')) {
+      const quote = tail[0];
+      const close = tail.indexOf(quote, 1);
+      if (close === -1) continue;
+      if (tail.slice(close + 1).trim() !== '') continue;
+      tail = tail.slice(1, close);
+    }
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(tail)) continue;
+    const delimiter = tail;
+
+    // The command word: the last word before the `<<` that is not an option. Walking words backwards
+    // cannot backtrack, which is the whole point of doing it this way.
+    const words = lines[i]
+      .slice(0, marker)
+      .split(/[\s;&|(]+/)
+      .filter(Boolean);
+    let interpreter;
+    for (let w = words.length - 1; w >= 0; w -= 1) {
+      if (words[w].startsWith('-')) continue;
+      interpreter = words[w];
+      break;
+    }
     if (!interpreter) continue;
     const body = [];
     let end = i + 1;

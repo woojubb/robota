@@ -204,6 +204,35 @@ describe('the three payload sources a committed file can carry', () => {
     expect(findingsIn('scripts/x.sh', document).map((f) => f.id)).toEqual(['python glob import']);
   });
 
+  it('parses a heredoc opener in time that does not depend on how many dashes it holds', () => {
+    /*
+     * CodeQL reported `js/redos` on the first cut of this parse, and it was right. The opener was
+     * read with `/(?:^|[\s;&|(])([A-Za-z0-9_.\/-]+)\s*(?:-\S+\s*)*$/`: `\S+` may stop at any
+     * interior dash, so a run of them has exponentially many parses, and a tail that cannot match
+     * forces the engine through all of them.
+     *
+     * MEASURED on that regex before replacing it — roughly fourfold per added dash:
+     *
+     *   16 interior dashes    2.8 ms
+     *   20                   41.4 ms
+     *   24                  631.8 ms
+     *   26                 2543.2 ms
+     *
+     * This scan reads every tracked file, so that is a scan any committed line can stall. The parse
+     * is now by index and by words, which cannot backtrack; measured flat to 2000 dashes.
+     *
+     * The budget is deliberately loose — this asserts that the cost does not EXPLODE, not that a
+     * particular machine hits a particular millisecond.
+     */
+    const opener = `python3 -${'a-'.repeat(2000)}a z <<'EOF'`;
+    const started = process.hrtime.bigint();
+    heredocPayloads(`${opener}\nbody\nEOF\n`);
+    const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
+    expect(elapsedMs, `parsing 2000 interior dashes took ${elapsedMs.toFixed(0)}ms`).toBeLessThan(
+      1000,
+    );
+  });
+
   it('does NOT read a heredoc body whose interpreter is a different language', () => {
     const document = `node <<'EOF'\n${JS_SPELLING}\nEOF\n`;
     expect(findingsIn('scripts/x.sh', document)).toEqual([]);
