@@ -12,7 +12,10 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { readGuardedWorkflows } from '../scan-workflow-provenance.mjs';
+import {
+  findWorkflowProvenanceFindings,
+  readGuardedWorkflows,
+} from '../scan-workflow-provenance.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '../../..');
 const GATE_RELATIVE = '.github/workflows/workflow-provenance-gate.yml';
@@ -77,5 +80,31 @@ describe('what it judges', () => {
     // be judged by the edited version, which is the exposure one level up.
     const { workflows } = readGuardedWorkflows(ROOT);
     expect(workflows).not.toContain(GATE_RELATIVE);
+  });
+});
+
+describe('the scan behaviour this gate depends on', () => {
+  /*
+   * Asserted HERE, beside the workflow, and not only in the scan's own test file. The gate's whole
+   * design rests on judging a change from a checkout that is NOT that change: it holds the BASE and
+   * asks about a fetched `FETCH_HEAD`. A scan that always diffed `HEAD` would compare the base
+   * against itself, find nothing, and report a clean verdict from the wrong tree — a green that
+   * measured nothing, produced by the gate built to stop exactly that.
+   *
+   * Real history rather than a fixture, because the property is what the `git diff` range does and a
+   * stubbed git would be asserting the stub.
+   */
+  const TOUCHED_CI = '024ca7128dda01e5470b14eb27aeaa3bc65a1995';
+
+  it('reports a guarded workflow touched by the NAMED head', () => {
+    const { findings } = findWorkflowProvenanceFindings(ROOT, `${TOUCHED_CI}~1`, TOUCHED_CI);
+    expect(findings.map((f) => f.file)).toContain('.github/workflows/ci.yml');
+  });
+
+  it('reports nothing when the named head IS the base, rather than falling back to HEAD', () => {
+    // The case that fails if the head stops being an argument: with `HEAD` hardcoded, this range
+    // becomes "the base against the working tree" and picks up whatever that touched.
+    const { findings } = findWorkflowProvenanceFindings(ROOT, `${TOUCHED_CI}~1`, `${TOUCHED_CI}~1`);
+    expect(findings).toEqual([]);
   });
 });
