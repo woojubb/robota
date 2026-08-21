@@ -996,10 +996,57 @@ HOOK_SCAN_AWK='
           if ((mc == " " || mc == "\t" || mc == "\n") && rc ~ /[ \t\n]/) { break }
           if (mc == ";" || mc == "&" || mc == "|" || mc == ">" || mc == "<" || mc == ")") { break }
           started = 1
-          # A quote DELIMITER shows as a space in the mask and contributes no character.
+          # A quote DELIMITER contributes no character, and it has TWO spellings in the mask. The
+          # tokenizer turns it into a SPACE when it read the region as a single-word token, and
+          # leaves the quote character ITSELF when the region contains whitespace. Only the first was
+          # skipped, so a target quoted around a space came back wearing its quotes —
+          # `"node_modules/a b"` — and the store pattern, anchored on a separator, could not match it.
+          # Measured across the eleven write spellings this file drives, and both quotings: 22
+          # commands permitted, 18 of which bash performs (the other four are the `2>&` and `>>&`
+          # forms bash itself rejects, and are the deliberate over-report documented above).
+          #
+          # WHICH SPELLING IT IS, is decided by ROLE and not by character class. A quote is a
+          # delimiter only where it borders MASKED content: the tokenizer blanks what a delimiter
+          # encloses, so a quote beside a masked byte opened or closed a region, and a quote standing
+          # among visible characters is DATA the name keeps. Deciding by class instead deleted a
+          # quote belonging to the path — an escaped double quote came back with the quote gone,
+          # while bash writes it — and falsified the stated limit about a spliced character joining.
           if (mc == " ") { k++; continue }
-          # An unquoted backslash splices the next character.
-          if (mc == "\\" && rc == "\\") { k++; continue }
+          if ((mc == "\"" || mc == "\047") &&
+              (substr(mask, k - 1, 1) == "\001" || substr(mask, k + 1, 1) == "\001")) {
+            k++
+            continue
+          }
+          # The `$` of `$'…'` / `$"…"` introduces such a delimiter and is not part of the name either.
+          if (mc == "$" && (substr(mask, k + 1, 1) == "\"" || substr(mask, k + 1, 1) == "\047") &&
+              substr(mask, k + 2, 1) == "\001") {
+            k++
+            continue
+          }
+          # An EMPTY dollar-quote — `$` followed by a quote pair with nothing between — expands to
+          # nothing, so bash writes the bare path that follows it. Its mask is three VISIBLE
+          # characters: the region has no content, so neither quote has a \001 to border and the
+          # role test above reads all three as DATA. The name then kept them, and a store pattern
+          # anchored on a separator could not match `$''node_modules/x.json` — measured on the
+          # guard as verdict 0, permitted, while bash created the file inside the store.
+          #
+          # Only the dollar-introduced spelling is affected. A bare `''` / `""` is masked as two
+          # SPACES by the single-word token path above and was already consumed; `$'x'` has content
+          # to border and was already consumed. Measured, all four, rather than reasoned about.
+          #
+          # Here the PAIR is the delimiter — there is no content to decide by — so all three
+          # characters go at once.
+          if (mc == "$" && (substr(mask, k + 1, 1) == "\"" || substr(mask, k + 1, 1) == "\047") &&
+              substr(mask, k + 2, 1) == substr(mask, k + 1, 1)) {
+            k += 3
+            continue
+          }
+          # An unquoted backslash splices the next character, which the NAME then keeps.
+          if (mc == "\\" && rc == "\\") {
+            k++
+            if (k <= len) { word = word substr(s, k, 1); k++ }
+            continue
+          }
           # Masked content is data, and here the data IS the name — read it from the original.
           word = word rc
           k++

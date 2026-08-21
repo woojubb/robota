@@ -228,6 +228,18 @@
       "timestamp": "2026-08-20T16:55:30.315Z",
       "ratio": "2/3",
       "reason": "Mine. Reporting which of issue #1930's checklist boxes an agent can close alone, I wrote that the issue would 'look 2/3 complete' with no percentage — a ratio over a countable set, which is exactly what the rule governs. The third instance this session and the fifth this file records from me, which is the argument for the scan rather than for intending harder."
+    },
+    {
+      "transcript": "e6c7afde-c768-4938-8c5d-8b79a51d3553.jsonl",
+      "timestamp": "2026-08-21T16:33:38.254Z",
+      "ratio": "84/100",
+      "reason": "Mine. A mid-work status table to the owner reported a CLAUDE.md audit score as \"84/100, B\" with no percentage (= 84%). Worth recording precisely because it is not the shape the earlier entries record: every one of those was a ratio of how far along something was, and this is a SCORE out of a fixed denominator. The scan cannot tell the two apart, and widening it to try would cost more than it catches -- a score written as N/100 in a completion table reads exactly like a progress ratio to a human skimming it too. So the rule as mechanised is right and the correction is the same either way: write the percentage in the same breath as the fraction, whatever the fraction means. Recorded rather than fixed because the transcript is append-only."
+    },
+    {
+      "transcript": "e6c7afde-c768-4938-8c5d-8b79a51d3553.jsonl",
+      "timestamp": "2026-08-21T16:36:24.601Z",
+      "ratio": "84/100",
+      "reason": "The message ACKNOWLEDGING the entry above committed the same violation, by quoting the offending fraction without the percentage while explaining that it lacked one. This file already records that exact shape three times (2026-08-15, 2026-08-17, 2026-08-19), which is the point: the habit is writing the fraction at all without its percentage, quotation included, and an intention to comply does not survive the very next message. Recorded as its own entry rather than folded into the first, because the repeat is the evidence."
     }
   ]
 }
