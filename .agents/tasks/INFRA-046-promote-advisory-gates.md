@@ -294,3 +294,27 @@ firing is what promotes it. Confirmed with the owner on 2026-08-22, who chose no
 
 So `blocked` is the accurate status and it is blocked on EVIDENCE first, a credential second — not
 merely waiting for permission.
+
+### 2026-08-22 — correcting how this refusal was justified
+
+I said these items could not be marked `done` "because `unearned-done-claims` exists to refuse it".
+**That was wrong about the mechanism.** Probed by actually doing it — all four set to `status: done`
+with a `completed:` date and moved to `completed/` — and `unearned-done-claims`, `backlog-placement`
+and `task-archival` all PASSED. The only failures came from inbound links breaking as the files
+moved.
+
+So nothing mechanical would have objected. The record would simply have been false, and that is the
+reason on its own. Citing a scan that does not do the work was a stronger-sounding argument than the
+true one.
+
+The substantive grounds are unchanged, and were re-measured rather than restated:
+
+| item      | completion condition, executed 2026-08-22                                    |
+| --------- | ---------------------------------------------------------------------------- |
+| INFRA-046 | `protect-develop`'s required list contains neither gate                      |
+| INFRA-054 | three owner decisions outstanding; no fast-forward promotion has occurred    |
+| INFRA-097 | `2 of 2` guarded workflows still load their definition from the pull request |
+| INFRA-104 | the last promotion body carried `0` closing keywords                         |
+
+The gap the probe exposed — a `done` task with unticked acceptance criteria passes every scan — is
+filed as issue #1965 rather than folded in here.
