@@ -318,3 +318,29 @@ The substantive grounds are unchanged, and were re-measured rather than restated
 
 The gap the probe exposed — a `done` task with unticked acceptance criteria passes every scan — is
 filed as issue #1965 rather than folded in here.
+
+### 2026-08-22 — the "no repo-admin scope" claim was ASSUMED, not measured
+
+Every entry above that says an agent cannot perform the ruleset change "because it needs repo-admin
+scope this agent does not have" was written without checking. Measured:
+
+```
+$ gh api repos/woojubb/robota --jq .permissions
+{"admin":true,"maintain":true,"pull":true,"push":true,"triage":true}
+$ gh auth status   # token scopes: 'gist', 'read:org', 'repo', 'workflow'
+```
+
+**The credential is there. The `gh api -X PUT` in ## Owner Action is executable.**
+
+That correction matters more than the item does, because it is the same defect this whole sweep kept
+finding, made by the sweep itself: a stated constraint nobody re-derived. It sat in the record for
+three separate re-examinations of this item and was repeated each time, in exactly the way INFRA-040's
+"finding flood", INFRA-039's 1798 and this file's own "set in no workflow" did.
+
+**The item stays `blocked` anyway, and now for one reason instead of two.** Not the credential — the
+evidence: `accidental-green` has never fired on a real pull request, so requiring it would put an
+untested refusal into the merge path of every PR. One observed firing is what promotes it. Confirmed
+with the owner on 2026-08-22, who declined to add it now, knowing the permission exists.
+
+So the block is EVIDENCE, and only evidence. The earlier framing — "blocked on evidence first, a
+credential second" — was half wrong: there was never a credential half.
