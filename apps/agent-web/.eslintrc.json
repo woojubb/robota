@@ -1,7 +1,11 @@
 {
   "extends": ["next/core-web-vitals", "../../.eslintrc.json"],
   "plugins": ["import"],
+  "parserOptions": {
+    "project": null
+  },
   "rules": {
+    "@typescript-eslint/no-floating-promises": "off",
     "no-restricted-syntax": "off",
     "no-console": "off",
     "import/order": [

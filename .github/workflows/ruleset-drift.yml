@@ -18,6 +18,31 @@ permissions:
   contents: read
 
 jobs:
+  # INFRA-065 half 2, as far as the repository permits it.
+  #
+  # An action reference decays with NO DIFF AT ALL — an upstream repository deleted or renamed, a tag
+  # force-moved, a repo made private. `vercel/action` was exactly that shape: eight months with no PR
+  # touching the workflow that used it. No PR-time check can see it, because there is no PR.
+  #
+  # The item asked for a SCHEDULED job. That is refused, not pending: the 2026-08-04 owner directive
+  # ("크론은 다 꺼") removed every `schedule:` trigger in this repository and there are none today, so
+  # reintroducing one would contradict a standing instruction. This is the on-demand form — the same
+  # trigger, permissions and rationale as the reconcile job below, in the same file, which is where
+  # this repository puts a live half that must never gate a merge.
+  #
+  # WHAT THIS DOES NOT CLOSE, stated rather than implied: on demand is not a cadence. Rot is caught
+  # when someone runs this, not within 24 hours. The gap the item named survives at reduced size.
+  action-references:
+    name: action references resolve (live)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Verify every `uses:` reference resolves against the real remote
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/harness/scan-action-references.mjs --live
+
   reconcile:
     name: required-status-checks vs live ruleset
     runs-on: ubuntu-latest

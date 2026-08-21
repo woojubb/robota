@@ -1,0 +1,9 @@
+{
+  "extends": "../../.eslintrc.json",
+  "parserOptions": {
+    "project": null
+  },
+  "rules": {
+    "@typescript-eslint/no-floating-promises": "off"
+  }
+}

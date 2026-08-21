@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-097: trusted provenance for required PR workflows'
 issue: https://github.com/woojubb/robota/issues/1719
-status: todo
+status: blocked
 created: 2026-08-14
 priority: high
 urgency: soon
@@ -84,3 +84,32 @@ organization-level required-workflow configuration.
 
 Not applicable — this is repository-internal CI governance and branch-protection infrastructure, not a
 shipped CLI, TUI, browser, application, or public SDK behavior.
+
+## Progress
+
+### 2026-08-21 — BLOCKED, and the blocking set is closed rather than open-ended
+
+Re-verified on 2026-08-21. `scan-workflow-provenance` runs in `pnpm harness:scan` and reports the
+standing exposure on every run:
+
+```
+2 of 2 guarded workflow(s) load their definition from the pull request (`on: pull_request`):
+.github/workflows/ci.yml, .github/workflows/review-gate.yml
+```
+
+That is the detection half, and it is complete. The trusted-provenance half needs a control plane the
+pull request cannot reach, and the table in the entry above enumerates all three ways to get one:
+an organization-level required workflow, a `pull_request_target` split, or an external GitHub App.
+**Every one requires configuration outside this repository** — org settings, a repository-policy
+change to `ci.yml`'s trigger, or an app registration with credentials.
+
+There is no fourth option that an agent can take. A guard that verified the running workflow against
+the base ref would itself live in `ci.yml`, where the same pull request could edit it — the
+circularity this item exists to name.
+
+The one step short of that — wiring the scan's `--base-ref` mode into `ci.yml` so an edit to a
+guarded workflow fails the PR — is still not taken, and for the reason the entry above already gives:
+**that wiring is itself an edit to a guarded workflow**, which this very scan flags. Taking it
+quietly would be the thing the item is about.
+
+Recorded as `blocked` rather than `todo` so it is not read as unstarted work.

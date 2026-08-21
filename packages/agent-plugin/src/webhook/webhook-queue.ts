@@ -44,7 +44,15 @@ export class WebhookQueueManager {
     getEndpoints: (event: TWebhookEventName) => IWebhookEndpoint[],
   ): void {
     this.batchTimer = setInterval(() => {
-      this.drainBatch(getEndpoints);
+      // INFRA-040: `drainBatch` awaits `sendToEndpoints`, so a delivery failure rejected here on
+      // EVERY tick with nothing to catch it. A timer callback has no caller to propagate to, so the
+      // rejection is routed to the logger rather than voided — a webhook batch that silently stops
+      // draining is exactly the failure this queue exists to make visible.
+      this.drainBatch(getEndpoints).catch((error: unknown) => {
+        this.logger.error('Webhook batch flush failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     }, flushInterval);
   }
 

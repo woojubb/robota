@@ -201,7 +201,7 @@ export class CodeExecutor {
         logs.push(`📝 Captured ${consoleLogs.length} console output(s)`);
       }
 
-      sandbox.cleanup();
+      await sandbox.cleanup();
       return { executionOutput, executionError: null };
     } catch (error) {
       logs.push(`❌ Execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

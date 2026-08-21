@@ -181,7 +181,11 @@ jobs:
         run: |
           set -euo pipefail
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes-file "$NOTES"
-          # shellcheck disable=SC2086 -- $ASSETS is an intentional multi-pattern glob list.
+          # `# reason`, not `-- reason`: shellcheck cannot PARSE the `--` form, and a directive it
+          # cannot parse aborts every check on the block (SC1073 "Fix to allow more checks"). So this
+          # line suppressed nothing and silently switched off the whole script instead. Found by
+          # INFRA-065's actionlint job on its first run.
+          # shellcheck disable=SC2086 # $ASSETS is an intentional multi-pattern glob list.
           gh release upload "$TAG" $ASSETS "$MANIFEST" --clobber
         working-directory: apps/agent-app
 
