@@ -632,6 +632,13 @@ export const SCAN_COMMANDS = [
     name: 'harness-script-import-safety',
     command: ['node', 'scripts/harness/scan-harness-script-import-safety.mjs'],
   },
+  // INFRA-039. The CEILING, not the count: `--max-warnings` on the root `lint` script does the
+  // enforcing, on the release path where that script already runs. This keeps the number from
+  // becoming a hand-maintained second source — present, matching its baseline, and falling only.
+  {
+    name: 'lint-warning-ratchet',
+    command: ['node', 'scripts/harness/scan-lint-warning-ratchet.mjs'],
+  },
   {
     name: 'ci-concurrency-footprint',
     command: ['node', 'scripts/harness/scan-ci-concurrency-footprint.mjs'],
