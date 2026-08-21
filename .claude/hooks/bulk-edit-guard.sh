@@ -364,7 +364,21 @@ while read -r PL_INTERP PL_START PL_LEN; do
   PL_TEXT="${COMMAND:$((PL_START - 1)):$PL_LEN}"
   while IFS=$'\t' read -r PR_ID PR_LANG PR_PATTERN PR_REMEDY; do
     [[ -z "$PR_ID" || "$PR_LANG" != "$PL_LANG" ]] && continue
-    if printf '%s' "$PL_TEXT" | grep -qE "$PR_PATTERN"; then
+    # This table has two readers, and they did not agree on what it says. The scan compiles each
+    # pattern with `new RegExp`, where `\t` is a tab, `\n` is a newline, and one match may span
+    # lines. `grep -E` reads none of that: inside a bracket `\t` is the two characters `\` and `t`,
+    # and grep matches one line at a time regardless. So `[ \t]` never matched a tab here, and the
+    # parenthesised multi-line import — the form `black` and `ruff format` produce — was reported by
+    # the scan and waved through by the hook.
+    #
+    # A real newline cannot be put in the pattern either: grep reads a newline in a pattern as a
+    # SEPARATOR between alternative patterns, so a class holding one becomes two patterns and the
+    # first has an unmatched `[`. Fold the newline out of BOTH sides onto one sentinel instead. The
+    # payload then holds no newline to break a line-oriented match, and `^` anchors to the start of
+    # the payload — which is what the scan's `new RegExp` already means by it. No row spells `\n`
+    # today; the mapping is here so that one would mean on this side what it means on the other.
+    PR_EXPANDED=$(printf '%s' "$PR_PATTERN" | sed -e 's/\\t/\t/g' -e 's/\\n/\x01/g')
+    if printf '%s' "$PL_TEXT" | tr '\n' '\001' | grep -qE "$PR_EXPANDED"; then
       add_finding "$PR_ID follows symlinks. $PR_REMEDY"
     fi
   done <<< "$PAYLOAD_ROWS"

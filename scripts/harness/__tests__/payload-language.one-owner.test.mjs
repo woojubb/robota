@@ -50,6 +50,15 @@ const G = `gl${'ob'}`;
 const IMPORT_SPELLING = `from ${G} import ${G}`;
 const ALIAS_SPELLING = `import ${G} as g; g.${G}(1)`;
 const JS_SPELLING = `import ${G} from '${G}'`;
+/**
+ * The form a formatter produces. `black` and `ruff format` break an import list onto its own lines
+ * once it is long enough, and every reader of this table has to mean the same thing by it — the JS
+ * side matches across lines, the grep side does not and reads `\n` in a bracket as two dead
+ * characters. Both halves were reported clean on this shape while the single-line one was blocked.
+ */
+const WRAPPED_SPELLING = `from ${G} import (\n    escape,  # noqa\n    i${G} as it,\n)`;
+/** The same list with no enumerator in it: `escape` quotes a pattern, it does not walk a tree. */
+const WRAPPED_SAFE = `from ${G} import (\n    escape,\n)`;
 
 /**
  * THE TABLE. One row, asked of the hook and of the scan.
@@ -59,6 +68,17 @@ const JS_SPELLING = `import ${G} from '${G}'`;
 const CASES = [
   ['python, the import spelling', `python3 -c "${IMPORT_SPELLING}"`, true],
   ['python, the alias spelling', `python3 -c "${ALIAS_SPELLING}"`, true],
+  ['python, the import list a formatter wrapped', `python3 -c "${WRAPPED_SPELLING}"`, true],
+  // Separated by TABS. The table spells its whitespace class `[ \t]`, which grep reads as the three
+  // characters space, backslash and `t` — never a tab — while the scan's `new RegExp` reads a tab.
+  // Both readers now expand the escape, and this row is what says so.
+  ['python, separated by tabs', `python3 -c "from\t${G}\timport\t${G}"`, true],
+  // Precision, not just reach: the hazardous name is not the first in that list, and the widening
+  // that reaches it must not become "a parenthesised glob import is always hazardous".
+  ['python, a wrapped list holding no enumerator', `python3 -c "${WRAPPED_SAFE}"`, false],
+  // The wrapped shape carrying the SAME text in JavaScript. The single-line row below proves the
+  // language check on the flat spelling; this proves the widening did not escape it.
+  ['javascript, carrying the wrapped PYTHON spelling', `node -e "${WRAPPED_SPELLING}"`, false],
   ['python, single-quoted payload', `python3 -c '${IMPORT_SPELLING}'`, true],
   ['a versioned interpreter', `python3.12 -c "${IMPORT_SPELLING}"`, true],
   ['python, the safe sibling', 'python3 -c "import pathlib; pathlib.Path(1).rglob(2)"', false],
@@ -236,6 +256,15 @@ describe('the three payload sources a committed file can carry', () => {
   it('does NOT read a heredoc body whose interpreter is a different language', () => {
     const document = `node <<'EOF'\n${JS_SPELLING}\nEOF\n`;
     expect(findingsIn('scripts/x.sh', document)).toEqual([]);
+  });
+
+  it('names the matched text even when the match spans lines', () => {
+    // A finding whose subject is empty is a finding the reader cannot act on. The text was found by
+    // searching for a matching LINE, and the wrapped import has none — so this shape was reported
+    // with the file, the line and nothing to look at.
+    const [finding] = findingsIn('scripts/x.py', `${WRAPPED_SPELLING}\n`);
+    expect(finding.id).toBe('python glob import');
+    expect(finding.text).toContain(`i${G}`);
   });
 
   it('a JavaScript file carrying the same TEXT is not reported', () => {
