@@ -79,6 +79,7 @@
     "transport-admission",
     "transport-conformance",
     "vitest-resource-ceiling",
+    "work-item-id-collision",
     "workflow-permissions",
     "workflow-provenance",
     "workspace-refs"

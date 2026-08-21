@@ -461,6 +461,11 @@ export const SCAN_COMMANDS = [
     name: 'symlink-following-enumeration',
     command: ['node', 'scripts/harness/scan-symlink-following-enumeration.mjs'],
   },
+  // issue #1916. Reads only the tracked tree, so it is hermetic and a clone can judge it offline.
+  {
+    name: 'work-item-id-collision',
+    command: ['node', 'scripts/harness/scan-work-item-id-collision.mjs'],
+  },
   // INFRA-102. Only the DECLARED edge runs here: it is hermetic. The `--measured` edge asks the
   // host toolchain what a workspace script actually runs on, which no manifest edit can make true
   // (Volta binds a package tool to its install-time Node), so it is a developer-run check.
