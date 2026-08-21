@@ -108,7 +108,11 @@ const WRITES_ELSEWHERE = [
 /** Everything both guards must permit, whatever the reason. */
 const WRITES_NOTHING = [...NAMES_NO_FILE, ...WRITES_ELSEWHERE];
 
-const fill = (shape, protectedPath) => shape.replaceAll('<P>', protectedPath);
+// The replacement is a FUNCTION, not a string. `String.replaceAll` reads `$'`, `$&` and `` $` `` in
+// a string replacement as patterns, so a path written `$'a dir'/out.txt` — a legitimate shell
+// dollar-quote — was rewritten into `a dir'/out.txt` before it ever reached a shell, and the row
+// asserting quote handling was quietly testing something else. A function replacement is literal.
+const fill = (shape, protectedPath) => shape.replaceAll('<P>', () => protectedPath);
 
 // ---------------------------------------------------------------------------------------------
 // 1. The reader itself.
@@ -152,6 +156,43 @@ describe('hook_redirect_targets names what a command writes to', () => {
 
   it('reports every target when a command has more than one', () => {
     expect(targetsOf('echo x > a.txt 2> b.txt')).toEqual(['a.txt', 'b.txt']);
+  });
+
+  /**
+   * A quote DELIMITER has two spellings in the mask, and only one of them was being skipped.
+   *
+   * The tokenizer turns a quote into a SPACE when it read the region as a single-word token, and
+   * leaves the quote CHARACTER ITSELF when the region contains whitespace. The reader skipped a
+   * space and appended the character, so a target quoted around a space came back wearing its
+   * quotes — `"node_modules/a b"` — and the store pattern, anchored on `(^|/)`, could not match it.
+   *
+   * Measured before the fix: every one of the ten write spellings permitted a command bash performs,
+   * for both a whitespace-bearing double-quoted target and a dollar-quoted one. The table is driven
+   * from `WRITES` so a spelling added there is covered here without being remembered.
+   */
+  const QUOTINGS = [
+    ['double quotes around a space', '"a dir/out.txt"', 'a dir/out.txt'],
+    ['single quotes around a space', "'a dir/out.txt'", 'a dir/out.txt'],
+    ['a dollar-quoted segment', "$'a dir'/out.txt", 'a dir/out.txt'],
+    ['a locale-quoted segment', '$"a dir"/out.txt', 'a dir/out.txt'],
+  ];
+
+  // A shape that already carries its own quotes is skipped: filling it would nest one quoting inside
+  // another and produce a command bash does not parse, which tests the fixture rather than the rule.
+  for (const [label, shape] of WRITES.filter(([, form]) => !/["']/.test(form))) {
+    for (const [quoteLabel, written, expected] of QUOTINGS) {
+      it(`strips the quotes of ${quoteLabel} after ${label}`, () => {
+        expect(targetsOf(`echo x ${fill(shape, written)}`)).toContain(expected);
+      });
+    }
+  }
+
+  it('leaves a quote that is not a delimiter alone', () => {
+    // The skip is for a DELIMITER. An expansion the shell would resolve still comes back unresolved,
+    // which is the reader's stated contract, and a mention inside a quoted argument is still not a
+    // redirection at all.
+    expect(targetsOf('echo x > $dir/out.txt')).toContain('$dir/out.txt');
+    expect(targetsOf('echo "a > b"')).toEqual([]);
   });
 });
 

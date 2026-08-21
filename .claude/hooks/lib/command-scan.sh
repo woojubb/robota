@@ -996,8 +996,18 @@ HOOK_SCAN_AWK='
           if ((mc == " " || mc == "\t" || mc == "\n") && rc ~ /[ \t\n]/) { break }
           if (mc == ";" || mc == "&" || mc == "|" || mc == ">" || mc == "<" || mc == ")") { break }
           started = 1
-          # A quote DELIMITER shows as a space in the mask and contributes no character.
-          if (mc == " ") { k++; continue }
+          # A quote DELIMITER contributes no character, and it has TWO spellings in the mask. The
+          # tokenizer turns it into a space when it read the region as a single-word token, and
+          # leaves the quote character ITSELF when the region contains whitespace. Only the first was
+          # skipped, so a target quoted around a space came back wearing its quotes —
+          # `"node_modules/a b"` — and the anchored store pattern no caller could match it. Measured
+          # across ten arrow spellings, every one permitted a write bash performs.
+          if (mc == " " || mc == "\"" || mc == "\047") { k++; continue }
+          # The `$` of `$'…'` / `$"…"` introduces the delimiter and is not part of the name either.
+          if (mc == "$" && (substr(mask, k + 1, 1) == "\"" || substr(mask, k + 1, 1) == "\047")) {
+            k++
+            continue
+          }
           # An unquoted backslash splices the next character.
           if (mc == "\\" && rc == "\\") { k++; continue }
           # Masked content is data, and here the data IS the name — read it from the original.
