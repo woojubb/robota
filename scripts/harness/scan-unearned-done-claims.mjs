@@ -33,6 +33,9 @@
  *   U3  A named section reference that does not resolve to a heading ("see _X_ below" where no
  *       heading `X` follows; "recorded under _X_" where no heading `X` exists at all).
  *   U4  A ticked `- [x]` acceptance box asserting "proven by …" with no citation after the claim.
+ *   U5  An UNTICKED `- [ ]` box under a criteria heading — a criterion the record left unmet while
+ *       claiming completion. Lives in `unmet-criteria.mjs`; see its header for why U1–U4 cannot see
+ *       it (they all judge content that is present) and why it is scoped to criteria sections.
  *
  * SCOPE (honest): this is a CITATION floor, not a truth oracle. A fabricated prose claim that cites
  * a real file still passes — no scanner can rule on that, and pretending otherwise would be the
@@ -57,6 +60,7 @@ import path from 'node:path';
 
 import { PATH_PATTERN } from './check-done-evidence.mjs';
 import { asScalar, frontmatterObject } from './frontmatter.mjs';
+import { findU5 } from './unmet-criteria.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -506,17 +510,47 @@ function findU4(lines) {
 /** Every rule over one document's text. Exported for direct fixture testing. */
 export function evaluateDocument(content) {
   const lines = content.split('\n');
-  return [...findU1(lines), ...findU2(lines), ...findU3(lines), ...findU4(lines)].sort(
-    (a, b) => a.line - b.line || a.rule.localeCompare(b.rule),
-  );
+  return [
+    ...findU1(lines),
+    ...findU2(lines),
+    ...findU3(lines),
+    ...findU4(lines),
+    ...findU5(lines),
+  ].sort((a, b) => a.line - b.line || a.rule.localeCompare(b.rule));
 }
 
 /** U1/U2 are the legacy-debt rules; U3/U4 have no legacy population and are never exempt. */
 const LEGACY_RULES = new Set(['U1', 'U2']);
 
+/**
+ * U5's legacy population is its own, and it is a FILE-level burn-down rather than an inline set.
+ *
+ * Measured when the rule landed: 84 of 863 done records carry an unticked box under a criteria
+ * heading, across 350 boxes. Inlining that many paths would double this file; the shape
+ * `named-artifact-resolves` uses — a JSON baseline that may fall and never rise — is the one the
+ * item asked for, and it keeps the anti-rot property: a file that stops firing must leave the
+ * baseline in the same change, or the baseline becomes a permanent allowlist.
+ */
+const U5_BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/unmet-criteria-baseline.json');
+
+function readU5Baseline() {
+  if (!existsSync(U5_BASELINE_PATH)) {
+    // Fail closed. A burn-down guard that cannot read its baseline has not measured anything, and
+    // treating an absent file as an empty set would turn every legacy record into a fresh finding —
+    // a red-on-arrival gate, which is the shape that gets switched off rather than obeyed.
+    throw new Error(
+      `unearned-done-claims: no U5 baseline at ${path.relative(WORKSPACE_ROOT, U5_BASELINE_PATH)}.`,
+    );
+  }
+  return new Map(Object.entries(JSON.parse(readFileSync(U5_BASELINE_PATH, 'utf8'))));
+}
+
 export function findUnearnedDoneClaimFindings(root = WORKSPACE_ROOT) {
   const findings = [];
   const legacyHits = new Set();
+
+  const u5Baseline = readU5Baseline();
+  const u5Seen = new Map();
 
   for (const dir of BACKLOG_DIRS) {
     const absolute = path.join(root, dir);
@@ -527,27 +561,43 @@ export function findUnearnedDoneClaimFindings(root = WORKSPACE_ROOT) {
       const content = readFileSync(path.join(absolute, entry), 'utf8');
       if (asScalar(frontmatterObject(content).status).toLowerCase() !== 'done') continue;
       const isLegacy = LEGACY_EVIDENCE_DEBT.has(relative);
+      const u5Frozen = u5Baseline.get(relative);
+      let u5Count = 0;
       for (const finding of evaluateDocument(content)) {
         if (isLegacy && LEGACY_RULES.has(finding.rule)) {
           legacyHits.add(relative);
           continue;
         }
+        if (finding.rule === 'U5') {
+          // Counted per FILE, not per box: the burn-down promise is that a record's unmet criteria
+          // may fall and never rise. Judging each box individually would let a file swap one unmet
+          // criterion for another and stay green, which is drift wearing a flat count's clothes.
+          u5Count += 1;
+          if (u5Frozen !== undefined && u5Count <= u5Frozen) continue;
+        }
         findings.push({ file: relative, ...finding });
       }
+      if (u5Count > 0) u5Seen.set(relative, u5Count);
     }
   }
 
   // Anti-rot: a legacy entry that no longer produces a finding must leave the set, or the set
   // becomes a permanent allowlist and the guard becomes decorative.
   const staleLegacy = [...LEGACY_EVIDENCE_DEBT].filter((file) => !legacyHits.has(file)).sort();
+  // The same property for the U5 burn-down, in both directions: an entry whose file no longer fires
+  // is stale, and one whose count FELL is a gain that must be re-frozen or it can be spent again.
+  const staleU5 = [...u5Baseline]
+    .filter(([file, frozen]) => (u5Seen.get(file) ?? 0) < frozen)
+    .map(([file, frozen]) => ({ file, frozen, now: u5Seen.get(file) ?? 0 }))
+    .sort((a, b) => a.file.localeCompare(b.file));
 
-  return { findings, staleLegacy, legacyCount: legacyHits.size };
+  return { findings, staleLegacy, legacyCount: legacyHits.size, staleU5 };
 }
 
 function main() {
-  const { findings, staleLegacy, legacyCount } = findUnearnedDoneClaimFindings();
+  const { findings, staleLegacy, legacyCount, staleU5 } = findUnearnedDoneClaimFindings();
 
-  if (findings.length === 0 && staleLegacy.length === 0) {
+  if (findings.length === 0 && staleLegacy.length === 0 && staleU5.length === 0) {
     console.log(
       `unearned-done-claims scan passed${legacyCount > 0 ? ` (${legacyCount} legacy evidence-debt item(s) exempt)` : ''}.`,
     );
@@ -565,6 +615,19 @@ function main() {
       '\nA completion record is believed, never re-verified — so it must cite what it claims.\n' +
         '  Fill the evidence in (a repo path, a PR ref, a URL, a commit sha or pasted output), or, if the\n' +
         '  work is not actually finished, take the item out of `status: done`.',
+    );
+  }
+
+  if (staleU5.length > 0) {
+    console.error(
+      '\nunearned-done-claims scan FAILED — U5 burn-down entries FELL below their frozen count:',
+    );
+    for (const entry of staleU5) {
+      console.error(`  - ${entry.file}: ${entry.now} unmet, frozen at ${entry.frozen}`);
+    }
+    console.error(
+      '\nThis is a GAIN, and it has to be re-frozen or it can be spent again. Update\n' +
+        '  scripts/harness/unmet-criteria-baseline.json in the SAME change. The counts may only fall.',
     );
   }
 
