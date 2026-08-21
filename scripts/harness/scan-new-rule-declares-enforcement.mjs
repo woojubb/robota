@@ -222,9 +222,24 @@ function main() {
   }
 
   const sections = addedRuleSections(diff);
+  // The zero says what was READ, not what the change contains. `addedRuleSections` recognises a
+  // `###` heading and a list item carrying a listed keyword; a rule written any other way — most of
+  // all a TABLE ROW, which `ADDED_RULE_BULLET` cannot match because it requires a list marker —
+  // opens no section and is counted here as absent. Measured: 180 table rows live under
+  // `.agents/rules/`, including every numbered entry of `common-mistakes.md`, and they are in
+  // neither figure HARNESS-079 records.
+  //
+  // So the old wording, "this change adds no rule", asserted something this scan cannot establish,
+  // and it was observably false: a change adding two `common-mistakes` entries, both declaring no
+  // mechanism, printed it and passed. That is the same conflation the `diff === null` branch above
+  // already refuses — "I could not read the diff" is not "the diff adds no rule" — extended to the
+  // form it could not parse. Widening what counts is HARNESS-079; not over-claiming while narrow
+  // costs one line and need not wait for it.
   console.log(
     sections.length === 0
-      ? '::examined:: 0 new rule sections ::expected-empty:: this change adds no rule'
+      ? '::examined:: 0 new rule sections ::expected-empty:: this change adds no rule SECTION of ' +
+          'the form this floor reads (a `###` heading, or a list item carrying a listed keyword). ' +
+          'A rule written another way — a table row above all — is not seen here; see HARNESS-079.'
       : `::examined:: ${sections.length} new rule sections`,
   );
 
