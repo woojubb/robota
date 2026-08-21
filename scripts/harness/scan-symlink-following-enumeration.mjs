@@ -431,7 +431,11 @@ function payloadFindings(relativePath, content, embeddedPayloads) {
         line: payload.line,
         id: row.id,
         remedy: row.remedy,
-        text: (payload.text.split('\n').find((l) => new RegExp(row.pattern).test(l)) ?? '').trim(),
+        // The matched SUBSTRING, not the first matching line. A parenthesised import — the form a
+        // formatter produces — matches across lines, so no single line matches it and the
+        // line-by-line search returned '': the finding named the file and named no text. Collapse
+        // the run of whitespace so a multi-line subject still reports as one readable line.
+        text: (new RegExp(row.pattern).exec(payload.text)?.[0] ?? '').replace(/\s+/g, ' ').trim(),
       });
     }
   }

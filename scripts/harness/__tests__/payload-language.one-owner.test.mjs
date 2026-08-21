@@ -50,6 +50,15 @@ const G = `gl${'ob'}`;
 const IMPORT_SPELLING = `from ${G} import ${G}`;
 const ALIAS_SPELLING = `import ${G} as g; g.${G}(1)`;
 const JS_SPELLING = `import ${G} from '${G}'`;
+/**
+ * The form a formatter produces. `black` and `ruff format` break an import list onto its own lines
+ * once it is long enough, and every reader of this table has to mean the same thing by it — the JS
+ * side matches across lines, the grep side does not and reads `\n` in a bracket as two dead
+ * characters. Both halves were reported clean on this shape while the single-line one was blocked.
+ */
+const WRAPPED_SPELLING = `from ${G} import (\n    escape,  # noqa\n    i${G} as it,\n)`;
+/** The same list with no enumerator in it: `escape` quotes a pattern, it does not walk a tree. */
+const WRAPPED_SAFE = `from ${G} import (\n    escape,\n)`;
 
 /**
  * THE TABLE. One row, asked of the hook and of the scan.
@@ -59,6 +68,30 @@ const JS_SPELLING = `import ${G} from '${G}'`;
 const CASES = [
   ['python, the import spelling', `python3 -c "${IMPORT_SPELLING}"`, true],
   ['python, the alias spelling', `python3 -c "${ALIAS_SPELLING}"`, true],
+  ['python, the import list a formatter wrapped', `python3 -c "${WRAPPED_SPELLING}"`, true],
+  // Separated by TABS. The table spells its whitespace class `[ \t]`, which grep reads as the three
+  // characters space, backslash and `t` — never a tab — while the scan's `new RegExp` reads a tab.
+  // Both readers now expand the escape, and this row is what says so.
+  ['python, separated by tabs', `python3 -c "from\t${G}\timport\t${G}"`, true],
+  // Reported in review of this change. The first cut of the parenthesised branch required a boundary
+  // character between `(` and the name, which `( glob)` and every wrapped form supply and `(glob)`
+  // does not — so the tightest spelling of the very shape this item widened for was the one left
+  // out. `import(glob)` has the same cause one token earlier: legal python, no whitespace to match.
+  ['python, no space after the open paren', `python3 -c "from ${G} import (${G})"`, true],
+  ['python, no space after import', `python3 -c "from ${G} import(${G})"`, true],
+  // The other side of that boundary: it is what keeps a name that merely CONTAINS the spelling out.
+  [
+    'python, a longer name containing the spelling',
+    `python3 -c "from ${G} import (escape_${G}als)"`,
+    false,
+  ],
+  ['python, no space and no paren', `python3 -c "from ${G} import${G}"`, false],
+  // Precision, not just reach: the hazardous name is not the first in that list, and the widening
+  // that reaches it must not become "a parenthesised glob import is always hazardous".
+  ['python, a wrapped list holding no enumerator', `python3 -c "${WRAPPED_SAFE}"`, false],
+  // The wrapped shape carrying the SAME text in JavaScript. The single-line row below proves the
+  // language check on the flat spelling; this proves the widening did not escape it.
+  ['javascript, carrying the wrapped PYTHON spelling', `node -e "${WRAPPED_SPELLING}"`, false],
   ['python, single-quoted payload', `python3 -c '${IMPORT_SPELLING}'`, true],
   ['a versioned interpreter', `python3.12 -c "${IMPORT_SPELLING}"`, true],
   ['python, the safe sibling', 'python3 -c "import pathlib; pathlib.Path(1).rglob(2)"', false],
@@ -127,6 +160,32 @@ describe('both enforcers reach the same verdict on one case table', () => {
       expect(scanIds(command).length > 0).toBe(hazardous);
     });
   }
+});
+
+describe('the hook reads this table the way the scan does', () => {
+  /*
+   * The two rows for these spellings in CASES above already assert both enforcers. These cases
+   * exist anyway, and are not redundant with them for two reasons.
+   *
+   * They name the MECHANISM rather than a verdict: what changed is not that one more spelling is
+   * hazardous, it is that `grep -E` was reading this table differently from `new RegExp` —
+   * interpreting neither `\t` nor `\n`, and matching one line at a time. Both halves of that are
+   * only visible with the hook's answer isolated from the scan's.
+   *
+   * And a table row is invisible to `check-regression-red-proof.mjs`, which reads added case titles
+   * out of the diff: a row's title is built at runtime, so a row added here is judged as a
+   * pre-existing case and its red does not count as proof. These titles are literal, so they do.
+   */
+  it('expands the table escapes, so a TAB-separated import is blocked', () => {
+    // Without the expansion `[ \t]` is the three characters space, backslash and `t` — never a tab.
+    expect(hookVerdict(`python3 -c "from\t${G}\timport\t${G}"`)).toBe(2);
+  });
+
+  it('matches across a line break, so a WRAPPED import list is blocked', () => {
+    // grep is line-oriented and a newline cannot be put in its pattern (it reads one as a separator
+    // between alternative patterns). Both sides fold the newline onto a sentinel instead.
+    expect(hookVerdict(`python3 -c "${WRAPPED_SPELLING}"`)).toBe(2);
+  });
 });
 
 describe('the reader names the interpreter and the extent', () => {
@@ -236,6 +295,15 @@ describe('the three payload sources a committed file can carry', () => {
   it('does NOT read a heredoc body whose interpreter is a different language', () => {
     const document = `node <<'EOF'\n${JS_SPELLING}\nEOF\n`;
     expect(findingsIn('scripts/x.sh', document)).toEqual([]);
+  });
+
+  it('names the matched text even when the match spans lines', () => {
+    // A finding whose subject is empty is a finding the reader cannot act on. The text was found by
+    // searching for a matching LINE, and the wrapped import has none — so this shape was reported
+    // with the file, the line and nothing to look at.
+    const [finding] = findingsIn('scripts/x.py', `${WRAPPED_SPELLING}\n`);
+    expect(finding.id).toBe('python glob import');
+    expect(finding.text).toContain(`i${G}`);
   });
 
   it('a JavaScript file carrying the same TEXT is not reported', () => {
