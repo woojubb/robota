@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-046: promote advisory CI gates (regression-red-proof, patch-coverage) to blocking'
-status: in-progress
+status: blocked
 created: 2026-07-25
 priority: high
 urgency: now
@@ -234,3 +234,24 @@ refuses a non-CLEAN state, so this decision returns for review if that ever chan
 becoming wrong a second time.
 
 **`patch-coverage` is NOT promoted** and this item stays open for it.
+
+## Progress
+
+### 2026-08-21 — BLOCKED on repo-admin scope, and the block is precise
+
+Everything this item can reach without that scope is already done: `REGRESSION_RED_PROOF_ENFORCE=1`
+makes an `accidental-green` verdict exit 1, and `.github/required-status-checks.json` records, for
+each of the two gates, why it is not required.
+
+**What remains is one `gh api -X PUT` against the `protect-develop` ruleset**, which needs repo-admin
+credentials this agent does not have. The exact command is in ## Owner Action above.
+
+**And it should NOT be run yet, on this item's own evidence.** `deliberately_not_required` in
+`.github/required-status-checks.json` records the reason for `regression-red-proof`: `accidental-green`
+has never fired on a real pull request, so making it required would put an UNTESTED refusal in the
+merge path. One observed firing is what promotes it. `patch-coverage` is excluded for the different
+reason that it deliberately cannot fail, which INFRA-094 did not change — that item removed a
+duplicate build, not the advisory posture.
+
+So the block is not "waiting for a credential". It is waiting for evidence, and the credential after
+it. Recorded as `blocked` rather than `todo` so the distinction is readable.

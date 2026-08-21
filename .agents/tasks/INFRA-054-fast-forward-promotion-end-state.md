@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-054: promote by fast-forward so the two branches cannot diverge at all'
-status: todo
+status: blocked
 created: 2026-07-26
 priority: medium
 urgency: later
@@ -78,3 +78,28 @@ Also required, and each needs an explicit owner decision:
 
 - `.agents/spec-docs/done/INFRA-051-promotion-ancestry-invariant.md` § Alternatives Considered #2
 - `.agents/tasks/completed/INFRA-051-squash-merge-loses-promotion-ancestry.md`
+
+## Progress
+
+### 2026-08-21 — BLOCKED on three owner decisions this item itself enumerates
+
+Nothing here is implementable without settling what its own ## Direction section lists as
+"each needs an explicit owner decision":
+
+1. whether `hotfix/*` must route through `develop` first — without which fast-forward breaks on the
+   first hotfix;
+2. whether Dependabot, if re-enabled, targets `develop`;
+3. whether losing the promotion PR — and with it CodeQL's annotations on the promotion — is
+   acceptable.
+
+The third is the load-bearing one and it is a policy judgement, not a technical one.
+
+Two further constraints measured on 2026-08-21, both of which narrow the design before anyone decides:
+
+- The proposed vehicle is a `workflow_dispatch` promotion workflow. That trigger is available — it is
+  what `ruleset-drift.yml` uses — so this item is not blocked by the 2026-08-04 cron directive, unlike
+  INFRA-042 and INFRA-065.
+- Acceptance item 2 ("a promotion performed by fast-forward") cannot be satisfied by an agent at all:
+  `develop` is 62 commits ahead of `main`, and performing a promotion is a release action.
+
+Recorded as `blocked` rather than `todo`: the work is not unstarted, it is unauthorised.

@@ -1113,7 +1113,15 @@ jobs:
   patch-coverage:
     name: patch-coverage (advisory)
     runs-on: ubuntu-latest
-    needs: changes
+    # INFRA-094: `build` joins `needs` so this job can RESTORE the dist it used to rebuild. The item
+    # offered two directions and only this one is available — its option (a), moving the job onto a
+    # schedule, needs a `schedule:` trigger, and the 2026-08-04 owner directive removed every one of
+    # those from this repository.
+    #
+    # The trade is stated rather than hidden: total COMPUTE falls by a whole `pnpm build:deps`, and
+    # this job can no longer start before `build` finishes. It is advisory and blocks nothing, so
+    # what it costs is a later advisory verdict, not a later merge.
+    needs: [changes, build]
     # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
     # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
     # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
@@ -1148,8 +1156,27 @@ jobs:
           PATCH_COVERAGE_BASE_REF: origin/${{ github.base_ref }}
         run: node scripts/harness/check-patch-coverage.mjs --detect
 
-      - name: Build workspace packages (affected suites import sibling dist)
-        if: steps.detect.outputs.affected == 'true'
+      # INFRA-094: the `build` job already produced this exact dist and uploaded it as `package-dist`
+      # — the same artifact `quality` and the binary e2e restore. Rebuilding it here compiled the
+      # whole workspace a second time on every code pull request.
+      - name: Download package build output
+        if: steps.detect.outputs.affected == 'true' && needs.build.outputs.package_dist_required == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: package-dist
+          path: .artifacts/package-dist
+
+      - name: Restore package build output
+        if: steps.detect.outputs.affected == 'true' && needs.build.outputs.package_dist_required == 'true'
+        run: tar -xzf .artifacts/package-dist/package-dist.tgz
+
+      # The fallback is NOT belt-and-braces. `package_dist_required` is `build`'s own judgement about
+      # whether the CHANGE needs built output; this job's `detect` is a different question — whether
+      # the changed LINES live in packages whose suites import sibling dist. The two can disagree,
+      # and when they do, coverage computed against absent dist would under-report in silence, which
+      # is the vacuity this repository refuses. So the build still happens in exactly that case.
+      - name: Build workspace packages (only when no dist artifact exists)
+        if: steps.detect.outputs.affected == 'true' && needs.build.outputs.package_dist_required != 'true'
         run: pnpm build:deps
 
       - name: Compute patch coverage over changed lines

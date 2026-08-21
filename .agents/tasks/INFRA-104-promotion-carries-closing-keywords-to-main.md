@@ -92,3 +92,31 @@ automated test may perform.
 - `deriveClosingLines` was renamed `collectClosingLines` so the traversal is reachable under the
   harness finder convention that the counter-reset case has to run twice.
 - TC-10 remains open by design: it is observed on the next promotion, not executed here.
+
+### 2026-08-21 — TC-10 is unobservable today, and here is exactly why
+
+The guard has since been exercised. `main` now contains `17288be5d`, carried by promotion PR #1895
+(2026-08-19), and `promotion closes` ran as a required context on it.
+
+**It produced an EMPTY block, legitimately.** That promotion's body records the derivation: 53
+carried pull-request bodies read, 12 referenced issues checked, every one already closed —
+including issue #1722, which this item's spec had expected to be the first issue GitHub closed by
+itself. It was closed by hand the day before.
+
+So the guard works and the mechanism is proven; the half TC-10 asks about — GitHub, not a person,
+closing an issue — has still never been watched.
+
+**Measured on 2026-08-21: there is no candidate.** Every `Closes` reference in the pull requests
+merged to `develop` and not yet on `main` points at an issue that is ALREADY CLOSED. A promotion run
+today would produce another empty block, so promoting does not satisfy TC-10 either.
+
+**What would.** An issue that is (a) named by a closing keyword in a PR merged to `develop` and
+(b) still open when the next promotion runs. That is a sequencing condition, not work — and it is one
+this session actively removed four times, by closing issues #1903, #1912, #1898 and #1899 BY HAND
+after their work landed on `develop`. Closing them by hand was correct for the goal in front of me
+and it consumed the observation this item needs; recording that here so the next agent does not
+repeat it without noticing.
+
+Left `in-progress` deliberately. The implementation, the required-context wiring and TC-01…TC-09 are
+complete; only the observation is outstanding, and manufacturing work to observe it would be worse
+than waiting for it to arise.
