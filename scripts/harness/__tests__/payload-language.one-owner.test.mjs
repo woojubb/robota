@@ -149,6 +149,32 @@ describe('both enforcers reach the same verdict on one case table', () => {
   }
 });
 
+describe('the hook reads this table the way the scan does', () => {
+  /*
+   * The two rows for these spellings in CASES above already assert both enforcers. These cases
+   * exist anyway, and are not redundant with them for two reasons.
+   *
+   * They name the MECHANISM rather than a verdict: what changed is not that one more spelling is
+   * hazardous, it is that `grep -E` was reading this table differently from `new RegExp` —
+   * interpreting neither `\t` nor `\n`, and matching one line at a time. Both halves of that are
+   * only visible with the hook's answer isolated from the scan's.
+   *
+   * And a table row is invisible to `check-regression-red-proof.mjs`, which reads added case titles
+   * out of the diff: a row's title is built at runtime, so a row added here is judged as a
+   * pre-existing case and its red does not count as proof. These titles are literal, so they do.
+   */
+  it('expands the table escapes, so a TAB-separated import is blocked', () => {
+    // Without the expansion `[ \t]` is the three characters space, backslash and `t` — never a tab.
+    expect(hookVerdict(`python3 -c "from\t${G}\timport\t${G}"`)).toBe(2);
+  });
+
+  it('matches across a line break, so a WRAPPED import list is blocked', () => {
+    // grep is line-oriented and a newline cannot be put in its pattern (it reads one as a separator
+    // between alternative patterns). Both sides fold the newline onto a sentinel instead.
+    expect(hookVerdict(`python3 -c "${WRAPPED_SPELLING}"`)).toBe(2);
+  });
+});
+
 describe('the reader names the interpreter and the extent', () => {
   function payloadsOf(command) {
     const result = spawnSync(
