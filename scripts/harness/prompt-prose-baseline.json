@@ -1,4 +1,8 @@
 {
+  "packages/agent-cli/src/handoff/handoff-consent.ts": {
+    "count": 1,
+    "hashes": ["23413b20664a"]
+  },
   "packages/agent-cli/src/init/init-command.ts": {
     "count": 1,
     "hashes": ["cdec64dd55b0"]

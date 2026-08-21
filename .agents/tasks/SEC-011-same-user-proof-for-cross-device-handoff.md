@@ -127,6 +127,60 @@ signaling server that reads every byte still cannot authorize a transfer or read
 | TC-09 | Unit test | Consent denied                                    | A normal refusal, distinct from an authentication failure  |
 | TC-10 | Unit test | Trust level is not interchangeable with SEC-010's | A local admission cannot authorize a cross-device transfer |
 
+## Implementation status
+
+The cryptographic boundary landed as PR #1834. The two consumers issue #1812 assigned elsewhere — the
+channel gate and the CLI — plus the two open design questions, landed as issue #1865:
+
+| Piece                                                             | Package                                |
+| ----------------------------------------------------------------- | -------------------------------------- |
+| The channel gate consuming the grant, verdict INJECTED            | `agent-transport-webrtc`               |
+| Consent at the destination, after the proof and failing closed    | `agent-transport-webrtc` + `agent-cli` |
+| Revocation DISTRIBUTION — a root-signed, expiring, monotonic list | `agent-remote-pairing`                 |
+| Root ROTATION — dual-signed, bounded overlap                      | `agent-remote-pairing`                 |
+
+### The two design questions, and what was decided
+
+**Revocation distribution.** A revocation is the one security statement whose ABSENCE is the attack:
+a certificate that never arrives simply fails to authenticate, while a revocation that never arrives
+silently authorizes a device the user retired. So an attacker who can influence distribution needs to
+forge nothing — they withhold, or they replay an older list.
+
+That rules out an unsigned list (anyone edits it, and removing an entry IS the attack) and a signed
+list with no expiry (self-authenticating and still replayable). What landed is signed by the same
+user root as a device certificate — so any machine that can verify a certificate can verify a list,
+and distribution needs no trusted channel — and it carries `expiresAt` plus a monotonic `issuedAt`.
+A holder past the expiry REFUSES rather than reading the list as "nothing is revoked", because a
+stale list is indistinguishable from a withheld one. An empty list is a real statement, which is why
+one is issued on a schedule rather than only when something is revoked.
+
+**Rotation.** Two problems wear one word, and they need opposite answers.
+
+_Hygiene_ — the key is fine and is being replaced. Continuity is wanted, and a rotation statement
+signed by BOTH roots provides it: the old to say "this succeeds me", the new to prove it exists and
+consents. Without the countersignature anyone holding the old key could name a public key they do NOT
+hold as successor, and every verifier would move to an identity nobody can issue certificates for —
+a lock-out by a statement that verifies perfectly.
+
+_Compromise_ — someone else has the key. This mechanism cannot help, because the attacker can sign
+the same statement naming a root of their choosing. **A compromised root is not rotated, it is
+abandoned**: new root, new `userId`, every device re-enrolled out of band. No function is offered
+that looks like it handles this, because a `rotate` that silently did the wrong thing under
+compromise would be worse than none.
+
+### Test-plan coverage
+
+TC-01 through TC-07 were covered by PR #1834. TC-08 (revoked device; a device caught mid-rotation),
+TC-09 (consent denied, as a refusal distinct from an authentication failure) and TC-10 (the trust
+level is not interchangeable with SEC-010's — the gate refuses an admission that claims the stronger
+level) are covered now.
+
+### What remains
+
+The CARRIER. Nothing yet constructs a WebRTC channel for a hand-off, so the gate's `handoffGrant`
+option and the CLI's consent builder have no product wiring them together. That is the same gap
+issue #1864 left with `/handoff`'s adapter, and it is one composition rather than two.
+
 ## User Execution Test Scenarios
 
 Deferred until the recommendation is accepted, for the same reason SEC-010's was: what a user can run
