@@ -39,8 +39,17 @@ import type { TDriverId } from './driver-contracts.js';
  * rendezvous produces. `token-only` means a credential was presented and nothing about origin was
  * proven — correct for a remote peer, and NOT interchangeable with the first however convenient a
  * single boolean would be.
+ *
+ * `same-user-different-host` (SEC-011, issue #1865) is what a verified cross-device hand-off grant
+ * produces: the same user, provably, on a machine that is provably NOT this one. It sits BETWEEN the
+ * other two and is interchangeable with neither. Against `same-user-same-host` the difference is
+ * load-bearing — a check that wanted same-machine (a guarded 0700 directory the kernel vouched for)
+ * must never be satisfied by a signature that says nothing about where the peer runs. Against
+ * `token-only` the difference is that a user root key signed the device certificate, so the origin
+ * IS proven; collapsing it downward would throw away the thing the grant exists to establish.
  */
-export type TPeerTrust = 'same-user-same-host' | 'token-only' | 'unproven';
+export type TPeerTrust =
+  'same-user-same-host' | 'same-user-different-host' | 'token-only' | 'unproven';
 
 /**
  * Who a message came from.

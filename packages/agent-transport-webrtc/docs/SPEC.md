@@ -115,24 +115,25 @@ reserved for E4). Without `reconnect`, the gate is exactly the B4 first-pair-onl
 
 ## Public API Surface
 
-| Export                        | Kind     | Description                                                                                              |
-| ----------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
-| `WebRtcTransport`             | class    | `IConfigurableTransport` carrying a session over an `RTCDataChannel`.                                    |
-| `IWebRtcTransportOptions`     | type     | Construction options.                                                                                    |
-| `IIceServer`                  | type     | A STUN/TURN server (`urls` + optional `username`/`credential`; REMOTE-010).                              |
-| `IHostReconnectConfig`        | type     | E3 host reconnect/enrollment config for the gate (host identity + device resolver + enroll; REMOTE-012). |
-| `createInMemorySignalingPair` | function | In-process signaling pair for loopback/tests (no server).                                                |
-| `WsSignalingClient`           | class    | Production `ISignalingClient` over a `ws` socket to the relay (REMOTE-004).                              |
-| `IWsSignalingClientOptions`   | type     | `WsSignalingClient` options (url, rendezvous, onError, onReady, socket factory).                         |
-| `IWebSocketLike`              | type     | Minimal socket surface `WsSignalingClient` needs (injectable in tests).                                  |
-| `ISignalingClient`            | type     | Signaling port (send/onSignal/close by rendezvous).                                                      |
-| `ILocalPeerProof`             | type     | SEC-010 local-peer proof port the gate consumes: `redeem` plus an admission observer.                    |
-| `ILocalProofFrame`            | type     | The frame a local peer presents to show it reached the guarded rendezvous.                               |
-| `localProofFrame`             | function | Build that frame. Beside the judge that reads it, so a sender cannot drift from the shape checked.       |
-| `ISignalMessage`              | type     | Opaque SDP/ICE envelope.                                                                                 |
-| `TSignalKind`                 | type     | `'offer' \| 'answer' \| 'ice'`.                                                                          |
-| `loadWerift`                  | function | Lazy-load the optional `werift` peer dep (throws on absence).                                            |
-| `IWeriftModule`               | type     | The subset of the werift surface this transport constructs.                                              |
+| Export                        | Kind     | Description                                                                                                                                 |
+| ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WebRtcTransport`             | class    | `IConfigurableTransport` carrying a session over an `RTCDataChannel`.                                                                       |
+| `IWebRtcTransportOptions`     | type     | Construction options.                                                                                                                       |
+| `IIceServer`                  | type     | A STUN/TURN server (`urls` + optional `username`/`credential`; REMOTE-010).                                                                 |
+| `IHostReconnectConfig`        | type     | E3 host reconnect/enrollment config for the gate (host identity + device resolver + enroll; REMOTE-012).                                    |
+| `createInMemorySignalingPair` | function | In-process signaling pair for loopback/tests (no server).                                                                                   |
+| `WsSignalingClient`           | class    | Production `ISignalingClient` over a `ws` socket to the relay (REMOTE-004).                                                                 |
+| `IWsSignalingClientOptions`   | type     | `WsSignalingClient` options (url, rendezvous, onError, onReady, socket factory).                                                            |
+| `IWebSocketLike`              | type     | Minimal socket surface `WsSignalingClient` needs (injectable in tests).                                                                     |
+| `ISignalingClient`            | type     | Signaling port (send/onSignal/close by rendezvous).                                                                                         |
+| `ILocalPeerProof`             | type     | SEC-010 local-peer proof port the gate consumes: `redeem` plus an admission observer.                                                       |
+| `ILocalProofFrame`            | type     | The frame a local peer presents to show it reached the guarded rendezvous.                                                                  |
+| `localProofFrame`             | function | Build that frame. Beside the judge that reads it, so a sender cannot drift from the shape checked.                                          |
+| `handoffGrantFrame`           | function | SEC-011 (issue #1865): build the frame a source presents to show it holds a grant for this transfer. Beside its judge, for the same reason. |
+| `ISignalMessage`              | type     | Opaque SDP/ICE envelope.                                                                                                                    |
+| `TSignalKind`                 | type     | `'offer' \| 'answer' \| 'ice'`.                                                                                                             |
+| `loadWerift`                  | function | Lazy-load the optional `werift` peer dep (throws on absence).                                                                               |
+| `IWeriftModule`               | type     | The subset of the werift surface this transport constructs.                                                                                 |
 
 ## Extension Points
 

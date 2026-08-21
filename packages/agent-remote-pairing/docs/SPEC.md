@@ -33,36 +33,42 @@ detection is a **directional, nonce-bound HMAC key-confirmation** bound to both 
 
 ## Public API Surface
 
-| Export                      | Kind     | Description                                                                                           |
-| --------------------------- | -------- | ----------------------------------------------------------------------------------------------------- |
-| `generatePairingSecret`     | function | Fresh 256-bit secret + 128-bit rendezvous (base64url).                                                |
-| `generateNonce`             | function | Fresh per-handshake nonce.                                                                            |
-| `toPairingUrl`              | function | Encode `{ rendezvous, secret }` into a URL **fragment**.                                              |
-| `parsePairingUrl`           | function | Read `{ rendezvous, secret }` from a pairing URL fragment.                                            |
-| `extractDtlsFingerprint`    | function | Parse the `a=fingerprint` value from an SDP (throws if absent).                                       |
-| `deriveSessionKey`          | function | HKDF a domain-separated session key (Stage-E use).                                                    |
-| `computeConfirmations`      | function | This peer's outgoing + expected-peer directional confirmations.                                       |
-| `verifyPeerConfirmation`    | function | Isomorphic timing-safe (double-HMAC) equality of two confirmations.                                   |
-| `startPairingHandshake`     | function | Drive the confirmation exchange; resolves accept-with-session-key, hard-rejects on mismatch/timeout.  |
-| `generateIdentityKeyPair`   | function | ECDSA-P256 identity keypair (REMOTE-012 E3); `extractable:false` for the device, `true` for the host. |
-| `exportPublicKey`           | function | Export a public key as base64url SPKI — the value the counterpart pins.                               |
-| `importPublicKey`           | function | Import a base64url SPKI public key for verify.                                                        |
-| `exportKeyPairJwk`          | function | Host-only: export an extractable keypair to JWKs (0600 on-disk file).                                 |
-| `importKeyPairJwk`          | function | Host-only: reload a keypair from persisted JWKs.                                                      |
-| `deriveIdentityId`          | function | Stable non-secret id = base64url `SHA-256(SPKI)` (deviceId / hostIdentityId).                         |
-| `signChallenge`             | function | Sign the channel-bound reconnect transcript (E3).                                                     |
-| `verifyChallenge`           | function | Verify a counterpart's reconnect signature against its pinned public key (fail-closed).               |
-| `startDeviceReconnect`      | function | Device-side mutual reconnect controller; verifies the host before accept.                             |
-| `startHostReconnect`        | function | Host-side mutual reconnect controller; verifies the device before accept.                             |
-| `deriveReconnectSeed`       | function | HKDF a per-device reconnect seed from the pairing `sessionKey` (REMOTE-013 E4).                       |
-| `deriveReconnectRendezvous` | function | HKDF a fresh reconnect rendezvous id from `(seed, counter)` — single-use room per reconnect (E4).     |
-| `generateUserRootKeyPair`   | function | SEC-011: the USER's root ECDSA keypair — one per person, not per machine.                             |
-| `deriveUserId`              | function | SEC-011: stable `SHA-256(SPKI)` id of a user root.                                                    |
-| `issueDeviceCertificate`    | function | SEC-011: sign a device key into this user's set. Same root ⇒ same user.                               |
-| `verifyDeviceCertificate`   | function | SEC-011: check a certificate against an expected user, now — signature first, then the signed fields. |
-| `verifyDevicePossession`    | function | SEC-011: confirm the presenter HOLDS the device key its certificate names.                            |
-| `issueHandoffGrant`         | function | SEC-011: authorize ONE transfer, to ONE destination, over ONE channel.                                |
-| `verifyHandoffGrant`        | function | SEC-011: verify a grant against this destination, transfer and channel.                               |
+| Export                      | Kind     | Description                                                                                                                                              |
+| --------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `generatePairingSecret`     | function | Fresh 256-bit secret + 128-bit rendezvous (base64url).                                                                                                   |
+| `generateNonce`             | function | Fresh per-handshake nonce.                                                                                                                               |
+| `toPairingUrl`              | function | Encode `{ rendezvous, secret }` into a URL **fragment**.                                                                                                 |
+| `parsePairingUrl`           | function | Read `{ rendezvous, secret }` from a pairing URL fragment.                                                                                               |
+| `extractDtlsFingerprint`    | function | Parse the `a=fingerprint` value from an SDP (throws if absent).                                                                                          |
+| `deriveSessionKey`          | function | HKDF a domain-separated session key (Stage-E use).                                                                                                       |
+| `computeConfirmations`      | function | This peer's outgoing + expected-peer directional confirmations.                                                                                          |
+| `verifyPeerConfirmation`    | function | Isomorphic timing-safe (double-HMAC) equality of two confirmations.                                                                                      |
+| `startPairingHandshake`     | function | Drive the confirmation exchange; resolves accept-with-session-key, hard-rejects on mismatch/timeout.                                                     |
+| `generateIdentityKeyPair`   | function | ECDSA-P256 identity keypair (REMOTE-012 E3); `extractable:false` for the device, `true` for the host.                                                    |
+| `exportPublicKey`           | function | Export a public key as base64url SPKI — the value the counterpart pins.                                                                                  |
+| `importPublicKey`           | function | Import a base64url SPKI public key for verify.                                                                                                           |
+| `exportKeyPairJwk`          | function | Host-only: export an extractable keypair to JWKs (0600 on-disk file).                                                                                    |
+| `importKeyPairJwk`          | function | Host-only: reload a keypair from persisted JWKs.                                                                                                         |
+| `deriveIdentityId`          | function | Stable non-secret id = base64url `SHA-256(SPKI)` (deviceId / hostIdentityId).                                                                            |
+| `signChallenge`             | function | Sign the channel-bound reconnect transcript (E3).                                                                                                        |
+| `verifyChallenge`           | function | Verify a counterpart's reconnect signature against its pinned public key (fail-closed).                                                                  |
+| `startDeviceReconnect`      | function | Device-side mutual reconnect controller; verifies the host before accept.                                                                                |
+| `startHostReconnect`        | function | Host-side mutual reconnect controller; verifies the device before accept.                                                                                |
+| `deriveReconnectSeed`       | function | HKDF a per-device reconnect seed from the pairing `sessionKey` (REMOTE-013 E4).                                                                          |
+| `deriveReconnectRendezvous` | function | HKDF a fresh reconnect rendezvous id from `(seed, counter)` — single-use room per reconnect (E4).                                                        |
+| `generateUserRootKeyPair`   | function | SEC-011: the USER's root ECDSA keypair — one per person, not per machine.                                                                                |
+| `deriveUserId`              | function | SEC-011: stable `SHA-256(SPKI)` id of a user root.                                                                                                       |
+| `issueDeviceCertificate`    | function | SEC-011: sign a device key into this user's set. Same root ⇒ same user.                                                                                  |
+| `verifyDeviceCertificate`   | function | SEC-011: check a certificate against an expected user, now — signature first, then the signed fields.                                                    |
+| `verifyDevicePossession`    | function | SEC-011: confirm the presenter HOLDS the device key its certificate names.                                                                               |
+| `issueHandoffGrant`         | function | SEC-011: authorize ONE transfer, to ONE destination, over ONE channel.                                                                                   |
+| `verifyHandoffGrant`        | function | SEC-011: verify a grant against this destination, transfer and channel.                                                                                  |
+| `issueRevocationList`       | function | SEC-011 (issue #1865): sign the retired device ids for this user. Signed by the user ROOT, so distribution needs no trusted channel.                     |
+| `verifyRevocationList`      | function | SEC-011: verify a list against this user and this moment. Expiry and a monotonic `issuedAt` are what make withholding and rollback fail closed.          |
+| `revocationUnavailable`     | function | SEC-011: the message a verifier gives when it holds no usable list. Exists so nobody writes `?? []`, which reads as a safe default and is the fail-open. |
+| `issueRootRotation`         | function | SEC-011: sign a root handover with BOTH roots — the old to say it succeeds, the new to prove it exists and consents.                                     |
+| `verifyRootRotation`        | function | SEC-011: verify a rotation against the root this machine trusts today. HYGIENE only — a compromised root is abandoned, not rotated.                      |
+| `previousRootStillAccepted` | function | SEC-011: is a certificate from the retiring root still acceptable? Takes the VERDICT, so the bound cannot be read off an unverified statement.           |
 
 ### SEC-011 — same USER, across two computers (#1812)
 
