@@ -91,9 +91,44 @@ The wire layer is complete; the orchestration is not. What has landed, and where
 | Manifest, inventory classification, integrity seal/verify            | `agent-transport-protocol`  | #1843   |
 | Chunking and reassembly                                              | `agent-transport-protocol`  | #1856   |
 
-**TC-01, TC-05, TC-06, TC-08 and TC-09 are covered.** TC-02, TC-03, TC-04, TC-07 and TC-10 are not,
-and cannot be: they are about what the source and destination DO across a real transfer, not about
-the frames. They need the framework orchestration and the CLI commands, which are what remains.
+**TC-01, TC-05, TC-06, TC-08 and TC-09 were covered by the wire layer.** TC-02, TC-03, TC-04, TC-07
+and TC-10 are covered now, by the orchestration below — they are about what the source and
+destination DO across a real transfer, not about the frames.
+
+| Piece                                                                     | Package                             | Change      |
+| ------------------------------------------------------------------------- | ----------------------------------- | ----------- |
+| `HandoffSource` / `HandoffDestination` and the `IHandoffComposition` port | `agent-framework`                   | issue #1864 |
+| `createHandoffComposition` — the one file where the two names meet        | `agent-cli`                         | issue #1864 |
+| `ICommandHandoffAdapter`, and `/handoff` with its consent prompt          | `agent-framework` + `agent-command` | issue #1864 |
+
+### The edge that was NOT added
+
+The orchestration composes the wire layer, and `agent-framework` does not depend on
+`agent-transport-protocol`. Every consumer of that package is a transport package or a composition
+root, and ARCH-021 is the precedent for keeping an assembly package clear of such an edge by having
+the root supply the collaborator — `agent-subagent-runner`'s `agent-provider-defaults` dependency was
+DELETED for exactly this reason. So `IHandoffComposition` names the five operations the orchestration
+needs, and `packages/agent-cli/src/handoff/handoff-composition-root.ts` is the only file in the tree
+where `@robota-sdk/agent-framework` and `@robota-sdk/agent-transport-protocol` appear together.
+
+### Found while wiring it: the seal is `JSON.stringify`, so a `Date` does not survive
+
+`IUserMessage.timestamp` is a `Date`. `sealHandoffRecord` serialises with `JSON.stringify`, so every
+message timestamp arrives at the destination as an ISO **string**, and `JSON.parse` does not turn it
+back. The transfer is byte-exact — the digest proves that — and the object it reconstructs is not the
+object that was sent.
+
+Not fixed here, because it belongs to the seal rather than to the orchestration, and changing what
+the seal produces changes what the digest covers. Recorded rather than smoothed over: the
+orchestration tests use a real `Date` in their fixtures precisely so this stays visible, and a
+destination that resumes a session and reads `timestamp.getTime()` is the case that would find it.
+
+### What remains, and where it lives
+
+The CARRIER. `/handoff` is registered in the default module set and answers a host without one by
+saying so — a better state than a capability nobody can see, and it is what makes the carrier's
+arrival observable. Wiring it is issue #1865 (`agent-transport-webrtc` + `agent-cli`), which owns the
+cross-device grant this transfer consumes.
 
 One classification changed during implementation and the table above still reflects the original
 wording. `THandoffDisposition` gained `never-transferred`, split from `source-local`, because the two
