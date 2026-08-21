@@ -506,38 +506,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: pnpm harness:scan -- --skip dist --skip build-contracts
 
-      # INFRA-065 half 1. `scan-action-references` verifies that every `uses:` REFERENCE resolves —
-      # which is what caught `vercel/action@v1`, and which actionlint does not check. The reverse is
-      # also true, and this step is that half: expression syntax and context typing, `run:` block
-      # shellcheck, and job/step schema errors GitHub accepts silently.
-      #
-      # A STEP here rather than a job of its own. `ci-concurrency-footprint` refused the standalone
-      # form and was right to: concurrent jobs are budgeted per ACCOUNT, so a 24th job per pull
-      # request is a slot taken from every other repository on it. This costs no slot and runs on a
-      # checkout that already exists.
-      #
-      # Measured before landing: actionlint 1.7.7 reports ZERO problems across these workflows, so it
-      # arrives clean rather than with a backlog to acknowledge.
-      - name: Lint workflow files (actionlint)
-        run: |
-          set -euo pipefail
-          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
-            -o "$RUNNER_TEMP/actionlint.tar.gz"
-          # Verified BEFORE extraction, so a swapped archive is never unpacked, let alone run.
-          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c -
-          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
-          chmod +x "$RUNNER_TEMP/actionlint"
-          # `shellcheck` is preinstalled on ubuntu-latest, and it is HALF of what this step is for.
-          # Without it actionlint prints `Rule "shellcheck" was disabled` and exits 0 — measured
-          # locally, where a deliberately broken `run:` block drew no comment at all. A check that
-          # turns half of itself off and still reports success is the shape this repository keeps
-          # finding, so its presence is asserted rather than assumed.
-          command -v shellcheck >/dev/null || {
-            echo "::error::actionlint: shellcheck is absent, so run-block linting would be silently skipped."
-            exit 1
-          }
-          "$RUNNER_TEMP/actionlint" -color
-
   dependency-audit:
     name: dependency audit
     if: github.base_ref != 'main'
@@ -705,6 +673,54 @@ jobs:
       # and stated in neither.
       - name: Check formatting
         run: node scripts/harness/verify-like-ci.mjs --only format-check --base-ref origin/${{ github.base_ref }}
+
+  # INFRA-065 half 1. `scan-action-references` verifies that every `uses:` REFERENCE resolves — which
+  # is what caught `vercel/action@v1`, and which actionlint does not check. The reverse is also true,
+  # and this job is that half: expression syntax and context typing, `run:` block shellcheck, and
+  # job/step schema errors GitHub accepts silently.
+  #
+  # A JOB, NOT A STEP OF `scans`, and the harness decided that rather than a preference. Folding it
+  # into `scans` cost no concurrency slot but broke two invariants at once: `ci-mirror-map` requires
+  # every step of a REQUIRED job to be reproduced by a `verify-like-ci` stage or declared plumbing
+  # (INFRA-056 — otherwise "I ran the CI-equivalent check" covers less than it claims), and
+  # `pre-push-mirrors-ci-scans` requires the pre-push gate to run every command `scans` runs. Both
+  # would have been satisfiable only by making every developer install actionlint. The concurrency
+  # baseline is re-frozen deliberately instead, which is the option that scan itself offers: one
+  # account slot, spent knowingly, against a locally-unverifiable required context.
+  #
+  # NOT required, and not proposed as required: a new refusal in the merge path, and INFRA-046
+  # records why an untested one is not promoted. A failure is still visible as a non-required red,
+  # which `merge-gate.sh` refuses to merge past.
+  #
+  # Measured before landing: actionlint 1.7.7 reports ZERO problems across this repository's
+  # workflows, so it arrives clean rather than with a backlog to acknowledge.
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    if: github.base_ref != 'main'
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Lint workflow files
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            -o "$RUNNER_TEMP/actionlint.tar.gz"
+          # Verified BEFORE extraction, so a swapped archive is never unpacked, let alone run.
+          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          chmod +x "$RUNNER_TEMP/actionlint"
+          # `shellcheck` is preinstalled on ubuntu-latest, and it is HALF of what this job is for.
+          # Without it actionlint prints `Rule "shellcheck" was disabled` and exits 0 — measured
+          # locally, where a deliberately broken `run:` block drew no comment at all. A check that
+          # turns half of itself off and still reports success is the shape this repository keeps
+          # finding, so its presence is asserted rather than assumed.
+          command -v shellcheck >/dev/null || {
+            echo "::error::actionlint: shellcheck is absent, so run-block linting would be silently skipped."
+            exit 1
+          }
+          "$RUNNER_TEMP/actionlint" -color
 
   commitlint:
     name: commitlint

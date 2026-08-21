@@ -46,8 +46,7 @@ so that "an outage costs a red cron, never a blocked promotion". A daily
 ## Acceptance
 
 - [x] A CI job runs `actionlint` over `.github/workflows/*.yml`, proven red against a deliberately
-      malformed expression before being believed. A STEP of the `scans` job in
-      `.github/workflows/ci.yml` — see below for why not a job.
+      malformed expression before being believed. The `actionlint` job in `.github/workflows/ci.yml`.
 - [x] A NON-BLOCKING job runs the resolvability scan's live half — **on demand, not on a schedule**.
       The cadence is refused rather than pending; see below. `action-references` in
       `.github/workflows/ruleset-drift.yml`.
@@ -103,16 +102,27 @@ command -v shellcheck >/dev/null || { echo "::error::…silently skipped."; exit
 A guard whose second half can disable itself and still report success is the failure shape this
 repository keeps finding, and it was one `command -v` away from shipping here.
 
-**It is a STEP, not a job, and a scan refused the first draft.** `ci-concurrency-footprint` reported
-`ci-footprint GREW: 24 job(s) per pull request, up from a frozen 23`, with the reason: concurrent
-jobs are budgeted per ACCOUNT, so each added job is a slot taken from every other repository on it.
-Correct refusal. Folded into `scans`, which already runs the harness suite on a fresh checkout with
-no dist — same coverage, no slot, and the footprint returns to 23. Re-freezing the baseline instead
-would have bought nothing and spent something.
+**A JOB, and two scans argued opposite sides before it settled there.**
 
-It is therefore not a required context of its own; a failure reddens `scans`, which IS required. That
-is stricter than the standalone job would have been, and it arrived that way by being refused rather
-than by being designed.
+`ci-concurrency-footprint` refused the standalone form first: `ci-footprint GREW: 24 job(s) per pull
+request, up from a frozen 23`, because concurrent jobs are budgeted per ACCOUNT and each one is a
+slot taken from every other repository on it. So it was folded into `scans` — no slot, same coverage.
+
+Then the harness suite refused THAT, twice over, and it was the stronger objection:
+
+- `ci-mirror-map` — every step of a REQUIRED job must be reproduced by a `verify-like-ci` stage or
+  declared plumbing. INFRA-056's reason: otherwise "I ran the CI-equivalent check" covers less than
+  it claims.
+- `pre-push-mirrors-ci-scans` — the pre-push gate must run every command `scans` runs.
+
+Both are satisfiable only by making every developer install actionlint and pay a network download on
+every pre-push. That is a worse trade than one account slot, so the job came back and the footprint
+baseline was re-frozen deliberately at 24 — which is the option that scan itself offers, alongside
+"remove a job" and "merge two".
+
+Recorded because the first commit of this work argued the opposite in its own message: folding in
+looked strictly better until the mirror invariant was measured. One account slot, spent knowingly,
+against a required context nobody could reproduce locally.
 
 **Half 2 — the cadence is REFUSED, not deferred.** The item asks for a scheduled job. The
 2026-08-04 owner directive ("크론은 다 꺼") removed every `schedule:` trigger in this repository, and
