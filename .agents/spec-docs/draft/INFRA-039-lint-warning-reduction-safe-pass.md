@@ -135,3 +135,38 @@ god-function (split + re-verify) × ~30 = the larger cost. Total spread across ~
 
 - Root-cause analysis: `investigate` session 2026-07-16 (lint two-tier policy).
 - Policy owner: `.eslintrc.json`; rules doc `.agents/rules/code-quality.md`.
+
+## Re-measured 2026-08-22 — the count GREW, and the ratchet landed before any reduction
+
+`pnpm lint` today: **0 errors, 2093 warnings across 1861 files.** This document recorded 1798 on
+2026-07-16, so the debt grew by **295** while the document sat in draft.
+
+| rule                                | count |
+| ----------------------------------- | ----- |
+| `@typescript-eslint/ban-types`      | 842   |
+| `no-magic-numbers`                  | 624   |
+| `max-lines-per-function`            | 340   |
+| `complexity`                        | 128   |
+| `@typescript-eslint/no-unused-vars` | 96    |
+| `max-lines`                         | 44    |
+| everything else                     | 19    |
+
+That growth is the argument for taking the SIGNAL half first. This document's stated problem is not
+the volume — the two-tier policy is deliberate — it is that "a genuinely-new warning in a PR is
+invisible in a 1798-line haystack". A ceiling fixes that without touching a line of source; a
+reduction pass without a ceiling fixes it until the next month.
+
+**What landed (2026-08-22):** `--max-warnings 2093` on the root `lint` script — eslint's own
+mechanism, no second implementation. That script is part of `harness:verify:release`, asserted by
+`check-release-governance.mjs`, and `release-grade verification` is a REQUIRED context on every pull
+request to `main`. So the ceiling is enforced by the tool, on the promotion path.
+
+`scan-lint-warning-ratchet` keeps the NUMBER honest rather than re-measuring it: the flag must be
+present, the ceiling must match `lint-warning-baseline.json`, and the baseline may fall and never
+rise without a deliberate re-freeze. It does not run eslint — a full workspace lint is minutes and
+`harness:scan` runs on every pre-push.
+
+**What is still open, and is what this document is FOR:** the reduction itself. `no-magic-numbers`
+(624) and `max-lines-per-function` (340) remain the two mechanical, low-risk classes this spec
+targets, and every one removed is a ratchet step down. The document stays `draft` because it has not
+been through the gates; the ceiling is not a substitute for it.
