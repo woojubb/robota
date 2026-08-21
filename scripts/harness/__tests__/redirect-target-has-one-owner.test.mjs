@@ -112,6 +112,19 @@ const WRITES_NOTHING = [...NAMES_NO_FILE, ...WRITES_ELSEWHERE];
 // a string replacement as patterns, so a path written `$'a dir'/out.txt` — a legitimate shell
 // dollar-quote — was rewritten into `a dir'/out.txt` before it ever reached a shell, and the row
 // asserting quote handling was quietly testing something else. A function replacement is literal.
+/**
+ * The same four quotings, written around a path INSIDE the store, for the guard-level rows.
+ *
+ * Kept beside the table rather than inside one describe, because two consumers ask it and a second
+ * copy is how the two guards drifted apart in the first place.
+ */
+const QUOTED_STORE_PATHS = [
+  ['double quotes around a space', '"node_modules/a dir/index.js"'],
+  ['single quotes around a space', "'node_modules/a dir/index.js'"],
+  ['a dollar-quoted segment', "$'node_modules'/pkg/index.js"],
+  ['a locale-quoted segment', '$"node_modules"/pkg/index.js'],
+];
+
 const fill = (shape, protectedPath) => shape.replaceAll('<P>', () => protectedPath);
 
 // ---------------------------------------------------------------------------------------------
@@ -166,9 +179,11 @@ describe('hook_redirect_targets names what a command writes to', () => {
    * space and appended the character, so a target quoted around a space came back wearing its
    * quotes — `"node_modules/a b"` — and the store pattern, anchored on `(^|/)`, could not match it.
    *
-   * Measured before the fix: every one of the ten write spellings permitted a command bash performs,
-   * for both a whitespace-bearing double-quoted target and a dollar-quoted one. The table is driven
-   * from `WRITES` so a spelling added there is covered here without being remembered.
+   * Measured before the fix, over the eleven write spellings this loop drives and the two quotings:
+   * 22 commands permitted by `bulk-edit-guard`, of which 18 create the file under a real bash. The
+   * other four are the `2>&` and `>>&` forms bash itself rejects — the deliberate over-report this
+   * file documents above, counted here rather than folded into the headline. The table is driven
+   * from `WRITES`, so a spelling added there is covered here without being remembered.
    */
   const QUOTINGS = [
     ['double quotes around a space', '"a dir/out.txt"', 'a dir/out.txt'],
@@ -187,10 +202,24 @@ describe('hook_redirect_targets names what a command writes to', () => {
     }
   }
 
-  it('leaves a quote that is not a delimiter alone', () => {
-    // The skip is for a DELIMITER. An expansion the shell would resolve still comes back unresolved,
-    // which is the reader's stated contract, and a mention inside a quoted argument is still not a
-    // redirection at all.
+  it('keeps a quote that is DATA rather than a delimiter', () => {
+    // The first cut decided by character class and deleted every quote it met, so a quote belonging
+    // to the path went with the delimiters — `a\"b.txt` came back `ab.txt` while bash writes
+    // `a"b.txt`. A delimiter is the quote that borders MASKED content; one standing among visible
+    // characters is data. These two rows are green only if the reader tells them apart.
+    expect(targetsOf('echo x > a\\"b.txt')).toContain('a"b.txt');
+    expect(targetsOf(`echo x > 'a"b'/out.txt`)).toContain('a"b/out.txt');
+  });
+
+  it('joins a spliced character to the name instead of ending it there', () => {
+    // The mode's stated limit says a spliced character is joined, and the splice branch skipped the
+    // backslash and let the loop meet the escaped character on its own terms — so an escaped SPACE
+    // hit the word break and the name ended at `a`. Bash writes `a b/node_modules/c`, which is
+    // inside the store, so the shortened name matched nothing and the write was permitted.
+    expect(targetsOf('echo x > a\\ b/node_modules/c')).toContain('a b/node_modules/c');
+  });
+
+  it('leaves an expansion unresolved, and reads no target from a quoted mention', () => {
     expect(targetsOf('echo x > $dir/out.txt')).toContain('$dir/out.txt');
     expect(targetsOf('echo "a > b"')).toEqual([]);
   });
@@ -285,6 +314,18 @@ describe('bulk-edit-guard refuses every spelling that writes into the store', ()
     it(`permits ${label}`, () => {
       expect(bulkEditVerdict(fill(shape, 'node_modules/pkg/index.js'))).toBe(0);
     });
+  }
+
+  // The quoting matrix, through the GUARD rather than the reader. The defect was reported as a
+  // guard-level bypass, and this file's mechanism is one table through every consumer — a doctrine
+  // it earned when a reader-level pass hid a statement-level miss for `>|`. A quoting fixed in the
+  // reader but not asked of the guard is the same shape of gap.
+  for (const [label, shape] of WRITES.filter(([, form]) => !/["']/.test(form))) {
+    for (const [quoteLabel, written] of QUOTED_STORE_PATHS) {
+      it(`refuses ${label} with ${quoteLabel}`, () => {
+        expect(bulkEditVerdict(`echo x ${fill(shape, written)}`)).toBe(2);
+      });
+    }
   }
 
   it('permits a write to a directory that merely CONTAINS the store name', () => {
