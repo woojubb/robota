@@ -163,7 +163,7 @@ describe('HttpClient', () => {
   });
 
   describe('URL construction', () => {
-    it('should handle baseUrl with trailing slash', () => {
+    it('should handle baseUrl with trailing slash', async () => {
       const configWithSlash: IHttpClientConfig = {
         baseUrl: 'https://api.test.com/',
         timeout: 30000,
