@@ -116,16 +116,30 @@ const CALL_RULES = [
  */
 function globBindingsIn(content) {
   const bound = new Set();
-  // `import glob` / `import glob as g` — the module, bound under its own name or an alias
-  for (const match of content.matchAll(
-    /^[ \t]*import[ \t]+glob(?:[ \t]+as[ \t]+([A-Za-z_]\w*))?[ \t]*$/gm,
-  )) {
-    bound.add(match[1] ?? 'glob');
+  // `import glob`, `import glob as g`, and either of those beside other modules on one line.
+  //
+  // NOT anchored to the line end. Review found that `$` dropped `import glob as g, os` entirely —
+  // the binding never registered, so the `g.glob(...)` call this rule exists to catch went
+  // unreported. An import statement is a comma-separated LIST, and reading only the single-module
+  // form answers a narrower question than the one asked.
+  for (const statement of content.matchAll(/^[ \t]*import[ \t]+([^\n#]+)/gm)) {
+    for (const clause of statement[1].split(',')) {
+      const named = clause.trim().match(/^glob(?:[ \t]+as[ \t]+([A-Za-z_]\w*))?$/);
+      if (named) bound.add(named[1] ?? 'glob');
+    }
   }
-  // `from glob import glob, iglob as it` — the FUNCTIONS, each under its own name or an alias
-  for (const match of content.matchAll(/^[ \t]*from[ \t]+glob[ \t]+import[ \t]+([^\n#]+)/gm)) {
-    for (const clause of match[1].split(',')) {
-      const named = clause.trim().match(/^(glob|iglob)(?:[ \t]+as[ \t]+([A-Za-z_]\w*))?$/);
+  // `from glob import glob, iglob as it`, including the parenthesised multi-line form. The body is
+  // taken up to the closing paren when there is one, so a name on its own line is still read —
+  // review found the `(\n  iglob as it,\n)` shape missed for the same reason as above.
+  for (const statement of content.matchAll(
+    /^[ \t]*from[ \t]+glob[ \t]+import[ \t]+(\(([\s\S]*?)\)|[^\n#]+)/gm,
+  )) {
+    const body = statement[2] ?? statement[1];
+    for (const clause of body.split(',')) {
+      const named = clause
+        .replace(/#[^\n]*/g, '')
+        .trim()
+        .match(/^(glob|iglob)(?:[ \t]+as[ \t]+([A-Za-z_]\w*))?$/);
       if (named) bound.add(named[2] ?? named[1]);
     }
   }

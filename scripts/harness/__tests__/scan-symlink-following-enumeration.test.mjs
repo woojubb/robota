@@ -121,6 +121,20 @@ describe('the import spellings of the same call (issue #1919)', () => {
     expect(findingsIn(PY_FILE, script).map((f) => f.id)).toContain('python glob imported binding');
   });
 
+  it('reports an alias imported BESIDE another module on one line', () => {
+    // Review found this: the reader anchored the import to the line end, so `import glob as g, os`
+    // matched nothing, the binding never registered, and the `g.glob(...)` call went unreported. An
+    // import statement is a comma-separated list, and reading only the single-module form answers a
+    // narrower question than the one asked.
+    const script = ['import glob as g, os', 'g.glob("**")'].join('\n');
+    expect(findingsIn(PY_FILE, script).map((f) => f.id)).toContain('python glob imported binding');
+  });
+
+  it('reports a name from a parenthesised multi-line import', () => {
+    const script = ['from glob import (', '  iglob as it,', ')', 'it("**")'].join('\n');
+    expect(findingsIn(PY_FILE, script).map((f) => f.id)).toContain('python glob imported binding');
+  });
+
   it('does NOT report the javascript package of the same name (TC-3)', () => {
     // `import glob from 'glob'` names a package that does not follow symlinks. Reporting it is the
     // false positive INFRA-123 recorded as the reason the first widening was withdrawn, so it is
