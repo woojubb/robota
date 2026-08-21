@@ -96,6 +96,46 @@ describe('the four measured spellings', () => {
   });
 });
 
+/**
+ * Issue #1919 — the same symlink-following function reached through an IMPORT binding.
+ *
+ * `CALL_RULES` matches the `glob.` prefix, which is one spelling of four. The other three were
+ * measured reaching the same function with nothing reported, and `from glob import glob` is the more
+ * idiomatic of the two forms — so the gap is not exotic.
+ */
+describe('the import spellings of the same call (issue #1919)', () => {
+  const PY_FILE = 'scripts/tools/sweep.py';
+
+  it('reports `from glob import glob` called under its own name', () => {
+    const script = ['from glob import glob', 'glob("**")'].join('\n');
+    expect(findingsIn(PY_FILE, script).map((f) => f.id)).toContain('python glob imported binding');
+  });
+
+  it('reports a module alias — `import glob as g` then `g.glob(...)`', () => {
+    const script = ['import glob as g', 'g.glob("**")'].join('\n');
+    expect(findingsIn(PY_FILE, script).map((f) => f.id)).toContain('python glob imported binding');
+  });
+
+  it('reports a function alias — `from glob import iglob as it` then `it(...)`', () => {
+    const script = ['from glob import iglob as it', 'it("**")'].join('\n');
+    expect(findingsIn(PY_FILE, script).map((f) => f.id)).toContain('python glob imported binding');
+  });
+
+  it('does NOT report the javascript package of the same name (TC-3)', () => {
+    // `import glob from 'glob'` names a package that does not follow symlinks. Reporting it is the
+    // false positive INFRA-123 recorded as the reason the first widening was withdrawn, so it is
+    // pinned here rather than left to the language filter to be trusted about.
+    const script = ["import glob from 'glob'", 'glob("**")'].join('\n');
+    expect(findingsIn('scripts/tools/build.mjs', script)).toEqual([]);
+  });
+
+  it('does NOT report a python file that imports glob and never calls it', () => {
+    // A binding is not a use. Reporting the import alone would make the remedy unactionable — there
+    // is no call to rewrite.
+    expect(findingsIn(PY_FILE, 'from glob import glob')).toEqual([]);
+  });
+});
+
 describe('what it does not report', () => {
   it('ignores a line that discusses the spelling in a comment', () => {
     // The rule has to be explainable in the file that implements it. A scan that flags its own

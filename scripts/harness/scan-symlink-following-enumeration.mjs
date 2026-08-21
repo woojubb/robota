@@ -89,6 +89,58 @@ const CALL_RULES = [
 ];
 
 /**
+ * The names a python file has bound to `glob.glob`/`iglob` by importing them (issue #1919).
+ *
+ * `CALL_RULES` matches the `glob.` prefix, which is one spelling of four. Measured, all three others
+ * reach the same symlink-following function and none was reported:
+ *
+ *     from glob import glob;         glob("**")
+ *     import glob as g;              g.glob("**")
+ *     from glob import iglob as it;  it("**")
+ *
+ * `from glob import glob` is the more idiomatic of the two forms, so the uncovered spellings are not
+ * exotic. No production instance exists today — every `glob` import in the tree is a test fixture
+ * that also writes `glob.glob(`, so the call rule already catches it — which makes this preventive
+ * rather than remedial, and is why it is a widening of one rule rather than the payload reader
+ * INFRA-123 describes.
+ *
+ * PYTHON ONLY, deliberately — and the filter is the SECOND defence, not the first. The patterns
+ * below read python import syntax (`from glob import glob`), which JavaScript's `from 'glob'` does
+ * not match, so the JS package of the same name is already unreachable by them. Measured both ways:
+ * with the language filter removed, the JS case still reports nothing.
+ *
+ * The filter stays because the first defence is a property of the regex, and a later edit that
+ * loosens the regex would silently lose it. `import glob from 'glob'` names a package that does NOT
+ * follow symlinks, and reporting it is the false positive INFRA-123 records as the reason the first
+ * widening was withdrawn — too expensive to leave resting on one line's exact shape.
+ */
+function globBindingsIn(content) {
+  const bound = new Set();
+  // `import glob` / `import glob as g` — the module, bound under its own name or an alias
+  for (const match of content.matchAll(
+    /^[ \t]*import[ \t]+glob(?:[ \t]+as[ \t]+([A-Za-z_]\w*))?[ \t]*$/gm,
+  )) {
+    bound.add(match[1] ?? 'glob');
+  }
+  // `from glob import glob, iglob as it` — the FUNCTIONS, each under its own name or an alias
+  for (const match of content.matchAll(/^[ \t]*from[ \t]+glob[ \t]+import[ \t]+([^\n#]+)/gm)) {
+    for (const clause of match[1].split(',')) {
+      const named = clause.trim().match(/^(glob|iglob)(?:[ \t]+as[ \t]+([A-Za-z_]\w*))?$/);
+      if (named) bound.add(named[2] ?? named[1]);
+    }
+  }
+  return bound;
+}
+
+/** A call through one of those names — `g.glob(…)` for a module binding, `it(…)` for a function one. */
+function boundGlobCallPattern(names) {
+  const alternation = [...names]
+    .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|');
+  return new RegExp(`\\b(?:${alternation})\\s*(?:\\.\\s*i?glob\\s*)?\\(`);
+}
+
+/**
  * Which files this scan reads, and in what language — INFRA-115.
  *
  * Both halves come from ONE row of `script-language.mjs`. They used to be two hand-written
@@ -97,6 +149,12 @@ const CALL_RULES = [
  * was clean.
  */
 const SCRIPTS = scriptFilters(['shell', 'javascript', 'typescript', 'python', 'yaml']);
+
+/**
+ * Python alone, for the import-binding rule (issue #1919). Derived from the same table as `SCRIPTS`,
+ * so a python spelling added there governs here with no second list to keep in step.
+ */
+const PYTHON = scriptFilters(['python']);
 
 /**
  * Files that DESCRIBE the hazardous spellings rather than run them. Every entry is the guard, its
@@ -214,6 +272,11 @@ export function findingsIn(relativePath, content, attributeLine = undefined) {
 
   const rows = hazardRows();
   const findings = [];
+  // Issue #1919: the names this file bound to the symlink-following function, if it is python. The
+  // set is computed ONCE per file rather than per line, because an import binds for the whole file
+  // and a per-line reading could only see the import's own line.
+  const boundGlobs = PYTHON.isScript(relativePath, content) ? globBindingsIn(content) : new Set();
+  const boundGlobCall = boundGlobs.size > 0 ? boundGlobCallPattern(boundGlobs) : null;
   const lines = content.split('\n');
   for (const [index, line] of lines.entries()) {
     if (isCommentary(line)) continue;
@@ -240,6 +303,17 @@ export function findingsIn(relativePath, content, attributeLine = undefined) {
         line: index + 1,
         id: rule.id,
         remedy: rule.remedy,
+        text: line.trim(),
+      });
+    }
+    // Issue #1919: the same function reached through an imported binding. Reported under its own id
+    // so a reader can tell which spelling was found — the remedy is identical, the search is not.
+    if (boundGlobCall && segments.some((segment) => boundGlobCall.test(segment))) {
+      findings.push({
+        file: relativePath,
+        line: index + 1,
+        id: 'python glob imported binding',
+        remedy: 'use pathlib Path(...).rglob, which does not follow symlinks (measured)',
         text: line.trim(),
       });
     }
