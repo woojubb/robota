@@ -21,11 +21,63 @@ never executing untrusted PR content with write credentials.
 
 ## Plan
 
-- [ ] Verify GitHub event/check attribution and ruleset capabilities for trusted required workflows.
-- [ ] Compare required-workflow/ruleset, split `pull_request_target`, and external GitHub App/check-run designs.
-- [ ] Specify exact SHA/ref identity, permissions, fork behavior, and branch-protection reconciliation.
-- [ ] Add adversarial tests proving a PR cannot replace its own required gate with an unconditional pass.
-- [ ] Roll out and validate code, docs-only, fork, retarget, cancellation, and genuine-finding paths.
+- [x] Verify GitHub event/check attribution and ruleset capabilities for trusted required workflows.
+- [x] Compare required-workflow/ruleset, split `pull_request_target`, and external GitHub App/check-run designs.
+- [x] Specify exact SHA/ref identity, permissions, fork behavior, and branch-protection reconciliation.
+- [x] Add adversarial tests proving a PR cannot replace its own required gate with an unconditional pass.
+- [ ] Roll out and validate code, docs-only, fork, retarget, cancellation, and genuine-finding paths. — allow-unmet-criterion: the context exists and runs, but making it REQUIRED is a live-ruleset edit and therefore the owner's; these paths cannot be validated as a gate until it is one
+
+## The comparison, and what MEASURING the account settled
+
+Two of the three candidate designs were ruled out by facts about this repository rather than by
+preference.
+
+**Organization-level required workflows — unavailable.** `gh api repos/woojubb/robota` reports
+`owner.type: User`. Required workflows are an organization feature on GitHub Enterprise Cloud, and a
+personal account has no organization to define one in. Not "harder"; absent.
+
+**An external GitHub App publishing the check — available but disproportionate.** The ruleset API
+does support pinning a required check to one publisher: each entry in `required_status_checks`
+carries an `integration_id`. Measured on the live `protect-develop` ruleset, all nine read
+`integration_id: none` — any app may publish any of those contexts today. Pinning them to an
+external app would give trusted provenance, and it costs a hosted service, a key to rotate, and a
+second failure point for a repository whose gates are otherwise self-hosted.
+
+**A split `pull_request_target` plane — available, in-repo, and what landed.**
+`pull_request_target` loads its definition from the BASE branch, so a pull request cannot change
+what it says about itself; the edit takes effect only after merge, which is after the gate it would
+have moved has run.
+
+### Why the existing required checks cannot simply move onto that plane
+
+`pull_request_target` runs with write credentials against the base. `build`, `quality`, `scans`,
+`tui-e2e` and the rest exist to COMPILE AND EXECUTE the pull request's code — doing that under those
+credentials is the classic pwn-request, a strictly worse hole than the one being closed. Measured:
+no workflow in this repository used `pull_request_target` before this change, so nothing was already
+carrying that risk.
+
+So the plane is split rather than moved. `.github/workflows/workflow-provenance-gate.yml` answers
+the one question that can be answered without running anything: does this pull request modify a file
+that a required check loads? It checks out the base and only the base, FETCHES the head without
+checking it out (reading a file name is not running the file), installs nothing — the scan it runs
+imports Node builtins and two files from the base — and holds `contents: read`.
+
+That turns a self-edit from VISIBLE into UNMERGEABLE, which is the difference between this and
+`workflow-provenance`.
+
+### The adversarial tests are about the gate, not its subject
+
+`scripts/harness/__tests__/workflow-provenance-gate.test.mjs`. The boundary here is a workflow file
+and a single added line breaches it, so each property is asserted against the file and each was
+proven by planting the breach: checking out the head ref, switching the trigger to `pull_request`,
+adding an install step, and widening the permissions each turned exactly the intended case red.
+
+### What remains, and it is one action
+
+Making `workflow provenance` a required context is a live-ruleset edit — the owner's. It is
+deliberately NOT registered in `.github/required-status-checks.json` yet: that registry is compared
+against the live ruleset by `ruleset-drift`, so registering it before the flip would make the
+registry state something untrue. The same held-membership shape `regression-red-proof` uses.
 
 ## Progress
 
