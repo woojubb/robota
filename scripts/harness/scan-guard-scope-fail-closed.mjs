@@ -87,6 +87,14 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Issue #1965. Measured as `findUnmetCriteriaFindings(bare)` BEFORE the guard was added: it
+    // returned `{findings: [], examined: 0}`, which a caller reads as "no unmet criteria" rather
+    // than "there was nothing to read". Now throws `.agents/tasks/completed missing from <root>`.
+    file: 'scan-done-with-unmet-criteria.mjs',
+    finder: 'findUnmetCriteriaFindings',
+    tree: '.agents/tasks/completed',
+  },
+  {
     // Measured as `findLoopProofFindings(bare)`: throws `.agents/skills missing from <root>` before it
     // reads a baseline or a ledger.
     file: 'scan-loop-proof.mjs',

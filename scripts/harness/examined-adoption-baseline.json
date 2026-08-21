@@ -19,6 +19,7 @@
     "deployment-matrix",
     "doc-examples",
     "document-authority",
+    "done-with-unmet-criteria",
     "fixture-floor",
     "guard-scope-fail-closed",
     "harness-script-import-safety",

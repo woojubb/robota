@@ -632,6 +632,14 @@ export const SCAN_COMMANDS = [
     name: 'harness-script-import-safety',
     command: ['node', 'scripts/harness/scan-harness-script-import-safety.mjs'],
   },
+  // Issue #1965. `unearned-done-claims` judges what a done record SAYS; this judges a criterion it
+  // states and has NOT met. Found by probing: four items marked done with nine unticked criteria
+  // passed every existing scan. A burn-down, and scoped to claim headings — `Test Plan` holds 174 of
+  // the 386 unticked boxes and a plan is not a completion claim.
+  {
+    name: 'done-with-unmet-criteria',
+    command: ['node', 'scripts/harness/scan-done-with-unmet-criteria.mjs'],
+  },
   // INFRA-039. The CEILING, not the count: `--max-warnings` on the root `lint` script does the
   // enforcing, on the release path where that script already runs. This keeps the number from
   // becoming a hand-maintained second source — present, matching its baseline, and falling only.
