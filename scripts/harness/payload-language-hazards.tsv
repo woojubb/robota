@@ -23,5 +23,5 @@
 #   pattern    an ERE, matched against the payload TEXT
 #   remedy     the safe sibling, stated at the finding
 id	language	pattern	remedy
-python glob import	python	(^|[^A-Za-z0-9_.])from[ \t]+glob[ \t]+import[ \t]+(\([^)]*[^A-Za-z0-9_.)])?(glob|iglob)\b	use pathlib Path(...).rglob, which does not follow symlinks (measured)
+python glob import	python	(^|[^A-Za-z0-9_.])from[ \t]+glob[ \t]+import[ \t]*(\(([^)]*[^A-Za-z0-9_.)])?|[ \t])(glob|iglob)\b	use pathlib Path(...).rglob, which does not follow symlinks (measured)
 python glob alias	python	(^|[^A-Za-z0-9_.])import[ \t]+glob[ \t]+as[ \t]+[A-Za-z_][A-Za-z0-9_]*	use pathlib Path(...).rglob, which does not follow symlinks (measured)

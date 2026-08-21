@@ -73,6 +73,19 @@ const CASES = [
   // characters space, backslash and `t` — never a tab — while the scan's `new RegExp` reads a tab.
   // Both readers now expand the escape, and this row is what says so.
   ['python, separated by tabs', `python3 -c "from\t${G}\timport\t${G}"`, true],
+  // Reported in review of this change. The first cut of the parenthesised branch required a boundary
+  // character between `(` and the name, which `( glob)` and every wrapped form supply and `(glob)`
+  // does not — so the tightest spelling of the very shape this item widened for was the one left
+  // out. `import(glob)` has the same cause one token earlier: legal python, no whitespace to match.
+  ['python, no space after the open paren', `python3 -c "from ${G} import (${G})"`, true],
+  ['python, no space after import', `python3 -c "from ${G} import(${G})"`, true],
+  // The other side of that boundary: it is what keeps a name that merely CONTAINS the spelling out.
+  [
+    'python, a longer name containing the spelling',
+    `python3 -c "from ${G} import (escape_${G}als)"`,
+    false,
+  ],
+  ['python, no space and no paren', `python3 -c "from ${G} import${G}"`, false],
   // Precision, not just reach: the hazardous name is not the first in that list, and the widening
   // that reaches it must not become "a parenthesised glob import is always hazardous".
   ['python, a wrapped list holding no enumerator', `python3 -c "${WRAPPED_SAFE}"`, false],
