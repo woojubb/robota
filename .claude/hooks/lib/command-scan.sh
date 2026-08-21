@@ -1023,6 +1023,24 @@ HOOK_SCAN_AWK='
             k++
             continue
           }
+          # An EMPTY dollar-quote — `$` followed by a quote pair with nothing between — expands to
+          # nothing, so bash writes the bare path that follows it. Its mask is three VISIBLE
+          # characters: the region has no content, so neither quote has a \001 to border and the
+          # role test above reads all three as DATA. The name then kept them, and a store pattern
+          # anchored on a separator could not match `$''node_modules/x.json` — measured on the
+          # guard as verdict 0, permitted, while bash created the file inside the store.
+          #
+          # Only the dollar-introduced spelling is affected. A bare `''` / `""` is masked as two
+          # SPACES by the single-word token path above and was already consumed; `$'x'` has content
+          # to border and was already consumed. Measured, all four, rather than reasoned about.
+          #
+          # Here the PAIR is the delimiter — there is no content to decide by — so all three
+          # characters go at once.
+          if (mc == "$" && (substr(mask, k + 1, 1) == "\"" || substr(mask, k + 1, 1) == "\047") &&
+              substr(mask, k + 2, 1) == substr(mask, k + 1, 1)) {
+            k += 3
+            continue
+          }
           # An unquoted backslash splices the next character, which the NAME then keeps.
           if (mc == "\\" && rc == "\\") {
             k++

@@ -123,6 +123,8 @@ const QUOTED_STORE_PATHS = [
   ['single quotes around a space', "'node_modules/a dir/index.js'"],
   ['a dollar-quoted segment', "$'node_modules'/pkg/index.js"],
   ['a locale-quoted segment', '$"node_modules"/pkg/index.js'],
+  ['an empty dollar-quote', "$''node_modules/pkg/index.js"],
+  ['an empty locale-quote', '$""node_modules/pkg/index.js'],
 ];
 
 const fill = (shape, protectedPath) => shape.replaceAll('<P>', () => protectedPath);
@@ -190,6 +192,19 @@ describe('hook_redirect_targets names what a command writes to', () => {
     ['single quotes around a space', "'a dir/out.txt'", 'a dir/out.txt'],
     ['a dollar-quoted segment', "$'a dir'/out.txt", 'a dir/out.txt'],
     ['a locale-quoted segment', '$"a dir"/out.txt', 'a dir/out.txt'],
+    // An EMPTY dollar-quote expands to nothing, so bash writes the bare path that follows it. Both
+    // rows were absent, and the gap they left was not cosmetic: the delimiter test asks whether a
+    // quote BORDERS masked content, and an empty region has no masked content to border — the mask
+    // of `$''` is three visible characters with no \001 between them. All three were therefore read
+    // as data, the target came back as `$''node_modules/x.json`, and the store pattern (anchored on
+    // `(^|/)`) could not match it. Measured on the guard: verdict 0, permitted, while bash created
+    // the file inside the store.
+    // No space in these two, and that is the point rather than an omission. An empty quote encloses
+    // nothing, so it cannot hold a space together the way `$'a dir'` does — measured, bash reads
+    // `echo x > $''a dir/out.txt` as a redirect to `a` with `dir/out.txt` a separate word. A row
+    // expecting `a dir/out.txt` here would assert something bash does not do.
+    ['an empty dollar-quote', "$''a-dir/out.txt", 'a-dir/out.txt'],
+    ['an empty locale-quote', '$""a-dir/out.txt', 'a-dir/out.txt'],
   ];
 
   // A shape that already carries its own quotes is skipped: filling it would nest one quoting inside
