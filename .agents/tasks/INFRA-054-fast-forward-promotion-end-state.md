@@ -121,3 +121,27 @@ The third is load-bearing and is a policy judgement.
 Once those are settled the implementation is ordinary and this agent can do it: the vehicle is a
 `workflow_dispatch` workflow, a trigger this repository already uses, so unlike INFRA-042 and
 INFRA-065 this item is NOT blocked by the 2026-08-04 cron directive.
+
+### 2026-08-22 — correcting how this refusal was justified
+
+I said these items could not be marked `done` "because `unearned-done-claims` exists to refuse it".
+**That was wrong about the mechanism.** Probed by actually doing it — all four set to `status: done`
+with a `completed:` date and moved to `completed/` — and `unearned-done-claims`, `backlog-placement`
+and `task-archival` all PASSED. The only failures came from inbound links breaking as the files
+moved.
+
+So nothing mechanical would have objected. The record would simply have been false, and that is the
+reason on its own. Citing a scan that does not do the work was a stronger-sounding argument than the
+true one.
+
+The substantive grounds are unchanged, and were re-measured rather than restated:
+
+| item      | completion condition, executed 2026-08-22                                    |
+| --------- | ---------------------------------------------------------------------------- |
+| INFRA-046 | `protect-develop`'s required list contains neither gate                      |
+| INFRA-054 | three owner decisions outstanding; no fast-forward promotion has occurred    |
+| INFRA-097 | `2 of 2` guarded workflows still load their definition from the pull request |
+| INFRA-104 | the last promotion body carried `0` closing keywords                         |
+
+The gap the probe exposed — a `done` task with unticked acceptance criteria passes every scan — is
+filed as issue #1965 rather than folded in here.
