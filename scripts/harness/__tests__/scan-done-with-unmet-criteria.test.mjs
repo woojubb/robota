@@ -54,6 +54,45 @@ describe('the case the existing scans passed', () => {
   });
 });
 
+describe('a subheading inside a criteria section does not hide its criteria', () => {
+  /*
+   * Reported in review, and it is this scan's own failure class one level down: with a single
+   * "last heading seen" variable, a `### Blocker items` nested under `## Completion criteria`
+   * overwrites the claim heading and every criterion after it is dropped from the count IN SILENCE.
+   *
+   * Absent from today's corpus — every criteria section in `completed/` is a flat list — which is
+   * exactly why it needed a fixture: the baseline and the real files could not have shown it. The
+   * day a record first groups its criteria, the count would fall, and a FALL reads as progress.
+   */
+  it('counts a criterion under a subheading of a claim heading', () => {
+    const unmet = unmetCriteriaIn(
+      task('## Completion criteria\n\n- [x] TC-1.\n\n### Blocker items\n\n- [ ] TC-2: still open.'),
+    );
+    expect(unmet).toHaveLength(1);
+    expect(unmet[0].text).toMatch(/TC-2/);
+    // Attributed to the CLAIM heading, not to the subheading, so a finding names the section a
+    // reader would look for.
+    expect(unmet[0].heading).toBe('Completion criteria');
+  });
+
+  it('stops counting once a sibling section closes the criteria section', () => {
+    // The stack pops at an equal-or-higher level, so a `## Notes` after the criteria ends them —
+    // otherwise the fix would trade a silent under-report for a silent over-report.
+    const unmet = unmetCriteriaIn(
+      task('## Completion criteria\n\n- [x] TC-1.\n\n## Notes\n\n- [ ] a loose thought'),
+    );
+    expect(unmet).toEqual([]);
+  });
+
+  it('counts a criterion nested two levels deep', () => {
+    const unmet = unmetCriteriaIn(
+      task('## Acceptance\n\n### Phase 1\n\n#### Gate\n\n- [ ] deep criterion'),
+    );
+    expect(unmet).toHaveLength(1);
+    expect(unmet[0].heading).toBe('Acceptance');
+  });
+});
+
 describe('what it deliberately does NOT report', () => {
   it('a Test Plan, which describes intended work rather than a completion claim', () => {
     // 174 of the 386 unticked boxes across `completed/` are here. Reporting them would make the

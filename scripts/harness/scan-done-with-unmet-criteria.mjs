@@ -74,8 +74,23 @@ export function unmetCriteriaIn(source) {
   // claims, reading that field wrongly is the defect one level down. Caught by
   // `frontmatter-parser-ssot` on the first run.
   if (asScalar(frontmatterObject(source).status) !== 'done') return [];
+  // The heading is tracked as a STACK BY LEVEL, not as "the last heading seen".
+  //
+  // Reported in review of this change, and it is the scan's own failure class one level down: with a
+  // single `heading` variable, a `### Blocker items` nested under `## Completion criteria` overwrites
+  // the claim heading, `isCriteriaHeading` stops matching, and every criterion after it is dropped
+  // from the count IN SILENCE. A guard that under-reports without saying so is exactly what this one
+  // exists to catch.
+  //
+  // Not present in today's corpus — every criteria section in `completed/` is a flat list, which is
+  // why it was invisible to the baseline and to the fixtures. That is the argument for fixing it now
+  // rather than when a record first groups its criteria: the day it happens, the count silently
+  // falls and a FALL reads as progress.
+  //
+  // A criterion counts when ANY enclosing heading is a claim heading, so a subsection under
+  // `## Completion criteria` keeps its meaning.
   const unmet = [];
-  let heading = '';
+  const stack = [];
   let inFence = false;
   for (const [index, line] of source.split('\n').entries()) {
     if (/^\s*(?:```|~~~)/.test(line)) {
@@ -83,14 +98,17 @@ export function unmetCriteriaIn(source) {
       continue;
     }
     if (inFence) continue;
-    const isHeading = /^#{1,6}\s+(.*)$/.exec(line);
+    const isHeading = /^(#{1,6})\s+(.*)$/.exec(line);
     if (isHeading) {
-      heading = isHeading[1];
+      const level = isHeading[1].length;
+      while (stack.length > 0 && stack[stack.length - 1].level >= level) stack.pop();
+      stack.push({ level, text: isHeading[2] });
       continue;
     }
     if (!/^\s*- \[ \]/.test(line)) continue;
-    if (!isCriteriaHeading(heading)) continue;
-    unmet.push({ line: index + 1, heading: heading.trim(), text: line.trim().slice(0, 90) });
+    const claim = stack.find((h) => isCriteriaHeading(h.text));
+    if (claim === undefined) continue;
+    unmet.push({ line: index + 1, heading: claim.text.trim(), text: line.trim().slice(0, 90) });
   }
   return unmet;
 }
