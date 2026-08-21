@@ -71,9 +71,37 @@ Test Plan above covers directly.
 
 ### 2026-08-21
 
-**Half 1 — `actionlint`, and it lands green.** Measured before adding the job: actionlint 1.7.7
-reports ZERO problems across this repository's workflows today, so it arrives clean rather than with
-a backlog to acknowledge. Pinned by version AND sha256, verified BEFORE extraction — the shape
+**Half 1 — `actionlint`, and my own baseline measurement was wrong in exactly the way this job
+guards against.**
+
+I first recorded "ZERO problems across this repository's workflows". That was measured on a machine
+with NO SHELLCHECK INSTALLED — under the precise silent skip this job asserts against, taken while
+writing the assertion. The CI runner has shellcheck, so the first run of the job went RED and found
+three things the local measurement could not see.
+
+Re-measured with shellcheck 0.10.0 present, and the corrected finding is better than the wrong one:
+
+**A `shellcheck disable` directive in `release-desktop-app.yml` was UNPARSEABLE, so it suppressed
+nothing and switched off every check on its block.**
+
+```
+# shellcheck disable=SC2086 -- $ASSETS is an intentional multi-pattern glob list.
+                            ^^ shellcheck cannot parse this form
+SC1073: Couldn't parse this shellcheck directive. Fix to allow more checks
+```
+
+Verified against shellcheck directly rather than inferred: the `-- reason` form is SC1073, the
+`# reason` form and the bare form are both clean. A parse error aborts further checks on the script,
+so that block had been unchecked for as long as the directive has been there — and the directive was
+written to narrow one rule, not to disable all of them. Exactly the shape this job exists to find,
+found on its first run.
+
+The third finding was SC2129 in `review-gate.yml` — three consecutive appends to `$GITHUB_ENV`, now
+one grouped redirect, which also makes it visible that the three facts are written together or not
+at all.
+
+With those fixed, actionlint WITH shellcheck reports zero, and that is now a measurement rather than
+an artefact of a missing tool. Pinned by version AND sha256, verified BEFORE extraction — the shape
 INFRA-061 established for the osv-scanner download, and for its reason: a binary verified after it
 is made executable is verified too late.
 
