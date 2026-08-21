@@ -50,6 +50,12 @@ concurrency:
 env:
   OSV_SCANNER_VERSION: v2.0.2
   OSV_SCANNER_SHA256: 3abcfd7126c453a00421487e721b296e0cb68085bd431d6cef60872774170fc8
+  # INFRA-065. Pin + checksum, the same accepted-risk shape as the scanner above, for the same
+  # reason INFRA-061 gave: a downloaded binary that is verified AFTER it is made executable is
+  # verified too late.
+  #   curl -fsSL https://github.com/rhysd/actionlint/releases/download/v<version>/actionlint_<version>_linux_amd64.tar.gz | sha256sum -
+  ACTIONLINT_VERSION: 1.7.7
+  ACTIONLINT_SHA256: 023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757
 
 jobs:
   # Recurrence guard for the #1216 incident: a feature branch was PR'd straight to `main`, skipping `develop`,
@@ -499,6 +505,38 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: pnpm harness:scan -- --skip dist --skip build-contracts
+
+      # INFRA-065 half 1. `scan-action-references` verifies that every `uses:` REFERENCE resolves —
+      # which is what caught `vercel/action@v1`, and which actionlint does not check. The reverse is
+      # also true, and this step is that half: expression syntax and context typing, `run:` block
+      # shellcheck, and job/step schema errors GitHub accepts silently.
+      #
+      # A STEP here rather than a job of its own. `ci-concurrency-footprint` refused the standalone
+      # form and was right to: concurrent jobs are budgeted per ACCOUNT, so a 24th job per pull
+      # request is a slot taken from every other repository on it. This costs no slot and runs on a
+      # checkout that already exists.
+      #
+      # Measured before landing: actionlint 1.7.7 reports ZERO problems across these workflows, so it
+      # arrives clean rather than with a backlog to acknowledge.
+      - name: Lint workflow files (actionlint)
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            -o "$RUNNER_TEMP/actionlint.tar.gz"
+          # Verified BEFORE extraction, so a swapped archive is never unpacked, let alone run.
+          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          chmod +x "$RUNNER_TEMP/actionlint"
+          # `shellcheck` is preinstalled on ubuntu-latest, and it is HALF of what this step is for.
+          # Without it actionlint prints `Rule "shellcheck" was disabled` and exits 0 — measured
+          # locally, where a deliberately broken `run:` block drew no comment at all. A check that
+          # turns half of itself off and still reports success is the shape this repository keeps
+          # finding, so its presence is asserted rather than assumed.
+          command -v shellcheck >/dev/null || {
+            echo "::error::actionlint: shellcheck is absent, so run-block linting would be silently skipped."
+            exit 1
+          }
+          "$RUNNER_TEMP/actionlint" -color
 
   dependency-audit:
     name: dependency audit

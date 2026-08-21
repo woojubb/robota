@@ -130,7 +130,6 @@
   ".agents/tasks/HARNESS-072-nothing-detects-a-contradiction-between-two-rules.md": 3,
   ".agents/tasks/HARNESS-078-single-segment-dotfiles-are-outside-both-name-checks.md": 1,
   ".agents/tasks/HARNESS-108-barrel-parameter-types-covers-two-of-fifty-five-barrels.md": 2,
-  ".agents/tasks/INFRA-042-nightly-mutation-testing.md": 1,
   ".agents/tasks/INFRA-046-promote-advisory-gates.md": 64,
   ".agents/tasks/INFRA-054-fast-forward-promotion-end-state.md": 5,
   ".agents/tasks/INFRA-094-advisory-patch-coverage-off-pr-critical-path.md": 3,
