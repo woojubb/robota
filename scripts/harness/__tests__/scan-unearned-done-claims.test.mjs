@@ -336,12 +336,20 @@ describe('U4 — unevidenced ticked acceptance box', () => {
     ).toEqual([]);
   });
 
-  it('TC-33: ignores an UNticked box — an open item claims nothing', () => {
+  it('TC-33: U4 ignores an UNticked box — its subject is a CLAIM, and an open box makes none', () => {
+    // Scoped to U4 rather than to the document. When this case was written U4 was the only rule
+    // reading checkboxes, so "claims nothing" could stand as a statement about the whole record.
+    // U5 (issue #1965) overturned exactly that premise: in a `status: done` record an unticked box
+    // is an unmet criterion, which is the defect U5 exists for. What is still true, and is what this
+    // case is about, is that U4 does not fire — a proof claim on a box nobody ticked is not a claim
+    // that evidence was produced.
     expect(
-      evaluateDocument(
-        doneDoc('- [ ] Required contexts verify content, proven by a broken branch.'),
+      rules(
+        evaluateDocument(
+          doneDoc('- [ ] Required contexts verify content, proven by a broken branch.'),
+        ),
       ),
-    ).toEqual([]);
+    ).not.toContain('U4');
   });
 
   it('TC-34: ignores a ticked box that makes no proof claim', () => {
