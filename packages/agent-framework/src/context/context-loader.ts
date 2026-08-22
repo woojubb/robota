@@ -1,16 +1,11 @@
-/**
- * Context loader — walks up the directory tree from `cwd` collecting
- * AGENTS.md and CLAUDE.md files, then concatenates them root-first
- * so that more-specific (closer) instructions appear last.
- */
-import { existsSync } from 'fs';
-import { join, dirname, resolve } from 'path';
-
-import { loadFileWithHash } from './context-file-tracker.js';
+/** Root-bounded project context loading through an explicit workspace reader. */
+import { computeContentHash } from './context-file-tracker.js';
 import { loadTaskContext } from './task-context.js';
+import { assertWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 import type { IContextFileEntry } from './context-file-tracker.js';
 import type { IMemoryStore } from '../memory/types.js';
+import type { IWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 export type { IContextFileEntry };
 
@@ -45,32 +40,33 @@ export interface ILoadContextOptions {
     enabled?: boolean;
     dir?: string;
   };
+  /** Host-owned parent/organization context, already hydrated outside project authority. */
+  hostContext?: {
+    agents?: readonly IContextFileEntry[];
+    projectNotes?: readonly IContextFileEntry[];
+  };
 }
 
-/**
- * Walk up directory tree from `startDir`, collecting absolute paths of
- * files named `filename`. Stops at filesystem root.
- * Returns paths ordered root-first (farthest ancestor first).
- */
-function collectFilesWalkingUp(startDir: string, filename: string): string[] {
-  const found: string[] = [];
-  let current = resolve(startDir);
+export interface IWorkspaceProjectContextSource {
+  reader: IWorkspaceProjectReader;
+  /** Directory relative to the authenticated root where the session starts. */
+  startRelativeDirectory?: string;
+  /** Host-resolved Git metadata; project `.git` content is never followed by this loader. */
+  currentBranch?: string;
+}
 
-  let atRoot = false;
-  while (!atRoot) {
-    const candidate = join(current, filename);
-    if (existsSync(candidate)) {
-      found.push(candidate);
-    }
-    const parent = dirname(current);
-    atRoot = parent === current;
-    if (!atRoot) {
-      current = parent;
-    }
-  }
-
-  // Reverse so that root (farthest) comes first
-  return found.reverse();
+function trackedEntries(
+  source: IWorkspaceProjectContextSource,
+  filename: string,
+  purpose: string,
+): IContextFileEntry[] {
+  return assertWorkspaceProjectReader(source.reader)
+    .readTextAlongAncestors(source.startRelativeDirectory ?? '', filename, purpose)
+    .map((entry) => ({
+      filePath: entry.relativePath,
+      content: entry.content,
+      contentHash: computeContentHash(entry.content),
+    }));
 }
 
 /**
@@ -107,21 +103,24 @@ function extractCompactInstructions(content: string): string | undefined {
 }
 
 /**
- * Load all AGENTS.md and CLAUDE.md files found by walking up from `cwd`.
- * Files from higher directories appear before files from lower directories.
- *
- * @param cwd - Starting directory for the walk-up search
+ * Load project AGENTS.md and CLAUDE.md only within the authenticated root. Pre-hydrated host context,
+ * when present, is ordered before project context and never grants project filesystem access.
  */
 export async function loadContext(
-  cwd: string,
+  source: IWorkspaceProjectContextSource | undefined,
   memoryStore?: IMemoryStore,
   options: ILoadContextOptions = {},
 ): Promise<ILoadedContext> {
-  const agentsPaths = collectFilesWalkingUp(cwd, AGENTS_FILENAME);
-  const claudePaths = collectFilesWalkingUp(cwd, CLAUDE_FILENAME);
-
-  const agentsEntries = agentsPaths.map((p) => loadFileWithHash(p));
-  const claudeEntries = claudePaths.map((p) => loadFileWithHash(p));
+  const agentsEntries = [
+    ...(options.hostContext?.agents ?? []),
+    ...(source === undefined
+      ? []
+      : trackedEntries(source, AGENTS_FILENAME, 'load project agent instructions')),
+  ];
+  const claudeEntries = [
+    ...(options.hostContext?.projectNotes ?? []),
+    ...(source === undefined ? [] : trackedEntries(source, CLAUDE_FILENAME, 'load project notes')),
+  ];
 
   const agentsMd = agentsEntries.map((e) => e.content).join('\n\n');
   const projectNotesMd = claudeEntries.map((e) => e.content).join('\n\n');
@@ -131,9 +130,13 @@ export async function loadContext(
   const memoryMd = startupMemory?.content || undefined;
   // NEUT-004: task-context injection is off-switchable; disabled ⇒ no scan is performed.
   const taskContextEnabled = options.taskContext?.enabled !== false;
-  const loadedTaskContext = taskContextEnabled
-    ? loadTaskContext(cwd, options.taskContext?.dir ? { dir: options.taskContext.dir } : {})
-    : '';
+  const loadedTaskContext =
+    taskContextEnabled && source !== undefined
+      ? loadTaskContext(source.reader, {
+          ...(options.taskContext?.dir ? { dir: options.taskContext.dir } : {}),
+          ...(source.currentBranch ? { currentBranch: source.currentBranch } : {}),
+        })
+      : '';
   const taskContext = loadedTaskContext.trim().length > 0 ? loadedTaskContext : undefined;
 
   return {

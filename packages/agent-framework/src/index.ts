@@ -5,6 +5,7 @@
 export {
   WorkspaceAuthorityRequiredError,
   WorkspaceTrustService,
+  createRestrictedWorkspaceProjectAccess,
   assertWorkspaceProjectAuthority,
   assertWorkspaceProjectReader,
   assertWorkspaceProjectMutation,
@@ -555,7 +556,7 @@ export {
   formatTaskContext,
   loadTaskContext,
   parseTaskFile,
-  readCurrentGitBranch,
+  readCurrentGitBranchFromNodeHost,
   selectRelevantTasks,
 } from './context/task-context.js';
 export type {

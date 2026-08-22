@@ -13,7 +13,7 @@ export interface IWorkspaceTrustServiceOptions {
   readonly store: IWorkspaceTrustStore;
 }
 
-function restricted(
+export function createRestrictedWorkspaceProjectAccess(
   trustState: IRestrictedWorkspaceProjectAccess['trustState'],
   displayPath?: string,
 ): IRestrictedWorkspaceProjectAccess {
@@ -37,27 +37,27 @@ export class WorkspaceTrustService {
     try {
       identity = this.options.identityResolver.resolve(cwd);
     } catch {
-      return restricted('identity-unavailable');
+      return createRestrictedWorkspaceProjectAccess('identity-unavailable');
     }
 
     let snapshot;
     try {
       snapshot = await this.options.store.inspect(identity);
     } catch {
-      return restricted('store-unavailable', identity.displayPath);
+      return createRestrictedWorkspaceProjectAccess('store-unavailable', identity.displayPath);
     }
     if (snapshot.state !== 'trusted') {
-      return restricted(snapshot.state, identity.displayPath);
+      return createRestrictedWorkspaceProjectAccess(snapshot.state, identity.displayPath);
     }
 
     let currentIdentity: IWorkspaceIdentity;
     try {
       currentIdentity = this.options.identityResolver.resolve(identity.worktreeRoot);
     } catch {
-      return restricted('identity-unavailable', identity.displayPath);
+      return createRestrictedWorkspaceProjectAccess('identity-unavailable', identity.displayPath);
     }
     if (!sameIdentity(identity, currentIdentity)) {
-      return restricted('stale/replaced', currentIdentity.displayPath);
+      return createRestrictedWorkspaceProjectAccess('stale/replaced', currentIdentity.displayPath);
     }
 
     return {

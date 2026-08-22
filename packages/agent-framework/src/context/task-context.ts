@@ -1,7 +1,9 @@
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 
 import { NodeFileSystem } from '../adapters/node-file-system.js';
+import { assertWorkspaceProjectReader } from '../workspace-trust/index.js';
 
+import type { IWorkspaceProjectReader } from '../workspace-trust/index.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
 
 export type TTaskFileStatus = 'todo' | 'in-progress' | 'blocked' | 'completed' | 'unknown';
@@ -136,7 +138,7 @@ function resolveGitDirectory(cwd: string, fs: IFileSystem): string | undefined {
   return undefined;
 }
 
-export function readCurrentGitBranch(
+export function readCurrentGitBranchFromNodeHost(
   cwd: string,
   fs: IFileSystem = new NodeFileSystem(),
 ): string | undefined {
@@ -151,33 +153,28 @@ export function readCurrentGitBranch(
 }
 
 export function discoverTaskFiles(
-  cwd: string,
-  fs: IFileSystem = new NodeFileSystem(),
+  reader: IWorkspaceProjectReader,
   dir: string = TASKS_DIR,
 ): string[] {
-  const tasksDir = join(cwd, dir);
-  if (!fs.existsSync(tasksDir)) {
-    return [];
-  }
-
-  return fs
-    .readdirSync(tasksDir, { withFileTypes: true })
-    .filter((entry) => entry.isFile())
+  const accepted = assertWorkspaceProjectReader(reader);
+  return accepted
+    .listDirectory(dir, 'discover project task context')
+    .filter((entry) => entry.kind === 'file')
     .map((entry) => entry.name)
     .filter((name) => name !== README_FILENAME && name.endsWith(MARKDOWN_EXTENSION))
     .sort((a, b) => a.localeCompare(b))
-    .map((name) => join(tasksDir, name));
+    .map((name) => join(dir, name));
 }
 
-export function parseTaskFile(
-  taskPath: string,
-  cwd: string,
-  fs: IFileSystem = new NodeFileSystem(),
-): ITaskContextFile {
-  const content = fs.readFileSync(taskPath, 'utf8');
+export function parseTaskFile(taskPath: string, reader: IWorkspaceProjectReader): ITaskContextFile {
+  const content = assertWorkspaceProjectReader(reader).readText(
+    taskPath,
+    'load project task context',
+  );
+  if (content === undefined) throw new Error(`Task context file is missing: ${taskPath}`);
   return {
     path: taskPath,
-    relativePath: relative(cwd, taskPath),
+    relativePath: taskPath,
     title: extractTitle(content, taskPath),
     status: normalizeStatus(extractMetadata(content, 'Status')),
     branch: extractMetadata(content, 'Branch'),
@@ -207,11 +204,10 @@ export function formatTaskContext(tasks: readonly ITaskContextFile[]): string {
 }
 
 export function loadTaskContext(
-  cwd: string,
+  reader: IWorkspaceProjectReader,
   options: ITaskSelectionOptions = {},
-  fs: IFileSystem = new NodeFileSystem(),
 ): string {
-  const currentBranch = options.currentBranch ?? readCurrentGitBranch(cwd, fs);
-  const tasks = discoverTaskFiles(cwd, fs, options.dir).map((path) => parseTaskFile(path, cwd, fs));
+  const currentBranch = options.currentBranch;
+  const tasks = discoverTaskFiles(reader, options.dir).map((path) => parseTaskFile(path, reader));
   return formatTaskContext(selectRelevantTasks(tasks, { ...options, currentBranch }));
 }

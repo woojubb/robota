@@ -149,9 +149,9 @@ describe('createInteractiveSession — bare mode', () => {
     });
 
     expect(mockLoadContext).toHaveBeenCalledTimes(1);
-    // SELFHOST-008: loadContext also receives the optional memoryStore (undefined here → fs default).
-    // NEUT-004: and the load-context options (empty here → task context enabled by default).
-    expect(mockLoadContext).toHaveBeenCalledWith('/tmp/test', undefined, {});
+    // ARCH-042: no project-access decision means Restricted, so no project source is passed.
+    // SELFHOST-008/NEUT-004: the optional memory store and context options remain explicit.
+    expect(mockLoadContext).toHaveBeenCalledWith(undefined, undefined, {});
   });
 
   it('bare=false (default): detectProject IS called', async () => {

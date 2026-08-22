@@ -17,7 +17,10 @@ export {
 } from './project-mutation.js';
 export { assertWorkspaceProjectReader } from './project-reader.js';
 export { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
-export { WorkspaceTrustService } from './workspace-trust-service.js';
+export {
+  WorkspaceTrustService,
+  createRestrictedWorkspaceProjectAccess,
+} from './workspace-trust-service.js';
 
 export type {
   IRestrictedWorkspaceProjectAccess,

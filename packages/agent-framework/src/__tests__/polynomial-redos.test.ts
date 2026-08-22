@@ -21,11 +21,15 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 import { sanitizeProviderProfileName } from '../command-api/provider/provider-profile-names.js';
 import { parseFrontmatter } from '../commands/skill-source.js';
-import { parseTaskFile, readCurrentGitBranch } from '../context/task-context.js';
+import { parseTaskFile, readCurrentGitBranchFromNodeHost } from '../context/task-context.js';
 import { ProjectMemoryStore } from '../memory/project-memory-store.js';
-import { createTrustedProjectStateFixture } from '../testing/trusted-project-state-fixture.js';
+import {
+  createTrustedProjectAccessFixture,
+  createTrustedProjectStateFixture,
+} from '../testing/trusted-project-state-fixture.js';
 import { createProviderSafeModelCommandToolName } from '../tools/model-command-tool-projection.js';
 import { checkForCliUpdate } from '../update-check/update-check.js';
+import { getWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 /** Pump length. Every pre-fix measurement in the SEC-003 table used this size. */
 const PUMP = 200_000;
@@ -208,7 +212,7 @@ describe('SEC-003 alert 40 — git worktree `gitdir:` pointer', () => {
     'reads a pumped whitespace run in linear time',
     () => {
       const cwd = repoWithGitFile(`gitdir:${' '.repeat(PUMP)}x\ny`);
-      expect(elapsedMs(() => void readCurrentGitBranch(cwd))).toBeLessThan(BUDGET_MS);
+      expect(elapsedMs(() => void readCurrentGitBranchFromNodeHost(cwd))).toBeLessThan(BUDGET_MS);
     },
     RED_TIMEOUT_MS,
   );
@@ -217,30 +221,38 @@ describe('SEC-003 alert 40 — git worktree `gitdir:` pointer', () => {
     const gitDir = tempDir('robota-redos-realgit-');
     writeFileSync(join(gitDir, 'HEAD'), 'ref: refs/heads/feature/x\n', 'utf8');
     const cwd = repoWithGitFile(`gitdir: ${gitDir}\n`);
-    expect(readCurrentGitBranch(cwd)).toBe('feature/x');
+    expect(readCurrentGitBranchFromNodeHost(cwd)).toBe('feature/x');
   });
 });
 
 describe('SEC-003 sweep — task file open items (unflagged, same shape as alert 40)', () => {
   function taskFile(content: string): { path: string; cwd: string } {
     const cwd = tempDir('robota-redos-task-');
-    const path = join(cwd, 'task.md');
-    writeFileSync(path, content, 'utf8');
+    const path = 'task.md';
+    writeFileSync(join(cwd, path), content, 'utf8');
     return { path, cwd };
   }
 
   it(
     'parses a pumped whitespace run on a CR-only line in linear time',
-    () => {
+    async () => {
       // A lone `\r` survives the `/\r?\n/` split, so one "line" can hold a run that never reaches `$`.
       const { path, cwd } = taskFile(`# T\n- [ ]${' '.repeat(PUMP)}x\ry\n`);
-      expect(elapsedMs(() => void parseTaskFile(path, cwd))).toBeLessThan(BUDGET_MS);
+      const access = await createTrustedProjectAccessFixture(cwd);
+      if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
+      const reader = getWorkspaceProjectReader(access.authority);
+      expect(elapsedMs(() => void parseTaskFile(path, reader))).toBeLessThan(BUDGET_MS);
     },
     RED_TIMEOUT_MS,
   );
 
-  it('keeps the open-item extraction for ordinary input', () => {
+  it('keeps the open-item extraction for ordinary input', async () => {
     const { path, cwd } = taskFile('# T\n- [ ] first item\n- [x] done\n- [ ]   spaced  \n');
-    expect(parseTaskFile(path, cwd).openItems).toEqual(['first item', 'spaced']);
+    const access = await createTrustedProjectAccessFixture(cwd);
+    if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
+    expect(parseTaskFile(path, getWorkspaceProjectReader(access.authority)).openItems).toEqual([
+      'first item',
+      'spaced',
+    ]);
   });
 });

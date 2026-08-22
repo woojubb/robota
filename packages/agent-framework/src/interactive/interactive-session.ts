@@ -32,7 +32,10 @@ import {
 import { PlanController } from '../plan/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
-import { WorkspaceAuthorityRequiredError } from '../workspace-trust/index.js';
+import {
+  WorkspaceAuthorityRequiredError,
+  createRestrictedWorkspaceProjectAccess,
+} from '../workspace-trust/index.js';
 
 import type { IInteractiveSession } from './i-interactive-session.js';
 import type { IQueuedInput, ITurnOptions } from './interactive-session-execution-controller.js';
@@ -60,6 +63,7 @@ import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IGoalStartOptions } from '../goal/index.js';
 import type { IAutomaticMemoryConfig, IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type {
   TUniversalMessage,
   TSessionEndReason,
@@ -147,12 +151,15 @@ export class InteractiveSession
   private readonly askHandler: IUserInteraction['ask'];
   /** REMOTE-007: transport-neutral pending permission/ask registry (parking + fail-closed + drain). */
   private readonly promptRegistry: SessionPromptRegistry;
+  private readonly projectAccess: TWorkspaceProjectAccess;
   /** TERM-001: guards handoff exclusivity (one handoff at a time). */
   private terminalHandoffActive = false;
 
   constructor(options: TInteractiveSessionOptions) {
     super();
     this.sessionStore = options.sessionStore;
+    this.projectAccess =
+      options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable');
     this.sessionName = options.sessionName;
     this.terminalHandoff = options.terminalHandoff;
 
@@ -284,6 +291,11 @@ export class InteractiveSession
     if (this.initialized) this.bgTracker.subscribe(this.session!);
     if (this.initialized) this.persistCurrentSession();
     this.resumeGoalIfActive();
+  }
+
+  /** The host's typed initial project-access decision for this construction. */
+  getProjectAccess(): TWorkspaceProjectAccess {
+    return this.projectAccess;
   }
 
   private configureInjectedSession(options: TInteractiveSessionOptions): boolean {

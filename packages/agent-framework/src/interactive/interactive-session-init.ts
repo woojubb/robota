@@ -7,7 +7,7 @@
  */
 
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 
 import { createLogger } from '@robota-sdk/agent-core';
 
@@ -20,14 +20,13 @@ import {
 } from './interactive-session-init-workspace.js';
 import { injectSavedMessage } from './interactive-session-restore.js';
 import { deriveContextCapacityHint } from '../assembly/context-capacity-hint.js';
-
-const logger = createLogger('InteractiveSessionInit');
 import { createSession } from '../assembly/index.js';
 import { loadConfig } from '../config/config-loader.js';
 import { loadContext } from '../context/context-loader.js';
 import { detectProject } from '../context/project-detector.js';
 import { BundlePluginLoader } from '../plugins/index.js';
 import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
+import { getWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 import type {
   IInteractiveSessionStandardOptions,
@@ -41,6 +40,8 @@ import type { IContextFileEntry } from '../context/context-loader.js';
 import type { IContextWindowState, TToolArgs, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
+
+const logger = createLogger('InteractiveSessionInit');
 
 export type {
   IInteractiveSessionStandardOptions,
@@ -80,6 +81,16 @@ export async function createInteractiveSession(
   options: IInitOptions,
 ): Promise<ICreatedInteractiveSession> {
   const cwd = options.cwd;
+  const contextSource =
+    options.projectAccess?.status === 'trusted'
+      ? {
+          reader: getWorkspaceProjectReader(options.projectAccess.authority),
+          startRelativeDirectory: relative(
+            options.projectAccess.identity.worktreeRoot,
+            resolve(cwd),
+          ),
+        }
+      : undefined;
   // NEUT-004: config resolves FIRST so the settings-driven task-context toggle can gate the
   // context load; context and project detection still run in parallel with each other.
   const config = options.config ?? (await loadConfig(cwd));
@@ -92,7 +103,7 @@ export async function createInteractiveSession(
           projectNotesFileEntries: [],
         })
       : loadContext(
-          cwd,
+          contextSource,
           options.memoryStore,
           config.taskContext ? { taskContext: config.taskContext } : {},
         ),
@@ -226,6 +237,7 @@ export async function initializeInteractiveSessionAsync(
   const created = await createInteractiveSession({
     cwd: options.cwd,
     provider: options.provider,
+    ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     config,
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,

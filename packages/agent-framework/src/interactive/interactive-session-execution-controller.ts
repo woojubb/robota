@@ -239,6 +239,7 @@ export class SessionExecutionController {
         agentsFileEntries,
         projectNotesFileEntries,
         rebuildSystemMessage,
+        { status: 'unavailable' },
         setEntries,
         () => this.callbacks.getSessionOrThrow(),
         (event: string, payload: unknown) => this.callbacks.emit(event, payload),

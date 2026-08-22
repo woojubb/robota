@@ -5,7 +5,11 @@ import { join } from 'node:path';
 import { describe, expect, it, afterEach } from 'vitest';
 
 import { createWorkspaceMemoryStore } from '../../memory/file-system-memory-store.js';
-import { createTrustedProjectStateFixture } from '../../testing/trusted-project-state-fixture.js';
+import {
+  createTrustedProjectAccessFixture,
+  createTrustedProjectStateFixture,
+} from '../../testing/trusted-project-state-fixture.js';
+import { getWorkspaceProjectReader } from '../../workspace-trust/index.js';
 import { loadContext } from '../context-loader.js';
 
 import type { IMemoryStore, IStartupMemory } from '../../memory/types.js';
@@ -16,6 +20,12 @@ function makeWorkspace(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));
   mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+async function projectSource(root: string) {
+  const access = await createTrustedProjectAccessFixture(root);
+  if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
+  return { reader: getWorkspaceProjectReader(access.authority) };
 }
 
 afterEach(() => {
@@ -61,7 +71,7 @@ describe('SELFHOST-008 TC-03 — loadContext memory-port threading + adapter-gat
       upsertPending: async () => undefined,
     };
 
-    const context = await loadContext(makeWorkspace(), injected);
+    const context = await loadContext(undefined, injected);
     expect(context.memoryMd).toBe('INJECTED-MEMORY-CONTENT');
   });
 
@@ -74,12 +84,12 @@ describe('SELFHOST-008 TC-03 — loadContext memory-port threading + adapter-gat
       text: 'authority-required-memory-entry',
     });
 
-    const context = await loadContext(cwd);
+    const context = await loadContext(await projectSource(cwd));
     expect(context.memoryMd).toBeUndefined();
   });
 
   it('returns undefined memoryMd when no store is injected', async () => {
-    const context = await loadContext(makeWorkspace());
+    const context = await loadContext(undefined);
     expect(context.memoryMd).toBeUndefined();
   });
 });

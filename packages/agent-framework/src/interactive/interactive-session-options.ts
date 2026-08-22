@@ -26,6 +26,7 @@ import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
@@ -46,6 +47,8 @@ import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools
 export interface IInteractiveSessionStandardOptions {
   cwd: string;
   provider: IAIProvider;
+  /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
+  projectAccess?: TWorkspaceProjectAccess;
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
@@ -128,7 +131,7 @@ export interface IInteractiveSessionStandardOptions {
   sandboxType?: string;
   /**
    * SELFHOST-008: optional durable-memory store injected by the surface. Threads to startup-memory
-   * injection; absent, the neutral filesystem reference adapter is the default (memory unchanged).
+   * injection; absence leaves project memory inaccessible.
    */
   memoryStore?: IMemoryStore;
   /**
@@ -180,6 +183,8 @@ export interface IInteractiveSessionInjectedOptions {
   session: Session;
   cwd?: string;
   provider?: IAIProvider;
+  /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
+  projectAccess?: TWorkspaceProjectAccess;
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
