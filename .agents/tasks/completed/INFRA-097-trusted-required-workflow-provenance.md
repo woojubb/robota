@@ -1,8 +1,9 @@
 ---
 title: 'INFRA-097: trusted provenance for required PR workflows'
 issue: https://github.com/woojubb/robota/issues/1719
-status: blocked
+status: done
 created: 2026-08-14
+completed: 2026-08-22
 priority: high
 urgency: soon
 area: .github/workflows, repository rulesets, scripts/harness
@@ -25,7 +26,7 @@ never executing untrusted PR content with write credentials.
 - [x] Compare required-workflow/ruleset, split `pull_request_target`, and external GitHub App/check-run designs.
 - [x] Specify exact SHA/ref identity, permissions, fork behavior, and branch-protection reconciliation.
 - [x] Add adversarial tests proving a PR cannot replace its own required gate with an unconditional pass.
-- [ ] Roll out and validate code, docs-only, fork, retarget, cancellation, and genuine-finding paths. — allow-unmet-criterion: the context exists and runs, but making it REQUIRED is a live-ruleset edit and therefore the owner's; these paths cannot be validated as a gate until it is one
+- [ ] Roll out and validate code, docs-only, fork, retarget, cancellation, and genuine-finding paths. — allow-unmet-criterion: rolled out and REQUIRED on both live rulesets; code, docs-only and genuine-finding are validated by observation (the last on throwaway pull request #2034, which also found the base-vs-default-branch defect). Three paths remain declared but unexercised: FORK needs a pull request from another account, which this session cannot produce; RETARGET would put a throwaway pull request against `main` while promotions are active, and `edited` — the mechanism it exercises — is asserted by a case instead; CANCELLATION is standard `concurrency` behaviour with a declared group and no repository-specific logic to prove. Naming all three rather than ticking the box on two-thirds of it
 
 ## The comparison, and what MEASURING the account settled
 
@@ -80,6 +81,32 @@ against the live ruleset by `ruleset-drift`, so registering it before the flip w
 registry state something untrue. The same held-membership shape `regression-red-proof` uses.
 
 ## Progress
+
+### 2026-08-22 — the fixes are landed and INERT until promotion (issue #2039)
+
+The completion pull request was used as the last verification: with the base-pinned checkout on
+`develop`, the gate's advisory should have read `::examined:: 3`. It read **2** again.
+
+`develop` carries the fix at line 82 (`ref: ${{ github.event.pull_request.base.sha }}`); `main` does
+not; the run's checkout received **no `ref:` input**. So the executed definition was `main`'s.
+Confirmed a second way: `main`'s copy still declares `types: [opened, synchronize, reopened]` while
+`develop`'s declares `edited` as well.
+
+**A `pull_request_target` workflow runs the DEFAULT branch's copy of its own YAML**, not the pull
+request base's. The checkout defect fixed in pull request #2035 was a symptom of this, not the cause.
+
+Consequences, filed as issue #2039 rather than left inside this record:
+
+- Both of today's fixes are landed on `develop` and **inert**. The R7 retarget hole is live on `main`
+  until a promotion carries pull request #2030.
+- The security property is unaffected, and arguably stronger: `main` is further from a pull request's
+  reach than `develop`. Trusted provenance holds. What does not hold is the assumption that fixing the
+  gate fixes the gate.
+
+**This item is complete anyway, and the distinction matters.** The fifth step is "make the context
+required and validate the paths". It IS required on both live rulesets, and it DOES enforce — proven
+on throwaway pull request #2034, which it refused. The activation latency of a later fix is a property
+of the gate's update path, discovered here and owned by issue #2039.
 
 ### 2026-08-22 — red-proved live, and the proof found a defect
 
