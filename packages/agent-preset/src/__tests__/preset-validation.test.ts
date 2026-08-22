@@ -1,12 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { validateExternalPreset } from '../preset-validation.js';
-import {
-  clearExternalPresets,
-  getPreset,
-  listPresets,
-  registerExternalPresets,
-} from '../resolve-preset.js';
+import { createPresetRegistry, partitionExternalPresets } from '../resolve-preset.js';
 
 import type { IPreset } from '../preset-types.js';
 
@@ -71,41 +66,48 @@ describe('validateExternalPreset — field-type validation', () => {
   });
 });
 
-describe('registerExternalPresets / clearExternalPresets', () => {
-  beforeEach(() => clearExternalPresets());
-  afterEach(() => clearExternalPresets());
-
+// ARCH-009 replaced `registerExternalPresets`/`clearExternalPresets` with `partitionExternalPresets`,
+// a pure application of the same conflict policy to one list. The cases below assert the policy, which
+// is what they always asserted; what is gone is the setup and teardown that existed only because the
+// list was the process's. No `beforeEach` clear is needed when nothing is shared.
+describe('partitionExternalPresets', () => {
   const external: IPreset = { id: 'ext-1', title: 'Ext One', description: 'external preset' };
 
-  it('registers a fresh external preset and exposes it through the readers', () => {
-    const result = registerExternalPresets([external]);
-    expect(result.registered).toEqual(['ext-1']);
+  it('accepts a fresh external preset and exposes it through a registry over it', () => {
+    const result = partitionExternalPresets([external]);
+    expect(result.accepted.map((preset) => preset.id)).toEqual(['ext-1']);
     expect(result.rejected).toEqual([]);
-    expect(getPreset('ext-1')?.title).toBe('Ext One');
-    expect(listPresets().some((p) => p.id === 'ext-1')).toBe(true);
+
+    const registry = createPresetRegistry([external]);
+    expect(registry.getPreset('ext-1')?.title).toBe('Ext One');
+    expect(registry.listPresets().some((p) => p.id === 'ext-1')).toBe(true);
   });
 
   it('rejects an id colliding with a built-in (built-ins win)', () => {
-    const result = registerExternalPresets([
+    const result = partitionExternalPresets([
       { id: 'default', title: 'Hijack', description: 'nope' },
     ]);
-    expect(result.registered).toEqual([]);
+    expect(result.accepted).toEqual([]);
     expect(result.rejected).toEqual([{ id: 'default', reason: 'collides with built-in preset' }]);
-    expect(getPreset('default')?.title).toBe('Default');
+    expect(
+      createPresetRegistry([{ id: 'default', title: 'Hijack', description: 'nope' }]).getPreset(
+        'default',
+      )?.title,
+    ).toBe('Default');
   });
 
-  it('rejects a duplicate external id (first registration wins)', () => {
-    registerExternalPresets([external]);
-    const result = registerExternalPresets([{ ...external, title: 'Second' }]);
-    expect(result.registered).toEqual([]);
+  it('rejects a duplicate external id (the first one wins)', () => {
+    const result = partitionExternalPresets([external, { ...external, title: 'Second' }]);
+    expect(result.accepted.map((preset) => preset.title)).toEqual(['Ext One']);
     expect(result.rejected).toEqual([{ id: 'ext-1', reason: 'duplicate preset id' }]);
-    expect(getPreset('ext-1')?.title).toBe('Ext One');
   });
 
-  it('clearExternalPresets removes externals but leaves the built-ins intact', () => {
-    registerExternalPresets([external]);
-    clearExternalPresets();
-    expect(getPreset('ext-1')).toBeUndefined();
-    expect(getPreset('default')?.id).toBe('default');
+  it('a registry built without that preset does not carry it, and keeps the built-ins', () => {
+    // The property `clearExternalPresets` used to provide, without anything to clear: isolation is
+    // what a registry IS now, so a fresh one starts at the built-ins by construction.
+    createPresetRegistry([external]);
+    const fresh = createPresetRegistry();
+    expect(fresh.getPreset('ext-1')).toBeUndefined();
+    expect(fresh.getPreset('default')?.id).toBe('default');
   });
 });

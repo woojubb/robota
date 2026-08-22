@@ -376,6 +376,24 @@ status set to `done` (or equivalent completion marker) until BOTH stages below p
 `status: done` before both stages pass is a process violation with no exception other than the explicit
 `manual-only` or `not-writable` exception documented in the scenario itself.
 
+### The record's own criteria must be met, and that is checked
+
+A `status: done` record leaves no `- [ ]` unticked.
+
+Enforced by: `unearned-done-claims` (rule U5) in `pnpm harness:scan`. It judges every heading in the
+record except `Children` (other items' state) and `File Format` (documentation OF the syntax).
+
+The other four rules of that scan judge content that is PRESENT — an empty evidence field, an
+uncited evidence heading, a dangling section reference, a ticked box whose claim cites nothing. None
+is about a criterion that is present and unmet, which is the shape that costs most: `status: done`
+is what the next reader trusts instead of opening the file.
+
+A criterion that survives completion is named on its own line with
+`allow-unmet-criterion: <reason>`. The reason belongs on the box's line, because one a paragraph
+away could be excusing a different box. Records that already carry unmet criteria are frozen in
+`scripts/harness/unmet-criteria-baseline.json` as a burn-down: the counts may FALL and never rise,
+and a count that falls is re-frozen in the same change.
+
 ### Done Gate Stage 1 — Scenario Written
 
 Every scenario is fully written. Passes by exception only when writing is genuinely impossible AND a

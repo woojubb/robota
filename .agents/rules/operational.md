@@ -123,6 +123,125 @@ looks like the command worked.
 - Never claim a file exists or was produced without actually creating it; verify paths before
   asserting presence; surface deliverables explicitly (share the file, not a folder).
 
+### A Bulk Edit Enumerates Through `git ls-files`
+
+A bulk edit takes its file list from `git ls-files`, never from a filesystem walk. `git ls-files`
+cannot return a `node_modules` path; a filesystem walk can, and in a pnpm workspace it does —
+`packages/<a>/node_modules/@scope/<b>` is a symlink to `packages/<b>`, and `node_modules/.pnpm` holds
+content hard-linked into every other project on the machine.
+
+A write that lands there is unobservable, which is why this is a rule and not a preference: `git
+status` does not look outside the work tree, every scan here reads `git ls-files`, and the store
+survives `pnpm install` because it believes the content is already correct.
+
+Four spellings follow symlinks, and each has a sibling that does not:
+
+| refuse                            | use                              |
+| --------------------------------- | -------------------------------- |
+| `find -L`                         | `find`                           |
+| `grep -R`                         | `grep -r`                        |
+| `rg --follow`                     | `rg` (also honours `.gitignore`) |
+| python `glob.glob` / `glob.iglob` | `pathlib.Path(...).rglob`        |
+
+The python one is refused by its IMPORT as well as by its call — `from glob import glob` and
+`import glob as g` bind the same enumerator to a name the call site does not spell. That half is
+judged inside the PAYLOAD, so the identical text in JavaScript is not refused: `import glob from
+'glob'` is a package this repository depends on and it does not follow. [INFRA-123](../tasks/completed/INFRA-123-nothing-can-name-the-language-of-an-embedded-payload.md) is why the
+distinction is enforceable rather than stated; before it, the rule table would have claimed a scope
+neither enforcer had a subject for.
+
+Shell `**` under `globstar`, zsh `**`, and Node's `fs.globSync` do not traverse symlinked
+directories and are unrestricted. `bulk-edit-guard.sh` refuses the four at the command and
+`scan-symlink-following-enumeration` refuses them in a committed script. Only the hook resolves a
+path, and only for a file-writing tool's own target: a redirect and an in-place editor are judged on
+how the path is SPELLED, and the scan resolves nothing.
+
+The declared exception is `BULK_EDIT_ACK=1`, after checking by hand where the enumeration reaches —
+INLINE in the same command, or EXPORTED, which is the only form a file-writing tool can carry
+because such a tool runs no command to put an assignment in front of. They differ in LIFETIME as well
+as spelling: the inline form is scoped to the one command that carries it, and the exported one holds
+for the rest of the session and covers the file-writing tools too. Prefer the inline form. Neither
+reaches above the guard's payload refusals: an ack says a write was checked, not that an unreadable
+payload was.
+
+Enforced by: `bulk-edit-guard` (the command) and `symlink-following-enumeration` (the committed
+script). The HOOK does not reach a python program passed through a heredoc — the body is masked as
+quoted content, which is the blindness every guard in that directory has. The SCAN does reach one,
+because in a committed file a heredoc body is ordinary file text. Neither reaches a two-step edit
+that enumerates in one call and writes in the next. The scan reads a file whose extension says it is
+a script, or — having no extension — whose shebang names an interpreter, so a script in a language
+outside that list is unread.
+
+Which files that is — and in which language — is owned by `scripts/harness/script-language.mjs`
+([INFRA-115](../tasks/completed/INFRA-115-is-this-file-a-script-and-in-what-language.md)), where a
+language's extensions ARE its interpreter map rather than a second list beside it. The obligation
+this paragraph used to hand the reader — that three interpreter names had no matching extension, so
+the same script was judged under one filename and clean under another — is discharged: there is no
+longer a second place for the two halves to disagree.
+
+The measurements behind the table, and the exposure they corrected, are in
+[INFRA-105](../tasks/completed/INFRA-105-bulk-edits-reach-the-dependency-store.md).
+
+### A Rewrite Edits What The Name RESOLVES To
+
+A bulk rename decides by NAME: it greps for a symbol's spelling and rewrites every site that matches.
+That is wrong whenever the name is not unique, which for ordinary names is most of the time. A
+rewrite site is correct when the identifier at that position **resolves to the declaration being
+changed** — not when it spells the same thing.
+
+Measured: a rewrite adding `await` to `createSession(` call sites edited three files that define
+their own local helper of that name and import nothing from the package that changed. Each was
+reverted before it was committed, and it was caught by luck — the script printed what it touched and
+the paths looked wrong for an unrelated reason.
+
+This is a different failure from the enumeration one above, and a worse one. That rule bounds where
+an edit can REACH; this is about whether the sites it reaches are the right ones. A rewrite sourced
+correctly from `git ls-files`, staying inside `packages/*/src`, still edits every unrelated spelling
+in the workspace — and produces no test failure when the local helper happens to be compatible, only
+a silent semantic change. The enumeration failure announced itself in the printed paths. This does
+not announce itself at all.
+
+**Decide sites with `scripts/harness/resolve-rewrite-sites.mjs`, not with a grep.**
+
+```text
+node scripts/harness/resolve-rewrite-sites.mjs <symbol> <module> <file>...
+```
+
+Only a `binds` verdict may be rewritten. `shadowed-by-local-declaration`,
+`does-not-import-the-symbol` and `imports-that-name-from-another-module` are the three ways a
+same-spelled identifier is a different thing.
+
+| verdict                                  | meaning                                                                       |
+| ---------------------------------------- | ----------------------------------------------------------------------------- |
+| `binds`                                  | the file imports the symbol from that module and nothing shadows it — rewrite |
+| `shadowed-by-local-declaration`          | the file declares its own binding of that name — leave                        |
+| `does-not-import-the-symbol`             | the name is not bound to anything from that module — leave                    |
+| `imports-that-name-from-another-module`  | a different declaration with the same spelling — leave                        |
+| `namespace-import-present-cannot-decide` | a namespace import of the target module is present — **decide by hand**       |
+
+The last one exits non-zero on purpose. `ns.createSession(...)` is a real site the resolver cannot
+see, and reporting it as "no" would silently skip it — the same silence as the name-based rewrite, in
+the other direction.
+
+**What it deliberately does not resolve**, stated rather than mis-answered: a re-export chain, a
+namespace import used through an alias, and a symbol reaching the file through a barrel under a
+different specifier. The accurate answer is a TypeScript program built once over the workspace, which
+is also the slow one; reading each candidate file's own bindings covers the measured failure at a
+cost a rewrite can afford per file. A resolver that guessed at the rest would be the regex it
+replaces, wearing a better name.
+
+Enforced by: nothing — a hand-written rewrite runs before any check can see it. There is no artefact
+to scan and no command shape a hook can recognise, because the edit arrives as a finished diff. That
+is an answer rather than a gap: a documented procedure plus a tool is what remains when a machine
+cannot decide, and saying so is what distinguishes it from a rule nobody enforced and nobody noticed.
+
+What exists instead is the tool above and this procedure. The reviewable evidence is the resolver's
+output: a rewrite that names it in its record is one another reader can re-run, and one that does not
+is a claim about scope with nothing behind it.
+
+The measurement behind this rule is in
+[INFRA-125](../tasks/completed/INFRA-125-a-rewrite-edits-what-the-name-resolves-to.md).
+
 ### A Wait Is Not Idle Time
 
 When work is blocked on something that takes minutes and is not yours to speed up — a continuous

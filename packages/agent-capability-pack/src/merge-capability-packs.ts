@@ -57,7 +57,7 @@ function selectUniquePacks(packs: readonly ICapabilityPack[]): {
  *
  * **ONE precedence order, no silent override:** `baseCommandModules` < packs in profile order. A later
  * contribution whose id duplicates an already-claimed id is REJECTED and reported in `rejected` — never
- * silently overridden (mirrors `registerExternalPresets`' "first registration wins / report rejection").
+ * silently overridden (mirrors `partitionExternalPresets`' "the first one wins / report rejection").
  * Ids are claimed per bucket: command modules by `ICommandModule.name`, tools by `FunctionTool.getName()`,
  * subagents by `IAgentDefinition.name`.
  *

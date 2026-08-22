@@ -2,7 +2,7 @@
 // Provider-neutral. InteractiveSession is the single entry point.
 
 // ── InteractiveSession (primary API) ────────────────────────
-export { InteractiveSession } from './interactive/index.js';
+export { InteractiveSession, PeerMessageIngress } from './interactive/index.js';
 
 // ── Autonomous goal pursuit (GOAL-001) ──────────────────────
 export {
@@ -65,7 +65,10 @@ export {
 export type {
   IAgentJobHostContext,
   ICommandHostAdapters,
+  ICommandHandoffAdapter,
   ICommandHostContext,
+  IHandoffProgress,
+  IHandoffStaysBehind,
   ICommandModule,
   IRemoteCommandPolicy,
   ICommandPickerAdapter,
@@ -400,7 +403,7 @@ export type {
 } from './plugins/index.js';
 
 export type { IAgentDefinition } from './agents/index.js';
-export { BUILT_IN_AGENTS, getBuiltInAgent } from './agents/index.js';
+export { BUILT_IN_AGENTS } from './agents/index.js';
 
 export {
   createSession,
@@ -454,23 +457,18 @@ export {
   parseExecutionWorkspaceEntryId,
   summarizeBackgroundJobGroup,
 } from './background-tasks/index.js';
+// ARCH-039: nine `agent-executor` names were re-exported here through the background-tasks barrel
+// and had NO external importer — this barrel was their only consumer, re-publishing what nothing
+// asked for. The per-symbol exemption made that visible; they are imported from
+// `@robota-sdk/agent-executor` by anyone who needs them.
 export type {
-  IBackgroundTaskHandle,
-  IBackgroundTaskManager,
-  IBackgroundTaskManagerOptions,
   IBackgroundTaskRunner,
-  IBackgroundTaskStart,
   IBackgroundJobOrchestratorOptions,
   IBackgroundTaskSpawnerGroupRequest,
   ICreateExecutionWorkspaceTaskSpawnerOptions,
   IExecutionWorkspaceTaskSpawner,
   ISpawnAgentTaskRequest,
   ISpawnProcessTaskRequest,
-  TBackgroundTaskIdFactory,
-  TBackgroundTaskRunnerEvent,
-  TBackgroundTaskTransitionEvent,
-  ICreateLimitedOutputCaptureOptions,
-  ILimitedOutputCapture,
 } from './background-tasks/index.js';
 
 // ── Subagent process manager contracts ─────────────────────
@@ -616,6 +614,7 @@ export {
   CLI_UPDATE_REGISTRY_URL,
   CLI_UPDATE_TIMEOUT_MS,
 } from './update-check/update-check.js';
+export { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 export type {
   ICheckForCliUpdateOptions,
   ICliUpdateNotice,
@@ -683,3 +682,29 @@ export type {
   ICommandSessionPermissions,
   ICommandSessionPreset,
 } from './command-api/host-context.js';
+
+// HANDOFF-001 (issue #1864): the two ends of a cross-device session hand-off, and the contract the
+// composition root fills in with the wire package's operations.
+export { HandoffDestination, HandoffSource } from './handoff/index.js';
+export type {
+  IAssembleOutcome,
+  ICommitOutcome,
+  IDestinationReport,
+  IHandoffAssemblerPort,
+  IHandoffCarrier,
+  IHandoffChunkFrame,
+  IHandoffComposition,
+  IHandoffDestinationOptions,
+  IHandoffManifestRequest,
+  IHandoffRuntimeState,
+  IHandoffSourceOptions,
+  IHandoffTransactionPort,
+  IHandoffTransactionState,
+  IIntegrityOutcome,
+  ITransitionOutcome,
+  TCredentialResolver,
+  TDestinationState,
+  TManifestOutcome,
+  TOfferOutcome,
+  TRecordPersister,
+} from './handoff/index.js';

@@ -99,15 +99,49 @@ function within(ranges, index) {
  * because `(#1810)` at the end of a subject line is the ambiguous form this rule exists to qualify,
  * and excluding the paren would exempt exactly the case it was written for. Measured on both.
  */
+/**
+ * INFRA-122 (issue #1913) — what may stand between one reference and the next, while the qualifier
+ * before the FIRST still governs both.
+ *
+ * A range, a list, and an `A and B` pair are all one phrase in which a single qualifier names every
+ * member: `PRs #1525-#1530`, `issues #1899, #1903 and #1904`. The first model saw a qualifier
+ * immediately before a single number, so every member after the first read as bare — a form this
+ * repository writes routinely and a reader resolves without opening anything.
+ *
+ * The separators are enumerated rather than "any short run of punctuation", because the point is to
+ * recognise a phrase, not to forgive proximity. `#10 fixed #12` must stay two references: a verb
+ * between them means the second is a different claim, and treating nearness as governance would let a
+ * real bare reference hide behind an unrelated qualified one on the same line.
+ *
+ * Both dash forms are listed. The en dash is what this repository's prose actually uses, and a check
+ * that only knew the hyphen would be right about the form nobody writes.
+ */
+const CHAINED = new RegExp(
+  String.raw`^[ \t]*(?:` +
+    String.raw`[-–—]|` + // a range: #1525-#1530
+    String.raw`,[ \t]*(?:and[ \t]+|or[ \t]+)?|` + // a list, with or without a closing conjunction
+    String.raw`(?:and|or|to|through|thru)[ \t]+` + // #10 and #12, #10 to #12
+    String.raw`)[ \t]*$`,
+  'i',
+);
+
 export function unqualifiedReferences(text) {
   const specimens = specimenRanges(text);
   const findings = [];
   REFERENCE.lastIndex = 0;
   let match;
+  /** Where the previous reference ended, and whether a qualifier governed it. */
+  let previous = null;
   while ((match = REFERENCE.exec(text)) !== null) {
     const [whole, prefix, qualifier, number] = match;
     const at = match.index + prefix.length;
-    if (qualifier !== undefined) continue;
+    const endsAt = match.index + whole.length;
+    const governed =
+      qualifier !== undefined ||
+      (previous?.governed === true && CHAINED.test(text.slice(previous.endsAt, at)));
+    const wasGoverned = governed;
+    previous = { endsAt, governed: wasGoverned };
+    if (governed) continue;
     if (within(specimens, at)) continue;
     // `](#1884` — a link whose target is a numeric anchor. See the note above for why this is a
     // two-character lookback and not a character class.

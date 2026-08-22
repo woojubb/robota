@@ -23,6 +23,7 @@ import type {
   ISubagentRunner,
 } from '@robota-sdk/agent-executor';
 import type { TPermissionHandler } from '@robota-sdk/agent-session';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 
 type TSubagentToolExecutionEvent = Parameters<
   NonNullable<IInProcessSubagentRunnerDeps['onToolExecution']>
@@ -55,20 +56,71 @@ export interface IInProcessSubagentRunnerDeps {
    * built-ins. Omitted keeps the documented default three.
    */
   builtInAgents?: readonly IAgentDefinition[];
+  /**
+   * The PARENT's resolved agent roster — discovered definitions merged over the built-in tier.
+   *
+   * Issue #1854, the agent axis. A runner in another process used to resolve an unknown type by
+   * importing `getBuiltInAgent` from this package's barrel, which is the same "compose from imported
+   * defaults instead of from the product" shape ARCH-021 closed on the provider axis and ARCH-035 on
+   * the tool axis. The parent already knows the answer — `buildAgentRuntime` computes this list —
+   * so carrying it is what lets the child stop asking the framework.
+   *
+   * Consulted AFTER `customAgentRegistry` and `builtInAgents`, by both runners. Absent ⇒ the
+   * composition root offered no roster; `agent-subagent-runner` then fails closed rather than
+   * silently resolving against a set the product never chose, while the in-process runner — which
+   * lives in the package that OWNS the built-ins — falls back to them.
+   */
+  agentDefinitions?: readonly IAgentDefinition[];
   commandSemanticRoles?: ISystemCommandSemanticRoles;
+  /**
+   * ARCH-034: which session-assembly tiers the PARENT's tool surface carried.
+   *
+   * The in-process runner does not read it — it receives the parent's already-assembled `tools`. A
+   * runner that rebuilds the surface in another process does, and this is the only place the parent's
+   * choice is still in scope. Without it the child assembles a DIFFERENT surface from the sibling
+   * that shares this contract, which is the asymmetry ARCH-034 is about.
+   */
+  sessionTiers?: { readonly includeGoalTool?: boolean };
+  /**
+   * ARCH-033: the parent's sandbox and the NAME a child uses to rebuild one like it.
+   *
+   * A live client cannot cross a process boundary; `(type, snapshotId)` can. Both halves are carried
+   * because either alone is worse than neither — a snapshot with no registered type is a reference
+   * nothing opens, and a type with no snapshot rebuilds an EMPTY sandbox, which is a child that looks
+   * sandboxed while sharing none of the parent's state.
+   */
+  sandboxClient?: ISandboxClient;
+  sandboxType?: string;
 }
 
 export type TSubagentRunnerFactory = (deps: IInProcessSubagentRunnerDeps) => ISubagentRunner;
 
+/**
+ * Both runners consult the same sources in the same ORDER: custom registry, injected set, then the
+ * parent's roster. They differ only in the last resort, and only because of where each one lives.
+ *
+ * Reported in review of issue #1854's agent axis: the first cut documented `agentDefinitions` on the
+ * shared deps type and wired it in the child-process runner alone, so a caller that supplied it saw
+ * it silently ignored here. A field one implementer honours and the other drops is the asymmetry
+ * ARCH-034 was about, reintroduced by the change closing its sibling.
+ *
+ * This runner keeps `getBuiltInAgent` as the last resort, and that is not the axis violation: it is
+ * the framework's own runner reading the framework's own built-ins, in the package that owns them.
+ * The violation was a NEUTRAL package importing them across a process boundary to compose a surface
+ * the product had already decided — which is why `agent-subagent-runner` fails closed instead.
+ */
 function resolveAgentDefinition(
   agentType: string,
-  deps: Pick<IInProcessSubagentRunnerDeps, 'customAgentRegistry' | 'builtInAgents'>,
+  deps: Pick<
+    IInProcessSubagentRunnerDeps,
+    'customAgentRegistry' | 'builtInAgents' | 'agentDefinitions'
+  >,
 ): IAgentDefinition {
   const definition =
     deps.customAgentRegistry?.(agentType) ??
-    (deps.builtInAgents
-      ? deps.builtInAgents.find((agent) => agent.name === agentType)
-      : getBuiltInAgent(agentType));
+    deps.builtInAgents?.find((agent) => agent.name === agentType) ??
+    deps.agentDefinitions?.find((agent) => agent.name === agentType) ??
+    getBuiltInAgent(agentType);
   if (!definition) {
     throw new Error(`Unknown agent type: ${agentType}`);
   }

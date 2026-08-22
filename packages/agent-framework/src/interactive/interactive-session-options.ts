@@ -54,9 +54,9 @@ export interface IInteractiveSessionStandardOptions {
   /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
   bare?: boolean;
   /** Pre-approved tool names passed to createSession. */
-  allowedTools?: string[];
+  allowedTools?: readonly string[];
   /** Denied tool names — added to permissions.deny. denied > allowed. */
-  deniedTools?: string[];
+  deniedTools?: readonly string[];
   /** Override the model from config. When set, takes precedence over config.provider.model. */
   model?: string;
   /**
@@ -65,12 +65,15 @@ export interface IInteractiveSessionStandardOptions {
    * Typed FROM the seam, not re-declared beside it — that is how the two drift apart again.
    */
   effort?: ICreateSessionOptions['effort'];
+  temperature?: number;
+  maxOutputTokens?: number;
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
   persona?: string;
-  /** Replace the entire system prompt with this string. Takes precedence over the default builder. */
+  /** `systemPrompt` REPLACES the composed prompt; `presetSystemPrompt` SEEDS it (ARCH-040). */
   systemPrompt?: string;
+  presetSystemPrompt?: string;
   /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
   language?: string;
   /** Runtime-composed background task runners. */
@@ -114,6 +117,8 @@ export interface IInteractiveSessionStandardOptions {
   reversibleExecution?: IReversibleExecutionOptions;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
+  /** ARCH-033: the name a child process uses to rebuild a sandbox like this one. */
+  sandboxType?: string;
   /**
    * SELFHOST-008: optional durable-memory store injected by the surface. Threads to startup-memory
    * injection; absent, the neutral filesystem reference adapter is the default (memory unchanged).
@@ -186,105 +191,5 @@ export interface IInteractiveSessionInjectedOptions {
 export type TInteractiveSessionOptions =
   IInteractiveSessionStandardOptions | IInteractiveSessionInjectedOptions;
 
-/** Internal async init options (not re-exported). */
-export interface IInitOptions {
-  cwd: string;
-  provider: IAIProvider;
-  permissionMode?: ICreateSessionOptions['permissionMode'];
-  /** CMD-005: unified ask renderer, forwarded into the session as the model-question tool seam. */
-  askHandler?: IUserInteraction['ask'];
-  maxTurns?: number;
-  permissionHandler?: TInteractivePermissionHandler;
-  resumeSessionId?: string;
-  forkSession?: boolean;
-  onTextDelta: (delta: string) => void;
-  onContextUpdate?: (state: IContextWindowState) => void;
-  onCompactEvent?: (event: ICompactEvent) => void;
-  onToolExecution: (event: {
-    type: 'start' | 'end';
-    toolName: string;
-    toolArgs?: TToolArgs;
-    success?: boolean;
-    denied?: boolean;
-    toolResultData?: string;
-  }) => void;
-  /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
-  bare?: boolean;
-  /** Pre-approved tool names passed to createSession. */
-  allowedTools?: string[];
-  /** Denied tool names — added to permissions.deny. denied > allowed. */
-  deniedTools?: string[];
-  /** Override the model from config. When set, takes precedence over config.provider.model. */
-  model?: string;
-  /**
-   * Reasoning-effort dial resolved from the active preset (PRESET-008). ARCH-013: this key did not
-   * exist, so a preset's `effort` reached nothing at startup while `/preset` applied it mid-session.
-   * Typed FROM the seam, not re-declared beside it — that is how the two drift apart again.
-   */
-  effort?: ICreateSessionOptions['effort'];
-  /** Text to append to the system prompt. */
-  appendSystemPrompt?: string;
-  /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
-  persona?: string;
-  /** Replace the entire system prompt with this string. Takes precedence over the default builder. */
-  systemPrompt?: string;
-  /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
-  language?: string;
-  /** Runtime-composed background task runners. */
-  backgroundTaskRunners?: IBackgroundTaskRunner[];
-  /** Runtime shell override for subagent execution. */
-  subagentRunnerFactory?: TSubagentRunnerFactory;
-  /** ARCH-005: composition-root-contributed subagent definitions (see the standard options). */
-  agentDefinitions?: readonly IAgentDefinition[];
-  /** Optional command modules composed into this session. */
-  commandModules?: readonly ICommandModule[];
-  /** Model-visible command descriptors derived from the composed command executor. */
-  commandDescriptors?: readonly ICapabilityDescriptor[];
-  /** Role projection resolved once from the selected executable commands. */
-  commandSemanticRoles?: ISystemCommandSemanticRoles;
-  /** Model command execution bridge. */
-  modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
-  /** Predicate for commands allowed through the model command execution bridge. */
-  isModelCommandInvocable?: (command: string) => boolean;
-  /** Preloaded config to avoid duplicate discovery when caller needs it too. */
-  config?: IResolvedConfig;
-  /** Recorder used to snapshot files before Write/Edit tools mutate them. */
-  editCheckpointRecorder?: IEditCheckpointRecorder;
-  /** Opt-in local-first reversible execution policy for write/shell tools. */
-  reversibleExecution?: IReversibleExecutionOptions;
-  /** Optional provider sandbox client used by sandbox-aware built-in tools. */
-  sandboxClient?: ISandboxClient;
-  /**
-   * SELFHOST-008: optional durable-memory store. When present, startup-memory injection reads through
-   * it; absent, the neutral filesystem reference adapter is the default (memory works unchanged).
-   */
-  memoryStore?: IMemoryStore;
-  /** Fresh-session workspace manifest applied through the sandbox client. */
-  workspaceManifest?: IWorkspaceManifest;
-  /** Sandbox target root for workspace manifest entries. Defaults to /workspace. */
-  sandboxWorkspaceRoot?: string;
-  /** Provider sandbox snapshot id to restore before replaying saved messages. */
-  sandboxSnapshotId?: string;
-  /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
-  agentName?: string;
-  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
-  activePresetId?: string;
-  /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
-  enableParallelSubagents?: boolean;
-  /** Preset execution capability: run a post-task self-verification step. */
-  selfVerification?: boolean | string;
-  /** Additional tools registered alongside the default CLI tools. */
-  additionalTools?: IToolWithEventService[];
-  /**
-   * ARCH-006: REPLACES the framework's `createDefaultTools()` tier; `[]` suppresses every framework
-   * default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's
-   * `builtInAgents` seam for subagents. Absent ⇒ unchanged behavior.
-   */
-  defaultTools?: readonly IToolWithEventService[];
-  /** SELFHOST-005 guardrail REGISTRY (name → function). ARCH-013 S3; see create-session-projection. */
-  guardrails?: Record<string, TGuardrail>;
-  /** SELFHOST-003 retrieval adapter gating `CodebaseRetrieval`. ARCH-013 S3; same seam as above. */
-  retrievalAdapter?: IRetrievalAdapter;
-  /** Request structured output from the provider for this session. */
-  responseFormat?: { type: 'text' | 'json_object' };
-}
+/** ARCH-040: split out by responsibility; re-exported so no consumer has to know it moved. */
+export type { IInitOptions } from './interactive-session-init-options.js';

@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-product",
   "version": "3.0.0-beta.79",
-  "description": "The product-assembly kernel for the Robota SDK: assembleProduct — a pure, IO-free fold over IProductProfile that delegates runtime construction to agent-framework",
+  "description": "The product-assembly kernel for the Robota SDK: assembleProduct \u2014 a pure, IO-free fold over IProductProfile that delegates runtime construction to agent-framework",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -39,7 +39,7 @@
     "scenario:verify": "pnpm scenario:verify:composition-contract",
     "scenario:verify:composition-contract": "pnpm exec tsx --conditions=source examples/verify-composition-contract.ts",
     "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-product --output examples/scenarios/composition-contract.record.json -- pnpm scenario:verify",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit",
     "lint": "eslint src/ --ext .ts",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"

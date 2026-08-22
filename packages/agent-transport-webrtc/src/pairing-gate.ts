@@ -24,73 +24,26 @@ import {
   importPublicKey,
   startPairingHandshake,
   type IPairingResult,
-  type TPairingRole,
 } from '@robota-sdk/agent-remote-pairing';
-import { createWsHandler, type SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
 
-import { judgeLocalProof, type ILocalPeerProof } from './local-peer-proof.js';
+import { nextAdmissionStep } from './admission-steps.js';
+import type {
+  IHostReconnectConfig,
+  IPairingChannel,
+  IPairingGateOptions,
+} from './pairing-gate-options.js';
+
+// Re-exported so every existing import of these names keeps working: the split moved where they are
+// DECLARED, and moving where they are imported from would be a migration this change is not.
+export type { IHostReconnectConfig, IPairingChannel, IPairingGateOptions };
+import { judgeHandoffGrant } from './handoff-grant-gate.js';
+import { judgeLocalProof } from './local-peer-proof.js';
 import { pairingChannel } from './pairing-channel-lifecycle.js';
 import { startFirstPairController, startReconnectController } from './pairing-controllers.js';
 import { isEnrollFrame, isPairingFrame, isReconnectFrame } from './pairing-frames.js';
 import { attachSession } from './session-attachment.js';
 
 import type { IEnrollFrame } from './pairing-frames.js';
-import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
-
-/** The minimal data-channel surface the gate drives (a werift `RTCDataChannel` satisfies it). */
-export interface IPairingChannel {
-  send(data: string): void;
-  close(): void;
-}
-
-/** E3 host reconnect/enrollment config. When present, the gate runs reactive (first-frame) mode detection. */
-export interface IHostReconnectConfig {
-  readonly hostIdentityId: string;
-  /** base64url SPKI advertised to a device at first-pair enrollment. */
-  readonly hostPublicSpki: string;
-  /** The host identity private key (signs reconnect challenges). */
-  readonly hostPrivateKey: CryptoKey;
-  /** Resolve a pinned device public key by id (undefined → unknown/revoked → fail closed). */
-  readonly resolveDevicePublicKey: (deviceId: string) => Promise<CryptoKey | undefined>;
-  /** Pin a device's public key on first-pair enrollment (deviceId, base64url SPKI). */
-  readonly onEnroll: (deviceId: string, deviceSpki: string) => void;
-}
-
-export interface IPairingGateOptions {
-  readonly channel: IPairingChannel;
-  readonly session: IProtocolSession;
-  readonly secret: string;
-  readonly role: TPairingRole;
-  readonly localFingerprint: string;
-  readonly remoteFingerprint: string;
-  /** Handshake timeout (ms); fail closed on expiry. */
-  readonly timeoutMs?: number;
-  /** REMOTE-008: fired once admission accepts + the session is exposed. Carries the first-pair result (E4). */
-  readonly onAccept?: (result?: IPairingResult) => void;
-  /** REMOTE-008: fired once admission rejects/times out + the channel closes (host lifecycle → teardown). */
-  readonly onReject?: () => void;
-  /** REMOTE-012 E3: host reconnect/enrollment config. Absent → B4 first-pair-only behavior (unchanged). */
-  readonly reconnect?: IHostReconnectConfig;
-  /**
-   * REMOTE-013 E4: a session-scoped {@link SessionResumeBridge}. When set, the paired session flows through the
-   * bridge (seq-stamped + buffered) instead of a fresh `createWsHandler`, so the session survives a channel
-   * drop and can replay on reconnect. Accept ATTACHES the channel as the bridge's sink; cleanup DETACHES it
-   * (never disposes — the bridge is owned by the transport across reconnects).
-   */
-  readonly resumeBridge?: SessionResumeBridge;
-  /**
-   * Post-accept session-frame delivery failure; owning transport performs drop cleanup.
-   *
-   * ARCH-030: was `TServerMessage['type'] | string`, which is just `string` — a union that reads as a
-   * narrowing and is not one. Stated as what it is.
-   */
-  readonly onDeliveryError?: (error: Error, event: string) => void;
-  /** SEC-010: require a rendezvous nonce before exposing the session. Absent → unchanged behavior. */
-  readonly localPeer?: ILocalPeerProof;
-  /** Injection seams (default to the real implementations). */
-  readonly startHandshake?: typeof startPairingHandshake;
-  readonly createHandler?: typeof createWsHandler;
-}
 
 type TGateState =
   | 'awaiting-mode'
@@ -98,6 +51,7 @@ type TGateState =
   | 'enrolling'
   | 'reconnecting'
   | 'local-proof'
+  | 'handoff-grant'
   | 'accepted'
   | 'closed';
 
@@ -172,6 +126,16 @@ export class PairingGate {
       this.options.localPeer?.onAdmission?.(admission);
       if (admission.admitted) this.accept(this.pendingResult, this.pendingViaReconnect);
       else this.rejectAndClose();
+      return;
+    }
+
+    if (this.state === 'handoff-grant') {
+      // Verifying a signature is async, and this handler is not. The promise is consumed here rather
+      // than returned so a rejection cannot escape into the channel's message subscription — an
+      // unhandled rejection would leave the gate parked in this state with the channel open, which
+      // is a hang. `judgeHandoffGrant` already converts a throw into a refusal; this is the second
+      // layer, because a gate that can hang is a gate that fails open by waiting.
+      void this.judgeGrantFrame(parsed);
       return;
     }
 
@@ -258,13 +222,14 @@ export class PairingGate {
 
   private accept(result?: IPairingResult, viaReconnect = false): void {
     if (this.state === 'closed' || this.state === 'accepted') return;
-    // SEC-010 TC-08: the handshake bound the CHANNEL; the rendezvous nonce binds the ENVIRONMENT.
-    // Demanded here rather than earlier because the channel must already be authenticated, and
-    // before anything below because that is where the session becomes reachable.
-    if (this.options.localPeer && this.state !== 'local-proof') {
+    // The steps this channel still owes. Demanded here rather than earlier because the handshake
+    // must already have bound the channel, and before anything below because that is where the
+    // session becomes reachable. The ordering argument lives in `admission-steps.ts`.
+    const owed = nextAdmissionStep(this.options, this.state);
+    if (owed !== null) {
       this.pendingResult = result ?? this.pendingResult;
       this.pendingViaReconnect = viaReconnect;
-      this.state = 'local-proof';
+      this.state = owed;
       return;
     }
     const attached = attachSession(this.options, viaReconnect, (error, event) =>
@@ -274,6 +239,17 @@ export class PairingGate {
     this.handlerCleanup = attached.cleanup;
     this.state = 'accepted';
     this.options.onAccept?.(result);
+  }
+
+  /** The async half of the `handoff-grant` state, kept off the synchronous message path. */
+  private async judgeGrantFrame(parsed: unknown): Promise<void> {
+    const admission = await judgeHandoffGrant(parsed, this.options.handoffGrant);
+    // A channel torn down while the signature was being checked must not be re-accepted by a verdict
+    // that arrives afterwards. Checked after the await, because that is the window it exists for.
+    if (this.state !== 'handoff-grant') return;
+    this.options.handoffGrant?.onAdmission?.(admission);
+    if (admission.admitted) this.accept(this.pendingResult, this.pendingViaReconnect);
+    else this.rejectAndClose();
   }
 
   private rejectAndClose(): void {

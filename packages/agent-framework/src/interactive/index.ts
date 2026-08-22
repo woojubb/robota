@@ -36,3 +36,4 @@ export type {
   IConfigurableTransport,
   ITransportConfig,
 } from '@robota-sdk/agent-interface-transport';
+export { PeerMessageIngress } from './peer-message-ingress.js';

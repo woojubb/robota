@@ -40,8 +40,11 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
 
   it('TC-04: neither enabled nor disabled given → full default set unchanged (no-regression)', () => {
     const names = moduleNames(baseOptions);
-    // No-regression: the default set length is the documented 26 modules (SELFHOST-002 added `/plan`).
-    expect(names).toHaveLength(26);
+    // No-regression: the default set length is the documented 27 modules (SELFHOST-002 added
+    // `/plan`; PEER-004 added `/peers`). The list below is the assertion that matters — a length on
+    // its own can be restored by any substitution, and the count exists only to catch an addition
+    // that also removed something.
+    expect(names).toHaveLength(28);
     expect(names).toEqual([
       'agent-command-skills',
       'agent-command-help',
@@ -67,6 +70,8 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
       'agent-command-statusline',
       'agent-command-plugin',
       'agent-command-settings',
+      'agent-command-peers',
+      'agent-command-handoff',
       'agent-command-remote-control',
       'agent-command-provider',
     ]);

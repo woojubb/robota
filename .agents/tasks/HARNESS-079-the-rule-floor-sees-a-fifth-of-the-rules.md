@@ -1,5 +1,5 @@
 ---
-title: 'HARNESS-079: the new-rule enforcement floor sees roughly a fifth of the rules that exist'
+title: 'HARNESS-079: the new-rule enforcement floor sees about a tenth of the rules that exist — the table-borne majority is outside both original counts'
 status: todo
 created: 2026-08-08
 priority: medium
@@ -8,7 +8,11 @@ area: scripts/harness, .agents/rules
 depends_on: []
 ---
 
-# HARNESS-079 — the rule floor sees a fifth of the rules
+# HARNESS-079 — the rule floor sees about a tenth of the rules
+
+> The filename keeps the original `-a-fifth-` slug on purpose: the eight existing citations are
+> by ID, and renaming would move the record out from under a path anyone has stored. The figure
+> it names is superseded by the re-measurement below.
 
 **Source:** review finding on PR #1647
 
@@ -37,7 +41,36 @@ Over `.agents/rules/`, 2026-08-08:
 | bullets the pattern MATCHES                 | 29    |
 | bullets carrying a normative word it MISSES | 104   |
 
-Examples of the miss, all real rules:
+### Re-measured 2026-08-22 — both figures count BULLETS ONLY
+
+The two counts above are a survey of list items. They do not include rules written as TABLE ROWS,
+and a table row cannot reach this floor by construction: `ADDED_RULE_BULLET` is anchored on
+`^\+\s*[-*]\s+`, so a line beginning `|` opens no section whatever it says.
+
+|                                                           | count |
+| --------------------------------------------------------- | ----- |
+| A — bullets the pattern MATCHES                           | 30    |
+| B — bullets carrying a normative word it MISSES           | 137   |
+| C — TABLE ROWS under `.agents/rules/`, in neither A nor B | 180   |
+
+A and B are the original survey re-run on the current tree, so the drift from 29/104 is growth plus
+a slightly wider reading of "normative word" — treat them as the same measurement, not a new one. C
+is exact and structural: it needs no judgement about phrasing, because the anchor decides it.
+
+C includes every numbered entry of `common-mistakes.md` — 92 of them, the largest single rule
+population in the repository. So the headline is not "roughly a fifth": it is **30 of 347, about
+9%**, and the migration this item describes is correspondingly larger than the section above states.
+
+Two consequences for the plan below:
+
+- Deciding the recognition rule is no longer only about which keywords to admit. It has to decide
+  whether a table row is a rule at all, and if it is, where its `Enforced by:` declaration lives —
+  `common-mistakes.md` already carries a `**Mechanism:**` field in its third column, which is the
+  same claim under a different name and may be the cheapest bridge.
+- 52 of the 92 `common-mistakes` entries (57%) currently record `**Mechanism:** none`. Admitting the
+  table without reconciling that field first would turn most of the catalogue red at once.
+
+Examples of the bullet miss, all real rules:
 
 - `- Do not combine unrelated backlogs in one PR.`
 - `- Every PR description must include the accepted recommendation, its REVIEW VERDICT, …`

@@ -164,9 +164,9 @@ export interface ICreateSessionOptions {
   /** Override session ID (used when resuming a session to reuse the original ID) */
   sessionId?: string;
   /** Pre-approved tool names — added to permissions.allow as ToolName(*) patterns. */
-  allowedTools?: string[];
+  allowedTools?: readonly string[];
   /** Denied tool names — added to permissions.deny as ToolName(*) patterns. denied > allowed. */
-  deniedTools?: string[];
+  deniedTools?: readonly string[];
   /** Override the model from config. When set, takes precedence over config.provider.model. */
   model?: string;
   /**
@@ -176,8 +176,23 @@ export interface ICreateSessionOptions {
    * parameter; providers without native effort ignore it as a documented no-op.
    */
   effort?: TModelEffort;
+  /**
+   * ARCH-040: sampling temperature and output cap. Same shape as `effort` one line up, and the same
+   * cause — the live `/preset` path applied both through `applyModelOptions` and startup applied
+   * neither, so one session held two answers for the same preset depending on when it was chosen.
+   */
+  temperature?: number;
+  maxOutputTokens?: number;
   /** Text to append to the generated system prompt. */
   appendSystemPrompt?: string;
+  /**
+   * ARCH-040: a PRESET-supplied system prompt, composed as a priority-4 section above persona.
+   *
+   * Distinct from `systemPrompt`, which REPLACES the composed prompt. A preset pointing at that seam
+   * would silently drop the AGENTS.md, project-notes, skill and capability sections — context the
+   * person choosing a preset did not ask to lose. Owner decision 2026-08-20: seed, do not replace.
+   */
+  presetSystemPrompt?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
   persona?: string;
   /** Model command execution bridge. */
@@ -194,6 +209,20 @@ export interface ICreateSessionOptions {
   reversibleExecution?: IReversibleExecutionOptions;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
+  /**
+   * ARCH-033: the NAME a child process uses to rebuild a sandbox like this one.
+   *
+   * A live client cannot cross a process boundary. `(type, snapshotId)` can: the type selects a
+   * factory the composition root registered on the worker side, and the snapshot is a provider-owned
+   * reference `sandboxClient.snapshot()` returned. Carried beside the client rather than derived
+   * from it, because a client's class name is not a registry key and guessing one would be the
+   * silent half-capability this is here to prevent.
+   *
+   * Absent alongside a `sandboxClient` ⇒ the sandbox does NOT cross to a child-process subagent, and
+   * `assertChildProcessSubagentsCanReproduce` says so at the composition root rather than letting a
+   * child run un-sandboxed while looking sandboxed.
+   */
+  sandboxType?: string;
   /**
    * SELFHOST-003: optional codebase-retrieval adapter (built from a surface-supplied source parser +
    * corpus). When present, the adapter-gated `CodebaseRetrieval` tool joins the default set; absent otherwise.

@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
@@ -49,7 +49,7 @@ it('starts from zero on the next run', () => {
  * registers a scan, because the population is the tree rather than the registry.
  */
 async function createFixture({ modules = {}, tests = {}, ledger = null }) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-measurement-provenance-'));
+  const root = makeTemp('robota-measurement-provenance-');
   const write = (relativePath, content) => {
     const target = path.join(root, relativePath);
     mkdirSync(path.dirname(target), { recursive: true });
@@ -529,7 +529,7 @@ describe('the pending ledger records debt and cannot grow quietly', () => {
 
 describe('the floor refuses rather than passing over nothing', () => {
   it('throws when the directory it derives its population from is not there', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-measurement-provenance-bare-'));
+    const root = makeTemp('robota-measurement-provenance-bare-');
     expect(() => findMeasurementProvenanceFindings(root)).toThrow(
       /scripts\/harness does not exist/,
     );

@@ -49,6 +49,36 @@ jobs:
         with:
           # Block the PR on a newly-introduced HIGH+ vulnerability.
           fail-on-severity: high
+          # SCOPE, stated rather than inherited (INFRA — issue #1951). The action defaults
+          # `fail-on-scopes` to `runtime` alone, and this file said nothing about it — so a
+          # development-scoped package was exempt from the license allow-list whatever its license
+          # was, and the empty `Licenses` group that produced reads exactly like "evaluated and
+          # allowed". Measured on PR #1950: the SAME package at the SAME version under
+          # `devDependencies` produced an empty group and SUCCESS, and under `dependencies` produced
+          # `@substrate/connect-extension-protocol@2.2.2 - License: GPL-3.0-only` and FAILURE.
+          #
+          # Extended rather than merely documented, because the cost was measured and is zero. Of the
+          # 668 packages present in `pnpm licenses list --dev` and absent from `--prod`, the count
+          # that would fail this allow-list is NONE. Seven carry a string that is not literally on the
+          # list; six are `OR` expressions whose every leaf is (`MIT OR Apache-2.0`, `(WTFPL OR MIT)`,
+          # `WTFPL OR ISC`) and the action matches per-leaf, and the seventh — `spawndamnit` — has no
+          # `license` field, only `SEE LICENSE IN LICENSE`, whose file is the MIT text verbatim. No
+          # copyleft leaf appears in the dev-only set at all: the `LGPL-3.0-or-later` and
+          # `AGPL-3.0-only OR LicenseRef-Commercial` entries the name-scoped exemptions below exist
+          # for are both reachable from `--prod`, so this puts no new weight on them.
+          #
+          # Two facts bound what this can cost later. The action gates the dependencies a PR ADDS,
+          # not the existing graph — so the measurement above bounds the migration at zero and the
+          # ongoing cost falls only on a future dev dependency under a license nobody has yet chosen
+          # to accept. And this check is ADVISORY (see the header): it annotates, it blocks nothing.
+          #
+          # The narrower policy is defensible — a dev-only dependency is not distributed, and the
+          # hazard this gate exists for is distribution. It is not what is written here, and flipping
+          # to it is deleting one word. What is not defensible is leaving it unsaid, which is what
+          # made INFRA-047's Test Plan specify a case that could not fail ("a test PR introducing a
+          # GPL dev-dep is BLOCKED"), and is the same shape INFRA-061 audited these workflows for: a
+          # green trusted for more than it measures.
+          fail-on-scopes: runtime, development
           # Reviewed re-accepts. This repo judges the SAME advisory with two tools — osv-scanner (the
           # `security audit` job, via osv-scanner.toml) and this one — and a suppression in one is NOT
           # read by the other, so an accepted advisory must be recorded in BOTH or the two gates
@@ -77,6 +107,18 @@ jobs:
           #   (`LGPL-3.0-or-later`). LGPL stays OFF the general allow-list — a NEW LGPL dep now fails;
           #   only this existing family is exempted. If sharp adds a platform variant, extend THIS
           #   list (not allow-licenses).
+          # - @img/sharp-win32-*: INFRA-115. These are the platform WRAPPERS, not prefabs, and they
+          #   are here because Windows is the one platform where the two are the same package.
+          #   Measured on this lockfile rather than assumed:
+          #     @img/sharp-darwin-arm64  Apache-2.0                        optionalDep -> sharp-libvips-darwin-arm64
+          #     @img/sharp-linux-x64     Apache-2.0                        optionalDep -> sharp-libvips-linux-x64
+          #     @img/sharp-win32-x64     Apache-2.0 AND LGPL-3.0-or-later  NO optionalDep
+          #   Every other wrapper delegates libvips to a `sharp-libvips-*` prefab and stays plain
+          #   Apache-2.0, which `allow-licenses` already passes. The win32 wrappers ship the libvips
+          #   DLLs inside themselves, so they carry the LGPL leaf directly — and `A AND B` passes only
+          #   if BOTH leaves are listed, which is why exactly these three failed and nothing else did.
+          #   `@img/sharp-libvips-win32-*` DOES exist on the registry (1.3.2) but is absent from this
+          #   lockfile, so listing it would exempt a package we do not have.
           allow-dependencies-licenses: >-
             pkg:npm/%40robota-sdk/agent-core,
             pkg:npm/%40robota-sdk/agent-provider,
@@ -90,5 +132,8 @@ jobs:
             pkg:npm/%40img/sharp-libvips-linux-x64,
             pkg:npm/%40img/sharp-libvips-linuxmusl-arm64,
             pkg:npm/%40img/sharp-libvips-linuxmusl-x64,
-            pkg:npm/%40img/sharp-wasm32
+            pkg:npm/%40img/sharp-wasm32,
+            pkg:npm/%40img/sharp-win32-arm64,
+            pkg:npm/%40img/sharp-win32-ia32,
+            pkg:npm/%40img/sharp-win32-x64
           comment-summary-in-pr: on-failure

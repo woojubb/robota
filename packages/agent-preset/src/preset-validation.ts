@@ -3,7 +3,6 @@ import type {
   TPresetAutonomy,
   TPresetEffort,
   TPresetPermissionMode,
-  TPresetTrustLevel,
   IResolvedPresetOptions,
 } from './preset-types.js';
 
@@ -23,9 +22,6 @@ const PERMISSION_MODE_VALUES: readonly TPresetPermissionMode[] = [
   'acceptEdits',
   'bypassPermissions',
 ];
-
-/** Runtime membership list for {@link TPresetTrustLevel}. */
-const TRUST_LEVEL_VALUES: readonly TPresetTrustLevel[] = ['safe', 'moderate', 'full'];
 
 /** Narrowing guard: `value` is a non-null, non-array object. */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -138,12 +134,6 @@ function validateEnumFields(
     assign(raw as TPresetPermissionMode);
   }
 
-  if (value.defaultTrustLevel !== undefined) {
-    if (!TRUST_LEVEL_VALUES.includes(value.defaultTrustLevel as TPresetTrustLevel)) {
-      return `defaultTrustLevel: expected one of ${TRUST_LEVEL_VALUES.join(', ')}`;
-    }
-    options.defaultTrustLevel = value.defaultTrustLevel as TPresetTrustLevel;
-  }
   return undefined;
 }
 

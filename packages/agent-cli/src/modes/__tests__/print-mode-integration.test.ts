@@ -13,6 +13,12 @@ import { createProjectSessionStore } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runPrintMode } from '../print-mode.js';
+import { buildServeSessionOptions } from '../serve-mode.js';
+import { presetSessionFields } from '../../startup/preset-session-fields.js';
+import {
+  buildPresetSurfaceOptions,
+  toSessionOptions,
+} from '../../startup/preset-surface-options.js';
 
 import type { IPrintModeSessionResolution } from '../print-mode.js';
 import type { IParsedCliArgs } from '../../utils/cli-args.js';
@@ -236,5 +242,129 @@ describe('print mode session resume integration (CLI-063)', () => {
     expect(original).toBeDefined();
     expect(original?.messages).toHaveLength(priorMessageCount);
     expect(stdoutWriteCount).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * Issue #1937 — the CLI-sourced prompt flags must reach the surface, not just the helper.
+ *
+ * `buildAppendSystemPrompt` had exactly one caller, so `--append-system-prompt`, `--task-file` and
+ * `--json-schema` were parsed, validated and then dropped in interactive and serve mode. A test of
+ * the helper passes in that state, which is why these assert what the PROVIDER received: the system
+ * message is the only place the flags' effect is observable, and it is where the defect showed.
+ */
+describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
+  let cwd: string;
+
+  beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), 'robota-append-prompt-'));
+    vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new ExitSentinel(code ?? 0);
+    }) as never);
+    vi.spyOn(process.stdout, 'write').mockImplementation((() => true) as never);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  function systemTextOf(messages: TUniversalMessage[]): string {
+    return messages
+      .filter((m) => m.role === 'system')
+      .map((m) => m.content ?? '')
+      .join('\n');
+  }
+
+  it('print mode: the composed addition arrives on the projection, not from a second helper call', async () => {
+    const { provider, lastMessages } = createRecordingProvider('ok');
+    const sessionStore = createProjectSessionStore(cwd);
+    try {
+      await runPrintMode(
+        cwd,
+        makeArgs({ positional: ['hello'] }),
+        provider,
+        sessionStore,
+        [],
+        (() => {
+          throw new Error('subagent runner not used here');
+        }) as never,
+        [],
+        {},
+        [],
+        {} as never,
+        {},
+        { cliAppendSystemPrompt: 'REMEMBER-THE-PASSPHRASE' },
+      );
+    } catch (error) {
+      if (!(error instanceof ExitSentinel)) throw error;
+    }
+    expect(systemTextOf(lastMessages())).toContain('REMEMBER-THE-PASSPHRASE');
+  });
+
+  it('serve mode: the served session receives the same addition', () => {
+    // Asserted on the OPTIONS the served runtime starts with, not on the helper — serve is the
+    // surface where a missing forward is least visible, because nothing there prints the prompt.
+    // `TInteractiveSessionOptions` is a union, and the injected member has no `appendSystemPrompt`
+    // because it takes an already-built session. Serve always builds the standard member, so the
+    // read is narrowed here rather than by widening the framework's public surface for a test.
+    const options = buildServeSessionOptions({
+      cwd,
+      args: makeArgs({}),
+      preset: { cliAppendSystemPrompt: 'SERVED-ADDITION' },
+    } as never) as { appendSystemPrompt?: string };
+    expect(options.appendSystemPrompt).toBe('SERVED-ADDITION');
+  });
+
+  it('the shared mapper takes the tool lists from the PRESET SURFACE (issue #1934)', () => {
+    // The claim the projection test could not make. It asserts the mode surfaces ACCEPT every field
+    // — a compile-time property — and both modes accepted `allowedTools` while reading
+    // `parseToolList(args.…)` instead. Accepting a field and reading it are different claims.
+    expect(
+      presetSessionFields({
+        allowedTools: ['FromPreset'],
+        deniedTools: ['DeniedByPreset'],
+        cliAppendSystemPrompt: 'CLI-TEXT',
+      }),
+    ).toEqual({
+      allowedTools: ['FromPreset'],
+      deniedTools: ['DeniedByPreset'],
+      appendSystemPrompt: 'CLI-TEXT',
+    });
+  });
+
+  it('the mapper omits what the surface did not state, rather than emptying it', () => {
+    // The guard: returning `allowedTools: []` for a surface that named none would read as "nothing is
+    // permitted" at the session, which is the opposite of absent.
+    expect(presetSessionFields({})).toEqual({});
+  });
+
+  it('serve mode reads the RESOLVED tool lists, not the raw flags (issue #1934)', () => {
+    // The review finding this pins: both modes took `IPresetSurfaceOptions` and read
+    // `parseToolList(args.…)` anyway, so a preset's lists were applied in the TUI and silently
+    // ignored under `-p` and `--serve` — the half-applied divergence the item exists to close,
+    // reintroduced at two of three shells. The projection test above cannot catch it: it asserts the
+    // surfaces ACCEPT the field, which is a compile-time property, not that they READ it.
+    const options = buildServeSessionOptions({
+      cwd,
+      args: makeArgs({ allowedTools: 'FromFlag', deniedTools: 'FromFlag' }),
+      preset: { allowedTools: ['FromPreset'], deniedTools: ['DeniedByPreset'] },
+    } as never) as { allowedTools?: readonly string[]; deniedTools?: readonly string[] };
+
+    expect(options.allowedTools).toEqual(['FromPreset']);
+    expect(options.deniedTools).toEqual(['DeniedByPreset']);
+  });
+
+  it('the projection carries what the three flags compose, so every surface reads one value', () => {
+    // Composed BY the projection, from the raw flags — not handed in already composed. That is the
+    // hop the defect was at: the helper worked, and one shell of three called it.
+    const surface = buildPresetSurfaceOptions({} as never, 'acme', 'default', {
+      cwd,
+      args: makeArgs({ appendSystemPrompt: 'FROM-FLAG' }),
+    });
+    expect(surface.cliAppendSystemPrompt).toBe('FROM-FLAG');
+    // interactive receives it through this hop and no other, renamed onto the session's own key —
+    // and kept off the preset's `appendSystemPrompt` until here, so the merge order stays open.
+    expect(toSessionOptions(surface).appendSystemPrompt).toBe('FROM-FLAG');
   });
 });

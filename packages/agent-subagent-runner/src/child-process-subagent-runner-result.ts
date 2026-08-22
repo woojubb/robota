@@ -31,7 +31,14 @@ export interface IChildProcessSubagentResultOptions {
   runtime: IChildProcessRuntime;
   /** How long the worker may take to say anything. Injectable so a test can reach this branch. */
   handshakeBudgetMs?: number;
-  payload: ISubagentWorkerStartPayload;
+  /**
+   * ARCH-033: a PROMISE, because part of the payload cannot be known synchronously — projecting the
+   * parent's sandbox means asking it for a snapshot, and `snapshot()` is async. `start()` must stay
+   * synchronous (it returns a handle the caller cancels), so the await happens HERE, between the
+   * child saying `ready` and the parent sending `start`, which is the one point where waiting costs
+   * nothing that was not already being waited for.
+   */
+  payload: Promise<ISubagentWorkerStartPayload>;
   resolveTranscriptPath: (job: ISubagentJobStart) => string | undefined;
 }
 
@@ -50,6 +57,8 @@ class ChildProcessSubagentResultController {
   private readonly timeoutTimer?: ReturnType<typeof setTimeout>;
   private readonly handshakeTimer: ReturnType<typeof setTimeout>;
   private readonly handshakeBudgetMs: number;
+  /** The start payload, or `undefined` when building it failed and the job was already rejected. */
+  private readonly payload: Promise<ISubagentWorkerStartPayload | undefined>;
 
   constructor(
     private readonly options: IChildProcessSubagentResultOptions,
@@ -61,6 +70,16 @@ class ChildProcessSubagentResultController {
     const budget = options.handshakeBudgetMs;
     this.handshakeBudgetMs =
       budget !== undefined && budget > 0 ? budget : DEFAULT_HANDSHAKE_BUDGET_MS;
+    // ARCH-033: the payload's failure handler is attached HERE, not in `startWorker`, which may be
+    // several ticks away — the child has to say `ready` first. A payload that cannot be BUILT (a
+    // sandbox whose `snapshot()` throws) fails the job either way, but without this the rejection
+    // surfaces as an unhandled one before anything consumed it. `undefined` means "already
+    // reported": there is nothing left to send, and sending a partial payload would start a child
+    // that looks sandboxed while sharing none of the parent's state.
+    this.payload = options.payload.catch((error) => {
+      this.rejectOnce(error instanceof Error ? error : new Error(String(error)));
+      return undefined;
+    });
     this.timeoutTimer = createTimeoutTimer(this.options.runtime, (error) => this.rejectOnce(error));
     // DIST-006: a worker that never answers must not hang the parent forever. The old seam failed
     // LOUDLY when the entry was wrong (`Cannot find module`, then exit); this one re-executes the
@@ -95,11 +114,13 @@ class ChildProcessSubagentResultController {
     if (this.started) return;
     this.started = true;
     const { child } = this.options.runtime;
-    void sendWorkerMessage(child, { type: 'start', payload: this.options.payload }).catch(
-      (error) => {
+    void this.payload
+      .then((payload) =>
+        payload === undefined ? undefined : sendWorkerMessage(child, { type: 'start', payload }),
+      )
+      .catch((error) => {
         this.rejectOnce(error instanceof Error ? error : new Error(String(error)));
-      },
-    );
+      });
   };
 
   private readonly onMessage = (message: TSubagentWorkerWireValue): void => {

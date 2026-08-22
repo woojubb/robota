@@ -28,6 +28,22 @@ export interface IPresetApplicationOptions {
   maxOutputTokens?: number;
   /** PRESET-014 — preset persona re-applied to the live system prompt. */
   persona?: string;
+  /** ARCH-040 — the agent's identity label, re-applied to the live agent. */
+  agentName?: string;
+  /** ARCH-040 — response language, re-applied as a prompt section. */
+  language?: string;
+  /** ARCH-040 — a preset-supplied system prompt that SEEDS the composed prompt (priority 4). */
+  systemPrompt?: string;
+  /**
+   * ARCH-040 Group C — the preset's tool lists, re-applied to the live enforcer.
+   *
+   * An allowlist REPLACES what the preset layer previously contributed; a denylist UNIONS, because a
+   * denial is not weakened by a later layer that forgot to repeat it. Both halves ship together: an
+   * allowlist that replaces while its paired denylist stayed behind would widen what the session
+   * permits, which is the failure the pairing exists to prevent.
+   */
+  allowedTools?: readonly string[];
+  deniedTools?: readonly string[];
   /** PRESET-015 — allowlist of command-module names to keep on the live session. */
   enabledCommandModules?: readonly string[];
   /** PRESET-015 — denylist of command-module names to remove from the live session. */
@@ -86,6 +102,18 @@ export async function applyPresetToSession(
     skipped.push('permissionMode');
   }
 
+  // ARCH-040 Group C (issue #1934). Skipped only when the preset states neither list — never because
+  // a runtime could not apply them, which the required role member makes unrepresentable.
+  if (options.allowedTools !== undefined || options.deniedTools !== undefined) {
+    context.getSession().applyPresetToolLists({
+      ...(options.allowedTools !== undefined && { allowedTools: options.allowedTools }),
+      ...(options.deniedTools !== undefined && { deniedTools: options.deniedTools }),
+    });
+    applied.push('toolLists');
+  } else {
+    skipped.push('toolLists');
+  }
+
   // PRESET-013 model group — re-applied via the runtime's applyModelOptions seam.
   const modelOptions: IModelReapplyOptions = {
     ...(options.model !== undefined && { model: options.model }),
@@ -110,6 +138,34 @@ export async function applyPresetToSession(
     applied.push('persona');
   } else {
     skipped.push('persona');
+  }
+
+  // ARCH-040 language group — re-applied through the same rebuild seam as persona. Owner decision
+  // 2026-08-20: a preset's `language` is a prompt instruction, not a provider parameter.
+  if (options.language !== undefined) {
+    context.applyResponseLanguage(options.language);
+    applied.push('language');
+  } else {
+    skipped.push('language');
+  }
+
+  // ARCH-040 seeding-prompt group. `systemPrompt` SEEDS rather than replaces — the framework's own
+  // replace seam would drop the AGENTS.md and capability sections without saying so.
+  if (options.systemPrompt !== undefined) {
+    context.applyPresetSystemPrompt(options.systemPrompt);
+    applied.push('systemPrompt');
+  } else {
+    skipped.push('systemPrompt');
+  }
+
+  // ARCH-040 identity group — the REVERSE divergence, and the one nobody had named: startup applied
+  // the preset's `agentName` and the live path did not, so switching to the SAME preset mid-session
+  // left the old name. Owner decision 2026-08-20: `/preset` renames.
+  if (options.agentName !== undefined) {
+    await context.getSession().applyAgentName(options.agentName);
+    applied.push('agentName');
+  } else {
+    skipped.push('agentName');
   }
 
   // PRESET-015 command-module group — re-applied via the host context's

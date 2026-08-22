@@ -163,7 +163,7 @@ describe('HttpClient', () => {
   });
 
   describe('URL construction', () => {
-    it('should handle baseUrl with trailing slash', () => {
+    it('should handle baseUrl with trailing slash', async () => {
       const configWithSlash: IHttpClientConfig = {
         baseUrl: 'https://api.test.com/',
         timeout: 30000,
@@ -180,12 +180,12 @@ describe('HttpClient', () => {
 
       mockFetch.mockResolvedValue(mockResponse);
 
-      clientWithSlash.get('/data');
+      await clientWithSlash.get('/data');
 
       expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/data'), expect.any(Object));
     });
 
-    it('should handle paths correctly', () => {
+    it('should handle paths correctly', async () => {
       const mockResponse = {
         ok: true,
         status: 200,
@@ -195,7 +195,7 @@ describe('HttpClient', () => {
 
       mockFetch.mockResolvedValue(mockResponse);
 
-      httpClient.get('/api/test');
+      await httpClient.get('/api/test');
 
       expect(mockFetch).toHaveBeenCalledWith('https://api.test.com/api/test', expect.any(Object));
     });

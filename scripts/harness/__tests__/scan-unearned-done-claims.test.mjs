@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   evaluateDocument,
   findUnearnedDoneClaimFindings,
+  outsideFences,
   sectionsOf,
 } from '../scan-unearned-done-claims.mjs';
 
@@ -335,12 +336,20 @@ describe('U4 — unevidenced ticked acceptance box', () => {
     ).toEqual([]);
   });
 
-  it('TC-33: ignores an UNticked box — an open item claims nothing', () => {
+  it('TC-33: U4 ignores an UNticked box — its subject is a CLAIM, and an open box makes none', () => {
+    // Scoped to U4 rather than to the document. When this case was written U4 was the only rule
+    // reading checkboxes, so "claims nothing" could stand as a statement about the whole record.
+    // U5 (issue #1965) overturned exactly that premise: in a `status: done` record an unticked box
+    // is an unmet criterion, which is the defect U5 exists for. What is still true, and is what this
+    // case is about, is that U4 does not fire — a proof claim on a box nobody ticked is not a claim
+    // that evidence was produced.
     expect(
-      evaluateDocument(
-        doneDoc('- [ ] Required contexts verify content, proven by a broken branch.'),
+      rules(
+        evaluateDocument(
+          doneDoc('- [ ] Required contexts verify content, proven by a broken branch.'),
+        ),
       ),
-    ).toEqual([]);
+    ).not.toContain('U4');
   });
 
   it('TC-34: ignores a ticked box that makes no proof claim', () => {
@@ -394,5 +403,90 @@ describe('over the real backlog corpus', () => {
     // is precisely the condition that must FAIL rather than silently pass.
     const { staleLegacy } = findUnearnedDoneClaimFindings(path.join(FIXTURES, 'does-not-exist'));
     expect(staleLegacy.length).toBe(LEGACY_DEBT_COUNT);
+  });
+});
+
+describe('a line inside a fence is pasted output, not the document speaking', () => {
+  /**
+   * MEASURED on `.agents/tasks/completed/INFRA-061-…`, whose User Execution scenario pastes a bash
+   * block containing:
+   *
+   *     # 1. genuine bytes — the verification CI performs
+   *
+   * `sectionsOf` read every line, so that shell COMMENT became an H1 named "1. genuine bytes — the
+   * verification CI performs" — an evidence heading whose body cites nothing, on a record whose
+   * actual evidence is the command directly under it. A finding on correct work, which
+   * `enforcement-architecture.md` says is a reason to change the CHECK.
+   *
+   * U3's body loop already skipped fences and its own comment said so; the heading collector one
+   * loop earlier did not. The same file disagreeing with itself about what a heading is.
+   */
+  const FENCED = [
+    '---',
+    'status: done',
+    'completed: 2026-08-21',
+    '---',
+    '',
+    '# A record',
+    '',
+    '## Scenario',
+    '',
+    '```bash',
+    '# 1. genuine bytes — the verification CI performs',
+    'sha256sum -c -',
+    '',
+    '## Not a heading either',
+    '```',
+    '',
+    'Verified in `scripts/harness/scan-unearned-done-claims.mjs`.',
+    '',
+  ].join('\n');
+
+  it('marks fenced lines, and the fence delimiters themselves, as not the document', () => {
+    const lines = ['a', '```sh', '# inside', '```', 'b'];
+    expect(outsideFences(lines)).toEqual([true, false, false, false, true]);
+  });
+
+  it('does not read a shell comment inside a fence as a section heading', () => {
+    const headings = sectionsOf(FENCED.split('\n')).map((section) => section.heading);
+    expect(headings).toEqual(['A record', 'Scenario']);
+  });
+
+  it('reports nothing on a done record whose only "uncited heading" is a bash comment', () => {
+    expect(evaluateDocument(FENCED)).toEqual([]);
+  });
+
+  it('still reports a real uncited evidence heading OUTSIDE a fence', () => {
+    // Without this, the fix could have been "skip every heading" and the suite would not notice.
+    const withRealDefect = FENCED.replace(
+      'Verified in `scripts/harness/scan-unearned-done-claims.mjs`.',
+      '## Verification\n\nIt all worked.',
+    );
+    const findings = evaluateDocument(withRealDefect);
+    expect(findings.length).toBeGreaterThan(0);
+    expect(findings.map((f) => f.message).join(' ')).toMatch(/cites nothing/);
+  });
+
+  it('does not resolve a "see X below" reference to a heading that is inside a fence', () => {
+    const referencing = [
+      '---',
+      'status: done',
+      'completed: 2026-08-21',
+      '---',
+      '',
+      '# A record',
+      '',
+      'The proof is recorded under _Genuine Bytes_.',
+      '',
+      '```bash',
+      '# Genuine Bytes',
+      'echo hi',
+      '```',
+      '',
+    ].join('\n');
+    const findings = evaluateDocument(referencing);
+    expect(findings.map((f) => f.message).join(' ')).toMatch(
+      /does not follow|does not exist|no heading/,
+    );
   });
 });

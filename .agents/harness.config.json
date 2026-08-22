@@ -372,9 +372,9 @@
     },
     {
       "name": "IInitOptions",
-      "file": "packages/agent-framework/src/interactive/interactive-session-options.ts",
+      "file": "packages/agent-framework/src/interactive/interactive-session-init-options.ts",
       "constructors": ["createInteractiveSession"],
-      "reason": "The INIT option shape, watched because ARCH-013 stage 3 dropped two fields in the ~40-field hand-map that builds it and stage 1's ICreateSessionOptions-only ratchet could not see the drop. Named IInitOptions rather than the published IInteractiveSessionStandardOptions because that is literally what it measures: the single production literal it reads is the createInteractiveSession(...) call, which takes IInitOptions. An earlier revision named the published type, and review measured the difference — 8 of the 10 keys it then reported ARE set by production code through buildRuntimeSession and the surface option builders, so the entry asserted unreachability it had not established, and burning it down would have pushed class-consumed options into the very hand-map this stage fixed."
+      "reason": "The INIT option shape, watched because ARCH-013 stage 3 dropped two fields in the ~40-field hand-map that builds it and stage 1's ICreateSessionOptions-only ratchet could not see the drop. Named IInitOptions rather than the published IInteractiveSessionStandardOptions because that is literally what it measures: the single production literal it reads is the createInteractiveSession(...) call, which takes IInitOptions. An earlier revision named the published type, and review measured the difference — 8 of the 10 keys it then reported ARE set by production code through buildRuntimeSession and the surface option builders, so the entry asserted unreachability it had not established, and burning it down would have pushed class-consumed options into the very hand-map this stage fixed. ARCH-040 split it into its own module: the original file held three interfaces restating one option list, so every preset field had to be added three times and the anti-monolith floor refused the fourth. This scan fail-closed on the move rather than passing, which is what the entry is for."
     }
   ],
   "productIdentity": {
@@ -425,54 +425,18 @@
     "$pendingComment": "The burn-down. Each entry is a field this floor HAS measured as undeclared or one-sidedly declared, whose fix needs a decision this scan cannot make — recorded as a NAMED, EXPIRING exemption rather than an opaque count, because an exemption that is unnamed or non-expiring is indistinguishable from no floor. `declaredOn` records the surfaces the field was measured on when the entry was written; if the live state differs in EITHER direction the entry is reported (`preset-pending-state-changed`), so an exemption expires when the work is DONE and not only when the field is deleted. Review measured the earlier version failing exactly that: fixing a pending field printed green, which made the list a baseline with extra words. This list may shrink and must never grow without a reviewed reason. Tracked as GitHub issue #1820.",
     "pendingProjection": [
       {
-        "field": "model",
-        "reason": "NOT dropped — hand-mapped. `cli.ts:262` computes `resolvedPreset.model ?? providerSettings.model` and threads the result into all three construction sites, so the value reaches the session; what is missing is the DECLARED projection. Resolving it means moving the field onto IPresetSurfaceOptions, which requires deciding where the `?? providerSettings.model` fallback lives, because the surface is built after the model id is first needed (cli.ts:330 vs :262).",
-        "declaredOn": ["IPresetApplicationOptions"]
-      },
-      {
-        "field": "temperature",
-        "reason": "Applied by the live /preset path via `applyModelOptions` (preset-application.ts), and by nothing at startup. Unlike `model` there is no `ICreateSessionOptions` seam at all — the value would have to reach the provider config, so this is a new seam rather than a re-declaration. Same class as `effort` before stage 1.",
-        "declaredOn": ["IPresetApplicationOptions"]
-      },
-      {
-        "field": "maxOutputTokens",
-        "reason": "Identical to `temperature`: live-only via `applyModelOptions`, no session-construction seam, needs a provider-config route. The two travel together in the model group and should be resolved together.",
-        "declaredOn": ["IPresetApplicationOptions"]
-      },
-      {
-        "field": "agentName",
-        "reason": "The REVERSE divergence, and the one nobody had named: startup declares it (IPresetSurfaceOptions) and the live /preset path does not, so starting with a preset sets the agent name while switching to the same preset mid-session leaves the old one. Resolving it needs a product decision — whether `/preset` should rename the agent mid-session — not just a seam.",
-        "declaredOn": ["IPresetSurfaceOptions"]
-      },
-      {
-        "field": "systemPrompt",
-        "reason": "Declared on the source with no `ICreateSessionOptions` counterpart under any name (all 54 keys enumerated). The framework composes the system prompt through `systemPromptBuilder` and `appendSystemPrompt`, so honouring a preset-supplied full `systemPrompt` means deciding whether it REPLACES the composed prompt or seeds it — a semantic decision with user-visible consequences.",
-        "declaredOn": []
-      },
-      {
         "field": "appendSystemPrompt",
         "reason": "A session seam DOES exist (`ICreateSessionOptions.appendSystemPrompt`, projected by create-session-projection.ts), so the last hop is ready. The first hop is missing, and wiring it requires deciding the merge order against the CLI-sourced append text that `buildAppendSystemPrompt` produces — today that helper is called only from print-mode.ts, so `--task-file`/`--json-schema`/`--append-system-prompt` are themselves dropped in TUI and serve mode.",
         "declaredOn": []
-      },
+      }
+    ]
+  },
+  "fileSizeReexportBarrels": {
+    "$comment": "ARCH-038 (issue #1806): the 300-line limit is an anti-monolith rule, and a barrel is not a monolith in the sense it means. `sdk-public-surface` refuses `export *` — rightly, it is what keeps the published surface auditable — so every public name costs one line wherever it is listed, and a sub-barrel moves lines rather than removing them. ARCH-029 raised agent-framework's frozen entry from 656 to 689 rather than argue this, and adopting debt quietly is indistinguishable from adopting a refactor. The exemption is EARNED, not declared: a listed file is exempt only while every statement in it is a re-export, and the moment one grows a function, a constant or an import the limit applies again and the entry is reported as `reexport-barrel-exemption-unearned`. An entry naming a file the scan does not measure is reported too. Each entry carries its own reason, the way `aggregateNaming` and `rolePortOptionals` do.",
+    "files": [
       {
-        "field": "language",
-        "reason": "No session or assembly seam under any name. Whether a preset-declared language becomes a persona section, an appended instruction, or a provider parameter is undecided, and each choice is user-visible.",
-        "declaredOn": []
-      },
-      {
-        "field": "defaultTrustLevel",
-        "reason": "Measured fully dead by the ARCH-013 audit: validated by preset-validation and then read by nothing, with no seam anywhere. Removing an unconsumed public contract is a product decision rather than a grep result, so it stays declared and exempted until its owner decides between wiring it to the permission/trust axis and dropping it.",
-        "declaredOn": []
-      },
-      {
-        "field": "allowedTools",
-        "reason": "A session seam exists (`ICreateSessionOptions.allowedTools`) and create-session-projection.ts already forwards it from IInitOptions, so only the preset→surface hop is missing. Wiring it requires deciding how a preset allowlist composes with the session-level and pack-level tool sets rather than replacing them.",
-        "declaredOn": []
-      },
-      {
-        "field": "deniedTools",
-        "reason": "The denylist half of the same decision as `allowedTools`, and it must be resolved with it: an allowlist that composes and a denylist that replaces would contradict each other.",
-        "declaredOn": []
+        "file": "packages/agent-framework/src/index.ts",
+        "reason": "The SDK's published surface, one explicit named export per line because `sdk-public-surface` forbids `export *`. Splitting it into per-domain entry points is a change to the package's `exports` map and its consumers, not a size problem — filed as issue #1806's first option and not taken."
       }
     ]
   },

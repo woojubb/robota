@@ -17,3 +17,4 @@ export { resolvePermissionByPolicy } from './permission-policy.js';
 export type { TPermissionPolicyDecision, IPermissionPolicyContext } from './permission-policy.js';
 export { RISK_CLASS_POLICY, UNCLASSIFIED_TOOL_FALLBACK } from './permission-mode.js';
 export type { TToolRiskClass } from './permission-mode.js';
+export { applyPresetToolLists, toolNamesToPatterns } from './tool-list-patterns.js';

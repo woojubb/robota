@@ -6,7 +6,12 @@
  * conversation management.
  */
 
-import { evaluatePermission, resolvePermissionByPolicy, runHooks } from '@robota-sdk/agent-core';
+import {
+  applyPresetToolLists,
+  evaluatePermission,
+  resolvePermissionByPolicy,
+  runHooks,
+} from '@robota-sdk/agent-core';
 
 import { decideApproval } from './abortable-approval.js';
 import { wrapToolWithPermission } from './tool-permission-wrapper.js';
@@ -38,6 +43,8 @@ export class PermissionEnforcer {
   private readonly hookTypeExecutors?: IPermissionEnforcerOptions['hookTypeExecutors'];
   private readonly transcriptPath?: string;
   private readonly sessionAllowedTools = new Set<string>();
+  /** The configured rules before any preset contributed — see {@link applyPresetToolLists}. */
+  private readonly presetFreeRules: { allow: readonly string[]; deny: readonly string[] };
   private readonly onProjectAllowTool?: (toolName: string) => void;
   private readonly permissionPolicy?: IPermissionEnforcerOptions['permissionPolicy'];
   private readonly taskPermissions?: IPermissionEnforcerOptions['taskPermissions'];
@@ -47,6 +54,13 @@ export class PermissionEnforcer {
     this.cwd = options.cwd;
     this.getPermissionMode = options.getPermissionMode;
     this.config = options.config;
+    // Absent ⇒ no preset contributed, so the configured rules ARE the preset-free base. Copied, not
+    // aliased: `applyPresetToolLists` writes back into `config.permissions`, and a shared array
+    // would make the base track its own output.
+    this.presetFreeRules = options.presetFreePermissions ?? {
+      allow: [...options.config.permissions.allow],
+      deny: [...options.config.permissions.deny],
+    };
     this.terminal = options.terminal;
     this.permissionHandler = options.permissionHandler;
     this.promptForApprovalFn = options.promptForApprovalFn;
@@ -90,6 +104,52 @@ export class PermissionEnforcer {
   /** Clear all session-scoped allow rules. */
   clearSessionAllowedTools(): void {
     this.sessionAllowedTools.clear();
+  }
+
+  /**
+   * Replace the configured permission rules on a LIVE session (ARCH-040 Group C, issue #1934).
+   *
+   * The seam is this small because `checkPermission` reads `this.config.permissions` on every call
+   * rather than snapshotting it at construction — so the next call sees the new rules and nothing
+   * needs re-wiring. Without a seam the startup path could apply a preset's tool lists and the live
+   * `/preset` path could not, which is the divergence `scan-preset-projection` exists to measure:
+   * one session holding two answers for the same preset depending on WHEN it was chosen.
+   *
+   * **A call already in flight runs to completion.** `checkPermission` is awaited BEFORE the tool
+   * executes, so such a call has already passed its gate, and a gate is a decision at a point in
+   * time. There is also no rollback for a partially applied tool — a file already written stays
+   * written — so a revocation that cannot undo is a stop, not a denial. Building one would rest on
+   * the cancellation path, which RUNTIME-004 records as declared at four layers and honoured at none.
+   *
+   * A newly applied denial DOES outrank an earlier "always allow": `evaluatePermission` answers
+   * `deny` before `promptForApproval` — the only reader of `sessionAllowedTools` — is reached. That
+   * is not new behaviour here; it is the existing precedence, and it agrees with the combine rule
+   * that a denial is not weakened by a later layer.
+   */
+  /**
+   * The rules the next `checkPermission` will read.
+   *
+   * Exposed so a case can assert what a live re-application PRODUCED, not merely that the method
+   * exists. Review found the first cut composing onto a contaminated base and no test could see it,
+   * because nothing could look at the rules.
+   */
+  currentPermissionRules(): { allow: readonly string[]; deny: readonly string[] } {
+    return { allow: [...this.config.permissions.allow], deny: [...this.config.permissions.deny] };
+  }
+
+  applyPresetToolLists(preset: {
+    allowedTools?: readonly string[];
+    deniedTools?: readonly string[];
+  }): void {
+    // The BASE is what the session was configured with independently of any preset — SUPPLIED, not
+    // captured here. Capturing it lazily read `config.permissions` after the startup preset's
+    // patterns were already baked in, so the first preset's allowlist survived every later switch:
+    // the accumulation the replace rule exists to prevent, arriving through the base rather than
+    // through the merge. Review found it; the comment two lines up had described the failure exactly
+    // and the code still had it.
+    const next = applyPresetToolLists(this.presetFreeRules, preset);
+    this.config.permissions.allow = next.allow;
+    this.config.permissions.deny = next.deny;
   }
 
   /** Evaluate permission for a tool call. `signal` — RUNTIME-005; see `decideApproval` for why a

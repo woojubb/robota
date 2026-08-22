@@ -1146,8 +1146,17 @@ while read -r STMT_START STMT_LEN; do
         ;;
     esac
     # A redirection writes wherever it points, whatever the command in front of it is.
-    printf '%s' "$STMT_MASK" | grep -qE ">[[:space:]]*[^[:space:]]*\.husky" &&
-      { SKIP_HOOKS=true; SKIP_WHAT="overwriting a hook"; }
+    #
+    # INFRA-111: this was a private regex, and its holes were a DIFFERENT set from the ones the
+    # bulk-edit guard had for the same question — `>& .husky/pre-push` and `>| .husky/pre-push` both
+    # walked past a refusal whose own text says "Zero exceptions". Both now read the redirect targets
+    # from `command-scan.sh`, which parses the grammar once.
+    while IFS= read -r _RT; do
+      [[ -z "$_RT" ]] && continue
+      case "$_RT" in
+        *.husky*) SKIP_HOOKS=true; SKIP_WHAT="overwriting a hook" ;;
+      esac
+    done < <(hook_redirect_targets "$COMMAND" "$STMT_START" "$STMT_LEN")
     # `echo`/`printf` are readers ONLY without a redirection, which the line above catches.
   fi
   if [[ "$SKIP_HOOKS" == "true" ]]; then

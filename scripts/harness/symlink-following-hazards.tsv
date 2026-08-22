@@ -1,0 +1,28 @@
+# INFRA-109 — the ONE list of symlink-following enumeration spellings.
+#
+# Read by BOTH enforcers: `.claude/hooks/bulk-edit-guard.sh` (the command, before it runs) and
+# `scripts/harness/scan-symlink-following-enumeration.mjs` (the committed script). They used to hold
+# the list twice, with each entry hand-rolling its own bound on what may stand between a command and
+# its flag — and the three that had one were all different, so `rg`'s lazy unbounded form crossed
+# `|`, `;` and `&&` alike while `find`'s two false negatives stood.
+#
+# TSV rather than JSON because one of the two readers is a PreToolUse hook: parsing JSON there means
+# jq or python3 on every Write and Edit, and the format carries nothing that needs the extra grammar.
+#
+# COLUMNS, tab-separated:
+#   id         the name this hazard is REPORTED under. Not derived from the columns beside it: `rg`
+#              is known by its long form and `find` by its short one, and a derived id renamed a
+#              hazard the moment the table gained a column
+#   command    the program that must RECEIVE the option for the row to fire, matched by basename
+#   short      a single letter, matched inside a short cluster (`-nL` carries `L`); `-` for none
+#   long       comma-separated whole-word spellings, EACH with its own dashes because the two forms
+#              are not interchangeable — find spells it `-follow`, rg spells it `--follow`; `-` for none
+#   remedy     the safe sibling, stated at the finding, because a finding whose remedy is not stated
+#              is one people work around
+#
+# Adding a spelling is ONE edit here. There is no per-entry bound to invent: what bounds the search
+# is the STATEMENT, which both readers get from the same place.
+id	command	short	long	remedy
+find -L	find	L	-follow	drop -L; plain find does not follow symlinks (measured)
+grep -R	grep	R	--dereference-recursive	use -r, which does not dereference symlinks (measured)
+rg --follow	rg	L	--follow	drop --follow; rg does not follow, and honours .gitignore

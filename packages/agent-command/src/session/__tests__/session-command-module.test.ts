@@ -1,3 +1,15 @@
+import {
+  constants,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-framework';
 import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-framework';
@@ -388,6 +400,63 @@ describe('createSessionCommandModule', () => {
     expect(result?.success).toBe(true);
     expect(result?.message).toContain('$5.00');
   });
+
+  it('clearing a budget writes an empty document without checking first (CodeQL js/file-system-race)', async () => {
+    // The `existsSync` this replaced was a check-then-use window: swapping the path for a symlink
+    // between the check and the write made the write land on the symlink's target. There is no
+    // window now because there is no check — and no check is safe to remove here precisely because
+    // `readBudget` reads an absent file and an empty document identically.
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-budget-clear-'));
+    try {
+      const context = { ...createCommandContext(), getCwd: () => cwd };
+
+      // clearing a project that never had the file must succeed, not throw on the missing path
+      const first = await executor.execute('cost', context, 'budget clear');
+      expect(first?.success).toBe(true);
+      expect(readFileSync(join(cwd, '.robota/budget.json'), 'utf-8')).toBe('{}');
+
+      await executor.execute('cost', context, 'budget 5.00');
+      const second = await executor.execute('cost', context, 'budget clear');
+      expect(second?.success).toBe(true);
+      expect(readFileSync(join(cwd, '.robota/budget.json'), 'utf-8')).toBe('{}');
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it.skipIf(constants.O_NOFOLLOW === undefined)(
+    'refuses to write the budget through a symbolic link, naming why',
+    async () => {
+      // Removing the race is not the same as removing the redirection: a symlink planted BEFORE the
+      // call is still followed by a plain write. This is the case that pins the second half — and it
+      // is skipped rather than silently weakened on a platform with no O_NOFOLLOW, because a test
+      // that passes by not testing is worse than one that says it did not run.
+      const executor = new SystemCommandExecutor([
+        ...(createSessionCommandModule().systemCommands ?? []),
+      ]);
+      const cwd = mkdtempSync(join(tmpdir(), 'robota-budget-symlink-'));
+      try {
+        const outside = join(cwd, 'outside.txt');
+        writeFileSync(outside, 'ORIGINAL');
+        mkdirSync(join(cwd, '.robota'), { recursive: true });
+        symlinkSync(outside, join(cwd, '.robota/budget.json'));
+        const context = { ...createCommandContext(), getCwd: () => cwd };
+
+        for (const args of ['budget clear', 'budget 5.00']) {
+          const result = await executor.execute('cost', context, args);
+          expect(result?.success).toBe(false);
+          expect(result?.message).toContain('symbolic link');
+          // the point of the whole change: the target is untouched
+          expect(readFileSync(outside, 'utf-8')).toBe('ORIGINAL');
+        }
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    },
+  );
 
   it('rejects invalid budget amount', async () => {
     const executor = new SystemCommandExecutor([

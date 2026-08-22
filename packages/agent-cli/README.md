@@ -391,6 +391,16 @@ Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inse
 | `/skills [name]`       | List registered skills or activate one by name                       |
 | `/plugin [subcommand]` | Plugin management                                                    |
 
+### Sessions on this host
+
+| Command                              | Description                               |
+| ------------------------------------ | ----------------------------------------- |
+| `/peers`                             | List the other live sessions on this host |
+| `/peers send <session-id> <message>` | Send a message to one of them             |
+
+See [Talking to another session](#talking-to-another-session) for the flow and what happens when the
+other session is busy.
+
 ### Utility
 
 | Command  | Description                                        |
@@ -400,6 +410,95 @@ Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inse
 | `/exit`  | Exit CLI                                           |
 
 Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
+
+## Talking to another session
+
+Two `robota` sessions running on the same host, as the same user, can see and address each other.
+Nothing crosses a machine boundary and nothing is configured — a session becomes discoverable by
+being alive and stops being discoverable when it exits.
+
+### Seeing who is there
+
+```
+/peers
+```
+
+With nothing else running:
+
+```
+No other live session is announced. Start a second session on this host, as this user,
+and it appears here.
+```
+
+That is a sentence rather than an empty list on purpose: "no one is there" and "discovery is not
+working" are different answers, and an empty list cannot tell you which one you got.
+
+With a second session up:
+
+```
+Live sessions:
+  b8319b98-bb7b-486c-a499-cf1585b39e61  (this session)
+  97ffafe3-f770-4877-90a4-bd86df6be010
+
+Send to one: /peers send <session-id> <message>
+```
+
+### Sending
+
+```
+/peers send 97ffafe3-f770-4877-90a4-bd86df6be010 rerun the failing suite
+```
+
+The message becomes a **turn** in the other session — the agent there answers it as if the operator
+had typed it. The sender is told which of four things happened, as a sentence:
+
+| Outcome                                                                  | What it means                                                                     |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| `Delivered to <id>.`                                                     | It arrived and started.                                                           |
+| `<id> has the message; it is waiting behind work already running there.` | It arrived and is queued. Deliberately **not** reported as delivered.             |
+| `<id> had already seen that message.`                                    | A retry that the receiver recognised; it does not run twice.                      |
+| `Not delivered to <id>. <reason>`                                        | Nothing ran. The reason names the target, e.g. that no such session is announced. |
+
+The second row is the one worth knowing. Reporting a queued message as delivered would hide a wait
+the operator can otherwise see and act on.
+
+### What the receiving operator sees
+
+The message is attributed to the sender, not to whoever is sitting at the receiving terminal:
+
+```
+peer:b8319b98-bb7b-486c-a499-cf1585b39e61:
+  rerun the failing suite
+Robota:
+  …
+```
+
+Your own turns still read `You:`. The name in the label is **derived from the peer's session id** —
+it is not a display name the sender chose, because a name the transcript's reader trusts must not be
+picked by the party being named. It is display attribution only: nothing anywhere uses it to decide
+what a turn is allowed to do.
+
+### When the other session is busy
+
+A message arriving mid-turn joins that session's existing pending queue rather than interrupting or
+opening a second one. Three things follow from how that queue works:
+
+- **Consecutive messages from the same sender coalesce**, last one wins. That is right for a person
+  retyping and wrong for a peer saying two separate things. The replaced one is not swallowed: it
+  settles as refused with the reason `coalesced`, so the sender learns it never ran rather than
+  assuming both did. Tracked as `PEER-003`.
+- **Messages from different senders do not coalesce** — they queue in arrival order.
+- **The queue holds 32.** Beyond that a message settles as refused with the reason `dropped`.
+- **A cleared queue** — abort, cancel, or shutdown — settles the waiting entries with `cancelled`.
+
+In every case the submission that never became a turn says so. A message that arrived and was then
+displaced is a different thing from one that ran, and the sender is told which it got.
+
+### Limits
+
+- Same host, same user. There is no network path here.
+- A session that exits removes its own entry; a crashed one is reaped by the next session that looks.
+- Session ids are what you address. There are no aliases.
 
 ## Plugin Management
 

@@ -87,6 +87,32 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // INFRA-126. Measured as `findTempDirOwnerFindings(bare)`: throws
+    // `scripts/harness/__tests__ missing from <root>` before a single file is read.
+    file: 'scan-temp-dir-owner.mjs',
+    finder: 'findTempDirOwnerFindings',
+    tree: 'scripts/harness/__tests__',
+    why: 'the harness test directory IS the population this floor governs — over a root without it there is no call site to judge, and "no findings" would mean "nobody creates a temp directory directly" when nothing was read',
+  },
+  {
+    // INFRA-127. Measured as `findTaskFrontmatterFindings(bare)`: throws `.agents/tasks missing from
+    // <root>` from `activeTaskFiles`, before a single record is read. The first cut returned an empty
+    // list there and this classification is what caught it — `main()` had a fail-closed branch while
+    // the exported finder did not, and the finder is what another caller reaches.
+    file: 'scan-task-frontmatter-fields.mjs',
+    finder: 'findTaskFrontmatterFindings',
+    tree: '.agents/tasks',
+    why: 'the active task tree IS the population this floor governs — over a root without it there is no record to judge, and "no findings" would mean "every record carries the seven declared fields" when nothing was read',
+  },
+  {
+    // INFRA-127. Measured as `findRuleTableShapeFindings(bare)`: returns one finding per named
+    // catalogue that is absent, so a renamed or deleted rule table is reported rather than skipped.
+    file: 'scan-rule-table-shape.mjs',
+    finder: 'findRuleTableShapeFindings',
+    tree: '.agents/rules/common-mistakes.md',
+    why: 'the catalogue IS the subject — over a root without it there is no row to shape-check, and a silent zero would read as "every row fills its columns" while the file it governs had vanished',
+  },
+  {
     // Measured as `findLoopProofFindings(bare)`: throws `.agents/skills missing from <root>` before it
     // reads a baseline or a ledger.
     file: 'scan-loop-proof.mjs',

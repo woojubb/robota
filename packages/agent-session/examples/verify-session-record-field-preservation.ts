@@ -43,9 +43,11 @@ class OfflineProvider extends AbstractAIProvider {
   ): Promise<TUniversalMessage> {
     const content = messages.at(-1)?.content;
     return {
+      id: `example-${Date.now()}-4`,
       role: 'assistant',
       content: `arch-015:${typeof content === 'string' ? content : ''}`,
       timestamp: new Date(),
+      state: 'complete',
     };
   }
 
@@ -58,6 +60,15 @@ class OfflineProvider extends AbstractAIProvider {
 }
 
 const silentTerminal: ITerminalOutput = {
+  writeError(_text: string): void {},
+  async prompt(): Promise<string> {
+    // A silent example terminal answers nothing rather than blocking; `ITerminalOutput` requires the
+    // member, and a stub that omitted it only compiled because nothing typechecked this directory.
+    return '';
+  },
+  async select(_options: string[], initialIndex = 0): Promise<number> {
+    return initialIndex;
+  },
   write(): void {},
   writeLine(): void {},
   writeMarkdown(): void {},
@@ -96,7 +107,15 @@ function createExistingRecord(): IInteractiveSessionRecord {
     cwd: '/stale/session',
     createdAt: CREATED_AT,
     updatedAt: STALE_UPDATED_AT,
-    messages: [{ role: 'user', content: 'stale message' }],
+    messages: [
+      {
+        id: `example-${Date.now()}-5`,
+        role: 'user',
+        content: 'stale message',
+        timestamp: new Date(STALE_UPDATED_AT),
+        state: 'complete',
+      },
+    ],
     history: [
       {
         id: 'stale-history',

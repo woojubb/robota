@@ -16,6 +16,8 @@ import { detectProject } from '../context/project-detector.js';
 import { projectPaths } from '../paths.js';
 import {
   applyInteractiveWorkspaceManifest,
+  interactivePresetOptions,
+  interactiveSandboxOptions,
   restoreInteractiveSandboxSnapshot,
 } from './interactive-session-init-workspace.js';
 import { injectSavedMessage } from './interactive-session-restore.js';
@@ -255,11 +257,9 @@ export async function initializeInteractiveSessionAsync(
     ...(options.commandModules ? { commandModules: options.commandModules } : {}),
     editCheckpointRecorder: checkpointStore,
     ...(options.reversibleExecution ? { reversibleExecution: options.reversibleExecution } : {}),
-    ...(options.sandboxClient ? { sandboxClient: options.sandboxClient } : {}),
+    ...interactiveSandboxOptions(options, deps.sandboxSnapshotId),
+    ...interactivePresetOptions(options),
     ...(options.memoryStore ? { memoryStore: options.memoryStore } : {}),
-    ...(options.workspaceManifest ? { workspaceManifest: options.workspaceManifest } : {}),
-    ...(options.sandboxWorkspaceRoot ? { sandboxWorkspaceRoot: options.sandboxWorkspaceRoot } : {}),
-    ...(deps.sandboxSnapshotId ? { sandboxSnapshotId: deps.sandboxSnapshotId } : {}),
     ...(options.agentName ? { agentName: options.agentName } : {}),
     ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),
     ...(options.enableParallelSubagents !== undefined

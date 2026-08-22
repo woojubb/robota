@@ -13,6 +13,7 @@ import {
   runHooks,
 } from '@robota-sdk/agent-core';
 
+import { perTurnRunOptions } from './session-run-options.js';
 import {
   createToolExecutionBridge,
   forwardToolExecutionEvent,
@@ -20,7 +21,7 @@ import {
 
 import type { ContextWindowTracker } from './context-window-tracker.js';
 import type { TSessionLogData } from './session-logger.js';
-import type { ISessionOptions } from './session-types.js';
+import type { ISessionOptions, ISessionRunOptions } from './session-types.js';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -77,7 +78,7 @@ export interface IRunContext {
   permissionMode?: string;
   /** Absolute path to session transcript file — passed to all hook inputs as transcript_path */
   transcriptPath?: string;
-  robota: Robota;
+  agent: Robota;
   aiProvider: IAIProvider;
   contextTracker: ContextWindowTracker;
   hooks: Record<string, unknown> | undefined;
@@ -108,11 +109,11 @@ export async function executeRun(
   rawInput: string | undefined,
   ctx: IRunContext,
   abortSignal: AbortSignal,
-  runOptions?: { ephemeralSystemContext?: string },
+  runOptions?: ISessionRunOptions,
 ): Promise<string> {
   // Auto-compact BEFORE processing the new message (not after).
   // This prevents compaction from interfering with the current response stream.
-  ctx.contextTracker.updateFromHistory(ctx.robota.getHistory());
+  ctx.contextTracker.updateFromHistory(ctx.agent.getHistory());
   if (ctx.contextTracker.shouldAutoCompact()) {
     // Providers store onTextDelta as an instance property for their own internal streaming.
     // Compaction calls provider.chat() without passing onTextDelta in options, so the
@@ -159,7 +160,7 @@ export async function executeRun(
   // Clear sessionStart stdout after first injection
   ctx.clearSessionStartStdout();
 
-  const history = ctx.robota.getHistory();
+  const history = ctx.agent.getHistory();
   const historyJson = JSON.stringify(history);
   const providerCapabilities = getProviderCapabilities(ctx.aiProvider);
   ctx.log('pre_run', {
@@ -192,13 +193,11 @@ export async function executeRun(
         }
       : undefined;
 
-    response = await ctx.robota.run(enrichedMessage, {
+    response = await ctx.agent.run(enrichedMessage, {
       signal: abortSignal,
       maxExecutionRounds: ctx.maxTurns ?? 0,
-      // SELFHOST-008 P3: thin pass-through of the ephemeral per-turn system block to agent-core.
-      ...(runOptions?.ephemeralSystemContext !== undefined && {
-        ephemeralSystemContext: runOptions.ephemeralSystemContext,
-      }),
+      // Thin pass-through of the per-turn options to agent-core (SELFHOST-008 P3, PEER-007).
+      ...perTurnRunOptions(runOptions),
       onExecutionEvent: (event, data) => {
         ctx.log(event, data as TSessionLogData);
         forwardToolExecutionEvent(toolExecutionBridge, event, data);
@@ -218,7 +217,7 @@ export async function executeRun(
         // fires once per round with the round's usage already committed to history, which is
         // the right cadence — frequent enough to feel live, sparse enough to avoid render flooding.
         if (event === 'assistant_message_committed') {
-          ctx.contextTracker.updateFromHistory(ctx.robota.getHistory());
+          ctx.contextTracker.updateFromHistory(ctx.agent.getHistory());
           ctx.onContextUpdate?.(ctx.contextTracker.getContextState());
         }
       },
@@ -234,7 +233,7 @@ export async function executeRun(
     ctx.log('error', {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? (error.stack ?? '') : '',
-      historyLength: ctx.robota.getHistory().length,
+      historyLength: ctx.agent.getHistory().length,
     });
     runHooks(
       ctx.hooks as THooksConfig | undefined,
@@ -258,7 +257,7 @@ export async function executeRun(
   }
 
   // Log the response and full history structure
-  const postHistory = ctx.robota.getHistory();
+  const postHistory = ctx.agent.getHistory();
   const historyStructure = postHistory.map((msg) => {
     const hasToolCalls =
       'toolCalls' in msg && Array.isArray(msg.toolCalls) && msg.toolCalls.length > 0;

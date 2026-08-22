@@ -48,6 +48,7 @@ import type {
   IInteractiveSessionEvents,
   IExecutionResult,
 } from './types.js';
+import type { TLivePromptOverrides } from '../assembly/create-session-runtime.js';
 import type { ICommandHostContext } from '../command-api/index.js';
 import type {
   IAgentJobHostContext,
@@ -607,33 +608,32 @@ export class InteractiveSession
   }
 
   /**
-   * PRESET-014: re-apply a preset persona to the live system prompt. Recomposes the system
-   * message from the currently tracked AGENTS.md/CLAUDE.md entries (the same content the staleness
-   * refresh uses) plus the new persona, then propagates it to the session. No-op before init,
-   * when the rebuild closure is not yet available.
+   * The ONE way a preset field reaches the live prompt — recompose from the tracked context entries
+   * plus the override. No-op before init. Extracted by ARCH-040: PRESET-014 and PRESET-017 were the
+   * same five lines twice, and a third copy is how the next one diverges.
    */
-  applyPersona(persona: string): void {
+  private rebuildLivePrompt(overrides: TLivePromptOverrides): void {
     if (this.rebuildSystemMessage === null) return;
-    const currentAgents = this.agentsFileEntries.map((e) => e.content).join('\n\n');
-    const currentClaude = this.projectNotesFileEntries.map((e) => e.content).join('\n\n');
-    const msg = this.rebuildSystemMessage(currentAgents, currentClaude, { persona });
-    this.getSessionOrThrow().updateSystemMessage(msg);
+    const agents = this.agentsFileEntries.map((e) => e.content).join('\n\n');
+    const notes = this.projectNotesFileEntries.map((e) => e.content).join('\n\n');
+    const rebuilt = this.rebuildSystemMessage(agents, notes, overrides);
+    this.getSessionOrThrow().updateSystemMessage(rebuilt);
   }
 
-  /**
-   * PRESET-017: toggle the verify-before-done self-verification section on the live system prompt.
-   * Recomposes the system message from the currently tracked AGENTS.md/CLAUDE.md entries plus the
-   * new selfVerification flag, then propagates it to the session. No-op before init, when the
-   * rebuild closure is not yet available.
-   */
+  applyPersona(persona: string): void {
+    this.rebuildLivePrompt({ persona });
+  }
+
   applySelfVerification(enabled: boolean): void {
-    if (this.rebuildSystemMessage === null) return;
-    const currentAgents = this.agentsFileEntries.map((e) => e.content).join('\n\n');
-    const currentClaude = this.projectNotesFileEntries.map((e) => e.content).join('\n\n');
-    const msg = this.rebuildSystemMessage(currentAgents, currentClaude, {
-      selfVerification: enabled,
-    });
-    this.getSessionOrThrow().updateSystemMessage(msg);
+    this.rebuildLivePrompt({ selfVerification: enabled });
+  }
+
+  applyResponseLanguage(language: string): void {
+    this.rebuildLivePrompt({ language });
+  }
+
+  applyPresetSystemPrompt(text: string): void {
+    this.rebuildLivePrompt({ presetSystemPrompt: text });
   }
 
   /**

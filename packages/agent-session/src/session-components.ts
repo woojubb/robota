@@ -28,6 +28,14 @@ export function buildPermissionEnforcer(
       permissions: options.permissions ?? { allow: [], deny: [] },
       hooks: options.hooks,
     },
+    // Top level, beside `config` and not inside it — the constructor reads
+    // `options.presetFreePermissions`. Nested, it was silently `undefined` on the only wiring that
+    // matters, so the enforcer fell back to `config.permissions` (startup preset already baked in)
+    // and reproduced the exact bug this change fixes. Excess-property checking does not catch this:
+    // the conditional-spread idiom suppresses it.
+    ...(options.presetFreePermissions !== undefined
+      ? { presetFreePermissions: options.presetFreePermissions }
+      : {}),
     terminal: options.terminal,
     permissionHandler: options.permissionHandler,
     promptForApprovalFn: options.promptForApproval,
@@ -82,6 +90,10 @@ export function buildRobota(
       provider: provider.name,
       model,
       ...(options.effort !== undefined && { effort: options.effort }),
+      // ARCH-040: the same two channels `applyModelOptions` writes on a live session, so the
+      // startup answer and the mid-session answer are the same answer.
+      ...(options.temperature !== undefined && { temperature: options.temperature }),
+      ...(options.maxOutputTokens !== undefined && { maxTokens: options.maxOutputTokens }),
     },
     // Single source of truth for the system prompt (agent-level, not model config).
     systemMessage,

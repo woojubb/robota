@@ -19,6 +19,8 @@ import type {
   IResolvedPresetOptions,
 } from '@robota-sdk/agent-preset';
 
+import { parseToolList } from '../utils/cli-args.js';
+
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 
 /** Pick the preset id: --preset flag > settings.preset > 'default'. Pure selection glue (shell). */
@@ -39,6 +41,17 @@ function buildPresetCliOverrides(args: IParsedCliArgs): IResolvedPresetOptions {
       : {}),
     ...(args.language !== undefined ? { language: args.language } : {}),
     ...(args.permissionMode !== undefined ? { permissionMode: args.permissionMode } : {}),
+    // ARCH-040 Group C (issue #1934): the tool lists go through the RESOLVER like every other
+    // override, so `--allowed-tools` and a preset's list combine by the decided rule — allowlist
+    // replaces, denylist unions — rather than by whichever spread happens to come last at a shell.
+    // Before the lists reached a surface at all this did not matter; the moment they do, a shell
+    // that also passes its own copy silently overrides the resolved answer.
+    ...(parseToolList(args.allowedTools) !== undefined
+      ? { allowedTools: parseToolList(args.allowedTools) }
+      : {}),
+    ...(parseToolList(args.deniedTools) !== undefined
+      ? { deniedTools: parseToolList(args.deniedTools) }
+      : {}),
   };
 }
 

@@ -239,7 +239,16 @@ export function assignedKeys(
   return into;
 }
 
-/** True when a function-like node's declared return type names the interface. */
+/**
+ * True when a function-like node's declared return type names the interface.
+ *
+ * `Pick<I, …>` counts. A function that declares it returns a Pick of the interface is producing a
+ * DECLARED projection of it — the same vocabulary `scan-preset-projection.mjs` uses — and the keys it
+ * sets are as reachable as those set by a producer returning the whole thing. Before this, extracting
+ * a group of keys into a helper typed by its `Pick` made every one of them read as unassigned, which
+ * reports a refactor as a missing capability: a false finding that pushes people back toward the
+ * monolith the size floor is trying to break up.
+ */
 function returnsInterface(node, ast, interfaceName) {
   const type = node.type;
   if (type === undefined || !isTypeReferenceNode(type)) return false;
@@ -252,7 +261,15 @@ function returnsInterface(node, ast, interfaceName) {
   ) {
     return false;
   }
-  return type.typeName.getText(ast) === interfaceName;
+  if (type.typeName.getText(ast) === interfaceName) return true;
+  // Only the FIRST type argument names the source of a `Pick`; the second lists the keys.
+  const [source] = type.typeArguments ?? [];
+  return (
+    type.typeName.getText(ast) === 'Pick' &&
+    source !== undefined &&
+    isTypeReferenceNode(source) &&
+    source.typeName.getText(ast) === interfaceName
+  );
 }
 
 /** Every object literal a producer returns, including through a conditional. */

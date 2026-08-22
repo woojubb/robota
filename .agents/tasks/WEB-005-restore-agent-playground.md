@@ -1,6 +1,11 @@
 ---
-title: 'Restore Agent Playground references on apps/www'
+title: 'WEB-005: Restore Agent Playground references on apps/www'
 status: todo
+created: 2026-07-26
+priority: low
+urgency: later
+area: apps/www
+depends_on: []
 ---
 
 # Restore Agent Playground references on apps/www

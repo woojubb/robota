@@ -1,0 +1,83 @@
+name: Workflow Provenance Gate
+
+# INFRA-097 (issue #1719): a control plane the pull request cannot reach.
+#
+# THE GAP THIS CLOSES. A required check triggered by `pull_request` loads its workflow YAML from the
+# PR's merge revision, so the change carries the definition that judges it: edit the job, move the
+# verdict. INFRA-096 hardened the SCRIPTS those workflows load by checking them out from the base
+# SHA, and said plainly that this does not establish workflow provenance. `workflow-provenance`
+# makes such an edit VISIBLE. Neither makes the plane trusted, because both run on the plane.
+#
+# WHY THIS ONE IS DIFFERENT. `pull_request_target` loads its definition from the BASE branch. A pull
+# request cannot change what this file says about it — the edit only takes effect once it is merged,
+# which is after the gate it would have moved has already run. That is the whole property.
+#
+# THE HAZARD THAT COMES WITH IT, AND HOW IT IS AVOIDED. `pull_request_target` runs with write
+# credentials against the base. Checking out the PR's code and running it under those credentials is
+# the classic pwn-request, and it is a WORSE hole than the one this closes. So this job:
+#
+#   - checks out the BASE, and only the base
+#   - FETCHES the PR head without checking it out — reading a file NAME is not running the file
+#   - installs nothing; the scan it runs imports only Node builtins and files from the base
+#   - holds `contents: read` and nothing else
+#
+# That is also why the required checks themselves cannot simply move here: `build`, `quality`,
+# `scans` and the rest exist to compile and execute the PR's code, which is exactly what a trusted
+# plane must not do. The split is not a convenience — it is the only shape in which both halves can
+# be true at once.
+#
+# WHAT IT DECIDES. One question, and only one it can answer without running anything: does this pull
+# request modify a file that a required check loads? If it does, the change can move its own gate,
+# and this context fails. That makes a self-edit impossible to merge rather than merely visible.
+#
+# NOT YET REQUIRED. Making this context required is a live-ruleset change and therefore the owner's,
+# and `.github/required-status-checks.json` is compared against the live ruleset by `ruleset-drift`
+# — so registering it here before the flip would make that registry state something untrue. The same
+# held-membership shape `regression-red-proof` uses, and for the same reason.
+
+on:
+  pull_request_target:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+
+# Read-only, and stated rather than inherited. A `pull_request_target` job runs against the base with
+# whatever the default token grants; narrowing it here is what makes "this job cannot change
+# anything" a property of the file rather than a claim about its steps.
+permissions:
+  contents: read
+
+concurrency:
+  group: workflow-provenance-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  provenance:
+    name: workflow provenance
+    runs-on: ubuntu-latest
+    steps:
+      # The BASE, which is what `pull_request_target` checks out when no ref is named. Adding one
+      # that points at the pull request's head is the single line that would turn this file into the
+      # vulnerability it exists to avoid — a test refuses that spelling, and refuses it here in the
+      # comment too, which is why the shape is described rather than written out.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Judge the pull request's file list against the guarded workflows
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Fetch, do not check out. The objects arrive; nothing from them is executed, and the
+          # working tree stays on the base for the whole job.
+          git fetch --no-tags origin "pull/${PR_NUMBER}/head"
+
+          # No install. The scan imports Node builtins and two files from the base checkout, so
+          # there is no dependency resolution step for a PR-supplied manifest to influence.
+          node scripts/harness/scan-workflow-provenance.mjs \
+            --base-ref "${BASE_SHA}" --head-ref FETCH_HEAD

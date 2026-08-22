@@ -88,8 +88,8 @@ export interface ITuiInteractionChannelOptions {
   persona?: string;
   systemPrompt?: string;
   appendSystemPrompt?: string;
-  allowedTools?: string[];
-  deniedTools?: string[];
+  allowedTools?: readonly string[];
+  deniedTools?: readonly string[];
   /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
   enableParallelSubagents?: boolean;
   /** Preset execution capability: run a post-task self-verification step. */

@@ -22,7 +22,11 @@ export function createPlaygroundSandbox(
   transformCode: (code: string, config: IPlaygroundConfig) => string,
 ): {
   execute: (code: string) => Promise<{ result: TUniversalValue; logs: string[] }>;
-  cleanup: () => void;
+  /**
+   * INFRA-040: `dispose()` returns a promise, so a synchronous `cleanup` returned BEFORE disposal
+   * finished and dropped any failure. Async here so the caller can await the teardown it asked for.
+   */
+  cleanup: () => Promise<void>;
 } {
   const capturedLogs: string[] = [];
 
@@ -87,9 +91,9 @@ export function createPlaygroundSandbox(
         throw error;
       }
     },
-    cleanup: () => {
+    cleanup: async () => {
       if (sandbox.__ROBOTA_PLAYGROUND_EXECUTOR__) {
-        sandbox.__ROBOTA_PLAYGROUND_EXECUTOR__.dispose?.();
+        await sandbox.__ROBOTA_PLAYGROUND_EXECUTOR__.dispose?.();
         sandbox.__ROBOTA_PLAYGROUND_EXECUTOR__ = null;
       }
       capturedLogs.length = 0;

@@ -3,8 +3,6 @@
  * Parses arguments and delegates to startup modules, mode runners, and transports.
  */
 
-import { execSync } from 'node:child_process';
-
 import { PrintTerminal, promptInput } from '@robota-sdk/agent-transport/headless';
 import {
   createProjectSessionStore,
@@ -14,7 +12,7 @@ import {
   readProviderSettings,
   checkForCliUpdate,
   formatCliUpdateCheckMessage,
-  formatCliUpdateNotice,
+  resolveCliUpdateNotice,
   ProviderConfigError,
   readSettings,
   getUserSettingsPath,
@@ -24,8 +22,9 @@ import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
 import { resolveShellPreset } from './startup/preset-selection.js';
 import type { IShellPresetResolution } from './startup/preset-selection.js';
-import { DEFAULT_AGENT_NAME, getPreset, loadExternalPresets } from '@robota-sdk/agent-preset';
-import { buildPresetSurfaceOptions } from './startup/preset-surface-options.js';
+import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-preset';
+import { runShellCommand } from './startup/shell-exec.js';
+import { buildPresetSurfaceOptions, toSessionOptions } from './startup/preset-surface-options.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
 import { createRobotaProfile } from './product/robota-profile.js';
 import {
@@ -63,10 +62,7 @@ import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetup } from './startup/command-setup.js';
-import {
-  buildRemoteControlHostAdapter,
-  createTuiProcessAdapter,
-} from './startup/host-action-adapters.js';
+import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { runServeMode } from './modes/serve-mode.js';
 import {
@@ -169,23 +165,21 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     process.exit(1);
   }
 
-  // PRESET-002/004/007/011 + ARCH-008: the shell's ONE preset resolution. `loadExternalPresets` reads
-  // `~/.robota/presets/*.json` (per-file problems are warnings, never fatal) and also registers them into
-  // agent-preset's module-global registry — which is now the in-session `/preset` DISCOVERY surface only,
-  // NOT this resolution path. `resolveShellPreset` builds the kernel's per-call registry (R8) over the
-  // same loaded presets and resolves the selected id over it, returning registry + id + override context
-  // as one value that travels whole into the profile, so `assembleProduct` adopts that same registry. Both
-  // surfaces come from this one load, so they cannot disagree (anti-split gate). Resolved before command
-  // setup so the preset's module-selection delta can reach createDefaultCommandModules.
+  // PRESET-002/004/007/011 + ARCH-008/ARCH-009: the shell's ONE preset resolution. `loadExternalPresets`
+  // reads `~/.robota/presets/*.json` (per-file problems are warnings, never fatal) and REGISTERS NOTHING —
+  // it returns the presets it loaded. `resolveShellPreset` builds the kernel's per-call registry (R8) over
+  // them and resolves the selected id over it, returning registry + id + override context as one value that
+  // travels whole into the profile, so `assembleProduct` adopts that same registry and surfaces it on the
+  // command host — which is where in-session `/preset` discovery reads it. One registry, one load, no
+  // process state: the two surfaces cannot disagree because there is only one of them. Resolved before
+  // command setup so the preset's module-selection delta can reach createDefaultCommandModules.
   const userSettings = readSettings(getUserSettingsPath());
   const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
   const externalPresetLoad = loadExternalPresets();
   for (const { file, error } of externalPresetLoad.errors) {
     terminal.writeError(`Skipped external preset "${file}": ${error}`);
   }
-  const externalPresets = externalPresetLoad.loaded
-    .map((id) => getPreset(id))
-    .filter((entry): entry is IPreset => entry !== undefined);
+  const externalPresets: readonly IPreset[] = externalPresetLoad.presets;
   let preset: IShellPresetResolution;
   try {
     preset = resolveShellPreset(externalPresets, args, settingsPreset);
@@ -212,7 +206,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const { registry: transportRegistry, wsTransport } = createDefaultTransportRegistry();
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry);
-  commandHostAdapters.remoteControl = buildRemoteControlHostAdapter(remoteControlController);
+  const startPeers = attachHostAdapters(commandHostAdapters, remoteControlController, terminal);
 
   reportUnknownPresetModules(
     (message) => terminal.writeError(message),
@@ -326,9 +320,13 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     terminal.writeError(`Capability ${kind} "${id}" was not composed: ${reason}.`);
   }
 
-  // ARCH-013: the preset fields every surface forwards, projected ONCE. This literal used to be
-  // written out three times below — print, serve, interactive — kept in step by memory.
-  const presetSurface = buildPresetSurfaceOptions(resolvedPreset, selectedPresetId, permissionMode);
+  const cli = { cwd, args };
+  const presetSurface = buildPresetSurfaceOptions(
+    resolvedPreset,
+    selectedPresetId,
+    permissionMode,
+    cli,
+  );
 
   const sessionStore = createProjectSessionStore(cwd);
   let resumeSessionId: string | undefined;
@@ -427,7 +425,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   await renderApp({
     providerDefinitions,
-    onChannelReady: createChannelReadyHandler(setLiveChannel, setRemoteControlChannel),
+    onChannelReady: createChannelReadyHandler(setLiveChannel, setRemoteControlChannel, startPeers),
     cwd,
     provider,
     providerOverride: args.provider,
@@ -436,8 +434,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     language: args.language,
     // ARCH-013: `permissionMode` arrives via `...presetSurface` below, from this same value.
     maxTurns: args.maxTurns,
-    allowedTools: parseToolList(args.allowedTools),
-    deniedTools: parseToolList(args.deniedTools),
     version,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     resumeSessionId,
@@ -451,11 +447,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     commandModules,
     commandHostAdapters,
     remoteCommandPolicy,
-    shellExec: (command: string) =>
-      execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd(),
-    startupUpdateNotice: startupUpdateNoticePromise
-      ? startupUpdateNoticePromise.then((n) => (n ? formatCliUpdateNotice(n) : undefined))
-      : undefined,
+    shellExec: runShellCommand,
+    startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
     // CMD-004 Stage C: remote-control enable/stop run HOST-side via the `remoteControl` command
     // host adapter (wired above) — no TUI-prop wiring remains.
@@ -463,7 +456,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     ...memorySessionOptions,
     cliAdapter: createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource }),
     reloadPluginCommandSource,
-    ...presetSurface,
+    ...toSessionOptions(presetSurface),
   });
   process.exit(0);
 }

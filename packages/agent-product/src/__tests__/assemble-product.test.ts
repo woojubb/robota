@@ -1,7 +1,7 @@
 import { FunctionTool } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { createPresetRegistry, getPreset, resolvePreset } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { PRODUCT_PROFILE_FIELD_POLICIES, assembleProduct } from '../assemble-product.js';
@@ -203,8 +203,12 @@ describe('assembleProduct — instance-scoped preset resolution (R8)', () => {
     assembleProduct(profile);
     assembleProduct(profile); // a second call must not accumulate / throw duplicate-id
 
-    expect(getPreset('acme-reviewer')).toBeUndefined();
-    expect(() => resolvePreset('acme-reviewer')).toThrow(/Unknown preset/);
+    // ARCH-009: this used to ask agent-preset's module-global readers whether the assembly had leaked
+    // into them. There is no global left to leak into, so the question is now asked of a registry
+    // built after the two assemblies — the property that mattered, and one that can still fail.
+    const later = createPresetRegistry();
+    expect(later.getPreset('acme-reviewer')).toBeUndefined();
+    expect(() => later.resolvePreset('acme-reviewer')).toThrow(/Unknown preset/);
   });
 
   // ARCH-008: a consumer that had to resolve a preset BEFORE it could build the profile (a preset can

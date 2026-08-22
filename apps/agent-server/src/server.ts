@@ -72,4 +72,10 @@ async function startServer(): Promise<void> {
   }
 }
 
-startServer();
+// INFRA-040: the rejection is ROUTED, not dropped. `startServer` handles its own failures inside a
+// try/catch, but a throw from the catch arm itself — or from anything added to it later — would
+// otherwise become an unhandled rejection on the entry point, where nothing is left to report it.
+startServer().catch((error) => {
+  logger.error('Failed to start server:', error as Error);
+  process.exit(1);
+});

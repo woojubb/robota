@@ -279,9 +279,13 @@ jobs:
             exit 0
           fi
           echo "trusted CodeQL analysis: ${analysis_sha}"
-          echo "ANALYSIS_SHA=${analysis_sha}" >> "$GITHUB_ENV"
-          echo "ANALYSIS_RESULTS_COUNT=${analysis_results_count}" >> "$GITHUB_ENV"
-          echo "analysis_complete=true" >> "$GITHUB_ENV"
+          # One redirect for the group (SC2129). The three individual appends were correct; grouping
+          # them also makes it visible that these three facts are written together or not at all.
+          {
+            echo "ANALYSIS_SHA=${analysis_sha}"
+            echo "ANALYSIS_RESULTS_COUNT=${analysis_results_count}"
+            echo "analysis_complete=true"
+          } >> "$GITHUB_ENV"
 
       - name: Collect the review output
         if: needs.classify.outputs.code == 'true'

@@ -7,10 +7,12 @@ import { createContextCommandModule } from '../context/index.js';
 import { createEditorCommandModule } from '../editor/index.js';
 import { createExitCommandModule } from '../exit/index.js';
 import { createGoalCommandModule } from '../goal/index.js';
+import { createHandoffCommandModule } from '../handoff/index.js';
 import { createHelpCommandModule } from '../help/index.js';
 import { createLanguageCommandModule } from '../language/index.js';
 import { createMemoryCommandModule } from '../memory/index.js';
 import { createModeCommandModule } from '../mode/index.js';
+import { createPeersCommandModule } from '../peers/index.js';
 import { createPermissionsCommandModule } from '../permissions/index.js';
 import { createPlanCommandModule } from '../plan/index.js';
 import { createPluginCommandModule } from '../plugin/index.js';
@@ -110,6 +112,11 @@ export function createDefaultCommandModules({
     createStatusLineCommandModule(),
     createPluginCommandModule(),
     createSettingsCommandModule(),
+    createPeersCommandModule(),
+    // HANDOFF-001 (issue #1864). Registered even though no product wires the carrier adapter yet:
+    // the command's own answer to a host without one is to say so, which is a better state than a
+    // capability nobody can see. It is also what makes the carrier's arrival observable.
+    createHandoffCommandModule(),
     createRemoteControlCommandModule(),
     createProviderCommandModule({
       providerDefinitions,

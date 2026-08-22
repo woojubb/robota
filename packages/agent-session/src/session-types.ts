@@ -61,6 +61,16 @@ export interface ISessionOptions {
   cwd: string;
   /** Permission and hook configuration */
   permissions?: { allow: string[]; deny: string[] };
+  /**
+   * ARCH-040 Group C (issue #1934): the permission rules BEFORE any preset contributed.
+   *
+   * Passed rather than inferred. `permissions` above already has the startup preset's patterns baked
+   * in, so an enforcer that captured its own base from it on the first live `/preset` would keep the
+   * FIRST preset's allowlist forever — the accumulation the replace rule exists to prevent, arriving
+   * through the base instead of through the merge. Absent ⇒ no preset contributed and the two are
+   * the same.
+   */
+  presetFreePermissions?: { allow: readonly string[]; deny: readonly string[] };
   hooks?: Record<string, unknown>;
   /** Initial permission mode */
   permissionMode?: TPermissionMode;
@@ -157,4 +167,33 @@ export interface ISessionOptions {
    * request builder. When unset, the framework→provider seam defaults it to `'high'`.
    */
   effort?: TModelEffort;
+  /**
+   * ARCH-040: sampling temperature and output cap, threaded to the agent config at CONSTRUCTION.
+   *
+   * The live `/preset` path has always applied both through `applyModelOptions`, and startup applied
+   * neither — so one session held two answers for the same preset depending on WHEN it was chosen,
+   * which is what `effort` did before ARCH-013 stage 1 fixed it. `maxOutputTokens` maps to the
+   * agent's `maxTokens` channel, the same name `applyModelOptions` already writes.
+   */
+  temperature?: number;
+  maxOutputTokens?: number;
+}
+
+/**
+ * The per-TURN options a caller may attach to one `Session.run()`.
+ *
+ * Both are optional and independent, and both are absent on the dominant path, so they are spread
+ * as a group rather than tested one at a time at each call site.
+ */
+export interface ISessionRunOptions {
+  /**
+   * SELFHOST-008 P3: a transient system-role block for THIS turn's provider request only. Never
+   * written to the conversation store.
+   */
+  ephemeralSystemContext?: string;
+  /**
+   * PEER-007 (issue #1915): display attribution for the stored user message — who drove this turn.
+   * Never an authorization input (issue #1809).
+   */
+  driverId?: string;
 }

@@ -1,9 +1,9 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { describe, expect, it } from 'vitest';
 
@@ -44,7 +44,7 @@ function pkgJson(overrides = {}) {
 }
 
 async function createRoot(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-dist-freshness-'));
+  const root = makeTemp('robota-dist-freshness-');
   writeFiles(root, files);
   return root;
 }

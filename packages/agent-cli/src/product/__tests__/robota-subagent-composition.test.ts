@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createRobotaPacks } from '../robota-profile.js';
 import {
   assertChildProcessSubagentsCanReproduce,
+  createRobotaPackSet,
   createRobotaSubagentComposition,
   nonReproducibleCapabilities,
   packTools,
@@ -107,5 +108,111 @@ describe('ARCH-021 — robota composes its own child-process subagents', () => {
     expect(toolNames(packTools({ cwd: CWD }))).toEqual(
       toolNames(createRobotaSubagentComposition().createTools({ cwd: CWD })),
     );
+  });
+});
+
+describe('ARCH-033 — the guard runs on the real composition path, not just in its own test', () => {
+  it('refuses to compose a pack set when a capability the child cannot reproduce is present', () => {
+    // The reason this case exists: `assertChildProcessSubagentsCanReproduce` was exported,
+    // unit-tested and called by NOTHING. Calling it directly (as the cases above do) proves the
+    // function works; it does not prove the product ever asks. This asserts through
+    // `createRobotaPackSet`, which is what `cli.ts` actually calls, so deleting the guard's call site
+    // turns this red while the direct-call cases above stay green.
+    // A minimal stand-in rather than a real client: the guard asks whether the capability is
+    // PRESENT, never what it does, and `agent-cli` takes no dependency on `agent-tools`.
+    const sandboxClient = {
+      run: async () => ({ stdout: '', stderr: '', exitCode: 0 }),
+      readFile: async () => '',
+      writeFile: async () => {},
+    } as IRobotaPackContext['sandboxClient'];
+
+    expect(() => createRobotaPackSet(CWD, { sandboxClient })).toThrow(/sandboxClient/);
+  });
+
+  it('composes normally when every capability is reproducible', () => {
+    expect(() => createRobotaPackSet(CWD)).not.toThrow();
+  });
+});
+
+describe('ARCH-033 — a projectable sandbox is no longer a refusal', () => {
+  /** A client that can produce a snapshot reference — the half the parent contributes. */
+  const projectableClient = {
+    run: async () => ({ stdout: '', stderr: '', exitCode: 0 }),
+    readFile: async () => '',
+    writeFile: async () => {},
+    snapshot: async () => 'snap-1',
+    restore: async () => {},
+  } as IRobotaPackContext['sandboxClient'];
+
+  /** A client that cannot: `snapshot()` is optional on the contract, and this one omits it. */
+  const unprojectableClient = {
+    run: async () => ({ stdout: '', stderr: '', exitCode: 0 }),
+    readFile: async () => '',
+    writeFile: async () => {},
+  } as IRobotaPackContext['sandboxClient'];
+
+  it('composes when the sandbox can be snapshotted AND its type is named', () => {
+    // This is the item's whole point: the refusal was never about sandboxes being forbidden, it was
+    // about the child having no way to rebuild one. Give it both halves and there is nothing to
+    // refuse.
+    expect(() =>
+      createRobotaPackSet(CWD, { sandboxClient: projectableClient, sandboxType: 'e2b' }),
+    ).not.toThrow();
+  });
+
+  it('still refuses when the type is unnamed — a snapshot nothing knows how to open', () => {
+    expect(() => createRobotaPackSet(CWD, { sandboxClient: projectableClient })).toThrow(
+      /sandboxClient/,
+    );
+  });
+
+  it('still refuses when the client cannot snapshot, however well-named its type', () => {
+    // `snapshot()` is optional on `ISandboxClient`. A registered factory with no reference to hand it
+    // would rebuild an EMPTY sandbox — a child that looks sandboxed while sharing none of the
+    // parent's state, which is worse than refusing.
+    expect(() =>
+      createRobotaPackSet(CWD, { sandboxClient: unprojectableClient, sandboxType: 'e2b' }),
+    ).toThrow(/sandboxClient/);
+  });
+});
+
+describe('ARCH-034 — the runner choice is packaging, not capability', () => {
+  it('gives a child-process subagent the goal tool when the parent session had it', () => {
+    // In-process subagents receive the parent's fully ASSEMBLED surface, which includes the goal tool
+    // when `includeGoalTool` is set. The child rebuilds the product's set at its own root, and the
+    // goal tool is added by session assembly rather than by any pack — so before this it was missing
+    // from one runner and present in the other, silently, because both paths succeed.
+    const composition = createRobotaSubagentComposition();
+
+    const withTier = composition
+      .createTools({ cwd: CWD, sessionTiers: { includeGoalTool: true } })
+      .map((tool) => tool.getName());
+
+    expect(withTier).toContain('report_goal_status');
+  });
+
+  it('omits it when the parent session did not, rather than adding it unconditionally', () => {
+    // Parity means MATCHING the parent, not maximising. A child that always got the goal tool would
+    // diverge from an in-process sibling in the other direction.
+    const composition = createRobotaSubagentComposition();
+
+    expect(composition.createTools({ cwd: CWD }).map((tool) => tool.getName())).not.toContain(
+      'report_goal_status',
+    );
+    expect(
+      composition
+        .createTools({ cwd: CWD, sessionTiers: { includeGoalTool: false } })
+        .map((tool) => tool.getName()),
+    ).not.toContain('report_goal_status');
+  });
+
+  it('leaves the pack tools identical either way — only the tier differs', () => {
+    const composition = createRobotaSubagentComposition();
+    const base = composition.createTools({ cwd: CWD }).map((tool) => tool.getName());
+    const withTier = composition
+      .createTools({ cwd: CWD, sessionTiers: { includeGoalTool: true } })
+      .map((tool) => tool.getName());
+
+    expect(withTier.filter((name) => name !== 'report_goal_status')).toEqual(base);
   });
 });

@@ -30,35 +30,42 @@
  * Exit code 0 = clean, 1 = findings.
  */
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
+import { listWorkspacePackageDirs } from './workspace-packages.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const ROOT_MANIFEST = path.join(WORKSPACE_ROOT, 'package.json');
-const WORKSPACE_DIRS = ['packages', 'apps'];
-
 /** The one place the version literal is allowed to live. */
 export function readRootPin(rootManifestPath = ROOT_MANIFEST) {
   const manifest = JSON.parse(readFileSync(rootManifestPath, 'utf8'));
   return manifest.volta?.node;
 }
 
-/** Every workspace manifest path, relative to the workspace root. */
+/**
+ * Every workspace manifest path, relative to the workspace root.
+ *
+ * Delegated to `workspace-packages.mjs`, the single owner of "what package directories exist"
+ * (INFRA-021). This function used to be a one-level `readdirSync` over `['packages', 'apps']`, which
+ * is the exact defect that owner was written for — and this scan was a twenty-first copy of it.
+ *
+ * MEASURED when it was replaced: `packages/dag-nodes/*` is a NESTED group declared in
+ * `pnpm-workspace.yaml`, so its twenty manifests were outside the population. None carried a pin,
+ * every one of them resolved to Node 24.19.0 against a root that declares 22.14.0, and each has a
+ * `test` script — so `pnpm test` ran them on an undeclared runtime while this scan reported the
+ * workspace single-valued over 67 of its 87 manifests.
+ *
+ * A guard whose population excludes the failures is a guard that cannot fire, which is the same
+ * shape as the defect the whole item is about, one level up.
+ */
 export function listWorkspaceManifests(root = WORKSPACE_ROOT) {
-  const manifests = [];
-  for (const dir of WORKSPACE_DIRS) {
-    const absolute = path.join(root, dir);
-    if (!existsSync(absolute)) continue;
-    for (const entry of readdirSync(absolute, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const manifest = path.join(dir, entry.name, 'package.json');
-      if (existsSync(path.join(root, manifest))) manifests.push(manifest);
-    }
-  }
-  return manifests.sort();
+  return listWorkspacePackageDirs(root)
+    .map((dir) => path.join(path.relative(root, dir), 'package.json'))
+    .filter((manifest) => existsSync(path.join(root, manifest)))
+    .sort();
 }
 
 /**

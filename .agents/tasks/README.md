@@ -41,6 +41,24 @@ parent issue produces several related Tasks, the parent `AGREEMENT` Task and pai
 shared boundary and child relationship; the `AGREEMENT` is complete only after every declared child is
 complete.
 
+## Work-item IDs
+
+An ID is how a commit message, a pull request body, a review comment and a rule section all point at
+one record, so **one ID names one item**. `work-item-id-collision` in `pnpm harness:scan` refuses a
+push in which two distinct records claim one ID, and it reads only the tracked tree — a clone judges
+it offline.
+
+Two things it deliberately does not treat as collisions, and one it cannot see:
+
+- A **phase** of an item — the `-p7-` / `-P4-` segment right after the ID — belongs to its parent.
+- Seven `<PREFIX>-001` IDs from before the convention settled are allowlisted in the scan, each with
+  the reason. They are all in `completed/`, and the merged commits that deliver them name the old
+  numbers, so renaming the files would move each record out from under every citation pointing at
+  it. The allowlist may not grow: a fresh collision is refused.
+- An ID claimed by a record in one clone and by an **issue title** opened by another session is
+  invisible to it, because nothing in the tree says which issue registers which record. That is the
+  case that produced the three collisions in issue #1916 and it stays open there.
+
 ## Process
 
 1. Create a new `.md` file in this directory with the required frontmatter (see File Format below).

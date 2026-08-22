@@ -53,6 +53,11 @@ export function buildCreateSessionOptions(
     deniedTools: options.deniedTools,
     model: options.model,
     ...(options.effort !== undefined ? { effort: options.effort } : {}),
+    ...(options.presetSystemPrompt !== undefined
+      ? { presetSystemPrompt: options.presetSystemPrompt }
+      : {}),
+    ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+    ...(options.maxOutputTokens !== undefined ? { maxOutputTokens: options.maxOutputTokens } : {}),
     appendSystemPrompt: options.appendSystemPrompt,
     ...(options.persona !== undefined ? { persona: options.persona } : {}),
     ...(options.systemPrompt ? { systemPromptBuilder: () => options.systemPrompt! } : {}),
@@ -112,6 +117,9 @@ export function buildCreateSessionOptions(
     editCheckpointRecorder: options.editCheckpointRecorder,
     reversibleExecution: options.reversibleExecution,
     sandboxClient: options.sandboxClient,
+    // ARCH-033: projected beside the client, never derived from it — a client's class name is not a
+    // registry key, and guessing one is how a child ends up looking sandboxed while sharing nothing.
+    sandboxType: options.sandboxType,
     agentName: options.agentName,
     ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),
     ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),

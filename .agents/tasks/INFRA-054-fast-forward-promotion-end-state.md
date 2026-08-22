@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-054: promote by fast-forward so the two branches cannot diverge at all'
-status: todo
+status: blocked
 created: 2026-07-26
 priority: medium
 urgency: later
@@ -78,3 +78,70 @@ Also required, and each needs an explicit owner decision:
 
 - `.agents/spec-docs/done/INFRA-051-promotion-ancestry-invariant.md` § Alternatives Considered #2
 - `.agents/tasks/completed/INFRA-051-squash-merge-loses-promotion-ancestry.md`
+
+## Progress
+
+### 2026-08-21 — BLOCKED on three owner decisions this item itself enumerates
+
+Nothing here is implementable without settling what its own ## Direction section lists as
+"each needs an explicit owner decision":
+
+1. whether `hotfix/*` must route through `develop` first — without which fast-forward breaks on the
+   first hotfix;
+2. whether Dependabot, if re-enabled, targets `develop`;
+3. whether losing the promotion PR — and with it CodeQL's annotations on the promotion — is
+   acceptable.
+
+The third is the load-bearing one and it is a policy judgement, not a technical one.
+
+Two further constraints measured on 2026-08-21, both of which narrow the design before anyone decides:
+
+- The proposed vehicle is a `workflow_dispatch` promotion workflow. That trigger is available — it is
+  what `ruleset-drift.yml` uses — so this item is not blocked by the 2026-08-04 cron directive, unlike
+  INFRA-042 and INFRA-065.
+- Acceptance item 2 ("a promotion performed by fast-forward") cannot be satisfied by an agent at all:
+  `develop` is 62 commits ahead of `main`, and performing a promotion is a release action.
+
+Recorded as `blocked` rather than `todo`: the work is not unstarted, it is unauthorised.
+
+### 2026-08-22 — confirmed with the owner: blocked, decisions outstanding
+
+Re-stated so the block is actionable rather than vague. Three decisions, all from this item's own
+
+## Direction section, none of them technical:
+
+1. must `hotfix/*` route through `develop` first — without it, fast-forward breaks on the first
+   hotfix and `main-pr-source-guard` needs tightening;
+2. if Dependabot is re-enabled, does it target `develop`;
+3. is losing the promotion PR — and with it CodeQL's annotations on the promotion — acceptable,
+   given every promoted commit already passed CI on its own pull request.
+
+The third is load-bearing and is a policy judgement.
+
+Once those are settled the implementation is ordinary and this agent can do it: the vehicle is a
+`workflow_dispatch` workflow, a trigger this repository already uses, so unlike INFRA-042 and
+INFRA-065 this item is NOT blocked by the 2026-08-04 cron directive.
+
+### 2026-08-22 — correcting how this refusal was justified
+
+I said these items could not be marked `done` "because `unearned-done-claims` exists to refuse it".
+**That was wrong about the mechanism.** Probed by actually doing it — all four set to `status: done`
+with a `completed:` date and moved to `completed/` — and `unearned-done-claims`, `backlog-placement`
+and `task-archival` all PASSED. The only failures came from inbound links breaking as the files
+moved.
+
+So nothing mechanical would have objected. The record would simply have been false, and that is the
+reason on its own. Citing a scan that does not do the work was a stronger-sounding argument than the
+true one.
+
+The substantive grounds are unchanged, and were re-measured rather than restated:
+
+| item      | completion condition, executed 2026-08-22                                    |
+| --------- | ---------------------------------------------------------------------------- |
+| INFRA-046 | `protect-develop`'s required list contains neither gate                      |
+| INFRA-054 | three owner decisions outstanding; no fast-forward promotion has occurred    |
+| INFRA-097 | `2 of 2` guarded workflows still load their definition from the pull request |
+| INFRA-104 | the last promotion body carried `0` closing keywords                         |
+
+The gap the probe exposed — a `done` task with unticked acceptance criteria passes every scan — is
+filed as issue #1965 rather than folded in here.

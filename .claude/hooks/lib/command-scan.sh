@@ -526,9 +526,37 @@ HOOK_TOKENIZER_AWK='
   # applying shell quoting to it would be a second approximation dressed as a parse. Those are kept
   # verbatim, which over-reads (a mention inside python source still shows) — the direction that
   # refuses work rather than the one that lets a `python3 -c "os.system(\047git push\047)"` through.
+  # The interpreter word an IRE match names, basename-only.
+  #
+  # The LAST match in the prefix, not the first: a shell interpreter wrapping a python one has two,
+  # and the one that owns the quote about to open is the nearest to it. `match()` returns the first,
+  # so the search walks forward until no further match remains.
+  #
+  # NOTE: this awk program is a single-quoted shell string. An apostrophe in a comment CLOSES it and
+  # the file then fails to source at all. Write around them.
+  function tk_interp_name(pre, IRE,   best, rest, n, a, w) {
+    best = ""
+    rest = pre
+    while (match(rest, IRE)) {
+      best = substr(rest, RSTART, RLENGTH)
+      rest = substr(rest, RSTART + 1)
+    }
+    if (best == "") { return "" }
+    sub(/^[^A-Za-z0-9_\/.]+/, "", best)
+    n = split(best, a, /[ \t]+/)
+    w = (n > 0) ? a[1] : ""
+    sub(/^.*\//, "", w)
+    return w
+  }
+
+  # INFRA-123: the payload REGIONS are recorded as they open and close, into the globals
+  # `TK_PN` / `TK_PS` / `TK_PL` / `TK_PI`. The masker already has to decide that a quoted string is
+  # an interpreter payload — that is what `kind[sp] = "TOK"` means — and then throws the boundary
+  # away, which is why nothing downstream can say whose language a line is written in. Recording it
+  # costs two assignments at the open and one at the close.
   function tk_mask(s, m, IRE, SRE,
                    len, i, j, w, c, c2, c3, nx, k, q, spaced, ch,
-                   sp, kind, fend, fdep, fterm, fdash, fquo,
+                   sp, kind, fend, fdep, fterm, fdash, fquo, pstart, pinterp,
                    hn, hterm, hdash, hquo, dash, quoted, term, dc, eol, e, line, cand) {
     len = length(s)
 
@@ -568,7 +596,20 @@ HOOK_TOKENIZER_AWK='
         if (c == "\\" && fend[sp] != "\047") {
           m[i] = c; if (i + 1 <= len) { m[i + 1] = substr(s, i + 1, 1) }; i += 2; continue
         }
-        if (c == fend[sp]) { m[i] = " "; sp--; i++; continue }
+        if (c == fend[sp]) {
+          # INFRA-123: this is where an interpreter payload ENDS, so this is where its extent is
+          # known. The other `fend[sp] == c` site one screen down closes a region that is about to be
+          # opened, not one being read — recording there produced zero payloads, which is how the
+          # difference was found.
+          if (pstart[sp] != "" && pinterp[sp] != "") {
+            TK_PN++
+            TK_PS[TK_PN] = pstart[sp]
+            TK_PL[TK_PN] = i - pstart[sp]
+            TK_PI[TK_PN] = pinterp[sp]
+            pstart[sp] = ""
+          }
+          m[i] = " "; sp--; i++; continue
+        }
         m[i] = c; i++; continue
       }
 
@@ -763,7 +804,13 @@ HOOK_TOKENIZER_AWK='
           m[i] = " "; sp++; kind[sp] = "CMD"; fend[sp] = q; fdep[sp] = 0; i++; continue
         }
         if (substr(s, 1, i - 1) ~ IRE) {
-          m[i] = " "; sp++; kind[sp] = "TOK"; fend[sp] = q; fdep[sp] = 0; i++; continue
+          m[i] = " "; sp++; kind[sp] = "TOK"; fend[sp] = q; fdep[sp] = 0
+          # INFRA-123: the extent of this payload is everything after the quote, up to the one that
+          # closes it. Recorded here because this is the only place that knows the string is CODE and
+          # whose language it is.
+          pstart[sp] = i + 1
+          pinterp[sp] = tk_interp_name(substr(s, 1, i - 1), IRE)
+          i++; continue
         }
         spaced = 0
         j = i + 1
@@ -839,6 +886,13 @@ HOOK_SCAN_AWK='
           }
           if (i < len && substr(mask, i + 1, 1) == ">") continue
         }
+        # `>|` is the CLOBBERING REDIRECTION, one operator, not an arrow beside a pipe. Splitting
+        # there put the operator in one statement and its target in the next, so a per-statement
+        # caller asking what this command writes to got nothing from either half — and
+        # `branch-guard.sh` therefore could not see `echo x >| .husky/pre-push` as overwriting a
+        # hook. Exactly the shape of the `&` case above, found the same way: by driving the
+        # redirection reader per statement instead of over the whole command. (INFRA-111)
+        if (c == "|" && i > 1 && substr(mask, i - 1, 1) == ">") continue
         if (c == ";" || c == "&" || c == "|" || c == "\n") {
           if (i > start) { print start " " (i - start) }
           start = i + 1
@@ -862,6 +916,146 @@ HOOK_SCAN_AWK='
     mask = substr(mask, ws, wl)
 
     if (MODE == "mask") { print mask; exit }
+
+    # ---- the EMBEDDED PAYLOADS, one `INTERPRETER START LENGTH` line each ----
+    #
+    # INFRA-123. Every reader in this file EXPANDS an interpreter payload — that is what makes
+    # `python3 -c "…"` readable at all — and then nothing downstream can say where the payload began
+    # or whose language it is. So a rule scoped to one language has no subject: measured on this
+    # tree, python lives in **zero** tracked `.py` files and **zero** python-shebang files, against
+    # 14 files containing `python3 -c`, every one of them `.sh`, `.mjs`, `.md` or `.yml`. A
+    # file-scoped rule would enforce nothing while the rule table said it did; an unscoped one
+    # reports `import glob from "glob"` in JavaScript, which is refusing the safe sibling.
+    #
+    # The unit with a language is the PAYLOAD, and this is the reader for it. Three earlier cuts
+    # tried to reach it from the command instead — a whole-command conjunction, a nearest-interpreter
+    # walk with a hand-written reset list, and a separator reset — and each refused a correct
+    # command, because after expansion the payload’s own `;`, `|` and `&` are indistinguishable from
+    # the shell’s.
+    #
+    # STATED LIMIT: a HEREDOC body is not reported here. The masker treats it as quoted content and
+    # never opens a payload for it, so its interpreter is knowable but its extent is not recorded by
+    # this pass. In a COMMITTED FILE a heredoc body is ordinary file text, which is the half the scan
+    # side reads; at the command it stays the blindness every guard in this directory has.
+    if (MODE == "payloads") {
+      for (i = 1; i <= TK_PN; i++) { print TK_PI[i] " " TK_PS[i] " " TK_PL[i] }
+      exit
+    }
+
+    # ---- what this command WRITES to, one target path per line ----
+    #
+    # Added by INFRA-111. Two guards asked this question and each answered it with its own regex over
+    # redirection spellings, so each had its own holes and the two sets were DIFFERENT: the bulk-edit
+    # guard missed `>&`, `branch-guard` missed `>&` and `>|`, and every round of hand-enumeration
+    # certified itself exhaustive and was wrong the next round. The grammar was already here — the
+    # `ranges` branch above has to know where a redirection is, to keep its `&` from splitting a
+    # statement — and kept it private.
+    #
+    # The operator set was MEASURED against bash rather than enumerated, and the measurement moved
+    # two rows of the item that filed this:
+    #
+    #   > >> >| &> &>> 2> >& >&NAME <>      create or write the named file
+    #   2>& NAME                            bash: ambiguous redirect — writes NOTHING
+    #   >>& NAME                            bash: syntax error — writes nothing
+    #   2>&1  >&2  1>&2  >&-                duplicate or close a descriptor; no file
+    #
+    # So two spellings the filing item listed as holes are commands bash itself refuses. They are
+    # still REPORTED here, because the reader decides by shape and a fd-qualified `>&` is not worth a
+    # second rule to permit something that cannot run: over-reporting a command bash rejects costs a
+    # refusal of nothing, while under-reporting one it accepts is a bypass.
+    #
+    # `<>` opens for reading AND writing, and was in neither guard regex. Verified by running it:
+    # `echo x <> FILE` creates FILE.
+    #
+    # A target is skipped only when the `&` form names a DESCRIPTOR — all digits, `-`, or digits with
+    # a trailing `-`. Everything else after an arrow is a path.
+    #
+    # STATED LIMIT: the target is read from the ORIGINAL at the mask offset, the same split every
+    # other reader here uses, so a quoted target is returned unquoted and a spliced one joined. A
+    # target built by a SUBSTITUTION (`> "$(mktemp)"`) comes back as the substitution text, not as
+    # what it will expand to — no reader in this file expands, and a caller matching a protected
+    # prefix against it will simply not match.
+    if (MODE == "redirs") {
+      i = 1
+      while (i <= len) {
+        if (substr(mask, i, 1) != ">") { i++; continue }
+        k = i + 1
+        if (substr(mask, k, 1) == ">") { k++ }
+        dup = 0
+        if (substr(mask, k, 1) == "&") { dup = 1; k++ }
+        else if (substr(mask, k, 1) == "|") { k++ }
+
+        # Whitespace between the operator and its target, where the shell really sees whitespace.
+        while (k <= len && substr(mask, k, 1) ~ /[ \t]/ && substr(s, k, 1) ~ /[ \t]/) { k++ }
+
+        word = ""
+        started = 0
+        while (k <= len) {
+          mc = substr(mask, k, 1)
+          rc = substr(s, k, 1)
+          if ((mc == " " || mc == "\t" || mc == "\n") && rc ~ /[ \t\n]/) { break }
+          if (mc == ";" || mc == "&" || mc == "|" || mc == ">" || mc == "<" || mc == ")") { break }
+          started = 1
+          # A quote DELIMITER contributes no character, and it has TWO spellings in the mask. The
+          # tokenizer turns it into a SPACE when it read the region as a single-word token, and
+          # leaves the quote character ITSELF when the region contains whitespace. Only the first was
+          # skipped, so a target quoted around a space came back wearing its quotes —
+          # `"node_modules/a b"` — and the store pattern, anchored on a separator, could not match it.
+          # Measured across the eleven write spellings this file drives, and both quotings: 22
+          # commands permitted, 18 of which bash performs (the other four are the `2>&` and `>>&`
+          # forms bash itself rejects, and are the deliberate over-report documented above).
+          #
+          # WHICH SPELLING IT IS, is decided by ROLE and not by character class. A quote is a
+          # delimiter only where it borders MASKED content: the tokenizer blanks what a delimiter
+          # encloses, so a quote beside a masked byte opened or closed a region, and a quote standing
+          # among visible characters is DATA the name keeps. Deciding by class instead deleted a
+          # quote belonging to the path — an escaped double quote came back with the quote gone,
+          # while bash writes it — and falsified the stated limit about a spliced character joining.
+          if (mc == " ") { k++; continue }
+          if ((mc == "\"" || mc == "\047") &&
+              (substr(mask, k - 1, 1) == "\001" || substr(mask, k + 1, 1) == "\001")) {
+            k++
+            continue
+          }
+          # The `$` of `$'…'` / `$"…"` introduces such a delimiter and is not part of the name either.
+          if (mc == "$" && (substr(mask, k + 1, 1) == "\"" || substr(mask, k + 1, 1) == "\047") &&
+              substr(mask, k + 2, 1) == "\001") {
+            k++
+            continue
+          }
+          # An EMPTY dollar-quote — `$` followed by a quote pair with nothing between — expands to
+          # nothing, so bash writes the bare path that follows it. Its mask is three VISIBLE
+          # characters: the region has no content, so neither quote has a \001 to border and the
+          # role test above reads all three as DATA. The name then kept them, and a store pattern
+          # anchored on a separator could not match `$''node_modules/x.json` — measured on the
+          # guard as verdict 0, permitted, while bash created the file inside the store.
+          #
+          # Only the dollar-introduced spelling is affected. A bare `''` / `""` is masked as two
+          # SPACES by the single-word token path above and was already consumed; `$'x'` has content
+          # to border and was already consumed. Measured, all four, rather than reasoned about.
+          #
+          # Here the PAIR is the delimiter — there is no content to decide by — so all three
+          # characters go at once.
+          if (mc == "$" && (substr(mask, k + 1, 1) == "\"" || substr(mask, k + 1, 1) == "\047") &&
+              substr(mask, k + 2, 1) == substr(mask, k + 1, 1)) {
+            k += 3
+            continue
+          }
+          # An unquoted backslash splices the next character, which the NAME then keeps.
+          if (mc == "\\" && rc == "\\") {
+            k++
+            if (k <= len) { word = word substr(s, k, 1); k++ }
+            continue
+          }
+          # Masked content is data, and here the data IS the name — read it from the original.
+          word = word rc
+          k++
+        }
+        if (started && word != "" && !(dup && word ~ /^[0-9]*-?$/)) { print word }
+        i = (k > i ? k : i + 1)
+      }
+      exit
+    }
 
     # ---- the WORDS the shell builds, one per line ----
     #
@@ -1055,6 +1249,30 @@ hook_verb_scan() {
 # whether its letters appear somewhere. See the `words` branch for why it lives here.
 hook_statement_words() {
   printf '%s\n' "$1" | awk -v MODE=words -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+}
+
+# The interpreter payloads embedded in this command: `INTERPRETER START LENGTH`, one per line.
+#
+# `START`/`LENGTH` index into the command exactly as `hook_statement_ranges` does, so a caller can
+# narrow any other reader to a payload — or, for a rule that is about the payload TEXT, cut it out
+# with the same offsets. The interpreter is the basename of the command word that owns the payload
+# (`python3`, `node`, `ruby`); map it to a language with `scripts/harness/script-language.mjs`, which
+# owns that table (INFRA-115).
+#
+# Ask this before applying a language-scoped rule to a command. See the `payloads` branch for the
+# measurement, and for the heredoc limit.
+hook_interpreter_payloads() {
+  printf '%s\n' "$1" | awk -v MODE=payloads -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+}
+
+# The paths this command REDIRECTS INTO, one per line, in the order they appear.
+#
+# Ask this when the question is "does this command write to somewhere I protect". Do NOT ask
+# `hook_statement_words` and look for `>` — that was the shape both guards had, and a word split
+# cannot tell `>&2` from `>&node_modules/x`. $2/$3 narrow the reading to one statement, as
+# everywhere else. See the `redirs` branch for the operator set and the measurement behind it.
+hook_redirect_targets() {
+  printf '%s\n' "$1" | awk -v MODE=redirs -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
 # The same split with SUBSTITUTION CONTENTS included, each delimiter a word break. Ask this when the

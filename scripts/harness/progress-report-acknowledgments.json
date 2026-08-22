@@ -204,6 +204,42 @@
       "timestamp": "2026-08-17T10:45:45.761Z",
       "ratio": "2/4",
       "reason": "The acknowledgement of the previous violation violated the same rule: quoting '계약 2/4 완료' while admitting it lacked a percentage still put a bare ratio in a narrative message. Recorded rather than edited, and worth keeping visible — a rule about how a number is written is broken as easily while apologising for breaking it as while reporting progress. The habit the scan is measuring is writing the ratio at all without its percentage, quotation included."
+    },
+    {
+      "transcript": "e82cfba8-e0c6-4e4b-bf40-c54a5d248ee4.jsonl",
+      "timestamp": "2026-08-19T00:34:31.854Z",
+      "ratio": "6/7",
+      "reason": "A real violation, committed by me: a backlog status reported 6/7 items closed with no percentage. Recorded rather than fixed, because a transcript is append-only — the message cannot be rewritten, and a permanently red scan is one that gets suppressed."
+    },
+    {
+      "transcript": "22469e82-14ef-4e23-9aea-9e5bd3295700.jsonl",
+      "timestamp": "2026-08-19T19:29:31.721Z",
+      "ratio": "3/4",
+      "reason": "Mine. A status table reported issue #1863 as \"3/4 완료\" with no percentage — a mid-work ratio over a countable set, which is exactly what the rule governs. The transcript is append-only, so it is recorded rather than corrected."
+    },
+    {
+      "transcript": "22469e82-14ef-4e23-9aea-9e5bd3295700.jsonl",
+      "timestamp": "2026-08-19T19:35:49.172Z",
+      "ratio": "3/4",
+      "reason": "The same 3/4 six minutes later, in the very message acknowledging the first — the sentence naming the omission repeated the bare ratio while naming it. That is the argument for the scan rather than for intending harder, and it is the second time this file records a repeat inside one session."
+    },
+    {
+      "transcript": "22469e82-14ef-4e23-9aea-9e5bd3295700.jsonl",
+      "timestamp": "2026-08-20T16:55:30.315Z",
+      "ratio": "2/3",
+      "reason": "Mine. Reporting which of issue #1930's checklist boxes an agent can close alone, I wrote that the issue would 'look 2/3 complete' with no percentage — a ratio over a countable set, which is exactly what the rule governs. The third instance this session and the fifth this file records from me, which is the argument for the scan rather than for intending harder."
+    },
+    {
+      "transcript": "e6c7afde-c768-4938-8c5d-8b79a51d3553.jsonl",
+      "timestamp": "2026-08-21T16:33:38.254Z",
+      "ratio": "84/100",
+      "reason": "Mine. A mid-work status table to the owner reported a CLAUDE.md audit score as \"84/100, B\" with no percentage (= 84%). Worth recording precisely because it is not the shape the earlier entries record: every one of those was a ratio of how far along something was, and this is a SCORE out of a fixed denominator. The scan cannot tell the two apart, and widening it to try would cost more than it catches -- a score written as N/100 in a completion table reads exactly like a progress ratio to a human skimming it too. So the rule as mechanised is right and the correction is the same either way: write the percentage in the same breath as the fraction, whatever the fraction means. Recorded rather than fixed because the transcript is append-only."
+    },
+    {
+      "transcript": "e6c7afde-c768-4938-8c5d-8b79a51d3553.jsonl",
+      "timestamp": "2026-08-21T16:36:24.601Z",
+      "ratio": "84/100",
+      "reason": "The message ACKNOWLEDGING the entry above committed the same violation, by quoting the offending fraction without the percentage while explaining that it lacked one. This file already records that exact shape three times (2026-08-15, 2026-08-17, 2026-08-19), which is the point: the habit is writing the fraction at all without its percentage, quotation included, and an intention to comply does not survive the very next message. Recorded as its own entry rather than folded into the first, because the repeat is the evidence."
     }
   ]
 }

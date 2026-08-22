@@ -15,7 +15,7 @@ import type {
 } from '@robota-sdk/agent-core';
 
 export abstract class SessionBase {
-  protected abstract readonly robota: Robota;
+  protected abstract readonly agent: Robota;
   protected abstract readonly permissionEnforcer: PermissionEnforcer;
   protected abstract readonly contextTracker: ContextWindowTracker;
   protected abstract permissionMode: TPermissionMode;
@@ -102,7 +102,7 @@ export abstract class SessionBase {
    */
   updateSystemMessage(newMessage: string): void {
     this.systemMessage = newMessage;
-    this.robota.updateSystemPrompt(newMessage);
+    this.agent.updateSystemPrompt(newMessage);
   }
 
   /**
@@ -122,10 +122,10 @@ export abstract class SessionBase {
     // agent initializes lazily on the first `run()`, so a live model change before any message
     // (e.g. `/preset` right after launch) would otherwise hit the "must be fully initialized"
     // guard. Bring the agent to a ready state first — idempotent and side-effect-free.
-    await this.robota.ensureReady();
+    await this.agent.ensureReady();
     const nextModel = options.model ?? this.model;
     // The system prompt is not model config; it is updated independently via updateSystemMessage.
-    this.robota.setModel({
+    this.agent.setModel({
       provider: this.aiProvider.name,
       model: nextModel,
       ...(options.effort !== undefined && { effort: options.effort }),
@@ -133,6 +133,20 @@ export abstract class SessionBase {
       ...(options.maxOutputTokens !== undefined && { maxTokens: options.maxOutputTokens }),
     });
     this.model = nextModel;
+  }
+
+  /**
+   * Re-apply the agent's identity label to a LIVE session.
+   *
+   * ARCH-040 (issue #1820): a preset's `agentName` reached the agent only at construction, so
+   * starting with a preset set the name while switching to the SAME preset mid-session left the old
+   * one — one preset with two answers, decided by when it was chosen.
+   *
+   * Goes through `updateConfiguration`, the agent's own config seam: the agent's `name` reads THROUGH
+   * its config, so writing the config is the whole rename and no copy is left stale.
+   */
+  async applyAgentName(name: string): Promise<void> {
+    await this.agent.updateConfiguration({ name });
   }
 
   getToolSchemas(): IToolSchema[] {
@@ -144,6 +158,21 @@ export abstract class SessionBase {
   }
 
   /** Get tools that have been session-approved (via "Allow always" choice). */
+  /**
+   * ARCH-040 Group C (issue #1934): re-apply a preset's tool lists to the live enforcer.
+   *
+   * The BASE it composes onto is the session's configured rules minus whatever a previous preset
+   * contributed — which is why the enforcer keeps the original: an allowlist REPLACES the preset
+   * layer's contribution rather than accumulating across successive `/preset` switches, while a
+   * denial UNIONS because it must not be weakened by a later layer that forgot to repeat it.
+   */
+  applyPresetToolLists(preset: {
+    allowedTools?: readonly string[];
+    deniedTools?: readonly string[];
+  }): void {
+    this.permissionEnforcer.applyPresetToolLists(preset);
+  }
+
   getSessionAllowedTools(): string[] {
     return this.permissionEnforcer.getSessionAllowedTools();
   }
@@ -167,7 +196,7 @@ export abstract class SessionBase {
 
   /** Estimate context usage from current conversation history (used after session restore). */
   syncContextFromHistory(): void {
-    this.contextTracker.updateFromHistory(this.robota.getHistory());
+    this.contextTracker.updateFromHistory(this.agent.getHistory());
   }
 
   getAutoCompactThreshold(): TAutoCompactThreshold {
@@ -179,11 +208,11 @@ export abstract class SessionBase {
   }
 
   getHistory(): TUniversalMessage[] {
-    return this.robota.getHistory();
+    return this.agent.getHistory();
   }
 
   getFullHistory(): IHistoryEntry[] {
-    return this.robota.getFullHistory();
+    return this.agent.getFullHistory();
   }
 
   getSessionTokenUsage(): { inputTokens: number; outputTokens: number } | undefined {
@@ -206,7 +235,7 @@ export abstract class SessionBase {
 
   /** Add an event entry to history (not a chat message) */
   addHistoryEntry(entry: IHistoryEntry): void {
-    this.robota.addHistoryEntry(entry);
+    this.agent.addHistoryEntry(entry);
   }
 
   /** Inject a message into conversation history without execution (used for session restore). */
@@ -215,7 +244,7 @@ export abstract class SessionBase {
     content: string,
     options?: { toolCallId?: string; name?: string },
   ): void {
-    this.robota.injectMessage(role, content, options);
+    this.agent.injectMessage(role, content, options);
   }
 
   /**
@@ -223,11 +252,11 @@ export abstract class SessionBase {
    * Used during session restore to correctly reconstruct tool_use+tool_result pairs.
    */
   injectRawMessage(msg: TUniversalMessage): void {
-    this.robota.injectRawMessage(msg);
+    this.agent.injectRawMessage(msg);
   }
 
   clearHistory(): void {
-    this.robota.clearHistory();
+    this.agent.clearHistory();
     this.contextTracker.reset();
   }
 }

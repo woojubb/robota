@@ -63,3 +63,33 @@ export type {
   IVerifyGrantOptions,
   TGrantRejection,
 } from './handoff-authorization.js';
+// SEC-011 (issue #1865): how a revocation reaches the machine doing the checking. Signed by the same
+// user root as a certificate, so distribution needs no trusted channel — and bounded by an expiry,
+// because a stale list is indistinguishable from one an attacker withheld.
+export {
+  issueRevocationList,
+  revocationUnavailable,
+  verifyRevocationList,
+} from './revocation-list.js';
+export type {
+  IRevocationList,
+  IRevocationListClaims,
+  IRevocationVerdict,
+  IVerifyRevocationListOptions,
+  TRevocationRejection,
+} from './revocation-list.js';
+// SEC-011 (issue #1865): rotating the user root. Hygiene only — a COMPROMISED root is abandoned, not
+// rotated, because an attacker holding it can sign the same statement. See the module header.
+export {
+  issueRootRotation,
+  previousRootStillAccepted,
+  verifyRootRotation,
+} from './root-rotation.js';
+export type {
+  IIssueRotationOptions,
+  IRootRotation,
+  IRootRotationClaims,
+  IRotationVerdict,
+  IVerifyRotationOptions,
+  TRotationRejection,
+} from './root-rotation.js';

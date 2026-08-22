@@ -5,6 +5,7 @@ import React from 'react';
 import { formatCommandOutputSummary } from './command-output-summary.js';
 import { humanizeToolName } from './humanize-tool-name.js';
 import { renderMarkdown } from './render-markdown.js';
+import { RoleLabel } from './RoleLabel.js';
 import { STATUS_GLYPH } from './status-glyph.js';
 import { getToolSummaryLabel, toolSummaryStatusKind } from './tool-summary-status.js';
 import ToolCommandOutput from './ToolCommandOutput.js';
@@ -18,35 +19,6 @@ import type { IHistoryEntry, TUniversalMessage, TUniversalValue } from '@robota-
 
 interface IProps {
   history: IHistoryEntry[];
-}
-
-function RoleLabel({ role }: { role: TUniversalMessage['role'] }): React.ReactElement {
-  switch (role) {
-    case 'user':
-      return (
-        <Text color={PALETTE.text.success} bold>
-          You:{' '}
-        </Text>
-      );
-    case 'assistant':
-      return (
-        <Text color={PALETTE.text.accent} bold>
-          Robota:{' '}
-        </Text>
-      );
-    case 'system':
-      return (
-        <Text color={PALETTE.text.warning} bold>
-          System:{' '}
-        </Text>
-      );
-    case 'tool':
-      return (
-        <Text color={PALETTE.text.emphasis} bold>
-          Tool:{' '}
-        </Text>
-      );
-  }
 }
 
 function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactElement {
@@ -162,7 +134,12 @@ const MessageItem = React.memo(function MessageItem({
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <RoleLabel role={message.role} />
+        <RoleLabel
+          role={message.role}
+          {...(typeof message.metadata?.driverId === 'string'
+            ? { driverId: message.metadata.driverId }
+            : {})}
+        />
       </Box>
       <Text> </Text>
       <Box marginLeft={2}>

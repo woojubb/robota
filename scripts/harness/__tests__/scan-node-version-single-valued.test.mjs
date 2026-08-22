@@ -37,6 +37,14 @@ function addPackage(root, name, manifest) {
   return path.posix.join('packages', name, 'package.json');
 }
 
+/** A package in a NESTED group, the shape `pnpm-workspace.yaml` declares as `packages/<g>/*`. */
+function addNestedPackage(root, group, name, manifest) {
+  const dir = path.join(root, 'packages', group, name);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name, ...manifest }));
+  return path.posix.join('packages', group, name, 'package.json');
+}
+
 afterEach(() => {
   while (roots.length) rmSync(roots.pop(), { recursive: true, force: true });
 });
@@ -131,5 +139,63 @@ describe('node-version-single-valued — this repository', () => {
   it('resolves a real workspace manifest through extends to the root literal', () => {
     const [first] = listWorkspaceManifests();
     expect(resolveManifestPin(process.cwd(), first)).toEqual({ ok: true, version: readRootPin() });
+  });
+});
+
+describe('the population includes the packages that were actually broken', () => {
+  /**
+   * The scan enumerated `packages/*` and `apps/*` one level deep, so a NESTED group — declared in
+   * `pnpm-workspace.yaml` as `packages/<g>/*` — was outside the population entirely.
+   *
+   * MEASURED on this repository when it was found: `packages/dag-nodes/*` is twenty manifests, none
+   * of them carried a pin, every one resolved to Node 24.19.0 against a root declaring 22.14.0, and
+   * each has a `test` script — so `pnpm test` ran them on an undeclared runtime while this scan
+   * reported the workspace single-valued over 67 of its 87 manifests.
+   *
+   * Red-proofed rather than reasoned about: restoring the one-level walk AND deleting a nested pin
+   * makes the scan report PASSED over 67 manifests. A guard whose population excludes the failures
+   * is a guard that cannot fire — the same shape as the defect the item is about, one level up.
+   *
+   * `workspace-packages.mjs` was written for exactly this class (INFRA-021) and this scan was a
+   * twenty-first copy of it, which is why the fix is to delegate rather than to add a second glob.
+   */
+  it('sees an unpinned package in a NESTED group', () => {
+    const root = makeRoot({ node: '22.14.0' });
+    const nested = addNestedPackage(root, 'dag-nodes', 'file-read', { private: true });
+
+    const { findings } = findDeclaredPinFindings(root);
+    expect(findings.map((f) => f.file)).toContain(nested);
+    expect(findings[0].problem).toMatch(/no `volta` field/);
+  });
+
+  it('counts a nested package in the size it declares', () => {
+    const root = makeRoot({ node: '22.14.0' });
+    addPackage(root, 'top-level', { volta: { extends: '../../package.json' } });
+    addNestedPackage(root, 'dag-nodes', 'nested', { volta: { extends: '../../../package.json' } });
+
+    // Two packages, two manifests. Under the one-level walk this was 1, and the scan called the
+    // workspace single-valued on the strength of it.
+    expect(listWorkspaceManifests(root)).toHaveLength(2);
+    expect(readExaminedManifestCount(root)).toBe(2);
+    expect(findDeclaredPinFindings(root).findings).toEqual([]);
+  });
+
+  it('resolves a nested package through its three-level extends', () => {
+    const root = makeRoot({ node: '22.14.0' });
+    const nested = addNestedPackage(root, 'dag-nodes', 'tool', {
+      volta: { extends: '../../../package.json' },
+    });
+
+    expect(resolveManifestPin(root, nested)).toEqual({ ok: true, version: '22.14.0' });
+
+    // The depth is the whole point, and it is the mistake a copy-paste makes: `../../`, correct for
+    // a TOP-LEVEL package, resolves from a nested one to the GROUP directory, which has no
+    // manifest. The first cut of this case mutated the manifest PATH instead of the extends target,
+    // so it compared a package with itself and passed either way.
+    const wrongDepth = addNestedPackage(root, 'dag-nodes', 'copied', {
+      volta: { extends: '../../package.json' },
+    });
+    expect(resolveManifestPin(root, wrongDepth)).toMatchObject({ ok: false });
+    expect(findDeclaredPinFindings(root).findings.map((f) => f.file)).toContain(wrongDepth);
   });
 });

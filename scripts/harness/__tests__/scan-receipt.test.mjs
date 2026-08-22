@@ -16,8 +16,9 @@ import {
   TREE_EXTERNAL_SCANS,
   createScanReceipt,
   decideScanReuse,
+  receiptCoveredScans,
   scanReceiptMatches,
-  scanSetIsEligible,
+  scansThatAlwaysRun,
 } from '../scan-receipt.mjs';
 
 const IDENTITY = {
@@ -116,25 +117,40 @@ describe('scans whose inputs are not in the tree', () => {
     expect([...TREE_EXTERNAL_SCANS].sort()).toEqual(['build-contracts', 'dist']);
   });
 
-  it('makes a set containing one ineligible in both directions', () => {
-    expect(scanSetIsEligible(['consistency', 'dist'])).toBe(false);
-    expect(scanSetIsEligible(['consistency', 'file-size'])).toBe(true);
-
-    const decision = decide({ scanNames: ['consistency', 'dist'] });
-    expect(decision.reuse).toBe(false);
-    expect(decision.eligible).toBe(false);
-    expect(decision.reason).toContain('dist');
+  it('keeps them out of what a receipt asserts, so one receipt serves both call sites', () => {
+    // A full local run and CI's `--skip dist --skip build-contracts` differ only by these two, and
+    // the receipt never spoke for them — so both must produce the SAME identity, or the command the
+    // item was filed about (a plain `pnpm harness:scan`) can never be reused.
+    expect(receiptCoveredScans(['consistency', 'dist', 'build-contracts'])).toEqual([
+      'consistency',
+    ]);
+    expect(receiptCoveredScans(['consistency'])).toEqual(['consistency']);
   });
 
-  it('refuses the ineligible set even when everything else matches perfectly', () => {
-    // The dangerous case: identity, receipt and cleanliness all agree, and reuse must STILL not
-    // happen, because `dist/` can differ under one tree hash.
-    const scans = ['build-contracts', 'consistency'];
-    const identity = { ...IDENTITY, scans };
-    expect(
-      decideScanReuse({ scanNames: scans, identity, receipt: receiptFor(identity), clean: true })
-        .reuse,
-    ).toBe(false);
+  it('re-runs them on a hit instead of blocking the hit', () => {
+    const scans = ['consistency', 'file-size', 'dist'];
+    const identity = { ...IDENTITY, scans: receiptCoveredScans(scans) };
+    const decision = decideScanReuse({
+      scanNames: scans,
+      identity,
+      receipt: receiptFor(identity),
+      clean: true,
+    });
+
+    expect(decision.reuse).toBe(true);
+    expect(scansThatAlwaysRun(scans)).toEqual(['dist']);
+  });
+
+  it('does not claim a saving when the set is nothing but those scans', () => {
+    const scans = ['dist', 'build-contracts'];
+    const decision = decideScanReuse({
+      scanNames: scans,
+      identity: null,
+      receipt: null,
+      clean: true,
+    });
+    expect(decision.reuse).toBe(false);
+    expect(decision.reason).toMatch(/no scan in this set is covered/);
   });
 });
 

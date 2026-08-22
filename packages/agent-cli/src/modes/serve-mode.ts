@@ -7,7 +7,6 @@
  * imports only the runtime host + framework/interface types, never a presentation package.
  */
 
-import { parseToolList } from '../utils/cli-args.js';
 import {
   openInBrowser,
   resolveWebRoot,
@@ -16,6 +15,8 @@ import {
 } from './serve-monitor-ui.js';
 import { settleOnServeTransportFailure } from './serve-transport-failure.js';
 import { startRuntimeHost } from '@robota-sdk/agent-framework';
+import { presetSessionFields } from '../startup/preset-session-fields.js';
+import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type { ICreateSessionOptions } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
@@ -37,16 +38,10 @@ import type {
 } from '@robota-sdk/agent-interface-transport';
 
 /** Preset-resolved identity/posture the thin-shell CLI forwards into the headless runtime session. */
-export interface IServeModePresetOptions {
-  agentName?: string;
-  activePresetId?: string;
-  persona?: string;
-  permissionMode?: TInteractiveSessionOptions['permissionMode'];
-  enableParallelSubagents?: boolean;
-  selfVerification?: boolean;
-  /** ARCH-013: resolved preset effort, forwarded to the session's `effort` seam. */
-  effort?: ICreateSessionOptions['effort'];
-}
+/**
+ * ARCH-041: ONE declaration — see the note on `IPrintModePresetOptions`. This was the third copy.
+ */
+export type IServeModePresetOptions = Partial<IPresetSurfaceOptions>;
 
 export interface IServeModeOptions {
   cwd: string;
@@ -93,14 +88,24 @@ export interface IServeModeOptions {
  * Build the runtime session options (mirroring the interactive mapping — NOT print-mode's autonomous
  * `bypassPermissions` default) and run the host until SIGTERM/SIGINT, then shut down and exit 0.
  */
-export async function runServeMode(opts: IServeModeOptions): Promise<void> {
+/**
+ * The session options a served runtime starts with.
+ *
+ * Extracted so a case can assert what serve mode forwards WITHOUT starting a server. Issue #1937 is
+ * the reason: a field can be declared on the projection, forwarded by two shells and dropped by the
+ * third, and nothing would have said so — `buildAppendSystemPrompt` had exactly one caller for that
+ * whole time. A test of the helper is green in that state; a test of this is not.
+ */
+export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveSessionOptions {
   const { args, preset } = opts;
-  const sessionOptions: TInteractiveSessionOptions = {
+  return {
     cwd: opts.cwd,
     provider: opts.provider,
     // CLI-076: forward the resolved model so `--model` takes effect in the served runtime session.
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     permissionMode: args.permissionMode ?? preset.permissionMode,
+    // Issue #1937: the CLI-sourced prompt addition, composed once at the projection. Before this it
+    // was built at print mode only, so these flags did nothing in a served session.
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : opts.sessionStore,
     resumeSessionId: opts.resumeSessionId,
@@ -115,8 +120,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     commandHostAdapters: opts.commandHostAdapters,
     ...(opts.remoteCommandPolicy ? { remoteCommandPolicy: opts.remoteCommandPolicy } : {}),
     language: args.language,
-    allowedTools: parseToolList(args.allowedTools),
-    deniedTools: parseToolList(args.deniedTools),
+    ...presetSessionFields(preset),
     ...(args.systemPrompt ? { systemPrompt: args.systemPrompt } : {}),
     ...(preset.agentName !== undefined ? { agentName: preset.agentName } : {}),
     ...(preset.activePresetId !== undefined ? { activePresetId: preset.activePresetId } : {}),
@@ -126,9 +130,19 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       : {}),
     ...(preset.selfVerification !== undefined ? { selfVerification: preset.selfVerification } : {}),
     ...(preset.effort !== undefined ? { effort: preset.effort } : {}),
+    ...(preset.temperature !== undefined ? { temperature: preset.temperature } : {}),
+    ...(preset.maxOutputTokens !== undefined ? { maxOutputTokens: preset.maxOutputTokens } : {}),
+    ...(preset.language !== undefined ? { language: preset.language } : {}),
+    // ARCH-040: onto the SEED key, never onto `systemPrompt` — that one replaces the composed prompt.
+    ...(preset.systemPrompt !== undefined ? { presetSystemPrompt: preset.systemPrompt } : {}),
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...(opts.memorySessionOptions ?? {}),
   };
+}
+
+export async function runServeMode(opts: IServeModeOptions): Promise<void> {
+  const { args } = opts;
+  const sessionOptions = buildServeSessionOptions(opts);
 
   const host = await startRuntimeHost({
     session: sessionOptions,

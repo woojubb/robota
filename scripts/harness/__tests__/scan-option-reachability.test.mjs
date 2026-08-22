@@ -96,6 +96,38 @@ describe('scan-option-reachability', () => {
       expect([...found]).toEqual(['guardrails']);
     });
 
+    it('counts a producer returning a Pick OF the interface', () => {
+      // Extracting a GROUP of keys into a helper typed by its `Pick` is the same remedy one step
+      // further, and it is what the size floor pushes toward. Before this the extraction made every
+      // key in the group read as unassigned — a refactor reported as a missing capability, which is
+      // a false finding that argues for putting the monolith back.
+      const source = `function build(): Pick<ICreateSessionOptions, 'guardrails'> { return { guardrails: g }; }`;
+      const found = assignedKeys(
+        source,
+        'f.ts',
+        CONSTRUCTORS,
+        new Set(),
+        [],
+        'ICreateSessionOptions',
+      );
+      expect([...found]).toEqual(['guardrails']);
+    });
+
+    it('does not count a Pick of a DIFFERENT interface', () => {
+      // The relaxation is scoped to the FIRST type argument. `Pick<ISomethingElse, …>` names another
+      // contract entirely, and counting it would make the producer branch match on the word `Pick`.
+      const source = `function build(): Pick<ISomethingElse, 'guardrails'> { return { guardrails: g }; }`;
+      const found = assignedKeys(
+        source,
+        'f.ts',
+        CONSTRUCTORS,
+        new Set(),
+        [],
+        'ICreateSessionOptions',
+      );
+      expect([...found]).toEqual([]);
+    });
+
     it('does not count a producer returning a DIFFERENT interface', () => {
       const source = `function build(): ISomethingElse { return { guardrails: g }; }`;
       const found = assignedKeys(

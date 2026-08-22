@@ -21,6 +21,8 @@ const RUN_OPTION_CONSUMERS: Record<keyof Required<IRunOptions>, string> = {
   toolChoice: 'execution-round-provider.ts chatOptions (CORE-017)',
   sessionId: 'robota-execution.ts buildRunContext → IExecutionContext / plugin payload',
   userId: 'robota-execution.ts buildRunContext → IExecutionContext / plugin payload',
+  driverId:
+    'robota-execution.ts buildRunContext → IExecutionContext → execution-service.ts addUserMessage metadata (PEER-007)',
   metadata: 'robota-execution.ts buildRunContext → IExecutionContext',
   signal: 'robota.ts run queue + execution-round-provider.ts provider call',
   onTextDelta: 'execution-round-streaming.ts text delta dispatch; the streaming entry sinks it',

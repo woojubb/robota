@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-046: promote advisory CI gates (regression-red-proof, patch-coverage) to blocking'
-status: in-progress
+status: blocked
 created: 2026-07-25
 priority: high
 urgency: now
@@ -133,11 +133,27 @@ A four-way recurrence audit measured what these two floors are currently worth:
   `ci.yml`'s `regression-red-proof (advisory)`, exits 0 on failure, and its enforcing branch is
   gated on `REGRESSION_RED_PROOF_ENFORCE` — **set in no workflow**. Same shape for
   `check-patch-coverage`.
+
+  > **Half of this is STALE as of 2026-08-04, re-measured 2026-08-22.** The flag IS set:
+  > `.github/workflows/ci.yml` carries `REGRESSION_RED_PROOF_ENFORCE: '1'` with the owner decision
+  > recorded beside it, and the job is now named `regression-red-proof (enforcing: accidental-green
+only)`. So it CAN fail, and "nothing can fail on it" below is no longer true of this gate.
+  >
+  > What still holds: it is not registered in `run-all-scans` — verified by grep, no entry — and
+  > that is correct rather than a gap. It reads `PR_BODY` and a merge-base diff, so it has no
+  > hermetic tree to judge; registering it would put a check that cannot reach a verdict into a
+  > suite whose passes are read as verdicts. `promotion-closes` is excluded from `harness:scan` for
+  > the same reason and says so.
+  >
+  > `check-patch-coverage` is unchanged: still advisory, still `PATCH_COVERAGE_ENFORCE`-gated, and
+  > excluded from the required list on the ground that a required context must be able to fail.
+
 - The defect it exists to catch recurred **twice in one session** (ARCH-004 RUNTIME-14, CORE-026
   RUNTIME-12) and is `common-mistakes` #82.
 
 So the repository has a built, tested floor for its accidental-green class and **nothing can fail on
-it**. The change is two environment variables and moving two contexts to required — the smallest
+it**. (Half-corrected above: the flag has since been set, so `regression-red-proof` CAN fail; only
+the required-list half remains.) The change is two environment variables and moving two contexts to required — the smallest
 mechanical prevention on the whole audit's list, against a class with confirmed recurrence.
 
 ## Promotion Audit 2026-07-31 — NOT PROMOTED (neither flag flipped)
@@ -234,3 +250,97 @@ refuses a non-CLEAN state, so this decision returns for review if that ever chan
 becoming wrong a second time.
 
 **`patch-coverage` is NOT promoted** and this item stays open for it.
+
+## Progress
+
+### 2026-08-21 — BLOCKED on repo-admin scope, and the block is precise
+
+Everything this item can reach without that scope is already done: `REGRESSION_RED_PROOF_ENFORCE=1`
+makes an `accidental-green` verdict exit 1, and `.github/required-status-checks.json` records, for
+each of the two gates, why it is not required.
+
+**What remains is one `gh api -X PUT` against the `protect-develop` ruleset**, which needs repo-admin
+credentials this agent does not have. The exact command is in ## Owner Action above.
+
+**And it should NOT be run yet, on this item's own evidence.** `deliberately_not_required` in
+`.github/required-status-checks.json` records the reason for `regression-red-proof`: `accidental-green`
+has never fired on a real pull request, so making it required would put an UNTESTED refusal in the
+merge path. One observed firing is what promotes it. `patch-coverage` is excluded for the different
+reason that it deliberately cannot fail, which INFRA-094 did not change — that item removed a
+duplicate build, not the advisory posture.
+
+So the block is not "waiting for a credential". It is waiting for evidence, and the credential after
+it. Recorded as `blocked` rather than `todo` so the distinction is readable.
+
+### 2026-08-22 — the remaining action, stated exactly, and why it is not taken
+
+Re-measured rather than repeated:
+
+| claim                                               | state                                                                                                    |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `REGRESSION_RED_PROOF_ENFORCE` set in no workflow   | **STALE** — set in `ci.yml`, with the 2026-08-04 owner decision recorded at the line                     |
+| `check-regression-red-proof` not in `run-all-scans` | **HOLDS**, and is correct: it reads `PR_BODY` and a merge-base diff, so it has no hermetic tree to judge |
+| the two contexts are not required                   | **HOLDS** — `protect-develop` (id 18715844) requires nine contexts and neither of these is among them    |
+
+The nine: `build`, `quality`, `scans`, `dependency audit`, `commitlint`, `tui-e2e`,
+`examples-typecheck`, `windows-shell`, `review-gate`.
+
+**The remaining action is one `gh api -X PUT` against that ruleset, and it needs repo-admin scope
+this agent does not have.** The command shape is in ## Owner Action above.
+
+**It should also not be run yet, on this item's own reasoning.** `accidental-green` has never fired
+on a real pull request, so requiring it would put an untested refusal in the merge path; one observed
+firing is what promotes it. Confirmed with the owner on 2026-08-22, who chose not to add it now.
+
+So `blocked` is the accurate status and it is blocked on EVIDENCE first, a credential second — not
+merely waiting for permission.
+
+### 2026-08-22 — correcting how this refusal was justified
+
+I said these items could not be marked `done` "because `unearned-done-claims` exists to refuse it".
+**That was wrong about the mechanism.** Probed by actually doing it — all four set to `status: done`
+with a `completed:` date and moved to `completed/` — and `unearned-done-claims`, `backlog-placement`
+and `task-archival` all PASSED. The only failures came from inbound links breaking as the files
+moved.
+
+So nothing mechanical would have objected. The record would simply have been false, and that is the
+reason on its own. Citing a scan that does not do the work was a stronger-sounding argument than the
+true one.
+
+The substantive grounds are unchanged, and were re-measured rather than restated:
+
+| item      | completion condition, executed 2026-08-22                                    |
+| --------- | ---------------------------------------------------------------------------- |
+| INFRA-046 | `protect-develop`'s required list contains neither gate                      |
+| INFRA-054 | three owner decisions outstanding; no fast-forward promotion has occurred    |
+| INFRA-097 | `2 of 2` guarded workflows still load their definition from the pull request |
+| INFRA-104 | the last promotion body carried `0` closing keywords                         |
+
+The gap the probe exposed — a `done` task with unticked acceptance criteria passes every scan — is
+filed as issue #1965 rather than folded in here.
+
+### 2026-08-22 — the "no repo-admin scope" claim was ASSUMED, not measured
+
+Every entry above that says an agent cannot perform the ruleset change "because it needs repo-admin
+scope this agent does not have" was written without checking. Measured:
+
+```
+$ gh api repos/woojubb/robota --jq .permissions
+{"admin":true,"maintain":true,"pull":true,"push":true,"triage":true}
+$ gh auth status   # token scopes: 'gist', 'read:org', 'repo', 'workflow'
+```
+
+**The credential is there. The `gh api -X PUT` in ## Owner Action is executable.**
+
+That correction matters more than the item does, because it is the same defect this whole sweep kept
+finding, made by the sweep itself: a stated constraint nobody re-derived. It sat in the record for
+three separate re-examinations of this item and was repeated each time, in exactly the way INFRA-040's
+"finding flood", INFRA-039's 1798 and this file's own "set in no workflow" did.
+
+**The item stays `blocked` anyway, and now for one reason instead of two.** Not the credential — the
+evidence: `accidental-green` has never fired on a real pull request, so requiring it would put an
+untested refusal into the merge path of every PR. One observed firing is what promotes it. Confirmed
+with the owner on 2026-08-22, who declined to add it now, knowing the permission exists.
+
+So the block is EVIDENCE, and only evidence. The earlier framing — "blocked on evidence first, a
+credential second" — was half wrong: there was never a credential half.

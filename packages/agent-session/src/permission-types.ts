@@ -40,6 +40,16 @@ export interface IPermissionEnforcerOptions {
     permissions: { allow: string[]; deny: string[] };
     hooks?: Record<string, unknown>;
   };
+  /**
+   * ARCH-040 Group C (issue #1934): the rules BEFORE any preset contributed.
+   *
+   * Supplied by the composition root, never derived here. `config.permissions` already carries the
+   * STARTUP preset's patterns, so capturing a base from it on the first live `/preset` would keep
+   * the first preset's allowlist through every later switch — the accumulation the replace rule
+   * exists to prevent, arriving through the base rather than through the merge. Absent ⇒ no preset
+   * contributed, and `config.permissions` is itself the preset-free base.
+   */
+  presetFreePermissions?: { allow: readonly string[]; deny: readonly string[] };
   terminal: ITerminalOutput;
   permissionHandler?: TPermissionHandler;
   promptForApprovalFn?: (

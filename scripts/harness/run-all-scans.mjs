@@ -17,7 +17,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { planScanReuse, writeScanReceipt } from './scan-receipt.mjs';
+import { planScanReuse, scansThatAlwaysRun, writeScanReceipt } from './scan-receipt.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -451,6 +451,35 @@ export const SCAN_COMMANDS = [
     name: 'reference-kind-qualified',
     command: ['node', 'scripts/harness/scan-reference-kind-qualified.mjs'],
   },
+  // INFRA-127. A rule catalogue's row IS the unit of obligation, so a row short of the columns its
+  // header declares renders with rule text missing and nothing said. Six of 92 entries were in that
+  // state when this landed.
+  { name: 'rule-table-shape', command: ['node', 'scripts/harness/scan-rule-table-shape.mjs'] },
+  // INFRA-126. The suite exhausted /tmp's inodes and stopped every push from the host. `makeTemp()`
+  // owns creation and teardown together; this refuses a direct call regardless of teardown, because
+  // whether a directory is removed is not something a scan can see.
+  { name: 'temp-dir-owner', command: ['node', 'scripts/harness/scan-temp-dir-owner.mjs'] },
+  // INFRA-127. `.agents/tasks/README.md` declares seven required fields and only `status` was ever
+  // checked, by two scans that ask about placement and lifecycle rather than presence.
+  {
+    name: 'task-frontmatter-fields',
+    command: ['node', 'scripts/harness/scan-task-frontmatter-fields.mjs'],
+  },
+  // INFRA-112. The accepted forms are derived from each hook's own source, so this compares the
+  // declarations against the code rather than against a list that would drift beside them.
+  {
+    name: 'hook-override-declarations',
+    command: ['node', 'scripts/harness/scan-hook-override-declarations.mjs'],
+  },
+  {
+    name: 'symlink-following-enumeration',
+    command: ['node', 'scripts/harness/scan-symlink-following-enumeration.mjs'],
+  },
+  // issue #1916. Reads only the tracked tree, so it is hermetic and a clone can judge it offline.
+  {
+    name: 'work-item-id-collision',
+    command: ['node', 'scripts/harness/scan-work-item-id-collision.mjs'],
+  },
   // INFRA-102. Only the DECLARED edge runs here: it is hermetic. The `--measured` edge asks the
   // host toolchain what a workspace script actually runs on, which no manifest edit can make true
   // (Volta binds a package tool to its install-time Node), so it is a developer-run check.
@@ -616,6 +645,13 @@ export const SCAN_COMMANDS = [
   {
     name: 'harness-script-import-safety',
     command: ['node', 'scripts/harness/scan-harness-script-import-safety.mjs'],
+  },
+  // INFRA-039. The CEILING, not the count: `--max-warnings` on the root `lint` script does the
+  // enforcing, on the release path where that script already runs. This keeps the number from
+  // becoming a hand-maintained second source — present, matching its baseline, and falling only.
+  {
+    name: 'lint-warning-ratchet',
+    command: ['node', 'scripts/harness/scan-lint-warning-ratchet.mjs'],
   },
   {
     name: 'ci-concurrency-footprint',
@@ -975,11 +1011,26 @@ export async function main() {
   const scanNames = scans.map((scan) => scan.name);
   const reuse = planScanReuse({ scanNames, root: WORKSPACE_ROOT, writeAdoption });
   if (reuse.reuse) {
+    // A receipt speaks for the scans a tree hash can speak for. The rest — the ones reading build
+    // output — are RE-RUN, not skipped: they cost milliseconds, and a run that quietly stopped
+    // reporting dist staleness would be buying speed with the operator's information.
+    const alwaysRun = new Set(scansThatAlwaysRun(scanNames));
+    const rerun = scans.filter((scan) => alwaysRun.has(scan.name));
     process.stdout.write(
-      `${scanNames.length} scans not re-run: ${reuse.reason}.\n` +
+      `${scanNames.length - rerun.length} scans not re-run: ${reuse.reason}.\n` +
         'Change any tracked file, or delete the receipt, to force a full run.\n',
     );
-    process.exitCode = 0;
+    if (rerun.length === 0) {
+      process.exitCode = 0;
+      return;
+    }
+    process.stdout.write(
+      `re-running ${rerun.length} scan(s) that read outside the tree: ${[...alwaysRun].join(', ')}\n`,
+    );
+    // The adoption ratchet is deliberately NOT judged over this handful: it binds over the set that
+    // ran, and this set is two scans by construction, which would read as every other scan going
+    // missing. The ratchet was judged on the run that wrote the receipt.
+    process.exitCode = await runScans(rerun, undefined, undefined, { checkAdoption: false });
     return;
   }
   process.stdout.write(`▶ scan receipt not reused: ${reuse.reason}\n`);
