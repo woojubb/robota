@@ -1,8 +1,9 @@
 ---
 title: 'INFRA-129: allocate a work-item id and its record in one operation'
 issue: https://github.com/woojubb/robota/issues/1916
-status: in-progress
+status: done
 created: 2026-08-22
+completed: 2026-08-22
 priority: medium
 urgency: soon
 area: scripts/harness, .agents/tasks
@@ -71,3 +72,28 @@ yet contain the other's unpushed record. The window is now the push interval rat
 authoring interval, and `scan-work-item-id-collision` refuses the second one at pre-push. Removing
 the class rather than guarding it is option 3 of the issue — non-sequential IDs — and is not
 attempted here.
+
+## Test Plan
+
+- [x] Exercise claimed IDs from records, repository citations, and live issue titles.
+- [x] Exercise unread issue-title input without silently treating it as an empty set.
+- [x] Exercise sentinel-band filtering, slug parsing, dry-run behavior, and atomic `wx` creation.
+- [x] Exercise `--issue` with a missing or option-shaped value through the real CLI entry point.
+- [x] Run `pnpm harness:verify-like-ci` and require every locally reproducible CI stage to pass.
+
+## User Execution Test Scenarios
+
+Not applicable — this changes an internal repository task-allocation harness command, not a Robota
+product surface. The executable command and its failure behavior are covered by the engineering test
+plan.
+
+## Result
+
+- `scripts/harness/__tests__/allocate-work-item-id.test.mjs` covers the allocator end to end,
+  including the two missing-`--issue` regressions that return exit code 2 before any file is written.
+- `pnpm harness:verify-like-ci` passed all 12 locally reproducible stages on 2026-08-22, including
+  3,547 harness contract tests, 1,134 hermetic tests, the full affected package verification, binary
+  E2E, example typechecks, and TUI PTY E2E.
+- PR #2133 merged to `develop` as `73fe755f139301e8206c36fdbca47c420680a34c` after all required
+  checks passed, the current-head automated review reported `ACTIONABLE FINDINGS: 0`, and all review
+  threads were resolved.
