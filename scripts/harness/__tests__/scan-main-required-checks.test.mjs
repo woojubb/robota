@@ -411,21 +411,83 @@ describe('scan-main-required-checks parsing helpers', () => {
  * a name nothing publishes and stranded every `develop` pull request.
  */
 describe('a declared context name must be one a workflow actually publishes (issue #2036)', () => {
+  /**
+   * FIXTURE, not the real tree. The harness test tier runs from a temporary clone that carries no
+   * `.github`, and these finders now THROW there by design — so a case that reads the real
+   * repository passes locally and fails in the tier that actually gates the push. The assertion
+   * "this repository declares nothing unpublished" belongs to the SCAN, which runs over the real
+   * tree on every `pnpm harness:scan`; it is not a unit test's job.
+   */
+  function fixtureRoot({ workflows, declaration }) {
+    const root = mkdtempSync(path.join(tmpdir(), 'ctxname-'));
+    mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
+    for (const [file, text] of Object.entries(workflows)) {
+      writeFileSync(path.join(root, '.github', 'workflows', file), text, 'utf8');
+    }
+    writeFileSync(
+      path.join(root, '.github', 'required-status-checks.json'),
+      JSON.stringify(declaration),
+      'utf8',
+    );
+    return root;
+  }
+
   it('reads the published names from the job `name:`, falling back to the job id', () => {
-    const published = publishedContexts();
-    // Both spellings, from the real workflows: a job with an explicit display name, and one without.
+    const root = fixtureRoot({
+      workflows: {
+        'ci.yml':
+          'jobs:\n  red-proof:\n    name: regression-red-proof (enforcing: accidental-green only)\n    steps: []\n  build:\n    steps: []\n',
+      },
+      declaration: { branches: { main: { required_status_checks: [{ context: 'build' }] } } },
+    });
+    const published = publishedContexts(root);
+    // Both spellings: a job with an explicit display name, and one that publishes its job id.
     expect(published.has('regression-red-proof (enforcing: accidental-green only)')).toBe(true);
     expect(published.has('build')).toBe(true);
   });
 
   it('covers EVERY declared branch, not only `main`', () => {
-    const branches = declaredBranches();
-    expect(branches).toContain('main');
-    expect(branches).toContain('develop');
+    const root = fixtureRoot({
+      workflows: { 'ci.yml': 'jobs:\n  a:\n    steps: []\n' },
+      declaration: {
+        branches: {
+          main: { required_status_checks: [{ context: 'a' }] },
+          develop: { required_status_checks: [{ context: 'a' }] },
+        },
+      },
+    });
+    expect(declaredBranches(root)).toEqual(['main', 'develop']);
   });
 
-  it('the repository declares no context that nothing publishes', () => {
-    expect(findContextNameFindings()).toEqual([]);
+  it('reports nothing when every declared name is published', () => {
+    const root = fixtureRoot({
+      workflows: { 'ci.yml': 'jobs:\n  a:\n    name: quality\n    steps: []\n' },
+      declaration: {
+        branches: {
+          main: { required_status_checks: [{ context: 'quality' }] },
+          develop: { required_status_checks: [{ context: 'quality' }] },
+        },
+      },
+    });
+    expect(findContextNameFindings(root)).toEqual([]);
+  });
+
+  it('FAILS CLOSED rather than reporting nothing when the declaration is absent', () => {
+    const bare = mkdtempSync(path.join(tmpdir(), 'ctxname-bare-'));
+    // Measured before the guard existed: this returned `[]`, which reads as "every declared name is
+    // published" over a tree that was never read.
+    expect(() => findContextNameFindings(bare)).toThrow(/nothing was examined/);
+  });
+
+  it('FAILS CLOSED when the workflows directory is absent', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'ctxname-nowf-'));
+    mkdirSync(path.join(root, '.github'), { recursive: true });
+    writeFileSync(
+      path.join(root, '.github', 'required-status-checks.json'),
+      JSON.stringify({ branches: { main: { required_status_checks: [{ context: 'a' }] } } }),
+      'utf8',
+    );
+    expect(() => findContextNameFindings(root)).toThrow(/broken checkout/);
   });
 
   it('reports a develop-side entry whose name no job publishes', () => {
