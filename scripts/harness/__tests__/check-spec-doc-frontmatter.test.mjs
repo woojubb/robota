@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { describe, expect, it } from 'vitest';
 
@@ -74,7 +74,7 @@ tags:
 `;
 
 async function createFixture(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-spec-frontmatter-'));
+  const root = makeTemp('robota-spec-frontmatter-');
   for (const [relativePath, content] of Object.entries(files)) {
     const targetPath = path.join(root, relativePath);
     mkdirSync(path.dirname(targetPath), { recursive: true });
@@ -285,7 +285,7 @@ describe('the subject cannot be absent and still read as clean', () => {
     //
     // Directory mode only — the single-FILE mode below must keep working, since that is how the
     // pre-commit path checks one document.
-    const root = await mkdtemp(path.join(tmpdir(), 'absent-spec-docs-fm-'));
+    const root = makeTemp('absent-spec-docs-fm-');
     expect(
       () => findSpecDocFrontmatterFindings(path.join(root, '.agents/spec-docs')),
       'an absent subject was reported as clean',

@@ -1,7 +1,8 @@
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp, readFile, rename, unlink } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { describe, expect, it } from 'vitest';
 
@@ -130,7 +131,7 @@ describe('the examined count', () => {
   ].join('\n');
 
   async function tasksFixture(files) {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-task-archival-'));
+    const root = makeTemp('robota-task-archival-');
     mkdirSync(path.join(root, '.agents/tasks/completed'), { recursive: true });
     for (const [rel, content] of Object.entries(files)) {
       const abs = path.join(root, rel);
@@ -238,7 +239,7 @@ describe('AGREEMENT child lifecycle projections', () => {
     archivedParent = false,
     child2Status = 'in-progress',
   } = {}) {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-task-agreement-'));
+    const root = makeTemp('robota-task-agreement-');
     const parentDir = archivedParent ? '.agents/tasks/completed' : '.agents/tasks';
     const specDir = archivedParent ? '.agents/spec-docs/done' : '.agents/spec-docs/active';
     const parentTask = `${parentDir}/AGREEMENT-900-parent.md`;

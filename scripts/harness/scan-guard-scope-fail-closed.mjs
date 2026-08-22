@@ -87,6 +87,14 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // INFRA-126. Measured as `findTempDirOwnerFindings(bare)`: throws
+    // `scripts/harness/__tests__ missing from <root>` before a single file is read.
+    file: 'scan-temp-dir-owner.mjs',
+    finder: 'findTempDirOwnerFindings',
+    tree: 'scripts/harness/__tests__',
+    why: 'the harness test directory IS the population this floor governs — over a root without it there is no call site to judge, and "no findings" would mean "nobody creates a temp directory directly" when nothing was read',
+  },
+  {
     // INFRA-127. Measured as `findTaskFrontmatterFindings(bare)`: throws `.agents/tasks missing from
     // <root>` from `activeTaskFiles`, before a single record is read. The first cut returned an empty
     // list there and this classification is what caught it — `main()` had a fail-closed branch while

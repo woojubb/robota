@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { describe, expect, it } from 'vitest';
 
@@ -11,7 +11,7 @@ import {
 } from '../check-sdk-public-surface.mjs';
 
 async function createFixture(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-sdk-public-surface-'));
+  const root = makeTemp('robota-sdk-public-surface-');
   const fixtureFiles = {
     'packages/agent-framework/package.json': JSON.stringify({
       exports: {

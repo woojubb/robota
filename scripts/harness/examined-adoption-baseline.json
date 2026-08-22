@@ -75,6 +75,7 @@
     "symlink-following-enumeration",
     "task-archival",
     "task-frontmatter-fields",
+    "temp-dir-owner",
     "test-plans",
     "test-selection-tolerance",
     "tool-classification",
