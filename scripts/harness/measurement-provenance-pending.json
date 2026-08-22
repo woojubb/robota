@@ -2,6 +2,7 @@
   "item": "HARNESS-087",
   "reason": "Every harness module carrying the declaration marker is classified here. `covered` meets the floor and is re-measured each run, so losing coverage is a regression finding rather than a quiet move to the debt list. `pending` was recorded unmet when the floor was adopted \u2014 the counter is not exported, or nothing asserts its value \u2014 and an entry that comes to meet the floor is itself a finding.",
   "covered": [
+    "scripts/harness/allocate-work-item-id.mjs",
     "scripts/harness/check-contract-disposition.mjs",
     "scripts/harness/check-fixture-floor.mjs",
     "scripts/harness/check-sdk-public-surface.mjs",

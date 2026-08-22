@@ -82,7 +82,22 @@ record's ID".
 
 ## Process
 
-1. Create a new `.md` file in this directory with the required frontmatter (see File Format below).
+1. Allocate the ID and create the record in ONE step:
+
+   ```
+   pnpm harness:task:allocate INFRA "the problem, as a sentence" --issue 1916
+   ```
+
+   Do **not** read the highest number and add one. That read has a shelf life measured in minutes
+   when more than one session is working, and the number is claimed by more than the filenames in
+   this directory: on 2026-08-22, 63 IDs were claimed by a tracked file that is not a record — a
+   rule citing the item that introduced it, a scan header, a hook comment. `INFRA-127` was one of
+   them, and a survey of this directory reported `INFRA-126` as the highest.
+
+   The allocator reads the records, every citation in the tree, and the issue titles, and says so:
+   when it cannot reach the issue list it prints that it allocated from a smaller set rather than
+   passing quietly. Add `--dry-run` to see the ID without writing the file.
+
 2. Set `status: todo` (not yet started) or `status: in-progress` (underway) in frontmatter.
 3. When implementation is complete and all gates pass (see
    [backlog-execution.md](../rules/backlog-execution.md)):

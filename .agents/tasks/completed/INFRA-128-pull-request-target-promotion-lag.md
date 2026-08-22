@@ -1,8 +1,9 @@
 ---
 title: 'INFRA-128: report the promotion lag of every pull_request_target gate'
 issue: https://github.com/woojubb/robota/issues/2039
-status: in-progress
+status: done
 created: 2026-08-22
+completed: 2026-08-22
 priority: medium
 urgency: soon
 area: scripts/harness, .github/workflows

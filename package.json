@@ -117,7 +117,8 @@
     "test:mutation": "stryker run",
     "proof:external": "node scripts/external-proof/run-external-proof.mjs",
     "typecheck:compare": "node scripts/perf/compare-typecheck.mjs",
-    "harness:review:record": "node scripts/harness/record-local-review.mjs"
+    "harness:review:record": "node scripts/harness/record-local-review.mjs",
+    "harness:task:allocate": "node scripts/harness/allocate-work-item-id.mjs"
   },
   "keywords": [
     "ai",
