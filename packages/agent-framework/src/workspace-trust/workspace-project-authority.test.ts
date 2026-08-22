@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   WorkspaceAuthorityRequiredError,
@@ -220,6 +220,25 @@ describe('WorkspaceTrustService project authority', () => {
     expect(() => reader.readText('linked-outside/secret.txt', 'test link')).toThrowError(
       WorkspaceAuthorityRequiredError,
     );
+  });
+
+  it('enforces a per-call byte budget through the portable stable-handle reader', async () => {
+    const { root, service } = fixture();
+    writeFileSync(join(root, 'portable.txt'), 'larger than one byte', 'utf8');
+    const granted = await service.grant(root);
+    if (granted.status !== 'trusted') throw new Error('expected trusted access');
+    const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    try {
+      expect(() =>
+        getWorkspaceProjectReader(granted.authority).readBytes(
+          'portable.txt',
+          'test portable bounded read',
+          1,
+        ),
+      ).toThrow(/read limit/i);
+    } finally {
+      platform.mockRestore();
+    }
   });
 
   it('binds application state to a closed namespace and refuses linked write targets', async () => {
