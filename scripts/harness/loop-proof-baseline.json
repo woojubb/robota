@@ -9,7 +9,6 @@
     "npm-otp-publish",
     "release-orchestration",
     "source-stabilization",
-    "spec-code-conformance",
     "user-execution-scenario"
   ]
 }
