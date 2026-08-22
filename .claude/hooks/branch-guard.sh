@@ -1338,30 +1338,25 @@ while read -r STMT_START STMT_LEN; do
     # — silently disabling the very rule this check enforces. The delete-guard below already carries that
     # lesson ("a merged PR earlier in this branch's history does not make deletion safe"); this path was
     # written without it.
-    MERGED_REFS=""
-    MERGED_REFS_READ=false
+    # Asked PER BRANCH, not as one global list (PROC-012, issue #2135). The previous form pulled
+    # `pr list --state merged --limit 500` once and matched candidates against it. That list is
+    # SATURATED — it returns a full 500 — so every merged PR older than the window fell out and its
+    # branch was reported unmerged. The hook printed a NOTE saying the list came back full and blocked
+    # anyway, which is a guard announcing its own false positive and refusing regardless. Measured
+    # 2026-08-23: it blocked branch creation in two of four active clones inside ten minutes, on four
+    # branches merged as #2143, #2147, #2133 and #2144, and produced one reflex override.
     #
-    # Bounded, because this runs on every branch creation. This path was once entirely local; it makes
-    # a network call now, and a SLOW response is not a failed one — unbounded, a stalled connection
-    # holds the branch creation open instead of taking the fallback below.
+    # `--head <branch>` has no window to saturate. It costs one call per branch that is actually ahead
+    # of the integration ref — the branches already deleted after their merge cost nothing, which is
+    # the direction the rule pushes anyway.
     #
-    # The bound comes from the shared helper, which is where the deadline and every hard-won detail of
-    # enforcing it lives. That helper's original was written HERE, for this one query, while ten other
-    # calls in this directory had no bound at all — which is how a convention ends up applied once.
-    MERGED_LIMIT=500
-    if MERGED_REFS=$(bounded_gh pr list --state merged --limit "$MERGED_LIMIT" \
-      --json headRefName,headRefOid --jq '.[] | "\(.headRefName) \(.headRefOid)"'); then
-      MERGED_REFS_READ=true
-    fi
-
-    # A full page may mean the list was truncated, so older merged branches would be missing and the
-    # check would over-report again — without the notice that explains why. Say it rather than let the
-    # list quietly grow back.
-    MERGED_TRUNCATED=false
-    if [[ "$MERGED_REFS_READ" == "true" ]] &&
-      [[ "$(printf '%s\n' "$MERGED_REFS" | grep -c .)" -ge "$MERGED_LIMIT" ]]; then
-      MERGED_TRUNCATED=true
-    fi
+    # Still bounded, and for the reason the global form was: this path was once entirely local, it now
+    # makes a network call, and it runs on every branch creation. A SLOW response is not a failed one —
+    # unbounded, a stalled connection holds the branch creation open instead of taking the fallback
+    # below. The bound comes from the shared helper, which owns the deadline and every hard-won detail
+    # of enforcing it. Per-branch makes that bound MORE load-bearing, not less: the deadline is now
+    # paid per candidate rather than once, which is the cost of asking a question that has an answer.
+    MERGED_QUERY_FAILED=false
 
     UNMERGED_BRANCHES=()
     SKIP_PATTERNS="^(main|master|develop|gh-pages)$"
@@ -1373,12 +1368,28 @@ while read -r STMT_START STMT_LEN; do
       [[ -z "$candidate" ]] && continue
       ahead=$(hook_git_in "$PROJECT_DIR" rev-list --count "$INTEGRATION_REF..$candidate" 2>/dev/null || echo 0)
       [[ "$ahead" -gt 0 ]] || continue
-      # A merged PR settles it — for the COMMIT that was merged, not for the name.
-      if [[ "$MERGED_REFS_READ" == "true" ]]; then
-        candidate_sha=$(hook_git_in "$PROJECT_DIR" rev-parse "$candidate" 2>/dev/null || echo "")
-        if [[ -n "$candidate_sha" ]] &&
-          printf '%s\n' "$MERGED_REFS" | grep -Fxq -- "$candidate $candidate_sha"; then
-          continue
+      # A merged PR settles it — for the COMMIT that was merged, not for the name, and only when the
+      # merge actually LANDED on the integration ref.
+      #
+      # Three conditions, all required. A merged PR must exist for this branch name; the local branch
+      # must still point at the exact commit that PR merged (a reused name with new work stacked on it
+      # is NOT settled — the delete-guard below carries the same lesson); and the PR's merge commit
+      # must be an ancestor of the integration ref. That last one is not redundant: measured
+      # 2026-08-23, four branches on `origin` had a merged PR whose base was a since-deleted FEATURE
+      # branch, so their work is on neither `develop` nor `main`. Asking only "was it merged" clears
+      # all four.
+      candidate_sha=$(hook_git_in "$PROJECT_DIR" rev-parse "$candidate" 2>/dev/null || echo "")
+      if [[ -n "$candidate_sha" ]]; then
+        if MERGED_PR=$(bounded_gh pr list --state merged --head "$candidate" \
+          --json headRefOid,mergeCommit --jq '.[0] | "\(.headRefOid) \(.mergeCommit.oid)"'); then
+          merged_head="${MERGED_PR%% *}"
+          merged_commit="${MERGED_PR##* }"
+          if [[ "$merged_head" == "$candidate_sha" && -n "$merged_commit" && "$merged_commit" != "null" ]] &&
+            hook_git_in "$PROJECT_DIR" merge-base --is-ancestor "$merged_commit" "$INTEGRATION_REF" 2>/dev/null; then
+            continue
+          fi
+        else
+          MERGED_QUERY_FAILED=true
         fi
       fi
       UNMERGED_BRANCHES+=("$candidate ($ahead commits ahead of $INTEGRATION_REF)")
@@ -1392,12 +1403,10 @@ while read -r STMT_START STMT_LEN; do
       done
       echo "[branch-guard] Branch cleanup after a merge is governed by .agents/rules/git-branch.md" >&2
       echo "[branch-guard] (see 'Delete Merged Branches') — read it there, it is the only copy." >&2
-      if [[ "$MERGED_REFS_READ" != "true" ]]; then
-        echo "[branch-guard] NOTE: merged PRs could not be read, so squash-merged branches are listed" >&2
-        echo "[branch-guard] here as unmerged. The list is longer than the real backlog." >&2
-      elif [[ "$MERGED_TRUNCATED" == "true" ]]; then
-        echo "[branch-guard] NOTE: the merged-PR list came back full ($MERGED_LIMIT), so older merged" >&2
-        echo "[branch-guard] branches may be missing from it and listed here as unmerged." >&2
+      if [[ "$MERGED_QUERY_FAILED" == "true" ]]; then
+        echo "[branch-guard] NOTE: at least one merged-PR query failed (gh unavailable / timed out), so a" >&2
+        echo "[branch-guard] squash-merged branch may be listed here as unmerged. Verify by hand before" >&2
+        echo "[branch-guard] overriding: gh pr list --state merged --head <branch> --json mergeCommit" >&2
       fi
       echo "[branch-guard] To override: set BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1" >&2
       exit 2
