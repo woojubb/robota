@@ -3,8 +3,11 @@ id: DIST-005
 title: Nothing verifies a published release artifact — the macOS downloads do not open
 status: in-progress
 priority: high
+urgency: soon
 type: INFRA
 created: 2026-07-26
+area: .github/workflows/release-bun-binaries.yml, .github/workflows/release-desktop-app.yml
+depends_on: []
 ---
 
 # DIST-005: verify what we publish, before signing it
