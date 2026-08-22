@@ -522,6 +522,13 @@ export const SCAN_COMMANDS = [
     name: 'workflow-provenance',
     command: ['node', 'scripts/harness/scan-workflow-provenance.mjs'],
   },
+  // Issue #2039. The sibling above makes a `pull_request` gate's edit VISIBLE; a `pull_request_target`
+  // gate fails the opposite way — it loads its YAML from the default branch, so a fix to it is inert
+  // on the branch that carries it and stays inert until promotion. This reports that gap.
+  {
+    name: 'pull-request-target-promotion-lag',
+    command: ['node', 'scripts/harness/scan-pull-request-target-promotion-lag.mjs'],
+  },
   {
     name: 'new-rule-declares-enforcement',
     command: ['node', 'scripts/harness/scan-new-rule-declares-enforcement.mjs'],

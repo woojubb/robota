@@ -35,6 +35,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
+import { triggersFromPullRequestTarget } from './scan-pull-request-target-promotion-lag.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const REGISTRY_RELATIVE = '.github/required-status-checks.json';
@@ -130,14 +131,27 @@ export function findWorkflowProvenanceFindings(root = WORKSPACE_ROOT, baseRef, h
     const touched = changedFiles(root, baseRef, headRef).filter((f) => workflows.includes(f));
     for (const file of touched) {
       const contexts = contextsByWorkflow.get(file) ?? [];
+      const full = path.join(root, file);
+      // The two triggers fail in OPPOSITE directions, so one message would be wrong for one of them.
+      // `pull_request` loads the edited definition and judges this change with it — the edit is too
+      // powerful. `pull_request_target` loads the DEFAULT branch's copy — the edit does nothing at
+      // all until a promotion carries it (issue #2039), which is how two verified, green fixes to
+      // this repository's own gate were both inert.
+      const promoted =
+        existsSync(full) && triggersFromPullRequestTarget(readFileSync(full, 'utf8'));
       findings.push({
         file,
-        problem:
-          `is edited by this change AND provides required check(s): ${contexts.join(', ')}. ` +
-          `Because it is triggered by \`pull_request\`, the edited definition is what will judge ` +
-          `this pull request — the change can move its own gate. This is not a refusal to make the ` +
-          `edit; it is a refusal to make it INVISIBLY. State in the pull request why the control ` +
-          `plane changes, and have a reviewer read the job that reports each context above.`,
+        problem: promoted
+          ? `is edited by this change AND provides required check(s): ${contexts.join(', ')}. ` +
+            `Because it is triggered by \`pull_request_target\`, THIS EDIT DOES NOT TAKE EFFECT ` +
+            `until a promotion carries it — the version that runs is the default branch's copy of ` +
+            `this file, whatever this change says. Verify the fix against the promoted copy, not ` +
+            `against this branch, and say in the pull request that it is not yet live.`
+          : `is edited by this change AND provides required check(s): ${contexts.join(', ')}. ` +
+            `Because it is triggered by \`pull_request\`, the edited definition is what will judge ` +
+            `this pull request — the change can move its own gate. This is not a refusal to make the ` +
+            `edit; it is a refusal to make it INVISIBLY. State in the pull request why the control ` +
+            `plane changes, and have a reviewer read the job that reports each context above.`,
       });
     }
   }
