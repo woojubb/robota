@@ -82,6 +82,32 @@ registry state something untrue. The same held-membership shape `regression-red-
 
 ## Progress
 
+### 2026-08-22 — the fixes are landed and INERT until promotion (issue #2039)
+
+The completion pull request was used as the last verification: with the base-pinned checkout on
+`develop`, the gate's advisory should have read `::examined:: 3`. It read **2** again.
+
+`develop` carries the fix at line 82 (`ref: ${{ github.event.pull_request.base.sha }}`); `main` does
+not; the run's checkout received **no `ref:` input**. So the executed definition was `main`'s.
+Confirmed a second way: `main`'s copy still declares `types: [opened, synchronize, reopened]` while
+`develop`'s declares `edited` as well.
+
+**A `pull_request_target` workflow runs the DEFAULT branch's copy of its own YAML**, not the pull
+request base's. The checkout defect fixed in pull request #2035 was a symptom of this, not the cause.
+
+Consequences, filed as issue #2039 rather than left inside this record:
+
+- Both of today's fixes are landed on `develop` and **inert**. The R7 retarget hole is live on `main`
+  until a promotion carries pull request #2030.
+- The security property is unaffected, and arguably stronger: `main` is further from a pull request's
+  reach than `develop`. Trusted provenance holds. What does not hold is the assumption that fixing the
+  gate fixes the gate.
+
+**This item is complete anyway, and the distinction matters.** The fifth step is "make the context
+required and validate the paths". It IS required on both live rulesets, and it DOES enforce — proven
+on throwaway pull request #2034, which it refused. The activation latency of a later fix is a property
+of the gate's update path, discovered here and owned by issue #2039.
+
 ### 2026-08-22 — red-proved live, and the proof found a defect
 
 The Test Plan's _"live throwaway PR proof"_ ran as pull request #2034: three inert comment lines added
