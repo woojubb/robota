@@ -23,6 +23,7 @@ import {
   createProviderFromSettings,
   readProviderSettings,
 } from '../command-api/provider/provider-factory.js';
+import { createDefaultUserSettingsSources } from '../config/settings-source.js';
 import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
 import {
@@ -955,12 +956,14 @@ export class InteractiveSession
 
   private async switchProvider(profileName: string): Promise<void> {
     const session = this.getSessionOrThrow();
-    const cwd = this.getCwd();
-    const settings = readProviderSettings(cwd, {
+    // ARCH-043 owns immutable project-access propagation into lazy commands. Until then this path
+    // intentionally sees only explicit host-owned user settings and never reconstructs project access.
+    const settingsSources = createDefaultUserSettingsSources();
+    const settings = readProviderSettings(settingsSources, {
       providerOverride: profileName,
       providerDefinitions: this.providerDefinitions,
     });
-    const provider = createProviderFromSettings(cwd, undefined, {
+    const provider = createProviderFromSettings(settingsSources, undefined, {
       providerOverride: profileName,
       providerDefinitions: this.providerDefinitions,
     });

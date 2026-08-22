@@ -17,7 +17,7 @@ import type {
   TWorkspaceProjectSettingsWriteDecision,
 } from './types.js';
 
-const projectSettingsWriters = new WeakSet<object>();
+const projectSettingsWriters = new WeakMap<object, IWorkspaceProjectAuthority>();
 
 const SETTINGS_TARGETS: Readonly<Record<TWorkspaceProjectSettingsTarget, string>> = {
   project: join('.robota', 'settings.json'),
@@ -62,7 +62,7 @@ export function createWorkspaceProjectSettingsWriter(
       );
     }),
   );
-  projectSettingsWriters.add(writer);
+  projectSettingsWriters.set(writer, accepted);
   return writer as IWorkspaceProjectSettingsWriter;
 }
 
@@ -79,4 +79,19 @@ export function assertWorkspaceProjectSettingsWriter(
     );
   }
   return candidate as IWorkspaceProjectSettingsWriter;
+}
+
+/** Internal same-grant check for a project settings read/write adapter. */
+export function assertWorkspaceProjectSettingsWriterForAuthority(
+  writer: IWorkspaceProjectSettingsWriter,
+  authority: IWorkspaceProjectAuthority,
+): IWorkspaceProjectSettingsWriter {
+  const acceptedWriter = assertWorkspaceProjectSettingsWriter(writer);
+  const acceptedAuthority = assertWorkspaceProjectAuthority(authority);
+  if (projectSettingsWriters.get(acceptedWriter) !== acceptedAuthority) {
+    throw new WorkspaceAuthorityRequiredError(
+      'Project settings writer does not belong to the supplied workspace authority.',
+    );
+  }
+  return acceptedWriter;
 }

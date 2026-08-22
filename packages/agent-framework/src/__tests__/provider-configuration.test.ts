@@ -5,18 +5,88 @@ import { join } from 'node:path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import {
-  applyActiveModelChange,
-  applyProviderConfiguration,
-  applyProviderSwitch,
-  resolveProviderSettingsWriteTargetPath,
+  applyActiveModelChange as applyActiveModelChangeToStores,
+  applyProviderConfiguration as applyProviderConfigurationToStore,
+  applyProviderSwitch as applyProviderSwitchToStore,
+  resolveProviderSettingsWriteTarget,
 } from '../command-api/provider/provider-configuration.js';
-import { readProviderSettings } from '../command-api/provider/provider-factory.js';
+import { readProviderSettings as readProviderSettingsFromSources } from '../command-api/provider/provider-factory.js';
+import { getProviderSettingsPaths } from '../config/provider-paths.js';
+import { createNodeHostSettingsSource } from '../config/settings-source.js';
+import { createNodeHostSettingsStore } from '../config/settings-store.js';
+
+import type { IActiveModelChangeOptions } from '../command-api/provider/provider-configuration.js';
+import type {
+  IProviderSetupInput,
+  IProviderSettingsBuildOptions,
+} from '../command-api/provider/provider-settings.js';
+import type { IProviderSwitchOptions } from '../command-api/provider/provider-configuration.js';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-provider-configuration-test-'));
 const ORIGINAL_HOME = process.env.HOME;
 
 function readJson(path: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+}
+
+function readProviderSettings(
+  cwd: string,
+  options: Parameters<typeof readProviderSettingsFromSources>[1] = {},
+) {
+  return readProviderSettingsFromSources(
+    getProviderSettingsPaths(cwd).map((path) => createNodeHostSettingsSource('user', path)),
+    options,
+  );
+}
+
+function hostStores(paths: readonly string[]) {
+  return paths.map((path) => createNodeHostSettingsStore('user', path));
+}
+
+function applyProviderConfiguration(
+  path: string,
+  input: IProviderSetupInput,
+  options: IProviderSettingsBuildOptions = {},
+) {
+  return applyProviderConfigurationToStore(
+    createNodeHostSettingsStore('user', path),
+    input,
+    options,
+  );
+}
+
+function applyProviderSwitch(
+  path: string,
+  profileName: string,
+  options: IProviderSwitchOptions = {},
+) {
+  return applyProviderSwitchToStore(
+    createNodeHostSettingsStore('user', path),
+    profileName,
+    options,
+  );
+}
+
+function resolveProviderSettingsWriteTargetPath(
+  cwd: string,
+  options: { settingsPaths?: readonly string[] } = {},
+) {
+  const stores = hostStores(options.settingsPaths ?? getProviderSettingsPaths(cwd));
+  return resolveProviderSettingsWriteTarget(stores).displayName;
+}
+
+function applyActiveModelChange(
+  cwd: string,
+  modelId: string,
+  options: IActiveModelChangeOptions & { settingsPaths?: readonly string[] } = {},
+) {
+  const stores = hostStores(options.settingsPaths ?? getProviderSettingsPaths(cwd));
+  return applyActiveModelChangeToStores(
+    stores.map((store) => store.source),
+    stores,
+    modelId,
+    options.providerOverride === undefined ? {} : { providerOverride: options.providerOverride },
+  );
 }
 
 describe('provider configuration writes', () => {

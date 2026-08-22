@@ -54,18 +54,17 @@ export {
   applyProviderConfiguration,
   applyProviderSwitch,
   applyActiveModelChange,
-  resolveProviderSettingsWriteTargetPath,
+  resolveProviderSettingsWriteTarget,
 } from '../command-api/provider/provider-configuration.js';
 export type {
   IProviderSwitchOptions,
   IActiveModelChangeOptions,
   IActiveModelChangeResult,
-  IProviderSettingsWriteTargetOptions,
 } from '../command-api/provider/provider-configuration.js';
 export {
   mergeProviders,
   mergeSettings,
-  readMergedProviderSettingsFromPaths,
+  readMergedProviderSettingsFromSources,
   resolveActiveProvider,
 } from '../command-api/provider/provider-merge.js';
 export type { IReadProviderSettingsOptions } from '../command-api/provider/provider-factory.js';

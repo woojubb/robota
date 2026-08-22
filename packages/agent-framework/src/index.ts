@@ -149,7 +149,6 @@ export type {
   IProviderSwitchOptions,
   IActiveModelChangeOptions,
   IActiveModelChangeResult,
-  IProviderSettingsWriteTargetOptions,
   IReadProviderSettingsOptions,
   IContextReferenceAddResult,
   IContextReferenceClearResult,
@@ -164,10 +163,10 @@ export {
   applyProviderConfiguration,
   applyProviderSwitch,
   applyActiveModelChange,
-  resolveProviderSettingsWriteTargetPath,
+  resolveProviderSettingsWriteTarget,
   mergeProviders,
   mergeSettings,
-  readMergedProviderSettingsFromPaths,
+  readMergedProviderSettingsFromSources,
   resolveActiveProvider,
   createProviderFromSettings,
   ProviderConfigError,
@@ -618,6 +617,23 @@ export { promptForApproval } from './permissions/permission-prompt.js';
 // runtime bundle (TEST-003).
 
 // ── Settings I/O ─────────────────────────────────────────────
+export {
+  createDefaultUserSettingsSources,
+  createNodeHostSettingsSource,
+  createWorkspaceProjectSettingsSources,
+  readSettingsSourceText,
+} from './config/settings-source.js';
+export type {
+  IWorkspaceProjectSettingsSource,
+  THostSettingsScope,
+  TProjectSettingsScope,
+  TSettingsSource,
+} from './config/settings-source.js';
+export {
+  createNodeHostSettingsStore,
+  createWorkspaceProjectSettingsStore,
+} from './config/settings-store.js';
+export type { ISettingsDocumentStore } from './config/settings-store.js';
 export {
   getUserSettingsPath,
   resolveSettingsPathForScope,
