@@ -1,6 +1,10 @@
 import { join } from 'node:path';
 
-import { loadSessionLogEntries, validateSessionReplayLogEntries } from '@robota-sdk/agent-session';
+import {
+  loadSessionLogEntries,
+  NodeSessionLogSource,
+  validateSessionReplayLogEntries,
+} from '@robota-sdk/agent-session';
 
 import { projectPaths } from '../../paths.js';
 
@@ -81,7 +85,7 @@ export function computeSessionReplayValidationReport(
   sessionId: string,
 ): ICommandSessionReplayValidationReport {
   const logFile = join(projectPaths(cwd).logs, `${sessionId}.jsonl`);
-  const entries = loadSessionLogEntries(logFile);
+  const entries = loadSessionLogEntries(new NodeSessionLogSource(logFile));
   return {
     logFile,
     entryCount: entries.length,

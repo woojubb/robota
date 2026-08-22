@@ -478,6 +478,4 @@ export interface IInteractiveSessionStore {
   load(id: string): IInteractiveSessionRecord | undefined;
   list(): IInteractiveSessionRecord[];
   delete(id: string): void;
-  /** Return the absolute record path when the store is file-backed. */
-  getFilePath?(id: string): string;
 }

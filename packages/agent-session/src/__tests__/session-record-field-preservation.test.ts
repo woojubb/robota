@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 import { afterEach, describe, expect, expectTypeOf, it } from 'vitest';
 
-import { Session, SessionStore } from '../index.js';
+import { NodeSessionStore, Session } from '../index.js';
 
 import type {
   IChatOptions,
@@ -170,14 +170,14 @@ describe('ARCH-015 Session record field preservation', () => {
   });
 
   it('implements the canonical interactive-session store port directly', () => {
-    expectTypeOf<SessionStore>().toMatchTypeOf<IInteractiveSessionStore>();
-    expectTypeOf<IInteractiveSessionStore>().toHaveProperty('getFilePath');
+    expectTypeOf<NodeSessionStore>().toMatchTypeOf<IInteractiveSessionStore>();
+    expectTypeOf<IInteractiveSessionStore>().not.toHaveProperty('getFilePath');
   });
 
   it('preserves every non-owned field while refreshing Session-owned fields', async () => {
     const scratchDir = mkdtempSync(join(tmpdir(), 'arch-015-'));
     scratchDirs.push(scratchDir);
-    const store = new SessionStore(join(scratchDir, 'sessions'));
+    const store = new NodeSessionStore(join(scratchDir, 'sessions'));
     const existing = createExistingRecord();
     store.save(existing);
 

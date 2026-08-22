@@ -1,5 +1,5 @@
 /**
- * SessionStore — persists conversation sessions as JSON files.
+ * NodeSessionStore — persists conversation sessions as JSON files.
  *
  * Sessions are stored at `~/.robota/sessions/{id}.json` by default.
  * Consumers can inject a project-local directory such as `.robota/sessions`.
@@ -25,23 +25,15 @@ import type {
 } from '@robota-sdk/agent-interface-transport';
 
 /**
- * Return the current user home directory.
- * Reads process.env.HOME at call time so tests can override it.
- */
-function getHomeDir(): string {
-  return process.env.HOME ?? process.env.USERPROFILE ?? '/';
-}
-
-/**
  * Persistent session store backed by individual JSON files.
  *
  * Construct with a custom `baseDir` to redirect storage (useful in tests).
  */
-export class SessionStore implements IInteractiveSessionStore {
+export class NodeSessionStore implements IInteractiveSessionStore {
   private readonly baseDir: string;
 
-  constructor(baseDir?: string) {
-    this.baseDir = baseDir ?? join(getHomeDir(), '.robota', 'sessions');
+  constructor(baseDir: string) {
+    this.baseDir = baseDir;
   }
 
   /** Ensure the storage directory exists */
@@ -55,16 +47,11 @@ export class SessionStore implements IInteractiveSessionStore {
    * Absolute path to a session's JSON file.
    *
    * SEC-006: every public method routes through here, so validating the id at this one point covers
-   * `save` (write), `load` (read), `delete` (unlink) and `getFilePath` at once.
+   * `save` (write), `load` (read), and `delete` (unlink) at once.
    */
   private filePath(id: string): string {
     assertSafeSessionId(id);
     return join(this.baseDir, `${id}.json`);
-  }
-
-  /** Return the absolute file path for a session — implements IInteractiveSessionStore.getFilePath */
-  getFilePath(id: string): string {
-    return this.filePath(id);
   }
 
   /**

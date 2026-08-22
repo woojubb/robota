@@ -31,10 +31,13 @@ vi.mock('@robota-sdk/agent-session', () => ({
     }
   },
   FileSessionLogger: class MockFileSessionLogger {
-    constructor(public readonly logDir: string) {}
+    constructor(public readonly sink: object) {}
     log(): void {
       // no-op
     }
+  },
+  NodeSessionLogSink: class MockNodeSessionLogSink {
+    constructor(public readonly logDir: string) {}
   },
   SilentSessionLogger: class MockSilentSessionLogger {
     log(): void {

@@ -35,7 +35,9 @@ import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
  * package), and reported as unavailable — never a hard crash — in the default published CLI.
  */
 export function loadReplayProvider(logFile: string): IAIProvider {
-  let mod: { createReplayProviderFromLogFile: (file: string) => IAIProvider };
+  let mod: {
+    createReplayProviderFromNodeLogFile: (file: string) => IAIProvider;
+  };
   try {
     const requireFrom = createRequire(import.meta.url);
     mod = requireFrom('@robota-sdk/agent-provider-replay') as typeof mod;
@@ -44,7 +46,7 @@ export function loadReplayProvider(logFile: string): IAIProvider {
       '--session-log replay requires @robota-sdk/agent-provider-replay, a dev-only package that is not bundled in the published CLI.',
     );
   }
-  return mod.createReplayProviderFromLogFile(logFile);
+  return mod.createReplayProviderFromNodeLogFile(logFile);
 }
 
 /**

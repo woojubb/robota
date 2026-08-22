@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { SessionStore } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { createProjectSessionStore } from '../interactive/session-persistence.js';
@@ -30,11 +30,11 @@ function makeRecord(overrides: Partial<ISessionRecord> = {}): ISessionRecord {
 
 describe('SessionStore', () => {
   let tmpDir: string;
-  let store: SessionStore;
+  let store: NodeSessionStore;
 
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), 'robota-session-test-'));
-    store = new SessionStore(tmpDir);
+    store = new NodeSessionStore(tmpDir);
   });
 
   afterEach(() => {
@@ -223,7 +223,7 @@ describe('SessionStore', () => {
     });
 
     it('returns empty array when base directory does not exist', () => {
-      const nonExistentStore = new SessionStore(join(tmpDir, 'does-not-exist'));
+      const nonExistentStore = new NodeSessionStore(join(tmpDir, 'does-not-exist'));
       expect(nonExistentStore.list()).toEqual([]);
     });
   });
@@ -342,7 +342,7 @@ describe('SessionStore', () => {
   describe('directory creation', () => {
     it('creates the base directory on first save', () => {
       const nestedDir = join(tmpDir, 'nested', 'sessions');
-      const nestedStore = new SessionStore(nestedDir);
+      const nestedStore = new NodeSessionStore(nestedDir);
       nestedStore.save(makeRecord({ id: 'first' }));
       const loaded = nestedStore.load('first');
       expect(loaded?.id).toBe('first');

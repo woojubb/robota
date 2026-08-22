@@ -279,6 +279,7 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
     contextCapacityHint: options.contextCapacityHint,
     autoCompactThreshold: options.autoCompactThreshold ?? options.config.autoCompactThreshold,
     sessionLogger: options.sessionLogger,
+    transcriptPath: options.transcriptPath,
     hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
     agentName: options.agentName,
     ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),

@@ -1,4 +1,6 @@
-import { FileSessionLogger } from '@robota-sdk/agent-session';
+import { join } from 'node:path';
+
+import { FileSessionLogger, NodeSessionLogSink } from '@robota-sdk/agent-session';
 
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
 
@@ -39,7 +41,8 @@ export function buildCreateSessionOptions(
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,
     terminal: NOOP_TERMINAL,
-    sessionLogger: new FileSessionLogger(logsDir),
+    sessionLogger: new FileSessionLogger(new NodeSessionLogSink(logsDir)),
+    transcriptPath: join(logsDir, `${sessionId}.jsonl`),
     permissionHandler: options.permissionHandler,
     // CMD-005: the channel's unified ask renderer doubles as the model-question seam for tools.
     ...(options.askHandler ? { ask: options.askHandler } : {}),

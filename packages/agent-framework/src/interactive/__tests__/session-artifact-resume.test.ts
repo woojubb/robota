@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import {
-  SessionStore,
+  NodeSessionStore,
   deserializeSessionArtifact,
   serializeSessionArtifact,
 } from '@robota-sdk/agent-session';
@@ -31,8 +31,8 @@ function record(id: string): ISessionRecord {
   } as unknown as ISessionRecord;
 }
 
-function newStore(): SessionStore {
-  return new SessionStore(mkdtempSync(path.join(tmpdir(), 'artifact-resume-')));
+function newStore(): NodeSessionStore {
+  return new NodeSessionStore(mkdtempSync(path.join(tmpdir(), 'artifact-resume-')));
 }
 
 describe('imported session artifact resumes via loadSessionRecord (TC-03)', () => {

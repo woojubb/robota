@@ -3,8 +3,9 @@ import { join } from 'node:path';
 import {
   isSafeSessionId,
   loadSessionLogEntries,
+  NodeSessionLogSource,
   replaySessionLogEntries,
-  SessionStore,
+  NodeSessionStore,
 } from '@robota-sdk/agent-session';
 
 import { NodeFileSystem } from '../adapters/node-file-system.js';
@@ -83,12 +84,12 @@ export function resolveSessionIdByIdOrName(
 }
 
 class ProjectSessionStoreFacade implements IInteractiveSessionStore {
-  private readonly store: SessionStore;
+  private readonly store: NodeSessionStore;
   private readonly logsDir: string | undefined;
   private readonly fs: IFileSystem;
 
   constructor(baseDir: string, logsDir?: string, fs: IFileSystem = new NodeFileSystem()) {
-    this.store = new SessionStore(baseDir);
+    this.store = new NodeSessionStore(baseDir);
     this.logsDir = logsDir;
     this.fs = fs;
   }
@@ -127,7 +128,7 @@ class ProjectSessionStoreFacade implements IInteractiveSessionStore {
     // component below, and reaches here from `load()` with a remote-supplied value.
     if (!isSafeSessionId(id)) return undefined;
     const replay = replaySessionLogEntries(
-      loadSessionLogEntries(join(this.logsDir, `${id}.jsonl`)),
+      loadSessionLogEntries(new NodeSessionLogSource(join(this.logsDir, `${id}.jsonl`))),
     );
     if (!replay.sessionId || replay.messages.length === 0) {
       return undefined;

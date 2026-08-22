@@ -148,6 +148,8 @@ export interface ICreateSessionOptions {
   toolDescriptions?: string[];
   /** Session logger — injected for pluggable session event logging. */
   sessionLogger?: ISessionLogger;
+  /** Trusted host projection of the session transcript path for hook compatibility. */
+  transcriptPath?: string;
   /** Provider factory for prompt hook executors (DI). */
   providerFactory?: TProviderFactory;
   /** Session factory for agent hook executors (DI). */

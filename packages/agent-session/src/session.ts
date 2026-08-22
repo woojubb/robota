@@ -124,7 +124,7 @@ export class Session extends SessionBase {
     // PRESET-016: default true preserves the current behavior — subagent dispatch is allowed
     // unless a preset explicitly disables it.
     this.parallelSubagentsEnabled = options.enableParallelSubagents ?? true;
-    this.transcriptPath = options.sessionStore?.getFilePath?.(this.sessionId);
+    this.transcriptPath = options.transcriptPath;
     this.log('session_init', {
       cwd: this.cwd,
       systemPromptLength: systemMessage.length,

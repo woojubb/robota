@@ -17,17 +17,18 @@ import {
 } from '@robota-sdk/agent-session';
 
 import type { IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
-import type { ISessionLogLine } from '@robota-sdk/agent-session';
+import type { ISessionLogEntry } from '@robota-sdk/agent-session';
+import type { IExternalPayloadSource } from '@robota-sdk/agent-session';
 
 export interface IReplayProviderOptions {
   /** Recorded session-log lines (e.g. from `loadSessionLogEntries`). */
-  readonly entries: readonly ISessionLogLine[];
+  readonly entries: readonly ISessionLogEntry[];
   /** Provider name (default `replay`). */
   readonly name?: string;
   /** Provider version (default `1.0.0`). */
   readonly version?: string;
-  /** Base directory used only to resolve external payloads in consumed normalized responses. */
-  readonly externalPayloadBaseDirectory?: string;
+  /** Explicit source used only to resolve external payloads in consumed normalized responses. */
+  readonly externalPayloadSource?: IExternalPayloadSource;
   /** Maximum nested external-payload references for direct construction or file loading. */
   readonly maxExternalPayloadDepth?: number;
   /** Aggregate external-payload byte limit for direct construction or file loading. */
@@ -112,14 +113,14 @@ function resolveRecordedResponsePayloads(
     referencedValues.push(value);
   });
   if (referencedValues.length === 0) return recordedValues;
-  if (options.externalPayloadBaseDirectory === undefined) {
+  if (options.externalPayloadSource === undefined) {
     throw new SessionLogPayloadResolutionError(
       'UNRESOLVED_REFERENCE',
-      'ReplayProvider received an unresolved external payload without a base directory.',
+      'ReplayProvider received an unresolved external payload without an explicit source.',
     );
   }
   const hydrated = resolveSessionLogExternalPayloads(referencedValues, {
-    baseDirectory: options.externalPayloadBaseDirectory,
+    source: options.externalPayloadSource,
     maxDepth: options.maxExternalPayloadDepth,
     maxTotalBytes: options.maxExternalPayloadTotalBytes,
   });

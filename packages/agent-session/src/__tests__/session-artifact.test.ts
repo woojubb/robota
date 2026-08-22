@@ -10,7 +10,7 @@ import {
   deserializeSessionArtifact,
   serializeSessionArtifact,
 } from '../session-artifact.js';
-import { SessionStore } from '../session-store.js';
+import { NodeSessionStore } from '../session-store.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
 
@@ -36,8 +36,8 @@ function fullRecord(): IInteractiveSessionRecord {
   } as unknown as IInteractiveSessionRecord;
 }
 
-function newStore(): SessionStore {
-  return new SessionStore(mkdtempSync(path.join(tmpdir(), 'artifact-store-')));
+function newStore(): NodeSessionStore {
+  return new NodeSessionStore(mkdtempSync(path.join(tmpdir(), 'artifact-store-')));
 }
 
 describe('session artifact — round-trip fidelity (TC-01)', () => {
@@ -115,8 +115,10 @@ describe('session artifact — async share → resume across two independent sur
     expect(onB?.messages).toEqual(record.messages);
     expect(onB?.history).toEqual(record.history);
     expect(onB?.goal).toEqual(record.goal);
-    // Stores are independent — B has it, and they do not share storage.
-    expect(storeA.getFilePath(record.id)).not.toBe(storeB.getFilePath(record.id));
+    // Stores are independent — deleting B's imported record does not affect A.
+    storeB.delete(record.id);
+    expect(storeA.load(record.id)?.id).toBe(record.id);
+    expect(storeB.load(record.id)).toBeUndefined();
   });
 });
 

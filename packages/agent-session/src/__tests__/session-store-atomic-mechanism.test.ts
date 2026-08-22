@@ -22,13 +22,13 @@ import { mkdtempSync, renameSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { SessionStore } from '../session-store.js';
+import { NodeSessionStore } from '../session-store.js';
 
 describe('SessionStore atomic write mechanism (CORE-019)', () => {
   it('save() writes to a same-directory temp path, then renames into place', () => {
     const baseDir = mkdtempSync(join(tmpdir(), 'robota-store-mech-'));
     try {
-      const store = new SessionStore(baseDir);
+      const store = new NodeSessionStore(baseDir);
       const finalPath = join(baseDir, 'mech.json');
 
       store.save({

@@ -38,6 +38,8 @@ export type { TScrubbableValue } from './scrub-sensitive.js';
 
 // Session logging
 export { FileSessionLogger, SilentSessionLogger } from './session-logger.js';
+export { NodeSessionLogSink } from './session-log-sinks.js';
+export type { IExternalPayloadSink, ISessionLogSink } from './session-log-sinks.js';
 export { SESSION_LOG_EVENT, isSessionLogEvent } from './session-log-events.js';
 export type {
   TSessionLogEventName,
@@ -52,6 +54,8 @@ export type {
   TSessionLogData,
   TSessionLogValue,
 } from './session-logger.js';
+export { NodeExternalPayloadSource, NodeSessionLogSource } from './session-log-sources.js';
+export type { IExternalPayloadSource, ISessionLogSource } from './session-log-sources.js';
 export {
   resolveSessionLogExternalPayloads,
   SessionLogPayloadResolutionError,
@@ -76,7 +80,7 @@ export type {
 
 // Session persistence
 export { assertSafeSessionId, isSafeSessionId } from './session-id.js';
-export { SessionStore } from './session-store.js';
+export { NodeSessionStore } from './session-store.js';
 export type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,

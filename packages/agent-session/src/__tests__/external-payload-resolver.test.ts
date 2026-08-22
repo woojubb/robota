@@ -12,6 +12,7 @@ import {
 } from '../external-payload-resolver.js';
 
 import type { IExternalPayloadReference } from '../session-logger.js';
+import { NodeExternalPayloadSource } from '../session-log-sources.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -39,7 +40,7 @@ describe('resolveSessionLogExternalPayloads', () => {
       relativePath,
     };
 
-    expect(resolveSessionLogExternalPayloads(reference, { baseDirectory })).toEqual({
+    expect(resolveSessionLogExternalPayloads(reference, payloadOptions(baseDirectory))).toEqual({
       content: 'restored',
     });
   });
@@ -49,7 +50,9 @@ describe('resolveSessionLogExternalPayloads', () => {
     const inner = writePayload(baseDirectory, 'inner value', 'inner.json');
     const outer = writePayload(baseDirectory, { nested: inner }, 'outer.json');
 
-    expect(resolveSessionLogExternalPayloads({ payload: outer }, { baseDirectory })).toEqual({
+    expect(
+      resolveSessionLogExternalPayloads({ payload: outer }, payloadOptions(baseDirectory)),
+    ).toEqual({
       payload: { nested: 'inner value' },
     });
   });
@@ -59,7 +62,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     const reference = { ...writePayload(baseDirectory, 'value'), extra: true };
 
     expectResolutionCode(
-      () => resolveSessionLogExternalPayloads(reference, { baseDirectory }),
+      () => resolveSessionLogExternalPayloads(reference, payloadOptions(baseDirectory)),
       'INVALID_REFERENCE',
     );
   });
@@ -69,7 +72,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     const reference = createReference('missing.json', 'a'.repeat(64), 1);
 
     expectResolutionCode(
-      () => resolveSessionLogExternalPayloads(reference, { baseDirectory }),
+      () => resolveSessionLogExternalPayloads(reference, payloadOptions(baseDirectory)),
       'PAYLOAD_NOT_FOUND',
     );
   });
@@ -80,7 +83,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     const reference = createReference('payload-directory', 'a'.repeat(64), 0);
 
     expectResolutionCode(
-      () => resolveSessionLogExternalPayloads(reference, { baseDirectory }),
+      () => resolveSessionLogExternalPayloads(reference, payloadOptions(baseDirectory)),
       'PAYLOAD_UNREADABLE',
     );
   });
@@ -90,7 +93,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     const reference = createReference('../outside.json', 'a'.repeat(64), 1);
 
     expectResolutionCode(
-      () => resolveSessionLogExternalPayloads(reference, { baseDirectory }),
+      () => resolveSessionLogExternalPayloads(reference, payloadOptions(baseDirectory)),
       'OUTSIDE_ROOT',
     );
   });
@@ -109,7 +112,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
 
     expectResolutionCode(
-      () => resolveSessionLogExternalPayloads(reference, { baseDirectory }),
+      () => resolveSessionLogExternalPayloads(reference, payloadOptions(baseDirectory)),
       'OUTSIDE_ROOT',
     );
   });
@@ -122,7 +125,7 @@ describe('resolveSessionLogExternalPayloads', () => {
       () =>
         resolveSessionLogExternalPayloads(
           { ...reference, byteLength: reference.byteLength + 1 },
-          { baseDirectory },
+          payloadOptions(baseDirectory),
         ),
       'BYTE_LENGTH_MISMATCH',
     );
@@ -130,7 +133,7 @@ describe('resolveSessionLogExternalPayloads', () => {
       () =>
         resolveSessionLogExternalPayloads(
           { ...reference, sha256: 'b'.repeat(64) },
-          { baseDirectory },
+          payloadOptions(baseDirectory),
         ),
       'SHA256_MISMATCH',
     );
@@ -147,7 +150,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
 
     expectResolutionCode(
-      () => resolveSessionLogExternalPayloads(reference, { baseDirectory }),
+      () => resolveSessionLogExternalPayloads(reference, payloadOptions(baseDirectory)),
       'INVALID_JSON',
     );
   });
@@ -158,13 +161,17 @@ describe('resolveSessionLogExternalPayloads', () => {
     const outer = writePayload(baseDirectory, { nested: inner }, 'outer.json');
 
     expectResolutionCode(
-      () => resolveSessionLogExternalPayloads(outer, { baseDirectory, maxDepth: 1 }),
+      () =>
+        resolveSessionLogExternalPayloads(outer, {
+          ...payloadOptions(baseDirectory),
+          maxDepth: 1,
+        }),
       'MAX_DEPTH_EXCEEDED',
     );
     expectResolutionCode(
       () =>
         resolveSessionLogExternalPayloads(outer, {
-          baseDirectory,
+          ...payloadOptions(baseDirectory),
           maxTotalBytes: outer.byteLength - 1,
         }),
       'MAX_TOTAL_BYTES_EXCEEDED',
@@ -177,17 +184,28 @@ describe('resolveSessionLogExternalPayloads', () => {
     circular.self = circular;
 
     expectResolutionCode(
-      () => resolveSessionLogExternalPayloads(circular, { baseDirectory }),
+      () => resolveSessionLogExternalPayloads(circular, payloadOptions(baseDirectory)),
       'CIRCULAR_REFERENCE',
     );
     for (const maxDepth of [-1, Number.NaN, Number.POSITIVE_INFINITY, 1.5]) {
       expectResolutionCode(
-        () => resolveSessionLogExternalPayloads({}, { baseDirectory, maxDepth }),
+        () =>
+          resolveSessionLogExternalPayloads(
+            {},
+            {
+              ...payloadOptions(baseDirectory),
+              maxDepth,
+            },
+          ),
         'INVALID_LIMIT',
       );
     }
   });
 });
+
+function payloadOptions(baseDirectory: string): { source: NodeExternalPayloadSource } {
+  return { source: new NodeExternalPayloadSource(baseDirectory) };
+}
 
 function createTemporaryDirectory(): string {
   const directory = mkdtempSync(join(tmpdir(), 'robota-payload-resolver-'));

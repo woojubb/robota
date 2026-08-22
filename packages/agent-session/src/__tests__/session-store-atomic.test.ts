@@ -13,7 +13,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { SessionStore } from '../session-store.js';
+import { NodeSessionStore } from '../session-store.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
 
@@ -42,7 +42,7 @@ afterEach(() => {
 
 describe('SessionStore atomic persistence (CORE-019)', () => {
   it('save() roundtrips and leaves no temp-file residue', () => {
-    const store = new SessionStore(baseDir);
+    const store = new NodeSessionStore(baseDir);
     store.save(createRecord());
 
     const loaded = store.load('core-019-atomic');
@@ -53,7 +53,7 @@ describe('SessionStore atomic persistence (CORE-019)', () => {
   });
 
   it('save() over an existing record replaces it atomically', () => {
-    const store = new SessionStore(baseDir);
+    const store = new NodeSessionStore(baseDir);
     store.save(createRecord());
     store.save(createRecord({ messages: [{ role: 'user', content: 'updated' }] }));
 
@@ -63,7 +63,7 @@ describe('SessionStore atomic persistence (CORE-019)', () => {
   });
 
   it('a failed save leaves the previous record untouched', () => {
-    const store = new SessionStore(baseDir);
+    const store = new NodeSessionStore(baseDir);
     store.save(createRecord());
 
     // Fault injection: a circular record makes JSON.stringify throw before any bytes
