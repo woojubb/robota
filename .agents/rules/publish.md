@@ -104,7 +104,7 @@ anything, and every keyword written on a feature pull request is prose.
 Enforced by: `scripts/harness/scan-promotion-closes.mjs`, run as the `promotion closes` job in
 `.github/workflows/ci.yml` and required on `protect-main`. It re-derives the requirement from the
 live pull request and blocks a body that omits any of it. Record:
-[INFRA-104](../tasks/INFRA-104-promotion-carries-closing-keywords-to-main.md).
+[INFRA-104](../tasks/completed/INFRA-104-promotion-carries-closing-keywords-to-main.md).
 
 ### CI Failure Triage
 
