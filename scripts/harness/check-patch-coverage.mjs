@@ -153,6 +153,69 @@ export function parseLcov(lcovText, pkgRoot = '') {
 // ── Pure: patch-coverage computation ──────────────────────────────────────────────────────────────
 
 /**
+ * Does a package own any test file at all?
+ *
+ * #1344. A package with no tests can still emit an lcov report whose every record is zero-hit —
+ * `coverage.all: true` instruments the source whether or not anything exercises it. Those lines then
+ * arrive as MEASURED-and-uncovered and drag the patch percentage to BELOW-TARGET, so a pull request
+ * is charged for a package that has no way to discharge the debt. That is a false positive, and one
+ * is one more than the promotion criterion allows.
+ *
+ * Injectable (`listFiles`) so the classification is unit-testable without a real tree.
+ */
+export function packageOwnsTests(pkgRoot, listFiles = defaultListFiles) {
+  for (const rel of listFiles(pkgRoot)) {
+    if (isTestFile(rel)) return true;
+  }
+  return false;
+}
+
+/** Every file under a package root, repo-relative, skipping `node_modules` and build output. */
+function defaultListFiles(pkgRoot) {
+  const out = [];
+  const walk = (dirRel) => {
+    const abs = path.join(WORKSPACE_ROOT, dirRel);
+    let entries;
+    try {
+      entries = fs.readdirSync(abs, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const rel = path.posix.join(dirRel, entry.name);
+      if (entry.isSymbolicLink()) continue; // never follow: a pnpm workspace link reaches the store
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === 'coverage') {
+          continue;
+        }
+        walk(rel);
+      } else {
+        out.push(rel);
+      }
+    }
+  };
+  walk(pkgRoot);
+  return out;
+}
+
+/**
+ * Is this package's lcov entirely unexercised? True when it produced records and NOT ONE has a hit.
+ *
+ * Deliberately not "some records are zero": a package with real tests and one uncovered file is the
+ * defect this gate exists to catch. Only a report with no hits AT ALL is evidence that nothing ran.
+ */
+export function lcovIsEntirelyUnexercised(lcovByFileForPackage) {
+  let sawRecord = false;
+  for (const da of lcovByFileForPackage.values()) {
+    for (const hits of da.values()) {
+      sawRecord = true;
+      if (hits > 0) return false;
+    }
+  }
+  return sawRecord;
+}
+
+/**
  * Compute per-file and total patch coverage.
  *   changedLinesByFile — Map(file → Set(lines)) restricted to coverable files
  *   lcovByFile         — Map(file → Map(line → hits)) merged across packages
@@ -283,6 +346,7 @@ export async function runPatchCoverage(io = {}) {
   const diffText = io.diffText ?? git(['diff', '-U0', `${base}..HEAD`]);
   const hasPkgJson = io.hasPkgJson ?? defaultHasPkgJson;
   const collectLcov = io.collectLcov ?? defaultCollectLcov;
+  const listFiles = io.listFiles ?? defaultListFiles;
 
   const changedNewLines = parseChangedNewLines(diffText);
   const byPkg = groupCoverableChanges([...changedNewLines.keys()], hasPkgJson);
@@ -308,7 +372,24 @@ export async function runPatchCoverage(io = {}) {
       noDataPackages.push(pkgRoot);
       continue;
     }
-    for (const [file, da] of parseLcov(lcovText, pkgRoot)) {
+    const parsed = parseLcov(lcovText, pkgRoot);
+
+    // #1344. A package that owns NO test file can still emit an lcov report whose every record is
+    // zero-hit — `coverage.all: true` instruments the source whether or not anything exercises it.
+    // Folding those lines into the measured total charges a pull request for a package that has no
+    // way to discharge the debt, which is a false positive, and one is one more than the promotion
+    // criterion allows. Both conditions are required: a package WITH tests and a wholly-uncovered
+    // report is exactly the defect this gate exists to catch, and must still fail.
+    if (lcovIsEntirelyUnexercised(parsed) && !packageOwnsTests(pkgRoot, listFiles)) {
+      log(
+        `⚠︎  ${pkgRoot}: NO-DATA — lcov has no covered line and the package owns no test file, so ` +
+          `its changed lines are UNMEASURED rather than uncovered (#1344).`,
+      );
+      noDataPackages.push(pkgRoot);
+      continue;
+    }
+
+    for (const [file, da] of parsed) {
       const merged = lcovByFile.get(file) ?? new Map();
       for (const [line, hits] of da) merged.set(line, Math.max(merged.get(line) ?? 0, hits));
       lcovByFile.set(file, merged);
@@ -382,6 +463,14 @@ function fixtureIo(dir) {
     // fixture package roots are the two-segment `packages/<x>` / `apps/<x>` shape
     hasPkgJson: (dirRel) => dirRel.split('/').length === 2,
     collectLcov: () => fs.readFileSync(path.join(abs, 'lcov.info'), 'utf8'),
+    // #1344 needs to know whether the package OWNS tests, so the fixture has to be able to say. A
+    // `tests.txt` (one repo-relative path per line) is that statement; absent, the fixture declares
+    // no test files, which is the untested-package shape rather than an accident of the harness.
+    listFiles: () => {
+      const manifest = path.join(abs, 'tests.txt');
+      if (!existsSync(manifest)) return [];
+      return fs.readFileSync(manifest, 'utf8').split('\n').filter(Boolean);
+    },
   };
 }
 
