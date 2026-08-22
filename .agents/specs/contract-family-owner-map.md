@@ -91,25 +91,9 @@ fails on three conditions: **ASSIGNMENT** (a contract module unassigned or assig
 package holds a module the map assigns elsewhere). Placement is inert until families actually move and
 becomes the enforcing edge as the migration leaves (issue #2108 through issue #2113) land.
 
-Rules:
+---
 
-- An `agent-interface-*` package must not contain classes or runtime logic. **Mechanized on two
-  edges by `scripts/harness/scan-interface-runtime.mjs` (HARNESS-103).** SOURCE: no `class`/`enum`
-  declaration and no bare value import. ENTRY: the package's `src/index.ts` may publish its
-  contracts' VOCABULARY (a `const` holding a VALUE) and their DISCRIMINATORS (a function returning
-  a type predicate `x is T`, however it is declared) — anything else exported as a runtime value is
-  a mechanism and belongs in an
-  owner package, or under `testing/` if it is a double (`contracts→agent-interface-*,
-doubles→owner /testing`). Pre-existing mechanisms are frozen per package in
-  `scripts/harness/interface-entry-baseline.json` and the count may only shrink. The entry edge
-  exists because the source edge alone measured something narrower than this rule's words, so a
-  100-line prototype-walking forwarder sat outside the rule and inside the green.
-- An `agent-interface-*` package's internal dependencies are a subset of `{agent-core}` —
-  contracts never depend on implementation packages (INFRA-025; mechanized as the
-  `INTERFACE-DEPS` rule in the `deps` scan). `agent-interface-transport` owns the
-  background-task/subagent/compaction data contracts and, post-DATA-001, the
-  session/workspace/command/event/usage contract families; `agent-executor`/`agent-session` import
-  them and keep only runtime SPI.
-- Implementation packages (`agent-transport` with subpath `/headless`; the per-concern `agent-transport-tui` / `-ws` / `-http` / `-mcp` packages; `agent-provider` with subpaths `/anthropic`, `/openai`, etc.; `agent-command`) depend on the corresponding `agent-interface-*` package, not on `agent-framework`, for interface types. The transport-facing contract types (command, interaction, event, workspace, session, and transport contracts) live in `agent-interface-transport` as their SSOT (per INFRA-010). This is **mechanically enforced** by `scripts/harness/check-interface-imports.mjs` (wired into `pnpm harness:scan` as the `interface-imports` scan): any implementation package that imports an `agent-interface-transport`-exported symbol from `@robota-sdk/agent-framework` fails the gate. Runtime values and framework-owned types (e.g. `TInteractiveSessionOptions`, `ICommandHostContext`, `ICommandModule`, `TSettingsData`) still come from `agent-framework`.
-- `agent-framework` depends on the `agent-interface-transport` package to consume the contracts it needs (it does not depend on `agent-interface-tui`, which only `agent-transport-tui` consumes).
-- Do not place interface packages in `agent-core` — `agent-core` is zero-deps and owns foundational primitives only.
+The Interface Package Rule itself — no runtime logic, the `{agent-core}` dependency subset, the
+implementation-package import direction — stays in
+[`.agents/project-structure.md`](../project-structure.md) § Interface Package Rule and is not
+restated here. This document owns ownership, order and acyclicity; that one owns the rule.
