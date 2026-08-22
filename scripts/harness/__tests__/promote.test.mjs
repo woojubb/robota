@@ -378,17 +378,16 @@ describe('promote.mjs reconciles the rulesets before the PR exists (issue #1980)
 
   it('reports the reconciliation when the declarations match', async () => {
     const root = await promotable();
-    const { code, output } = await ready(root, () => ({ code: 0, output: '' }));
+    const { code, output } = await ready(root, () => []);
     expect(code).toBe(0);
     expect(output).toMatch(/declarations reconcile against the live rulesets/);
   });
 
   it('WARNS with the finding when a ruleset does not match, and still promotes', async () => {
     const root = await promotable();
-    const { code, output } = await ready(root, () => ({
-      code: 1,
-      output: '  - promotion closes: the LIVE ruleset does not require it\n',
-    }));
+    const { code, output } = await ready(root, () => [
+      { context: 'promotion closes', detail: 'the LIVE ruleset does not require it' },
+    ]);
     // The branch is still built: a stale required list is not a reason to discard an
     // ancestry-verified promotion, and refusing here would put a GitHub read in the promotion's path.
     expect(code).toBe(0);
@@ -435,10 +434,9 @@ describe('promote.mjs --dry-run carries the reconciliation too (issue #1980)', (
         'develop',
       ],
       fetch: false,
-      reconcileRulesets: () => ({
-        code: 1,
-        output: '  - promotion closes: the LIVE ruleset does not require it\n',
-      }),
+      reconcileRulesets: () => [
+        { context: 'promotion closes', detail: 'the LIVE ruleset does not require it' },
+      ],
     });
 
     expect(code).toBe(0);
