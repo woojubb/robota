@@ -72,11 +72,30 @@ export function packageRootOf(filePath, hasPkgJson) {
   return null;
 }
 
-/** Coverable = a non-test TS/JS file under `<pkgRoot>/src/` (excluding `.d.ts`). */
+/**
+ * Coverable = a non-test TS/JS file under `<pkgRoot>/src/`, excluding `.d.ts` and `.tsx`/`.jsx`.
+ *
+ * INFRA-046 (the issue #1348 class), owner decision 2026-08-22: **render surfaces are excluded from
+ * the patch denominator.** Line coverage over JSX says little — exercising every branch of a render
+ * tree needs component-test infrastructure, and without it every UI pull request pays a tax it
+ * cannot discharge. Measured at the time of the decision, three of the four GUI packages owned SOME
+ * tests, so the issue #1344 untested-package classification did not excuse them and would not have:
+ *
+ *   packages/agent-cli-web   tsx=1     test files=0
+ *   apps/agent-web           tsx=6     test files=1
+ *   apps/agent-app           tsx=3     test files=1
+ *   packages/agent-playground tsx=184  test files=32
+ *
+ * This is an exclusion from the DENOMINATOR, not a pass: a `.tsx` file's lines are neither measured
+ * nor counted as covered, so the percentage describes only the code the gate can speak about. The
+ * alternative the owner declined was standing up component-test infrastructure for those packages,
+ * which remains the way to bring render surfaces back INTO the denominator later.
+ */
 export function isCoverableSource(filePath, pkgRoot) {
   if (!filePath.startsWith(`${pkgRoot}/src/`)) return false;
   if (isTestFile(filePath)) return false;
   if (filePath.endsWith('.d.ts')) return false;
+  if (/\.[jt]sx$/.test(filePath)) return false;
   return /\.[cm]?[jt]sx?$/.test(filePath);
 }
 

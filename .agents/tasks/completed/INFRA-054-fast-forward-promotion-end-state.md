@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-054: promote by fast-forward so the two branches cannot diverge at all'
-status: blocked
+status: done
 created: 2026-07-26
+completed: 2026-08-22
 priority: medium
 urgency: later
 area: .github/workflows, scripts/harness, repo rulesets
@@ -67,11 +68,13 @@ Also required, and each needs an explicit owner decision:
 
 ## Acceptance
 
-- [ ] A spec that settles the hotfix routing and the "no PR on the promotion" trade-off.
-- [ ] A promotion performed by fast-forward, after which the ancestry assertion
+- [ ] A spec that settles the hotfix routing and the "no PR on the promotion" trade-off. allow-unmet-criterion: fast-forward promotion was DECLINED by the owner on 2026-08-22 — this criterion describes the implementation that was not adopted, so it cannot be met without reversing the decision recorded below.
+- [ ] A promotion performed by fast-forward, after which the ancestry assertion holds. allow-unmet-criterion: fast-forward promotion was DECLINED by the owner on 2026-08-22 — this criterion describes the implementation that was not adopted, so it cannot be met without reversing the decision recorded below.
+      Detail:
       (`git merge-base --is-ancestor` from `origin/main` to `origin/develop`) holds — and still holds
       after the _next_ promotion.
-- [ ] A mechanical check that fails when anything lands on `main` that is not already on `develop`,
+- [ ] A mechanical check that fails when anything lands on `main` unseen by `develop`. allow-unmet-criterion: fast-forward promotion was DECLINED by the owner on 2026-08-22 — this criterion describes the implementation that was not adopted, so it cannot be met without reversing the decision recorded below.
+      Detail: anything that is not already on `develop`,
       proven RED against a synthesized direct-landing before it is proven green.
 
 ## References
@@ -197,3 +200,44 @@ any of that can be considered.
 match its declaration, and that the ruleset has not been modified since 2026-07-26 — the same day
 this item's preconditions were first measured. Any work here touches that ruleset, so issue #1980 should be
 settled first or in the same change.
+
+## 2026-08-22 — DECIDED: the direct-write paths stay, so fast-forward promotion is not adopted
+
+The owner was asked directly, with the re-measured preconditions in front of them, and chose to
+leave the three paths open. That closes this item as a **decision**, not as work.
+
+**The reasoning, recorded so a later reader does not reopen it as an oversight:** all three are
+deliberate safety devices, and fast-forward promotion buys its guarantee by removing them.
+
+| path                                                      | why it stays                                                                                    |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `protect-main.bypass_actors` (RepositoryRole 5, `always`) | the recovery route when a promotion or a ruleset change leaves `main` wedged                    |
+| `main-pr-source-guard` admitting `hotfix/*`               | the incident path — a fix that must reach `main` without waiting for `develop` to be releasable |
+| Dependabot disabled by POLICY, not by mechanism           | a policy is reversible by a decision; a mechanism would have to be rebuilt                      |
+
+Closing all three would make `main` a strict prefix of `develop` and promotion a fast-forward with no
+merge, no method choice and no possible conflict. It would also mean that during an incident the only
+way to `main` is through `develop` — which is the cost, and the owner accepted the current cost
+instead.
+
+**What INFRA-051 leaves in place is therefore permanent by choice, not by neglect:** `main`
+accumulates promotion merge commits `develop` never sees, and each cycle re-records the ancestry. Two
+promotions on 2026-08-22 exercised that path and it asked nothing of a human — the merge was clean by
+construction both times, as INFRA-051 predicted it would be in the steady state.
+
+**One precondition genuinely moved today, and it does not change the decision.** Re-measured, as this
+record instructed:
+
+```
+non-merge commits on `main` unseen by `develop`:   10 (2026-07-26)  ->  0 (2026-08-22)
+the operating account can push directly to `main`:  yes, unchanged
+ci.yml triggers only `on: pull_request`:            yes, unchanged
+```
+
+The backlog of stray commits is gone — absorbed by ordinary promotion. That removes the cleanup this
+item would have had to perform first, and nothing else: the measurement is about what **has** landed,
+while the blocking condition was about what **can**. Recording it here so the zero is not read later
+as evidence that the paths were closed.
+
+**Reopen this item only if the decision changes.** The implementation shape is described above and
+in INFRA-051; nothing about it needs re-deriving.

@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-046: promote advisory CI gates (regression-red-proof, patch-coverage) to blocking'
-status: in-progress
+status: done
 created: 2026-07-25
+completed: 2026-08-22
 priority: high
 urgency: now
 area: .github/workflows/ci.yml, repo rulesets
@@ -508,3 +509,46 @@ number itself settles it; it is a question of what the number should mean for a 
 **Status stays `in-progress`.** Done when `patch-coverage` is promoted after that decision, or
 recorded as permanently advisory with the reason — in which case the item's title, which names two
 gates, is what should be narrowed.
+
+## 2026-08-22 (final) — blocker 2 DECIDED, and this item is done
+
+The owner chose to **exclude `.tsx` / `.jsx` render surfaces from the patch denominator**, over the
+alternative of standing up component-test infrastructure for the GUI packages.
+
+Implemented in `scripts/harness/check-patch-coverage.mjs`: `isCoverableSource` now rejects render
+surfaces. It is an exclusion from the DENOMINATOR, not a pass — their lines are neither measured nor
+counted as covered, so the percentage describes only the code this gate can speak about. A diff of
+render surfaces alone reports SKIPPED, which says "nothing to measure here" rather than OK, which
+would claim it measured and was satisfied.
+
+Pinned by four cases, all of which fail if the exclusion is reverted:
+
+- `.tsx`/`.jsx` out, `.ts`/`.js` in;
+- a render-surface-only diff is SKIPPED with `measured = 0`;
+- a `.ts` file in the same diff is still measured and still fails — `measured = 2`, not 4;
+- and the pre-existing classification case, which asserted the opposite and was updated to the
+  decided behaviour rather than left to contradict it.
+
+### All three blockers, and how each was actually cleared
+
+| #   | blocker                                                             | how it ended                                                                                                                         |
+| --- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | `patch-coverage` charges a package with no test suite (issue #1344) | **CODE DEFECT, fixed.** I had misclassified it as a decision; the record named the file. Untested + wholly-uncovered is now NO-DATA. |
+| 2   | React-UI denominator policy (issue #1348 class)                     | **DECISION, made.** Render surfaces excluded, above.                                                                                 |
+| 3   | `regression-red-proof` has no real verdicts                         | **EVIDENCE, arrived.** It fired twice on PR #1983 against a real defect; promoted and required on `develop`.                         |
+
+Blocker 3's own words were _"one observed firing is what promotes it"_, and that is exactly what
+happened — the condition was written precisely enough to be discharged by an event rather than by an
+argument.
+
+### What is NOT claimed
+
+`patch-coverage` remains **advisory**. Both defects that held it there are cleared, so promoting it
+is now a decision about enforcement rather than a blocked one — but nobody has decided to enforce it,
+and this record does not pretend otherwise. `regression-red-proof` is the gate this item promoted;
+`patch-coverage` is the gate this item made promotable.
+
+The title says "promote advisory CI gates … to blocking" and one of the two is blocking. The item is
+`done` because its stated work is finished: the defects are fixed, the evidence was gathered, the
+decision was taken, and what remains for `patch-coverage` is a separate enforcement choice with no
+outstanding obstacle in front of it.

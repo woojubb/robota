@@ -42,7 +42,8 @@ describe('INFRA-041 file classification', () => {
   it('isCoverableSource takes non-test src TS/JS only', () => {
     const pkg = 'packages/x';
     expect(isCoverableSource('packages/x/src/a.ts', pkg)).toBe(true);
-    expect(isCoverableSource('packages/x/src/ui/b.tsx', pkg)).toBe(true);
+    // INFRA-046, owner decision 2026-08-22: render surfaces are OUT of the denominator.
+    expect(isCoverableSource('packages/x/src/ui/b.tsx', pkg)).toBe(false);
     expect(isCoverableSource('packages/x/src/a.test.ts', pkg)).toBe(false);
     expect(isCoverableSource('packages/x/src/__tests__/a.ts', pkg)).toBe(false);
     expect(isCoverableSource('packages/x/src/types.d.ts', pkg)).toBe(false);
@@ -324,5 +325,62 @@ describe('lcovIsEntirelyUnexercised', () => {
   it('is true only when records exist and none has a hit', () => {
     expect(lcovIsEntirelyUnexercised(new Map([['f', new Map([[1, 0]])]]))).toBe(true);
     expect(lcovIsEntirelyUnexercised(new Map([['f', new Map([[1, 1]])]]))).toBe(false);
+  });
+});
+
+/**
+ * INFRA-046 / the issue #1348 class — render surfaces are OUT of the patch denominator.
+ *
+ * Owner decision, 2026-08-22. Line coverage over JSX says little: exercising a render tree's
+ * branches needs component-test infrastructure, and without it every UI pull request pays a tax it
+ * cannot discharge. Measured at the time, three of the four GUI packages owned SOME tests, so the
+ * issue #1344 untested-package classification did not excuse them — this is a separate rule, not a
+ * consequence of that one.
+ *
+ * The distinction these cases pin: EXCLUDED FROM THE DENOMINATOR, not counted as covered.
+ */
+describe('render surfaces are excluded from the patch denominator (INFRA-046)', () => {
+  it('excludes .tsx and .jsx, and keeps .ts/.js', () => {
+    expect(isCoverableSource('packages/p/src/a.ts', 'packages/p')).toBe(true);
+    expect(isCoverableSource('packages/p/src/a.js', 'packages/p')).toBe(true);
+    expect(isCoverableSource('packages/p/src/a.tsx', 'packages/p')).toBe(false);
+    expect(isCoverableSource('packages/p/src/a.jsx', 'packages/p')).toBe(false);
+  });
+
+  it('a diff of ONLY render surfaces is SKIPPED, not passed on a fabricated 100%', async () => {
+    const result = await runPatchCoverage({
+      target: 80,
+      diffText:
+        'diff --git a/packages/p/src/View.tsx b/packages/p/src/View.tsx\n' +
+        '--- a/packages/p/src/View.tsx\n+++ b/packages/p/src/View.tsx\n@@ -1,0 +1,2 @@\n+x\n+y\n',
+      hasPkgJson: (dir) => dir === 'packages/p',
+      collectLcov: () => 'SF:src/View.tsx\nDA:1,0\nDA:2,0\nend_of_record\n',
+      listFiles: () => ['packages/p/src/__tests__/v.test.ts'],
+      log: () => {},
+    });
+    // SKIPPED says "this gate has nothing to measure here". OK would say "it measured and was
+    // satisfied", which is a different and false claim.
+    expect(result.verdict).toBe(VERDICT.SKIPPED_NO_COVERABLE);
+    expect(result.measured).toBe(0);
+  });
+
+  it('a .ts file in the same diff is still measured and can still fail', async () => {
+    const result = await runPatchCoverage({
+      target: 80,
+      diffText:
+        'diff --git a/packages/p/src/View.tsx b/packages/p/src/View.tsx\n' +
+        '--- a/packages/p/src/View.tsx\n+++ b/packages/p/src/View.tsx\n@@ -1,0 +1,2 @@\n+x\n+y\n' +
+        'diff --git a/packages/p/src/logic.ts b/packages/p/src/logic.ts\n' +
+        '--- a/packages/p/src/logic.ts\n+++ b/packages/p/src/logic.ts\n@@ -1,0 +1,2 @@\n+a\n+b\n',
+      hasPkgJson: (dir) => dir === 'packages/p',
+      collectLcov: () =>
+        'SF:src/View.tsx\nDA:1,0\nDA:2,0\nend_of_record\n' +
+        'SF:src/logic.ts\nDA:1,0\nDA:2,0\nend_of_record\n',
+      listFiles: () => ['packages/p/src/__tests__/v.test.ts'],
+      log: () => {},
+    });
+    expect(result.verdict).toBe('patch-coverage-below-target');
+    // Two, not four: the render surface contributed nothing to the denominator.
+    expect(result.measured).toBe(2);
   });
 });
