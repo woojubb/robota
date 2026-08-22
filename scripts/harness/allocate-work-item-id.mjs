@@ -171,6 +171,20 @@ export function collectClaimed(records, citations, issues) {
 export const SENTINEL_FLOOR = 900;
 
 /**
+ * Digits in an allocated number. MEASURED: all 916 record filenames use exactly three.
+ *
+ * Fixed rather than inferred from the claimed set, and that is the second attempt. Inferring it let
+ * PROSE set the padding: `idsFromCitations` reads the working-tree content of every tracked file, so
+ * a comment in this module that mentioned a four-digit form made that form the highest claim, and
+ * the next allocation came back four digits wide. The number a citation claims is worth honouring;
+ * the house style it appears to imply is not.
+ *
+ * A prefix that legitimately passes 999 needs this widened deliberately, which is the right amount
+ * of friction for a decision that renames a convention.
+ */
+export const RECORD_ID_WIDTH = 3;
+
+/**
  * The next ID for `prefix`: one above the highest number any source claims for it.
  *
  * Width follows the widest claim already in use, so a repository at `INFRA-099` moves to
@@ -178,17 +192,14 @@ export const SENTINEL_FLOOR = 900;
  */
 export function nextFreeId(prefix, claimed, sentinelFloor = SENTINEL_FLOOR) {
   let highest = 0;
-  let width = 3;
   for (const id of claimed) {
     const match = new RegExp(`^${prefix}-(\\d{3,})$`).exec(id);
     if (!match) continue;
     const number = Number(match[1]);
     if (number >= sentinelFloor) continue;
     highest = Math.max(highest, number);
-    width = Math.max(width, match[1].length);
   }
-  const next = highest + 1;
-  return `${prefix}-${String(next).padStart(width, '0')}`;
+  return `${prefix}-${String(highest + 1).padStart(RECORD_ID_WIDTH, '0')}`;
 }
 
 /** The stub a fresh record starts as — every field `.agents/tasks/README.md` declares required. */
@@ -280,12 +291,20 @@ function main(argv) {
     .slice(0, 80);
   const file = path.join(TASKS_DIR, `${id}-${slug}.md`);
   const absolute = path.join(WORKSPACE_ROOT, file);
-  if (existsSync(absolute)) {
-    console.error(`${file} already exists — refusing to overwrite a record.`);
-    return 1;
-  }
   const today = new Date().toISOString().slice(0, 10);
-  writeFileSync(absolute, recordStub({ id, title, today, issue }));
+  try {
+    // `wx` — create-or-fail, in ONE syscall. An `existsSync` followed by a write is a check and a
+    // claim with a gap between them, which is the exact shape this script exists to remove one
+    // level up; writing it here would be the defect reproduced inside its own fix. Reported as
+    // `js/file-system-race` by CodeQL on the first push, which is how it came out.
+    writeFileSync(absolute, recordStub({ id, title, today, issue }), { flag: 'wx' });
+  } catch (error) {
+    if (error?.code === 'EEXIST') {
+      console.error(`${file} already exists — refusing to overwrite a record.`);
+      return 1;
+    }
+    throw error;
+  }
   console.log(`${id}\n${file}`);
   return 0;
 }

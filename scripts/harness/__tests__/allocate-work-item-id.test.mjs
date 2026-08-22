@@ -5,12 +5,13 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import {
+  RECORD_ID_WIDTH,
   SENTINEL_FLOOR,
   collectClaimed,
   idsFromIssueTitles,
@@ -66,9 +67,14 @@ describe('the claimed set is wider than the record filenames', () => {
     expect(SENTINEL_FLOOR).toBe(900);
   });
 
-  it('keeps the width already in use rather than padding wider', () => {
+  it('pads to the measured record width, and a wider CITATION does not change it', () => {
     expect(nextFreeId('INFRA', new Set(['INFRA-099']))).toBe('INFRA-100');
-    expect(nextFreeId('INFRA', new Set(['INFRA-0099']))).toBe('INFRA-0100');
+    // Inferring the width from the claimed set let prose set it: `idsFromCitations` reads the
+    // working tree of every tracked file, so a comment mentioning a four-digit form became the
+    // highest claim and the next allocation came back four digits wide. The number is honoured;
+    // the style it appears to imply is not.
+    expect(nextFreeId('INFRA', new Set(['INFRA-0126']))).toBe('INFRA-127');
+    expect(RECORD_ID_WIDTH).toBe(3);
   });
 
   it('starts a prefix nobody has used at 001', () => {
@@ -172,5 +178,21 @@ describe('the reported size', () => {
   it('counts an unread source as contributing nothing, without dropping the others', () => {
     collectClaimed(RECORDS, CITATIONS, null);
     expect(readExamined()).toBe(3);
+  });
+});
+
+describe('the write itself', () => {
+  it('creates or fails in one syscall, never checks-then-writes', () => {
+    // CodeQL reported `js/file-system-race` on the first push of this script: an `existsSync`
+    // followed by a write is a check and a claim with a gap between them, which is the exact shape
+    // the script exists to remove one level up. Asserted on the source because the property is
+    // which flag the call uses, and a functional test of "it refuses an existing file" passes
+    // equally well for the racy version.
+    const source = readFileSync(
+      path.join(import.meta.dirname, '../allocate-work-item-id.mjs'),
+      'utf8',
+    );
+    expect(source).toContain("{ flag: 'wx' }");
+    expect(source).not.toMatch(/if \(existsSync\(absolute\)\)/);
   });
 });
