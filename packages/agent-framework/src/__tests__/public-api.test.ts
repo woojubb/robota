@@ -27,4 +27,11 @@ describe('agent-sdk public API', () => {
     expect('messageToHistoryEntry' in sdk).toBe(false);
     expect('getMessagesForAPI' in sdk).toBe(false);
   });
+
+  it('exposes authority validation without exposing a production-capable issuer', () => {
+    expect(typeof sdk.WorkspaceTrustService).toBe('function');
+    expect(typeof sdk.assertWorkspaceProjectAuthority).toBe('function');
+    expect('mintWorkspaceProjectAuthority' in sdk).toBe(false);
+    expect('createWorkspaceProjectAuthority' in sdk).toBe(false);
+  });
 });

@@ -1,6 +1,32 @@
 // @robota-sdk/agent-framework — Universal AI agent SDK
 // Provider-neutral. InteractiveSession is the single entry point.
 
+// ── Explicit workspace project authority (ARCH-042) ────────
+export {
+  WorkspaceAuthorityRequiredError,
+  WorkspaceTrustService,
+  assertWorkspaceProjectAuthority,
+  getWorkspaceProjectIdentity,
+  getWorkspaceProjectReader,
+} from './workspace-trust/index.js';
+export type {
+  IRestrictedWorkspaceProjectAccess,
+  ITrustedWorkspaceProjectAccess,
+  IWorkspaceAncestorTextEntry,
+  IWorkspaceDirectoryEntry,
+  IWorkspaceIdentity,
+  IWorkspaceIdentityResolver,
+  IWorkspaceProjectAuthority,
+  IWorkspaceProjectReader,
+  IWorkspaceTrustServiceOptions,
+  IWorkspaceTrustStore,
+  IWorkspaceTrustStoreSnapshot,
+  TWorkspaceContributionKind,
+  TWorkspaceProjectAuthorityCandidate,
+  TWorkspaceProjectAccess,
+  TWorkspaceTrustState,
+} from './workspace-trust/index.js';
+
 // ── InteractiveSession (primary API) ────────────────────────
 export { InteractiveSession, PeerMessageIngress } from './interactive/index.js';
 
