@@ -803,6 +803,14 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-interface-runtime.mjs'],
   },
   {
+    // ARCH-100 (issue #2080): the contract-family owner map in
+    // `.agents/project-structure.md` is the SSOT; this scan parses it and refuses an
+    // unassigned/doubly-assigned family, a cyclic projected package graph, or a module
+    // sitting outside an owner package that already exists.
+    name: 'interface-family-owner',
+    command: ['node', 'scripts/harness/scan-interface-family-owner.mjs'],
+  },
+  {
     // ARCH-021: the same family as interface-runtime — "package X's src/ must not import Y". This one
     // holds the TOOL axis, which the manifest edge cannot cut (ARCH-035 / #1787).
     name: 'subagent-runner-composition',

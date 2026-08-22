@@ -47,16 +47,19 @@ families into packages without correcting them first and each becomes a hard pac
 Three documentation sources, each addressing one half of what this spec must decide — how a build
 system treats a cycle, and how ownership is mechanically constrained.
 
-- **TypeScript — Project References** (TypeScript Handbook, "Project References"). Composite project
+- **TypeScript — Project References** (TypeScript Handbook, "Project References",
+  <https://www.typescriptlang.org/docs/handbook/project-references.html>). Composite project
   references form a graph that the compiler requires to be **acyclic**; a circular reference is a
   build error rather than a warning. This is the direct precedent for making acyclicity a stated
   precondition of the migration rather than a post-hoc cleanup: once each family is its own package,
   the compiler stops tolerating what it tolerates inside one package today.
-- **Java Platform Module System — JSR 376 / `module-info`** (JEP 261, "Module System"). Module
+- **Java Platform Module System — JSR 376 / `module-info`** (JEP 261, "Module System",
+  <https://openjdk.org/jeps/261>). Module
   dependency (`requires`) graphs are **rejected at compile time if cyclic**. JPMS is the strongest
   documented statement of the position this spec adopts: a contract module graph is not merely
   _better_ acyclic, it is the condition under which the boundary means anything.
-- **Nx — Enforce Module Boundaries** (Nx documentation, `@nx/enforce-module-boundaries`). Packages
+- **Nx — Enforce Module Boundaries** (Nx documentation, `@nx/enforce-module-boundaries`,
+  <https://nx.dev/features/enforce-module-boundaries>). Packages
   carry **tags**, and a lint rule declares which tags may depend on which. This is the shape of the
   guard this spec names: not a hand-kept prose list of owners, but a declared owner/family allowlist
   the build reads, so an import that crosses a boundary fails the gate instead of a review.
@@ -99,7 +102,7 @@ criterion applies.
 **A — Amend the rule, publish an owner map + proven-acyclic target graph, then migrate.** (chosen)
 
 - Pro: the rule that legitimised the omnibus changes before any symbol moves, so no leaf has to
-  litigate ownership. The acyclicity proof is mechanical and re-runnable, so leaves #2108–#2113 each
+  litigate ownership. The acyclicity proof is mechanical and re-runnable, so the leaves from issue #2108 through issue #2113 each
   inherit a decided answer. Moves no production TypeScript, so it is independently mergeable and
   reversible.
 - Con: an entire leaf produces no code change, and the map can drift from the source between landing
@@ -197,8 +200,9 @@ just left — which is the temporary cycle the acceptance criteria forbid.
 | 3    | `session-mobility`                           | issue #2111                |
 | 4    | `transport` narrowed, omnibus barrel deleted | issue #2113                |
 
-**This order is a constraint, not a preference.** Issue #2110 (session) may not run before issues
-#2108, #2109, and #2112, because the session owner depends on all three; starting with #2110 creates
+**This order is a constraint, not a preference.** Issue #2110 (session) may not run before
+issue #2108, issue #2109, and issue #2112, because the session owner depends on all three; starting
+with issue #2110 creates
 exactly the temporary cycle this leaf exists to prevent. Wave 1's three leaves are mutually
 independent and may run in parallel.
 
@@ -206,7 +210,9 @@ independent and may run in parallel.
 
 `interface-family-owner` — `scripts/harness/scan-interface-family-owner.mjs`, registered in
 `scripts/harness/run-all-scans.mjs` beside the existing `interface-imports` and `interface-runtime`
-entries. It reads a declared owner map (the table above, as data) and fails when: a contract module
+entries. It PARSES the declared owner map, which lives as a cross-cutting spec at
+`.agents/specs/contract-family-owner-map.md` (`.agents/project-structure.md` routes to it; a routing
+document routes and does not inline, which the `routing-document-size` ratchet enforces) and fails when: a contract module
 lives outside its declared owner; an `agent-interface-*` package exports a family it does not own; or
 the `agent-interface-*` dependency graph acquires a cycle. Modelled on Nx's tag-based boundary rule —
 the owner map is the artefact the checker reads, so the map cannot drift from the source without the
@@ -215,11 +221,11 @@ gate going red.
 ## Completion Criteria
 
 - [ ] **TC-01** Every family exported by `agent-interface-transport`'s root barrel appears exactly
-      once in the owner-map table in `.agents/project-structure.md`; a script that diffs the barrel's
+      once in the owner-map table in `.agents/specs/contract-family-owner-map.md`; a script that diffs the barrel's
       export list against the table reports zero unassigned and zero doubly-assigned families.
 - [ ] **TC-02** A committed script re-derives the target package graph from the real source and
       prints `PASS — the proposed package graph is acyclic`; it exits non-zero if any cycle appears.
-- [ ] **TC-03** `.agents/project-structure.md` publishes the four-wave migration order and states
+- [ ] **TC-03** `.agents/specs/contract-family-owner-map.md` publishes the four-wave migration order and states
       that issue #2110 is ordered after issues #2108/#2109/#2112, with the dependency edges that
       force it.
 - [ ] **TC-04** The amended Interface Package Rule names `interface-family-owner`
@@ -231,14 +237,14 @@ gate going red.
 
 ## Test Plan
 
-| TC    | Test Type             | Tool / Approach                                                                                                 | Notes                                                                                          |
-| ----- | --------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| TC-01 | Coverage assertion    | Committed script parses `src/index.ts` exports and the owner-map table; asserts a total, one-to-one mapping     | —                                                                                              |
-| TC-02 | Property (acyclicity) | Committed script builds the projected package graph from `src/*.ts` imports and runs cycle detection            | Same script proves TC-01's projection input; runs in CI via the scan                           |
-| TC-03 | Document assertion    | Script asserts the wave table and the #2110 ordering statement are present and internally consistent with TC-02 | —                                                                                              |
-| TC-04 | Document assertion    | Grep-level check that the rule text names the scan path and its three failure conditions                        | —                                                                                              |
-| TC-05 | Diff assertion        | `git diff --stat` over `packages/**/src/**/*.ts` against the merge base                                         | —                                                                                              |
-| TC-06 | Gate                  | `pnpm harness:scan`; `pnpm harness:verify-like-ci`                                                              | manual invocation — `verify-like-ci` is the CI-mirror entry point and is run in the foreground |
+| TC    | Test Type             | Tool / Approach                                                                                                       | Notes                                                                                          |
+| ----- | --------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| TC-01 | Coverage assertion    | Committed script parses `src/index.ts` exports and the owner-map table; asserts a total, one-to-one mapping           | —                                                                                              |
+| TC-02 | Property (acyclicity) | Committed script builds the projected package graph from `src/*.ts` imports and runs cycle detection                  | Same script proves TC-01's projection input; runs in CI via the scan                           |
+| TC-03 | Document assertion    | Script asserts the wave table and the issue #2110 ordering statement are present and internally consistent with TC-02 | —                                                                                              |
+| TC-04 | Document assertion    | Grep-level check that the rule text names the scan path and its three failure conditions                              | —                                                                                              |
+| TC-05 | Diff assertion        | `git diff --stat` over `packages/**/src/**/*.ts` against the merge base                                               | —                                                                                              |
+| TC-06 | Gate                  | `pnpm harness:scan`; `pnpm harness:verify-like-ci`                                                                    | manual invocation — `verify-like-ci` is the CI-mirror entry point and is run in the foreground |
 
 ## Evidence Log
 
