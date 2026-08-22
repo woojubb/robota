@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-126: the harness test suite leaks a temp directory per test, and exhausting /tmp inodes stops every push on the host'
-status: todo
+status: in-progress
 created: 2026-08-22
 priority: high
 urgency: now
@@ -94,6 +94,27 @@ Making `makeTemp()` the only sanctioned creator removes the judgement entirely: 
 the CALL SITE, which is textual and exact, rather than the teardown, which is behavioural and is not.
 It also fixes the denominator — the burn-down is every direct call under `__tests__` (**158 files**),
 not only the 85 that currently leak.
+
+## What shipped, and what has not
+
+The MECHANISM is on `main`: `scripts/harness/__tests__/make-temp.mjs` as the sanctioned creator, and
+the `temp-dir-owner` floor refusing a direct call in either spelling regardless of teardown —
+registered, classified in `MANDATORY_TREE_GUARDS` and in `measurement-provenance` `covered`, with its
+own tests.
+
+**The leak is capped, not closed.** 155 files still call `mkdtemp`/`mkdtempSync` directly and are
+frozen in `temp-dir-owner-baseline.json`; each still leaves a directory per test case on every run.
+What the floor prevents is a 156th, and what the burn-down measures is the distance to zero.
+
+So this record stays open, and `in-progress` rather than `done`: the defect it names — the suite
+exhausting `/tmp` inodes — is still reachable from those 155, only more slowly and without growing.
+It becomes `done` when the frozen set is empty, at which point the baseline file is itself the
+evidence and can be removed with the floor left in place.
+
+Five files were migrated as the first burn-down step and measured at ZERO leaked directories across a
+real run. That measurement is what establishes migration works, rather than that it compiles: the
+first cut of the helper registered its teardown lazily, passed every unit assertion, and removed
+nothing.
 
 ## Test Plan
 

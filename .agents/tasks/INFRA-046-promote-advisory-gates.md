@@ -344,3 +344,64 @@ with the owner on 2026-08-22, who declined to add it now, knowing the permission
 
 So the block is EVIDENCE, and only evidence. The earlier framing — "blocked on evidence first, a
 credential second" — was half wrong: there was never a credential half.
+
+## 2026-08-22 (later) — the evidence this item was blocked on HAS ARRIVED
+
+The block was stated precisely, so it can be discharged precisely:
+
+> `accidental-green` has never fired on a real pull request, so requiring it would put an untested
+> refusal into the merge path of every PR. **One observed firing is what promotes it.**
+
+**It fired. Twice, on a real pull request, today.** PR #1983 (`feat/infra-126-temp-dir-owner`):
+
+```
+$ gh run list --branch feat/infra-126-temp-dir-owner
+  01:30  CI  failure     -> regression-red-proof (enforcing: accidental-green only)  FAILURE
+  01:44  CI  failure     -> regression-red-proof (enforcing: accidental-green only)  FAILURE
+  02:02  CI  success     -> regression-red-proof (enforcing: accidental-green only)  success
+```
+
+The head SHAs are deliberately not quoted here: the branch was deleted on merge, so they resolve
+for nobody. The durable citation is the pull request and its check runs.
+
+The verdict, read out of the failing run's log rather than from anyone's report of it:
+
+```
+❌  scripts/harness/run-all-scans.mjs: accidental-green-fail (all-pass)
+❌ accidental-green: a regression test passes even with the fix reversed — it guards nothing.
+   Rewrite it to FAIL on the pre-fix code, or opt out with `allow-green-at-base: <reason>`.
+```
+
+**It was right, and the defect it caught was real.** The author's `run-all-scans.mjs` registration
+hunk could be reversed with every changed test still passing — the wiring was proven only by hand.
+Their two attempted fixes landed in files the pairing cannot reach, so the tool kept refusing; the
+fix that satisfied it asserted against the IMPORTED `SCAN_COMMANDS` rather than the registry file's
+text. It went green only once the assertion could actually judge a reversal.
+
+So this was not a false positive, not a flake, and not a self-inflicted probe: a live pull request,
+an unguarded registration, a refusal, and a genuine repair.
+
+**The three inconclusive lines matter too, and in the gate's favour.** `examined-adoption-baseline.json`,
+`measurement-provenance-pending.json` and a newly-added file each reported `inconclusive` with a
+stated reason — _"the range added this file and never revised it, so there is no earlier state to
+reverse to… which is not a verdict."_ The tool distinguishes "cannot judge" from "judged and passed",
+which is the property that makes a refusal from it worth trusting.
+
+**Status stays `blocked`, and the reason is now different from what it was this morning.** The
+evidence condition is MET; what remains is the branch-protection change itself, which is an owner
+decision and was declined earlier today on grounds that no longer hold. The owner declined knowing
+the credential exists (`permissions.admin: true`) and knowing the gate had never fired. The second
+half of that is no longer true.
+
+**What promoting it would now mean, stated so the decision is not made on a summary:** adding
+`regression-red-proof` to `protect-develop`'s required list makes an `accidental-green` verdict block
+a merge. On today's evidence that refusal is reachable, correct, and repairable by the author without
+help — three rounds, no assistance, no override used. The counter-argument is cost: it took the
+author roughly thirty minutes and two wrong fixes to satisfy, and that lands on every PR that trips
+it.
+
+**Related, and it must be settled first or in the same change:** issue #1980 records that
+`protect-main`'s live required list does not match its declaration, and that the ruleset has not been
+modified since 2026-07-26. Any required-list edit touches the same surface, and `robota-4-aa` has
+been assigned a separate required-context addition for issue #1719. Three edits to two rulesets by
+two agents is exactly how the issue #1980 half-application happened.

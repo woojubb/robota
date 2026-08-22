@@ -7,6 +7,7 @@ import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { main } from '../promote.mjs';
+import { RECONCILED_BRANCHES, reconcileLive } from '../scan-main-required-checks.mjs';
 
 /**
  * `git-branch.md` makes `promote.mjs` the ONLY sanctioned way to build a promotion branch ("never by
@@ -59,6 +60,16 @@ async function newRepo() {
  */
 const NO_CLOSES = () => '';
 
+/**
+ * issue #1980 — the ruleset reconciliation reads GitHub, so it is INJECTED for the same reason
+ * `NO_CLOSES` is. `newRepo()` usually creates no `origin`, which makes `originSlug` return nothing
+ * and the reconciliation return early — but the fetch case below adds a REAL local bare repo as
+ * `origin`, and `originSlug` parses `/tmp/…/robota-promote-origin-XXXX` into the plausible-looking
+ * slug `tmp/robota-promote-origin-XXXX`. That reaches `gh api` and the network, in a case whose own
+ * comment promises none is needed.
+ */
+const NO_RECONCILE = () => [];
+
 async function run(root, extraArgv = [], options = {}) {
   let output = '';
   // extraArgv first: `flag()` reads the FIRST occurrence, so a test override must precede the defaults.
@@ -70,6 +81,7 @@ async function run(root, extraArgv = [], options = {}) {
     },
     fetch: false,
     closesBlock: NO_CLOSES,
+    reconcileRulesets: NO_RECONCILE,
     ...options,
   });
   return { code, output };
@@ -83,6 +95,7 @@ async function runWithOptions(root, options) {
       output += text;
     },
     closesBlock: NO_CLOSES,
+    reconcileRulesets: NO_RECONCILE,
     ...options,
   });
   return { code, output };
@@ -344,5 +357,175 @@ describe('promote.mjs — closing keywords for the promotion body (INFRA-104)', 
     expect(output).toMatch(/connection reset/);
     expect(output).toMatch(/NOT "nothing to close"/);
     expect(output).toMatch(/scan-promotion-closes/);
+  });
+});
+
+/**
+ * issue #1980 — the reconciliation has a home, and it is this tool.
+ *
+ * `.github/required-status-checks.json` declares what each ruleset must require; the OFFLINE half of
+ * `scan-main-required-checks.mjs` proves every declared context can fail. Neither half can see the
+ * ruleset move underneath it. That is `--live`'s job, and `--live` ran only from a workflow whose
+ * `schedule:` was removed — so `protect-main` declared four contexts and required three for four
+ * weeks, and nothing said so.
+ *
+ * These cases pin the three verdicts a promotion can get, and the third is the one that matters: an
+ * UNREACHABLE reconciliation must never render as a clean one. "No answer" reading as "they match"
+ * is the defect itself, one layer up.
+ */
+describe('promote.mjs reconciles the rulesets before the PR exists (issue #1980)', () => {
+  const ready = async (root, reconcileRulesets) =>
+    runWithOptions(root, {
+      argv: ['--main-ref', 'main', '--develop-ref', 'develop', '--baseline', 'develop'],
+      fetch: false,
+      reconcileRulesets,
+    });
+
+  /** A promotable repository: develop ahead of main, nothing unmerged on main. */
+  async function promotable() {
+    const { root, git } = await newRepo();
+    git(['checkout', '--quiet', 'develop']);
+    commit(root, git, 'feature.txt', 'work\n', 'feat: work');
+    return root;
+  }
+
+  it('reports the reconciliation when the declarations match', async () => {
+    const root = await promotable();
+    const { code, output } = await ready(root, () => []);
+    expect(code).toBe(0);
+    expect(output).toMatch(/declarations reconcile against the live rulesets/);
+  });
+
+  it('WARNS with the finding when a ruleset does not match, and still promotes', async () => {
+    const root = await promotable();
+    const { code, output } = await ready(root, () => [
+      { context: 'promotion closes', detail: 'the LIVE ruleset does not require it' },
+    ]);
+    // The branch is still built: a stale required list is not a reason to discard an
+    // ancestry-verified promotion, and refusing here would put a GitHub read in the promotion's path.
+    expect(code).toBe(0);
+    expect(output).toMatch(/WARNING — a live ruleset does NOT match its declaration/);
+    expect(output).toMatch(/promotion closes: the LIVE ruleset does not require it/);
+    expect(output).toMatch(/does not block the promotion/);
+    expect(output).toMatch(/is ready — A1\/A2\/A3 hold/);
+  });
+
+  /**
+   * The shape a FAILED READ actually has, which is not a thrown error.
+   *
+   * `reconcileLiveBranch` catches its own read failures and returns `{ context: '(live)', detail }`
+   * — the same shape a real drift finding has. An earlier cut of this case made the mock THROW,
+   * which the real implementation cannot do, so it passed while a genuine outage rendered as
+   * "the ruleset disagrees with its declaration". A report stating a verdict it never obtained is
+   * this issue's own defect one layer up.
+   */
+  it('an UNREADABLE ruleset is reported as unreachable, NOT as a mismatch', async () => {
+    const root = await promotable();
+    const { code, output } = await ready(root, () => [
+      { context: '(live)', detail: 'getaddrinfo ENOTFOUND api.github.com' },
+    ]);
+    expect(code).toBe(0);
+    expect(output).toMatch(/could NOT reconcile the rulesets/);
+    expect(output).toMatch(/ENOTFOUND/);
+    expect(output).toMatch(/this is NOT "they match"/);
+    // Both discriminators: neither the clean verdict nor the MISMATCH verdict may appear.
+    expect(output).not.toMatch(/declarations reconcile against the live rulesets/);
+    expect(output).not.toMatch(/WARNING — a live ruleset does NOT match/);
+  });
+
+  it('a thrown error is still reported as unreachable', async () => {
+    const root = await promotable();
+    const { code, output } = await ready(root, () => {
+      throw new Error('spawn ENOENT');
+    });
+    expect(code).toBe(0);
+    expect(output).toMatch(/could NOT reconcile the rulesets \(spawn ENOENT\)/);
+    expect(output).not.toMatch(/WARNING — a live ruleset does NOT match/);
+  });
+
+  /**
+   * Binds the rendering above to the REAL contract, offline. A repository with no `origin` makes
+   * `originSlug` return nothing, and `reconcileLive` returns the `(live)` sentinel without any
+   * network call — so this proves the shape the mock uses is the shape the implementation produces,
+   * which is exactly what the earlier throwing mock did not.
+   */
+  it('reconcileLive really does return the `(live)` sentinel rather than throwing', async () => {
+    const { root } = await newRepo();
+    const findings = reconcileLive(root);
+    // One per reconciled branch, and EVERY one carries the sentinel context rather than throwing.
+    expect(findings).toHaveLength(RECONCILED_BRANCHES.length);
+    expect(findings.every((f) => f.context === '(live)')).toBe(true);
+    expect(findings.every((f) => /origin/.test(f.detail))).toBe(true);
+  });
+});
+
+/**
+ * issue #1980 — `--dry-run` is the CHEAP pre-check, so it is the path most likely to be the only one
+ * anyone runs before deciding a promotion is fine. A reconciliation that reports only on the
+ * expensive path is a warning delivered after the decision it should have informed.
+ */
+describe('promote.mjs --dry-run carries the reconciliation too (issue #1980)', () => {
+  it('a mismatch is reported on the dry run, not only on the real build', async () => {
+    const { root, git } = await newRepo();
+    git(['checkout', '--quiet', 'develop']);
+    commit(root, git, 'feature.txt', 'work\n', 'feat: work');
+
+    const { code, output } = await runWithOptions(root, {
+      argv: [
+        '--dry-run',
+        '--main-ref',
+        'main',
+        '--develop-ref',
+        'develop',
+        '--baseline',
+        'develop',
+      ],
+      fetch: false,
+      reconcileRulesets: () => [
+        { context: 'promotion closes', detail: 'the LIVE ruleset does not require it' },
+      ],
+    });
+
+    expect(code).toBe(0);
+    expect(output).toMatch(/--dry-run — the merge is clean/);
+    expect(output).toMatch(/WARNING — a live ruleset does NOT match its declaration/);
+    expect(output).toMatch(/promotion closes: the LIVE ruleset does not require it/);
+  });
+});
+
+/**
+ * issue #1980 — the hermetic promise, pinned.
+ *
+ * `newRepo()` usually has no `origin`, so the reconciliation returns early and nothing reaches the
+ * network by accident. The fetch case adds a REAL local bare repository as `origin`, and
+ * `originSlug` parses that path into a plausible-looking `owner/repo`. Without the injection in the
+ * shared helpers, the default implementation runs `gh api` against it.
+ *
+ * This asserts the outcome that distinguishes the two: an injected reconciliation reports nothing,
+ * while a real one against a slug derived from a temp path reports a finding. Remove
+ * `reconcileRulesets: NO_RECONCILE` from the helpers and this fails.
+ */
+describe('the promote suite stays hermetic when a local origin exists (issue #1980)', () => {
+  it('a repository with a real local origin produces no reconciliation output at all', async () => {
+    const { root, git } = await newRepo();
+    commit(root, git, 'feature.txt', 'work\n', 'feat: work');
+    const remote = await mkdtemp(path.join(tmpdir(), 'robota-promote-origin-'));
+    roots.push(remote);
+    makeGit(remote)(['init', '--bare', '--quiet']);
+    git(['remote', 'add', 'origin', remote]);
+    git(['push', '--quiet', 'origin', 'main', 'develop']);
+
+    const { code, output } = await runWithOptions(root, {
+      argv: ['--dry-run', '--baseline', 'origin/develop'],
+    });
+
+    expect(code).toBe(0);
+    // The injected reconciliation returns no findings, so the CLEAN line is the correct output.
+    expect(output).toMatch(/declarations reconcile against the live rulesets/);
+    // These two are the discriminators. Either one means the real implementation ran: a WARNING
+    // because `gh api` judged a slug invented from a temp path, or the unreachable notice because
+    // it tried and could not. Both require the network this case promises not to need.
+    expect(output).not.toMatch(/WARNING — a live ruleset/);
+    expect(output).not.toMatch(/could NOT reconcile the rulesets/);
   });
 });

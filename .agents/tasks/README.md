@@ -51,13 +51,34 @@ it offline.
 Two things it deliberately does not treat as collisions, and one it cannot see:
 
 - A **phase** of an item — the `-p7-` / `-P4-` segment right after the ID — belongs to its parent.
-- Seven `<PREFIX>-001` IDs from before the convention settled are allowlisted in the scan, each with
-  the reason. They are all in `completed/`, and the merged commits that deliver them name the old
+- Ten IDs are allowlisted in the scan, each with the reason — seven `<PREFIX>-001` from before the
+  convention settled, and three (`ARCH-CONF-007`, `ARCH-FIX-020`, `ARCH-FIX-021`) found only when
+  the ID pattern was widened to reach multi-segment prefixes like `ARCH-FIX-` and `INFRA-BL-`. They are all in `completed/`, and the merged commits that deliver them name the old
   numbers, so renaming the files would move each record out from under every citation pointing at
   it. The allowlist may not grow: a fresh collision is refused.
 - An ID claimed by a record in one clone and by an **issue title** opened by another session is
-  invisible to it, because nothing in the tree says which issue registers which record. That is the
-  case that produced the three collisions in issue #1916 and it stays open there.
+  invisible to it on its own, because nothing in the tree said which issue registers which record.
+
+**So a NEW record names its issue.** Any of `Registered as … issue #N`, a bare `issue #N`, or the
+issue URL — the three spellings already in the tree, so a record that links already does not have to
+link again. A pull-request reference is not one: `PR #N` says what delivered the work, not what
+registered it. `no-issue: <reason>` on a line opts out, for an item that genuinely has none.
+
+Only records a change ADDS are judged. 711 of 798 existing records carry no citation, most of them
+completed and merged; back-filling them means guessing which issue each one meant, and a wrong link
+is worse than none — the cross-source check would then read two items as one.
+
+**What this guarantees, stated because the weaker claim is the true one.** A collision becomes
+DETECTABLE at push time. It is not PREVENTED: a clone-local branch is invisible in principle to
+every mechanism that reads the tracked tree, so two sessions can still both pick the same number and
+the second one is caught when it pushes, not when it chooses. And the link is checked when it is
+WRITTEN, not continuously — a record can cite an issue that is later closed as a duplicate,
+retitled, or transferred, and nothing here re-derives that. Worse, a link can be wrong on the day it
+is written, which leaves no signal at all and reads as verified precisely because it is well-formed.
+
+Closing those needs a live read of the issue, which no tracked-tree scan can do — the useful
+assertion is not "the link resolves" but "the link resolves AND that issue's title still claims this
+record's ID".
 
 ## Process
 

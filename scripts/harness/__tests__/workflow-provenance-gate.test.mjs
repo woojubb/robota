@@ -31,10 +31,39 @@ describe('the gate loads its definition from a place the pull request cannot edi
     expect(GATE).toMatch(/^on:\n\s{2}pull_request_target:/m);
     expect(GATE).not.toMatch(/^\s{2}pull_request:/m);
   });
+
+  // A required context must be able to REPORT on every shape of pull request that can reach it, and
+  // a retarget is one of those shapes. `edited` is the only activity that fires when a base moves,
+  // and GitHub's default set omits it — so without this line a branch retargeted develop->main would
+  // keep the conclusion it earned against the OLD base while branch protection reports the context
+  // satisfied. Measured on throwaway PR #1442 for the other plane; `scan-main-required-checks` R7
+  // encodes it, and this asserts the gate itself satisfies the rule it is about to be required under.
+  it('handles `edited`, so a base retarget re-dispatches instead of keeping a stale conclusion', () => {
+    const types = /^\s{4}types:\s*\[(.*)\]/m.exec(GATE)?.[1] ?? '';
+    expect(types).toMatch(/\bedited\b/);
+    expect(types).toMatch(/\bopened\b/);
+    expect(types).toMatch(/\bsynchronize\b/);
+    expect(types).toMatch(/\breopened\b/);
+  });
+
+  // The other half of R2: a path filter means some pull-request shape never triggers the workflow at
+  // all, and a required context that never reports blocks the pull request forever with no way to
+  // satisfy it (the #1436 rollback).
+  it('carries no paths filter, so no pull request shape escapes it', () => {
+    expect(GATE).not.toMatch(/^\s{4}paths(-ignore)?:/m);
+  });
 });
 
 describe('and never runs the pull request it is judging', () => {
-  it('checks out no explicit ref, so the base is what lands in the working tree', () => {
+  // Measured on throwaway PR #2034: naming NO ref did not check out the base. `actions/checkout`
+  // resolved to the repository's default branch, so a pull request to `develop` was judged with
+  // `main`'s registry and `main`'s copy of the scan while its diff came from `develop`. The ref is
+  // now named, and named as `base.sha` — the base, never the head.
+  it("checks out the pull request's OWN base by sha, not whatever the default branch is", () => {
+    expect(STEPS).toMatch(/ref:\s*\$\{\{\s*github\.event\.pull_request\.base\.sha\s*\}\}/);
+  });
+
+  it('checks out no head ref, so the pull request never lands in the working tree', () => {
     // The single line that would breach this: `ref: ${{ github.event.pull_request.head.sha }}`.
     // Under `pull_request_target` that is PR code executing with write credentials against the base.
     expect(STEPS).not.toMatch(/ref:\s*\$\{\{\s*github\.event\.pull_request\.head/);
@@ -75,11 +104,23 @@ describe('what it judges', () => {
     expect(workflows.length).toBeGreaterThan(0);
   });
 
-  it('is NOT itself in the guarded set, which would be circular', () => {
-    // If this file provided a required check, it would guard itself — and a change editing it would
-    // be judged by the edited version, which is the exposure one level up.
+  // INFRA-097 step 5 CORRECTS this case rather than keeping it. It previously asserted the gate was
+  // NOT in the guarded set, reasoning that self-guarding meant "a change editing it would be judged
+  // by the edited version". That premise is true of a `pull_request` workflow and FALSE of this one,
+  // which is the whole reason the plane was split: `pull_request_target` loads its definition from
+  // the BASE, so a change editing this file is judged by the base's copy of it, and the edit takes
+  // effect only after merge — after the gate it would have moved has already run.
+  //
+  // So once this gate provides a required context it SHOULD guard itself: an edit to the control
+  // plane's own control plane is exactly the change that must not pass unnoticed. The safety is not
+  // the exclusion; it is `pull_request_target` plus checking out no head ref, both asserted above.
+  it('IS in the guarded set once it provides a required context, and that is safe', () => {
     const { workflows } = readGuardedWorkflows(ROOT);
-    expect(workflows).not.toContain(GATE_RELATIVE);
+    expect(workflows).toContain(GATE_RELATIVE);
+    // The two properties that make self-guarding safe rather than circular. If either regressed, the
+    // inclusion above would become the exposure the old assertion feared.
+    expect(GATE).toMatch(/^on:\n\s{2}pull_request_target:/m);
+    expect(STEPS).not.toMatch(/ref:\s*\$\{\{\s*github\.event\.pull_request\.head/);
   });
 });
 
