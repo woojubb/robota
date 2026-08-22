@@ -299,7 +299,7 @@ User-visible internal commands belong in `agent-command` or command-module owner
 `agent-interface-*` packages contain **only type contracts and interfaces — no implementation**.
 They are the SSOT for cross-cutting contracts shared between implementation families.
 
-- `agent-interface-transport` — transport contracts (`ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`) plus, post-DATA-001, the session (`IInteractiveSessionRecord`/`Store`, `IInteractiveSession`), workspace (`IExecutionWorkspace*`), command (`ICommand`/`ICommandResult`), event (`InteractionEvent`, session-event payloads), and usage (`IBackgroundTaskUsage`) contract families
+- `agent-interface-transport` — transport contracts (`ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`) plus, post-DATA-001, the session, workspace, command, event, and usage families. ARCH-100 (issue #2080) reassigns all eleven families to six owners: [`specs/contract-family-owner-map.md`](specs/contract-family-owner-map.md) is the SSOT for the owner map, the acyclic target graph and the migration order, and the `interface-family-owner` scan parses it. Do not restate it here.
 - `agent-interface-tui` — TUI interaction contracts (`ITuiPickerItem`, `ITuiCommandInteraction`, `ITuiPickerInteraction`, `ITuiConfirmInteraction`, `TAnyTuiCommandInteraction`, `TOnMissingArgsAction`)
 - Future: `agent-interface-provider`, `agent-interface-plugin` if those families need isolated contracts
 

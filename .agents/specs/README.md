@@ -20,6 +20,7 @@ Package-specific specs are owned by each package at `packages/<name>/docs/SPEC.m
 | [background-work-state.md](background-work-state.md)                       | Switchable main-thread, process, agent, group, and skill-spawned work state contract     |
 | [background-task-layer.md](background-task-layer.md)                       | Generic background task lifecycle, composition, runners, and TUI/transport projection    |
 | [command-inventory.md](command-inventory.md)                               | Built-in command ownership, lifecycle, model visibility, and host effect surfaces        |
+| [contract-family-owner-map.md](contract-family-owner-map.md)               | Fact catalogue: the owner of every `agent-interface-*` contract family + migration order |
 | [process-execution.md](process-execution.md)                               | Transparent local process execution request, status, output, and provenance contract     |
 | [repository-situational-awareness.md](repository-situational-awareness.md) | Passive repo context display without command inference or repo writes                    |
 | [subagent-process-manager.md](subagent-process-manager.md)                 | CLI subagent process management, parallel execution, and TUI lifecycle                   |
