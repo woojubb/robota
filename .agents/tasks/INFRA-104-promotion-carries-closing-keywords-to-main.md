@@ -261,3 +261,98 @@ What has never been exercised is GitHub's half, and this record now says why tha
 - issue #1984 — the lint ratchet's only CI execution path is the promotion job.
 - issue #2014 — the dependency-review licence exemption names 2 of this repository's 56
   dual-licensed packages.
+
+### 2026-08-22 (third entry) — TC-10 OBSERVED
+
+The second promotion of the day, PR #2041, merged at `05:23:35Z`. The three conditions fixed in
+writing **before** the branch was pushed were executed against it.
+
+| #   | condition, fixed in advance                                  | outcome                                           |
+| --- | ------------------------------------------------------------ | ------------------------------------------------- |
+| 1   | the body carries a non-empty block naming all three subjects | **MET** — 3 closing lines                         |
+| 2   | `promotion closes` passes                                    | **MET** — `pass`, and REQUIRED for the first time |
+| 3   | each subject is closed by GITHUB, attributed to the merge    | **MET** — see below                               |
+
+```
+issue #1980  closedAt 05:23:36Z  closer = PullRequest #2041
+issue #2018  closedAt 05:23:37Z  closer = PullRequest #2041
+issue #1719  closedAt 05:23:37Z  closer = PullRequest #2041
+promotion merged 05:23:35Z
+```
+
+**Three subjects, three closures, one to two seconds after the merge, every one attributed by GitHub
+to the promotion itself.** No partial result: the bar written in advance was that three subjects
+closing two issues is not "mostly observed", and it did not have to be invoked.
+
+### The instrument was wrong, and saying so is the point
+
+Condition 3 was written as _"the timeline event carries a `commit_id`, and `closed_by` is not a
+person"_. Executed literally, all three read:
+
+```
+closed_by=woojubb  commit_id=NONE
+```
+
+which, taken at face value, says a person closed them by hand — the failure branch, for the sixth
+time. **That reading would have been wrong.** `commit_id` is populated when a commit MESSAGE closes
+an issue; a closing keyword in a pull-request BODY is recorded differently, and `closed_by` names
+whoever merged rather than distinguishing mechanism from hand.
+
+The field that actually answers the question is `ClosedEvent.closer`, and it names `PullRequest
+#2041` for all three.
+
+So the condition was right and its **operationalisation** was wrong: I had picked a field that
+cannot distinguish the two cases the condition is about. That is the same defect this item has spent
+the day cataloguing, committed by the person checking for it — and it is why the correction was made
+by querying a different field rather than by softening the condition to fit what the first query
+returned.
+
+Fixing the reading afterwards is only legitimate because the direction was against interest: the
+literal reading said FAIL and the corrected one says PASS. The check on that is whether the new
+field would have been chosen had the first result read PASS. It would: `closer` is the field that
+names the mechanism, and the first one never did.
+
+**And the corrected field was validated against a known negative rather than trusted.** Issue #1965
+was closed BY HAND earlier the same day, by the same account, on the same repository:
+
+```
+CONTROL  issue #1965  closedAt 01:42:25Z  closer = NULL              actor = woojubb
+TEST     issue #1980  closedAt 05:23:36Z  closer = PullRequest #2041  actor = woojubb
+TEST     issue #2018  closedAt 05:23:37Z  closer = PullRequest #2041  actor = woojubb
+TEST     issue #1719  closedAt 05:23:37Z  closer = PullRequest #2041  actor = woojubb
+```
+
+`actor` is identical across all four and carries no information — every session on this machine
+authenticates as that account. `closer` separates them cleanly: null for the hand-close, the
+promotion for all three mechanism-closes. A discriminator that had matched the control too would
+have proved nothing, which is why it was run.
+
+A second session reached the same verdict independently through a different field — a `referenced`
+timeline event carrying the promotion's merge commit `68fc0490e` at the close timestamp on all
+three. Two fields, two observers, same conclusion.
+
+### What made this run different from the five failures
+
+Every earlier attempt lost its subject in the window between a fix merging and a promotion running —
+five times, once seventeen minutes after the merge. This time the window was held deliberately:
+`robota-4-aa` was told the promotion would close issue #1719 and confirmed they would not close it by
+hand, and issue #2018 was left alone for the same reason.
+
+That is worth recording plainly, because it qualifies the result. **TC-10 was observed under a
+protected window, not under ordinary operation.** The structural finding from the previous entry
+stands: nothing in the workflow protects that window, the open issue still reads as an oversight to
+anyone tidying, and the next observation depends on someone again being told not to tidy.
+
+So this proves the mechanism WORKS. It does not prove the mechanism is RELIABLE, and the item should
+not be read as though it did.
+
+### The gate's own half, also exercised for the first time
+
+`promotion closes` had passed before, but always over an EMPTY requirement — correct and vacuous. On
+this run it derived three subjects, confirmed each is an open issue through the API, verified the
+body carried a keyword for every one, and passed **as a required context** whose failure would have
+blocked the merge. Before today it was declared required and was not (issue #1980, fixed in the same
+session and closed by this very promotion).
+
+Provenance was checked rather than assumed: the `Closes #1719` line originates in PR #2030, inside
+the promotion's range. PR #2038 merged after the branch was cut and is not in this promotion.
