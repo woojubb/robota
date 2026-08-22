@@ -59,8 +59,8 @@ the ownership and license source; a GitHub Actions step output adapts them to th
 
 - `scripts/harness/generate-dependency-review-license-exemptions.mjs` — new deterministic,
   fail-closed manifest-to-PURL generator and GitHub output writer.
-- `scripts/harness/__tests__/dependency-review-license-exemptions.test.mjs` — new generator and live
-  workflow contract tests.
+- `scripts/harness/__tests__/generate-dependency-review-license-exemptions.test.mjs` — new generator
+  and live workflow contract tests.
 - `.github/workflows/dependency-review.yml` — generate first-party exemptions after checkout, consume
   the step output, retain explicit `sharp` exemptions, and trigger when the generator or workflow
   changes.
@@ -89,10 +89,10 @@ the ownership and license source; a GitHub Actions step output adapts them to th
 
 Choose alternative 1. Recursively discover package manifests under `packages/` without following
 symlinked directories, parse every discovered manifest, select only the exact Robota dual-license
-expression, require each selected package to have a canonical `@robota-sdk/<name>` identity, reject
-duplicates, sort canonical versionless npm PURLs, and fail if the selected population is empty. Write
-the comma-separated set to `$GITHUB_OUTPUT`; the workflow appends the separately maintained `sharp`
-PURLs in the action input.
+expression, require each selected package to have a canonical identity under the harness-configured
+npm scope (currently `@robota-sdk/<name>`), reject duplicates, sort canonical versionless npm PURLs,
+and fail if the selected population is empty. Write the comma-separated set to `$GITHUB_OUTPUT`; the
+workflow appends the separately maintained `sharp` PURLs in the action input.
 
 The design preserves the existing security boundary: neither AGPL nor `LicenseRef-Commercial` enters
 the global allow-list, and the generator cannot exempt an arbitrary scope. Existing `sharp` exemptions
@@ -135,8 +135,9 @@ None
    `packages/` without traversing symbolic links, parses every discovered `package.json`, and derives
    sorted PURLs for manifests whose `license` exactly equals
    `AGPL-3.0-only OR LicenseRef-Commercial`.
-2. Validate the selected npm names, uniqueness, non-empty result, and `$GITHUB_OUTPUT`; report every
-   failure to stderr and exit non-zero without emitting a partial exemption set.
+2. Validate selected npm names against `.agents/harness.config.json`'s `npmScopePrefix`, plus
+   uniqueness, a non-empty result, and `$GITHUB_OUTPUT`; report every failure to stderr and exit
+   non-zero without emitting a partial exemption set.
 3. Add a workflow step with a stable `id` before dependency review and consume its output as the
    first entry of `allow-dependencies-licenses`; keep all `@img/sharp-*` entries explicit.
 4. Extend workflow paths so manifest, generator, and workflow changes exercise dependency review.
@@ -146,7 +147,7 @@ None
 ## Affected Files
 
 - `scripts/harness/generate-dependency-review-license-exemptions.mjs` (new)
-- `scripts/harness/__tests__/dependency-review-license-exemptions.test.mjs` (new)
+- `scripts/harness/__tests__/generate-dependency-review-license-exemptions.test.mjs` (new)
 - `.github/workflows/dependency-review.yml`
 - `.agents/tasks/INFRA-130-derive-dependency-review-license-exemptions-from-package-manifests.md`
 
@@ -176,6 +177,12 @@ None
 | TC-03 | CI contract test      | Parse/assert the live dependency-review workflow and run actionlint       |       |
 | TC-04 | CI contract test      | Assert workflow `paths` cover manifests, generator, and the workflow file |       |
 | TC-05 | CI pipeline smoke     | `pnpm harness:test`, `pnpm harness:scan`, `pnpm harness:verify-like-ci`   |       |
+
+## User Execution Test Scenarios
+
+Not applicable — this changes an internal CI license-policy gate and no runnable Robota product
+surface. The observable behavior is fully exercised by the generator, workflow-contract, actionlint,
+and harness verification in the Test Plan.
 
 ## Tasks
 

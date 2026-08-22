@@ -3,8 +3,13 @@
 import { appendFileSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
+import { loadHarnessConfig } from './harness-config.mjs';
+
 export const DUAL_LICENSE = 'AGPL-3.0-only OR LicenseRef-Commercial';
-const ROBOTA_PACKAGE_NAME = /^@robota-sdk\/[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+const NPM_SCOPE_PREFIX = loadHarnessConfig().npmScopePrefix;
+const SCOPED_PACKAGE_NAME = new RegExp(
+  `^${NPM_SCOPE_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[a-z0-9]+(?:[._-][a-z0-9]+)*$`,
+);
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 function listManifestPaths(directory) {
@@ -21,9 +26,9 @@ function listManifestPaths(directory) {
 }
 
 function toPurl(name, manifestPath) {
-  if (typeof name !== 'string' || !ROBOTA_PACKAGE_NAME.test(name)) {
+  if (typeof name !== 'string' || !SCOPED_PACKAGE_NAME.test(name)) {
     throw new Error(
-      `${manifestPath}: field "name" expected canonical @robota-sdk/<name>; ` +
+      `${manifestPath}: field "name" expected canonical ${NPM_SCOPE_PREFIX}<name>; ` +
         `received ${JSON.stringify(name)}`,
     );
   }
