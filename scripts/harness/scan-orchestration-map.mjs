@@ -14,7 +14,7 @@
  * Exit 0 = clean, 1 = findings.
  */
 
-import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 // HARNESS-046: frontmatter is read by the harness's ONE parser. The hand-rolled `/^name:/m` this
@@ -208,9 +208,6 @@ export function main() {
   process.exit(0);
 }
 
-if (
-  process.argv[1] !== undefined &&
-  realpathSync(process.argv[1]) === realpathSync(import.meta.filename)
-) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

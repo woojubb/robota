@@ -470,6 +470,8 @@ function validateSynthCounts(stage, findings, at, round) {
 }
 
 function validateRefreshRound(root, run, metadata, round, fanoutRuns, at) {
+  // Contained — INFRA-133. Aggregate source signals cannot prove that raw finding identities survive
+  // draft synthesis; the root item owns the identity/provenance contract instead of a count-only patch.
   const expectations = values(metadata, 'signalExpectations', round);
   const observations = values(metadata, 'signalObservations', round);
   const nested = values(metadata, 'nestedRuns', round);
