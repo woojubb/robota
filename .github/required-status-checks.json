@@ -101,11 +101,11 @@
       ],
       "deliberately_not_required": [
         {
-          "context": "patch-coverage",
+          "context": "patch-coverage (advisory)",
           "reason": "Advisory by design (HARNESS-041). It runs and prints a verdict on every code PR but never blocks; excluded because a required context must be able to fail, and this one deliberately cannot. INFRA-046 holds it advisory over two open defects: NO-DATA lines are folded into the below-target total, and the React-UI denominator policy is undecided."
         },
         {
-          "context": "regression-red-proof",
+          "context": "regression-red-proof (enforcing: accidental-green only)",
           "reason": "CAN fail as of INFRA-046 — `REGRESSION_RED_PROOF_ENFORCE=1` makes an `accidental-green` verdict exit 1 — so the 'deliberately cannot fail' reason above does NOT apply to it. Excluded for a different reason, by owner decision: `accidental-green` has never fired on a real pull request, and making it required would put an untested refusal in the merge path. One observed firing is the evidence that promotes it. Note this exclusion does not make the job harmless: `merge-gate.sh` refuses any non-CLEAN mergeStateStatus, and GitHub reports UNSTABLE when a NON-required check fails."
         },
         {

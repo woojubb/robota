@@ -63,7 +63,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { fetchAllPages } from './github-api.mjs';
@@ -419,10 +419,97 @@ function reconcileLiveBranch(root, branchName) {
   return findings;
 }
 
+/** Every branch `.github/required-status-checks.json` declares, in file order. */
+export function declaredBranches(root = WORKSPACE_ROOT) {
+  const file = path.join(root, DECLARATION_FILE);
+  if (!existsSync(file)) return [];
+  return Object.keys(JSON.parse(readFileSync(file, 'utf8'))?.branches ?? {});
+}
+
+/**
+ * Every status-check context this repository's workflows can publish.
+ *
+ * GitHub names a check run after the job's `name:` when it has one, and after the job ID when it
+ * does not. Branch protection matches on that string exactly.
+ */
+export function publishedContexts(root = WORKSPACE_ROOT) {
+  const dir = path.join(root, '.github', 'workflows');
+  // FAIL CLOSED for the same reason: an empty set makes EVERY declared context look unpublished,
+  // which is loud rather than silent — but it is still a verdict over a tree that was never read.
+  if (!existsSync(dir)) {
+    throw new Error(
+      '.github/workflows is missing, so no published context could be read. That is a broken checkout, not a repository whose workflows publish nothing.',
+    );
+  }
+  const names = new Set();
+  for (const file of readdirSync(dir)) {
+    if (!file.endsWith('.yml') && !file.endsWith('.yaml')) continue;
+    const text = readFileSync(path.join(dir, file), 'utf8');
+    for (const job of splitWorkflowJobs(text)) {
+      const declared = jobLevelValue(job.text, 'name');
+      names.add(declared ? declared.replace(/^['"]|['"]$/g, '') : job.name);
+    }
+  }
+  return names;
+}
+
+/**
+ * R1, applied to EVERY declared branch rather than only `main` (issue #2036).
+ *
+ * R1's reasoning is not `main`-specific — "branch protection matches on the context NAME, so a
+ * required context nothing publishes never reports and blocks the PR forever" is a fact about how
+ * branch protection matches, and it is identical on `develop`. The `main`-only scope was a
+ * contingent fact about which branch was being hardened when R1 was written, hardened into the rule.
+ *
+ * MEASURED when this was added: `develop`'s `deliberately_not_required` named `patch-coverage` and
+ * `regression-red-proof`, while the jobs publish `patch-coverage (advisory)` and
+ * `regression-red-proof (enforcing: accidental-green only)`. Neither was required, so neither was
+ * harmful — and both were staged for promotion, where moving the existing entry would have required
+ * a name nothing publishes and blocked every `develop` pull request permanently.
+ *
+ * So `deliberately_not_required` is IN SCOPE. An entry there is a promotion waiting to happen, and
+ * checking only the live list would leave the trap exactly where it was found.
+ */
+export function findContextNameFindings(root = WORKSPACE_ROOT) {
+  const file = path.join(root, DECLARATION_FILE);
+  // FAIL CLOSED (HARNESS-052). Measured before this guard existed: over a root with no `.github`
+  // this returned `[]`, which reads as "every declared name is published" when nothing was read at
+  // all. The declaration file is the SOURCE of what each ruleset must require, so its absence is a
+  // broken checkout, not a repository that has declared nothing.
+  if (!existsSync(file)) {
+    throw new Error(
+      `${DECLARATION_FILE} is missing. Reporting "no findings" here would mean "nothing was examined", which is not the claim this check makes.`,
+    );
+  }
+  const declaration = JSON.parse(readFileSync(file, 'utf8'));
+  const published = publishedContexts(root);
+  const findings = [];
+  for (const [branchName, branch] of Object.entries(declaration?.branches ?? {})) {
+    for (const [list, entries] of [
+      ['required_status_checks', branch?.required_status_checks],
+      ['deliberately_not_required', branch?.deliberately_not_required],
+    ]) {
+      for (const entry of entries ?? []) {
+        const context = entry?.context;
+        // A grouped entry names several contexts in one string for prose reasons; it is a label,
+        // not a match target, and is skipped rather than reported as unpublished.
+        if (typeof context !== 'string' || context.includes('/')) continue;
+        if (published.has(context)) continue;
+        findings.push({
+          context,
+          detail: `${DECLARATION_FILE} names it under \`branches.${branchName}.${list}\`, but no workflow job publishes that context. Branch protection matches on the NAME, so requiring it would leave every pull request permanently pending.`,
+        });
+      }
+    }
+  }
+  return findings;
+}
+
 export async function main({ argv = process.argv.slice(2) } = {}) {
   const findings = findRequiredCheckFindings();
+  const names = findContextNameFindings();
   const live = argv.includes('--live') ? reconcileLive() : [];
-  const all = [...findings, ...live];
+  const all = [...findings, ...names, ...live];
 
   if (all.length > 0) {
     process.stdout.write('main-required-checks scan failed (INFRA-055):\n');

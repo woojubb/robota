@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -7,7 +7,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DECLARATION_FILE,
+  declaredBranches,
+  findContextNameFindings,
   findRequiredCheckFindings,
+  publishedContexts,
   jobConditionProblem,
   jobNeeds,
   pullRequestTrigger,
@@ -391,5 +394,113 @@ describe('scan-main-required-checks parsing helpers', () => {
       types: ['edited'],
       hasPathFilter: true,
     });
+  });
+});
+
+/**
+ * issue #2036 — R1's reasoning is not `main`-specific, and its scope was.
+ *
+ * "Branch protection matches on the context NAME, so a required context nothing publishes never
+ * reports and blocks the PR forever" is a fact about how branch protection matches. It is identical
+ * on `develop`, which had no equivalent check.
+ *
+ * MEASURED when this was written: `develop`'s `deliberately_not_required` named `patch-coverage` and
+ * `regression-red-proof` while the jobs publish `patch-coverage (advisory)` and
+ * `regression-red-proof (enforcing: accidental-green only)`. Neither was required, so neither was
+ * harmful — and both were staged for promotion, where moving the entry verbatim would have required
+ * a name nothing publishes and stranded every `develop` pull request.
+ */
+describe('a declared context name must be one a workflow actually publishes (issue #2036)', () => {
+  it('reads the published names from the job `name:`, falling back to the job id', () => {
+    const published = publishedContexts();
+    // Both spellings, from the real workflows: a job with an explicit display name, and one without.
+    expect(published.has('regression-red-proof (enforcing: accidental-green only)')).toBe(true);
+    expect(published.has('build')).toBe(true);
+  });
+
+  it('covers EVERY declared branch, not only `main`', () => {
+    const branches = declaredBranches();
+    expect(branches).toContain('main');
+    expect(branches).toContain('develop');
+  });
+
+  it('the repository declares no context that nothing publishes', () => {
+    expect(findContextNameFindings()).toEqual([]);
+  });
+
+  it('reports a develop-side entry whose name no job publishes', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'ctxname-'));
+    mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
+    writeFileSync(
+      path.join(root, '.github', 'workflows', 'ci.yml'),
+      'jobs:\n  red-proof:\n    name: regression-red-proof (enforcing: accidental-green only)\n    steps: []\n',
+      'utf8',
+    );
+    writeFileSync(
+      path.join(root, '.github', 'required-status-checks.json'),
+      JSON.stringify({
+        branches: {
+          develop: {
+            required_status_checks: [{ context: 'regression-red-proof' }],
+          },
+        },
+      }),
+      'utf8',
+    );
+
+    const findings = findContextNameFindings(root);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].context).toBe('regression-red-proof');
+    expect(findings[0].detail).toMatch(/branches\.develop\.required_status_checks/);
+    expect(findings[0].detail).toMatch(/permanently pending/);
+  });
+
+  it('checks `deliberately_not_required` too, because that list is where a promotion starts', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'ctxname-'));
+    mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
+    writeFileSync(
+      path.join(root, '.github', 'workflows', 'ci.yml'),
+      'jobs:\n  cov:\n    name: patch-coverage (advisory)\n    steps: []\n',
+      'utf8',
+    );
+    writeFileSync(
+      path.join(root, '.github', 'required-status-checks.json'),
+      JSON.stringify({
+        branches: {
+          develop: {
+            required_status_checks: [{ context: 'patch-coverage (advisory)' }],
+            deliberately_not_required: [{ context: 'patch-coverage', reason: 'advisory' }],
+          },
+        },
+      }),
+      'utf8',
+    );
+
+    const findings = findContextNameFindings(root);
+    expect(findings.map((f) => f.context)).toEqual(['patch-coverage']);
+    expect(findings[0].detail).toMatch(/deliberately_not_required/);
+  });
+
+  it('skips a grouped label that names several contexts in one string', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'ctxname-'));
+    mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
+    writeFileSync(
+      path.join(root, '.github', 'workflows', 'ci.yml'),
+      'jobs:\n  a:\n    steps: []\n',
+      'utf8',
+    );
+    writeFileSync(
+      path.join(root, '.github', 'required-status-checks.json'),
+      JSON.stringify({
+        branches: {
+          develop: {
+            required_status_checks: [{ context: 'a' }],
+            deliberately_not_required: [{ context: 'build / quality / scans', reason: 'grouped' }],
+          },
+        },
+      }),
+      'utf8',
+    );
+    expect(findContextNameFindings(root)).toEqual([]);
   });
 });

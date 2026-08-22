@@ -87,6 +87,15 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // issue #2036. Measured BEFORE the guard existed: over a root with no `.github`, this returned
+    // `[]` — which reads as "every declared context name is published" when nothing was read at all.
+    // The classification is what caught it, exactly as it caught INFRA-127's exported finder.
+    file: 'scan-main-required-checks.mjs',
+    finder: 'findContextNameFindings',
+    tree: '.github/required-status-checks.json',
+    why: 'the declaration file IS the population — it is the SOURCE of what each ruleset must require, so its absence is a broken checkout, and "no findings" would claim every declared name matches a published context when none was read',
+  },
+  {
     // INFRA-126. Measured as `findTempDirOwnerFindings(bare)`: throws
     // `scripts/harness/__tests__ missing from <root>` before a single file is read.
     file: 'scan-temp-dir-owner.mjs',
