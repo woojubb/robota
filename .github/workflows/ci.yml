@@ -1204,3 +1204,6 @@ jobs:
       - name: Skip (no coverable src changes)
         if: steps.detect.outputs.affected != 'true'
         run: echo "No package/app src lines changed — patch coverage is a no-op for this PR."
+
+# INFRA-097 throwaway: a deliberately inert edit, made to prove the `workflow provenance` gate
+# FAILS on a self-edit of the control plane. This branch is never merged.
