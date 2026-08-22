@@ -12,9 +12,18 @@
  * the 48 IDs claimed by BOTH a record and an issue title:
  *
  *   44  the record names that issue's own number
- *    3  the record names a DIFFERENT issue (`ARCH-037`→#1805 cites 1764/1773; `ARCH-039`→#1828
- *       cites 1764; `HARNESS-074`→#1619 cites 1615)
- *    1  the record names none at all (`HARNESS-058`→#1571)
+ *    2  the record names a DIFFERENT issue — `ARCH-037`→issue #1805 and `ARCH-039`→issue #1828,
+ *       both citing issue #1764
+ *    2  the record names no issue at all — `HARNESS-074`→issue #1619 cites only PR #1615, and
+ *       `HARNESS-058`→issue #1571 cites nothing
+ *
+ * The split was published as 3/1 and is 2/2. PR #1615 (the only reference `HARNESS-074` carries) and
+ * PR #1773 (a second reference in `ARCH-037`) are PULL REQUESTS, not issues, and counting either as
+ * "names a different issue" reads a bare `#N` as an issue reference — which is the
+ * one thing `ISSUE_LINK_PATTERNS` deliberately does not do. A predicate that accepted `#N` would move
+ * `HARNESS-074` into the linked column on the strength of a pull request, while it names nothing that
+ * could ever be compared against an issue title. It is the live case FOR the exclusion, which is why
+ * it is worth naming rather than dropping.
  *
  * So the gap is FOUR citation lines in four named files, not a wait for new records to accumulate.
  * A first cut of this header said 39, which was a frontmatter-only count carried over from the
