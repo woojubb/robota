@@ -145,3 +145,55 @@ The substantive grounds are unchanged, and were re-measured rather than restated
 
 The gap the probe exposed — a `done` task with unticked acceptance criteria passes every scan — is
 filed as issue #1965 rather than folded in here.
+
+## 2026-08-22 — the preconditions re-measured, and one of the three has changed
+
+The section above says _"verified 2026-07-26, do not re-assume"_. Twenty-seven days and one
+promotion later, that instruction was followed rather than the figures being carried forward.
+
+| precondition                                              | 2026-07-26 | 2026-08-22         |
+| --------------------------------------------------------- | ---------- | ------------------ |
+| non-merge commits on `main` that `develop` has never seen | **10**     | **0**              |
+| the operating account can push directly to `main`         | yes        | **yes, unchanged** |
+| `ci.yml` triggers only `on: pull_request`                 | yes        | **yes, unchanged** |
+
+```
+$ git rev-list origin/develop..origin/main --no-merges | wc -l
+0
+$ gh api repos/woojubb/robota/rulesets/18715845 --jq .current_user_can_bypass
+always      # RepositoryRole id=5, bypass_mode=always
+```
+
+**What the change does and does not mean.** The ten commits are gone as a _backlog_ — every non-merge
+commit on `main` is now reachable from `develop`, so the residue INFRA-051 left behind has been
+absorbed by ordinary promotion. That removes the cleanup this item would otherwise have had to
+perform first.
+
+It does **not** unblock the item, and the reason is worth stating precisely because the number moving
+to zero is the kind of thing that reads as progress toward "safe now":
+
+> FF promotion is only safe once **nothing can** land directly on `main`.
+
+The measurement above is about what **has** landed. The blocking condition is about what **can**. All
+three capabilities the record named are intact:
+
+- `protect-main.bypass_actors` still carries `RepositoryRole id=5` with `bypass_mode: always`, and
+  `current_user_can_bypass` is still `always` — a direct push to `main` mechanically works today;
+- `main-pr-source-guard` still admits `hotfix/*` → `main` (`ci.yml:100`);
+- Dependabot is still disabled **by policy** (`.github/DEPENDABOT-DISABLED.md`, no `dependabot.yml`),
+  not by mechanism — the marker file is a note, not a gate.
+
+So the count reaching zero is a consequence of nobody having used those capabilities recently, not of
+their removal. A fast-forward promotion made safe by "nobody has done it lately" is safe until the
+first `hotfix/*`, and then `main` diverges with no merge available to reconcile it.
+
+**This is still an owner decision, and the decision is unchanged in shape:** fast-forward promotion
+requires closing the direct-write paths first — the bypass actor, the `hotfix/*` route, or an
+enforced back-merge for it — and each of those is a branch-protection change. What today's
+measurement removes is only the argument that a backlog of stray commits must be reconciled before
+any of that can be considered.
+
+**Related and newly relevant:** issue #1980 records that `protect-main`'s live required list does not
+match its declaration, and that the ruleset has not been modified since 2026-07-26 — the same day
+this item's preconditions were first measured. Any work here touches that ruleset, so issue #1980 should be
+settled first or in the same change.
