@@ -91,7 +91,19 @@ base-pinned checkout, so from this merge onward the gate that runs is the gate t
 The measurement is this pull request's own `workflow provenance` run: with the checkout pinned to the
 pull request's base, the advisory must read **`2 of 3 guarded workflow(s)`** and `::examined:: 3`.
 Before the promotion the same line read `2 of 2`, because the job was checking out `main` and reading
-`main`'s registry. RESULT: recorded below, before merge.
+`main`'s registry.
+
+**Observed on run `32554628933`:**
+
+```
+⚑ 2 of 3 guarded workflow(s) load their definition from the pull request (`on: pull_request`):
+  .github/workflows/ci.yml, .github/workflows/review-gate.yml
+::examined:: 3 guarded workflow(s)
+```
+
+Three, and the one that is NOT self-loading is the gate itself. That is the first observation that any
+of the day's gate work actually executes, and it closes the loop the fourth prediction opened: the
+number that was wrong is now right, for the reason issue #2039 gave.
 
 Also observed at that merge, and it belongs here because this item's closing keyword produced it:
 issues #1719, #1980 and #2018 were closed by **GitHub**, not by a person — `ClosedEvent.closer` names
