@@ -7,7 +7,7 @@
  * directories before and after a real run caught it. So the row below counts.
  */
 
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -124,5 +124,39 @@ describe('makeTemp actually removes what it makes', () => {
     expect(existsSync(dir)).toBe(true);
     const siblings = readdirSync(tmpdir()).filter((n) => n.startsWith('robota-temp-owner-probe-'));
     expect(siblings.length).toBeGreaterThan(0);
+  });
+});
+
+describe('the floor is WIRED, not merely written', () => {
+  it('is registered in run-all-scans, so reversing the registration fails a test', () => {
+    // `regression-red-proof` caught the absence of this row: with the registration reversed every
+    // test still passed, which means nothing guarded it. The wiring was proven by hand — breaking a
+    // record and watching the suite go red — and a proof that exists only in a transcript is not a
+    // check. A scan that is written but unregistered runs for nobody.
+    const registry = readFileSync(
+      path.resolve(import.meta.dirname, '../run-all-scans.mjs'),
+      'utf8',
+    );
+    expect(registry).toContain('scripts/harness/scan-temp-dir-owner.mjs');
+    expect(registry).toContain("name: 'temp-dir-owner'");
+  });
+
+  it('is classified where the repository requires a registered scan to be classified', () => {
+    // Both classifications are load-bearing and both were added by measurement, not assertion:
+    // MANDATORY_TREE_GUARDS because the finder throws over a root with no harness test directory,
+    // and measurement-provenance `covered` because the size reader is asserted exactly and re-asserted
+    // after a second sweep. Reversing either one leaves this red.
+    const guards = readFileSync(
+      path.resolve(import.meta.dirname, '../scan-guard-scope-fail-closed.mjs'),
+      'utf8',
+    );
+    expect(guards).toContain("file: 'scan-temp-dir-owner.mjs'");
+    const ledger = JSON.parse(
+      readFileSync(
+        path.resolve(import.meta.dirname, '../measurement-provenance-pending.json'),
+        'utf8',
+      ),
+    );
+    expect(ledger.covered).toContain('scripts/harness/scan-temp-dir-owner.mjs');
   });
 });
