@@ -99,8 +99,15 @@ export function projectGraph(sources, moduleOwner, symbolOwner, corrections = []
     edges.get(a).get(b).add(why);
   };
   for (const [mod, src] of Object.entries(sources)) {
+    // Matches BOTH keywords and every extension spelling. Narrower forms were a real defect: the
+    // original matched only `import ... from './x.js'`, so five extension-less relative imports in
+    // the package this scan polices were dropped from the graph silently, and a re-export
+    // (`export { x } from './y'`) -- a dependency edge just as much as an import -- was invisible
+    // for the same reason. The ACYCLICITY verdict survived only because each missed edge happened to
+    // have a `.js` twin pointing at the same owner: a coincidence, not a property. That is the
+    // unfalsifiable green this scan exists to refuse elsewhere. (MUST finding, PR #2176.)
     for (const imp of src.matchAll(
-      /import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*'\.\/([a-z-]+)\.js'/gms,
+      /(?:import|export)\s+(?:type\s+)?\{([^}]*)\}\s*from\s*'\.\/([a-z-]+)(?:\.m?[jt]s)?'/gms,
     )) {
       const targetModule = imp[2];
       for (const raw of imp[1].split(',')) {

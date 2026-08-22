@@ -155,6 +155,73 @@ describe('projectGraph + findCycles (ARCH-100)', () => {
     expect(cycles[0]).toContain('owner-b');
   });
 
+  // MUST finding on PR #2176. The import parser matched only `from './x.js'`. Five extension-less
+  // relative imports exist in the very package this scan polices, and every one was dropped from the
+  // graph silently. Today's ACYCLICITY verdict survives only because each of those pairs happens to
+  // ALSO have a `.js` import to the same owner -- a coincidence, not a property.
+  //
+  // Each case below is written so the VERDICT FLIPS: the extension-less (or re-export) edge is the
+  // ONLY link between the two owners, so a parser that cannot see it reports zero cycles on a graph
+  // that has one. A fixture that merely CONTAINS such an import would pass either way and would
+  // re-create the same unfalsifiable green one layer down.
+  const twoOwners = new Map([
+    ['a-contracts', 'owner-a'],
+    ['b-contracts', 'owner-b'],
+  ]);
+
+  it('sees an extension-less relative import as an edge', () => {
+    const edges = projectGraph(
+      { 'a-contracts': "import type { IThing } from './b-contracts';", 'b-contracts': '' },
+      twoOwners,
+      new Map(),
+    );
+    expect([...(edges.get('owner-a')?.keys() ?? [])]).toEqual(['owner-b']);
+  });
+
+  it('detects a cycle whose ONLY closing edge is extension-less', () => {
+    const edges = projectGraph(
+      {
+        'a-contracts': "import type { IThing } from './b-contracts.js';",
+        // no `.js` twin: if this line is invisible, the cycle is invisible
+        'b-contracts': "import type { IOther } from './a-contracts';",
+      },
+      twoOwners,
+      new Map(),
+    );
+    expect(findCycles(edges, new Set(['owner-a', 'owner-b']))).toHaveLength(1);
+  });
+
+  it('sees a `.ts`-suffixed relative import as an edge', () => {
+    const edges = projectGraph(
+      { 'a-contracts': "import type { IThing } from './b-contracts.ts';", 'b-contracts': '' },
+      twoOwners,
+      new Map(),
+    );
+    expect([...(edges.get('owner-a')?.keys() ?? [])]).toEqual(['owner-b']);
+  });
+
+  it('detects a cycle whose ONLY closing edge is a re-export rather than an import', () => {
+    const edges = projectGraph(
+      {
+        'a-contracts': "import type { IThing } from './b-contracts.js';",
+        // a re-export is a real dependency edge; the original parser only matched `import`
+        'b-contracts': "export type { IOther } from './a-contracts.js';",
+      },
+      twoOwners,
+      new Map(),
+    );
+    expect(findCycles(edges, new Set(['owner-a', 'owner-b']))).toHaveLength(1);
+  });
+
+  it('sees a value re-export (`export { x } from`) as an edge', () => {
+    const edges = projectGraph(
+      { 'a-contracts': "export { isThing } from './b-contracts.js';", 'b-contracts': '' },
+      twoOwners,
+      new Map(),
+    );
+    expect([...(edges.get('owner-a')?.keys() ?? [])]).toEqual(['owner-b']);
+  });
+
   it('a pending correction redirects the edge and can break a cycle', () => {
     const owner = new Map([
       ['workspace-contracts', 'owner-exec'],
