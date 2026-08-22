@@ -1,6 +1,6 @@
 ---
 name: architecture-conformance-audit
-description: Thin router for the doc-vs-code architecture conformance audit (GATE-CONFORMANCE). Routes to the mechanical conformance scan plus the architecture-refresh agent loop (architecture-conformance-auditor / architecture-auditor + fixers), which own the audit behavior natively. Use before a release, after cross-package work, or when GATE-CONFORMANCE runs.
+description: Thin router for the doc-vs-code architecture conformance audit (GATE-CONFORMANCE). Routes to the mechanical conformance scan plus architecture-refresh, where conformance remains a separate channel beside the four-dimension audit fanout and downstream guardians/appliers own all judgement. Use before a release, after cross-package work, or when GATE-CONFORMANCE runs.
 ---
 
 # Architecture Conformance Audit (router)
@@ -25,11 +25,12 @@ names the two layers; every judgement lives in the agents (see
 
    This step assigns no verdicts — it produces the input step 2 diffs the documents against.
 
-2. **Agent loop.** Dispatch the [architecture-refresh](../architecture-refresh/SKILL.md) pipeline:
-   `architecture-conformance-auditor` (doc↔code claim verdicts — HOLDS/DRIFT/VIOLATION/PHANTOM/
-   UNDOCUMENTED — with findings + `ACTIONABLE FINDINGS: <n>`) and `architecture-auditor`
-   (design-quality judgement), routed to `architecture-fixer` / `architecture-implementer` until a
-   round is clean.
+2. **Agent loop.** Dispatch the [architecture-refresh](../architecture-refresh/SKILL.md) pipeline. It runs
+   `architecture-conformance-auditor` as the separate doc↔code channel (HOLDS/DRIFT/VIOLATION/PHANTOM/
+   UNDOCUMENTED + `ACTIONABLE FINDINGS: <n>`) beside
+   [architecture-audit-fanout](../architecture-audit-fanout/SKILL.md), then sequences synthesis,
+   verification, depth, reconciliation, and `architecture-fixer` / `architecture-implementer` routing
+   until every material finding is resolved.
 3. **Remediation planning.** When findings need follow-up backlogs + guard recommendations, use
    [improvement-proposal-authoring](../improvement-proposal-authoring/SKILL.md).
 

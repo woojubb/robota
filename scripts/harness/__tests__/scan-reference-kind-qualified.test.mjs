@@ -12,6 +12,7 @@ import {
   collectReferences,
   compare,
   examinedDocumentCount,
+  existingDocuments,
 } from '../scan-reference-kind-qualified.mjs';
 
 describe('the ratchet', () => {
@@ -74,6 +75,14 @@ describe('the size it declares', () => {
 
   it('counts per file, including the files that carry none', () => {
     expect(collectReferences(paths, read).perFile).toEqual({ 'a.md': 1, 'b.md': 0, 'c.md': 0 });
+  });
+});
+
+describe('tracked deletions', () => {
+  it('does not open a deleted tracked document before reporting baseline drift', () => {
+    expect(existingDocuments(['kept.md', 'deleted.md'], (file) => file === 'kept.md')).toEqual([
+      'kept.md',
+    ]);
   });
 });
 

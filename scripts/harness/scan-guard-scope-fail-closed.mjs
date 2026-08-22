@@ -149,6 +149,22 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'the skills tree is the population these ledgers belong to — over a root missing it, every ledger is unattributable and the skill-wiring half examines nothing, so "no findings" would mean "nothing was examined". The LEDGER directory is deliberately not governed: its absence is a legitimate state, because it is created by the first recorded run',
   },
   {
+    // INFRA-131. The skills tree declares whether either architecture loop belongs to the governed
+    // population; the ledger directory remains optional because a loop may not have run yet.
+    file: 'scan-architecture-refresh-signals.mjs',
+    finder: 'findArchitectureRefreshSignalFindings',
+    tree: '.agents/skills',
+    why: 'the skills tree declares the architecture loops whose runtime signals this floor judges — without it an empty ledger result cannot distinguish “no run yet” from “no governed loop population”',
+  },
+  {
+    // INFRA-131. Retirement is a whole-live-instruction-tree claim. Every named path is required so
+    // deleting or renaming one cannot silently remove it from the reference population.
+    file: 'scan-retired-agent-references.mjs',
+    finder: 'findRetiredAgentReferenceFindings',
+    tree: '.claude/agents, .agents/{rules,skills,specs,memory,tasks,spec-docs/{draft,backlog,todo,active}}, .agents/architecture-remediation-log.md, scripts/harness',
+    why: 'these paths are the complete live retirement population — if any disappears, “no retired references remain” would be a claim over only a subset of the governed instructions',
+  },
+  {
     // Measured as `findRouteSpellingFindings(bare)`: throws `apps, packages missing from <root>`
     // before it can read either spelling.
     file: 'scan-remote-stream-route-spelling.mjs',

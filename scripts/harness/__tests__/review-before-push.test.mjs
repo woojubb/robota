@@ -585,7 +585,14 @@ describe('the skill still puts the round before the push', () => {
     const roundB = skill.slice(skill.indexOf('### Round B'));
 
     expect(
-      dispatchedAgents(roundB, ['pr-review-reviewer', 'architecture-auditor', 'proposal-reviewer']),
+      dispatchedAgents(roundB, [
+        'pr-review-reviewer',
+        'architecture-structure-auditor',
+        'architecture-design-auditor',
+        'architecture-runtime-auditor',
+        'architecture-gate-auditor',
+        'proposal-reviewer',
+      ]),
       'the loop dispatches a reviewer on an open pull request, which is the duplication it exists to prevent',
     ).toEqual([]);
   });

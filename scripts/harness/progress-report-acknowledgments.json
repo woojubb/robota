@@ -246,6 +246,12 @@
       "timestamp": "2026-08-22T06:11:53.217Z",
       "ratio": "81/84",
       "reason": "A session-status table reported INFRA backlog completion as ‘81/84 완료’ with no percentage. It is 96%. The violation is the ordinary one this file exists for — a countable set summarised mid-work by its fraction alone — and it happened in the same message that itemised what remained, which is precisely where a reader needs the proportion to judge whether the remainder is a rounding error or a third of the work. Recorded rather than edited: the transcript is append-only, and the entry is the correction."
+    },
+    {
+      "transcript": "26d8a121-ef7d-42dc-9770-067aa42bf7ad.jsonl",
+      "timestamp": "2026-08-22T06:38:56.155Z",
+      "ratio": "3/136",
+      "reason": "A prior architecture-audit session reported three failing scans out of 136 without the percentage (2.2%). The transcript is append-only and cannot be corrected in place, so the real violation is acknowledged here through the scan's reasoned, stale-sensitive clearing path."
     }
   ]
 }

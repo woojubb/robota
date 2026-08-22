@@ -102,8 +102,8 @@ relates to the rest of the system. It must be treated as a primary decision, not
    of the shared core they should both consume) is the specific anti-pattern this rule prevents.
 3. **Independent architecture validation — not a self-claim.** The placement MUST be validated by an
    independent architecture review (an architecture-audit / proposal-review agent — see
-   [architecture-refresh](../skills/architecture-refresh/SKILL.md) and the `proposal-reviewer` /
-   `architecture-auditor` agents), which explicitly checks (1) and (2). A bare "reviewed" assertion is
+   [architecture-refresh](../skills/architecture-refresh/SKILL.md) and the `proposal-reviewer` plus
+   `architecture-audit-fanout` structure channel), which explicitly checks (1) and (2). A bare "reviewed" assertion is
    insufficient; the review and its verdict must be recorded in the Evidence Log.
 4. **Surface it to the owner FIRST.** When presenting the design for sign-off, lead with the placement
    decision — which layer it mirrors, its product-family, and the placement alternatives rejected — above
@@ -286,7 +286,8 @@ Content promotion rules:
   workspace-package-name guard) — emits a machine-readable JSON summary.
   Exit 0 = conformant, 1 = violations.
 - **Analytic layer:** the [`architecture-refresh`](../skills/architecture-refresh/SKILL.md) agent
-  pipeline (`architecture-conformance-auditor` / `architecture-auditor` → fixer/implementer) produces
+  pipeline (four-dimensional `architecture-audit-fanout` plus the separate
+  `architecture-conformance-auditor` → synthesis/depth → fixer/implementer) produces
   the findings report + remediation; the
   [`architecture-conformance-audit`](../skills/architecture-conformance-audit/SKILL.md) skill is the
   thin router into it.

@@ -681,6 +681,14 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-loop-run-records.mjs'],
   },
   {
+    name: 'architecture-refresh-signals',
+    command: ['node', 'scripts/harness/scan-architecture-refresh-signals.mjs'],
+  },
+  {
+    name: 'retired-agent-references',
+    command: ['node', 'scripts/harness/scan-retired-agent-references.mjs'],
+  },
+  {
     name: 'loop-proof',
     command: ['node', 'scripts/harness/scan-loop-proof.mjs'],
   },
