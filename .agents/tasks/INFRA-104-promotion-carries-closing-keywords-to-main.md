@@ -189,7 +189,10 @@ merge on the same principle an hour earlier ("no answer is a refusal — it is N
 BEFORE the evidence exists so the reading cannot be fitted to it:
 
 1. the promotion body carries a non-empty block naming issue #1965;
-2. the `promotion closes` required context passes on the promotion pull request;
+2. the `promotion closes` job reports green on the promotion pull request. It is ADVISORY, not
+   required: `.github/required-status-checks.json` declares it required on `main` and the live
+   `protect-main` ruleset does not, filed as issue #1980. It still runs, and a failure would show as
+   `UNSTABLE`, which `merge-gate.sh` refuses — so it stops this repository's merge path, not GitHub's;
 3. issue #1965 is closed by GITHUB — the close event attributed to the merge, not to a person.
 
 Any of the three failing is a finding about this item, not about the promotion. In particular,
