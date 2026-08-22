@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: in-progress
 type: INFRA
 tags: [ci, security, dependencies]
 ---
@@ -215,3 +215,39 @@ None
 - Tasks structure: `## Tasks` is present with the required task-file placeholder.
 - Evidence structure: `## Evidence Log` was present and empty before this first GATE-WRITE entry.
 - Body structure: no `## Status` or `## Classification` body section is present.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-22
+
+**Status upgrade:** review-ready → approved
+
+- Explicit approval: the user stated verbatim, “다 승인함.”
+- Approval scope: the statement directly answers the immediately preceding request to approve the
+  INFRA-130 design and authorize implementation, so it is unambiguous and specific to this document.
+- Post-approval integrity: at gate evaluation, the document remained at the merged
+  `a8927abdb` version with `status: review-ready`, `type: INFRA`, unchanged tags, and no working-tree
+  modification to this document or its Architecture Review.
+- Independent architecture validation: N/A; GATE-WRITE records that this internal harness generator
+  and existing workflow input introduce no new package, app, presentation/public interface surface,
+  layer reclassification, or product-family boundary.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-22
+
+**Status upgrade:** approved → in-progress
+
+- Ordering check: GATE-APPROVAL has a recorded PASS dated 2026-08-22; the spec has
+  `status: approved` and is located under `.agents/spec-docs/todo/`, matching the required input state.
+- Task artifact: `.agents/tasks/INFRA-130-derive-dependency-review-license-exemptions-from-package-manifests.md`
+  exists.
+- Spec task pointer: `## Tasks` records the exact active task-file path.
+- TC-01 task coverage: the task plan specifies the exact manifest population, canonical PURL encoding,
+  deterministic generation, nested discovery, exact-license selection, and live-tree coverage tests.
+- TC-02 task coverage: the task plan and Test Plan specify fail-closed validation tests for malformed or
+  unreadable manifests, invalid or duplicate names, empty selection, and symlink non-traversal.
+- TC-03 task coverage: the task plan specifies workflow output wiring while preserving the global
+  license policy and explicit `sharp` exemptions, with contract tests for those properties.
+- TC-04 task coverage: the task plan's workflow wiring and contract-test work includes the manifest,
+  generator, and workflow path-trigger contract defined by the spec.
+- TC-05 task coverage: the task plan explicitly requires focused generator/workflow tests, actionlint,
+  harness scans, and CI-equivalent verification.
+- Test Plan: the task file contains a substantive `## Test Plan` section covering unit, workflow
+  contract, actionlint, harness-test, harness-scan, and CI-equivalent verification (well over 50 chars).

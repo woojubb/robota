@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-130: derive dependency-review license exemptions from package manifests'
 issue: https://github.com/woojubb/robota/issues/2014
-status: todo
+status: in-progress
 created: 2026-08-22
 priority: medium
 urgency: soon
