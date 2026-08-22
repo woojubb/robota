@@ -451,6 +451,16 @@ export const SCAN_COMMANDS = [
     name: 'reference-kind-qualified',
     command: ['node', 'scripts/harness/scan-reference-kind-qualified.mjs'],
   },
+  // INFRA-127. A rule catalogue's row IS the unit of obligation, so a row short of the columns its
+  // header declares renders with rule text missing and nothing said. Six of 92 entries were in that
+  // state when this landed.
+  { name: 'rule-table-shape', command: ['node', 'scripts/harness/scan-rule-table-shape.mjs'] },
+  // INFRA-127. `.agents/tasks/README.md` declares seven required fields and only `status` was ever
+  // checked, by two scans that ask about placement and lifecycle rather than presence.
+  {
+    name: 'task-frontmatter-fields',
+    command: ['node', 'scripts/harness/scan-task-frontmatter-fields.mjs'],
+  },
   // INFRA-112. The accepted forms are derived from each hook's own source, so this compares the
   // declarations against the code rather than against a list that would drift beside them.
   {

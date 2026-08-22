@@ -3,8 +3,11 @@ id: PROC-002
 title: Provisional slugs during development, a unique slug issued at merge
 status: todo
 priority: medium
+urgency: later
 type: INFRA
 created: 2026-07-26
+area: .agents/tasks, .agents/spec-docs, .agents/rules/backlog-execution.md
+depends_on: []
 ---
 
 # PROC-002: issue the identifier at merge, not at authoring time

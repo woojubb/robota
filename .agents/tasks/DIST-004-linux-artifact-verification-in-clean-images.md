@@ -3,8 +3,11 @@ id: DIST-004
 title: The Linux release artifacts are never run anywhere but the build runner
 status: todo
 priority: medium
+urgency: later
 type: INFRA
 created: 2026-07-26
+area: .github/workflows/release-bun-binaries.yml
+depends_on: []
 ---
 
 # DIST-004: run the Linux artifacts in clean distro images
