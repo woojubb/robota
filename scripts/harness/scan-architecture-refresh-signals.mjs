@@ -26,7 +26,6 @@ import { readLedger, readLoopDeclaration } from './loop-run.mjs';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const GOVERNED = new Set(['architecture-audit-fanout', 'architecture-refresh']);
 const DIMENSIONS = ['structure', 'design', 'runtime', 'gate'];
-const MATERIAL_SEVERITIES = ['blocker', 'high', 'medium'];
 
 let examinedRuns = 0;
 
