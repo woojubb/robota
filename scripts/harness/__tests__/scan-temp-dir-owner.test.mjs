@@ -14,6 +14,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { makeTemp, pendingTempCount } from './make-temp.mjs';
+import { SCAN_COMMANDS } from '../run-all-scans.mjs';
 import {
   directCallLines,
   examinedTestFileCount,
@@ -130,15 +131,18 @@ describe('makeTemp actually removes what it makes', () => {
 describe('the floor is WIRED, not merely written', () => {
   it('is registered in run-all-scans, so reversing the registration fails a test', () => {
     // `regression-red-proof` caught the absence of this row: with the registration reversed every
-    // test still passed, which means nothing guarded it. The wiring was proven by hand — breaking a
-    // record and watching the suite go red — and a proof that exists only in a transcript is not a
-    // check. A scan that is written but unregistered runs for nobody.
-    const registry = readFileSync(
-      path.resolve(import.meta.dirname, '../run-all-scans.mjs'),
-      'utf8',
+    // test still passed, so nothing guarded it. The wiring was proven by hand — breaking a record
+    // and watching the suite go red — and a proof that exists only in a transcript is not a check.
+    //
+    // The assertion IMPORTS the registry rather than reading the file's text, and that is what makes
+    // it count. `regression-red-proof` decides which tests may judge a source by the test's IMPORT
+    // GRAPH, so a row that merely `readFileSync`s the source does not reach it and the reversal goes
+    // unjudged. Importing `SCAN_COMMANDS` is also the truer check: it asserts the registry the
+    // runner actually walks, not a string that happens to appear in the file.
+    expect(SCAN_COMMANDS.map((scan) => scan.name)).toContain('temp-dir-owner');
+    expect(SCAN_COMMANDS.find((scan) => scan.name === 'temp-dir-owner')?.command ?? []).toContain(
+      'scripts/harness/scan-temp-dir-owner.mjs',
     );
-    expect(registry).toContain('scripts/harness/scan-temp-dir-owner.mjs');
-    expect(registry).toContain("name: 'temp-dir-owner'");
   });
 
   it('is classified where the repository requires a registered scan to be classified', () => {

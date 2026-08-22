@@ -455,10 +455,6 @@ export const SCAN_COMMANDS = [
   // header declares renders with rule text missing and nothing said. Six of 92 entries were in that
   // state when this landed.
   { name: 'rule-table-shape', command: ['node', 'scripts/harness/scan-rule-table-shape.mjs'] },
-  // INFRA-126. The suite exhausted /tmp's inodes and stopped every push from the host. `makeTemp()`
-  // owns creation and teardown together; this refuses a direct call regardless of teardown, because
-  // whether a directory is removed is not something a scan can see.
-  { name: 'temp-dir-owner', command: ['node', 'scripts/harness/scan-temp-dir-owner.mjs'] },
   // INFRA-127. `.agents/tasks/README.md` declares seven required fields and only `status` was ever
   // checked, by two scans that ask about placement and lifecycle rather than presence.
   {
