@@ -19,8 +19,8 @@ import {
   buildInterruptedResult,
   createUsageSummaryEntry,
   collectSpanEntries,
-  preparePromptInput,
 } from './interactive-session-execution.js';
+import { preparePromptInput } from './interactive-session-prepare-prompt.js';
 import { pushToolSummaryToHistory } from './interactive-session-streaming.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
 

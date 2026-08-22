@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { createReplayProviderFromSource } from '@robota-sdk/agent-provider-replay';
-import { NodeSessionLogSource } from '@robota-sdk/agent-session';
+import { NodeSessionLogSink, NodeSessionLogSource } from '@robota-sdk/agent-session';
 
 import { InteractiveSession } from '../src/index.js';
 
@@ -33,6 +33,7 @@ try {
     cwd: sourceWorkspacePath,
     provider: sourceProvider,
     resumeSessionId: 'arch-014-source',
+    sessionLogSink: new NodeSessionLogSink(join(sourceWorkspacePath, '.robota', 'logs')),
     bare: true,
     permissionMode: 'bypassPermissions',
   });

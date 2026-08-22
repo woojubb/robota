@@ -32,6 +32,7 @@ import type {
   IAutomaticMemoryConfig,
   IPerTurnRecallConfig,
   TWorkspaceProjectAccess,
+  EditCheckpointStore,
 } from '@robota-sdk/agent-framework';
 import type {
   IInteractiveSession,
@@ -43,6 +44,8 @@ export interface IRenderOptions {
   cwd: string;
   provider: IAIProvider;
   projectAccess?: TWorkspaceProjectAccess;
+  /** Explicit authority- and permission-backed edit checkpoint capability. */
+  editCheckpointStore?: EditCheckpointStore;
   providerOverride?: string | undefined;
   /**
    * #1844: forwarded to the session so `/provider switch` can construct the provider it switches TO.
@@ -124,6 +127,9 @@ export function toChannelOptions(
     cwd: options.cwd,
     provider: options.provider,
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
+    ...(options.editCheckpointStore !== undefined
+      ? { editCheckpointStore: options.editCheckpointStore }
+      : {}),
     ...(options.providerDefinitions ? { providerDefinitions: options.providerDefinitions } : {}),
     // CLI-076: the display model id doubles as the session's model override so `--model` actually reaches
     // the provider chat call (header/status line == the model actually called).

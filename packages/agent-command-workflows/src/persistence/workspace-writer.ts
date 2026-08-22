@@ -15,7 +15,7 @@ import type { IWorkflowProject } from '../workflow-project.js';
 const NODE_MANIFEST_EXT = '.node.json';
 const JSON_INDENT = 2;
 
-/** Persist a workflow definition to `<cwd>/<root>/<name><ext>`. Returns the absolute written path. */
+/** Persist a workflow definition under `<root>/<name><ext>`. Returns its project-relative path. */
 export async function saveWorkflowFile(
   project: IWorkflowProject,
   name: string,
@@ -32,7 +32,7 @@ export async function saveWorkflowFile(
 }
 
 /**
- * Persist a prompt-backed / instant node to `<cwd>/<root>/nodes/<type>.node.json`. Nodes without a
+ * Persist a prompt-backed / instant node under `<root>/nodes/<type>.node.json`. Nodes without a
  * `toPersisted()` (built-ins) are skipped and return `null`. Both prompt AND composite instant nodes
  * are persisted through the shared `toPersisted()` round-trip (`@robota-sdk/dag-node-instant-node`);
  * a composite's behavioral sub-runner is not serialized — `loadInstantNodes` rebuilds it on reload

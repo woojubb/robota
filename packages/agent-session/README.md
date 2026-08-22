@@ -49,10 +49,10 @@ await session.compact('Focus on the API changes');
 | **Hook execution**         | PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop                                                               |
 | **Context tracking**       | Effective token usage from the shared core estimator, configurable auto-compact threshold (default ~83.5%)                         |
 | **Compaction**             | LLM-generated conversation summary to free context space; an invalid summary throws `CompactionError` and leaves history untouched |
-| **Persistence**            | `SessionStore` for JSON file-based session save/load (atomic temp-file + rename writes)                                            |
+| **Persistence**            | `IInteractiveSessionStore` injection; explicit `NodeSessionStore` host adapter uses atomic temp-file + rename writes               |
 | **Abort**                  | Cancel via `session.abort()` — propagates AbortSignal to `robota.run()`, throws `AbortError` to caller                             |
 | **One turn at a time**     | A concurrent `run()` is refused with `SessionBusyError` (RUNTIME-003); `isRunning()` is authoritative — see SPEC § Turn Identity   |
-| **Session logging**        | `FileSessionLogger` writes JSONL event logs                                                                                        |
+| **Session logging**        | `FileSessionLogger` writes JSONL through an injected neutral sink; `NodeSessionLogSink` is the explicit host adapter               |
 | **Replay events**          | Provider/tool execution boundary events are forwarded from core into append-only session logs                                      |
 | **Provider capabilities**  | Generic native web capability setup is requested through the provider contract, not provider-name branches                         |
 
@@ -77,29 +77,32 @@ await session.compact('Focus on the API changes');
 
 ## Public API Surface
 
-| Export                              | Kind      | Description                                                             |
-| ----------------------------------- | --------- | ----------------------------------------------------------------------- |
-| `Session`                           | Class     | Wraps Robota with permissions, hooks, streaming, persistence            |
-| `PermissionEnforcer`                | Class     | Tool permission checking, hook execution, output truncation             |
-| `ContextWindowTracker`              | Class     | Effective token usage tracking and auto-compact threshold               |
-| `CompactionOrchestrator`            | Class     | Conversation compaction via LLM summary                                 |
-| `SessionStore`                      | Class     | JSON file persistence for session records                               |
-| `FileSessionLogger`                 | Class     | JSONL file-based session event logger                                   |
-| `SilentSessionLogger`               | Class     | No-op session logger                                                    |
-| `ISessionOptions`                   | Interface | Constructor options for Session                                         |
-| `TAutoCompactThreshold`             | Type      | Auto-compact threshold fraction, or `false` to disable                  |
-| `TPermissionHandler`                | Type      | Custom permission approval callback                                     |
-| `TPermissionResult`                 | Type      | Permission decision result (`boolean \| 'allow-session'`)               |
-| `ITerminalOutput`                   | Interface | Terminal I/O abstraction (write, prompt, select, spinner)               |
-| `ISpinner`                          | Interface | Spinner handle                                                          |
-| `ISessionLogger`                    | Interface | Pluggable session event logger interface                                |
-| `TSessionLogData`                   | Type      | Structured log event data                                               |
-| `resolveSessionLogExternalPayloads` | Function  | Bounded, integrity-checked hydration of JSON sidecar references         |
-| `SessionLogPayloadResolutionError`  | Class     | Typed sidecar resolution failure with a stable error code               |
-| `IInteractiveSessionRecord`         | Interface | Canonical persisted session record (owned by agent-interface-transport) |
-| `IInteractiveSessionStore`          | Interface | Canonical persistence port implemented by `SessionStore`                |
-| `ISessionRecord` / `ISessionStore`  | Type      | Compatibility-only renamed re-exports of the canonical contracts        |
-| `IContextWindowState`               | Type      | Context window usage state (re-exported from agent-core)                |
+| Export                                  | Kind      | Description                                                             |
+| --------------------------------------- | --------- | ----------------------------------------------------------------------- |
+| `Session`                               | Class     | Wraps Robota with permissions, hooks, streaming, persistence            |
+| `PermissionEnforcer`                    | Class     | Tool permission checking, hook execution, output truncation             |
+| `ContextWindowTracker`                  | Class     | Effective token usage tracking and auto-compact threshold               |
+| `CompactionOrchestrator`                | Class     | Conversation compaction via LLM summary                                 |
+| `NodeSessionStore`                      | Class     | Explicit host-filesystem JSON persistence adapter                       |
+| `FileSessionLogger`                     | Class     | Sink-driven JSONL session event logger                                  |
+| `NodeSessionLogSource`                  | Class     | Explicit host adapter for a JSONL log and relative payload sidecars     |
+| `NodeSessionLogSink`                    | Class     | Explicit host adapter for JSONL append and payload sidecars             |
+| `SilentSessionLogger`                   | Class     | No-op session logger                                                    |
+| `ISessionOptions`                       | Interface | Constructor options for Session                                         |
+| `TAutoCompactThreshold`                 | Type      | Auto-compact threshold fraction, or `false` to disable                  |
+| `TPermissionHandler`                    | Type      | Custom permission approval callback                                     |
+| `TPermissionResult`                     | Type      | Permission decision result (`boolean \| 'allow-session'`)               |
+| `ITerminalOutput`                       | Interface | Terminal I/O abstraction (write, prompt, select, spinner)               |
+| `ISpinner`                              | Interface | Spinner handle                                                          |
+| `ISessionLogger`                        | Interface | Pluggable session event logger interface                                |
+| `TSessionLogData`                       | Type      | Structured log event data                                               |
+| `resolveSessionLogExternalPayloads`     | Function  | Bounded, integrity-checked hydration of JSON sidecar references         |
+| `SessionLogPayloadResolutionError`      | Class     | Typed sidecar resolution failure with a stable error code               |
+| `IInteractiveSessionRecord`             | Interface | Canonical persisted session record (owned by agent-interface-transport) |
+| `IInteractiveSessionStore`              | Interface | Canonical persistence port implemented by `NodeSessionStore`            |
+| `ISessionLogSource` / `ISessionLogSink` | Interface | Neutral log read/write ports used by framework authority adapters       |
+| `ISessionRecord` / `ISessionStore`      | Type      | Compatibility-only renamed re-exports of the canonical contracts        |
+| `IContextWindowState`                   | Type      | Context window usage state (re-exported from agent-core)                |
 
 Note: `IPermissionEnforcerOptions` is an internal type and is not exported from the public API.
 
@@ -118,7 +121,12 @@ Note: `IPermissionEnforcerOptions` is an internal type and is not exported from 
 
 ### Interactive session record
 
-`IInteractiveSessionRecord` is owned by `@robota-sdk/agent-interface-transport` and carries the full conversation and resumable state. `SessionStore` persists this record without inspecting its payload. When a raw `Session` re-saves an existing record, it preserves fields it does not own and refreshes only its live conversation, history, prompt, schema, path, and timestamp fields.
+`IInteractiveSessionRecord` is owned by `@robota-sdk/agent-interface-transport` and carries the full conversation and resumable state. `NodeSessionStore` persists this record without inspecting its payload. It is a conspicuously named host adapter: passing a directory does not establish workspace trust. Framework project composition instead adapts an accepted project-authority state facet to the same neutral store port. When a raw `Session` re-saves an existing record, it preserves fields it does not own and refreshes only its live conversation, history, prompt, schema, path, and timestamp fields.
+
+Session-log parsing is source-driven. `loadSessionLogEntries(source)` consumes an explicit
+`ISessionLogSource`; it never converts a filename into filesystem authority. Use
+`NodeSessionLogSource` only when the application deliberately owns the host path, or provide a
+framework authority-backed source for project logs.
 
 Streaming text deltas are written to append-only JSONL session logs as `text_delta` events. Consumers should store high-frequency streaming chunks in JSONL logs/transcripts and keep session JSON focused on resumable snapshots and references.
 

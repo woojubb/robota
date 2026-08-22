@@ -8,6 +8,7 @@ import { join } from 'node:path';
 
 import { describe, it, expect, vi } from 'vitest';
 
+import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
 
 import type { ICommandModule } from '../../command-api/command-module.js';
@@ -137,6 +138,7 @@ describe('InteractiveSession', () => {
       const session = new InteractiveSession({
         session: mockSession as never,
         cwd,
+        projectAccess: await createTrustedProjectAccessFixture(cwd),
       });
 
       const completedResults: IExecutionResult[] = [];
@@ -179,6 +181,7 @@ describe('InteractiveSession', () => {
       const session = new InteractiveSession({
         session: mockSession as never,
         cwd,
+        projectAccess: await createTrustedProjectAccessFixture(cwd),
       });
 
       const addResult = await session.addContextReference('notes.md');

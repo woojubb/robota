@@ -3,8 +3,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { createNodeHostSessionStore, InteractiveSession } from '@robota-sdk/agent-framework';
+import {
+  EditCheckpointStore,
+  InteractiveSession,
+  createNodeHostSessionStore,
+  createWorkspaceProjectMutation,
+} from '@robota-sdk/agent-framework';
 import { createOutboundDelivery, createWsHandler } from '@robota-sdk/agent-transport-protocol';
+
+import { createSessionEventDeliveryProjectAccess } from './session-event-delivery-project-access.js';
 
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
@@ -32,11 +39,22 @@ async function main(): Promise<void> {
     },
     { text: 'second complete' },
   ]);
+  const projectAccess = await createSessionEventDeliveryProjectAccess(cwd);
+  assertCondition(projectAccess.status === 'trusted', 'scenario project access was not trusted');
   const store = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
+  const editCheckpointStore = new EditCheckpointStore({
+    authority: projectAccess.authority,
+    mutation: createWorkspaceProjectMutation(projectAccess.authority, {
+      status: 'approved',
+      purpose: 'exercise checkpoint branch event delivery',
+    }),
+  });
   const session = new InteractiveSession({
     cwd,
     provider: script.provider,
+    projectAccess,
     sessionStore: store,
+    editCheckpointStore,
     permissionMode: 'acceptEdits',
     allowedTools: ['Write'],
   });
@@ -55,8 +73,8 @@ async function main(): Promise<void> {
   try {
     await session.setPlan('Deliver session events', ['emit', 'forward', 'render']);
     session.approvePlan();
-    writeFileSync(agentsPath, '# Refreshed rules\n', 'utf8');
     await completeTurn(session, 'create first checkpoint');
+    writeFileSync(agentsPath, '# Refreshed rules\n', 'utf8');
     await completeTurn(session, 'create second checkpoint');
     const [first, second] = session.listEditCheckpoints();
     assertCondition(first !== undefined && second !== undefined, 'expected two checkpoints');

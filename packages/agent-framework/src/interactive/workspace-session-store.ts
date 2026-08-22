@@ -69,7 +69,7 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
       .filter((entry) => entry.kind === 'file' && entry.name.endsWith('.json'))
       .map((entry) => entry.name.slice(0, -'.json'.length))
       .filter(isSafeSessionId)
-      .map((id) => this.loadRecordOnly(id))
+      .map((id) => this.load(id))
       .filter((record): record is IInteractiveSessionRecord => record !== undefined);
     const seen = new Set(records.map((record) => record.id));
     for (const replayRecord of this.listReplayLogRecords()) {
@@ -83,16 +83,6 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
   delete(id: string): void {
     assertSafeSessionId(id);
     this.sessions.deleteFile(`${id}.json`, 'delete project session record');
-  }
-
-  private loadRecordOnly(id: string): IInteractiveSessionRecord | undefined {
-    const raw = this.sessions.readText(`${id}.json`, 'load listed project session record');
-    if (raw === undefined) return undefined;
-    try {
-      return JSON.parse(raw) as IInteractiveSessionRecord;
-    } catch {
-      return undefined;
-    }
   }
 
   private loadFromReplayLog(id: string): IInteractiveSessionRecord | undefined {

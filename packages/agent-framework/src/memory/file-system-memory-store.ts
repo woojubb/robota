@@ -1,12 +1,11 @@
 /**
- * SELFHOST-008 P1 — the neutral filesystem reference adapter for the memory port.
+ * SELFHOST-008 P1 — the authority-backed workspace adapter for the memory port.
  *
  * `WorkspaceMemoryStore` implements `IMemoryStore` by composing the authority-backed
- * mechanisms — `ProjectMemoryStore` (durable write/read under `<cwd>/.robota/memory/`),
+ * mechanisms — `ProjectMemoryStore` (durable read/write through the named `memory` state facet),
  * `MemoryRetrievalService` (budgeted keyword recall), and `PendingMemoryStore` (curation queue). It
- * mirrors `InMemorySandboxClient` (the sandbox precedent's reference adapter that lives in the same
- * package as its port): the default store when no adapter is injected, so memory keeps working exactly
- * as today. It adds NO new behavior — it is purely the port face over the three existing classes.
+ * adds NO authority and no ambient fallback — it is purely the port face over the three existing
+ * classes, and absence of a facet means project memory remains unavailable.
  */
 
 import { MemoryRetrievalService } from './memory-retrieval-service.js';
@@ -91,7 +90,7 @@ export class WorkspaceMemoryStore implements IMemoryStore {
   }
 }
 
-/** Create the neutral filesystem reference memory store for a workspace. */
+/** Create the memory port adapter for an accepted workspace `memory` state facet. */
 export function createWorkspaceMemoryStore(
   storage: IWorkspaceProjectStateStorage,
   now?: () => Date,

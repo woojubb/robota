@@ -52,10 +52,7 @@ export function workspacePathSegments(value: string, allowRoot = false): readonl
   return segments;
 }
 
-export function isSameWorkspaceIdentity(
-  left: IWorkspaceIdentity,
-  right: IWorkspaceIdentity,
-): boolean {
+function isSameWorkspaceIdentity(left: IWorkspaceIdentity, right: IWorkspaceIdentity): boolean {
   return left.repositoryKey === right.repositoryKey && left.worktreeRoot === right.worktreeRoot;
 }
 

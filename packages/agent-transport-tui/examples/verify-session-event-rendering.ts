@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
+import { EditCheckpointStore, createWorkspaceProjectMutation } from '@robota-sdk/agent-framework';
 
+import { createSessionEventRenderingProjectAccess } from './session-event-rendering-project-access.js';
 import { TuiInteractionChannel } from '../src/index.js';
 
 function assertCondition(condition: boolean, message: string): asserts condition {
@@ -15,10 +17,21 @@ async function main(): Promise<void> {
   const agentsPath = join(cwd, 'AGENTS.md');
   writeFileSync(agentsPath, '# Initial rules\n', 'utf8');
   const script = createScriptedProvider([{ text: 'context refreshed' }]);
+  const projectAccess = await createSessionEventRenderingProjectAccess(cwd);
+  assertCondition(projectAccess.status === 'trusted', 'scenario project access was not trusted');
+  const editCheckpointStore = new EditCheckpointStore({
+    authority: projectAccess.authority,
+    mutation: createWorkspaceProjectMutation(projectAccess.authority, {
+      status: 'approved',
+      purpose: 'render checkpoint lifecycle events in the TUI scenario',
+    }),
+  });
   const deliveryFailures: Array<{ message: string; event: string }> = [];
   const channel = new TuiInteractionChannel({
     cwd,
     provider: script.provider,
+    projectAccess,
+    editCheckpointStore,
     sessionName: 'ARCH-028 scenario',
     permissionMode: 'acceptEdits',
     onSessionEventDeliveryError: (error, event) =>
@@ -49,7 +62,7 @@ async function main(): Promise<void> {
       'plan_approved notice was not rendered',
     );
     assertCondition(
-      notices.includes(`Context refreshed: ${agentsPath}`),
+      notices.includes('Context refreshed: AGENTS.md'),
       'context refresh notice was not rendered',
     );
     assertCondition(

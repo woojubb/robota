@@ -4,7 +4,11 @@ import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
-import { createAgentRuntime, type InteractiveSession } from '../src/index.js';
+import {
+  createAgentRuntime,
+  createNodeHostSessionStore,
+  type InteractiveSession,
+} from '../src/index.js';
 
 const FIRST_PROMPT = 'ARCH-023 remember runtime-default-store';
 const FIRST_RESPONSE = 'ARCH-023 stored runtime-default-store';
@@ -39,8 +43,13 @@ async function main(): Promise<void> {
     | undefined;
 
   try {
+    const sessionStore = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
     const firstScript = createScriptedProvider([{ text: FIRST_RESPONSE }]);
-    const firstRuntime = createAgentRuntime({ cwd, provider: firstScript.provider });
+    const firstRuntime = createAgentRuntime({
+      cwd,
+      provider: firstScript.provider,
+      sessionStore,
+    });
     firstSession = firstRuntime.createSession({});
     const firstResponse = await completeTurn(firstSession, FIRST_PROMPT);
     const sessionId = firstSession.getSession().getSessionId();
@@ -53,7 +62,11 @@ async function main(): Promise<void> {
     );
 
     const secondScript = createScriptedProvider([{ text: SECOND_RESPONSE }]);
-    const secondRuntime = createAgentRuntime({ cwd, provider: secondScript.provider });
+    const secondRuntime = createAgentRuntime({
+      cwd,
+      provider: secondScript.provider,
+      sessionStore,
+    });
     secondSession = secondRuntime.createSession({ resumeSessionId: sessionId });
     const resumedResponse = await completeTurn(secondSession, SECOND_PROMPT);
 

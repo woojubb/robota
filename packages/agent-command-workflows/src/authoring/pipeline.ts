@@ -45,9 +45,9 @@ import type { IWorkflowProject } from '../workflow-project.js';
 export interface IAuthoredWorkflow {
   readonly name: string;
   readonly definition: IDagDefinition;
-  /** Absolute path of the saved workflow artifact. */
+  /** Project-relative path of the saved workflow artifact. */
   readonly workflowPath: string;
-  /** Absolute paths of any newly-saved instant-node manifests. */
+  /** Project-relative paths of any newly-saved instant-node manifests. */
   readonly savedNodePaths: readonly string[];
   /** Node definitions a run would need: the workspace's existing instant nodes + the authored ones. */
   readonly runNodes: readonly IDagNodeDefinition[];

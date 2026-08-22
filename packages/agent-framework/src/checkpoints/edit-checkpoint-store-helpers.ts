@@ -1,5 +1,3 @@
-import { relative } from 'node:path';
-
 import type { IEditCheckpointManifest } from './edit-checkpoint-types.js';
 import type { IFileSystem, IFileSystemAsync } from '@robota-sdk/agent-core';
 
@@ -31,11 +29,6 @@ export function safePathSegment(value: string): string {
   return value.replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
-export function isInside(parent: string, child: string): boolean {
-  const rel = relative(parent, child);
-  return rel.length === 0 || (!rel.startsWith('..') && !rel.startsWith('/'));
-}
-
 export async function pathExists(
   fsAsync: IFileSystemAsync,
   fs: IFileSystem,
@@ -47,27 +40,5 @@ export async function pathExists(
   } catch {
     // allow-fallback: access failure means file absent, false is the correct result
     return false;
-  }
-}
-
-export function readDirSyncSafe(fs: IFileSystem, dir: string): string[] {
-  try {
-    return fs.readdirSync(dir);
-  } catch {
-    // allow-fallback: missing directory returns empty list, not an error
-    return [];
-  }
-}
-
-export function readJsonManifest(
-  fs: IFileSystem,
-  path: string,
-): IEditCheckpointManifest | undefined {
-  try {
-    const raw = fs.readFileSync(path, 'utf8');
-    return JSON.parse(raw) as IEditCheckpointManifest;
-  } catch {
-    // allow-fallback: corrupted/missing manifest is filtered out by caller
-    return undefined;
   }
 }

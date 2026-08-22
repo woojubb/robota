@@ -13,17 +13,13 @@ import {
 } from './interactive-session-host-actions.js';
 import { initializeInteractiveSessionAsync } from './interactive-session-init.js';
 import { persistSession } from './interactive-session-persistence.js';
+import { resolveUserSettingsProviderSwitch } from './interactive-session-provider-switch.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { publicTurnOptions, submitNewTurn } from './interactive-session-turn-submission.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
-import {
-  createProviderFromSettings,
-  readProviderSettings,
-} from '../command-api/provider/provider-factory.js';
-import { createDefaultUserSettingsSources } from '../config/settings-source.js';
 import { createContributionSourcesForProjectAccess } from '../contributions/index.js';
 import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
@@ -186,7 +182,6 @@ export class InteractiveSession
     this.automaticMemory = 'automaticMemory' in options ? options.automaticMemory : undefined;
     this.recallMemory = 'recallMemory' in options ? options.recallMemory : undefined;
     this.sandboxSnapshotId = 'sandboxSnapshotId' in options ? options.sandboxSnapshotId : undefined;
-
     const cwd = this.cwd;
     const initCheckpointStore = options.editCheckpointStore ?? null;
 
@@ -297,7 +292,6 @@ export class InteractiveSession
     this.resumeGoalIfActive();
   }
 
-  /** The host's typed initial project-access decision for this construction. */
   getProjectAccess(): TWorkspaceProjectAccess {
     return this.projectAccess;
   }
@@ -959,17 +953,10 @@ export class InteractiveSession
 
   private async switchProvider(profileName: string): Promise<void> {
     const session = this.getSessionOrThrow();
-    // ARCH-043 owns immutable project-access propagation into lazy commands. Until then this path
-    // intentionally sees only explicit host-owned user settings and never reconstructs project access.
-    const settingsSources = createDefaultUserSettingsSources();
-    const settings = readProviderSettings(settingsSources, {
-      providerOverride: profileName,
-      providerDefinitions: this.providerDefinitions,
-    });
-    const provider = createProviderFromSettings(settingsSources, undefined, {
-      providerOverride: profileName,
-      providerDefinitions: this.providerDefinitions,
-    });
+    const { settings, provider } = resolveUserSettingsProviderSwitch(
+      profileName,
+      this.providerDefinitions,
+    );
     session.swapProvider(provider, settings.model);
   }
 

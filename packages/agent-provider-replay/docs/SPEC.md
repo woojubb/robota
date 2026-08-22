@@ -12,8 +12,9 @@ end-to-end tests (e.g. SCREEN-010 streaming→commit).
 
 - **Implements** the `@robota-sdk/agent-core` `AbstractAIProvider` contract (`chat` / `chatStream`).
 - **Consumes** already-hydrated recorded session-log lines (typed via `@robota-sdk/agent-session` —
-  `ISessionLogLine`, `SESSION_LOG_EVENT`). File-backed composition receives explicit session-log and
-  external-payload sources owned by `agent-session`; this package opens no path and owns no filesystem reader.
+  `ISessionLogEntry`, `SESSION_LOG_EVENT`). Neutral composition receives an explicit `ISessionLogSource`.
+  The separately named `createReplayProviderFromNodeLogFile` convenience adapter deliberately enters
+  host-filesystem I/O through `agent-session`'s `NodeSessionLogSource`; it does not establish project trust.
 - **No network, no clock/random dependence** in replayed content — output is a pure function of the
   recorded log.
 - Depends only on `@robota-sdk/agent-core` (provider contract) and `@robota-sdk/agent-session` (log
@@ -29,7 +30,7 @@ response as a single chunk (sufficient to exercise the streaming→commit path).
 responses are exhausted, `chat()` rejects.
 
 ```
-explicit log/payload sources ──loadSessionLogEntries + hydration──▶ ISessionLogLine[]
+explicit log/payload source ──loadSessionLogEntries + hydration──▶ ISessionLogEntry[]
                          │ filter resolved provider_response_normalized
                          ▼
                  ReplayProvider.responses[] ──chat()/chatStream()──▶ TUniversalMessage
@@ -37,24 +38,25 @@ explicit log/payload sources ──loadSessionLogEntries + hydration──▶ IS
 
 ## Type Ownership
 
-- Owns: `ReplayProvider`, `IReplayProviderOptions`, `IReplayProviderFromSourceOptions`.
+- Owns: `ReplayProvider`, `IReplayProviderOptions`, `TReplayProviderFromSourceOptions`.
 - Consumes (does not own): `AbstractAIProvider`, `TUniversalMessage`, `IChatOptions`
-  (`@robota-sdk/agent-core`); `ISessionLogLine`, `SESSION_LOG_EVENT`, `loadSessionLogEntries`,
+  (`@robota-sdk/agent-core`); `ISessionLogEntry`, `ISessionLogSource`, `SESSION_LOG_EVENT`, `loadSessionLogEntries`,
   `resolveSessionLogExternalPayloads`, and `SessionLogPayloadResolutionError`
   (`@robota-sdk/agent-session`).
 
 ## Public API Surface
 
-- `class ReplayProvider extends AbstractAIProvider` — `chat`, `chatStream`, `supportsTools`,
-  `recordedResponseCount`.
-- `interface IReplayProviderOptions { entries; name?; version? }` — entries must already be hydrated; direct
-  construction is I/O-free and rejects an unresolved external-payload reference.
-- `interface IReplayProviderFromSourceOptions { logSource; payloadSource?; name?; version?; limits? }` — explicit
-  neutral source composition.
-- `createReplayProviderFromSource(options): ReplayProvider` — loads/hydrates through supplied sources.
+| Export                                | Kind      | Description                                                                         |
+| ------------------------------------- | --------- | ----------------------------------------------------------------------------------- |
+| `ReplayProvider`                      | Class     | I/O-free recorded-response provider over supplied entries                           |
+| `IReplayProviderOptions`              | Interface | Direct entries, optional explicit payload source, provider metadata, and limits     |
+| `TReplayProviderFromSourceOptions`    | Type      | Provider metadata and hydration limits for explicit-source composition              |
+| `createReplayProviderFromSource`      | Function  | Load and hydrate through a supplied neutral session-log source                      |
+| `createReplayProviderFromNodeLogFile` | Function  | Explicit host-filesystem adapter; a filename does not establish workspace authority |
 
 The source factory partitions external-payload limits to `loadSessionLogEntries` and hydrates the complete log
-exactly once. Direct `ReplayProvider` construction performs no I/O and throws typed `UNRESOLVED_REFERENCE` when
+exactly once. The Node-file factory is only a conspicuous host adapter over that neutral factory. Direct
+`ReplayProvider` construction performs no I/O and throws typed `UNRESOLVED_REFERENCE` when
 a consumed normalized response still contains a reference. References in observability, tool, text-delta, or
 user events remain ignored.
 

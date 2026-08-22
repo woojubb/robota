@@ -6,8 +6,10 @@
  * Declared scan scope:
  *
  * - production TypeScript under agent-framework, agent-session, agent-provider-replay, agent-cli,
- *   agent-command, and agent-command-workflows (tests, dist, and framework testing helpers excluded);
- * - the published framework runtime/testing barrels for production-authority issuer reachability.
+ *   agent-command, agent-command-workflows, agent-transport, and agent-transport-tui (tests, dist,
+ *   and testing helpers excluded);
+ * - their published runtime barrels for public-declaration reachability and production-authority
+ *   issuer reachability.
  *
  * The guard reads exported declaration structure from the TypeScript AST. It rejects a
  * project-sensitive exported declaration that accepts a bare cwd/root/path or generic filesystem
@@ -32,15 +34,27 @@ export const PROJECT_AUTHORITY_SOURCE_SCOPES = Object.freeze([
   'packages/agent-cli/src',
   'packages/agent-command/src',
   'packages/agent-command-workflows/src',
+  'packages/agent-transport/src',
+  'packages/agent-transport-tui/src',
 ]);
 
 export const PROJECT_AUTHORITY_PUBLIC_BARRELS = Object.freeze([
   'packages/agent-framework/src/index.ts',
   'packages/agent-framework/src/testing/index.ts',
+  'packages/agent-session/src/index.ts',
+  'packages/agent-provider-replay/src/index.ts',
+  'packages/agent-command/src/index.ts',
+  'packages/agent-command-workflows/src/index.ts',
+  'packages/agent-transport/src/index.ts',
+  'packages/agent-transport/src/headless/index.ts',
+  'packages/agent-transport/src/programmatic/index.ts',
+  'packages/agent-transport-tui/src/index.ts',
 ]);
 
 const PROJECT_SENSITIVE_NAME =
   /(Project|Workspace|TaskContext|PromptFile|AgentDefinition|Skill(Command|Source|Execution)|Checkpoint|Memory|Session(Store|Replay|Log)|Settings(Source|Store|File)|ReplayProvider)/;
+const HIGH_LEVEL_PROJECT_CONSTRUCTION_NAME =
+  /^(IInteractiveSession(?:Standard|Injected)?Options|IInteractiveRuntimeOptions|IAgentRuntimeConfig|ICreateQueryOptions|ICreateProgrammaticAgentOptions|IHeadlessInteractionChannelOptions|IRenderOptions|ITuiInteractionChannelOptions)$/;
 const EXPLICIT_HOST_NAME = /(NodeHost|Node|User|Host)/;
 const BARE_PROJECT_PATH_NAME =
   /^(cwd|root|projectRoot|worktreeRoot|baseDirectory|filePath|logFile|settingsPath)$/;
@@ -58,7 +72,7 @@ const REMOVED_AMBIENT_HELPERS = new Set([
 
 let examinedFiles = 0;
 
-export function readPublicProjectAuthorityExaminedCount() {
+export function readExaminedPublicProjectAuthorityCount() {
   return examinedFiles;
 }
 
@@ -175,6 +189,36 @@ function inspectOptionalAuthorityMembers(file, sourceFile, node) {
   return findings;
 }
 
+function inspectHighLevelProjectDecision(file, sourceFile, node) {
+  if (
+    !ts.isInterfaceDeclaration(node) ||
+    !isExported(node) ||
+    !HIGH_LEVEL_PROJECT_CONSTRUCTION_NAME.test(declarationName(node))
+  ) {
+    return [];
+  }
+  const members = (node.members ?? []).map((member) => ({
+    name: member.name?.text ?? member.name?.escapedText ?? '',
+    type: member.type?.getText?.(sourceFile) ?? '',
+  }));
+  const acceptsCwd = members.some(
+    (member) => member.name === 'cwd' && /\bstring\b/.test(member.type),
+  );
+  const carriesProjectDecision = members.some(
+    (member) => member.name === 'projectAccess' && /\bTWorkspaceProjectAccess\b/.test(member.type),
+  );
+  if (!acceptsCwd || carriesProjectDecision) return [];
+  return [
+    finding(
+      file,
+      sourceFile,
+      node,
+      'high-level-project-decision-missing',
+      `${declarationName(node)} accepts cwd but cannot carry the host's trusted-or-restricted project decision.`,
+    ),
+  ];
+}
+
 export function findPublicProjectAuthorityFindings(
   files,
   publicBarrels,
@@ -234,6 +278,7 @@ export function findPublicProjectAuthorityFindings(
     for (const statement of sourceFile.statements ?? []) {
       if (publicNames.has(declarationName(statement))) {
         findings.push(...inspectOptionalAuthorityMembers(file, sourceFile, statement));
+        findings.push(...inspectHighLevelProjectDecision(file, sourceFile, statement));
       }
       if (
         publicNames.has(declarationName(statement)) &&
@@ -273,7 +318,7 @@ function main() {
   const findings = findPublicProjectAuthorityFindings(files, barrels);
 
   process.stdout.write(
-    `::examined:: ${readPublicProjectAuthorityExaminedCount()} TypeScript file(s)\n`,
+    `::examined:: ${readExaminedPublicProjectAuthorityCount()} TypeScript file(s)\n`,
   );
   if (findings.length === 0) {
     process.stdout.write('public-project-authority scan passed.\n');

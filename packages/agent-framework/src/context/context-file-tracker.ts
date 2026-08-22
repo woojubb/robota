@@ -6,7 +6,7 @@ import type { IWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 /** A single context file entry tracked with its content hash. */
 export interface IContextFileEntry {
-  /** Absolute path to the file. */
+  /** Authority-scoped path; project entries are relative to their authenticated root. */
   filePath: string;
   /** Content as read at load time. */
   content: string;
@@ -19,7 +19,7 @@ export function computeContentHash(content: string): string {
   return createHash('sha256').update(content, 'utf-8').digest('hex');
 }
 
-/** Read a file from disk and return an entry with its content hash. */
+/** Read a project-relative file through an authorized reader and return its content hash. */
 export function loadFileWithHash(
   filePath: string,
   reader: IWorkspaceProjectReader,

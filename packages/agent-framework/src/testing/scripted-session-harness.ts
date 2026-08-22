@@ -174,7 +174,7 @@ export class ScriptedSessionHarness {
     } else {
       base = createScriptedProvider(this.substituteWorkspacePath(options.turns ?? [])).provider;
     }
-    // Capture every request uniformly (works for both scripted and cassette providers).
+    // Capture every scripted or cassette request uniformly.
     this.requests = [];
     const provider: IAIProvider = {
       ...base,
@@ -183,11 +183,8 @@ export class ScriptedSessionHarness {
         return base.chat(messages, chatOptions);
       },
     };
-
-    this.sessionStore = options.persistence
-      ? new NodeSessionStore(join(this.cwd, '.robota', 'sessions'))
-      : undefined;
-
+    const persistenceDir = join(this.cwd, '.robota', 'sessions');
+    this.sessionStore = options.persistence ? new NodeSessionStore(persistenceDir) : undefined;
     this.session = new InteractiveSession({
       cwd: this.cwd,
       provider,

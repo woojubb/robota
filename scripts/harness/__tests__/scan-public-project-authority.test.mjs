@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { SCAN_COMMANDS } from '../run-all-scans.mjs';
 import {
   findPublicProjectAuthorityFindings,
-  readPublicProjectAuthorityExaminedCount,
+  readExaminedPublicProjectAuthorityCount,
 } from '../scan-public-project-authority.mjs';
 
 function scan(source, barrel = source) {
@@ -33,6 +33,16 @@ describe('public-project-authority AST guard', () => {
       "export type { IProjectLoader } from './api.js';",
     );
     expect(findings.map((finding) => finding.rule)).toContain('optional-project-authority');
+  });
+
+  it('RED: rejects a high-level construction options interface with cwd but no project decision', () => {
+    const findings = scan(
+      'export interface IInteractiveRuntimeOptions { cwd?: string; provider: IAIProvider }',
+      "export type { IInteractiveRuntimeOptions } from './api.js';",
+    );
+    expect(findings.map((finding) => finding.rule)).toContain(
+      'high-level-project-decision-missing',
+    );
   });
 
   it('RED: rejects a generic filesystem presented as project trust', () => {
@@ -82,8 +92,19 @@ describe('public-project-authority AST guard', () => {
   });
 
   it('reports the exact examined population instead of a self-asserted non-zero pass', () => {
-    scan('export function harmless(): void {}');
-    expect(readPublicProjectAuthorityExaminedCount()).toBe(2);
+    findPublicProjectAuthorityFindings(
+      ['single.ts'],
+      ['single.ts'],
+      () => 'export function harmless(): void {}',
+    );
+    expect(readExaminedPublicProjectAuthorityCount()).toBe(1);
+
+    findPublicProjectAuthorityFindings(
+      ['single.ts'],
+      ['single.ts'],
+      () => 'export function harmlessAgain(): void {}',
+    );
+    expect(readExaminedPublicProjectAuthorityCount()).toBe(1);
   });
 
   it('is registered and passes against the live governed tree', () => {

@@ -13,6 +13,8 @@ import { join } from 'node:path';
 import { InMemorySandboxClient } from '@robota-sdk/agent-tools';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { createNodeHostContributionSourcesFixture } from '../testing/contribution-source-fixture.js';
+
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
@@ -262,6 +264,7 @@ describe('createSession — appendSystemPrompt option', () => {
       await createSession({
         config: baseConfig(),
         cwd,
+        contributionSources: createNodeHostContributionSourcesFixture(cwd),
         context: { agentsMd: '', projectNotesMd: '' },
         terminal: MOCK_TERMINAL,
         provider: createMockProvider(),
@@ -327,6 +330,7 @@ describe('createSession — command descriptor tool guidance', () => {
       await createSession({
         config: baseConfig(),
         cwd,
+        contributionSources: createNodeHostContributionSourcesFixture(cwd),
         context: { agentsMd: '', projectNotesMd: '' },
         terminal: MOCK_TERMINAL,
         provider: createMockProvider(),
@@ -355,6 +359,7 @@ describe('createSession — command descriptor tool guidance', () => {
       await createSession({
         config: baseConfig(),
         cwd,
+        contributionSources: createNodeHostContributionSourcesFixture(cwd),
         context: { agentsMd: '', projectNotesMd: '' },
         terminal: MOCK_TERMINAL,
         provider: createMockProvider(),

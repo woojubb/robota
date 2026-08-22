@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-08-22
 type: SECURITY
 tags: [typescript, auth]
 ---
@@ -321,36 +322,36 @@ this contract.
 
 ## Completion Criteria
 
-- [ ] TC-01: Production trust-service tests mint the only production-accepted authority after a verified trusted
+- [x] TC-01: Production trust-service tests mint the only production-accepted authority after a verified trusted
       decision; direct construction, structural lookalikes, serialized values, copied own keys/symbols, prototype
       spoofing, an object assembled from a legitimate authority's reflected properties, and every runtime/testing
       barrel issuer are rejected by type and non-copyable instance-identity checks.
-- [ ] TC-02: Capabilityless initial high-level SDK session/query construction reports typed Restricted project access and reads no
+- [x] TC-02: Capabilityless initial high-level SDK session/query construction reports typed Restricted project access and reads no
       project settings, provider profile, context, prompt reference, task, skill, command, or agent-definition
       canary; the test does not claim lazy-session preservation owned by `ARCH-043`.
-- [ ] TC-03: Settings tests preserve managed/user/project precedence through discriminated sources, reject a host
+- [x] TC-03: Settings tests preserve managed/user/project precedence through discriminated sources, reject a host
       path as a project source, and require the bounded settings-writer capability for every project settings write.
-- [ ] TC-04: Authority-backed context tests preserve in-root settings, prompt references, tasks, skills, commands,
+- [x] TC-04: Authority-backed context tests preserve in-root settings, prompt references, tasks, skills, commands,
       agents, and ancestor context while stopping at the authenticated root; parent context and Git metadata are
       readable only through their separately injected host sources.
-- [ ] TC-05: Session save/load/list/delete plus live log append/buffer/flush and payload sidecars use explicit
+- [x] TC-05: Session save/load/list/delete plus live log append/buffer/flush and payload sidecars use explicit
       authority-backed storage/sinks; `IInteractiveSessionStore` has no `getFilePath`, and sink failure produces
       the declared warning-only logging degradation without disabling session execution.
-- [ ] TC-06: Project memory tests preserve load/list/read/append/deduplication and pending approve/reject mutations
+- [x] TC-06: Project memory tests preserve load/list/read/append/deduplication and pending approve/reject mutations
       by adapting named authority state to the existing `IMemoryStore`, with no ambient project read/write.
-- [ ] TC-07: Checkpoint tests preserve begin/capture/finalize/list/inspect/restore/delete by using reader + state for
+- [x] TC-07: Checkpoint tests preserve begin/capture/finalize/list/inspect/restore/delete by using reader + state for
       snapshots and a separately permission-gated project-mutation capability for restore/delete.
-- [ ] TC-08: `agent-session` host record/log/payload adapters remain workspace-neutral and replay from supplied
+- [x] TC-08: `agent-session` host record/log/payload adapters remain workspace-neutral and replay from supplied
       hydrated entries is I/O-free; file-backed replay requires explicit sources, preserves payload
       depth/byte/hash checks, and cannot infer project trust from a path or `externalPayloadBaseDirectory`.
-- [ ] TC-09: Stateless and initial-construction CLI, command, workflow, TUI, transport, diagnose, eval,
+- [x] TC-09: Stateless and initial-construction CLI, command, workflow, TUI, transport, diagnose, eval,
       session-analysis, example, and functional harness builds/tests contain no path-only or optional-authority
       compatibility call and preserve their owned user-visible behavior under trusted and Restricted
       construction; the documented lazy-session paths remain gated on `ARCH-043`.
-- [ ] TC-10: `pnpm harness:scan` runs `public-project-authority` and fails fixtures that add a public project
+- [x] TC-10: `pnpm harness:scan` runs `public-project-authority` and fails fixtures that add a public project
       loader with bare `cwd`, optional authority/reader, generic-filesystem-as-trust, a production-capable test
       issuer, or ambient Node fallback.
-- [ ] TC-11: Owner SPECs, architecture docs, public API tables, READMEs, examples, targeted builds/typechecks/tests,
+- [x] TC-11: Owner SPECs, architecture docs, public API tables, READMEs, examples, targeted builds/typechecks/tests,
       framework functional scenarios, SSOT scan, `pnpm harness:scan`, and `pnpm harness:verify-like-ci` all agree
       with the authority model and exit 0.
 
@@ -359,19 +360,19 @@ this contract.
 Derived SECURITY + auth strategy: auth/permission-boundary integration and compile-time public-contract tests,
 supplemented by package integration and framework functional scenarios. Every criterion is automated.
 
-| TC-ID | Test Type                       | Tool / Approach                                                                                                                              | Notes |
-| ----- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| TC-01 | Type/runtime security contract  | Production trust-service tests, copied-key/symbol/reflection/prototype adversarial fixtures, barrel scan, and compile-fail structural inputs |       |
-| TC-02 | Permission-boundary integration | Scripted initial high-level session/query construction in a canary repository with project-loader and Node I/O spies                         |       |
-| TC-03 | Security configuration contract | Managed/user/project source matrix plus compile/runtime tests for bounded project settings mutation                                          |       |
-| TC-04 | Security context integration    | In-root/parent/Git-indirection fixtures with project reader and separate host-source spies                                                   |       |
-| TC-05 | Session storage/log integration | Record CRUD, logger append/buffer/flush, payload-sidecar, transcript-reference, and sink-failure fixtures                                    |       |
-| TC-06 | Memory storage integration      | Existing `IMemoryStore` contract suite plus project memory/pending queue authority fixtures                                                  |       |
-| TC-07 | Mutation-boundary integration   | Checkpoint snapshot/restore/delete matrix with read/state/mutation capabilities and permission denials                                       |       |
-| TC-08 | Replay/source integration       | Neutral session adapters and parsed/file replay with nested payload, byte budget, hash, base-directory rejection, and no-I/O spies           |       |
-| TC-09 | Consumer integration            | Stateless/construction consumer compile/tests, CLI scenarios, functional harness, public examples, and ARCH-043 residual-path assertion      |       |
-| TC-10 | Harness architecture scan       | RED/GREEN fixtures for `scan-public-project-authority.mjs`; `pnpm harness:scan`                                                              |       |
-| TC-11 | Spec/release verification       | SPEC/reference/SSOT scans, affected builds/typechecks/tests, framework functional harness, `harness:scan`, `harness:verify-like-ci`          |       |
+| TC-ID | Test Type                       | Tool / Approach                                                                                                                              | Notes                                                                                                                                                                                                                                                                                              |
+| ----- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Type/runtime security contract  | Production trust-service tests, copied-key/symbol/reflection/prototype adversarial fixtures, barrel scan, and compile-fail structural inputs | `packages/agent-framework/src/workspace-trust/workspace-project-authority.test.ts` > `rejects structural, reflected-property, serialized, and prototype forgeries`                                                                                                                                 |
+| TC-02 | Permission-boundary integration | Scripted initial high-level session/query construction in a canary repository with project-loader and Node I/O spies                         | `packages/agent-framework/src/__tests__/query-project-access.test.ts` > `reports Restricted access when the host supplies no project decision`; maintained `verify-workspace-project-authority.ts` scenario                                                                                        |
+| TC-03 | Security configuration contract | Managed/user/project source matrix plus compile/runtime tests for bounded project settings mutation                                          | `packages/agent-framework/src/config/__tests__/settings-source.test.ts` > `reads project layers only through a production-minted reader`; `settings-store.test.ts` > `reads and writes only the project target approved by the same authority`                                                     |
+| TC-04 | Security context integration    | In-root/parent/Git-indirection fixtures with project reader and separate host-source spies                                                   | `packages/agent-framework/src/context/__tests__/prompt-file-references.test.ts` > `rejects references outside the workspace root`; `contributions/__tests__/contribution-source.test.ts` > host/project distinction; `interactive-session-authorized-context-refresh.test.ts` > authorized refresh |
+| TC-05 | Session storage/log integration | Record CRUD, logger append/buffer/flush, payload-sidecar, transcript-reference, and sink-failure fixtures                                    | `packages/agent-framework/src/__tests__/session-store.test.ts` > authority-backed CRUD and warning-only degradation; `packages/agent-session/src/__tests__/session-logger-hot-path.test.ts` > ordered buffering and write-failure reporting                                                        |
+| TC-06 | Memory storage integration      | Existing `IMemoryStore` contract suite plus project memory/pending queue authority fixtures                                                  | `packages/agent-framework/src/memory/__tests__/project-memory-store.test.ts` > load/append/dedup/list; `file-system-memory-store.test.ts` > `queues and transitions pending candidates through the port`                                                                                           |
+| TC-07 | Mutation-boundary integration   | Checkpoint snapshot/restore/delete matrix with read/state/mutation capabilities and permission denials                                       | `packages/agent-framework/src/checkpoints/__tests__/edit-checkpoint-store.test.ts` > mismatched mutation rejection plus restore/delete/inspect matrix                                                                                                                                              |
+| TC-08 | Replay/source integration       | Neutral session adapters and parsed/file replay with nested payload, byte budget, hash, base-directory rejection, and no-I/O spies           | `packages/agent-session/src/__tests__/session-log-source-contract.test.ts` > explicit neutral sources and bare-path rejection; `packages/agent-provider-replay/src/__tests__/replay-provider.test.ts` > explicit nested response hydration                                                         |
+| TC-09 | Consumer integration            | Stateless/construction consumer compile/tests, CLI scenarios, functional harness, public examples, and ARCH-043 residual-path assertion      | `packages/agent-cli/src/startup/__tests__/workspace-project-composition.test.ts` > Restricted/trusted composition; `packages/agent-transport/src/__tests__/programmatic/programmatic-driver.test.ts` > trusted decision threading; transport/TUI recorded scenarios                                |
+| TC-10 | Harness architecture scan       | RED/GREEN fixtures for `scan-public-project-authority.mjs`; `pnpm harness:scan`                                                              | `scripts/harness/__tests__/scan-public-project-authority.test.mjs` > seven RED fixtures, GREEN fixture, registration/live-tree assertions                                                                                                                                                          |
+| TC-11 | Spec/release verification       | SPEC/reference/SSOT scans, affected builds/typechecks/tests, framework functional harness, `harness:scan`, `harness:verify-like-ci`          | `pnpm harness:verify-like-ci` passed all 12 stages; `pnpm build` and `pnpm test` independently exited 0 during GATE-VERIFY                                                                                                                                                                         |
 
 ## User Execution Test Scenarios
 
@@ -387,8 +388,8 @@ supplemented by package integration and framework functional scenarios. Every cr
 
 ## Tasks
 
-- [ ] `.agents/tasks/ARCH-042-public-sdk-project-authority-is-ambient.md` — existing Task; linkage and
-      implementation checklist are populated at GATE-IMPLEMENT
+- [x] `.agents/tasks/completed/ARCH-042-public-sdk-project-authority-is-ambient.md` — completed Task;
+      implementation and user-execution gates passed
 
 ## Evidence Log
 
@@ -497,3 +498,170 @@ supplemented by package integration and framework functional scenarios. Every cr
   SPEC/SSOT checks, and `harness:verify-like-ci`; it exceeds the required 50 characters.
 - NON-COMPLIANCE check: the required Task record exists, so the “implementation commits but no tasks file”
   trigger does not apply.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-22
+
+**Status upgrade:** in-progress → verifying
+
+- Ordering: the prior `[GATE-IMPLEMENT]` entry records `✅ PASS`; this document has the expected input
+  `status: in-progress` and remains in `.agents/spec-docs/active/`.
+- Task completion: `.agents/tasks/ARCH-042-public-sdk-project-authority-is-ambient.md` contains TC-01 through
+  TC-11 as 11 checked `[x]` implementation tasks; no implementation task is unchecked.
+- Blocked/pending check: the Task contains no implementation task marked blocked or pending and no empty task
+  checkbox, so no work item remains blocked or pending.
+- Build: the guardian independently ran `pnpm build` from the repository root on 2026-08-22; all package
+  JavaScript and ordered type builds completed and the command exited `0`.
+- Tests: the guardian independently ran `pnpm test` from the repository root on 2026-08-22; the recursive
+  workspace test run completed across the 104-project scope and the command exited `0`.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-22
+
+- Command: pnpm --filter @robota-sdk/agent-framework exec vitest run
+  src/workspace-trust/workspace-project-authority.test.ts.
+- Result: exit 0; 1/1 test file and 6/6 tests passed, including production trust-state minting, structural and
+  reflected-property serialization/prototype forgery rejection, relative-reader containment, closed state
+  namespaces, bounded settings writes, and separate mutation authority.
+- Test reference: packages/agent-framework/src/workspace-trust/workspace-project-authority.test.ts >
+  "rejects structural, reflected-property, serialized, and prototype forgeries".
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-22
+
+- Commands: pnpm --filter @robota-sdk/agent-framework exec vitest run
+  `src/__tests__/query-project-access.test.ts`; pnpm --filter @robota-sdk/agent-framework
+  scenario:verify:workspace-authority.
+- Result: both commands exited 0; 1/1 test file and 2/2 tests passed. The scenario emitted Restricted
+  WorkspaceAuthorityRequired with no observed canaries, then trusted access with both ARCH-042 context/settings
+  canaries, and cleanupRemoved true.
+- Test reference: `packages/agent-framework/src/__tests__/query-project-access.test.ts` >
+  "reports Restricted access when the host supplies no project decision"; maintained scenario:
+  packages/agent-framework/examples/verify-workspace-project-authority.ts.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-22
+
+- Command: pnpm --filter @robota-sdk/agent-framework exec vitest run
+  `src/config/__tests__/settings-source.test.ts` `src/config/__tests__/settings-store.test.ts`.
+- Result: exit 0; 2/2 test files and 6/6 tests passed, covering discriminated host/project sources, structural
+  host-reader rejection, same-authority project targeting, and cross-authority writer rejection.
+- Test references: `packages/agent-framework/src/config/__tests__/settings-source.test.ts` >
+  "reads project layers only through a production-minted reader";
+  `packages/agent-framework/src/config/__tests__/settings-store.test.ts` >
+  "reads and writes only the project target approved by the same authority".
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-22
+
+- Command: pnpm --filter @robota-sdk/agent-framework exec vitest run
+  `src/context/__tests__/prompt-file-references.test.ts`
+  `src/contributions/__tests__/contribution-source.test.ts`
+  `src/interactive/__tests__/interactive-session-authorized-context-refresh.test.ts`.
+- Result: exit 0; 3/3 test files and 9/9 tests passed, including workspace-root escape rejection, explicit
+  host/project source separation, and the authorized AGENTS.md refresh event.
+- Test references: `packages/agent-framework/src/context/__tests__/prompt-file-references.test.ts` >
+  "rejects references outside the workspace root";
+  `packages/agent-framework/src/contributions/__tests__/contribution-source.test.ts` >
+  "keeps explicitly named host content distinct from authority-backed project content";
+  `packages/agent-framework/src/interactive/__tests__/interactive-session-authorized-context-refresh.test.ts` >
+  "emits a refresh event after an authorized project context file changes".
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-22
+
+- Commands: pnpm --filter @robota-sdk/agent-framework exec vitest run `src/__tests__/session-store.test.ts`;
+  pnpm --filter @robota-sdk/agent-session exec vitest run `src/__tests__/session-logger-hot-path.test.ts`.
+- Result: both commands exited 0; the framework file passed 21/21 tests and the session logger file passed 6/6.
+  Observed coverage includes authority-backed record CRUD, mismatched-facet rejection, replay fallback,
+  warning-only linked-log degradation, ordered buffering, immediate semantic durability, and surfaced
+  write/flush/directory failures.
+- Test references: `packages/agent-framework/src/__tests__/session-store.test.ts` >
+  "persists project session CRUD only through minted project state facets" and "warn-only disables logging when
+  the authority-backed log target is linked";
+  `packages/agent-session/src/__tests__/session-logger-hot-path.test.ts`
+  > "keeps the file in the order the events happened" and "reports a failed write instead of swallowing it".
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-08-22
+
+- Command: pnpm --filter @robota-sdk/agent-framework exec vitest run
+  `src/memory/__tests__/project-memory-store.test.ts` `src/memory/__tests__/file-system-memory-store.test.ts`.
+- Result: exit 0; 2/2 test files and 16/16 tests passed, covering startup load, append, duplicate suppression,
+  topic listing, pending approve/reject transitions, and the authority-backed IMemoryStore adapter.
+- Test references: `packages/agent-framework/src/memory/__tests__/project-memory-store.test.ts` >
+  "Given the same memory item already exists When appending again Then duplicate entries are skipped";
+  `packages/agent-framework/src/memory/__tests__/file-system-memory-store.test.ts` >
+  "queues and transitions pending candidates through the port".
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-08-22
+
+- Command: pnpm --filter @robota-sdk/agent-framework exec vitest run
+  `src/checkpoints/__tests__/edit-checkpoint-store.test.ts`.
+- Result: exit 0; 1/1 test file and 11/11 tests passed, covering mismatched mutation rejection, snapshot capture,
+  inspection, restore, rollback, branch/list behavior, legacy migration, and active-branch restoration.
+- Test reference: `packages/agent-framework/src/checkpoints/__tests__/edit-checkpoint-store.test.ts` >
+  "rejects a mutation capability minted for a different project authority" and "Given checkpoints When
+  inspecting a checkpoint Then captured files and restore plans are returned".
+
+### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-08-22
+
+- Commands: pnpm --filter @robota-sdk/agent-session exec vitest run
+  `src/__tests__/session-log-source-contract.test.ts`; pnpm --filter @robota-sdk/agent-provider-replay exec
+  vitest run `src/__tests__/replay-provider.test.ts`.
+- Result: both commands exited 0; the neutral session-source contract passed 2/2 tests and replay passed 7/7,
+  including explicit-source hydration, bare-path rejection, unresolved-reference rejection, and explicit nested
+  response hydration.
+- Test references: `packages/agent-session/src/__tests__/session-log-source-contract.test.ts` >
+  "loads and hydrates through explicit neutral sources" and "does not accept a bare file path as project
+  authority"; `packages/agent-provider-replay/src/__tests__/replay-provider.test.ts` >
+  "ARCH-014: direct construction hydrates nested response references with an explicit base".
+
+### [GATE-COMPLETE: TC-09] — ✅ PASS | 2026-08-22
+
+- Commands: pnpm --filter @robota-sdk/agent-cli exec vitest run
+  `src/startup/__tests__/workspace-project-composition.test.ts`; pnpm --filter
+  @robota-sdk/agent-transport exec vitest run `src/__tests__/programmatic/programmatic-driver.test.ts`; pnpm --filter
+  @robota-sdk/agent-transport scenario:verify; pnpm --filter @robota-sdk/agent-transport-tui scenario:verify.
+- Result: all commands exited 0; CLI passed 3/3 tests and transport passed 4/4. The transport scenario observed
+  contextRefreshFiles ["AGENTS.md"], explicit checkpoint/branch events and cleanup; the TUI scenario rendered
+  "Context refreshed: AGENTS.md", preserved committed-operation failure reporting, and cleaned up.
+- Test references: `packages/agent-cli/src/startup/__tests__/workspace-project-composition.test.ts` >
+  "keeps project sources and state absent when the initial decision is restricted" and "derives project readers
+  and state only from the supplied trusted authority";
+  `packages/agent-transport/src/__tests__/programmatic/programmatic-driver.test.ts` >
+  "passes an explicit trusted project decision through the programmatic runtime".
+  Durable scenario records:
+  packages/agent-transport/examples/scenarios/session-event-delivery.record.json and
+  packages/agent-transport-tui/examples/scenarios/session-event-rendering.record.json.
+
+### [GATE-COMPLETE: TC-10] — ✅ PASS | 2026-08-22
+
+- Command: pnpm exec vitest run `scripts/harness/__tests__/scan-public-project-authority.test.mjs`.
+- Result: exit 0; 1/1 test file and 10/10 tests passed. The suite passed seven RED rejection fixtures, the GREEN
+  authority-derived-port fixture, examined-population reporting, and registration/live-governed-tree execution.
+- Test reference: `scripts/harness/__tests__/scan-public-project-authority.test.mjs` >
+  "public-project-authority AST guard", including "GREEN: accepts authority-derived ports, Restricted
+  construction, and explicit host adapters" and "is registered and passes against the live governed tree".
+
+### [GATE-COMPLETE: TC-11] — ✅ PASS | 2026-08-22
+
+- Commands: pnpm harness:verify-like-ci; independent guardian corroboration with pnpm build and pnpm test.
+- Result: the fresh repository verification exited 0 with all 12/12 stages passing, including format, scans,
+  workspace build/typecheck/tests, affected verification, examples, binary E2E, and TUI PTY. The guardian's
+  separate root pnpm build completed all package JavaScript/ordered type builds with exit 0, and pnpm test
+  completed the recursive 104-project workspace scope with exit 0.
+- Verification reference: the Test Plan's command-driven release row is satisfied by the exact commands above;
+  package-level concrete test paths and names for TC-01 through TC-10 are recorded in their entries, and the
+  checked owner SPEC/architecture/README/example changes are included in the fresh 12-stage run.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-22
+
+**Status upgrade:** verifying → done
+
+- Ordering: the prior [GATE-VERIFY] entry records ✅ PASS; the document has the expected input
+  status: verifying and remains in .agents/spec-docs/active/.
+- Completion Criteria: TC-01 through TC-11 are all checked [x], and each has a matching
+  [GATE-COMPLETE: TC-N] entry above with its exact command/action, observed result, and exit code.
+- Test Plan: all 11 rows contain a concrete test path plus test/describe name, or the concrete command-driven
+  release verification for TC-11; no TC is silently unaddressed and no manual skip is used.
+- Tasks: the spec's checked Tasks pointer names
+  .agents/tasks/ARCH-042-public-sdk-project-authority-is-ambient.md; that active Task exists, TC-01 through TC-11
+  are all [x], and no task is blocked or pending.
+- User execution: the Task records [DONE-GATE-STAGE-2] ✅ PASS with the maintained public-SDK scenario command,
+  exact Restricted/trusted JSON observation, exit 0, durable example path, and successful cleanup.
+- Post-PASS handoff: Task terminal status/date, Task archival, archived pointer, and the spec's active/verifying to
+  done/done transition remain orchestrator-owned PASS outputs and were not performed by this guardian.

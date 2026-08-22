@@ -105,8 +105,9 @@ export function resolveMemoryEnablement(
 
 /**
  * Build the memory session option fields from the resolved decision. Disabled ⇒ `{}` (inject nothing).
- * Enabled ⇒ the fs reference store + per-turn recall + automatic capture (policy `approval_required` by
- * default, `auto_save` when the user opted in). Capture + recall are enabled together (one switch).
+ * Enabled ⇒ an authority-backed memory store + per-turn recall + automatic capture (policy
+ * `approval_required` by default, `auto_save` when the user opted in). Capture + recall are enabled
+ * together (one switch); absence of the store is an explicit refusal, never a cwd fallback.
  */
 export function buildMemorySessionOptions(
   resolved: IResolvedMemoryEnablement,

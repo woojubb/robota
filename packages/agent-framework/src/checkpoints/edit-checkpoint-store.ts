@@ -2,18 +2,13 @@ import { join, relative, resolve } from 'node:path';
 
 import { CheckpointTree } from '@robota-sdk/agent-session';
 
+import { EditCheckpointAuthorityIO } from './edit-checkpoint-authority-io.js';
 import { buildEditCheckpointInspection } from './edit-checkpoint-inspection.js';
 import {
   DEFAULT_BRANCH_ID,
   migrateManifestsToTree,
   safePathSegment,
 } from './edit-checkpoint-store-helpers.js';
-import {
-  getWorkspaceProjectIdentity,
-  getWorkspaceProjectReader,
-  getWorkspaceProjectStateStorage,
-} from '../workspace-trust/index.js';
-import { assertWorkspaceProjectMutationForAuthority } from '../workspace-trust/project-mutation.js';
 
 import type {
   IEditCheckpointFileRecord,
@@ -26,8 +21,6 @@ import type {
 import type {
   IWorkspaceProjectAuthority,
   IWorkspaceProjectMutation,
-  IWorkspaceProjectReader,
-  IWorkspaceProjectStateStorage,
 } from '../workspace-trust/index.js';
 import type { IActiveBranchPointer } from '@robota-sdk/agent-interface-transport';
 
@@ -49,9 +42,7 @@ interface IEditCheckpointStoreOptions {
 }
 export class EditCheckpointStore {
   private readonly cwd: string;
-  private readonly reader: IWorkspaceProjectReader;
-  private readonly state: IWorkspaceProjectStateStorage;
-  private readonly mutation: IWorkspaceProjectMutation;
+  private readonly authorityIO: EditCheckpointAuthorityIO;
   private readonly now: () => Date;
   private activeTurn: IActiveEditCheckpointTurn | null = null;
   /** SELFHOST-007: per-session active branch HEAD (checkpoint id the next turn forks from). */
@@ -62,11 +53,8 @@ export class EditCheckpointStore {
   private forkCounter = 0;
 
   constructor(options: IEditCheckpointStoreOptions) {
-    const identity = getWorkspaceProjectIdentity(options.authority);
-    this.cwd = resolve(identity.worktreeRoot);
-    this.reader = getWorkspaceProjectReader(options.authority);
-    this.state = getWorkspaceProjectStateStorage(options.authority, 'checkpoints');
-    this.mutation = assertWorkspaceProjectMutationForAuthority(options.mutation, options.authority);
+    this.authorityIO = new EditCheckpointAuthorityIO(options.authority, options.mutation);
+    this.cwd = this.authorityIO.cwd;
     this.now = options.now ?? (() => new Date());
   }
 
@@ -125,10 +113,22 @@ export class EditCheckpointStore {
       return;
     }
 
-    const kind = this.reader.inspectKind(relativePath, 'inspect checkpoint capture target');
+    const kind = this.authorityIO.inspectKind(relativePath);
     if (kind === 'link' || kind === 'directory' || kind === 'other') return;
 
-    const record = this.createFileRecord(originalPath, relativePath, kind, this.activeTurn);
+    const snapshotFile = join(
+      SNAPSHOT_DIR,
+      `${String(this.activeTurn.manifest.files.length + 1).padStart(SNAPSHOT_PAD, '0')}.content`,
+    );
+    const record =
+      kind === 'file'
+        ? this.authorityIO.captureFile(
+            originalPath,
+            relativePath,
+            join(this.activeTurn.dir, snapshotFile),
+            snapshotFile,
+          )
+        : { originalPath, existed: false };
     this.activeTurn.manifest.files.push(record);
     this.activeTurn.manifest.fileCount = this.activeTurn.manifest.files.length;
     this.activeTurn.capturedPaths.add(originalPath);
@@ -159,9 +159,8 @@ export class EditCheckpointStore {
       target,
       manifests,
       readSnapshotBytes: (inputSessionId, inputCheckpointId, snapshotFile) =>
-        this.state.readBytes(
+        this.authorityIO.readSnapshotBytes(
           join(this.checkpointDir(inputSessionId, inputCheckpointId), snapshotFile),
-          'inspect checkpoint snapshot',
         ),
     });
   }
@@ -254,76 +253,25 @@ export class EditCheckpointStore {
     };
   }
 
-  private createFileRecord(
-    originalPath: string,
-    relativePath: string,
-    kind: ReturnType<IWorkspaceProjectReader['inspectKind']>,
-    active: IActiveEditCheckpointTurn,
-  ): IEditCheckpointFileRecord {
-    const existed = kind === 'file';
-    if (!existed) {
-      return {
-        originalPath,
-        existed: false,
-      };
-    }
-
-    const snapshotFile = join(
-      SNAPSHOT_DIR,
-      `${String(active.manifest.files.length + 1).padStart(SNAPSHOT_PAD, '0')}.content`,
-    );
-    const content = this.reader.readBytes(relativePath, 'capture checkpoint file preimage');
-    if (content === undefined) {
-      return { originalPath, existed: false };
-    }
-    this.state.writeBytes(
-      join(active.dir, snapshotFile),
-      content,
-      'persist checkpoint file preimage',
-    );
-    return {
-      originalPath,
-      existed: true,
-      snapshotFile,
-    };
-  }
-
   private async restoreFile(
     sessionId: string,
     checkpointId: string,
     record: IEditCheckpointFileRecord,
   ): Promise<void> {
-    if (!record.existed) {
-      this.mutation.deleteFile(
-        this.toProjectRelativePath(record.originalPath),
-        'remove checkpoint-created file',
-      );
-      return;
-    }
-    if (!record.snapshotFile) {
-      throw new Error(`Checkpoint file record is missing a snapshot: ${record.originalPath}`);
-    }
-    const snapshot = this.state.readBytes(
-      join(this.checkpointDir(sessionId, checkpointId), record.snapshotFile),
-      'load checkpoint file preimage',
-    );
-    if (snapshot === undefined) {
-      throw new Error(`Checkpoint snapshot is missing: ${record.originalPath}`);
-    }
-    this.mutation.writeBytes(
-      this.toProjectRelativePath(record.originalPath),
-      snapshot,
-      'restore checkpoint file preimage',
+    this.authorityIO.restoreFile(
+      record.snapshotFile === undefined
+        ? undefined
+        : join(this.checkpointDir(sessionId, checkpointId), record.snapshotFile),
+      record,
     );
   }
 
   private loadManifests(sessionId: string): IEditCheckpointManifest[] {
     const dir = this.sessionDir(sessionId);
-    const manifests = this.state
-      .listDirectory(dir, 'list checkpoint manifests')
-      .filter((entry) => entry.kind === 'directory')
-      .map((entry) => join(dir, entry.name, MANIFEST_FILE))
-      .map((manifestPath) => this.readManifest(manifestPath))
+    const manifests = this.authorityIO
+      .listDirectories(dir)
+      .map((entry) => join(dir, entry, MANIFEST_FILE))
+      .map((manifestPath) => this.authorityIO.readManifest(manifestPath))
       .filter((manifest): manifest is IEditCheckpointManifest => manifest !== undefined)
       .sort((a, b) => a.sequence - b.sequence);
     return migrateManifestsToTree(manifests);
@@ -396,11 +344,7 @@ export class EditCheckpointStore {
   }
 
   private writeManifest(dir: string, manifest: IEditCheckpointManifest): void {
-    this.state.writeText(
-      join(dir, MANIFEST_FILE),
-      JSON.stringify(manifest, null, 2),
-      'persist checkpoint manifest',
-    );
+    this.authorityIO.writeManifest(join(dir, MANIFEST_FILE), manifest);
   }
 
   private sessionDir(sessionId: string): string {
@@ -409,30 +353,6 @@ export class EditCheckpointStore {
 
   private checkpointDir(sessionId: string, checkpointId: string): string {
     return join(this.sessionDir(sessionId), safePathSegment(checkpointId));
-  }
-
-  private readManifest(relativePath: string): IEditCheckpointManifest | undefined {
-    const raw = this.state.readText(relativePath, 'load checkpoint manifest');
-    if (raw === undefined) return undefined;
-    try {
-      return JSON.parse(raw) as IEditCheckpointManifest;
-    } catch {
-      // allow-fallback: corrupted checkpoint manifests are excluded from the usable tree.
-      return undefined;
-    }
-  }
-
-  private toProjectRelativePath(originalPath: string): string {
-    const candidate = resolve(originalPath);
-    const relativePath = relative(this.cwd, candidate);
-    if (
-      relativePath.length === 0 ||
-      relativePath.startsWith('..') ||
-      resolve(this.cwd, relativePath) !== candidate
-    ) {
-      throw new Error(`Checkpoint path is outside the authorized project: ${originalPath}`);
-    }
-    return relativePath;
   }
 }
 

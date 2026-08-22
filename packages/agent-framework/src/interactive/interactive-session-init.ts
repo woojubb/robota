@@ -7,7 +7,7 @@
  */
 
 import { homedir } from 'node:os';
-import { join, relative, resolve } from 'node:path';
+import { join } from 'node:path';
 
 import { createLogger } from '@robota-sdk/agent-core';
 
@@ -18,23 +18,15 @@ import {
   interactiveSandboxOptions,
   restoreInteractiveSandboxSnapshot,
 } from './interactive-session-init-workspace.js';
+import {
+  loadInteractiveProjectConfig,
+  loadInteractiveProjectContext,
+} from './interactive-session-project-context.js';
 import { injectSavedMessage } from './interactive-session-restore.js';
 import { deriveContextCapacityHint } from '../assembly/context-capacity-hint.js';
 import { createSession } from '../assembly/index.js';
-import { loadConfig } from '../config/config-loader.js';
-import {
-  createDefaultUserSettingsSources,
-  createWorkspaceProjectSettingsSources,
-} from '../config/settings-source.js';
-import { loadContext } from '../context/context-loader.js';
-import { detectProject } from '../context/project-detector.js';
-import { createContributionSourcesForProjectAccess } from '../contributions/index.js';
 import { BundlePluginLoader } from '../plugins/index.js';
 import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
-import {
-  createRestrictedWorkspaceProjectAccess,
-  getWorkspaceProjectReader,
-} from '../workspace-trust/index.js';
 
 import type {
   IInteractiveSessionStandardOptions,
@@ -89,49 +81,8 @@ export async function createInteractiveSession(
   options: IInitOptions,
 ): Promise<ICreatedInteractiveSession> {
   const cwd = options.cwd;
-  const projectReader =
-    options.projectAccess?.status === 'trusted'
-      ? getWorkspaceProjectReader(options.projectAccess.authority)
-      : undefined;
-  const projectAccess =
-    options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable', cwd);
-  const contextSource =
-    options.projectAccess?.status === 'trusted' && projectReader !== undefined
-      ? {
-          reader: projectReader,
-          startRelativeDirectory: relative(
-            options.projectAccess.identity.worktreeRoot,
-            resolve(cwd),
-          ),
-        }
-      : undefined;
-  // NEUT-004: config resolves FIRST so the settings-driven task-context toggle can gate the
-  // context load; context and project detection still run in parallel with each other.
-  const config =
-    options.config ??
-    (await loadConfig([
-      ...createDefaultUserSettingsSources(),
-      ...(projectReader === undefined ? [] : createWorkspaceProjectSettingsSources(projectReader)),
-    ]));
-  const [context, projectInfo] = await Promise.all([
-    options.bare
-      ? Promise.resolve({
-          agentsMd: '',
-          projectNotesMd: '',
-          agentsFileEntries: [],
-          projectNotesFileEntries: [],
-        })
-      : loadContext(
-          contextSource,
-          options.memoryStore,
-          config.taskContext ? { taskContext: config.taskContext } : {},
-        ),
-    options.bare
-      ? Promise.resolve({ type: 'unknown' as const, language: 'unknown' as const })
-      : projectReader === undefined
-        ? Promise.resolve({ type: 'unknown' as const, language: 'unknown' as const })
-        : detectProject(projectReader),
-  ]);
+  const { config, context, projectInfo, contributionSources } =
+    await loadInteractiveProjectContext(options);
 
   let mergedConfig: IResolvedConfig = options.language
     ? { ...config, language: options.language }
@@ -188,7 +139,7 @@ export async function createInteractiveSession(
       projectInfo,
       sessionId,
       contextCapacityHint,
-      contributionSources: createContributionSourcesForProjectAccess(projectAccess),
+      contributionSources,
     }),
   );
 
@@ -250,16 +201,7 @@ export async function initializeInteractiveSessionAsync(
   options: IInteractiveSessionStandardOptions,
   deps: IAsyncInitDeps,
 ): Promise<IAsyncInitResult> {
-  const projectReader =
-    options.projectAccess?.status === 'trusted'
-      ? getWorkspaceProjectReader(options.projectAccess.authority)
-      : undefined;
-  const config =
-    options.config ??
-    (await loadConfig([
-      ...createDefaultUserSettingsSources(),
-      ...(projectReader === undefined ? [] : createWorkspaceProjectSettingsSources(projectReader)),
-    ]));
+  const config = await loadInteractiveProjectConfig(options.config, options.projectAccess);
   const autoCompactThresholdSource =
     config.autoCompactThreshold === undefined ? 'default' : 'settings';
   const checkpointStore = options.editCheckpointStore;

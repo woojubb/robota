@@ -1,10 +1,18 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { InteractiveSession, createNodeHostContributionSource } from '@robota-sdk/agent-framework';
+import {
+  InteractiveSession,
+  WorkspaceTrustService,
+  createNodeHostContributionSource,
+} from '@robota-sdk/agent-framework';
 import { createSkillsCommandModule } from '@robota-sdk/agent-command';
-import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
+import type {
+  IWorkspaceIdentity,
+  IWorkspaceTrustStore,
+  TInteractiveSessionOptions,
+} from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '../headless-transport.js';
 
 type TStandardSessionOptions = Extract<
@@ -37,6 +45,24 @@ interface IObservedUnknownToolProvider {
   getToolResultContent(): string;
   getForcedInstruction(): string;
   getForcedCallToolNames(): string[] | undefined;
+}
+
+async function createTrustedProjectAccess(cwd: string) {
+  const root = realpathSync(cwd);
+  const identity: IWorkspaceIdentity = {
+    repositoryKey: `headless-skill-test:${root}`,
+    displayPath: root,
+    worktreeRoot: root,
+  };
+  const store: IWorkspaceTrustStore = {
+    inspect: () => Promise.resolve({ state: 'trusted', generation: 1 }),
+    grant: () => Promise.resolve({ state: 'trusted', generation: 1 }),
+    revoke: () => Promise.resolve({ state: 'revoked', generation: 2 }),
+  };
+  return new WorkspaceTrustService({
+    identityResolver: { resolve: () => identity },
+    store,
+  }).inspect(root);
 }
 
 function createTempSkill(
@@ -270,6 +296,7 @@ describe('headless transport skill activation integration', () => {
     const session = new InteractiveSession({
       cwd,
       provider: observed.provider,
+      projectAccess: await createTrustedProjectAccess(cwd),
       config: createConfig(),
       permissionMode: 'bypassPermissions',
       bare: true,
@@ -343,6 +370,7 @@ describe('headless transport skill activation integration', () => {
     const session = new InteractiveSession({
       cwd,
       provider: observed.provider,
+      projectAccess: await createTrustedProjectAccess(cwd),
       config: createConfig(),
       permissionMode: 'bypassPermissions',
       bare: true,

@@ -55,7 +55,6 @@ export class SessionSkillRouter {
   private commandInvocationSource: TCommandInvocationSource = 'user';
   /** CMD-004: the in-flight command's origin driver id (REMOTE-014 E5 server-assigned). */
   private commandOriginDriverId: TDriverId | undefined;
-
   constructor(
     commandModules: readonly ICommandModule[],
     contributionSources: readonly IContributionSource[],

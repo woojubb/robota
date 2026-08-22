@@ -1,4 +1,4 @@
-import { relative } from 'node:path';
+import { isAbsolute, relative } from 'node:path';
 
 import {
   createContextReferenceItem,
@@ -99,7 +99,9 @@ export function createSystemContextReferenceItems(
 ): IContextReferenceItem[] {
   const now = new Date().toISOString();
   return entries.map((entry) => {
-    const relativePath = relative(cwd, entry.filePath);
+    const relativePath = isAbsolute(entry.filePath)
+      ? relative(cwd, entry.filePath)
+      : entry.filePath;
     return {
       id: `system:${relativePath}`,
       sourcePath: entry.filePath,

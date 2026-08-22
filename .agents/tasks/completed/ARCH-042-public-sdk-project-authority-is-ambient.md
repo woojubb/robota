@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-042: public SDK project authority is ambient'
-status: in-progress
+status: done
 created: 2026-08-22
+completed: 2026-08-22
 priority: critical
 urgency: now
 area: packages/agent-framework, packages/agent-session, packages/agent-provider-replay
@@ -40,25 +41,25 @@ public project loaders silently fall back to ambient filesystem access.
 
 ## Completion Criteria
 
-- [ ] TC-01 — Add the production-only, non-copyable project-authority mint/assert contract and adversarial
+- [x] TC-01 — Add the production-only, non-copyable project-authority mint/assert contract and adversarial
       type/runtime coverage.
-- [ ] TC-02 — Make capabilityless stateless and initial SDK construction observably Restricted without reading
+- [x] TC-02 — Make capabilityless stateless and initial SDK construction observably Restricted without reading
       project canaries.
-- [ ] TC-03 — Preserve settings precedence through discriminated sources and require bounded project-settings
+- [x] TC-03 — Preserve settings precedence through discriminated sources and require bounded project-settings
       mutation authority.
-- [ ] TC-04 — Migrate context, prompts, tasks, skills, commands, and agents to root-bounded readers plus separate
+- [x] TC-04 — Migrate context, prompts, tasks, skills, commands, and agents to root-bounded readers plus separate
       host context/Git sources.
-- [ ] TC-05 — Move session record/log/payload behavior to explicit neutral ports, remove `getFilePath`, and
+- [x] TC-05 — Move session record/log/payload behavior to explicit neutral ports, remove `getFilePath`, and
       preserve the declared logging degradation.
-- [ ] TC-06 — Adapt project memory and its pending queue to named authority state through the existing
+- [x] TC-06 — Adapt project memory and its pending queue to named authority state through the existing
       `IMemoryStore` contract.
-- [ ] TC-07 — Split checkpoint capture/state from permission-gated restore/delete mutation authority.
-- [ ] TC-08 — Keep session/replay adapters authority-neutral; make hydrated replay I/O-free and file replay use
+- [x] TC-07 — Split checkpoint capture/state from permission-gated restore/delete mutation authority.
+- [x] TC-08 — Keep session/replay adapters authority-neutral; make hydrated replay I/O-free and file replay use
       explicit sources.
-- [ ] TC-09 — Migrate every stateless and initial-construction CLI, command, workflow, TUI, transport, example,
+- [x] TC-09 — Migrate every stateless and initial-construction CLI, command, workflow, TUI, transport, example,
       harness, diagnose, eval, and session-analysis consumer without a path-only compatibility shim.
-- [ ] TC-10 — Add and register the `public-project-authority` AST/public-surface guard with RED/GREEN fixtures.
-- [ ] TC-11 — Synchronize owner SPECs, architecture docs, READMEs/examples, run the affected verification suite,
+- [x] TC-10 — Add and register the `public-project-authority` AST/public-surface guard with RED/GREEN fixtures.
+- [x] TC-11 — Synchronize owner SPECs, architecture docs, READMEs/examples, run the affected verification suite,
       and preserve the explicit ARCH-043 lazy-session dependency.
 
 ## Test Plan
@@ -123,7 +124,11 @@ public project loaders silently fall back to ambient filesystem access.
 - **Cleanup:** the example revokes/removes its isolated host trust grant and recursively removes its temporary
   project and host-state directories in `finally`; it asserts their absence before printing
   `"cleanupRemoved":true`. No repository or user-home state remains.
-- **Evidence:**
+- **Evidence:** executed by the agent on 2026-08-22 with exit `0`. The command printed exactly one result
+  object: `{"scenario":"ARCH-042","restricted":{"status":"restricted","reason":"WorkspaceAuthorityRequired","observedCanaries":[]},"authorized":{"status":"trusted","observedCanaries":["ARCH_042_CONTEXT_CANARY","ARCH_042_SETTINGS_CANARY"]},"cleanupRemoved":true}`.
+  Restricted construction observed no project canary; the matching explicit grant observed both declared
+  canaries; cleanup completed. The provider-free scenario is instrumented to fail on any provider request, and
+  none occurred.
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-22
 
@@ -150,3 +155,29 @@ authorizes no Task-status transition)
 - **Credentials and external services:** PASS — the scenario explicitly states that no TTY, provider, API key,
   network access, or external service is required. The live-credential/external-service prerequisite clause is
   therefore N/A with a recorded reason, not skipped.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-22
+
+**Status upgrade:** scenario written → scenario verified (Task frontmatter `status: in-progress` is unchanged;
+this gate authorizes no Task-status transition)
+
+- **Ordering:** PASS — `[DONE-GATE-STAGE-1]` above records `✅ PASS | 2026-08-22`. The implementation supplies
+  the durable repository artifact `packages/agent-framework/examples/verify-workspace-project-authority.ts` and
+  its `scenario:verify:workspace-authority` package script; both are present in implementation commit
+  `885b79386`, and the current run used that completed artifact.
+- **S-1 command executed:**
+  `pnpm --filter @robota-sdk/agent-framework scenario:verify:workspace-authority` was independently re-run by
+  this guardian on 2026-08-22 and exited `0`.
+- **S-1 observed product result:** the public SDK scenario emitted
+  `{"scenario":"ARCH-042","restricted":{"status":"restricted","reason":"WorkspaceAuthorityRequired","observedCanaries":[]},"authorized":{"status":"trusted","observedCanaries":["ARCH_042_CONTEXT_CANARY","ARCH_042_SETTINGS_CANARY"]},"cleanupRemoved":true}`.
+  This exactly matches the pre-implementation expected result: capabilityless construction observed neither
+  canary, the explicit matching grant observed both canaries, and cleanup succeeded. An independent post-run
+  probe found zero `/tmp/arch-042-authority-*` directories.
+- **Evidence location:** S-1's `Evidence` field above records the command date, exit code, exact result object,
+  Restricted and authorized observations, cleanup, and absence of provider requests.
+- **Evidence quality:** PASS — the observable comes from the maintained published-SDK example and its
+  Restricted-versus-authorized behavior, not from build, typecheck, lint, test, harness, CI, or repository-text
+  inspection. The expected result is unchanged from the Stage 1/HEAD version; only the evidence field was
+  populated after execution.
+- **Capability-absence and exception checks:** no exception or environment-capability absence is claimed; the
+  scenario is explicitly offline and provider-free, so the unprobed-absence failure condition does not apply.

@@ -33,9 +33,11 @@ describe('session log source contract', () => {
   });
 
   it('does not accept a bare file path as project authority', () => {
-    if (false) {
+    const invokeWithBarePath = (): void => {
       // @ts-expect-error ARCH-042: callers must inject an explicit session-log source.
       loadSessionLogEntries('/tmp/ambient-session.jsonl');
-    }
+    };
+
+    expect(invokeWithBarePath).toBeTypeOf('function');
   });
 });

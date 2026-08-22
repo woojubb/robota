@@ -231,15 +231,13 @@ export class SessionExecutionController {
     // COMPLETED path only, and a handle must settle for an interrupted turn too.
     let terminalResult: IExecutionResult | undefined;
     let turnError: Error | undefined;
-    // SELFHOST-008 P3: per-turn recall — the ephemeral `<recalled-memory>` block (query = input) computed
-    // BEFORE the turn's model call, guarded so a recall failure skips injection but never breaks the turn.
     let ephemeralSystemContext: string | undefined;
     try {
       await checkAndRefreshContextIfStale(
         agentsFileEntries,
         projectNotesFileEntries,
         rebuildSystemMessage,
-        { status: 'unavailable' },
+        this.callbacks.getProjectAccess(),
         setEntries,
         () => this.callbacks.getSessionOrThrow(),
         (event: string, payload: unknown) => this.callbacks.emit(event, payload),

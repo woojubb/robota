@@ -1,8 +1,8 @@
 /**
  * Session Logger — pluggable logging interface for session events.
  *
- * ISessionLogger defines the contract. FileSessionLogger is the default
- * implementation that writes JSONL to disk. Consumers can implement their
+ * ISessionLogger defines the contract. FileSessionLogger serializes JSONL through an
+ * injected sink and never opens a path itself. Consumers can implement their
  * own (e.g., remote, database, silent) and inject via Session constructor.
  */
 
@@ -94,7 +94,7 @@ export interface ISessionLogger {
 }
 
 /**
- * File-based session logger — writes JSONL to {logDir}/{sessionId}.jsonl.
+ * Sink-driven session logger — writes JSONL through `ISessionLogSink`.
  *
  * This is the default implementation used by the CLI.
  * Each line is a self-contained JSON object with timestamp, sessionId, event, and data.

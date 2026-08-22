@@ -1,8 +1,8 @@
 /**
  * NodeSessionStore — persists conversation sessions as JSON files.
  *
- * Sessions are stored at `~/.robota/sessions/{id}.json` by default.
- * Consumers can inject a project-local directory such as `.robota/sessions`.
+ * The caller explicitly supplies a host-owned base directory.
+ * This adapter does not interpret that directory as a trusted project root.
  * The store directory is created on first write if it does not exist.
  */
 
@@ -27,7 +27,8 @@ import type {
 /**
  * Persistent session store backed by individual JSON files.
  *
- * Construct with a custom `baseDir` to redirect storage (useful in tests).
+ * Construct with a host-owned `baseDir`; framework project composition uses a separate
+ * authority-backed adapter over the same neutral port.
  */
 export class NodeSessionStore implements IInteractiveSessionStore {
   private readonly baseDir: string;

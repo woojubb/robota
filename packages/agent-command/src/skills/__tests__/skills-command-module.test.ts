@@ -1,17 +1,38 @@
 import { describe, expect, it, vi } from 'vitest';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   createNodeHostContributionSource,
   InteractiveSession,
   SystemCommandExecutor,
+  WorkspaceTrustService,
 } from '@robota-sdk/agent-framework';
 import { createSkillsCommandModule } from '../skills-command-module.js';
 import {
   createTestCommandHost,
   type ICreateTestCommandHostOptions,
 } from '@robota-sdk/agent-framework/testing';
+
+import type { IWorkspaceIdentity, IWorkspaceTrustStore } from '@robota-sdk/agent-framework';
+
+async function createTrustedProjectAccess(cwd: string) {
+  const root = realpathSync(cwd);
+  const identity: IWorkspaceIdentity = {
+    repositoryKey: `skills-command-test:${root}`,
+    displayPath: root,
+    worktreeRoot: root,
+  };
+  const store: IWorkspaceTrustStore = {
+    inspect: () => Promise.resolve({ state: 'trusted', generation: 1 }),
+    grant: () => Promise.resolve({ state: 'trusted', generation: 1 }),
+    revoke: () => Promise.resolve({ state: 'revoked', generation: 2 }),
+  };
+  return new WorkspaceTrustService({
+    identityResolver: { resolve: () => identity },
+    store,
+  }).inspect(root);
+}
 
 function createTempSkill(cwd: string): void {
   const skillDir = join(cwd, '.agents', 'skills', 'audit');
@@ -149,6 +170,7 @@ describe('createSkillsCommandModule', () => {
     const session = new InteractiveSession({
       session: parentSession as never,
       cwd,
+      projectAccess: await createTrustedProjectAccess(cwd),
       commandModules: [
         createSkillsCommandModule({
           contributionSources: [createNodeHostContributionSource(cwd)],

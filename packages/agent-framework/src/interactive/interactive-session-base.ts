@@ -21,12 +21,7 @@ import {
   buildWorkspaceTaskSpawner,
   readWorkspaceDetail,
 } from './interactive-session-workspace.js';
-import { WorkspaceSessionLogSource } from './workspace-session-io.js';
-import { computeSessionReplayValidationReport } from '../command-api/session/session-command-api.js';
-import {
-  getWorkspaceProjectStateStorage,
-  WorkspaceAuthorityRequiredError,
-} from '../workspace-trust/index.js';
+import { validateWorkspaceSessionReplayLog as validateReplay } from './workspace-session-replay-validation.js';
 
 import type { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import type { SessionExecutionController } from './interactive-session-execution-controller.js';
@@ -127,23 +122,9 @@ export abstract class InteractiveSessionBase {
     await this.ensureInitialized();
     return this.skillRouter.executeModelCommand(name, args);
   }
-  /**
-   * ARCH-029 TC-08 — delegates to the SAME helper the framework used as its default, so there is
-   * one computed path with one owner and no fallback branch beside it.
-   */
+  /** ARCH-029 TC-08: one replay-validation path with no fallback branch. */
   validateCurrentSessionReplayLog(): ICommandSessionReplayValidationReport {
-    const sessionId = this.getSessionOrThrow().getSessionId();
-    const projectAccess = this.getProjectAccess();
-    if (projectAccess.status !== 'trusted') {
-      throw new WorkspaceAuthorityRequiredError(
-        'Session replay validation requires project access.',
-      );
-    }
-    const logs = getWorkspaceProjectStateStorage(projectAccess.authority, 'session-logs');
-    return computeSessionReplayValidationReport(
-      new WorkspaceSessionLogSource(logs, sessionId),
-      `.robota/logs/${sessionId}.jsonl`,
-    );
+    return validateReplay(this.getProjectAccess(), this.getSessionOrThrow().getSessionId());
   }
 
   getCommandInvocationSource(): TCommandInvocationSource {

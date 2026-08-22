@@ -12,6 +12,7 @@ import type {
   ICommandHostAdapters,
   ICommandModule,
   ICreateSessionOptions,
+  EditCheckpointStore,
   IMemoryStore,
   IPerTurnRecallConfig,
   IRemoteCommandPolicy,
@@ -49,6 +50,8 @@ export interface ITuiInteractionChannelOptions {
   cwd: string;
   provider: IAIProvider;
   projectAccess?: TWorkspaceProjectAccess;
+  /** Explicit authority- and permission-backed edit checkpoint capability. */
+  editCheckpointStore?: EditCheckpointStore;
   /**
    * CLI-076: the resolved model id (the same value the status line displays). Forwarded to the session so an
    * explicit `--model` override reaches the provider chat call instead of being silently replaced by the

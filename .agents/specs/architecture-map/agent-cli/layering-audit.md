@@ -1,6 +1,6 @@
 # Agent CLI Layering Audit
 
-Source-verified against `develop` on 2026-07-12.
+Source-verified on 2026-08-22.
 
 Resolved audit findings, durable lessons, and mechanical guard candidates.
 
@@ -14,8 +14,9 @@ Resolved audit findings, durable lessons, and mechanical guard candidates.
 Status: resolved — PR #205.
 
 Session persistence construction now lives behind framework-owned APIs in
-`agent-framework/src/interactive/session-persistence.ts`. CLI calls `createProjectSessionStore(cwd)` and
-related facades from `@robota-sdk/agent-framework`; it has no direct dependency on
+`agent-framework/src/interactive/session-persistence.ts`. CLI calls
+`createProjectSessionStore(sessionsFacet, sessionLogsFacet)` only after
+`createCliWorkspaceComposition()` receives trusted project access; it has no direct dependency on
 `@robota-sdk/agent-session`.
 
 Mechanical guard: `scripts/harness/check-command-layering.mjs` flags production CLI imports from
@@ -141,8 +142,9 @@ Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
 pure path resolution logic with no CLI-type dependencies. Equivalent path-resolution functions
 (`getUserSettingsPath`, `resolveProviderSettingsWriteTargetPath`) already live in agent-framework.
 
-Target: rename to `resolveSettingsPathForScope`, move to agent-framework, validate scope values
-in agent-cli before calling.
+ARCH-042 follow-up (2026-08-22): the path-only public helper was removed. CLI now composes explicit
+user host stores or an authority-bound project settings store; a scope plus `cwd` cannot select a
+project write target.
 
 ### CLI-AUDIT-013: `utils/provider-setup.ts` is startup orchestration, not a utility
 

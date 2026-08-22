@@ -1,3 +1,4 @@
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import {
@@ -39,6 +40,18 @@ export interface ICliWorkspaceComposition {
   readonly settingsStores: readonly ISettingsDocumentStore[];
   readonly sessionStore: IInteractiveSessionStore;
   readonly memoryStore?: IMemoryStore;
+}
+
+export type TCliWorkspaceCompositionOverrides = Pick<
+  ICreateCliWorkspaceCompositionOptions,
+  'projectAccess' | 'projectSettingsWriter'
+>;
+
+export function createInitialCliWorkspaceComposition(
+  cwd: string,
+  overrides: TCliWorkspaceCompositionOverrides,
+): ICliWorkspaceComposition {
+  return createCliWorkspaceComposition({ cwd, userHome: homedir(), ...overrides });
 }
 
 export function createCliWorkspaceComposition(

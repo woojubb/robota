@@ -2,7 +2,7 @@
 
 Part of the [agent-cli composition map](../agent-cli-composition.md).
 
-Source-verified against `develop` on 2026-07-12.
+Source-verified on 2026-08-22.
 
 Command-layer boundaries, provider setup, profile switching, model catalog flow, and
 preset selection glue.
@@ -64,7 +64,7 @@ sequenceDiagram
   Setup->>SDKCommon: suggest model-derived profile key with duplicate suffixes
   Setup->>Factory: update settings document through settings-io
   Args->>Factory: --provider and --model overrides
-  Factory->>Factory: merge user, project, project-local, and compatibility settings
+  Factory->>Factory: merge explicit host sources plus authority-derived project sources
   Factory->>Defs: find provider definition by type or alias
   Factory->>Defs: definition.createProvider(config)
   Factory-->>CLI: IAIProvider plus selected model id
@@ -77,7 +77,8 @@ sequenceDiagram
 
 Settings ownership:
 
-- `agent-cli` owns concrete settings file paths and provider instance construction.
+- `agent-cli` composes user host sources and a host-issued project-access decision; it does not turn
+  `cwd` into project settings authority. Provider instance construction remains a product-shell role.
 - `agent-command` (provider module) owns `/provider` command semantics and settings patches.
 - `agent-framework` owns common provider settings/setup/probe APIs and generated profile-key suggestions.
 - Provider packages own defaults, setup metadata, validation, aliases, probes, options, and `createProvider()`.

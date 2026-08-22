@@ -5,7 +5,6 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { relative, resolve } from 'node:path';
 
 import {
   collectAssistantUsageMetadata,
@@ -14,26 +13,8 @@ import {
   SPAN_EVENTS,
 } from '@robota-sdk/agent-core';
 
-import { listActiveContextReferences } from '../context/context-reference-inventory.js';
-import { parsePromptFileReferences } from '../context/prompt-file-reference-parser.js';
-import {
-  buildPromptWithFileReferences,
-  createPromptFileReferenceHistoryEntry,
-  formatPromptFileReferenceDiagnostics,
-  hasBlockingPromptFileReferenceDiagnostics,
-  resolvePromptFileReferences,
-  resolvePromptFileReferencePaths,
-  toPromptFileReferenceRecords,
-} from '../context/prompt-file-references.js';
-import {
-  WorkspaceAuthorityRequiredError,
-  getWorkspaceProjectReader,
-} from '../workspace-trust/index.js';
-
 import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js';
-import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
-import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IContextWindowState, ITokenUsage, TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
   IHistoryEntry,
@@ -42,14 +23,6 @@ import type {
   TEventListener,
 } from '@robota-sdk/agent-core';
 import type { IUsageSource, ISpanEntry } from '@robota-sdk/agent-interface-transport';
-
-export interface IPreparedPromptInput {
-  modelInput: string;
-  hookInput?: string;
-  promptFileReferenceRecords: IPromptFileReferenceRecord[];
-  activeContextReferenceRecords: IPromptFileReferenceRecord[];
-  promptFileReferenceEntry?: IHistoryEntry;
-}
 
 /** Detect an abort/cancel. CORE-027: the substring heuristic that stood here reported a provider
  * failure as the user's own cancellation; `isAbortFailure` owns the decision and says why. */
@@ -214,78 +187,6 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
     entries,
     dispose: () => eventService.unsubscribe(listener),
   };
-}
-
-export async function preparePromptInput(
-  input: string,
-  projectAccess: TWorkspaceProjectAccess,
-  cwd: string,
-  rawInput?: string,
-  contextReferences: readonly IContextReferenceItem[] = [],
-): Promise<IPreparedPromptInput> {
-  const activePaths = listActiveContextReferences(contextReferences).map(
-    (reference) => reference.sourcePath,
-  );
-  if (projectAccess.status !== 'trusted') {
-    if (activePaths.length > 0 || parsePromptFileReferences(input).length > 0) {
-      throw new WorkspaceAuthorityRequiredError(
-        'Prompt file references require explicit workspace project authority.',
-      );
-    }
-    return {
-      modelInput: input,
-      ...(rawInput !== undefined ? { hookInput: rawInput } : {}),
-      activeContextReferenceRecords: [],
-      promptFileReferenceRecords: [],
-    };
-  }
-  const resolveOptions = {
-    reader: getWorkspaceProjectReader(projectAccess.authority),
-    startRelativeDirectory: relative(projectAccess.identity.worktreeRoot, resolve(cwd)),
-  };
-  const activeReferenceResult = await resolvePromptFileReferencePaths(activePaths, {
-    ...resolveOptions,
-    reason: 'manual',
-  });
-  const promptFileReferenceResult = await resolvePromptFileReferences(input, resolveOptions);
-  const diagnostics = [
-    ...activeReferenceResult.diagnostics,
-    ...promptFileReferenceResult.diagnostics,
-  ];
-  if (hasBlockingPromptFileReferenceDiagnostics(diagnostics)) {
-    throw new Error(formatPromptFileReferenceDiagnostics(diagnostics));
-  }
-
-  const resolvedReferences = dedupeResolvedReferences([
-    ...activeReferenceResult.references,
-    ...promptFileReferenceResult.references,
-  ]);
-  const modelInput = buildPromptWithFileReferences(input, resolvedReferences);
-  const hookInput = rawInput ?? (modelInput === input ? undefined : input);
-  const activeContextReferenceRecords = toPromptFileReferenceRecords(
-    activeReferenceResult.references,
-  );
-  const promptFileReferenceRecords = toPromptFileReferenceRecords(
-    promptFileReferenceResult.references,
-  );
-  const promptFileReferenceEntry =
-    promptFileReferenceResult.references.length > 0
-      ? createPromptFileReferenceHistoryEntry(promptFileReferenceResult.references)
-      : undefined;
-
-  return {
-    modelInput,
-    ...(hookInput !== undefined ? { hookInput } : {}),
-    activeContextReferenceRecords,
-    promptFileReferenceRecords,
-    ...(promptFileReferenceEntry !== undefined ? { promptFileReferenceEntry } : {}),
-  };
-}
-
-function dedupeResolvedReferences(
-  references: readonly (IPromptFileReferenceRecord & { content: string })[],
-): Array<IPromptFileReferenceRecord & { content: string }> {
-  return [...new Map(references.map((reference) => [reference.sourcePath, reference])).values()];
 }
 
 function extractTurnUsage(

@@ -343,15 +343,9 @@ export class SessionHistoryTracker {
     this.emitSkillActivation(event);
     this.persistSession();
   }
-
   private getCheckpointStore(): EditCheckpointStore {
-    if (!this.editCheckpointStore) {
-      throw new WorkspaceAuthorityRequiredError(
-        'Edit checkpoints require explicit project authority and mutation permission.',
-      );
-    }
-    // SELFHOST-007: apply any stashed --resume branch pointer on first store access (session is ready
-    // by the time a read/nav command runs); idempotent — clears the stash once applied.
+    if (!this.editCheckpointStore)
+      throw new WorkspaceAuthorityRequiredError('Edit checkpoints require project authority.');
     this.applyPendingActiveBranch();
     return this.editCheckpointStore;
   }
