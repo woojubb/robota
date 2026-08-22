@@ -10,12 +10,10 @@
     "documentation-refresh",
     "npm-otp-publish",
     "post-implementation-checklist",
-    "post-merge-cycle",
     "pr-finding-resolution-loop",
     "release-orchestration",
     "source-stabilization",
     "spec-code-conformance",
-    "user-execution-scenario",
-    "user-request-gate"
+    "user-execution-scenario"
   ]
 }
