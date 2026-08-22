@@ -3,7 +3,6 @@
   "_frozenAt": "2026-08-19",
   "exempt": [
     "architecture-refresh",
-    "backlog-execution-orchestrator",
     "capability-extraction",
     "delegated-refactor-green-gate",
     "documentation-refresh",
