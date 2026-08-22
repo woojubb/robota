@@ -40,6 +40,7 @@ class WorkspaceProjectStateStorage {
 
   constructor(
     namespace: TWorkspaceProjectStateNamespace,
+    private readonly authority: IWorkspaceProjectAuthority,
     private readonly identity: IWorkspaceIdentity,
     private readonly identityResolver: IWorkspaceIdentityResolver,
     private readonly reader: IWorkspaceProjectReader,
@@ -49,18 +50,22 @@ class WorkspaceProjectStateStorage {
   }
 
   readText(relativePath: string, purpose: string): string | undefined {
+    assertWorkspaceProjectAuthority(this.authority);
     return this.reader.readText(this.projectRelativePath(relativePath), purpose);
   }
 
   readBytes(relativePath: string, purpose: string): Uint8Array | undefined {
+    assertWorkspaceProjectAuthority(this.authority);
     return this.reader.readBytes(this.projectRelativePath(relativePath), purpose);
   }
 
   writeText(relativePath: string, content: string, purpose: string): void {
+    assertWorkspaceProjectAuthority(this.authority);
     this.writeBytes(relativePath, Buffer.from(content), purpose);
   }
 
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void {
+    assertWorkspaceProjectAuthority(this.authority);
     assertProjectReadPurpose(purpose);
     writeWorkspaceRelativeFile(
       this.identity,
@@ -71,6 +76,7 @@ class WorkspaceProjectStateStorage {
   }
 
   appendText(relativePath: string, content: string, purpose: string): void {
+    assertWorkspaceProjectAuthority(this.authority);
     assertProjectReadPurpose(purpose);
     appendWorkspaceRelativeFile(
       this.identity,
@@ -81,10 +87,12 @@ class WorkspaceProjectStateStorage {
   }
 
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[] {
+    assertWorkspaceProjectAuthority(this.authority);
     return this.reader.listDirectory(this.projectRelativePath(relativePath, true), purpose);
   }
 
   deleteFile(relativePath: string, purpose: string): boolean {
+    assertWorkspaceProjectAuthority(this.authority);
     assertProjectReadPurpose(purpose);
     return deleteWorkspaceRelativeFile(
       this.identity,
@@ -94,6 +102,7 @@ class WorkspaceProjectStateStorage {
   }
 
   projectRelativePath(relativePath: string, allowRoot = false): string {
+    assertWorkspaceProjectAuthority(this.authority);
     const segments = workspacePathSegments(relativePath, allowRoot);
     return segments.length === 0 ? this.base : join(this.base, segments.join(sep));
   }
@@ -109,6 +118,7 @@ export function getWorkspaceProjectStateStorage(
   const storage = Object.freeze(
     new WorkspaceProjectStateStorage(
       namespace,
+      accepted,
       identity,
       getWorkspaceProjectIdentityResolver(accepted),
       reader,
@@ -130,6 +140,7 @@ export function assertWorkspaceProjectStateStorage(
       'A runtime-minted workspace project state storage is required.',
     );
   }
+  assertWorkspaceProjectAuthority(projectStateStorages.get(candidate)!);
   return candidate as IWorkspaceProjectStateStorage;
 }
 

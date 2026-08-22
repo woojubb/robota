@@ -23,16 +23,19 @@ const projectMutations = new WeakMap<object, IWorkspaceProjectAuthority>();
 
 class WorkspaceProjectMutation {
   constructor(
+    private readonly authority: IWorkspaceProjectAuthority,
     private readonly identity: IWorkspaceIdentity,
     private readonly identityResolver: IWorkspaceIdentityResolver,
   ) {}
 
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void {
+    assertWorkspaceProjectAuthority(this.authority);
     assertProjectReadPurpose(purpose);
     writeWorkspaceRelativeFile(this.identity, this.identityResolver, relativePath, content);
   }
 
   deleteFile(relativePath: string, purpose: string): boolean {
+    assertWorkspaceProjectAuthority(this.authority);
     assertProjectReadPurpose(purpose);
     return deleteWorkspaceRelativeFile(this.identity, this.identityResolver, relativePath);
   }
@@ -51,6 +54,7 @@ export function createWorkspaceProjectMutation(
   assertProjectReadPurpose(decision.purpose);
   const mutation = Object.freeze(
     new WorkspaceProjectMutation(
+      accepted,
       getWorkspaceProjectIdentity(accepted),
       getWorkspaceProjectIdentityResolver(accepted),
     ),
@@ -71,6 +75,7 @@ export function assertWorkspaceProjectMutation(
       'A runtime-minted workspace project mutation capability is required.',
     );
   }
+  assertWorkspaceProjectAuthority(projectMutations.get(candidate)!);
   return candidate as IWorkspaceProjectMutation;
 }
 

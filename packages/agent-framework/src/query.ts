@@ -6,8 +6,15 @@
  *   const answer = await query('What files are here?');
  */
 
+import { realpathSync } from 'node:fs';
+
 import { InteractiveSession } from './interactive/interactive-session.js';
-import { createRestrictedWorkspaceProjectAccess } from './workspace-trust/index.js';
+import {
+  WorkspaceAuthorityRequiredError,
+  createRestrictedWorkspaceProjectAccess,
+  getWorkspaceProjectIdentity,
+} from './workspace-trust/index.js';
+import { isWorkspacePathContained } from './workspace-trust/project-reader-path.js';
 
 import type { IExecutionResult, TInteractivePermissionHandler } from './interactive/types.js';
 import type { TWorkspaceProjectAccess } from './workspace-trust/index.js';
@@ -84,6 +91,24 @@ export function createQuery(options: ICreateQueryOptions): TQueryFunction {
   const cwd = options.cwd ?? process.cwd();
   const projectAccess =
     options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable', cwd);
+  // Contained — ARCH-048. These boundaries reject cross-root pairs until one canonical project-root
+  // binding contract replaces the independent cwd and projectAccess carriers.
+  if (projectAccess.status === 'trusted') {
+    const trustedRoot = getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot;
+    let resolvedCwd: string;
+    try {
+      resolvedCwd = realpathSync(cwd);
+    } catch {
+      throw new WorkspaceAuthorityRequiredError(
+        'Trusted project access cannot validate the requested working directory.',
+      );
+    }
+    if (!isWorkspacePathContained(trustedRoot, resolvedCwd)) {
+      throw new WorkspaceAuthorityRequiredError(
+        'Trusted project access does not cover the requested working directory.',
+      );
+    }
+  }
   const session = new InteractiveSession({
     cwd,
     provider: options.provider,

@@ -62,7 +62,13 @@ project context, settings, memory, session, or log adapters. A host that has ins
 workspace through `WorkspaceTrustService` passes that exact `TWorkspaceProjectAccess` decision.
 Project persistence is then composed explicitly from its named state facets; a bare `cwd` never
 creates a project store. A per-session `sessionStore` replaces the runtime store, while an explicit
-`sessionStore: undefined` disables persistence.
+`sessionStore: undefined` disables persistence. Trusted runtime/query construction rejects a real
+working directory outside the authority's frozen workspace identity, and a completed revoke makes
+the previously issued authority and all of its facets unusable.
+
+On Linux, authority-backed project mutations are rooted in open directory descriptors so parent
+renames or symlink swaps cannot redirect them. Other platforms currently fail closed pending the
+portable stable-mutation contract tracked by ARCH-047.
 
 The maintained offline examples verify explicit persist→resume composition and the workspace
 authority boundary with no provider credentials:

@@ -302,6 +302,12 @@ the user session store, and no project memory. Trusted composition derives proje
 settings sources plus named `sessions`, `session-logs`, and `memory` state facets from the exact
 runtime-accepted authority. A separately approved, same-authority settings writer is required before
 a project settings store is added. `cwd` remains provenance and cannot mint any of these capabilities.
+Trusted composition is refused when the real CLI working directory is outside the authority's frozen
+workspace root.
+
+> **Contained — [ARCH-048](../../../.agents/tasks/ARCH-048-canonical-project-root-binding.md).**
+> This boundary check keeps the current independent `cwd` and `projectAccess` inputs fail-closed.
+> ARCH-048 owns replacing those independent root carriers with one canonical binding contract.
 
 ARCH-042 covers initial/stateless composition only. Lazy command transitions that still retain or
 reconstruct project access are the explicit ARCH-043 dependency; this package must not claim complete

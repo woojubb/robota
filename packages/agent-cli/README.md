@@ -41,6 +41,7 @@ A bare `cwd` is provenance, not project authority. Without a host-issued
 `TWorkspaceProjectAccess` decision the runtime is observably Restricted and does not load project
 context, settings, memory, sessions, or logs. Embedders establish that decision through the
 framework `WorkspaceTrustService`; a path, boolean, or generic filesystem cannot substitute for it.
+Trusted composition is rejected when `cwd` resolves outside that authority's frozen workspace root.
 
 ## Prerequisites
 

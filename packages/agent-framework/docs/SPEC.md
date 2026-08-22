@@ -84,6 +84,9 @@ Key design rules:
 - **Project access is capability-bound (ARCH-042)**: `WorkspaceTrustService` resolves the canonical project
   identity and current host-owned trust record before registering one exact authority object in module-private
   instance state. Runtime validation uses that identity registry, never a property/symbol/prototype marker.
+  The published identity is a frozen value snapshot. Every authority assertion and derived-facet operation
+  also checks the issuing service's observed trust generation, so a completed grant/revoke transition
+  invalidates authority and facets issued under the prior generation.
   Stateless project APIs and initial session/query construction accept the trusted/restricted decision or a
   facet derived from its authority. Restricted construction instantiates no project reader/store/writer.
   Immutable propagation through later session commands is owned by ARCH-043.
@@ -91,6 +94,14 @@ Key design rules:
   state is selected by a closed namespace; project settings writes and checkpoint restore/delete require
   separately approved capabilities. User-local paths and explicitly injected host adapters are different
   contracts and never satisfy project-authority parameters.
+
+  On Linux, project create/replace/append/delete traversal is anchored to opened root and parent directory
+  descriptors, so a validated parent rename or symlink swap cannot redirect the mutation. Other platforms
+  fail closed rather than falling back to pathname mutation.
+
+  > **Contained — [ARCH-047](../../../.agents/tasks/ARCH-047-stable-root-anchored-project-mutation.md).**
+  > The current hold is Linux-specific and lives in the existing writer. ARCH-047 owns a shared,
+  > cross-platform stable root-anchored mutation primitive and its portable refusal contract.
 
 ## Type Ownership
 
@@ -1029,7 +1040,14 @@ agent-cli (Ink TUI — CLI-specific)
 
 - **Runtime project decision**: `createAgentRuntime({ cwd, provider, projectAccess? })` exposes and
   forwards one immutable trusted-or-restricted decision. Omission creates an observable Restricted
-  runtime; `cwd` alone never creates a project loader or persistence adapter.
+  runtime; `cwd` alone never creates a project loader or persistence adapter. Trusted access is accepted
+  only when the real working directory is the trusted root or one of its descendants. `createQuery()`
+  applies the same initial cross-root refusal.
+
+  > **Contained — [ARCH-048](../../../.agents/tasks/ARCH-048-canonical-project-root-binding.md).**
+  > This boundary check keeps the current independent `cwd` and `projectAccess` inputs fail-closed.
+  > ARCH-048 owns replacing those independent root carriers with one canonical binding contract.
+
 - **Runtime persistence default**: the runtime owns no implicit project session store. A host that
   wants persistence supplies an explicit `sessionStore`, optionally composed from same-authority
   `sessions` and `session-logs` state facets with `createProjectSessionStore()`.

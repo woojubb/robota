@@ -13,6 +13,7 @@ interface IWorkspaceAuthorityRecord {
   readonly identity: IWorkspaceIdentity;
   readonly identityResolver: IWorkspaceIdentityResolver;
   readonly reader: IWorkspaceProjectReader;
+  readonly isLive: () => boolean;
 }
 
 const authorityRecords = new WeakMap<object, IWorkspaceAuthorityRecord>();
@@ -21,12 +22,21 @@ const authorityRecords = new WeakMap<object, IWorkspaceAuthorityRecord>();
 export function mintWorkspaceProjectAuthority(
   identity: IWorkspaceIdentity,
   identityResolver: IWorkspaceIdentityResolver,
+  isLive: () => boolean,
 ): IWorkspaceProjectAuthority {
+  const identitySnapshot = Object.freeze({
+    repositoryKey: identity.repositoryKey,
+    displayPath: identity.displayPath,
+    worktreeRoot: identity.worktreeRoot,
+  });
   const authority = Object.freeze(Object.create(null)) as IWorkspaceProjectAuthority;
   authorityRecords.set(authority, {
-    identity,
+    identity: identitySnapshot,
     identityResolver,
-    reader: createWorkspaceProjectReader(identity, identityResolver),
+    reader: createWorkspaceProjectReader(identitySnapshot, identityResolver, () => {
+      assertWorkspaceProjectAuthority(authority);
+    }),
+    isLive,
   });
   return authority;
 }
@@ -40,6 +50,12 @@ export function assertWorkspaceProjectAuthority(
     !authorityRecords.has(candidate)
   ) {
     throw new WorkspaceAuthorityRequiredError();
+  }
+  const record = authorityRecords.get(candidate);
+  if (record === undefined || !record.isLive()) {
+    throw new WorkspaceAuthorityRequiredError(
+      'The workspace project authority is no longer active.',
+    );
   }
   return candidate as IWorkspaceProjectAuthority;
 }

@@ -26,20 +26,23 @@ import type {
   TWorkspaceContributionKind,
 } from './types.js';
 
-const projectReaders = new WeakSet<object>();
+const projectReaders = new WeakMap<object, () => void>();
 
 class NodeWorkspaceProjectReader {
   constructor(
     private readonly identity: IWorkspaceIdentity,
     private readonly identityResolver: IWorkspaceIdentityResolver,
+    private readonly assertActive: () => void,
   ) {}
 
   readText(relativePath: string, purpose: string): string | undefined {
+    this.assertActive();
     const bytes = this.readBytes(relativePath, purpose);
     return bytes === undefined ? undefined : Buffer.from(bytes).toString('utf8');
   }
 
   readBytes(relativePath: string, purpose: string): Uint8Array | undefined {
+    this.assertActive();
     assertProjectReadPurpose(purpose);
     const segments = workspacePathSegments(relativePath);
     return process.platform === 'linux'
@@ -48,6 +51,7 @@ class NodeWorkspaceProjectReader {
   }
 
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[] {
+    this.assertActive();
     assertProjectReadPurpose(purpose);
     const segments = workspacePathSegments(relativePath, true);
     return process.platform === 'linux'
@@ -56,6 +60,7 @@ class NodeWorkspaceProjectReader {
   }
 
   inspectKind(relativePath: string, purpose: string): TWorkspaceContributionKind | undefined {
+    this.assertActive();
     assertProjectReadPurpose(purpose);
     const segments = workspacePathSegments(relativePath, true);
     return process.platform === 'linux'
@@ -68,6 +73,7 @@ class NodeWorkspaceProjectReader {
     filename: string,
     purpose: string,
   ): readonly IWorkspaceAncestorTextEntry[] {
+    this.assertActive();
     assertProjectReadPurpose(purpose);
     const startSegments = workspacePathSegments(startRelativeDirectory, true);
     const filenameSegments = workspacePathSegments(filename);
@@ -88,9 +94,12 @@ class NodeWorkspaceProjectReader {
 export function createWorkspaceProjectReader(
   identity: IWorkspaceIdentity,
   identityResolver: IWorkspaceIdentityResolver,
+  assertActive: () => void,
 ): IWorkspaceProjectReader {
-  const reader = Object.freeze(new NodeWorkspaceProjectReader(identity, identityResolver));
-  projectReaders.add(reader);
+  const reader = Object.freeze(
+    new NodeWorkspaceProjectReader(identity, identityResolver, assertActive),
+  );
+  projectReaders.set(reader, assertActive);
   return reader as IWorkspaceProjectReader;
 }
 
@@ -104,5 +113,6 @@ export function assertWorkspaceProjectReader(
   ) {
     refuseProjectRead('A runtime-minted workspace project reader is required.');
   }
+  projectReaders.get(candidate)?.();
   return candidate as IWorkspaceProjectReader;
 }

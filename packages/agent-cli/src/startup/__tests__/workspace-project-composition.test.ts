@@ -100,6 +100,17 @@ describe('CLI workspace project composition', () => {
     expect(composition.sessionStore.load('trusted-session')?.cwd).toBe(cwd);
   });
 
+  it('refuses trusted project access minted for a different CLI workspace root', async () => {
+    const trustedRoot = tempRoot('robota-cli-trusted-root-');
+    const cwd = tempRoot('robota-cli-other-root-');
+    const userHome = tempRoot('robota-cli-other-root-user-');
+    const access = await trustedAccess(trustedRoot);
+
+    expect(() => createCliWorkspaceComposition({ cwd, userHome, projectAccess: access })).toThrow(
+      'Trusted project access does not cover the requested working directory.',
+    );
+  });
+
   it('adds a project settings store only with a writer minted for the same authority', async () => {
     const cwd = tempRoot('robota-cli-project-settings-');
     const userHome = tempRoot('robota-cli-project-settings-user-');

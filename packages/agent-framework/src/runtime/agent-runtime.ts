@@ -1,3 +1,5 @@
+import { realpathSync } from 'node:fs';
+
 import {
   createDefaultBackgroundTaskRunners,
   type IBackgroundTaskRunner,
@@ -5,7 +7,12 @@ import {
 
 import { getUserSettingsPath, readSettings, writeSettings } from '../config/settings-io.js';
 import { InteractiveSession } from '../interactive/interactive-session.js';
-import { createRestrictedWorkspaceProjectAccess } from '../workspace-trust/index.js';
+import {
+  WorkspaceAuthorityRequiredError,
+  createRestrictedWorkspaceProjectAccess,
+  getWorkspaceProjectIdentity,
+} from '../workspace-trust/index.js';
+import { isWorkspacePathContained } from '../workspace-trust/project-reader-path.js';
 
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { ICommandHostAdapters, ICommandModule } from '../commands/index.js';
@@ -95,6 +102,24 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
   const projectAccess =
     config.projectAccess ??
     createRestrictedWorkspaceProjectAccess('identity-unavailable', config.cwd);
+  // Contained — ARCH-048. These boundaries reject cross-root pairs until one canonical project-root
+  // binding contract replaces the independent cwd and projectAccess carriers.
+  if (projectAccess.status === 'trusted') {
+    const trustedRoot = getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot;
+    let resolvedCwd: string;
+    try {
+      resolvedCwd = realpathSync(config.cwd);
+    } catch {
+      throw new WorkspaceAuthorityRequiredError(
+        'Trusted project access cannot validate the requested working directory.',
+      );
+    }
+    if (!isWorkspacePathContained(trustedRoot, resolvedCwd)) {
+      throw new WorkspaceAuthorityRequiredError(
+        'Trusted project access does not cover the requested working directory.',
+      );
+    }
+  }
 
   return {
     cwd: config.cwd,

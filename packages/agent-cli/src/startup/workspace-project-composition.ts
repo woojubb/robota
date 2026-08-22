@@ -1,5 +1,6 @@
+import { realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join, relative } from 'node:path';
 
 import {
   WorkspaceAuthorityRequiredError,
@@ -12,6 +13,7 @@ import {
   createWorkspaceProjectSettingsSources,
   createWorkspaceProjectSettingsStore,
   createWorkspaceMemoryStore,
+  getWorkspaceProjectIdentity,
   getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
 } from '@robota-sdk/agent-framework';
@@ -20,6 +22,7 @@ import type {
   IContributionSource,
   IMemoryStore,
   ISettingsDocumentStore,
+  ITrustedWorkspaceProjectAccess,
   IWorkspaceProjectSettingsWriter,
   TSettingsSource,
   TWorkspaceProjectAccess,
@@ -47,6 +50,35 @@ export type TCliWorkspaceCompositionOverrides = Pick<
   'projectAccess' | 'projectSettingsWriter'
 >;
 
+function createTrustedCliWorkspaceComposition(
+  projectAccess: ITrustedWorkspaceProjectAccess,
+  options: ICreateCliWorkspaceCompositionOptions,
+  userSettingsStore: ISettingsDocumentStore,
+): ICliWorkspaceComposition {
+  const authority = projectAccess.authority;
+  const settingsStores =
+    options.projectSettingsWriter === undefined
+      ? [userSettingsStore]
+      : [
+          userSettingsStore,
+          createWorkspaceProjectSettingsStore(authority, options.projectSettingsWriter),
+        ];
+  return {
+    projectAccess,
+    contributionSources: createContributionSourcesForProjectAccess(projectAccess, options.userHome),
+    settingsSources: [
+      ...createDefaultUserSettingsSources(options.userHome),
+      ...createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(authority)),
+    ],
+    settingsStores,
+    sessionStore: createProjectSessionStore(
+      getWorkspaceProjectStateStorage(authority, 'sessions'),
+      getWorkspaceProjectStateStorage(authority, 'session-logs'),
+    ),
+    memoryStore: createWorkspaceMemoryStore(getWorkspaceProjectStateStorage(authority, 'memory')),
+  };
+}
+
 export function createInitialCliWorkspaceComposition(
   cwd: string,
   overrides: TCliWorkspaceCompositionOverrides,
@@ -60,6 +92,24 @@ export function createCliWorkspaceComposition(
   const projectAccess =
     options.projectAccess ??
     createRestrictedWorkspaceProjectAccess('identity-unavailable', options.cwd);
+  // Contained — ARCH-048. Reject cross-root pairs until one canonical project-root contract replaces both carriers.
+  if (projectAccess.status === 'trusted') {
+    const trustedRoot = getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot;
+    let resolvedCwd: string;
+    try {
+      resolvedCwd = realpathSync(options.cwd);
+    } catch {
+      throw new WorkspaceAuthorityRequiredError(
+        'Trusted project access cannot validate the requested working directory.',
+      );
+    }
+    const remainder = relative(trustedRoot, resolvedCwd);
+    if (remainder.startsWith('..') || isAbsolute(remainder)) {
+      throw new WorkspaceAuthorityRequiredError(
+        'Trusted project access does not cover the requested working directory.',
+      );
+    }
+  }
   const userSettingsStore = createNodeHostSettingsStore(
     'user',
     join(options.userHome, '.robota', 'settings.json'),
@@ -83,26 +133,5 @@ export function createCliWorkspaceComposition(
     };
   }
 
-  const authority = projectAccess.authority;
-  const settingsStores =
-    options.projectSettingsWriter === undefined
-      ? [userSettingsStore]
-      : [
-          userSettingsStore,
-          createWorkspaceProjectSettingsStore(authority, options.projectSettingsWriter),
-        ];
-  return {
-    projectAccess,
-    contributionSources: createContributionSourcesForProjectAccess(projectAccess, options.userHome),
-    settingsSources: [
-      ...createDefaultUserSettingsSources(options.userHome),
-      ...createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(authority)),
-    ],
-    settingsStores,
-    sessionStore: createProjectSessionStore(
-      getWorkspaceProjectStateStorage(authority, 'sessions'),
-      getWorkspaceProjectStateStorage(authority, 'session-logs'),
-    ),
-    memoryStore: createWorkspaceMemoryStore(getWorkspaceProjectStateStorage(authority, 'memory')),
-  };
+  return createTrustedCliWorkspaceComposition(projectAccess, options, userSettingsStore);
 }

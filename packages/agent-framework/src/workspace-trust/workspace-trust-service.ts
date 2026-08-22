@@ -1,4 +1,7 @@
-import { mintWorkspaceProjectAuthority } from './workspace-authority.js';
+import {
+  getWorkspaceProjectIdentity,
+  mintWorkspaceProjectAuthority,
+} from './workspace-authority.js';
 
 import type {
   IRestrictedWorkspaceProjectAccess,
@@ -30,7 +33,17 @@ function sameIdentity(left: IWorkspaceIdentity, right: IWorkspaceIdentity): bool
 }
 
 export class WorkspaceTrustService {
+  private readonly issuerGenerations = new Map<string, number>();
+
   constructor(private readonly options: IWorkspaceTrustServiceOptions) {}
+
+  private identityKey(identity: IWorkspaceIdentity): string {
+    return `${identity.repositoryKey}\0${identity.worktreeRoot}`;
+  }
+
+  private recordGeneration(identity: IWorkspaceIdentity, generation: number): void {
+    this.issuerGenerations.set(this.identityKey(identity), generation);
+  }
 
   async inspect(cwd: string): Promise<TWorkspaceProjectAccess> {
     let identity: IWorkspaceIdentity;
@@ -46,6 +59,7 @@ export class WorkspaceTrustService {
     } catch {
       return createRestrictedWorkspaceProjectAccess('store-unavailable', identity.displayPath);
     }
+    this.recordGeneration(identity, snapshot.generation);
     if (snapshot.state !== 'trusted') {
       return createRestrictedWorkspaceProjectAccess(snapshot.state, identity.displayPath);
     }
@@ -60,10 +74,16 @@ export class WorkspaceTrustService {
       return createRestrictedWorkspaceProjectAccess('stale/replaced', currentIdentity.displayPath);
     }
 
+    const identityKey = this.identityKey(currentIdentity);
+    const authority = mintWorkspaceProjectAuthority(
+      currentIdentity,
+      this.options.identityResolver,
+      () => this.issuerGenerations.get(identityKey) === snapshot.generation,
+    );
     return {
       status: 'trusted',
-      authority: mintWorkspaceProjectAuthority(currentIdentity, this.options.identityResolver),
-      identity: currentIdentity,
+      authority,
+      identity: getWorkspaceProjectIdentity(authority),
       ...(snapshot.grantedAt === undefined ? {} : { grantedAt: snapshot.grantedAt }),
     };
   }
@@ -71,14 +91,16 @@ export class WorkspaceTrustService {
   async grant(cwd: string): Promise<TWorkspaceProjectAccess> {
     const identity = this.options.identityResolver.resolve(cwd);
     const snapshot = await this.options.store.inspect(identity);
-    await this.options.store.grant(identity, snapshot.generation);
+    const granted = await this.options.store.grant(identity, snapshot.generation);
+    this.recordGeneration(identity, granted.generation);
     return this.inspect(cwd);
   }
 
   async revoke(cwd: string): Promise<TWorkspaceProjectAccess> {
     const identity = this.options.identityResolver.resolve(cwd);
     const snapshot = await this.options.store.inspect(identity);
-    await this.options.store.revoke(identity, snapshot.generation);
+    const revoked = await this.options.store.revoke(identity, snapshot.generation);
+    this.recordGeneration(identity, revoked.generation);
     return this.inspect(cwd);
   }
 }

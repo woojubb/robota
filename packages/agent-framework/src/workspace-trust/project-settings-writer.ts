@@ -54,6 +54,7 @@ export function createWorkspaceProjectSettingsWriter(
   const identityResolver = getWorkspaceProjectIdentityResolver(accepted);
   const writer = Object.freeze(
     new WorkspaceProjectSettingsWriter(decision.target, (content) => {
+      assertWorkspaceProjectAuthority(accepted);
       writeWorkspaceRelativeFile(
         identity,
         identityResolver,
@@ -78,6 +79,7 @@ export function assertWorkspaceProjectSettingsWriter(
       'A separately approved workspace project settings writer is required.',
     );
   }
+  assertWorkspaceProjectAuthority(projectSettingsWriters.get(candidate)!);
   return candidate as IWorkspaceProjectSettingsWriter;
 }
 

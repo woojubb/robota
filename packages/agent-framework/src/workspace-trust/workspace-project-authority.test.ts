@@ -111,6 +111,18 @@ describe('WorkspaceTrustService project authority', () => {
     expect(assertWorkspaceProjectAuthority(granted.authority)).toBe(granted.authority);
   });
 
+  it('publishes a frozen identity snapshot that cannot retarget issued authority', async () => {
+    const { root, service } = fixture();
+    const granted = await service.grant(root);
+    if (granted.status !== 'trusted') throw new Error('expected trusted access');
+
+    expect(Object.isFrozen(granted.identity)).toBe(true);
+    expect(() => {
+      (granted.identity as { worktreeRoot: string }).worktreeRoot = join(root, 'retargeted');
+    }).toThrow(TypeError);
+    expect(granted.identity.worktreeRoot).toBe(root);
+  });
+
   it('rejects structural, reflected-property, serialized, and prototype forgeries', async () => {
     const { root, service } = fixture();
     const granted = await service.grant(root);
@@ -133,6 +145,40 @@ describe('WorkspaceTrustService project authority', () => {
         WorkspaceAuthorityRequiredError,
       );
     }
+  });
+
+  it('invalidates an issued authority and all derived facets after revocation', async () => {
+    const { root, service } = fixture();
+    const granted = await service.grant(root);
+    if (granted.status !== 'trusted') throw new Error('expected trusted access');
+    const authority = granted.authority;
+    const reader = getWorkspaceProjectReader(authority);
+    const state = getWorkspaceProjectStateStorage(authority, 'sessions');
+    const settingsWriter = createWorkspaceProjectSettingsWriter(authority, {
+      status: 'approved',
+      target: 'project-local',
+      purpose: 'test settings revocation',
+    });
+    const mutation = createWorkspaceProjectMutation(authority, {
+      status: 'approved',
+      purpose: 'test mutation revocation',
+    });
+
+    await service.revoke(root);
+
+    expect(() => assertWorkspaceProjectAuthority(authority)).toThrowError(
+      WorkspaceAuthorityRequiredError,
+    );
+    expect(() => reader.readText('README.md', 'test revoked reader')).toThrowError(
+      WorkspaceAuthorityRequiredError,
+    );
+    expect(() => state.readText('session.json', 'test revoked state')).toThrowError(
+      WorkspaceAuthorityRequiredError,
+    );
+    expect(() => settingsWriter.writeText('{}\n')).toThrowError(WorkspaceAuthorityRequiredError);
+    expect(() =>
+      mutation.writeBytes('revoked.txt', Buffer.from('revoked'), 'test revoked mutation'),
+    ).toThrowError(WorkspaceAuthorityRequiredError);
   });
 
   it('derives a root-relative reader that refuses traversal, absolute paths, and links', async () => {

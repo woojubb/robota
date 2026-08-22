@@ -10,7 +10,10 @@ import {
   createRestrictedWorkspaceProjectAccess,
   createStatelessRuntime,
 } from '../../index.js';
-import { createTrustedProjectSessionStoreFixture } from '../../testing/trusted-project-state-fixture.js';
+import {
+  createTrustedProjectAccessFixture,
+  createTrustedProjectSessionStoreFixture,
+} from '../../testing/trusted-project-state-fixture.js';
 
 import type { InteractiveSession } from '../../index.js';
 import type {
@@ -69,6 +72,17 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
 
     expect(runtime.projectAccess).toBe(projectAccess);
     expect(runtime.createSession({ bare: true }).getProjectAccess()).toBe(projectAccess);
+  });
+
+  it('refuses trusted project access minted for a different runtime root', async () => {
+    const trustedRoot = scratchDir();
+    const runtimeRoot = scratchDir();
+    const projectAccess = await createTrustedProjectAccessFixture(trustedRoot);
+    const scripted = createScriptedProvider([]);
+
+    expect(() =>
+      createAgentRuntime({ cwd: runtimeRoot, provider: scripted.provider, projectAccess }),
+    ).toThrow('Trusted project access does not cover the requested working directory.');
   });
 
   it('inherits the runtime default store and resumes through it', async () => {
