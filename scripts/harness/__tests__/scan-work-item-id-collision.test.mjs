@@ -22,6 +22,13 @@ describe('reading the id off a record', () => {
   it.each([
     [`${T}INFRA-047-deny-licenses-v6-migration.md`, 'INFRA-047'],
     [`${T}completed/SELFHOST-003-codebase-index-rag.md`, 'SELFHOST-003'],
+    // Multi-segment prefixes, reported in review. Requiring the digits after the FIRST segment
+    // excluded 97 records — and with them three genuine collisions this scan was reporting a clean
+    // tree over. A guard that cannot see part of its population states a verdict about the part it
+    // can.
+    [`${T}completed/ARCH-FIX-020-isession-upward-dependency.md`, 'ARCH-FIX-020'],
+    [`${T}completed/INFRA-BL-009-A-backlog-rewrite.md`, 'INFRA-BL-009'],
+    [`${T}completed/DQ-AUDIT-005-x.md`, 'DQ-AUDIT-005'],
   ])('%s claims %s', (file, id) => {
     expect(workItemIdOf(file)).toBe(id);
   });

@@ -37,6 +37,9 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
+import { resolveGitBaseRef } from './shared.mjs';
+import { findUnlinkedRecords, linkCoverage } from './task-record-issue-link.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TASKS_PREFIX = '.agents/tasks/';
 
@@ -55,6 +58,12 @@ export const HISTORICAL_COLLISIONS = new Map([
   ['EX-001', 'two pre-convention items, both completed and merged'],
   ['NAMING-001', 'two pre-convention items, both completed and merged'],
   ['SEC-001', 'three pre-convention items, all completed and merged'],
+  // Found only once the ID pattern was widened to multi-segment prefixes (review of issue #1916's
+  // second half). Each is two distinct items, titles compared by hand; all are merged, so the
+  // citations pointing at them cannot be rewritten — the same reason the `-001` set is here.
+  ['ARCH-CONF-007', 'conformance to ARCH-REV rules vs harness mechanical enforcement'],
+  ['ARCH-FIX-020', 'moving agent-cli/subagents vs moving ISession'],
+  ['ARCH-FIX-021', 'a project-structure omission vs a provider-factory move'],
 ]);
 
 /**
@@ -67,7 +76,11 @@ export const HISTORICAL_COLLISIONS = new Map([
 export function workItemIdOf(relativePath) {
   if (!relativePath.startsWith(TASKS_PREFIX) || !relativePath.endsWith('.md')) return null;
   const base = path.basename(relativePath);
-  return /^([A-Z][A-Z0-9]*-\d+)-/.exec(base)?.[1] ?? null;
+  // Multi-segment prefixes are real and common here: `ARCH-FIX-020`, `INFRA-BL-009`, `DQ-AUDIT-005`.
+  // Reported in review of issue #1916's second half — requiring the digits after the FIRST segment
+  // excluded 97 records, and with them three genuine collisions this scan was reporting a clean tree
+  // over. A guard that cannot see part of its population states a verdict about the part it can.
+  return /^([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+)-/.exec(base)?.[1] ?? null;
 }
 
 /**
@@ -79,7 +92,13 @@ export function workItemIdOf(relativePath) {
  */
 export function isPhaseRecord(relativePath) {
   const base = path.basename(relativePath);
-  return /^[A-Z][A-Z0-9]*-\d+-[Pp]\d+[a-z]?-/.test(base);
+  const prefix = '[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\\d+';
+  // Two spellings of "a part of one item", both present in the tree:
+  //   `-p7-` / `-P4-`   a numbered phase
+  //   `-A-` … `-F-`     a lettered split, which `INFRA-BL-009` uses across six files
+  // The second was found in review: without it, one item split six ways reads as six items sharing
+  // an ID, which is a collision the tree does not have.
+  return new RegExp(`^${prefix}-(?:[Pp]\\d+[a-z]?|[A-Z])-`).test(base);
 }
 
 let examinedRecords = 0;
@@ -143,6 +162,31 @@ export function collisionsIn(records) {
 }
 
 function main() {
+  // issue #1916, the second half. The cross-source case — an ID claimed by a record here and by an
+  // ISSUE TITLE opened elsewhere — cannot be decided while nothing says which issue registers which
+  // record. Requiring the link on records a change ADDS is what makes that comparison possible
+  // later; see `task-record-issue-link.mjs` for why it is forward-only.
+  //
+  // The base is RESOLVED, not only accepted. Reported in review of this change: taking it from
+  // `--base-ref` alone meant the one real caller — the `work-item-id-collision` entry in
+  // `run-all-scans.mjs`, which passes no arguments — always saw `undefined`, so the check never
+  // fired anywhere it actually runs. A rule that is enforced only when someone remembers a flag is
+  // not enforced; it is the vacuous green this scan's own subject is about.
+  const explicit = process.argv.indexOf('--base-ref');
+  const baseRef = resolveGitBaseRef(explicit === -1 ? null : process.argv[explicit + 1]);
+  // Fail-CLOSED on an unresolvable base. `resolveGitBaseRef` answers null when no candidate ref
+  // exists — a shallow clone, a fresh repository — and reading that as "no new records" would be a
+  // pass over a comparison that never happened.
+  if (baseRef === null) {
+    console.error(
+      'work-item-id-collision: no base ref could be resolved, so the records this change ADDS ' +
+        'cannot be determined. Set HARNESS_BASE_REF, or pass --base-ref. Refusing rather than ' +
+        'reporting a pass over a comparison that did not run.',
+    );
+    return 1;
+  }
+  const unlinked = findUnlinkedRecords(baseRef);
+
   const records = scanTaskRecords();
   const collisions = collisionsIn(records);
   const fresh = [...collisions].filter(([id]) => !HISTORICAL_COLLISIONS.has(id));
@@ -151,11 +195,27 @@ function main() {
   // a permission nobody needs, and a stale one is how an allowlist quietly becomes the rule.
   const stale = [...HISTORICAL_COLLISIONS.keys()].filter((id) => !collisions.has(id));
 
-  console.log(`::examined:: ${records.length} tracked task record(s)`);
+  // Both halves of the link population, never only the half that carries one — a consumer reporting
+  // its size as "records with a link" would name the set it can see and call it the set.
+  const coverage = linkCoverage(records);
+  console.log(
+    `::examined:: ${records.length} tracked task record(s); ` +
+      `${coverage.linked} name an issue, ${coverage.unlinked} do not, ` +
+      `${coverage.notJudged} not judged (no work-item id, or a phase)`,
+  );
 
-  if (fresh.length === 0 && stale.length === 0) {
+  if (fresh.length === 0 && stale.length === 0 && unlinked.length === 0) {
     console.log('work-item-id-collision scan passed.');
     return 0;
+  }
+
+  for (const record of unlinked) {
+    console.error(
+      `work-item-id-collision: ${record} is a NEW task record that names no issue. An ID claimed ` +
+        'by a record here and by an issue title opened elsewhere is the collision this scan cannot ' +
+        'see, and the link is what would let it. Add `issue #N` (or the issue URL), or write ' +
+        '`no-issue: <reason>` on a line if this item genuinely has none.',
+    );
   }
   for (const [id, paths] of fresh) {
     console.error(`work-item-id-collision: ${id} is claimed by ${paths.length} distinct records:`);
