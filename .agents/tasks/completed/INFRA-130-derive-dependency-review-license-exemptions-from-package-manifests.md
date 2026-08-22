@@ -1,8 +1,9 @@
 ---
 title: 'INFRA-130: derive dependency-review license exemptions from package manifests'
 issue: https://github.com/woojubb/robota/issues/2014
-status: in-progress
+status: done
 created: 2026-08-22
+completed: 2026-08-22
 priority: medium
 urgency: soon
 area: .github/workflows/dependency-review.yml, scripts/harness
@@ -23,12 +24,12 @@ Source: https://github.com/woojubb/robota/issues/2014
 
 ## Plan
 
-- [ ] Specify the exact manifest population, PURL encoding, and fail-closed validation behavior.
-- [ ] Add regression tests that fail against the current hand-written workflow shape.
-- [ ] Generate sorted first-party PURLs from the checked-out package manifests.
-- [ ] Wire the generated step output into dependency-review without broadening the global license
+- [x] Specify the exact manifest population, PURL encoding, and fail-closed validation behavior.
+- [x] Add regression tests that fail against the current hand-written workflow shape.
+- [x] Generate sorted first-party PURLs from the checked-out package manifests.
+- [x] Wire the generated step output into dependency-review without broadening the global license
       allow-list or the separately owned `sharp` exemptions.
-- [ ] Run targeted workflow/generator tests, actionlint, harness scans, and CI-equivalent verification.
+- [x] Run targeted workflow/generator tests, actionlint, harness scans, and CI-equivalent verification.
 
 ## Recommendation Gate
 
@@ -53,3 +54,16 @@ Source: https://github.com/woojubb/robota/issues/2014
 
 Not applicable — this is an internal CI license-policy gate and does not change a runnable Robota
 product surface. Its observable contract is exercised by workflow and harness tests in the Test Plan.
+
+## Result
+
+- Added `scripts/harness/generate-dependency-review-license-exemptions.mjs`, deriving sorted,
+  versionless npm PURLs from the complete exact-license manifest population without following
+  symlinked directories and failing closed on malformed inputs or output configuration.
+- Wired the generated `$GITHUB_OUTPUT` value into `.github/workflows/dependency-review.yml` before
+  dependency review while preserving the global policy and all 14 explicit `sharp` PURLs.
+- Added 19 generator/output/workflow contract tests in
+  `scripts/harness/__tests__/generate-dependency-review-license-exemptions.test.mjs`.
+- Verification evidence: focused Vitest 19/19; actionlint 1.7.7 with shellcheck 0.11.0 exited 0;
+  `pnpm harness:test` passed 4,711 live plus 1,142 hermetic tests; `pnpm harness:scan` passed 136
+  scans with one declared skip; `pnpm harness:verify-like-ci` passed all 12 mirrored stages.
