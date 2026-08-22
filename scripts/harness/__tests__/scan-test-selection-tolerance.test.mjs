@@ -1,8 +1,9 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   narrowsSelection,
@@ -15,7 +16,7 @@ import {
 
 describe('listWorkflows', () => {
   it('fails closed when the governed workflow directory is absent', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'test-selection-tolerance-'));
+    const root = makeTemp('test-selection-tolerance-');
     try {
       expect(() => listWorkflows(root)).toThrow(/\.github\/workflows does not exist/);
     } finally {

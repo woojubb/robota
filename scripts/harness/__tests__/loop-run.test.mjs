@@ -6,11 +6,12 @@
  * someone needs it. The pairs below are what separate the two.
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   LEDGER_DIR,
@@ -26,7 +27,7 @@ import {
 
 /** A throwaway workspace whose only content is the skills this case needs. */
 function workspace(skills) {
-  const root = mkdtempSync(path.join(tmpdir(), 'loop-run-'));
+  const root = makeTemp('loop-run-');
   for (const [name, declaration] of Object.entries(skills)) {
     mkdirSync(path.join(root, '.agents/skills', name), { recursive: true });
     writeFileSync(

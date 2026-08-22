@@ -1,9 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { hooksOutsideAWorktree } from './helpers/hooks-outside-a-worktree.mjs';
 
@@ -58,7 +59,7 @@ afterAll(() => {
  * removes a variable rather than hiding a verdict, and no assertion below is about the lockfile.
  */
 function pnpmStub() {
-  const dir = mkdtempSync(path.join(tmpdir(), 'decoy-verdict-bin-'));
+  const dir = makeTemp('decoy-verdict-bin-');
   scratch.push(dir);
   writeFileSync(path.join(dir, 'pnpm'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
   return `${dir}:${process.env.PATH}`;
@@ -126,7 +127,7 @@ let unreviewedRepo;
 let branchRepo;
 
 beforeAll(() => {
-  root = mkdtempSync(path.join(tmpdir(), 'decoy-verdict-'));
+  root = makeTemp('decoy-verdict-');
   scratch.push(root);
 
   // worktree-cwd-guard: a MAIN checkout and an assigned worktree beside it.

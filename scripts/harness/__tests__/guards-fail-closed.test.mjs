@@ -1,16 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import {
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
@@ -143,8 +137,8 @@ describe('no hook crashes instead of deciding', () => {
     // allowed. Same input here must be refused. This is the shape the whole file exists for — "I
     // could not look" wearing the costume of "I looked and it was fine" — reached through the one
     // tool the new seam depends on.
-    const bin = mkdtempSync(path.join(tmpdir(), 'guards-noawk-'));
-    const repo = mkdtempSync(path.join(tmpdir(), 'guards-noawk-repo-'));
+    const bin = makeTemp('guards-noawk-');
+    const repo = makeTemp('guards-noawk-repo-');
     try {
       for (const tool of [
         'bash',
@@ -226,7 +220,7 @@ describe('a guard that must ask GitHub refuses when it cannot', () => {
   // on a GitHub answer refuses in that state, rather than reporting the pass it cannot justify.
 
   function ghThatCannotAuthenticate() {
-    const dir = mkdtempSync(path.join(tmpdir(), 'no-gh-'));
+    const dir = makeTemp('no-gh-');
     writeFileSync(
       path.join(dir, 'gh'),
       '#!/bin/sh\necho "gh: To get started with GitHub CLI, please run: gh auth login" >&2\nexit 4\n',
@@ -236,7 +230,7 @@ describe('a guard that must ask GitHub refuses when it cannot', () => {
   }
 
   function scratchRepo(branch) {
-    const dir = mkdtempSync(path.join(tmpdir(), 'no-token-'));
+    const dir = makeTemp('no-token-');
     const git = (...a) => spawnSync('git', ['-C', dir, ...a], { encoding: 'utf8' });
     git('init', '--quiet', `--initial-branch=${branch}`);
     git('config', 'user.email', 'harness@example.test');
@@ -287,13 +281,13 @@ describe('a guard that asks GitHub bounds how long it waits', () => {
   // the whole debugging trail: they fix what the message named, re-run, and get the same refusal.
 
   function ghThatNeverAnswers() {
-    const dir = mkdtempSync(path.join(tmpdir(), 'slow-gh-'));
+    const dir = makeTemp('slow-gh-');
     writeFileSync(path.join(dir, 'gh'), '#!/bin/sh\nsleep 60\n', { mode: 0o755 });
     return `${dir}:${process.env.PATH}`;
   }
 
   function repo(branch) {
-    const dir = mkdtempSync(path.join(tmpdir(), 'slow-gh-repo-'));
+    const dir = makeTemp('slow-gh-repo-');
     const git = (...a) => spawnSync('git', ['-C', dir, ...a], { encoding: 'utf8' });
     git('init', '--quiet', `--initial-branch=${branch}`);
     git('config', 'user.email', 'harness@example.test');
@@ -339,7 +333,7 @@ describe('a guard that asks GitHub bounds how long it waits', () => {
   it('says nothing about a deadline when GitHub simply has no such pull request', () => {
     // The other half. A guard that announced a timeout on every ordinary empty answer would train
     // its reader to ignore the line that matters.
-    const dir = mkdtempSync(path.join(tmpdir(), 'fast-gh-'));
+    const dir = makeTemp('fast-gh-');
     writeFileSync(path.join(dir, 'gh'), '#!/bin/sh\nprintf "0\\n"\n', { mode: 0o755 });
     const work = repo('feat/probe');
 

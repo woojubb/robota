@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   findClaimFindings,
@@ -125,7 +126,7 @@ describe('what counts as a defined ID', () => {
   it('counts a document, and a section heading inside one', () => {
     // An audit numbers its own findings as headings and cross-references them by number. Reading
     // filenames alone reported one of those as naming nothing while it was defined forty lines above.
-    const root = mkdtempSync(path.join(tmpdir(), 'claims-'));
+    const root = makeTemp('claims-');
     scratch.push(root);
     mkdirSync(path.join(root, '.agents/tasks'), { recursive: true });
     mkdirSync(path.join(root, '.agents/specs'), { recursive: true });
@@ -141,7 +142,7 @@ describe('what counts as a defined ID', () => {
 describe('over the tree it governs', () => {
   it('refuses a root with no live tree, and one with no documents', () => {
     // Fail closed: a sweep over a tree that is not there finds nothing, and nothing is not clean.
-    const dir = mkdtempSync(path.join(tmpdir(), 'claims-empty-'));
+    const dir = makeTemp('claims-empty-');
     scratch.push(dir);
     expect(() => scanResolvingClaims(dir)).toThrow(/does not exist/);
 

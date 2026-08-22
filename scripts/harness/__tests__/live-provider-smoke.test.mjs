@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   apiKeyEnvVarOf,
@@ -114,7 +114,7 @@ describe('selectLiveProviders (HARNESS-024 gating)', () => {
 describe('resolveBuiltEntry', () => {
   /** Fixture workspace: one package, its manifest, and optionally its built entry file. */
   async function workspace({ built }) {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-live-smoke-'));
+    const root = makeTemp('robota-live-smoke-');
     const packageDir = path.join(root, 'packages', 'agent-core');
     mkdirSync(packageDir, { recursive: true });
     writeFileSync(

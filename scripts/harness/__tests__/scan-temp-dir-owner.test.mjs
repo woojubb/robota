@@ -19,6 +19,7 @@ import {
   directCallLines,
   examinedTestFileCount,
   findTempDirOwnerFindings,
+  ownerImportSpecifier,
 } from '../scan-temp-dir-owner.mjs';
 
 /**
@@ -52,17 +53,56 @@ describe('directCallLines finds a call in BOTH spellings', () => {
     const hits = directCallLines(['a', 'b', CALL('Sync')].join('\n'));
     expect(hits[0].line).toBe(3);
   });
+
+  it('still refuses a direct creator when handwritten cleanup follows it', () => {
+    const source = [CALL('Sync'), 'rmSync(d, { recursive: true, force: true });'].join('\n');
+    expect(directCallLines(source)).toEqual([{ line: 1, text: CALL('Sync') }]);
+  });
 });
 
-describe('the sweep honours the burn-down without weakening the rule', () => {
-  it('refuses a direct call in a file that is NOT frozen', () => {
-    const findings = findTempDirOwnerFindings(process.cwd(), new Set());
-    expect(findings.length).toBeGreaterThan(0);
+describe('ownerImportSpecifier points every governed module at the one owner', () => {
+  it('uses a sibling import for top-level tests', () => {
+    expect(ownerImportSpecifier('direct.test.mjs')).toBe('./make-temp.mjs');
   });
 
-  it('is green over the live tree with the real baseline', () => {
-    // The frozen set is a burn-down. This asserts the floor LANDS green, which is what makes a new
-    // direct call the only thing it reports.
+  it('walks back to the owner from a nested helper', () => {
+    expect(ownerImportSpecifier('helpers/direct.mjs')).toBe('../make-temp.mjs');
+  });
+});
+
+describe('the sweep remains strict after the burn-down', () => {
+  it('refuses a direct call in an isolated file', () => {
+    const root = makeTemp('robota-temp-owner-fixture-');
+    const testsDir = path.join(root, 'scripts/harness/__tests__');
+    mkdirSync(testsDir, { recursive: true });
+    writeFileSync(path.join(testsDir, 'direct.test.mjs'), CALL('Sync'));
+
+    expect(findTempDirOwnerFindings(root)).toEqual([
+      {
+        name: 'direct.test.mjs',
+        hits: [{ line: 1, text: CALL('Sync') }],
+      },
+    ]);
+  });
+
+  it('recurses through nested helpers inside the governed test tree', () => {
+    const root = makeTemp('robota-temp-owner-fixture-');
+    const helpersDir = path.join(root, 'scripts/harness/__tests__/helpers');
+    mkdirSync(helpersDir, { recursive: true });
+    writeFileSync(path.join(helpersDir, 'direct.mjs'), CALL('Sync'));
+
+    expect(findTempDirOwnerFindings(root)).toEqual([
+      {
+        name: 'helpers/direct.mjs',
+        hits: [{ line: 1, text: CALL('Sync') }],
+      },
+    ]);
+  });
+
+  it('is green over the live tree without an exception ledger', () => {
+    // The frozen set has reached zero and its ledger is gone. A live-tree pass now proves the floor
+    // needs no exception to stay green, while the isolated fixture above proves it still refuses a
+    // new direct call.
     expect(findTempDirOwnerFindings()).toEqual([]);
   });
 
@@ -83,9 +123,9 @@ describe('the sweep honours the burn-down without weakening the rule', () => {
     for (const name of ['a.test.mjs', 'b.test.mjs', 'c.test.mjs']) {
       writeFileSync(path.join(root, 'scripts/harness/__tests__', name), 'export const x = 1;\n');
     }
-    findTempDirOwnerFindings(root, new Set());
+    findTempDirOwnerFindings(root);
     expect(examinedTestFileCount()).toBe(3);
-    findTempDirOwnerFindings(root, new Set());
+    findTempDirOwnerFindings(root);
     expect(examinedTestFileCount()).toBe(3);
   });
 
@@ -96,7 +136,7 @@ describe('the sweep honours the burn-down without weakening the rule', () => {
       path.join(root, 'scripts/harness/__tests__/only.test.mjs'),
       'export const x = 1;\n',
     );
-    findTempDirOwnerFindings(root, new Set());
+    findTempDirOwnerFindings(root);
     expect(examinedTestFileCount()).toBe(1);
   });
 });

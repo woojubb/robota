@@ -1,10 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { findBaseHistoryFindings, listWorkflows } from '../scan-ci-base-history.mjs';
 import { findAutomergePermissionFindings } from '../scan-automerge-disarm-permission.mjs';
@@ -30,7 +30,8 @@ import {
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
-const bareRoot = () => mkdtemp(path.join(tmpdir(), 'robota-guard-scope-'));
+// `await bareRoot()` at each call site is unaffected: awaiting a non-promise is a no-op.
+const bareRoot = () => makeTemp('robota-guard-scope-');
 
 describe('derivation (the half that cannot be dodged by editing a table)', () => {
   it('reads the registration list from run-all-scans.mjs rather than a hand-list', () => {
@@ -291,7 +292,7 @@ describe('rule 4 — the debt ledger may shrink and never grow (HARNESS-064)', (
     // A TEMP ceiling file, never the checked-in one. Mutating the real file and restoring it in a
     // `finally` leaves the working tree corrupted if the process is killed in between — and this
     // scan's own docstring records a harness scan dying mid-run with no output.
-    const dir = mkdtempSync(path.join(tmpdir(), 'guard-ledger-'));
+    const dir = makeTemp('guard-ledger-');
     const ceilingsPath = path.join(dir, 'ceilings.json');
     writeFileSync(ceilingsPath, JSON.stringify({ ...frozen, vacuous: frozen.vacuous - 1 }));
     try {

@@ -1,8 +1,7 @@
-import { cpSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { cpSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 
-import { afterAll } from 'vitest';
+import { makeTemp } from '../make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../../..');
 
@@ -16,17 +15,12 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../../..');
  * threading a `scratch` array through three call sites would have fixed three instances of it while
  * leaving the fourth caller free to forget.
  *
- * So the helper cleans up after itself and there is nothing for a caller to remember. `afterAll`
- * registers against the importing test file, which is exactly the lifetime of the copy handed back.
+ * So the shared temp owner registers cleanup against the importing test file and there is nothing
+ * for a caller to remember. The suite runner also owns the whole child temp root as a backstop.
  *
  * Measured both directions from an empty baseline: with this, the three files leave 0 behind; with
  * the `rmSync` line commented out, 1 survives a single file's run.
  */
-const copies = [];
-afterAll(() => {
-  while (copies.length > 0) rmSync(copies.pop(), { recursive: true, force: true });
-});
-
 /**
  * A copy of `.claude/hooks/` at a path that is definitely NOT under `.claude/worktrees/`.
  *
@@ -54,8 +48,7 @@ afterAll(() => {
  * case here fails for a reason that has nothing to do with what it is testing.
  */
 export function hooksOutsideAWorktree() {
-  const dir = mkdtempSync(path.join(tmpdir(), 'hooks-main-clone-'));
-  copies.push(dir);
+  const dir = makeTemp('hooks-main-clone-');
   const hooks = path.join(dir, 'hooks');
   cpSync(path.join(WORKSPACE_ROOT, '.claude/hooks'), hooks, { recursive: true });
   // The parent is created EXPLICITLY. Review read this as a guaranteed ENOENT; measured on this

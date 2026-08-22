@@ -1,9 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 /**
  * An open PR's diff is frozen except to resolve a finding (git-branch.md).
@@ -30,7 +31,7 @@ afterAll(() => {
 
 /** A repository with one commit, a lockfile, and no recorded local review. */
 function scratchRepo() {
-  const dir = mkdtempSync(path.join(tmpdir(), 'openpr-freeze-'));
+  const dir = makeTemp('openpr-freeze-');
   scratch.push(dir);
   const git = (...args) => spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
   git('init', '--quiet', `--initial-branch=${BRANCH}`);
@@ -49,7 +50,7 @@ function scratchRepo() {
  * while the hook stopped working.
  */
 function stubGh({ prNumber, findings, author = 'github-actions[bot]' }) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'openpr-gh-'));
+  const dir = makeTemp('openpr-gh-');
   scratch.push(dir);
 
   // The payload real `gh` would have fetched, in the shape the hook's `--json comments,reviews` asks

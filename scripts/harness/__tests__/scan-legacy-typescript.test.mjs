@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { ADVISORY_MARKER, extractAdvisories } from '../run-all-scans.mjs';
 import {
@@ -22,7 +23,7 @@ const FILE = 'scripts/probe.mjs';
 
 /** Whether this host permits creating a directory symlink (Windows needs Developer Mode or admin). */
 const CAN_SYMLINK = (() => {
-  const probe = mkdtempSync(path.join(tmpdir(), 'legacy-ts-symlink-probe-'));
+  const probe = makeTemp('legacy-ts-symlink-probe-');
   try {
     mkdirSync(path.join(probe, 'target'));
     symlinkSync(path.join(probe, 'target'), path.join(probe, 'link'), 'dir');
@@ -333,7 +334,7 @@ describe('scan-legacy-typescript — store edge (collectInstalledCopies)', () =>
   };
 
   beforeEach(() => {
-    root = mkdtempSync(path.join(tmpdir(), 'legacy-ts-store-'));
+    root = makeTemp('legacy-ts-store-');
   });
   afterEach(() => {
     rmSync(root, { recursive: true, force: true });
@@ -465,7 +466,7 @@ describe('gitTrackedFiles', () => {
    * one people route around.
    */
   it('skips a tracked path that is absent from disk, and says how many', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'tracked-files-'));
+    const root = makeTemp('tracked-files-');
     try {
       execFileSync('git', ['init', '-q'], { cwd: root });
       writeFileSync(path.join(root, 'kept.ts'), 'export const a = 1;\n');
@@ -484,7 +485,7 @@ describe('gitTrackedFiles', () => {
   });
 
   it('reports nothing when every tracked path is present', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'tracked-files-'));
+    const root = makeTemp('tracked-files-');
     try {
       execFileSync('git', ['init', '-q'], { cwd: root });
       writeFileSync(path.join(root, 'kept.ts'), 'export const a = 1;\n');

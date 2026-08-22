@@ -154,16 +154,36 @@ export function vitestInvocation(root, files, cwd = root, config = undefined) {
     '--testTimeout=30000',
     '--reporter=dot',
   ];
-  return spawnSync(process.execPath, args, {
-    cwd,
-    encoding: 'utf8',
-    env: harnessTestEnvironment(),
-  });
+  const suiteTempRoot = mkdtempSync(
+    path.join(canonicalTemporaryDirectory(), 'robota-harness-suite-'),
+  );
+  try {
+    return spawnSync(process.execPath, args, {
+      cwd,
+      encoding: 'utf8',
+      env: harnessTestEnvironment(process.env, suiteTempRoot),
+    });
+  } finally {
+    // The parent process owns the child runner's whole temporary root. File-level helpers still
+    // remove eagerly, while this closes worker reuse, abrupt test failure, and any forgotten child
+    // fixture without guessing which directory in shared /tmp belongs to another session.
+    rmSync(suiteTempRoot, { recursive: true, force: true });
+  }
 }
 
 /** Keep fixture git commands rooted at their explicit cwd, including when a git hook launches us. */
-export function harnessTestEnvironment(base = process.env) {
-  return { ...envWithoutGitVars(base), TMPDIR: canonicalTemporaryDirectory() };
+export function harnessTestEnvironment(
+  base = process.env,
+  tempRoot = canonicalTemporaryDirectory(),
+) {
+  return {
+    ...envWithoutGitVars(base),
+    // Node reads TEMP then TMP on Windows, and TMPDIR then TMP then TEMP elsewhere. Point every
+    // platform spelling at the same lifecycle-owned root so os.tmpdir() cannot escape it.
+    TMPDIR: tempRoot,
+    TMP: tempRoot,
+    TEMP: tempRoot,
+  };
 }
 
 /**

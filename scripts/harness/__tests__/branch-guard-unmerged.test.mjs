@@ -1,9 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/branch-guard.sh');
@@ -27,7 +28,7 @@ afterAll(() => {
 });
 
 function scratchRepo(branches) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'branch-guard-'));
+  const dir = makeTemp('branch-guard-');
   scratch.push(dir);
   const git = (...args) => spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
   git('init', '--quiet', '--initial-branch=develop');
@@ -55,7 +56,7 @@ function scratchRepo(branches) {
  * in what the hook asks for shows up as an unread answer rather than a silently different verdict.
  */
 function stubbedPath(mergedRefs, { broken = false, hangs = false } = {}) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'gh-stub-'));
+  const dir = makeTemp('gh-stub-');
   scratch.push(dir);
   const gh = path.join(dir, 'gh');
   writeFileSync(

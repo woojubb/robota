@@ -7,12 +7,13 @@
  * wrong, and each is a property the notice has to keep to be worth having.
  */
 
-import { chmodSync, existsSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/task-tracking.sh');
@@ -26,7 +27,7 @@ afterAll(() => {
 let sharedEmptyProject;
 function emptyProjectDir() {
   if (sharedEmptyProject === undefined) {
-    sharedEmptyProject = mkdtempSync(path.join(tmpdir(), 'no-tasks-default-'));
+    sharedEmptyProject = makeTemp('no-tasks-default-');
     scratch.push(sharedEmptyProject);
   }
   return sharedEmptyProject;
@@ -95,7 +96,7 @@ function runHook(mode, { ghScript, projectDir, deadlineSeconds, env: extraEnv, e
   // The list is what the hook and `lib/*.sh` actually invoke, read from their source. A binary
   // added there and not here makes this case fail loudly rather than silently.
   if (emptyPath === true) {
-    const dir = mkdtempSync(path.join(tmpdir(), 'no-gh-path-'));
+    const dir = makeTemp('no-gh-path-');
     scratch.push(dir);
     // The shells first — the hook is spawned as `bash <hook>` and its stubs are `#!/bin/sh`, so a
     // list without them means the case measures "bash not found" and calls it "gh not found".
@@ -147,7 +148,7 @@ function runHook(mode, { ghScript, projectDir, deadlineSeconds, env: extraEnv, e
   // A case that needs the real tree, or a specific one, passes `projectDir` and wins.
   env.CLAUDE_PROJECT_DIR = projectDir ?? emptyProjectDir();
   if (ghScript !== undefined) {
-    const dir = mkdtempSync(path.join(tmpdir(), 'gh-stub-'));
+    const dir = makeTemp('gh-stub-');
     scratch.push(dir);
     const gh = path.join(dir, 'gh');
     writeFileSync(gh, ghScript);
@@ -253,7 +254,7 @@ describe('open issues are shown where the choice is made', () => {
     // The block sat below the `.agents/tasks/` existence check, so a clone reusing this hook without
     // local task tracking got no issue notice at all. Whether task FILES exist has nothing to do
     // with whether issues are open.
-    const empty = mkdtempSync(path.join(tmpdir(), 'no-tasks-'));
+    const empty = makeTemp('no-tasks-');
     scratch.push(empty);
 
     const { output } = runHook('start', { ghScript: LISTS_TWO, projectDir: empty });

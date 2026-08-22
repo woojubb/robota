@@ -1,10 +1,11 @@
 import { readFileSync, symlinkSync, writeFileSync } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const LOCKED_STAGED_FIX_COMMAND = 'scripts/harness/with-repo-lock.sh pnpm exec lint-staged';
@@ -102,7 +103,7 @@ describe('INFRA-089 staged and full auto-fix contract', () => {
   });
 
   it('fixes only staged source and documentation files and automatically re-stages them', async () => {
-    const fixtureRoot = await mkdtemp(path.join(tmpdir(), 'robota-staged-auto-fix-'));
+    const fixtureRoot = makeTemp('robota-staged-auto-fix-');
     const sourcePath = path.join(fixtureRoot, 'fixture.ts');
     const markdownPath = path.join(fixtureRoot, 'fixture.md');
     const unrelatedPath = path.join(fixtureRoot, 'unrelated.md');

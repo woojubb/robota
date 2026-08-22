@@ -1,9 +1,9 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   DECLARATION_FILE,
@@ -62,7 +62,7 @@ const SUBSTANTIVE_JOB = `  release-grade-verify:
 `;
 
 async function fixture({ workflow, contexts }) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-main-required-checks-'));
+  const root = makeTemp('robota-main-required-checks-');
   mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
   if (workflow !== undefined) {
     writeFileSync(path.join(root, '.github', 'workflows', 'ci.yml'), workflow, 'utf8');
@@ -419,7 +419,7 @@ describe('a declared context name must be one a workflow actually publishes (iss
    * tree on every `pnpm harness:scan`; it is not a unit test's job.
    */
   function fixtureRoot({ workflows, declaration }) {
-    const root = mkdtempSync(path.join(tmpdir(), 'ctxname-'));
+    const root = makeTemp('ctxname-');
     mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
     for (const [file, text] of Object.entries(workflows)) {
       writeFileSync(path.join(root, '.github', 'workflows', file), text, 'utf8');
@@ -473,14 +473,14 @@ describe('a declared context name must be one a workflow actually publishes (iss
   });
 
   it('FAILS CLOSED rather than reporting nothing when the declaration is absent', () => {
-    const bare = mkdtempSync(path.join(tmpdir(), 'ctxname-bare-'));
+    const bare = makeTemp('ctxname-bare-');
     // Measured before the guard existed: this returned `[]`, which reads as "every declared name is
     // published" over a tree that was never read.
     expect(() => findContextNameFindings(bare)).toThrow(/nothing was examined/);
   });
 
   it('FAILS CLOSED when the workflows directory is absent', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'ctxname-nowf-'));
+    const root = makeTemp('ctxname-nowf-');
     mkdirSync(path.join(root, '.github'), { recursive: true });
     writeFileSync(
       path.join(root, '.github', 'required-status-checks.json'),
@@ -491,7 +491,7 @@ describe('a declared context name must be one a workflow actually publishes (iss
   });
 
   it('reports a develop-side entry whose name no job publishes', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'ctxname-'));
+    const root = makeTemp('ctxname-');
     mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
     writeFileSync(
       path.join(root, '.github', 'workflows', 'ci.yml'),
@@ -518,7 +518,7 @@ describe('a declared context name must be one a workflow actually publishes (iss
   });
 
   it('checks `deliberately_not_required` too, because that list is where a promotion starts', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'ctxname-'));
+    const root = makeTemp('ctxname-');
     mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
     writeFileSync(
       path.join(root, '.github', 'workflows', 'ci.yml'),
@@ -544,7 +544,7 @@ describe('a declared context name must be one a workflow actually publishes (iss
   });
 
   it('skips a grouped label that names several contexts in one string', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'ctxname-'));
+    const root = makeTemp('ctxname-');
     mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
     writeFileSync(
       path.join(root, '.github', 'workflows', 'ci.yml'),

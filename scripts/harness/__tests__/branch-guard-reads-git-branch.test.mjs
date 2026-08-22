@@ -1,17 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import {
-  chmodSync,
-  cpSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOKS_SRC = path.join(WORKSPACE_ROOT, '.claude/hooks');
@@ -33,17 +26,6 @@ const HOOKS_SRC = path.join(WORKSPACE_ROOT, '.claude/hooks');
  * DELETING and RENAMING, and must stay silent — a guard that refuses ordinary inspection is one
  * everybody learns to override.
  */
-
-const scratch = [];
-afterAll(() => {
-  for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
-});
-
-function makeTemp(prefix) {
-  const dir = mkdtempSync(path.join(tmpdir(), prefix));
-  scratch.push(dir);
-  return dir;
-}
 
 /** `main` and `origin/develop` at DIFFERENT commits, checked out on a feature branch at develop. */
 function scratchRepo() {

@@ -6,11 +6,12 @@
  * layer up, and this repository has caught that shape often enough to test for it directly.
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   examinedRecordCount,
@@ -25,7 +26,7 @@ afterAll(() => {
 
 /** A tree with `.agents/tasks/` and the given records. Cleaned up in `afterAll`. */
 function treeWith(records) {
-  const root = mkdtempSync(path.join(tmpdir(), 'robota-task-frontmatter-'));
+  const root = makeTemp('robota-task-frontmatter-');
   scratch.push(root);
   mkdirSync(path.join(root, '.agents/tasks'), { recursive: true });
   for (const [name, body] of Object.entries(records)) {

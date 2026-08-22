@@ -4,11 +4,12 @@
  * embedded rather than read from history so a shallow clone judges the same thing CI does.
  */
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { tmpdir } from 'node:os';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { collectFindings, mapLoopbackCells } from '../scan-loopback-bound-ownership.mjs';
 
@@ -25,7 +26,7 @@ const TABLE_HEADER = [
 ].join('\n');
 
 function world({ mapRows = [], ruleLines = [], skills = ['pr-finding-resolution-loop'] } = {}) {
-  const root = mkdtempSync(path.join(tmpdir(), 'loopback-'));
+  const root = makeTemp('loopback-');
   scratch.push(root);
   mkdirSync(path.join(root, '.agents/specs'), { recursive: true });
   mkdirSync(path.join(root, '.agents/rules'), { recursive: true });
@@ -164,7 +165,7 @@ describe('what it refuses to pass over', () => {
   it('throws on a skills tree that exists but is EMPTY — the docstring promises this refusal', () => {
     // A directory with zero skills is the same nothing as a missing one: the restatement sweep
     // would have nothing to compare against and pass over it silently.
-    const root = mkdtempSync(path.join(tmpdir(), 'loopback-empty-skills-'));
+    const root = makeTemp('loopback-empty-skills-');
     scratch.push(root);
     mkdirSync(path.join(root, '.agents/specs'), { recursive: true });
     mkdirSync(path.join(root, '.agents/skills'), { recursive: true });
@@ -177,7 +178,7 @@ describe('what it refuses to pass over', () => {
   });
 
   it('throws on a map with no pipeline table', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'loopback-bare-'));
+    const root = makeTemp('loopback-bare-');
     scratch.push(root);
     mkdirSync(path.join(root, '.agents/specs'), { recursive: true });
     mkdirSync(path.join(root, '.agents/skills/x'), { recursive: true });

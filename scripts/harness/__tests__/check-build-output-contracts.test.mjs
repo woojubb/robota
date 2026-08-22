@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { ADVISORY_MARKER, extractAdvisories } from '../run-all-scans.mjs';
 import {
@@ -99,7 +99,7 @@ describe('findDtsExtensionFindings', () => {
 // ── findDistFileFindings ────────────────────────────────────────────────────
 
 async function createFixture(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-build-contracts-'));
+  const root = makeTemp('robota-build-contracts-');
   for (const [relativePath, content] of Object.entries(files)) {
     const targetPath = path.join(root, relativePath);
     mkdirSync(path.dirname(targetPath), { recursive: true });

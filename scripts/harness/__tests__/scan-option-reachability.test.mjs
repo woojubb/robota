@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   assignedKeys,
@@ -162,7 +163,7 @@ describe('scan-option-reachability', () => {
 
   describe('fail-closed', () => {
     it('throws when the declaring file is absent', () => {
-      const bare = mkdtempSync(path.join(tmpdir(), 'option-reach-'));
+      const bare = makeTemp('option-reach-');
       try {
         expect(() =>
           findUnreachableOptions(bare, [
@@ -180,7 +181,7 @@ describe('scan-option-reachability', () => {
       // "threw" and so still satisfied the floor — while the behaviour recorded beside the
       // classification was not the behaviour that fired. Caught in review; the original measurement
       // had been taken with two arguments.
-      const bare = mkdtempSync(path.join(tmpdir(), 'option-reach-guard-'));
+      const bare = makeTemp('option-reach-guard-');
       try {
         expect(() => findUnreachableOptions(bare)).toThrow(/does not exist/);
       } finally {

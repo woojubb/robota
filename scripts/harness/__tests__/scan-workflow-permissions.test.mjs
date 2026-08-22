@@ -14,6 +14,8 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { makeTemp } from './make-temp.mjs';
+
 import {
   examinedWriteScopeCount,
   findWorkflowPermissionFindings,
@@ -28,7 +30,7 @@ const SCAN_SCRIPT_PATH = path.resolve(import.meta.dirname, '../scan-workflow-per
 
 /** A throwaway repo root holding only `.github/workflows`, so fixtures cannot touch the real tree. */
 function makeRoot(workflows) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wf-perms-'));
+  const root = makeTemp('wf-perms-');
   const dir = path.join(root, '.github', 'workflows');
   fs.mkdirSync(dir, { recursive: true });
   for (const [name, body] of Object.entries(workflows)) {
@@ -109,7 +111,7 @@ describe('rule 2 — anti-rot: a justification cannot outlive its scope', () => 
 
 describe('fail-closed — the scan never passes over nothing', () => {
   it('a missing workflow directory is a finding, not a pass', () => {
-    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'wf-perms-empty-'));
+    const empty = makeTemp('wf-perms-empty-');
     roots.push(empty);
     const findings = findWorkflowPermissionFindings(empty);
     expect(findings).toHaveLength(1);
@@ -308,7 +310,7 @@ describe('the examined count is what was read, not what was declared', () => {
       'a.yml':
         'on:\n  push:\npermissions:\n  contents: write\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
     });
-    const noWorkflowDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wf-perms-bare-'));
+    const noWorkflowDir = makeTemp('wf-perms-bare-');
     roots.push(noWorkflowDir);
 
     findWorkflowPermissionFindings(withScope);

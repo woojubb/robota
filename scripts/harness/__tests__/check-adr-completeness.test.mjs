@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { findAdrFindings } from '../check-adr-completeness.mjs';
 
@@ -35,7 +35,7 @@ What follows.
 `;
 
 async function createAdrDir(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-adr-'));
+  const root = makeTemp('robota-adr-');
   const adrDir = path.join(root, '.design/decisions');
   mkdirSync(adrDir, { recursive: true });
   for (const [name, content] of Object.entries(files)) {

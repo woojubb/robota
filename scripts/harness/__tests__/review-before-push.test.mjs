@@ -1,9 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { isReviewed, recordPathFor } from '../record-local-review.mjs';
 import { dispatchedAgents } from '../scan-orchestration-map.mjs';
@@ -32,7 +33,7 @@ afterAll(() => {
 });
 
 function scratchRepo(branch) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'review-gate-'));
+  const dir = makeTemp('review-gate-');
   scratch.push(dir);
   const git = (...args) => spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
   git('init', '--quiet', `--initial-branch=${branch}`);
@@ -87,7 +88,7 @@ function push(dir, command = 'git push -u origin feat/probe', { openPrs = 0 } = 
  * failing leaves the demand in place.
  */
 function stubGh(openPrs) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'gh-stub-'));
+  const dir = makeTemp('gh-stub-');
   scratch.push(dir);
   // It answers by ARGUMENTS, not by invocation count, so a case can tell the two lookups apart.
   // `pr list --head <branch>` gets the branch's open-pull-request count; a bare `pr view <thing>`
@@ -312,7 +313,7 @@ describe('a feature-branch push carries a reviewed diff', () => {
 
 describe('a record only counts when it describes this commit and a clean review', () => {
   it('rejects a record for another commit, or one with open findings', () => {
-    const dir = mkdtempSync(path.join(tmpdir(), 'record-'));
+    const dir = makeTemp('record-');
     scratch.push(dir);
     const store = path.join(dir, 'records');
     mkdirSync(store, { recursive: true });
@@ -340,7 +341,7 @@ describe('a record only counts when it describes this commit and a clean review'
     // the gate for the other, unreviewed one. The encoding is one-to-one now, and the stored branch
     // name is checked as well — a record that arrives at this path some other way is still not
     // this branch's review.
-    const dir = mkdtempSync(path.join(tmpdir(), 'record-collide-'));
+    const dir = makeTemp('record-collide-');
     scratch.push(dir);
     mkdirSync(dir, { recursive: true });
 
@@ -358,7 +359,7 @@ describe('a record only counts when it describes this commit and a clean review'
   });
 
   it('treats an unreadable record as absent', () => {
-    const dir = mkdtempSync(path.join(tmpdir(), 'record-bad-'));
+    const dir = makeTemp('record-bad-');
     scratch.push(dir);
     mkdirSync(dir, { recursive: true });
     writeFileSync(recordPathFor('feat/z', dir), 'not json');
@@ -375,7 +376,7 @@ describe('the recorder refuses to guess which checkout it is in', () => {
     // precisely what its own docstring said must not happen: reading and writing one checkout's
     // records while judging another. A no-fallback violation, and the one place the bash side of
     // this gate refuses to guess while the JS side did.
-    const outside = mkdtempSync(path.join(tmpdir(), 'not-a-repo-'));
+    const outside = makeTemp('not-a-repo-');
     scratch.push(outside);
 
     const result = spawnSync('node', [RECORDER, '--show'], {

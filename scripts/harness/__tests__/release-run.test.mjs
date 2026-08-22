@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   buildTriageNote,
@@ -278,7 +278,7 @@ describe('release-run CLI (init → check → triage → publish gate → report
   }
 
   it('drives a full release-run lifecycle against a scratch workspace', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-release-run-cli-'));
+    const root = makeTemp('robota-release-run-cli-');
 
     // init creates the release-run artifact.
     // The scratch workspace is not a git repo, so branch/SHA must be explicit
@@ -347,14 +347,14 @@ describe('release-run CLI (init → check → triage → publish gate → report
   });
 
   it('exits 1 with usage on an unknown command', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-release-run-cli-'));
+    const root = makeTemp('robota-release-run-cli-');
     const result = runCli(root, ['bogus']);
     expect(result.status).toBe(1);
     expect(result.stdout).toContain('Usage:');
   });
 
   it('requires --version for init, triage, report, and publish checks', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-release-run-cli-'));
+    const root = makeTemp('robota-release-run-cli-');
 
     for (const args of [['init'], ['triage'], ['report'], ['check', '--publish']]) {
       const result = runCli(root, args);
@@ -364,7 +364,7 @@ describe('release-run CLI (init → check → triage → publish gate → report
   });
 
   it('passes the plain check when no release-run files exist', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-release-run-cli-'));
+    const root = makeTemp('robota-release-run-cli-');
     const result = runCli(root, ['check']);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('no release-run files to validate');

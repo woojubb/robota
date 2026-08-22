@@ -1,8 +1,9 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   EXCLUSIONS,
@@ -36,7 +37,7 @@ const onFixture = (root) =>
 const roots = [];
 
 function makeRoot(files) {
-  const root = mkdtempSync(path.join(tmpdir(), 'release-sweep-'));
+  const root = makeTemp('release-sweep-');
   roots.push(root);
   for (const [rel, contents] of Object.entries(files)) {
     const abs = path.join(root, rel);
@@ -140,7 +141,7 @@ describe('R0 vacuity', () => {
   it('throws on a root with no workspace declaration instead of enumerating zero manifests', () => {
     // Pinned in `scan-guard-scope-fail-closed`'s MANDATORY_TREE_GUARDS on this behaviour. A
     // coverage floor that reported a pass over a tree it never read would be the audited defect.
-    const bare = mkdtempSync(path.join(tmpdir(), 'release-sweep-bare-'));
+    const bare = makeTemp('release-sweep-bare-');
     roots.push(bare);
     expect(() => findReleaseSweepCoverageFindings(bare)).toThrow(/pnpm-workspace\.yaml is missing/);
   });

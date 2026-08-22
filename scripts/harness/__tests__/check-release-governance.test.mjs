@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { collectReleaseGovernanceFindings } from '../check-release-governance.mjs';
 
@@ -118,7 +118,7 @@ function greenFixtureFiles() {
 }
 
 async function createFixture(overrides = {}) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-release-governance-'));
+  const root = makeTemp('robota-release-governance-');
   const files = { ...greenFixtureFiles(), ...overrides };
   for (const [relativePath, content] of Object.entries(files)) {
     if (content === null) {

@@ -7,18 +7,18 @@
  */
 
 import { mkdirSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { requireGovernedTree } from '../governed-tree.mjs';
 
 const CONTEXT = { scan: 'fixture-scan', why: 'The fixture tree is the subject.' };
 
 async function rootWith(dirs) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-governed-tree-'));
+  const root = makeTemp('robota-governed-tree-');
   for (const dir of dirs) mkdirSync(path.join(root, dir), { recursive: true });
   return root;
 }

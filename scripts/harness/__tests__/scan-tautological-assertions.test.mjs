@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   findTautologicalAssertions,
@@ -16,7 +16,7 @@ import {
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
 async function fixture(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-tautology-'));
+  const root = makeTemp('robota-tautology-');
   for (const dir of ['packages', 'apps', 'scripts']) mkdirSync(path.join(root, dir));
   for (const [rel, content] of Object.entries(files)) {
     const absolute = path.join(root, rel);
@@ -132,7 +132,7 @@ describe('tree traversal', () => {
    * would be a test-assertion floor reporting a clean result over source it never opened.
    */
   it('THROWS rather than passing when a governed tree is absent', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-tautology-bare-'));
+    const root = makeTemp('robota-tautology-bare-');
     expect(() => findTautologicalAssertions(root)).toThrow(/governed tree\(s\) absent/);
   });
 

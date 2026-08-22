@@ -7,11 +7,12 @@
  * nothing to examine at all.
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { findAdmissionFindings, transportPackages } from '../scan-transport-admission.mjs';
 
@@ -30,7 +31,7 @@ function makeTransport(name, { source, spec } = {}) {
 }
 
 beforeEach(() => {
-  root = mkdtempSync(path.join(tmpdir(), 'transport-admission-'));
+  root = makeTemp('transport-admission-');
   mkdirSync(path.join(root, 'packages'), { recursive: true });
 });
 
@@ -97,7 +98,7 @@ describe('what the scan considers its subject', () => {
     // The failure this exists for. Over a root with no `packages/` there is no transport to ask, and
     // "nobody failed to answer" reads exactly like "everybody answered" — the vacuous pass that let
     // three transports ship with no trust boundary in the first place.
-    const bare = mkdtempSync(path.join(tmpdir(), 'transport-admission-bare-'));
+    const bare = makeTemp('transport-admission-bare-');
 
     expect(() => findAdmissionFindings(bare)).toThrow(/packages missing from/);
 

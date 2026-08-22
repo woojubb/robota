@@ -1,9 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   codeOnly,
@@ -29,7 +30,7 @@ afterEach(() => {
 });
 
 function scriptDir(files) {
-  const root = mkdtempSync(path.join(tmpdir(), 'scope-literal-'));
+  const root = makeTemp('scope-literal-');
   dirs.push(root);
   const dir = path.join(root, 'scripts/harness');
   mkdirSync(dir, { recursive: true });
@@ -142,7 +143,7 @@ describe('scan-harness-scope-literal', () => {
       // function: a JS default parameter substitutes the live config for `undefined`, so that call
       // could never reach the check — the first version of this case asserted a throw that the API
       // cannot produce.
-      const cwd = mkdtempSync(path.join(tmpdir(), 'scope-literal-config-'));
+      const cwd = makeTemp('scope-literal-config-');
       dirs.push(cwd);
       mkdirSync(path.join(cwd, '.agents'), { recursive: true });
       writeFileSync(path.join(cwd, '.agents/harness.config.json'), JSON.stringify({}));
@@ -160,7 +161,7 @@ describe('scan-harness-scope-literal', () => {
     });
 
     it('throws when the script directory is absent', () => {
-      const root = mkdtempSync(path.join(tmpdir(), 'scope-literal-bare-'));
+      const root = makeTemp('scope-literal-bare-');
       dirs.push(root);
       expect(() => findScopeLiteralFindings(root, SCOPE)).toThrow(/does not exist/);
     });

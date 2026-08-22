@@ -1,10 +1,11 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const LOCK_WRAPPER = path.join(WORKSPACE_ROOT, 'scripts/harness/with-repo-lock.sh');
@@ -17,7 +18,7 @@ afterAll(() => {
 });
 
 function scratchRepo() {
-  const dir = mkdtempSync(path.join(tmpdir(), 'repo-lock-'));
+  const dir = makeTemp('repo-lock-');
   scratch.push(dir);
   const git = (...a) => spawnSync('git', ['-C', dir, ...a], { encoding: 'utf8' });
   git('init', '--quiet', '--initial-branch=main');
@@ -141,7 +142,7 @@ describe('a worktree does not share its neighbour lint-staged backup', () => {
 
   it('refuses when it cannot find the repository, rather than running unserialised', () => {
     // Fail closed. Running without the lock here is the exact hazard, so "cannot tell" is a refusal.
-    const outside = mkdtempSync(path.join(tmpdir(), 'not-a-repo-'));
+    const outside = makeTemp('not-a-repo-');
     scratch.push(outside);
     const result = spawnSync('bash', [LOCK_WRAPPER, 'true'], {
       cwd: outside,
@@ -231,7 +232,7 @@ describe('a bare stash command is refused while the stack is shared', () => {
    * shadowed, which is the single input under test.
    */
   function mkFailingGitPath() {
-    const dir = mkdtempSync(path.join(tmpdir(), 'failing-git-'));
+    const dir = makeTemp('failing-git-');
     scratch.push(dir);
     writeFileSync(path.join(dir, 'git'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
     return `${dir}:${process.env.PATH}`;
@@ -502,7 +503,7 @@ describe('a bare stash command is refused while the stack is shared', () => {
     //
     // The `-C` is read from the RAW command through the statement's window now, which is what
     // `hook_git_c_path`'s window parameters exist for.
-    const parent = mkdtempSync(path.join(tmpdir(), 'spaced-'));
+    const parent = makeTemp('spaced-');
     scratch.push(parent);
     const spaced = path.join(parent, 'a repo');
     const git = (...a) => spawnSync('git', ['-C', spaced, ...a], { encoding: 'utf8' });

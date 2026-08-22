@@ -33,34 +33,16 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import {
-  chmodSync,
-  cpSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOKS_SRC = path.join(WORKSPACE_ROOT, '.claude/hooks');
 const LIB = path.join(HOOKS_SRC, 'lib/command-scan.sh');
-
-const scratch = [];
-afterAll(() => {
-  while (scratch.length > 0) rmSync(scratch.pop(), { recursive: true, force: true });
-});
-
-function makeTemp(prefix) {
-  const dir = mkdtempSync(path.join(tmpdir(), prefix));
-  scratch.push(dir);
-  return dir;
-}
 
 /**
  * THE TABLE. `spelling` is substituted for `<R>` and the protected path for `<P>`, so one row is

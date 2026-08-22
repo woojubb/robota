@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   AUTO_GENERATED_CHURN,
@@ -131,7 +132,7 @@ describe('realDirtyLines over a real repository (INFRA-101)', () => {
   // is READ (a trimming helper ate the leading status column), which a string fixture cannot reach.
   const roots = [];
   const repo = () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'receipt-churn-'));
+    const root = makeTemp('receipt-churn-');
     roots.push(root);
     const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
     git('init', '-q');

@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { collectReviewFindingsFindings } from '../scan-review-findings.mjs';
 
@@ -29,7 +29,7 @@ After merging to develop, dispatch merge-verifier and require MERGE VERIFIED.
 `;
 
 async function createFixture(overrides = {}) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-review-findings-'));
+  const root = makeTemp('robota-review-findings-');
   const files = {
     [REVIEWER_PATH]: GREEN_REVIEWER,
     [ORCH_PATH]: GREEN_ORCH,

@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   discoverTransportSubjects,
@@ -15,7 +16,7 @@ let root;
 const SCOPE = loadHarnessConfig().npmScopePrefix;
 
 beforeEach(() => {
-  root = mkdtempSync(path.join(tmpdir(), 'transport-conformance-'));
+  root = makeTemp('transport-conformance-');
   mkdirSync(path.join(root, 'packages'), { recursive: true });
   const harnessDir = path.join(root, 'scripts', 'harness');
   mkdirSync(harnessDir, { recursive: true });
@@ -345,7 +346,7 @@ export const createPresentationTransport = (): IAdapter => ({} as IAdapter);\n`,
   });
 
   it('refuses a root without the governed packages tree', () => {
-    const bare = mkdtempSync(path.join(tmpdir(), 'transport-conformance-bare-'));
+    const bare = makeTemp('transport-conformance-bare-');
     expect(() => discoverTransportSubjects(bare)).toThrow(/packages missing from/);
     rmSync(bare, { recursive: true, force: true });
   });

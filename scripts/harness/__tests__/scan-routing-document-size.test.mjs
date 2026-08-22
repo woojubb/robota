@@ -1,9 +1,10 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   findRoutingSizeFindings,
@@ -13,7 +14,7 @@ import {
 
 const RULE = fileURLToPath(new URL('../../../.agents/rules/operational.md', import.meta.url));
 
-const root = mkdtempSync(path.join(tmpdir(), 'routing-size-'));
+const root = makeTemp('routing-size-');
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 const write = (rel, body) => {
@@ -116,7 +117,7 @@ describe('routing-document-size — the ratchet (D1)', () => {
   });
 
   it('fails closed when the rule document is absent entirely', () => {
-    const empty = mkdtempSync(path.join(tmpdir(), 'routing-size-empty-'));
+    const empty = makeTemp('routing-size-empty-');
 
     expect(() => findRoutingSizeFindings(empty)).toThrow(/missing from/);
 

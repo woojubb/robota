@@ -9,8 +9,9 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { makeTemp } from './make-temp.mjs';
+
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll } from 'vitest';
@@ -30,7 +31,7 @@ afterAll(() => {
 
 /** A tree carrying one catalogue at the given relative path. */
 function treeWithCatalogue(relative, text) {
-  const root = mkdtempSync(path.join(tmpdir(), 'robota-rule-table-shape-'));
+  const root = makeTemp('robota-rule-table-shape-');
   scratch.push(root);
   mkdirSync(path.join(root, path.dirname(relative)), { recursive: true });
   writeFileSync(path.join(root, relative), text);

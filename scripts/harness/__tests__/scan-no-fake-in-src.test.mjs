@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   examinedShippableFileCount,
@@ -16,7 +16,7 @@ import {
  * the walk enumerates workspace packages by their manifest, not by directory shape.
  */
 async function createSrcFixture(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-no-fake-in-src-'));
+  const root = makeTemp('robota-no-fake-in-src-');
   const packageDirs = new Set();
   for (const [relativePath, content] of Object.entries(files)) {
     const target = path.join(root, relativePath);

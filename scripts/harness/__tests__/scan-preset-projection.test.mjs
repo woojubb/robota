@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { makeTemp } from './make-temp.mjs';
+
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -18,7 +19,7 @@ import {
  * caught by falsifying the rule against a real evasion rather than by reading it.
  */
 function fixture(prefix, files) {
-  const root = mkdtempSync(join(tmpdir(), prefix));
+  const root = makeTemp(prefix);
   mkdirSync(join(root, 'packages'), { recursive: true });
   for (const [name, contents] of Object.entries(files)) writeFileSync(join(root, name), contents);
   return root;

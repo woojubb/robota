@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-126: the harness test suite leaks a temp directory per test, and exhausting /tmp inodes stops every push on the host'
-status: in-progress
+status: done
 created: 2026-08-22
+completed: 2026-08-22
 priority: high
 urgency: now
 area: scripts/harness/__tests__, scripts/harness
@@ -92,24 +93,55 @@ scan that passes correct-but-unsanctioned code teaches nothing about the rule it
 
 Making `makeTemp()` the only sanctioned creator removes the judgement entirely: the subject becomes
 the CALL SITE, which is textual and exact, rather than the teardown, which is behavioural and is not.
-It also fixes the denominator — the burn-down is every direct call under `__tests__` (**158 files**),
-not only the 85 that currently leak.
+It also fixes the denominator — the 158 creators under `__tests__` are 157 governed direct-calling
+modules plus the single sanctioned owner itself. The burn-down is all 157 governed callers, not only
+the 85 that currently leak.
 
-## What shipped, and what has not
+## Prior Art Research
 
-The MECHANISM is on `main`: `scripts/harness/__tests__/make-temp.mjs` as the sanctioned creator, and
-the `temp-dir-owner` floor refusing a direct call in either spelling regardless of teardown —
-registered, classified in `MANDATORY_TREE_GUARDS` and in `measurement-provenance` `covered`, with its
-own tests.
+The common pattern is lifecycle ownership rather than a raw creator plus independently remembered
+teardown:
 
-**The leak is capped, not closed.** 155 files still call `mkdtemp`/`mkdtempSync` directly and are
-frozen in `temp-dir-owner-baseline.json`; each still leaves a directory per test case on every run.
-What the floor prevents is a 156th, and what the burn-down measures is the distance to zero.
+- [Node.js `mkdtempSync`](https://nodejs.org/download/release/v22.14.0/docs/api/fs.html#fsmkdtempsyncprefix-options)
+  returns only a path and leaves cleanup to the caller. Node 24.4 adds a disposable temp-directory
+  owner, but this repository runs Node 22.14 and cannot use that API without a separate runtime
+  migration.
+- [Vitest file-scoped fixtures and test context](https://v3.vitest.dev/guide/test-context#test-extend)
+  and [`afterAll`](https://v3.vitest.dev/api/#afterall) colocate setup and teardown at a declared
+  lifetime. [Playwright fixtures](https://playwright.dev/docs/test-fixtures) use the same ownership
+  model.
+- [JUnit `@TempDir`](https://docs.junit.org/5.10.1/api/org.junit.jupiter.api/org/junit/jupiter/api/io/TempDir.html)
+  recursively cleans a directory at the owning test/class boundary, while
+  [pytest `tmp_path`](https://docs.pytest.org/en/stable/how-to/tmp_path.html) provides unique
+  per-test paths and limits retained history explicitly.
+- [GitHub Actions `runner.temp`](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#runner-context)
+  is likewise owned by the job lifecycle and cleared at its boundary.
 
-So this record stays open, and `in-progress` rather than `done`: the defect it names — the suite
-exhausting `/tmp` inodes — is still reachable from those 155, only more slowly and without growing.
-It becomes `done` when the frozen set is empty, at which point the baseline file is itself the
-evidence and can be removed with the floor left in place.
+The constraint shared by those references is that bulk deletion is safe only inside a root owned by
+the current lifecycle. It does not justify age-based reaping from shared `/tmp`, where another session's
+in-flight directory is indistinguishable from abandoned state. For the current Node and Vitest versions,
+the compatible design is two-level ownership: `makeTemp()` performs eager file-level cleanup, while
+`harness-test-tiers.mjs` points every platform temp variable at one exclusive child root and removes that
+whole root in the parent after the child exits. Keep the direct-call floor for both spellings, burn the ledger down to zero,
+then remove the empty ledger while leaving the floor in place.
+
+## Three distinct states
+
+| State                          | Current evidence                                                                                                                                                                                                                                                                   |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ownership mechanism            | On `develop`: `scripts/harness/__tests__/make-temp.mjs` is the sanctioned creator, and the registered `temp-dir-owner` floor refuses either direct spelling. On this branch, `harness-test-tiers.mjs` additionally owns and removes one exclusive suite root per child invocation. |
+| Frozen source debt             | Complete governed debt: 157 → 0 direct-calling modules. The original ledger tracked 155 top-level tests; review found two previously unenumerated nested helpers. The ledger and its loading path are removed, and the recursive floor passes with no exception mechanism.         |
+| Already accumulated disk state | 9,559 top-level `/tmp/robota-*` directories observed at `2026-08-22T08:24:16Z`. This population can include both abandoned and another session's in-flight directories, so it was recorded and left untouched rather than indiscriminately reaped.                                 |
+
+The accumulated population is a third state, not a hidden completion criterion. This change prevents
+new leakage; it cannot retroactively prove ownership or lifetime for directories already on disk.
+Deleting that population would reintroduce the race the owner design exists to remove.
+
+**Corrected done condition:** the task completes when (1) the governed direct-call set and its ledger
+are both gone, (2) the permanent floor passes without an exception ledger, (3) the complete harness
+suite passes, and (4) a before/after run observes no surviving runner-owned suite root.
+Removing historical shared-`/tmp` state is deliberately not part of completion because its ownership
+cannot be established safely from outside the creating process.
 
 Five files were migrated as the first burn-down step and measured at ZERO leaked directories across a
 real run. That measurement is what establishes migration works, rather than that it compiles: the
@@ -118,8 +150,9 @@ nothing.
 
 ## Test Plan
 
-- Count `robota-*` directories at `/tmp` top level before and after one full contracts-tier run; the
-  delta must be **0**.
+- Count the invocation-owned `robota-harness-suite-*` roots at `/tmp` top level before and after one
+  full contracts-tier run; the surviving-name delta must be **0**. The global `robota-*` count is
+  recorded separately but is not a valid verdict while another clone's test run is concurrent.
 - Per-file check on the five worst offenders: run each alone, assert no new directory survives.
 - The new scan goes RED on any `__tests__` file calling `mkdtemp` or `mkdtempSync` directly —
   **including one that cleans up correctly**, since the rule is "use `makeTemp()`", not "clean up
@@ -127,6 +160,33 @@ nothing.
   defect it was written for, and one fixture that creates AND removes its directory, to pin that the
   verdict does not depend on teardown.
 - `pnpm harness:scan` green.
+
+## Result
+
+- Governed direct-call debt: **157 → 0** — the ledger's 155 top-level tests plus two nested helpers
+  that its original flat reader did not enumerate. `temp-dir-owner-baseline.json` and its loading
+  path were removed. The floor now walks the complete tree without following symlinks;
+  `node scripts/harness/scan-temp-dir-owner.mjs` examined 239 governed modules and exited 0.
+- The live-debt-dependent floor test first reproduced RED (`1 failed | 4,670 passed`) after the debt
+  reached zero. It now assembles isolated top-level and nested direct-call fixtures; its targeted run
+  passes 18/18.
+- Four transformed files contained a local `function makeTemp` shadowing the imported owner. Vitest's
+  transform accepted them, but `node --check` exposed invalid ESM. The redundant wrappers were removed;
+  all 156 changed test files now pass `node --check`, and the four-file targeted run passes 273/273
+  while leaving no new `robota-*` path.
+- A full run proved file-level `afterAll` alone was insufficient under the 236-file worker schedule:
+  373 directories survived. The parent runner now supplies and removes one exclusive suite temp root;
+  the regression fixture deliberately leaves a child directory behind and verifies the parent removes
+  both it and the suite root.
+- Local review found that `TMPDIR` alone does not control Node's `os.tmpdir()` on Windows, which reads
+  `TEMP` and then `TMP`. RED reproduced both that escape and the flat-reader blind spot (2 failed,
+  19 passed). The runner now points all three platform spellings at its owned root, the child fixture
+  selects its path through `os.tmpdir()`, and the final related 10-file GREEN run passed 389/389 tests.
+- Final `pnpm harness:test`: 236/236 files and 4,675/4,675 tests passed; stripped-hermetic verification:
+  73/73 files and 1,142/1,142 tests passed. Runner-owned roots were **0 before, 0 after**, with no new
+  surviving name. The shared global count changed 10,088 → 10,114 during a concurrent pre-push in
+  another clone and was not misreported as this invocation's leak.
+- Final `pnpm harness:scan`: 135 scans passed, 2 intentionally skipped.
 
 ## Notes for whoever takes it
 

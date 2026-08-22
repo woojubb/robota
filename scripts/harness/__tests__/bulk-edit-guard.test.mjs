@@ -14,12 +14,13 @@
  * why the guard aims at four spellings rather than at recursive enumeration in general.
  */
 
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/bulk-edit-guard.sh');
@@ -136,7 +137,7 @@ describe('a file-writing tool naming the dependency store', () => {
 
   /** A store directory reachable through a symlink whose own name says nothing. */
   function symlinkedStore() {
-    const dir = mkdtempSync(path.join(tmpdir(), 'bulk-edit-guard-'));
+    const dir = makeTemp('bulk-edit-guard-');
     scratch.push(dir);
     mkdirSync(path.join(dir, 'node_modules/pkg/src'), { recursive: true });
     writeFileSync(path.join(dir, 'node_modules/pkg/src/index.ts'), 'export {};\n');
@@ -179,7 +180,7 @@ describe('a file-writing tool naming the dependency store', () => {
   it('permits a NEW file inside an ordinary directory', () => {
     // The other direction of the same change: moving the existence test to the parent must not make
     // every creation suspicious.
-    const dir = mkdtempSync(path.join(tmpdir(), 'bulk-edit-guard-ok-'));
+    const dir = makeTemp('bulk-edit-guard-ok-');
     scratch.push(dir);
     mkdirSync(path.join(dir, 'packages/p/src'), { recursive: true });
     expect(write(path.join(dir, 'packages/p/src/brand-new.ts')).status).toBe(0);
@@ -188,7 +189,7 @@ describe('a file-writing tool naming the dependency store', () => {
   it('permits a NEW file inside a NEW subdirectory of an ordinary directory', () => {
     // The same direction one level deeper. Walking up to an existing ancestor must not turn every
     // mkdir-and-write into a refusal — that is how an ack starts being pasted without being read.
-    const dir = mkdtempSync(path.join(tmpdir(), 'bulk-edit-guard-ok-'));
+    const dir = makeTemp('bulk-edit-guard-ok-');
     scratch.push(dir);
     mkdirSync(path.join(dir, 'packages/p'), { recursive: true });
     expect(write(path.join(dir, 'packages/p/src/nested/brand-new.ts')).status).toBe(0);

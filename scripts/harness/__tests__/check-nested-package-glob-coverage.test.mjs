@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { findNestedGlobCoverageFindings } from '../check-nested-package-glob-coverage.mjs';
 
@@ -34,7 +34,7 @@ jobs:
 `;
 
 async function createFixture(files = {}) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-nested-glob-'));
+  const root = makeTemp('robota-nested-glob-');
   for (const [relativePath, content] of Object.entries(files)) {
     const targetPath = path.join(root, relativePath);
     mkdirSync(path.dirname(targetPath), { recursive: true });

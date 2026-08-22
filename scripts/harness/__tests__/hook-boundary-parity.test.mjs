@@ -1,9 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
@@ -30,7 +31,7 @@ afterAll(() => {
 });
 
 function scratchRepo(branch) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'boundary-'));
+  const dir = makeTemp('boundary-');
   scratch.push(dir);
   const git = (...a) => spawnSync('git', ['-C', dir, ...a], { encoding: 'utf8' });
   git('init', '--quiet', `--initial-branch=${branch}`);

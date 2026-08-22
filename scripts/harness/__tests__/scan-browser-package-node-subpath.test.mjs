@@ -15,11 +15,12 @@
  * repository treats as the defect rather than the near miss.
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   browserPackages,
@@ -56,7 +57,7 @@ const NODE_ONLY_EXPORTS = { '.': { node: { import: './dist/node/index.js' } } };
 const IMPORTS_NODE_SUBPATH = "import { isPathInside } from '@robota-sdk/agent-core/node';\n";
 
 beforeEach(() => {
-  root = mkdtempSync(path.join(tmpdir(), 'browser-subpath-'));
+  root = makeTemp('browser-subpath-');
   scratch.push(root);
   mkdirSync(path.join(root, 'packages'), { recursive: true });
 });
@@ -243,7 +244,7 @@ describe('what the check considers its subject', () => {
   });
 
   it('REFUSES a root with no packages tree rather than reporting it clean', () => {
-    const bare = mkdtempSync(path.join(tmpdir(), 'browser-subpath-bare-'));
+    const bare = makeTemp('browser-subpath-bare-');
     scratch.push(bare);
 
     expect(() => findBrowserNodeSubpathFindings(bare)).toThrow(/packages missing from/);

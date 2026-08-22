@@ -36,13 +36,12 @@
  * there is a pass over nothing, and this floor's whole subject is a check that reports health it
  * never established.
  *
- * ## The burn-down
+ * ## The completed burn-down
  *
- * The files calling directly when this landed are frozen in `temp-dir-owner-baseline.json`, so the
- * floor lands green and only NEW direct calls are refused. The baseline may SHRINK and never grow:
- * migrate a file to `makeTemp()` and remove its name. Adding a name is not a fix.
+ * The direct-call ledger reached zero under INFRA-126 and was removed. There is no exception path
+ * left: every governed test file is now judged by the same rule, and any direct call is refused.
  *
- * Exit 0 = no unfrozen direct call, 1 = findings.
+ * Exit 0 = no direct call, 1 = findings.
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -50,18 +49,12 @@ import path from 'node:path';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TESTS_RELATIVE = 'scripts/harness/__tests__';
-const BASELINE_FILE = path.join(import.meta.dirname, 'temp-dir-owner-baseline.json');
 
 /** The helper itself is the sanctioned creator, so its own call is the one legitimate direct one. */
 const OWNER_FILE = 'make-temp.mjs';
 
 /** Both spellings, as a call. A mention in prose or a comment is not a call. */
 const DIRECT_CALL = /\bmkdtemp(?:Sync)?\s*\(/;
-
-function loadBaseline() {
-  if (!existsSync(BASELINE_FILE)) return new Set();
-  return new Set(JSON.parse(readFileSync(BASELINE_FILE, 'utf8')).frozen ?? []);
-}
 
 let examinedFiles = 0;
 
@@ -86,19 +79,38 @@ export function directCallLines(text) {
   return hits;
 }
 
-export function findTempDirOwnerFindings(root = WORKSPACE_ROOT, baseline = loadBaseline()) {
+/** Return the owner import path relative to one governed module. */
+export function ownerImportSpecifier(moduleName) {
+  const relative = path.posix.relative(path.posix.dirname(moduleName), OWNER_FILE);
+  return relative.startsWith('.') ? relative : `./${relative}`;
+}
+
+/** Enumerate the complete governed tree without following symlinks. */
+function listModuleFiles(directory, relative = '') {
+  const files = [];
+  const entries = readdirSync(directory, { withFileTypes: true }).sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+  for (const entry of entries) {
+    const name = relative ? `${relative}/${entry.name}` : entry.name;
+    const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...listModuleFiles(absolute, name));
+    else if (entry.isFile() && entry.name.endsWith('.mjs')) files.push({ absolute, name });
+  }
+  return files;
+}
+
+export function findTempDirOwnerFindings(root = WORKSPACE_ROOT) {
   examinedFiles = 0;
   const dir = path.join(root, TESTS_RELATIVE);
   if (!existsSync(dir)) throw new Error(`${TESTS_RELATIVE} missing from ${root}`);
 
   const findings = [];
-  for (const name of readdirSync(dir)
-    .filter((f) => f.endsWith('.mjs'))
-    .sort()) {
+  for (const { absolute, name } of listModuleFiles(dir)) {
     if (name === OWNER_FILE) continue;
     examinedFiles += 1;
-    const hits = directCallLines(readFileSync(path.join(dir, name), 'utf8'));
-    if (hits.length === 0 || baseline.has(name)) continue;
+    const hits = directCallLines(readFileSync(absolute, 'utf8'));
+    if (hits.length === 0) continue;
     findings.push({ name, hits });
   }
   return findings;
@@ -109,7 +121,7 @@ export function main() {
   try {
     findings = findTempDirOwnerFindings();
   } catch (error) {
-    process.stdout.write('::examined:: 0 harness test files\n');
+    process.stdout.write('::examined:: 0 harness test modules\n');
     process.stderr.write(
       `temp-dir-owner scan FAILED — ${error.message}, so nothing was read. A pass over a directory ` +
         'that is not there is a pass over nothing.\n',
@@ -118,13 +130,10 @@ export function main() {
     return;
   }
 
-  process.stdout.write(`::examined:: ${examinedTestFileCount()} harness test files\n`);
+  process.stdout.write(`::examined:: ${examinedTestFileCount()} harness test modules\n`);
 
   if (findings.length === 0) {
-    process.stdout.write(
-      'temp-dir-owner scan passed (no unfrozen direct mkdtemp call; the frozen set is a burn-down, ' +
-        'not an exemption).\n',
-    );
+    process.stdout.write('temp-dir-owner scan passed (no direct mkdtemp call).\n');
     return;
   }
 
@@ -133,12 +142,13 @@ export function main() {
     for (const h of f.hits) {
       process.stdout.write(`  ${TESTS_RELATIVE}/${f.name}:${h.line}  ${h.text}\n`);
     }
+    process.stdout.write(`    import { makeTemp } from '${ownerImportSpecifier(f.name)}';\n`);
   }
   process.stdout.write(
-    "\nUse `makeTemp('robota-<scan>-')` from `./make-temp.mjs`, which owns creation and removal\n" +
-      'together. A direct call is refused even when the file cleans up: the rule is who creates the\n' +
-      'directory, not whether this file happens to remove it. Do NOT add the file to\n' +
-      'temp-dir-owner-baseline.json — that set may only shrink.\n',
+    "\nUse `makeTemp('robota-<scan>-')` from the file-specific owner path printed above. It owns\n" +
+      'creation and removal together. A direct call is refused even when the file cleans up: the\n' +
+      'rule is who creates the\n' +
+      'directory, not whether this file happens to remove it. Do not introduce an exception ledger.\n',
   );
   process.exitCode = 1;
 }

@@ -1,7 +1,8 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   collectToolClassification,
@@ -24,7 +25,7 @@ import {
 /** A throwaway workspace holding exactly the tool-creation lines given. */
 const fixtureRoots = [];
 function makeFixtureRoot(lines) {
-  const root = mkdtempSync(path.join(tmpdir(), 'core-030-fixture-'));
+  const root = makeTemp('core-030-fixture-');
   fixtureRoots.push(root);
   const src = path.join(root, 'packages', 'fixture-pkg', 'src');
   mkdirSync(src, { recursive: true });

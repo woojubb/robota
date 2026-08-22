@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   analyzeAgent,
@@ -270,7 +270,7 @@ describe('check-agent-def-convention (HARNESS-046) — prettier-wrapped tools ar
   });
 
   it('reads a wrapped tools array end-to-end through findAgentDefFindings', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-agent-def-'));
+    const root = makeTemp('robota-agent-def-');
     const agentsDir = path.join(root, '.claude/agents');
     mkdirSync(agentsDir, { recursive: true });
     writeFileSync(
