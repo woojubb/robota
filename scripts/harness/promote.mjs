@@ -208,9 +208,29 @@ export async function main({
       );
     }
 
+    // issue #1980. WARNS, never refuses: a GitHub outage must not discard an ancestry-verified
+    // promotion branch, which is the same reason the closing-block derivation below is
+    // allow-fallback. Unreachable is reported as unreachable — this path never prints a clean
+    // verdict it did not obtain, because "no answer" reading as "they match" is the defect itself.
+    let rulesetSection = '';
+    try {
+      const live = reconcileRulesets({ cwd });
+      rulesetSection =
+        live.code === 0
+          ? '\npromote: required-status-check declarations reconcile against the live rulesets.\n'
+          : `\npromote: WARNING — a live ruleset does NOT match its declaration:\n${live.output}` +
+            'promote: this does not block the promotion. Fix the ruleset AND\n' +
+            'promote: `.github/required-status-checks.json` in the same change (issue #1980).\n';
+    } catch (error) {
+      rulesetSection =
+        `\npromote: could NOT reconcile the rulesets (${error.message}).\n` +
+        'promote: this is NOT "they match". Run `node scripts/harness/scan-main-required-checks.mjs --live`.\n';
+    }
+
     if (dryRun) {
       out(
-        `promote: --dry-run — the merge is clean and promotes develop's tree unchanged (${mergedTree.slice(0, 9)}).\n`,
+        `promote: --dry-run — the merge is clean and promotes develop's tree unchanged (${mergedTree.slice(0, 9)}).\n` +
+          rulesetSection,
       );
       return 0;
     }
@@ -277,25 +297,6 @@ export async function main({
         'promote: this is NOT "nothing to close". Run `node scripts/harness/promotion-closes.mjs ' +
         '--base origin/main --head origin/develop` and paste its output into the PR body — the ' +
         'required `scan-promotion-closes` check will refuse the promotion until you do.\n';
-    }
-
-    // issue #1980. WARNS, never refuses: a GitHub outage must not discard an ancestry-verified
-    // promotion branch, which is the same reason the closing-block derivation below is
-    // allow-fallback. Unreachable is reported as unreachable — this path never prints a clean
-    // verdict it did not obtain, because "no answer" reading as "they match" is the defect itself.
-    let rulesetSection = '';
-    try {
-      const live = reconcileRulesets({ cwd });
-      rulesetSection =
-        live.code === 0
-          ? '\npromote: required-status-check declarations reconcile against the live rulesets.\n'
-          : `\npromote: WARNING — a live ruleset does NOT match its declaration:\n${live.output}` +
-            'promote: this does not block the promotion. Fix the ruleset AND\n' +
-            'promote: `.github/required-status-checks.json` in the same change (issue #1980).\n';
-    } catch (error) {
-      rulesetSection =
-        `\npromote: could NOT reconcile the rulesets (${error.message}).\n` +
-        'promote: this is NOT "they match". Run `node scripts/harness/scan-main-required-checks.mjs --live`.\n';
     }
 
     out(

@@ -412,3 +412,38 @@ describe('promote.mjs reconciles the rulesets before the PR exists (issue #1980)
     expect(output).not.toMatch(/declarations reconcile against the live rulesets/);
   });
 });
+
+/**
+ * issue #1980 — `--dry-run` is the CHEAP pre-check, so it is the path most likely to be the only one
+ * anyone runs before deciding a promotion is fine. A reconciliation that reports only on the
+ * expensive path is a warning delivered after the decision it should have informed.
+ */
+describe('promote.mjs --dry-run carries the reconciliation too (issue #1980)', () => {
+  it('a mismatch is reported on the dry run, not only on the real build', async () => {
+    const { root, git } = await newRepo();
+    git(['checkout', '--quiet', 'develop']);
+    commit(root, git, 'feature.txt', 'work\n', 'feat: work');
+
+    const { code, output } = await runWithOptions(root, {
+      argv: [
+        '--dry-run',
+        '--main-ref',
+        'main',
+        '--develop-ref',
+        'develop',
+        '--baseline',
+        'develop',
+      ],
+      fetch: false,
+      reconcileRulesets: () => ({
+        code: 1,
+        output: '  - promotion closes: the LIVE ruleset does not require it\n',
+      }),
+    });
+
+    expect(code).toBe(0);
+    expect(output).toMatch(/--dry-run — the merge is clean/);
+    expect(output).toMatch(/WARNING — a live ruleset does NOT match its declaration/);
+    expect(output).toMatch(/promotion closes: the LIVE ruleset does not require it/);
+  });
+});
