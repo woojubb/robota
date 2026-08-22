@@ -1,7 +1,7 @@
 /**
  * SELFHOST-008 P1 — the neutral filesystem reference adapter for the memory port.
  *
- * `FileSystemMemoryStore` implements `IMemoryStore` by composing the existing, unchanged neutral
+ * `WorkspaceMemoryStore` implements `IMemoryStore` by composing the authority-backed
  * mechanisms — `ProjectMemoryStore` (durable write/read under `<cwd>/.robota/memory/`),
  * `MemoryRetrievalService` (budgeted keyword recall), and `PendingMemoryStore` (curation queue). It
  * mirrors `InMemorySandboxClient` (the sandbox precedent's reference adapter that lives in the same
@@ -25,15 +25,16 @@ import type {
   IStartupMemory,
   TMemoryCandidateStatus,
 } from './types.js';
+import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
-export class FileSystemMemoryStore implements IMemoryStore {
+export class WorkspaceMemoryStore implements IMemoryStore {
   private readonly project: ProjectMemoryStore;
   private readonly pending: PendingMemoryStore;
   private readonly retrieval: MemoryRetrievalService;
 
-  constructor(cwd: string, now: () => Date = () => new Date()) {
-    this.project = new ProjectMemoryStore(cwd, now);
-    this.pending = new PendingMemoryStore(cwd, now);
+  constructor(storage: IWorkspaceProjectStateStorage, now: () => Date = () => new Date()) {
+    this.project = new ProjectMemoryStore(storage, now);
+    this.pending = new PendingMemoryStore(storage, now);
     // P1R: reuse the SAME project store (honors the injected clock) for the recall read path —
     // one ProjectMemoryStore per cwd, not two.
     this.retrieval = new MemoryRetrievalService(this.project);
@@ -91,6 +92,9 @@ export class FileSystemMemoryStore implements IMemoryStore {
 }
 
 /** Create the neutral filesystem reference memory store for a workspace. */
-export function createFileSystemMemoryStore(cwd: string, now?: () => Date): IMemoryStore {
-  return new FileSystemMemoryStore(cwd, now);
+export function createWorkspaceMemoryStore(
+  storage: IWorkspaceProjectStateStorage,
+  now?: () => Date,
+): IMemoryStore {
+  return new WorkspaceMemoryStore(storage, now);
 }

@@ -30,10 +30,10 @@ import {
   AutomaticMemoryController,
   renderPerTurnRecall,
 } from '../memory/automatic-memory-controller.js';
-import { createFileSystemMemoryStore } from '../memory/file-system-memory-store.js';
 import { PlanController } from '../plan/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
+import { WorkspaceAuthorityRequiredError } from '../workspace-trust/index.js';
 
 import type { IInteractiveSession } from './i-interactive-session.js';
 import type { IQueuedInput, ITurnOptions } from './interactive-session-execution-controller.js';
@@ -114,7 +114,6 @@ export class InteractiveSession
   // fs default (lazily created + cached so it is ONE shared instance). Exposed to the `/memory` command
   // host context via getMemoryStore() so command reads/writes hit the SAME store as startup + capture.
   private injectedMemoryStore?: IMemoryStore;
-  private defaultMemoryStore?: IMemoryStore;
   // SELFHOST-008 P2: optional post-turn auto-capture policy (surface-supplied); absent ⇒ capture OFF.
   private readonly automaticMemory?: IAutomaticMemoryConfig;
   private autoMemoryController?: AutomaticMemoryController;
@@ -397,8 +396,9 @@ export class InteractiveSession
    */
   getMemoryStore(): IMemoryStore {
     if (this.injectedMemoryStore) return this.injectedMemoryStore;
-    this.defaultMemoryStore ??= createFileSystemMemoryStore(this.getCwd());
-    return this.defaultMemoryStore;
+    throw new WorkspaceAuthorityRequiredError(
+      'Project memory is unavailable without a workspace project authority.',
+    );
   }
 
   /**
@@ -413,7 +413,6 @@ export class InteractiveSession
   }): Promise<IMemoryEvent[]> {
     if (!this.automaticMemory) return [];
     this.autoMemoryController ??= new AutomaticMemoryController({
-      cwd: this.getCwd(),
       config: this.automaticMemory,
       memoryStore: this.getMemoryStore(),
     });

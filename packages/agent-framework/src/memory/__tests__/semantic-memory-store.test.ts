@@ -150,7 +150,6 @@ describe('SELFHOST-008 P4 — SemanticMemoryStore decorator', () => {
 
     // The controller consumes IMemoryStore; injecting the decorated store needs NO controller/library change.
     const controller = new AutomaticMemoryController({
-      cwd: '/tmp/does-not-matter',
       config: { policy: 'approval_required', retrieval: BUDGET },
       memoryStore: decorated,
     });

@@ -4,7 +4,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it, afterEach } from 'vitest';
 
-import { createFileSystemMemoryStore } from '../../memory/file-system-memory-store.js';
+import { createWorkspaceMemoryStore } from '../../memory/file-system-memory-store.js';
+import { createTrustedProjectStateFixture } from '../../testing/trusted-project-state-fixture.js';
 import { loadContext } from '../context-loader.js';
 
 import type { IMemoryStore, IStartupMemory } from '../../memory/types.js';
@@ -23,7 +24,7 @@ afterEach(() => {
 
 /**
  * SELFHOST-008 TC-03 — the memory adapter is threaded through the session assembly and consumed by
- * startup-memory injection; with NO adapter injected the neutral fs reference adapter is the default.
+ * startup-memory injection; with NO adapter injected, project state remains inaccessible.
  */
 describe('SELFHOST-008 TC-03 — loadContext memory-port threading + adapter-gating', () => {
   it('consumes an INJECTED IMemoryStore for startup memory', async () => {
@@ -64,20 +65,20 @@ describe('SELFHOST-008 TC-03 — loadContext memory-port threading + adapter-gat
     expect(context.memoryMd).toBe('INJECTED-MEMORY-CONTENT');
   });
 
-  it('DEFAULTS to the neutral fs reference adapter when NO store is injected (memory works unchanged)', async () => {
+  it('does not discover project memory from cwd when no store is injected', async () => {
     const cwd = makeWorkspace();
-    // seed durable memory on disk via the same neutral fs adapter the default path uses
-    await createFileSystemMemoryStore(cwd).append({
+    const store = createWorkspaceMemoryStore(await createTrustedProjectStateFixture(cwd, 'memory'));
+    await store.append({
       type: 'project',
       topic: 'build',
-      text: 'default-fs-memory-entry',
+      text: 'authority-required-memory-entry',
     });
 
-    const context = await loadContext(cwd); // no memoryStore → fs reference adapter default
-    expect(context.memoryMd).toContain('default-fs-memory-entry');
+    const context = await loadContext(cwd);
+    expect(context.memoryMd).toBeUndefined();
   });
 
-  it('returns undefined memoryMd when the default fs store has no memory', async () => {
+  it('returns undefined memoryMd when no store is injected', async () => {
     const context = await loadContext(makeWorkspace());
     expect(context.memoryMd).toBeUndefined();
   });

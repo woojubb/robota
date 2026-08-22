@@ -1,0 +1,134 @@
+import { join, sep } from 'node:path';
+
+import { assertProjectReadPurpose, workspacePathSegments } from './project-reader-path.js';
+import {
+  appendWorkspaceRelativeFile,
+  deleteWorkspaceRelativeFile,
+  writeWorkspaceRelativeFile,
+} from './project-relative-writer.js';
+import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
+import {
+  assertWorkspaceProjectAuthority,
+  getWorkspaceProjectIdentity,
+  getWorkspaceProjectIdentityResolver,
+  getWorkspaceProjectReader,
+} from './workspace-authority.js';
+
+import type {
+  IWorkspaceDirectoryEntry,
+  IWorkspaceIdentity,
+  IWorkspaceIdentityResolver,
+  IWorkspaceProjectAuthority,
+  IWorkspaceProjectReader,
+  IWorkspaceProjectStateStorage,
+  TWorkspaceProjectAuthorityCandidate,
+  TWorkspaceProjectStateNamespace,
+} from './types.js';
+
+const projectStateStorages = new WeakSet<object>();
+
+const NAMESPACE_DIRECTORIES: Readonly<Record<TWorkspaceProjectStateNamespace, string>> = {
+  sessions: join('.robota', 'sessions'),
+  'session-logs': join('.robota', 'logs'),
+  memory: join('.robota', 'memory'),
+  checkpoints: join('.robota', 'checkpoints'),
+};
+
+class WorkspaceProjectStateStorage {
+  readonly namespace: TWorkspaceProjectStateNamespace;
+  private readonly base: string;
+
+  constructor(
+    namespace: TWorkspaceProjectStateNamespace,
+    private readonly identity: IWorkspaceIdentity,
+    private readonly identityResolver: IWorkspaceIdentityResolver,
+    private readonly reader: IWorkspaceProjectReader,
+  ) {
+    this.namespace = namespace;
+    this.base = NAMESPACE_DIRECTORIES[namespace];
+  }
+
+  readText(relativePath: string, purpose: string): string | undefined {
+    return this.reader.readText(this.projectRelativePath(relativePath), purpose);
+  }
+
+  readBytes(relativePath: string, purpose: string): Uint8Array | undefined {
+    return this.reader.readBytes(this.projectRelativePath(relativePath), purpose);
+  }
+
+  writeText(relativePath: string, content: string, purpose: string): void {
+    this.writeBytes(relativePath, Buffer.from(content), purpose);
+  }
+
+  writeBytes(relativePath: string, content: Uint8Array, purpose: string): void {
+    assertProjectReadPurpose(purpose);
+    writeWorkspaceRelativeFile(
+      this.identity,
+      this.identityResolver,
+      this.projectRelativePath(relativePath),
+      content,
+    );
+  }
+
+  appendText(relativePath: string, content: string, purpose: string): void {
+    assertProjectReadPurpose(purpose);
+    appendWorkspaceRelativeFile(
+      this.identity,
+      this.identityResolver,
+      this.projectRelativePath(relativePath),
+      content,
+    );
+  }
+
+  listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[] {
+    return this.reader.listDirectory(this.projectRelativePath(relativePath, true), purpose);
+  }
+
+  deleteFile(relativePath: string, purpose: string): boolean {
+    assertProjectReadPurpose(purpose);
+    return deleteWorkspaceRelativeFile(
+      this.identity,
+      this.identityResolver,
+      this.projectRelativePath(relativePath),
+    );
+  }
+
+  projectRelativePath(relativePath: string, allowRoot = false): string {
+    const segments = workspacePathSegments(relativePath, allowRoot);
+    return segments.length === 0 ? this.base : join(this.base, segments.join(sep));
+  }
+}
+
+export function getWorkspaceProjectStateStorage(
+  authority: IWorkspaceProjectAuthority,
+  namespace: TWorkspaceProjectStateNamespace,
+): IWorkspaceProjectStateStorage {
+  const accepted = assertWorkspaceProjectAuthority(authority);
+  const identity = getWorkspaceProjectIdentity(accepted);
+  const reader = getWorkspaceProjectReader(accepted);
+  const storage = Object.freeze(
+    new WorkspaceProjectStateStorage(
+      namespace,
+      identity,
+      getWorkspaceProjectIdentityResolver(accepted),
+      reader,
+    ),
+  );
+  projectStateStorages.add(storage);
+  return storage as IWorkspaceProjectStateStorage;
+}
+
+export function assertWorkspaceProjectStateStorage(
+  candidate: TWorkspaceProjectAuthorityCandidate,
+): IWorkspaceProjectStateStorage {
+  if (
+    (typeof candidate !== 'object' && typeof candidate !== 'function') ||
+    candidate === null ||
+    !projectStateStorages.has(candidate)
+  ) {
+    throw new WorkspaceAuthorityRequiredError(
+      'A runtime-minted workspace project state storage is required.',
+    );
+  }
+  return candidate as IWorkspaceProjectStateStorage;
+}

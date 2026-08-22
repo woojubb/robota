@@ -8,7 +8,6 @@ import { join, dirname, resolve } from 'path';
 
 import { loadFileWithHash } from './context-file-tracker.js';
 import { loadTaskContext } from './task-context.js';
-import { createFileSystemMemoryStore } from '../memory/file-system-memory-store.js';
 
 import type { IContextFileEntry } from './context-file-tracker.js';
 import type { IMemoryStore } from '../memory/types.js';
@@ -128,10 +127,8 @@ export async function loadContext(
   const projectNotesMd = claudeEntries.map((e) => e.content).join('\n\n');
 
   const compactInstructions = extractCompactInstructions(projectNotesMd);
-  // SELFHOST-008: startup memory is read through the injected memory port; with none supplied the
-  // neutral filesystem reference adapter is the default, so memory keeps working exactly as before.
-  const startupMemory = await (memoryStore ?? createFileSystemMemoryStore(cwd)).loadStartupMemory();
-  const memoryMd = startupMemory.content || undefined;
+  const startupMemory = await memoryStore?.loadStartupMemory();
+  const memoryMd = startupMemory?.content || undefined;
   // NEUT-004: task-context injection is off-switchable; disabled ⇒ no scan is performed.
   const taskContextEnabled = options.taskContext?.enabled !== false;
   const loadedTaskContext = taskContextEnabled

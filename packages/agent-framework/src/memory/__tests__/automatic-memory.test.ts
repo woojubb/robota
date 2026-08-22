@@ -15,6 +15,8 @@ import {
 import { MemoryPolicyEvaluator } from '../memory-policy-evaluator.js';
 import { MemoryRetrievalService } from '../memory-retrieval-service.js';
 import { ProjectMemoryStore } from '../project-memory-store.js';
+import { createWorkspaceMemoryStore } from '../file-system-memory-store.js';
+import { createTrustedProjectStateFixture } from '../../testing/trusted-project-state-fixture.js';
 
 import type { IMemoryCandidate } from '../automatic-memory-types.js';
 
@@ -25,6 +27,10 @@ function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));
   mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+async function projectStore(cwd: string): Promise<ProjectMemoryStore> {
+  return new ProjectMemoryStore(await createTrustedProjectStateFixture(cwd, 'memory'), () => NOW);
 }
 
 function makeCandidate(overrides?: Partial<IMemoryCandidate>): IMemoryCandidate {
@@ -82,10 +88,14 @@ describe('automatic memory pipeline', () => {
 
   it('Given disabled policy When capture runs Then no pending or saved entries are created', async () => {
     const cwd = makeProject();
+    const store = await projectStore(cwd);
     const controller = new AutomaticMemoryController({
-      cwd,
       now: () => NOW,
       config: { policy: 'disabled', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
+      memoryStore: createWorkspaceMemoryStore(
+        await createTrustedProjectStateFixture(cwd, 'memory'),
+        () => NOW,
+      ),
     });
 
     const result = await controller.capture({
@@ -98,18 +108,22 @@ describe('automatic memory pipeline', () => {
     expect(result.saved).toEqual([]);
     expect(result.queued).toEqual([]);
     expect(result.events.map((event) => event.type)).toContain('memory_candidate_skipped');
-    expect(new ProjectMemoryStore(cwd).loadStartupMemory().content).toBe('');
+    expect(store.loadStartupMemory().content).toBe('');
   });
 
   it('Given approval required policy When capture runs Then candidates are queued instead of saved', async () => {
     const cwd = makeProject();
+    const store = await projectStore(cwd);
     const controller = new AutomaticMemoryController({
-      cwd,
       now: () => NOW,
       config: {
         policy: 'approval_required',
         retrieval: { maxTopics: 3, maxTopicChars: 3000 },
       },
+      memoryStore: createWorkspaceMemoryStore(
+        await createTrustedProjectStateFixture(cwd, 'memory'),
+        () => NOW,
+      ),
     });
 
     const result = await controller.capture({
@@ -122,15 +136,18 @@ describe('automatic memory pipeline', () => {
     expect(result.saved).toEqual([]);
     expect(result.queued).toHaveLength(1);
     expect(result.queued[0]?.status).toBe('pending');
-    expect(new ProjectMemoryStore(cwd).loadStartupMemory().content).toBe('');
+    expect(store.loadStartupMemory().content).toBe('');
   });
 
   it('Given auto save policy When a high confidence candidate is captured Then memory is saved', async () => {
     const cwd = makeProject();
     const controller = new AutomaticMemoryController({
-      cwd,
       now: () => NOW,
       config: { policy: 'auto_save', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
+      memoryStore: createWorkspaceMemoryStore(
+        await createTrustedProjectStateFixture(cwd, 'memory'),
+        () => NOW,
+      ),
     });
 
     const result = await controller.capture({
@@ -147,9 +164,9 @@ describe('automatic memory pipeline', () => {
     );
   });
 
-  it('Given a duplicate memory candidate When saving runs Then the topic entry is not repeated', () => {
+  it('Given a duplicate memory candidate When saving runs Then the topic entry is not repeated', async () => {
     const cwd = makeProject();
-    const store = new ProjectMemoryStore(cwd, () => NOW);
+    const store = await projectStore(cwd);
 
     const first = store.append({
       type: 'project',
@@ -162,15 +179,15 @@ describe('automatic memory pipeline', () => {
       text: 'Use pnpm for package scripts.',
     });
 
-    const topicFile = readFileSync(first.topicPath, 'utf8');
+    const topicFile = readFileSync(join(cwd, first.topicPath), 'utf8');
     expect(first.deduplicated).toBe(false);
     expect(second.deduplicated).toBe(true);
     expect(topicFile.match(/Use pnpm for package scripts\./g)).toHaveLength(1);
   });
 
-  it('Given a topic-related query When retrieval runs Then matching topics and provenance are returned', () => {
+  it('Given a topic-related query When retrieval runs Then matching topics and provenance are returned', async () => {
     const cwd = makeProject();
-    const store = new ProjectMemoryStore(cwd, () => NOW);
+    const store = await projectStore(cwd);
     store.append({
       type: 'project',
       topic: 'build',
@@ -182,7 +199,7 @@ describe('automatic memory pipeline', () => {
       text: 'Publish with changesets.',
     });
 
-    const retrieval = new MemoryRetrievalService(cwd).retrieve(
+    const retrieval = new MemoryRetrievalService(store).retrieve(
       'How should I run package scripts?',
       {
         maxTopics: 1,
@@ -193,22 +210,23 @@ describe('automatic memory pipeline', () => {
     expect(retrieval.references).toEqual([
       expect.objectContaining({
         topic: 'build',
-        path: join(cwd, '.robota', 'memory', 'topics', 'build.md'),
+        path: join('.robota', 'memory', 'topics', 'build.md'),
       }),
     ]);
     expect(retrieval.content).toContain('Use pnpm for package scripts.');
     expect(renderRetrievedMemory(retrieval)).toContain('<project-memory>');
   });
 
-  it('Given no relevant topics When retrieval runs Then no memory is injected', () => {
+  it('Given no relevant topics When retrieval runs Then no memory is injected', async () => {
     const cwd = makeProject();
-    new ProjectMemoryStore(cwd, () => NOW).append({
+    const store = await projectStore(cwd);
+    store.append({
       type: 'project',
       topic: 'release',
       text: 'Publish with changesets.',
     });
 
-    const retrieval = new MemoryRetrievalService(cwd).retrieve('unrelated database question', {
+    const retrieval = new MemoryRetrievalService(store).retrieve('unrelated database question', {
       maxTopics: 3,
       maxTopicChars: 1000,
     });

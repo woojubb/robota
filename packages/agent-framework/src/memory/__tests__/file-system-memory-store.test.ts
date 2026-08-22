@@ -4,8 +4,9 @@ import { join } from 'node:path';
 
 import { describe, expect, it, afterEach } from 'vitest';
 
-import { FileSystemMemoryStore, createFileSystemMemoryStore } from '../file-system-memory-store.js';
+import { WorkspaceMemoryStore, createWorkspaceMemoryStore } from '../file-system-memory-store.js';
 import { MemoryPolicyEvaluator } from '../memory-policy-evaluator.js';
+import { createTrustedProjectStateFixture } from '../../testing/trusted-project-state-fixture.js';
 
 import type {
   IMemoryStore,
@@ -20,6 +21,10 @@ function makeWorkspace(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));
   mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+async function createMemoryStore(cwd: string, now?: () => Date): Promise<IMemoryStore> {
+  return createWorkspaceMemoryStore(await createTrustedProjectStateFixture(cwd, 'memory'), now);
 }
 
 function candidate(overrides: Partial<IMemoryCandidate> = {}): IMemoryCandidate {
@@ -44,14 +49,14 @@ describe('SELFHOST-008 TC-01 — durable round-trip across sessions (async port)
   it('recalls a fact written in one store from a FRESH store over the same workspace', async () => {
     const cwd = makeWorkspace();
 
-    const writer = createFileSystemMemoryStore(cwd);
+    const writer = await createMemoryStore(cwd);
     await writer.append({
       type: 'project',
       topic: 'build',
       text: 'run pnpm build:deps before tests',
     });
 
-    const reader = createFileSystemMemoryStore(cwd);
+    const reader = await createMemoryStore(cwd);
     const recalled = await reader.recall('build deps tests', { maxTopics: 5, maxTopicChars: 500 });
 
     expect(recalled.content).toContain('build:deps');
@@ -63,7 +68,7 @@ describe('SELFHOST-008 TC-01 — durable round-trip across sessions (async port)
 describe('SELFHOST-008 TC-02 — budgeted recall (ranked, never over budget)', () => {
   it('returns at most maxTopics and truncates each topic to maxTopicChars', async () => {
     const cwd = makeWorkspace();
-    const store = createFileSystemMemoryStore(cwd);
+    const store = await createMemoryStore(cwd);
     await store.append({ type: 'project', topic: 'alpha-one', text: `alpha ${'x'.repeat(400)}` });
     await store.append({ type: 'project', topic: 'alpha-two', text: `alpha ${'y'.repeat(400)}` });
     await store.append({ type: 'project', topic: 'alpha-three', text: `alpha ${'z'.repeat(400)}` });
@@ -79,7 +84,7 @@ describe('SELFHOST-008 TC-02 — budgeted recall (ranked, never over budget)', (
   });
 
   it('returns empty for a query with no matching topics', async () => {
-    const store = createFileSystemMemoryStore(makeWorkspace());
+    const store = await createMemoryStore(makeWorkspace());
     await store.append({ type: 'project', topic: 'build', text: 'pnpm' });
     expect(
       (await store.recall('nonmatchingtoken', { maxTopics: 5, maxTopicChars: 100 })).references,
@@ -91,7 +96,7 @@ describe('SELFHOST-008 TC-05 (P1R) — recall seam cleaned: injected clock reach
   it('FileSystemMemoryStore holds one ProjectMemoryStore honoring the injected now', async () => {
     const cwd = makeWorkspace();
     const fixed = new Date('2026-07-18T09:00:00.000Z');
-    const store = createFileSystemMemoryStore(cwd, () => fixed);
+    const store = await createMemoryStore(cwd, () => fixed);
     await store.append({ type: 'project', topic: 'clock', text: 'injected-clock-entry' });
     // the recalled entry is date-stamped with the injected clock (2026-07-18), proving the recall read
     // path uses the same injected-clock ProjectMemoryStore (not a second default-clock instance).
@@ -106,7 +111,7 @@ describe('SELFHOST-008 TC-05 (P1R) — recall seam cleaned: injected clock reach
 
 describe('SELFHOST-008 TC-04 — curate queue + sensitive-content refusal', () => {
   it('queues and transitions pending candidates through the port', async () => {
-    const store = createFileSystemMemoryStore(makeWorkspace());
+    const store = await createMemoryStore(makeWorkspace());
     await store.upsertPending(candidate(), 'pending', 'queued for review');
 
     expect((await store.listPending('pending')).map((r) => r.id)).toContain('cand-1');
@@ -179,7 +184,7 @@ describe('SELFHOST-008 TC-02 (P1R) — async adapter swap needs no library chang
       index: async () => undefined,
       query: async (text) => ({ content: `semantic:${text}`, references: [] }),
     };
-    const base = createFileSystemMemoryStore(makeWorkspace());
+    const base = await createMemoryStore(makeWorkspace());
     const semanticBacked: IMemoryStore = {
       ...base,
       loadStartupMemory: () => base.loadStartupMemory(),
@@ -210,7 +215,7 @@ describe('SELFHOST-008 TC-03 (capture half) — AutomaticMemoryController routes
     const { AutomaticMemoryController } = await import('../automatic-memory-controller.js');
     const appended: string[] = [];
     const pending: string[] = [];
-    const base = createFileSystemMemoryStore(makeWorkspace());
+    const base = await createMemoryStore(makeWorkspace());
     const spy: IMemoryStore = {
       loadStartupMemory: () => base.loadStartupMemory(),
       list: () => base.list(),
@@ -230,7 +235,6 @@ describe('SELFHOST-008 TC-03 (capture half) — AutomaticMemoryController routes
     };
 
     const controller = new AutomaticMemoryController({
-      cwd: makeWorkspace(),
       config: { policy: 'auto_save', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
       memoryStore: spy,
       extractor: { extract: () => [candidate({ confidence: 0.99, text: 'stored via port' })] },
@@ -249,9 +253,10 @@ describe('SELFHOST-008 TC-03 (capture half) — AutomaticMemoryController routes
   });
 });
 
-describe('SELFHOST-008 — FileSystemMemoryStore is the neutral reference adapter', () => {
+describe('SELFHOST-008 — WorkspaceMemoryStore is the authority-backed reference adapter', () => {
   it('is an IMemoryStore and composes the existing fs mechanisms without new behavior', async () => {
-    const store = new FileSystemMemoryStore(makeWorkspace());
+    const storage = await createTrustedProjectStateFixture(makeWorkspace(), 'memory');
+    const store = new WorkspaceMemoryStore(storage);
     await store.append({ type: 'reference', topic: 'docs', text: 'see AGENTS.md' });
     expect((await store.list()).topics.map((t) => t.name)).toContain('docs');
   });

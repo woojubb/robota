@@ -23,6 +23,7 @@ import { sanitizeProviderProfileName } from '../command-api/provider/provider-pr
 import { parseFrontmatter } from '../commands/skill-source.js';
 import { parseTaskFile, readCurrentGitBranch } from '../context/task-context.js';
 import { ProjectMemoryStore } from '../memory/project-memory-store.js';
+import { createTrustedProjectStateFixture } from '../testing/trusted-project-state-fixture.js';
 import { createProviderSafeModelCommandToolName } from '../tools/model-command-tool-projection.js';
 import { checkForCliUpdate } from '../update-check/update-check.js';
 
@@ -60,17 +61,18 @@ async function elapsedMsAsync(run: () => Promise<void>): Promise<number> {
 describe('SEC-003 alert 41 — ProjectMemoryStore topic sanitiser', () => {
   it(
     'sanitises a pumped dash run in linear time',
-    () => {
-      const store = new ProjectMemoryStore(tempDir('robota-redos-memory-'));
+    async () => {
+      const root = tempDir('robota-redos-memory-');
+      const store = new ProjectMemoryStore(await createTrustedProjectStateFixture(root, 'memory'));
       const topic = `x${'-'.repeat(PUMP)}y`;
       expect(elapsedMs(() => void store.readTopic(topic))).toBeLessThan(BUDGET_MS);
     },
     RED_TIMEOUT_MS,
   );
 
-  it('keeps the sanitised topic for ordinary input', () => {
+  it('keeps the sanitised topic for ordinary input', async () => {
     const dir = tempDir('robota-redos-memory-');
-    const store = new ProjectMemoryStore(dir);
+    const store = new ProjectMemoryStore(await createTrustedProjectStateFixture(dir, 'memory'));
     const result = store.append({ type: 'project', topic: '--Build & Env--', text: 'hello' });
     expect(result.topic).toBe('build-env');
   });

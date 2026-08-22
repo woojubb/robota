@@ -5,6 +5,8 @@ import { join } from 'path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { loadContext } from '../context/context-loader.js';
+import { createWorkspaceMemoryStore } from '../memory/file-system-memory-store.js';
+import { createTrustedProjectStateFixture } from '../testing/trusted-project-state-fixture.js';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-context-test-'));
 
@@ -45,12 +47,14 @@ describe('loadContext', () => {
   });
 
   it('loads project memory index when .robota/memory/MEMORY.md exists', async () => {
-    setupDir(join(rootDir, '.robota', 'memory'));
-    writeFileSync(join(rootDir, '.robota', 'memory', 'MEMORY.md'), '- Remember pnpm\n');
+    const memoryStore = createWorkspaceMemoryStore(
+      await createTrustedProjectStateFixture(rootDir, 'memory'),
+    );
+    await memoryStore.append({ type: 'project', topic: 'build', text: 'Remember pnpm' });
 
-    const result = await loadContext(rootDir);
+    const result = await loadContext(rootDir, memoryStore);
 
-    expect(result.memoryMd).toBe('- Remember pnpm');
+    expect(result.memoryMd).toContain('Remember pnpm');
   });
 
   it('loads active task context when .agents/tasks contains task files', async () => {

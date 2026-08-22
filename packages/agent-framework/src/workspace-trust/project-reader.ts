@@ -22,10 +22,13 @@ import type {
   IWorkspaceIdentity,
   IWorkspaceIdentityResolver,
   IWorkspaceProjectReader,
+  TWorkspaceProjectAuthorityCandidate,
   TWorkspaceContributionKind,
 } from './types.js';
 
-class NodeWorkspaceProjectReader implements IWorkspaceProjectReader {
+const projectReaders = new WeakSet<object>();
+
+class NodeWorkspaceProjectReader {
   constructor(
     private readonly identity: IWorkspaceIdentity,
     private readonly identityResolver: IWorkspaceIdentityResolver,
@@ -86,5 +89,20 @@ export function createWorkspaceProjectReader(
   identity: IWorkspaceIdentity,
   identityResolver: IWorkspaceIdentityResolver,
 ): IWorkspaceProjectReader {
-  return Object.freeze(new NodeWorkspaceProjectReader(identity, identityResolver));
+  const reader = Object.freeze(new NodeWorkspaceProjectReader(identity, identityResolver));
+  projectReaders.add(reader);
+  return reader as IWorkspaceProjectReader;
+}
+
+export function assertWorkspaceProjectReader(
+  candidate: TWorkspaceProjectAuthorityCandidate,
+): IWorkspaceProjectReader {
+  if (
+    (typeof candidate !== 'object' && typeof candidate !== 'function') ||
+    candidate === null ||
+    !projectReaders.has(candidate)
+  ) {
+    refuseProjectRead('A runtime-minted workspace project reader is required.');
+  }
+  return candidate as IWorkspaceProjectReader;
 }

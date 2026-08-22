@@ -1,6 +1,5 @@
-import { ProjectMemoryStore } from './project-memory-store.js';
-
 import type { IMemoryReference, IMemoryRetrievalResult } from './automatic-memory-types.js';
+import type { ProjectMemoryStore } from './project-memory-store.js';
 import type { IMemoryBudget } from './types.js';
 
 const TOKEN_MIN_LENGTH = 3;
@@ -35,12 +34,8 @@ function truncateContent(
 export class MemoryRetrievalService {
   private readonly store: ProjectMemoryStore;
 
-  /**
-   * P1R: accept an injected `ProjectMemoryStore` (so the fs adapter's single, injected-clock instance is
-   * reused for the recall read path) — falling back to constructing one from `cwd` for standalone use.
-   */
-  constructor(cwdOrStore: string | ProjectMemoryStore) {
-    this.store = typeof cwdOrStore === 'string' ? new ProjectMemoryStore(cwdOrStore) : cwdOrStore;
+  constructor(store: ProjectMemoryStore) {
+    this.store = store;
   }
 
   /** P1R: recall takes only a budget (`IMemoryBudget`) — no fabricated `IAutomaticMemoryConfig`. */

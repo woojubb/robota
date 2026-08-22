@@ -11,6 +11,7 @@ import type {
 
 interface IWorkspaceAuthorityRecord {
   readonly identity: IWorkspaceIdentity;
+  readonly identityResolver: IWorkspaceIdentityResolver;
   readonly reader: IWorkspaceProjectReader;
 }
 
@@ -24,6 +25,7 @@ export function mintWorkspaceProjectAuthority(
   const authority = Object.freeze(Object.create(null)) as IWorkspaceProjectAuthority;
   authorityRecords.set(authority, {
     identity,
+    identityResolver,
     reader: createWorkspaceProjectReader(identity, identityResolver),
   });
   return authority;
@@ -58,4 +60,14 @@ export function getWorkspaceProjectIdentity(
   const record = authorityRecords.get(accepted);
   if (record === undefined) throw new WorkspaceAuthorityRequiredError();
   return record.identity;
+}
+
+/** Internal-only dependency for authority-derived imperative adapters. */
+export function getWorkspaceProjectIdentityResolver(
+  authority: IWorkspaceProjectAuthority,
+): IWorkspaceIdentityResolver {
+  const accepted = assertWorkspaceProjectAuthority(authority);
+  const record = authorityRecords.get(accepted);
+  if (record === undefined) throw new WorkspaceAuthorityRequiredError();
+  return record.identityResolver;
 }
