@@ -2,7 +2,11 @@
 
 ## Scope
 
-Owns the CLI session lifecycle for the Robota SDK. This package provides the `Session` class that wraps a `Robota` agent instance with permission-gated tool execution, hook-based lifecycle events, context window tracking, conversation compaction, and optional persistence through `IInteractiveSessionStore`. `NodeSessionStore` is the explicitly named host-filesystem adapter. The package is the primary runtime used by the CLI application (`agent-cli`) via the assembly layer (`agent-framework`).
+Owns the CLI session lifecycle for the Robota SDK. This package provides the `Session` class that wraps a `Robota` agent instance with permission-gated tool execution, hook-based lifecycle events, context window tracking, conversation compaction, and optional persistence through `IInteractiveSessionStore`. `NodeSessionStore` is the explicitly named host-filesystem adapter. The package is the primary runtime used by the CLI application (`agent-cli`) via the assembly layer (`agent-framework`). It also owns the **runtime codec for the
+persisted session record** (TRANS-005): the record's TYPE is owned by
+`@robota-sdk/agent-interface-transport`, but a decoder is a mechanism, and an `agent-interface-*`
+package publishes contracts, vocabulary and discriminators rather than mechanisms
+(`scan-interface-runtime`). The codec therefore lives beside the persistence paths that consume it.
 
 ## Boundaries
 
@@ -17,7 +21,8 @@ Owns the CLI session lifecycle for the Robota SDK. This package provides the `Se
 - Does not own the permission evaluation algorithm or hook execution engine. Those belong to `@robota-sdk/agent-core` (`evaluatePermission`, `runHooks`).
 - **Owns the file-persistence primitive, not the record or port shape.** `NodeSessionStore` owns atomic
   JSON file persistence and directly implements `IInteractiveSessionStore`; both that port and
-  `IInteractiveSessionRecord` are owned by `@robota-sdk/agent-interface-transport` (DATA-001 SSOT).
+  `IInteractiveSessionRecord` are owned by `@robota-sdk/agent-interface-transport` (DATA-001 SSOT). It also owns the record's runtime DECODER (TRANS-005) — the shape is
+  declared there, and the mechanism that validates a value against it lives here.
   The former local `ISessionRecord` and `ISessionStore` declarations were removed because they drifted
   from the canonical contract. Public compatibility names are renamed re-exports only. The store remains
   payload-agnostic in behavior (it never inspects persisted fields; `load`/`list` keep the honest
@@ -84,6 +89,9 @@ Types owned by this package (SSOT):
 
 | Type                                        | Kind      | File                                       | Description                                                                                           |
 | ------------------------------------------- | --------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `ISessionRecordDecodeIssue`                 | Interface | `session-record-codec/decode-outcome.ts`   | TRANS-005: one decode failure, located — a machine-readable `path` plus a human `message`             |
+| `TSessionRecordDecodeOutcome`               | Type      | `session-record-codec/decode-outcome.ts`   | TRANS-005: `valid` \| `corrupt` \| `unsupported` — deliberately no `missing` member                   |
+| `IVersionedInteractiveSessionRecord`        | Interface | `session-record-codec/record-decoder.ts`   | TRANS-005: `{ schemaVersion, record }` — how a persisted record's version travels with its bytes      |
 | `ISessionOptions`                           | Interface | `session-types.ts`                         | Constructor options for Session (tools, provider, systemMessage, providerTimeout, optional sessionId) |
 | `ISessionShutdownOptions`                   | Interface | `session-types.ts`                         | Graceful shutdown options, including Claude-compatible `reason`                                       |
 | `TPermissionHandler`                        | Type      | `permission-types.ts`                      | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                                   |
@@ -145,6 +153,10 @@ Types consumed from other packages (not owned here):
 | `CompactionError`                           | Class                | Thrown when a compaction summary is invalid — history is preserved untouched (see Compaction Failure Contract)                            |
 | `DEFAULT_COMPACTION_PROMPT`                 | Constant             | Domain-neutral base template of the compaction summarization prompt; replaceable via `ISessionOptions.compactionBasePrompt`               |
 | `NodeSessionStore`                          | Class                | Explicit host-filesystem JSON persistence adapter for session records                                                                     |
+| `decodeInteractiveSessionRecord`            | Function             | TRANS-005: decode `unknown` into a fully validated `IInteractiveSessionRecord`, or report every place it failed                           |
+| `decodeVersionedInteractiveSessionRecord`   | Function             | TRANS-005: the same behind the schema-version gate — a version this build does not implement stops the decode                             |
+| `INTERACTIVE_SESSION_RECORD_VERSION`        | Constant             | TRANS-005: the persisted record shape this build reads and writes                                                                         |
+| `INTERACTIVE_SESSION_RECORD_KEYS`           | Constant             | TRANS-005: the record's declared key set, so a contract member added without a decoder branch is caught by test                           |
 | `isSafeSessionId`                           | Function             | SEC-006: whether a session id is safe to use as a single filesystem path component                                                        |
 | `assertSafeSessionId`                       | Function             | SEC-006: throws unless the session id is a safe path component — the guard `NodeSessionStore` applies to every id it joins into a path    |
 | `CheckpointTree`                            | Class                | SELFHOST-007 neutral, I/O-free branch tree over `{id,parentId}` checkpoint nodes (fork/switch/listBranches/ancestors/activeLeaf)          |
@@ -281,6 +293,56 @@ The repo-root `./scripts/migrate-session-history.mjs` backfills the `history` fi
 | `load`   | `(id: string) => IInteractiveSessionRecord \| undefined` | Load a session by ID. Returns undefined if not found.                                                                                                                  |
 | `list`   | `() => IInteractiveSessionRecord[]`                      | List all sessions, sorted by updatedAt descending.                                                                                                                     |
 | `delete` | `(id: string) => void`                                   | Delete a session file. No-ops if not found.                                                                                                                            |
+
+## The Persisted Session Record Is Decoded, Never Cast (TRANS-005)
+
+`IInteractiveSessionRecord` is persisted and transferred, so it needs a RUNTIME owner and not only a
+compile-time one. The TYPE is owned by `@robota-sdk/agent-interface-transport`; the DECODER is owned
+here, because an `agent-interface-*` package publishes contracts, vocabulary and discriminators and
+not mechanisms (`scan-interface-runtime`), and because every consumer that will route through it —
+the store, the artifact envelope, the handoff commit and the replay path — is in this package or in
+`agent-framework`, which depends on it. `decodeInteractiveSessionRecord(value: unknown)` is that owner: it returns a record
+every member of which was checked, or the list of every place the value failed — not the first place.
+
+The outcome has three members and deliberately not a fourth:
+
+| `status`      | Means                                                             | Carries                               |
+| ------------- | ----------------------------------------------------------------- | ------------------------------------- |
+| `valid`       | Every member decoded                                              | `record: IInteractiveSessionRecord`   |
+| `corrupt`     | The value is not a record of this shape                           | `issues: ISessionRecordDecodeIssue[]` |
+| `unsupported` | The envelope names a schema version this build does not implement | `schemaVersion: number \| undefined`  |
+
+`missing` is NOT a member. Absence is a property of a store, not of a value — a record that is not
+there never reaches a decoder — so a store composes its own `missing` with these three. Collapsing
+corruption into absence is what let a damaged file resume as a silently field-stripped session.
+
+An issue locates the failure with a `path` (`messages[2].timestamp`, empty at the root) separate from
+its human `message`, because a caller that must CLASSIFY a failure cannot do it by reading prose.
+
+Four decisions a consumer depends on:
+
+- **Dates are revived.** The contract declares `messages[].timestamp` and `history[].timestamp` as
+  `Date`, and JSON has no date type. The decoder accepts an ISO-8601 string or a live `Date` and
+  produces a `Date`, so a decoded record satisfies its declared type rather than merely resembling it.
+- **String timestamps stay strings, but must parse.** `createdAt`, `updatedAt` and the other `…At`
+  members are declared `string`. They are still checked as instants, because resume ordering sorts on
+  `new Date(updatedAt).getTime()` and an unparseable value sorts as `NaN` rather than failing.
+- **Unknown keys on a declared object are a defect.** A persisted record is written by this build's
+  own code at a known version, so an unrecognised member means the shape drifted — which is what the
+  version gate reports. Maps the contract leaves OPEN (`history[].data`, message `metadata`,
+  `memoryEvents[].data`, task `metadata`, a schema's `properties`) accept any key; only their values
+  are constrained.
+- **`TUniversalValue`'s `Date` member is unreachable through persistence.** Inside an open map a
+  persisted date is a string indistinguishable from any other string, and reviving by shape would
+  convert a user's date-like text into a `Date`. Open-map contents decode as JSON values.
+
+**Versioning.** `INTERACTIVE_SESSION_RECORD_VERSION` names the shape this build reads and writes, and
+`IVersionedInteractiveSessionRecord` (`{ schemaVersion, record }`) is how it travels with the bytes.
+The version is NOT a member of `IInteractiveSessionRecord`: required would oblige every producer to
+set it, and optional would mean absent-is-acceptable, which is the permissive reader this codec
+replaces. `decodeVersionedInteractiveSessionRecord` reads the version FIRST and returns `unsupported`
+without nested issues — field defects measured against another version's shape describe the reader's
+expectations, not the data's condition.
 
 ## Session Logging
 
