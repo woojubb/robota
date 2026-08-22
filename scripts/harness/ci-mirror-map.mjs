@@ -193,6 +193,15 @@ export const CI_STAGES = [
  */
 export const NOT_MIRRORED = [
   {
+    context: 'regression-red-proof (enforcing: accidental-green only)',
+    reason:
+      "the checker RUNS locally and is useful there, but it cannot reproduce this context's VERDICT. The opt-out is read from `PR_BODY` joined with the commit subjects, and off a pull request `PR_BODY` is empty — so an `allow-green-at-base: <reason>` declared in the body ALONE is invisible locally and the run reports `accidental-green` for a case CI legitimately excuses. A mirror that can disagree with the gate on the gate's own escape hatch is worse than no mirror: it would report a blocking verdict the required check does not hold.",
+    relevance: 'code',
+    relevantWhen: 'the diff changes product code — ci.yml reports docs-only work as N/A',
+    manualCommand:
+      'REGRESSION_RED_PROOF_ENFORCE=1 node scripts/harness/check-regression-red-proof.mjs   (reads the opt-out from commit subjects only; a PR-body opt-out will NOT be seen, so a local `accidental-green` is a question to check against the pull request, not a verdict)',
+  },
+  {
     context: 'dependency audit',
     reason:
       'downloads the osv-scanner binary from GitHub and scans the lockfile against the OSV.dev database — it needs network access and an external toolchain, so a local run could not be made deterministic or offline.',

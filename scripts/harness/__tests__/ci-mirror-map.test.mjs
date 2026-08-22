@@ -274,7 +274,17 @@ describe('the ruleset declaration matches the workflow it names', () => {
       const source = readFileSync(workflowPath, 'utf8');
       expect(() => jobRunSteps(source, job)).not.toThrow();
       // The context string is the job's `name:`, which is what branch protection matches on.
-      expect(source).toContain(`name: ${context}`);
+      //
+      // Accept the quoted spellings. A raw `toContain` held only while every context happened to be
+      // a bare scalar; `regression-red-proof (enforcing: accidental-green only)` contains `: `, so
+      // YAML REQUIRES quoting it and the unquoted form the assertion looked for cannot legally
+      // exist. The property being checked is unchanged — the job's `name:` is the context string —
+      // and the assertion now recognises the only spellings that can express it.
+      const escaped = context.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      expect(
+        new RegExp(`^\\s*name:\\s*(['"]?)${escaped}\\1\\s*$`, 'm').test(source),
+        `no job in ${declared.workflow} declares \`name: ${context}\` (bare or quoted)`,
+      ).toBe(true);
     },
   );
 });
