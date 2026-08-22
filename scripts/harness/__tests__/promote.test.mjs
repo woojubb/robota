@@ -59,6 +59,16 @@ async function newRepo() {
  */
 const NO_CLOSES = () => '';
 
+/**
+ * issue #1980 — the ruleset reconciliation reads GitHub, so it is INJECTED for the same reason
+ * `NO_CLOSES` is. `newRepo()` usually creates no `origin`, which makes `originSlug` return nothing
+ * and the reconciliation return early — but the fetch case below adds a REAL local bare repo as
+ * `origin`, and `originSlug` parses `/tmp/…/robota-promote-origin-XXXX` into the plausible-looking
+ * slug `tmp/robota-promote-origin-XXXX`. That reaches `gh api` and the network, in a case whose own
+ * comment promises none is needed.
+ */
+const NO_RECONCILE = () => [];
+
 async function run(root, extraArgv = [], options = {}) {
   let output = '';
   // extraArgv first: `flag()` reads the FIRST occurrence, so a test override must precede the defaults.
@@ -70,6 +80,7 @@ async function run(root, extraArgv = [], options = {}) {
     },
     fetch: false,
     closesBlock: NO_CLOSES,
+    reconcileRulesets: NO_RECONCILE,
     ...options,
   });
   return { code, output };
@@ -83,6 +94,7 @@ async function runWithOptions(root, options) {
       output += text;
     },
     closesBlock: NO_CLOSES,
+    reconcileRulesets: NO_RECONCILE,
     ...options,
   });
   return { code, output };
@@ -443,5 +455,42 @@ describe('promote.mjs --dry-run carries the reconciliation too (issue #1980)', (
     expect(output).toMatch(/--dry-run — the merge is clean/);
     expect(output).toMatch(/WARNING — a live ruleset does NOT match its declaration/);
     expect(output).toMatch(/promotion closes: the LIVE ruleset does not require it/);
+  });
+});
+
+/**
+ * issue #1980 — the hermetic promise, pinned.
+ *
+ * `newRepo()` usually has no `origin`, so the reconciliation returns early and nothing reaches the
+ * network by accident. The fetch case adds a REAL local bare repository as `origin`, and
+ * `originSlug` parses that path into a plausible-looking `owner/repo`. Without the injection in the
+ * shared helpers, the default implementation runs `gh api` against it.
+ *
+ * This asserts the outcome that distinguishes the two: an injected reconciliation reports nothing,
+ * while a real one against a slug derived from a temp path reports a finding. Remove
+ * `reconcileRulesets: NO_RECONCILE` from the helpers and this fails.
+ */
+describe('the promote suite stays hermetic when a local origin exists (issue #1980)', () => {
+  it('a repository with a real local origin produces no reconciliation output at all', async () => {
+    const { root, git } = await newRepo();
+    commit(root, git, 'feature.txt', 'work\n', 'feat: work');
+    const remote = await mkdtemp(path.join(tmpdir(), 'robota-promote-origin-'));
+    roots.push(remote);
+    makeGit(remote)(['init', '--bare', '--quiet']);
+    git(['remote', 'add', 'origin', remote]);
+    git(['push', '--quiet', 'origin', 'main', 'develop']);
+
+    const { code, output } = await runWithOptions(root, {
+      argv: ['--dry-run', '--baseline', 'origin/develop'],
+    });
+
+    expect(code).toBe(0);
+    // The injected reconciliation returns no findings, so the CLEAN line is the correct output.
+    expect(output).toMatch(/declarations reconcile against the live rulesets/);
+    // These two are the discriminators. Either one means the real implementation ran: a WARNING
+    // because `gh api` judged a slug invented from a temp path, or the unreachable notice because
+    // it tried and could not. Both require the network this case promises not to need.
+    expect(output).not.toMatch(/WARNING — a live ruleset/);
+    expect(output).not.toMatch(/could NOT reconcile the rulesets/);
   });
 });
