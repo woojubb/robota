@@ -386,15 +386,39 @@ judgement conditions above govern, and when one of them holds the branch stays a
 **Never** use `gh pr merge --delete-branch` (see the ban above) — delete explicitly, only after confirming
 the branch is merged:
 
-- **Local:** `git branch -d <branch>` (the `-d` form refuses an unmerged branch — a built-in guard).
-- **Remote:** confirm merged, then `gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<branch>`.
-- **Verify before remote deletion:** `git merge-base --is-ancestor origin/<branch> origin/main` (or
-  `origin/develop` for non-release merges) must succeed. If it does not, the branch carries commits the
-  target does not have — do not delete it; surface it.
+- **Verify first, and verify the MERGE COMMIT — never the branch.** This repository squash-merges: a
+  squash merge writes a NEW commit on the target, so a merged branch's own commits are ancestors of
+  nothing there. Ancestry of the branch therefore answers a question nobody asked. Ask instead whether
+  the branch's pull request LANDED on the target:
+
+  ```bash
+  MC=$(gh pr list --state merged --head "<branch>" --json mergeCommit --jq '.[0].mergeCommit.oid')
+  [ -n "$MC" ] && git merge-base --is-ancestor "$MC" origin/main   # or origin/develop
+  ```
+
+  **Both halves are required.** A merged pull request must exist for the branch, AND its merge commit
+  must be an ancestor of the target you name. A branch can carry a merged pull request whose base was
+  another feature branch, leaving its work on neither standing branch — so "it was merged" alone does
+  not authorize deletion. **If either half fails, do not delete it; surface it.**
+
+- **Name the target deliberately.** `main` trails `develop` between promotions, so a branch merged to
+  `develop` is legitimately absent from `main`. Check against the branch it was merged INTO.
+- **Local:** `git branch -D <branch>`, after the same verification. `-d` is not a usable guard here: it
+  applies the same ancestry test and so refuses every squash-merged branch. The verification above is
+  the guard; `-D` without it is not.
+- **Remote:** `gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<branch>`.
 
 **Never delete `develop` or `main`.**
 
 **Why:** stale merged branches obscure the active set; the confirmed per-branch delete (never merge-time `--delete-branch`) is the form that cannot take an integration branch or an unmerged PR with it.
+
+**Why the merge commit and not the branch.** Ancestry of the branch encodes the merge METHOD — it is
+true only where merges leave the branch's own commits on the target. Encoding a contingent fact about
+tooling as if it were a property of merged branches makes the rule unsatisfiable the moment the method
+changes, and this failure is silent: a check that refuses a correct action produces no contradiction,
+only a growing pile of undeletable branches that nothing prompts anyone to look at. The measured
+before-and-after is recorded in
+[PROC-012](../tasks/completed/PROC-012-verify-a-merged-branch-by-its-pull-request-merge-commit-not-by-branch-ancestry.md).
 
 ### Post-Merge Branch Cycle (mandatory)
 
