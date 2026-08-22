@@ -1,9 +1,11 @@
 import { findProviderDefinition } from '@robota-sdk/agent-core';
 import {
   applyActiveModelChange,
+  createDefaultUserSettingsSources,
+  createNodeHostSettingsStore,
   getUserSettingsPath,
   readSettings,
-  resolveGitBranch,
+  resolveGitBranchFromNodeHost,
 } from '@robota-sdk/agent-framework';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
@@ -25,11 +27,12 @@ export function createDefaultTuiCliAdapter({
     reloadPluginCommandSource: (registry) => {
       reloadPluginCommandSource(registry);
     },
-    applyActiveModelChange: (cwd, modelId, options) => {
-      applyActiveModelChange(cwd, modelId, options);
+    applyActiveModelChange: (_cwd, modelId, options) => {
+      const userStore = createNodeHostSettingsStore('user', getUserSettingsPath());
+      applyActiveModelChange(createDefaultUserSettingsSources(), [userStore], modelId, options);
       return { applied: true };
     },
-    getGitBranch: (cwd) => resolveGitBranch(cwd),
+    getGitBranch: (cwd) => resolveGitBranchFromNodeHost(cwd),
     getProviderDisplayName: (type) =>
       findProviderDefinition(providerDefinitions, type)?.displayName ?? type,
   };

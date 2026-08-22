@@ -1,4 +1,4 @@
-import { readMergedProviderSettingsFromPaths } from './provider-merge.js';
+import { readMergedProviderSettingsFromSources } from './provider-merge.js';
 import {
   buildProviderSetupPatch,
   mergeProviderPatch,
@@ -8,20 +8,16 @@ import {
   type IProviderSettingsBuildOptions,
   type TProviderSettingsDocument,
 } from './provider-settings.js';
-import { getProviderSettingsPaths } from '../../config/provider-paths.js';
-import { readSettings, writeSettings } from '../../config/settings-io.js';
+
+import type { TSettingsSource } from '../../config/settings-source.js';
+import type { ISettingsDocumentStore } from '../../config/settings-store.js';
 
 export interface IProviderSwitchOptions {
   knownProviders?: Record<string, IProviderProfileSettings>;
 }
 
 export interface IActiveModelChangeOptions {
-  settingsPaths?: readonly string[];
   providerOverride?: string | undefined;
-}
-
-export interface IProviderSettingsWriteTargetOptions {
-  settingsPaths?: readonly string[];
 }
 
 export interface IActiveModelChangeResult {
@@ -30,57 +26,55 @@ export interface IActiveModelChangeResult {
   profileName?: string;
 }
 
-export function resolveProviderSettingsWriteTargetPath(
-  cwd: string,
-  options: IProviderSettingsWriteTargetOptions = {},
-): string {
-  const settingsPaths = options.settingsPaths ?? getProviderSettingsPaths(cwd);
-  const targetPath = findLastPathWithCurrentProvider(settingsPaths) ?? settingsPaths[0];
-  if (targetPath === undefined) {
-    throw new Error('No settings path available for provider update');
+export function resolveProviderSettingsWriteTarget(
+  stores: readonly ISettingsDocumentStore[],
+): ISettingsDocumentStore {
+  const target = findLastStoreWithCurrentProvider(stores) ?? stores[0];
+  if (target === undefined) {
+    throw new Error('No settings store available for provider update');
   }
-  return targetPath;
+  return target;
 }
 
-function readProviderDocument(settingsPath: string): TProviderSettingsDocument {
-  return readSettings(settingsPath) as TProviderSettingsDocument;
+function readProviderDocument(store: ISettingsDocumentStore): TProviderSettingsDocument {
+  return store.read() as TProviderSettingsDocument;
 }
 
 export function applyProviderConfiguration(
-  settingsPath: string,
+  store: ISettingsDocumentStore,
   input: IProviderSetupInput,
   options: IProviderSettingsBuildOptions = {},
 ): TProviderSettingsDocument {
-  const settings = readProviderDocument(settingsPath);
+  const settings = readProviderDocument(store);
   const patch = buildProviderSetupPatch(input, options);
   const next = mergeProviderPatch(settings, patch);
-  writeSettings(settingsPath, next);
+  store.write(next);
   return next;
 }
 
 export function applyProviderSwitch(
-  settingsPath: string,
+  store: ISettingsDocumentStore,
   profileName: string,
   options: IProviderSwitchOptions = {},
 ): TProviderSettingsDocument {
-  const settings = readProviderDocument(settingsPath);
+  const settings = readProviderDocument(store);
   const hasLocalProfile = settings.providers?.[profileName] !== undefined;
   const hasKnownProfile = options.knownProviders?.[profileName] !== undefined;
   const next =
     hasLocalProfile || hasKnownProfile
       ? { ...settings, currentProvider: profileName }
       : setCurrentProvider(settings, profileName);
-  writeSettings(settingsPath, next);
+  store.write(next);
   return next;
 }
 
 export function applyActiveModelChange(
-  cwd: string,
+  sources: readonly TSettingsSource[],
+  stores: readonly ISettingsDocumentStore[],
   modelId: string,
   options: IActiveModelChangeOptions = {},
 ): IActiveModelChangeResult {
-  const settingsPaths = options.settingsPaths ?? getProviderSettingsPaths(cwd);
-  const merged = readMergedProviderSettingsFromPaths(settingsPaths);
+  const merged = readMergedProviderSettingsFromSources(sources);
   const activeProfileName = options.providerOverride ?? merged.currentProvider;
 
   if (typeof activeProfileName !== 'string') {
@@ -89,21 +83,20 @@ export function applyActiveModelChange(
     );
   }
 
-  return updateActiveProviderProfileModel(settingsPaths, activeProfileName, modelId);
+  return updateActiveProviderProfileModel(stores, activeProfileName, modelId);
 }
 
 function updateActiveProviderProfileModel(
-  settingsPaths: readonly string[],
+  stores: readonly ISettingsDocumentStore[],
   profileName: string,
   modelId: string,
 ): IActiveModelChangeResult {
-  const settingsPath =
-    findLastPathWithProviderProfile(settingsPaths, profileName) ?? settingsPaths[0];
-  if (settingsPath === undefined) {
-    throw new Error('No settings path available for model update');
+  const store = findLastStoreWithProviderProfile(stores, profileName) ?? stores[0];
+  if (store === undefined) {
+    throw new Error('No settings store available for model update');
   }
 
-  const settings = readProviderDocument(settingsPath);
+  const settings = readProviderDocument(store);
   const providers = settings.providers ?? {};
   const existing = providers[profileName] ?? {};
   const next: TProviderSettingsDocument = {
@@ -116,29 +109,31 @@ function updateActiveProviderProfileModel(
       },
     },
   };
-  writeSettings(settingsPath, next);
-  return { settingsPath, settings: next, profileName };
+  store.write(next);
+  return { settingsPath: store.displayName, settings: next, profileName };
 }
 
-function findLastPathWithProviderProfile(
-  settingsPaths: readonly string[],
+function findLastStoreWithProviderProfile(
+  stores: readonly ISettingsDocumentStore[],
   profileName: string,
-): string | undefined {
-  for (let index = settingsPaths.length - 1; index >= 0; index -= 1) {
-    const settingsPath = settingsPaths[index];
-    if (settingsPath === undefined) continue;
-    const settings = readProviderDocument(settingsPath);
-    if (settings.providers?.[profileName] !== undefined) return settingsPath;
+): ISettingsDocumentStore | undefined {
+  for (let index = stores.length - 1; index >= 0; index -= 1) {
+    const store = stores[index];
+    if (store === undefined) continue;
+    const settings = readProviderDocument(store);
+    if (settings.providers?.[profileName] !== undefined) return store;
   }
   return undefined;
 }
 
-function findLastPathWithCurrentProvider(settingsPaths: readonly string[]): string | undefined {
-  for (let index = settingsPaths.length - 1; index >= 0; index -= 1) {
-    const settingsPath = settingsPaths[index];
-    if (settingsPath === undefined) continue;
-    const settings = readProviderDocument(settingsPath);
-    if (settings.currentProvider !== undefined) return settingsPath;
+function findLastStoreWithCurrentProvider(
+  stores: readonly ISettingsDocumentStore[],
+): ISettingsDocumentStore | undefined {
+  for (let index = stores.length - 1; index >= 0; index -= 1) {
+    const store = stores[index];
+    if (store === undefined) continue;
+    const settings = readProviderDocument(store);
+    if (settings.currentProvider !== undefined) return store;
   }
   return undefined;
 }

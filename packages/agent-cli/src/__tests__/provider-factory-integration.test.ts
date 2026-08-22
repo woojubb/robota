@@ -4,9 +4,9 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createProviderFromProfile } from '@robota-sdk/agent-executor';
 import {
-  createProviderFromSettings,
-  getProviderSettingsPaths,
-  readProviderSettings,
+  createNodeHostSettingsSource,
+  createProviderFromSettings as createProviderFromSettingsSources,
+  readProviderSettings as readProviderSettingsFromSources,
 } from '@robota-sdk/agent-framework';
 import {
   AnthropicProvider,
@@ -22,6 +22,38 @@ import {
   QwenProvider,
   createQwenProviderDefinition,
 } from '@robota-sdk/agent-provider-openai-compatible';
+
+import type { IReadProviderSettingsOptions } from '@robota-sdk/agent-framework';
+
+function nodeHostProviderSettingsPaths(cwd: string): string[] {
+  const userHome = process.env.HOME ?? process.env.USERPROFILE ?? '/';
+  return [
+    join(userHome, '.robota', 'settings.json'),
+    join(userHome, '.claude', 'settings.json'),
+    join(cwd, '.robota', 'settings.json'),
+    join(cwd, '.robota', 'settings.local.json'),
+    join(cwd, '.claude', 'settings.json'),
+    join(cwd, '.claude', 'settings.local.json'),
+  ];
+}
+
+function providerSettingsSources(cwd: string) {
+  return nodeHostProviderSettingsPaths(cwd).map((path) =>
+    createNodeHostSettingsSource('user', path),
+  );
+}
+
+function readProviderSettings(cwd: string, options: IReadProviderSettingsOptions = {}) {
+  return readProviderSettingsFromSources(providerSettingsSources(cwd), options);
+}
+
+function createProviderFromSettings(
+  cwd: string,
+  modelOverride?: string,
+  options: IReadProviderSettingsOptions = {},
+) {
+  return createProviderFromSettingsSources(providerSettingsSources(cwd), modelOverride, options);
+}
 
 vi.mock('@robota-sdk/agent-provider-anthropic', () => {
   const MockAnthropicProvider = vi.fn().mockImplementation((options: unknown) => ({
@@ -246,7 +278,7 @@ describe('provider-factory', () => {
   });
 
   it('resolves user settings paths from HOME for test and runtime isolation', () => {
-    const paths = getProviderSettingsPaths(cwd);
+    const paths = nodeHostProviderSettingsPaths(cwd);
     const home = process.env.HOME;
     if (home === undefined) {
       throw new Error('HOME is required for this test');

@@ -1,6 +1,48 @@
 // @robota-sdk/agent-framework — Universal AI agent SDK
 // Provider-neutral. InteractiveSession is the single entry point.
 
+// ── Explicit workspace project authority (ARCH-042) ────────
+export {
+  WorkspaceAuthorityRequiredError,
+  WorkspaceTrustService,
+  createRestrictedWorkspaceProjectAccess,
+  assertWorkspaceProjectAuthority,
+  assertWorkspaceProjectReader,
+  assertWorkspaceProjectMutation,
+  assertWorkspaceProjectMutationForAuthority,
+  createWorkspaceProjectMutation,
+  assertWorkspaceProjectSettingsWriter,
+  assertWorkspaceProjectStateStorage,
+  createWorkspaceProjectSettingsWriter,
+  getWorkspaceProjectIdentity,
+  getWorkspaceProjectReader,
+  getWorkspaceProjectStateStorage,
+} from './workspace-trust/index.js';
+export type {
+  IRestrictedWorkspaceProjectAccess,
+  ITrustedWorkspaceProjectAccess,
+  IWorkspaceAncestorTextEntry,
+  IWorkspaceDirectoryEntry,
+  IWorkspaceIdentity,
+  IWorkspaceIdentityResolver,
+  IWorkspaceProjectAuthority,
+  IWorkspaceProjectReader,
+  IWorkspaceProjectMutation,
+  IWorkspaceProjectSettingsWriter,
+  IWorkspaceProjectStateStorage,
+  IWorkspaceTrustServiceOptions,
+  IWorkspaceTrustStore,
+  IWorkspaceTrustStoreSnapshot,
+  TWorkspaceContributionKind,
+  TWorkspaceProjectAuthorityCandidate,
+  TWorkspaceProjectAccess,
+  TWorkspaceProjectSettingsTarget,
+  TWorkspaceProjectSettingsWriteDecision,
+  TWorkspaceProjectMutationDecision,
+  TWorkspaceProjectStateNamespace,
+  TWorkspaceTrustState,
+} from './workspace-trust/index.js';
+
 // ── InteractiveSession (primary API) ────────────────────────
 export { InteractiveSession, PeerMessageIngress } from './interactive/index.js';
 
@@ -23,11 +65,15 @@ export {
 export { PlanController, type TPlanDecision, type IPlanControllerDeps } from './plan/index.js';
 export {
   createProjectSessionStore,
+  createNodeHostSessionStore,
   createUserSessionStore,
   listResumableSessionSummaries,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
   generateSessionName,
+  WorkspaceProjectSessionStore,
+  WorkspaceSessionLogSink,
+  WorkspaceSessionLogSource,
 } from './interactive/index.js';
 export type {
   TInteractiveSessionOptions,
@@ -105,7 +151,6 @@ export type {
   IProviderSwitchOptions,
   IActiveModelChangeOptions,
   IActiveModelChangeResult,
-  IProviderSettingsWriteTargetOptions,
   IReadProviderSettingsOptions,
   IContextReferenceAddResult,
   IContextReferenceClearResult,
@@ -116,14 +161,14 @@ export {
   buildProviderProfile,
   buildProviderSetupPatch,
   checkSettingsDocument,
-  checkSettingsFile,
+  checkNodeHostSettingsFile,
   applyProviderConfiguration,
   applyProviderSwitch,
   applyActiveModelChange,
-  resolveProviderSettingsWriteTargetPath,
+  resolveProviderSettingsWriteTarget,
   mergeProviders,
   mergeSettings,
-  readMergedProviderSettingsFromPaths,
+  readMergedProviderSettingsFromSources,
   resolveActiveProvider,
   createProviderFromSettings,
   ProviderConfigError,
@@ -289,8 +334,8 @@ export {
   MEMORY_INDEX_MAX_LINES,
   MEMORY_INDEX_MAX_BYTES,
   isMemoryType,
-  FileSystemMemoryStore,
-  createFileSystemMemoryStore,
+  WorkspaceMemoryStore,
+  createWorkspaceMemoryStore,
   SemanticMemoryStore,
   createSemanticMemoryStore,
   DEFAULT_MEMORY_EXTRACTOR_POLICY,
@@ -381,7 +426,7 @@ export type {
 } from './reversible-execution/index.js';
 
 // ── Plugin management ───────────────────────────────────────
-export { PluginSettingsStore, BundlePluginLoader } from './plugins/index.js';
+export { NodeHostPluginSettingsStore, BundlePluginLoader } from './plugins/index.js';
 export type { IPluginSettings } from './plugins/index.js';
 export { BundlePluginInstaller } from './plugins/index.js';
 export { MarketplaceClient } from './plugins/index.js';
@@ -503,8 +548,17 @@ export { PromptExecutor, AgentExecutor } from './hooks/index.js';
 export type { TProviderFactory, IPromptProvider, IPromptExecutorOptions } from './hooks/index.js';
 export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './hooks/index.js';
 
-// ── Paths ───────────────────────────────────────────────────
-export { projectPaths, userPaths } from './paths.js';
+// ── User-owned host paths ───────────────────────────────────
+export { userPaths } from './paths.js';
+
+// ── Explicit project/host contribution sources ─────────────
+export {
+  createContributionSourcesForProjectAccess,
+  createDefaultUserContributionSources,
+  createNodeHostContributionSource,
+  createWorkspaceProjectContributionSource,
+} from './contributions/index.js';
+export type { IContributionSource } from './contributions/index.js';
 
 // ── Task context ───────────────────────────────────────────
 export {
@@ -512,7 +566,7 @@ export {
   formatTaskContext,
   loadTaskContext,
   parseTaskFile,
-  readCurrentGitBranch,
+  readCurrentGitBranchFromNodeHost,
   selectRelevantTasks,
 } from './context/task-context.js';
 export type {
@@ -575,8 +629,24 @@ export { promptForApproval } from './permissions/permission-prompt.js';
 
 // ── Settings I/O ─────────────────────────────────────────────
 export {
+  createDefaultUserSettingsSources,
+  createNodeHostSettingsSource,
+  createWorkspaceProjectSettingsSources,
+  readSettingsSourceText,
+} from './config/settings-source.js';
+export type {
+  IWorkspaceProjectSettingsSource,
+  THostSettingsScope,
+  TProjectSettingsScope,
+  TSettingsSource,
+} from './config/settings-source.js';
+export {
+  createNodeHostSettingsStore,
+  createWorkspaceProjectSettingsStore,
+} from './config/settings-store.js';
+export type { ISettingsDocumentStore } from './config/settings-store.js';
+export {
   getUserSettingsPath,
-  resolveSettingsPathForScope,
   readSettings,
   writeSettings,
   updateModelInSettings,
@@ -587,11 +657,8 @@ export { SettingsParseError } from './config/settings-parse-error.js';
 export { resetUserConfig } from './config/reset-user-config.js';
 export type { IResetUserConfigResult } from './config/reset-user-config.js';
 
-// ── Provider settings paths ──────────────────────────────────
-export { getProviderSettingsPaths } from './config/provider-paths.js';
-
 // ── Git utilities ─────────────────────────────────────────────
-export { resolveGitBranch } from './git/git-branch.js';
+export { resolveGitBranchFromNodeHost } from './git/git-branch.js';
 
 // ── Semver comparison ─────────────────────────────────────────
 export { compareSemverVersions, isNewerSemverVersion } from './utils/semver-compare.js';

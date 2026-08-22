@@ -2,7 +2,7 @@
 
 ## Scope
 
-Owns the CLI session lifecycle for the Robota SDK. This package provides the `Session` class that wraps a `Robota` agent instance with permission-gated tool execution, hook-based lifecycle events, context window tracking, conversation compaction, and optional JSON file persistence via `SessionStore`. It is the primary runtime used by the CLI application (`agent-cli`) via the assembly layer (`agent-framework`).
+Owns the CLI session lifecycle for the Robota SDK. This package provides the `Session` class that wraps a `Robota` agent instance with permission-gated tool execution, hook-based lifecycle events, context window tracking, conversation compaction, and optional persistence through `IInteractiveSessionStore`. `NodeSessionStore` is the explicitly named host-filesystem adapter. The package is the primary runtime used by the CLI application (`agent-cli`) via the assembly layer (`agent-framework`).
 
 ## Boundaries
 
@@ -15,14 +15,14 @@ Owns the CLI session lifecycle for the Robota SDK. This package provides the `Se
   the base template. No other model-facing prompt text originates in this package.
 - Does not own configuration resolution or context loading. Those belong to `agent-framework`.
 - Does not own the permission evaluation algorithm or hook execution engine. Those belong to `@robota-sdk/agent-core` (`evaluatePermission`, `runHooks`).
-- **Owns the file-persistence primitive, not the record or port shape.** `SessionStore` owns atomic
+- **Owns the file-persistence primitive, not the record or port shape.** `NodeSessionStore` owns atomic
   JSON file persistence and directly implements `IInteractiveSessionStore`; both that port and
   `IInteractiveSessionRecord` are owned by `@robota-sdk/agent-interface-transport` (DATA-001 SSOT).
   The former local `ISessionRecord` and `ISessionStore` declarations were removed because they drifted
   from the canonical contract. Public compatibility names are renamed re-exports only. The store remains
   payload-agnostic in behavior (it never inspects persisted fields; `load`/`list` keep the honest
   `JSON.parse(...) as IInteractiveSessionRecord` trust boundary). Consumers obtain a session store through SDK facades
-  (`createProjectSessionStore`) rather than constructing `SessionStore` directly.
+  (`createProjectSessionStore`) rather than treating a host directory as project authority.
 - **Owns the shareable session-artifact envelope (SELFHOST-014).** `session-artifact.ts` — a
   record-**transport** sibling of the file-backed `session-store.ts` — is the neutral export/import envelope
   over `IInteractiveSessionRecord`, the async durable COMPLEMENT to REMOTE-001's live channel (no transport/pairing/wire).
@@ -50,11 +50,14 @@ session-tool-execution-bridge.ts -- Bridges unknown-tool replay events to onTool
 permission-enforcer.ts    -- PermissionEnforcer: tool wrapping, permission checks, hooks, truncation
 context-window-tracker.ts -- ContextWindowTracker: token usage tracking, auto-compact threshold
 compaction-orchestrator.ts -- CompactionOrchestrator: conversation summarization via LLM
-session-logger.ts         -- ISessionLogger interface + FileSessionLogger / SilentSessionLogger
+session-logger.ts         -- ISessionLogger interface + sink-driven FileSessionLogger / SilentSessionLogger
+session-log-sources.ts    -- neutral log/payload read ports + explicit Node host adapters
+session-log-sinks.ts      -- neutral log/payload write ports + explicit Node host adapter
+session-log-replay.ts     -- source-driven parsing, hydration, replay, and validation
 external-payload-resolution-contracts.ts -- Public resolver options and stable typed error contract
 external-payload-file-reader.ts -- Internal exact-shape, containment, I/O, and integrity primitives
 external-payload-resolver.ts -- Bounded recursive JSON sidecar hydration at the read boundary
-session-store.ts          -- SessionStore: JSON file persistence for conversation sessions
+session-store.ts          -- NodeSessionStore: explicit host JSON persistence adapter
 ```
 
 **Design patterns used:**
@@ -64,13 +67,16 @@ session-store.ts          -- SessionStore: JSON file persistence for conversatio
 - **Adapter** -- `session-tool-execution-bridge` adapts core replay events for unregistered tool calls into the same UI callback shape used by wrapped registered tools.
 - **Strategy (injected)** -- Permission approval can be handled by a `TPermissionHandler` callback, an injected `promptForApproval` function, or denied by default.
 - **Composition** -- Session delegates to PermissionEnforcer, ContextWindowTracker, and CompactionOrchestrator rather than implementing everything inline.
-- **Null Object** -- When no `SessionStore` is provided, persistence is silently skipped.
+- **Null Object** -- When no `IInteractiveSessionStore` is provided, persistence is silently skipped.
 
 **Dependency direction:**
 
 - `@robota-sdk/agent-session` depends on `@robota-sdk/agent-core` and `@robota-sdk/agent-interface-transport` (SSOT for `ICompactEvent`/`TCompactTrigger`).
 - No dependency on `@robota-sdk/agent-tools` or `@robota-sdk/agent-provider-anthropic`.
 - Tool and provider assembly is the responsibility of the consuming layer (`agent-framework`).
+- Workspace trust and project-path interpretation are also framework responsibilities. This package owns only
+  neutral session record/log/payload mechanisms and explicit source/sink ports; it never imports or reconstructs
+  a workspace authority from a path.
 
 ## Type Ownership
 
@@ -87,11 +93,15 @@ Types owned by this package (SSOT):
 | `ISessionLogger`                            | Interface | `session-logger.ts`                        | Pluggable session event logger interface                                                              |
 | `TSessionLogData`                           | Type      | `session-logger.ts`                        | Structured log event data (`Record<string, string \| number \| boolean \| object \| null>`)           |
 | `IExternalPayloadReference`                 | Interface | `session-logger.ts`                        | Content-addressed JSON payload reference used when a log field exceeds inline size policy             |
-| `ISessionLogPayloadResolutionOptions`       | Interface | `external-payload-resolution-contracts.ts` | Sidecar base directory plus depth and aggregate-byte limits                                           |
+| `ISessionLogPayloadResolutionOptions`       | Interface | `external-payload-resolution-contracts.ts` | Explicit payload source plus depth and aggregate-byte limits                                          |
 | `ISessionLogPayloadResolutionErrorMetadata` | Interface | `external-payload-resolution-contracts.ts` | Optional path, depth, and expected/actual error context                                               |
 | `TSessionLogPayloadResolutionErrorCode`     | Type      | `external-payload-resolution-contracts.ts` | Stable fail-closed error code vocabulary for sidecar resolution                                       |
-| `ISessionLogLoadOptions`                    | Type      | `session-log-replay.ts`                    | Loader limits with the log-derived base directory omitted                                             |
+| `ISessionLogLoadOptions`                    | Type      | `session-log-replay.ts`                    | Optional payload-source override plus depth and aggregate-byte limits                                 |
 | `ISessionReplayRecord`                      | Interface | `session-log-replay.ts`                    | Reconstructed replay state from append-only JSONL logs                                                |
+| `ISessionLogSource`                         | Interface | `session-log-sources.ts`                   | Neutral source of JSONL text and its optional payload source                                          |
+| `ISessionLogSink`                           | Interface | `session-log-sinks.ts`                     | Neutral append sink used by live logging                                                              |
+| `IExternalPayloadSource`                    | Interface | `session-log-sources.ts`                   | Neutral relative sidecar-byte source that enforces the caller-supplied per-read budget                |
+| `IExternalPayloadSink`                      | Interface | `session-log-sinks.ts`                     | Neutral content-addressed sidecar-byte sink                                                           |
 
 Types consumed from other packages (not owned here):
 
@@ -134,11 +144,15 @@ Types consumed from other packages (not owned here):
 | `CompactionOrchestrator`                    | Class                | Conversation compaction via LLM summary                                                                                                   |
 | `CompactionError`                           | Class                | Thrown when a compaction summary is invalid — history is preserved untouched (see Compaction Failure Contract)                            |
 | `DEFAULT_COMPACTION_PROMPT`                 | Constant             | Domain-neutral base template of the compaction summarization prompt; replaceable via `ISessionOptions.compactionBasePrompt`               |
-| `SessionStore`                              | Class                | JSON file persistence for session records (`~/.robota/sessions/`)                                                                         |
+| `NodeSessionStore`                          | Class                | Explicit host-filesystem JSON persistence adapter for session records                                                                     |
 | `isSafeSessionId`                           | Function             | SEC-006: whether a session id is safe to use as a single filesystem path component                                                        |
-| `assertSafeSessionId`                       | Function             | SEC-006: throws unless the session id is a safe path component — the guard `SessionStore` applies to every id it joins into a path        |
+| `assertSafeSessionId`                       | Function             | SEC-006: throws unless the session id is a safe path component — the guard `NodeSessionStore` applies to every id it joins into a path    |
 | `CheckpointTree`                            | Class                | SELFHOST-007 neutral, I/O-free branch tree over `{id,parentId}` checkpoint nodes (fork/switch/listBranches/ancestors/activeLeaf)          |
-| `FileSessionLogger`                         | Class                | JSONL file-based session event logger                                                                                                     |
+| `FileSessionLogger`                         | Class                | Sink-driven JSONL session event logger; it opens no path itself                                                                           |
+| `NodeSessionLogSource`                      | Class                | Explicit host filesystem adapter for one JSONL file and its relative payload sidecars                                                     |
+| `NodeSessionLogSink`                        | Class                | Explicit host filesystem adapter for append/flush and owner-only payload sidecars                                                         |
+| `NodeExternalPayloadSource`                 | Class                | Explicit host filesystem adapter for bounded relative external-payload reads                                                              |
+| `createSessionLogExternalPayloadReference`  | Function             | SSOT that validates a safe session id and exact lowercase content digest before constructing a sidecar reference                          |
 | `SilentSessionLogger`                       | Class                | No-op session logger                                                                                                                      |
 | `ISessionOptions`                           | Interface            | Constructor options for Session                                                                                                           |
 | `ISessionShutdownOptions`                   | Interface            | Graceful shutdown options for `Session.shutdown()`                                                                                        |
@@ -157,10 +171,12 @@ Types consumed from other packages (not owned here):
 | `AUTO_COMPACT_THRESHOLD`                    | Constant             | Default auto-compact threshold fraction of the context window (exported from `context-window-tracker.ts`)                                 |
 | `SESSION_LOG_EVENT`                         | Constant             | Session log event-name enum object (`session-log-events.ts`)                                                                              |
 | `isSessionLogEvent`                         | Function             | Type guard for a `TSessionLogEventName`                                                                                                   |
-| `loadSessionLogEntries`                     | Function             | Loads and parses persisted session log entries from a JSONL file                                                                          |
+| `loadSessionLogEntries`                     | Function             | Parses and hydrates entries from an explicit `ISessionLogSource`/`IExternalPayloadSource`; it never opens a path by default               |
+| `replaySessionLogEntries`                   | Function             | Reconstructs session state from already hydrated entries without performing I/O                                                           |
+| `validateSessionReplayLogEntries`           | Function             | Validates already hydrated replay entries without opening a file or payload path                                                          |
 | `resolveSessionLogExternalPayloads`         | Function             | Recursively hydrates content-addressed JSON sidecars under bounded depth/bytes and verified containment/integrity                         |
 | `SessionLogPayloadResolutionError`          | Class                | Typed fail-closed error with stable `code` and structured resolution metadata                                                             |
-| `ISessionLogPayloadResolutionOptions`       | Interface            | Resolver base directory and optional `maxDepth` / `maxTotalBytes` limits                                                                  |
+| `ISessionLogPayloadResolutionOptions`       | Interface            | Explicit payload source and optional `maxDepth` / `maxTotalBytes` limits                                                                  |
 | `ISessionLogPayloadResolutionErrorMetadata` | Interface            | Structured optional path, depth, and expected/actual resolution-failure context                                                           |
 | `TSessionLogPayloadResolutionErrorCode`     | Type                 | Resolver error-code union                                                                                                                 |
 | `ISessionLogLoadOptions`                    | Type                 | `loadSessionLogEntries` options for depth and aggregate-byte limits                                                                       |
@@ -257,7 +273,7 @@ records must not become a command source or hidden preference store.
 
 The repo-root `./scripts/migrate-session-history.mjs` backfills the `history` field for sessions created before this field existed. It converts `messages[]` to `IHistoryEntry[]` format. Safe to run multiple times — skips sessions that already have `history`. Run once after upgrading.
 
-### Key SessionStore Methods
+### Key NodeSessionStore Methods
 
 | Method   | Signature                                                | Description                                                                                                                                                            |
 | -------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -269,6 +285,16 @@ The repo-root `./scripts/migrate-session-history.mjs` backfills the `history` fi
 ## Session Logging
 
 The session log records structured events to a JSONL file for diagnostics and replay. Logs must preserve enough raw data to reconstruct what was sent to the model and what came back:
+
+Live logging writes through `ISessionLogSink` and `IExternalPayloadSink`; parsing/hydration reads through
+`ISessionLogSource` and `IExternalPayloadSource`. Each payload-source read receives the remaining aggregate
+byte budget and must not return bytes that exceed it. A direct host-filesystem source must enforce the budget
+before and during the read; it may not fully allocate unbounded bytes and defer the limit check to the resolver.
+`NodeSessionLogSource`/`NodeSessionLogSink` are explicitly named host adapters. `NodeSessionLogSource`
+rejects an empty or whitespace-only log-file path before deriving sidecar authority from its directory. A
+project composition supplies framework authority-backed adapters instead of reopening an absolute path.
+Append, hot-path buffering, flush ordering, owner-only Node modes, sidecar integrity, and the warning-only
+diagnostic logging failure contract are preserved.
 
 `SESSION_LOG_EVENT` is the complete declared vocabulary for every production session-log event. Direct
 logger calls, `onExecutionEvent` literals emitted by agent-core, and replay-reader-only recognized
@@ -308,6 +334,18 @@ arrays, records, and sidecar contents. A canonical-path active stack rejects cyc
 32 nested references and 64 MiB total sidecar bytes per resolution operation; limits must be finite,
 non-negative safe integers.
 
+`NodeExternalPayloadSource` rejects an empty explicit base directory. Its current Linux implementation opens
+the canonical base once per read and traverses every relative component with no-follow descriptors, verifies
+the opened target is a regular file, and performs a budget-bounded read from that same descriptor. A link in
+any component fails closed; replacing a pathname after its component is open cannot redirect the held
+descriptor. Growth during the read, or a host without the implemented stable no-follow facility, fails closed
+without returning bytes.
+
+> **Contained — [ARCH-049](../../../.agents/tasks/ARCH-049-cross-platform-stable-external-payload-replay.md).**
+> The current stable external-payload reader is Linux-only, so public Node replay rejects externalized
+> payloads on macOS and Windows. ARCH-049 owns an equally strong stable-handle implementation for every
+> supported host; this containment must not be replaced with pathname validation followed by pathname I/O.
+
 Resolution fails closed with `SessionLogPayloadResolutionError`. Its stable `code` is one of
 `INVALID_LIMIT`, `INVALID_REFERENCE`, `UNRESOLVED_REFERENCE`, `OUTSIDE_ROOT`, `PAYLOAD_NOT_FOUND`,
 `PAYLOAD_UNREADABLE`, `BYTE_LENGTH_MISMATCH`, `SHA256_MISMATCH`, `INVALID_JSON`,
@@ -315,20 +353,24 @@ Resolution fails closed with `SessionLogPayloadResolutionError`. Its stable `cod
 include the relative/canonical path, depth, and expected/actual values, and filesystem/parse failures
 retain their cause.
 
-**On-disk permissions (SEC-003).** `logDir` is supplied by the caller and may be a shared or
-world-writable location, while the JSONL entries and externalized payloads hold conversation content.
-`FileSessionLogger` therefore creates its log directory and `{sessionId}.payloads/` directory with
-mode `0700`, and the `{sessionId}.jsonl` and payload files with mode `0600`, instead of inheriting the
-process umask. This is a permissions contract only; paths, names, and formats are unchanged.
+**On-disk permissions (SEC-003).** An explicitly constructed `NodeSessionLogSink(logDir)` treats the
+directory as host-owned authority. It creates the log directory and `{sessionId}.payloads/` directory
+with mode `0700`, and the `{sessionId}.jsonl` and payload files with mode `0600`, instead of inheriting
+the process umask. The public sink validates every direct `sessionId` use as one safe path component;
+payload writes additionally require a canonical lowercase 64-hex sha256 that equals the serialized
+content digest. `createSessionLogExternalPayloadReference()` owns that validation and reference construction
+for every host or authority-backed sink. `FileSessionLogger` receives the sink and never resolves or opens
+`logDir` itself.
 
 Externalized payloads are written with the exclusive-create flag (`wx`) rather than an `existsSync`
 check followed by a write, which was a TOCTOU race between concurrent sessions externalizing the same
 payload. Because the filename is the sha256 of the content, an `EEXIST` failure means the identical
 bytes are already on disk and is safely ignored.
 
-`session-log-replay.ts` owns replay readers and validators. `loadSessionLogEntries(logFile, options?)`
-derives the sidecar base directory from the log path and hydrates every JSONL line with one shared depth
-and aggregate-byte state before returning it. `replaySessionLogEntries()` reconstructs provider messages
+`session-log-replay.ts` owns replay readers and validators. `loadSessionLogEntries(source, options?)`
+reads only through an explicit `ISessionLogSource`; its attached payload source or an explicit option
+hydrates every JSONL line with one shared depth and aggregate-byte state before returning it. The neutral
+loader never turns a path into I/O authority. `replaySessionLogEntries()` reconstructs provider messages
 and chat history from already-hydrated `history_mutation` events.
 `validateSessionReplayLogEntries()` reports missing provider-native raw payloads, missing provider-normalized
 raw responses, missing normalized responses, unmatched tool requests/results, malformed references, and
@@ -385,7 +427,7 @@ replay substrate unresolved.
 
 12. **`ISessionOptions.autoCompactThreshold`** -- Optional automatic compaction threshold. A number is interpreted as a fraction of the context window; `false` disables automatic compaction.
 
-13. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
+13. **`NodeSessionStore` constructor** -- Accept a host-owned `baseDir`; this adapter is explicit and does not establish project trust.
 
 ## Abort Behavior
 
@@ -544,7 +586,10 @@ When `run()` encounters an error (e.g., from the execution loop or provider), th
 
 ### Interface Implementations
 
-No formal interface implementations. `PermissionEnforcer`, `ContextWindowTracker`, `CompactionOrchestrator`, and `SessionStore` are standalone classes.
+`NodeSessionStore` implements the `IInteractiveSessionStore` port owned by `agent-interface-transport`.
+`FileSessionLogger` implements `ISessionLogger`; `NodeSessionLogSource`, `NodeExternalPayloadSource`,
+and `NodeSessionLogSink` implement this package's neutral source/sink ports. Other runtime classes are
+standalone.
 
 ### Inheritance Chains
 
@@ -552,14 +597,16 @@ No formal interface implementations. `PermissionEnforcer`, `ContextWindowTracker
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                      | Consumer Class           | Location                         |
-| --------------------------------- | ------------------------ | -------------------------------- |
-| `Robota` (agent-core)             | `Session`                | `src/session.ts`                 |
-| `IAIProvider` (agent-core)        | `Session`                | `src/session.ts`                 |
-| `evaluatePermission` (agent-core) | `PermissionEnforcer`     | `src/permission-enforcer.ts`     |
-| `runHooks` (agent-core)           | `PermissionEnforcer`     | `src/permission-enforcer.ts`     |
-| `runHooks` (agent-core)           | `Session`                | `src/session.ts` (PostCompact)   |
-| `runHooks` (agent-core)           | `CompactionOrchestrator` | `src/compaction-orchestrator.ts` |
+| Port (Owner)                             | Consumer Class              | Location                                                  |
+| ---------------------------------------- | --------------------------- | --------------------------------------------------------- |
+| `Robota` (agent-core)                    | `Session`                   | `src/session.ts`                                          |
+| `IAIProvider` (agent-core)               | `Session`                   | `src/session.ts`                                          |
+| `evaluatePermission` (agent-core)        | `PermissionEnforcer`        | `src/permission-enforcer.ts`                              |
+| `runHooks` (agent-core)                  | `PermissionEnforcer`        | `src/permission-enforcer.ts`                              |
+| `runHooks` (agent-core)                  | `Session`                   | `src/session.ts` (PostCompact)                            |
+| `runHooks` (agent-core)                  | `CompactionOrchestrator`    | `src/compaction-orchestrator.ts`                          |
+| `IExternalPayloadSource` (agent-session) | `WorkspaceSessionLogSource` | `agent-framework/src/interactive/workspace-session-io.ts` |
+| `IExternalPayloadSink` (agent-session)   | `WorkspaceSessionLogSink`   | `agent-framework/src/interactive/workspace-session-io.ts` |
 
 ## Test Strategy
 
@@ -577,8 +624,8 @@ No formal interface implementations. `PermissionEnforcer`, `ContextWindowTracker
 - **PermissionEnforcer** -- `wrapTools()`, `checkPermission()`, session-scoped allow, tool truncation are untested.
 - **ContextWindowTracker** -- `updateFromHistory()`, `shouldAutoCompact()`, metadata vs fallback estimation are untested.
 - **CompactionOrchestrator** -- hook firing is untested. Prompt building (neutral default template, `basePrompt` injection, instruction appending) is covered by `compaction-prompt-neutrality.test.ts`; the failure contract by `compaction-failure-preservation.test.ts`.
-- **SessionStore** -- Covered by `agent-framework/src/__tests__/session-store.test.ts` (12 tests: save/load/list/delete/directory creation).
-- **FileSessionLogger** -- `log()`, file creation, JSONL formatting, error handling on read-only paths are untested.
+- **NodeSessionStore** -- Covered by package-local atomicity, traversal, and field-preservation tests plus framework facade tests.
+- **FileSessionLogger / source-sink adapters** -- Covered for hot-path buffering, source contracts, payload hydration, permissions, and failure degradation.
 - **SilentSessionLogger** -- No-op behavior untested (trivial, low priority).
 - All classes should be testable with mock `IAIProvider` and mock `ITerminalOutput` injections.
 

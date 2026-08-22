@@ -4,9 +4,12 @@ import { join } from 'node:path';
 
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
-import { createFileSystemMemoryStore } from '../../memory/file-system-memory-store.js';
+import { createWorkspaceMemoryStore } from '../../memory/file-system-memory-store.js';
+import {
+  createTrustedProjectSessionStoreFixture,
+  createTrustedProjectStateFixture,
+} from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
-import { createProjectSessionStore } from '../session-persistence.js';
 
 import type { IAutomaticMemoryConfig } from '../../memory/automatic-memory-types.js';
 import type { IMemoryStore } from '../../memory/types.js';
@@ -39,6 +42,10 @@ function createProvider(response = 'ok'): IAIProvider {
   } as unknown as IAIProvider;
 }
 
+async function createMemoryStore(cwd: string): Promise<IMemoryStore> {
+  return createWorkspaceMemoryStore(await createTrustedProjectStateFixture(cwd, 'memory'));
+}
+
 const APPROVAL: IAutomaticMemoryConfig = {
   policy: 'approval_required',
   retrieval: { maxTopics: 3, maxTopicChars: 3000 },
@@ -64,12 +71,13 @@ afterEach(() => {
 describe('SELFHOST-008 P2 TC-01/TC-05 — capture fires on a completed turn (queue-by-default)', () => {
   it('approval_required: a memory cue turn QUEUES a candidate + records a memory event (not auto-saved)', async () => {
     const cwd = makeProject();
-    const sessionStore = createProjectSessionStore(cwd);
+    const sessionStore = await createTrustedProjectSessionStoreFixture(cwd);
     const session = new InteractiveSession({
       cwd,
       provider: createProvider('noted'),
       bare: true,
       sessionStore,
+      memoryStore: await createMemoryStore(cwd),
       automaticMemory: APPROVAL,
     });
 
@@ -87,12 +95,13 @@ describe('SELFHOST-008 P2 TC-01/TC-05 — capture fires on a completed turn (que
 
   it('auto_save: a high-confidence cue turn SAVES durably + records a saved event', async () => {
     const cwd = makeProject();
-    const sessionStore = createProjectSessionStore(cwd);
+    const sessionStore = await createTrustedProjectSessionStoreFixture(cwd);
     const session = new InteractiveSession({
       cwd,
       provider: createProvider('noted'),
       bare: true,
       sessionStore,
+      memoryStore: await createMemoryStore(cwd),
       automaticMemory: AUTO_SAVE,
     });
 
@@ -109,7 +118,7 @@ describe('SELFHOST-008 P2 TC-01/TC-05 — capture fires on a completed turn (que
 describe('SELFHOST-008 P2 TC-03 — adapter-gating: no automaticMemory ⇒ capture OFF', () => {
   it('a memory-cue turn writes NO pending and records NO memory events', async () => {
     const cwd = makeProject();
-    const sessionStore = createProjectSessionStore(cwd);
+    const sessionStore = await createTrustedProjectSessionStoreFixture(cwd);
     const session = new InteractiveSession({
       cwd,
       provider: createProvider('ok'),
@@ -131,6 +140,7 @@ describe('SELFHOST-008 P2 TC-04 — sensitive content is refused on the capture 
       cwd,
       provider: createProvider('ok'),
       bare: true,
+      memoryStore: await createMemoryStore(cwd),
       automaticMemory: AUTO_SAVE,
     });
 
@@ -151,7 +161,7 @@ describe('SELFHOST-008 P2 TC-04 — sensitive content is refused on the capture 
 describe('SELFHOST-008 P2 TC-02a — guarded: a capture failure never breaks the turn', () => {
   it('an injected store whose writes REJECT does not fail the turn (submit resolves)', async () => {
     const cwd = makeProject();
-    const base = createFileSystemMemoryStore(cwd);
+    const base = await createMemoryStore(cwd);
     const rejectingStore: IMemoryStore = {
       loadStartupMemory: () => base.loadStartupMemory(),
       list: () => base.list(),
@@ -187,8 +197,8 @@ describe('SELFHOST-008 P2 TC-02a — guarded: a capture failure never breaks the
 describe('SELFHOST-008 P2 TC-02b — event lands in the SAME turn record even when capture resolves on a deferred tick', () => {
   it('a deferred-resolving injected store still has its event in the persisted record (await-before-persist)', async () => {
     const cwd = makeProject();
-    const sessionStore = createProjectSessionStore(cwd);
-    const base = createFileSystemMemoryStore(cwd);
+    const sessionStore = await createTrustedProjectSessionStoreFixture(cwd);
+    const base = await createMemoryStore(cwd);
     const defer = <T>(v: () => Promise<T> | T): Promise<T> =>
       new Promise((resolve) => setTimeout(() => resolve(Promise.resolve(v())), 5));
     // every write resolves on a macrotask — if the controller did NOT await capture before persist,

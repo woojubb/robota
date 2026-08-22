@@ -1,14 +1,13 @@
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
-
 import { dagDefinitionFromParsedFile } from '@robota-sdk/dag-builder';
 import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
 
 import { parseFileArg } from './args.js';
 import { createWorkspaceRuntime } from './workspace-runtime.js';
+import { assertWorkflowProject } from './workflow-project.js';
 
 import type { IDagDefinition } from '@robota-sdk/dag-core';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { IWorkflowProject } from './workflow-project.js';
 
 /**
  * `/workflows validate <file.json>` — structurally validate a workflow file against the workspace's
@@ -21,7 +20,7 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
  */
 export async function executeWorkflowsValidate(
   argStr: string,
-  cwd: string,
+  project: IWorkflowProject,
   layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
 ): Promise<ICommandResult> {
   const parsedArgs = parseFileArg(argStr, 'validate');
@@ -31,12 +30,15 @@ export async function executeWorkflowsValidate(
   const filePath = parsedArgs.value;
 
   // The read/parse error is surfaced as a failed command result, not silently swallowed.
-  const parsed = await readFile(resolve(cwd, filePath), 'utf-8')
-    .then((raw) => JSON.parse(raw) as unknown)
-    .catch((err: unknown) => {
-      const detail = err instanceof Error ? err.message : String(err);
-      return new Error(`Failed to read DAG file "${filePath}": ${detail}`);
-    });
+  let parsed: unknown;
+  try {
+    const raw = assertWorkflowProject(project).readText(filePath, 'validate workflow definition');
+    if (raw === undefined) throw new Error('workflow file was not found');
+    parsed = JSON.parse(raw) as unknown;
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    parsed = new Error(`Failed to read DAG file "${filePath}": ${detail}`);
+  }
   if (parsed instanceof Error) {
     return { success: false, message: parsed.message };
   }
@@ -54,7 +56,7 @@ export async function executeWorkflowsValidate(
     };
   }
 
-  const { provider } = await createWorkspaceRuntime(cwd, layout);
+  const { provider } = await createWorkspaceRuntime(project, layout);
   const manifests = await provider.listNodes();
   const knownTypes = new Set(manifests.map((m) => m.nodeType));
   const nodeIds = new Set(definition.nodes.map((n) => n.nodeId));

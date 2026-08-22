@@ -6,8 +6,8 @@ import { join } from 'node:path';
 import { createAssistantMessage, createUserMessage } from '@robota-sdk/agent-core';
 import { describe, expect, it } from 'vitest';
 
+import { createTrustedProjectSessionStoreFixture } from '../../testing/trusted-project-state-fixture.js';
 import {
-  createProjectSessionStore,
   listResumableSessionSummaries,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
@@ -17,7 +17,7 @@ describe('session persistence facade', () => {
   it('creates a project-local session store and resolves resumable summaries', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'robota-sdk-session-store-'));
     mkdirSync(join(cwd, '.robota'), { recursive: true });
-    const store = createProjectSessionStore(cwd);
+    const store = await createTrustedProjectSessionStoreFixture(cwd);
 
     store.save({
       id: 'session_one',

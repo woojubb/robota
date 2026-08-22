@@ -28,6 +28,7 @@
     "scripts/harness/scan-node-version-single-valued.mjs",
     "scripts/harness/scan-preset-projection.mjs",
     "scripts/harness/scan-product-identity.mjs",
+    "scripts/harness/scan-public-project-authority.mjs",
     "scripts/harness/scan-promotion-closes.mjs",
     "scripts/harness/scan-pull-request-target-promotion-lag.mjs",
     "scripts/harness/scan-reference-kind-qualified.mjs",

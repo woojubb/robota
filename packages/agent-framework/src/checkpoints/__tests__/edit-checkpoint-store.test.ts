@@ -12,8 +12,12 @@ import { join } from 'node:path';
 
 import { describe, expect, it, afterEach } from 'vitest';
 
+import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
+import {
+  WorkspaceAuthorityRequiredError,
+  createWorkspaceProjectMutation,
+} from '../../workspace-trust/index.js';
 import { EditCheckpointStore } from '../edit-checkpoint-store.js';
-import { projectPaths } from '../../paths.js';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-edit-checkpoint-store-'));
 
@@ -23,17 +27,51 @@ function makeProject(): string {
   return dir;
 }
 
+async function createStore(cwd: string): Promise<EditCheckpointStore> {
+  const access = await createTrustedProjectAccessFixture(cwd);
+  if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+  return new EditCheckpointStore({
+    authority: access.authority,
+    mutation: createWorkspaceProjectMutation(access.authority, {
+      status: 'approved',
+      purpose: 'checkpoint test restore',
+    }),
+  });
+}
+
 afterEach(() => {
   if (existsSync(TMP_BASE)) rmSync(TMP_BASE, { recursive: true, force: true });
 });
 
 describe('EditCheckpointStore', () => {
+  it('rejects a mutation capability minted for a different project authority', async () => {
+    const left = makeProject();
+    const right = makeProject();
+    const leftAccess = await createTrustedProjectAccessFixture(left);
+    const rightAccess = await createTrustedProjectAccessFixture(right);
+    if (leftAccess.status !== 'trusted' || rightAccess.status !== 'trusted') {
+      throw new Error('expected trusted project fixtures');
+    }
+    const foreignMutation = createWorkspaceProjectMutation(rightAccess.authority, {
+      status: 'approved',
+      purpose: 'foreign checkpoint mutation',
+    });
+
+    expect(
+      () =>
+        new EditCheckpointStore({
+          authority: leftAccess.authority,
+          mutation: foreignMutation,
+        }),
+    ).toThrowError(WorkspaceAuthorityRequiredError);
+  });
+
   it('Given two edited turns When restoring to the first turn Then later file changes are reverted in reverse order', async () => {
     const cwd = makeProject();
     const filePath = join(cwd, 'src', 'example.ts');
     mkdirSync(join(cwd, 'src'), { recursive: true });
     writeFileSync(filePath, 'version 1', 'utf8');
-    const store = new EditCheckpointStore({ cwd });
+    const store = await createStore(cwd);
 
     const first = await store.beginTurn({ sessionId: 'session_1', prompt: 'first edit' });
     await store.captureFile(filePath);
@@ -59,7 +97,7 @@ describe('EditCheckpointStore', () => {
   it('Given a file created after a checkpoint When restoring to that checkpoint Then the created file is removed', async () => {
     const cwd = makeProject();
     const filePath = join(cwd, 'created.txt');
-    const store = new EditCheckpointStore({ cwd });
+    const store = await createStore(cwd);
 
     const first = await store.beginTurn({ sessionId: 'session_1', prompt: 'baseline' });
     await store.finalizeTurn();
@@ -80,7 +118,7 @@ describe('EditCheckpointStore', () => {
     const filePath = join(cwd, 'src', 'example.ts');
     mkdirSync(join(cwd, 'src'), { recursive: true });
     writeFileSync(filePath, 'version 1', 'utf8');
-    const store = new EditCheckpointStore({ cwd });
+    const store = await createStore(cwd);
 
     const first = await store.beginTurn({ sessionId: 'session_1', prompt: 'first edit' });
     await store.captureFile(filePath);
@@ -120,7 +158,7 @@ describe('EditCheckpointStore', () => {
     const filePath = join(cwd, 'src', 'example.ts');
     mkdirSync(join(cwd, 'src'), { recursive: true });
     writeFileSync(filePath, 'version 1', 'utf8');
-    const store = new EditCheckpointStore({ cwd });
+    const store = await createStore(cwd);
 
     const first = await store.beginTurn({ sessionId: 'session_1', prompt: 'first edit' });
     await store.captureFile(filePath);
@@ -148,7 +186,7 @@ describe('EditCheckpointStore', () => {
     const filePath = join(cwd, 'src', 'example.ts');
     mkdirSync(join(cwd, 'src'), { recursive: true });
     writeFileSync(filePath, 'version 1', 'utf8');
-    const store = new EditCheckpointStore({ cwd });
+    const store = await createStore(cwd);
 
     const first = await store.beginTurn({ sessionId: 'session_1', prompt: 'first edit' });
     await store.captureFile(filePath);
@@ -172,7 +210,7 @@ describe('EditCheckpointStore', () => {
     const cwd = makeProject();
     const filePath = join(cwd, 'same.txt');
     writeFileSync(filePath, 'before', 'utf8');
-    const store = new EditCheckpointStore({ cwd });
+    const store = await createStore(cwd);
 
     await store.beginTurn({ sessionId: 'session_1', prompt: 'duplicate capture' });
     await store.captureFile(filePath);
@@ -187,7 +225,7 @@ describe('EditCheckpointStore', () => {
   // SELFHOST-007 TC-03: branching (non-destructive divergence) + v1 back-compat migration.
   it('forking after a restore diverges — the old future AND the new branch are both listed', async () => {
     const cwd = makeProject();
-    const store = new EditCheckpointStore({ cwd });
+    const store = await createStore(cwd);
 
     const a = await store.beginTurn({ sessionId: 'session_1', prompt: 'a' });
     await store.finalizeTurn();
@@ -204,7 +242,7 @@ describe('EditCheckpointStore', () => {
     expect(store.list('session_1')).toHaveLength(4);
 
     // d diverged from a (its parent is the restore target), NOT from c
-    const dManifestPath = join(projectPaths(cwd).checkpoints, 'session_1', d.id, 'manifest.json');
+    const dManifestPath = join(cwd, '.robota', 'checkpoints', 'session_1', d.id, 'manifest.json');
     const dManifest = JSON.parse(readFileSync(dManifestPath, 'utf8')) as {
       version: number;
       parentId?: string;
@@ -217,7 +255,7 @@ describe('EditCheckpointStore', () => {
 
   it('loads a legacy v1 manifest as a linear chain (back-compat migration)', async () => {
     const cwd = makeProject();
-    const sessionDir = join(projectPaths(cwd).checkpoints, 'session_1');
+    const sessionDir = join(cwd, '.robota', 'checkpoints', 'session_1');
     // hand-write two legacy v1 manifests (no parentId/branchId)
     for (const [seq, id] of [
       [1, 'turn-0001'],
@@ -240,7 +278,7 @@ describe('EditCheckpointStore', () => {
       );
     }
 
-    const store = new EditCheckpointStore({ cwd });
+    const store = await createStore(cwd);
     // migration does not crash, lists both in sequence order (linear chain)
     expect(store.list('session_1').map((c) => c.id)).toEqual(['turn-0001', 'turn-0002']);
     // restore over a migrated v1 chain is non-destructive
@@ -252,7 +290,7 @@ describe('EditCheckpointStore', () => {
   // SELFHOST-007 TC-05: navigation (list-branches / ancestors / switch) delegates to the neutral tree.
   it('lists branch tips and switches the active branch via the neutral checkpoint tree', async () => {
     const cwd = makeProject();
-    const store = new EditCheckpointStore({ cwd });
+    const store = await createStore(cwd);
 
     const a = await store.beginTurn({ sessionId: 'session_1', prompt: 'a' });
     await store.finalizeTurn();
@@ -279,7 +317,7 @@ describe('EditCheckpointStore', () => {
   // SELFHOST-007 TC-05: the active-branch pointer survives a save→resume round-trip; drift degrades.
   it('captures and restores the active-branch pointer (and degrades gracefully on drift)', async () => {
     const cwd = makeProject();
-    const store = new EditCheckpointStore({ cwd });
+    const store = await createStore(cwd);
 
     const a = await store.beginTurn({ sessionId: 'session_1', prompt: 'a' });
     await store.finalizeTurn();
@@ -291,7 +329,7 @@ describe('EditCheckpointStore', () => {
     expect(pointer).toEqual({ branchId: expect.stringMatching(/^branch-/), checkpointId: a.id });
 
     // A brand-new store (simulating --resume) restores the pointer from the persisted record.
-    const resumed = new EditCheckpointStore({ cwd });
+    const resumed = await createStore(cwd);
     resumed.restoreActiveBranch('session_1', pointer);
     const next = await resumed.beginTurn({ sessionId: 'session_1', prompt: 'c' });
     await resumed.finalizeTurn();
@@ -300,7 +338,7 @@ describe('EditCheckpointStore', () => {
 
     // Drift: a pointer referencing a checkpoint absent from the manifest store is ignored (no throw),
     // and the store keeps its linear-HEAD default.
-    const drifted = new EditCheckpointStore({ cwd });
+    const drifted = await createStore(cwd);
     expect(() =>
       drifted.restoreActiveBranch('session_1', { branchId: 'ghost', checkpointId: 'turn-9999' }),
     ).not.toThrow();

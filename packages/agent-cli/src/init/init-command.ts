@@ -1,12 +1,18 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-
 import { promptInput } from '@robota-sdk/agent-transport/headless';
-import { projectPaths } from '@robota-sdk/agent-framework';
+import {
+  assertWorkspaceProjectMutationForAuthority,
+  getWorkspaceProjectReader,
+  WorkspaceAuthorityRequiredError,
+} from '@robota-sdk/agent-framework';
 
 import { AGENT_CLI_BIN } from '../constants.js';
 
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
+import type {
+  IWorkspaceProjectMutation,
+  IWorkspaceProjectReader,
+  TWorkspaceProjectAccess,
+} from '@robota-sdk/agent-framework';
 
 const AGENTS_MD_TEMPLATE = `# AGENTS.md — Project Agent Guidelines
 
@@ -47,10 +53,9 @@ const SETTINGS_TEMPLATE = {
   },
 };
 
-function readClaudeSettings(claudeDir: string): Record<string, unknown> | null {
-  const settingsPath = join(claudeDir, 'settings.json');
-  if (!existsSync(settingsPath)) return {};
-  const raw = readFileSync(settingsPath, 'utf8');
+function readClaudeSettings(reader: IWorkspaceProjectReader): Record<string, unknown> | null {
+  const raw = reader.readText('.claude/settings.json', 'migrate Claude project settings');
+  if (raw === undefined) return {};
   try {
     return JSON.parse(raw) as Record<string, unknown>;
   } catch {
@@ -70,6 +75,10 @@ export class InitPromptUnavailableError extends Error {
 }
 
 export interface IInitCommandOptions {
+  /** Initial trusted-or-restricted workspace decision. */
+  projectAccess: TWorkspaceProjectAccess;
+  /** Separately approved mutation capability for this exact project authority. */
+  projectMutation?: IWorkspaceProjectMutation;
   /** Skip all Y/n prompts and use the documented defaults (non-interactive mode). */
   yes?: boolean;
   /** Called after init completes when the user accepts the provider setup prompt. */
@@ -114,10 +123,23 @@ async function confirm(
 }
 
 export async function runInitCommand(
-  cwd: string,
   terminal: ITerminalOutput,
-  options: IInitCommandOptions = {},
+  options: IInitCommandOptions,
 ): Promise<void> {
+  if (options.projectAccess.status !== 'trusted') {
+    throw new WorkspaceAuthorityRequiredError('Project initialization requires project access.');
+  }
+  if (options.projectMutation === undefined) {
+    throw new WorkspaceAuthorityRequiredError(
+      'Project initialization requires project mutation permission.',
+    );
+  }
+  const reader = getWorkspaceProjectReader(options.projectAccess.authority);
+  const mutation = assertWorkspaceProjectMutationForAuthority(
+    options.projectMutation,
+    options.projectAccess.authority,
+  );
+
   terminal.writeLine('');
   terminal.writeLine(`${AGENT_CLI_BIN} project initialization`);
   terminal.writeLine('─'.repeat(40));
@@ -130,14 +152,11 @@ export async function runInitCommand(
     terminal,
   };
 
-  const settingsPath = projectPaths(cwd).settings;
-  const robotaDir = dirname(settingsPath);
-  const agentsMdPath = join(cwd, 'AGENTS.md');
-  const claudeDir = join(cwd, '.claude');
-  const hasClaudeDir = existsSync(claudeDir);
-
-  const hasSettings = existsSync(settingsPath);
-  const hasAgentsMd = existsSync(agentsMdPath);
+  const hasClaudeDir =
+    reader.inspectKind('.claude', 'inspect Claude project settings') === 'directory';
+  const hasSettings =
+    reader.inspectKind('.robota/settings.json', 'inspect Robota project settings') === 'file';
+  const hasAgentsMd = reader.inspectKind('AGENTS.md', 'inspect project instructions') === 'file';
 
   if (hasSettings && hasAgentsMd) {
     terminal.writeLine('');
@@ -156,7 +175,7 @@ export async function runInitCommand(
     terminal.writeLine('Detected .claude/ directory (Claude Code configuration).');
     const migrate = await confirm('Migrate Claude Code settings to .robota/?', false, confirmCtx);
     if (migrate) {
-      const claudeSettings = readClaudeSettings(claudeDir);
+      const claudeSettings = readClaudeSettings(reader);
       if (claudeSettings === null) {
         terminal.writeLine(
           'Warning: .claude/settings.json could not be parsed — skipping migration.',
@@ -180,12 +199,19 @@ export async function runInitCommand(
     }
   }
 
-  mkdirSync(robotaDir, { recursive: true });
-  writeFileSync(settingsPath, JSON.stringify(settingsData, null, 2) + '\n', 'utf8');
+  mutation.writeBytes(
+    '.robota/settings.json',
+    new TextEncoder().encode(`${JSON.stringify(settingsData, null, 2)}\n`),
+    'initialize Robota project settings',
+  );
   terminal.writeLine('');
   terminal.writeLine('Created: .robota/settings.json');
 
-  writeFileSync(agentsMdPath, AGENTS_MD_TEMPLATE, 'utf8');
+  mutation.writeBytes(
+    'AGENTS.md',
+    new TextEncoder().encode(AGENTS_MD_TEMPLATE),
+    'initialize project instructions',
+  );
   terminal.writeLine('Created: AGENTS.md');
 
   terminal.writeLine('');

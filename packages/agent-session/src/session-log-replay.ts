@@ -1,11 +1,9 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname } from 'node:path';
-
 import { messageToHistoryEntry } from '@robota-sdk/agent-core';
 
 import { resolveSessionLogExternalPayloads } from './external-payload-resolver.js';
 
 import type { ISessionLogPayloadResolutionOptions } from './external-payload-resolver.js';
+import type { IExternalPayloadSource, ISessionLogSource } from './session-log-sources.js';
 import type { IHistoryEntry, TUniversalMessage, TUniversalValue } from '@robota-sdk/agent-core';
 
 export interface ISessionLogEntry extends Record<string, TUniversalValue> {
@@ -26,7 +24,9 @@ export interface ISessionReplayRecord {
   memoryEvents: object[];
 }
 
-export type ISessionLogLoadOptions = Omit<ISessionLogPayloadResolutionOptions, 'baseDirectory'>;
+export type ISessionLogLoadOptions = Omit<ISessionLogPayloadResolutionOptions, 'source'> & {
+  readonly externalPayloadSource?: IExternalPayloadSource;
+};
 
 export { validateSessionReplayLogEntries } from './session-log-validation.js';
 export type {
@@ -35,18 +35,20 @@ export type {
 } from './session-log-validation.js';
 
 export function loadSessionLogEntries(
-  logFile: string,
+  source: ISessionLogSource,
   options: ISessionLogLoadOptions = {},
 ): ISessionLogEntry[] {
-  const entries = existsSync(logFile)
-    ? readFileSync(logFile, 'utf-8')
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0)
-        .map((line) => JSON.parse(line) as unknown)
-    : [];
+  const text = source.readText();
+  const entries =
+    text === undefined
+      ? []
+      : text
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0)
+          .map((line) => JSON.parse(line) as unknown);
   return resolveSessionLogExternalPayloads(entries, {
-    baseDirectory: dirname(logFile),
+    source: options.externalPayloadSource ?? source.externalPayloadSource,
     ...options,
   }) as ISessionLogEntry[];
 }

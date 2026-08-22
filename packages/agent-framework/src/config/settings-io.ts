@@ -6,22 +6,12 @@ import { SettingsParseError } from './settings-parse-error.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 export type TSettingsData = Record<string, TUniversalValue>;
+/** CLI-selectable settings write scope; project-local still requires an authorized project store. */
+export type TSettingsScope = 'user' | 'project-local';
 
 export function getUserSettingsPath(): string {
   const home = process.env.HOME ?? process.env.USERPROFILE ?? '/';
   return join(home, '.robota', 'settings.json');
-}
-
-export type TSettingsScope = 'user' | 'project-local';
-
-export function resolveSettingsPathForScope(
-  cwd: string,
-  scope: TSettingsScope | undefined,
-): string {
-  if (scope === undefined || scope === 'user') {
-    return getUserSettingsPath();
-  }
-  return join(cwd, '.robota', 'settings.local.json');
 }
 
 /**

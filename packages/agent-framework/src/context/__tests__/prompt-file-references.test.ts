@@ -11,6 +11,14 @@ import {
   parsePromptFileReferences,
   resolvePromptFileReferences,
 } from '../prompt-file-references.js';
+import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
+import { getWorkspaceProjectReader } from '../../workspace-trust/index.js';
+
+async function projectReader(root: string) {
+  const access = await createTrustedProjectAccessFixture(root);
+  if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
+  return getWorkspaceProjectReader(access.authority);
+}
 
 async function createWorkspace(): Promise<string> {
   return mkdtemp(join(tmpdir(), 'robota-file-ref-'));
@@ -31,7 +39,9 @@ describe('prompt file references', () => {
       await mkdir(join(cwd, 'docs'));
       await writeFile(join(cwd, 'docs', 'guide.md'), '# Guide\nUse this file.\n');
 
-      const result = await resolvePromptFileReferences('Explain @docs/guide.md', { cwd });
+      const result = await resolvePromptFileReferences('Explain @docs/guide.md', {
+        reader: await projectReader(cwd),
+      });
 
       expect(result.diagnostics).toEqual([]);
       expect(result.references).toEqual([
@@ -56,7 +66,9 @@ describe('prompt file references', () => {
   it('reports missing files as blocking diagnostics', async () => {
     const cwd = await createWorkspace();
     try {
-      const result = await resolvePromptFileReferences('Read @missing.md', { cwd });
+      const result = await resolvePromptFileReferences('Read @missing.md', {
+        reader: await projectReader(cwd),
+      });
 
       expect(hasBlockingPromptFileReferenceDiagnostics(result.diagnostics)).toBe(true);
       expect(result.diagnostics[0]).toEqual(
@@ -78,7 +90,9 @@ describe('prompt file references', () => {
       await mkdir(cwd);
       await writeFile(join(parent, 'secret.md'), 'secret');
 
-      const result = await resolvePromptFileReferences('Read @../secret.md', { cwd });
+      const result = await resolvePromptFileReferences('Read @../secret.md', {
+        reader: await projectReader(cwd),
+      });
 
       expect(result.diagnostics[0]).toEqual(
         expect.objectContaining({
@@ -97,7 +111,7 @@ describe('prompt file references', () => {
       await writeFile(join(cwd, 'large.md'), '0123456789');
 
       const result = await resolvePromptFileReferences('Read @large.md', {
-        cwd,
+        reader: await projectReader(cwd),
         limits: { maxFileBytes: 5 },
       });
 
@@ -119,7 +133,9 @@ describe('prompt file references', () => {
       await writeFile(join(cwd, 'a.md'), 'A imports @b.md');
       await writeFile(join(cwd, 'b.md'), 'B imports @a.md');
 
-      const result = await resolvePromptFileReferences('Read @a.md', { cwd });
+      const result = await resolvePromptFileReferences('Read @a.md', {
+        reader: await projectReader(cwd),
+      });
 
       expect(result.references.map((reference) => reference.relativePath)).toEqual([
         'a.md',
@@ -144,7 +160,7 @@ describe('prompt file references', () => {
       await writeFile(join(cwd, 'c.md'), 'C content');
 
       const result = await resolvePromptFileReferences('Read @a.md', {
-        cwd,
+        reader: await projectReader(cwd),
         limits: { maxDepth: 1 },
       });
 

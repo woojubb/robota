@@ -218,10 +218,10 @@ isolation, and fan-out policy remain owned by transport implementations.
 ### Interactive session persistence
 
 `IInteractiveSessionRecord` is the complete resumable-record SSOT and
-`IInteractiveSessionStore` is its canonical persistence port. The port owns CRUD plus optional
-`getFilePath(id)`, which file-backed stores implement when consumers need the absolute transcript path;
-non-file-backed stores may omit it. A writer that updates only part of a loaded record must preserve every
-field it does not own before overwriting its authoritative fields.
+`IInteractiveSessionStore` is its canonical persistence port. The port owns CRUD only. It never exposes a
+reusable absolute record path: transcript references belong to the logger/source owner and a trusted host hook
+adapter may resolve one only at the hook execution boundary. A writer that updates only part of a loaded record
+must preserve every field it does not own before overwriting its authoritative fields.
 
 ### Session role contracts and explicit capability presence (ARCH-012)
 

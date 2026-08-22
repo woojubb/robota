@@ -156,6 +156,8 @@ export interface ISessionOptions {
   autoCompactThreshold?: TAutoCompactThreshold;
   /** Session logger — injected for pluggable session event logging. */
   sessionLogger?: ISessionLogger;
+  /** Host-projected transcript path for hook compatibility; never inferred from a record store. */
+  transcriptPath?: string;
   /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
   hookTypeExecutors?: IHookTypeExecutor[];
   /** Name reported to the Robota agent config. Defaults to 'agent' if not provided. */

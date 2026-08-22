@@ -6,7 +6,6 @@ import { buildAgentRuntime } from '../create-session-runtime.js';
 
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { ICreateSessionOptions } from '../create-session-types.js';
-import type { IFileSystem } from '@robota-sdk/agent-core';
 
 /**
  * ARCH-005 S2 / OWNER DECISION 2 — the `agentDefinitions` injection seam.
@@ -27,13 +26,6 @@ import type { IFileSystem } from '@robota-sdk/agent-core';
 function packAgent(name: string, systemPrompt = `injected ${name}`): IAgentDefinition {
   return { name, description: `injected agent ${name}`, systemPrompt };
 }
-
-/** A filesystem with no agents directories — isolates precedence from the host machine's real dirs. */
-const EMPTY_FS: IFileSystem = {
-  existsSync: () => false,
-  readFileSync: () => '',
-  readdirSync: () => [],
-} as unknown as IFileSystem;
 
 function runtimeOptions(overrides: Partial<ICreateSessionOptions> = {}): ICreateSessionOptions {
   return {
@@ -84,10 +76,7 @@ describe('buildAgentRuntime — injected agentDefinitions (owner Decision 2)', (
 describe('AgentDefinitionLoader — precedence within the built-in tier', () => {
   it('keeps the FIRST definition for a duplicated name (injected overrides a built-in)', () => {
     const overriding = packAgent('Explore', 'pack-supplied Explore');
-    const loader = new AgentDefinitionLoader('/nowhere', '/nowhere-home', EMPTY_FS, [
-      overriding,
-      ...BUILT_IN_AGENTS,
-    ]);
+    const loader = new AgentDefinitionLoader([], [overriding, ...BUILT_IN_AGENTS]);
 
     const loaded = loader.loadAll();
     const explore = loaded.filter((agent) => agent.name === 'Explore');

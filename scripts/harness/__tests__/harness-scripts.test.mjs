@@ -434,6 +434,17 @@ describe('SDK public surface scan', () => {
   });
 });
 
+describe('public project authority scan', () => {
+  it('is wired into the root harness scan', () => {
+    const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
+
+    expect(rootPackage.scripts['harness:scan:public-project-authority']).toBe(
+      'node scripts/harness/scan-public-project-authority.mjs',
+    );
+    expect(runAllScansSource).toContain('scan-public-project-authority.mjs');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // pre-push hook
 // ---------------------------------------------------------------------------

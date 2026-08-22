@@ -1,18 +1,17 @@
 /**
  * Session Logger — pluggable logging interface for session events.
  *
- * ISessionLogger defines the contract. FileSessionLogger is the default
- * implementation that writes JSONL to disk. Consumers can implement their
+ * ISessionLogger defines the contract. FileSessionLogger serializes JSONL through an
+ * injected sink and never opens a path itself. Consumers can implement their
  * own (e.g., remote, database, silent) and inject via Session constructor.
  */
-
-import { mkdirSync, appendFileSync } from 'node:fs';
-import { join } from 'node:path';
 
 import { createLogger } from '@robota-sdk/agent-core';
 
 import { isSafeSessionId } from './session-id.js';
 import { normalizeLogData } from './session-log-payload.js';
+
+import type { ISessionLogSink } from './session-log-sinks.js';
 
 const logger = createLogger('FileSessionLogger');
 
@@ -77,14 +76,6 @@ const DEFAULT_EXTERNAL_PAYLOAD_THRESHOLD_BYTES =
 const DEFAULT_REDACTED_VALUE = '[REDACTED]';
 
 /**
- * Session logs and externalized payloads carry conversation content, so they are created
- * owner-only rather than inheriting the process umask (SEC-003 / CWE-377). `logDir` is
- * caller-supplied and may be a shared or world-writable location.
- */
-const OWNER_ONLY_FILE_MODE = 0o600;
-const OWNER_ONLY_DIR_MODE = 0o700;
-
-/**
  * Session logger interface — injected into Session for pluggable logging.
  *
  * Implementations decide where and how to persist session events.
@@ -103,36 +94,26 @@ export interface ISessionLogger {
 }
 
 /**
- * File-based session logger — writes JSONL to {logDir}/{sessionId}.jsonl.
+ * Sink-driven session logger — writes JSONL through `ISessionLogSink`.
  *
  * This is the default implementation used by the CLI.
  * Each line is a self-contained JSON object with timestamp, sessionId, event, and data.
  */
 export class FileSessionLogger implements ISessionLogger {
-  private readonly logDir: string;
   private readonly options: Required<IFileSessionLoggerOptions>;
   /** Buffered hot-path lines, per session file. Keyed by session id (CORE-029). */
   private readonly pending = new Map<string, string[]>();
   private pendingBytes = 0;
 
-  constructor(logDir: string, options: IFileSessionLoggerOptions = {}) {
-    this.logDir = logDir;
+  constructor(
+    private readonly sink: ISessionLogSink,
+    options: IFileSessionLoggerOptions = {},
+  ) {
     this.options = {
       externalPayloadThresholdBytes:
         options.externalPayloadThresholdBytes ?? DEFAULT_EXTERNAL_PAYLOAD_THRESHOLD_BYTES,
       redactedValue: options.redactedValue ?? DEFAULT_REDACTED_VALUE,
     };
-    try {
-      mkdirSync(logDir, { recursive: true, mode: OWNER_ONLY_DIR_MODE });
-    } catch (error) {
-      // allow-fallback: a log directory that cannot be created disables logging rather than
-      // failing the session — but CORE-029: say so, because "no log file" and "logging was never
-      // attempted" are otherwise the same observation.
-      logger.warn('session log directory could not be created — session logging is disabled', {
-        logDir,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
   }
 
   log(sessionId: string, event: string, data: TSessionLogData): void {
@@ -142,7 +123,12 @@ export class FileSessionLogger implements ISessionLogger {
     // session, so a rejected id drops the line rather than throwing — the store raises the loud error.
     if (!isSafeSessionId(sessionId)) return;
     try {
-      const normalizedData = normalizeLogData(sessionId, this.logDir, data, this.options);
+      const normalizedData = normalizeLogData(
+        sessionId,
+        data,
+        this.options,
+        this.sink.externalPayloadSink,
+      );
       const entry =
         JSON.stringify({
           timestamp: new Date().toISOString(),
@@ -200,7 +186,7 @@ export class FileSessionLogger implements ISessionLogger {
   }
 
   private write(sessionId: string, text: string): void {
-    appendFileSync(join(this.logDir, `${sessionId}.jsonl`), text, { mode: OWNER_ONLY_FILE_MODE });
+    this.sink.append(sessionId, text);
   }
 
   private report(sessionId: string, event: string, error: unknown): void {

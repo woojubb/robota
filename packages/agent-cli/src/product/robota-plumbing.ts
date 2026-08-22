@@ -10,6 +10,7 @@
 import { createRequire } from 'node:module';
 
 import {
+  createRestrictedWorkspaceProjectAccess,
   findUnknownModuleNames,
   getUserSettingsPath,
   selectCommandModules,
@@ -22,6 +23,7 @@ import type {
   IAgentDefinition,
   ICommandModule,
   IUnknownCommandModuleName,
+  TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import { ROBOTA_PACKS_OWN_TOOL_SURFACE } from './robota-profile.js';
 
@@ -35,7 +37,9 @@ import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
  * package), and reported as unavailable — never a hard crash — in the default published CLI.
  */
 export function loadReplayProvider(logFile: string): IAIProvider {
-  let mod: { createReplayProviderFromLogFile: (file: string) => IAIProvider };
+  let mod: {
+    createReplayProviderFromNodeLogFile: (file: string) => IAIProvider;
+  };
   try {
     const requireFrom = createRequire(import.meta.url);
     mod = requireFrom('@robota-sdk/agent-provider-replay') as typeof mod;
@@ -44,7 +48,7 @@ export function loadReplayProvider(logFile: string): IAIProvider {
       '--session-log replay requires @robota-sdk/agent-provider-replay, a dev-only package that is not bundled in the published CLI.',
     );
   }
-  return mod.createReplayProviderFromLogFile(logFile);
+  return mod.createReplayProviderFromNodeLogFile(logFile);
 }
 
 /**
@@ -167,6 +171,7 @@ export interface IRobotaRuntimeSeamInput {
    * expression each surface used to compute by hand.
    */
   permissionMode?: TPermissionMode;
+  projectAccess?: TWorkspaceProjectAccess;
 }
 
 /**
@@ -188,6 +193,7 @@ export interface IRobotaRuntimeOptions {
     defaultTools?: readonly IToolWithEventService[];
   };
   permissionMode?: TPermissionMode;
+  projectAccess: TWorkspaceProjectAccess;
 }
 
 /**
@@ -200,6 +206,9 @@ export interface IRobotaRuntimeOptions {
  * inputs, the kernel lays the product-owned materials on top, and every surface binds to that ONE result.
  */
 export function buildRobotaRuntimeOptions(input: IRobotaRuntimeSeamInput): IRobotaRuntimeOptions {
+  const projectAccess =
+    input.projectAccess ??
+    createRestrictedWorkspaceProjectAccess('identity-unavailable', input.cwd);
   const options = input.product.buildRuntimeOptions({
     session: {
       cwd: input.cwd,
@@ -208,6 +217,7 @@ export function buildRobotaRuntimeOptions(input: IRobotaRuntimeSeamInput): IRobo
       // ARCH-006: hand the tool axis to the packs. The kernel's overlay appends their tools to
       // `additionalTools`; suppressing the framework tier here is what makes the packs the SOLE source.
       defaultTools: ROBOTA_PACKS_OWN_TOOL_SURFACE,
+      projectAccess,
       ...(input.permissionMode !== undefined ? { permissionMode: input.permissionMode } : {}),
     },
   });
@@ -218,6 +228,7 @@ export function buildRobotaRuntimeOptions(input: IRobotaRuntimeSeamInput): IRobo
   }
   return {
     ...options,
+    projectAccess,
     commandModules: options.commandModules ?? [],
     agentDefinitions: options.agentDefinitions ?? [],
     // ARCH-006: `defaultTools` is deliberately NOT defaulted to `[]` here. An ABSENT tier (the framework

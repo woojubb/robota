@@ -5,11 +5,11 @@ import { join } from 'node:path';
 import { createDefaultCommandModules } from '@robota-sdk/agent-command';
 import {
   CommandRegistry,
+  createNodeHostSettingsSource,
+  createNodeHostSettingsStore,
   InteractiveSession,
   readMergedProviderSettings,
-  readSettings,
-  resolveProviderSettingsWriteTargetPath,
-  writeSettings,
+  resolveProviderSettingsWriteTarget,
 } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
 import { describe, expect, it, vi } from 'vitest';
@@ -28,13 +28,26 @@ import type {
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
 
-const createProviderSettingsAdapter = (cwd: string): IProviderCommandSettingsAdapter => ({
-  readMergedSettings: () => readMergedProviderSettings(cwd),
-  readTargetSettings: () =>
-    readSettings(resolveProviderSettingsWriteTargetPath(cwd)) as TProviderSettingsDocument,
-  writeTargetSettings: (settings: TProviderSettingsDocument) =>
-    writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
-});
+const createProviderSettingsAdapter = (cwd: string): IProviderCommandSettingsAdapter => {
+  const userHome = process.env.HOME ?? process.env.USERPROFILE ?? '/';
+  const paths = [
+    join(userHome, '.robota', 'settings.json'),
+    join(userHome, '.claude', 'settings.json'),
+    join(cwd, '.robota', 'settings.json'),
+    join(cwd, '.robota', 'settings.local.json'),
+    join(cwd, '.claude', 'settings.json'),
+    join(cwd, '.claude', 'settings.local.json'),
+  ];
+  const stores = paths.map((path) => createNodeHostSettingsStore('user', path));
+  const sources = paths.map((path) => createNodeHostSettingsSource('user', path));
+  return {
+    readMergedSettings: () => readMergedProviderSettings(sources),
+    readTargetSettings: () =>
+      resolveProviderSettingsWriteTarget(stores).read() as TProviderSettingsDocument,
+    writeTargetSettings: (settings: TProviderSettingsDocument) =>
+      resolveProviderSettingsWriteTarget(stores).write(settings),
+  };
+};
 
 const noopProviderSettingsAdapter = {
   readMergedSettings: () => ({}) as TProviderSettingsDocument,

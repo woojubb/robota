@@ -19,7 +19,7 @@ export type {
   IProjectMemorySummary,
   IStartupMemory,
 } from './project-memory-store.js';
-export { FileSystemMemoryStore, createFileSystemMemoryStore } from './file-system-memory-store.js';
+export { WorkspaceMemoryStore, createWorkspaceMemoryStore } from './file-system-memory-store.js';
 export { SemanticMemoryStore, createSemanticMemoryStore } from './semantic-memory-store.js';
 export type {
   IMemoryStore,

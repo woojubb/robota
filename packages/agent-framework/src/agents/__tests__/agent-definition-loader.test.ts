@@ -6,6 +6,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 
 import { AgentDefinitionLoader } from '../agent-definition-loader.js';
 import { BUILT_IN_AGENTS } from '../built-in-agents.js';
+import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 
 function createTempDir(): string {
   return mkdtempSync(join(tmpdir(), 'agent-loader-test-'));
@@ -49,7 +50,9 @@ disallowedTools: Write, Edit, Bash
 You are a security code reviewer. Analyze the provided code for vulnerabilities.`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, makeTempDir());
+    const loader = new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
+    );
     const agent = loader.getAgent('security-reviewer');
 
     expect(agent).toBeDefined();
@@ -76,7 +79,9 @@ description: An agent without an explicit name
 System prompt body here.`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, makeTempDir());
+    const loader = new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
+    );
     const agent = loader.getAgent('my-agent');
 
     expect(agent).toBeDefined();
@@ -143,7 +148,7 @@ description: Claude user-level agent
 Claude user agent prompt.`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, home);
+    const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd, home));
     const all = loader.loadAll();
     const names = all.map((a) => a.name);
 
@@ -191,7 +196,7 @@ description: User version
 User prompt.`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, home);
+    const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd, home));
     const agent = loader.getAgent('shared');
 
     expect(agent).toBeDefined();
@@ -213,7 +218,7 @@ description: A custom agent
 Custom prompt.`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, home);
+    const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd, home));
     const all = loader.loadAll();
     const names = all.map((a) => a.name);
 
@@ -241,7 +246,7 @@ model: opus
 Custom explore prompt.`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, home);
+    const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd, home));
     const agent = loader.getAgent('Explore');
 
     expect(agent).toBeDefined();
@@ -265,7 +270,9 @@ disallowedTools: Bash, Write
 Prompt.`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, makeTempDir());
+    const loader = new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
+    );
     const agent = loader.getAgent('tools-test');
 
     expect(agent).toBeDefined();
@@ -288,7 +295,9 @@ disallowedTools: Bash Write
 Prompt.`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, makeTempDir());
+    const loader = new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
+    );
     const agent = loader.getAgent('tools-space-test');
 
     expect(agent).toBeDefined();
@@ -301,7 +310,7 @@ Prompt.`,
     const home = makeTempDir();
     // No .claude/agents/ or ~/.robota/agents/ dirs created
 
-    const loader = new AgentDefinitionLoader(cwd, home);
+    const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd, home));
     const all = loader.loadAll();
 
     // Should still return built-in agents
@@ -327,7 +336,9 @@ description: A real agent
 Prompt.`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, makeTempDir());
+    const loader = new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
+    );
     const all = loader.loadAll();
     const customNames = all.filter((a) => !BUILT_IN_AGENTS.some((b) => b.name === a.name));
     expect(customNames).toHaveLength(1);
@@ -342,7 +353,9 @@ Prompt.`,
       'Just a plain system prompt with no frontmatter.',
     );
 
-    const loader = new AgentDefinitionLoader(cwd, makeTempDir());
+    const loader = new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
+    );
     const agent = loader.getAgent('bare');
 
     expect(agent).toBeDefined();
@@ -363,7 +376,9 @@ description: This frontmatter is never closed
 Some body content here.`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, makeTempDir());
+    const loader = new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
+    );
     const agent = loader.getAgent('broken');
 
     // Unclosed frontmatter = no frontmatter parsed, entire content is body
@@ -386,7 +401,9 @@ not key-value pairs at all
 Actual body here.`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, makeTempDir());
+    const loader = new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
+    );
     const agent = loader.getAgent('empty-fm');
 
     expect(agent).toBeDefined();
@@ -409,7 +426,9 @@ maxTurns: not-a-number
 Prompt.`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, makeTempDir());
+    const loader = new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
+    );
     const agent = loader.getAgent('nan-turns');
 
     expect(agent).toBeDefined();
@@ -431,7 +450,9 @@ tools: Read
 Prompt.`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, makeTempDir());
+    const loader = new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
+    );
     const agent = loader.getAgent('empty-tools');
 
     expect(agent).toBeDefined();
@@ -466,7 +487,9 @@ description: Top-level agent
 Top prompt.`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, makeTempDir());
+    const loader = new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
+    );
     const all = loader.loadAll();
     const customNames = all.filter((a) => !BUILT_IN_AGENTS.some((b) => b.name === a.name));
     expect(customNames).toHaveLength(1);
@@ -475,7 +498,9 @@ Top prompt.`,
 
   it('getAgent should return undefined for nonexistent name', () => {
     const cwd = makeTempDir();
-    const loader = new AgentDefinitionLoader(cwd, makeTempDir());
+    const loader = new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
+    );
     expect(loader.getAgent('does-not-exist')).toBeUndefined();
   });
 
@@ -505,7 +530,7 @@ description: User version
 User prompt.`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, home);
+    const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd, home));
     const all = loader.loadAll();
     const dupAgents = all.filter((a) => a.name === 'duplicated');
     expect(dupAgents).toHaveLength(1);
@@ -516,7 +541,9 @@ User prompt.`,
     const cwd = makeTempDir();
     writeAgentFile(join(cwd, '.claude', 'agents'), 'empty.md', '');
 
-    const loader = new AgentDefinitionLoader(cwd, makeTempDir());
+    const loader = new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
+    );
     const agent = loader.getAgent('empty');
 
     expect(agent).toBeDefined();
@@ -535,7 +562,9 @@ description: Frontmatter only agent
 ---`,
     );
 
-    const loader = new AgentDefinitionLoader(cwd, makeTempDir());
+    const loader = new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
+    );
     const agent = loader.getAgent('fm-only');
 
     expect(agent).toBeDefined();

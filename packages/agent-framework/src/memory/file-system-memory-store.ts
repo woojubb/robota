@@ -1,12 +1,11 @@
 /**
- * SELFHOST-008 P1 — the neutral filesystem reference adapter for the memory port.
+ * SELFHOST-008 P1 — the authority-backed workspace adapter for the memory port.
  *
- * `FileSystemMemoryStore` implements `IMemoryStore` by composing the existing, unchanged neutral
- * mechanisms — `ProjectMemoryStore` (durable write/read under `<cwd>/.robota/memory/`),
+ * `WorkspaceMemoryStore` implements `IMemoryStore` by composing the authority-backed
+ * mechanisms — `ProjectMemoryStore` (durable read/write through the named `memory` state facet),
  * `MemoryRetrievalService` (budgeted keyword recall), and `PendingMemoryStore` (curation queue). It
- * mirrors `InMemorySandboxClient` (the sandbox precedent's reference adapter that lives in the same
- * package as its port): the default store when no adapter is injected, so memory keeps working exactly
- * as today. It adds NO new behavior — it is purely the port face over the three existing classes.
+ * adds NO authority and no ambient fallback — it is purely the port face over the three existing
+ * classes, and absence of a facet means project memory remains unavailable.
  */
 
 import { MemoryRetrievalService } from './memory-retrieval-service.js';
@@ -25,15 +24,16 @@ import type {
   IStartupMemory,
   TMemoryCandidateStatus,
 } from './types.js';
+import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
-export class FileSystemMemoryStore implements IMemoryStore {
+export class WorkspaceMemoryStore implements IMemoryStore {
   private readonly project: ProjectMemoryStore;
   private readonly pending: PendingMemoryStore;
   private readonly retrieval: MemoryRetrievalService;
 
-  constructor(cwd: string, now: () => Date = () => new Date()) {
-    this.project = new ProjectMemoryStore(cwd, now);
-    this.pending = new PendingMemoryStore(cwd, now);
+  constructor(storage: IWorkspaceProjectStateStorage, now: () => Date = () => new Date()) {
+    this.project = new ProjectMemoryStore(storage, now);
+    this.pending = new PendingMemoryStore(storage, now);
     // P1R: reuse the SAME project store (honors the injected clock) for the recall read path —
     // one ProjectMemoryStore per cwd, not two.
     this.retrieval = new MemoryRetrievalService(this.project);
@@ -90,7 +90,10 @@ export class FileSystemMemoryStore implements IMemoryStore {
   }
 }
 
-/** Create the neutral filesystem reference memory store for a workspace. */
-export function createFileSystemMemoryStore(cwd: string, now?: () => Date): IMemoryStore {
-  return new FileSystemMemoryStore(cwd, now);
+/** Create the memory port adapter for an accepted workspace `memory` state facet. */
+export function createWorkspaceMemoryStore(
+  storage: IWorkspaceProjectStateStorage,
+  now?: () => Date,
+): IMemoryStore {
+  return new WorkspaceMemoryStore(storage, now);
 }

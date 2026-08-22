@@ -2,10 +2,14 @@ export { InteractiveSession } from './interactive-session.js';
 export type { IInteractiveSession } from './i-interactive-session.js';
 export {
   createProjectSessionStore,
+  createNodeHostSessionStore,
   createUserSessionStore,
   listResumableSessionSummaries,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
+  WorkspaceProjectSessionStore,
+  WorkspaceSessionLogSink,
+  WorkspaceSessionLogSource,
 } from './session-persistence.js';
 export { generateSessionName } from './session-naming.js';
 export type { IGenerateSessionNameOptions } from './session-naming.js';

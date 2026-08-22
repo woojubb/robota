@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { createReplayProviderFromLogFile } from '@robota-sdk/agent-provider-replay';
+import { createReplayProviderFromSource } from '@robota-sdk/agent-provider-replay';
+import { NodeSessionLogSink, NodeSessionLogSource } from '@robota-sdk/agent-session';
 
 import { InteractiveSession } from '../src/index.js';
 
@@ -32,6 +33,7 @@ try {
     cwd: sourceWorkspacePath,
     provider: sourceProvider,
     resumeSessionId: 'arch-014-source',
+    sessionLogSink: new NodeSessionLogSink(join(sourceWorkspacePath, '.robota', 'logs')),
     bare: true,
     permissionMode: 'bypassPermissions',
   });
@@ -50,7 +52,7 @@ try {
   if (!sidecarExists)
     throw new Error(`External payload sidecar is missing: ${reference.relativePath}`);
 
-  const replayProvider = createReplayProviderFromLogFile(transcriptPath);
+  const replayProvider = createReplayProviderFromSource(new NodeSessionLogSource(transcriptPath));
   replayWorkspace = mkdtempSync(join(tmpdir(), 'robota-arch-014-replay-'));
   const replayWorkspacePath = replayWorkspace;
   replaySession = new InteractiveSession({

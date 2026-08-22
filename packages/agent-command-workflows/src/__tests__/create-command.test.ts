@@ -4,10 +4,23 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAssistantMessage } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import { executeWorkflowsCreate } from '../create-command.js';
+import { executeWorkflowsCreate as executeWorkflowsCreateWithProject } from '../create-command.js';
 import { parseAuthoringArgs, type IWorkflowsAuthoringDeps } from '../authoring/args.js';
 import { parseAuthoredSpec } from '../authoring/spec.js';
-import { executeWorkflowsRun } from '../run-command.js';
+import { executeWorkflowsRun as executeWorkflowsRunWithProject } from '../run-command.js';
+import { createWorkflowProjectFixture } from './workflow-project-fixture.js';
+
+async function executeWorkflowsCreate(args: string, root: string, deps?: IWorkflowsAuthoringDeps) {
+  return executeWorkflowsCreateWithProject(args, await createWorkflowProjectFixture(root), deps);
+}
+
+async function executeWorkflowsRun(
+  args: string,
+  root: string,
+  layout?: Parameters<typeof executeWorkflowsRunWithProject>[2],
+) {
+  return executeWorkflowsRunWithProject(args, await createWorkflowProjectFixture(root), layout);
+}
 
 /** A provider stub whose `chat` always returns the given JSON string as assistant content. */
 function stubProvider(specJson: string): IAIProvider {
@@ -158,7 +171,7 @@ describe('executeWorkflowsCreate (TC-02: author + save + run existing nodes)', (
 describe('executeWorkflowsRun (TC-03: the saved artifact is re-runnable)', () => {
   it('reproduces the result without re-authoring', async () => {
     await executeWorkflowsCreate('"uppercase"', dir, baseDeps(UPPERCASE_SPEC));
-    const savedPath = join(dir, '.workflows', 'uppercase-it.json');
+    const savedPath = join('.workflows', 'uppercase-it.json');
 
     const rerun = await executeWorkflowsRun(savedPath, dir);
     expect(rerun.success).toBe(true);

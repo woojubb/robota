@@ -141,7 +141,7 @@ to continue the same conversation across requests.
 
 ```typescript
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
-import { createProjectSessionStore } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 declare const provider: IAIProvider;
@@ -149,7 +149,7 @@ declare const provider: IAIProvider;
 const runtime = createAgentRuntime({
   cwd: process.cwd(),
   provider,
-  sessionStore: createProjectSessionStore(process.cwd()),
+  sessionStore: createNodeHostSessionStore('.robota/sessions'),
 });
 
 // Map channel/thread IDs to session IDs

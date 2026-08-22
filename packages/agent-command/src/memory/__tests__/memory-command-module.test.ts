@@ -1,17 +1,66 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   InteractiveSession,
   SystemCommandExecutor,
-  createFileSystemMemoryStore,
+  WorkspaceTrustService,
+  createWorkspaceMemoryStore,
+  getWorkspaceProjectStateStorage,
 } from '@robota-sdk/agent-framework';
 import { MemoryCommandSource, createMemoryCommandModule, executeMemoryCommand } from '../index.js';
+
+import type {
+  IMemoryStore,
+  IWorkspaceIdentity,
+  IWorkspaceTrustStore,
+  IWorkspaceTrustStoreSnapshot,
+} from '@robota-sdk/agent-framework';
 
 // SEC-003 (js/insecure-temporary-file): `mkdtempSync` yields a 0700 directory with an unpredictable
 // name, so no other user can pre-create or read the paths this suite writes under it.
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-command-memory-'));
+const memoryStores = new Map<string, Promise<IMemoryStore>>();
+
+class TrustedStore implements IWorkspaceTrustStore {
+  inspect(): Promise<IWorkspaceTrustStoreSnapshot> {
+    return Promise.resolve({ state: 'trusted', generation: 1 });
+  }
+
+  grant(): Promise<IWorkspaceTrustStoreSnapshot> {
+    return this.inspect();
+  }
+
+  revoke(): Promise<IWorkspaceTrustStoreSnapshot> {
+    return Promise.resolve({ state: 'revoked', generation: 2 });
+  }
+}
+
+function createMemoryStore(cwd: string): Promise<IMemoryStore> {
+  const existing = memoryStores.get(cwd);
+  if (existing !== undefined) return existing;
+  const created = (async () => {
+    const root = realpathSync(cwd);
+    const identity: IWorkspaceIdentity = {
+      repositoryKey: `memory-test:${root}`,
+      displayPath: root,
+      worktreeRoot: root,
+    };
+    const service = new WorkspaceTrustService({
+      identityResolver: { resolve: () => identity },
+      store: new TrustedStore(),
+    });
+    const access = await service.inspect(root);
+    if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
+    return createWorkspaceMemoryStore(
+      getWorkspaceProjectStateStorage(access.authority, 'memory'),
+      () => new Date('2026-05-02T00:00:00.000Z'),
+    );
+  })();
+  memoryStores.set(cwd, created);
+  return created;
+}
 
 function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));
@@ -45,16 +94,17 @@ function createMockRuntimeSession() {
   };
 }
 
-function createInteractiveSession(cwd = makeProject()): InteractiveSession {
+async function createInteractiveSession(cwd = makeProject()): Promise<InteractiveSession> {
   return new InteractiveSession({
     cwd,
     session: createMockRuntimeSession() as never,
+    memoryStore: await createMemoryStore(cwd),
     commandModules: [createMemoryCommandModule()],
   });
 }
 
 async function seedPendingMemory(cwd: string): Promise<void> {
-  const store = createFileSystemMemoryStore(cwd, () => new Date('2026-05-02T00:00:00.000Z'));
+  const store = await createMemoryStore(cwd);
   await store.upsertPending(
     {
       id: 'mem_123',
@@ -72,6 +122,7 @@ async function seedPendingMemory(cwd: string): Promise<void> {
 }
 
 afterEach(() => {
+  memoryStores.clear();
   if (existsSync(TMP_BASE)) rmSync(TMP_BASE, { recursive: true, force: true });
 });
 
@@ -134,17 +185,17 @@ describe('createMemoryCommandModule', () => {
 describe('executeMemoryCommand', () => {
   it('lists configured memory paths', async () => {
     const cwd = makeProject();
-    const session = createInteractiveSession(cwd);
+    const session = await createInteractiveSession(cwd);
 
     const result = await session.executeCommand('memory', 'list');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toContain(join(cwd, '.robota', 'memory', 'MEMORY.md'));
+    expect(result?.message).toContain(join('.robota', 'memory', 'MEMORY.md'));
   });
 
   it('persists index and topic entries through slash invocation', async () => {
     const cwd = makeProject();
-    const session = createInteractiveSession(cwd);
+    const session = await createInteractiveSession(cwd);
 
     const result = await session.executeCommand(
       'memory',
@@ -159,7 +210,7 @@ describe('executeMemoryCommand', () => {
 
   it('uses the same handler for model invocation', async () => {
     const cwd = makeProject();
-    const session = createInteractiveSession(cwd);
+    const session = await createInteractiveSession(cwd);
 
     const result = await session.executeModelCommand(
       'memory',
@@ -174,7 +225,7 @@ describe('executeMemoryCommand', () => {
 
   it('rejects sensitive content before writing files', async () => {
     const cwd = makeProject();
-    const session = createInteractiveSession(cwd);
+    const session = await createInteractiveSession(cwd);
 
     const result = await session.executeCommand(
       'memory',
@@ -189,7 +240,7 @@ describe('executeMemoryCommand', () => {
   it('lists queued automatic memory candidates', async () => {
     const cwd = makeProject();
     await seedPendingMemory(cwd);
-    const session = createInteractiveSession(cwd);
+    const session = await createInteractiveSession(cwd);
 
     const result = await session.executeCommand('memory', 'pending');
 
@@ -202,7 +253,7 @@ describe('executeMemoryCommand', () => {
   it('approves and saves a pending candidate while recording audit events', async () => {
     const cwd = makeProject();
     await seedPendingMemory(cwd);
-    const session = createInteractiveSession(cwd);
+    const session = await createInteractiveSession(cwd);
     const recordMemoryEvent = vi.spyOn(session, 'recordMemoryEvent');
 
     const result = await session.executeCommand('memory', 'approve mem_123');
@@ -212,7 +263,7 @@ describe('executeMemoryCommand', () => {
     expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
       '(project/build) Use pnpm for package scripts.',
     );
-    expect((await createFileSystemMemoryStore(cwd).getPending('mem_123'))?.status).toBe('saved');
+    expect((await (await createMemoryStore(cwd)).getPending('mem_123'))?.status).toBe('saved');
     expect(recordMemoryEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'memory_candidate_approved', candidateId: 'mem_123' }),
     );
@@ -224,14 +275,14 @@ describe('executeMemoryCommand', () => {
   it('rejects a pending candidate while recording an audit event', async () => {
     const cwd = makeProject();
     await seedPendingMemory(cwd);
-    const session = createInteractiveSession(cwd);
+    const session = await createInteractiveSession(cwd);
     const recordMemoryEvent = vi.spyOn(session, 'recordMemoryEvent');
 
     const result = await session.executeCommand('memory', 'reject mem_123');
 
     expect(result?.success).toBe(true);
     expect(result?.message).toContain('Rejected memory candidate mem_123');
-    expect((await createFileSystemMemoryStore(cwd).getPending('mem_123'))?.status).toBe('rejected');
+    expect((await (await createMemoryStore(cwd)).getPending('mem_123'))?.status).toBe('rejected');
     expect(recordMemoryEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'memory_candidate_rejected', candidateId: 'mem_123' }),
     );
@@ -239,7 +290,7 @@ describe('executeMemoryCommand', () => {
 
   it('reports references from the current turn', async () => {
     const cwd = makeProject();
-    const session = createInteractiveSession(cwd);
+    const session = await createInteractiveSession(cwd);
     vi.spyOn(session, 'getUsedMemoryReferences').mockReturnValue([
       {
         topic: 'build',
@@ -258,7 +309,7 @@ describe('executeMemoryCommand', () => {
 
   it('returns usage for invalid arguments without mutating state', async () => {
     const cwd = makeProject();
-    const session = createInteractiveSession(cwd);
+    const session = await createInteractiveSession(cwd);
 
     const result = await executeMemoryCommand(session, 'add project missing-text');
     const unknownResult = await executeMemoryCommand(session, 'unknown');

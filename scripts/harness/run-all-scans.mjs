@@ -591,6 +591,12 @@ export const SCAN_COMMANDS = [
   },
   { name: 'authority-bypass', command: ['node', 'scripts/harness/scan-authority-bypass.mjs'] },
   {
+    // ARCH-042: public project APIs consume opaque authority/facets; removed cwd helpers and
+    // ambient fallbacks must not re-enter through an initial/stateless consumer.
+    name: 'public-project-authority',
+    command: ['node', 'scripts/harness/scan-public-project-authority.mjs'],
+  },
+  {
     name: 'run-advancement-owner',
     command: ['node', 'scripts/harness/scan-run-advancement-owner.mjs'],
   },

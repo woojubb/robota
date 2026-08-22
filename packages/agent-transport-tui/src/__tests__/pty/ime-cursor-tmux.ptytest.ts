@@ -54,10 +54,9 @@ function runInTmux(run: ITmuxRun, rows: number, imeCursor: string | undefined): 
   const tmux = TMUX!;
   const projectDir = join(run.root, 'proj');
   const homeDir = join(run.root, 'home');
-  mkdirSync(join(projectDir, '.robota'), { recursive: true });
-  mkdirSync(homeDir, { recursive: true });
+  mkdirSync(join(homeDir, '.robota'), { recursive: true });
   writeFileSync(
-    join(projectDir, '.robota/settings.json'),
+    join(homeDir, '.robota/settings.json'),
     JSON.stringify({
       currentProvider: 'anthropic',
       providers: {

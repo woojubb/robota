@@ -23,6 +23,7 @@ import {
   type TDirectSession,
   type TSubagentSession,
 } from './semantic-command-role-scenario-helpers.js';
+import { createScenarioProjectAccess } from './semantic-command-role-project-access.js';
 
 import {
   createAgentCommandModule,
@@ -46,6 +47,7 @@ async function main(): Promise<void> {
         ['---', 'name: audit', 'description: Audit code', '---', 'Audit'].join('\n'),
         'utf8',
       );
+      const projectAccess = await createScenarioProjectAccess(cwd);
 
       const alternate = [
         command('activate-skill-alt', 'skillActivation'),
@@ -80,6 +82,7 @@ async function main(): Promise<void> {
       interactive = new InteractiveSession({
         session: injectedSession as never,
         cwd,
+        projectAccess,
         commandModules: [fallbackModule],
       });
       const emptyFallbackResult = await interactive.executeCommand('audit', 'src/index.ts');
@@ -114,10 +117,19 @@ async function main(): Promise<void> {
         'agent job provenance omitted the alternate semantic command id',
       );
 
-      const alternatePrompt = await readSystemMessage(cwd, 'activate-skill-alt', directSessions, {
-        skillActivation: 'activate-skill-alt',
-      });
-      const coincidentalPrompt = await readSystemMessage(cwd, 'skills', directSessions);
+      const alternatePrompt = await readSystemMessage(
+        cwd,
+        'activate-skill-alt',
+        directSessions,
+        projectAccess,
+        { skillActivation: 'activate-skill-alt' },
+      );
+      const coincidentalPrompt = await readSystemMessage(
+        cwd,
+        'skills',
+        directSessions,
+        projectAccess,
+      );
       assertCondition(
         alternatePrompt.includes('## Skills'),
         'alternate role omitted skill metadata',
@@ -146,7 +158,8 @@ async function main(): Promise<void> {
       const duplicateRoleRejections = verifyDuplicateRoleRejections();
 
       const ownerDeclarations = {
-        skills: createSkillsCommandModule({ cwd }).systemCommands?.[0]?.semanticRole,
+        skills: createSkillsCommandModule({ contributionSources: [] }).systemCommands?.[0]
+          ?.semanticRole,
         compact: createCompactCommandModule().systemCommands?.[0]?.semanticRole,
         agent: createAgentCommandModule().systemCommands?.[0]?.semanticRole,
       };
@@ -160,6 +173,7 @@ async function main(): Promise<void> {
       const { unannotatedCoincidentalNames, singleRoleOmission, directCreateSessionOmission } =
         await verifyOmissionBehaviors({
           cwd,
+          projectAccess,
           alternate,
           injectedSession,
           projectedSpawnTool,

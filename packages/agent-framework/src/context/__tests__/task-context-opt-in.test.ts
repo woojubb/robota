@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import { describe, expect, it, afterEach } from 'vitest';
 
 import { SettingsSchema } from '../../config/config-types.js';
+import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
+import { getWorkspaceProjectReader } from '../../workspace-trust/index.js';
 import { loadContext } from '../context-loader.js';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-task-context-opt-in-'));
@@ -25,6 +27,12 @@ function writeTaskFile(dir: string, tasksDir = join('.agents', 'tasks')): void {
   );
 }
 
+async function projectSource(root: string) {
+  const access = await createTrustedProjectAccessFixture(root);
+  if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
+  return { reader: getWorkspaceProjectReader(access.authority) };
+}
+
 afterEach(() => {
   if (existsSync(TMP_BASE)) rmSync(TMP_BASE, { recursive: true, force: true });
 });
@@ -38,7 +46,7 @@ describe('NEUT-004 task-context injection discipline', () => {
     const cwd = makeWorkspace();
     writeTaskFile(cwd);
 
-    const context = await loadContext(cwd);
+    const context = await loadContext(await projectSource(cwd));
 
     expect(context.taskContext).toContain('Sample Task');
   });
@@ -47,7 +55,9 @@ describe('NEUT-004 task-context injection discipline', () => {
     const cwd = makeWorkspace();
     writeTaskFile(cwd);
 
-    const context = await loadContext(cwd, undefined, { taskContext: { enabled: false } });
+    const context = await loadContext(await projectSource(cwd), undefined, {
+      taskContext: { enabled: false },
+    });
 
     expect(context.taskContext).toBeUndefined();
   });
@@ -60,7 +70,9 @@ describe('NEUT-004 task-context injection discipline', () => {
     mkdirSync(decoyDir, { recursive: true });
     writeFileSync(join(decoyDir, 'D-001-decoy.md'), '# Decoy Task\n\n- **Status**: todo\n', 'utf8');
 
-    const context = await loadContext(cwd, undefined, { taskContext: { dir: 'my-tasks' } });
+    const context = await loadContext(await projectSource(cwd), undefined, {
+      taskContext: { dir: 'my-tasks' },
+    });
 
     expect(context.taskContext).toContain('Sample Task');
     expect(context.taskContext).not.toContain('Decoy Task');

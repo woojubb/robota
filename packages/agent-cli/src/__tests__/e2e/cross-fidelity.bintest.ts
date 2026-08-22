@@ -36,8 +36,8 @@ async function runScenario(driver: IAgentDriver): Promise<string | undefined> {
   return last;
 }
 
-function writeProviderSettings(projectDir: string): void {
-  const dir = join(projectDir, '.robota');
+function writeProviderSettings(homeDir: string): void {
+  const dir = join(homeDir, '.robota');
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, 'settings.json'),
@@ -61,7 +61,7 @@ describe('IAgentDriver cross-fidelity (INFRA-020 TC-04)', () => {
     progCwd = mkdtempSync(join(tmpdir(), 'robota-xf-prog-'));
     binCwd = mkdtempSync(join(tmpdir(), 'robota-xf-bin-'));
     homeDir = mkdtempSync(join(tmpdir(), 'robota-xf-home-'));
-    writeProviderSettings(binCwd);
+    writeProviderSettings(homeDir);
   });
 
   afterEach(() => {

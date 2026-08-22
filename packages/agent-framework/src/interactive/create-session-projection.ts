@@ -1,4 +1,4 @@
-import { FileSessionLogger } from '@robota-sdk/agent-session';
+import { FileSessionLogger, SilentSessionLogger } from '@robota-sdk/agent-session';
 
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
 
@@ -22,24 +22,37 @@ export interface ICreateSessionProjectionDeps {
   context: ICreateSessionOptions['context'];
   projectInfo: ICreateSessionOptions['projectInfo'];
   sessionId: ICreateSessionOptions['sessionId'];
-  logsDir: string;
   contextCapacityHint: ICreateSessionOptions['contextCapacityHint'];
+  contributionSources: ICreateSessionOptions['contributionSources'];
 }
 
 export function buildCreateSessionOptions(
   options: IInitOptions,
   deps: ICreateSessionProjectionDeps,
 ): ICreateSessionOptions {
-  const { mergedConfig, cwd, context, projectInfo, sessionId, logsDir, contextCapacityHint } = deps;
+  const {
+    mergedConfig,
+    cwd,
+    context,
+    projectInfo,
+    sessionId,
+    contextCapacityHint,
+    contributionSources,
+  } = deps;
   return {
     config: mergedConfig,
     cwd,
     context,
+    contributionSources,
     projectInfo,
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,
     terminal: NOOP_TERMINAL,
-    sessionLogger: new FileSessionLogger(logsDir),
+    sessionLogger:
+      options.sessionLogSink === undefined
+        ? new SilentSessionLogger()
+        : new FileSessionLogger(options.sessionLogSink),
+    ...(options.transcriptPath !== undefined ? { transcriptPath: options.transcriptPath } : {}),
     permissionHandler: options.permissionHandler,
     // CMD-005: the channel's unified ask renderer doubles as the model-question seam for tools.
     ...(options.askHandler ? { ask: options.askHandler } : {}),

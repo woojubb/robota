@@ -76,8 +76,8 @@ function findFreePort(): Promise<number> {
 }
 
 /** Write a bootable provider profile; `--session-log` swaps in the replay provider so the key is never used. */
-function writeProviderSettings(projectDir: string): void {
-  const dir = join(projectDir, '.robota');
+function writeProviderSettings(homeDir: string): void {
+  const dir = join(homeDir, '.robota');
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, 'settings.json'),
@@ -158,7 +158,7 @@ describe('robota --serve black-box runtime host (RUNTIME-001)', () => {
   beforeAll(async () => {
     binCwd = mkdtempSync(join(tmpdir(), 'robota-serve-bin-'));
     homeDir = mkdtempSync(join(tmpdir(), 'robota-serve-home-'));
-    writeProviderSettings(binCwd);
+    writeProviderSettings(homeDir);
     port = await findFreePort();
 
     child = spawn(

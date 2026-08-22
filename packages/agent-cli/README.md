@@ -26,6 +26,7 @@ import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 const runtime = createAgentRuntime({
   cwd: process.cwd(),
   provider: createAnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+  // projectAccess: hostWorkspaceDecision,
 });
 const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
 
@@ -35,6 +36,12 @@ session.on('complete', (result) => console.log(result.response));
 
 await session.submit('Explain this codebase');
 ```
+
+A bare `cwd` is provenance, not project authority. Without a host-issued
+`TWorkspaceProjectAccess` decision the runtime is observably Restricted and does not load project
+context, settings, memory, sessions, or logs. Embedders establish that decision through the
+framework `WorkspaceTrustService`; a path, boolean, or generic filesystem cannot substitute for it.
+Trusted composition is rejected when `cwd` resolves outside that authority's frozen workspace root.
 
 ## Prerequisites
 
@@ -527,6 +534,10 @@ Settings are merged in this order, from lowest to highest priority:
 5. `.claude/settings.json` (project, Claude Code compatible)
 6. `.claude/settings.local.json` (local, gitignored, Claude Code compatible)
 
+The two user layers are always host-owned. The four project layers participate only when the CLI host
+supplies trusted project access; Restricted composition does not probe them. Project writes require a
+separately approved settings writer for the same authority.
+
 ```json
 {
   "defaultMode": "default",
@@ -587,17 +598,17 @@ persisted default. The legacy single-provider shape remains supported:
 
 ## Context Discovery
 
-The CLI automatically discovers and loads:
+With trusted project access, the CLI discovers and loads:
 
-- **AGENTS.md** — walking up from cwd to filesystem root
-- **CLAUDE.md** — same walk-up discovery
+- **AGENTS.md** — walking only within the authenticated worktree root
+- **CLAUDE.md** — the same root-bounded discovery
 - **Project metadata** — from `package.json`, `tsconfig.json`
 
 All context is assembled into the system prompt.
 
 Ordinary prompts may also reference workspace-local files with path-like `@file` tokens, for
 example `@AGENTS.md` or `@docs/SPEC.md`. The CLI passes those prompts through unchanged; the SDK
-resolves bounded file content under the active `cwd`, sends the enriched prompt to the model, and
+resolves bounded file content through the accepted project reader, sends the enriched prompt to the model, and
 records a structured file-reference event in the session history.
 
 ## Memory Management
@@ -608,9 +619,11 @@ records a structured file-reference event in the session history.
 
 ## Session Logging
 
-Session logs are written to `.robota/logs/{sessionId}.jsonl` in JSONL format by default, capturing structured events for diagnostics and replay. Background task lifecycle/progress events are logged there as they happen. Child-process subagents also write append-only transcripts to `.robota/logs/{sessionId}/subagents/{agentId}.jsonl`, including streaming text deltas while the local provider request is still running.
-
-Resumable session JSON is written to `.robota/sessions/{sessionId}.json` for the current project and includes messages, UI history, the exact system prompt, registered tool schemas, and background task snapshots. High-frequency streaming chunks stay in JSONL transcript files; the session JSON stores task state and transcript paths.
+Trusted composition writes project session logs and resumable records through authority-backed
+`session-logs` and `sessions` state facets. Restricted composition opens no project log path and uses
+the user session store instead. Session records include messages, UI history, the exact system prompt,
+registered tool schemas, and background task snapshots; high-frequency streaming chunks remain in
+the separately injected JSONL sink.
 
 ## Architecture
 

@@ -7,8 +7,7 @@
  * (`dag-framework`), so composites round-trip on the agent `/workflows` path without depending on the
  * `dag-cli` product.
  */
-import { readdir, readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
 import type { IDagNodeDefinition, IDagRuntimeResult, TPortPayload } from '@robota-sdk/dag-core';
 import {
@@ -17,6 +16,9 @@ import {
   type ICompositeSubRunner,
 } from '@robota-sdk/dag-node-instant-node';
 import { LocalDagRuntimeProvider } from '@robota-sdk/dag-framework';
+import { assertWorkflowProject } from '../workflow-project.js';
+
+import type { IWorkflowProject } from '../workflow-project.js';
 
 const NODE_MANIFEST_EXT = '.node.json';
 
@@ -48,16 +50,16 @@ function toNestedOutputs(flat: IDagRuntimeResult['outputs']): Record<string, TPo
  * order (they are resolved at run time, not load time).
  */
 function buildCompositeRunner(
-  cwd: string,
+  project: IWorkflowProject,
   layout: IWorkspaceLayout,
   liveDefs: IDagNodeDefinition[],
 ): ICompositeSubRunner {
   return {
     async run(dag, input) {
       const provider = new LocalDagRuntimeProvider({
-        executionRoot: cwd,
+        executionRoot: project.executionRoot,
         workspace: layout,
-        projectDir: cwd,
+        projectDir: project.executionRoot,
         ...(liveDefs.length > 0 ? { instantNodes: liveDefs } : {}),
       });
       const result = await provider.execute(dag, input);
@@ -77,23 +79,23 @@ function buildCompositeRunner(
  * serialized) that runs the inner DAG on the in-process runtime.
  */
 export async function loadInstantNodes(
-  cwd: string,
+  project: IWorkflowProject,
   layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
 ): Promise<IDagNodeDefinition[]> {
-  const dir = resolve(cwd, join(layout.root, 'nodes'));
-  let files: string[];
-  try {
-    files = await readdir(dir);
-  } catch {
-    // allow-fallback: nodes dir may not exist yet → no local nodes
-    return [];
-  }
+  const accepted = assertWorkflowProject(project);
+  const dir = join(layout.root, 'nodes');
+  const files = accepted
+    .listDirectory(dir, 'discover saved workflow nodes')
+    .filter((entry) => entry.kind === 'file')
+    .map((entry) => entry.name);
   const nodes: IDagNodeDefinition[] = [];
-  const compositeRunner = buildCompositeRunner(cwd, layout, nodes);
+  const compositeRunner = buildCompositeRunner(accepted, layout, nodes);
   for (const file of files.filter((f) => f.endsWith(NODE_MANIFEST_EXT))) {
     let record: ReturnType<typeof parsePersistedInstantNode>;
     try {
-      record = parsePersistedInstantNode(JSON.parse(await readFile(join(dir, file), 'utf-8')));
+      const raw = accepted.readText(join(dir, file), 'load saved workflow node');
+      if (raw === undefined) continue;
+      record = parsePersistedInstantNode(JSON.parse(raw));
     } catch {
       // allow-fallback: unreadable/unparseable manifest skipped
       continue;

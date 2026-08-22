@@ -6,7 +6,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 import {
   Session,
-  SessionStore,
+  NodeSessionStore,
   type IInteractiveSessionRecord,
   type ISpinner,
   type ITerminalOutput,
@@ -200,7 +200,7 @@ async function main(): Promise<void> {
   let output: Omit<Record<string, unknown>, 'cleanupRemoved'> | undefined;
 
   try {
-    const store = new SessionStore(join(scratchDir, 'sessions'));
+    const store = new NodeSessionStore(join(scratchDir, 'sessions'));
     const existing = createExistingRecord();
     store.save(existing);
 

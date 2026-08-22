@@ -16,6 +16,7 @@ import { createScriptedProvider } from '@robota-sdk/agent-transport/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { startCli } from '../../cli.js';
+import { createTrustedWorkspaceProjectAccess } from '../helpers/trusted-workspace-project-access.js';
 
 import type { IScriptedProvider } from '@robota-sdk/agent-transport/testing';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
@@ -70,7 +71,10 @@ async function runPrintJson(prompt: string): Promise<{ exitCode: number; stdout:
   vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   let exitCode = -1;
   try {
-    await startCli({ providerDefinitions: [scriptedDefinition(scripted)] });
+    await startCli({
+      providerDefinitions: [scriptedDefinition(scripted)],
+      projectAccess: await createTrustedWorkspaceProjectAccess(process.cwd()),
+    });
     throw new Error('startCli returned without process.exit');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

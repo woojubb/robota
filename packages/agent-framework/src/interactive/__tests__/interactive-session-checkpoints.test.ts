@@ -4,6 +4,9 @@ import { join } from 'node:path';
 
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
+import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js';
+import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
+import { createWorkspaceProjectMutation } from '../../workspace-trust/index.js';
 import { InteractiveSession } from '../interactive-session.js';
 
 import type { IAIProvider, IAssistantMessage, TUniversalMessage } from '@robota-sdk/agent-core';
@@ -15,6 +18,18 @@ function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));
   mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+async function createCheckpointStore(cwd: string): Promise<EditCheckpointStore> {
+  const access = await createTrustedProjectAccessFixture(cwd);
+  if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+  return new EditCheckpointStore({
+    authority: access.authority,
+    mutation: createWorkspaceProjectMutation(access.authority, {
+      status: 'approved',
+      purpose: 'interactive checkpoint test',
+    }),
+  });
 }
 
 function assistantMessage(
@@ -87,6 +102,7 @@ describe('InteractiveSession edit checkpointing', () => {
       bare: true,
       permissionMode: 'acceptEdits',
       allowedTools: ['Write'],
+      editCheckpointStore: await createCheckpointStore(cwd),
     });
 
     await session.submit('write first version');
@@ -130,6 +146,7 @@ describe('InteractiveSession edit checkpointing', () => {
       bare: true,
       permissionMode: 'acceptEdits',
       allowedTools: ['Write'],
+      editCheckpointStore: await createCheckpointStore(cwd),
     });
 
     await session.submit('write first version');

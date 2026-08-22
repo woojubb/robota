@@ -1,10 +1,10 @@
 import { ENV_REFERENCE_PREFIX, isEnvReference } from '@robota-sdk/agent-core';
 import { createProviderFromConfig } from '@robota-sdk/agent-executor';
 
-import { readMergedProviderSettingsFromPaths, resolveActiveProvider } from './provider-merge.js';
-import { getProviderSettingsPaths } from '../../config/provider-paths.js';
+import { readMergedProviderSettingsFromSources, resolveActiveProvider } from './provider-merge.js';
 
 import type { TProviderSettingsDocument } from './provider-settings.js';
+import type { TSettingsSource } from '../../config/settings-source.js';
 import type {
   IAIProvider,
   IProviderDefinitionConfig,
@@ -16,20 +16,6 @@ export interface IReadProviderSettingsOptions {
   providerDefinitions?: readonly IProviderDefinition[];
   /** Environment map for env-default synthesis (test seam, default: process.env). */
   env?: Record<string, string | undefined>;
-  /**
-   * Settings files to merge, in precedence order (test seam, default:
-   * {@link getProviderSettingsPaths} over `cwd`).
-   *
-   * Issue #1929. The default list includes the USER-level settings file under the operator's home
-   * directory, which no `cwd` can isolate — so a case whose premise is "no settings anywhere" was
-   * true only on a machine whose developer had never configured the CLI, and read that developer's
-   * real profile otherwise. The failure direction was the harmless one; the other is a case going
-   * green because the host's profile happened to match what it expected.
-   *
-   * The same shape as `env` directly above, and for the same reason: an input the environment
-   * supplies has to be injectable, or the result stops depending on the code under test.
-   */
-  settingsPaths?: readonly string[];
 }
 
 /**
@@ -43,8 +29,10 @@ export class ProviderConfigError extends Error {
   }
 }
 
-export function readMergedProviderSettings(cwd: string): TProviderSettingsDocument {
-  return readMergedProviderSettingsFromPaths(getProviderSettingsPaths(cwd));
+export function readMergedProviderSettings(
+  sources: readonly TSettingsSource[],
+): TProviderSettingsDocument {
+  return readMergedProviderSettingsFromSources(sources);
 }
 
 /**
@@ -83,13 +71,10 @@ export function resolveEnvDefaultProvider(
 }
 
 export function readProviderSettings(
-  cwd: string,
+  sources: readonly TSettingsSource[],
   options: IReadProviderSettingsOptions = {},
 ): IProviderDefinitionConfig {
-  const merged =
-    options.settingsPaths === undefined
-      ? readMergedProviderSettings(cwd)
-      : readMergedProviderSettingsFromPaths(options.settingsPaths);
+  const merged = readMergedProviderSettings(sources);
   const providerConfig = resolveActiveProvider(
     merged,
     options.providerOverride,
@@ -108,12 +93,12 @@ export function readProviderSettings(
 }
 
 export function createProviderFromSettings(
-  cwd: string,
+  sources: readonly TSettingsSource[],
   modelOverride?: string,
   options: IReadProviderSettingsOptions = {},
 ): IAIProvider {
   const providerDefinitions = options.providerDefinitions ?? [];
-  const settings = readProviderSettings(cwd, { ...options, providerDefinitions });
+  const settings = readProviderSettings(sources, { ...options, providerDefinitions });
   const model = modelOverride ?? settings.model;
 
   return createProviderFromConfig({ ...settings, model }, providerDefinitions);

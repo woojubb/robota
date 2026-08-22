@@ -9,6 +9,8 @@ import {
   SessionHistoryTracker,
 } from '../interactive-session-history-tracker.js';
 import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js';
+import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
+import { createWorkspaceProjectMutation } from '../../workspace-trust/index.js';
 
 import type { IBranchEvent } from '@robota-sdk/agent-interface-transport';
 
@@ -18,23 +20,33 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-function createTracker(): {
+async function createTracker(): Promise<{
   tracker: SessionHistoryTracker;
   events: IBranchEvent[];
   order: string[];
-} {
+}> {
   const cwd = mkdtempSync(join(tmpdir(), 'arch-020-branch-events-'));
   roots.push(cwd);
   const events: IBranchEvent[] = [];
   const order: string[] = [];
+  const access = await createTrustedProjectAccessFixture(cwd);
+  if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+  const store = new EditCheckpointStore({
+    authority: access.authority,
+    mutation: createWorkspaceProjectMutation(access.authority, {
+      status: 'approved',
+      purpose: 'checkpoint branch event test',
+    }),
+  });
   const tracker = new SessionHistoryTracker(
     cwd,
+    access,
     () => 'session-arch-020',
     () => false,
     () => order.push('persist'),
     vi.fn(),
     vi.fn(),
-    new EditCheckpointStore({ cwd }),
+    store,
     (event) => {
       events.push(event);
       order.push(`emit:${event.kind}`);
@@ -56,7 +68,7 @@ describe('SessionHistoryTracker branch-event operation matrix (ARCH-020)', () =>
   });
 
   it('emits the exact post-persistence event for create, restore, fork, switch, and rollback', async () => {
-    const { tracker, events, order } = createTracker();
+    const { tracker, events, order } = await createTracker();
 
     await tracker.beginEditCheckpointTurn('first');
     await tracker.finalizeEditCheckpointTurn();
@@ -88,7 +100,7 @@ describe('SessionHistoryTracker branch-event operation matrix (ARCH-020)', () =>
   });
 
   it('classifies resume-pointer hydration as a non-event', async () => {
-    const { tracker, events } = createTracker();
+    const { tracker, events } = await createTracker();
     await tracker.beginEditCheckpointTurn('first');
     await tracker.finalizeEditCheckpointTurn();
     const pointer = tracker.getActiveBranchPointer();

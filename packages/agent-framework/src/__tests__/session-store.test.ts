@@ -1,11 +1,18 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { SessionStore } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { createProjectSessionStore } from '../interactive/session-persistence.js';
+import {
+  createProjectSessionStore,
+  WorkspaceSessionLogSink,
+  WorkspaceSessionLogSource,
+} from '../interactive/session-persistence.js';
+import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
+import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
 import type { ISessionRecord } from '@robota-sdk/agent-session';
 
@@ -28,13 +35,22 @@ function makeRecord(overrides: Partial<ISessionRecord> = {}): ISessionRecord {
   };
 }
 
+async function projectStore(cwd: string): Promise<ReturnType<typeof createProjectSessionStore>> {
+  const access = await createTrustedProjectAccessFixture(cwd);
+  if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+  return createProjectSessionStore(
+    getWorkspaceProjectStateStorage(access.authority, 'sessions'),
+    getWorkspaceProjectStateStorage(access.authority, 'session-logs'),
+  );
+}
+
 describe('SessionStore', () => {
   let tmpDir: string;
-  let store: SessionStore;
+  let store: NodeSessionStore;
 
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), 'robota-session-test-'));
-    store = new SessionStore(tmpDir);
+    store = new NodeSessionStore(tmpDir);
   });
 
   afterEach(() => {
@@ -47,6 +63,44 @@ describe('SessionStore', () => {
       store.save(record);
       const loaded = store.load(record.id);
       expect(loaded).toEqual(record);
+    });
+
+    it('persists project session CRUD only through minted project state facets', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'robota-project-session-'));
+      try {
+        const project = await projectStore(cwd);
+        const record = makeRecord({ id: 'authority-session', cwd });
+
+        project.save(record);
+        expect(project.load(record.id)).toEqual(record);
+        expect(project.list()).toEqual([record]);
+        project.delete(record.id);
+        expect(project.load(record.id)).toBeUndefined();
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    });
+
+    it('rejects session and log facets derived from different authority instances', async () => {
+      const left = mkdtempSync(join(tmpdir(), 'robota-project-session-left-'));
+      const right = mkdtempSync(join(tmpdir(), 'robota-project-session-right-'));
+      try {
+        const leftAccess = await createTrustedProjectAccessFixture(left);
+        const rightAccess = await createTrustedProjectAccessFixture(right);
+        if (leftAccess.status !== 'trusted' || rightAccess.status !== 'trusted') {
+          throw new Error('expected trusted project fixtures');
+        }
+
+        expect(() =>
+          createProjectSessionStore(
+            getWorkspaceProjectStateStorage(leftAccess.authority, 'sessions'),
+            getWorkspaceProjectStateStorage(rightAccess.authority, 'session-logs'),
+          ),
+        ).toThrow(/same workspace authority/);
+      } finally {
+        rmSync(left, { recursive: true, force: true });
+        rmSync(right, { recursive: true, force: true });
+      }
     });
 
     it('preserves all fields including messages', () => {
@@ -103,12 +157,14 @@ describe('SessionStore', () => {
       expect(result).toBeUndefined();
     });
 
-    it('falls back to append-only replay logs when project session json is missing', () => {
+    it('falls back to append-only replay logs when project session json is missing', async () => {
       const cwd = mkdtempSync(join(tmpdir(), 'robota-project-session-'));
-      const logsDir = join(cwd, '.robota', 'logs');
-      mkdirSync(logsDir, { recursive: true });
-      writeFileSync(
-        join(logsDir, 'log-only-session.jsonl'),
+      const access = await createTrustedProjectAccessFixture(cwd);
+      if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+      const logStorage = getWorkspaceProjectStateStorage(access.authority, 'session-logs');
+      const sink = new WorkspaceSessionLogSink(logStorage);
+      sink.append(
+        'log-only-session',
         [
           JSON.stringify({
             timestamp: '2026-05-05T00:00:00.000Z',
@@ -181,12 +237,12 @@ describe('SessionStore', () => {
             },
           }),
         ].join('\n') + '\n',
-        'utf-8',
       );
 
       try {
-        const projectStore = createProjectSessionStore(cwd);
-        const loaded = projectStore.load('log-only-session');
+        const sessionStorage = getWorkspaceProjectStateStorage(access.authority, 'sessions');
+        const store = createProjectSessionStore(sessionStorage, logStorage);
+        const loaded = store.load('log-only-session');
 
         expect(loaded?.cwd).toBe(cwd);
         expect(loaded?.messages.map((message) => message.role)).toEqual(['user', 'assistant']);
@@ -195,6 +251,68 @@ describe('SessionStore', () => {
         expect(loaded?.backgroundJobGroups?.map((group) => group.id)).toEqual(['group-1']);
       } finally {
         rmSync(cwd, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('project session log degradation', () => {
+    it('enforces the caller-supplied payload read budget', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'robota-project-log-budget-'));
+      try {
+        const access = await createTrustedProjectAccessFixture(cwd);
+        if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+        const storage = getWorkspaceProjectStateStorage(access.authority, 'session-logs');
+        const serialized = JSON.stringify('larger than one byte');
+        const sha256 = createHash('sha256').update(serialized).digest('hex');
+        const sink = new WorkspaceSessionLogSink(storage);
+        const reference = sink.writeJson('safe-session', sha256, serialized);
+        const source = new WorkspaceSessionLogSource(storage, 'safe-session');
+
+        expect(() => source.readBytes(reference.relativePath, 1)).toThrowError(
+          expect.objectContaining({ code: 'MAX_TOTAL_BYTES_EXCEEDED' }),
+        );
+        expect(() => source.readBytes(reference.relativePath, -1)).toThrowError(
+          expect.objectContaining({ code: 'INVALID_LIMIT' }),
+        );
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    });
+
+    it('rejects a mismatched payload digest before authority-backed I/O', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'robota-project-log-digest-'));
+      try {
+        const access = await createTrustedProjectAccessFixture(cwd);
+        if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+        const sink = new WorkspaceSessionLogSink(
+          getWorkspaceProjectStateStorage(access.authority, 'session-logs'),
+        );
+
+        expect(() => sink.writeJson('safe-session', 'a'.repeat(64), '{"safe":true}')).toThrow(
+          /sha256/i,
+        );
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    });
+
+    it('warn-only disables logging when the authority-backed log target is linked', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'robota-project-log-failure-'));
+      const outside = mkdtempSync(join(tmpdir(), 'robota-project-log-outside-'));
+      try {
+        mkdirSync(join(cwd, '.robota'), { recursive: true });
+        symlinkSync(outside, join(cwd, '.robota', 'logs'));
+        const access = await createTrustedProjectAccessFixture(cwd);
+        if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+        const sink = new WorkspaceSessionLogSink(
+          getWorkspaceProjectStateStorage(access.authority, 'session-logs'),
+        );
+
+        expect(() => sink.append('safe-session', '{}\n')).not.toThrow();
+        expect(() => sink.append('safe-session', '{}\n')).not.toThrow();
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+        rmSync(outside, { recursive: true, force: true });
       }
     });
   });
@@ -223,7 +341,7 @@ describe('SessionStore', () => {
     });
 
     it('returns empty array when base directory does not exist', () => {
-      const nonExistentStore = new SessionStore(join(tmpDir, 'does-not-exist'));
+      const nonExistentStore = new NodeSessionStore(join(tmpDir, 'does-not-exist'));
       expect(nonExistentStore.list()).toEqual([]);
     });
   });
@@ -342,7 +460,7 @@ describe('SessionStore', () => {
   describe('directory creation', () => {
     it('creates the base directory on first save', () => {
       const nestedDir = join(tmpDir, 'nested', 'sessions');
-      const nestedStore = new SessionStore(nestedDir);
+      const nestedStore = new NodeSessionStore(nestedDir);
       nestedStore.save(makeRecord({ id: 'first' }));
       const loaded = nestedStore.load('first');
       expect(loaded?.id).toBe('first');

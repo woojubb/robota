@@ -5,8 +5,11 @@ import { join } from 'node:path';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
 import { ProjectMemoryStore } from '../../memory/project-memory-store.js';
+import {
+  createTrustedProjectSessionStoreFixture,
+  createTrustedProjectStateFixture,
+} from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
-import { createProjectSessionStore } from '../session-persistence.js';
 
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
 
@@ -54,7 +57,7 @@ describe('InteractiveSession memory command integration', () => {
   it('Given a memory cue When a turn completes Then no hidden pending memory is created', async () => {
     const cwd = makeProject();
     const provider = createProvider('noted');
-    const sessionStore = createProjectSessionStore(cwd);
+    const sessionStore = await createTrustedProjectSessionStoreFixture(cwd);
     const session = new InteractiveSession({
       cwd,
       provider,
@@ -72,7 +75,10 @@ describe('InteractiveSession memory command integration', () => {
   it('Given relevant project memory When submitting a prompt Then topic memory is not injected automatically', async () => {
     const cwd = makeProject();
     const provider = createProvider('use pnpm');
-    new ProjectMemoryStore(cwd, () => new Date('2026-05-02T00:00:00.000Z')).append({
+    new ProjectMemoryStore(
+      await createTrustedProjectStateFixture(cwd, 'memory'),
+      () => new Date('2026-05-02T00:00:00.000Z'),
+    ).append({
       type: 'project',
       topic: 'build',
       text: 'Use pnpm for package scripts.',

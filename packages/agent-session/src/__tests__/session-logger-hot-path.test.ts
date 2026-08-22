@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FileSessionLogger } from '../session-logger.js';
+import { NodeSessionLogSink } from '../session-log-sinks.js';
 
 // `node:fs` exports cannot be spied on in ESM, so the module is wrapped instead. The wrapper
 // COUNTS calls and can be made to fail on demand — the two things these cases need to observe.
@@ -70,7 +71,7 @@ describe('FileSessionLogger hot path (CORE-029)', () => {
   });
 
   it('does not write to disk once per streamed token', () => {
-    const logger = new FileSessionLogger(logDir);
+    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir));
 
     for (let i = 0; i < 200; i++) {
       logger.log(SESSION, 'text_delta', { delta: `token-${i} ` });
@@ -86,7 +87,7 @@ describe('FileSessionLogger hot path (CORE-029)', () => {
   it('keeps the file in the order the events happened', () => {
     // Buffering must not reorder: a semantic event flushes the stream ahead of itself, so a reader
     // still sees deltas before the assistant message they belong to.
-    const logger = new FileSessionLogger(logDir);
+    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir));
 
     logger.log(SESSION, 'user', { content: 'hi' });
     logger.log(SESSION, 'text_delta', { delta: 'one ' });
@@ -102,7 +103,7 @@ describe('FileSessionLogger hot path (CORE-029)', () => {
   });
 
   it('a semantic event is durable immediately, without waiting for a flush', () => {
-    const logger = new FileSessionLogger(logDir);
+    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir));
     logger.log(SESSION, 'session_shutdown', { reason: 'done' });
 
     expect(readLines(logDir).map((entry) => entry['event'])).toEqual(['session_shutdown']);
@@ -122,7 +123,7 @@ describe('FileSessionLogger hot path (CORE-029)', () => {
     };
     setGlobalLoggerSink(sink);
 
-    const logger = new FileSessionLogger(logDir);
+    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir));
     fsControl.failAppend = new Error('ENOSPC: no space left on device');
     expect(() => logger.log(SESSION, 'user', { content: 'hi' })).not.toThrow();
 
@@ -141,7 +142,7 @@ describe('FileSessionLogger hot path (CORE-029)', () => {
       log: () => undefined,
     });
 
-    const logger = new FileSessionLogger(logDir);
+    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir));
     logger.log(SESSION, 'text_delta', { delta: 'buffered' });
 
     fsControl.failAppend = new Error('EACCES: permission denied');
@@ -163,7 +164,7 @@ describe('FileSessionLogger hot path (CORE-029)', () => {
 
     fsControl.failMkdir = new Error('EROFS: read-only file system');
 
-    new FileSessionLogger(join(logDir, 'nested'));
+    new FileSessionLogger(new NodeSessionLogSink(join(logDir, 'nested')));
 
     expect(seen.join(' ')).toMatch(/session log directory could not be created/);
   });

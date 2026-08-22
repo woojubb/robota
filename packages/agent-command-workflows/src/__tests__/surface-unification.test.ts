@@ -18,11 +18,43 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createAssistantMessage } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
-import { executeWorkflowsBuild } from '../build-command.js';
+import { executeWorkflowsBuild as executeWorkflowsBuildWithProject } from '../build-command.js';
 import type { IWorkflowsAuthoringDeps } from '../authoring/args.js';
-import { executeWorkflowsList } from '../list-command.js';
-import { executeWorkflowsRun } from '../run-command.js';
-import { executeWorkflowsValidate } from '../validate-command.js';
+import { executeWorkflowsList as executeWorkflowsListWithProject } from '../list-command.js';
+import { executeWorkflowsRun as executeWorkflowsRunWithProject } from '../run-command.js';
+import { executeWorkflowsValidate as executeWorkflowsValidateWithProject } from '../validate-command.js';
+import { createWorkflowProjectFixture } from './workflow-project-fixture.js';
+
+async function executeWorkflowsBuild(args: string, root: string, deps?: IWorkflowsAuthoringDeps) {
+  return executeWorkflowsBuildWithProject(args, await createWorkflowProjectFixture(root), deps);
+}
+
+async function executeWorkflowsList(
+  root: string,
+  layout?: Parameters<typeof executeWorkflowsListWithProject>[1],
+) {
+  return executeWorkflowsListWithProject(await createWorkflowProjectFixture(root), layout);
+}
+
+async function executeWorkflowsRun(
+  args: string,
+  root: string,
+  layout?: Parameters<typeof executeWorkflowsRunWithProject>[2],
+) {
+  return executeWorkflowsRunWithProject(args, await createWorkflowProjectFixture(root), layout);
+}
+
+async function executeWorkflowsValidate(
+  args: string,
+  root: string,
+  layout?: Parameters<typeof executeWorkflowsValidateWithProject>[2],
+) {
+  return executeWorkflowsValidateWithProject(
+    args,
+    await createWorkflowProjectFixture(root),
+    layout,
+  );
+}
 
 /** A provider stub whose `chat` always returns the given JSON string as assistant content. */
 function stubProvider(specJson: string): IAIProvider {
@@ -76,7 +108,7 @@ describe('P3-A: one node catalog across subcommands', () => {
     expect(built.success).toBe(true);
 
     // `build` tells the user to run exactly this; it must not fail on the node build just saved.
-    const savedPath = join(dir, '.workflows', 'pirate-rewrite.json');
+    const savedPath = join('.workflows', 'pirate-rewrite.json');
     const validated = await executeWorkflowsValidate(savedPath, dir);
     expect(validated.message).not.toContain('unknown node type');
     expect(validated.success).toBe(true);
@@ -106,7 +138,7 @@ describe('P3-B: one argument grammar across subcommands', () => {
       baseDeps(UPPERCASE_SPEC),
     );
     expect(built.success).toBe(true);
-    const savedPath = join(dir, '.workflows', 'uppercase-it.json');
+    const savedPath = join('.workflows', 'uppercase-it.json');
 
     const validated = await executeWorkflowsValidate(`"${savedPath}"`, dir);
     expect(validated.success).toBe(true);

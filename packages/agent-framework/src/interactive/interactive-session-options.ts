@@ -11,7 +11,7 @@ import type { TInteractivePermissionHandler } from './types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
+import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type {
   ICommandHostAdapters,
@@ -26,6 +26,7 @@ import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
@@ -38,6 +39,7 @@ import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ITerminalHandoff } from '@robota-sdk/agent-interface-transport';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
+import type { ISessionLogSink } from '@robota-sdk/agent-session';
 import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
 import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
@@ -45,9 +47,17 @@ import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools
 export interface IInteractiveSessionStandardOptions {
   cwd: string;
   provider: IAIProvider;
+  /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
+  projectAccess?: TWorkspaceProjectAccess;
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
+  /** Explicit session-log sink; absence disables diagnostic project logging. */
+  sessionLogSink?: ISessionLogSink;
+  /** Trusted host-only path projection for hook compatibility. */
+  transcriptPath?: string;
+  /** Explicit authority- and permission-backed edit checkpoint capability. */
+  editCheckpointStore?: EditCheckpointStore;
   sessionName?: string;
   resumeSessionId?: string;
   forkSession?: boolean;
@@ -121,7 +131,7 @@ export interface IInteractiveSessionStandardOptions {
   sandboxType?: string;
   /**
    * SELFHOST-008: optional durable-memory store injected by the surface. Threads to startup-memory
-   * injection; absent, the neutral filesystem reference adapter is the default (memory unchanged).
+   * injection; absence leaves project memory inaccessible.
    */
   memoryStore?: IMemoryStore;
   /**
@@ -173,9 +183,17 @@ export interface IInteractiveSessionInjectedOptions {
   session: Session;
   cwd?: string;
   provider?: IAIProvider;
+  /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
+  projectAccess?: TWorkspaceProjectAccess;
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
+  /** Explicit session-log sink; absence disables diagnostic project logging. */
+  sessionLogSink?: ISessionLogSink;
+  /** Trusted host-only path projection for hook compatibility. */
+  transcriptPath?: string;
+  /** Explicit authority- and permission-backed edit checkpoint capability. */
+  editCheckpointStore?: EditCheckpointStore;
   sessionName?: string;
   resumeSessionId?: string;
   forkSession?: boolean;

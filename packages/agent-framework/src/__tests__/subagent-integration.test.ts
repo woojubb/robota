@@ -13,6 +13,7 @@ import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 import { BUILT_IN_AGENTS, getBuiltInAgent } from '../agents/built-in-agents.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { createSubagentLogger, resolveSubagentLogDir } from '../assembly/subagent-logger.js';
+import { createNodeHostContributionSourcesFixture } from '../testing/contribution-source-fixture.js';
 import { storeAgentToolDeps, retrieveAgentToolDeps } from '../tools/agent-tool.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
@@ -31,10 +32,13 @@ vi.mock('@robota-sdk/agent-session', () => ({
     }
   },
   FileSessionLogger: class MockFileSessionLogger {
-    constructor(public readonly logDir: string) {}
+    constructor(public readonly sink: object) {}
     log(): void {
       // no-op
     }
+  },
+  NodeSessionLogSink: class MockNodeSessionLogSink {
+    constructor(public readonly logDir: string) {}
   },
   SilentSessionLogger: class MockSilentSessionLogger {
     log(): void {
@@ -259,7 +263,7 @@ describe('Subagent integration', () => {
     mkdirSync(tmpDir, { recursive: true });
 
     try {
-      const loader = new AgentDefinitionLoader(tmpDir, tmpDir);
+      const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(tmpDir));
       const agents = loader.loadAll();
 
       expect(agents.length).toBe(BUILT_IN_AGENTS.length);
@@ -291,7 +295,7 @@ You are a custom explore agent with special capabilities.`,
     );
 
     try {
-      const loader = new AgentDefinitionLoader(tmpDir, tmpDir);
+      const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(tmpDir));
       const exploreAgent = loader.getAgent('Explore');
 
       expect(exploreAgent).toBeDefined();

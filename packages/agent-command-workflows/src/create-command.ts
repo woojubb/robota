@@ -10,6 +10,7 @@
  * the ONLY difference between `create` and `build`.
  */
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { IWorkflowProject } from './workflow-project.js';
 import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
 
 import { authorAndSaveWorkflow } from './authoring/pipeline.js';
@@ -26,18 +27,24 @@ function formatOutputs(outputs: Record<string, unknown>): string {
  */
 export async function executeWorkflowsCreate(
   argStr: string,
-  cwd: string,
+  project: IWorkflowProject,
   deps: IWorkflowsAuthoringDeps = {},
 ): Promise<ICommandResult> {
   const layout = deps.workspace ?? DEFAULT_WORKSPACE_LAYOUT;
 
-  const authored = await authorAndSaveWorkflow(argStr, cwd, 'create', deps);
+  const authored = await authorAndSaveWorkflow(argStr, project, 'create', deps);
   if (!authored.ok) {
     return { success: false, message: authored.message };
   }
   const { name, definition, workflowPath, savedNodePaths, runNodes, runInputs } = authored.value;
 
-  const outcome = await executeDefinition(definition, cwd, layout, [...runNodes], runInputs);
+  const outcome = await executeDefinition(
+    definition,
+    project.executionRoot,
+    layout,
+    [...runNodes],
+    runInputs,
+  );
 
   const nodeLine = savedNodePaths.length > 0 ? `\nNew nodes: ${savedNodePaths.join(', ')}` : '';
   if (!outcome.ok) {

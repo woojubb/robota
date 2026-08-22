@@ -1,4 +1,4 @@
-import type { IFileSystemAsync } from '@robota-sdk/agent-core';
+import type { IWorkspaceProjectReader } from '../workspace-trust/index.js';
 // IPromptFileReferenceRecord / TPromptFileReferenceReason SSOT relocated to
 // @robota-sdk/agent-interface-transport (DATA-001).
 import type {
@@ -45,10 +45,11 @@ export interface IPromptFileReferenceLimits {
 }
 
 export interface IPromptFileReferenceResolveOptions {
-  cwd: string;
+  reader: IWorkspaceProjectReader;
+  /** Root-relative session directory. Omitted means the authenticated project root. */
+  startRelativeDirectory?: string;
   limits?: IPromptFileReferenceLimits;
   reason?: TPromptFileReferenceReason;
-  fsAsync?: IFileSystemAsync;
 }
 
 export interface IResolvedPromptFileReferences {

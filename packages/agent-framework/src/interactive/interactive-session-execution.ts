@@ -13,19 +13,7 @@ import {
   SPAN_EVENTS,
 } from '@robota-sdk/agent-core';
 
-import { listActiveContextReferences } from '../context/context-reference-inventory.js';
-import {
-  buildPromptWithFileReferences,
-  createPromptFileReferenceHistoryEntry,
-  formatPromptFileReferenceDiagnostics,
-  hasBlockingPromptFileReferenceDiagnostics,
-  resolvePromptFileReferences,
-  resolvePromptFileReferencePaths,
-  toPromptFileReferenceRecords,
-} from '../context/prompt-file-references.js';
-
 import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js';
-import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { IContextWindowState, ITokenUsage, TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
@@ -35,14 +23,6 @@ import type {
   TEventListener,
 } from '@robota-sdk/agent-core';
 import type { IUsageSource, ISpanEntry } from '@robota-sdk/agent-interface-transport';
-
-export interface IPreparedPromptInput {
-  modelInput: string;
-  hookInput?: string;
-  promptFileReferenceRecords: IPromptFileReferenceRecord[];
-  activeContextReferenceRecords: IPromptFileReferenceRecord[];
-  promptFileReferenceEntry?: IHistoryEntry;
-}
 
 /** Detect an abort/cancel. CORE-027: the substring heuristic that stood here reported a provider
  * failure as the user's own cancellation; `isAbortFailure` owns the decision and says why. */
@@ -207,57 +187,6 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
     entries,
     dispose: () => eventService.unsubscribe(listener),
   };
-}
-
-export async function preparePromptInput(
-  input: string,
-  cwd: string,
-  rawInput?: string,
-  contextReferences: readonly IContextReferenceItem[] = [],
-): Promise<IPreparedPromptInput> {
-  const activeReferenceResult = await resolvePromptFileReferencePaths(
-    listActiveContextReferences(contextReferences).map((reference) => reference.sourcePath),
-    { cwd, reason: 'manual' },
-  );
-  const promptFileReferenceResult = await resolvePromptFileReferences(input, { cwd });
-  const diagnostics = [
-    ...activeReferenceResult.diagnostics,
-    ...promptFileReferenceResult.diagnostics,
-  ];
-  if (hasBlockingPromptFileReferenceDiagnostics(diagnostics)) {
-    throw new Error(formatPromptFileReferenceDiagnostics(diagnostics));
-  }
-
-  const resolvedReferences = dedupeResolvedReferences([
-    ...activeReferenceResult.references,
-    ...promptFileReferenceResult.references,
-  ]);
-  const modelInput = buildPromptWithFileReferences(input, resolvedReferences);
-  const hookInput = rawInput ?? (modelInput === input ? undefined : input);
-  const activeContextReferenceRecords = toPromptFileReferenceRecords(
-    activeReferenceResult.references,
-  );
-  const promptFileReferenceRecords = toPromptFileReferenceRecords(
-    promptFileReferenceResult.references,
-  );
-  const promptFileReferenceEntry =
-    promptFileReferenceResult.references.length > 0
-      ? createPromptFileReferenceHistoryEntry(promptFileReferenceResult.references)
-      : undefined;
-
-  return {
-    modelInput,
-    ...(hookInput !== undefined ? { hookInput } : {}),
-    activeContextReferenceRecords,
-    promptFileReferenceRecords,
-    ...(promptFileReferenceEntry !== undefined ? { promptFileReferenceEntry } : {}),
-  };
-}
-
-function dedupeResolvedReferences(
-  references: readonly (IPromptFileReferenceRecord & { content: string })[],
-): Array<IPromptFileReferenceRecord & { content: string }> {
-  return [...new Map(references.map((reference) => [reference.sourcePath, reference])).values()];
 }
 
 function extractTurnUsage(

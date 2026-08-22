@@ -31,7 +31,7 @@ function makeRouter(commands: ISystemCommand[], policy?: IRemoteCommandPolicy): 
   const stubSession = createTestCommandHost();
   return new SessionSkillRouter(
     [module],
-    '/tmp/remote-gate-test',
+    [],
     undefined,
     () => stubSession,
     () => 'session-id',

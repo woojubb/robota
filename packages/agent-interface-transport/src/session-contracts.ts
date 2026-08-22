@@ -276,7 +276,7 @@ export interface IPromptResolvedEvent {
 
 /** Emitted when a context file is found stale and re-read before a turn. */
 export interface IContextFileRefreshedEvent {
-  filePath: string;
+  filePath: string; // Authority-scoped project-root-relative path, never an ambient host path.
 }
 // is at its size ratchet, so a new member splits rather than extends (PEER-002, #1809).
 /** SELFHOST-007: a checkpoint/branch lifecycle transition a surface renders. */
@@ -478,6 +478,4 @@ export interface IInteractiveSessionStore {
   load(id: string): IInteractiveSessionRecord | undefined;
   list(): IInteractiveSessionRecord[];
   delete(id: string): void;
-  /** Return the absolute record path when the store is file-backed. */
-  getFilePath?(id: string): string;
 }

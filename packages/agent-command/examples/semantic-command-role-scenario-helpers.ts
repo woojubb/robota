@@ -4,34 +4,23 @@ import {
   DuplicateSystemCommandSemanticRoleError,
   InteractiveSession,
   SystemCommandExecutor,
+  createContributionSourcesForProjectAccess,
   createSession,
   createSubagentSession,
   deriveContextCapacityHint,
   type ICommandModule,
-  type IResolvedConfig,
   type ISystemCommand,
   type ISystemCommandSemanticRoles,
+  type ITrustedWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
+
+import { config, terminal } from './semantic-command-role-project-access.js';
 
 // ARCH-035 made `createSession` async, so its ReturnType is a Promise. INFRA-119 awaited the CALL and
 // left this alias reading `.session` off the promise — a `never`, silently, because nothing typechecked
 // this directory. It is the same defect one line over, and the reason issue #1902 exists.
 export type TDirectSession = Awaited<ReturnType<typeof createSession>>['session'];
 export type TSubagentSession = ReturnType<typeof createSubagentSession>;
-
-export const config: IResolvedConfig = {
-  defaultTrustLevel: 'moderate',
-  provider: { name: 'scripted-test-provider', apiKey: 'offline', model: 'scripted' },
-  permissions: { allow: [], deny: [] },
-  language: 'en',
-  env: {},
-};
-
-export const terminal = {
-  write: () => {},
-  writeLine: () => {},
-  spinner: () => ({ stop: () => {} }),
-};
 
 export function assertCondition(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -59,11 +48,13 @@ export async function readSystemMessage(
   cwd: string,
   commandName: string,
   sessions: TDirectSession[],
+  projectAccess: ITrustedWorkspaceProjectAccess,
   commandSemanticRoles?: ISystemCommandSemanticRoles,
 ): Promise<string> {
   const created = await createSession({
     config,
     cwd,
+    contributionSources: createContributionSourcesForProjectAccess(projectAccess),
     context: { agentsMd: '', projectNotesMd: '' },
     terminal: terminal as never,
     provider: createScriptedProvider([]).provider,
@@ -153,6 +144,7 @@ function hasExactOriginalProjection(executor: SystemCommandExecutor): boolean {
 
 export async function verifyOmissionBehaviors(options: {
   cwd: string;
+  projectAccess: ITrustedWorkspaceProjectAccess;
   alternate: readonly ISystemCommand[];
   injectedSession: object;
   projectedSpawnTool: FunctionTool;
@@ -164,7 +156,8 @@ export async function verifyOmissionBehaviors(options: {
   singleRoleOmission: Record<string, Record<string, boolean>>;
   directCreateSessionOmission: { allRolesAbsent: boolean };
 }> {
-  const { cwd, alternate, projectedSpawnTool, directSessions, subagentSessions } = options;
+  const { cwd, projectAccess, alternate, projectedSpawnTool, directSessions, subagentSessions } =
+    options;
   const omissionRoles = {
     skillActivation: new SystemCommandExecutor(alternate.slice(1)).getSemanticRoles(),
     contextReduction: new SystemCommandExecutor([alternate[0]!, alternate[2]!]).getSemanticRoles(),
@@ -175,18 +168,21 @@ export async function verifyOmissionBehaviors(options: {
       cwd,
       'activate-skill-alt',
       directSessions,
+      projectAccess,
       omissionRoles.skillActivation,
     ),
     contextReduction: await readSystemMessage(
       cwd,
       'activate-skill-alt',
       directSessions,
+      projectAccess,
       omissionRoles.contextReduction,
     ),
     subagentSpawn: await readSystemMessage(
       cwd,
       'activate-skill-alt',
       directSessions,
+      projectAccess,
       omissionRoles.subagentSpawn,
     ),
   };
@@ -247,6 +243,7 @@ export async function verifyOmissionBehaviors(options: {
   const unannotatedInteractive = new InteractiveSession({
     session: options.injectedSession as never,
     cwd,
+    projectAccess,
     commandModules: [unannotatedModule],
   });
   let unannotatedSkillFallback: Awaited<ReturnType<InteractiveSession['executeCommand']>>;
@@ -259,6 +256,7 @@ export async function verifyOmissionBehaviors(options: {
     cwd,
     'skills',
     directSessions,
+    projectAccess,
     unannotatedRoles,
   );
   const unannotatedSubagent = createTrackedSubagent(

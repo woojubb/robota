@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { projectPaths } from '../../../paths.js';
+import { NodeSessionLogSource } from '@robota-sdk/agent-session';
 
 import type { ICommandSessionReplayValidationReport } from '../../host-context.js';
 import { createTestCommandHost } from '../../../testing/command-host-double.js';
@@ -27,12 +27,19 @@ import {
  * the caller returns the host's report untouched, and the extracted helper still computes the
  * report the deleted branch computed — so "delegate" did not quietly become "recompute".
  */
-function writeLog(sessionId: string, lines: readonly string[]): string {
+function writeLog(
+  sessionId: string,
+  lines: readonly string[],
+): { source: NodeSessionLogSource; reference: string } {
   const root = mkdtempSync(join(tmpdir(), 'arch-029-replay-'));
-  const logs = projectPaths(root).logs;
+  const logs = join(root, '.robota', 'logs');
   mkdirSync(logs, { recursive: true });
-  writeFileSync(join(logs, `${sessionId}.jsonl`), lines.join('\n'), 'utf8');
-  return root;
+  const logFile = join(logs, `${sessionId}.jsonl`);
+  writeFileSync(logFile, lines.join('\n'), 'utf8');
+  return {
+    source: new NodeSessionLogSource(logFile),
+    reference: join('.robota', 'logs', `${sessionId}.jsonl`),
+  };
 }
 
 describe('ARCH-029 TC-08 — session replay validation has one owner', () => {
@@ -73,11 +80,11 @@ describe('ARCH-029 TC-08 — session replay validation has one owner', () => {
 
   it('the extracted helper still computes what the deleted branch computed', () => {
     const entry = JSON.stringify({ type: 'user', content: 'hi', timestamp: 1 });
-    const root = writeLog('session-a', [entry, entry]);
+    const log = writeLog('session-a', [entry, entry]);
 
-    const report = computeSessionReplayValidationReport(root, 'session-a');
+    const report = computeSessionReplayValidationReport(log.source, log.reference);
 
-    expect(report.logFile).toBe(join(projectPaths(root).logs, 'session-a.jsonl'));
+    expect(report.logFile).toBe(log.reference);
     expect(report.entryCount).toBe(2);
     expect(report.validation).toBeDefined();
   });
@@ -87,16 +94,16 @@ describe('ARCH-029 TC-08 — session replay validation has one owner', () => {
     // calls the same helper. Equal outputs for equal inputs is what makes "same helper" checkable
     // from outside the class.
     const entry = JSON.stringify({ type: 'user', content: 'hi', timestamp: 1 });
-    const root = writeLog('session-b', [entry]);
+    const log = writeLog('session-b', [entry]);
     const host = createTestCommandHost({
       overrides: {
         validateCurrentSessionReplayLog: () =>
-          computeSessionReplayValidationReport(root, 'session-b'),
+          computeSessionReplayValidationReport(log.source, log.reference),
       },
     });
 
     expect(validateCommandSessionReplayLog(host)).toEqual(
-      computeSessionReplayValidationReport(root, 'session-b'),
+      computeSessionReplayValidationReport(log.source, log.reference),
     );
   });
 });

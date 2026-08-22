@@ -13,6 +13,8 @@ import { join } from 'node:path';
 import { InMemorySandboxClient } from '@robota-sdk/agent-tools';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { createNodeHostContributionSourcesFixture } from '../testing/contribution-source-fixture.js';
+
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
@@ -84,6 +86,27 @@ function baseConfig(): IResolvedConfig {
     env: {},
   };
 }
+
+describe('createSession — generated session id', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('uses a cryptographically secure UUID when no session id is supplied', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+
+    await createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', projectNotesMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+    });
+
+    expect(sessionCtorCalls[0]?.sessionId).toMatch(
+      /^session_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
+    );
+  });
+});
 
 describe('createSession — allowedTools option', () => {
   beforeEach(() => {
@@ -262,6 +285,7 @@ describe('createSession — appendSystemPrompt option', () => {
       await createSession({
         config: baseConfig(),
         cwd,
+        contributionSources: createNodeHostContributionSourcesFixture(cwd),
         context: { agentsMd: '', projectNotesMd: '' },
         terminal: MOCK_TERMINAL,
         provider: createMockProvider(),
@@ -327,6 +351,7 @@ describe('createSession — command descriptor tool guidance', () => {
       await createSession({
         config: baseConfig(),
         cwd,
+        contributionSources: createNodeHostContributionSourcesFixture(cwd),
         context: { agentsMd: '', projectNotesMd: '' },
         terminal: MOCK_TERMINAL,
         provider: createMockProvider(),
@@ -355,6 +380,7 @@ describe('createSession — command descriptor tool guidance', () => {
       await createSession({
         config: baseConfig(),
         cwd,
+        contributionSources: createNodeHostContributionSourcesFixture(cwd),
         context: { agentsMd: '', projectNotesMd: '' },
         terminal: MOCK_TERMINAL,
         provider: createMockProvider(),

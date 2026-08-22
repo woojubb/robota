@@ -8,6 +8,10 @@ events render as bounded operational notices outside canonical conversation hist
 failure is reported through `onSessionEventDeliveryError` (or rendered as a visible fallback notice) and
 does not reverse the already-committed session operation.
 
+`IRenderOptions.projectAccess` carries the host's trusted-or-restricted project decision through
+`renderApp` into `TuiInteractionChannel`. `cwd` alone never enables project discovery; omission is
+Restricted. Checkpoint mutation is separately opt-in through `editCheckpointStore`.
+
 ```typescript
 import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport-tui';
 ```

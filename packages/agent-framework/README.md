@@ -28,6 +28,8 @@ const response = await query('Show me the file list');
 const queryWithOptions = createQuery({
   provider,
   cwd: '/path/to/project',
+  // A bare cwd is provenance only. Pass a host-issued TWorkspaceProjectAccess decision
+  // when this query may consume project context or settings.
   permissionMode: 'acceptEdits',
   maxTurns: 10,
   onTextDelta: (delta) => process.stdout.write(delta),
@@ -55,14 +57,22 @@ const runtime = createAgentRuntime({
 const session = runtime.createSession({});
 ```
 
-The runtime creates a project-local session store by default, so sessions persist and
-`resumeSessionId` works without re-passing a store on every call. A per-session `sessionStore`
-replaces that runtime default; an explicit `sessionStore: undefined` disables persistence for one
-session. `createStatelessRuntime()` uses that explicit-undefined contract as its default, while still
-allowing a caller to opt one session into a supplied store.
+Without `projectAccess`, the runtime exposes an observable Restricted decision and does not construct
+project context, settings, memory, session, or log adapters. A host that has inspected or granted a
+workspace through `WorkspaceTrustService` passes that exact `TWorkspaceProjectAccess` decision.
+Project persistence is then composed explicitly from its named state facets; a bare `cwd` never
+creates a project store. A per-session `sessionStore` replaces the runtime store, while an explicit
+`sessionStore: undefined` disables persistence. Trusted runtime/query construction accepts the frozen
+workspace root and its real descendants while rejecting a working directory outside that identity; a
+completed revoke makes the previously issued authority and all of its facets unusable. Explicit host
+contribution sources also remain root-bounded and refuse links at every path component.
 
-The maintained offline example verifies the runtime-default persist→resume path with two real
-sessions and no provider credentials:
+On Linux, authority-backed project mutations are rooted in open directory descriptors so parent
+renames or symlink swaps cannot redirect them. Other platforms currently fail closed pending the
+portable stable-mutation contract tracked by ARCH-047.
+
+The maintained offline examples verify explicit persist→resume composition and the workspace
+authority boundary with no provider credentials:
 
 ```bash
 pnpm --filter @robota-sdk/agent-framework scenario:verify
@@ -129,7 +139,7 @@ agent-framework (assembly layer)
   ├── createQuery()       ← one-shot entry point factory
   ├── createSession()     ← internal assembly factory
   └── deps:
-        agent-session   (Session, SessionStore)
+        agent-session   (Session, neutral session ports, explicit Node host adapters)
         agent-tools     (tool infrastructure + 9 built-in tools)
         agent-provider  (consolidated AI providers: /anthropic, /openai, /gemini, …)
         agent-core      (Robota engine, providers, permissions, hooks)
@@ -147,17 +157,32 @@ The SDK is **pure TypeScript with no React dependency**. The CLI is a thin prese
 `InteractiveSession` wraps `Session` (composition over inheritance) to provide event-driven interaction for any client. It manages streaming text accumulation, tool execution state tracking, prompt queuing, abort orchestration, and message history. Logic that was previously embedded in CLI React hooks now lives here.
 
 ```typescript
-import { InteractiveSession, createProjectSessionStore } from '@robota-sdk/agent-framework';
+import {
+  InteractiveSession,
+  createProjectSessionStore,
+  getWorkspaceProjectStateStorage,
+} from '@robota-sdk/agent-framework';
 import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 
 declare const provider: IAIProvider;
+// Supplied by a host-owned WorkspaceTrustService after identity/trust validation.
+declare const projectAccess: TWorkspaceProjectAccess;
 const cwd = process.cwd();
-const sessionStore = createProjectSessionStore(cwd);
+
+const sessionStore =
+  projectAccess.status === 'trusted'
+    ? createProjectSessionStore(
+        getWorkspaceProjectStateStorage(projectAccess.authority, 'sessions'),
+        getWorkspaceProjectStateStorage(projectAccess.authority, 'session-logs'),
+      )
+    : undefined;
 
 const session = new InteractiveSession({
   cwd,
   provider,
-  sessionStore, // SDK-owned project-local persistence facade
+  projectAccess,
+  sessionStore,
   resumeSessionId: 'sess_123', // Session ID to restore, incl. sandbox snapshot (optional)
   forkSession: false, // Fork the resumed session into a new one (optional)
   permissionMode: 'default',
@@ -236,6 +261,11 @@ session.setName('my-task'); // sets the session name
 session.getSession(); // Session
 ```
 
+`WorkspaceTrustService` accepts host-owned identity and trust-store adapters. Its authority is opaque,
+runtime-registered, root-bound, and cannot be reconstructed from a path or serialized marker. See the
+maintained offline `verify-workspace-project-authority.ts` example for a complete inspect/grant/revoke
+composition and Restricted-versus-trusted observable.
+
 ### SystemCommandExecutor — SDK-Level Commands
 
 `SystemCommandExecutor` executes named system commands against an `InteractiveSession`. Commands are pure TypeScript — no React, no TUI dependency. The CLI wraps them as slash commands with UI chrome.
@@ -290,11 +320,15 @@ validate the current JSONL session log. Hosts may override `validateCurrentSessi
 These classes provide slash command discovery and aggregation for clients that expose a command palette or autocomplete UI.
 
 ```typescript
-import { CommandRegistry } from '@robota-sdk/agent-framework';
+import { CommandRegistry, createNodeHostContributionSource } from '@robota-sdk/agent-framework';
 import { createSkillsCommandModule } from '@robota-sdk/agent-command';
 
 const registry = new CommandRegistry();
-registry.addModule(createSkillsCommandModule({ cwd: process.cwd() }));
+registry.addModule(
+  createSkillsCommandModule({
+    contributionSources: [createNodeHostContributionSource(process.cwd())],
+  }),
+);
 
 // Get all commands (returns ICommand[])
 const commands = registry.getCommands();
@@ -581,14 +615,14 @@ Settings are merged from lowest to highest priority:
 
 ## Dependencies
 
-| Package                                | Purpose                               |
-| -------------------------------------- | ------------------------------------- |
-| `@robota-sdk/agent-core`               | Engine, providers, permissions, hooks |
-| `@robota-sdk/agent-session`            | Session, SessionStore                 |
-| `@robota-sdk/agent-tools`              | Tool infrastructure + built-in tools  |
-| `@robota-sdk/agent-provider-anthropic` | Anthropic LLM provider                |
-| `chalk`                                | Terminal colors (permission prompt)   |
-| `zod`                                  | Settings schema validation            |
+| Package                                | Purpose                                                       |
+| -------------------------------------- | ------------------------------------------------------------- |
+| `@robota-sdk/agent-core`               | Engine, providers, permissions, hooks                         |
+| `@robota-sdk/agent-session`            | Session, neutral log/store ports, explicit Node host adapters |
+| `@robota-sdk/agent-tools`              | Tool infrastructure + built-in tools                          |
+| `@robota-sdk/agent-provider-anthropic` | Anthropic LLM provider                                        |
+| `chalk`                                | Terminal colors (permission prompt)                           |
+| `zod`                                  | Settings schema validation                                    |
 
 ## Documentation
 

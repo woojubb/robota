@@ -19,5 +19,6 @@ export {
   type IWorkflowsAuthoringDeps,
   type IParsedAuthoringArgs,
 } from './authoring/args.js';
+export { createWorkspaceWorkflowProject, type IWorkflowProject } from './workflow-project.js';
 
 export const AGENT_COMMAND_WORKFLOWS_PACKAGE_NAME = '@robota-sdk/agent-command-workflows';

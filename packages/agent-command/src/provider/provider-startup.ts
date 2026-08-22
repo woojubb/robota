@@ -1,15 +1,14 @@
-import { join } from 'node:path';
-
 import {
   checkSettingsDocument,
+  createDefaultUserSettingsSources,
+  createNodeHostSettingsStore,
+  getUserSettingsPath,
   ProviderConfigError,
   readMergedProviderSettings,
-  readSettings,
-  writeSettings,
   resolveEnvDefaultProvider,
-  resolveSettingsPathForScope,
-  getProviderSettingsPaths,
   applyProviderConfiguration,
+  resolveProviderSettingsWriteTarget,
+  WorkspaceAuthorityRequiredError,
 } from '@robota-sdk/agent-framework';
 
 import { runOnboardingBranch } from './provider-onboarding.js';
@@ -22,11 +21,17 @@ import {
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
-import type { TSettingsScope } from '@robota-sdk/agent-framework';
+import type {
+  ISettingsDocumentStore,
+  TSettingsScope,
+  TSettingsSource,
+} from '@robota-sdk/agent-framework';
 
 export interface IProviderStartupContext {
   provider?: string;
   settingsScope?: TSettingsScope;
+  settingsSources?: readonly TSettingsSource[];
+  settingsStores?: readonly ISettingsDocumentStore[];
 }
 
 export interface IEnsureProviderConfigOptions {
@@ -44,8 +49,11 @@ export async function runProviderStartupSetup(
   providerDefinitions: readonly IProviderDefinition[],
 ): Promise<void> {
   const onboarding = await runOnboardingBranch(promptInput, terminal);
-  const existingProfileNames = Object.keys(readMergedProviderSettings(cwd).providers ?? {});
-  const settingsPath = resolveSettingsPathForScope(cwd, ctx.settingsScope);
+  const access = resolveSettingsAccess(ctx);
+  const existingProfileNames = Object.keys(
+    readMergedProviderSettings(access.sources).providers ?? {},
+  );
+  const settingsStore = selectSettingsStore(access.stores, ctx.settingsScope);
 
   let type: string;
   if (onboarding.preselectedType !== undefined) {
@@ -60,14 +68,14 @@ export async function runProviderStartupSetup(
   const input = await runProviderSetupPromptFlow(type, promptInput, providerDefinitions, {
     existingProfileNames,
   });
-  applyProviderConfiguration(settingsPath, input, { providerDefinitions });
+  applyProviderConfiguration(settingsStore, input, { providerDefinitions });
   const language = await promptInput('  Response language (ko/en/ja/zh, default: en): ');
   if (language) {
-    const settings = readSettings(settingsPath);
+    const settings = settingsStore.read();
     settings.language = language;
-    writeSettings(settingsPath, settings);
+    settingsStore.write(settings);
   }
-  terminal.writeLine(`\n  Config saved to ${settingsPath}\n`);
+  terminal.writeLine(`\n  Config saved to ${settingsStore.displayName}\n`);
 }
 
 export async function ensureProviderConfig(
@@ -78,7 +86,8 @@ export async function ensureProviderConfig(
   providerDefinitions: readonly IProviderDefinition[],
   options: IEnsureProviderConfigOptions,
 ): Promise<void> {
-  const merged = readMergedProviderSettings(cwd);
+  const access = resolveSettingsAccess(ctx);
+  const merged = readMergedProviderSettings(access.sources);
   const selectedSettings =
     ctx.provider !== undefined ? { ...merged, currentProvider: ctx.provider } : merged;
   if (checkSettingsDocument(selectedSettings, providerDefinitions) === 'valid') {
@@ -98,12 +107,12 @@ export async function ensureProviderConfig(
   }
   await runProviderStartupSetup(
     cwd,
-    selectStartupContext(cwd, ctx),
+    selectStartupContext(ctx, access.stores),
     promptInput,
     terminal,
     providerDefinitions,
   );
-  const updated = readMergedProviderSettings(cwd);
+  const updated = readMergedProviderSettings(access.sources);
   const updatedSettings =
     ctx.provider !== undefined ? { ...updated, currentProvider: ctx.provider } : updated;
   if (checkSettingsDocument(updatedSettings, providerDefinitions) !== 'valid') {
@@ -111,30 +120,49 @@ export async function ensureProviderConfig(
   }
 }
 
-function selectStartupContext(cwd: string, ctx: IProviderStartupContext): IProviderStartupContext {
+function resolveSettingsAccess(ctx: IProviderStartupContext): {
+  sources: readonly TSettingsSource[];
+  stores: readonly ISettingsDocumentStore[];
+} {
+  const stores = ctx.settingsStores ?? [createNodeHostSettingsStore('user', getUserSettingsPath())];
+  return {
+    sources: ctx.settingsSources ?? createDefaultUserSettingsSources(),
+    stores,
+  };
+}
+
+function selectSettingsStore(
+  stores: readonly ISettingsDocumentStore[],
+  scope: TSettingsScope | undefined,
+): ISettingsDocumentStore {
+  if (scope === undefined) return resolveProviderSettingsWriteTarget(stores);
+  const targetScope = scope === 'user' ? 'user' : 'project-local';
+  const store = stores.findLast((candidate) => candidate.scope === targetScope);
+  if (store !== undefined) return store;
+  throw new WorkspaceAuthorityRequiredError(
+    `No authorized ${targetScope} settings store is available.`,
+  );
+}
+
+function selectStartupContext(
+  ctx: IProviderStartupContext,
+  stores: readonly ISettingsDocumentStore[],
+): IProviderStartupContext {
   if (ctx.settingsScope !== undefined || ctx.provider !== undefined) return ctx;
-  const currentProviderPath = findHighestPriorityCurrentProviderPath(getProviderSettingsPaths(cwd));
-  if (currentProviderPath === undefined) return ctx;
-  const projectSettingsPath = join(cwd, '.robota', 'settings.json');
-  const projectLocalSettingsPath = join(cwd, '.robota', 'settings.local.json');
-  if (
-    currentProviderPath === projectSettingsPath ||
-    currentProviderPath === projectLocalSettingsPath
-  ) {
-    return { ...ctx, settingsScope: 'project-local' };
-  }
+  const currentProviderStore = findHighestPriorityCurrentProviderStore(stores);
+  if (currentProviderStore?.kind === 'project') return { ...ctx, settingsScope: 'project-local' };
   return ctx;
 }
 
-function findHighestPriorityCurrentProviderPath(
-  settingsPaths: readonly string[],
-): string | undefined {
-  for (let index = settingsPaths.length - 1; index >= 0; index -= 1) {
-    const settingsPath = settingsPaths[index];
-    if (settingsPath === undefined) continue;
-    const settings = readSettings(settingsPath);
+function findHighestPriorityCurrentProviderStore(
+  stores: readonly ISettingsDocumentStore[],
+): ISettingsDocumentStore | undefined {
+  for (let index = stores.length - 1; index >= 0; index -= 1) {
+    const store = stores[index];
+    if (store === undefined) continue;
+    const settings = store.read();
     if (typeof settings.currentProvider === 'string') {
-      return settingsPath;
+      return store;
     }
   }
   return undefined;

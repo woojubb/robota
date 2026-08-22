@@ -12,12 +12,16 @@ import type {
   ICommandHostWorkspace,
   ICommandModule,
   ISystemCommand,
+  TSettingsSource,
 } from '@robota-sdk/agent-framework';
 import type {
   ICommand,
   ICommandResult,
   ICommandSource,
 } from '@robota-sdk/agent-interface-transport';
+import { assertWorkflowProject } from './workflow-project.js';
+
+import type { IWorkflowProject } from './workflow-project.js';
 
 const WORKFLOWS_DESCRIPTION =
   'Author (from natural language), list, validate, and run DAG workflows on the in-process runtime';
@@ -73,9 +77,10 @@ async function executeWorkflowsCommand(
   args: string,
   workspace: IWorkspaceLayout,
   providerDefinitions: readonly IProviderDefinition[],
+  project: IWorkflowProject | undefined,
+  settingsSources: readonly TSettingsSource[] | undefined,
 ): Promise<ICommandResult> {
   const { sub, rest } = splitSubcommand(args);
-  const cwd = context.getCwd();
 
   // CMD-006: the per-subcommand `modelInvocable` flag was DECORATIVE — declared in the registry and
   // read by nothing. The framework gates the model path per TOP-LEVEL command name, and this
@@ -90,23 +95,49 @@ async function executeWorkflowsCommand(
   const refusal = refuseUngatedModelSubcommand(sub, context);
   if (refusal !== undefined) return refusal;
 
-  switch (sub) {
-    case '':
-      return { success: true, message: USAGE };
-    case 'create':
-      return executeWorkflowsCreate(rest, cwd, { workspace, providerDefinitions });
-    case 'build':
-      return executeWorkflowsBuild(rest, cwd, { workspace, providerDefinitions });
-    case 'list':
-      return executeWorkflowsList(cwd, workspace);
-    case 'catalog':
-      return executeWorkflowsCatalog(cwd, workspace);
-    case 'validate':
-      return executeWorkflowsValidate(rest, cwd, workspace);
-    case 'run':
-      return executeWorkflowsRun(rest, cwd, workspace);
-    default:
-      return { success: false, message: `Unknown subcommand "${sub}".\n${USAGE}` };
+  const requiresProject = WORKFLOWS_SUBCOMMANDS.some((candidate) => candidate.name === sub);
+  if (requiresProject && project === undefined) {
+    return {
+      success: false,
+      message:
+        'WorkspaceAuthorityRequired: /workflows requires an explicit workflow project capability.',
+    };
+  }
+
+  const requiredProject = (): IWorkflowProject => assertWorkflowProject(project);
+
+  try {
+    switch (sub) {
+      case '':
+        return { success: true, message: USAGE };
+      case 'create':
+        return executeWorkflowsCreate(rest, requiredProject(), {
+          workspace,
+          providerDefinitions,
+          ...(settingsSources === undefined ? {} : { settingsSources }),
+        });
+      case 'build':
+        return executeWorkflowsBuild(rest, requiredProject(), {
+          workspace,
+          providerDefinitions,
+          ...(settingsSources === undefined ? {} : { settingsSources }),
+        });
+      case 'list':
+        return executeWorkflowsList(requiredProject(), workspace);
+      case 'catalog':
+        return executeWorkflowsCatalog(requiredProject(), workspace);
+      case 'validate':
+        return executeWorkflowsValidate(rest, requiredProject(), workspace);
+      case 'run':
+        return executeWorkflowsRun(rest, requiredProject(), workspace);
+      default:
+        return { success: false, message: `Unknown subcommand "${sub}".\n${USAGE}` };
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -127,6 +158,8 @@ export function createWorkflowsCommandEntry(): ICommand {
 function createWorkflowsSystemCommand(
   workspace: IWorkspaceLayout,
   providerDefinitions: readonly IProviderDefinition[],
+  project: IWorkflowProject | undefined,
+  settingsSources: readonly TSettingsSource[] | undefined,
 ): ISystemCommand {
   const entry = createWorkflowsCommandEntry();
   return {
@@ -140,7 +173,14 @@ function createWorkflowsSystemCommand(
     subcommands: entry.subcommands,
     lifecycle: 'inline',
     execute: (context, args) =>
-      executeWorkflowsCommand(context, args, workspace, providerDefinitions),
+      executeWorkflowsCommand(
+        context,
+        args,
+        workspace,
+        providerDefinitions,
+        project,
+        settingsSources,
+      ),
   };
 }
 
@@ -158,6 +198,10 @@ export interface IWorkflowsCommandModuleDeps {
   readonly workspace?: IWorkspaceLayout;
   /** Provider definitions used to resolve the active provider for `/workflows create`. */
   readonly providerDefinitions?: readonly IProviderDefinition[];
+  /** Authority-backed project read/mutation view. Absence is Restricted. */
+  readonly project?: IWorkflowProject;
+  /** Explicit settings layers used by workflow authoring provider resolution. */
+  readonly settingsSources?: readonly TSettingsSource[];
 }
 
 export function createWorkflowsCommandModule(
@@ -168,6 +212,13 @@ export function createWorkflowsCommandModule(
   return {
     name: 'agent-command-workflows',
     commandSources: [new WorkflowsCommandSource()],
-    systemCommands: [createWorkflowsSystemCommand(workspace, providerDefinitions)],
+    systemCommands: [
+      createWorkflowsSystemCommand(
+        workspace,
+        providerDefinitions,
+        deps.project,
+        deps.settingsSources,
+      ),
+    ],
   };
 }

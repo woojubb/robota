@@ -1,3 +1,5 @@
+import { realpathSync } from 'node:fs';
+
 import {
   createDefaultBackgroundTaskRunners,
   type IBackgroundTaskRunner,
@@ -5,7 +7,12 @@ import {
 
 import { getUserSettingsPath, readSettings, writeSettings } from '../config/settings-io.js';
 import { InteractiveSession } from '../interactive/interactive-session.js';
-import { createProjectSessionStore } from '../interactive/session-persistence.js';
+import {
+  WorkspaceAuthorityRequiredError,
+  createRestrictedWorkspaceProjectAccess,
+  getWorkspaceProjectIdentity,
+} from '../workspace-trust/index.js';
+import { isWorkspacePathContained } from '../workspace-trust/project-reader-path.js';
 
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { ICommandHostAdapters, ICommandModule } from '../commands/index.js';
@@ -13,12 +20,15 @@ import type { CommandRegistry, IRemoteCommandPolicy } from '../commands/index.js
 import type { IInteractiveSession, IInteractiveSessionStore } from '../interactive/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 export interface IAgentRuntimeConfig {
   cwd: string;
   provider: IAIProvider;
+  /** Host-owned initial project decision. Absence produces an observable Restricted runtime. */
+  projectAccess?: TWorkspaceProjectAccess;
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
@@ -61,6 +71,7 @@ export interface IHeadlessSessionOptions {
 export interface IAgentRuntime {
   readonly cwd: string;
   readonly provider: IAIProvider;
+  readonly projectAccess: TWorkspaceProjectAccess;
   readonly commandModules: readonly ICommandModule[];
   readonly commandHostAdapters: ICommandHostAdapters;
   readonly backgroundTaskRunners: IBackgroundTaskRunner[];
@@ -71,25 +82,49 @@ export interface IAgentRuntime {
   createSession(opts: IHeadlessSessionOptions): InteractiveSession;
 }
 
-export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
+function createDefaultRuntimeCommandHostAdapters(): ICommandHostAdapters {
   const settingsPath = getUserSettingsPath();
-  const defaultCommandHostAdapters: ICommandHostAdapters = {
+  return {
     settings: {
       read: () => readSettings(settingsPath),
       write: (settings) => writeSettings(settingsPath, settings),
     },
   };
+}
 
+export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
   const backgroundTaskRunners =
     config.backgroundTaskRunners ?? createDefaultBackgroundTaskRunners();
   const commandModules = config.commandModules ?? [];
-  const commandHostAdapters = config.commandHostAdapters ?? defaultCommandHostAdapters;
-  const sessionStore =
-    'sessionStore' in config ? config.sessionStore : createProjectSessionStore(config.cwd);
+  const commandHostAdapters =
+    config.commandHostAdapters ?? createDefaultRuntimeCommandHostAdapters();
+  const sessionStore = 'sessionStore' in config ? config.sessionStore : undefined;
+  const projectAccess =
+    config.projectAccess ??
+    createRestrictedWorkspaceProjectAccess('identity-unavailable', config.cwd);
+  // Contained — ARCH-048. These boundaries reject cross-root pairs until one canonical project-root
+  // binding contract replaces the independent cwd and projectAccess carriers.
+  if (projectAccess.status === 'trusted') {
+    const trustedRoot = getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot;
+    let resolvedCwd: string;
+    try {
+      resolvedCwd = realpathSync(config.cwd);
+    } catch {
+      throw new WorkspaceAuthorityRequiredError(
+        'Trusted project access cannot validate the requested working directory.',
+      );
+    }
+    if (!isWorkspacePathContained(trustedRoot, resolvedCwd)) {
+      throw new WorkspaceAuthorityRequiredError(
+        'Trusted project access does not cover the requested working directory.',
+      );
+    }
+  }
 
   return {
     cwd: config.cwd,
     provider: config.provider,
+    projectAccess,
     commandModules,
     commandHostAdapters,
     backgroundTaskRunners,
@@ -102,6 +137,7 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
       return new InteractiveSession({
         cwd: config.cwd,
         provider: config.provider,
+        projectAccess,
         backgroundTaskRunners,
         subagentRunnerFactory: config.subagentRunnerFactory,
         commandModules,

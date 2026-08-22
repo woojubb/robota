@@ -1,10 +1,7 @@
-import { homedir } from 'node:os';
 import { join, basename } from 'node:path';
 
-import { NodeFileSystem } from '../adapters/node-file-system.js';
-
 import type { ICommandSource, ICommand } from '../command-api/types.js';
-import type { IFileSystem, IDirent } from '@robota-sdk/agent-core';
+import type { IContributionSource } from '../contributions/index.js';
 
 interface IFrontmatter {
   name?: string;
@@ -97,18 +94,19 @@ function buildCommand(
 }
 
 /** Scan a skills directory for subdirectories containing SKILL.md */
-function scanSkillsDir(skillsDir: string, fs: IFileSystem): ICommand[] {
-  if (!fs.existsSync(skillsDir)) return [];
+function scanSkillsDir(skillsDir: string, source: IContributionSource): ICommand[] {
+  if (source.inspectKind(skillsDir, 'discover skill directory') !== 'directory') return [];
 
   const commands: ICommand[] = [];
-  const entries: IDirent[] = fs.readdirSync(skillsDir, { withFileTypes: true });
+  const entries = source.listDirectory(skillsDir, 'discover skills');
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+    if (entry.kind !== 'directory') continue;
     const skillFile = join(skillsDir, entry.name, 'SKILL.md');
-    if (!fs.existsSync(skillFile)) continue;
+    if (source.inspectKind(skillFile, 'inspect skill definition') !== 'file') continue;
 
-    const content = fs.readFileSync(skillFile, 'utf-8');
+    const content = source.readText(skillFile, 'load skill definition');
+    if (content === undefined) continue;
     const frontmatter = parseFrontmatter(content);
     commands.push(buildCommand(frontmatter, content, entry.name));
   }
@@ -117,16 +115,17 @@ function scanSkillsDir(skillsDir: string, fs: IFileSystem): ICommand[] {
 }
 
 /** Scan a commands directory for .md files (Claude Code legacy format) */
-function scanCommandsDir(commandsDir: string, fs: IFileSystem): ICommand[] {
-  if (!fs.existsSync(commandsDir)) return [];
+function scanCommandsDir(commandsDir: string, source: IContributionSource): ICommand[] {
+  if (source.inspectKind(commandsDir, 'discover command directory') !== 'directory') return [];
 
   const commands: ICommand[] = [];
-  const entries: IDirent[] = fs.readdirSync(commandsDir, { withFileTypes: true });
+  const entries = source.listDirectory(commandsDir, 'discover commands');
 
   for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+    if (entry.kind !== 'file' || !entry.name.endsWith('.md')) continue;
     const filePath = join(commandsDir, entry.name);
-    const content = fs.readFileSync(filePath, 'utf-8');
+    const content = source.readText(filePath, 'load command definition');
+    if (content === undefined) continue;
     const frontmatter = parseFrontmatter(content);
     const fallbackName = basename(entry.name, '.md');
     commands.push(buildCommand(frontmatter, content, fallbackName));
@@ -138,34 +137,24 @@ function scanCommandsDir(commandsDir: string, fs: IFileSystem): ICommand[] {
 /** Command source that discovers skills from multiple directories */
 export class SkillCommandSource implements ICommandSource {
   readonly name = 'skill';
-  private readonly cwd: string;
-  private readonly home: string;
-  private readonly fs: IFileSystem;
   private cachedCommands: ICommand[] | null = null;
 
-  constructor(cwd: string, home?: string, fs: IFileSystem = new NodeFileSystem()) {
-    this.cwd = cwd;
-    this.home = home ?? homedir();
-    this.fs = fs;
-  }
+  constructor(private readonly sources: readonly IContributionSource[]) {}
 
   getCommands(): ICommand[] {
     if (this.cachedCommands) return this.cachedCommands;
 
-    const sources: ICommand[][] = [
-      // NEUT-004 fold-in: project-level .robota/skills mirrors the user-level
-      // ~/.robota/skills location (fixes the native-dir discovery asymmetry).
-      scanSkillsDir(join(this.cwd, '.robota', 'skills'), this.fs),
-      scanSkillsDir(join(this.cwd, '.claude', 'skills'), this.fs),
-      scanCommandsDir(join(this.cwd, '.claude', 'commands'), this.fs),
-      scanSkillsDir(join(this.home, '.robota', 'skills'), this.fs),
-      scanSkillsDir(join(this.cwd, '.agents', 'skills'), this.fs),
-    ];
+    const discovered = this.sources.flatMap((source) => [
+      scanSkillsDir(join('.robota', 'skills'), source),
+      scanSkillsDir(join('.claude', 'skills'), source),
+      scanCommandsDir(join('.claude', 'commands'), source),
+      scanSkillsDir(join('.agents', 'skills'), source),
+    ]);
 
     const seen = new Set<string>();
     const merged: ICommand[] = [];
 
-    for (const commands of sources) {
+    for (const commands of discovered) {
       for (const cmd of commands) {
         if (!seen.has(cmd.name)) {
           seen.add(cmd.name);

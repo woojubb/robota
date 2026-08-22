@@ -1,11 +1,19 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createAgentRuntime, createStatelessRuntime } from '../../index.js';
+import {
+  createAgentRuntime,
+  createRestrictedWorkspaceProjectAccess,
+  createStatelessRuntime,
+} from '../../index.js';
+import {
+  createTrustedProjectAccessFixture,
+  createTrustedProjectSessionStoreFixture,
+} from '../../testing/trusted-project-state-fixture.js';
 
 import type { InteractiveSession } from '../../index.js';
 import type {
@@ -56,10 +64,49 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
     for (const cwd of scratchDirs.splice(0)) rmSync(cwd, { recursive: true, force: true });
   });
 
+  it('reports and propagates the initial Restricted project-access decision', () => {
+    const cwd = scratchDir();
+    const projectAccess = createRestrictedWorkspaceProjectAccess('untrusted', cwd);
+    const scripted = createScriptedProvider([]);
+    const runtime = createAgentRuntime({ cwd, provider: scripted.provider, projectAccess });
+
+    expect(runtime.projectAccess).toBe(projectAccess);
+    expect(runtime.createSession({ bare: true }).getProjectAccess()).toBe(projectAccess);
+  });
+
+  it('refuses trusted project access minted for a different runtime root', async () => {
+    const trustedRoot = scratchDir();
+    const runtimeRoot = scratchDir();
+    const projectAccess = await createTrustedProjectAccessFixture(trustedRoot);
+    const scripted = createScriptedProvider([]);
+
+    expect(() =>
+      createAgentRuntime({ cwd: runtimeRoot, provider: scripted.provider, projectAccess }),
+    ).toThrow('Trusted project access does not cover the requested working directory.');
+  });
+
+  it('accepts an in-root runtime descendant whose name begins with two dots', async () => {
+    const trustedRoot = scratchDir();
+    const runtimeRoot = join(trustedRoot, '..cache');
+    mkdirSync(runtimeRoot);
+    const projectAccess = await createTrustedProjectAccessFixture(trustedRoot);
+    const scripted = createScriptedProvider([]);
+
+    expect(
+      createAgentRuntime({ cwd: runtimeRoot, provider: scripted.provider, projectAccess })
+        .projectAccess,
+    ).toBe(projectAccess);
+  });
+
   it('inherits the runtime default store and resumes through it', async () => {
     const cwd = scratchDir();
+    const projectStore = await createTrustedProjectSessionStoreFixture(cwd);
     const firstProvider = createScriptedProvider([{ text: 'stored context' }]);
-    const firstRuntime = createAgentRuntime({ cwd, provider: firstProvider.provider });
+    const firstRuntime = createAgentRuntime({
+      cwd,
+      provider: firstProvider.provider,
+      sessionStore: projectStore,
+    });
     const first = track(firstRuntime.createSession({ bare: true }));
 
     await expect(completeTurn(first, 'remember ARCH-023')).resolves.toBe('stored context');
@@ -69,7 +116,11 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
     expect(existsSync(join(cwd, '.robota', 'sessions', `${sessionId}.json`))).toBe(true);
 
     const secondProvider = createScriptedProvider([{ text: 'restored context' }]);
-    const secondRuntime = createAgentRuntime({ cwd, provider: secondProvider.provider });
+    const secondRuntime = createAgentRuntime({
+      cwd,
+      provider: secondProvider.provider,
+      sessionStore: projectStore,
+    });
     const second = track(secondRuntime.createSession({ bare: true, resumeSessionId: sessionId }));
 
     await expect(completeTurn(second, 'recall ARCH-023')).resolves.toBe('restored context');

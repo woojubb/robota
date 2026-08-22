@@ -8,6 +8,7 @@ import type { ICommandModule } from '../command-api/command-module.js';
 import type { IInteractiveSession } from '../interactive/i-interactive-session.js';
 import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
 import type { IInteractiveSessionEvents } from '../interactive/types.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IAIProvider, TPermissionMode } from '@robota-sdk/agent-core';
 
 export interface IInteractiveRuntimeOptions {
@@ -17,6 +18,8 @@ export interface IInteractiveRuntimeOptions {
   provider?: IAIProvider;
   /** Working directory for session creation. */
   cwd?: string;
+  /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
+  projectAccess?: TWorkspaceProjectAccess;
   /** Session store for persistence. */
   sessionStore?: IInteractiveSessionStore;
   /** Permission mode for tool execution (parity with the TUI/headless channels). */
@@ -136,12 +139,13 @@ export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): I
       if (_testSession) {
         session = _testSession;
       } else {
-        const { provider, cwd, sessionStore, permissionMode } = options;
+        const { provider, cwd, projectAccess, sessionStore, permissionMode } = options;
         if (!provider) throw new Error('createInteractiveRuntime: provider is required');
         if (!cwd) throw new Error('createInteractiveRuntime: cwd is required');
         session = new InteractiveSession({
           provider,
           cwd,
+          projectAccess,
           sessionStore,
           commandModules,
           permissionMode,

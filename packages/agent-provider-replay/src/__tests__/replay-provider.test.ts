@@ -6,22 +6,30 @@ import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
 import { ReplayProvider } from '../replay-provider.js';
-import { SessionLogPayloadResolutionError } from '@robota-sdk/agent-session';
+import {
+  NodeExternalPayloadSource,
+  SessionLogPayloadResolutionError,
+} from '@robota-sdk/agent-session';
 
-import type { ISessionLogLine } from '@robota-sdk/agent-session';
+import type { ISessionLogEntry } from '@robota-sdk/agent-session';
 
 interface IRecordedToolCall {
   id: string;
   function: { name: string; arguments: string };
 }
 
-function line(event: string, data: Record<string, unknown>): ISessionLogLine {
-  return { timestamp: '2026-06-28T00:00:00.000Z', sessionId: 's1', event, ...data };
+function line(event: string, data: Record<string, unknown>): ISessionLogEntry {
+  return {
+    timestamp: '2026-06-28T00:00:00.000Z',
+    sessionId: 's1',
+    event,
+    ...data,
+  } as ISessionLogEntry;
 }
 
 describe('ReplayProvider (INFRA-017)', () => {
   it('TC-03: replays recorded normalized responses in order, then errors when exhausted', async () => {
-    const entries: ISessionLogLine[] = [
+    const entries: ISessionLogEntry[] = [
       line('provider_request', { executionId: 'e1', round: 0 }),
       line('provider_response_normalized', {
         executionId: 'e1',
@@ -45,7 +53,7 @@ describe('ReplayProvider (INFRA-017)', () => {
   });
 
   it('TC-04: replays a tool-call turn, then the final completion', async () => {
-    const entries: ISessionLogLine[] = [
+    const entries: ISessionLogEntry[] = [
       line('provider_response_normalized', {
         executionId: 'e1',
         round: 0,
@@ -79,7 +87,7 @@ describe('ReplayProvider (INFRA-017)', () => {
   });
 
   it('ignores non-replay-substrate events (observability/text_delta/user)', () => {
-    const entries: ISessionLogLine[] = [
+    const entries: ISessionLogEntry[] = [
       line('text_delta', { delta: 'x' }),
       line('user', { content: 'hi' }),
       line('assistant', { content: 'observability-only' }),
@@ -88,7 +96,7 @@ describe('ReplayProvider (INFRA-017)', () => {
   });
 
   it('chatStream yields the recorded response', async () => {
-    const entries: ISessionLogLine[] = [
+    const entries: ISessionLogEntry[] = [
       line('provider_response_normalized', {
         executionId: 'e1',
         round: 0,
@@ -108,7 +116,7 @@ describe('ReplayProvider (INFRA-017)', () => {
   });
 
   it('ARCH-014: direct construction rejects an unresolved consumed response', () => {
-    const entries: ISessionLogLine[] = [
+    const entries: ISessionLogEntry[] = [
       line('provider_response_normalized', {
         executionId: 'e1',
         round: 0,
@@ -135,7 +143,7 @@ describe('ReplayProvider (INFRA-017)', () => {
       const serialized = JSON.stringify('hydrated content');
       const sha256 = createHash('sha256').update(serialized).digest('hex');
       writeFileSync(join(baseDirectory, 'content.json'), serialized);
-      const entries: ISessionLogLine[] = [
+      const entries: ISessionLogEntry[] = [
         line('provider_response_normalized', {
           executionId: 'e1',
           round: 0,
@@ -154,7 +162,10 @@ describe('ReplayProvider (INFRA-017)', () => {
         }),
       ];
 
-      const provider = new ReplayProvider({ entries, externalPayloadBaseDirectory: baseDirectory });
+      const provider = new ReplayProvider({
+        entries,
+        externalPayloadSource: new NodeExternalPayloadSource(baseDirectory),
+      });
 
       await expect(provider.chat([])).resolves.toEqual(
         expect.objectContaining({ role: 'assistant', content: 'hydrated content' }),
@@ -165,7 +176,7 @@ describe('ReplayProvider (INFRA-017)', () => {
   });
 
   it('ARCH-014: ignores unresolved references outside normalized response events', () => {
-    const entries: ISessionLogLine[] = [
+    const entries: ISessionLogEntry[] = [
       line('tool_execution_result', {
         result: {
           kind: 'external-payload',

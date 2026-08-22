@@ -12,6 +12,7 @@
  * an existence-allowlist over `list()`. The HTTP handler bypasses that helper entirely. The guard
  * belongs at the id boundary so every sink inherits it.
  */
+import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -19,7 +20,8 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { FileSessionLogger } from '../session-logger.js';
-import { SessionStore } from '../session-store.js';
+import { NodeSessionLogSink } from '../session-log-sinks.js';
+import { NodeSessionStore } from '../session-store.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
 
@@ -44,12 +46,12 @@ function makeRecord(id: string): IInteractiveSessionRecord {
 describe('SessionStore — session id path traversal (SEC-006)', () => {
   let root: string;
   let baseDir: string;
-  let store: SessionStore;
+  let store: NodeSessionStore;
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'sec006-store-'));
     baseDir = join(root, 'sessions');
-    store = new SessionStore(baseDir);
+    store = new NodeSessionStore(baseDir);
   });
   afterEach(() => {
     rmSync(root, { recursive: true, force: true });
@@ -82,10 +84,6 @@ describe('SessionStore — session id path traversal (SEC-006)', () => {
     expect(existsSync(victim)).toBe(true);
   });
 
-  it('getFilePath() rejects a traversing id', () => {
-    expect(() => store.getFilePath('../escaped')).toThrow(/session id/i);
-  });
-
   it('still accepts the id shapes the app actually generates', () => {
     for (const id of [
       'session_1730000000000_abc123def',
@@ -112,7 +110,7 @@ describe('FileSessionLogger — session id path traversal (SEC-006)', () => {
   });
 
   it('does not append to a path outside the log directory', () => {
-    const logger = new FileSessionLogger(logDir);
+    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir));
     // the logger swallows its own errors by design (logging must never break a session), so the
     // observable contract is that NO file appears outside logDir
     logger.log('../escaped', 'session_init', {});
@@ -120,8 +118,39 @@ describe('FileSessionLogger — session id path traversal (SEC-006)', () => {
   });
 
   it('still writes a normal session log', () => {
-    const logger = new FileSessionLogger(logDir);
+    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir));
     logger.log('session_1730000000000_abc', 'session_init', {});
     expect(existsSync(join(logDir, 'session_1730000000000_abc.jsonl'))).toBe(true);
+  });
+});
+
+describe('NodeSessionLogSink direct path boundaries', () => {
+  let root: string;
+  let logDir: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'sec006-direct-log-sink-'));
+    logDir = join(root, 'logs');
+  });
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('rejects a traversing session id when the public sink is called directly', () => {
+    const sink = new NodeSessionLogSink(logDir);
+
+    expect(() => sink.append('../escaped', '{}\n')).toThrow(/session id/i);
+    expect(existsSync(join(root, 'escaped.jsonl'))).toBe(false);
+  });
+
+  it('rejects non-content-addressed and path-shaped payload digests', () => {
+    const sink = new NodeSessionLogSink(logDir);
+    const serialized = '{"safe":true}';
+    const actualDigest = createHash('sha256').update(serialized).digest('hex');
+
+    expect(() => sink.writeJson('safe-session', '../../escaped', serialized)).toThrow(/sha256/i);
+    expect(() => sink.writeJson('safe-session', 'a'.repeat(64), serialized)).toThrow(/sha256/i);
+    expect(() => sink.writeJson('safe-session', actualDigest, serialized)).not.toThrow();
+    expect(existsSync(join(root, 'escaped.json'))).toBe(false);
   });
 });

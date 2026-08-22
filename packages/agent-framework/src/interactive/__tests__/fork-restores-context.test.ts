@@ -10,8 +10,8 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createProjectSessionStore } from '../session-persistence.js';
 import { loadSessionRecord } from '../interactive-session-restore.js';
+import { createTrustedProjectSessionStoreFixture } from '../../testing/trusted-project-state-fixture.js';
 
 import type { IInteractiveSessionStore } from '../session-persistence.js';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
@@ -23,9 +23,9 @@ describe('fork restores conversation context (CLI-073)', () => {
   let store: IInteractiveSessionStore;
   let storeFilePath: string | undefined;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     cwd = mkdtempSync(join(tmpdir(), 'robota-073-'));
-    store = createProjectSessionStore(cwd);
+    store = await createTrustedProjectSessionStoreFixture(cwd);
     store.save({
       id: SOURCE_ID,
       cwd,

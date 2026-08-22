@@ -19,9 +19,11 @@ inside the agent CLI by composing `@robota-sdk/dag-framework` in-process. Owns t
 
 ## Architecture Overview
 
-A bridge package. `createWorkflowsCommandModule({ workspace?, providerDefinitions? })` returns an
+A bridge package. `createWorkflowsCommandModule({ project?, workspace?, providerDefinitions?, settingsSources? })` returns an
 `ICommandModule` whose `ISystemCommand.execute` parses a leading subcommand token and dispatches to an
-executor. Executors return an `ICommandResult`. No state is held; providers are created per invocation.
+executor. `project` is an exact-instance `IWorkflowProject` derived from a framework authority; absence
+is Restricted for every workflow subcommand. Executors return an `ICommandResult`. No state is held;
+providers are created per invocation from explicit settings sources.
 
 ### One surface, four shared seams (WORKFLOW-005 P3)
 
@@ -43,7 +45,7 @@ its siblings has exactly one owner module:
   (`parseAuthoringArgs` — description + `--input`/`--name`) and the file-taking subcommands
   (`parseFileArg` — exactly one quote-aware path). `validate`/`run` therefore accept a quoted path
   and reject surplus/unknown tokens with their usage line instead of folding them into the path.
-- **Node catalog.** `createWorkspaceRuntime(cwd, layout)` is the ONLY place a
+- **Node catalog.** `createWorkspaceRuntime(project, layout)` is the ONLY place a
   `LocalDagRuntimeProvider` is constructed for a workspace: built-in registry **plus** the instant
   nodes saved under `<root>/nodes/`. So the catalog a workflow is _validated_ and _listed_ against is
   exactly the catalog it _runs_ against. (Before P3, `validate` and `list` built a bare provider and
@@ -58,17 +60,19 @@ its siblings has exactly one owner module:
 subcommands (P3 — previously each carried its own copy of these steps, free to diverge). The LLM only
 **authors**; the runtime **executes**:
 
-1. **Node catalog** — `createDefaultNodeRegistrySync()` (+ any prompt nodes already saved under
-   `<root>/nodes/`) → `INodeManifest[]` via `buildNodeDefinitionAssembly` (`@robota-sdk/dag-node`).
+1. **Node catalog** — `createDefaultNodeRegistrySync()` plus prompt nodes read root-relatively through
+   `IWorkflowProject` under `<root>/nodes/` → `INodeManifest[]` via `buildNodeDefinitionAssembly`
+   (`@robota-sdk/dag-node`).
 2. **Author** — the ACTIVE provider (resolved with `createProviderFromSettings` +
    injected `providerDefinitions`) is prompted with the catalog and must return a JSON-only workflow
    spec (`authoring/spec.ts` validates it).
 3. **Instant nodes (Phase 3)** — any `newNodes` become prompt-backed nodes
-   (`createPromptBackedNodeDefinition`, `@robota-sdk/dag-node-instant-node`), saved to
+   (`createPromptBackedNodeDefinition`, `@robota-sdk/dag-node-instant-node`), written through the
+   separately approved project mutation capability to
    `<root>/nodes/<type>.node.json` and reusable on later `create`s.
 4. **Assemble** — `buildDagFromPipeline` (`@robota-sdk/dag-builder`) → `IDagDefinition`; the resolved
    run input is baked into the `input` node so the artifact is self-contained.
-5. **Save** — the legible `IDagDefinition` is written flat to `<root>/<name><ext>`. This is where the
+5. **Save** — the legible `IDagDefinition` is written root-relatively to `<root>/<name><ext>`. This is where the
    shared pipeline ends and the two subcommands diverge: `create` then executes the definition
    in-process (converting to the runtime workflow-file format via `toDagWorkflowFile`); `build`
    stops and reports the saved path.
@@ -106,24 +110,26 @@ required, `create` and `build` migrate together in one follow-up.
 
 ## Public API Surface
 
-| Export                                 | Kind      | Description                                                                                                              |
-| -------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `createWorkflowsCommandModule`         | function  | Returns the `workflows` `ICommandModule` for agent-cli composition.                                                      |
-| `IWorkflowsCommandModuleDeps`          | interface | Injected deps: `workspace?`, `providerDefinitions?`.                                                                     |
-| `createWorkflowsCommandEntry`          | function  | Returns the `workflows` `ICommand` metadata entry.                                                                       |
-| `WorkflowsCommandSource`               | class     | `ICommandSource` exposing the `workflows` command.                                                                       |
-| `executeWorkflowsCreate`               | function  | Executor for `/workflows create` (NL authoring + run).                                                                   |
-| `executeWorkflowsBuild`                | function  | Executor for `/workflows build` (NL authoring + save — never executes).                                                  |
-| `IWorkflowsAuthoringDeps`              | interface | Authoring seam (shared by `create`/`build`): `workspace?`, `providerDefinitions?`, `resolveProvider?`, `model?`, `now?`. |
-| `parseAuthoringArgs`                   | function  | Parse `create`/`build` args (description + `--input`/`--name` — shared grammar).                                         |
-| `IParsedAuthoringArgs`                 | interface | Result of `parseAuthoringArgs`: `description`, `nameOverride?`, `inputs`.                                                |
-| `WORKFLOWS_SUBCOMMANDS`                | const     | The subcommand registry (SSOT for names, hints, descriptions, model-invocability).                                       |
-| `IWorkflowsSubcommand`                 | interface | One registry entry.                                                                                                      |
-| `subcommandUsage`                      | function  | The `Usage: /workflows <name> <hint>` line for one subcommand, derived from the registry.                                |
-| `renderWorkflowsUsage`                 | function  | The multi-line `/workflows` usage block, derived from the registry.                                                      |
-| `executeWorkflowsList`                 | function  | Executor for `/workflows list <cwd>` (built-ins + workspace-saved nodes).                                                |
-| `executeWorkflowsRun`                  | function  | Executor for `/workflows run <file>`.                                                                                    |
-| `AGENT_COMMAND_WORKFLOWS_PACKAGE_NAME` | const     | Package-name constant.                                                                                                   |
+| Export                                 | Kind      | Description                                                                                                        |
+| -------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------ |
+| `createWorkflowsCommandModule`         | function  | Returns the `workflows` `ICommandModule` for agent-cli composition.                                                |
+| `IWorkflowsCommandModuleDeps`          | interface | Injected deps: authority-backed `project?`, `workspace?`, `providerDefinitions?`, and explicit `settingsSources?`. |
+| `createWorkspaceWorkflowProject`       | function  | Derive the workflow read view from an accepted authority and optional same-authority mutation capability.          |
+| `IWorkflowProject`                     | interface | Exact-instance root-relative workflow read/write capability; its marker cannot be structurally forged.             |
+| `createWorkflowsCommandEntry`          | function  | Returns the `workflows` `ICommand` metadata entry.                                                                 |
+| `WorkflowsCommandSource`               | class     | `ICommandSource` exposing the `workflows` command.                                                                 |
+| `executeWorkflowsCreate`               | function  | Executor for `/workflows create` (NL authoring + run).                                                             |
+| `executeWorkflowsBuild`                | function  | Executor for `/workflows build` (NL authoring + save — never executes).                                            |
+| `IWorkflowsAuthoringDeps`              | interface | Authoring seam: `workspace?`, `providerDefinitions?`, `settingsSources?`, `resolveProvider?`, `model?`, `now?`.    |
+| `parseAuthoringArgs`                   | function  | Parse `create`/`build` args (description + `--input`/`--name` — shared grammar).                                   |
+| `IParsedAuthoringArgs`                 | interface | Result of `parseAuthoringArgs`: `description`, `nameOverride?`, `inputs`.                                          |
+| `WORKFLOWS_SUBCOMMANDS`                | const     | The subcommand registry (SSOT for names, hints, descriptions, model-invocability).                                 |
+| `IWorkflowsSubcommand`                 | interface | One registry entry.                                                                                                |
+| `subcommandUsage`                      | function  | The `Usage: /workflows <name> <hint>` line for one subcommand, derived from the registry.                          |
+| `renderWorkflowsUsage`                 | function  | The multi-line `/workflows` usage block, derived from the registry.                                                |
+| `executeWorkflowsList`                 | function  | Executor for `/workflows list` over the explicit project capability.                                               |
+| `executeWorkflowsRun`                  | function  | Executor for `/workflows run <file>`.                                                                              |
+| `AGENT_COMMAND_WORKFLOWS_PACKAGE_NAME` | const     | Package-name constant.                                                                                             |
 
 The `workflows` command dispatches six first-class subcommands (in `workflows-command-module.ts`):
 `create`, `build`, `list`, `catalog`, `validate`, and `run`. The `catalog` and `validate` executors
@@ -146,8 +152,8 @@ executor module. Subcommands compose `dag-framework` (and other DAG packages) �
 ## Error Taxonomy
 
 Executors return `ICommandResult` with `success: false` and a human-readable `message` for terminal
-failures (missing file, unreadable/invalid DAG, failed run). Errors are surfaced, never silently
-swallowed; no fallback to a default workflow.
+failures (missing authority/mutation, missing file, unreadable/invalid DAG, failed run). Errors are
+surfaced, never silently swallowed; no fallback to `cwd`, generic filesystem access, or a default workflow.
 
 ## Test Strategy
 

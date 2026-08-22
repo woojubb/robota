@@ -11,9 +11,9 @@
   "cwd": "<cwd>",
   "status": 0,
   "stdout": {
-    "raw": "\n> @robota-sdk/agent-transport-tui@3.0.0-beta.79 scenario:verify /private/tmp/robota-agreement-002-volume/worktree/packages/agent-transport-tui\n> pnpm exec tsx --conditions=source examples/verify-session-event-rendering.ts\n\n{\"scenario\":\"ARCH-028-tui\",\"notices\":[\"Plan plan created\",\"Plan plan approved\",\"Context refreshed: <cwd>/AGENTS.md\",\"Branch checkpoint created: main @ turn-0001\"],\"deliveryFailure\":{\"message\":\"forced TUI render projection failure\",\"event\":\"plan_event\",\"operationCommitted\":true},\"cleanupRemoved\":true}\n",
-    "normalized": "{\"scenario\":\"ARCH-028-tui\",\"notices\":[\"Plan plan created\",\"Plan plan approved\",\"Context refreshed: <cwd>/AGENTS.md\",\"Branch checkpoint created: main @ turn-0001\"],\"deliveryFailure\":{\"message\":\"forced TUI render projection failure\",\"event\":\"plan_event\",\"operationCommitted\":true},\"cleanupRemoved\":true}",
-    "sha256": "a11828f3be13da0e788b319a6cda47f6aa892f1dfde91388f2ec6a0707e8d292"
+    "raw": "\n> @robota-sdk/agent-transport-tui@3.0.0-beta.79 scenario:verify /home/ubunutu/dev/robota-5/packages/agent-transport-tui\n> pnpm exec tsx --conditions=source examples/verify-session-event-rendering.ts\n\n{\"scenario\":\"ARCH-028-tui\",\"notices\":[\"Plan plan created\",\"Plan plan approved\",\"Context refreshed: AGENTS.md\",\"Branch checkpoint created: main @ turn-0001\"],\"deliveryFailure\":{\"message\":\"forced TUI render projection failure\",\"event\":\"plan_event\",\"operationCommitted\":true},\"cleanupRemoved\":true}\n",
+    "normalized": "{\"scenario\":\"ARCH-028-tui\",\"notices\":[\"Plan plan created\",\"Plan plan approved\",\"Context refreshed: AGENTS.md\",\"Branch checkpoint created: main @ turn-0001\"],\"deliveryFailure\":{\"message\":\"forced TUI render projection failure\",\"event\":\"plan_event\",\"operationCommitted\":true},\"cleanupRemoved\":true}",
+    "sha256": "7e64d03d9608a3ecb75d035ef39f8707d65ce894b7b60c2ff56cc2eb77877b6e"
   },
   "stderr": {
     "raw": "",

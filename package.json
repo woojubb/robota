@@ -55,6 +55,7 @@
     "harness:scan:publish": "node scripts/harness/check-publish-safety.mjs",
     "harness:scan:release-governance": "node scripts/harness/check-release-governance.mjs",
     "harness:scan:deps": "node scripts/harness/check-dependency-direction.mjs",
+    "harness:scan:public-project-authority": "node scripts/harness/scan-public-project-authority.mjs",
     "harness:scan:consistency": "node scripts/harness/scan-consistency.mjs",
     "harness:scan:review-token-supply": "node scripts/harness/scan-review-token-supply.mjs",
     "harness:review-gate": "node scripts/harness/check-review-gate.mjs",

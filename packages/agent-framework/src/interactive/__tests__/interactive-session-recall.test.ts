@@ -4,8 +4,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
+import { createTrustedProjectSessionStoreFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
-import { createProjectSessionStore } from '../session-persistence.js';
 
 import type {
   IMemoryStore,
@@ -104,7 +104,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
 
   it('TC-02: the recalled block is EPHEMERAL — absent from the persisted session record', async () => {
     const cwd = makeProject();
-    const sessionStore = createProjectSessionStore(cwd);
+    const sessionStore = await createTrustedProjectSessionStoreFixture(cwd);
     const { provider } = createProvider();
     const store = createFakeStore(async () => ({
       content: RECALL_BODY,

@@ -2,7 +2,7 @@
 
 Part of the [agent-cli composition map](../agent-cli-composition.md).
 
-Source-verified against `develop` on 2026-07-12.
+Source-verified on 2026-08-22.
 
 This document owns the concrete startup tree from `packages/agent-cli/src/bin.ts` through
 interactive TUI and print-mode composition.
@@ -27,6 +27,10 @@ packages/agent-cli/src/bin.ts
    |- update-check flags  (checkForCliUpdate from agent-framework)
    |- resetConfig()  (startup/reset-config.ts)
    |- runUserLocalDirectCommandIfRequested()  (user-local-direct-command.ts)
+   |- createCliWorkspaceComposition({ cwd, userHome, projectAccess, projectSettingsWriter })
+   |  |- absent/restricted access -> user contributions + user settings + user session store
+   |  `- trusted access -> root-relative contributions/settings + named sessions/logs/memory facets
+   |     `- createProjectSessionStore(sessionsFacet, sessionLogsFacet)  (agent-framework)
    |- preset selection (thin shell — PRESET-002/004/007/011)
    |  |- readSettings(getUserSettingsPath()).preset -> settingsPreset  (agent-framework)
    |  |- loadExternalPresets()  (agent-preset) — register ~/.robota/presets/*.json; per-file errors non-fatal
@@ -77,17 +81,16 @@ packages/agent-cli/src/bin.ts
    |- createDefaultBackgroundTaskRunners()  (agent-executor)
    |- createChildProcessSubagentRunnerFactory()  (agent-subagent-runner)
    |  `- workerEntry = resolveSelfForkWorkerEntry()   (agent-cli owns it: DIST-006)
-   |- createProjectSessionStore(cwd)  (agent-framework)
    |- if -p print mode
    |  `- runPrintMode(..., presetOptions)  (modes/print-mode.ts)
    |     |  presetOptions = { agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
    |     |                    activePresetId: selectedPresetId, persona, permissionMode,
    |     |                    enableParallelSubagents, selfVerification }
-   |     |- new HeadlessInteractionChannel({ cwd, provider, outputFormat, permissionMode,
+   |     |- new HeadlessInteractionChannel({ cwd, provider, projectAccess, outputFormat, permissionMode,
    |     |    commandModules, commandHostAdapters, persona, agentName, activePresetId, ... })  (agent-transport/headless)
    |     `- channel.run(prompt); process.exit(channel.getExitCode())
    `- otherwise interactive mode
-      `- renderApp({ cwd, provider, ..., transportRegistry, cliAdapter,
+      `- renderApp({ cwd, provider, projectAccess, ..., transportRegistry, cliAdapter,
          |           agentName, activePresetId, persona, enableParallelSubagents, selfVerification })  (agent-transport-tui)
          |  |- transportRegistry = createDefaultTransportRegistry()  (LOCAL helper in cli.ts:62-66 —
          |  |     new TransportRegistry(...) from agent-transport, registers WsTransport from agent-transport-ws)
@@ -96,7 +99,7 @@ packages/agent-cli/src/bin.ts
          |  `- agentName/activePresetId/persona forwarded from resolvedPreset + selectedPresetId
          `- App.tsx  (agent-transport-tui)  [createChannel factory -> TuiInteractionChannel]
             |- useTuiChannel()
-            |  |- new TuiInteractionChannel({ cwd, provider, commandModules, commandHostAdapters,
+            |  |- new TuiInteractionChannel({ cwd, provider, projectAccess, commandModules, commandHostAdapters,
             |  |    agentName, activePresetId, persona, ... })
             |  |- CommandRegistry
             |  |- CommandEffectQueue

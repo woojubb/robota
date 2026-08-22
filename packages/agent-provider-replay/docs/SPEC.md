@@ -11,9 +11,10 @@ end-to-end tests (e.g. SCREEN-010 streaming→commit).
 ## Boundaries
 
 - **Implements** the `@robota-sdk/agent-core` `AbstractAIProvider` contract (`chat` / `chatStream`).
-- **Reads** recorded session-log lines (typed via `@robota-sdk/agent-session` —
-  `ISessionLogLine`, `SESSION_LOG_EVENT`) and consumes that package's sole external-payload resolver;
-  does not write logs and owns no second filesystem reader.
+- **Consumes** already-hydrated recorded session-log lines (typed via `@robota-sdk/agent-session` —
+  `ISessionLogEntry`, `SESSION_LOG_EVENT`). Neutral composition receives an explicit `ISessionLogSource`.
+  The separately named `createReplayProviderFromNodeLogFile` convenience adapter deliberately enters
+  host-filesystem I/O through `agent-session`'s `NodeSessionLogSource`; it does not establish project trust.
 - **No network, no clock/random dependence** in replayed content — output is a pure function of the
   recorded log.
 - Depends only on `@robota-sdk/agent-core` (provider contract) and `@robota-sdk/agent-session` (log
@@ -29,7 +30,7 @@ response as a single chunk (sufficient to exercise the streaming→commit path).
 responses are exhausted, `chat()` rejects.
 
 ```
-session log (JSONL) ──loadSessionLogEntries + sidecar hydration──▶ ISessionLogLine[]
+explicit log/payload source ──loadSessionLogEntries + hydration──▶ ISessionLogEntry[]
                          │ filter resolved provider_response_normalized
                          ▼
                  ReplayProvider.responses[] ──chat()/chatStream()──▶ TUniversalMessage
@@ -37,29 +38,27 @@ session log (JSONL) ──loadSessionLogEntries + sidecar hydration──▶ ISe
 
 ## Type Ownership
 
-- Owns: `ReplayProvider`, `IReplayProviderOptions`, `TReplayProviderFromLogFileOptions`.
+- Owns: `ReplayProvider`, `IReplayProviderOptions`, `TReplayProviderFromSourceOptions`.
 - Consumes (does not own): `AbstractAIProvider`, `TUniversalMessage`, `IChatOptions`
-  (`@robota-sdk/agent-core`); `ISessionLogLine`, `SESSION_LOG_EVENT`, `loadSessionLogEntries`,
+  (`@robota-sdk/agent-core`); `ISessionLogEntry`, `ISessionLogSource`, `SESSION_LOG_EVENT`, `loadSessionLogEntries`,
   `resolveSessionLogExternalPayloads`, and `SessionLogPayloadResolutionError`
   (`@robota-sdk/agent-session`).
 
 ## Public API Surface
 
-- `class ReplayProvider extends AbstractAIProvider` — `chat`, `chatStream`, `supportsTools`,
-  `recordedResponseCount`.
-- `interface IReplayProviderOptions { entries; name?; version?; externalPayloadBaseDirectory?;
-maxExternalPayloadDepth?; maxExternalPayloadTotalBytes? }`.
-- `type TReplayProviderFromLogFileOptions` — file-factory options that exclude already-owned entries
-  and the log-derived external-payload base directory.
-- `createReplayProviderFromLogFile(logFile, options?): ReplayProvider` — convenience loader.
+| Export                                | Kind      | Description                                                                         |
+| ------------------------------------- | --------- | ----------------------------------------------------------------------------------- |
+| `ReplayProvider`                      | Class     | I/O-free recorded-response provider over supplied entries                           |
+| `IReplayProviderOptions`              | Interface | Direct entries, optional explicit payload source, provider metadata, and limits     |
+| `TReplayProviderFromSourceOptions`    | Type      | Provider metadata and hydration limits for explicit-source composition              |
+| `createReplayProviderFromSource`      | Function  | Load and hydrate through a supplied neutral session-log source                      |
+| `createReplayProviderFromNodeLogFile` | Function  | Explicit host-filesystem adapter; a filename does not establish workspace authority |
 
-The file factory partitions external-payload limits to `loadSessionLogEntries`, which derives the base
-directory and hydrates the complete log exactly once. It constructs `ReplayProvider` with the hydrated
-entries and does not forward a base directory. Direct `ReplayProvider` construction inspects only
-`provider_response_normalized.response` values: with an explicit base directory it hydrates those values
-through the shared `agent-session` resolver and one aggregate budget; without a base directory it throws
-typed `UNRESOLVED_REFERENCE` when a consumed response still contains a reference. References in
-observability, tool, text-delta, or user events remain ignored.
+The source factory partitions external-payload limits to `loadSessionLogEntries` and hydrates the complete log
+exactly once. The Node-file factory is only a conspicuous host adapter over that neutral factory. Direct
+`ReplayProvider` construction performs no I/O and throws typed `UNRESOLVED_REFERENCE` when
+a consumed normalized response still contains a reference. References in observability, tool, text-delta, or
+user events remain ignored.
 
 ## Extension Points
 
@@ -73,8 +72,8 @@ observability, tool, text-delta, or user events remain ignored.
 - **Log exhausted** — `chat()` rejects with `[replay] no recorded provider response for call #N …`
   when more calls are made than there are recorded responses.
 - **Unresolved external response** — direct construction rejects with
-  `SessionLogPayloadResolutionError` code `UNRESOLVED_REFERENCE` unless an explicit base directory is
-  supplied. Containment, integrity, JSON, cycle, depth, and aggregate failures preserve the resolver's
+  `SessionLogPayloadResolutionError` code `UNRESOLVED_REFERENCE`; it never accepts a base-directory escape.
+  Explicit-source containment, integrity, JSON, cycle, depth, and aggregate failures preserve the resolver's
   stable typed code.
 - Malformed recorded responses (missing/invalid `role`) are skipped during extraction only after any
   external reference has been resolved or rejected; they never shift a later response because a
@@ -89,7 +88,7 @@ observability, tool, text-delta, or user events remain ignored.
 ## Test Strategy
 
 Vitest unit/integration tests cover ordered replay + exhaustion (TC-03), tool-call turn then completion
-(TC-04), non-substrate isolation, direct-construction unresolved/base-directory behavior, nested sidecar
+(TC-04), non-substrate isolation, I/O-free direct construction, explicit-source nested sidecar
 hydration, corruption/containment/bounds failures, and `chatStream`. A real `InteractiveSession` scripted
 functional test records and replays a response over 32 KiB followed by a sentinel and is registered as
 `session-log-external-payload-replay` in the functional-coverage manifest. That real-session test and its

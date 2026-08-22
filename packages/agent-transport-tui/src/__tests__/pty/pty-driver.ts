@@ -69,7 +69,7 @@ export interface IPtySession {
 }
 
 export interface ISpawnTuiOptions {
-  /** Project cwd (a provider profile settings.json is written here). */
+  /** Project cwd. The fixture provider profile lives in the isolated user HOME. */
   projectDir: string;
   /** Isolated HOME directory. */
   homeDir: string;
@@ -86,7 +86,10 @@ export interface ISpawnTuiOptions {
 }
 
 export function writeTuiProviderSettings(projectDir: string): void {
-  const settingsDir = join(projectDir, '.robota');
+  // ARCH-042: a capabilityless built CLI is Restricted and must not read project settings. PTY
+  // fixtures therefore configure the host-owned user layer under the same isolated HOME that
+  // `spawnTui` derives from the fixture root.
+  const settingsDir = join(projectDir, 'home', '.robota');
   mkdirSync(settingsDir, { recursive: true });
   writeFileSync(
     join(settingsDir, 'settings.json'),

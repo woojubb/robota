@@ -10,7 +10,7 @@ import { join, dirname } from 'node:path';
 import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 import type { MarketplaceClient, IMarketplacePluginEntry, TExecFn } from './marketplace-client.js';
-import type { PluginSettingsStore } from './plugin-settings-store.js';
+import type { NodeHostPluginSettingsStore } from './plugin-settings-store.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
 
 /** Record of an installed plugin in installed_plugins.json. */
@@ -30,7 +30,7 @@ export interface IBundlePluginInstallerOptions {
   /** Base plugins directory (e.g., `~/.robota/plugins`). */
   pluginsDir: string;
   /** Shared settings store for enable/disable persistence. */
-  settingsStore: PluginSettingsStore;
+  settingsStore: NodeHostPluginSettingsStore;
   /** MarketplaceClient for reading marketplace manifests. */
   marketplaceClient: MarketplaceClient;
   /** Shell exec adapter — must be provided at composition root (e.g., execSync). */
@@ -47,7 +47,7 @@ export class BundlePluginInstaller {
   private readonly pluginsDir: string;
   private readonly cacheDir: string;
   private readonly registryPath: string;
-  private readonly settingsStore: PluginSettingsStore;
+  private readonly settingsStore: NodeHostPluginSettingsStore;
   private readonly marketplaceClient: MarketplaceClient;
   private readonly exec: TExecFn;
   private readonly fs: IFileSystem;

@@ -13,27 +13,27 @@ import {
 } from './interactive-session-host-actions.js';
 import { initializeInteractiveSessionAsync } from './interactive-session-init.js';
 import { persistSession } from './interactive-session-persistence.js';
+import { resolveUserSettingsProviderSwitch } from './interactive-session-provider-switch.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { publicTurnOptions, submitNewTurn } from './interactive-session-turn-submission.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
-import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
-import {
-  createProviderFromSettings,
-  readProviderSettings,
-} from '../command-api/provider/provider-factory.js';
+import { createContributionSourcesForProjectAccess } from '../contributions/index.js';
 import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
 import {
   AutomaticMemoryController,
   renderPerTurnRecall,
 } from '../memory/automatic-memory-controller.js';
-import { createFileSystemMemoryStore } from '../memory/file-system-memory-store.js';
 import { PlanController } from '../plan/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
+import {
+  WorkspaceAuthorityRequiredError,
+  createRestrictedWorkspaceProjectAccess,
+} from '../workspace-trust/index.js';
 
 import type { IInteractiveSession } from './i-interactive-session.js';
 import type { IQueuedInput, ITurnOptions } from './interactive-session-execution-controller.js';
@@ -61,6 +61,7 @@ import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IGoalStartOptions } from '../goal/index.js';
 import type { IAutomaticMemoryConfig, IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type {
   TUniversalMessage,
   TSessionEndReason,
@@ -114,7 +115,6 @@ export class InteractiveSession
   // fs default (lazily created + cached so it is ONE shared instance). Exposed to the `/memory` command
   // host context via getMemoryStore() so command reads/writes hit the SAME store as startup + capture.
   private injectedMemoryStore?: IMemoryStore;
-  private defaultMemoryStore?: IMemoryStore;
   // SELFHOST-008 P2: optional post-turn auto-capture policy (surface-supplied); absent ⇒ capture OFF.
   private readonly automaticMemory?: IAutomaticMemoryConfig;
   private autoMemoryController?: AutomaticMemoryController;
@@ -149,12 +149,15 @@ export class InteractiveSession
   private readonly askHandler: IUserInteraction['ask'];
   /** REMOTE-007: transport-neutral pending permission/ask registry (parking + fail-closed + drain). */
   private readonly promptRegistry: SessionPromptRegistry;
+  private readonly projectAccess: TWorkspaceProjectAccess;
   /** TERM-001: guards handoff exclusivity (one handoff at a time). */
   private terminalHandoffActive = false;
 
   constructor(options: TInteractiveSessionOptions) {
     super();
     this.sessionStore = options.sessionStore;
+    this.projectAccess =
+      options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable');
     this.sessionName = options.sessionName;
     this.terminalHandoff = options.terminalHandoff;
 
@@ -179,12 +182,8 @@ export class InteractiveSession
     this.automaticMemory = 'automaticMemory' in options ? options.automaticMemory : undefined;
     this.recallMemory = 'recallMemory' in options ? options.recallMemory : undefined;
     this.sandboxSnapshotId = 'sandboxSnapshotId' in options ? options.sandboxSnapshotId : undefined;
-
     const cwd = this.cwd;
-    let initCheckpointStore: EditCheckpointStore | null = null;
-    if ('session' in options && options.session && cwd) {
-      initCheckpointStore = new EditCheckpointStore({ cwd });
-    }
+    const initCheckpointStore = options.editCheckpointStore ?? null;
 
     this.bgTracker = new SessionBackgroundTaskTracker(
       () => this.getBackgroundTaskManager(),
@@ -199,6 +198,7 @@ export class InteractiveSession
 
     this.histTracker = new SessionHistoryTracker(
       cwd,
+      this.projectAccess,
       () => this.getSessionOrThrow().getSessionId(),
       () => this.execCtrl.executing,
       () => this.persistCurrentSession(),
@@ -217,7 +217,7 @@ export class InteractiveSession
 
     this.skillRouter = new SessionSkillRouter(
       commandModules,
-      cwd,
+      createContributionSourcesForProjectAccess(this.projectAccess),
       commandHostAdapters,
       // ARCH-029 S1: no cast — `implements ICommandHostContext` above makes this compiler-checked.
       () => this,
@@ -245,6 +245,7 @@ export class InteractiveSession
       getSession: () => this.session!,
       getSessionOrThrow: () => this.getSessionOrThrow(),
       getCwd: () => this.getCwd(),
+      getProjectAccess: () => this.projectAccess,
       getContextState: () => this.getContextState(),
       getExecutionWorkspaceSnapshot: () => this.getExecutionWorkspaceSnapshot(),
       emit: (event, ...args) =>
@@ -289,6 +290,10 @@ export class InteractiveSession
     if (this.initialized) this.bgTracker.subscribe(this.session!);
     if (this.initialized) this.persistCurrentSession();
     this.resumeGoalIfActive();
+  }
+
+  getProjectAccess(): TWorkspaceProjectAccess {
+    return this.projectAccess;
   }
 
   private configureInjectedSession(options: TInteractiveSessionOptions): boolean {
@@ -397,8 +402,9 @@ export class InteractiveSession
    */
   getMemoryStore(): IMemoryStore {
     if (this.injectedMemoryStore) return this.injectedMemoryStore;
-    this.defaultMemoryStore ??= createFileSystemMemoryStore(this.getCwd());
-    return this.defaultMemoryStore;
+    throw new WorkspaceAuthorityRequiredError(
+      'Project memory is unavailable without a workspace project authority.',
+    );
   }
 
   /**
@@ -413,7 +419,6 @@ export class InteractiveSession
   }): Promise<IMemoryEvent[]> {
     if (!this.automaticMemory) return [];
     this.autoMemoryController ??= new AutomaticMemoryController({
-      cwd: this.getCwd(),
       config: this.automaticMemory,
       memoryStore: this.getMemoryStore(),
     });
@@ -948,15 +953,10 @@ export class InteractiveSession
 
   private async switchProvider(profileName: string): Promise<void> {
     const session = this.getSessionOrThrow();
-    const cwd = this.getCwd();
-    const settings = readProviderSettings(cwd, {
-      providerOverride: profileName,
-      providerDefinitions: this.providerDefinitions,
-    });
-    const provider = createProviderFromSettings(cwd, undefined, {
-      providerOverride: profileName,
-      providerDefinitions: this.providerDefinitions,
-    });
+    const { settings, provider } = resolveUserSettingsProviderSwitch(
+      profileName,
+      this.providerDefinitions,
+    );
     session.swapProvider(provider, settings.model);
   }
 
