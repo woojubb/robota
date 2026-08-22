@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import * as commandApi from '../command-api/index.js';
+import * as commands from '../commands/index.js';
 import * as sdk from '../index.js';
+import * as plugins from '../plugins/index.js';
 
 describe('agent-sdk public API', () => {
   it('exposes SDK-owned prompt file-reference helpers', () => {
@@ -33,5 +36,21 @@ describe('agent-sdk public API', () => {
     expect(typeof sdk.assertWorkspaceProjectAuthority).toBe('function');
     expect('mintWorkspaceProjectAuthority' in sdk).toBe(false);
     expect('createWorkspaceProjectAuthority' in sdk).toBe(false);
+  });
+
+  it('does not expose path-based provider helpers from the command API barrel', () => {
+    expect('checkSettingsFile' in commandApi).toBe(false);
+    expect('resolveProviderSettingsWriteTargetPath' in commandApi).toBe(false);
+    expect('readMergedProviderSettingsFromPaths' in commandApi).toBe(false);
+  });
+
+  it('does not expose path-based provider helpers from the commands barrel', () => {
+    expect('checkSettingsFile' in commands).toBe(false);
+    expect('resolveProviderSettingsWriteTargetPath' in commands).toBe(false);
+    expect('readMergedProviderSettingsFromPaths' in commands).toBe(false);
+  });
+
+  it('does not expose the ambient plugin settings store from the plugin barrel', () => {
+    expect('PluginSettingsStore' in plugins).toBe(false);
   });
 });

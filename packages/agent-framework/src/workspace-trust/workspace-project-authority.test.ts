@@ -181,6 +181,19 @@ describe('WorkspaceTrustService project authority', () => {
     ).toThrowError(WorkspaceAuthorityRequiredError);
   });
 
+  it('refuses state writes through a facet whose issuing generation was revoked', async () => {
+    const { root, service } = fixture();
+    const granted = await service.grant(root);
+    if (granted.status !== 'trusted') throw new Error('expected trusted access');
+    const state = getWorkspaceProjectStateStorage(granted.authority, 'sessions');
+
+    await service.revoke(root);
+
+    expect(() => state.writeText('revoked.json', '{}', 'test revoked state write')).toThrowError(
+      WorkspaceAuthorityRequiredError,
+    );
+  });
+
   it('derives a root-relative reader that refuses traversal, absolute paths, and links', async () => {
     const { root, service } = fixture();
     mkdirSync(join(root, 'nested'));
