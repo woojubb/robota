@@ -205,18 +205,37 @@ export async function main({
 
     // issue #1980. WARNS, never refuses: a GitHub outage must not discard an ancestry-verified
     // promotion branch, the same reason the closing-block derivation below is allow-fallback.
-    // Unreachable is reported as unreachable — this path never prints a clean verdict it did not
-    // obtain, because "no answer" reading as "they match" is the defect itself, one layer up.
+    //
+    // UNREACHABLE IS NOT MISMATCH, and the two arrive the same way. `reconcileLiveBranch` does not
+    // throw on a failed read — it returns `{ context: '(live)', detail }`, the same shape a real
+    // drift finding has. Rendering the list without separating them turns "could not read the
+    // ruleset" into "the ruleset disagrees with its declaration", which is this issue's own defect
+    // one layer up: a report that states a verdict it never obtained.
+    //
+    // The `catch` below is kept for a genuine throw, and is deliberately NOT the path a network
+    // failure takes. An earlier cut relied on it, and its test passed only because the mock threw —
+    // a shape the real implementation cannot produce.
+    const LIVE_UNREADABLE = '(live)';
     let rulesetSection = '';
     try {
       const findings = reconcileRulesets({ cwd });
-      rulesetSection =
-        findings.length === 0
-          ? '\npromote: required-status-check declarations reconcile against the live rulesets.\n'
-          : '\npromote: WARNING — a live ruleset does NOT match its declaration:\n' +
-            findings.map((f) => `  - ${f.context}: ${f.detail}\n`).join('') +
-            'promote: this does not block the promotion. Fix the ruleset AND\n' +
-            'promote: `.github/required-status-checks.json` in the same change (issue #1980).\n';
+      const unreadable = findings.filter((f) => f.context === LIVE_UNREADABLE);
+      const drift = findings.filter((f) => f.context !== LIVE_UNREADABLE);
+      if (unreadable.length > 0) {
+        rulesetSection =
+          '\npromote: could NOT reconcile the rulesets:\n' +
+          unreadable.map((f) => `  - ${f.detail}\n`).join('') +
+          'promote: this is NOT "they match". Run `node scripts/harness/scan-main-required-checks.mjs --live`.\n';
+      } else if (drift.length > 0) {
+        rulesetSection =
+          '\npromote: WARNING — a live ruleset does NOT match its declaration:\n' +
+          drift.map((f) => `  - ${f.context}: ${f.detail}\n`).join('') +
+          'promote: this does not block the promotion. Fix the ruleset AND\n' +
+          'promote: `.github/required-status-checks.json` in the same change (issue #1980).\n';
+      } else {
+        rulesetSection =
+          '\npromote: required-status-check declarations reconcile against the live rulesets.\n';
+      }
     } catch (error) {
       rulesetSection =
         `\npromote: could NOT reconcile the rulesets (${error.message}).\n` +

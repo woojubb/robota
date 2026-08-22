@@ -7,6 +7,7 @@ import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { main } from '../promote.mjs';
+import { RECONCILED_BRANCHES, reconcileLive } from '../scan-main-required-checks.mjs';
 
 /**
  * `git-branch.md` makes `promote.mjs` the ONLY sanctioned way to build a promotion branch ("never by
@@ -409,18 +410,52 @@ describe('promote.mjs reconciles the rulesets before the PR exists (issue #1980)
     expect(output).toMatch(/is ready — A1\/A2\/A3 hold/);
   });
 
-  it('an unreachable reconciliation is reported as unreachable, NOT as a match', async () => {
+  /**
+   * The shape a FAILED READ actually has, which is not a thrown error.
+   *
+   * `reconcileLiveBranch` catches its own read failures and returns `{ context: '(live)', detail }`
+   * — the same shape a real drift finding has. An earlier cut of this case made the mock THROW,
+   * which the real implementation cannot do, so it passed while a genuine outage rendered as
+   * "the ruleset disagrees with its declaration". A report stating a verdict it never obtained is
+   * this issue's own defect one layer up.
+   */
+  it('an UNREADABLE ruleset is reported as unreachable, NOT as a mismatch', async () => {
     const root = await promotable();
-    const { code, output } = await ready(root, () => {
-      throw new Error('getaddrinfo ENOTFOUND api.github.com');
-    });
+    const { code, output } = await ready(root, () => [
+      { context: '(live)', detail: 'getaddrinfo ENOTFOUND api.github.com' },
+    ]);
     expect(code).toBe(0);
     expect(output).toMatch(/could NOT reconcile the rulesets/);
     expect(output).toMatch(/ENOTFOUND/);
     expect(output).toMatch(/this is NOT "they match"/);
-    // The discriminating assertion: the clean wording must be ABSENT. Without this the case passes
-    // on a build that prints both, which is the shape a future refactor would produce.
+    // Both discriminators: neither the clean verdict nor the MISMATCH verdict may appear.
     expect(output).not.toMatch(/declarations reconcile against the live rulesets/);
+    expect(output).not.toMatch(/WARNING — a live ruleset does NOT match/);
+  });
+
+  it('a thrown error is still reported as unreachable', async () => {
+    const root = await promotable();
+    const { code, output } = await ready(root, () => {
+      throw new Error('spawn ENOENT');
+    });
+    expect(code).toBe(0);
+    expect(output).toMatch(/could NOT reconcile the rulesets \(spawn ENOENT\)/);
+    expect(output).not.toMatch(/WARNING — a live ruleset does NOT match/);
+  });
+
+  /**
+   * Binds the rendering above to the REAL contract, offline. A repository with no `origin` makes
+   * `originSlug` return nothing, and `reconcileLive` returns the `(live)` sentinel without any
+   * network call — so this proves the shape the mock uses is the shape the implementation produces,
+   * which is exactly what the earlier throwing mock did not.
+   */
+  it('reconcileLive really does return the `(live)` sentinel rather than throwing', async () => {
+    const { root } = await newRepo();
+    const findings = reconcileLive(root);
+    // One per reconciled branch, and EVERY one carries the sentinel context rather than throwing.
+    expect(findings).toHaveLength(RECONCILED_BRANCHES.length);
+    expect(findings.every((f) => f.context === '(live)')).toBe(true);
+    expect(findings.every((f) => /origin/.test(f.detail))).toBe(true);
   });
 });
 
