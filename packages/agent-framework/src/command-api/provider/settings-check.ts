@@ -69,7 +69,8 @@ function resolveProviderCredentialValue(
   return profile[field] ?? definition.defaults?.[field];
 }
 
-export function checkSettingsFile(
+/** Explicit host-filesystem settings probe. This does not establish project trust. */
+export function checkNodeHostSettingsFile(
   filePath: string,
   providerDefinitions: readonly IProviderDefinition[] = [],
 ): TSettingsCheck {

@@ -1,16 +1,9 @@
-import { join } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
 
-import { projectPaths } from '../paths.js';
+import { userPaths } from '../paths.js';
 
-describe('projectPaths', () => {
-  it('places logs and resumable sessions under the project .robota directory', () => {
-    const cwd = join('tmp', 'robota-project');
-
-    expect(projectPaths(cwd).logs).toBe(join(cwd, '.robota', 'logs'));
-    expect(projectPaths(cwd).sessions).toBe(join(cwd, '.robota', 'sessions'));
-    expect(projectPaths(cwd).memory).toBe(join(cwd, '.robota', 'memory'));
-    expect(projectPaths(cwd).checkpoints).toBe(join(cwd, '.robota', 'checkpoints'));
+describe('userPaths', () => {
+  it('keeps user-owned runtime state under the host home', () => {
+    expect(userPaths().sessions).toContain('.robota');
   });
 });

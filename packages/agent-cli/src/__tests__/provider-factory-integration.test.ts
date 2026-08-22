@@ -6,7 +6,6 @@ import { createProviderFromProfile } from '@robota-sdk/agent-executor';
 import {
   createNodeHostSettingsSource,
   createProviderFromSettings as createProviderFromSettingsSources,
-  getProviderSettingsPaths,
   readProviderSettings as readProviderSettingsFromSources,
 } from '@robota-sdk/agent-framework';
 import {
@@ -26,8 +25,22 @@ import {
 
 import type { IReadProviderSettingsOptions } from '@robota-sdk/agent-framework';
 
+function nodeHostProviderSettingsPaths(cwd: string): string[] {
+  const userHome = process.env.HOME ?? process.env.USERPROFILE ?? '/';
+  return [
+    join(userHome, '.robota', 'settings.json'),
+    join(userHome, '.claude', 'settings.json'),
+    join(cwd, '.robota', 'settings.json'),
+    join(cwd, '.robota', 'settings.local.json'),
+    join(cwd, '.claude', 'settings.json'),
+    join(cwd, '.claude', 'settings.local.json'),
+  ];
+}
+
 function providerSettingsSources(cwd: string) {
-  return getProviderSettingsPaths(cwd).map((path) => createNodeHostSettingsSource('user', path));
+  return nodeHostProviderSettingsPaths(cwd).map((path) =>
+    createNodeHostSettingsSource('user', path),
+  );
 }
 
 function readProviderSettings(cwd: string, options: IReadProviderSettingsOptions = {}) {
@@ -265,7 +278,7 @@ describe('provider-factory', () => {
   });
 
   it('resolves user settings paths from HOME for test and runtime isolation', () => {
-    const paths = getProviderSettingsPaths(cwd);
+    const paths = nodeHostProviderSettingsPaths(cwd);
     const home = process.env.HOME;
     if (home === undefined) {
       throw new Error('HOME is required for this test');

@@ -161,7 +161,7 @@ export {
   buildProviderProfile,
   buildProviderSetupPatch,
   checkSettingsDocument,
-  checkSettingsFile,
+  checkNodeHostSettingsFile,
   applyProviderConfiguration,
   applyProviderSwitch,
   applyActiveModelChange,
@@ -426,7 +426,7 @@ export type {
 } from './reversible-execution/index.js';
 
 // ── Plugin management ───────────────────────────────────────
-export { PluginSettingsStore, BundlePluginLoader } from './plugins/index.js';
+export { NodeHostPluginSettingsStore, BundlePluginLoader } from './plugins/index.js';
 export type { IPluginSettings } from './plugins/index.js';
 export { BundlePluginInstaller } from './plugins/index.js';
 export { MarketplaceClient } from './plugins/index.js';
@@ -548,8 +548,8 @@ export { PromptExecutor, AgentExecutor } from './hooks/index.js';
 export type { TProviderFactory, IPromptProvider, IPromptExecutorOptions } from './hooks/index.js';
 export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './hooks/index.js';
 
-// ── Paths ───────────────────────────────────────────────────
-export { projectPaths, userPaths } from './paths.js';
+// ── User-owned host paths ───────────────────────────────────
+export { userPaths } from './paths.js';
 
 // ── Explicit project/host contribution sources ─────────────
 export {
@@ -647,7 +647,6 @@ export {
 export type { ISettingsDocumentStore } from './config/settings-store.js';
 export {
   getUserSettingsPath,
-  resolveSettingsPathForScope,
   readSettings,
   writeSettings,
   updateModelInSettings,
@@ -658,11 +657,8 @@ export { SettingsParseError } from './config/settings-parse-error.js';
 export { resetUserConfig } from './config/reset-user-config.js';
 export type { IResetUserConfigResult } from './config/reset-user-config.js';
 
-// ── Provider settings paths ──────────────────────────────────
-export { getProviderSettingsPaths } from './config/provider-paths.js';
-
 // ── Git utilities ─────────────────────────────────────────────
-export { resolveGitBranch } from './git/git-branch.js';
+export { resolveGitBranchFromNodeHost } from './git/git-branch.js';
 
 // ── Semver comparison ─────────────────────────────────────────
 export { compareSemverVersions, isNewerSemverVersion } from './utils/semver-compare.js';

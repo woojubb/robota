@@ -4,11 +4,11 @@ import { join } from 'node:path';
 
 import { describe, expect, it, afterEach } from 'vitest';
 
-import { resolveGitBranch } from '../git-branch.js';
+import { resolveGitBranchFromNodeHost } from '../git-branch.js';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-git-branch-test-'));
 
-describe('resolveGitBranch', () => {
+describe('resolveGitBranchFromNodeHost', () => {
   afterEach(() => {
     rmSync(TMP_BASE, { recursive: true, force: true });
   });
@@ -18,13 +18,13 @@ describe('resolveGitBranch', () => {
     mkdirSync(join(cwd, '.git'), { recursive: true });
     writeFileSync(join(cwd, '.git', 'HEAD'), 'ref: refs/heads/feat/status-line\n', 'utf8');
 
-    expect(resolveGitBranch(cwd)).toBe('feat/status-line');
+    expect(resolveGitBranchFromNodeHost(cwd)).toBe('feat/status-line');
   });
 
   it('returns undefined outside a git repository', () => {
     const cwd = join(TMP_BASE, 'plain');
     mkdirSync(cwd, { recursive: true });
 
-    expect(resolveGitBranch(cwd)).toBeUndefined();
+    expect(resolveGitBranchFromNodeHost(cwd)).toBeUndefined();
   });
 });

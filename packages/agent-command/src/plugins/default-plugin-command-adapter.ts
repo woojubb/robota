@@ -6,7 +6,7 @@ import {
   BundlePluginInstaller,
   BundlePluginLoader,
   MarketplaceClient,
-  PluginSettingsStore,
+  NodeHostPluginSettingsStore,
 } from '@robota-sdk/agent-framework';
 
 import type { IMarketplaceManifest } from '@robota-sdk/agent-framework';
@@ -23,7 +23,7 @@ interface IPluginServices {
   marketplace: MarketplaceClient;
   installer: BundlePluginInstaller;
   loader: BundlePluginLoader;
-  settingsStore: PluginSettingsStore;
+  settingsStore: NodeHostPluginSettingsStore;
 }
 
 function createPluginServices(cwd: string): IPluginServices {
@@ -37,7 +37,7 @@ function createPluginServices(cwd: string): IPluginServices {
       stdio: (options.stdio ?? 'pipe') as 'pipe' | 'inherit' | 'ignore',
     });
 
-  const settingsStore = new PluginSettingsStore(userSettingsPath);
+  const settingsStore = new NodeHostPluginSettingsStore(userSettingsPath);
   const marketplace = new MarketplaceClient({ pluginsDir, exec });
   const installer = new BundlePluginInstaller({
     pluginsDir,

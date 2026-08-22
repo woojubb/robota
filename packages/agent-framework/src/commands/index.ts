@@ -47,7 +47,7 @@ export {
 } from '../command-api/provider/provider-command-probe.js';
 export {
   checkSettingsDocument,
-  checkSettingsFile,
+  checkNodeHostSettingsFile,
 } from '../command-api/provider/settings-check.js';
 export type { TSettingsCheck } from '../command-api/provider/settings-check.js';
 export {

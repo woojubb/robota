@@ -3,7 +3,8 @@ import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 const DETACHED_HEAD_LENGTH = 7;
 
-export function resolveGitBranch(cwd: string): string | undefined {
+/** Explicit host-filesystem Git metadata adapter. This does not establish project trust. */
+export function resolveGitBranchFromNodeHost(cwd: string): string | undefined {
   try {
     const gitDir = findGitDir(cwd);
     if (!gitDir) return undefined;

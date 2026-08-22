@@ -127,7 +127,7 @@ export {
   probeProviderProfile,
   testProviderProfileCommand,
 } from './provider/provider-command-probe.js';
-export { checkSettingsDocument, checkSettingsFile } from './provider/settings-check.js';
+export { checkSettingsDocument, checkNodeHostSettingsFile } from './provider/settings-check.js';
 export type { TSettingsCheck } from './provider/settings-check.js';
 export {
   applyProviderConfiguration,

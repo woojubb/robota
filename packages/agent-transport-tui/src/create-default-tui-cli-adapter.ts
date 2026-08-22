@@ -5,7 +5,7 @@ import {
   createNodeHostSettingsStore,
   getUserSettingsPath,
   readSettings,
-  resolveGitBranch,
+  resolveGitBranchFromNodeHost,
 } from '@robota-sdk/agent-framework';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
@@ -32,7 +32,7 @@ export function createDefaultTuiCliAdapter({
       applyActiveModelChange(createDefaultUserSettingsSources(), [userStore], modelId, options);
       return { applied: true };
     },
-    getGitBranch: (cwd) => resolveGitBranch(cwd),
+    getGitBranch: (cwd) => resolveGitBranchFromNodeHost(cwd),
     getProviderDisplayName: (type) =>
       findProviderDefinition(providerDefinitions, type)?.displayName ?? type,
   };

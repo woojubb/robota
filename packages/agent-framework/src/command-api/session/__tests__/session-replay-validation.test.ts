@@ -7,8 +7,6 @@ import { describe, expect, it } from 'vitest';
 
 import { NodeSessionLogSource } from '@robota-sdk/agent-session';
 
-import { projectPaths } from '../../../paths.js';
-
 import type { ICommandSessionReplayValidationReport } from '../../host-context.js';
 import { createTestCommandHost } from '../../../testing/command-host-double.js';
 import {
@@ -34,7 +32,7 @@ function writeLog(
   lines: readonly string[],
 ): { source: NodeSessionLogSource; reference: string } {
   const root = mkdtempSync(join(tmpdir(), 'arch-029-replay-'));
-  const logs = projectPaths(root).logs;
+  const logs = join(root, '.robota', 'logs');
   mkdirSync(logs, { recursive: true });
   const logFile = join(logs, `${sessionId}.jsonl`);
   writeFileSync(logFile, lines.join('\n'), 'utf8');

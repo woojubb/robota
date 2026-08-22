@@ -1,5 +1,5 @@
 /**
- * PluginSettingsStore — single point of read/write for plugin-related settings.
+ * NodeHostPluginSettingsStore — single point of host-file read/write for plugin settings.
  *
  * Shared by MarketplaceClient and BundlePluginInstaller to prevent
  * concurrent writes from overwriting each other's changes.
@@ -24,7 +24,7 @@ export interface IPluginSettings {
 }
 
 /** Centralized settings store for plugin configuration. */
-export class PluginSettingsStore {
+export class NodeHostPluginSettingsStore {
   private readonly settingsPath: string;
   private readonly fs: IFileSystem;
 

@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vite
 
 import { BundlePluginInstaller } from '../bundle-plugin-installer.js';
 import { MarketplaceClient } from '../marketplace-client.js';
-import { PluginSettingsStore } from '../plugin-settings-store.js';
+import { NodeHostPluginSettingsStore } from '../plugin-settings-store.js';
 
 import type { TExecFn } from '../marketplace-types.js';
 
@@ -39,7 +39,7 @@ describe('BundlePluginInstaller', () => {
 
     installer = new BundlePluginInstaller({
       pluginsDir,
-      settingsStore: new PluginSettingsStore(settingsPath),
+      settingsStore: new NodeHostPluginSettingsStore(settingsPath),
       marketplaceClient,
       exec: mockExec as TExecFn,
     });

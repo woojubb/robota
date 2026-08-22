@@ -11,7 +11,6 @@ import {
   resolveProviderSettingsWriteTarget,
 } from '../command-api/provider/provider-configuration.js';
 import { readProviderSettings as readProviderSettingsFromSources } from '../command-api/provider/provider-factory.js';
-import { getProviderSettingsPaths } from '../config/provider-paths.js';
 import { createNodeHostSettingsSource } from '../config/settings-source.js';
 import { createNodeHostSettingsStore } from '../config/settings-store.js';
 
@@ -25,6 +24,18 @@ import type { IProviderSwitchOptions } from '../command-api/provider/provider-co
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-provider-configuration-test-'));
 const ORIGINAL_HOME = process.env.HOME;
 
+function nodeHostProviderSettingsPaths(cwd: string): string[] {
+  const userHome = process.env.HOME ?? process.env.USERPROFILE ?? '/';
+  return [
+    join(userHome, '.robota', 'settings.json'),
+    join(userHome, '.claude', 'settings.json'),
+    join(cwd, '.robota', 'settings.json'),
+    join(cwd, '.robota', 'settings.local.json'),
+    join(cwd, '.claude', 'settings.json'),
+    join(cwd, '.claude', 'settings.local.json'),
+  ];
+}
+
 function readJson(path: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
 }
@@ -34,7 +45,7 @@ function readProviderSettings(
   options: Parameters<typeof readProviderSettingsFromSources>[1] = {},
 ) {
   return readProviderSettingsFromSources(
-    getProviderSettingsPaths(cwd).map((path) => createNodeHostSettingsSource('user', path)),
+    nodeHostProviderSettingsPaths(cwd).map((path) => createNodeHostSettingsSource('user', path)),
     options,
   );
 }
@@ -71,7 +82,7 @@ function resolveProviderSettingsWriteTargetPath(
   cwd: string,
   options: { settingsPaths?: readonly string[] } = {},
 ) {
-  const stores = hostStores(options.settingsPaths ?? getProviderSettingsPaths(cwd));
+  const stores = hostStores(options.settingsPaths ?? nodeHostProviderSettingsPaths(cwd));
   return resolveProviderSettingsWriteTarget(stores).displayName;
 }
 
@@ -80,7 +91,7 @@ function applyActiveModelChange(
   modelId: string,
   options: IActiveModelChangeOptions & { settingsPaths?: readonly string[] } = {},
 ) {
-  const stores = hostStores(options.settingsPaths ?? getProviderSettingsPaths(cwd));
+  const stores = hostStores(options.settingsPaths ?? nodeHostProviderSettingsPaths(cwd));
   return applyActiveModelChangeToStores(
     stores.map((store) => store.source),
     stores,

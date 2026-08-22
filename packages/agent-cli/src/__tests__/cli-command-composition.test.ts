@@ -7,7 +7,6 @@ import {
   CommandRegistry,
   createNodeHostSettingsSource,
   createNodeHostSettingsStore,
-  getProviderSettingsPaths,
   InteractiveSession,
   readMergedProviderSettings,
   resolveProviderSettingsWriteTarget,
@@ -30,12 +29,17 @@ import type {
 } from '@robota-sdk/agent-framework';
 
 const createProviderSettingsAdapter = (cwd: string): IProviderCommandSettingsAdapter => {
-  const stores = getProviderSettingsPaths(cwd).map((path) =>
-    createNodeHostSettingsStore('user', path),
-  );
-  const sources = getProviderSettingsPaths(cwd).map((path) =>
-    createNodeHostSettingsSource('user', path),
-  );
+  const userHome = process.env.HOME ?? process.env.USERPROFILE ?? '/';
+  const paths = [
+    join(userHome, '.robota', 'settings.json'),
+    join(userHome, '.claude', 'settings.json'),
+    join(cwd, '.robota', 'settings.json'),
+    join(cwd, '.robota', 'settings.local.json'),
+    join(cwd, '.claude', 'settings.json'),
+    join(cwd, '.claude', 'settings.local.json'),
+  ];
+  const stores = paths.map((path) => createNodeHostSettingsStore('user', path));
+  const sources = paths.map((path) => createNodeHostSettingsSource('user', path));
   return {
     readMergedSettings: () => readMergedProviderSettings(sources),
     readTargetSettings: () =>

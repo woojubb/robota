@@ -18,7 +18,6 @@ import {
   createWorkspaceProjectMutation,
 } from '../../workspace-trust/index.js';
 import { EditCheckpointStore } from '../edit-checkpoint-store.js';
-import { projectPaths } from '../../paths.js';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-edit-checkpoint-store-'));
 
@@ -243,7 +242,7 @@ describe('EditCheckpointStore', () => {
     expect(store.list('session_1')).toHaveLength(4);
 
     // d diverged from a (its parent is the restore target), NOT from c
-    const dManifestPath = join(projectPaths(cwd).checkpoints, 'session_1', d.id, 'manifest.json');
+    const dManifestPath = join(cwd, '.robota', 'checkpoints', 'session_1', d.id, 'manifest.json');
     const dManifest = JSON.parse(readFileSync(dManifestPath, 'utf8')) as {
       version: number;
       parentId?: string;
@@ -256,7 +255,7 @@ describe('EditCheckpointStore', () => {
 
   it('loads a legacy v1 manifest as a linear chain (back-compat migration)', async () => {
     const cwd = makeProject();
-    const sessionDir = join(projectPaths(cwd).checkpoints, 'session_1');
+    const sessionDir = join(cwd, '.robota', 'checkpoints', 'session_1');
     // hand-write two legacy v1 manifests (no parentId/branchId)
     for (const [seq, id] of [
       [1, 'turn-0001'],
