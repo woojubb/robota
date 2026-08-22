@@ -35,6 +35,7 @@
     "scripts/harness/scan-spec-user-execution-section.mjs",
     "scripts/harness/scan-symlink-following-enumeration.mjs",
     "scripts/harness/scan-task-frontmatter-fields.mjs",
+    "scripts/harness/scan-temp-dir-owner.mjs",
     "scripts/harness/scan-tool-classification.mjs",
     "scripts/harness/scan-transport-conformance.mjs",
     "scripts/harness/scan-work-item-id-collision.mjs",

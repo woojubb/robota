@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ADVISORY_MARKER,
+  SCAN_COMMANDS,
   extractAdvisories,
   extractExamined,
   judgeExamined,
@@ -448,5 +449,38 @@ describe('a scan that skipped does not render as a tick', () => {
 
     expect(code).toBe(1);
     expect(lines.join('\n')).not.toContain('↩ silent');
+  });
+});
+
+describe('the registry holds what has been registered', () => {
+  /**
+   * A registration has no other guard.
+   *
+   * `regression-red-proof` found this the way it is meant to be found: it reversed a
+   * `run-all-scans.mjs` hunk that added a scan, re-ran the changed tests, and every one passed — so
+   * nothing in the tree held the registration in place. The wiring had been proven by hand, by
+   * breaking a subject and watching the suite go red through it, and a proof that lives only in a
+   * transcript is not a check.
+   *
+   * The rows below are deliberately in THIS file rather than beside each scan: the registry is the
+   * subject, this is its paired test, and a reversal of a registration must fail the test of the file
+   * that was reversed. An assertion parked in the scan's own test file is not reached by that pairing.
+   */
+  const names = SCAN_COMMANDS.map((s) => s.name);
+
+  it('registers every scan exactly once — a duplicate runs twice and reports twice', () => {
+    expect(names.length).toBe(new Set(names).size);
+  });
+
+  it('holds the floors added for INFRA-126 and INFRA-127', () => {
+    expect(names).toContain('temp-dir-owner');
+    expect(names).toContain('rule-table-shape');
+    expect(names).toContain('task-frontmatter-fields');
+  });
+
+  it('points each registration at a command, so a name cannot be registered with nothing behind it', () => {
+    for (const scan of SCAN_COMMANDS) {
+      expect(Array.isArray(scan.command) || typeof scan.run === 'function').toBe(true);
+    }
   });
 });
