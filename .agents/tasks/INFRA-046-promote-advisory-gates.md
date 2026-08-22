@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-046: promote advisory CI gates (regression-red-proof, patch-coverage) to blocking'
-status: blocked
+status: in-progress
 created: 2026-07-25
 priority: high
 urgency: now
@@ -405,3 +405,54 @@ it.
 modified since 2026-07-26. Any required-list edit touches the same surface, and `robota-4-aa` has
 been assigned a separate required-context addition for issue #1719. Three edits to two rulesets by
 two agents is exactly how the issue #1980 half-application happened.
+
+## 2026-08-22 — `regression-red-proof` is PROMOTED; `patch-coverage` is not, and that is the whole remainder
+
+The block this item carried is discharged. It was stated exactly, which is what made it
+dischargeable:
+
+> `accidental-green` has never fired on a real pull request … **One observed firing is what
+> promotes it.**
+
+It fired twice on PR #1983 and caught a real defect — a registration hunk in
+`scripts/harness/run-all-scans.mjs` reversible with every changed test still passing. The author
+repaired it in three rounds without assistance. Three other verdicts in the same run reported
+`inconclusive` **with the reason**, which is the property that makes a refusal from this gate worth
+acting on. Owner approved the promotion on that evidence.
+
+**Applied, in the order the declaration file demands:**
+
+1. `.github/required-status-checks.json` — the entry moved from `deliberately_not_required` into
+   `branches.develop.required_status_checks`, carrying the context name the job actually
+   **publishes**: `regression-red-proof (enforcing: accidental-green only)`. The bare spelling it had
+   been recorded under matches nothing, and promoting that would have stranded every `develop` pull
+   request permanently. That trap is closed separately as issue #2036.
+2. The live `protect-develop` ruleset — read first, written once, read back:
+
+```
+before: 10 contexts        after: 11 contexts
+rules, conditions, enforcement, bypass_actors: byte-identical before and after
+scan-main-required-checks.mjs --live: REAL EXIT 0, "Live ruleset reconciled."
+```
+
+No `develop` pull request was open at the time, so no already-open PR inherited a permanently
+pending context.
+
+### Why this item is NOT done
+
+Its title names **two** gates. `patch-coverage` is still advisory, and the two defects that hold it
+there are unchanged and were re-read rather than assumed:
+
+- `inconclusive-no-data` lines are folded into the BELOW-TARGET total instead of being reported as
+  NO-DATA;
+- the React-UI denominator policy is undecided — the choice is to exclude those files, change the
+  denominator, or stand up component-test infrastructure for the GUI packages.
+
+Promotion is unsafe until one of those is settled, and neither is a measurement I can take: both are
+policy decisions about what the number should mean.
+
+So the status moves from `blocked` to `in-progress`, because the thing that blocked it — missing
+evidence — is gone, and what remains is a decision plus the work it implies. **Done when
+`patch-coverage` is either promoted on the same standard of evidence, or recorded as permanently
+advisory with the reason, in which case this item's title is wrong and should be narrowed rather than
+the record being marked complete over half its subject.**
