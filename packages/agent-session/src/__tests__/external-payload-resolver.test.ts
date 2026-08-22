@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   resolveSessionLogExternalPayloads,
@@ -254,6 +254,23 @@ describe('resolveSessionLogExternalPayloads', () => {
     expect(() => new NodeExternalPayloadSource('')).toThrow(/base directory/i);
     expect(() => new NodeExternalPayloadSource('   ')).toThrow(/base directory/i);
   });
+
+  it.each(['darwin', 'win32'] as const)(
+    'ARCH-049 containment: rejects payload reads when %s lacks the stable host facility',
+    (hostPlatform) => {
+      const baseDirectory = createTemporaryDirectory();
+      writeFileSync(join(baseDirectory, 'payload.json'), 'payload');
+      const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue(hostPlatform);
+      try {
+        expectResolutionCode(
+          () => new NodeExternalPayloadSource(baseDirectory).readBytes('payload.json', 64),
+          'PAYLOAD_UNREADABLE',
+        );
+      } finally {
+        platform.mockRestore();
+      }
+    },
+  );
 
   it('ARCH-014: rejects circular in-memory values and invalid limits', () => {
     const baseDirectory = createTemporaryDirectory();

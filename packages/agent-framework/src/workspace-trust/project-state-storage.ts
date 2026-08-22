@@ -54,9 +54,9 @@ class WorkspaceProjectStateStorage {
     return this.reader.readText(this.projectRelativePath(relativePath), purpose);
   }
 
-  readBytes(relativePath: string, purpose: string): Uint8Array | undefined {
+  readBytes(relativePath: string, purpose: string, maxBytes?: number): Uint8Array | undefined {
     assertWorkspaceProjectAuthority(this.authority);
-    return this.reader.readBytes(this.projectRelativePath(relativePath), purpose);
+    return this.reader.readBytes(this.projectRelativePath(relativePath), purpose, maxBytes);
   }
 
   writeText(relativePath: string, content: string, purpose: string): void {

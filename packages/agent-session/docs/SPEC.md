@@ -290,10 +290,11 @@ Live logging writes through `ISessionLogSink` and `IExternalPayloadSink`; parsin
 `ISessionLogSource` and `IExternalPayloadSource`. Each payload-source read receives the remaining aggregate
 byte budget and must not return bytes that exceed it. A direct host-filesystem source must enforce the budget
 before and during the read; it may not fully allocate unbounded bytes and defer the limit check to the resolver.
-`NodeSessionLogSource`/`NodeSessionLogSink` are explicitly named host adapters. A project composition supplies
-framework authority-backed adapters instead of reopening an absolute path. Append, hot-path buffering, flush
-ordering, owner-only Node modes, sidecar integrity, and the warning-only diagnostic logging failure contract
-are preserved.
+`NodeSessionLogSource`/`NodeSessionLogSink` are explicitly named host adapters. `NodeSessionLogSource`
+rejects an empty or whitespace-only log-file path before deriving sidecar authority from its directory. A
+project composition supplies framework authority-backed adapters instead of reopening an absolute path.
+Append, hot-path buffering, flush ordering, owner-only Node modes, sidecar integrity, and the warning-only
+diagnostic logging failure contract are preserved.
 
 `SESSION_LOG_EVENT` is the complete declared vocabulary for every production session-log event. Direct
 logger calls, `onExecutionEvent` literals emitted by agent-core, and replay-reader-only recognized
@@ -333,12 +334,17 @@ arrays, records, and sidecar contents. A canonical-path active stack rejects cyc
 32 nested references and 64 MiB total sidecar bytes per resolution operation; limits must be finite,
 non-negative safe integers.
 
-`NodeExternalPayloadSource` rejects an empty explicit base directory. On supported Node hosts it opens the
-canonical base once per read and traverses every relative component with no-follow descriptors, verifies the
-opened target is a regular file, and performs a budget-bounded read from that same descriptor. A link in any
-component fails closed; replacing a pathname after its component is open cannot redirect the held descriptor.
-Growth during the read, or a host without an equivalent stable no-follow facility, fails closed without
-returning bytes.
+`NodeExternalPayloadSource` rejects an empty explicit base directory. Its current Linux implementation opens
+the canonical base once per read and traverses every relative component with no-follow descriptors, verifies
+the opened target is a regular file, and performs a budget-bounded read from that same descriptor. A link in
+any component fails closed; replacing a pathname after its component is open cannot redirect the held
+descriptor. Growth during the read, or a host without the implemented stable no-follow facility, fails closed
+without returning bytes.
+
+> **Contained — [ARCH-049](../../../.agents/tasks/ARCH-049-cross-platform-stable-external-payload-replay.md).**
+> The current stable external-payload reader is Linux-only, so public Node replay rejects externalized
+> payloads on macOS and Windows. ARCH-049 owns an equally strong stable-handle implementation for every
+> supported host; this containment must not be replaced with pathname validation followed by pathname I/O.
 
 Resolution fails closed with `SessionLogPayloadResolutionError`. Its stable `code` is one of
 `INVALID_LIMIT`, `INVALID_REFERENCE`, `UNRESOLVED_REFERENCE`, `OUTSIDE_ROOT`, `PAYLOAD_NOT_FOUND`,

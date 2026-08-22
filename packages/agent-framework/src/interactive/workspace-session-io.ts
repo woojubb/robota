@@ -6,6 +6,7 @@ import {
 } from '@robota-sdk/agent-session';
 
 import { assertWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
+import { ProjectReadLimitExceededError } from '../workspace-trust/project-reader-path.js';
 
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import type {
@@ -59,15 +60,16 @@ export class WorkspaceSessionLogSource implements ISessionLogSource, IExternalPa
     if (!normalized.startsWith(`${this.sessionId}.payloads/`)) {
       throw new Error('External payload reference does not belong to this session log.');
     }
-    const bytes = this.storage.readBytes(normalized, 'load project session log payload');
-    if (bytes !== undefined && bytes.byteLength > maxBytes) {
+    try {
+      return this.storage.readBytes(normalized, 'load project session log payload', maxBytes);
+    } catch (error) {
+      if (!(error instanceof ProjectReadLimitExceededError)) throw error;
       throw new SessionLogPayloadResolutionError(
         'MAX_TOTAL_BYTES_EXCEEDED',
         `External payload exceeds the remaining byte budget of ${maxBytes}.`,
-        { relativePath, expected: maxBytes, actual: bytes.byteLength },
+        { relativePath, expected: maxBytes, actual: error.actualBytes.toString() },
       );
     }
-    return bytes;
   }
 }
 

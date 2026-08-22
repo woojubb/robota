@@ -4,15 +4,14 @@ import {
   fstatSync,
   lstatSync,
   openSync,
-  readFileSync,
   readdirSync,
   realpathSync,
   statSync,
 } from 'node:fs';
 import { join } from 'node:path';
 
+import { readBoundedProjectFile } from './project-reader-bounded-file.js';
 import {
-  MAX_PROJECT_READ_BYTES,
   assertCurrentWorkspaceIdentity,
   isWorkspacePathContained,
   refuseProjectRead,
@@ -74,6 +73,7 @@ export function readPortableProjectBytes(
   identity: IWorkspaceIdentity,
   identityResolver: IWorkspaceIdentityResolver,
   segments: readonly string[],
+  maxBytes: number,
 ): Uint8Array | undefined {
   assertCurrentWorkspaceIdentity(identity, identityResolver);
   const target = resolveNoFollowPath(identity, segments);
@@ -87,11 +87,8 @@ export function readPortableProjectBytes(
     const opened = fstatSync(descriptor, { bigint: true });
     assertStillContained(identity, target);
     assertOpenedObject(target, opened, false);
-    if (opened.size > BigInt(MAX_PROJECT_READ_BYTES)) {
-      refuseProjectRead('The requested project file exceeds the project read limit.');
-    }
     assertCurrentWorkspaceIdentity(identity, identityResolver);
-    return new Uint8Array(readFileSync(descriptor));
+    return readBoundedProjectFile(descriptor, maxBytes);
   } catch (error) {
     if (error instanceof WorkspaceAuthorityRequiredError) throw error;
     throw new WorkspaceAuthorityRequiredError(

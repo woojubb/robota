@@ -208,6 +208,9 @@ describe('WorkspaceTrustService project authority', () => {
     const reader = getWorkspaceProjectReader(granted.authority);
 
     expect(reader.readText('nested/canary.txt', 'test canary')).toBe('trusted canary');
+    expect(() => reader.readBytes('nested/canary.txt', 'test bounded canary', 1)).toThrow(
+      /read limit/i,
+    );
     expect(() => reader.readText('../secret.txt', 'test escape')).toThrowError(
       WorkspaceAuthorityRequiredError,
     );
@@ -236,6 +239,9 @@ describe('WorkspaceTrustService project authority', () => {
     rmSync(join(root, '.robota', 'sessions'));
     sessions.writeText('session.json', '{"ok":true}', 'persist session');
     expect(sessions.readText('session.json', 'resume session')).toBe('{"ok":true}');
+    expect(() => sessions.readBytes('session.json', 'bounded session read', 1)).toThrow(
+      /read limit/i,
+    );
     expect(sessions.namespace).toBe('sessions');
   });
 

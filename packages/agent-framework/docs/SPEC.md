@@ -95,6 +95,12 @@ Key design rules:
   separately approved capabilities. User-local paths and explicitly injected host adapters are different
   contracts and never satisfy project-authority parameters.
 
+  Byte reads accept an optional per-call `maxBytes` budget. The reader applies the smaller of that budget
+  and the package-wide project-read cap before allocation, detects growth while reading the held descriptor,
+  and fails closed if either limit is exceeded. Named project-state storage forwards the per-call budget
+  unchanged, so authority-backed external-payload sources enforce the resolver's remaining aggregate budget
+  at the filesystem boundary rather than after a complete read.
+
   On Linux, project create/replace/append/delete traversal is anchored to opened root and parent directory
   descriptors, so a validated parent rename or symlink swap cannot redirect the mutation. Other platforms
   fail closed rather than falling back to pathname mutation.
@@ -183,8 +189,8 @@ Key design rules:
 | `ICliUpdateNotice`                                                    | `src/update-check/update-check.ts`                                                                     | CLI update notification data                                                                                            |
 | `TCliUpdateCheckResult`                                               | `src/update-check/update-check.ts`                                                                     | Result of a CLI update check                                                                                            |
 | `IWorkspaceProjectAuthority` / `TWorkspaceProjectAccess`              | `src/workspace-trust/types.ts`                                                                         | Opaque runtime capability and trusted/restricted initial-construction decision                                          |
-| `IWorkspaceProjectReader`                                             | `src/workspace-trust/types.ts`                                                                         | Runtime-minted, root-relative read facet                                                                                |
-| `IWorkspaceProjectStateStorage`                                       | `src/workspace-trust/types.ts`                                                                         | Runtime-minted named application-state facet                                                                            |
+| `IWorkspaceProjectReader`                                             | `src/workspace-trust/types.ts`                                                                         | Runtime-minted, root-relative read facet with an optional per-call byte budget                                          |
+| `IWorkspaceProjectStateStorage`                                       | `src/workspace-trust/types.ts`                                                                         | Runtime-minted named application-state facet that preserves per-call read budgets                                       |
 | `IWorkspaceProjectSettingsWriter`                                     | `src/workspace-trust/types.ts`                                                                         | Separately approved writer restricted to project settings targets                                                       |
 | `IWorkspaceProjectMutation`                                           | `src/workspace-trust/types.ts`                                                                         | Separately approved checkpoint restore/delete mutation facet                                                            |
 | `IWorkspaceIdentityResolver` / `IWorkspaceTrustStore`                 | `src/workspace-trust/types.ts`                                                                         | Host-owned identity and trust-decision ports consumed by `WorkspaceTrustService`                                        |

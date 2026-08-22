@@ -13,6 +13,11 @@ import {
 } from '../session-log-replay.js';
 
 describe('session log replay support', () => {
+  it('ARCH-042: rejects an empty Node session-log path before deriving sidecar authority', () => {
+    expect(() => new NodeSessionLogSource('')).toThrow(/log-file path/i);
+    expect(() => new NodeSessionLogSource('   ')).toThrow(/log-file path/i);
+  });
+
   it('redacts sensitive fields and stores large payloads by content-addressed reference', () => {
     const logDir = mkdtempSync(join(tmpdir(), 'robota-log-'));
     const logger = new FileSessionLogger(new NodeSessionLogSink(logDir), {

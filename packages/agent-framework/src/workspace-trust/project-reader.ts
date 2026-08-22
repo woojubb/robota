@@ -8,6 +8,7 @@ import {
 import {
   assertProjectReadPurpose,
   refuseProjectRead,
+  resolveProjectReadLimit,
   workspacePathSegments,
 } from './project-reader-path.js';
 import {
@@ -41,13 +42,14 @@ class NodeWorkspaceProjectReader {
     return bytes === undefined ? undefined : Buffer.from(bytes).toString('utf8');
   }
 
-  readBytes(relativePath: string, purpose: string): Uint8Array | undefined {
+  readBytes(relativePath: string, purpose: string, maxBytes?: number): Uint8Array | undefined {
     this.assertActive();
     assertProjectReadPurpose(purpose);
     const segments = workspacePathSegments(relativePath);
+    const limit = resolveProjectReadLimit(maxBytes);
     return process.platform === 'linux'
-      ? readProjectBytesFromHandle(this.identity, this.identityResolver, segments)
-      : readPortableProjectBytes(this.identity, this.identityResolver, segments);
+      ? readProjectBytesFromHandle(this.identity, this.identityResolver, segments, limit)
+      : readPortableProjectBytes(this.identity, this.identityResolver, segments, limit);
   }
 
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[] {

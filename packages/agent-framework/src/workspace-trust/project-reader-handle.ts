@@ -1,16 +1,7 @@
-import {
-  closeSync,
-  constants,
-  fstatSync,
-  lstatSync,
-  openSync,
-  readFileSync,
-  readdirSync,
-  realpathSync,
-} from 'node:fs';
+import { closeSync, constants, lstatSync, openSync, readdirSync, realpathSync } from 'node:fs';
 
+import { readBoundedProjectFile } from './project-reader-bounded-file.js';
 import {
-  MAX_PROJECT_READ_BYTES,
   assertCurrentWorkspaceIdentity,
   refuseProjectRead,
   workspaceContributionKind,
@@ -97,18 +88,13 @@ export function readProjectBytesFromHandle(
   identity: IWorkspaceIdentity,
   identityResolver: IWorkspaceIdentityResolver,
   segments: readonly string[],
+  maxBytes: number,
 ): Uint8Array | undefined {
   return withVerifiedRoot(identity, identityResolver, (rootDescriptor) => {
     const descriptor = openRelative(rootDescriptor, segments, 'file');
     if (descriptor === undefined) return undefined;
     try {
-      const metadata = fstatSync(descriptor, { bigint: true });
-      if (!metadata.isFile() || metadata.size > BigInt(MAX_PROJECT_READ_BYTES)) {
-        refuseProjectRead(
-          'The requested project object is not a regular file or exceeds the read limit.',
-        );
-      }
-      return new Uint8Array(readFileSync(descriptor));
+      return readBoundedProjectFile(descriptor, maxBytes);
     } finally {
       closeSync(descriptor);
     }

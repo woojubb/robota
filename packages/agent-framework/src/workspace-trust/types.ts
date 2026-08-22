@@ -67,7 +67,7 @@ export interface IWorkspaceAncestorTextEntry {
 export interface IWorkspaceProjectReader {
   readonly [workspaceProjectReaderType]: true;
   readText(relativePath: string, purpose: string): string | undefined;
-  readBytes(relativePath: string, purpose: string): Uint8Array | undefined;
+  readBytes(relativePath: string, purpose: string, maxBytes?: number): Uint8Array | undefined;
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[];
   inspectKind(relativePath: string, purpose: string): TWorkspaceContributionKind | undefined;
   readTextAlongAncestors(
@@ -84,7 +84,7 @@ export interface IWorkspaceProjectStateStorage {
   readonly [workspaceProjectStateStorageType]: true;
   readonly namespace: TWorkspaceProjectStateNamespace;
   readText(relativePath: string, purpose: string): string | undefined;
-  readBytes(relativePath: string, purpose: string): Uint8Array | undefined;
+  readBytes(relativePath: string, purpose: string, maxBytes?: number): Uint8Array | undefined;
   writeText(relativePath: string, content: string, purpose: string): void;
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void;
   appendText(relativePath: string, content: string, purpose: string): void;

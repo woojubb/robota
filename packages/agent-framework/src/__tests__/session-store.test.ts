@@ -268,7 +268,9 @@ describe('SessionStore', () => {
         const reference = sink.writeJson('safe-session', sha256, serialized);
         const source = new WorkspaceSessionLogSource(storage, 'safe-session');
 
-        expect(() => source.readBytes(reference.relativePath, 1)).toThrow(/byte budget/i);
+        expect(() => source.readBytes(reference.relativePath, 1)).toThrowError(
+          expect.objectContaining({ code: 'MAX_TOTAL_BYTES_EXCEEDED' }),
+        );
         expect(() => source.readBytes(reference.relativePath, -1)).toThrowError(
           expect.objectContaining({ code: 'INVALID_LIMIT' }),
         );

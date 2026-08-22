@@ -87,7 +87,7 @@ await session.compact('Focus on the API changes');
 | `FileSessionLogger`                        | Class     | Sink-driven JSONL session event logger                                     |
 | `NodeSessionLogSource`                     | Class     | Explicit host adapter for a JSONL log and relative payload sidecars        |
 | `NodeSessionLogSink`                       | Class     | Explicit host adapter for JSONL append and payload sidecars                |
-| `NodeExternalPayloadSource`                | Class     | Stable-handle, no-follow host adapter for budget-bounded sidecar reads     |
+| `NodeExternalPayloadSource`                | Class     | Linux stable-handle host adapter for budget-bounded sidecar reads          |
 | `createSessionLogExternalPayloadReference` | Function  | Validates and constructs the canonical content-addressed sidecar reference |
 | `SilentSessionLogger`                      | Class     | No-op session logger                                                       |
 | `ISessionOptions`                          | Interface | Constructor options for Session                                            |
@@ -128,7 +128,10 @@ Note: `IPermissionEnforcerOptions` is an internal type and is not exported from 
 Session-log parsing is source-driven. `loadSessionLogEntries(source)` consumes an explicit
 `ISessionLogSource`; it never converts a filename into filesystem authority. Use
 `NodeSessionLogSource` only when the application deliberately owns the host path, or provide a
-framework authority-backed source for project logs.
+framework authority-backed source for project logs. Empty or whitespace-only Node log paths are
+rejected before sidecar authority is derived. Stable no-follow sidecar reads are currently available
+only on Linux; macOS and Windows fail closed pending
+[ARCH-049](../../.agents/tasks/ARCH-049-cross-platform-stable-external-payload-replay.md).
 
 Streaming text deltas are written to append-only JSONL session logs as `text_delta` events. Consumers should store high-frequency streaming chunks in JSONL logs/transcripts and keep session JSON focused on resumable snapshots and references.
 

@@ -9,7 +9,16 @@ import type {
 } from './types.js';
 import type { Stats } from 'node:fs';
 
-export const MAX_PROJECT_READ_BYTES = Number('4194304');
+const MAX_PROJECT_READ_BYTES = Number('4194304');
+
+export class ProjectReadLimitExceededError extends WorkspaceAuthorityRequiredError {
+  constructor(
+    readonly maxBytes: number,
+    readonly actualBytes: bigint,
+  ) {
+    super(`The requested project file exceeds the read limit of ${maxBytes} bytes.`);
+  }
+}
 
 export function refuseProjectRead(message: string): never {
   throw new WorkspaceAuthorityRequiredError(message);
@@ -19,6 +28,16 @@ export function assertProjectReadPurpose(purpose: string): void {
   if (purpose.trim().length === 0) {
     refuseProjectRead('Every project read must declare its purpose.');
   }
+}
+
+export function resolveProjectReadLimit(maxBytes?: number): number {
+  if (
+    maxBytes !== undefined &&
+    (!Number.isFinite(maxBytes) || !Number.isSafeInteger(maxBytes) || maxBytes < 0)
+  ) {
+    refuseProjectRead('Project read maxBytes must be a finite, non-negative safe integer.');
+  }
+  return Math.min(maxBytes ?? MAX_PROJECT_READ_BYTES, MAX_PROJECT_READ_BYTES);
 }
 
 export function workspaceContributionKind(metadata: Stats): TWorkspaceContributionKind {

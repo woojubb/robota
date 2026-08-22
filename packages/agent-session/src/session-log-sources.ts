@@ -174,6 +174,7 @@ export class NodeExternalPayloadSource implements IExternalPayloadSource {
     const segments = payloadPathSegments(relativePath);
     const resolvedPath = join(this.baseDirectory, ...segments);
     if (process.platform !== 'linux') {
+      // Contained — ARCH-049. Supported-host stable handles must replace this refusal as one design.
       throw new SessionLogPayloadResolutionError(
         'PAYLOAD_UNREADABLE',
         'Stable no-follow external-payload reads are unavailable on this host.',
@@ -216,6 +217,9 @@ export class NodeSessionLogSource implements ISessionLogSource {
   readonly externalPayloadSource: IExternalPayloadSource;
 
   constructor(private readonly logFile: string) {
+    if (logFile.trim().length === 0) {
+      throw new Error('Session log-file path must not be empty.');
+    }
     this.externalPayloadSource = new NodeExternalPayloadSource(dirname(logFile));
   }
 
