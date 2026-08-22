@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 /**
  * SEC-006 — session ids are used as PATH SEGMENTS (`<baseDir>/<id>.json`, `<logDir>/<id>.jsonl`,
  * `<rootDir>/<id>/` for checkpoints), and at least one caller supplies one from an untrusted source:
@@ -12,11 +14,16 @@
  * file, quietly cross-linking sessions. A malformed id is a bug or an attack; both should be loud.
  */
 
-/** Ids the app generates: `session_<ms>_<base36>` and `crypto.randomUUID()`. Both match this. */
+/** Ids the app generates: `session_<uuid>`. This matches the path-component guard below. */
 const SAFE_SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /** Generous, but bounded well under every filesystem's per-component limit (255 bytes). */
 const MAX_SESSION_ID_LENGTH = 128;
+
+/** Generate a fresh session id for callers that do not provide one explicitly. */
+export function createSessionId(): string {
+  return `session_${randomUUID()}`;
+}
 
 /**
  * Whether `id` is safe to interpolate into a filesystem path as a single component.

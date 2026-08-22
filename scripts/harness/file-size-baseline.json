@@ -39,7 +39,7 @@
   "packages/agent-plugin/src/webhook/webhook-plugin.ts": 302,
   "packages/agent-provider-openai-compatible/src/qwen/responses-parser.ts": 302,
   "packages/agent-session/src/session-run.ts": 322,
-  "packages/agent-session/src/session.ts": 316,
+  "packages/agent-session/src/session.ts": 312,
   "packages/agent-transport-tui/src/App.tsx": 605,
   "packages/agent-transport-tui/src/InputArea.tsx": 318,
   "packages/agent-transport-tui/src/TuiInteractionChannel.ts": 613,

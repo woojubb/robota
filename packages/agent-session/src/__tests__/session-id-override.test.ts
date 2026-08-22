@@ -42,6 +42,9 @@ const MOCK_TERMINAL = {
   spinner: () => ({ stop: vi.fn(), update: vi.fn() }),
 };
 
+const GENERATED_SESSION_ID =
+  /^session_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
 describe('Session sessionId override', () => {
   it('generates a unique session ID by default', () => {
     const session = new Session({
@@ -52,7 +55,7 @@ describe('Session sessionId override', () => {
       terminal: MOCK_TERMINAL as never,
     });
 
-    expect(session.getSessionId()).toMatch(/^session_\d+_/);
+    expect(session.getSessionId()).toMatch(GENERATED_SESSION_ID);
   });
 
   it('uses provided sessionId when specified', () => {
@@ -78,6 +81,6 @@ describe('Session sessionId override', () => {
       sessionId: undefined,
     });
 
-    expect(session.getSessionId()).toMatch(/^session_\d+_/);
+    expect(session.getSessionId()).toMatch(GENERATED_SESSION_ID);
   });
 });
