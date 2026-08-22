@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { appendFileSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 export const DUAL_LICENSE = 'AGPL-3.0-only OR LicenseRef-Commercial';
 const ROBOTA_PACKAGE_NAME = /^@robota-sdk\/[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 function listManifestPaths(directory) {
   const manifests = [];
@@ -82,4 +83,24 @@ export function deriveDependencyReviewLicenseExemptions(
     );
   }
   return purls.sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
+}
+
+export function writeDependencyReviewLicenseExemptionsOutput(purls, outputPath) {
+  if (typeof outputPath !== 'string' || outputPath.trim() === '') {
+    const received = outputPath === undefined ? 'undefined' : JSON.stringify(outputPath);
+    throw new Error(`$GITHUB_OUTPUT: field "path" expected non-empty string; received ${received}`);
+  }
+  appendFileSync(outputPath, `purls=${purls.join(',')}\n`, 'utf8');
+}
+
+export function main({
+  packagesRoot = path.join(WORKSPACE_ROOT, 'packages'),
+  outputPath = process.env.GITHUB_OUTPUT,
+} = {}) {
+  const purls = deriveDependencyReviewLicenseExemptions(packagesRoot);
+  writeDependencyReviewLicenseExemptionsOutput(purls, outputPath);
+}
+
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
+  main();
 }
