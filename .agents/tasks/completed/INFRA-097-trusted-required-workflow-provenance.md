@@ -82,6 +82,24 @@ registry state something untrue. The same held-membership shape `regression-red-
 
 ## Progress
 
+### 2026-08-22 — first observation that the fixes execute
+
+Promotion pull request #2041 merged at `05:23:35Z` as `68fc0490e`, carrying both of the day's gate
+fixes to `main`. `main` now declares `types: [opened, synchronize, reopened, edited]` and the
+base-pinned checkout, so from this merge onward the gate that runs is the gate that was reviewed.
+
+The measurement is this pull request's own `workflow provenance` run: with the checkout pinned to the
+pull request's base, the advisory must read **`2 of 3 guarded workflow(s)`** and `::examined:: 3`.
+Before the promotion the same line read `2 of 2`, because the job was checking out `main` and reading
+`main`'s registry. RESULT: recorded below, before merge.
+
+Also observed at that merge, and it belongs here because this item's closing keyword produced it:
+issues #1719, #1980 and #2018 were closed by **GitHub**, not by a person — `ClosedEvent.closer` names
+pull request #2041 on all three, against a control (issue #1965, closed by hand) where the same field
+is `null`. That is INFRA-104's TC-10 observed for the first time, and it was observed only because the
+window was held deliberately: the issue was left open on purpose rather than tidied closed. The
+mechanism works; nothing yet makes it reliable.
+
 ### 2026-08-22 — the fixes are landed and INERT until promotion (issue #2039)
 
 The completion pull request was used as the last verification: with the base-pinned checkout on
