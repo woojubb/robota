@@ -82,8 +82,16 @@ export function triggersFromPullRequest(workflowText) {
   return false;
 }
 
-function changedFiles(root, baseRef) {
-  const result = spawnSync('git', ['diff', '--name-only', `${baseRef}...HEAD`], {
+/**
+ * The files a change touches, as NAMES only.
+ *
+ * `headRef` is explicit so this can judge a pull request from a checkout that is NOT the pull
+ * request — the trusted-plane guard (INFRA-097) checks out the BASE, fetches the PR head without
+ * checking it out, and asks about `FETCH_HEAD`. Reading a name is not running the code that has it,
+ * which is the whole property that lets a guard be trusted while its subject is not.
+ */
+function changedFiles(root, baseRef, headRef = 'HEAD') {
+  const result = spawnSync('git', ['diff', '--name-only', `${baseRef}...${headRef}`], {
     cwd: root,
     encoding: 'utf8',
   });
@@ -96,7 +104,7 @@ function changedFiles(root, baseRef) {
   return result.stdout.split('\n').filter(Boolean);
 }
 
-export function findWorkflowProvenanceFindings(root = WORKSPACE_ROOT, baseRef) {
+export function findWorkflowProvenanceFindings(root = WORKSPACE_ROOT, baseRef, headRef) {
   requireGovernedTree(root, [REGISTRY_RELATIVE], {
     scan: 'workflow-provenance',
     why: 'The registry states which workflows provide a required check; without it there is no guarded set, and "no findings" would mean "nothing was examined".',
@@ -119,7 +127,7 @@ export function findWorkflowProvenanceFindings(root = WORKSPACE_ROOT, baseRef) {
   });
 
   if (baseRef !== undefined) {
-    const touched = changedFiles(root, baseRef).filter((f) => workflows.includes(f));
+    const touched = changedFiles(root, baseRef, headRef).filter((f) => workflows.includes(f));
     for (const file of touched) {
       const contexts = contextsByWorkflow.get(file) ?? [];
       findings.push({
@@ -143,11 +151,16 @@ export function readExaminedWorkflowCount(root = WORKSPACE_ROOT) {
 }
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {
-  const baseIndex = process.argv.indexOf('--base-ref');
-  const baseRef = baseIndex === -1 ? undefined : process.argv[baseIndex + 1];
+  const argAfter = (flag) => {
+    const at = process.argv.indexOf(flag);
+    return at === -1 ? undefined : process.argv[at + 1];
+  };
+  const baseRef = argAfter('--base-ref');
+  const headRef = argAfter('--head-ref');
   const { findings, workflows, selfLoading, examined } = findWorkflowProvenanceFindings(
     WORKSPACE_ROOT,
     baseRef,
+    headRef,
   );
   for (const finding of findings) console.error(`✗ ${finding.file}: ${finding.problem}`);
   if (selfLoading.length > 0) {

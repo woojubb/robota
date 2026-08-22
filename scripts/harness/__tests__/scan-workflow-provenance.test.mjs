@@ -226,3 +226,45 @@ describe('workflow-provenance — this repository (INFRA-097)', () => {
     expect(selfLoading).toHaveLength(2);
   });
 });
+
+describe('judging a change from a checkout that is NOT that change (INFRA-097, issue #1719)', () => {
+  /*
+   * The trusted plane checks out the BASE, fetches the pull request head without checking it out,
+   * and asks about `FETCH_HEAD`. So the compared head has to be an ARGUMENT — a scan that always
+   * diffed `HEAD` would report on the base against itself, which is empty, and a gate reporting
+   * "nothing touched" while sitting on the wrong tree is a green that measured nothing.
+   *
+   * Driven against real history rather than a fixture, because the property under test is what the
+   * `git diff` range does, and a stubbed git would be asserting the stub.
+   */
+  const TOUCHED_CI = '024ca7128dda01e5470b14eb27aeaa3bc65a1995';
+
+  it('reports a guarded workflow touched by the NAMED head', () => {
+    const { findings } = findWorkflowProvenanceFindings(
+      WORKSPACE_ROOT,
+      `${TOUCHED_CI}~1`,
+      TOUCHED_CI,
+    );
+    expect(findings.map((f) => f.file)).toContain('.github/workflows/ci.yml');
+  });
+
+  it('reports nothing for the same base when the head is that base', () => {
+    // The paired direction. Without it the case above could be passing on a scan that reports every
+    // guarded workflow regardless of the range.
+    const { findings } = findWorkflowProvenanceFindings(
+      WORKSPACE_ROOT,
+      `${TOUCHED_CI}~1`,
+      `${TOUCHED_CI}~1`,
+    );
+    expect(findings).toEqual([]);
+  });
+
+  it('defaults to HEAD when no head is named, so existing callers are unchanged', () => {
+    // `--base-ref` alone has one caller already (the pre-push scan suite). The argument was ADDED,
+    // and a default that silently changed what those callers compare would be a migration nobody
+    // asked for.
+    const named = findWorkflowProvenanceFindings(WORKSPACE_ROOT, 'HEAD~1', 'HEAD').findings;
+    const defaulted = findWorkflowProvenanceFindings(WORKSPACE_ROOT, 'HEAD~1').findings;
+    expect(defaulted).toEqual(named);
+  });
+});
