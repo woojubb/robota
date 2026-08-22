@@ -8,17 +8,10 @@
 
 import { CONTEXT_ESTIMATE_CHARS_PER_TOKEN } from '@robota-sdk/agent-core';
 import {
-  addCommandContextReference,
-  clearCommandContextReferences,
-  DEFAULT_AUTO_COMPACT_THRESHOLD,
   listCommandContextReferences,
   readAutoCompactThreshold,
   readAutoCompactThresholdSource,
   readCommandContextState,
-  removeCommandContextReference,
-  resetAutoCompactThresholdSetting,
-  setCommandAutoCompactThreshold,
-  writeAutoCompactThresholdSetting,
 } from '@robota-sdk/agent-framework';
 
 import { formatAutoCompactLine } from './context-command.js';

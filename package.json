@@ -21,7 +21,7 @@
     "test:coverage:packages": "pnpm --filter \"./packages/**\" run --if-present test:coverage",
     "test:coverage:apps": "pnpm --filter \"./apps/**\" run --if-present test:coverage",
     "typecheck": "pnpm run -r --workspace-concurrency=-1 --if-present typecheck",
-    "lint": "eslint packages apps --ext .ts,.tsx --cache --max-warnings 2093",
+    "lint": "eslint packages apps --ext .ts,.tsx --cache --max-warnings 2092",
     "lint:fix": "eslint packages apps --ext .ts,.tsx --cache --fix && prettier --write .",
     "lint:fix:staged": "scripts/harness/with-repo-lock.sh pnpm exec lint-staged",
     "dev": "pnpm run -r --if-present dev",
