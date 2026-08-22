@@ -156,3 +156,45 @@ The substantive grounds are unchanged, and were re-measured rather than restated
 
 The gap the probe exposed — a `done` task with unticked acceptance criteria passes every scan — is
 filed as issue #1965 rather than folded in here.
+
+### 2026-08-22 — TC-10 has a live subject for the first time
+
+Every earlier entry records the same blocker: every closing reference `develop` carried named an
+issue that was ALREADY CLOSED, so a promotion derived an empty block and the half TC-10 asks about —
+GitHub, not a person, closing an issue — had nothing to act on.
+
+Re-measured today, reading each referenced issue through the API rather than trusting the record:
+
+```
+referenced by a closing keyword on develop-not-main:  16
+  closed:  15
+  OPEN:     1   -> issue #1965
+```
+
+**Issue #1965 is open, and `Closes #1965` is on `develop`.** GitHub ignored that keyword because the
+pull request did not target the default branch — which is the exact defect this item exists to
+compensate for — so the issue survived to become the first live subject the promotion block can name.
+
+It arrived from ordinary work. Issue #1965 was filed after probing whether four blocked items could be
+marked `done` (every existing scan passed, which was the defect); another session implemented the
+guard and merged it with the closing keyword. Nothing was arranged to produce this.
+
+**One measurement note, because it nearly went the other way.** The first sweep reported "no open
+candidates" — but four of the sixteen reads had TIMED OUT, and a timeout is not an answer of
+"closed". Re-run distinguishing an error from a state, `#1965 open` appeared. `merge-gate` refused a
+merge on the same principle an hour earlier ("no answer is a refusal — it is NOT an answer of
+'none'"), and this is the same trap one layer down, in a survey rather than a gate.
+
+**What remains for TC-10 is one event: the next promotion.** What to check when it happens, written
+BEFORE the evidence exists so the reading cannot be fitted to it:
+
+1. the promotion body carries a non-empty block naming issue #1965;
+2. the `promotion closes` job reports green on the promotion pull request. It is ADVISORY, not
+   required: `.github/required-status-checks.json` declares it required on `main` and the live
+   `protect-main` ruleset does not, filed as issue #1980. It still runs, and a failure would show as
+   `UNSTABLE`, which `merge-gate.sh` refuses — so it stops this repository's merge path, not GitHub's;
+3. issue #1965 is closed by GITHUB — the close event attributed to the merge, not to a person.
+
+Any of the three failing is a finding about this item, not about the promotion. In particular,
+if issue #1965 is closed by hand before then, the subject is consumed and TC-10 waits again — which is what
+happened four times earlier in this session and is recorded above.
