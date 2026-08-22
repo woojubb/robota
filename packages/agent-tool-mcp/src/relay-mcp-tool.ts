@@ -3,13 +3,15 @@ import { ToolExecutionError } from '@robota-sdk/agent-core';
 import { ThirdPartySchemaValidator, type TUnenforceableSchemaReporter } from './third-party-schema';
 
 import type {
+  IEventService,
+  IToolWithEventService,
   TToolParameters,
   IToolResult,
   IToolExecutionContext,
   IParameterValidationResult,
 } from '@robota-sdk/agent-core';
 import type { IToolSchema } from '@robota-sdk/agent-core';
-import type { IEventService, IOwnerPathSegment } from '@robota-sdk/agent-core';
+import type { IOwnerPathSegment } from '@robota-sdk/agent-core';
 
 const ID_RADIX = 36;
 const ID_SUBSTR_END = 8;
@@ -51,8 +53,11 @@ export interface IRelayMcpOptions {
  *
  * Implements ITool without extending AbstractTool to avoid circular runtime dependency.
  */
-export class RelayMcpTool {
+export class RelayMcpTool implements IToolWithEventService {
   readonly schema: IToolSchema;
+
+  /** Held for the runtime's benefit; see `setEventService`. */
+  private eventService: IEventService | undefined;
   private readonly runImpl: IRelayMcpOptions['run'];
   private readonly onUnenforceableSchema?: TUnenforceableSchemaReporter;
   /** CORE-040: built on first use and reused — narrowing is a property of the schema, not the call. */
@@ -130,5 +135,25 @@ export class RelayMcpTool {
 
   getDescription(): string {
     return this.schema.description;
+  }
+
+  /**
+   * TOOL-006. The runtime's tool slot is `IToolWithEventService`, and registration calls
+   * `setEventService` unconditionally — so a tool without it is a `TypeError` at registration, not a
+   * type error a caller can work around by casting. Both methods exist for that contract.
+   */
+  getName(): string {
+    return this.schema.name;
+  }
+
+  /**
+   * Accepts the runtime's event service so tool lifecycle events are emitted.
+   *
+   * Stored and not otherwise used here: this class emits nothing of its own, and the point of the
+   * method is that the runtime can call it. Refusing to hold the reference would satisfy the type
+   * and break the contract's purpose, which is the shape this package was already in.
+   */
+  setEventService(eventService: IEventService | undefined): void {
+    this.eventService = eventService;
   }
 }

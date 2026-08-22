@@ -12,6 +12,8 @@ import {
 import { ThirdPartySchemaValidator, type TUnenforceableSchemaReporter } from './third-party-schema';
 
 import type {
+  IEventService,
+  IToolWithEventService,
   ITool,
   IToolResult,
   IToolExecutionContext,
@@ -31,8 +33,11 @@ const CONNECTION_CHECK_INTERVAL_MS = 100;
  * Implements ITool without extending AbstractTool to avoid
  * circular runtime dependency (tool-mcp → agents → tools → agents).
  */
-export class MCPTool implements ITool {
+export class MCPTool implements IToolWithEventService {
   readonly schema: IToolSchema;
+
+  /** Held for the runtime's benefit; see `setEventService`. */
+  private eventService: IEventService | undefined;
   private readonly mcpConfig: IMCPConfig;
   private connectionStatus: TMCPConnectionStatus = 'disconnected';
   private sessionId: string | undefined;
@@ -149,6 +154,26 @@ export class MCPTool implements ITool {
    */
   getDescription(): string {
     return this.schema.description;
+  }
+
+  /**
+   * TOOL-006. The runtime's tool slot is `IToolWithEventService`, and registration calls
+   * `setEventService` unconditionally — so a tool without it is a `TypeError` at registration, not a
+   * type error a caller can work around by casting. Both methods exist for that contract.
+   */
+  getName(): string {
+    return this.schema.name;
+  }
+
+  /**
+   * Accepts the runtime's event service so tool lifecycle events are emitted.
+   *
+   * Stored and not otherwise used here: this class emits nothing of its own, and the point of the
+   * method is that the runtime can call it. Refusing to hold the reference would satisfy the type
+   * and break the contract's purpose, which is the shape this package was already in.
+   */
+  setEventService(eventService: IEventService | undefined): void {
+    this.eventService = eventService;
   }
 
   /**
