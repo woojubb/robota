@@ -49,6 +49,7 @@
     "product-identity",
     "progress-report-quantification",
     "publish-registry",
+    "pull-request-target-promotion-lag",
     "reference-kind-qualified",
     "release-sweep-coverage",
     "remote-stream-route-spelling",

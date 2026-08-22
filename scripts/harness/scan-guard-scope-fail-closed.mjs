@@ -113,6 +113,17 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'the catalogue IS the subject — over a root without it there is no row to shape-check, and a silent zero would read as "every row fills its columns" while the file it governs had vanished',
   },
   {
+    // INFRA-128. Measured as `findPromotionLagAt(bare, 'HEAD', 'origin/main')`: throws
+    // `could not resolve the promotion ref \`origin/main\`` before any workflow is read. The
+    // classification is what fixed it — the first cut resolved nothing up front, so `readAtRef`
+    // returned null for both "this ref has no such file" and "there is no such ref", and every
+    // workflow came back `absent` over a root that was never a repository.
+    file: 'scan-pull-request-target-promotion-lag.mjs',
+    finder: 'findPromotionLagAt',
+    tree: '.github/workflows',
+    why: 'the comparison IS the check — over a root without the promotion ref there is nothing to compare against, and "0 do not match" would read as "every gate is promoted" when neither side was ever read',
+  },
+  {
     // Measured as `findLoopProofFindings(bare)`: throws `.agents/skills missing from <root>` before it
     // reads a baseline or a ledger.
     file: 'scan-loop-proof.mjs',
