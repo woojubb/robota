@@ -84,8 +84,8 @@ export interface ISkillResolutionResult {
  * resolves an inject-mode skill to its prompt (fork-context skills are rejected by the consumer before calling).
  */
 export interface ISkillExecutionPort {
-  /** Discover the available skill commands for a working directory. */
-  loadCommands(cwd: string, home?: string): ICommand[];
+  /** Discover commands through the authority/host sources captured by the injected port. */
+  loadCommands(): ICommand[];
   /** Resolve a (non-fork) skill command to its inject-mode prompt. */
   resolveSkill(
     skill: ICommand,

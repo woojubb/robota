@@ -15,6 +15,7 @@
 import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-nodes-default';
 import {
   createProviderFromSettings,
+  createDefaultUserSettingsSources,
   ProviderConfigError,
   readProviderSettings,
 } from '@robota-sdk/agent-framework';
@@ -36,6 +37,9 @@ import { parseAuthoredSpec, type IAuthoredPromptNode } from './spec.js';
 import { assembleWorkflow } from './assemble.js';
 import type { IWorkflowsAuthoringDeps, IParsedAuthoringArgs } from './args.js';
 import { parseAuthoringArgs } from './args.js';
+import { assertWorkflowProject } from '../workflow-project.js';
+
+import type { IWorkflowProject } from '../workflow-project.js';
 
 /** What the pipeline produced and wrote. */
 export interface IAuthoredWorkflow {
@@ -111,7 +115,7 @@ interface IResolvedAuthoringProvider {
  * it from settings; the injected test seam supplies a stub (model optional).
  */
 function resolveAuthoringProvider(
-  cwd: string,
+  project: IWorkflowProject,
   deps: IWorkflowsAuthoringDeps,
 ): { ok: true; value: IResolvedAuthoringProvider } | { ok: false; message: string } {
   const providerDefinitions = deps.providerDefinitions ?? [];
@@ -120,14 +124,17 @@ function resolveAuthoringProvider(
       return {
         ok: true,
         value: {
-          provider: deps.resolveProvider(cwd),
+          provider: deps.resolveProvider(project.executionRoot),
           model: deps.model,
           activeProvider: undefined,
         },
       };
     }
-    const provider = createProviderFromSettings(cwd, undefined, { providerDefinitions });
-    const settings = readProviderSettings(cwd, { providerDefinitions });
+    const settingsSources = deps.settingsSources ?? createDefaultUserSettingsSources();
+    const provider = createProviderFromSettings(settingsSources, undefined, {
+      providerDefinitions,
+    });
+    const settings = readProviderSettings(settingsSources, { providerDefinitions });
     return {
       ok: true,
       value: {
@@ -152,11 +159,12 @@ function resolveAuthoringProvider(
  */
 export async function authorAndSaveWorkflow(
   argStr: string,
-  cwd: string,
+  project: IWorkflowProject,
   subcommand: 'create' | 'build',
   deps: IWorkflowsAuthoringDeps = {},
 ): Promise<TAuthoringOutcome> {
   const layout = deps.workspace ?? DEFAULT_WORKSPACE_LAYOUT;
+  const acceptedProject = assertWorkflowProject(project);
   const now = deps.now ?? ((): string => new Date().toISOString());
 
   const parsed = parseAuthoringArgs(argStr);
@@ -165,12 +173,12 @@ export async function authorAndSaveWorkflow(
   }
   const { description, nameOverride, inputs }: IParsedAuthoringArgs = parsed.value;
 
-  const resolved = resolveAuthoringProvider(cwd, deps);
+  const resolved = resolveAuthoringProvider(acceptedProject, deps);
   if (!resolved.ok) return { ok: false, message: resolved.message };
   const { provider, model, activeProvider } = resolved.value;
 
   // Node catalog = built-ins + any instant nodes already saved (so they can be reused).
-  const existingInstantNodes = await loadInstantNodes(cwd, layout);
+  const existingInstantNodes = await loadInstantNodes(acceptedProject, layout);
   const baseNodeDefs: IDagNodeDefinition[] = [
     ...createDefaultNodeRegistrySync(),
     ...existingInstantNodes,
@@ -228,10 +236,25 @@ export async function authorAndSaveWorkflow(
   const createdAt = now();
   const savedNodePaths: string[] = [];
   for (const node of authoredNodes) {
-    const path = await saveInstantNodeFile(cwd, node, createdAt, layout);
-    if (path) savedNodePaths.push(path);
+    try {
+      const path = await saveInstantNodeFile(acceptedProject, node, createdAt, layout);
+      if (path) savedNodePaths.push(path);
+    } catch (error) {
+      return {
+        ok: false,
+        message: `Failed to save workflow node: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
   }
-  const workflowPath = await saveWorkflowFile(cwd, name, definition, layout);
+  let workflowPath: string;
+  try {
+    workflowPath = await saveWorkflowFile(acceptedProject, name, definition, layout);
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Failed to save workflow: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
 
   return {
     ok: true,

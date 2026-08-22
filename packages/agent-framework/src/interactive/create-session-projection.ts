@@ -23,17 +23,27 @@ export interface ICreateSessionProjectionDeps {
   projectInfo: ICreateSessionOptions['projectInfo'];
   sessionId: ICreateSessionOptions['sessionId'];
   contextCapacityHint: ICreateSessionOptions['contextCapacityHint'];
+  contributionSources: ICreateSessionOptions['contributionSources'];
 }
 
 export function buildCreateSessionOptions(
   options: IInitOptions,
   deps: ICreateSessionProjectionDeps,
 ): ICreateSessionOptions {
-  const { mergedConfig, cwd, context, projectInfo, sessionId, contextCapacityHint } = deps;
+  const {
+    mergedConfig,
+    cwd,
+    context,
+    projectInfo,
+    sessionId,
+    contextCapacityHint,
+    contributionSources,
+  } = deps;
   return {
     config: mergedConfig,
     cwd,
     context,
+    contributionSources,
     projectInfo,
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,

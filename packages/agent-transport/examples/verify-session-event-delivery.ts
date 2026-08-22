@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { createProjectSessionStore, InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore, InteractiveSession } from '@robota-sdk/agent-framework';
 import { createOutboundDelivery, createWsHandler } from '@robota-sdk/agent-transport-protocol';
 
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
     },
     { text: 'second complete' },
   ]);
-  const store = createProjectSessionStore(cwd);
+  const store = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
   const session = new InteractiveSession({
     cwd,
     provider: script.provider,

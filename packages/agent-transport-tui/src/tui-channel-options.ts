@@ -17,6 +17,7 @@ import type {
   IRemoteCommandPolicy,
   TShellExecFn,
   TSubagentRunnerFactory,
+  TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
 import type {
@@ -47,6 +48,7 @@ export interface ITuiInteractionChannelOptions {
   providerDefinitions?: readonly IProviderDefinition[];
   cwd: string;
   provider: IAIProvider;
+  projectAccess?: TWorkspaceProjectAccess;
   /**
    * CLI-076: the resolved model id (the same value the status line displays). Forwarded to the session so an
    * explicit `--model` override reaches the provider chat call instead of being silently replaced by the

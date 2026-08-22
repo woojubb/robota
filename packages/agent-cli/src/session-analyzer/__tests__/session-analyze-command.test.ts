@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
 
 import { runSessionAnalyze } from '../session-analyze-command.js';
 
@@ -72,7 +73,11 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
 
   async function run(argv: string[]): Promise<void> {
     try {
-      await runSessionAnalyze(argv, project);
+      await runSessionAnalyze(
+        argv,
+        project,
+        createNodeHostSessionStore(join(project, '.robota', 'sessions')),
+      );
     } catch (error) {
       if (!(error instanceof Error) || !error.message.startsWith('process.exit:')) throw error;
     }
@@ -107,9 +112,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     expect(exitCode).toBe(1);
     const err = stderr.join('');
     expect(err).toContain('No session files found');
-    // names BOTH searched locations
-    expect(err).toContain(join(project, '.robota', 'sessions'));
-    expect(err).toContain('.robota/sessions');
+    expect(err).toContain('configured user or authorized project session stores');
   });
 
   it('TC-07: --session <prefix> selects a specific session', async () => {

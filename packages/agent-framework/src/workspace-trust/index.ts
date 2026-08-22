@@ -13,6 +13,7 @@ export {
 } from './project-settings-writer.js';
 export {
   assertWorkspaceProjectMutation,
+  assertWorkspaceProjectMutationForAuthority,
   createWorkspaceProjectMutation,
 } from './project-mutation.js';
 export { assertWorkspaceProjectReader } from './project-reader.js';

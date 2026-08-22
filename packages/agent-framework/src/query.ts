@@ -35,9 +35,38 @@ export interface ICreateQueryOptions {
 }
 
 /** Callable query surface plus its immutable initial project-access decision. */
-export interface TQueryFunction {
-  (prompt: string): Promise<string>;
+export type TQueryFunction = ((prompt: string) => Promise<string>) & {
   readonly projectAccess: TWorkspaceProjectAccess;
+};
+
+function submitQuery(session: InteractiveSession, prompt: string): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const cleanup = (): void => {
+      session.off('complete', onComplete);
+      session.off('interrupted', onInterrupted);
+      session.off('error', onError);
+    };
+    const onComplete = (result: IExecutionResult): void => {
+      cleanup();
+      resolve(result.response);
+    };
+    const onInterrupted = (result: IExecutionResult): void => {
+      cleanup();
+      resolve(result.response);
+    };
+    const onError = (error: Error): void => {
+      cleanup();
+      reject(error);
+    };
+
+    session.on('complete', onComplete);
+    session.on('interrupted', onInterrupted);
+    session.on('error', onError);
+    session.submit(prompt).catch((error) => {
+      cleanup();
+      reject(error instanceof Error ? error : new Error(String(error)));
+    });
+  });
 }
 
 /**
@@ -78,35 +107,6 @@ export function createQuery(options: ICreateQueryOptions): TQueryFunction {
     session.on('text_delta', options.onTextDelta);
   }
 
-  const query = async (prompt: string): Promise<string> => {
-    return new Promise<string>((resolve, reject) => {
-      const onComplete = (result: IExecutionResult): void => {
-        cleanup();
-        resolve(result.response);
-      };
-      const onInterrupted = (result: IExecutionResult): void => {
-        cleanup();
-        resolve(result.response);
-      };
-      const onError = (error: Error): void => {
-        cleanup();
-        reject(error);
-      };
-      const cleanup = (): void => {
-        session.off('complete', onComplete);
-        session.off('interrupted', onInterrupted);
-        session.off('error', onError);
-      };
-
-      session.on('complete', onComplete);
-      session.on('interrupted', onInterrupted);
-      session.on('error', onError);
-
-      session.submit(prompt).catch((err) => {
-        cleanup();
-        reject(err instanceof Error ? err : new Error(String(err)));
-      });
-    });
-  };
+  const query = (prompt: string): Promise<string> => submitQuery(session, prompt);
   return Object.freeze(Object.assign(query, { projectAccess }));
 }

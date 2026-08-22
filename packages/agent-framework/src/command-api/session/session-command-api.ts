@@ -1,16 +1,9 @@
-import { join } from 'node:path';
-
-import {
-  loadSessionLogEntries,
-  NodeSessionLogSource,
-  validateSessionReplayLogEntries,
-} from '@robota-sdk/agent-session';
-
-import { projectPaths } from '../../paths.js';
+import { loadSessionLogEntries, validateSessionReplayLogEntries } from '@robota-sdk/agent-session';
 
 import type { TCommandHostAction, TCommandUiIntent } from '../effects.js';
 import type { ICommandHostSessionAccess } from '../host-context.js';
 import type { ICommandSessionReplayValidationReport } from '../host-context.js';
+import type { ISessionLogSource } from '@robota-sdk/agent-session';
 
 export const CLEAR_COMMAND_DESCRIPTION = 'Clear conversation history';
 export const RENAME_COMMAND_DESCRIPTION = 'Rename the current session';
@@ -81,13 +74,12 @@ export function readCommandSessionInfo(context: ICommandHostSessionAccess): ICom
  * a fallback that no longer has a caller is a second implementation waiting to drift.
  */
 export function computeSessionReplayValidationReport(
-  cwd: string,
-  sessionId: string,
+  source: ISessionLogSource,
+  logReference: string,
 ): ICommandSessionReplayValidationReport {
-  const logFile = join(projectPaths(cwd).logs, `${sessionId}.jsonl`);
-  const entries = loadSessionLogEntries(new NodeSessionLogSource(logFile));
+  const entries = loadSessionLogEntries(source);
   return {
-    logFile,
+    logFile: logReference,
     entryCount: entries.length,
     validation: validateSessionReplayLogEntries(entries),
   };

@@ -4,7 +4,12 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { executeWorkflowsValidate } from '../validate-command.js';
+import { executeWorkflowsValidate as executeWorkflowsValidateWithProject } from '../validate-command.js';
+import { createWorkflowProjectFixture } from './workflow-project-fixture.js';
+
+async function executeWorkflowsValidate(file: string, root: string) {
+  return executeWorkflowsValidateWithProject(file, await createWorkflowProjectFixture(root));
+}
 
 /**
  * DAG-002, review round 2.

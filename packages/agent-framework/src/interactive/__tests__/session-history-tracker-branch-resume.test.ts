@@ -9,6 +9,7 @@ import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js'
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import {
   WorkspaceAuthorityRequiredError,
+  createRestrictedWorkspaceProjectAccess,
   createWorkspaceProjectMutation,
 } from '../../workspace-trust/index.js';
 
@@ -27,6 +28,7 @@ afterEach(() => {
 function makeTracker(cwd: string, store: EditCheckpointStore | null): SessionHistoryTracker {
   return new SessionHistoryTracker(
     cwd,
+    createRestrictedWorkspaceProjectAccess('untrusted', cwd),
     () => 'sess-resume',
     () => false,
     vi.fn(),

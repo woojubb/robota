@@ -21,7 +21,12 @@ import {
   buildWorkspaceTaskSpawner,
   readWorkspaceDetail,
 } from './interactive-session-workspace.js';
+import { WorkspaceSessionLogSource } from './workspace-session-io.js';
 import { computeSessionReplayValidationReport } from '../command-api/session/session-command-api.js';
+import {
+  getWorkspaceProjectStateStorage,
+  WorkspaceAuthorityRequiredError,
+} from '../workspace-trust/index.js';
 
 import type { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import type { SessionExecutionController } from './interactive-session-execution-controller.js';
@@ -61,6 +66,7 @@ import type {
   IContextReferenceRemoveResult,
 } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry, TUniversalMessage, IContextWindowState } from '@robota-sdk/agent-core';
 import type { IScheduleEditPatch } from '@robota-sdk/agent-executor';
 import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
@@ -83,6 +89,7 @@ export abstract class InteractiveSessionBase {
   protected abstract getSessionOrThrow(): Session;
   protected abstract ensureInitialized(): Promise<void>;
   protected abstract getCwd(): string;
+  protected abstract getProjectAccess(): TWorkspaceProjectAccess;
 
   isExecuting(): boolean {
     return this.execCtrl.executing;
@@ -126,7 +133,17 @@ export abstract class InteractiveSessionBase {
    */
   validateCurrentSessionReplayLog(): ICommandSessionReplayValidationReport {
     const sessionId = this.getSessionOrThrow().getSessionId();
-    return computeSessionReplayValidationReport(this.getCwd(), sessionId);
+    const projectAccess = this.getProjectAccess();
+    if (projectAccess.status !== 'trusted') {
+      throw new WorkspaceAuthorityRequiredError(
+        'Session replay validation requires project access.',
+      );
+    }
+    const logs = getWorkspaceProjectStateStorage(projectAccess.authority, 'session-logs');
+    return computeSessionReplayValidationReport(
+      new WorkspaceSessionLogSource(logs, sessionId),
+      `.robota/logs/${sessionId}.jsonl`,
+    );
   }
 
   getCommandInvocationSource(): TCommandInvocationSource {

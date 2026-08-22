@@ -36,6 +36,7 @@ import type {
 } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry, TUniversalValue } from '@robota-sdk/agent-core';
 import type { IActiveBranchPointer, IBranchEvent } from '@robota-sdk/agent-interface-transport';
 export { BRANCH_OPERATION_EVENT_MATRIX } from './session-branch-events.js';
@@ -59,6 +60,7 @@ export class SessionHistoryTracker {
 
   constructor(
     private readonly cwd: string,
+    private readonly projectAccess: TWorkspaceProjectAccess,
     private readonly getSessionId: () => string,
     private readonly getExecuting: () => boolean,
     private readonly persistSession: () => void,
@@ -298,6 +300,7 @@ export class SessionHistoryTracker {
     const { references, result } = await addInteractiveContextReference(
       this.contextReferences,
       path,
+      this.projectAccess,
       this.cwd,
     );
     this.contextReferences = references;

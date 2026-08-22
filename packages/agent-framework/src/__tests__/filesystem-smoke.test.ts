@@ -21,6 +21,7 @@ import { SkillCommandSource } from '../commands/skill-source.js';
 import { loadConfig as loadConfigFromSources } from '../config/config-loader.js';
 import { BundlePluginLoader } from '../plugins/index.js';
 import { createTrustedSettingsSourcesFixture } from '../testing/trusted-project-state-fixture.js';
+import { createNodeHostContributionSourcesFixture } from '../testing/contribution-source-fixture.js';
 import { substituteVariables, preprocessShellCommands } from '../utils/skill-prompt.js';
 
 const testShellExec = (cmd: string) =>
@@ -78,7 +79,9 @@ describe('Filesystem smoke: skill discovery', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(tempDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(tempDir, homeDir),
+    );
     const commands = source.getCommands();
 
     expect(commands).toHaveLength(1);
@@ -104,7 +107,9 @@ describe('Filesystem smoke: skill discovery', () => {
       'utf-8',
     );
 
-    const source = new SkillCommandSource(tempDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(tempDir, homeDir),
+    );
     const commands = source.getCommands();
 
     expect(commands).toHaveLength(1);
@@ -141,7 +146,9 @@ describe('Filesystem smoke: skill discovery', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(tempDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(tempDir, homeDir),
+    );
     const commands = source.getCommands();
     const shared = commands.filter((c) => c.name === 'shared');
 
@@ -173,7 +180,9 @@ describe('Filesystem smoke: skill discovery', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(tempDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(tempDir, homeDir),
+    );
     const commands = source.getCommands();
     const cmd = commands.find((c) => c.name === 'full-meta');
 
@@ -220,7 +229,9 @@ describe('Filesystem smoke: skill discovery', () => {
       '---\nname: delta\ndescription: Fourth\n---\n',
     );
 
-    const source = new SkillCommandSource(tempDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(tempDir, homeDir),
+    );
     const names = source.getCommands().map((c) => c.name);
 
     expect(names).toContain('alpha');
@@ -234,7 +245,9 @@ describe('Filesystem smoke: skill discovery', () => {
     const skillsDir = join(tempDir, '.claude', 'skills');
     createSkillDir(skillsDir, 'fallback-name', '# No frontmatter\nJust markdown content.');
 
-    const source = new SkillCommandSource(tempDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(tempDir, homeDir),
+    );
     const cmd = source.getCommands().find((c) => c.name === 'fallback-name');
 
     expect(cmd).toBeDefined();
@@ -275,7 +288,9 @@ describe('Filesystem smoke: variable substitution', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(tempDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(tempDir, homeDir),
+    );
     const skill = source.getCommands().find((c) => c.name === 'run-tests');
 
     expect(skill).toBeDefined();
@@ -297,7 +312,9 @@ describe('Filesystem smoke: variable substitution', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(tempDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(tempDir, homeDir),
+    );
     const skill = source.getCommands().find((c) => c.name === 'compare');
 
     expect(skill).toBeDefined();
@@ -319,7 +336,9 @@ describe('Filesystem smoke: variable substitution', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(tempDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(tempDir, homeDir),
+    );
     const skill = source.getCommands().find((c) => c.name === 'version-check');
 
     expect(skill).toBeDefined();
@@ -343,7 +362,9 @@ describe('Filesystem smoke: variable substitution', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(tempDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(tempDir, homeDir),
+    );
     const skill = source.getCommands().find((c) => c.name === 'session-info');
 
     expect(skill).toBeDefined();

@@ -11,6 +11,9 @@ import {
 } from '../provider-startup.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { ITerminalOutput, ISpinner } from '@robota-sdk/agent-core';
+import { createWorkspaceProjectSettingsWriter } from '@robota-sdk/agent-framework';
+import { createTrustedWorkspaceProjectAccess } from '../../__tests__/helpers/trusted-workspace-project-access.js';
+import { createCliWorkspaceComposition } from '../workspace-project-composition.js';
 
 const NOOP_TERMINAL: ITerminalOutput = {
   write: () => {},
@@ -186,6 +189,25 @@ function writeJson(path: string, data: unknown): void {
   writeFileSync(path, JSON.stringify(data, null, 2), 'utf8');
 }
 
+async function projectSettingsAccess(project: string, home: string) {
+  const projectAccess = await createTrustedWorkspaceProjectAccess(project);
+  const projectSettingsWriter = createWorkspaceProjectSettingsWriter(projectAccess.authority, {
+    status: 'approved',
+    target: 'project-local',
+    purpose: 'provider startup test',
+  });
+  const composition = createCliWorkspaceComposition({
+    cwd: project,
+    userHome: home,
+    projectAccess,
+    projectSettingsWriter,
+  });
+  return {
+    settingsSources: composition.settingsSources,
+    settingsStores: composition.settingsStores,
+  };
+}
+
 describe('provider startup', () => {
   afterEach(() => {
     process.env.HOME = ORIGINAL_HOME;
@@ -349,7 +371,15 @@ describe('provider startup', () => {
     };
 
     await expect(
-      ensureConfig(project, baseArgs(), promptInput, NOOP_TERMINAL, providerDefinitions, false),
+      ensureConfig(
+        project,
+        baseArgs(),
+        promptInput,
+        NOOP_TERMINAL,
+        providerDefinitions,
+        false,
+        await projectSettingsAccess(project, home),
+      ),
     ).rejects.toThrow('No provider configuration found');
     expect(prompted).toBe(false);
   });
@@ -380,7 +410,15 @@ describe('provider startup', () => {
     const answers = ['1', '1', 'sk-ant-project', '', 'ko'];
     const promptInput = async (): Promise<string> => answers.shift() ?? '';
 
-    await ensureConfig(project, baseArgs(), promptInput, NOOP_TERMINAL, providerDefinitions, true);
+    await ensureConfig(
+      project,
+      baseArgs(),
+      promptInput,
+      NOOP_TERMINAL,
+      providerDefinitions,
+      true,
+      await projectSettingsAccess(project, home),
+    );
 
     const settings = JSON.parse(
       readFileSync(join(project, '.robota', 'settings.local.json'), 'utf8'),
@@ -402,7 +440,7 @@ describe('provider startup', () => {
     });
   });
 
-  it('sets current provider in the effective project-local settings scope by default', () => {
+  it('sets current provider in the effective project-local settings scope by default', async () => {
     const home = join(TMP_BASE, 'home-provider-switch');
     const project = join(TMP_BASE, 'project-provider-switch');
     process.env.HOME = home;
@@ -432,6 +470,7 @@ describe('provider startup', () => {
       { ...baseArgs(), provider: 'qwen', setCurrent: true },
       NOOP_TERMINAL,
       providerDefinitions,
+      await projectSettingsAccess(project, home),
     );
 
     const userSettings = JSON.parse(

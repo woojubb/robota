@@ -31,6 +31,7 @@ import type {
   IMemoryStore,
   IAutomaticMemoryConfig,
   IPerTurnRecallConfig,
+  TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type {
   IInteractiveSession,
@@ -41,6 +42,7 @@ import type {
 export interface IRenderOptions {
   cwd: string;
   provider: IAIProvider;
+  projectAccess?: TWorkspaceProjectAccess;
   providerOverride?: string | undefined;
   /**
    * #1844: forwarded to the session so `/provider switch` can construct the provider it switches TO.
@@ -121,6 +123,7 @@ export function toChannelOptions(
   return {
     cwd: options.cwd,
     provider: options.provider,
+    ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     ...(options.providerDefinitions ? { providerDefinitions: options.providerDefinitions } : {}),
     // CLI-076: the display model id doubles as the session's model override so `--model` actually reaches
     // the provider chat call (header/status line == the model actually called).

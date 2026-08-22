@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-framework';
+import {
+  createNodeHostContributionSource,
+  InteractiveSession,
+  SystemCommandExecutor,
+} from '@robota-sdk/agent-framework';
 import { createSkillsCommandModule } from '../skills-command-module.js';
 import {
   createTestCommandHost,
@@ -63,7 +67,7 @@ function createMockContext(overrides?: ICreateTestCommandHostOptions['overrides'
 
 describe('createSkillsCommandModule', () => {
   it('exposes skills as a normal model-invocable command module', () => {
-    const module = createSkillsCommandModule({ cwd: '/workspace' });
+    const module = createSkillsCommandModule({ contributionSources: [] });
     const command = module.systemCommands?.[0];
 
     expect(module.name).toBe('agent-command-skills');
@@ -84,7 +88,7 @@ describe('createSkillsCommandModule', () => {
 
   it('lists skill metadata from the SDK host context', async () => {
     const executor = new SystemCommandExecutor([
-      ...(createSkillsCommandModule({ cwd: '/workspace' }).systemCommands ?? []),
+      ...(createSkillsCommandModule({ contributionSources: [] }).systemCommands ?? []),
     ]);
 
     const result = await executor.execute(
@@ -118,7 +122,7 @@ describe('createSkillsCommandModule', () => {
       data: { skill: 'repo-writing' },
     });
     const executor = new SystemCommandExecutor([
-      ...(createSkillsCommandModule({ cwd: '/workspace' }).systemCommands ?? []),
+      ...(createSkillsCommandModule({ contributionSources: [] }).systemCommands ?? []),
     ]);
 
     const result = await executor.execute(
@@ -145,7 +149,11 @@ describe('createSkillsCommandModule', () => {
     const session = new InteractiveSession({
       session: parentSession as never,
       cwd,
-      commandModules: [createSkillsCommandModule({ cwd })],
+      commandModules: [
+        createSkillsCommandModule({
+          contributionSources: [createNodeHostContributionSource(cwd)],
+        }),
+      ],
     });
 
     const result = await session.executeCommand('audit', 'src/index.ts');

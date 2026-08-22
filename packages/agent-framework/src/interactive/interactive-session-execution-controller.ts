@@ -264,6 +264,7 @@ export class SessionExecutionController {
         ...promptTurnAttribution(ephemeralSystemContext, turnOptions.driverId),
         getSession: () => this.callbacks.getSessionOrThrow(),
         getCwd: () => this.callbacks.getCwd(),
+        getProjectAccess: () => this.callbacks.getProjectAccess(),
         getHistory: () => this.histTracker.getHistory(),
         getContextReferences: () => this.histTracker.listInjectionContextReferences(),
         getActiveTools: () => this.activeTools,

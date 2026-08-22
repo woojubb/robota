@@ -29,6 +29,7 @@ import type {
   ICommandModule,
   IRemoteCommandPolicy,
   TInteractiveSessionOptions,
+  TWorkspaceProjectAccess,
   createProjectSessionStore,
 } from '@robota-sdk/agent-framework';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
@@ -48,6 +49,7 @@ export interface IServeModeOptions {
   args: IParsedCliArgs;
   provider: IAIProvider;
   sessionStore: ReturnType<typeof createProjectSessionStore>;
+  projectAccess?: TWorkspaceProjectAccess;
   backgroundTaskRunners: IBackgroundTaskRunner[];
   subagentRunnerFactory: ReturnType<typeof createChildProcessSubagentRunnerFactory>;
   /** ARCH-005: composition-root-contributed subagent definitions (the profile's merged pack subagents). */
@@ -101,6 +103,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
   return {
     cwd: opts.cwd,
     provider: opts.provider,
+    ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
     // CLI-076: forward the resolved model so `--model` takes effect in the served runtime session.
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     permissionMode: args.permissionMode ?? preset.permissionMode,

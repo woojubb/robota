@@ -11,7 +11,13 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runDiagnoseCommand } from '../diagnose-command.js';
+import {
+  createDefaultUserSettingsSources,
+  createWorkspaceProjectSettingsSources,
+  getWorkspaceProjectReader,
+} from '@robota-sdk/agent-framework';
 import { createCapturingTerminal } from './test-terminal.js';
+import { createTrustedWorkspaceProjectAccess } from '../../__tests__/helpers/trusted-workspace-project-access.js';
 
 import type { IDiagnosticCheck } from '../diagnose-command.js';
 
@@ -53,8 +59,17 @@ describe('diagnose accuracy (CLI-067)', () => {
 
   async function diagnose(): Promise<{ output: string; failCount: number }> {
     const { terminal, lines } = createCapturingTerminal();
+    const access = await createTrustedWorkspaceProjectAccess(cwd);
     const failCount = await runDiagnoseCommand(
-      { version: '3.0.0-test', terminal, cwd },
+      {
+        version: '3.0.0-test',
+        terminal,
+        cwd,
+        settingsSources: [
+          ...createDefaultUserSettingsSources(home),
+          ...createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(access.authority)),
+        ],
+      },
       { checkNetwork: stubNetworkCheck },
     );
     return { output: lines.join('\n'), failCount };
@@ -108,7 +123,7 @@ describe('diagnose accuracy (CLI-067)', () => {
 
     const { output, failCount } = await diagnose();
     expect(output).toContain(`${join(home, '.robota', 'settings.json')} — invalid JSON`);
-    expect(output).toContain(`✓ Settings file: ${join(cwd, '.robota', 'settings.json')}`);
+    expect(output).toContain('✓ Settings file: .robota/settings.json');
     expect(failCount).toBeGreaterThan(0);
   });
 

@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createProjectSessionStore } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createScriptedProvider } from '@robota-sdk/agent-transport/testing';
@@ -67,7 +67,7 @@ describe('channel factory restores persisted context (CLI-B11 TC-02)', () => {
   });
 
   it('createChannel(sessionId) over a real FileSessionStore yields usedTokens > 0', async () => {
-    const store = createProjectSessionStore(cwd);
+    const store = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
     const sessionId = 'b11-restore-session';
     persistConversation(store, sessionId, cwd);
 
@@ -103,7 +103,7 @@ describe('channel factory restores persisted context (CLI-B11 TC-02)', () => {
   });
 
   it('a channel created WITHOUT resumeSessionId starts with an empty context (control)', async () => {
-    const store = createProjectSessionStore(cwd);
+    const store = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
     persistConversation(store, 'b11-other-session', cwd);
 
     const scripted = createScriptedProvider([{ text: 'unused' }]);

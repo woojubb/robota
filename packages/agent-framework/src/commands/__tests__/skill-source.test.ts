@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { SkillCommandSource } from '../skill-source.js';
+import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 
 function createSkillDir(base: string, dirName: string, content: string): void {
   const dir = join(base, dirName);
@@ -67,7 +68,9 @@ describe('SkillCommandSource multi-path', () => {
       '---\nname: delta\ndescription: from agents skills\n---\n',
     );
 
-    const source = new SkillCommandSource(projectDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir, homeDir),
+    );
     const commands = source.getCommands();
     const names = commands.map((c) => c.name);
 
@@ -100,7 +103,9 @@ describe('SkillCommandSource multi-path', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(projectDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir, homeDir),
+    );
     const commands = source.getCommands();
     const cmd = commands.find((c) => c.name === 'full-meta');
 
@@ -132,7 +137,9 @@ describe('SkillCommandSource multi-path', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(projectDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir, homeDir),
+    );
     const cmd = source.getCommands().find((c) => c.name === 'space-tools');
 
     expect(cmd).toBeDefined();
@@ -153,7 +160,9 @@ describe('SkillCommandSource multi-path', () => {
       '---\nname: not-invocable\ndescription: cannot be invoked by model\ndisable-model-invocation: true\n---\n',
     );
 
-    const source = new SkillCommandSource(projectDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir, homeDir),
+    );
     const filtered = source.getModelInvocableSkills();
     const names = filtered.map((c) => c.name);
 
@@ -175,7 +184,9 @@ describe('SkillCommandSource multi-path', () => {
       '---\nname: user-no\ndescription: user cannot invoke\nuser-invocable: false\n---\n',
     );
 
-    const source = new SkillCommandSource(projectDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir, homeDir),
+    );
     const filtered = source.getUserInvocableSkills();
     const names = filtered.map((c) => c.name);
 
@@ -201,7 +212,9 @@ describe('SkillCommandSource multi-path', () => {
       '---\nname: shared\ndescription: from agents skills (low priority)\n---\n',
     );
 
-    const source = new SkillCommandSource(projectDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir, homeDir),
+    );
     const commands = source.getCommands();
     const shared = commands.filter((c) => c.name === 'shared');
 
@@ -218,7 +231,9 @@ describe('SkillCommandSource multi-path', () => {
       '---\nname: deploy\ndescription: Deploy the app\n---\n# Deploy\n',
     );
 
-    const source = new SkillCommandSource(projectDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir, homeDir),
+    );
     const commands = source.getCommands();
     const deploy = commands.find((c) => c.name === 'deploy');
 
@@ -235,7 +250,9 @@ describe('SkillCommandSource multi-path', () => {
       '---\nname: bool-test\ndescription: bool test\ndisable-model-invocation: false\nuser-invocable: true\n---\n',
     );
 
-    const source = new SkillCommandSource(projectDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir, homeDir),
+    );
     const cmd = source.getCommands().find((c) => c.name === 'bool-test');
 
     expect(cmd!.disableModelInvocation).toBe(false);
@@ -247,7 +264,9 @@ describe('SkillCommandSource multi-path', () => {
     mkdirSync(claudeSkills, { recursive: true });
     createSkillDir(claudeSkills, 'my-skill', '# No frontmatter here\nJust content.');
 
-    const source = new SkillCommandSource(projectDir, homeDir);
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir, homeDir),
+    );
     const cmd = source.getCommands().find((c) => c.name === 'my-skill');
 
     expect(cmd).toBeDefined();

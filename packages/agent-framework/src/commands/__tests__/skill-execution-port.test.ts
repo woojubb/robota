@@ -41,6 +41,6 @@ describe('createSkillExecutionPort (ARCH-PROVIDER-005 TC-02)', () => {
   it('exposes skill discovery via loadCommands', () => {
     const port = createSkillExecutionPort();
     // A directory with no skills yields an array (no throw); real discovery is filesystem-backed.
-    expect(Array.isArray(port.loadCommands(process.cwd()))).toBe(true);
+    expect(Array.isArray(port.loadCommands())).toBe(true);
   });
 });

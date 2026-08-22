@@ -40,6 +40,7 @@ async function createTracker(): Promise<{
   });
   const tracker = new SessionHistoryTracker(
     cwd,
+    access,
     () => 'session-arch-020',
     () => false,
     () => order.push('persist'),

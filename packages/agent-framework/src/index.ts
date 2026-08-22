@@ -9,6 +9,7 @@ export {
   assertWorkspaceProjectAuthority,
   assertWorkspaceProjectReader,
   assertWorkspaceProjectMutation,
+  assertWorkspaceProjectMutationForAuthority,
   createWorkspaceProjectMutation,
   assertWorkspaceProjectSettingsWriter,
   assertWorkspaceProjectStateStorage,
@@ -64,6 +65,7 @@ export {
 export { PlanController, type TPlanDecision, type IPlanControllerDeps } from './plan/index.js';
 export {
   createProjectSessionStore,
+  createNodeHostSessionStore,
   createUserSessionStore,
   listResumableSessionSummaries,
   resolveLatestSessionId,
@@ -548,6 +550,15 @@ export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './ho
 
 // ── Paths ───────────────────────────────────────────────────
 export { projectPaths, userPaths } from './paths.js';
+
+// ── Explicit project/host contribution sources ─────────────
+export {
+  createContributionSourcesForProjectAccess,
+  createDefaultUserContributionSources,
+  createNodeHostContributionSource,
+  createWorkspaceProjectContributionSource,
+} from './contributions/index.js';
+export type { IContributionSource } from './contributions/index.js';
 
 // ── Task context ───────────────────────────────────────────
 export {

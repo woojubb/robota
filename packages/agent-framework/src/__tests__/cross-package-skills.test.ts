@@ -19,6 +19,7 @@ import { CommandRegistry } from '../commands/command-registry.js';
 import { PluginCommandSource } from '../commands/plugin-source.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
+import { createNodeHostContributionSourcesFixture } from '../testing/contribution-source-fixture.js';
 
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { ILoadedBundlePlugin } from '../plugins/index.js';
@@ -57,7 +58,7 @@ describe('Cross-package: skill discovery -> system prompt', () => {
     );
 
     // Use SkillCommandSource with the temp dir as cwd
-    const source = new SkillCommandSource(tempDir, tempDir);
+    const source = new SkillCommandSource(createNodeHostContributionSourcesFixture(tempDir));
     const commands = source.getCommands();
 
     expect(commands).toHaveLength(1);
@@ -121,7 +122,7 @@ describe('Cross-package: skill discovery -> system prompt', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(tempDir, tempDir);
+    const source = new SkillCommandSource(createNodeHostContributionSourcesFixture(tempDir));
 
     // All commands include both
     const allCommands = source.getCommands();
@@ -183,7 +184,7 @@ describe('Cross-package: skill discovery -> system prompt', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(tempDir, tempDir);
+    const source = new SkillCommandSource(createNodeHostContributionSourcesFixture(tempDir));
     const commands = source.getCommands();
 
     // Only one instance (project version wins)
@@ -259,7 +260,7 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
       name: 'help',
       getCommands: () => [{ name: 'help', description: 'Show available commands', source: 'help' }],
     });
-    registry.addSource(new SkillCommandSource(tempDir, tempDir));
+    registry.addSource(new SkillCommandSource(createNodeHostContributionSourcesFixture(tempDir)));
     registry.addSource(new PluginCommandSource([plugin]));
 
     const allCommands = registry.getCommands();

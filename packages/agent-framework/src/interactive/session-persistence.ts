@@ -23,6 +23,11 @@ export function createProjectSessionStore(
   return new WorkspaceProjectSessionStore(sessions, logs);
 }
 
+/** Explicit host-filesystem session store. This does not establish project trust. */
+export function createNodeHostSessionStore(baseDirectory: string): IInteractiveSessionStore {
+  return new NodeSessionStore(baseDirectory);
+}
+
 /**
  * User-level session store (`~/.robota/sessions`). Symmetric to {@link createProjectSessionStore};
  * there is no user-level replay-log directory, so it reads persisted records only.

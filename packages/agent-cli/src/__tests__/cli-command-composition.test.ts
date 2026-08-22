@@ -5,11 +5,12 @@ import { join } from 'node:path';
 import { createDefaultCommandModules } from '@robota-sdk/agent-command';
 import {
   CommandRegistry,
+  createNodeHostSettingsSource,
+  createNodeHostSettingsStore,
+  getProviderSettingsPaths,
   InteractiveSession,
   readMergedProviderSettings,
-  readSettings,
-  resolveProviderSettingsWriteTargetPath,
-  writeSettings,
+  resolveProviderSettingsWriteTarget,
 } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
 import { describe, expect, it, vi } from 'vitest';
@@ -28,13 +29,21 @@ import type {
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
 
-const createProviderSettingsAdapter = (cwd: string): IProviderCommandSettingsAdapter => ({
-  readMergedSettings: () => readMergedProviderSettings(cwd),
-  readTargetSettings: () =>
-    readSettings(resolveProviderSettingsWriteTargetPath(cwd)) as TProviderSettingsDocument,
-  writeTargetSettings: (settings: TProviderSettingsDocument) =>
-    writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
-});
+const createProviderSettingsAdapter = (cwd: string): IProviderCommandSettingsAdapter => {
+  const stores = getProviderSettingsPaths(cwd).map((path) =>
+    createNodeHostSettingsStore('user', path),
+  );
+  const sources = getProviderSettingsPaths(cwd).map((path) =>
+    createNodeHostSettingsSource('user', path),
+  );
+  return {
+    readMergedSettings: () => readMergedProviderSettings(sources),
+    readTargetSettings: () =>
+      resolveProviderSettingsWriteTarget(stores).read() as TProviderSettingsDocument,
+    writeTargetSettings: (settings: TProviderSettingsDocument) =>
+      resolveProviderSettingsWriteTarget(stores).write(settings),
+  };
+};
 
 const noopProviderSettingsAdapter = {
   readMergedSettings: () => ({}) as TProviderSettingsDocument,

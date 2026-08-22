@@ -9,7 +9,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createProjectSessionStore } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runPrintMode } from '../print-mode.js';
@@ -122,7 +122,7 @@ async function runPrint(
   provider: IAIProvider,
   sessionResolution: IPrintModeSessionResolution = {},
 ): Promise<number> {
-  const sessionStore = createProjectSessionStore(cwd);
+  const sessionStore = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
   try {
     await runPrintMode(
       cwd,
@@ -174,7 +174,7 @@ describe('print mode session resume integration (CLI-063)', () => {
     const exitCode = await runPrint(cwd, 'Remember this number: 42', provider);
 
     expect(exitCode).toBe(0);
-    const store = createProjectSessionStore(cwd);
+    const store = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
     expect(store.list()).toHaveLength(1);
   });
 
@@ -182,7 +182,7 @@ describe('print mode session resume integration (CLI-063)', () => {
     const first = createRecordingProvider('first answer');
     await runPrint(cwd, 'Remember this number: 42', first.provider);
 
-    const store = createProjectSessionStore(cwd);
+    const store = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
     const priorId = store.list()[0]?.id;
     expect(priorId).toBeDefined();
 
@@ -205,7 +205,7 @@ describe('print mode session resume integration (CLI-063)', () => {
     expect(contents).toContain('first answer');
     expect(contents).toContain('What number did I ask you to remember?');
 
-    const ids = createProjectSessionStore(cwd)
+    const ids = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'))
       .list()
       .map((record) => record.id);
     expect(ids).toEqual([priorId]);
@@ -215,7 +215,7 @@ describe('print mode session resume integration (CLI-063)', () => {
     const first = createRecordingProvider('first answer');
     await runPrint(cwd, 'Remember this number: 42', first.provider);
 
-    const store = createProjectSessionStore(cwd);
+    const store = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
     const priorRecord = store.list()[0];
     expect(priorRecord).toBeDefined();
     const priorMessageCount = priorRecord.messages.length;
@@ -236,7 +236,7 @@ describe('print mode session resume integration (CLI-063)', () => {
     expect(contents).toContain('And in the fork?');
     expect(contents).toContain('Remember this number: 42');
 
-    const after = createProjectSessionStore(cwd).list();
+    const after = createNodeHostSessionStore(join(cwd, '.robota', 'sessions')).list();
     expect(after).toHaveLength(2);
     const original = after.find((record) => record.id === priorRecord.id);
     expect(original).toBeDefined();
@@ -278,7 +278,7 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
 
   it('print mode: the composed addition arrives on the projection, not from a second helper call', async () => {
     const { provider, lastMessages } = createRecordingProvider('ok');
-    const sessionStore = createProjectSessionStore(cwd);
+    const sessionStore = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
     try {
       await runPrintMode(
         cwd,

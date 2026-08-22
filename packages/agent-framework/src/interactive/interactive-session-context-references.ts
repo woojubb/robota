@@ -10,6 +10,10 @@ import {
   resolvePromptFileReferencePaths,
   toPromptFileReferenceRecords,
 } from '../context/prompt-file-references.js';
+import {
+  WorkspaceAuthorityRequiredError,
+  getWorkspaceProjectReader,
+} from '../workspace-trust/index.js';
 
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type {
@@ -17,6 +21,7 @@ import type {
   IContextReferenceItem,
 } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 
 export interface IAddInteractiveContextReferenceResult {
   references: IContextReferenceItem[];
@@ -26,10 +31,17 @@ export interface IAddInteractiveContextReferenceResult {
 export async function addInteractiveContextReference(
   references: readonly IContextReferenceItem[],
   path: string,
+  projectAccess: TWorkspaceProjectAccess,
   cwd: string,
 ): Promise<IAddInteractiveContextReferenceResult> {
+  if (projectAccess.status !== 'trusted') {
+    throw new WorkspaceAuthorityRequiredError(
+      'Adding a project context reference requires explicit workspace project authority.',
+    );
+  }
   const result = await resolvePromptFileReferencePaths([path], {
-    cwd,
+    reader: getWorkspaceProjectReader(projectAccess.authority),
+    startRelativeDirectory: relative(projectAccess.identity.worktreeRoot, cwd),
     reason: 'manual',
   });
   if (hasBlockingPromptFileReferenceDiagnostics(result.diagnostics)) {

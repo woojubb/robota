@@ -75,19 +75,22 @@ export interface IAgentRuntime {
   createSession(opts: IHeadlessSessionOptions): InteractiveSession;
 }
 
-export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
+function createDefaultRuntimeCommandHostAdapters(): ICommandHostAdapters {
   const settingsPath = getUserSettingsPath();
-  const defaultCommandHostAdapters: ICommandHostAdapters = {
+  return {
     settings: {
       read: () => readSettings(settingsPath),
       write: (settings) => writeSettings(settingsPath, settings),
     },
   };
+}
 
+export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
   const backgroundTaskRunners =
     config.backgroundTaskRunners ?? createDefaultBackgroundTaskRunners();
   const commandModules = config.commandModules ?? [];
-  const commandHostAdapters = config.commandHostAdapters ?? defaultCommandHostAdapters;
+  const commandHostAdapters =
+    config.commandHostAdapters ?? createDefaultRuntimeCommandHostAdapters();
   const sessionStore = 'sessionStore' in config ? config.sessionStore : undefined;
   const projectAccess =
     config.projectAccess ??

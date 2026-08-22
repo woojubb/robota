@@ -5,6 +5,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { relative, resolve } from 'node:path';
 
 import {
   collectAssistantUsageMetadata,
@@ -14,6 +15,7 @@ import {
 } from '@robota-sdk/agent-core';
 
 import { listActiveContextReferences } from '../context/context-reference-inventory.js';
+import { parsePromptFileReferences } from '../context/prompt-file-reference-parser.js';
 import {
   buildPromptWithFileReferences,
   createPromptFileReferenceHistoryEntry,
@@ -23,10 +25,15 @@ import {
   resolvePromptFileReferencePaths,
   toPromptFileReferenceRecords,
 } from '../context/prompt-file-references.js';
+import {
+  WorkspaceAuthorityRequiredError,
+  getWorkspaceProjectReader,
+} from '../workspace-trust/index.js';
 
 import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js';
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IContextWindowState, ITokenUsage, TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
   IHistoryEntry,
@@ -211,15 +218,36 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
 
 export async function preparePromptInput(
   input: string,
+  projectAccess: TWorkspaceProjectAccess,
   cwd: string,
   rawInput?: string,
   contextReferences: readonly IContextReferenceItem[] = [],
 ): Promise<IPreparedPromptInput> {
-  const activeReferenceResult = await resolvePromptFileReferencePaths(
-    listActiveContextReferences(contextReferences).map((reference) => reference.sourcePath),
-    { cwd, reason: 'manual' },
+  const activePaths = listActiveContextReferences(contextReferences).map(
+    (reference) => reference.sourcePath,
   );
-  const promptFileReferenceResult = await resolvePromptFileReferences(input, { cwd });
+  if (projectAccess.status !== 'trusted') {
+    if (activePaths.length > 0 || parsePromptFileReferences(input).length > 0) {
+      throw new WorkspaceAuthorityRequiredError(
+        'Prompt file references require explicit workspace project authority.',
+      );
+    }
+    return {
+      modelInput: input,
+      ...(rawInput !== undefined ? { hookInput: rawInput } : {}),
+      activeContextReferenceRecords: [],
+      promptFileReferenceRecords: [],
+    };
+  }
+  const resolveOptions = {
+    reader: getWorkspaceProjectReader(projectAccess.authority),
+    startRelativeDirectory: relative(projectAccess.identity.worktreeRoot, resolve(cwd)),
+  };
+  const activeReferenceResult = await resolvePromptFileReferencePaths(activePaths, {
+    ...resolveOptions,
+    reason: 'manual',
+  });
+  const promptFileReferenceResult = await resolvePromptFileReferences(input, resolveOptions);
   const diagnostics = [
     ...activeReferenceResult.diagnostics,
     ...promptFileReferenceResult.diagnostics,

@@ -9,6 +9,8 @@ import {
   resolveMemoryEnablement,
 } from '../memory-enablement.js';
 
+const memoryStore = {} as never;
+
 describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
   describe('TC-01: default OFF', () => {
     it('is OFF with no settings, flag, or env', () => {
@@ -16,7 +18,7 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
     });
 
     it('injects NO memory options when disabled (empty object)', () => {
-      const options = buildMemorySessionOptions({ enabled: false, autoSave: false }, '/repo');
+      const options = buildMemorySessionOptions({ enabled: false, autoSave: false });
       expect(options).toEqual({});
     });
   });
@@ -65,7 +67,7 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
 
   describe('TC-03: injection when enabled', () => {
     it('carries memoryStore + recallMemory + automaticMemory with the default budget', () => {
-      const options = buildMemorySessionOptions({ enabled: true, autoSave: false }, '/repo');
+      const options = buildMemorySessionOptions({ enabled: true, autoSave: false }, memoryStore);
       expect(options.memoryStore).toBeDefined();
       expect(options.recallMemory).toEqual({ budget: DEFAULT_MEMORY_BUDGET });
       expect(options.automaticMemory).toEqual({
@@ -76,11 +78,11 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
 
     it('defaults policy to approval_required, flips to auto_save when opted in', () => {
       expect(
-        buildMemorySessionOptions({ enabled: true, autoSave: true }, '/repo').automaticMemory
+        buildMemorySessionOptions({ enabled: true, autoSave: true }, memoryStore).automaticMemory
           ?.policy,
       ).toBe('auto_save');
       expect(
-        buildMemorySessionOptions({ enabled: true, autoSave: false }, '/repo').automaticMemory
+        buildMemorySessionOptions({ enabled: true, autoSave: false }, memoryStore).automaticMemory
           ?.policy,
       ).toBe('approval_required');
     });

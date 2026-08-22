@@ -12,8 +12,30 @@ import type {
   IDagNodeDefinition,
   INodeExecutionContext,
 } from '@robota-sdk/dag-core';
-import { saveInstantNodeFile } from '../persistence/workspace-writer.js';
-import { loadInstantNodes } from '../persistence/instant-node-loader.js';
+import { saveInstantNodeFile as saveInstantNodeFileWithProject } from '../persistence/workspace-writer.js';
+import { loadInstantNodes as loadInstantNodesWithProject } from '../persistence/instant-node-loader.js';
+import { createWorkflowProjectFixture } from './workflow-project-fixture.js';
+
+async function saveInstantNodeFile(
+  root: string,
+  node: IDagNodeDefinition,
+  createdAt: string,
+  layout?: Parameters<typeof saveInstantNodeFileWithProject>[3],
+) {
+  return saveInstantNodeFileWithProject(
+    await createWorkflowProjectFixture(root),
+    node,
+    createdAt,
+    layout,
+  );
+}
+
+async function loadInstantNodes(
+  root: string,
+  layout?: Parameters<typeof loadInstantNodesWithProject>[1],
+) {
+  return loadInstantNodesWithProject(await createWorkflowProjectFixture(root), layout);
+}
 
 const AT = '2026-07-06T00:00:00.000Z';
 const RUNNER: ICompositeSubRunner = { run: async () => ({ ok: true, outputs: {} }) };
@@ -70,7 +92,7 @@ describe('DATA-003 saveInstantNodeFile', () => {
     });
     const path = await saveInstantNodeFile(dir, node, AT);
     expect(path).toContain('pirate.node.json');
-    await expect(stat(path as string)).resolves.toBeDefined();
+    await expect(stat(join(dir, path as string))).resolves.toBeDefined();
 
     const reloaded = await loadInstantNodes(dir);
     expect(reloaded.map((n) => n.nodeType)).toContain('pirate');
@@ -89,7 +111,7 @@ describe('DATA-003 saveInstantNodeFile', () => {
     // 1. Persist the composite (no longer refused) → a manifest is written.
     const path = await saveInstantNodeFile(dir, composite, AT);
     expect(path).toContain('echo-composite.node.json');
-    await expect(stat(path as string)).resolves.toBeDefined();
+    await expect(stat(join(dir, path as string))).resolves.toBeDefined();
 
     // 2. Simulate restart: a fresh load reconstructs the composite (with an injected sub-runner).
     const reloaded = await loadInstantNodes(dir);

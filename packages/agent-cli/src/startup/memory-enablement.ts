@@ -13,7 +13,7 @@
 
 import { join } from 'node:path';
 
-import { createFileSystemMemoryStore } from '@robota-sdk/agent-framework';
+import { WorkspaceAuthorityRequiredError } from '@robota-sdk/agent-framework';
 
 import type {
   IMemoryBudget,
@@ -110,12 +110,17 @@ export function resolveMemoryEnablement(
  */
 export function buildMemorySessionOptions(
   resolved: IResolvedMemoryEnablement,
-  cwd: string,
+  memoryStore?: IMemoryStore,
 ): IMemorySessionOptions {
   if (!resolved.enabled) return {};
+  if (memoryStore === undefined) {
+    throw new WorkspaceAuthorityRequiredError(
+      'Project memory requires an explicit workspace-authority-backed memory store.',
+    );
+  }
   const budget = DEFAULT_MEMORY_BUDGET;
   return {
-    memoryStore: createFileSystemMemoryStore(cwd),
+    memoryStore,
     recallMemory: { budget },
     automaticMemory: {
       policy: resolved.autoSave ? 'auto_save' : 'approval_required',

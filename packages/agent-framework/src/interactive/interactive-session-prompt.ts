@@ -27,6 +27,7 @@ import { humanizeApiError } from '../utils/error-humanizer.js';
 import type { IToolState, IExecutionResult } from './types.js';
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { Session } from '@robota-sdk/agent-session';
 
@@ -62,6 +63,7 @@ export interface IPromptTurnContext {
   driverId?: string;
   getSession: () => Session;
   getCwd: () => string;
+  getProjectAccess: () => TWorkspaceProjectAccess;
   getHistory: () => IHistoryEntry[];
   getContextReferences: () => readonly IContextReferenceItem[];
   getActiveTools: () => IToolState[];
@@ -99,6 +101,7 @@ export async function executePromptTurn(
   try {
     const preparedPrompt = await preparePromptInput(
       input,
+      ctx.getProjectAccess(),
       ctx.getCwd(),
       rawInput,
       ctx.getContextReferences(),

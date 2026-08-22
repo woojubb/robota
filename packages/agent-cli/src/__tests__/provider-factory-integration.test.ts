@@ -4,9 +4,10 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createProviderFromProfile } from '@robota-sdk/agent-executor';
 import {
-  createProviderFromSettings,
+  createNodeHostSettingsSource,
+  createProviderFromSettings as createProviderFromSettingsSources,
   getProviderSettingsPaths,
-  readProviderSettings,
+  readProviderSettings as readProviderSettingsFromSources,
 } from '@robota-sdk/agent-framework';
 import {
   AnthropicProvider,
@@ -22,6 +23,24 @@ import {
   QwenProvider,
   createQwenProviderDefinition,
 } from '@robota-sdk/agent-provider-openai-compatible';
+
+import type { IReadProviderSettingsOptions } from '@robota-sdk/agent-framework';
+
+function providerSettingsSources(cwd: string) {
+  return getProviderSettingsPaths(cwd).map((path) => createNodeHostSettingsSource('user', path));
+}
+
+function readProviderSettings(cwd: string, options: IReadProviderSettingsOptions = {}) {
+  return readProviderSettingsFromSources(providerSettingsSources(cwd), options);
+}
+
+function createProviderFromSettings(
+  cwd: string,
+  modelOverride?: string,
+  options: IReadProviderSettingsOptions = {},
+) {
+  return createProviderFromSettingsSources(providerSettingsSources(cwd), modelOverride, options);
+}
 
 vi.mock('@robota-sdk/agent-provider-anthropic', () => {
   const MockAnthropicProvider = vi.fn().mockImplementation((options: unknown) => ({

@@ -24,12 +24,14 @@ import type {
   IMemoryStore,
   IAutomaticMemoryConfig,
   IPerTurnRecallConfig,
+  TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
 
 export interface IHeadlessInteractionChannelOptions {
   cwd: string;
   provider: IAIProvider;
+  projectAccess?: TWorkspaceProjectAccess;
   outputFormat: TOutputFormat;
   /**
    * CLI-076: the resolved model id (the same value the CLI header displays). Forwarded verbatim to the
@@ -127,6 +129,7 @@ export class HeadlessInteractionChannel {
     return buildRuntimeSession({
       cwd: this.opts.cwd,
       provider: this.opts.provider,
+      ...(this.opts.projectAccess !== undefined ? { projectAccess: this.opts.projectAccess } : {}),
       permissionMode: this.opts.permissionMode ?? 'bypassPermissions',
       // CMD-004 / REMOTE-007 D4a: headless subscribes to none of the session's `ask_request` surface,
       // so getUserInteraction() is gated to undefined (the framework's event-emitting ask default is

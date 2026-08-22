@@ -28,9 +28,13 @@ import {
 } from '../config/settings-source.js';
 import { loadContext } from '../context/context-loader.js';
 import { detectProject } from '../context/project-detector.js';
+import { createContributionSourcesForProjectAccess } from '../contributions/index.js';
 import { BundlePluginLoader } from '../plugins/index.js';
 import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
-import { getWorkspaceProjectReader } from '../workspace-trust/index.js';
+import {
+  createRestrictedWorkspaceProjectAccess,
+  getWorkspaceProjectReader,
+} from '../workspace-trust/index.js';
 
 import type {
   IInteractiveSessionStandardOptions,
@@ -89,6 +93,8 @@ export async function createInteractiveSession(
     options.projectAccess?.status === 'trusted'
       ? getWorkspaceProjectReader(options.projectAccess.authority)
       : undefined;
+  const projectAccess =
+    options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable', cwd);
   const contextSource =
     options.projectAccess?.status === 'trusted' && projectReader !== undefined
       ? {
@@ -182,6 +188,7 @@ export async function createInteractiveSession(
       projectInfo,
       sessionId,
       contextCapacityHint,
+      contributionSources: createContributionSourcesForProjectAccess(projectAccess),
     }),
   );
 

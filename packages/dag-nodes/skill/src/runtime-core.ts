@@ -21,8 +21,6 @@ export interface ISkillResolverOptions {
 export interface ISkillResolveRequest {
   skillName: string;
   args: string;
-  cwd: string;
-  home?: string;
   sessionId?: string;
 }
 
@@ -49,7 +47,7 @@ export class SkillResolverRuntime {
   ): Promise<TResult<ISkillResolveResult, IDagError>> {
     let commands: ICommand[];
     try {
-      commands = this.port.loadCommands(request.cwd, request.home);
+      commands = this.port.loadCommands();
     } catch (err) {
       // allow-fallback: skill discovery failure surfaced as a retryable task error
       const message = err instanceof Error ? err.message : String(err);
@@ -59,7 +57,6 @@ export class SkillResolverRuntime {
           'DAG_TASK_EXECUTION_SKILL_RESOLVE_FAILED',
           `Failed to load skills: ${message}`,
           true,
-          { cwd: request.cwd },
         ),
       };
     }
@@ -70,7 +67,7 @@ export class SkillResolverRuntime {
         ok: false,
         error: buildValidationError(
           'DAG_VALIDATION_SKILL_NOT_FOUND',
-          `Skill "${request.skillName}" was not found in ${request.cwd}`,
+          `Skill "${request.skillName}" was not found in the injected contribution sources`,
           { skillName: request.skillName },
           {
             action: 'set_config',

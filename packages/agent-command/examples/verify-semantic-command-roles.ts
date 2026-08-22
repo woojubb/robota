@@ -146,7 +146,8 @@ async function main(): Promise<void> {
       const duplicateRoleRejections = verifyDuplicateRoleRejections();
 
       const ownerDeclarations = {
-        skills: createSkillsCommandModule({ cwd }).systemCommands?.[0]?.semanticRole,
+        skills: createSkillsCommandModule({ contributionSources: [] }).systemCommands?.[0]
+          ?.semanticRole,
         compact: createCompactCommandModule().systemCommands?.[0]?.semanticRole,
         agent: createAgentCommandModule().systemCommands?.[0]?.semanticRole,
       };

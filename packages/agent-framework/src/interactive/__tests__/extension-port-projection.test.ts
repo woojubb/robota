@@ -28,6 +28,7 @@ const DEPS: ICreateSessionProjectionDeps = {
   projectInfo: {} as ICreateSessionProjectionDeps['projectInfo'],
   sessionId: 'test-session',
   contextCapacityHint: undefined,
+  contributionSources: [],
 };
 
 function initOptions(extra: Partial<IInitOptions>): IInitOptions {

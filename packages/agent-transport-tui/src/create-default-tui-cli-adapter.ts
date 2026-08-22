@@ -1,6 +1,8 @@
 import { findProviderDefinition } from '@robota-sdk/agent-core';
 import {
   applyActiveModelChange,
+  createDefaultUserSettingsSources,
+  createNodeHostSettingsStore,
   getUserSettingsPath,
   readSettings,
   resolveGitBranch,
@@ -25,8 +27,9 @@ export function createDefaultTuiCliAdapter({
     reloadPluginCommandSource: (registry) => {
       reloadPluginCommandSource(registry);
     },
-    applyActiveModelChange: (cwd, modelId, options) => {
-      applyActiveModelChange(cwd, modelId, options);
+    applyActiveModelChange: (_cwd, modelId, options) => {
+      const userStore = createNodeHostSettingsStore('user', getUserSettingsPath());
+      applyActiveModelChange(createDefaultUserSettingsSources(), [userStore], modelId, options);
       return { applied: true };
     },
     getGitBranch: (cwd) => resolveGitBranch(cwd),

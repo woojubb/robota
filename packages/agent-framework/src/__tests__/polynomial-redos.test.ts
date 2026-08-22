@@ -23,6 +23,7 @@ import { sanitizeProviderProfileName } from '../command-api/provider/provider-pr
 import { parseFrontmatter } from '../commands/skill-source.js';
 import { parseTaskFile, readCurrentGitBranchFromNodeHost } from '../context/task-context.js';
 import { ProjectMemoryStore } from '../memory/project-memory-store.js';
+import { createNodeHostContributionSourcesFixture } from '../testing/contribution-source-fixture.js';
 import {
   createTrustedProjectAccessFixture,
   createTrustedProjectStateFixture,
@@ -183,7 +184,10 @@ describe('SEC-003 sweep — agent definition frontmatter list values (unflagged 
     const dir = join(cwd, '.robota', 'agents');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'probe.md'), frontmatter, 'utf8');
-    return new AgentDefinitionLoader(cwd, join(cwd, 'home'), undefined, []);
+    return new AgentDefinitionLoader(
+      createNodeHostContributionSourcesFixture(cwd, join(cwd, 'home')),
+      [],
+    );
   }
 
   it(

@@ -111,7 +111,7 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
   const provider = options.provider;
   const cwd = options.cwd ?? process.cwd();
   const sessionId = options.sessionId ?? createSessionId();
-  const skillCommandSource = new SkillCommandSource(cwd);
+  const skillCommandSource = new SkillCommandSource(options.contributionSources ?? []);
   const modelInvocableCommandDescriptors = getModelInvocableCommandDescriptors(
     options.commandDescriptors,
   );

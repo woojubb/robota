@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { InteractiveSession, createNodeHostContributionSource } from '@robota-sdk/agent-framework';
 import { createSkillsCommandModule } from '@robota-sdk/agent-command';
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '../headless-transport.js';
@@ -273,7 +273,11 @@ describe('headless transport skill activation integration', () => {
       config: createConfig(),
       permissionMode: 'bypassPermissions',
       bare: true,
-      commandModules: [createSkillsCommandModule({ cwd })],
+      commandModules: [
+        createSkillsCommandModule({
+          contributionSources: [createNodeHostContributionSource(cwd)],
+        }),
+      ],
     });
     const stdout = captureStdout();
 
@@ -342,7 +346,11 @@ describe('headless transport skill activation integration', () => {
       config: createConfig(),
       permissionMode: 'bypassPermissions',
       bare: true,
-      commandModules: [createSkillsCommandModule({ cwd })],
+      commandModules: [
+        createSkillsCommandModule({
+          contributionSources: [createNodeHostContributionSource(cwd)],
+        }),
+      ],
     });
     const stdout = captureStdout();
 

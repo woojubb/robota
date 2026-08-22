@@ -7,6 +7,7 @@ import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
 import type { IProjectInfo } from '../context/project-detector.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
+import type { IContributionSource } from '../contributions/index.js';
 import type { TSessionFactory } from '../hooks/agent-executor.js';
 import type { TProviderFactory } from '../hooks/prompt-executor.js';
 import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
@@ -49,6 +50,8 @@ export interface ICreateSessionOptions {
   config: IResolvedConfig;
   /** Working directory used for project context, skills, and agent definitions. */
   cwd?: string;
+  /** Explicit contribution sources; absence means no skill or agent-definition file access. */
+  contributionSources?: readonly IContributionSource[];
   /** Loaded AGENTS.md / CLAUDE.md context */
   context: ILoadedContext;
   /** Terminal I/O for permission prompts */

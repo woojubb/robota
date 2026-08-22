@@ -24,6 +24,7 @@ import {
   readProviderSettings,
 } from '../command-api/provider/provider-factory.js';
 import { createDefaultUserSettingsSources } from '../config/settings-source.js';
+import { createContributionSourcesForProjectAccess } from '../contributions/index.js';
 import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
 import {
@@ -202,6 +203,7 @@ export class InteractiveSession
 
     this.histTracker = new SessionHistoryTracker(
       cwd,
+      this.projectAccess,
       () => this.getSessionOrThrow().getSessionId(),
       () => this.execCtrl.executing,
       () => this.persistCurrentSession(),
@@ -220,7 +222,7 @@ export class InteractiveSession
 
     this.skillRouter = new SessionSkillRouter(
       commandModules,
-      cwd,
+      createContributionSourcesForProjectAccess(this.projectAccess),
       commandHostAdapters,
       // ARCH-029 S1: no cast — `implements ICommandHostContext` above makes this compiler-checked.
       () => this,
@@ -248,6 +250,7 @@ export class InteractiveSession
       getSession: () => this.session!,
       getSessionOrThrow: () => this.getSessionOrThrow(),
       getCwd: () => this.getCwd(),
+      getProjectAccess: () => this.projectAccess,
       getContextState: () => this.getContextState(),
       getExecutionWorkspaceSnapshot: () => this.getExecutionWorkspaceSnapshot(),
       emit: (event, ...args) =>

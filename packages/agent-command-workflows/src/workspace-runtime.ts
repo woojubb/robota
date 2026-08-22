@@ -14,6 +14,9 @@ import type { IDagNodeDefinition } from '@robota-sdk/dag-core';
 import { LocalDagRuntimeProvider } from '@robota-sdk/dag-framework';
 
 import { loadInstantNodes } from './persistence/instant-node-loader.js';
+import { assertWorkflowProject } from './workflow-project.js';
+
+import type { IWorkflowProject } from './workflow-project.js';
 
 /** The workspace's runtime view: the provider plus the instant nodes that were folded into it. */
 export interface IWorkspaceRuntime {
@@ -28,14 +31,15 @@ export interface IWorkspaceRuntime {
  * `LocalDagRuntimeProvider` so both `listNodes()` and `execute()` see the full catalog.
  */
 export async function createWorkspaceRuntime(
-  cwd: string,
+  project: IWorkflowProject,
   layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
 ): Promise<IWorkspaceRuntime> {
-  const instantNodes = await loadInstantNodes(cwd, layout);
+  const accepted = assertWorkflowProject(project);
+  const instantNodes = await loadInstantNodes(accepted, layout);
   const provider = new LocalDagRuntimeProvider({
-    executionRoot: cwd,
+    executionRoot: accepted.executionRoot,
     workspace: layout,
-    projectDir: cwd,
+    projectDir: accepted.executionRoot,
     ...(instantNodes.length > 0 ? { instantNodes } : {}),
   });
   return { provider, instantNodes };
