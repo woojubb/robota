@@ -4,7 +4,7 @@
  * one a survey of `.agents/tasks` cannot see.
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -144,6 +144,18 @@ describe('the arguments it reads', () => {
 
   it('keeps a positional that merely looks like a number', () => {
     expect(positionalArgs(['INFRA', '2026', 'plan'])).toEqual(['INFRA', '2026', 'plan']);
+  });
+
+  it('rejects --issue when no value follows it', () => {
+    const script = path.join(import.meta.dirname, '../allocate-work-item-id.mjs');
+    for (const argv of [
+      ['INFRA', 'a thing', '--dry-run', '--issue'],
+      ['INFRA', 'a thing', '--issue', '--dry-run'],
+    ]) {
+      const result = spawnSync(process.execPath, [script, ...argv], { encoding: 'utf8' });
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain('--issue requires a value');
+    }
   });
 });
 

@@ -258,6 +258,10 @@ function main(argv) {
   const dryRun = argv.includes('--dry-run');
   const issueAt = argv.indexOf('--issue');
   const issue = issueAt === -1 ? null : argv[issueAt + 1];
+  if (issueAt !== -1 && (issue === undefined || issue.startsWith('--'))) {
+    console.error('allocate-work-item-id: --issue requires a value');
+    return 2;
+  }
 
   const records = idsFromRecords();
   const citations = idsFromCitations();
