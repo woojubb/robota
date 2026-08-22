@@ -158,6 +158,31 @@ describe('check-agent-def-convention (INFRA-030) — real corpus', () => {
     expect(CLOSED_SIGNAL_VOCAB.has('REVIEW VERDICT')).toBe(true);
   });
 
+  it('registers the architecture-refresh signals and applies finding-depth only to producers', () => {
+    for (const token of ['AUDIT-DIM-COMPLETE', 'SYNTH', 'VERIFY', 'RECONCILE']) {
+      expect(CLOSED_SIGNAL_VOCAB.has(token)).toBe(true);
+    }
+    const fixture = (token, body = `${token}: fixture`) =>
+      [
+        '---',
+        `name: fixture-${token.toLowerCase()}`,
+        'description: Independent, read-only fixture guardian.',
+        'tools: Read, Grep, Glob',
+        `signal: ${token}`,
+        '---',
+        '',
+        body,
+      ].join('\n');
+    expect(analyzeAgent(fixture('SYNTH'), { referencedInIndex: true })).toContainEqual(
+      expect.stringMatching(/finding-depth/),
+    );
+    expect(analyzeAgent(fixture('AUDIT-DIM-COMPLETE'), { referencedInIndex: true })).toContainEqual(
+      expect.stringMatching(/finding-depth/),
+    );
+    expect(analyzeAgent(fixture('VERIFY'), { referencedInIndex: true })).toEqual([]);
+    expect(analyzeAgent(fixture('RECONCILE'), { referencedInIndex: true })).toEqual([]);
+  });
+
   // INFRA-048-D. Two HARNESS-049 increments shipped agents that end on a terminal signal but could
   // not register it (`scripts/**` was outside their file ownership), so the token stayed outside the
   // closed vocabulary and the agent had to omit its `signal:` field — a machine contract nothing

@@ -155,8 +155,9 @@ Check every item. A single unmet item = FAIL.
 - [ ] No Architecture Review or frontmatter type/tags modified after approval
 - [ ] **Independent architecture validation (conditional):** IF the spec introduces a new package / app /
       surface or reclassifies a layer / product-family boundary, the Evidence Log MUST contain an independent
-      architecture-review verdict (a `proposal-reviewer` / `architecture-auditor` entry) that ENDORSED the
-      placement — not a bare "reviewed" claim. A new-surface spec approved without a recorded independent
+      `proposal-reviewer` verdict that ENDORSED the recommendation and explicitly covered the placement —
+      not a bare "reviewed" claim. Retain an `architecture-audit-fanout` structure-channel result as
+      additional placement evidence when the surface is new. A new-surface spec approved without a recorded independent
       placement review is a process violation (see `spec-workflow.md` "New-Surface Architecture Placement").
 
 **What counts as explicit approval:**

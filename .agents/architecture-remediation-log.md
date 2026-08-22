@@ -1,7 +1,8 @@
 # Architecture Remediation Log
 
 Living list of **code-side** architecture findings surfaced by the `architecture-refresh` loop
-(the `architecture-auditor` / `architecture-conformance-auditor` agents) that require a **gated code
+(the four-dimensional `architecture-audit-fanout` / separate `architecture-conformance-auditor` channels)
+that require a **gated code
 change** and cannot be resolved by a documentation fix. Doc-side drift is fixed in-loop by
 `architecture-fixer` and does not appear here; this log tracks the code changes that keep the
 implementation in sync with the intended architecture.

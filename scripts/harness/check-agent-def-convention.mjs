@@ -55,6 +55,10 @@ export const CLOSED_SIGNAL_VOCAB = new Set([
   'GATE VERDICT',
   'SCENARIO DRAFTED',
   'DEPTH',
+  'AUDIT-DIM-COMPLETE',
+  'SYNTH',
+  'VERIFY',
+  'RECONCILE',
 ]);
 
 const EDIT_TOOLS = ['Edit', 'Write'];
@@ -71,8 +75,15 @@ const EDIT_TOOLS = ['Edit', 'Write'];
  * - `DECOMPOSITION`, `PRIOR_ART_RESEARCH`, `SCENARIO DRAFTED` — produce an artifact, judge nothing.
  * - `MERGE VERIFIED`, `CI TRIAGE` — report a state.
  * - `DEPTH` — its bearer IS the depth judge; requiring it to cite the rule it implements is circular.
+ * - `VERIFY` — tests the truth of one already-scoped finding.
+ * - `RECONCILE` — matches an already-FOUNDATIONAL finding to the live registries after depth is settled.
  */
-const FINDING_PRODUCING_SIGNALS = new Set(['REVIEW VERDICT', 'ACTIONABLE FINDINGS']);
+const FINDING_PRODUCING_SIGNALS = new Set([
+  'REVIEW VERDICT',
+  'ACTIONABLE FINDINGS',
+  'AUDIT-DIM-COMPLETE',
+  'SYNTH',
+]);
 
 /**
  * Split a markdown file into its frontmatter map + body. Values are a string (scalar) or a

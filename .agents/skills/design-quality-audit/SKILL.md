@@ -1,15 +1,19 @@
 ---
 name: design-quality-audit
-description: Pointer stub — the deep "is this design right?" audit (layer boundaries, coupling/cohesion, responsibility placement, type SSOT, extension seams, anti-patterns) is owned by the architecture-auditor agent, which judges by universal design principles natively. Dispatch it via the architecture-refresh pipeline instead of following prose steps here.
+description: Pointer stub — deep "is this design right?" judgement is divided across the structure, design, runtime, and gate architecture auditors. Dispatch their coverage-controlled fanout through architecture-refresh; doc↔code conformance remains a separate axis.
 ---
 
 # Design-Quality Audit (pointer)
 
-This behavior is owned by the **`architecture-auditor` agent**: an independent, read-only
-design-quality judgement (is the design _right_? — vs. doc↔code conformance, which is
-`architecture-conformance-auditor`'s axis). It audits layer boundaries, coupling/cohesion,
-responsibility placement, type SSOT, extension seams, and anti-patterns natively.
+Design-quality judgement is owned by four independent, read-only agents:
+`architecture-structure-auditor`, `architecture-design-auditor`, `architecture-runtime-auditor`, and
+`architecture-gate-auditor`. Together they preserve responsibility placement, coupling/cohesion,
+dependency direction, SSOT, encapsulation, contract quality, detectable failures, extension seams,
+verification honesty, simplicity, and new-surface placement.
 
-Dispatch it via [architecture-refresh](../architecture-refresh/SKILL.md) (or standalone by
-`agentType: architecture-auditor`). Historical exemplar:
-`.design/architecture-audit/2026-06-14/design-quality-audit.md` → DQ-AUDIT-001~007.
+Dispatch them through [architecture-refresh](../architecture-refresh/SKILL.md), which delegates coverage
+to [architecture-audit-fanout](../architecture-audit-fanout/SKILL.md). Use the relevant dimensional agent
+standalone only for a deliberately bounded one-dimension request. `architecture-conformance-auditor` remains
+the separate question of whether documented architecture and implementation agree.
+
+Historical exemplar: `.design/architecture-audit/2026-06-14/design-quality-audit.md` → DQ-AUDIT-001~007.

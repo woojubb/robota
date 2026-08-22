@@ -43,9 +43,14 @@ const EXCLUDED = [/(^|\/)CHANGELOG\.md$/, /(^|\/)node_modules\//];
  * own work is exactly who this scan is for, and that is the moment it could not see them.
  */
 function trackedDocuments() {
-  return enumerateFiles(['*.md']).filter(
-    (entry) => !EXCLUDED.some((pattern) => pattern.test(entry)),
-  );
+  return existingDocuments(enumerateFiles(['*.md']), (entry) =>
+    existsSync(path.join(WORKSPACE_ROOT, entry)),
+  ).filter((entry) => !EXCLUDED.some((pattern) => pattern.test(entry)));
+}
+
+/** A tracked deletion remains in `git ls-files`; it is baseline drift, not a readable document. */
+export function existingDocuments(documents, exists) {
+  return documents.filter((entry) => exists(entry));
 }
 
 let examinedDocuments = 0;

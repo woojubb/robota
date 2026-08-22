@@ -92,6 +92,24 @@ describe('findLoopRunRecordFindings', () => {
     expect(findLoopRunRecordFindings(root, NOW)[0].detail).toMatch(/escape=no-progress/);
   });
 
+  it('requires parseable chronological timestamps for closed records', () => {
+    const root = workspace({ looper: FINDING_SET });
+    ledger(root, 'looper', [closed('bad-open', [0], 'converged', 'not-a-date')]);
+    expect(findLoopRunRecordFindings(root, NOW)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ detail: expect.stringContaining('no parseable `opened`') }),
+      ]),
+    );
+
+    const backwards = closed('backwards', [0], 'converged', '2026-08-18T02:00:00.000Z');
+    ledger(root, 'looper', [backwards]);
+    expect(findLoopRunRecordFindings(root, NOW)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ detail: expect.stringContaining('closes before it opens') }),
+      ]),
+    );
+  });
+
   it('fails an entry left OPEN past the staleness horizon, and passes one inside it', () => {
     const root = workspace({ looper: FINDING_SET });
     const stale = new Date(NOW - (STALE_OPEN_DAYS + 1) * 86_400_000).toISOString();
@@ -114,6 +132,29 @@ describe('findLoopRunRecordFindings', () => {
       .join(' | ');
     expect(details).toMatch(/more than once/);
     expect(details).toMatch(/non-negative integers/);
+  });
+
+  it('fails malformed architecture-signal metadata when a run carries the extended schema', () => {
+    const root = workspace({ looper: FINDING_SET });
+    ledger(root, 'looper', [
+      {
+        ...closed('r1', [0], 'converged'),
+        extensions: {
+          architectureRefresh: {
+            signalExpectations: 'not-an-array',
+            signalObservations: [],
+            verificationPassThroughIds: [],
+            draftFindings: [],
+            finalFindings: [],
+            foundationalIds: [],
+            reconciliationRoutes: [],
+            dispositions: [],
+            nestedRuns: [],
+          },
+        },
+      },
+    ]);
+    expect(findLoopRunRecordFindings(root, NOW)[0].detail).toMatch(/signalExpectations.*array/);
   });
 });
 

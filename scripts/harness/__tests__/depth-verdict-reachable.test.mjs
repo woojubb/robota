@@ -226,6 +226,23 @@ describe('a worker told to take a depth verdict has a pipeline that produces one
       'no pipeline row carried a depth-taking worker — this case checked nothing',
     ).toBeGreaterThan(0);
   });
+
+  it('architecture refresh reaches depth only after final verification synthesis and reconciles only FOUNDATIONAL findings', () => {
+    const refresh = readFileSync(path.join(SKILLS_DIR, 'architecture-refresh', 'SKILL.md'), 'utf8');
+    const finalSynthesis = refresh.indexOf('**Synthesize final.**');
+    const depth = refresh.indexOf('**Judge depth.**');
+    const reconcile = refresh.indexOf('**Reconcile FOUNDATIONAL findings.**');
+
+    expect(finalSynthesis).toBeGreaterThan(0);
+    expect(depth).toBeGreaterThan(finalSynthesis);
+    expect(reconcile).toBeGreaterThan(depth);
+    expect(refresh.slice(depth, reconcile)).toMatch(/Dispatch `finding-depth-triager`/);
+    expect(refresh.slice(reconcile)).toMatch(/Only after the FOUNDATIONAL verdict/);
+    expect(refresh.slice(reconcile)).toMatch(/NEW → file a new root item/);
+    expect(refresh.slice(reconcile)).toMatch(/KNOWN → reuse the existing target/);
+    expect(refresh.slice(reconcile)).toMatch(/EXTENDS → update the target/);
+    expect(refresh.slice(reconcile)).toMatch(/UNSURE → halt/);
+  });
 });
 
 /**

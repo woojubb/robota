@@ -62,10 +62,11 @@ release invariants stay in [publish.md](../rules/publish.md); these skills carry
 
 | Skill                                                                     | Description                                                                                                                                                                                  |
 | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [architecture-refresh](architecture-refresh/SKILL.md)                     | Thin pipeline that re-calls architecture-auditor→finding-depth-triager→architecture-fixer until every finding of a round is RESOLVED (agents hold all policy)                                |
+| [architecture-refresh](architecture-refresh/SKILL.md)                     | Outer architecture loop: separate conformance + four-dimension fanout → draft/final synthesis → verify → depth → reconcile/apply → re-audit                                                  |
+| [architecture-audit-fanout](architecture-audit-fanout/SKILL.md)           | Thin bounded coverage loop for mutually blind structure/design/runtime/gate auditors; returns raw reports and never synthesizes findings                                                     |
 | [capability-extraction](capability-extraction/SKILL.md)                   | Thin pipeline that sequences capability-scout→proposal-reviewer→agent-skill-author, gating authoring on ENDORSE and convergence on the `agent-def-convention` guard (agents hold all policy) |
 | [architecture-conformance-audit](architecture-conformance-audit/SKILL.md) | Thin router: conformance audit = mechanical conformance scan + the architecture-refresh agent loop (GATE-CONFORMANCE)                                                                        |
-| [design-quality-audit](design-quality-audit/SKILL.md)                     | Pointer stub → the `architecture-auditor` agent owns the design-quality judgement natively                                                                                                   |
+| [design-quality-audit](design-quality-audit/SKILL.md)                     | Pointer stub → structure/design/runtime/gate auditors own design-quality judgement through architecture-audit-fanout                                                                         |
 | [doc-claim-verification](doc-claim-verification/SKILL.md)                 | Pointer stub → the `architecture-conformance-auditor` agent emits per-claim doc↔code verdicts natively                                                                                       |
 | [conformance-finding-report](conformance-finding-report/SKILL.md)         | Pointer stub → the `architecture-conformance-auditor` agent returns classified findings + ACTIONABLE FINDINGS natively                                                                       |
 | [improvement-proposal-authoring](improvement-proposal-authoring/SKILL.md) | Maps findings to remediation + follow-up backlogs + mechanical-guard recommendations                                                                                                         |
@@ -76,31 +77,37 @@ Each agent's full policy lives in its definition file (`.claude/agents/<name>.md
 that sequence them are registered in [`orchestration-map.md`](../specs/orchestration-map.md) (SSOT
 for orchestrator/worker/guardian wiring). One-line roles:
 
-| Agent                              | Role                                                                                  |
-| ---------------------------------- | ------------------------------------------------------------------------------------- |
-| `architecture-auditor`             | Read-only design-quality audit by universal principles                                |
-| `architecture-conformance-auditor` | Read-only doc↔code sync audit (doc-side / code-side findings)                         |
-| `architecture-fixer`               | Applies doc-side findings (edits docs only)                                           |
-| `architecture-implementer`         | Applies code-side findings (edits code, build/tests green)                            |
-| `finding-depth-triager`            | Guardian: judges a finding LOCAL / FOUNDATIONAL / INVALID / UNDETERMINED (`DEPTH:`)   |
-| `proposal-reviewer`                | Skeptical sign-off on a change proposal (ENDORSE/REVISE/REJECT)                       |
-| `merge-verifier`                   | Confirms a merge/PR truly landed on the remote target                                 |
-| `capability-scout`                 | Proposes the role decomposition for a described workflow                              |
-| `prior-art-researcher`             | Research worker: prior-art block + evidence-based recommendation                      |
-| `agent-skill-author`               | Authors agent/skill files from an ENDORSE'd decomposition                             |
-| `pr-review-reviewer`               | PR-review guardian: MUST/SHOULD/CONSIDER/NIT + `ACTIONABLE FINDINGS: <n>`             |
-| `pr-review-writer`                 | Posts the reviewer's findings to the PR via `gh`                                      |
-| `pr-review-fixer`                  | Applies minimal verified fixes for MUST/SHOULD findings                               |
-| `doc-auditor`                      | Read-only documentation staleness/quality audit                                       |
-| `doc-fixer`                        | Applies doc findings (edits docs only, verify-before-write)                           |
-| `ci-failure-triager`               | Read-only CI/gate triage: one failure class + the five-field triage note              |
-| `backlog-gate-guard`               | Gate guardian: one gate, one document → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE`      |
-| `wiring-worker`                    | Wires an authored artifact into every touchpoint; produces only, issues no verdict    |
-| `wiring-guardian`                  | Judges wiring AND whether the registration check could have gone red (`GATE VERDICT`) |
-| `worktree-entry-gate`              | Before work starts in a worktree → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE`           |
-| `worktree-exit-gate`               | Before work leaves a worktree → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE`              |
-| `user-execution-scenario-author`   | Authors user-execution scenarios → `SCENARIO DRAFTED: <mode> \| <count>`              |
-| `mechanical-refactor-worker`       | Executes one specified mechanical change to green, or reports the exact blocker       |
+| Agent                              | Role                                                                                                       |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `architecture-structure-auditor`   | Read-only structure audit with target×criterion coverage (`AUDIT-DIM-COMPLETE`)                            |
+| `architecture-design-auditor`      | Read-only contract/interface design audit with target×criterion coverage (`AUDIT-DIM-COMPLETE`)            |
+| `architecture-runtime-auditor`     | Read-only lifecycle/concurrency/error/resource audit with target×criterion coverage (`AUDIT-DIM-COMPLETE`) |
+| `architecture-gate-auditor`        | Read-only contract-to-test and gate-strength audit with target×criterion coverage (`AUDIT-DIM-COMPLETE`)   |
+| `architecture-conformance-auditor` | Read-only, separate doc↔code sync audit (doc-side / code-side findings)                                    |
+| `architecture-audit-synthesizer`   | Read-only draft deduplication/cross-dimension judgement and final verifier application (`SYNTH`)           |
+| `finding-verifier`                 | Read-only adversarial truth test for one isolated finding (`VERIFY`)                                       |
+| `finding-depth-triager`            | Guardian: judges a finding LOCAL / FOUNDATIONAL / INVALID / UNDETERMINED (`DEPTH:`)                        |
+| `finding-reconciler`               | Read-only sole registry matcher for an already-FOUNDATIONAL finding (`RECONCILE`)                          |
+| `architecture-fixer`               | Applies doc-side findings (edits docs only)                                                                |
+| `architecture-implementer`         | Applies code-side findings (edits code, build/tests green)                                                 |
+| `proposal-reviewer`                | Skeptical sign-off on a change proposal (ENDORSE/REVISE/REJECT)                                            |
+| `merge-verifier`                   | Confirms a merge/PR truly landed on the remote target                                                      |
+| `capability-scout`                 | Proposes the role decomposition for a described workflow                                                   |
+| `prior-art-researcher`             | Research worker: prior-art block + evidence-based recommendation                                           |
+| `agent-skill-author`               | Authors agent/skill files from an ENDORSE'd decomposition                                                  |
+| `pr-review-reviewer`               | PR-review guardian: MUST/SHOULD/CONSIDER/NIT + `ACTIONABLE FINDINGS: <n>`                                  |
+| `pr-review-writer`                 | Posts the reviewer's findings to the PR via `gh`                                                           |
+| `pr-review-fixer`                  | Applies minimal verified fixes for MUST/SHOULD findings                                                    |
+| `doc-auditor`                      | Read-only documentation staleness/quality audit                                                            |
+| `doc-fixer`                        | Applies doc findings (edits docs only, verify-before-write)                                                |
+| `ci-failure-triager`               | Read-only CI/gate triage: one failure class + the five-field triage note                                   |
+| `backlog-gate-guard`               | Gate guardian: one gate, one document → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE`                           |
+| `wiring-worker`                    | Wires an authored artifact into every touchpoint; produces only, issues no verdict                         |
+| `wiring-guardian`                  | Judges wiring AND whether the registration check could have gone red (`GATE VERDICT`)                      |
+| `worktree-entry-gate`              | Before work starts in a worktree → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE`                                |
+| `worktree-exit-gate`               | Before work leaves a worktree → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE`                                   |
+| `user-execution-scenario-author`   | Authors user-execution scenarios → `SCENARIO DRAFTED: <mode> \| <count>`                                   |
+| `mechanical-refactor-worker`       | Executes one specified mechanical change to green, or reports the exact blocker                            |
 
 The **agent-definition convention** they follow is a document-type contract in
 [`document-standards/index.md`](../specs/document-standards/index.md), mechanically enforced by
