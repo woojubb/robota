@@ -27,6 +27,31 @@
  * of a comparison, and today it is on one. This is the step that makes it possible, not the step
  * that does it.
  *
+ * ## Three things this does NOT establish, said here so nobody reads the link as stronger
+ *
+ * **It does not PREVENT a collision, only make one detectable at push time.** A clone-local branch
+ * is invisible in principle to every mechanism that reads the tracked tree — not through a parsing
+ * gap that better code would close, but because the claim has not been published yet. Two sessions
+ * can still both pick the same number; the second is caught when it pushes, not when it chooses.
+ *
+ * **It does not keep the link true.** A record can cite an issue later closed as a duplicate,
+ * retitled, or transferred to another repository. That is not a collision, so a collision scan never
+ * sees it, and the cross-source comparison would then read a record and an unrelated issue as one
+ * item — the exact failure the forward-only rule exists to avoid, arriving later instead of at
+ * birth.
+ *
+ * **And it does not establish the link was ever true.** A body link is written once by whoever files
+ * the record and nothing confirms the issue is about it. A wrong-on-day-one link leaves no signal
+ * and reads as verified precisely because it is well-formed and machine-parseable. Issue #1980 is
+ * the worked example: `.github/required-status-checks.json` declared four required contexts where
+ * the live ruleset had three, and it was believed for four weeks because it was a well-formed
+ * declaration in the right file. It was not stale; it was never true.
+ *
+ * Closing those needs a live read of the issue, which no tracked-tree scan can do. The useful
+ * assertion is not "the link resolves" but "the link resolves AND that issue's title still claims
+ * this record's ID" — the same comparison, turned on the record's own claim rather than only on
+ * record-versus-record collisions.
+ *
  * ## What counts as naming the issue
  *
  * Any of the three forms already in the tree — `Registered as … issue #N`, a bare `issue #N`, or a
@@ -94,6 +119,38 @@ export function addedTaskRecords(baseRef, root = WORKSPACE_ROOT) {
     );
   }
   return (result.stdout ?? '').split('\n').filter(Boolean).filter(isTaskRecord);
+}
+
+/**
+ * How many tracked records carry a link, and how many do not.
+ *
+ * BOTH numbers, because a consumer of the link that reported its size as "records carrying a link"
+ * would be describing the population it can see and calling it the population. A later scan reading
+ * these links reports "no cross-source collisions" over a set that excludes every record it could
+ * not read — which is issue #1916's own failure, one layer up. The pair is what makes the gap
+ * visible instead of invisible.
+ */
+export function linkCoverage(
+  records,
+  readFile = (f) => readFileSync(path.join(WORKSPACE_ROOT, f), 'utf8'),
+) {
+  let linked = 0;
+  let unlinked = 0;
+  for (const relative of records) {
+    if (!isTaskRecord(relative) || isPhaseRecord(relative)) continue;
+    let content;
+    try {
+      content = readFile(relative);
+    } catch {
+      // Unreadable counts as UNLINKED, never as absent. A record this cannot open is a record a
+      // consumer cannot compare, which is the thing the pair exists to report.
+      unlinked += 1;
+      continue;
+    }
+    if (namesItsIssue(content)) linked += 1;
+    else unlinked += 1;
+  }
+  return { linked, unlinked };
 }
 
 /** Every added record that names no issue and claims no exception. */

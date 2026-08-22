@@ -14,6 +14,7 @@ import {
   ISSUE_LINK_PATTERNS,
   isPhaseRecord,
   isTaskRecord,
+  linkCoverage,
   namesItsIssue,
 } from '../task-record-issue-link.mjs';
 
@@ -86,5 +87,39 @@ describe('which files are judged', () => {
     expect(isPhaseRecord('.agents/tasks/completed/CLI-001-prompt-input-non-tty-guard.md')).toBe(
       false,
     );
+  });
+});
+
+describe('the size reported is BOTH halves of the population', () => {
+  /*
+   * A consumer of these links that reported its size as "records carrying a link" would be naming
+   * the population it can SEE and calling it the population. A later cross-source scan reporting
+   * "no collisions" over a set that silently excludes every unlinked record is issue #1916's own
+   * failure, one layer up — so the pair is what makes the gap visible.
+   */
+  const files = {
+    '.agents/tasks/A-001-linked.md': 'Registered as issue #1.',
+    '.agents/tasks/B-002-bare.md': 'nothing here',
+    '.agents/tasks/C-003-optout.md': 'no-issue: a probe',
+    '.agents/tasks/README.md': 'not a record',
+    '.agents/tasks/D-004-p1-phase.md': 'a phase, exempt',
+  };
+  const read = (f) => {
+    if (!(f in files)) throw new Error('unreadable');
+    return files[f];
+  };
+
+  it('counts linked and unlinked separately, and skips what is not judged', () => {
+    expect(linkCoverage(Object.keys(files), read)).toEqual({ linked: 2, unlinked: 1 });
+  });
+
+  it('counts an UNREADABLE record as unlinked, never as absent', () => {
+    // A record this cannot open is a record a consumer cannot compare. Dropping it would shrink the
+    // denominator silently, which is the exact shape the pair exists to report.
+    expect(linkCoverage(['.agents/tasks/E-005-gone.md'], read)).toEqual({ linked: 0, unlinked: 1 });
+  });
+
+  it('reports zero for an empty subject rather than nothing at all', () => {
+    expect(linkCoverage([], read)).toEqual({ linked: 0, unlinked: 0 });
   });
 });

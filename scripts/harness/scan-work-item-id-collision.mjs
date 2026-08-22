@@ -37,7 +37,7 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
-import { findUnlinkedRecords } from './task-record-issue-link.mjs';
+import { findUnlinkedRecords, linkCoverage } from './task-record-issue-link.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TASKS_PREFIX = '.agents/tasks/';
@@ -161,7 +161,13 @@ function main() {
   // a permission nobody needs, and a stale one is how an allowlist quietly becomes the rule.
   const stale = [...HISTORICAL_COLLISIONS.keys()].filter((id) => !collisions.has(id));
 
-  console.log(`::examined:: ${records.length} tracked task record(s)`);
+  // Both halves of the link population, never only the half that carries one — a consumer reporting
+  // its size as "records with a link" would name the set it can see and call it the set.
+  const coverage = linkCoverage(records);
+  console.log(
+    `::examined:: ${records.length} tracked task record(s); ` +
+      `${coverage.linked} name an issue, ${coverage.unlinked} do not`,
+  );
 
   if (fresh.length === 0 && stale.length === 0 && unlinked.length === 0) {
     console.log('work-item-id-collision scan passed.');
