@@ -71,6 +71,9 @@ session-store.ts          -- SessionStore: JSON file persistence for conversatio
 - `@robota-sdk/agent-session` depends on `@robota-sdk/agent-core` and `@robota-sdk/agent-interface-transport` (SSOT for `ICompactEvent`/`TCompactTrigger`).
 - No dependency on `@robota-sdk/agent-tools` or `@robota-sdk/agent-provider-anthropic`.
 - Tool and provider assembly is the responsibility of the consuming layer (`agent-framework`).
+- Workspace trust and project-path interpretation are also framework responsibilities. This package owns only
+  neutral session record/log/payload mechanisms and explicit source/sink ports; it never imports or reconstructs
+  a workspace authority from a path.
 
 ## Type Ownership
 
@@ -92,6 +95,10 @@ Types owned by this package (SSOT):
 | `TSessionLogPayloadResolutionErrorCode`     | Type      | `external-payload-resolution-contracts.ts` | Stable fail-closed error code vocabulary for sidecar resolution                                       |
 | `ISessionLogLoadOptions`                    | Type      | `session-log-replay.ts`                    | Loader limits with the log-derived base directory omitted                                             |
 | `ISessionReplayRecord`                      | Interface | `session-log-replay.ts`                    | Reconstructed replay state from append-only JSONL logs                                                |
+| `ISessionLogSource`                         | Interface | `session-log-ports.ts`                     | Neutral source of already-read JSONL text                                                             |
+| `ISessionLogSink`                           | Interface | `session-log-ports.ts`                     | Neutral append/flush sink used by live logging                                                        |
+| `IExternalPayloadSource`                    | Interface | `session-log-ports.ts`                     | Neutral relative sidecar-byte source                                                                  |
+| `IExternalPayloadSink`                      | Interface | `session-log-ports.ts`                     | Neutral content-addressed sidecar-byte sink                                                           |
 
 Types consumed from other packages (not owned here):
 
@@ -139,6 +146,8 @@ Types consumed from other packages (not owned here):
 | `assertSafeSessionId`                       | Function             | SEC-006: throws unless the session id is a safe path component — the guard `SessionStore` applies to every id it joins into a path        |
 | `CheckpointTree`                            | Class                | SELFHOST-007 neutral, I/O-free branch tree over `{id,parentId}` checkpoint nodes (fork/switch/listBranches/ancestors/activeLeaf)          |
 | `FileSessionLogger`                         | Class                | JSONL file-based session event logger                                                                                                     |
+| `NodeSessionLogSource`                      | Class                | Explicit host filesystem adapter for one JSONL file and its relative payload sidecars                                                     |
+| `NodeSessionLogSink`                        | Class                | Explicit host filesystem adapter for append/flush and owner-only payload sidecars                                                         |
 | `SilentSessionLogger`                       | Class                | No-op session logger                                                                                                                      |
 | `ISessionOptions`                           | Interface            | Constructor options for Session                                                                                                           |
 | `ISessionShutdownOptions`                   | Interface            | Graceful shutdown options for `Session.shutdown()`                                                                                        |
@@ -157,7 +166,7 @@ Types consumed from other packages (not owned here):
 | `AUTO_COMPACT_THRESHOLD`                    | Constant             | Default auto-compact threshold fraction of the context window (exported from `context-window-tracker.ts`)                                 |
 | `SESSION_LOG_EVENT`                         | Constant             | Session log event-name enum object (`session-log-events.ts`)                                                                              |
 | `isSessionLogEvent`                         | Function             | Type guard for a `TSessionLogEventName`                                                                                                   |
-| `loadSessionLogEntries`                     | Function             | Loads and parses persisted session log entries from a JSONL file                                                                          |
+| `loadSessionLogEntries`                     | Function             | Parses and hydrates entries from an explicit `ISessionLogSource`/`IExternalPayloadSource`; it never opens a path by default               |
 | `resolveSessionLogExternalPayloads`         | Function             | Recursively hydrates content-addressed JSON sidecars under bounded depth/bytes and verified containment/integrity                         |
 | `SessionLogPayloadResolutionError`          | Class                | Typed fail-closed error with stable `code` and structured resolution metadata                                                             |
 | `ISessionLogPayloadResolutionOptions`       | Interface            | Resolver base directory and optional `maxDepth` / `maxTotalBytes` limits                                                                  |
@@ -269,6 +278,12 @@ The repo-root `./scripts/migrate-session-history.mjs` backfills the `history` fi
 ## Session Logging
 
 The session log records structured events to a JSONL file for diagnostics and replay. Logs must preserve enough raw data to reconstruct what was sent to the model and what came back:
+
+Live logging writes through `ISessionLogSink` and `IExternalPayloadSink`; parsing/hydration reads through
+`ISessionLogSource` and `IExternalPayloadSource`. `NodeSessionLogSource`/`NodeSessionLogSink` are explicitly
+named host adapters. A project composition supplies framework authority-backed adapters instead of reopening an
+absolute path. Append, hot-path buffering, flush ordering, owner-only Node modes, sidecar integrity, and the
+warning-only diagnostic logging failure contract are preserved.
 
 `SESSION_LOG_EVENT` is the complete declared vocabulary for every production session-log event. Direct
 logger calls, `onExecutionEvent` literals emitted by agent-core, and replay-reader-only recognized

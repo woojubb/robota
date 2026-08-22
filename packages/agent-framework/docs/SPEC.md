@@ -2,7 +2,7 @@
 
 ## Scope
 
-`@robota-sdk/agent-framework` is the assembly layer of the Robota SDK. It composes `agent-core`, `agent-session`, `agent-tools`, `agent-executor`, and the `agent-interface-transport` type contracts into a single, provider-neutral SDK surface. The primary entry point is `InteractiveSession({ cwd, provider })`. A `createQuery({ provider })` factory is also provided for single-shot prompt use.
+`@robota-sdk/agent-framework` is the assembly layer of the Robota SDK. It composes `agent-core`, `agent-session`, `agent-tools`, `agent-executor`, and the `agent-interface-transport` type contracts into a single, provider-neutral SDK surface. Initial project-aware construction consumes a `TWorkspaceProjectAccess` decision; a bare `cwd` is provenance, not filesystem authority. A `createQuery({ provider })` factory is also provided for single-shot prompt use.
 
 This package owns: config loading (6-layer merge), context loading (AGENTS.md/CLAUDE.md walk-up), command infrastructure (command contracts, registry, sources), permission prompt, edit checkpointing, reversible execution policy, project memory store, self-hosting verification planner, skill discovery, background job orchestration, subagent assembly, bundle plugin management, and all SDK-specific type definitions.
 
@@ -33,6 +33,10 @@ This package does NOT own: provider implementations, generic session run loop, t
 - Hook executors: `PromptExecutor`, `AgentExecutor`
 - Permission prompt: `promptForApproval()`
 - Path helpers: `projectPaths()`, `userPaths()`
+- Workspace project authority (ARCH-042): `WorkspaceTrustService`, opaque
+  `IWorkspaceProjectAuthority`, its relative reader/named-state facets, separately approved settings and
+  project-mutation facets, and the typed Restricted decision/error. Only the production trust-service path
+  registers runtime-accepted authority instances; `/testing` exports no issuer.
 - User-local storage: `resolveUserLocalStorageRoot()`, user-local memory APIs
 - Testing utilities: exported from the `@robota-sdk/agent-framework/testing` subpath (not the
   runtime entry) — `scriptedSession()` / `ScriptedSessionHarness` (functional harness). The lightweight
@@ -77,6 +81,16 @@ Key design rules:
   `background-tasks/index.ts` and `subagents/index.ts`; concrete runtime values remain owner-direct
   imports from `@robota-sdk/agent-executor`. The public-surface guard follows the complete cycle-safe
   local export graph and fails closed on an unresolved local edge.
+- **Project access is capability-bound (ARCH-042)**: `WorkspaceTrustService` resolves the canonical project
+  identity and current host-owned trust record before registering one exact authority object in module-private
+  instance state. Runtime validation uses that identity registry, never a property/symbol/prototype marker.
+  Stateless project APIs and initial session/query construction accept the trusted/restricted decision or a
+  facet derived from its authority. Restricted construction instantiates no project reader/store/writer.
+  Immutable propagation through later session commands is owned by ARCH-043.
+- **Least-authority project facets (ARCH-042)**: reads are root-relative and link/escape refusing; application
+  state is selected by a closed namespace; project settings writes and checkpoint restore/delete require
+  separately approved capabilities. User-local paths and explicitly injected host adapters are different
+  contracts and never satisfy project-authority parameters.
 
 ## Type Ownership
 
@@ -157,6 +171,12 @@ Key design rules:
 | `ISkillPromptContext`                                                 | `src/utils/skill-prompt.ts`                                                                            | Variable substitution context for skill prompts                                                                         |
 | `ICliUpdateNotice`                                                    | `src/update-check/update-check.ts`                                                                     | CLI update notification data                                                                                            |
 | `TCliUpdateCheckResult`                                               | `src/update-check/update-check.ts`                                                                     | Result of a CLI update check                                                                                            |
+| `IWorkspaceProjectAuthority` / `TWorkspaceProjectAccess`              | `src/workspace-trust/types.ts`                                                                         | Opaque runtime capability and trusted/restricted initial-construction decision                                          |
+| `IWorkspaceProjectReader`                                             | `src/workspace-trust/types.ts`                                                                         | Runtime-minted, root-relative read facet                                                                                |
+| `IWorkspaceProjectStateStorage`                                       | `src/workspace-trust/types.ts`                                                                         | Runtime-minted named application-state facet                                                                            |
+| `IWorkspaceProjectSettingsWriter`                                     | `src/workspace-trust/types.ts`                                                                         | Separately approved writer restricted to project settings targets                                                       |
+| `IWorkspaceProjectMutation`                                           | `src/workspace-trust/types.ts`                                                                         | Separately approved checkpoint restore/delete mutation facet                                                            |
+| `IWorkspaceIdentityResolver` / `IWorkspaceTrustStore`                 | `src/workspace-trust/types.ts`                                                                         | Host-owned identity and trust-decision ports consumed by `WorkspaceTrustService`                                        |
 
 ## Public API Surface
 
@@ -179,6 +199,11 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `buildRuntimeSession`                       | function | RUNTIME-001: the single session-construction seam — builds an `InteractiveSession` from resolved `TInteractiveSessionOptions` (used by the TUI, print, and `--serve`)                                                                                                                                                                                    |
 | `startRuntimeHost`                          | function | RUNTIME-001: presentation-free runtime host — builds the session + owns the transport `startAll/stopAll` + bounded shutdown handle (used by the headless `robota --serve`)                                                                                                                                                                               |
 | `createProjectSessionStore`                 | function | Project-local session store facade                                                                                                                                                                                                                                                                                                                       |
+| `WorkspaceTrustService`                     | class    | Production authority mint boundary; returns a typed trusted/restricted decision after current identity/store validation                                                                                                                                                                                                                                  |
+| `WorkspaceAuthorityRequiredError`           | class    | Typed refusal raised by a low-level project API that receives no valid runtime-minted authority/facet                                                                                                                                                                                                                                                    |
+| `assertWorkspaceProjectAuthority`           | function | Runtime identity assertion; rejects reflection/property/prototype copies and serialized/structural lookalikes                                                                                                                                                                                                                                            |
+| `createWorkspaceProjectSettingsWriter`      | function | Derive a settings-only write capability from authority plus an explicit approved write decision                                                                                                                                                                                                                                                          |
+| `createWorkspaceProjectMutation`            | function | Derive a bounded project mutation capability from authority plus an explicit approved permission decision                                                                                                                                                                                                                                                |
 | `createUserSessionStore`                    | function | User-level session store facade (`~/.robota/sessions`)                                                                                                                                                                                                                                                                                                   |
 | `listResumableSessionSummaries`             | function | List saved sessions for session picker UI                                                                                                                                                                                                                                                                                                                |
 | `generateSessionName`                       | function | LLM-based session auto-naming (prompt/policy owned here; transports invoke + apply via `setName`). NEUT-005: default sanitizer is Unicode-aware (non-Latin titles survive); `IGenerateSessionNameOptions` injects a custom naming prompt and/or sanitizer                                                                                                |
