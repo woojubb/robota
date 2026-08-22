@@ -37,6 +37,8 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
+import { findUnlinkedRecords } from './task-record-issue-link.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TASKS_PREFIX = '.agents/tasks/';
 
@@ -143,6 +145,14 @@ export function collisionsIn(records) {
 }
 
 function main() {
+  // issue #1916, the second half. The cross-source case — an ID claimed by a record here and by an
+  // ISSUE TITLE opened elsewhere — cannot be decided while nothing says which issue registers which
+  // record. Requiring the link on records a change ADDS is what makes that comparison possible
+  // later; see `task-record-issue-link.mjs` for why it is forward-only.
+  const baseIndex = process.argv.indexOf('--base-ref');
+  const baseRef = baseIndex === -1 ? undefined : process.argv[baseIndex + 1];
+  const unlinked = baseRef === undefined ? [] : findUnlinkedRecords(baseRef);
+
   const records = scanTaskRecords();
   const collisions = collisionsIn(records);
   const fresh = [...collisions].filter(([id]) => !HISTORICAL_COLLISIONS.has(id));
@@ -153,9 +163,18 @@ function main() {
 
   console.log(`::examined:: ${records.length} tracked task record(s)`);
 
-  if (fresh.length === 0 && stale.length === 0) {
+  if (fresh.length === 0 && stale.length === 0 && unlinked.length === 0) {
     console.log('work-item-id-collision scan passed.');
     return 0;
+  }
+
+  for (const record of unlinked) {
+    console.error(
+      `work-item-id-collision: ${record} is a NEW task record that names no issue. An ID claimed ` +
+        'by a record here and by an issue title opened elsewhere is the collision this scan cannot ' +
+        'see, and the link is what would let it. Add `issue #N` (or the issue URL), or write ' +
+        '`no-issue: <reason>` on a line if this item genuinely has none.',
+    );
   }
   for (const [id, paths] of fresh) {
     console.error(`work-item-id-collision: ${id} is claimed by ${paths.length} distinct records:`);

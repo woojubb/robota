@@ -56,8 +56,16 @@ Two things it deliberately does not treat as collisions, and one it cannot see:
   numbers, so renaming the files would move each record out from under every citation pointing at
   it. The allowlist may not grow: a fresh collision is refused.
 - An ID claimed by a record in one clone and by an **issue title** opened by another session is
-  invisible to it, because nothing in the tree says which issue registers which record. That is the
-  case that produced the three collisions in issue #1916 and it stays open there.
+  invisible to it on its own, because nothing in the tree said which issue registers which record.
+
+**So a NEW record names its issue.** Any of `Registered as … issue #N`, a bare `issue #N`, or the
+issue URL — the three spellings already in the tree, so a record that links already does not have to
+link again. A pull-request reference is not one: `PR #N` says what delivered the work, not what
+registered it. `no-issue: <reason>` on a line opts out, for an item that genuinely has none.
+
+Only records a change ADDS are judged. 711 of 798 existing records carry no citation, most of them
+completed and merged; back-filling them means guessing which issue each one meant, and a wrong link
+is worse than none — the cross-source check would then read two items as one.
 
 ## Process
 
