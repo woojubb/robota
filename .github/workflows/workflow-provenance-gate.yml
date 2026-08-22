@@ -38,7 +38,12 @@ name: Workflow Provenance Gate
 on:
   pull_request_target:
     branches: [main, develop]
-    types: [opened, synchronize, reopened]
+    # `edited` is not decoration and not GitHub's default. Retargeting a pull request's base fires it
+    # and nothing else does, so without it a branch moved develop->main keeps the conclusion it
+    # earned against the OLD base while branch protection reports the context satisfied. Measured on
+    # throwaway PR #1442 for the `pull_request` plane; the same hazard applies here, and it is why
+    # `scan-main-required-checks` R7 treats an absent or `edited`-less `types:` as the FAILING case.
+    types: [opened, synchronize, reopened, edited]
 
 # Read-only, and stated rather than inherited. A `pull_request_target` job runs against the base with
 # whatever the default token grants; narrowing it here is what makes "this job cannot change

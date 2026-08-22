@@ -88,6 +88,15 @@
           "local": {
             "notRunnable": "ci-mirror-map NOT_MIRRORED"
           }
+        },
+        {
+          "context": "workflow provenance",
+          "workflow": ".github/workflows/workflow-provenance-gate.yml",
+          "job": "provenance",
+          "verifies": "INFRA-097 / issue #1719 — the trusted control plane. It answers the one question that can be answered without running anything: does this pull request modify a file that a REQUIRED check loads? It runs on `pull_request_target`, which loads its own definition from the BASE branch, so a pull request cannot change what this gate says about it — an edit takes effect only after merge, which is after the gate it would have moved has run. It checks out the base and only the base, FETCHES the head without checking it out (reading a file name is not running the file), installs nothing, and holds `contents: read`. That is what turns a self-edit of the control plane from VISIBLE into UNMERGEABLE.",
+          "local": {
+            "notRunnable": "ci-mirror-map NOT_MIRRORED"
+          }
         }
       ],
       "deliberately_not_required": [
@@ -132,7 +141,7 @@
           "context": "promotion closes",
           "workflow": ".github/workflows/ci.yml",
           "job": "promotion-closes",
-          "verifies": "INFRA-104 \u2014 the promotion body carries a closing keyword for every OPEN issue the pull requests it promotes declared they close. GitHub reads closing keywords only on a default-branch pull request, so the keyword on each feature\u2192develop PR closes nothing (#1802 `Closes #1750`, #1816 `Closes #1722` \u2014 both merged, both issues left open) and the promotion is the only pull request that can carry them. The requirement is DERIVED from the promotion's own commit subjects, not from what the body claims: each `(#NNNN)` suffix resolves to that PR's body, each `Closes #N` in it is confirmed to be an OPEN issue (not a Task ID \u2014 PR #1801's body says `Closes PROV-007.`) through the issues API, and a derivation that cannot complete BLOCKS rather than reporting an empty requirement.",
+          "verifies": "INFRA-104 — the promotion body carries a closing keyword for every OPEN issue the pull requests it promotes declared they close. GitHub reads closing keywords only on a default-branch pull request, so the keyword on each feature→develop PR closes nothing (#1802 `Closes #1750`, #1816 `Closes #1722` — both merged, both issues left open) and the promotion is the only pull request that can carry them. The requirement is DERIVED from the promotion's own commit subjects, not from what the body claims: each `(#NNNN)` suffix resolves to that PR's body, each `Closes #N` in it is confirmed to be an OPEN issue (not a Task ID — PR #1801's body says `Closes PROV-007.`) through the issues API, and a derivation that cannot complete BLOCKS rather than reporting an empty requirement.",
           "local": {
             "entryPoint": "node scripts/harness/scan-promotion-closes.mjs --pr <n> --repo <owner/name>",
             "note": "the --pr argument is part of the entry point: the verdict is computed from a live pull request's commits, body and referenced issue states. With no PR there is nothing to judge, and a run that invented one would report a pass over a promotion it never saw."
@@ -145,6 +154,15 @@
           "verifies": "`pnpm harness:verify:release` — the only required context that executes the repository's code on a promotion: full build, full scan suite, harness suite, typecheck, lint, an unconditional osv-scanner, and the workspace test suites. SPANS, corrected by INFRA-063 because the earlier wording read as total: every workspace script named exactly `test` (via `pnpm run -r --if-present test`), plus every suite declared under another `test:*` name that `scripts/harness/release-test-suites.mjs` enumerates — `test:bin` today, and whatever is added next without anyone editing a list. DOES NOT SPAN, by declaration rather than by silence: `test:pty` (runs as the required `tui-e2e` context on the develop PR of every commit a promotion carries), `test:live` and `test:bun` (need provider credentials / a Bun toolchain no runner has), the `test:coverage` and `test:watch` variants of suites already run, and `apps/agent-app`'s Electron e2e pair, which no workflow runs at all and is recorded as debt. `scan-release-sweep-coverage.mjs` re-verifies each of those claims on every scan run and turns a new unaccounted-for `test:*` script red.",
           "local": {
             "entryPoint": "pnpm harness:verify:release"
+          }
+        },
+        {
+          "context": "workflow provenance",
+          "workflow": ".github/workflows/workflow-provenance-gate.yml",
+          "job": "provenance",
+          "verifies": "INFRA-097 / issue #1719 — the trusted control plane. It answers the one question that can be answered without running anything: does this pull request modify a file that a REQUIRED check loads? It runs on `pull_request_target`, which loads its own definition from the BASE branch, so a pull request cannot change what this gate says about it — an edit takes effect only after merge, which is after the gate it would have moved has run. It checks out the base and only the base, FETCHES the head without checking it out (reading a file name is not running the file), installs nothing, and holds `contents: read`. That is what turns a self-edit of the control plane from VISIBLE into UNMERGEABLE.",
+          "local": {
+            "notRunnable": "the verdict is computed from a live pull request's changed-file list against its base. Off a real pull request there is no file list to read, so a local run would either invent one or report a pass over a control plane it never inspected — the vacuity this gate exists to close."
           }
         }
       ],

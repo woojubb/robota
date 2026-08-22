@@ -212,6 +212,15 @@ export const NOT_MIRRORED = [
   },
 
   {
+    context: 'workflow provenance',
+    reason:
+      "runs on `pull_request_target` and judges the pull request's CHANGED-FILE LIST against the workflows that provide a required context, reading both from the base. Off a real pull request there is no file list and no base to compare it to, so a local run would either invent one or report a pass over a control plane it never inspected — which is the vacuity INFRA-097 built this gate to close.",
+    relevance: 'guarded-workflow',
+    relevantWhen: 'the diff touches any file under `.github/workflows/`',
+    manualCommand:
+      'node scripts/harness/scan-workflow-provenance.mjs --base-ref <base-sha> --head-ref <head-sha>   (the arguments are part of the entry point: with neither, the scan reports the standing exposure and judges no change)',
+  },
+  {
     context: 'review-gate',
     reason:
       "reads GitHub's code-scanning API for this PR's merge ref and compares it against the base branch. Both sides only exist once CodeQL has analysed a real pull request, so there is nothing a local run could read — a mirror would either invent the input or report a pass over an analysis that was never performed, which is the exact defect INFRA-048 built this gate to close.",
@@ -224,7 +233,7 @@ export const NOT_MIRRORED = [
 ];
 
 /** The relevance keys the runner knows how to evaluate. */
-export const RELEVANCE_KEYS = ['manifest-or-lockfile', 'code'];
+export const RELEVANCE_KEYS = ['manifest-or-lockfile', 'code', 'guarded-workflow'];
 
 /**
  * `run:` steps of a mirrored job that are CI infrastructure rather than a check: provisioning the

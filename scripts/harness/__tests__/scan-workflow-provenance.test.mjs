@@ -78,8 +78,14 @@ describe('workflow-provenance — criteria are READ from the registry (INFRA-097
     const { workflows } = readGuardedWorkflows(WORKSPACE_ROOT);
 
     // Exactly the files that provide a required context today. Adding a required check in a new
-    // workflow must govern that workflow with no code change here.
-    expect(workflows).toEqual(['.github/workflows/ci.yml', '.github/workflows/review-gate.yml']);
+    // workflow must govern that workflow with no code change here — and INFRA-097 step 5 is the
+    // demonstration: registering `workflow provenance` put the gate itself into this set, derived,
+    // with nothing edited here.
+    expect(workflows).toEqual([
+      '.github/workflows/ci.yml',
+      '.github/workflows/review-gate.yml',
+      '.github/workflows/workflow-provenance-gate.yml',
+    ]);
   });
 
   it('names which contexts each guarded workflow provides', () => {
@@ -217,13 +223,20 @@ describe('workflow-provenance — a change that moves its own gate (INFRA-097)',
 });
 
 describe('workflow-provenance — this repository (INFRA-097)', () => {
-  it('reports both guarded workflows as PR-loaded, which is the exposure INFRA-097 tracks', () => {
+  it('reports two of three guarded workflows as PR-loaded — the third is the trusted plane', () => {
     const { selfLoading, examined } = findWorkflowProvenanceFindings(WORKSPACE_ROOT);
 
-    // If this ever shrinks, a trusted-provenance design landed and INFRA-097 should be revisited —
-    // which is exactly the signal the issue wants kept visible.
-    expect(examined).toBe(2);
+    // The earlier case asserted 2 of 2 and said: "if this ever shrinks, a trusted-provenance design
+    // landed and INFRA-097 should be revisited." It has. `workflow provenance` became a required
+    // context in step 5, which pulled its own workflow into the guarded set — and that workflow is
+    // the one file here that does NOT load from the pull request, because it runs on
+    // `pull_request_target`. So the ratio, not the count, is the live signal: the exposure is now
+    // named as two specific files rather than as "everything required".
+    expect(examined).toBe(3);
     expect(selfLoading).toHaveLength(2);
+    expect(selfLoading.map((finding) => finding.workflow ?? finding)).not.toContain(
+      '.github/workflows/workflow-provenance-gate.yml',
+    );
   });
 });
 

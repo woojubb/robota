@@ -81,6 +81,50 @@ registry state something untrue. The same held-membership shape `regression-red-
 
 ## Progress
 
+### 2026-08-22 — the requireable half, owner-assigned
+
+The owner assigned the fifth step, which the item had held as theirs. Making the context REQUIRED has
+prerequisites the item did not name, and they were found by trying:
+
+**The gate was inert for two hours and nothing said so.** `workflow-provenance-gate.yml` reached
+`develop` at 01:11 UTC and GitHub registered the workflow at **03:21:51 UTC — two seconds after the
+promotion that carried it to `main` merged**. A `pull_request_target` workflow is not registered until
+it lands on the DEFAULT branch, so pull requests #2010, #2011, #2012 and #2013 got no run at all,
+while pull request #2015 (opened at 03:28) got one four seconds after it opened. Measured through
+`gh api .../actions/workflows/workflow-provenance-gate.yml/runs`: `total_count` was 2, both after
+registration. Requiring the context before that moment would have blocked every open pull request
+permanently — the issue #1436 shape.
+
+**R7 was unsatisfied and would have shipped the retarget hole.** The trigger declared
+`types: [opened, synchronize, reopened]`. `edited` is the only activity a base retarget fires and
+GitHub's default set omits it, so a branch moved `develop`->`main` would have kept the conclusion it
+earned against the OLD base while branch protection reported the context satisfied — PR #1442's
+measured shape, on the other plane. Added.
+
+**R2 refused the fix as if it were the defect.** `scan-main-required-checks` read only
+`^  pull_request:`, so the one workflow whose plane is the entire point reported "declares no
+`pull_request:` trigger this scan can read". The rule is about whether a required context can FAIL,
+which is plane-independent; it now accepts either plane and names which one it found in every message.
+
+**The self-guarding case was inverted, not excepted.** A test asserted the gate must NOT be in the
+guarded set, reasoning that a change editing it "would be judged by the edited version". That is true
+of a `pull_request` workflow and false of this one — `pull_request_target` loads the definition from
+the base, which is why the plane was split. Once the gate provides a required context it SHOULD guard
+itself, and the test now asserts that plus the two properties that make it safe.
+
+Landed here: the `edited` type, the two-plane R2, the `workflow provenance` registration under BOTH
+branches in `.github/required-status-checks.json`, and a `guarded-workflow` relevance key so
+`verify-like-ci` does not mark the context irrelevant on exactly the diffs it judges (a workflow edit
+is not `code` to the `changes` classifier).
+
+**Not yet done, and it is the last action:** flipping the live rulesets. It is deliberately last —
+the declaration is now what `ruleset-drift` reconciles against, and the window between the two states
+is why this is a sequence rather than one edit.
+
+**Adjacent, measured, and NOT fixed here:** `protect-main` requires three contexts live while the
+declaration names four — `promotion closes` was never added. That is issue #1980 and it is a separate
+item; recorded because the live read for this step surfaced it again.
+
 ### 2026-08-17 — detection landed; trusted provenance remains an owner decision
 
 `scripts/harness/scan-workflow-provenance.mjs` is registered in `pnpm harness:scan`.
