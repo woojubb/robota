@@ -87,6 +87,27 @@ function baseConfig(): IResolvedConfig {
   };
 }
 
+describe('createSession — generated session id', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('uses a cryptographically secure UUID when no session id is supplied', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+
+    await createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', projectNotesMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+    });
+
+    expect(sessionCtorCalls[0]?.sessionId).toMatch(
+      /^session_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
+    );
+  });
+});
+
 describe('createSession — allowedTools option', () => {
   beforeEach(() => {
     sessionCtorCalls.length = 0;

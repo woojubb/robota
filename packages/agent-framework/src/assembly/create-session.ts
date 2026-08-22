@@ -3,6 +3,7 @@
  * tools, and provider.
  */
 
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
 import { applyPresetToolLists, GuardrailExecutor } from '@robota-sdk/agent-core';
@@ -41,8 +42,6 @@ import type {
 
 export type { ICreateSessionOptions, ICreateSessionResult } from './create-session-types.js';
 
-const ID_RADIX = 36;
-const ID_RANDOM_LENGTH = 9;
 const DEFAULT_PROVIDER_IDLE_TIMEOUT_MS = 120_000;
 
 function getModelInvocableCommandDescriptors(
@@ -294,5 +293,5 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
 }
 
 function createSessionId(): string {
-  return `session_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
+  return `session_${randomUUID()}`;
 }
