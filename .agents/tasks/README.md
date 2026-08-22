@@ -51,8 +51,9 @@ it offline.
 Two things it deliberately does not treat as collisions, and one it cannot see:
 
 - A **phase** of an item — the `-p7-` / `-P4-` segment right after the ID — belongs to its parent.
-- Seven `<PREFIX>-001` IDs from before the convention settled are allowlisted in the scan, each with
-  the reason. They are all in `completed/`, and the merged commits that deliver them name the old
+- Ten IDs are allowlisted in the scan, each with the reason — seven `<PREFIX>-001` from before the
+  convention settled, and three (`ARCH-CONF-007`, `ARCH-FIX-020`, `ARCH-FIX-021`) found only when
+  the ID pattern was widened to reach multi-segment prefixes like `ARCH-FIX-` and `INFRA-BL-`. They are all in `completed/`, and the merged commits that deliver them name the old
   numbers, so renaming the files would move each record out from under every citation pointing at
   it. The allowlist may not grow: a fresh collision is refused.
 - An ID claimed by a record in one clone and by an **issue title** opened by another session is

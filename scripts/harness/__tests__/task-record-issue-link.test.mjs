@@ -8,6 +8,9 @@
  * cross-source comparison needs it on both sides, and today it is on one.
  */
 
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -73,6 +76,25 @@ describe('which files are judged', () => {
     expect(isTaskRecord(file)).toBe(false);
   });
 
+  it.each([
+    ['.agents/tasks/ARCH-FIX-020-isession-upward-dependency.md', 'a two-segment prefix'],
+    ['.agents/tasks/INFRA-BL-009-A-backlog-rewrite.md', 'another two-segment prefix'],
+    ['.agents/tasks/completed/DQ-AUDIT-005-x.md', 'a two-segment prefix under completed/'],
+  ])('%s is a task record (%s)', (file) => {
+    // Reported in review: requiring the digits after the FIRST segment excluded 97 records, and a
+    // new `ARCH-FIX-022-…` would have been SILENTLY exempt from the requirement this module
+    // imposes — a rule that does not reach part of its population.
+    expect(isTaskRecord(file)).toBe(true);
+  });
+
+  it('exempts a LETTERED split as well as a numbered phase', () => {
+    // `INFRA-BL-009` is one item across six files `-A-` … `-F-`. Without this it reads as six items
+    // sharing an id — a collision the tree does not have.
+    expect(isPhaseRecord('.agents/tasks/INFRA-BL-009-C-harness-file-existence-check.md')).toBe(
+      true,
+    );
+  });
+
   it('exempts a phase, which carries its parent registration', () => {
     // Same convention `work-item-id-collision` uses for the same reason: a phase is not a second
     // item, so asking it to name its own issue would ask for one that does not exist.
@@ -109,17 +131,68 @@ describe('the size reported is BOTH halves of the population', () => {
     return files[f];
   };
 
-  it('counts linked and unlinked separately, and skips what is not judged', () => {
-    expect(linkCoverage(Object.keys(files), read)).toEqual({ linked: 2, unlinked: 1 });
+  it('counts linked, unlinked and NOT-JUDGED, and the three sum to the input', () => {
+    // The third number was added in review: `994 … 87 name an issue, 696 do not` summed to 783, and
+    // the missing 211 were the population the id pattern could not see — unstated on the very line
+    // the pair exists to make honest. Asserting the SUM is what stops that recurring.
+    const input = Object.keys(files);
+    const coverage = linkCoverage(input, read);
+    expect(coverage).toEqual({ linked: 2, unlinked: 1, notJudged: 2 });
+    expect(coverage.linked + coverage.unlinked + coverage.notJudged).toBe(input.length);
   });
 
   it('counts an UNREADABLE record as unlinked, never as absent', () => {
     // A record this cannot open is a record a consumer cannot compare. Dropping it would shrink the
     // denominator silently, which is the exact shape the pair exists to report.
-    expect(linkCoverage(['.agents/tasks/E-005-gone.md'], read)).toEqual({ linked: 0, unlinked: 1 });
+    expect(linkCoverage(['.agents/tasks/E-005-gone.md'], read)).toEqual({
+      linked: 0,
+      unlinked: 1,
+      notJudged: 0,
+    });
   });
 
   it('reports zero for an empty subject rather than nothing at all', () => {
-    expect(linkCoverage([], read)).toEqual({ linked: 0, unlinked: 0 });
+    expect(linkCoverage([], read)).toEqual({ linked: 0, unlinked: 0, notJudged: 0 });
+  });
+});
+
+describe('the check fires where the suite actually runs it', () => {
+  /*
+   * Reported in review of this change, and it is the finding that mattered most: the base ref was
+   * taken from `--base-ref` alone, and the one real caller — the `work-item-id-collision` entry in
+   * `run-all-scans.mjs` — passes no arguments. So `baseRef` was always undefined there, the added
+   * records were always an empty set, and the rule this change exists to add never fired anywhere
+   * it actually runs.
+   *
+   * A rule enforced only when someone remembers a flag is not enforced. This case runs the scan the
+   * way the suite runs it — no arguments — and asserts it resolved a base and judged something.
+   */
+  const ROOT = path.resolve(import.meta.dirname, '../../..');
+
+  function runBare() {
+    try {
+      return execFileSync('node', ['scripts/harness/scan-work-item-id-collision.mjs'], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        timeout: 120_000,
+      });
+    } catch (error) {
+      // A non-zero exit still carries the output this case reads.
+      return `${error.stdout ?? ''}${error.stderr ?? ''}`;
+    }
+  }
+
+  it('resolves a base ref with NO arguments, so the suite entry point reaches the check', () => {
+    // The failure this pins is silent: with an unresolved base the scan passes, and a pass is
+    // indistinguishable from "no new records". So the assertion is on the REFUSAL not appearing.
+    expect(runBare()).not.toContain('no base ref could be resolved');
+  });
+
+  it('reports both halves of the link population from that same bare run', () => {
+    // The examined line is what a later cross-source scan would inherit its subject from. If the
+    // bare run could not read the tree, this is where it shows.
+    expect(runBare()).toMatch(
+      /::examined:: \d+ tracked task record\(s\); \d+ name an issue, \d+ do not/,
+    );
   });
 });

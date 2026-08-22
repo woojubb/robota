@@ -85,17 +85,31 @@ export function namesItsIssue(content) {
   return OPT_OUT.test(content) || ISSUE_LINK_PATTERNS.some((pattern) => pattern.test(content));
 }
 
-/** A phase of a parent carries the parent's registration. Same convention the collision scan uses. */
+/**
+ * A part of a parent carries the parent's registration. Same convention the collision scan uses,
+ * and the same two spellings: a numbered phase (`-p7-`, `-P4-`) and a lettered split (`-A-` … `-F-`,
+ * which `INFRA-BL-009` uses across six files).
+ */
 export function isPhaseRecord(relativePath) {
-  return /^[A-Z][A-Z0-9]*-\d+-[Pp]\d+[a-z]?-/.test(path.basename(relativePath));
+  return new RegExp(`^${ID_PREFIX}-(?:[Pp]\\d+[a-z]?|[A-Z])-`).test(path.basename(relativePath));
 }
+
+/**
+ * The shape of a work-item ID, prefix included.
+ *
+ * Multi-segment prefixes are real and common: `ARCH-FIX-020`, `INFRA-BL-009`, `DQ-AUDIT-005`.
+ * Reported in review — requiring the digits after the FIRST segment excluded 97 records, and a new
+ * `ARCH-FIX-022-…` would have been SILENTLY exempt from the requirement this module imposes. A rule
+ * that does not reach part of its population is a rule about the part it reaches.
+ */
+const ID_PREFIX = '[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\\d+';
 
 /** Is this a task record with a work-item ID? README.md and un-prefixed files are not. */
 export function isTaskRecord(relativePath) {
   return (
     relativePath.startsWith(TASKS_PREFIX) &&
     relativePath.endsWith('.md') &&
-    /^[A-Z][A-Z0-9]*-\d+-/.test(path.basename(relativePath))
+    new RegExp(`^${ID_PREFIX}-`).test(path.basename(relativePath))
   );
 }
 
@@ -129,6 +143,10 @@ export function addedTaskRecords(baseRef, root = WORKSPACE_ROOT) {
  * these links reports "no cross-source collisions" over a set that excludes every record it could
  * not read — which is issue #1916's own failure, one layer up. The pair is what makes the gap
  * visible instead of invisible.
+ *
+ * THREE numbers, after review: a record with no work-item id and a phase record are neither linked
+ * nor unlinked, and dropping them silently made the pair fail to sum to the examined total — the gap
+ * unstated on the very line that exists to make the population honest.
  */
 export function linkCoverage(
   records,
@@ -136,8 +154,15 @@ export function linkCoverage(
 ) {
   let linked = 0;
   let unlinked = 0;
+  let notJudged = 0;
   for (const relative of records) {
-    if (!isTaskRecord(relative) || isPhaseRecord(relative)) continue;
+    // Counted, not dropped. Reported in review: `994 … 87 name an issue, 696 do not` sums to 783,
+    // and the missing 211 were exactly the population the ID pattern could not see — unstated on
+    // the very line the pair exists to make honest.
+    if (!isTaskRecord(relative) || isPhaseRecord(relative)) {
+      notJudged += 1;
+      continue;
+    }
     let content;
     try {
       content = readFile(relative);
@@ -150,7 +175,7 @@ export function linkCoverage(
     if (namesItsIssue(content)) linked += 1;
     else unlinked += 1;
   }
-  return { linked, unlinked };
+  return { linked, unlinked, notJudged };
 }
 
 /** Every added record that names no issue and claims no exception. */
