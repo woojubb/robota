@@ -8,10 +8,34 @@
  *
  * ## The missing piece was never the network
  *
- * Measured when this landed: 48 IDs are claimed by both a record and an issue title, and 39 of those
- * records carry no reference to that issue's number — yet they are overwhelmingly the SAME item
- * written twice, not two items. So a scan over the union of both sources reports 39 false
- * collisions. What is absent is the LINK, and 87 of 798 records have one in any form.
+ * Measured with the predicates this module ships — `namesItsIssue` and `ISSUE_LINK_PATTERNS` — over
+ * the 48 IDs claimed by BOTH a record and an issue title:
+ *
+ *   44  the record names that issue's own number
+ *    3  the record names a DIFFERENT issue (`ARCH-037`→#1805 cites 1764/1773; `ARCH-039`→#1828
+ *       cites 1764; `HARNESS-074`→#1619 cites 1615)
+ *    1  the record names none at all (`HARNESS-058`→#1571)
+ *
+ * So the gap is FOUR citation lines in four named files, not a wait for new records to accumulate.
+ * A first cut of this header said 39, which was a frontmatter-only count carried over from the
+ * item's discussion, and two attempts to re-derive it here produced 39 and then 2 — both from a
+ * `#\d+\b` pattern whose `\b` does nothing after a digit. The number that survived was the one a
+ * reviewer measured independently and this session then reproduced. Recorded because the wrong
+ * figure was the load-bearing one: it made the burn-down look unbounded when it is four lines.
+ *
+ * Across the whole tree the link is on 87 of 798 records.
+ *
+ * ## The best instance of this defect happened while fixing it
+ *
+ * The three collisions this item was opened for were between two CLONES, minutes apart. A fourth
+ * happened during the review of this module: a reviewer read the branch at one head, posted a clean
+ * verdict, and merged — and by then the head had moved by one commit. The merge took the corrected
+ * CODE and left the uncorrected HEADER, which is this file's own subject with the halves swapped:
+ * the part a future reader trusts was the part that was wrong.
+ *
+ * The window there was not another clone and not minutes. It was seconds on one pull request, and
+ * re-reading the head immediately before writing would have closed it. That is the general shape —
+ * a claim true when written, acted on after the facts moved — and it does not need two machines.
  *
  * Requiring it makes the cross-source comparison exact: an ID claimed by a record and by an issue
  * the record names is one item; an ID claimed by a record and by an issue it does NOT name is two.
