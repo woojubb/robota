@@ -10,6 +10,8 @@ import {
   groupCoverableChanges,
   isCoverableSource,
   isTestFile,
+  lcovIsEntirelyUnexercised,
+  packageOwnsTests,
   packageRootOf,
   parseChangedNewLines,
   parseLcov,
@@ -174,6 +176,10 @@ describe('INFRA-041 orchestration (injected io)', () => {
       diffText,
       hasPkgJson: flatPkgJson,
       collectLcov: () => 'SF:src/adder.ts\nDA:2,0\nDA:3,0\nDA:6,0\nDA:7,0\nend_of_record\n',
+      // #1344: the package OWNS a test suite, so an all-zero report is a real hole rather than an
+      // uninstrumented package. Without this the case is indistinguishable from the false positive
+      // the classification exists to prevent, and it would be asserting the wrong thing.
+      listFiles: () => ['packages/fixture-pkg/src/__tests__/adder.test.ts'],
     });
     expect(verdict).toBe(VERDICT.BELOW_TARGET);
     expect(measured).toBe(4);
@@ -245,5 +251,78 @@ describe('INFRA-041 CLI red-proof (fixture end-to-end, exit-code contract)', () 
     expect(enforced.code).toBe(0);
     expect(enforced.stdout).toContain(VERDICT.OK);
     expect(enforced.stdout).toContain('4/4');
+  });
+});
+
+/**
+ * #1344 / INFRA-046 — a package with no tests must not be CHARGED for its own uncovered lines.
+ *
+ * `coverage.all: true` instruments a package's source whether or not anything exercises it, so a
+ * package that owns no test file still emits an lcov report — every record zero-hit. Folding those
+ * lines into the measured total makes the patch percentage BELOW-TARGET for a package that has no
+ * way to discharge the debt. That is a false positive, and INFRA-046's promotion criterion allows
+ * none.
+ *
+ * BOTH conditions are required. A package WITH tests whose report happens to be wholly uncovered is
+ * exactly the defect this gate exists to catch, and the cases below pin that it still fails.
+ */
+describe('an untested package is NO-DATA, not BELOW-TARGET (#1344)', () => {
+  const ZERO_HIT_LCOV = 'SF:src/a.ts\nDA:1,0\nDA:2,0\nend_of_record\n';
+  const COVERED_LCOV = 'SF:src/a.ts\nDA:1,1\nDA:2,0\nend_of_record\n';
+
+  /** One changed line in one package, with the lcov and file listing under test. */
+  const runWith = ({ lcov, files }) =>
+    runPatchCoverage({
+      target: 80,
+      diffText:
+        'diff --git a/packages/p/src/a.ts b/packages/p/src/a.ts\n' +
+        '--- a/packages/p/src/a.ts\n+++ b/packages/p/src/a.ts\n@@ -1,0 +1,2 @@\n+x\n+y\n',
+      hasPkgJson: (dir) => dir === 'packages/p',
+      collectLcov: () => lcov,
+      listFiles: () => files,
+      log: () => {},
+    });
+
+  it('reports INCONCLUSIVE when the package owns no test file and nothing is covered', async () => {
+    const result = await runWith({
+      lcov: ZERO_HIT_LCOV,
+      files: ['packages/p/src/a.ts', 'packages/p/package.json'],
+    });
+    expect(result.verdict).toBe('inconclusive-no-data');
+    // The decisive part: those lines are UNMEASURED, not measured-and-missed.
+    expect(result.measured).toBe(0);
+  });
+
+  it('still reports BELOW-TARGET when the package DOES own tests', async () => {
+    const result = await runWith({
+      lcov: ZERO_HIT_LCOV,
+      files: ['packages/p/src/a.ts', 'packages/p/src/__tests__/a.test.ts'],
+    });
+    expect(result.verdict).toBe('patch-coverage-below-target');
+    expect(result.measured).toBe(2);
+  });
+
+  it('does not excuse a testless package whose report has ANY hit', async () => {
+    // One covered line is evidence something ran, so the report is real data and 50% < 80% fails.
+    const result = await runWith({
+      lcov: COVERED_LCOV,
+      files: ['packages/p/src/a.ts', 'packages/p/package.json'],
+    });
+    expect(result.verdict).toBe('patch-coverage-below-target');
+    expect(result.measured).toBe(2);
+  });
+});
+
+describe('lcovIsEntirelyUnexercised', () => {
+  it('is false for an EMPTY report — no records is not the same as no hits', () => {
+    // The distinction matters: an empty parse means the collector produced nothing for these files,
+    // which the existing UNINSTRUMENTED path already handles. Claiming "unexercised" here would
+    // swallow that case under a different label.
+    expect(lcovIsEntirelyUnexercised(new Map())).toBe(false);
+  });
+
+  it('is true only when records exist and none has a hit', () => {
+    expect(lcovIsEntirelyUnexercised(new Map([['f', new Map([[1, 0]])]]))).toBe(true);
+    expect(lcovIsEntirelyUnexercised(new Map([['f', new Map([[1, 1]])]]))).toBe(false);
   });
 });
