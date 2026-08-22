@@ -55,7 +55,15 @@ describe('the gate loads its definition from a place the pull request cannot edi
 });
 
 describe('and never runs the pull request it is judging', () => {
-  it('checks out no explicit ref, so the base is what lands in the working tree', () => {
+  // Measured on throwaway PR #2034: naming NO ref did not check out the base. `actions/checkout`
+  // resolved to the repository's default branch, so a pull request to `develop` was judged with
+  // `main`'s registry and `main`'s copy of the scan while its diff came from `develop`. The ref is
+  // now named, and named as `base.sha` — the base, never the head.
+  it("checks out the pull request's OWN base by sha, not whatever the default branch is", () => {
+    expect(STEPS).toMatch(/ref:\s*\$\{\{\s*github\.event\.pull_request\.base\.sha\s*\}\}/);
+  });
+
+  it('checks out no head ref, so the pull request never lands in the working tree', () => {
     // The single line that would breach this: `ref: ${{ github.event.pull_request.head.sha }}`.
     // Under `pull_request_target` that is PR code executing with write credentials against the base.
     expect(STEPS).not.toMatch(/ref:\s*\$\{\{\s*github\.event\.pull_request\.head/);

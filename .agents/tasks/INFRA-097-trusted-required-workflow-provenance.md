@@ -81,6 +81,46 @@ registry state something untrue. The same held-membership shape `regression-red-
 
 ## Progress
 
+### 2026-08-22 — red-proved live, and the proof found a defect
+
+The Test Plan's _"live throwaway PR proof"_ ran as pull request #2034: three inert comment lines added
+to `.github/workflows/ci.yml`, with the expected refusal written into the pull request body **before**
+any check reported.
+
+**The context can fail.** `workflow provenance` reported `fail`, named `ci.yml`, enumerated all twelve
+required contexts that edit could move, and the pull request went `BLOCKED`. Everything established
+before this was evidence about the gate's SHAPE — it exists, it runs, `branches:` covers `main`, no
+job-level `if:`, `--live` reconciles. A context that has only ever reported success is
+indistinguishable from one that cannot fail, which is the exact case promotion pull request #1427 merged on.
+
+**The fourth prediction failed, and that is where the defect was.** The advisory was predicted to read
+`2 of 3` and read `2 of 2`. The gate had checked out the wrong tree:
+
+```
+git checkout --progress --force -B main refs/remotes/origin/main
+```
+
+`actions/checkout` with no `ref:` resolves to the repository's DEFAULT branch, not the pull request's
+base — while the file's own comment asserted the opposite. `BASE_SHA` was already passed to the scan,
+so the DIFF came from `develop` and the REGISTRY and SCAN CODE came from `main`. Two silent
+consequences: a context newly required on `develop` sat outside the guarded set until the next
+promotion, and a fix to `scan-workflow-provenance.mjs` did not reach `develop` pull requests until it
+reached `main`. Not a security hole — `main` is not attacker-controlled — but the gate judged by rules
+that could lag its base indefinitely.
+
+Fixed by naming the ref: `ref: ${{ github.event.pull_request.base.sha }}` — still the base, never the
+head — with a case asserting that exact spelling.
+
+**Recorded because of how it surfaced.** `2 of 2` reads as a healthy line and invites no second look.
+It was a finding only because `3` was on record beforehand. The same instrument as asserting a
+mutation applied before trusting the experiment that follows it.
+
+**Paths validated:** code (pull request #2030), docs-only (pull requests #2028 and #2031),
+genuine-finding (pull request #2034).
+**Paths declared but not exercised:** fork, retarget, cancellation. `edited` is now declared so a
+retarget re-dispatches, and the concurrency group is declared so a superseded run cancels; neither has
+been observed on a live pull request, and this record says so rather than implying coverage.
+
 ### 2026-08-22 — the requireable half, owner-assigned
 
 The owner assigned the fifth step, which the item had held as theirs. Making the context REQUIRED has
