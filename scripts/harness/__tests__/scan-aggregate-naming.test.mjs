@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { makeTemp } from './make-temp.mjs';
+
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -126,7 +127,7 @@ describe('collectAggregateNaming — the `examined` counter is an output, and is
   it('examines EXACTLY the files it is given, and counts exactly what is in them', () => {
     // measurement-provenance.md: a self-reported size nothing checks is how "examined 0 files"
     // reads as a clean repository. Fixture of known size: 3 files, 4 references.
-    const root = mkdtempSync(join(tmpdir(), 'arch-029-count-'));
+    const root = makeTemp('arch-029-count-');
     mkdirSync(join(root, 'packages'), { recursive: true });
     const files = ['a.ts', 'b.ts', 'c.ts'];
     writeFileSync(join(root, 'a.ts'), 'export function f(c: ICommandHostContext): void {}\n');
@@ -150,7 +151,7 @@ describe('collectAggregateNaming — the `examined` counter is an output, and is
   it('resets between runs — a second run over the same fixture reports the same size', () => {
     // An accumulating counter would say 6 on the second pass. That is how "the number came from
     // the walk" is told apart from "the number came from somewhere and kept growing".
-    const root = mkdtempSync(join(tmpdir(), 'arch-029-reset-'));
+    const root = makeTemp('arch-029-reset-');
     mkdirSync(join(root, 'packages'), { recursive: true });
     writeFileSync(join(root, 'a.ts'), 'export function f(c: ICommandHostContext): void {}\n');
     writeFileSync(join(root, 'b.ts'), 'export const nothing = 1;\n');
@@ -169,7 +170,7 @@ describe('collectAggregateNaming — the `examined` counter is an output, and is
     // read (its renames are still checked) while contributing zero references. Round 4 found the
     // rename ban sitting behind the skip, which made the ten files most entitled to NAME the
     // aggregate the ten that could freely RENAME it.
-    const root = mkdtempSync(join(tmpdir(), 'arch-029-allow-'));
+    const root = makeTemp('arch-029-allow-');
     mkdirSync(join(root, 'packages'), { recursive: true });
     writeFileSync(join(root, 'a.ts'), 'export function f(c: ICommandHostContext): void {}\n');
     writeFileSync(join(root, 'b.ts'), 'export function g(c: ICommandHostContext): void {}\n');
@@ -193,7 +194,7 @@ describe('collectAggregateNaming — the `examined` counter is an output, and is
     // Route H, reproduced by review on the real tree: one `export type IHostAll =
     // ICommandHostContext;` in the allowlisted declaration site, plus an ordinary consumer naming
     // `IHostAll` in type position and in `extends`, left the scan green at its frozen baseline.
-    const root = mkdtempSync(join(tmpdir(), 'arch-029-allow-rename-'));
+    const root = makeTemp('arch-029-allow-rename-');
     mkdirSync(join(root, 'packages'), { recursive: true });
     writeFileSync(join(root, 'b.ts'), 'export type IHostAll = ICommandHostContext;\n');
 
@@ -218,7 +219,7 @@ describe('collectAggregateNaming fails closed on scope', () => {
   it('throws over a root without the governed tree, rather than counting zero', () => {
     // A counter that reports 0 for a tree it never read is indistinguishable from a finished
     // decomposition — which is the exact state this floor exists to refuse.
-    const bare = mkdtempSync(join(tmpdir(), 'arch-029-bare-'));
+    const bare = makeTemp('arch-029-bare-');
 
     expect(() =>
       collectAggregateNaming(bare, { aggregateNaming: { aggregates: ['I'], allowlist: [] } }, []),
@@ -231,7 +232,7 @@ describe('the ratchet requires its subject to exist', () => {
     // A count falls for two reasons that look identical from outside: the consumers migrated, or
     // the subject stopped existing under that name. Measured with only a renamed declaration
     // present, the scan counted 0 against a frozen 18 and passed — reading as a finished migration.
-    const root = mkdtempSync(join(tmpdir(), 'arch-029-gone-'));
+    const root = makeTemp('arch-029-gone-');
     mkdirSync(join(root, 'packages'), { recursive: true });
     writeFileSync(join(root, 'a.ts'), 'export interface IAgentJobHostContextRenamed {}\n');
 
@@ -245,7 +246,7 @@ describe('the ratchet requires its subject to exist', () => {
   });
 
   it('records the file that DOES declare it', () => {
-    const root = mkdtempSync(join(tmpdir(), 'arch-029-home-'));
+    const root = makeTemp('arch-029-home-');
     mkdirSync(join(root, 'packages'), { recursive: true });
     writeFileSync(join(root, 'a.ts'), 'export interface ICommandHostContext {}\n');
 
@@ -263,7 +264,7 @@ describe('the ratchet requires its subject to exist', () => {
     // in an unimported file — cheaper than any rename route, and it left the scan green against a
     // frozen baseline. The site is pinned to the allowlist, which already names each real
     // declaration file with a reason.
-    const root = mkdtempSync(join(tmpdir(), 'arch-029-decoy-'));
+    const root = makeTemp('arch-029-decoy-');
     mkdirSync(join(root, 'packages'), { recursive: true });
     writeFileSync(join(root, 'site.ts'), 'export interface ICommandHostContextRenamed {}\n');
     writeFileSync(join(root, 'decoy.ts'), 'export interface ICommandHostContext {}\n');
@@ -290,7 +291,7 @@ describe('a carve-out that matches nothing is reported', () => {
   it('flags a configured carve-out with no live site', () => {
     // It fails closed — a stale entry just stops exempting — but config asserting an exception that
     // does not exist is the same silence this file's header refuses everywhere else.
-    const root = mkdtempSync(join(tmpdir(), 'arch-029-stale-carve-'));
+    const root = makeTemp('arch-029-stale-carve-');
     mkdirSync(join(root, 'packages'), { recursive: true });
     writeFileSync(join(root, 'site.ts'), 'export interface ICommandHostContext {}\n');
 
@@ -317,7 +318,7 @@ describe('an empty aggregate list fails closed', () => {
     // Deleting one config array switched the load-bearing floor off silently: it returned
     // `{ findings: [] }` and `main()` printed a pass. Same "absence reads as a pass" shape as the
     // rest of this round, moved one layer out into the config.
-    const bare = mkdtempSync(join(tmpdir(), 'arch-029-noagg-'));
+    const bare = makeTemp('arch-029-noagg-');
 
     const { findings } = findAggregateNamingFindings(bare, { aggregateNaming: {} });
 

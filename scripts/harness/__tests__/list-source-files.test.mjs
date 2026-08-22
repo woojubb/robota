@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { findDeprecatedMarkerFindings } from '../scan-deprecated-markers.mjs';
 import { findFakeInSrc } from '../scan-no-fake-in-src.mjs';
@@ -18,7 +18,7 @@ import { listSourceFiles } from '../workspace-packages.mjs';
  * all by `no-fake-in-src`, whose walker skipped any directory named `dist`.
  */
 async function createFixture(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-list-source-files-'));
+  const root = makeTemp('robota-list-source-files-');
   for (const [relativePath, content] of Object.entries(files)) {
     const targetPath = path.join(root, relativePath);
     mkdirSync(path.dirname(targetPath), { recursive: true });

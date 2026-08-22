@@ -12,11 +12,12 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/branch-guard.sh');
@@ -27,7 +28,7 @@ afterAll(() => {
 });
 
 function scratchRepo(branch, aliases = {}) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'alias-guard-'));
+  const dir = makeTemp('alias-guard-');
   scratch.push(dir);
   const git = (...args) => execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
   execFileSync('git', ['init', '--quiet', `--initial-branch=${branch}`, dir]);

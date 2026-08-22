@@ -1,10 +1,11 @@
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { main } from '../promote.mjs';
 import { RECONCILED_BRANCHES, reconcileLive } from '../scan-main-required-checks.mjs';
@@ -41,7 +42,7 @@ function commit(root, git, file, body, message) {
 
 /** A repo whose `main`/`develop` stand in for the remote-tracking refs, so no network is needed. */
 async function newRepo() {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-promote-'));
+  const root = makeTemp('robota-promote-');
   roots.push(root);
   const git = makeGit(root);
   git(['init', '--quiet', '--initial-branch=develop']);
@@ -170,7 +171,7 @@ describe('promote.mjs (INFRA-051)', () => {
   it('fetches fresh origin refs before constructing a promotion', async () => {
     const { root, git } = await newRepo();
     commit(root, git, 'feature.txt', 'work\n', 'feat: work');
-    const remote = await mkdtemp(path.join(tmpdir(), 'robota-promote-origin-'));
+    const remote = makeTemp('robota-promote-origin-');
     roots.push(remote);
     makeGit(remote)(['init', '--bare', '--quiet']);
     git(['remote', 'add', 'origin', remote]);
@@ -509,7 +510,7 @@ describe('the promote suite stays hermetic when a local origin exists (issue #19
   it('a repository with a real local origin produces no reconciliation output at all', async () => {
     const { root, git } = await newRepo();
     commit(root, git, 'feature.txt', 'work\n', 'feat: work');
-    const remote = await mkdtemp(path.join(tmpdir(), 'robota-promote-origin-'));
+    const remote = makeTemp('robota-promote-origin-');
     roots.push(remote);
     makeGit(remote)(['init', '--bare', '--quiet']);
     git(['remote', 'add', 'origin', remote]);

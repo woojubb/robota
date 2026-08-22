@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   judgeRule,
@@ -327,7 +328,7 @@ describe('over the tree it governs', () => {
   it('refuses a root with no skills, and one with no map', () => {
     // Fail closed on both. A population read from a directory that is not there is empty, and an
     // empty population is a pass that examined nothing.
-    const dir = mkdtempSync(path.join(tmpdir(), 'loops-'));
+    const dir = makeTemp('loops-');
     scratch.push(dir);
     expect(() => scanLoops(dir)).toThrow(/\.agents\/skills does not exist/);
 

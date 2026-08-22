@@ -7,11 +7,12 @@
  * the suite happens to run.
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { LEDGER_DIR } from '../loop-run.mjs';
 import {
@@ -25,7 +26,7 @@ const FINDING_SET = 'over=finding-set; escape=no-progress';
 const ATTEMPT = 'over=attempt; bound=3 attempts';
 
 function workspace(skills, { wireRecorder = true } = {}) {
-  const root = mkdtempSync(path.join(tmpdir(), 'loop-records-'));
+  const root = makeTemp('loop-records-');
   for (const [name, declaration] of Object.entries(skills)) {
     mkdirSync(path.join(root, '.agents/skills', name), { recursive: true });
     const recorder = wireRecorder
@@ -157,7 +158,7 @@ describe('the recording instruction lives in the skill that is read', () => {
   });
 
   it('does not fire on a skill that declares no loop at all', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'loop-records-'));
+    const root = makeTemp('loop-records-');
     mkdirSync(path.join(root, '.agents/skills/plain'), { recursive: true });
     writeFileSync(
       path.join(root, '.agents/skills/plain/SKILL.md'),
@@ -170,7 +171,7 @@ describe('the recording instruction lives in the skill that is read', () => {
 
 describe('the governed tree', () => {
   it('THROWS over a root with no skills tree — absence is not emptiness (HARNESS-052)', () => {
-    const bare = mkdtempSync(path.join(tmpdir(), 'loop-records-bare-'));
+    const bare = makeTemp('loop-records-bare-');
     expect(() => findLoopRunRecordFindings(bare, NOW)).toThrow(/\.agents\/skills missing/);
   });
 

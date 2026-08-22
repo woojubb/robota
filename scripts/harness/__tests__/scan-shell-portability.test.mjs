@@ -1,8 +1,9 @@
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { findPortabilityFindings } from '../scan-shell-portability.mjs';
 
@@ -17,7 +18,7 @@ afterEach(() => {
 });
 
 function fixture(files) {
-  const root = mkdtempSync(path.join(tmpdir(), 'portability-'));
+  const root = makeTemp('portability-');
   roots.push(root);
   for (const dir of ['scripts', '.husky', '.claude/hooks'])
     mkdirSync(path.join(root, dir), { recursive: true });
@@ -320,7 +321,7 @@ describe('scan-shell-portability', () => {
   });
 
   it('REFUSES to pass over a tree it cannot read', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'portability-empty-'));
+    const root = makeTemp('portability-empty-');
     roots.push(root);
     expect(() => findPortabilityFindings(root)).toThrow(/governed tree\(s\) absent/);
   });

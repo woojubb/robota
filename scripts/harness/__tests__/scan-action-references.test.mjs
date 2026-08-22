@@ -20,6 +20,8 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { makeTemp } from './make-temp.mjs';
+
 import { ADVISORY_MARKER, extractAdvisories } from '../run-all-scans.mjs';
 import {
   classifyResolution,
@@ -46,7 +48,7 @@ afterEach(() => {
 
 /** A throwaway repo root holding only `.github/workflows`, so fixtures cannot touch the real tree. */
 function root(workflows) {
-  const created = fs.mkdtempSync(path.join(os.tmpdir(), 'action-refs-'));
+  const created = makeTemp('action-refs-');
   roots.push(created);
   const dir = path.join(created, '.github', 'workflows');
   fs.mkdirSync(dir, { recursive: true });
@@ -141,7 +143,7 @@ describe('static half', () => {
 
 describe('fail-closed — the scan never passes over nothing', () => {
   it('a missing workflow directory is a finding, not a pass', () => {
-    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'action-refs-empty-'));
+    const empty = makeTemp('action-refs-empty-');
     roots.push(empty);
     expect(findStaticFindings(readWorkflowSources(empty))[0].detail).toMatch(/examined nothing/);
   });
@@ -161,7 +163,7 @@ describe('fail-closed — the scan never passes over nothing', () => {
    * derivation would be the defect that scan audits, one level up.
    */
   it('findActionReferenceFindings reports on a root with no `.github/workflows` at all', () => {
-    const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'action-refs-bare-'));
+    const bare = makeTemp('action-refs-bare-');
     roots.push(bare);
     expect(findActionReferenceFindings(bare)).toHaveLength(1);
     expect(findActionReferenceFindings(bare)[0].detail).toMatch(/examined nothing/);

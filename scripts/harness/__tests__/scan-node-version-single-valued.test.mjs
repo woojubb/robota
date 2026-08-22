@@ -1,8 +1,9 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, it, expect, afterEach } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   findDeclaredPinFindings,
@@ -21,7 +22,7 @@ import {
 const roots = [];
 
 function makeRoot(rootVolta) {
-  const root = mkdtempSync(path.join(tmpdir(), 'infra-102-'));
+  const root = makeTemp('infra-102-');
   roots.push(root);
   writeFileSync(
     path.join(root, 'package.json'),

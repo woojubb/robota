@@ -1,8 +1,9 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { createBuildTypeTiers, findBuildTypePackages } from '../../build-types-ordered.mjs';
 
@@ -107,7 +108,7 @@ describe('createBuildTypeTiers', () => {
 
 describe('findBuildTypePackages', () => {
   it('discovers nested buildable packages and excludes workspaces without build:types', () => {
-    const workspaceRoot = mkdtempSync(path.join(tmpdir(), 'build-types-ordered-'));
+    const workspaceRoot = makeTemp('build-types-ordered-');
     temporaryRoots.push(workspaceRoot);
     const buildableDir = path.join(workspaceRoot, 'packages', 'nested', 'buildable');
     const skippedDir = path.join(workspaceRoot, 'packages', 'skipped');

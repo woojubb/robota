@@ -1,9 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/branch-guard.sh');
@@ -46,7 +47,7 @@ function git(cwd, ...args) {
  * compares against and a fake ref would prove nothing about the deployment.
  */
 function repo() {
-  const root = mkdtempSync(path.join(tmpdir(), 'branch-base-'));
+  const root = makeTemp('branch-base-');
   scratch.push(root);
   const origin = path.join(root, 'origin');
   execFileSync('git', ['init', '-q', '--bare', '--initial-branch=develop', origin]);
@@ -82,7 +83,7 @@ function repo() {
 
 /** A `gh` that reports no merged PRs, so the unmerged-branch check cannot mask the base check. */
 function ghStub() {
-  const dir = mkdtempSync(path.join(tmpdir(), 'gh-none-'));
+  const dir = makeTemp('gh-none-');
   scratch.push(dir);
   const gh = path.join(dir, 'gh');
   writeFileSync(gh, '#!/bin/sh\nexit 0\n');
@@ -169,7 +170,7 @@ describe('a feature branch is cut from origin/develop', () => {
     const cwd = repo();
     // Deliberately a repository with no `develop` at all, which is what made the original failure
     // visible: judging <other> found nothing to compare against and refused.
-    const elsewhere = mkdtempSync(path.join(tmpdir(), 'other-repo-'));
+    const elsewhere = makeTemp('other-repo-');
     scratch.push(elsewhere);
     execFileSync('git', ['init', '-q', '--initial-branch=main', elsewhere]);
     git(elsewhere, 'commit', '--allow-empty', '-q', '-m', 'init');

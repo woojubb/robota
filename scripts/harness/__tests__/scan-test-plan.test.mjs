@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, it, expect } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { ADVISORY_MARKER } from '../run-all-scans.mjs';
 import { collectTestPlanFindings, hasTestPlanSection, main } from '../scan-test-plan.mjs';
@@ -74,7 +74,7 @@ describe('hasTestPlanSection', () => {
  */
 describe('collectTestPlanFindings — the gated tree', () => {
   async function specDocsFixture(files) {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-test-plan-'));
+    const root = makeTemp('robota-test-plan-');
     for (const state of ['draft', 'backlog', 'todo', 'active', 'done', 'rejected']) {
       mkdirSync(path.join(root, '.agents/spec-docs', state), { recursive: true });
     }
@@ -109,7 +109,7 @@ describe('collectTestPlanFindings — the gated tree', () => {
   });
 
   it('throws rather than passing when the spec-doc pipeline is absent', async () => {
-    const bare = await mkdtemp(path.join(tmpdir(), 'robota-test-plan-bare-'));
+    const bare = makeTemp('robota-test-plan-bare-');
     await expect(collectTestPlanFindings(bare)).rejects.toThrow(/spec-docs/);
   });
 });
@@ -132,7 +132,7 @@ describe('main — the examined count is reported per half', () => {
   ].join('\n');
 
   async function fixture(files) {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-test-plan-halves-'));
+    const root = makeTemp('robota-test-plan-halves-');
     for (const state of ['draft', 'backlog', 'todo', 'active', 'done', 'rejected']) {
       mkdirSync(path.join(root, '.agents/spec-docs', state), { recursive: true });
     }

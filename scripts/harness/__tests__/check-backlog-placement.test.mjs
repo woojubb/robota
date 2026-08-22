@@ -1,9 +1,10 @@
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import crypto from 'node:crypto';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   findBacklogPlacementFindings,
@@ -29,7 +30,7 @@ describe('readBacklogFrontmatter', () => {
 describe('a task file with no readable status', () => {
   /** One file, written verbatim, in whichever half of the tree the case is about. */
   async function treeWith(where, name, contents) {
-    const dir = await mkdtemp(path.join(tmpdir(), 'backlog-status-'));
+    const dir = makeTemp('backlog-status-');
     await mkdir(path.join(dir, '.agents/tasks/completed'), { recursive: true });
     await writeFile(path.join(dir, '.agents/tasks', where, name), contents);
     return dir;
@@ -76,7 +77,7 @@ describe('a task file with no readable status', () => {
 describe('findDuplicateIdFindings', () => {
   /** Build a throwaway backlog tree: { root: [names], completed: [names] }. */
   async function fixture(root, completed) {
-    const dir = await mkdtemp(path.join(tmpdir(), 'backlog-dup-'));
+    const dir = makeTemp('backlog-dup-');
     await mkdir(path.join(dir, '.agents/tasks/completed'), { recursive: true });
     for (const name of root) {
       await writeFile(path.join(dir, '.agents/tasks', name), '---\nstatus: todo\n---\n');
@@ -119,7 +120,7 @@ describe('findDuplicateIdFindings', () => {
 
 describe('findDuplicateIdFindings — same-ID collisions within the root', () => {
   async function rootOnly(names) {
-    const dir = await mkdtemp(path.join(tmpdir(), 'backlog-root-dup-'));
+    const dir = makeTemp('backlog-root-dup-');
     await mkdir(path.join(dir, '.agents/tasks/completed'), { recursive: true });
     for (const name of names) {
       await writeFile(path.join(dir, '.agents/tasks', name), '---\nstatus: todo\n---\n');
@@ -148,7 +149,7 @@ describe('findDuplicateIdFindings — same-ID collisions within the root', () =>
 
 describe('legacy terminal lifecycle baseline', () => {
   async function fixture({ mutate = false } = {}) {
-    const root = await mkdtemp(path.join(tmpdir(), 'backlog-lifecycle-baseline-'));
+    const root = makeTemp('backlog-lifecycle-baseline-');
     const completedDir = path.join(root, '.agents/tasks/completed');
     const baselineDir = path.join(root, 'scripts/harness');
     await mkdir(completedDir, { recursive: true });

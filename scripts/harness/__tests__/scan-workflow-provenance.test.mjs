@@ -1,10 +1,11 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   findWorkflowProvenanceFindings,
@@ -34,7 +35,7 @@ function git(dir, ...args) {
  * would exercise the registry read and never the thing the issue is about.
  */
 function repoWithGuardedWorkflow() {
-  const dir = mkdtempSync(path.join(tmpdir(), 'infra-097-'));
+  const dir = makeTemp('infra-097-');
   scratch.push(dir);
   spawnSync('git', ['init', '--quiet', '--initial-branch=main', dir]);
   git(dir, 'config', 'user.email', 'harness@example.test');
@@ -115,14 +116,14 @@ describe('workflow-provenance — criteria are READ from the registry (INFRA-097
   });
 
   it('fails closed when the registry is absent', () => {
-    const empty = mkdtempSync(path.join(tmpdir(), 'infra-097-empty-'));
+    const empty = makeTemp('infra-097-empty-');
     scratch.push(empty);
 
     expect(() => findWorkflowProvenanceFindings(empty)).toThrow(/missing from/);
   });
 
   it('fails closed when the registry names no workflow', () => {
-    const dir = mkdtempSync(path.join(tmpdir(), 'infra-097-bare-'));
+    const dir = makeTemp('infra-097-bare-');
     scratch.push(dir);
     mkdirSync(path.join(dir, '.github'), { recursive: true });
     writeFileSync(

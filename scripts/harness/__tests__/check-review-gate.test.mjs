@@ -9,11 +9,11 @@
 
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   ACKNOWLEDGE_LABEL,
@@ -214,7 +214,7 @@ describe('not-applicable (no code changed)', () => {
 
 describe('CLI (the shape the workflow calls)', () => {
   async function fixture(files) {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-review-gate-'));
+    const root = makeTemp('robota-review-gate-');
     mkdirSync(root, { recursive: true });
     for (const [name, content] of Object.entries(files)) {
       writeFileSync(path.join(root, name), content, 'utf8');

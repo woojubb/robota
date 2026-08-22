@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { frontmatterObject as parseFrontmatter } from '../frontmatter.mjs';
 import {
@@ -133,7 +133,7 @@ describe('HARNESS-030 — helpers + live tree', () => {
  * `depends_on: [` arrays waiting for the day a scan reads one.
  */
 async function createSpecTree(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-capability-reachability-'));
+  const root = makeTemp('robota-capability-reachability-');
   for (const [relativePath, content] of Object.entries(files)) {
     const target = path.join(root, relativePath);
     mkdirSync(path.dirname(target), { recursive: true });

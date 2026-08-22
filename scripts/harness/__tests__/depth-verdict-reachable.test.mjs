@@ -1,17 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { resolveRootItems } from '../record-local-review.mjs';
 
@@ -487,7 +480,7 @@ describe('a root item has one place to live, and one reader of it', () => {
     );
     const candidates = [...declared, ...rivals.filter((r) => !declared.includes(r))];
     const ids = candidates.map((_, i) => `PROBE-${String(i + 1).padStart(3, '0')}`);
-    const tmp = mkdtempSync(path.join(tmpdir(), 'root-item-location-'));
+    const tmp = makeTemp('root-item-location-');
     try {
       candidates.forEach((dir, i) => {
         mkdirSync(path.join(tmp, dir), { recursive: true });

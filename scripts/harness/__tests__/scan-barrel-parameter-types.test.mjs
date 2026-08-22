@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { makeTemp } from './make-temp.mjs';
+
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -18,7 +19,7 @@ import {
  * correct code, and a floor that fires on correct code gets allowlisted into silence.
  */
 function fixture(prefix, files) {
-  const root = mkdtempSync(join(tmpdir(), prefix));
+  const root = makeTemp(prefix);
   for (const [name, contents] of Object.entries(files)) {
     const full = join(root, name);
     mkdirSync(join(full, '..'), { recursive: true });

@@ -1,8 +1,9 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { findAllRunnerWaits, findRunnerWaits } from '../scan-runner-wait.mjs';
 
@@ -67,7 +68,7 @@ describe('scan-runner-wait', () => {
   });
 
   it('reports how many workflows it examined, so a pass over nothing is not a pass', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'runner-wait-'));
+    const root = makeTemp('runner-wait-');
     dirs.push(root);
     mkdirSync(path.join(root, '.github/workflows'), { recursive: true });
     writeFileSync(
@@ -80,7 +81,7 @@ describe('scan-runner-wait', () => {
   });
 
   it('(RED) fails closed when there are no workflows to read', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'runner-wait-bare-'));
+    const root = makeTemp('runner-wait-bare-');
     dirs.push(root);
     expect(() => findAllRunnerWaits(root)).toThrow(/does not exist/);
   });

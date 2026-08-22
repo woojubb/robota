@@ -1,8 +1,9 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import * as plan from '../check-plan.mjs';
 import {
@@ -36,7 +37,7 @@ afterEach(() => {
 
 /** A miniature workspace: two packages, a root manifest, and the declared tooling files. */
 function makeRoot({ buildScript, files = DECLARED } = {}) {
-  const root = mkdtempSync(path.join(tmpdir(), 'build-tooling-scope-'));
+  const root = makeTemp('build-tooling-scope-');
   temporaryRoots.push(root);
 
   writeFileSync(path.join(root, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
@@ -193,7 +194,7 @@ describe('findBuildToolingScopeFindings', () => {
   });
 
   it('reports zero counts rather than a pass when its subject is missing', async () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'build-tooling-scope-bare-'));
+    const root = makeTemp('build-tooling-scope-bare-');
     temporaryRoots.push(root);
     writeFileSync(path.join(root, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
     mkdirSync(path.join(root, 'packages'), { recursive: true });

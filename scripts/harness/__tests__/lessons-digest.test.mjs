@@ -1,10 +1,12 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { compactMetrics, runLessonsDigest } from '../lessons-lib.mjs';
 
@@ -13,7 +15,7 @@ const NOW = new Date('2026-05-04T00:00:00.000Z');
 const tempRoots = [];
 
 function createTempRoot() {
-  const root = mkdtempSync(path.join(tmpdir(), 'robota-lessons-'));
+  const root = makeTemp('robota-lessons-');
   tempRoots.push(root);
   mkdirSync(path.join(root, '.agents/evals/local-metrics'), { recursive: true });
   return root;

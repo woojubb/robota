@@ -1,9 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { DISPOSITION_LABELS } from '../record-local-review.mjs';
 
@@ -35,7 +36,7 @@ afterAll(() => {
 });
 
 function scratchDir(prefix) {
-  const dir = mkdtempSync(path.join(tmpdir(), prefix));
+  const dir = makeTemp(prefix);
   scratch.push(dir);
   return dir;
 }

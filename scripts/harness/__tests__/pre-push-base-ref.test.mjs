@@ -1,9 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   createPrePushBasePlan,
@@ -296,7 +297,7 @@ describe('createPrePushBasePlan (INFRA-099)', () => {
 
 describe('integration-child delta isolation (INFRA-099)', () => {
   it('excludes cumulative initiative history only when the unique PR base is trusted', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'infra099-base-'));
+    const root = makeTemp('infra099-base-');
     const repo = path.join(root, 'repo');
     const origin = path.join(root, 'origin.git');
     const git = (...args) =>

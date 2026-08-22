@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { findArchitectureMapCompletenessFindings } from '../check-architecture-map-completeness.mjs';
 
@@ -29,7 +29,7 @@ Owner: [pkg-a SPEC](../../../packages/pkg-a/docs/SPEC.md)
 `;
 
 async function createMapDir(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-arch-map-completeness-'));
+  const root = makeTemp('robota-arch-map-completeness-');
   const mapDir = path.join(root, '.agents/specs/architecture-map');
   for (const [relativePath, content] of Object.entries(files)) {
     const targetPath = path.join(mapDir, relativePath);

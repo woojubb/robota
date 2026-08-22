@@ -10,11 +10,12 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/pre-push-check.sh');
@@ -26,7 +27,7 @@ afterAll(() => {
 
 /** A repo whose review-record state the case controls: recorded = run the real recorder in it. */
 function repoOn(branch, { recorded = false } = {}) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'pre-push-repo-'));
+  const dir = makeTemp('pre-push-repo-');
   scratch.push(dir);
   const git = (...args) => execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
   execFileSync('git', ['init', '--quiet', `--initial-branch=${branch}`, dir]);
@@ -158,7 +159,7 @@ describe('which repository the push verdict is about', () => {
     // immune to load. Measured on the version this task replaced: 6 forks at N=1 and 204 at N=100 —
     // one whole-command re-tokenization per statement. Here it must not grow with N. (HARNESS-083)
     const repo = repoOn('feat/forks', { recorded: true });
-    const shim = mkdtempSync(path.join(tmpdir(), 'awk-shim-'));
+    const shim = makeTemp('awk-shim-');
     scratch.push(shim);
     const counter = path.join(shim, 'count');
     writeFileSync(
@@ -399,7 +400,7 @@ describe('which repository the push verdict is about', () => {
     // (the main checkout) and judge ITS record — a false pass for a push into an unreviewed new
     // repo. The resolved-but-not-a-work-tree case now refuses. (#1667 review)
     const parked = repoOn('feat/parked', { recorded: true });
-    const notARepo = mkdtempSync(path.join(tmpdir(), 'pre-push-notrepo-'));
+    const notARepo = makeTemp('pre-push-notrepo-');
     scratch.push(notARepo);
 
     const { status, output } = runHook(`cd ${notARepo} && git push origin x`, parked);

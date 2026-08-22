@@ -1,17 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { recordPathFor } from '../record-local-review.mjs';
 
@@ -39,7 +32,7 @@ afterAll(() => {
 });
 
 function scratchRepo(branch) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'disposition-'));
+  const dir = makeTemp('disposition-');
   scratch.push(dir);
   const git = (...args) => spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
   git('init', '--quiet', `--initial-branch=${branch}`);
@@ -72,7 +65,7 @@ function repoWithBacklog(branch, items) {
  * lesson stated as a stub: the exit code and the state are two different claims.
  */
 function stubbedGh({ prNumber = 42, addFails = false, viewFails = false } = {}) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'gh-stub-'));
+  const dir = makeTemp('gh-stub-');
   scratch.push(dir);
 
   const state = path.join(dir, 'state.json');

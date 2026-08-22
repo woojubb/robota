@@ -1,11 +1,11 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   findFolderStatusFindings,
@@ -40,7 +40,7 @@ function spec(status) {
 }
 
 async function makeTree(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'folder-status-'));
+  const root = makeTemp('folder-status-');
   for (const [relative, text] of Object.entries(files)) {
     const full = path.join(root, relative);
     mkdirSync(path.dirname(full), { recursive: true });
@@ -181,7 +181,7 @@ describe('the subject cannot be absent and still read as clean', () => {
     // the DIRECTORY, so it sits outside the ceiling that scan states in its own header.
     //
     // A rename that leaves this quiet is a rename nothing reports.
-    const root = await mkdtemp(path.join(tmpdir(), 'absent-spec-docs-'));
+    const root = makeTemp('absent-spec-docs-');
     const mapping = parseStatusFolderMapping(
       '## Spec-Document Status and Lifecycle Folders\n\n| status | folder |\n| --- | --- |\n| `todo` | `.agents/spec-docs/todo/` |\n',
     );

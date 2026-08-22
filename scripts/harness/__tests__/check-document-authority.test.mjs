@@ -1,10 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   findDocumentAuthorityFindings,
@@ -17,7 +17,7 @@ import {
 const SCRIPT = path.resolve(import.meta.dirname, '../check-document-authority.mjs');
 
 async function createFixture(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-document-authority-'));
+  const root = makeTemp('robota-document-authority-');
   for (const [relativePath, content] of Object.entries(files)) {
     const targetPath = path.join(root, relativePath);
     mkdirSync(path.dirname(targetPath), { recursive: true });
@@ -51,7 +51,7 @@ function git(cwd, args) {
 
 /** Temp git repo with a `base` branch (clean) and a work branch containing `files`. */
 async function createGitFixture(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-document-authority-git-'));
+  const root = makeTemp('robota-document-authority-git-');
   git(root, ['init', '-q', '-b', 'base']);
   writeFileSync(path.join(root, 'README.md'), '# fixture\n', 'utf8');
   git(root, ['add', '.']);

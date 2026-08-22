@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   examinedHelperScriptCount,
@@ -12,7 +12,7 @@ import {
 } from '../check-workspace-refs.mjs';
 
 async function createFixture(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-workspace-refs-'));
+  const root = makeTemp('robota-workspace-refs-');
   for (const [relativePath, content] of Object.entries(files)) {
     const targetPath = path.join(root, relativePath);
     mkdirSync(path.dirname(targetPath), { recursive: true });

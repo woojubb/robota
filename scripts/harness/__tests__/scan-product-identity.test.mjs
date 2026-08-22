@@ -1,9 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   countMarkers,
@@ -30,7 +31,7 @@ afterEach(() => {
 const MARKERS = ['.robota', 'robota-cli'];
 
 function workspace(files) {
-  const root = mkdtempSync(path.join(tmpdir(), 'product-identity-'));
+  const root = makeTemp('product-identity-');
   dirs.push(root);
   for (const [relative, contents] of Object.entries(files)) {
     const full = path.join(root, relative);
@@ -154,7 +155,7 @@ describe('scan-product-identity', () => {
     // `loadHarnessConfig` reads `<cwd>/.agents/harness.config.json`, so running the real scan from a
     // temp cwd holding an emptied config exercises the CLI path rather than a helper — the emptiness
     // check short-circuits before any package is read, which is why the temp root needs no packages.
-    const cwd = mkdtempSync(path.join(tmpdir(), 'product-identity-config-'));
+    const cwd = makeTemp('product-identity-config-');
     dirs.push(cwd);
     mkdirSync(path.join(cwd, '.agents'), { recursive: true });
     writeFileSync(
@@ -173,7 +174,7 @@ describe('scan-product-identity', () => {
     // Review CONSIDER: `--write-baseline` lacked the guard `main()` has, so a mis-set config would
     // record `{}` as the floor. Self-correcting on the next run, but a scan whose subject is guards
     // with holes should not ship one.
-    const cwd = mkdtempSync(path.join(tmpdir(), 'product-identity-freeze-'));
+    const cwd = makeTemp('product-identity-freeze-');
     dirs.push(cwd);
     mkdirSync(path.join(cwd, '.agents'), { recursive: true });
     writeFileSync(

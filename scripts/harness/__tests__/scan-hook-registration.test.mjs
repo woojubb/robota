@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   collectHookRegistrationFindings,
@@ -51,7 +52,7 @@ afterAll(() => {
 
 /** A temp root with `.claude/settings.json` and `.claude/hooks/*.sh`. Never the real tree. */
 function fixture({ hooks = {}, settings } = {}) {
-  const root = mkdtempSync(path.join(tmpdir(), 'hook-registration-'));
+  const root = makeTemp('hook-registration-');
   scratch.push(root);
   mkdirSync(path.join(root, '.claude/hooks'), { recursive: true });
   for (const [name, body] of Object.entries(hooks)) {
@@ -176,7 +177,7 @@ describe('scan-hook-registration', () => {
   });
 
   it('fails closed when .claude/hooks is absent', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'hook-registration-bare-'));
+    const root = makeTemp('hook-registration-bare-');
     scratch.push(root);
     mkdirSync(path.join(root, '.claude'), { recursive: true });
     writeFileSync(path.join(root, '.claude/settings.json'), '{}');

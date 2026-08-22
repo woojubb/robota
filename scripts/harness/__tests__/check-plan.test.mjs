@@ -1,8 +1,9 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   WORKSPACE_WIDE_BUILD_TOOLING_PATHS,
@@ -388,7 +389,7 @@ describe('renderPlanSummary', () => {
 // `Scope coverage: 0 of 86 workspace scopes — this plan verifies NO package or app.`
 describe('appendJobSummary (INFRA-060 D4)', () => {
   it('appends inside Actions and writes nothing outside it', () => {
-    const target = path.join(mkdtempSync(path.join(tmpdir(), 'job-summary-')), 'summary.md');
+    const target = path.join(makeTemp('job-summary-'), 'summary.md');
     const previous = process.env.GITHUB_STEP_SUMMARY;
 
     try {

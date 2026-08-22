@@ -1,17 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
@@ -51,7 +44,7 @@ afterAll(() => {
  * `CLAUDE_PROJECT_DIR` points at, and the verdict would then depend on a developer's local state.
  */
 function scratchRepo(branch) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'hook-parse-'));
+  const dir = makeTemp('hook-parse-');
   scratchRoots.push(dir);
   const git = (...args) => spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
   git('init', '--quiet', `--initial-branch=${branch}`);
@@ -243,7 +236,7 @@ describe('a hook examines the command that will run', () => {
     // with neither jq nor python3 produced an empty tool name, every hook took its "not a Bash
     // call" branch, and three guards switched off without a word. Measured before the fix: exit 0.
     const cwd = scratchRepo('main');
-    const bin = mkdtempSync(path.join(tmpdir(), 'hook-nojson-'));
+    const bin = makeTemp('hook-nojson-');
     scratchRoots.push(bin);
     for (const tool of ['bash', 'dirname', 'grep', 'sed', 'awk', 'head', 'tr', 'cat', 'git']) {
       const found = spawnSync('sh', ['-c', `command -v ${tool}`], { encoding: 'utf8' });
@@ -549,7 +542,7 @@ describe('a hook examines the command that will run', () => {
     });
 
     // A PATH with neither jq nor python3 on it — the condition the ladder exists for.
-    const bin = mkdtempSync(path.join(tmpdir(), 'hook-nojson-edit-'));
+    const bin = makeTemp('hook-nojson-edit-');
     scratchRoots.push(bin);
     for (const tool of [
       'bash',
@@ -720,7 +713,7 @@ describe('a hook examines the command that will run', () => {
     // path that does not survived whole, so the refusal and blocks.jsonl printed an absolute path —
     // in exactly the scenario the widening was for.
     const projectDir = scratchRepo('main');
-    const elsewhere = mkdtempSync(path.join(tmpdir(), 'hook-elsewhere-'));
+    const elsewhere = makeTemp('hook-elsewhere-');
     scratchRoots.push(elsewhere);
     const file = path.join(elsewhere, 'packages/p/src/a.ts');
     mkdirSync(path.dirname(file), { recursive: true });
@@ -1289,7 +1282,7 @@ describe('an interpreter argument that is not code (INFRA-084)', () => {
     // reach the shell as arguments either way, but building the program text at all is the shape
     // CodeQL flags and the shape every other helper in this file already avoids — they spawn the
     // hook directly. One way to run a shell here, not two.
-    const runner = path.join(mkdtempSync(path.join(tmpdir(), 'verb-scan-')), 'scan.sh');
+    const runner = path.join(makeTemp('verb-scan-'), 'scan.sh');
     scratchRoots.push(path.dirname(runner));
     writeFileSync(runner, 'source "$1"/lib/hook-facts.sh\nhook_verb_scan "$2"\n');
     const result = spawnSync('bash', [runner, HOOKS_DIR, command], { encoding: 'utf8' });

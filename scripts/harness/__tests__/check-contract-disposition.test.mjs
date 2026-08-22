@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { makeTemp } from './make-temp.mjs';
+
 import {
   analyzeChangeset,
   findContractDispositionFindings,
@@ -79,17 +81,16 @@ describe('check-contract-disposition (HARNESS-097) — the real tree', () => {
   });
 
   it('counts exactly what it examined, and RESETS between runs', async () => {
-    const { mkdtemp, writeFile } = await import('node:fs/promises');
-    const { tmpdir } = await import('node:os');
+    const { writeFile } = await import('node:fs/promises');
     const path = (await import('node:path')).default;
 
-    const two = await mkdtemp(path.join(tmpdir(), 'robota-cd-'));
+    const two = makeTemp('robota-cd-');
     await writeFile(path.join(two, 'a.md'), 'ordinary prose', 'utf8');
     await writeFile(path.join(two, 'b.md'), 'more prose', 'utf8');
     findContractDispositionFindings(two);
     expect(readExamined()).toBe(2);
 
-    const one = await mkdtemp(path.join(tmpdir(), 'robota-cd-'));
+    const one = makeTemp('robota-cd-');
     await writeFile(path.join(one, 'only.md'), 'prose', 'utf8');
     findContractDispositionFindings(one);
     expect(readExamined()).toBe(1);

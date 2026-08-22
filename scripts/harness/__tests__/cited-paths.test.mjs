@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { findArchitectureMapPathFindings } from '../check-architecture-map-paths.mjs';
 import { findGhostPackageRefFindings } from '../check-ghost-package-refs.mjs';
@@ -32,7 +32,7 @@ const MAP_DOC = '.agents/specs/architecture-map/pkg-map.md';
 const SPEC_DOC = 'packages/pkg-a/docs/SPEC.md';
 
 async function createFixture(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-cited-paths-'));
+  const root = makeTemp('robota-cited-paths-');
   for (const [relativePath, content] of Object.entries(files)) {
     const targetPath = path.join(root, relativePath);
     mkdirSync(path.dirname(targetPath), { recursive: true });

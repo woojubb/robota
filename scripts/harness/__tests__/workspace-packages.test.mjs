@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { listManifestPackageDirs, listPackageDirs } from '../workspace-packages.mjs';
 
@@ -69,7 +69,7 @@ describe('the SSOT enumerator agrees with the workspace declaration', () => {
 
 describe('recursion depth', () => {
   it('finds a nested group member one level down', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-ws-pkgs-'));
+    const root = makeTemp('robota-ws-pkgs-');
     mkdirSync(path.join(root, 'packages', 'group', 'member'), { recursive: true });
     writeFileSync(path.join(root, 'packages', 'group', 'member', 'package.json'), '{}', 'utf8');
     expect(listManifestPackageDirs(root)).toEqual([path.join(root, 'packages', 'group', 'member')]);
@@ -80,14 +80,14 @@ describe('recursion depth', () => {
    * at one level. A group nested two deep is INVISIBLE to every scan built on this module.
    */
   it('does NOT find a member two levels down — the documented ceiling', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-ws-pkgs-deep-'));
+    const root = makeTemp('robota-ws-pkgs-deep-');
     mkdirSync(path.join(root, 'packages', 'a', 'b', 'member'), { recursive: true });
     writeFileSync(path.join(root, 'packages', 'a', 'b', 'member', 'package.json'), '{}', 'utf8');
     expect(listManifestPackageDirs(root)).toEqual([]);
   });
 
   it('treats a depth-1 directory carrying the marker as a package, not a container', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-ws-pkgs-flat-'));
+    const root = makeTemp('robota-ws-pkgs-flat-');
     mkdirSync(path.join(root, 'packages', 'flat', 'nested'), { recursive: true });
     writeFileSync(path.join(root, 'packages', 'flat', 'package.json'), '{}', 'utf8');
     writeFileSync(path.join(root, 'packages', 'flat', 'nested', 'package.json'), '{}', 'utf8');

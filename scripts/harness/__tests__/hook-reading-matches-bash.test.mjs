@@ -1,9 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 // The corpus is a MODULE now (#1572). It lived in this file, where exactly one consumer could reach
 // it — and that consumer measured a FUNCTION. `hook-decoy-text-cannot-move-a-verdict.test.mjs`
@@ -47,7 +48,7 @@ afterAll(() => {
 });
 
 function sandbox() {
-  const dir = mkdtempSync(path.join(tmpdir(), 'reading-'));
+  const dir = makeTemp('reading-');
   scratch.push(dir);
   const bin = path.join(dir, 'bin');
   spawnSync('mkdir', ['-p', bin]);
@@ -236,7 +237,7 @@ describe('the reading of a command matches what bash does with it', () => {
 const GUARDED_VERBS = ['push', 'commit', 'merge'];
 describe('the guards VERDICT on the same corpus matches what bash does with it', () => {
   const hooks = hooksOutsideAWorktree();
-  const repo = mkdtempSync(path.join(tmpdir(), 'verdict-corpus-'));
+  const repo = makeTemp('verdict-corpus-');
   scratch.push(repo);
   for (const args of [
     ['init', '-q', '--initial-branch=main'],

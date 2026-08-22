@@ -7,10 +7,11 @@
 // the REAL hook against the REAL fixture constant inside the globbed harness suite,
 // so that drift fails CI instead of sitting silent.
 import { promises as fs } from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { FORBIDDEN_PATTERN_FIXTURE_CONTENT, runHookFixture } from '../self-check.mjs';
 
@@ -18,7 +19,7 @@ describe('self-check hook fixture conformance (TEST-011)', () => {
   let projectDir;
 
   beforeEach(async () => {
-    projectDir = await fs.mkdtemp(path.join(tmpdir(), 'robota-self-check-fixture-'));
+    projectDir = makeTemp('robota-self-check-fixture-');
     await fs.mkdir(path.join(projectDir, 'packages/example/src'), { recursive: true });
     await fs.mkdir(path.join(projectDir, '.agents/evals/local-metrics'), { recursive: true });
   });

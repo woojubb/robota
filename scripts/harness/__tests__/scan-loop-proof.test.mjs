@@ -7,11 +7,12 @@
  * anti-rot direction is asserted last so the exemption cannot outlive its need.
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { LEDGER_DIR } from '../loop-run.mjs';
 import { examinedSkillCount, findLoopProofFindings } from '../scan-loop-proof.mjs';
@@ -19,7 +20,7 @@ import { examinedSkillCount, findLoopProofFindings } from '../scan-loop-proof.mj
 const FINDING_SET = 'over=finding-set; escape=no-progress';
 
 function workspace(skills) {
-  const root = mkdtempSync(path.join(tmpdir(), 'loop-proof-'));
+  const root = makeTemp('loop-proof-');
   for (const [name, front] of Object.entries(skills)) {
     mkdirSync(path.join(root, '.agents/skills', name), { recursive: true });
     writeFileSync(
@@ -115,7 +116,7 @@ describe('findLoopProofFindings', () => {
   });
 
   it('THROWS over a root with no skills tree — absence is not emptiness (HARNESS-052)', () => {
-    const bare = mkdtempSync(path.join(tmpdir(), 'loop-proof-bare-'));
+    const bare = makeTemp('loop-proof-bare-');
     expect(() => findLoopProofFindings(bare, [])).toThrow(/\.agents\/skills missing/);
   });
 });

@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { compare, findCaseNarrative, scanRules } from '../scan-rule-case-narrative.mjs';
 
@@ -153,7 +154,7 @@ describe('over the tree it governs', () => {
   it('refuses a root with no rules to read instead of reporting a low count', () => {
     // Fail closed. A count taken over no documents is not a low count — the failure mode this
     // harness has met most often is a check that examined nothing and rendered as a tick.
-    const dir = mkdtempSync(path.join(tmpdir(), 'rules-empty-'));
+    const dir = makeTemp('rules-empty-');
     scratch.push(dir);
 
     expect(() => scanRules(dir)).toThrow(/does not exist/);
