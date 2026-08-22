@@ -60,12 +60,26 @@ jobs:
     name: workflow provenance
     runs-on: ubuntu-latest
     steps:
-      # The BASE, which is what `pull_request_target` checks out when no ref is named. Adding one
-      # that points at the pull request's head is the single line that would turn this file into the
-      # vulnerability it exists to avoid — a test refuses that spelling, and refuses it here in the
-      # comment too, which is why the shape is described rather than written out.
+      # THE PULL REQUEST'S OWN BASE, named explicitly. An earlier revision named no ref and its
+      # comment claimed that was the base; measured on throwaway PR #2034, `actions/checkout` with no
+      # `ref:` resolved to the repository's DEFAULT branch instead:
+      #
+      #     git checkout --progress --force -B main refs/remotes/origin/main
+      #
+      # For a pull request to `develop` that is not the base. `BASE_SHA` was already passed to the
+      # scan, so the DIFF was computed against `develop` while the REGISTRY and the SCAN CODE came
+      # from `main` — diff from the base, rules from the default branch. Two silent consequences: a
+      # context newly required on `develop` sat outside the guarded set until the next promotion, and
+      # a fix to the scan did not reach `develop` pull requests until it reached `main`. The gate read
+      # `::examined:: 2` where its base had 3, which is how it was caught.
+      #
+      # `base.sha` is still the BASE and never the head. A ref pointing at the pull request's head is
+      # the single line that would turn this file into the vulnerability it exists to avoid — a test
+      # refuses that spelling, and refuses it here in the comment too, which is why the shape is
+      # described rather than written out.
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           fetch-depth: 0
 
       - name: Use Node.js 22.x
