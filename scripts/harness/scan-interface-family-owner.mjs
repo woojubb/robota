@@ -55,7 +55,15 @@ export function parseOwnerMap(docText) {
   const duplicates = [];
   const at = docText.indexOf(MARKER);
   if (at === -1) return { moduleOwner, symbolOwner, owners, duplicates, missingMarker: true };
+  // Bounded to the ONE table that follows the marker. An unbounded scan of the rest of the document
+  // fails OPEN: a later example row — a format being documented, not a claim — would be absorbed as
+  // a real assignment and nothing would say so. Once rows have started, the first non-table line ends
+  // the table.
+  let started = false;
   for (const line of docText.slice(at).split('\n')) {
+    const isTableRow = /^\s*\|/.test(line);
+    if (started && !isTableRow) break;
+    if (isTableRow) started = true;
     const m = line.match(/^\|\s*`(agent-interface-[a-z-]+)`\s*\|(.+?)\|/);
     if (!m) continue;
     const [, owner, cell] = m;

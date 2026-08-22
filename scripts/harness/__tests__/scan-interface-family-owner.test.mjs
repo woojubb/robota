@@ -89,6 +89,24 @@ describe('parseOwnerMap (ARCH-100)', () => {
     expect(moduleOwner.has('session-contracts')).toBe(false);
   });
 
+  it('stops at the end of the table, so a later example row is not absorbed as a real assignment', () => {
+    const doc = [
+      '<!-- arch-100:owner-map -->',
+      '| Target owner | Contract modules | Leaf |',
+      '| --- | --- | --- |',
+      '| `agent-interface-command` | `command-contracts` | issue #2108 |',
+      '',
+      'Prose explaining the format. A row below is an EXAMPLE, not an assignment:',
+      '',
+      '| `agent-interface-example` | `made-up-contracts` | issue #9999 |',
+      '',
+    ].join('\n');
+    const { moduleOwner, owners } = parseOwnerMap(doc);
+    expect(moduleOwner.has('command-contracts')).toBe(true);
+    expect(moduleOwner.has('made-up-contracts')).toBe(false);
+    expect([...owners]).toEqual(['agent-interface-command']);
+  });
+
   it('signals a missing marker instead of returning an empty map that would read as a pass', () => {
     expect(parseOwnerMap('# a document with no owner map').missingMarker).toBe(true);
   });
