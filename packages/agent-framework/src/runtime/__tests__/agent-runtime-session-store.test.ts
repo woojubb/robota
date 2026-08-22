@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -83,6 +83,19 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
     expect(() =>
       createAgentRuntime({ cwd: runtimeRoot, provider: scripted.provider, projectAccess }),
     ).toThrow('Trusted project access does not cover the requested working directory.');
+  });
+
+  it('accepts an in-root runtime descendant whose name begins with two dots', async () => {
+    const trustedRoot = scratchDir();
+    const runtimeRoot = join(trustedRoot, '..cache');
+    mkdirSync(runtimeRoot);
+    const projectAccess = await createTrustedProjectAccessFixture(trustedRoot);
+    const scripted = createScriptedProvider([]);
+
+    expect(
+      createAgentRuntime({ cwd: runtimeRoot, provider: scripted.provider, projectAccess })
+        .projectAccess,
+    ).toBe(projectAccess);
   });
 
   it('inherits the runtime default store and resumes through it', async () => {

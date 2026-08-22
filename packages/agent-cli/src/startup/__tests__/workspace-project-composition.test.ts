@@ -111,6 +111,18 @@ describe('CLI workspace project composition', () => {
     );
   });
 
+  it('accepts an in-root CLI descendant whose name begins with two dots', async () => {
+    const trustedRoot = tempRoot('robota-cli-descendant-root-');
+    const cwd = join(trustedRoot, '..cache');
+    mkdirSync(cwd);
+    const userHome = tempRoot('robota-cli-descendant-user-');
+    const access = await trustedAccess(trustedRoot);
+
+    expect(
+      createCliWorkspaceComposition({ cwd, userHome, projectAccess: access }).projectAccess,
+    ).toBe(access);
+  });
+
   it('adds a project settings store only with a writer minted for the same authority', async () => {
     const cwd = tempRoot('robota-cli-project-settings-');
     const userHome = tempRoot('robota-cli-project-settings-user-');

@@ -41,8 +41,12 @@ export class WorkspaceTrustService {
     return `${identity.repositoryKey}\0${identity.worktreeRoot}`;
   }
 
-  private recordGeneration(identity: IWorkspaceIdentity, generation: number): void {
-    this.issuerGenerations.set(this.identityKey(identity), generation);
+  private recordGeneration(identity: IWorkspaceIdentity, generation: number): boolean {
+    const identityKey = this.identityKey(identity);
+    const currentGeneration = this.issuerGenerations.get(identityKey);
+    if (currentGeneration !== undefined && generation < currentGeneration) return false;
+    this.issuerGenerations.set(identityKey, generation);
+    return true;
   }
 
   async inspect(cwd: string): Promise<TWorkspaceProjectAccess> {
@@ -59,7 +63,9 @@ export class WorkspaceTrustService {
     } catch {
       return createRestrictedWorkspaceProjectAccess('store-unavailable', identity.displayPath);
     }
-    this.recordGeneration(identity, snapshot.generation);
+    if (!this.recordGeneration(identity, snapshot.generation)) {
+      return createRestrictedWorkspaceProjectAccess('stale/replaced', identity.displayPath);
+    }
     if (snapshot.state !== 'trusted') {
       return createRestrictedWorkspaceProjectAccess(snapshot.state, identity.displayPath);
     }

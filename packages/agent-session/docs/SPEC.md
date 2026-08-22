@@ -339,7 +339,9 @@ retain their cause.
 **On-disk permissions (SEC-003).** An explicitly constructed `NodeSessionLogSink(logDir)` treats the
 directory as host-owned authority. It creates the log directory and `{sessionId}.payloads/` directory
 with mode `0700`, and the `{sessionId}.jsonl` and payload files with mode `0600`, instead of inheriting
-the process umask. `FileSessionLogger` receives the sink and never resolves or opens `logDir` itself.
+the process umask. The public sink validates every direct `sessionId` use as one safe path component;
+payload writes additionally require a canonical lowercase 64-hex sha256 that equals the serialized
+content digest. `FileSessionLogger` receives the sink and never resolves or opens `logDir` itself.
 
 Externalized payloads are written with the exclusive-create flag (`wx`) rather than an `existsSync`
 check followed by a write, which was a TOCTOU race between concurrent sessions externalizing the same

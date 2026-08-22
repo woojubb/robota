@@ -1,64 +1,49 @@
-import { lstatSync, readFileSync, readdirSync } from 'node:fs';
-import { isAbsolute, relative, resolve } from 'node:path';
+import { realpathSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+import { createWorkspaceProjectReader } from '../workspace-trust/project-reader.js';
 
 import type { IContributionSource } from './contribution-source.js';
 import type {
-  IWorkspaceDirectoryEntry,
-  TWorkspaceContributionKind,
+  IWorkspaceIdentity,
+  IWorkspaceIdentityResolver,
+  IWorkspaceProjectReader,
 } from '../workspace-trust/index.js';
-
-function resolveWithinHostRoot(root: string, relativePath: string): string {
-  if (isAbsolute(relativePath)) {
-    throw new Error('Host contribution path must stay relative to its explicit root.');
-  }
-  const candidate = resolve(root, relativePath);
-  const fromRoot = relative(root, candidate);
-  if (fromRoot === '..' || fromRoot.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`)) {
-    throw new Error('Host contribution path must stay relative to its explicit root.');
-  }
-  return candidate;
-}
-
-function classifyHostEntry(path: string): TWorkspaceContributionKind | undefined {
-  try {
-    const stats = lstatSync(path);
-    if (stats.isSymbolicLink()) return 'link';
-    if (stats.isFile()) return 'file';
-    if (stats.isDirectory()) return 'directory';
-    return 'other';
-  } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return undefined;
-    throw error;
-  }
-}
 
 /** Explicit root-bounded adapter for host-owned contribution content. */
 export function createNodeHostContributionSource(root: string): IContributionSource {
   const resolvedRoot = resolve(root);
+  let reader: IWorkspaceProjectReader | undefined;
+
+  function getReader(): IWorkspaceProjectReader | undefined {
+    if (reader !== undefined) return reader;
+    let canonicalRoot: string;
+    try {
+      canonicalRoot = realpathSync(resolvedRoot);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+      throw error;
+    }
+    const identity: IWorkspaceIdentity = Object.freeze({
+      repositoryKey: `node-host:${canonicalRoot}`,
+      displayPath: canonicalRoot,
+      worktreeRoot: canonicalRoot,
+    });
+    const identityResolver: IWorkspaceIdentityResolver = {
+      resolve: () => identity,
+    };
+    reader = createWorkspaceProjectReader(identity, identityResolver, () => {});
+    return reader;
+  }
+
   return Object.freeze({
     kind: 'host' as const,
     displayName: resolvedRoot,
-    readText(relativePath: string): string | undefined {
-      const path = resolveWithinHostRoot(resolvedRoot, relativePath);
-      if (classifyHostEntry(path) === undefined) return undefined;
-      return readFileSync(path, 'utf8');
-    },
-    listDirectory(relativePath: string): readonly IWorkspaceDirectoryEntry[] {
-      const path = resolveWithinHostRoot(resolvedRoot, relativePath);
-      if (classifyHostEntry(path) === undefined) return [];
-      return readdirSync(path, { withFileTypes: true }).map((entry) => ({
-        name: entry.name,
-        kind: entry.isSymbolicLink()
-          ? 'link'
-          : entry.isFile()
-            ? 'file'
-            : entry.isDirectory()
-              ? 'directory'
-              : 'other',
-      }));
-    },
-    inspectKind(relativePath: string): TWorkspaceContributionKind | undefined {
-      return classifyHostEntry(resolveWithinHostRoot(resolvedRoot, relativePath));
-    },
+    readText: (relativePath: string, purpose: string) =>
+      getReader()?.readText(relativePath, purpose),
+    listDirectory: (relativePath: string, purpose: string) =>
+      getReader()?.listDirectory(relativePath, purpose) ?? [],
+    inspectKind: (relativePath: string, purpose: string) =>
+      getReader()?.inspectKind(relativePath, purpose),
   });
 }

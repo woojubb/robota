@@ -12,6 +12,7 @@
  * an existence-allowlist over `list()`. The HTTP handler bypasses that helper entirely. The guard
  * belongs at the id boundary so every sink inherits it.
  */
+import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -120,5 +121,36 @@ describe('FileSessionLogger — session id path traversal (SEC-006)', () => {
     const logger = new FileSessionLogger(new NodeSessionLogSink(logDir));
     logger.log('session_1730000000000_abc', 'session_init', {});
     expect(existsSync(join(logDir, 'session_1730000000000_abc.jsonl'))).toBe(true);
+  });
+});
+
+describe('NodeSessionLogSink direct path boundaries', () => {
+  let root: string;
+  let logDir: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'sec006-direct-log-sink-'));
+    logDir = join(root, 'logs');
+  });
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('rejects a traversing session id when the public sink is called directly', () => {
+    const sink = new NodeSessionLogSink(logDir);
+
+    expect(() => sink.append('../escaped', '{}\n')).toThrow(/session id/i);
+    expect(existsSync(join(root, 'escaped.jsonl'))).toBe(false);
+  });
+
+  it('rejects non-content-addressed and path-shaped payload digests', () => {
+    const sink = new NodeSessionLogSink(logDir);
+    const serialized = '{"safe":true}';
+    const actualDigest = createHash('sha256').update(serialized).digest('hex');
+
+    expect(() => sink.writeJson('safe-session', '../../escaped', serialized)).toThrow(/sha256/i);
+    expect(() => sink.writeJson('safe-session', 'a'.repeat(64), serialized)).toThrow(/sha256/i);
+    expect(() => sink.writeJson('safe-session', actualDigest, serialized)).not.toThrow();
+    expect(existsSync(join(root, 'escaped.json'))).toBe(false);
   });
 });

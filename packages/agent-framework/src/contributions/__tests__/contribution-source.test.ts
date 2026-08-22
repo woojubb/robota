@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -46,5 +46,34 @@ describe('contribution sources', () => {
     expect(project.kind).toBe('project');
     expect(project.readText('docs/source.md', 'test project content')).toBe('project');
     expect(() => project.readText('../source.md', 'test escape')).toThrowError(/Project reads/);
+  });
+
+  it('does not follow final or ancestor links outside an explicit host root', () => {
+    const hostRoot = scratchDirectory();
+    const outsideRoot = scratchDirectory();
+    mkdirSync(join(outsideRoot, 'nested'));
+    writeFileSync(join(outsideRoot, 'secret.md'), 'outside secret');
+    writeFileSync(join(outsideRoot, 'nested', 'secret.md'), 'nested outside secret');
+    symlinkSync(join(outsideRoot, 'secret.md'), join(hostRoot, 'linked-file.md'));
+    symlinkSync(join(outsideRoot, 'nested'), join(hostRoot, 'linked-directory'));
+    const host = createNodeHostContributionSource(hostRoot);
+
+    expect(host.inspectKind('linked-file.md', 'inspect host link')).toBe('link');
+    expect(() => host.readText('linked-file.md', 'read host link')).toThrow(/links/i);
+    expect(() => host.readText('linked-directory/secret.md', 'read through host link')).toThrow(
+      /links/i,
+    );
+    expect(() => host.listDirectory('linked-directory', 'list host link')).toThrow(/links/i);
+  });
+
+  it('allows an explicit host root to appear after source composition', () => {
+    const hostRoot = join(scratchDirectory(), 'not-created-yet');
+    const host = createNodeHostContributionSource(hostRoot);
+
+    expect(host.readText('late.md', 'read absent host root')).toBeUndefined();
+    expect(host.listDirectory('', 'list absent host root')).toEqual([]);
+    mkdirSync(hostRoot);
+    writeFileSync(join(hostRoot, 'late.md'), 'late content');
+    expect(host.readText('late.md', 'read late host content')).toBe('late content');
   });
 });

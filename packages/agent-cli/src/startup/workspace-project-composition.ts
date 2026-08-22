@@ -1,6 +1,6 @@
 import { realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { isAbsolute, join, relative } from 'node:path';
+import { isAbsolute, join, relative, sep } from 'node:path';
 
 import {
   WorkspaceAuthorityRequiredError,
@@ -104,7 +104,7 @@ export function createCliWorkspaceComposition(
       );
     }
     const remainder = relative(trustedRoot, resolvedCwd);
-    if (remainder.startsWith('..') || isAbsolute(remainder)) {
+    if (remainder === '..' || remainder.startsWith(`..${sep}`) || isAbsolute(remainder)) {
       throw new WorkspaceAuthorityRequiredError(
         'Trusted project access does not cover the requested working directory.',
       );

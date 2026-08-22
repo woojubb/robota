@@ -2688,6 +2688,11 @@ merged with the built-in tier (`BUILT_IN_AGENTS`, a NEUT-003 replacement set, or
 host-owned. Discovered agents override the built-in tier on name collision, and within the tier the
 first entry for a name wins.
 
+`createNodeHostContributionSource(root)` canonicalizes its explicitly supplied host root and performs
+reads and directory listings through stable, component-by-component no-follow handles. A link at the
+target or in any ancestor fails closed, so the adapter cannot consume content outside that root. This
+root-bounded host adapter remains distinct from project trust and does not mint project authority.
+
 **Relative scan directories within each contribution source:**
 
 1. `.robota/agents/` — Robota native

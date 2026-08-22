@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -43,5 +43,18 @@ describe('createQuery project access', () => {
     expect(() =>
       createQuery({ cwd: queryRoot, provider: scripted.provider, projectAccess }),
     ).toThrow('Trusted project access does not cover the requested working directory.');
+  });
+
+  it('accepts an in-root query descendant whose name begins with two dots', async () => {
+    const trustedRoot = mkdtempSync(join(tmpdir(), 'robota-query-descendant-'));
+    const queryRoot = join(trustedRoot, '..cache');
+    mkdirSync(queryRoot);
+    roots.push(trustedRoot);
+    const projectAccess = await createTrustedProjectAccessFixture(trustedRoot);
+    const scripted = createScriptedProvider([]);
+
+    expect(
+      createQuery({ cwd: queryRoot, provider: scripted.provider, projectAccess }).projectAccess,
+    ).toBe(projectAccess);
   });
 });

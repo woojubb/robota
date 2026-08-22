@@ -161,7 +161,9 @@ missing or unreadable files, byte-length/hash mismatch, invalid JSON, cycles, or
 limits. `session-log-replay` exports replay readers and validators that reconstruct chat history from
 `history_mutation` and report missing provider/tool terminal events; an unresolved history message or
 normalized provider response is replay-incomplete. Replay validation also requires provider-native raw
-response or stream payload coverage for each `provider_request`.
+response or stream payload coverage for each `provider_request`. Direct `NodeSessionLogSink` calls reject
+unsafe session path components and reject payload digests that are malformed or do not hash the supplied
+serialized content.
 
 A migration script is available for upgrading session records from older formats. See the package source for details.
 

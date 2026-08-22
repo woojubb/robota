@@ -1,13 +1,24 @@
+import { createHash } from 'node:crypto';
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createLogger } from '@robota-sdk/agent-core';
+
+import { assertSafeSessionId } from './session-id.js';
 
 import type { IExternalPayloadReference } from './session-logger.js';
 
 const logger = createLogger('NodeSessionLogSink');
 const OWNER_ONLY_FILE_MODE = 0o600;
 const OWNER_ONLY_DIR_MODE = 0o700;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+
+function assertContentAddress(sha256: string, serialized: string): void {
+  const actualSha256 = createHash('sha256').update(serialized).digest('hex');
+  if (!SHA256_PATTERN.test(sha256) || sha256 !== actualSha256) {
+    throw new Error('Invalid sha256: external JSON payloads require their exact content digest.');
+  }
+}
 
 /** Workspace-neutral sink for content-addressed external JSON payloads. */
 export interface IExternalPayloadSink {
@@ -40,6 +51,7 @@ export class NodeSessionLogSink implements ISessionLogSink, IExternalPayloadSink
   }
 
   append(sessionId: string, text: string): void {
+    assertSafeSessionId(sessionId);
     if (!this.enabled) return;
     appendFileSync(join(this.logDirectory, `${sessionId}.jsonl`), text, {
       mode: OWNER_ONLY_FILE_MODE,
@@ -47,6 +59,8 @@ export class NodeSessionLogSink implements ISessionLogSink, IExternalPayloadSink
   }
 
   writeJson(sessionId: string, sha256: string, serialized: string): IExternalPayloadReference {
+    assertSafeSessionId(sessionId);
+    assertContentAddress(sha256, serialized);
     const payloadDirectoryName = `${sessionId}.payloads`;
     const payloadFileName = `${sha256}.json`;
     const relativePath = join(payloadDirectoryName, payloadFileName);

@@ -1,4 +1,4 @@
-import { isAbsolute, relative, win32 } from 'node:path';
+import { isAbsolute, relative, sep, win32 } from 'node:path';
 
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 
@@ -30,7 +30,10 @@ export function workspaceContributionKind(metadata: Stats): TWorkspaceContributi
 
 export function isWorkspacePathContained(root: string, candidate: string): boolean {
   const remainder = relative(root, candidate);
-  return remainder === '' || (!remainder.startsWith('..') && !isAbsolute(remainder));
+  return (
+    remainder === '' ||
+    (remainder !== '..' && !remainder.startsWith(`..${sep}`) && !isAbsolute(remainder))
+  );
 }
 
 export function workspacePathSegments(value: string, allowRoot = false): readonly string[] {
