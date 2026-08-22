@@ -456,3 +456,55 @@ evidence — is gone, and what remains is a decision plus the work it implies. *
 `patch-coverage` is either promoted on the same standard of evidence, or recorded as permanently
 advisory with the reason, in which case this item's title is wrong and should be narrowed rather than
 the record being marked complete over half its subject.**
+
+## 2026-08-22 (later) — blocker 1 is FIXED; blocker 2 is measured and still a decision
+
+**Blocker 1 was a code defect, not a decision, and I had said otherwise.** The record names it
+plainly — _"This is the issue #1344 defect and it is in `scripts/harness/check-patch-coverage.mjs`"_ —
+and an earlier entry of mine described both remaining blockers as decisions. That was wrong about
+this one, and the correction is the reason it is now fixed rather than deferred.
+
+A package with no test suite still emits an lcov report under `coverage.all: true`, every record
+zero-hit. Those lines were counted as MEASURED-and-uncovered and dragged the patch percentage
+BELOW-TARGET, charging a pull request for a package with no way to discharge the debt.
+
+Such a package is now NO-DATA (INCONCLUSIVE, advisory). Both conditions are required, and all three
+directions are pinned by tests and by an end-to-end fixture run:
+
+| package    | lcov             | verdict                                                         |
+| ---------- | ---------------- | --------------------------------------------------------------- |
+| owns tests | nothing covered  | `patch-coverage-below-target` — the defect this gate exists for |
+| no tests   | nothing covered  | `inconclusive-no-data` — issue #1344's false positive           |
+| no tests   | any line covered | `patch-coverage-below-target` — a hit is evidence something ran |
+
+The two existing red cases failed on this change and were right to: neither modelled whether the
+package owns tests, because that dimension did not exist. The red fixture is `LH:0` with no test
+file — **indistinguishable from the false positive being fixed**. Fixtures now declare their test
+files explicitly.
+
+**Blocker 3 is discharged** — `regression-red-proof` got its real verdicts and is promoted and
+required.
+
+### Blocker 2 remains, and it was measured rather than assumed
+
+The obvious hope was that the issue #1344 fix also discharges the React-UI tax, since a GUI package
+with no component tests would now be excused. **It does not.** Measured:
+
+```
+packages/agent-cli-web       tsx=1     test files=0    -> excused by the #1344 fix
+apps/agent-web               tsx=6     test files=1    -> owns tests, still charged
+apps/agent-app               tsx=3     test files=1    -> owns tests, still charged
+packages/agent-playground    tsx=184   test files=32   -> owns tests, still charged
+```
+
+A package that owns _some_ tests but no component-test infrastructure for its `.tsx` render surfaces
+is not excused by the new classification, and should not be — owning tests is exactly what makes an
+uncovered line a real hole under this gate's own logic. So the tax stands for three of the four.
+
+**This is a genuine decision and not a measurement:** either exclude `.tsx` render surfaces from the
+patch denominator, or stand up component-test infrastructure for the GUI packages. Nothing about the
+number itself settles it; it is a question of what the number should mean for a render surface.
+
+**Status stays `in-progress`.** Done when `patch-coverage` is promoted after that decision, or
+recorded as permanently advisory with the reason — in which case the item's title, which names two
+gates, is what should be narrowed.
