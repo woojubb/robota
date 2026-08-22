@@ -322,16 +322,61 @@ describe('scan-main-required-checks parsing helpers', () => {
 
   it('reads the pull_request trigger, inline and block branch lists', () => {
     expect(pullRequestTrigger(TRIGGER)).toEqual({
+      kind: 'pull_request',
       branches: ['main', 'develop'],
       types: ['opened', 'synchronize', 'reopened', 'edited'],
       hasPathFilter: false,
     });
     expect(
       pullRequestTrigger('on:\n  pull_request:\n    branches:\n      - main\n      - develop\n'),
-    ).toEqual({ branches: ['main', 'develop'], types: undefined, hasPathFilter: false });
+    ).toEqual({
+      kind: 'pull_request',
+      branches: ['main', 'develop'],
+      types: undefined,
+      hasPathFilter: false,
+    });
     expect(
       pullRequestTrigger("on:\n  pull_request:\n    paths-ignore:\n      - '**/*.md'\n"),
-    ).toEqual({ branches: [], types: undefined, hasPathFilter: true });
+    ).toEqual({ kind: 'pull_request', branches: [], types: undefined, hasPathFilter: true });
+  });
+
+  // INFRA-097. The trusted control plane runs on `pull_request_target` BECAUSE `pull_request` loads
+  // its definition from the pull request under test. A reader that knew only the first would have
+  // reported R2 "declares no trigger this scan can read" for the one workflow whose plane is the
+  // point — refusing the fix as if it were the defect.
+  it('[R2] reads a pull_request_target trigger and names which plane it found', () => {
+    expect(
+      pullRequestTrigger(
+        'on:\n  pull_request_target:\n    branches: [main, develop]\n    types: [opened, synchronize, reopened, edited]\n',
+      ),
+    ).toEqual({
+      kind: 'pull_request_target',
+      branches: ['main', 'develop'],
+      types: ['opened', 'synchronize', 'reopened', 'edited'],
+      hasPathFilter: false,
+    });
+  });
+
+  // The two planes are distinguished, not conflated: `pull_request:` must not match the longer key,
+  // or a `pull_request_target`-only workflow would be reported under the wrong name in every message.
+  it('does not read `pull_request_target:` as `pull_request:`', () => {
+    const target = pullRequestTrigger(
+      'on:\n  pull_request_target:\n    branches: [main]\n    types: [edited]\n',
+    );
+    expect(target?.kind).toBe('pull_request_target');
+    const plain = pullRequestTrigger('on:\n  pull_request:\n    branches: [main]\n');
+    expect(plain?.kind).toBe('pull_request');
+    expect(pullRequestTrigger('on:\n  push:\n    branches: [main]\n')).toBeUndefined();
+  });
+
+  // R7 is about the RETARGET path and is plane-independent: `edited` is absent from GitHub's default
+  // activity set on both, so a base moved develop->main re-dispatches nothing either way.
+  it('[R7] applies to the target plane too — an `edited`-less types: is still the failing case', () => {
+    const trigger = pullRequestTrigger(
+      'on:\n  pull_request_target:\n    branches: [main]\n    types: [opened, synchronize]\n',
+    );
+    expect(trigger?.kind).toBe('pull_request_target');
+    expect(trigger?.types).not.toContain('edited');
   });
 
   // The scoping-bug class this suite already caught once (a `paths-ignore:` block list parsed as
@@ -340,6 +385,11 @@ describe('scan-main-required-checks parsing helpers', () => {
     const trigger = pullRequestTrigger(
       "on:\n  pull_request:\n    branches:\n      - main\n    types:\n      - edited\n    paths-ignore:\n      - '**/*.md'\n",
     );
-    expect(trigger).toEqual({ branches: ['main'], types: ['edited'], hasPathFilter: true });
+    expect(trigger).toEqual({
+      kind: 'pull_request',
+      branches: ['main'],
+      types: ['edited'],
+      hasPathFilter: true,
+    });
   });
 });

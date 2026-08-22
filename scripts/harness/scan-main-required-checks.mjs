@@ -20,7 +20,12 @@
  * actually fail on a `main` PR:
  *
  *   R1  The context resolves to exactly one job in the declared workflow.
- *   R2  The workflow triggers on `pull_request` for `main`, with no `paths`/`paths-ignore` filter.
+ *   R2  The workflow triggers on `pull_request` OR `pull_request_target` for `main`, with no
+ *       `paths`/`paths-ignore` filter. Both planes dispatch off the base branch and both can carry a
+ *       required context, so accepting only the first would have made INFRA-097's trusted control
+ *       plane unrequireable — the plane exists precisely BECAUSE `pull_request` loads its definition
+ *       from the pull request under test. Which plane a workflow uses is a separate judgement from
+ *       whether its context can fail, and this rule is about the second.
  *       A path filter means some PR shape never triggers the workflow at all, and a required context
  *       that never REPORTS blocks the PR forever with no way to satisfy it (the #1436 review-gate
  *       rollback).
@@ -160,7 +165,19 @@ export function pullRequestTrigger(workflowText) {
   const text = stripComments(workflowText);
   const onBlock = /^on:\s*$\n((?:[ \t]+.*\n?)*)/m.exec(text);
   if (!onBlock) return undefined;
-  const prBlock = /^ {2}pull_request:\s*$\n((?:(?: {4}.*)?\n?)*)/m.exec(onBlock[1]);
+  // Either plane. `pull_request_target` is matched FIRST because `pull_request:` would not match it
+  // anyway (the colon differs), but ordering it explicitly keeps the intent readable: a control-plane
+  // gate uses the target plane on purpose, and a rule that only knew the other one would refuse the
+  // very shape INFRA-097 exists to install.
+  let kind;
+  let prBlock;
+  for (const candidate of ['pull_request_target', 'pull_request']) {
+    prBlock = new RegExp(`^ {2}${candidate}:\\s*$\\n((?:(?: {4}.*)?\\n?)*)`, 'm').exec(onBlock[1]);
+    if (prBlock) {
+      kind = candidate;
+      break;
+    }
+  }
   if (!prBlock) return undefined;
   const body = prBlock[1];
   const typesInline = / {4}types:[ \t]*\[(.*)\]/.exec(body);
@@ -188,7 +205,7 @@ export function pullRequestTrigger(workflowText) {
     : [...(branchesBlock?.[1] ?? '').matchAll(/^ {6}- +['"]?([^'"\n]+)['"]?$/gm)]
         .map((match) => match[1].trim())
         .filter(Boolean);
-  return { branches, types, hasPathFilter: /^ {4}paths(-ignore)?:/m.test(body) };
+  return { kind, branches, types, hasPathFilter: /^ {4}paths(-ignore)?:/m.test(body) };
 }
 
 /** Read and validate the declaration for a branch. Throws on anything that would make it vacuous. */
@@ -268,25 +285,27 @@ export function findRequiredCheckFindings(root = WORKSPACE_ROOT) {
     // R2 — the workflow must trigger for every PR to `main`, with no path filter.
     const trigger = pullRequestTrigger(workflowText);
     if (!trigger) {
-      report(`[R2] \`${workflow}\` declares no \`pull_request:\` trigger this scan can read.`);
+      report(
+        `[R2] \`${workflow}\` declares no \`pull_request:\` or \`pull_request_target:\` trigger this scan can read.`,
+      );
     } else {
       if (trigger.branches.length > 0 && !trigger.branches.includes(GOVERNED_BRANCH)) {
         report(
-          `[R2] \`${workflow}\`'s \`pull_request\` trigger does not cover \`${GOVERNED_BRANCH}\` (branches: ${trigger.branches.join(', ') || '(none)'}).`,
+          `[R2] \`${workflow}\`'s \`${trigger.kind}\` trigger does not cover \`${GOVERNED_BRANCH}\` (branches: ${trigger.branches.join(', ') || '(none)'}).`,
         );
       }
       if (trigger.hasPathFilter) {
         report(
-          `[R2] \`${workflow}\`'s \`pull_request\` trigger carries a \`paths\`/\`paths-ignore\` filter. Some PR shape then never triggers it, the context never reports, and the PR is blocked forever with no way to satisfy it.`,
+          `[R2] \`${workflow}\`'s \`${trigger.kind}\` trigger carries a \`paths\`/\`paths-ignore\` filter. Some PR shape then never triggers it, the context never reports, and the PR is blocked forever with no way to satisfy it.`,
         );
       }
       if (trigger.types === undefined) {
         report(
-          `[R7] \`${workflow}\`'s \`pull_request\` trigger declares no \`types:\`, so it uses GitHub's DEFAULT activity set, which omits \`${REQUIRED_TRIGGER_TYPE}\`. Retargeting a PR's base fires \`${REQUIRED_TRIGGER_TYPE}\` — measured on throwaway PR #1442, a feature branch retargeted develop→main re-dispatched nothing, kept the \`skipping\` conclusions it earned as a develop PR, and reported \`mergeStateStatus: CLEAN\`. An absent \`types:\` is the failing case, not a safe default.`,
+          `[R7] \`${workflow}\`'s \`${trigger.kind}\` trigger declares no \`types:\`, so it uses GitHub's DEFAULT activity set, which omits \`${REQUIRED_TRIGGER_TYPE}\`. Retargeting a PR's base fires \`${REQUIRED_TRIGGER_TYPE}\` — measured on throwaway PR #1442, a feature branch retargeted develop→main re-dispatched nothing, kept the \`skipping\` conclusions it earned as a develop PR, and reported \`mergeStateStatus: CLEAN\`. An absent \`types:\` is the failing case, not a safe default.`,
         );
       } else if (!trigger.types.includes(REQUIRED_TRIGGER_TYPE)) {
         report(
-          `[R7] \`${workflow}\`'s \`pull_request\` \`types:\` (${trigger.types.join(', ')}) omits \`${REQUIRED_TRIGGER_TYPE}\`, so a base retarget re-dispatches nothing and this required context keeps whatever conclusion it earned against the OLD base — \`skipping\`, which branch protection accepts (PR #1442).`,
+          `[R7] \`${workflow}\`'s \`${trigger.kind}\` \`types:\` (${trigger.types.join(', ')}) omits \`${REQUIRED_TRIGGER_TYPE}\`, so a base retarget re-dispatches nothing and this required context keeps whatever conclusion it earned against the OLD base — \`skipping\`, which branch protection accepts (PR #1442).`,
         );
       }
     }

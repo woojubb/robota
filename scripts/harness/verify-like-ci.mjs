@@ -739,6 +739,11 @@ export function annotateNotMirrored(
   const evaluate = (key) => {
     if (key === 'manifest-or-lockfile') return touchesManifest;
     if (key === 'code') return productChanged;
+    // A workflow edit is not `code` — the `changes` classifier reports infrastructure-only work as
+    // N/A — so `workflow provenance` would have been marked irrelevant on exactly the diffs it
+    // exists to judge. Its own subject is the file list, so its relevance is a file-list question.
+    if (key === 'guarded-workflow')
+      return changedFiles.some((file) => file.startsWith('.github/workflows/'));
     // An unknown key must SHOUT rather than be ignored: the alternative is a required check
     // quietly demoted to a footnote by a relevance rule nobody implemented.
     return true;
