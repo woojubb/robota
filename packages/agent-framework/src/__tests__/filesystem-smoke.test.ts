@@ -18,12 +18,17 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { PluginCommandSource } from '../commands/plugin-source.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
-import { loadConfig } from '../config/config-loader.js';
+import { loadConfig as loadConfigFromSources } from '../config/config-loader.js';
 import { BundlePluginLoader } from '../plugins/index.js';
+import { createTrustedSettingsSourcesFixture } from '../testing/trusted-project-state-fixture.js';
 import { substituteVariables, preprocessShellCommands } from '../utils/skill-prompt.js';
 
 const testShellExec = (cmd: string) =>
   execSync(cmd, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd();
+
+async function loadConfig(cwd: string) {
+  return loadConfigFromSources(await createTrustedSettingsSourcesFixture(cwd));
+}
 
 // ---------------------------------------------------------------------------
 // Helpers

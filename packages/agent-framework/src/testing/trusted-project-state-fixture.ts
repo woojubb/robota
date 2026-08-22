@@ -1,11 +1,17 @@
 import { realpathSync } from 'node:fs';
 
+import {
+  createDefaultUserSettingsSources,
+  createWorkspaceProjectSettingsSources,
+} from '../config/settings-source.js';
 import { createProjectSessionStore } from '../interactive/session-persistence.js';
 import {
   WorkspaceTrustService,
+  getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
 } from '../workspace-trust/index.js';
 
+import type { TSettingsSource } from '../config/settings-source.js';
 import type {
   IWorkspaceIdentity,
   IWorkspaceTrustStore,
@@ -68,4 +74,16 @@ export async function createTrustedProjectSessionStoreFixture(
     getWorkspaceProjectStateStorage(access.authority, 'sessions'),
     getWorkspaceProjectStateStorage(access.authority, 'session-logs'),
   );
+}
+
+/** Test-only settings precedence assembled from explicit user and production-minted project sources. */
+export async function createTrustedSettingsSourcesFixture(
+  root: string,
+): Promise<readonly TSettingsSource[]> {
+  const access = await createTrustedProjectAccessFixture(root);
+  if (access.status !== 'trusted') throw new Error('Fixture trust service did not return trusted.');
+  return [
+    ...createDefaultUserSettingsSources(),
+    ...createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(access.authority)),
+  ];
 }

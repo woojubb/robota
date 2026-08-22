@@ -22,6 +22,10 @@ import { injectSavedMessage } from './interactive-session-restore.js';
 import { deriveContextCapacityHint } from '../assembly/context-capacity-hint.js';
 import { createSession } from '../assembly/index.js';
 import { loadConfig } from '../config/config-loader.js';
+import {
+  createDefaultUserSettingsSources,
+  createWorkspaceProjectSettingsSources,
+} from '../config/settings-source.js';
 import { loadContext } from '../context/context-loader.js';
 import { detectProject } from '../context/project-detector.js';
 import { BundlePluginLoader } from '../plugins/index.js';
@@ -81,10 +85,14 @@ export async function createInteractiveSession(
   options: IInitOptions,
 ): Promise<ICreatedInteractiveSession> {
   const cwd = options.cwd;
-  const contextSource =
+  const projectReader =
     options.projectAccess?.status === 'trusted'
+      ? getWorkspaceProjectReader(options.projectAccess.authority)
+      : undefined;
+  const contextSource =
+    options.projectAccess?.status === 'trusted' && projectReader !== undefined
       ? {
-          reader: getWorkspaceProjectReader(options.projectAccess.authority),
+          reader: projectReader,
           startRelativeDirectory: relative(
             options.projectAccess.identity.worktreeRoot,
             resolve(cwd),
@@ -93,7 +101,12 @@ export async function createInteractiveSession(
       : undefined;
   // NEUT-004: config resolves FIRST so the settings-driven task-context toggle can gate the
   // context load; context and project detection still run in parallel with each other.
-  const config = options.config ?? (await loadConfig(cwd));
+  const config =
+    options.config ??
+    (await loadConfig([
+      ...createDefaultUserSettingsSources(),
+      ...(projectReader === undefined ? [] : createWorkspaceProjectSettingsSources(projectReader)),
+    ]));
   const [context, projectInfo] = await Promise.all([
     options.bare
       ? Promise.resolve({
@@ -109,7 +122,9 @@ export async function createInteractiveSession(
         ),
     options.bare
       ? Promise.resolve({ type: 'unknown' as const, language: 'unknown' as const })
-      : detectProject(cwd),
+      : projectReader === undefined
+        ? Promise.resolve({ type: 'unknown' as const, language: 'unknown' as const })
+        : detectProject(projectReader),
   ]);
 
   let mergedConfig: IResolvedConfig = options.language
@@ -228,7 +243,16 @@ export async function initializeInteractiveSessionAsync(
   options: IInteractiveSessionStandardOptions,
   deps: IAsyncInitDeps,
 ): Promise<IAsyncInitResult> {
-  const config = options.config ?? (await loadConfig(options.cwd));
+  const projectReader =
+    options.projectAccess?.status === 'trusted'
+      ? getWorkspaceProjectReader(options.projectAccess.authority)
+      : undefined;
+  const config =
+    options.config ??
+    (await loadConfig([
+      ...createDefaultUserSettingsSources(),
+      ...(projectReader === undefined ? [] : createWorkspaceProjectSettingsSources(projectReader)),
+    ]));
   const autoCompactThresholdSource =
     config.autoCompactThreshold === undefined ? 'default' : 'settings';
   const checkpointStore = options.editCheckpointStore;

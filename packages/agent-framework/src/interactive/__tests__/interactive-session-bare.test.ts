@@ -154,7 +154,7 @@ describe('createInteractiveSession — bare mode', () => {
     expect(mockLoadContext).toHaveBeenCalledWith(undefined, undefined, {});
   });
 
-  it('bare=false (default): detectProject IS called', async () => {
+  it('bare=false without project access: detectProject is not called', async () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
@@ -165,8 +165,7 @@ describe('createInteractiveSession — bare mode', () => {
       onToolExecution: NOOP_TOOL,
     });
 
-    expect(mockDetectProject).toHaveBeenCalledTimes(1);
-    expect(mockDetectProject).toHaveBeenCalledWith('/tmp/test');
+    expect(mockDetectProject).not.toHaveBeenCalled();
   });
 
   it('bare omitted (default behavior): loadContext IS called', async () => {
@@ -212,6 +211,9 @@ describe('createInteractiveSession — bare mode', () => {
 
     // Config loading is always needed even in bare mode
     expect(mockLoadConfig).toHaveBeenCalledTimes(1);
-    expect(mockLoadConfig).toHaveBeenCalledWith('/tmp/test');
+    expect(mockLoadConfig).toHaveBeenCalledWith([
+      expect.objectContaining({ kind: 'host', scope: 'user' }),
+      expect.objectContaining({ kind: 'host', scope: 'user' }),
+    ]);
   });
 });

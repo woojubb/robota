@@ -2,8 +2,9 @@
  * Project detector — infers project type, name, package manager, and language
  * from files present in the given directory.
  */
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { assertWorkspaceProjectReader } from '../workspace-trust/index.js';
+
+import type { IWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 export type TProjectType = 'node' | 'python' | 'rust' | 'go' | 'unknown';
 export type TPackageManager = 'pnpm' | 'yarn' | 'npm' | 'bun';
@@ -21,47 +22,51 @@ interface IPackageJson {
   packageManager?: string;
 }
 
-function tryReadJson(filePath: string): IPackageJson | undefined {
-  if (!existsSync(filePath)) return undefined;
+function tryReadJson(
+  reader: IWorkspaceProjectReader,
+  relativePath: string,
+): IPackageJson | undefined {
+  const raw = reader.readText(relativePath, 'detect project package metadata');
+  if (raw === undefined) return undefined;
   try {
-    return JSON.parse(readFileSync(filePath, 'utf-8')) as IPackageJson;
+    return JSON.parse(raw) as IPackageJson;
   } catch {
     // allow-fallback: an absent/unreadable package.json means the project detail is simply unknown
     return undefined;
   }
 }
 
-function detectPackageManager(cwd: string): TPackageManager | undefined {
-  if (existsSync(join(cwd, 'pnpm-workspace.yaml')) || existsSync(join(cwd, 'pnpm-lock.yaml'))) {
+function hasFile(reader: IWorkspaceProjectReader, relativePath: string): boolean {
+  return reader.inspectKind(relativePath, 'detect project type') === 'file';
+}
+
+function detectPackageManager(reader: IWorkspaceProjectReader): TPackageManager | undefined {
+  if (hasFile(reader, 'pnpm-workspace.yaml') || hasFile(reader, 'pnpm-lock.yaml')) {
     return 'pnpm';
   }
-  if (existsSync(join(cwd, 'yarn.lock'))) {
+  if (hasFile(reader, 'yarn.lock')) {
     return 'yarn';
   }
-  if (existsSync(join(cwd, 'bun.lockb'))) {
+  if (hasFile(reader, 'bun.lockb')) {
     return 'bun';
   }
-  if (existsSync(join(cwd, 'package-lock.json'))) {
+  if (hasFile(reader, 'package-lock.json')) {
     return 'npm';
   }
   return undefined;
 }
 
 /**
- * Detect the project type, language, name, and package manager from `cwd`.
+ * Detect the project type, language, name, and package manager within an authenticated root.
  */
-export async function detectProject(cwd: string): Promise<IProjectInfo> {
-  const pkgJsonPath = join(cwd, 'package.json');
-  const tsconfigPath = join(cwd, 'tsconfig.json');
-  const pyprojectPath = join(cwd, 'pyproject.toml');
-  const cargoPath = join(cwd, 'Cargo.toml');
-  const goModPath = join(cwd, 'go.mod');
+export async function detectProject(reader: IWorkspaceProjectReader): Promise<IProjectInfo> {
+  const accepted = assertWorkspaceProjectReader(reader);
 
   // Node.js project
-  if (existsSync(pkgJsonPath)) {
-    const pkgJson = tryReadJson(pkgJsonPath);
-    const language: TLanguage = existsSync(tsconfigPath) ? 'typescript' : 'javascript';
-    const packageManager = detectPackageManager(cwd);
+  if (hasFile(accepted, 'package.json')) {
+    const pkgJson = tryReadJson(accepted, 'package.json');
+    const language: TLanguage = hasFile(accepted, 'tsconfig.json') ? 'typescript' : 'javascript';
+    const packageManager = detectPackageManager(accepted);
     return {
       type: 'node',
       name: pkgJson?.name,
@@ -71,7 +76,7 @@ export async function detectProject(cwd: string): Promise<IProjectInfo> {
   }
 
   // Python project
-  if (existsSync(pyprojectPath) || existsSync(join(cwd, 'setup.py'))) {
+  if (hasFile(accepted, 'pyproject.toml') || hasFile(accepted, 'setup.py')) {
     return {
       type: 'python',
       language: 'python',
@@ -79,7 +84,7 @@ export async function detectProject(cwd: string): Promise<IProjectInfo> {
   }
 
   // Rust project
-  if (existsSync(cargoPath)) {
+  if (hasFile(accepted, 'Cargo.toml')) {
     return {
       type: 'rust',
       language: 'rust',
@@ -87,7 +92,7 @@ export async function detectProject(cwd: string): Promise<IProjectInfo> {
   }
 
   // Go project
-  if (existsSync(goModPath)) {
+  if (hasFile(accepted, 'go.mod')) {
     return {
       type: 'go',
       language: 'go',

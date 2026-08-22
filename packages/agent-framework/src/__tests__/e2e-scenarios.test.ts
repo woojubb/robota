@@ -17,9 +17,10 @@ import { CommandRegistry } from '../commands/command-registry.js';
 import { PluginCommandSource } from '../commands/plugin-source.js';
 import { executeSkill } from '../commands/skill-executor.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
-import { loadConfig } from '../config/config-loader.js';
+import { loadConfig as loadConfigFromSources } from '../config/config-loader.js';
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
 import { BundlePluginLoader } from '../plugins/index.js';
+import { createTrustedSettingsSourcesFixture } from '../testing/trusted-project-state-fixture.js';
 import { substituteVariables } from '../utils/skill-prompt.js';
 
 import type { IForkExecutionOptions } from '../commands/skill-executor.js';
@@ -31,6 +32,10 @@ import type { THooksConfig, IHookInput } from '@robota-sdk/agent-core';
 // ---------------------------------------------------------------------------
 
 let tempDirs: string[] = [];
+
+async function loadConfig(cwd: string) {
+  return loadConfigFromSources(await createTrustedSettingsSourcesFixture(cwd));
+}
 
 function createTempDir(prefix = 'e2e-'): string {
   const dir = mkdtempSync(join(tmpdir(), `robota-${prefix}`));

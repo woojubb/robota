@@ -4,7 +4,9 @@ import { join } from 'path';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { detectProject } from '../context/project-detector.js';
+import { detectProject as detectProjectFromReader } from '../context/project-detector.js';
+import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
+import { getWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-detector-test-'));
 
@@ -14,6 +16,12 @@ function setupDir(path: string): void {
 
 function writeJson(path: string, data: unknown): void {
   writeFileSync(path, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+async function detectProject(cwd: string) {
+  const access = await createTrustedProjectAccessFixture(cwd);
+  if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
+  return detectProjectFromReader(getWorkspaceProjectReader(access.authority));
 }
 
 describe('detectProject', () => {
