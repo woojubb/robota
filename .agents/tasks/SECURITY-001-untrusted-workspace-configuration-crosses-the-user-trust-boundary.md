@@ -1,11 +1,11 @@
 ---
 title: 'SECURITY-001: untrusted workspace configuration crosses the user trust boundary'
-status: todo
+status: blocked
 created: 2026-08-22
 priority: critical
 urgency: now
 area: packages/agent-framework, packages/agent-session, packages/agent-core, packages/agent-cli
-depends_on: []
+depends_on: [ARCH-042, ARCH-043, ARCH-044, ARCH-045, ARCH-046]
 ---
 
 # SECURITY-001: untrusted workspace configuration crosses the user trust boundary
