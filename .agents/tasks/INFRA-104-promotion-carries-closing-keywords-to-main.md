@@ -198,3 +198,66 @@ BEFORE the evidence exists so the reading cannot be fitted to it:
 Any of the three failing is a finding about this item, not about the promotion. In particular,
 if issue #1965 is closed by hand before then, the subject is consumed and TC-10 waits again — which is what
 happened four times earlier in this session and is recorded above.
+
+### 2026-08-22 (later) — the promotion happened, and TC-10 did NOT observe
+
+Promotion PR #2013 merged at `03:21:49Z` (`main` is now `15800bf0f`, 89 commits). The three conditions
+written above BEFORE any of this evidence existed were executed against it. Two of the three failed,
+and the record says so rather than being rewritten around the result.
+
+| #   | condition, as written this morning                              | outcome                          |
+| --- | --------------------------------------------------------------- | -------------------------------- |
+| 1   | the promotion body carries a non-empty block naming issue #1965 | **NOT MET** — the block is empty |
+| 2   | the `promotion closes` job reports green                        | MET — `pass`, 40s                |
+| 3   | issue #1965 is closed by GITHUB, attributed to the merge        | **NOT MET** — closed by a person |
+
+The measured cause, read from the timeline rather than inferred:
+
+```
+issue #1965  closed_by=woojubb  commit=none  at 2026-08-22T01:42:25Z
+```
+
+`commit=none` — not a commit reference, not GitHub acting on a keyword. **Seventeen minutes after
+PR #1979 merged**, and roughly ninety minutes before the promotion. The subject was consumed, which
+is the branch this record named in advance:
+
+> if issue #1965 is closed by hand before then, the subject is consumed and TC-10 waits again
+
+That is the fifth occurrence in one session, and writing the branch in advance is the only reason
+the outcome cannot now be reinterpreted as anything else.
+
+### The finding: TC-10 as specified is not merely unobserved, it is unobservable
+
+Five for five stops being bad luck. The specification requires a state the workflow actively
+destroys, and nobody involved did anything wrong:
+
+- every closing keyword in this repository sits on a `develop` pull request, because that is where
+  the work merges;
+- GitHub honours closing keywords only on a default-branch pull request, so the keyword does
+  nothing and the issue stays open;
+- the issue is then open and visible for hours or days after its fix has shipped, which **reads as
+  an oversight to anyone tidying the backlog** — closing it is the correct-looking action;
+- the promotion arrives later and finds nothing to close.
+
+The window between "fix merges" and "promotion runs" is exactly the window TC-10 needs the subject
+to survive, and nothing protects it. The owner closing their own issue is not carelessness; it is
+the sane response to what the repository shows them.
+
+**So the repair is not "wait for the sixth promotion".** Either the observation keys on something
+durable — the derivation recorded at merge time, or the merge event itself — or TC-10 states what it
+can actually verify: _the derivation runs and produces the correct block WHEN a subject exists_. The
+subject's existence is not something this gate can require of the world.
+
+The gate half is sound and was exercised today: `promotion closes` ran on a `main` pull request,
+derived from 137 carried bodies and 38 issue records, and reported an empty requirement correctly —
+"none, and that is a measured result", not a skip and not an underivable block reported as empty.
+What has never been exercised is GitHub's half, and this record now says why that is structural.
+
+**Related defects found while doing this, filed rather than folded in:**
+
+- issue #1980 — `promotion closes` is declared required on `main` and the live ruleset does not
+  require it. The ruleset has not changed since 2026-07-26, so it was never added rather than
+  removed.
+- issue #1984 — the lint ratchet's only CI execution path is the promotion job.
+- issue #2014 — the dependency-review licence exemption names 2 of this repository's 56
+  dual-licensed packages.
