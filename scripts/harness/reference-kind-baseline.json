@@ -132,7 +132,7 @@
   ".agents/tasks/HARNESS-108-barrel-parameter-types-covers-two-of-fifty-five-barrels.md": 2,
   ".agents/tasks/INFRA-046-promote-advisory-gates.md": 64,
   ".agents/tasks/INFRA-054-fast-forward-promotion-end-state.md": 5,
-  ".agents/tasks/INFRA-104-promotion-carries-closing-keywords-to-main.md": 5,
+  ".agents/tasks/completed/INFRA-104-promotion-carries-closing-keywords-to-main.md": 5,
   ".agents/tasks/PEER-003-peer-input-coalescing-loses-conversation-turns.md": 1,
   ".agents/tasks/REL-023-changeset-reconciliation.md": 1,
   ".agents/tasks/RUNTIME-002-headless-only-bun-runtime-entry.md": 2,

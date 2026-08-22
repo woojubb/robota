@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-104: a merged Closes #N never reaches main, so finished issues stay open'
-status: in-progress
+status: done
 created: 2026-08-18
+completed: 2026-08-22
 priority: high
 urgency: now
 area: scripts/harness, .github/workflows, .github/required-status-checks.json
@@ -39,8 +40,12 @@ and guard the promotion PR against omitting one.
 - [x] TC-08: `pnpm harness:scan` and the harness unit tier are green.
 - [x] TC-09: `scan-main-required-checks.mjs` exits 0 with the new required context declared under
       `branches.main`.
-- [ ] TC-10 (user-execution): the next promotion PR carries the block and GitHub — not a person —
-      closes the issues it names. `#1722` is the first case.
+- [x] TC-10 (user-execution): the next promotion PR carries the block and GitHub — not a person —
+      closes the issues it names. OBSERVED 2026-08-22 on promotion PR #2041: three subjects
+      (issues #1980, #2018, #1719), all three closed 1-2s after the merge with
+      `ClosedEvent.closer = PullRequest #2041`. Validated against a hand-closed control
+      (issue #1965, `closer = NULL`). NOT `#1722` — that subject was consumed by hand long
+      before, as were four others; see the dated entries below.
 
 ## Test Plan
 

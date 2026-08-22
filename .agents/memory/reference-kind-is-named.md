@@ -37,7 +37,7 @@ different enforcement shapes, and the write surface is always the cheap one.
 ## The exemption that is load-bearing
 
 `Closes #N` is exempt because GitHub parses that exact shape, and
-[INFRA-104](../tasks/INFRA-104-promotion-carries-closing-keywords-to-main.md) built the promotion
+[INFRA-104](../tasks/completed/INFRA-104-promotion-carries-closing-keywords-to-main.md) built the promotion
 machinery that carries those keywords to the default branch so a finished issue closes itself.
 Requiring a qualifier there would have traded a readability gain for a broken automation — the kind
 of trade a new rule makes silently when its author only looks at the surface being improved.
