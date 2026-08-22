@@ -38,7 +38,10 @@ export type { TScrubbableValue } from './scrub-sensitive.js';
 
 // Session logging
 export { FileSessionLogger, SilentSessionLogger } from './session-logger.js';
-export { NodeSessionLogSink } from './session-log-sinks.js';
+export {
+  createSessionLogExternalPayloadReference,
+  NodeSessionLogSink,
+} from './session-log-sinks.js';
 export type { IExternalPayloadSink, ISessionLogSink } from './session-log-sinks.js';
 export { SESSION_LOG_EVENT, isSessionLogEvent } from './session-log-events.js';
 export type {

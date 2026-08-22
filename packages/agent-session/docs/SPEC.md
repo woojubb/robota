@@ -100,7 +100,7 @@ Types owned by this package (SSOT):
 | `ISessionReplayRecord`                      | Interface | `session-log-replay.ts`                    | Reconstructed replay state from append-only JSONL logs                                                |
 | `ISessionLogSource`                         | Interface | `session-log-sources.ts`                   | Neutral source of JSONL text and its optional payload source                                          |
 | `ISessionLogSink`                           | Interface | `session-log-sinks.ts`                     | Neutral append sink used by live logging                                                              |
-| `IExternalPayloadSource`                    | Interface | `session-log-sources.ts`                   | Neutral relative sidecar-byte source                                                                  |
+| `IExternalPayloadSource`                    | Interface | `session-log-sources.ts`                   | Neutral relative sidecar-byte source that enforces the caller-supplied per-read budget                |
 | `IExternalPayloadSink`                      | Interface | `session-log-sinks.ts`                     | Neutral content-addressed sidecar-byte sink                                                           |
 
 Types consumed from other packages (not owned here):
@@ -152,6 +152,7 @@ Types consumed from other packages (not owned here):
 | `NodeSessionLogSource`                      | Class                | Explicit host filesystem adapter for one JSONL file and its relative payload sidecars                                                     |
 | `NodeSessionLogSink`                        | Class                | Explicit host filesystem adapter for append/flush and owner-only payload sidecars                                                         |
 | `NodeExternalPayloadSource`                 | Class                | Explicit host filesystem adapter for bounded relative external-payload reads                                                              |
+| `createSessionLogExternalPayloadReference`  | Function             | SSOT that validates a safe session id and exact lowercase content digest before constructing a sidecar reference                          |
 | `SilentSessionLogger`                       | Class                | No-op session logger                                                                                                                      |
 | `ISessionOptions`                           | Interface            | Constructor options for Session                                                                                                           |
 | `ISessionShutdownOptions`                   | Interface            | Graceful shutdown options for `Session.shutdown()`                                                                                        |
@@ -286,10 +287,13 @@ The repo-root `./scripts/migrate-session-history.mjs` backfills the `history` fi
 The session log records structured events to a JSONL file for diagnostics and replay. Logs must preserve enough raw data to reconstruct what was sent to the model and what came back:
 
 Live logging writes through `ISessionLogSink` and `IExternalPayloadSink`; parsing/hydration reads through
-`ISessionLogSource` and `IExternalPayloadSource`. `NodeSessionLogSource`/`NodeSessionLogSink` are explicitly
-named host adapters. A project composition supplies framework authority-backed adapters instead of reopening an
-absolute path. Append, hot-path buffering, flush ordering, owner-only Node modes, sidecar integrity, and the
-warning-only diagnostic logging failure contract are preserved.
+`ISessionLogSource` and `IExternalPayloadSource`. Each payload-source read receives the remaining aggregate
+byte budget and must not return bytes that exceed it. A direct host-filesystem source must enforce the budget
+before and during the read; it may not fully allocate unbounded bytes and defer the limit check to the resolver.
+`NodeSessionLogSource`/`NodeSessionLogSink` are explicitly named host adapters. A project composition supplies
+framework authority-backed adapters instead of reopening an absolute path. Append, hot-path buffering, flush
+ordering, owner-only Node modes, sidecar integrity, and the warning-only diagnostic logging failure contract
+are preserved.
 
 `SESSION_LOG_EVENT` is the complete declared vocabulary for every production session-log event. Direct
 logger calls, `onExecutionEvent` literals emitted by agent-core, and replay-reader-only recognized
@@ -329,6 +333,13 @@ arrays, records, and sidecar contents. A canonical-path active stack rejects cyc
 32 nested references and 64 MiB total sidecar bytes per resolution operation; limits must be finite,
 non-negative safe integers.
 
+`NodeExternalPayloadSource` rejects an empty explicit base directory. On supported Node hosts it opens the
+canonical base once per read and traverses every relative component with no-follow descriptors, verifies the
+opened target is a regular file, and performs a budget-bounded read from that same descriptor. A link in any
+component fails closed; replacing a pathname after its component is open cannot redirect the held descriptor.
+Growth during the read, or a host without an equivalent stable no-follow facility, fails closed without
+returning bytes.
+
 Resolution fails closed with `SessionLogPayloadResolutionError`. Its stable `code` is one of
 `INVALID_LIMIT`, `INVALID_REFERENCE`, `UNRESOLVED_REFERENCE`, `OUTSIDE_ROOT`, `PAYLOAD_NOT_FOUND`,
 `PAYLOAD_UNREADABLE`, `BYTE_LENGTH_MISMATCH`, `SHA256_MISMATCH`, `INVALID_JSON`,
@@ -341,7 +352,9 @@ directory as host-owned authority. It creates the log directory and `{sessionId}
 with mode `0700`, and the `{sessionId}.jsonl` and payload files with mode `0600`, instead of inheriting
 the process umask. The public sink validates every direct `sessionId` use as one safe path component;
 payload writes additionally require a canonical lowercase 64-hex sha256 that equals the serialized
-content digest. `FileSessionLogger` receives the sink and never resolves or opens `logDir` itself.
+content digest. `createSessionLogExternalPayloadReference()` owns that validation and reference construction
+for every host or authority-backed sink. `FileSessionLogger` receives the sink and never resolves or opens
+`logDir` itself.
 
 Externalized payloads are written with the exclusive-create flag (`wx`) rather than an `existsSync`
 check followed by a write, which was a TOCTOU race between concurrent sessions externalizing the same
@@ -568,8 +581,9 @@ When `run()` encounters an error (e.g., from the execution loop or provider), th
 ### Interface Implementations
 
 `NodeSessionStore` implements the `IInteractiveSessionStore` port owned by `agent-interface-transport`.
-`FileSessionLogger` implements `ISessionLogger`; `NodeSessionLogSource` and `NodeSessionLogSink`
-implement this package's neutral source/sink ports. Other runtime classes are standalone.
+`FileSessionLogger` implements `ISessionLogger`; `NodeSessionLogSource`, `NodeExternalPayloadSource`,
+and `NodeSessionLogSink` implement this package's neutral source/sink ports. Other runtime classes are
+standalone.
 
 ### Inheritance Chains
 
@@ -577,14 +591,16 @@ implement this package's neutral source/sink ports. Other runtime classes are st
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                      | Consumer Class           | Location                         |
-| --------------------------------- | ------------------------ | -------------------------------- |
-| `Robota` (agent-core)             | `Session`                | `src/session.ts`                 |
-| `IAIProvider` (agent-core)        | `Session`                | `src/session.ts`                 |
-| `evaluatePermission` (agent-core) | `PermissionEnforcer`     | `src/permission-enforcer.ts`     |
-| `runHooks` (agent-core)           | `PermissionEnforcer`     | `src/permission-enforcer.ts`     |
-| `runHooks` (agent-core)           | `Session`                | `src/session.ts` (PostCompact)   |
-| `runHooks` (agent-core)           | `CompactionOrchestrator` | `src/compaction-orchestrator.ts` |
+| Port (Owner)                             | Consumer Class              | Location                                                  |
+| ---------------------------------------- | --------------------------- | --------------------------------------------------------- |
+| `Robota` (agent-core)                    | `Session`                   | `src/session.ts`                                          |
+| `IAIProvider` (agent-core)               | `Session`                   | `src/session.ts`                                          |
+| `evaluatePermission` (agent-core)        | `PermissionEnforcer`        | `src/permission-enforcer.ts`                              |
+| `runHooks` (agent-core)                  | `PermissionEnforcer`        | `src/permission-enforcer.ts`                              |
+| `runHooks` (agent-core)                  | `Session`                   | `src/session.ts` (PostCompact)                            |
+| `runHooks` (agent-core)                  | `CompactionOrchestrator`    | `src/compaction-orchestrator.ts`                          |
+| `IExternalPayloadSource` (agent-session) | `WorkspaceSessionLogSource` | `agent-framework/src/interactive/workspace-session-io.ts` |
+| `IExternalPayloadSink` (agent-session)   | `WorkspaceSessionLogSink`   | `agent-framework/src/interactive/workspace-session-io.ts` |
 
 ## Test Strategy
 

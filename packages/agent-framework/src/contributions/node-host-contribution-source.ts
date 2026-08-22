@@ -12,6 +12,9 @@ import type {
 
 /** Explicit root-bounded adapter for host-owned contribution content. */
 export function createNodeHostContributionSource(root: string): IContributionSource {
+  if (root.trim().length === 0) {
+    throw new Error('Node host contribution root must not be empty.');
+  }
   const resolvedRoot = resolve(root);
   let reader: IWorkspaceProjectReader | undefined;
 

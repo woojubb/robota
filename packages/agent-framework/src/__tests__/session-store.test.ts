@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -8,6 +9,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   createProjectSessionStore,
   WorkspaceSessionLogSink,
+  WorkspaceSessionLogSource,
 } from '../interactive/session-persistence.js';
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
@@ -254,6 +256,44 @@ describe('SessionStore', () => {
   });
 
   describe('project session log degradation', () => {
+    it('enforces the caller-supplied payload read budget', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'robota-project-log-budget-'));
+      try {
+        const access = await createTrustedProjectAccessFixture(cwd);
+        if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+        const storage = getWorkspaceProjectStateStorage(access.authority, 'session-logs');
+        const serialized = JSON.stringify('larger than one byte');
+        const sha256 = createHash('sha256').update(serialized).digest('hex');
+        const sink = new WorkspaceSessionLogSink(storage);
+        const reference = sink.writeJson('safe-session', sha256, serialized);
+        const source = new WorkspaceSessionLogSource(storage, 'safe-session');
+
+        expect(() => source.readBytes(reference.relativePath, 1)).toThrow(/byte budget/i);
+        expect(() => source.readBytes(reference.relativePath, -1)).toThrowError(
+          expect.objectContaining({ code: 'INVALID_LIMIT' }),
+        );
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    });
+
+    it('rejects a mismatched payload digest before authority-backed I/O', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'robota-project-log-digest-'));
+      try {
+        const access = await createTrustedProjectAccessFixture(cwd);
+        if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+        const sink = new WorkspaceSessionLogSink(
+          getWorkspaceProjectStateStorage(access.authority, 'session-logs'),
+        );
+
+        expect(() => sink.writeJson('safe-session', 'a'.repeat(64), '{"safe":true}')).toThrow(
+          /sha256/i,
+        );
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    });
+
     it('warn-only disables logging when the authority-backed log target is linked', async () => {
       const cwd = mkdtempSync(join(tmpdir(), 'robota-project-log-failure-'));
       const outside = mkdtempSync(join(tmpdir(), 'robota-project-log-outside-'));

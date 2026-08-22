@@ -1,7 +1,9 @@
-import { join } from 'node:path';
-
 import { createLogger } from '@robota-sdk/agent-core';
-import { assertSafeSessionId } from '@robota-sdk/agent-session';
+import {
+  assertSafeSessionId,
+  createSessionLogExternalPayloadReference,
+  SessionLogPayloadResolutionError,
+} from '@robota-sdk/agent-session';
 
 import { assertWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
@@ -24,9 +26,14 @@ function assertLogStorage(storage: IWorkspaceProjectStateStorage): IWorkspacePro
   return accepted;
 }
 
-function payloadPath(sessionId: string, sha256: string): string {
-  assertSafeSessionId(sessionId);
-  return join(`${sessionId}.payloads`, `${sha256}.json`);
+function assertPayloadReadLimit(maxBytes: number): void {
+  if (!Number.isFinite(maxBytes) || !Number.isSafeInteger(maxBytes) || maxBytes < 0) {
+    throw new SessionLogPayloadResolutionError(
+      'INVALID_LIMIT',
+      'External-payload maxBytes must be a finite, non-negative safe integer.',
+      { actual: String(maxBytes) },
+    );
+  }
 }
 
 /** Authority-backed source for one project session log and its sidecar payloads. */
@@ -46,12 +53,21 @@ export class WorkspaceSessionLogSource implements ISessionLogSource, IExternalPa
     return this.storage.readText(`${this.sessionId}.jsonl`, 'load project session log');
   }
 
-  readBytes(relativePath: string): Uint8Array | undefined {
+  readBytes(relativePath: string, maxBytes: number): Uint8Array | undefined {
+    assertPayloadReadLimit(maxBytes);
     const normalized = relativePath.replaceAll('\\', '/');
     if (!normalized.startsWith(`${this.sessionId}.payloads/`)) {
       throw new Error('External payload reference does not belong to this session log.');
     }
-    return this.storage.readBytes(normalized, 'load project session log payload');
+    const bytes = this.storage.readBytes(normalized, 'load project session log payload');
+    if (bytes !== undefined && bytes.byteLength > maxBytes) {
+      throw new SessionLogPayloadResolutionError(
+        'MAX_TOTAL_BYTES_EXCEEDED',
+        `External payload exceeds the remaining byte budget of ${maxBytes}.`,
+        { relativePath, expected: maxBytes, actual: bytes.byteLength },
+      );
+    }
+    return bytes;
   }
 }
 
@@ -80,13 +96,18 @@ export class WorkspaceSessionLogSink implements ISessionLogSink, IExternalPayloa
   }
 
   writeJson(sessionId: string, sha256: string, serialized: string): IExternalPayloadReference {
-    const relativePath = payloadPath(sessionId, sha256);
+    const reference = createSessionLogExternalPayloadReference(sessionId, sha256, serialized);
     if (this.enabled) {
       try {
         if (
-          this.storage.readBytes(relativePath, 'inspect project session log payload') === undefined
+          this.storage.readBytes(reference.relativePath, 'inspect project session log payload') ===
+          undefined
         ) {
-          this.storage.writeText(relativePath, serialized, 'write project session log payload');
+          this.storage.writeText(
+            reference.relativePath,
+            serialized,
+            'write project session log payload',
+          );
         }
       } catch (error) {
         // allow-fallback: externalized logging payloads are diagnostic and never stop the turn.
@@ -96,13 +117,7 @@ export class WorkspaceSessionLogSink implements ISessionLogSink, IExternalPayloa
         );
       }
     }
-    return {
-      kind: 'external-payload',
-      encoding: 'json',
-      sha256,
-      byteLength: Buffer.byteLength(serialized),
-      relativePath,
-    };
+    return reference;
   }
 
   private disable(message: string, error: Error | string): void {

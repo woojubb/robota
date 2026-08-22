@@ -20,6 +20,23 @@ function assertContentAddress(sha256: string, serialized: string): void {
   }
 }
 
+/** Canonical validation and construction for every session-log external-payload reference. */
+export function createSessionLogExternalPayloadReference(
+  sessionId: string,
+  sha256: string,
+  serialized: string,
+): IExternalPayloadReference {
+  assertSafeSessionId(sessionId);
+  assertContentAddress(sha256, serialized);
+  return {
+    kind: 'external-payload',
+    encoding: 'json',
+    sha256,
+    byteLength: Buffer.byteLength(serialized),
+    relativePath: join(`${sessionId}.payloads`, `${sha256}.json`),
+  };
+}
+
 /** Workspace-neutral sink for content-addressed external JSON payloads. */
 export interface IExternalPayloadSink {
   writeJson(sessionId: string, sha256: string, serialized: string): IExternalPayloadReference;
@@ -59,18 +76,15 @@ export class NodeSessionLogSink implements ISessionLogSink, IExternalPayloadSink
   }
 
   writeJson(sessionId: string, sha256: string, serialized: string): IExternalPayloadReference {
-    assertSafeSessionId(sessionId);
-    assertContentAddress(sha256, serialized);
+    const reference = createSessionLogExternalPayloadReference(sessionId, sha256, serialized);
     const payloadDirectoryName = `${sessionId}.payloads`;
-    const payloadFileName = `${sha256}.json`;
-    const relativePath = join(payloadDirectoryName, payloadFileName);
     if (this.enabled) {
       mkdirSync(join(this.logDirectory, payloadDirectoryName), {
         recursive: true,
         mode: OWNER_ONLY_DIR_MODE,
       });
       try {
-        writeFileSync(join(this.logDirectory, relativePath), serialized, {
+        writeFileSync(join(this.logDirectory, reference.relativePath), serialized, {
           encoding: 'utf8',
           mode: OWNER_ONLY_FILE_MODE,
           flag: 'wx',
@@ -79,12 +93,6 @@ export class NodeSessionLogSink implements ISessionLogSink, IExternalPayloadSink
         if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
       }
     }
-    return {
-      kind: 'external-payload',
-      encoding: 'json',
-      sha256,
-      byteLength: Buffer.byteLength(serialized),
-      relativePath,
-    };
+    return reference;
   }
 }

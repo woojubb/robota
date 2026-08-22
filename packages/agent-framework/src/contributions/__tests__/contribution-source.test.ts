@@ -76,4 +76,9 @@ describe('contribution sources', () => {
     writeFileSync(join(hostRoot, 'late.md'), 'late content');
     expect(host.readText('late.md', 'read late host content')).toBe('late content');
   });
+
+  it('rejects an empty explicit host root instead of deriving process cwd authority', () => {
+    expect(() => createNodeHostContributionSource('')).toThrow(/root/i);
+    expect(() => createNodeHostContributionSource('   ')).toThrow(/root/i);
+  });
 });

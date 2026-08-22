@@ -12,7 +12,7 @@ import {
 } from '../external-payload-resolver.js';
 
 import type { IExternalPayloadReference } from '../session-logger.js';
-import { NodeExternalPayloadSource } from '../session-log-sources.js';
+import { NodeExternalPayloadSource, type IExternalPayloadSource } from '../session-log-sources.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -117,6 +117,37 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
   });
 
+  it('ARCH-042: refuses even an in-root symlink instead of reopening a checked pathname', () => {
+    const baseDirectory = createTemporaryDirectory();
+    const reference = writePayload(baseDirectory, 'inside', 'target.json');
+    symlinkSync('target.json', join(baseDirectory, 'linked.json'));
+
+    expectResolutionCode(
+      () =>
+        resolveSessionLogExternalPayloads(
+          { ...reference, relativePath: 'linked.json' },
+          payloadOptions(baseDirectory),
+        ),
+      'OUTSIDE_ROOT',
+    );
+  });
+
+  it('ARCH-042: refuses an in-root symlink in an ancestor component', () => {
+    const baseDirectory = createTemporaryDirectory();
+    mkdirSync(join(baseDirectory, 'real'));
+    const reference = writePayload(baseDirectory, 'inside', join('real', 'target.json'));
+    symlinkSync('real', join(baseDirectory, 'linked-directory'));
+
+    expectResolutionCode(
+      () =>
+        resolveSessionLogExternalPayloads(
+          { ...reference, relativePath: join('linked-directory', 'target.json') },
+          payloadOptions(baseDirectory),
+        ),
+      'OUTSIDE_ROOT',
+    );
+  });
+
   it('ARCH-014: rejects byte-length and sha256 mismatches independently', () => {
     const baseDirectory = createTemporaryDirectory();
     const reference = writePayload(baseDirectory, 'integrity');
@@ -176,6 +207,52 @@ describe('resolveSessionLogExternalPayloads', () => {
         }),
       'MAX_TOTAL_BYTES_EXCEEDED',
     );
+  });
+
+  it('ARCH-042: passes the remaining aggregate budget into each source read', () => {
+    const firstSerialized = JSON.stringify('first');
+    const secondSerialized = JSON.stringify('second');
+    const first = createReference(
+      'first.json',
+      createHash('sha256').update(firstSerialized).digest('hex'),
+      Buffer.byteLength(firstSerialized),
+    );
+    const second = createReference(
+      'second.json',
+      createHash('sha256').update(secondSerialized).digest('hex'),
+      Buffer.byteLength(secondSerialized),
+    );
+    const observedMaxBytes: number[] = [];
+    const source: IExternalPayloadSource = {
+      readBytes: (relativePath, maxBytes) => {
+        observedMaxBytes.push(maxBytes);
+        return Buffer.from(
+          relativePath === first.relativePath ? firstSerialized : secondSerialized,
+        );
+      },
+    };
+    const aggregateBytes = first.byteLength + second.byteLength;
+
+    expect(
+      resolveSessionLogExternalPayloads([first, second], {
+        source,
+        maxTotalBytes: aggregateBytes,
+      }),
+    ).toEqual(['first', 'second']);
+    expect(observedMaxBytes).toEqual([aggregateBytes, second.byteLength]);
+  });
+
+  it('ARCH-042: rejects an oversized Node payload before returning its bytes', () => {
+    const baseDirectory = createTemporaryDirectory();
+    writeFileSync(join(baseDirectory, 'large.json'), JSON.stringify('too large'));
+    const source = new NodeExternalPayloadSource(baseDirectory);
+
+    expectResolutionCode(() => source.readBytes('large.json', 1), 'MAX_TOTAL_BYTES_EXCEEDED');
+  });
+
+  it('ARCH-042: rejects an empty explicit Node payload root', () => {
+    expect(() => new NodeExternalPayloadSource('')).toThrow(/base directory/i);
+    expect(() => new NodeExternalPayloadSource('   ')).toThrow(/base directory/i);
   });
 
   it('ARCH-014: rejects circular in-memory values and invalid limits', () => {

@@ -77,32 +77,34 @@ await session.compact('Focus on the API changes');
 
 ## Public API Surface
 
-| Export                                  | Kind      | Description                                                             |
-| --------------------------------------- | --------- | ----------------------------------------------------------------------- |
-| `Session`                               | Class     | Wraps Robota with permissions, hooks, streaming, persistence            |
-| `PermissionEnforcer`                    | Class     | Tool permission checking, hook execution, output truncation             |
-| `ContextWindowTracker`                  | Class     | Effective token usage tracking and auto-compact threshold               |
-| `CompactionOrchestrator`                | Class     | Conversation compaction via LLM summary                                 |
-| `NodeSessionStore`                      | Class     | Explicit host-filesystem JSON persistence adapter                       |
-| `FileSessionLogger`                     | Class     | Sink-driven JSONL session event logger                                  |
-| `NodeSessionLogSource`                  | Class     | Explicit host adapter for a JSONL log and relative payload sidecars     |
-| `NodeSessionLogSink`                    | Class     | Explicit host adapter for JSONL append and payload sidecars             |
-| `SilentSessionLogger`                   | Class     | No-op session logger                                                    |
-| `ISessionOptions`                       | Interface | Constructor options for Session                                         |
-| `TAutoCompactThreshold`                 | Type      | Auto-compact threshold fraction, or `false` to disable                  |
-| `TPermissionHandler`                    | Type      | Custom permission approval callback                                     |
-| `TPermissionResult`                     | Type      | Permission decision result (`boolean \| 'allow-session'`)               |
-| `ITerminalOutput`                       | Interface | Terminal I/O abstraction (write, prompt, select, spinner)               |
-| `ISpinner`                              | Interface | Spinner handle                                                          |
-| `ISessionLogger`                        | Interface | Pluggable session event logger interface                                |
-| `TSessionLogData`                       | Type      | Structured log event data                                               |
-| `resolveSessionLogExternalPayloads`     | Function  | Bounded, integrity-checked hydration of JSON sidecar references         |
-| `SessionLogPayloadResolutionError`      | Class     | Typed sidecar resolution failure with a stable error code               |
-| `IInteractiveSessionRecord`             | Interface | Canonical persisted session record (owned by agent-interface-transport) |
-| `IInteractiveSessionStore`              | Interface | Canonical persistence port implemented by `NodeSessionStore`            |
-| `ISessionLogSource` / `ISessionLogSink` | Interface | Neutral log read/write ports used by framework authority adapters       |
-| `ISessionRecord` / `ISessionStore`      | Type      | Compatibility-only renamed re-exports of the canonical contracts        |
-| `IContextWindowState`                   | Type      | Context window usage state (re-exported from agent-core)                |
+| Export                                     | Kind      | Description                                                                |
+| ------------------------------------------ | --------- | -------------------------------------------------------------------------- |
+| `Session`                                  | Class     | Wraps Robota with permissions, hooks, streaming, persistence               |
+| `PermissionEnforcer`                       | Class     | Tool permission checking, hook execution, output truncation                |
+| `ContextWindowTracker`                     | Class     | Effective token usage tracking and auto-compact threshold                  |
+| `CompactionOrchestrator`                   | Class     | Conversation compaction via LLM summary                                    |
+| `NodeSessionStore`                         | Class     | Explicit host-filesystem JSON persistence adapter                          |
+| `FileSessionLogger`                        | Class     | Sink-driven JSONL session event logger                                     |
+| `NodeSessionLogSource`                     | Class     | Explicit host adapter for a JSONL log and relative payload sidecars        |
+| `NodeSessionLogSink`                       | Class     | Explicit host adapter for JSONL append and payload sidecars                |
+| `NodeExternalPayloadSource`                | Class     | Stable-handle, no-follow host adapter for budget-bounded sidecar reads     |
+| `createSessionLogExternalPayloadReference` | Function  | Validates and constructs the canonical content-addressed sidecar reference |
+| `SilentSessionLogger`                      | Class     | No-op session logger                                                       |
+| `ISessionOptions`                          | Interface | Constructor options for Session                                            |
+| `TAutoCompactThreshold`                    | Type      | Auto-compact threshold fraction, or `false` to disable                     |
+| `TPermissionHandler`                       | Type      | Custom permission approval callback                                        |
+| `TPermissionResult`                        | Type      | Permission decision result (`boolean \| 'allow-session'`)                  |
+| `ITerminalOutput`                          | Interface | Terminal I/O abstraction (write, prompt, select, spinner)                  |
+| `ISpinner`                                 | Interface | Spinner handle                                                             |
+| `ISessionLogger`                           | Interface | Pluggable session event logger interface                                   |
+| `TSessionLogData`                          | Type      | Structured log event data                                                  |
+| `resolveSessionLogExternalPayloads`        | Function  | Bounded, integrity-checked hydration of JSON sidecar references            |
+| `SessionLogPayloadResolutionError`         | Class     | Typed sidecar resolution failure with a stable error code                  |
+| `IInteractiveSessionRecord`                | Interface | Canonical persisted session record (owned by agent-interface-transport)    |
+| `IInteractiveSessionStore`                 | Interface | Canonical persistence port implemented by `NodeSessionStore`               |
+| `ISessionLogSource` / `ISessionLogSink`    | Interface | Neutral log read/write ports used by framework authority adapters          |
+| `ISessionRecord` / `ISessionStore`         | Type      | Compatibility-only renamed re-exports of the canonical contracts           |
+| `IContextWindowState`                      | Type      | Context window usage state (re-exported from agent-core)                   |
 
 Note: `IPermissionEnforcerOptions` is an internal type and is not exported from the public API.
 
@@ -158,12 +160,15 @@ do not cause the compaction orchestrator to reclassify the trigger.
 content-addressed JSON payload references under `{sessionId}.payloads/`. `loadSessionLogEntries()`
 hydrates those sidecars before replay and fails closed on malformed references, path/symlink escape,
 missing or unreadable files, byte-length/hash mismatch, invalid JSON, cycles, or configured depth/byte
-limits. `session-log-replay` exports replay readers and validators that reconstruct chat history from
+limits. Each source read receives the remaining aggregate byte budget; the Node adapter checks it before
+allocation and reads from the same no-follow descriptor it validated. `session-log-replay` exports replay
+readers and validators that reconstruct chat history from
 `history_mutation` and report missing provider/tool terminal events; an unresolved history message or
 normalized provider response is replay-incomplete. Replay validation also requires provider-native raw
 response or stream payload coverage for each `provider_request`. Direct `NodeSessionLogSink` calls reject
 unsafe session path components and reject payload digests that are malformed or do not hash the supplied
-serialized content.
+serialized content. Host and authority-backed sinks share
+`createSessionLogExternalPayloadReference()` as the validation and reference-construction SSOT.
 
 A migration script is available for upgrading session records from older formats. See the package source for details.
 

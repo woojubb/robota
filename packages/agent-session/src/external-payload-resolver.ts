@@ -158,7 +158,8 @@ function readExternalPayloadJson(
   reference: IExternalPayloadReference,
   state: IResolutionState,
 ): unknown {
-  const bytes = state.source?.readBytes(reference.relativePath);
+  const remainingBytes = state.maxTotalBytes - state.totalBytes;
+  const bytes = state.source?.readBytes(reference.relativePath, remainingBytes);
   if (bytes === undefined) {
     throw new SessionLogPayloadResolutionError(
       'PAYLOAD_NOT_FOUND',

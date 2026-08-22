@@ -1,16 +1,26 @@
 import { describe, expect, it } from 'vitest';
 
+import * as externalPayloadReferenceValidation from '../external-payload-file-reader.js';
 import { loadSessionLogEntries } from '../session-log-replay.js';
 
 import type { IExternalPayloadSource, ISessionLogSource } from '../session-log-sources.js';
 
 describe('session log source contract', () => {
+  it('keeps the reference validator module free of pathname-opening authority', () => {
+    expect(Object.keys(externalPayloadReferenceValidation).sort()).toEqual([
+      'isValidSessionLogExternalPayloadReference',
+      'validateExternalPayloadReference',
+    ]);
+  });
+
   it('loads and hydrates through explicit neutral sources', () => {
     const externalPayloadSource: IExternalPayloadSource = {
-      readBytes: (relativePath) =>
-        relativePath === 'payloads/answer.json'
-          ? Buffer.from(JSON.stringify({ role: 'assistant', content: 'from source' }))
-          : undefined,
+      readBytes: (relativePath, maxBytes) => {
+        const bytes = Buffer.from(JSON.stringify({ role: 'assistant', content: 'from source' }));
+        return relativePath === 'payloads/answer.json' && bytes.byteLength <= maxBytes
+          ? bytes
+          : undefined;
+      },
     };
     const source: ISessionLogSource = {
       readText: () =>
