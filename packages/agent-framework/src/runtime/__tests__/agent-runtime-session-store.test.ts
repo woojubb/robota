@@ -5,7 +5,11 @@ import { join } from 'node:path';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createAgentRuntime, createStatelessRuntime } from '../../index.js';
+import {
+  createAgentRuntime,
+  createRestrictedWorkspaceProjectAccess,
+  createStatelessRuntime,
+} from '../../index.js';
 import { createTrustedProjectSessionStoreFixture } from '../../testing/trusted-project-state-fixture.js';
 
 import type { InteractiveSession } from '../../index.js';
@@ -55,6 +59,16 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
   afterEach(async () => {
     for (const session of sessions.splice(0).reverse()) await session.shutdown();
     for (const cwd of scratchDirs.splice(0)) rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('reports and propagates the initial Restricted project-access decision', () => {
+    const cwd = scratchDir();
+    const projectAccess = createRestrictedWorkspaceProjectAccess('untrusted', cwd);
+    const scripted = createScriptedProvider([]);
+    const runtime = createAgentRuntime({ cwd, provider: scripted.provider, projectAccess });
+
+    expect(runtime.projectAccess).toBe(projectAccess);
+    expect(runtime.createSession({ bare: true }).getProjectAccess()).toBe(projectAccess);
   });
 
   it('inherits the runtime default store and resumes through it', async () => {

@@ -7,8 +7,10 @@
  */
 
 import { InteractiveSession } from './interactive/interactive-session.js';
+import { createRestrictedWorkspaceProjectAccess } from './workspace-trust/index.js';
 
 import type { IExecutionResult, TInteractivePermissionHandler } from './interactive/types.js';
+import type { TWorkspaceProjectAccess } from './workspace-trust/index.js';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 
 export interface ICreateQueryOptions {
@@ -16,6 +18,8 @@ export interface ICreateQueryOptions {
   provider: IAIProvider;
   /** Working directory. Defaults to process.cwd(). */
   cwd?: string;
+  /** Host-owned initial project decision. Absence produces an observable Restricted query. */
+  projectAccess?: TWorkspaceProjectAccess;
   /** Permission mode. Defaults to 'bypassPermissions' for programmatic use. */
   permissionMode?: TPermissionMode;
   /** Maximum agentic turns per query. */
@@ -30,8 +34,11 @@ export interface ICreateQueryOptions {
   responseFormat?: { type: 'text' | 'json_object' };
 }
 
-/** Type of the function returned by createQuery(). */
-export type TQueryFunction = (prompt: string) => Promise<string>;
+/** Callable query surface plus its immutable initial project-access decision. */
+export interface TQueryFunction {
+  (prompt: string): Promise<string>;
+  readonly projectAccess: TWorkspaceProjectAccess;
+}
 
 /**
  * Create a prompt-only query function bound to a provider.
@@ -44,10 +51,14 @@ export type TQueryFunction = (prompt: string) => Promise<string>;
  * const answer = await query('List all TypeScript files');
  * ```
  */
-export function createQuery(options: ICreateQueryOptions): (prompt: string) => Promise<string> {
+export function createQuery(options: ICreateQueryOptions): TQueryFunction {
+  const cwd = options.cwd ?? process.cwd();
+  const projectAccess =
+    options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable', cwd);
   const session = new InteractiveSession({
-    cwd: options.cwd ?? process.cwd(),
+    cwd,
     provider: options.provider,
+    projectAccess,
     permissionMode: options.permissionMode ?? 'bypassPermissions',
     maxTurns: options.maxTurns,
     additionalTools: options.additionalTools,
@@ -67,7 +78,7 @@ export function createQuery(options: ICreateQueryOptions): (prompt: string) => P
     session.on('text_delta', options.onTextDelta);
   }
 
-  return async (prompt: string): Promise<string> => {
+  const query = async (prompt: string): Promise<string> => {
     return new Promise<string>((resolve, reject) => {
       const onComplete = (result: IExecutionResult): void => {
         cleanup();
@@ -97,4 +108,5 @@ export function createQuery(options: ICreateQueryOptions): (prompt: string) => P
       });
     });
   };
+  return Object.freeze(Object.assign(query, { projectAccess }));
 }
