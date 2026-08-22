@@ -346,3 +346,69 @@ describe('promote.mjs — closing keywords for the promotion body (INFRA-104)', 
     expect(output).toMatch(/scan-promotion-closes/);
   });
 });
+
+/**
+ * issue #1980 — the reconciliation has a home, and it is this tool.
+ *
+ * `.github/required-status-checks.json` declares what each ruleset must require; the OFFLINE half of
+ * `scan-main-required-checks.mjs` proves every declared context can fail. Neither half can see the
+ * ruleset move underneath it. That is `--live`'s job, and `--live` ran only from a workflow whose
+ * `schedule:` was removed — so `protect-main` declared four contexts and required three for four
+ * weeks, and nothing said so.
+ *
+ * These cases pin the three verdicts a promotion can get, and the third is the one that matters: an
+ * UNREACHABLE reconciliation must never render as a clean one. "No answer" reading as "they match"
+ * is the defect itself, one layer up.
+ */
+describe('promote.mjs reconciles the rulesets before the PR exists (issue #1980)', () => {
+  const ready = async (root, reconcileRulesets) =>
+    runWithOptions(root, {
+      argv: ['--main-ref', 'main', '--develop-ref', 'develop', '--baseline', 'develop'],
+      fetch: false,
+      reconcileRulesets,
+    });
+
+  /** A promotable repository: develop ahead of main, nothing unmerged on main. */
+  async function promotable() {
+    const { root, git } = await newRepo();
+    git(['checkout', '--quiet', 'develop']);
+    commit(root, git, 'feature.txt', 'work\n', 'feat: work');
+    return root;
+  }
+
+  it('reports the reconciliation when the declarations match', async () => {
+    const root = await promotable();
+    const { code, output } = await ready(root, () => ({ code: 0, output: '' }));
+    expect(code).toBe(0);
+    expect(output).toMatch(/declarations reconcile against the live rulesets/);
+  });
+
+  it('WARNS with the finding when a ruleset does not match, and still promotes', async () => {
+    const root = await promotable();
+    const { code, output } = await ready(root, () => ({
+      code: 1,
+      output: '  - promotion closes: the LIVE ruleset does not require it\n',
+    }));
+    // The branch is still built: a stale required list is not a reason to discard an
+    // ancestry-verified promotion, and refusing here would put a GitHub read in the promotion's path.
+    expect(code).toBe(0);
+    expect(output).toMatch(/WARNING — a live ruleset does NOT match its declaration/);
+    expect(output).toMatch(/promotion closes: the LIVE ruleset does not require it/);
+    expect(output).toMatch(/does not block the promotion/);
+    expect(output).toMatch(/is ready — A1\/A2\/A3 hold/);
+  });
+
+  it('an unreachable reconciliation is reported as unreachable, NOT as a match', async () => {
+    const root = await promotable();
+    const { code, output } = await ready(root, () => {
+      throw new Error('getaddrinfo ENOTFOUND api.github.com');
+    });
+    expect(code).toBe(0);
+    expect(output).toMatch(/could NOT reconcile the rulesets/);
+    expect(output).toMatch(/ENOTFOUND/);
+    expect(output).toMatch(/this is NOT "they match"/);
+    // The discriminating assertion: the clean wording must be ABSENT. Without this the case passes
+    // on a build that prints both, which is the shape a future refactor would produce.
+    expect(output).not.toMatch(/declarations reconcile against the live rulesets/);
+  });
+});

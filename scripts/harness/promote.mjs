@@ -30,6 +30,7 @@
  * requires explicit user approval (`.agents/rules/git-branch.md`). It prints the exact next commands.
  */
 
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 import { ADOPTION_BASELINE, evaluatePromotion, runGit } from './scan-promotion-ancestry.mjs';
@@ -46,6 +47,34 @@ export const DEFAULT_BRANCH = 'release/promote-develop-to-main';
 
 /** Thrown for a handled, explained failure. `main()` turns it into a non-zero exit code. */
 class PromoteError extends Error {}
+
+/**
+ * Reconcile the DECLARED required status checks against the live rulesets.
+ *
+ * issue #1980. `.github/required-status-checks.json` is the SOURCE of what each ruleset must
+ * require, and `scan-main-required-checks.mjs` proves OFFLINE that every declared context can fail.
+ * What that half cannot see is the ruleset moving underneath it: measured 2026-08-22, `protect-main`
+ * had been declaring four contexts and requiring three for four weeks, because the reconciling
+ * `--live` half runs only from `.github/workflows/ruleset-drift.yml`, whose `schedule:` trigger was
+ * removed and never replaced. A declaration nobody re-derives is a claim about the day it was
+ * written.
+ *
+ * That workflow's own comment names the moment this belongs at — it surfaces drift "BEFORE a
+ * promotion pull request is opened rather than while one is waiting" — which is here, building the
+ * branch, not in the protected CI that judges it afterwards.
+ *
+ * INJECTED, like `closesBlock`, because it reads GitHub: a hermetic suite must not reach the network
+ * to assert an ancestry invariant.
+ */
+export function defaultReconcileRulesets({ cwd }) {
+  const result = spawnSync(
+    process.execPath,
+    ['scripts/harness/scan-main-required-checks.mjs', '--live'],
+    { cwd, encoding: 'utf8' },
+  );
+  if (result.error) throw result.error;
+  return { code: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+}
 
 function flag(argv, name, fallback) {
   const index = argv.indexOf(name);
@@ -88,6 +117,7 @@ export async function main({
   fetch: shouldFetch = true,
   runGitImpl = runGit,
   closesBlock = defaultClosesBlock,
+  reconcileRulesets = defaultReconcileRulesets,
 } = {}) {
   const git = (args) => runGitImpl(args, cwd);
   const branch = flag(argv, '--branch', DEFAULT_BRANCH);
@@ -249,10 +279,30 @@ export async function main({
         'required `scan-promotion-closes` check will refuse the promotion until you do.\n';
     }
 
+    // issue #1980. WARNS, never refuses: a GitHub outage must not discard an ancestry-verified
+    // promotion branch, which is the same reason the closing-block derivation below is
+    // allow-fallback. Unreachable is reported as unreachable — this path never prints a clean
+    // verdict it did not obtain, because "no answer" reading as "they match" is the defect itself.
+    let rulesetSection = '';
+    try {
+      const live = reconcileRulesets({ cwd });
+      rulesetSection =
+        live.code === 0
+          ? '\npromote: required-status-check declarations reconcile against the live rulesets.\n'
+          : `\npromote: WARNING — a live ruleset does NOT match its declaration:\n${live.output}` +
+            'promote: this does not block the promotion. Fix the ruleset AND\n' +
+            'promote: `.github/required-status-checks.json` in the same change (issue #1980).\n';
+    } catch (error) {
+      rulesetSection =
+        `\npromote: could NOT reconcile the rulesets (${error.message}).\n` +
+        'promote: this is NOT "they match". Run `node scripts/harness/scan-main-required-checks.mjs --live`.\n';
+    }
+
     out(
       `\npromote: ${branch} is ready — A1/A2/A3 hold (non-merge debt on main: ${currentDebt}).` +
         '\npromote: `release-grade verification` runs once in protected CI on the promotion PR.\n' +
         'promote: optional diagnostic before push: `pnpm harness:verify:release`.\n' +
+        rulesetSection +
         closesSection +
         `\nNext (promoting to \`main\` is a release-level action needing explicit user approval):\n` +
         `  git push -u origin ${branch}\n` +
