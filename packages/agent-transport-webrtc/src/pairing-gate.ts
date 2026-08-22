@@ -24,9 +24,7 @@ import {
   importPublicKey,
   startPairingHandshake,
   type IPairingResult,
-  type TPairingRole,
 } from '@robota-sdk/agent-remote-pairing';
-import { createWsHandler, type SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
 
 import { nextAdmissionStep } from './admission-steps.js';
 import type {
@@ -38,15 +36,14 @@ import type {
 // Re-exported so every existing import of these names keeps working: the split moved where they are
 // DECLARED, and moving where they are imported from would be a migration this change is not.
 export type { IHostReconnectConfig, IPairingChannel, IPairingGateOptions };
-import { judgeHandoffGrant, type IHandoffGrantProof } from './handoff-grant-gate.js';
-import { judgeLocalProof, type ILocalPeerProof } from './local-peer-proof.js';
+import { judgeHandoffGrant } from './handoff-grant-gate.js';
+import { judgeLocalProof } from './local-peer-proof.js';
 import { pairingChannel } from './pairing-channel-lifecycle.js';
 import { startFirstPairController, startReconnectController } from './pairing-controllers.js';
 import { isEnrollFrame, isPairingFrame, isReconnectFrame } from './pairing-frames.js';
 import { attachSession } from './session-attachment.js';
 
 import type { IEnrollFrame } from './pairing-frames.js';
-import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
 
 type TGateState =
   | 'awaiting-mode'

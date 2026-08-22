@@ -2,7 +2,6 @@ import { EXECUTION_EVENTS } from './execution-constants';
 import { buildFinalResult } from './execution-failure';
 import { forceSummaryCall } from './execution-forced-summary';
 import { executeRound } from './execution-round';
-import { callProviderWithIdleTimeout } from './execution-round-provider';
 import {
   type IResolvedProviderInfo,
   type IExecutionContext,
@@ -11,13 +10,11 @@ import {
   PREVIEW_LENGTH,
 } from './execution-types';
 import { callPluginHook } from './plugin-hook-dispatcher';
-import { randomId } from '../utils/random-id.js';
 
 import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
 import type { ToolExecutionService } from './tool-execution-service';
-import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
-import type { IChatOptions } from '../interfaces/provider';
+import type { IAgentConfig } from '../interfaces/agent';
 import type { TMetadata } from '../interfaces/types';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 import type { ILogger } from '../utils/logger';

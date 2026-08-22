@@ -20,8 +20,6 @@ import type {
   createWsHandler,
 } from '@robota-sdk/agent-transport-protocol';
 
-import type { startReconnectController } from './pairing-controllers.js';
-
 import type { IHandoffGrantProof } from './handoff-grant-gate.js';
 import type { ILocalPeerProof } from './local-peer-proof.js';
 

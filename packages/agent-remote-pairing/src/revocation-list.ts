@@ -45,9 +45,13 @@ const SIGN_PARAMS = { name: 'ECDSA', hash: 'SHA-256' } as const;
 const webcrypto = globalThis.crypto;
 const encoder = new TextEncoder();
 
+/** base64 encodes 3 bytes into 4 characters, so a padded string's length is a multiple of this. */
+const BASE64_QUANTUM = 4;
+
 function fromBase64Url(value: string): Uint8Array {
   const padded = value.replace(/-/g, '+').replace(/_/g, '/');
-  const binary = atob(padded.padEnd(Math.ceil(padded.length / 4) * 4, '='));
+  const quantised = Math.ceil(padded.length / BASE64_QUANTUM) * BASE64_QUANTUM;
+  const binary = atob(padded.padEnd(quantised, '='));
   return Uint8Array.from(binary, (c) => c.charCodeAt(0));
 }
 
