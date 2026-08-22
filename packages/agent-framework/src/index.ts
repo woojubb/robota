@@ -7,6 +7,8 @@ export {
   WorkspaceTrustService,
   assertWorkspaceProjectAuthority,
   assertWorkspaceProjectReader,
+  assertWorkspaceProjectMutation,
+  createWorkspaceProjectMutation,
   assertWorkspaceProjectSettingsWriter,
   assertWorkspaceProjectStateStorage,
   createWorkspaceProjectSettingsWriter,
@@ -23,6 +25,7 @@ export type {
   IWorkspaceIdentityResolver,
   IWorkspaceProjectAuthority,
   IWorkspaceProjectReader,
+  IWorkspaceProjectMutation,
   IWorkspaceProjectSettingsWriter,
   IWorkspaceProjectStateStorage,
   IWorkspaceTrustServiceOptions,
@@ -33,6 +36,7 @@ export type {
   TWorkspaceProjectAccess,
   TWorkspaceProjectSettingsTarget,
   TWorkspaceProjectSettingsWriteDecision,
+  TWorkspaceProjectMutationDecision,
   TWorkspaceProjectStateNamespace,
   TWorkspaceTrustState,
 } from './workspace-trust/index.js';
@@ -64,6 +68,9 @@ export {
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
   generateSessionName,
+  WorkspaceProjectSessionStore,
+  WorkspaceSessionLogSink,
+  WorkspaceSessionLogSource,
 } from './interactive/index.js';
 export type {
   TInteractiveSessionOptions,

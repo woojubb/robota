@@ -42,6 +42,7 @@ import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ITerminalHandoff } from '@robota-sdk/agent-interface-transport';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
+import type { ISessionLogSink } from '@robota-sdk/agent-session';
 import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
 import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
@@ -57,6 +58,10 @@ export interface IInitOptions {
   permissionHandler?: TInteractivePermissionHandler;
   resumeSessionId?: string;
   forkSession?: boolean;
+  /** Explicit session-log sink; absence disables diagnostic project logging. */
+  sessionLogSink?: ISessionLogSink;
+  /** Trusted host-only path projection for hook compatibility. */
+  transcriptPath?: string;
   onTextDelta: (delta: string) => void;
   onContextUpdate?: (state: IContextWindowState) => void;
   onCompactEvent?: (event: ICompactEvent) => void;

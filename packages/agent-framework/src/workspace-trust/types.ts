@@ -2,6 +2,7 @@ declare const workspaceProjectAuthorityType: unique symbol;
 declare const workspaceProjectReaderType: unique symbol;
 declare const workspaceProjectStateStorageType: unique symbol;
 declare const workspaceProjectSettingsWriterType: unique symbol;
+declare const workspaceProjectMutationType: unique symbol;
 
 /**
  * Opaque proof that the host granted project access for the currently resolved workspace identity.
@@ -106,6 +107,17 @@ export interface IWorkspaceProjectSettingsWriter {
   readonly [workspaceProjectSettingsWriterType]: true;
   readonly target: TWorkspaceProjectSettingsTarget;
   writeText(content: string): void;
+}
+
+export type TWorkspaceProjectMutationDecision =
+  | { readonly status: 'approved'; readonly purpose: string }
+  | { readonly status: 'denied'; readonly reason: string };
+
+/** Root-bounded mutation authority minted separately from trusted project reads. */
+export interface IWorkspaceProjectMutation {
+  readonly [workspaceProjectMutationType]: true;
+  writeBytes(relativePath: string, content: Uint8Array, purpose: string): void;
+  deleteFile(relativePath: string, purpose: string): boolean;
 }
 
 export interface ITrustedWorkspaceProjectAccess {

@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   WorkspaceAuthorityRequiredError,
   WorkspaceTrustService,
+  createWorkspaceProjectMutation,
   assertWorkspaceProjectAuthority,
   createWorkspaceProjectSettingsWriter,
   getWorkspaceProjectReader,
@@ -208,6 +209,38 @@ describe('WorkspaceTrustService project authority', () => {
       getWorkspaceProjectReader(granted.authority).readText(
         '.robota/settings.json',
         'verify unapproved target',
+      ),
+    ).toBeUndefined();
+  });
+
+  it('requires a separate approved mutation capability for project writes and deletes', async () => {
+    const { root, service } = fixture();
+    const granted = await service.grant(root);
+    if (granted.status !== 'trusted') throw new Error('expected trusted access');
+
+    expect(() =>
+      createWorkspaceProjectMutation(granted.authority, {
+        status: 'denied',
+        reason: 'permission denied',
+      }),
+    ).toThrowError(WorkspaceAuthorityRequiredError);
+
+    const mutation = createWorkspaceProjectMutation(granted.authority, {
+      status: 'approved',
+      purpose: 'restore checkpoint',
+    });
+    mutation.writeBytes('src/restored.ts', Buffer.from('restored'), 'restore checkpoint file');
+    expect(
+      getWorkspaceProjectReader(granted.authority).readText(
+        'src/restored.ts',
+        'verify restored checkpoint file',
+      ),
+    ).toBe('restored');
+    expect(mutation.deleteFile('src/restored.ts', 'remove checkpoint-created file')).toBe(true);
+    expect(
+      getWorkspaceProjectReader(granted.authority).readText(
+        'src/restored.ts',
+        'verify checkpoint-created file deletion',
       ),
     ).toBeUndefined();
   });

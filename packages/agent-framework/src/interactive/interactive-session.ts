@@ -18,7 +18,6 @@ import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { publicTurnOptions, submitNewTurn } from './interactive-session-turn-submission.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
-import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
 import {
   createProviderFromSettings,
@@ -180,10 +179,7 @@ export class InteractiveSession
     this.sandboxSnapshotId = 'sandboxSnapshotId' in options ? options.sandboxSnapshotId : undefined;
 
     const cwd = this.cwd;
-    let initCheckpointStore: EditCheckpointStore | null = null;
-    if ('session' in options && options.session && cwd) {
-      initCheckpointStore = new EditCheckpointStore({ cwd });
-    }
+    const initCheckpointStore = options.editCheckpointStore ?? null;
 
     this.bgTracker = new SessionBackgroundTaskTracker(
       () => this.getBackgroundTaskManager(),

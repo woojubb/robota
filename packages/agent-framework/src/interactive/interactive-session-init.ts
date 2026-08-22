@@ -12,8 +12,6 @@ import { join } from 'node:path';
 import { createLogger } from '@robota-sdk/agent-core';
 
 import { buildCreateSessionOptions } from './create-session-projection.js';
-import { detectProject } from '../context/project-detector.js';
-import { projectPaths } from '../paths.js';
 import {
   applyInteractiveWorkspaceManifest,
   interactivePresetOptions,
@@ -25,9 +23,9 @@ import { deriveContextCapacityHint } from '../assembly/context-capacity-hint.js'
 
 const logger = createLogger('InteractiveSessionInit');
 import { createSession } from '../assembly/index.js';
-import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import { loadConfig } from '../config/config-loader.js';
 import { loadContext } from '../context/context-loader.js';
+import { detectProject } from '../context/project-detector.js';
 import { BundlePluginLoader } from '../plugins/index.js';
 import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
 
@@ -36,6 +34,7 @@ import type {
   IInitOptions,
 } from './interactive-session-options.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import type { ICommandResult } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IContextFileEntry } from '../context/context-loader.js';
@@ -134,8 +133,6 @@ export async function createInteractiveSession(
     }
   }
 
-  const paths = projectPaths(cwd);
-
   const sandboxRestored = await restoreInteractiveSandboxSnapshot(options);
   if (!sandboxRestored) {
     await applyInteractiveWorkspaceManifest(options, cwd);
@@ -158,7 +155,6 @@ export async function createInteractiveSession(
       context,
       projectInfo,
       sessionId,
-      logsDir: paths.logs,
       contextCapacityHint,
     }),
   );
@@ -224,8 +220,8 @@ export async function initializeInteractiveSessionAsync(
   const config = options.config ?? (await loadConfig(options.cwd));
   const autoCompactThresholdSource =
     config.autoCompactThreshold === undefined ? 'default' : 'settings';
-  const checkpointStore = new EditCheckpointStore({ cwd: options.cwd });
-  deps.setEditCheckpointStore(checkpointStore);
+  const checkpointStore = options.editCheckpointStore;
+  if (checkpointStore !== undefined) deps.setEditCheckpointStore(checkpointStore);
 
   const created = await createInteractiveSession({
     cwd: options.cwd,
@@ -237,6 +233,8 @@ export async function initializeInteractiveSessionAsync(
     ...(deps.askHandler ? { askHandler: deps.askHandler } : {}),
     resumeSessionId: deps.resumeSessionId,
     forkSession: options.forkSession,
+    ...(options.sessionLogSink !== undefined ? { sessionLogSink: options.sessionLogSink } : {}),
+    ...(options.transcriptPath !== undefined ? { transcriptPath: options.transcriptPath } : {}),
     onTextDelta: deps.onTextDelta,
     onContextUpdate: deps.onContextUpdate,
     onCompactEvent: deps.onCompactEvent,
@@ -255,7 +253,7 @@ export async function initializeInteractiveSessionAsync(
     // ARCH-005: composition-root-contributed subagent definitions (capability packs).
     ...(options.agentDefinitions ? { agentDefinitions: options.agentDefinitions } : {}),
     ...(options.commandModules ? { commandModules: options.commandModules } : {}),
-    editCheckpointRecorder: checkpointStore,
+    ...(checkpointStore !== undefined ? { editCheckpointRecorder: checkpointStore } : {}),
     ...(options.reversibleExecution ? { reversibleExecution: options.reversibleExecution } : {}),
     ...interactiveSandboxOptions(options, deps.sandboxSnapshotId),
     ...interactivePresetOptions(options),

@@ -6,6 +6,11 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 
 import { SessionHistoryTracker } from '../interactive-session-history-tracker.js';
 import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js';
+import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
+import {
+  WorkspaceAuthorityRequiredError,
+  createWorkspaceProjectMutation,
+} from '../../workspace-trust/index.js';
 
 /**
  * SELFHOST-007 TC-05a (regression) — on the STANDARD construction path the checkpoint store is injected
@@ -32,13 +37,25 @@ function makeTracker(cwd: string, store: EditCheckpointStore | null): SessionHis
 }
 
 async function seed(cwd: string): Promise<string> {
-  const store = new EditCheckpointStore({ cwd });
+  const store = await createStore(cwd);
   const a = await store.beginTurn({ sessionId: 'sess-resume', prompt: 'a' });
   await store.finalizeTurn();
   await store.beginTurn({ sessionId: 'sess-resume', prompt: 'b' });
   await store.finalizeTurn();
   await store.restoreToCheckpoint('sess-resume', a.id); // active head → a (fork)
   return a.id;
+}
+
+async function createStore(cwd: string): Promise<EditCheckpointStore> {
+  const access = await createTrustedProjectAccessFixture(cwd);
+  if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+  return new EditCheckpointStore({
+    authority: access.authority,
+    mutation: createWorkspaceProjectMutation(access.authority, {
+      status: 'approved',
+      purpose: 'checkpoint branch resume test',
+    }),
+  });
 }
 
 describe('SELFHOST-007 TC-05a — active-branch restore survives store-injection ordering', () => {
@@ -49,7 +66,7 @@ describe('SELFHOST-007 TC-05a — active-branch restore survives store-injection
 
     // STANDARD path: tracker constructed with NO store; resume restore runs first (stashes).
     const tracker = makeTracker(cwd, null);
-    const resumedStore = new EditCheckpointStore({ cwd });
+    const resumedStore = await createStore(cwd);
     tracker.restoreActiveBranch({ branchId: 'branch-1', checkpointId: aId });
     tracker.setEditCheckpointStore(resumedStore); // must NOT throw (session not ready)
 
@@ -58,7 +75,7 @@ describe('SELFHOST-007 TC-05a — active-branch restore survives store-injection
     expect(tracker.getActiveBranchPointer()?.checkpointId).toBe(aId);
   });
 
-  it('applies the stash on a lazily-created store too', async () => {
+  it('refuses checkpoint access instead of lazily creating ambient project authority', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'robota-branch-resume-'));
     dirs.push(cwd);
     const aId = await seed(cwd);
@@ -66,7 +83,7 @@ describe('SELFHOST-007 TC-05a — active-branch restore survives store-injection
     const tracker = makeTracker(cwd, null);
     tracker.restoreActiveBranch({ branchId: 'branch-1', checkpointId: aId }); // stashed, no store
 
-    tracker.listCheckpointBranches(); // lazily creates store → applies stash
-    expect(tracker.getActiveBranchPointer()?.checkpointId).toBe(aId);
+    expect(() => tracker.listCheckpointBranches()).toThrowError(WorkspaceAuthorityRequiredError);
+    expect(tracker.getActiveBranchPointer()).toBeUndefined();
   });
 });

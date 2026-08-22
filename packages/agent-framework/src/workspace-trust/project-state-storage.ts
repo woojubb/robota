@@ -25,7 +25,7 @@ import type {
   TWorkspaceProjectStateNamespace,
 } from './types.js';
 
-const projectStateStorages = new WeakSet<object>();
+const projectStateStorages = new WeakMap<object, IWorkspaceProjectAuthority>();
 
 const NAMESPACE_DIRECTORIES: Readonly<Record<TWorkspaceProjectStateNamespace, string>> = {
   sessions: join('.robota', 'sessions'),
@@ -114,7 +114,7 @@ export function getWorkspaceProjectStateStorage(
       reader,
     ),
   );
-  projectStateStorages.add(storage);
+  projectStateStorages.set(storage, accepted);
   return storage as IWorkspaceProjectStateStorage;
 }
 
@@ -131,4 +131,18 @@ export function assertWorkspaceProjectStateStorage(
     );
   }
   return candidate as IWorkspaceProjectStateStorage;
+}
+
+/** Internal check for multi-namespace adapters that must stay within one exact grant. */
+export function assertWorkspaceProjectStateStoragePair(
+  left: IWorkspaceProjectStateStorage,
+  right: IWorkspaceProjectStateStorage,
+): void {
+  const acceptedLeft = assertWorkspaceProjectStateStorage(left);
+  const acceptedRight = assertWorkspaceProjectStateStorage(right);
+  if (projectStateStorages.get(acceptedLeft) !== projectStateStorages.get(acceptedRight)) {
+    throw new WorkspaceAuthorityRequiredError(
+      'Project state facets do not belong to the same workspace authority.',
+    );
+  }
 }

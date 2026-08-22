@@ -6,6 +6,7 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createAgentRuntime, createStatelessRuntime } from '../../index.js';
+import { createTrustedProjectSessionStoreFixture } from '../../testing/trusted-project-state-fixture.js';
 
 import type { InteractiveSession } from '../../index.js';
 import type {
@@ -58,8 +59,13 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
 
   it('inherits the runtime default store and resumes through it', async () => {
     const cwd = scratchDir();
+    const projectStore = await createTrustedProjectSessionStoreFixture(cwd);
     const firstProvider = createScriptedProvider([{ text: 'stored context' }]);
-    const firstRuntime = createAgentRuntime({ cwd, provider: firstProvider.provider });
+    const firstRuntime = createAgentRuntime({
+      cwd,
+      provider: firstProvider.provider,
+      sessionStore: projectStore,
+    });
     const first = track(firstRuntime.createSession({ bare: true }));
 
     await expect(completeTurn(first, 'remember ARCH-023')).resolves.toBe('stored context');
@@ -69,7 +75,11 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
     expect(existsSync(join(cwd, '.robota', 'sessions', `${sessionId}.json`))).toBe(true);
 
     const secondProvider = createScriptedProvider([{ text: 'restored context' }]);
-    const secondRuntime = createAgentRuntime({ cwd, provider: secondProvider.provider });
+    const secondRuntime = createAgentRuntime({
+      cwd,
+      provider: secondProvider.provider,
+      sessionStore: projectStore,
+    });
     const second = track(secondRuntime.createSession({ bare: true, resumeSessionId: sessionId }));
 
     await expect(completeTurn(second, 'recall ARCH-023')).resolves.toBe('restored context');

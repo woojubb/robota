@@ -5,7 +5,6 @@ import {
 
 import { getUserSettingsPath, readSettings, writeSettings } from '../config/settings-io.js';
 import { InteractiveSession } from '../interactive/interactive-session.js';
-import { createProjectSessionStore } from '../interactive/session-persistence.js';
 
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { ICommandHostAdapters, ICommandModule } from '../commands/index.js';
@@ -84,8 +83,7 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
     config.backgroundTaskRunners ?? createDefaultBackgroundTaskRunners();
   const commandModules = config.commandModules ?? [];
   const commandHostAdapters = config.commandHostAdapters ?? defaultCommandHostAdapters;
-  const sessionStore =
-    'sessionStore' in config ? config.sessionStore : createProjectSessionStore(config.cwd);
+  const sessionStore = 'sessionStore' in config ? config.sessionStore : undefined;
 
   return {
     cwd: config.cwd,

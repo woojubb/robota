@@ -12,6 +12,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
+import { createWorkspaceProjectMutation } from '../../workspace-trust/index.js';
 import { EditCheckpointStore } from '../edit-checkpoint-store';
 
 const MARKER = 'TOP-SECRET-CONTENTS-abc123';
@@ -47,13 +49,25 @@ function scratch() {
   return { base, sandbox, outside };
 }
 
+async function createStore(cwd: string): Promise<EditCheckpointStore> {
+  const access = await createTrustedProjectAccessFixture(cwd);
+  if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+  return new EditCheckpointStore({
+    authority: access.authority,
+    mutation: createWorkspaceProjectMutation(access.authority, {
+      status: 'approved',
+      purpose: 'checkpoint containment test',
+    }),
+  });
+}
+
 describe('EditCheckpointStore.captureFile containment', () => {
   // captureFile runs BEFORE the contained tool refuses, so without containment the snapshot IS the
   // read the sandbox denied: the bytes land inside the working directory and stay there for a later
   // in-sandbox Read. Proven end-to-end before the fix.
   it('does not pull a file outside the working directory into the sandbox', async () => {
     const { sandbox, outside } = scratch();
-    const store = new EditCheckpointStore({ cwd: sandbox });
+    const store = await createStore(sandbox);
     await store.beginTurn({ sessionId: 's1', prompt: 'p' });
     await store.captureFile(join(outside, 'secret.txt'));
     await store.finalizeTurn();
@@ -68,7 +82,7 @@ describe('EditCheckpointStore.captureFile containment', () => {
     const link = join(sandbox, 'link-to-secret.txt');
     symlinkSync(join(outside, 'secret.txt'), link);
 
-    const store = new EditCheckpointStore({ cwd: sandbox });
+    const store = await createStore(sandbox);
     await store.beginTurn({ sessionId: 's2', prompt: 'p' });
     await store.captureFile(link);
     await store.finalizeTurn();
@@ -83,7 +97,7 @@ describe('EditCheckpointStore.captureFile containment', () => {
     const target = join(sandbox, 'tracked.txt');
     writeFileSync(target, MARKER);
 
-    const store = new EditCheckpointStore({ cwd: sandbox });
+    const store = await createStore(sandbox);
     await store.beginTurn({ sessionId: 's3', prompt: 'p' });
     await store.captureFile(target);
     await store.finalizeTurn();

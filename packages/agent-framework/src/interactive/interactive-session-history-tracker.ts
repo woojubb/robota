@@ -8,7 +8,6 @@ import {
   recordInteractiveContextReferences,
 } from './interactive-session-context-references.js';
 import { SessionBranchEvents } from './session-branch-events.js';
-import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import { formatSkillActivationMessage } from '../commands/skill-activation-events.js';
 import {
   clearContextReferences,
@@ -18,8 +17,10 @@ import {
   VISIBLE_MEMORY_EVENT_TYPES,
   formatMemoryEventMessage,
 } from '../memory/memory-event-format.js';
+import { WorkspaceAuthorityRequiredError } from '../workspace-trust/index.js';
 
 import type { IHistoryTrackerState } from './session-history-state.js';
+import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import type {
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
@@ -342,7 +343,9 @@ export class SessionHistoryTracker {
 
   private getCheckpointStore(): EditCheckpointStore {
     if (!this.editCheckpointStore) {
-      this.editCheckpointStore = new EditCheckpointStore({ cwd: this.cwd });
+      throw new WorkspaceAuthorityRequiredError(
+        'Edit checkpoints require explicit project authority and mutation permission.',
+      );
     }
     // SELFHOST-007: apply any stashed --resume branch pointer on first store access (session is ready
     // by the time a read/nav command runs); idempotent — clears the stash once applied.

@@ -11,6 +11,10 @@ export {
   assertWorkspaceProjectSettingsWriter,
   createWorkspaceProjectSettingsWriter,
 } from './project-settings-writer.js';
+export {
+  assertWorkspaceProjectMutation,
+  createWorkspaceProjectMutation,
+} from './project-mutation.js';
 export { assertWorkspaceProjectReader } from './project-reader.js';
 export { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 export { WorkspaceTrustService } from './workspace-trust-service.js';
@@ -25,6 +29,7 @@ export type {
   IWorkspaceProjectAuthority,
   IWorkspaceProjectReader,
   IWorkspaceProjectSettingsWriter,
+  IWorkspaceProjectMutation,
   IWorkspaceProjectStateStorage,
   IWorkspaceTrustStore,
   IWorkspaceTrustStoreSnapshot,
@@ -33,6 +38,7 @@ export type {
   TWorkspaceProjectAccess,
   TWorkspaceProjectSettingsTarget,
   TWorkspaceProjectSettingsWriteDecision,
+  TWorkspaceProjectMutationDecision,
   TWorkspaceProjectStateNamespace,
   TWorkspaceTrustState,
 } from './types.js';

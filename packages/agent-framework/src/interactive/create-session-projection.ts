@@ -1,6 +1,4 @@
-import { join } from 'node:path';
-
-import { FileSessionLogger, NodeSessionLogSink } from '@robota-sdk/agent-session';
+import { FileSessionLogger, SilentSessionLogger } from '@robota-sdk/agent-session';
 
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
 
@@ -24,7 +22,6 @@ export interface ICreateSessionProjectionDeps {
   context: ICreateSessionOptions['context'];
   projectInfo: ICreateSessionOptions['projectInfo'];
   sessionId: ICreateSessionOptions['sessionId'];
-  logsDir: string;
   contextCapacityHint: ICreateSessionOptions['contextCapacityHint'];
 }
 
@@ -32,7 +29,7 @@ export function buildCreateSessionOptions(
   options: IInitOptions,
   deps: ICreateSessionProjectionDeps,
 ): ICreateSessionOptions {
-  const { mergedConfig, cwd, context, projectInfo, sessionId, logsDir, contextCapacityHint } = deps;
+  const { mergedConfig, cwd, context, projectInfo, sessionId, contextCapacityHint } = deps;
   return {
     config: mergedConfig,
     cwd,
@@ -41,8 +38,11 @@ export function buildCreateSessionOptions(
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,
     terminal: NOOP_TERMINAL,
-    sessionLogger: new FileSessionLogger(new NodeSessionLogSink(logsDir)),
-    transcriptPath: join(logsDir, `${sessionId}.jsonl`),
+    sessionLogger:
+      options.sessionLogSink === undefined
+        ? new SilentSessionLogger()
+        : new FileSessionLogger(options.sessionLogSink),
+    ...(options.transcriptPath !== undefined ? { transcriptPath: options.transcriptPath } : {}),
     permissionHandler: options.permissionHandler,
     // CMD-005: the channel's unified ask renderer doubles as the model-question seam for tools.
     ...(options.askHandler ? { ask: options.askHandler } : {}),
