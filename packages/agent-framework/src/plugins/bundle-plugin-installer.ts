@@ -234,9 +234,12 @@ export class BundlePluginInstaller {
     // Remove the directory first since mkdirSync already created it
     this.fs.rmSync(targetDir, { recursive: true, force: true });
 
-    const command = `git clone --depth 1 ${repoUrl} ${targetDir}`;
     try {
-      this.exec(command, { timeout: GIT_CLONE_TIMEOUT_MS, stdio: 'pipe' });
+      // `--` before the operands: a repository URL beginning with `-` is an OPERAND, not an option.
+      this.exec('git', ['clone', '--depth', '1', '--', repoUrl, targetDir], {
+        timeout: GIT_CLONE_TIMEOUT_MS,
+        stdio: 'pipe',
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to clone plugin "${pluginName}": ${message}`);

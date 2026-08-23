@@ -133,27 +133,35 @@ describe('BundlePluginInstaller', () => {
       ]);
 
       // Mock exec for git clone
-      mockExec.mockImplementation((cmd: string) => {
-        if (cmd.includes('git clone') && cmd.includes('user/gh-plugin')) {
+      mockExec.mockImplementation((file: string, args: readonly string[]) => {
+        if (
+          file === 'git' &&
+          args[0] === 'clone' &&
+          args.some((a) => a.includes('user/gh-plugin'))
+        ) {
           // The installer removes the pre-created dir and clones
-          const parts = cmd.split(' ');
-          const targetDir = parts[parts.length - 1];
-          setupDir(targetDir);
+          setupDir(args[args.length - 1] as string);
         }
         return '';
       });
 
       await installer.install('gh-plugin', 'gh-market');
 
+      // SEC-017 (issue #2019): the executable and its ARGUMENT VECTOR are asserted separately. A
+      // `stringContaining('git clone …')` assertion passes just as well when the URL has been folded
+      // back into one shell string, which is the defect this port removes.
       expect(mockExec).toHaveBeenCalledWith(
-        expect.stringContaining('git clone --depth 1'),
+        'git',
+        [
+          'clone',
+          '--depth',
+          '1',
+          '--',
+          'https://github.com/user/gh-plugin.git',
+          expect.any(String),
+        ],
         expect.objectContaining({ timeout: expect.any(Number) }),
       );
-      const cloneCmd = mockExec.mock.calls.find((c: string[]) =>
-        (c[0] as string).includes('git clone'),
-      );
-      expect(cloneCmd).toBeDefined();
-      expect(cloneCmd![0]).toContain('https://github.com/user/gh-plugin.git');
     });
 
     it('should use git SHA as version when no explicit version', async () => {
@@ -172,8 +180,8 @@ describe('BundlePluginInstaller', () => {
       setupDir(join(marketplaceDir, 'packages', 'no-ver-plugin'));
 
       // Mock git rev-parse to return a SHA
-      mockExec.mockImplementation((cmd: string) => {
-        if (cmd.includes('rev-parse HEAD')) {
+      mockExec.mockImplementation((file: string, args: readonly string[]) => {
+        if (file === 'git' && args.includes('rev-parse')) {
           return 'abcdef123456789012345678901234567890\n';
         }
         return '';
@@ -244,8 +252,8 @@ describe('BundlePluginInstaller', () => {
         },
       ]);
 
-      mockExec.mockImplementation((cmd: string) => {
-        if (cmd.includes('git clone')) {
+      mockExec.mockImplementation((file: string, args: readonly string[]) => {
+        if (file === 'git' && args[0] === 'clone') {
           throw new Error('git clone failed');
         }
         return '';

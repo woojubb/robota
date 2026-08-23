@@ -75,9 +75,14 @@ export class MarketplaceClient {
       this.fs.cpSync(source.path, tempDir, { recursive: true });
     } else {
       const cloneUrl = this.resolveCloneUrl(source);
-      const command = `git clone --depth 1 ${cloneUrl} ${tempDir}`;
       try {
-        this.exec(command, { timeout: GIT_TIMEOUT_MS, stdio: 'pipe' });
+        // `--` before the operands: a URL or path beginning with `-` is an OPERAND, never an option.
+        // Argv alone stops shell interpretation; it does not stop git reading `--upload-pack=…` as a
+        // flag it should honour.
+        this.exec('git', ['clone', '--depth', '1', '--', cloneUrl, tempDir], {
+          timeout: GIT_TIMEOUT_MS,
+          stdio: 'pipe',
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(`Failed to clone marketplace: ${message}`);
@@ -167,9 +172,11 @@ export class MarketplaceClient {
       this.fs.rmSync(entry.installLocation, { recursive: true, force: true });
       this.fs.cpSync(localSource.path, entry.installLocation, { recursive: true });
     } else {
-      const command = `git -C ${entry.installLocation} pull`;
       try {
-        this.exec(command, { timeout: GIT_TIMEOUT_MS, stdio: 'pipe' });
+        this.exec('git', ['-C', entry.installLocation, 'pull'], {
+          timeout: GIT_TIMEOUT_MS,
+          stdio: 'pipe',
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(`Failed to update marketplace "${name}": ${message}`);
@@ -225,7 +232,7 @@ export class MarketplaceClient {
   getMarketplaceSha(name: string): string {
     const dir = this.getMarketplaceDir(name);
     try {
-      const result = this.exec(`git -C ${dir} rev-parse HEAD`, {
+      const result = this.exec('git', ['-C', dir, 'rev-parse', 'HEAD'], {
         timeout: GIT_TIMEOUT_MS,
         stdio: 'pipe',
       });
