@@ -721,11 +721,25 @@ describe('scan-hook-enforcement-reachable', () => {
       const emitted = new Set();
       const pushSites = [...SCAN_SOURCE.matchAll(/findings\.push\(/g)];
       expect(pushSites.length, 'no emission sites found — the derivation broke').toBeGreaterThan(0);
+      // Bound each window by COUNTING PARENS from the site's own opener, not by searching for a
+      // closer at a guessed indentation. The previous revision looked for a closer preceded by
+      // exactly four spaces, while seven of the nine sites close at six — so every one of those
+      // windows walked past its own closer into the arms below, and a code-less emission borrowed a
+      // neighbour's code. The assertion below could not fire for any arm inside `evaluate`, while
+      // this file's comment and the commit message both promised it did. Paren counting is the
+      // technique `bodyEnd` and `skippedSuiteSpans` already use here.
+      const pushWindow = (from) => {
+        let depth = 0;
+        for (let i = SCAN_SOURCE.indexOf('(', from); i < SCAN_SOURCE.length; i++) {
+          const c = SCAN_SOURCE[i];
+          if (c === '(') depth++;
+          else if (c === ')' && --depth === 0) return SCAN_SOURCE.slice(from, i + 1);
+        }
+        return SCAN_SOURCE.slice(from);
+      };
+
       for (const site of pushSites) {
-        const window = SCAN_SOURCE.slice(
-          site.index,
-          SCAN_SOURCE.indexOf('\n    );', site.index) + 7,
-        );
+        const window = pushWindow(site.index);
         const codes = [...window.matchAll(codeToken)].map((m) => m[1]);
         // An emission with no recognisable code is itself the failure: it means either a new arm
         // whose code the token does not admit, or a push the derivation cannot classify. Either way
@@ -754,11 +768,13 @@ describe('scan-hook-enforcement-reachable', () => {
       // failing safe, but a spurious red is still a guard nobody trusts.
       const liveTestSource = (() => {
         // `skippedSuiteSpans` finds `describe.skip` spans; rewriting `it.skip(` to `describe.skip(`
-        // first lets the same paren-counting reach a skipped CASE as well, without re-deriving the
+        // first lets the same paren-counting reach a skipped CASE as well. The alternation matches
+        // the helper's own `skip|todo|skipIf` — narrower than its consumer would let an `it.skipIf`
+        // case vouch while not running, and `skipIf` is a live idiom in this repo, without re-deriving the
         // walker. Its spans are TUPLES — the first integration read `.start`/`.end`, got `undefined`
         // twice, blanked nothing, and still reported 41/41. Only the mutant probe showed it.
         const blanked = blankComments(TEST_SOURCE).replace(
-          /\bit\s*\.\s*(skip|todo)\s*\(/g,
+          /\bit\s*\.\s*(skip|todo|skipIf)\s*\(/g,
           'describe.$1(',
         );
         let out = blanked;

@@ -489,8 +489,13 @@ call. Every other event is advisory — a failure is reported on `IRunHooksResul
 proceeds. `isEnforcing` (`@robota-sdk/agent-core`) is the SSOT; this package reads it rather than
 hard-coding the event.
 
-Two causes deny a tool call in addition to an explicit `deny` outcome, and both were previously
-silent:
+The deny causes are enumerated once, in the catalog SSOT
+`packages/agent-core/docs/HOOK-CATALOG.md` § "Blocking semantics" — four of them, cited here rather
+than recounted. An earlier version of this section restated them in a different grouping ("two
+causes in addition to an explicit `deny`"), which is the same three-versus-four drift the catalog
+now records, reproduced one document over by the change that declared the catalog the owner.
+
+The two this package is responsible for producing, with the reason shape each carries:
 
 | cause                                                                                                                          | reason shape                                                                                                                                                                                                                      |
 | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

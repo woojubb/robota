@@ -292,7 +292,19 @@ the opposite. An event whose fire site cannot be resolved **fails** the scan; it
   `scripts/harness/run-all-scans.mjs`
 - Tests: `packages/agent-core/src/hooks/__tests__/enforcement-policy.test.ts` (new),
   `packages/agent-session/src/__tests__/tool-hook-helpers.test.ts`,
-  `scripts/harness/__tests__/scan-hook-enforcement-reachable.test.mjs` (new)
+  `scripts/harness/__tests__/scan-hook-enforcement-reachable.test.mjs` (new),
+  `packages/agent-session/src/__tests__/pretooluse-reads-the-policy.test.ts` (new) — the only thing
+  pinning this package's SPEC contract that the boundary READS `isEnforcing` rather than hard-coding
+  the event; added after review measured that removing the indirection left every check green,
+  `packages/agent-core/src/hooks/__tests__/selfhost-009-single-path-neutrality.test.ts` — its comment
+  anticipated this Task's decision and needed its tense corrected once the decision was made
+- `scripts/harness/check-functional-coverage.mjs` — exports `skippedSuiteSpans` so the new scan's
+  fixture check can reuse the repository's existing skipped-suite walker rather than re-derive one
+
+These three were absent from this list until review found them, because the affected-files check ran
+in one direction only: it asked whether the plan named a file the diff did not touch, never whether
+the diff touched a file the plan did not name. Same one-directional-agreement defect as issue #2252,
+found here in the checker written to catch it.
 
 ### Added during review — not in the original plan
 
