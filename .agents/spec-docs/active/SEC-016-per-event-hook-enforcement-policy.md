@@ -289,7 +289,14 @@ the opposite. An event whose fire site cannot be resolved **fails** the scan; it
 - `packages/agent-framework/docs/SPEC.md` — the executor-registry section, which this change
   restructured (every other source-changed package has a SPEC row; this one was missing)
 - `scripts/harness/scan-hook-enforcement-reachable.mjs` (new), plus its registration in
-  `scripts/harness/run-all-scans.mjs`
+  `scripts/harness/run-all-scans.mjs`, `scripts/harness/examined-adoption-baseline.json` and
+  `scripts/harness/measurement-provenance-pending.json` — registering a scan is not one file, and
+  the two JSONs are the part a reader would not guess
+- `scripts/harness/progress-report-acknowledgments.json`
+- Memory entries this leaf produced, indexed in `.agents/memory/MEMORY.md`:
+  `.agents/memory/a-red-proof-is-not-proof-of-its-reason.md` (new),
+  `.agents/memory/a-verification-line-is-not-a-verification.md` (new), and
+  `.agents/memory/two-measurements-that-disagree.md`, which gained the record of its own limit
 - Tests: `packages/agent-core/src/hooks/__tests__/enforcement-policy.test.ts` (new),
   `packages/agent-session/src/__tests__/tool-hook-helpers.test.ts`,
   `scripts/harness/__tests__/scan-hook-enforcement-reachable.test.mjs` (new),

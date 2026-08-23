@@ -32,7 +32,9 @@ so the tool's `execute` never runs.
 Note the grouping, because two counts were in circulation: causes 1 and 2 were previously described
 as one thing, which is defensible — they are both an executor-supplied verdict — and produced a
 count of three against this section's four. Neither was wrong; they were counting different
-groupings without saying so. Four, split as above, is the count this document now owns. Every other event is **informational-only**: its
+groupings without saying so. Four, split as above, is the count this document now owns.
+
+Every other event is **informational-only**: its
 `runHooks` result is not awaited or consulted for gating, so it cannot veto or mutate the action it
 observes.
 

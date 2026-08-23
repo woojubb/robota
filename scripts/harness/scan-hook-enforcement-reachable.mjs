@@ -101,8 +101,37 @@ const DEFAULT_POLICY = 'packages/agent-core/src/hooks/enforcement-policy.ts';
  * repository's existing `stripComments` helper collapses, which is why this is a local variant
  * rather than a reuse.
  *
- * String literals are tracked only so a `//` or `/*` inside one does not start a false comment.
+ * String literals AND regex literals are tracked, both for the same reason: so a `//` or `/*` inside
+ * one does not start a false comment. The regex half was missing and it mattered — `/\/dist\//` is
+ * this repository's commonest idiom and appears four times in the file this scan reads, and reading
+ * its trailing `//` as a comment blanked the rest of that line of live code, closing bracket
+ * included. What is NOT tracked: JSX, and the division-versus-regex call is a heuristic on the
+ * preceding token rather than a parse — stated because the failure it replaces was silent.
  */
+/**
+ * Is the `/` at `index` the start of a regex literal rather than division?
+ *
+ * The classic ambiguity, resolved the standard way: a regex may begin only where a VALUE may begin.
+ * After an identifier, a number, a string, `)` or `]`, a `/` is division. Deliberately a heuristic
+ * and not a parser — stated rather than hidden, because the failure it replaces was silent and this
+ * one is not: misreading division as a regex blanks to the next `/` on the line, which shrinks a
+ * window rather than widening it, and a too-small window fails conservative.
+ */
+function startsRegexLiteral(source, index) {
+  let j = index - 1;
+  while (j >= 0 && /\s/.test(source[j])) j -= 1;
+  if (j < 0) return true;
+  const prev = source[j];
+  if (/[A-Za-z0-9_$)\]]/.test(prev)) {
+    // ...unless the identifier is a keyword that can precede a value.
+    let k = j;
+    while (k >= 0 && /[A-Za-z]/.test(source[k])) k -= 1;
+    const word = source.slice(k + 1, j + 1);
+    return ['return', 'typeof', 'case', 'in', 'of', 'do', 'else', 'yield', 'await'].includes(word);
+  }
+  return true;
+}
+
 export function blankComments(source) {
   const out = source.split('');
   let i = 0;
@@ -120,6 +149,29 @@ export function blankComments(source) {
       const stop = end === -1 ? source.length : end + 2;
       blank(i, stop);
       i = stop;
+    } else if (source[i] === '/' && startsRegexLiteral(source, i)) {
+      // A REGEX LITERAL, not a comment and not division. Without this branch the `//` inside the
+      // repo's commonest idiom — `/\/dist\//`, written four times in this very file — reads as a
+      // line comment and blanks the REST OF THAT LINE OF LIVE CODE, including a closing `]` or `}`.
+      // A blanked unmatched brace makes `bodyEnd` run past its function, which is the permissive
+      // direction: an unrelated later function then answers for this one. Measured end to end —
+      // with the `blocked` gate deleted and one regex-carrying line added, the scan reported every
+      // enforcing row honoured, exit 0.
+      i += 1;
+      let inClass = false;
+      while (i < source.length) {
+        const c = source[i];
+        if (c === '\\') {
+          i += 2;
+          continue;
+        }
+        if (c === '[') inClass = true;
+        else if (c === ']') inClass = false;
+        else if (c === '/' && !inClass) break;
+        else if (c === '\n') break; // unterminated; treat as not-a-regex rather than eating the file
+        i += 1;
+      }
+      i += 1;
     } else if (source[i] === "'" || source[i] === '"' || source[i] === '`') {
       const quote = source[i];
       i += 1;
@@ -145,8 +197,14 @@ export function blankComments(source) {
  * this site. Both errors were permissive, in a scan whose whole purpose is to refuse a fire site
  * that does not honour an enforcing row.
  *
- * A mis-bounded window here is now too SMALL rather than too large, so the failure direction is
+ * A mis-bounded window here is too SMALL rather than too large, so the failure direction is
  * `readsBlocked: false` — which makes an enforcing row fail loudly instead of passing quietly.
+ *
+ * That holds for the WINDOW arithmetic. It did not hold while `blankComments` mis-read a regex
+ * literal as a comment: blanking an unmatched `]` or `}` let the walk run past its own function, and
+ * the direction inverted. The claim is therefore conditional on the blanking being correct, which is
+ * why the blanking now has its own fixtures rather than being assumed by the helpers that consume
+ * it. Every window helper here inherits that primitive's blind spots.
  */
 function enclosingBlockStart(source, offset) {
   let depth = 0;

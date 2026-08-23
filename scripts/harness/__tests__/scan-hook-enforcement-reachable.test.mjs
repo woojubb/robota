@@ -553,6 +553,52 @@ describe('scan-hook-enforcement-reachable', () => {
     });
   });
 
+  describe('a regex literal is not a comment', () => {
+    // The third re-entry of this scan's founding defect: something that is not code vouching for a
+    // gate that no longer exists. First a comment, then a stray `}` inside a comment, now the `//`
+    // that ends a regex — `/\/dist\//` is the repo's commonest idiom and appears four times in the
+    // scanned file itself. Reading it as a line comment blanked the REST OF THAT LINE, including a
+    // closing `]`, and a blanked unmatched bracket makes the brace walks over-run: the permissive
+    // direction the docblock had claimed was impossible.
+    // Of the four cases below only THIS one goes red when the regex branch is disabled. The other
+    // three guard the opposite direction — that real comments still blank, that division is not
+    // mistaken for a regex, and that a `/` inside a character class does not terminate one — and a
+    // disabled branch does not affect them. Recorded so "it went red under the mutant" is not read
+    // as covering all four.
+    it('keeps a regex containing escaped slashes, and the code after it', () => {
+      const src = ['const NON_PRODUCTION = [/\\/dist\\//];', 'const keep = 1;'].join('\n');
+
+      const out = blankComments(src);
+
+      expect(out.split('\n')[0]).toBe(src.split('\n')[0]);
+      expect(out).toContain('const keep = 1;');
+    });
+
+    it('still blanks a real line comment that follows a regex', () => {
+      const src = ['const re = /a\\/b/; // this must go', 'const keep = 2;'].join('\n');
+
+      const out = blankComments(src);
+
+      expect(out).toContain('const re = /a\\/b/;');
+      expect(out).not.toContain('this must go');
+    });
+
+    it('does not mistake division for a regex', () => {
+      const src = ['const ratio = total / count; // gone', 'const keep = 3;'].join('\n');
+
+      const out = blankComments(src);
+
+      expect(out).toContain('const ratio = total / count;');
+      expect(out).not.toContain('gone');
+    });
+
+    it('honours a slash inside a character class', () => {
+      const src = ['const re = /[/]/;', 'const keep = 4;'].join('\n');
+
+      expect(blankComments(src).split('\n')[0]).toBe(src.split('\n')[0]);
+    });
+  });
+
   describe('the union reader blanks comments too — the fourth call site', () => {
     // `blankComments` has FOUR call sites. Three were fixtured; this one was not, and removing the
     // blanking here left all 39 cases green. The enumeration that drove the derived-fixture work
@@ -719,7 +765,10 @@ describe('scan-hook-enforcement-reachable', () => {
       // `\nexport `, which returns -1 today — so the window silently ran to EOF while the comment
       // said "evaluate's body", and an arm in any other function was invisible regardless.
       const emitted = new Set();
-      const pushSites = [...SCAN_SOURCE.matchAll(/findings\.push\(/g)];
+      // Every way the array is appended to, not just `.push(` — the case is named "every finding code
+      // the scan CAN EMIT", and an arm using `.unshift(` was a real arm with a real code invisible to
+      // all three sets at once.
+      const pushSites = [...SCAN_SOURCE.matchAll(/findings\.(?:push|unshift|splice)\(/g)];
       expect(pushSites.length, 'no emission sites found — the derivation broke').toBeGreaterThan(0);
       // Bound each window by COUNTING PARENS from the site's own opener, not by searching for a
       // closer at a guessed indentation. The previous revision looked for a closer preceded by
@@ -735,7 +784,10 @@ describe('scan-hook-enforcement-reachable', () => {
           if (c === '(') depth++;
           else if (c === ')' && --depth === 0) return SCAN_SOURCE.slice(from, i + 1);
         }
-        return SCAN_SOURCE.slice(from);
+        // Never fall back to a whole-file window: that IS revision 1's failure mode, and it fails
+        // in whichever direction the surrounding text happens to give. An unbalanced site is a
+        // derivation that cannot answer, which is a failure rather than a wide guess.
+        throw new Error(`unbalanced emission site at index ${from} — the window cannot be bounded`);
       };
 
       for (const site of pushSites) {
@@ -769,7 +821,7 @@ describe('scan-hook-enforcement-reachable', () => {
       const liveTestSource = (() => {
         // `skippedSuiteSpans` finds `describe.skip` spans; rewriting `it.skip(` to `describe.skip(`
         // first lets the same paren-counting reach a skipped CASE as well. The alternation matches
-        // the helper's own `skip|todo|skipIf` — narrower than its consumer would let an `it.skipIf`
+        // the helper's own `skip|todo|skipIf`; narrower than its consumer would let an `it.skipIf`
         // case vouch while not running, and `skipIf` is a live idiom in this repo, without re-deriving the
         // walker. Its spans are TUPLES — the first integration read `.start`/`.end`, got `undefined`
         // twice, blanked nothing, and still reported 41/41. Only the mutant probe showed it.
