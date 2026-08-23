@@ -817,6 +817,13 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-interface-family-owner.mjs'],
   },
   {
+    // HARNESS-117 (issue #2178): a rule that is ENFORCED still has a STATEMENT somebody can read.
+    // Binds the rule IDENTIFIER a scan emits, not the scan file — a file implements many rules, so
+    // one rule's statement can vanish while the file is still named for another.
+    name: 'rule-statement-floor',
+    command: ['node', 'scripts/harness/scan-rule-statement-floor.mjs'],
+  },
+  {
     // ARCH-021: the same family as interface-runtime — "package X's src/ must not import Y". This one
     // holds the TOOL axis, which the manifest edge cannot cut (ARCH-035 / #1787).
     name: 'subagent-runner-composition',
