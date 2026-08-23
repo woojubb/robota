@@ -31,7 +31,7 @@ import type {
   IPromptResolvedEvent,
   TDriverId,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 /** Kind of a parked prompt — decides its fail-closed default and which event gates it. */
 type TParkedKind = 'permission' | 'ask';

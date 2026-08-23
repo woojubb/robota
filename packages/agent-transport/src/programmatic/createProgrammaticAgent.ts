@@ -15,7 +15,7 @@ import {
   readErrors,
   readLastAssistantText,
   readToolCalls,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 import { ProgrammaticInteractionChannel } from './ProgrammaticInteractionChannel.js';
 
@@ -25,7 +25,7 @@ import type {
   IInteractiveRuntime,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
-import type { IAgentDriver, IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
+import type { IAgentDriver, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export interface ICreateProgrammaticAgentOptions {
   /** Provider that answers the agent loop (e.g. a real provider, or the scripted provider in tests). */

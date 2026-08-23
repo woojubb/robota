@@ -33,7 +33,7 @@
  * user decides, rather than being silently dropped.
  */
 
-import type { IInteractiveSessionRecord } from './session-contracts.js';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 /**
  * Where a transfer is, from the source's point of view.

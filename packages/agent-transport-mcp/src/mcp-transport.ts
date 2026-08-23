@@ -9,8 +9,8 @@ import { createAgentMcpServer } from './mcp-server.js';
 
 import type { IMcpTransportSession } from './mcp-session.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
-  IInteractiveSession,
   ITransportAdapter,
   ITransportLifecycleError,
 } from '@robota-sdk/agent-interface-transport';

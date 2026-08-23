@@ -4,7 +4,7 @@ import type { IWorkspaceProjectReader } from '../workspace-trust/index.js';
 import type {
   IPromptFileReferenceRecord,
   TPromptFileReferenceReason,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 export type { IPromptFileReferenceRecord, TPromptFileReferenceReason };
 

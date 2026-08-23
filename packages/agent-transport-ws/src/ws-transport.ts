@@ -7,8 +7,8 @@
 
 import { createOutboundDelivery, createWsHandler } from '@robota-sdk/agent-transport-protocol';
 
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
-  IInteractiveSession,
   ITransportAdapter,
   ITransportLifecycleError,
 } from '@robota-sdk/agent-interface-transport';

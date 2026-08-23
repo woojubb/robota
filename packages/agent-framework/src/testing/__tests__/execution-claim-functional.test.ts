@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 
 import type { ICommandModule } from '../../command-api/command-module.js';
-import type { IInteractiveSessionEvents } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionEvents } from '@robota-sdk/agent-interface-session';
 
 const TEST_TIMEOUT = 20_000;
 

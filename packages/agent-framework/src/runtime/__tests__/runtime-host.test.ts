@@ -15,10 +15,8 @@ import { startRuntimeHost } from '../runtime-host.js';
 import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import type {
-  IInteractiveSession,
-  ITransportLifecycleRegistryView,
-} from '@robota-sdk/agent-interface-transport';
+import type { ITransportLifecycleRegistryView } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 function stubProvider(): IAIProvider {
   return {

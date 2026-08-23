@@ -8,7 +8,7 @@
 
 import type { ICommandHostPlan } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
-import type { IPlanArtifact } from '@robota-sdk/agent-interface-transport';
+import type { IPlanArtifact } from '@robota-sdk/agent-interface-session';
 
 export const PLAN_COMMAND_DESCRIPTION =
   'Draft a reviewable plan, then approve it to unblock edits (plan → review → approve → act).';

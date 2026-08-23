@@ -20,7 +20,7 @@ import {
   ProgrammaticInteractionChannel,
 } from '../../programmatic/index.js';
 
-import type { IAgentDriver } from '@robota-sdk/agent-interface-transport';
+import type { IAgentDriver } from '@robota-sdk/agent-interface-session';
 import type {
   IWorkspaceIdentity,
   IWorkspaceTrustStore,

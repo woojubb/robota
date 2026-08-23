@@ -30,7 +30,7 @@ import { WebSocket } from 'ws';
 
 import { createWsTransport, WsTransport } from '@robota-sdk/agent-transport-ws';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
 const SCENARIO_PORT = 43117;

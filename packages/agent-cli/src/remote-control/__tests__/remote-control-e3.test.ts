@@ -5,10 +5,8 @@ import {
   exportPublicKey,
   generateIdentityKeyPair,
 } from '@robota-sdk/agent-remote-pairing';
-import type {
-  IConfigurableTransport,
-  IInteractiveSession,
-} from '@robota-sdk/agent-interface-transport';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { IHostReconnectConfig, ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
 import type { TransportRegistry } from '@robota-sdk/agent-transport';
 import { describe, expect, it, vi } from 'vitest';

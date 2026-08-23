@@ -27,7 +27,7 @@ import { decodeArray, decodeOptional, decodeString } from './scalars.js';
 import { decodeToolSchema } from './tool-schema-decoders.js';
 
 import type { TDecodeIssues } from './decode-outcome.js';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 /** Decode an optional array member: absent stays absent, present is decoded element by element. */
 function optionalArray<TItem>(

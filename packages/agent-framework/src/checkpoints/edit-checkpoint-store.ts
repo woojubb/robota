@@ -22,7 +22,7 @@ import type {
   IWorkspaceProjectAuthority,
   IWorkspaceProjectMutation,
 } from '../workspace-trust/index.js';
-import type { IActiveBranchPointer } from '@robota-sdk/agent-interface-transport';
+import type { IActiveBranchPointer } from '@robota-sdk/agent-interface-session';
 
 const MANIFEST_FILE = 'manifest.json';
 const SNAPSHOT_DIR = 'files';

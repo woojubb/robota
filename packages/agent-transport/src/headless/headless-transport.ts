@@ -11,8 +11,8 @@ import { createHeadlessRunner } from './headless-runner.js';
 
 import type { TOutputFormat } from './headless-runner.js';
 import type { IHeadlessSession } from './headless-session.js';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
-  IInteractiveSession,
   ITransportLifecycleError,
   ITransportRunnerAdapter,
   TTransportRunOutcome,

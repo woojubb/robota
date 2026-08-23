@@ -6,7 +6,7 @@ import type { IEditCheckpointRestoreResult } from '../checkpoints/edit-checkpoin
 import type { ICommandHostAdapters } from '../command-api/host-adapters.js';
 import type { ICommandHostContext, ICommandSessionRuntime } from '../command-api/host-context.js';
 import type { IMemoryStore } from '../memory/types.js';
-import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface-transport';
+import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface-session';
 
 /**
  * ARCH-029: a conformant, cast-free `ICommandHostContext` double.

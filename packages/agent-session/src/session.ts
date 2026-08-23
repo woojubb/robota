@@ -41,7 +41,7 @@ import type {
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
 import type { Robota } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export type {
   ICompactEvent,

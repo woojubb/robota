@@ -33,7 +33,7 @@ import type {
   TSkillActivationMode,
   TSkillActivationSource,
   TSkillActivationStatus,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 const SKILL_SOURCES = ['skill', 'plugin'] as const satisfies readonly TSkillActivationSource[];
 const SKILL_INVOCATIONS = [

@@ -8,12 +8,12 @@
  * consumed by `useWsSession` and shared unchanged by BOTH the WS and RTC session clients (same `TServerMessage`s).
  */
 
+import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
 import type {
   IAskRequestEvent,
   IPermissionRequestEvent,
-  TActionResponse,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
 /** A prompt awaiting the owner's answer, rendered by the UI (built from the server event payloads). */

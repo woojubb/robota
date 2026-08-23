@@ -85,7 +85,7 @@ export type {
   IInteractiveSessionStore,
   IInteractiveSessionRecord as ISessionRecord,
   IInteractiveSessionStore as ISessionStore,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 // SELFHOST-007: neutral checkpoint tree (branching time-travel) — pure, I/O-free.
 export { CheckpointTree } from './checkpoint-tree.js';

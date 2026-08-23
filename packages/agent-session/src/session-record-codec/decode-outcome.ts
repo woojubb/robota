@@ -14,7 +14,7 @@
  * decoder. The store composes its own `missing` with these three.
  */
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 /**
  * One decode failure, located.

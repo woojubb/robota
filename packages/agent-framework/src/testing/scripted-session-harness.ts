@@ -54,7 +54,7 @@ import type {
   ITerminalHandoff,
   IToolSummary,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 /** Options for {@link scriptedSession}. Provide exactly one of `turns`, `cassette`, or `record`. */
 export interface IScriptedSessionOptions {

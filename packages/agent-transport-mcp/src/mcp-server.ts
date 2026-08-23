@@ -8,10 +8,10 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { isTurnNotRunError } from '@robota-sdk/agent-interface-transport';
+import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
 
 import type { IMcpTransportSession } from './mcp-session.js';
-import type { IExecutionResult } from '@robota-sdk/agent-interface-transport';
+import type { IExecutionResult } from '@robota-sdk/agent-interface-session';
 
 export interface IAgentMcpOptions {
   /** Name for the MCP server. */

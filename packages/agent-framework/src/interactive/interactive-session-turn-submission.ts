@@ -6,7 +6,7 @@ import type {
   ITurnOptions,
   SessionExecutionController,
 } from './interactive-session-execution-controller.js';
-import type { ISubmitOptions, ITurnHandle, TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { ISubmitOptions, ITurnHandle, TDriverId } from '@robota-sdk/agent-interface-session';
 
 export interface INewTurnSubmissionDeps {
   readonly execCtrl: SessionExecutionController;

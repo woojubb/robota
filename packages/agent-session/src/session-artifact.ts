@@ -25,7 +25,7 @@ import {
 } from './session-record-codec/index.js';
 
 import type { IVersionedInteractiveSessionRecord } from './session-record-codec/index.js';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 /**
  * TRANS-006: the envelope type and its version constant are the codec's (`session-record-codec/`).

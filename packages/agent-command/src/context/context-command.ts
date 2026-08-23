@@ -28,7 +28,7 @@ import type {
   TAutoCompactThresholdSource,
 } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
-import type { IContextReferenceItem } from '@robota-sdk/agent-interface-transport';
+import type { IContextReferenceItem } from '@robota-sdk/agent-interface-session';
 
 const PERCENT = 100;
 const USAGE = [

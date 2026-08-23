@@ -22,7 +22,7 @@ import type {
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 const logger = createLogger('SessionHistoryOps');
 

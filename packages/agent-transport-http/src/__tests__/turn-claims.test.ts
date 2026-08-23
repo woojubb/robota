@@ -14,7 +14,7 @@ import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transp
 
 import { createTurnClaims } from '../turn-claims.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /**
  * A session that names itself however the case needs it to.

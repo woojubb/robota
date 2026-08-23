@@ -22,7 +22,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createBinaryAgentDriver } from '../../testing/binary-agent-driver.js';
 
-import type { IAgentDriver } from '@robota-sdk/agent-interface-transport';
+import type { IAgentDriver } from '@robota-sdk/agent-interface-session';
 
 const ANSWER = 'CROSS_FIDELITY_OK';
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'cross-fidelity.jsonl');

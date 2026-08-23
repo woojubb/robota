@@ -17,7 +17,7 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type {
   ISessionConversationRead,
   ISessionLifecycle,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 export interface ICommandResultSession extends ISessionLifecycle, ISessionConversationRead {}
 

@@ -17,7 +17,7 @@
 import { vi } from 'vitest';
 
 import type { TSubmitFn } from '../../interactive-session-execution-contracts.js';
-import type { IExecutionResult } from '@robota-sdk/agent-interface-transport';
+import type { IExecutionResult } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
 
 /** What a turn resolves to when a case does not care about the content. */

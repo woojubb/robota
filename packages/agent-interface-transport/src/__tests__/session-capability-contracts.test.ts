@@ -8,7 +8,7 @@ import {
   type ISessionEvents,
   type ISessionTurnSubmission,
   type TSessionCapabilityHost,
-} from '../index.js';
+} from '@robota-sdk/agent-interface-session';
 import { createTestInteractiveSession, createTestSessionCapabilityHost } from '../testing/index.js';
 // HARNESS-103: the host mechanism moved out of the contract surface. The contracts still come from
 // the package entry above; the factory now comes from where doubles live.

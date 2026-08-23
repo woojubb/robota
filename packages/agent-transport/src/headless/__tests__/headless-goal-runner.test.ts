@@ -12,7 +12,7 @@ import type {
   IGoalEvent,
   IGoalState,
   IInteractiveSession,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 type TListener = (...args: unknown[]) => void;
 

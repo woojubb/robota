@@ -30,7 +30,7 @@
  * on.
  */
 
-import type { TDriverId } from './driver-contracts.js';
+import type { TDriverId } from '@robota-sdk/agent-interface-session';
 
 /**
  * How much was established about a peer, as a closed vocabulary.

@@ -69,12 +69,12 @@ import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 import { TUI_SESSION_EVENT_CLASSIFICATION } from '../tui-session-events.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 import type {
   IExecutionResult,
   IInteractiveSession,
-  ITransportRegistryView,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

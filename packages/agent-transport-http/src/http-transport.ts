@@ -11,8 +11,8 @@ import { createAgentRoutes } from './routes.js';
 
 import type { IHttpTransportSession } from './http-session.js';
 import type { TStreamFailureListener } from './submit-stream.js';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
-  IInteractiveSession,
   ITransportAdapter,
   ITransportAdmissionConfig,
   ITransportLifecycleError,

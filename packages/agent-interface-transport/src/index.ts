@@ -66,115 +66,11 @@ export type {
   TChannelReceiveResult,
 } from './channel-contracts.js';
 
-// ── Interaction-channel contracts ────────────────────────────
-export type {
-  IInteractionChannel,
-  IAgentDriver,
-  IToolCallObservation,
-  ITerminalHandoff,
-  InteractionEvent,
-  ICommandInfo,
-} from './interaction-contracts.js';
 // Shared pure accessors over an InteractionEvent stream (values, not types).
-export {
-  readAssistantReplies,
-  readLastAssistantText,
-  readToolCalls,
-  readErrors,
-} from './interaction-contracts.js';
 // RUNTIME-003: the one narrowing for a rejected `ITurnHandle.completed` (a value, not a type).
-export { isTurnNotRunError } from './turn-contracts.js';
 // HARNESS-103: `createSessionCapabilityHost` / `readSessionCapability` are NOT here. They are the
 // runtime mechanism the interface-package rule forbids, they have no production consumer, and they
 // now live under `testing/` per `contracts→agent-interface-*, doubles→owner /testing`.
-export { SESSION_CAPABILITY_MEMBER_KEYS } from './session-capability-contracts.js';
-export type {
-  ISessionCapabilityHost,
-  TSessionCapabilityHost,
-  TSessionCapabilityReadResult,
-} from './session-capability-contracts.js';
-// ── Driver identity + driver-routed event contracts ─────────
-// REMOTE-014 E5: co-drive driver-id constants (values, not types).
-export { OWNER_DRIVER_ID, AGENT_DRIVER_ID } from './driver-contracts.js';
-export type {
-  TDriverId,
-  ISubmitOptions,
-  IUiIntentEvent,
-  ISessionRenamedEvent,
-} from './driver-contracts.js';
-
-// ── Session-event payload contracts ──────────────────────────
-export type {
-  ISkillActivationEvent,
-  TSkillActivationSource,
-  TSkillActivationInvocation,
-  TSkillActivationMode,
-  TSkillActivationStatus,
-  IMemoryEvent,
-  IMemoryReference,
-  TMemoryType,
-  IPromptFileReferenceRecord,
-  TPromptFileReferenceReason,
-  IContextReferenceItem,
-  TContextReferenceLoadType,
-  TContextReferenceStatus,
-  IPlanApprovalEvent,
-} from './event-contracts.js';
-
-// ── Context-compaction contracts (INFRA-025 SSOT) ────────────
-export type { TCompactTrigger, ICompactEvent } from './compact-contracts.js';
-
-// ── Interactive-session contracts ────────────────────────────
-export type {
-  IInteractiveSession,
-  IInteractiveSessionEvents,
-  ISessionAgentJobs,
-  ISessionBackgroundGroups,
-  ISessionBackgroundTasks,
-  ISessionCapabilityMap,
-  ISessionCommands,
-  ISessionConversationRead,
-  ISessionDriverAttribution,
-  ISessionEvents,
-  ISessionExecutionState,
-  ISessionExecutionWorkspace,
-  ISessionGoal,
-  ISessionIdentity,
-  ISessionLifecycle,
-  ISessionPromptResolution,
-  ISessionTurnControl,
-  ISessionTurnSubmission,
-  ISessionWorkspaceLocation,
-  TInteractiveEventName,
-  TTurnSource,
-  IExecutionResult,
-  ITurnHandle,
-  ITurnNotRunError,
-  TTurnNotRunReason,
-  IToolState,
-  IDiffLine,
-  IToolSummary,
-  TPermissionResultValue,
-  TInteractivePermissionHandler,
-  IPermissionRequestEvent,
-  IAskRequestEvent,
-  IPromptResolvedEvent,
-  IContextFileRefreshedEvent,
-  IInteractiveSessionRecord,
-  IInteractiveSessionStore,
-  IBranchEvent,
-  IActiveBranchPointer,
-  IGoalState,
-  IGoalEvent,
-  IGoalProgressEntry,
-  TGoalStatus,
-  TGoalStopReason,
-  IPlanStep,
-  TPlanStepStatus,
-  TPlanPhase,
-  IPlanArtifact,
-} from './session-contracts.js';
-export type { IResumableSessionSummary } from './session-summary-contracts.js';
 
 // SEC-008: the SHAPE of an admission decision. The machinery that produces it lives in
 // @robota-sdk/agent-transport-protocol — an interface package carries no runtime dependency edge.

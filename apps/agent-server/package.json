@@ -38,7 +38,7 @@
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-interface-execution": "workspace:*",
-    "@robota-sdk/agent-interface-transport": "workspace:*",
+    "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-playground": "workspace:*",
     "@robota-sdk/agent-provider-anthropic": "workspace:*",
     "@robota-sdk/agent-provider-gemini": "workspace:*",

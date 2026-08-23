@@ -8,7 +8,7 @@
  * The framework (`InteractiveSession`) owns the orchestration (exclusivity, fast-fail) — this class
  * only performs the actual screen release/reclaim. It spawns nothing itself (platform-neutral).
  */
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-transport';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
 
 /** How the App suspends/resumes its rendering, registered into the controller on mount. */
 export interface ITuiSuspendHooks {

@@ -6,10 +6,9 @@ import { TurnNotRunError } from '../turn-not-run-error.js';
 import type {
   IPeerMessageIngress,
   IPeerOrigin,
-  ITurnHandle,
   TPeerTrust,
-  TTurnNotRunReason,
 } from '@robota-sdk/agent-interface-transport';
+import type { ITurnHandle, TTurnNotRunReason } from '@robota-sdk/agent-interface-session';
 
 function ingress(
   over: { id?: string; sequence?: number; trust?: TPeerTrust; admitted?: boolean } = {},

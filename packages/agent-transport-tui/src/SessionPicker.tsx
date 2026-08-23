@@ -10,7 +10,7 @@ import { SELECTION_INDICATOR, SELECTION_INDICATOR_NONE } from './key-hint-footer
 import ListPicker from './ListPicker.js';
 import { PALETTE } from './tui-palette.js';
 
-import type { IResumableSessionSummary } from '@robota-sdk/agent-interface-transport';
+import type { IResumableSessionSummary } from '@robota-sdk/agent-interface-session';
 
 const SESSION_ID_DISPLAY_LENGTH = 8;
 const SESSION_PREVIEW_DISPLAY_LENGTH = 60;

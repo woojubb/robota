@@ -11,7 +11,7 @@
  * class declaration in it is a runtime construct the contract must not carry.
  */
 
-import type { ITurnNotRunError, TTurnNotRunReason } from '@robota-sdk/agent-interface-transport';
+import type { ITurnNotRunError, TTurnNotRunReason } from '@robota-sdk/agent-interface-session';
 
 export class TurnNotRunError extends Error implements ITurnNotRunError {
   override readonly name = 'TurnNotRunError' as const;

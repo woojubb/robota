@@ -22,7 +22,7 @@ import {
 } from './scalars.js';
 
 import type { TDecodeIssues, TSessionRecordDecodeOutcome } from './decode-outcome.js';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 /**
  * The version of the persisted record envelope this build reads and writes.

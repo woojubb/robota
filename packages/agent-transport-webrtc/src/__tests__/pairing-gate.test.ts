@@ -7,7 +7,7 @@ import { WebRtcDeliveryLifecycle } from '../webrtc-delivery-lifecycle.js';
 
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
 import type { createWsHandler } from '@robota-sdk/agent-transport-protocol';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { RTCDataChannel } from 'werift';
 
 /**

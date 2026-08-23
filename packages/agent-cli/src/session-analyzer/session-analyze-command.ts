@@ -24,7 +24,7 @@ import {
 } from '@robota-sdk/agent-session-analytics';
 
 import type { TSessionAnalysisInput } from '@robota-sdk/agent-session-analytics';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 interface ISessionAnalyzeArgs {
   last: number | undefined;

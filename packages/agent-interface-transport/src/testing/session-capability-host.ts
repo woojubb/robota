@@ -19,14 +19,14 @@
  * `TSessionCapabilityReadResult`) stayed in `session-capability-contracts.ts`, where contracts go.
  */
 
-import { SESSION_CAPABILITY_MEMBER_KEYS } from '../session-capability-contracts.js';
+import { SESSION_CAPABILITY_MEMBER_KEYS } from '@robota-sdk/agent-interface-session';
 
 import type {
   ISessionCapabilityMap,
   ISessionCapabilityHost,
   TSessionCapabilityHost,
   TSessionCapabilityReadResult,
-} from '../session-capability-contracts.js';
+} from '@robota-sdk/agent-interface-session';
 
 function findPropertyDescriptor(target: object, key: PropertyKey): PropertyDescriptor | undefined {
   let current: object | null = target;

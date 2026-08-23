@@ -48,6 +48,7 @@
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-transport-protocol": "workspace:*",
     "ws": "^8.21.1"

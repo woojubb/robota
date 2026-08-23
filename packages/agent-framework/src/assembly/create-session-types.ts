@@ -25,7 +25,7 @@ import type {
   IUserInteraction,
 } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
+import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 import type {
   Session,
   ISessionOptions,

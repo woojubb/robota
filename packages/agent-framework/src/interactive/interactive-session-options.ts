@@ -36,8 +36,8 @@ import type {
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-transport';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
 import type { ISessionLogSink } from '@robota-sdk/agent-session';
 import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';

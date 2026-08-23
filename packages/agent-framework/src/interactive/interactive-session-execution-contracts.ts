@@ -15,11 +15,7 @@ import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IContextWindowState } from '@robota-sdk/agent-core';
 import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
-import type {
-  ISubmitOptions,
-  ITurnHandle,
-  TTurnSource,
-} from '@robota-sdk/agent-interface-transport';
+import type { ISubmitOptions, ITurnHandle, TTurnSource } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
 
 export interface IExecutionControllerCallbacks {

@@ -3,7 +3,7 @@ import type {
   IInteractiveSession,
   IInteractiveSessionEvents,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 export interface ITuiSessionEventBinding {
   event: TInteractiveEventName;

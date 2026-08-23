@@ -24,9 +24,9 @@ import type { CommandRegistry } from '@robota-sdk/agent-framework';
 import type {
   IInteractiveSession,
   IInteractiveSessionStore,
-  ITransportRegistryView,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 /**
  * The TUI channel's option surface.

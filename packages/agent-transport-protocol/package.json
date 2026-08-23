@@ -48,6 +48,7 @@
     "@robota-sdk/agent-interface-analytics": "workspace:*",
     "@robota-sdk/agent-interface-command": "workspace:*",
     "@robota-sdk/agent-interface-execution": "workspace:*",
+    "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*"
   },
   "devDependencies": {

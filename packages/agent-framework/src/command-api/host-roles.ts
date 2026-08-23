@@ -41,7 +41,7 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
 } from '@robota-sdk/agent-interface-execution';
-import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface-transport';
+import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface-session';
 
 /** Reaching the live session, and the whole-conversation operations that sit beside it. */
 export interface ICommandHostSessionAccess {

@@ -34,7 +34,7 @@ import type {
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContributionSource } from '../contributions/index.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
-import type { TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId } from '@robota-sdk/agent-interface-session';
 
 function normalizeNameToken(name: string): string {
   return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
