@@ -78,7 +78,7 @@ derivation, and check the probe.
 
 ## Related
 
-- [[two-measurements-that-disagree]] — same family, one layer up: there, two numbers for one
+- [[two-disagreeing-measurements-are-one-finding]] — same family, one layer up: there, two numbers for one
   quantity; here, two claims about one test result.
 - [[a-verification-line-is-not-a-verification]] — a command that ran nothing, reported as a gate.
   Same substitution: the shape of evidence accepted in place of evidence.

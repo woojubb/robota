@@ -453,7 +453,7 @@ needs an opt-out" — had already triggered when it was written.
 
 **There is currently no opt-out, and that is a live gap rather than a decision.** A consumer who
 supplies only a restricted executor set — deliberately, to keep shell and HTTP execution out of a
-sandboxed host — gets the built-ins back. Filed as issue #2266.
+sandboxed host — gets the built-ins back. Filed as issue #2270.
 
 It is filed rather than fixed here for a reason worth recording: an opt-out is a new public
 capability, and this repository's `option-reachability` scan refuses a declared option that no

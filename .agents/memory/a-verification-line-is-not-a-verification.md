@@ -53,7 +53,7 @@ Fourth distinct instance of one question — _what does this answer actually mea
 | a corpus that included `examples/` | coverage (issue #2227)     |
 | **a command that runs nothing**    | **a passing gate**         |
 
-See [[two-measurements-that-disagree]], [[a-report-states-what-it-could-not-see]],
+See [[two-disagreeing-measurements-are-one-finding]], [[a-report-states-what-it-could-not-see]],
 [[ci-cancelled-reads-as-failed]], [[claimed-without-reading-back]].
 
 ## How to apply

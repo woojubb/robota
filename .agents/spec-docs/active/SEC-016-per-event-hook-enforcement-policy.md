@@ -296,7 +296,13 @@ the opposite. An event whose fire site cannot be resolved **fails** the scan; it
 - Memory entries this leaf produced, indexed in `.agents/memory/MEMORY.md`:
   `.agents/memory/a-red-proof-is-not-proof-of-its-reason.md` (new),
   `.agents/memory/a-verification-line-is-not-a-verification.md` (new), and
-  `.agents/memory/two-measurements-that-disagree.md`, which gained the record of its own limit
+  `.agents/memory/two-disagreeing-measurements-are-one-finding.md`, which gained this leaf's record
+  of that lesson's own limit (an entry records that a lesson was learned; it does not apply one).
+  This leaf originally wrote that lesson as a separate file,
+  `.agents/memory/two-measurements-that-disagree.md`; a mirroring change landed the same fact on
+  develop under the name above while this branch was in review, so the two were folded and the
+  duplicate DELETED — the index requires one owner per fact, and two entries asserting the same
+  thing had already begun to disagree about it
 - Tests: `packages/agent-core/src/hooks/__tests__/enforcement-policy.test.ts` (new),
   `packages/agent-session/src/__tests__/tool-hook-helpers.test.ts`,
   `scripts/harness/__tests__/scan-hook-enforcement-reachable.test.mjs` (new),

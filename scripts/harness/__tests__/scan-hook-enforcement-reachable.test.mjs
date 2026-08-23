@@ -563,14 +563,16 @@ describe('scan-hook-enforcement-reachable', () => {
     // No count is given here on purpose. Three different numbers have been attached to this
     // paragraph across three rounds — "four times in the scanned file", then "three times in the
     // scan's own source", then "135 of 1650 files" — and every one was measured wrong, each by a
-    // different method. The exact figure is two occurrences in the scan's own source, which the
-    // scan never reads. The limitation is what these cases pin; the arithmetic around it kept
-    // being the part that was false.
-    // Of the four cases below only THIS one goes red when the regex branch is disabled. The other
-    // three guard the opposite direction — that real comments still blank, that division is not
-    // mistaken for a regex, and that a `/` inside a character class does not terminate one — and a
-    // disabled branch does not affect them. Recorded so "it went red under the mutant" is not read
-    // as covering all four.
+    // different method. A fourth attempt was made here and was also wrong. The limitation is what
+    // these cases pin; every count attached to it has been false, so none is given — honouring the
+    // sentence above instead of contradicting it three lines later.
+    // Of the FIVE cases below only THIS one goes red when the regex branch is disabled. The other
+    // four guard different properties — that real comments still blank, that division is not
+    // mistaken for a regex, that a `/` inside a character class does not terminate one, and that a
+    // quote before a slash (the shape that actually misfires) leaves the following line intact — and
+    // a disabled branch does not affect them. Recorded so "it went red under the mutant" is not read
+    // as covering all five. This count was stale by one after round 18 added the quote case, which
+    // is the same defect the paragraph above is about, committed inside the apology for it.
     it('keeps a regex containing escaped slashes, and the code after it', () => {
       const src = ['const NON_PRODUCTION = [/\\/dist\\//];', 'const keep = 1;'].join('\n');
 

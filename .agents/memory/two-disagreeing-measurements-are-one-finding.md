@@ -31,3 +31,36 @@ ever produces, and recording both numbers converts it into no signal at all — 
 as thorough rather than as contradictory.
 
 Related: [[enumerating-a-sink-is-not-covering-it]], [[a-wide-corpus-makes-a-guard-pass-quietly]]
+
+## The direction of the danger is conditional, not absolute
+
+Recorded because an earlier statement of this lesson made it absolute and that was wrong. A corpus
+wider than the claim does not always conceal: it suppresses a **presence** proof (the extra corpus
+supplies the thing being looked for, so a real absence reads as present), and it merely manufactures
+work for an **absence** proof. Which way it fails depends on what the guard is trying to establish,
+and a sibling entry in this corpus still states it as an absolute — see
+[[a-wide-corpus-makes-a-guard-pass-quietly]], which needs the same qualification.
+
+## The limit of this file, measured on this file
+
+**Writing the lesson down is not applying it, and this entry has the datum to prove it.**
+
+Four commits after committing this file, in the same branch and the same series, I shipped the
+identical defect: the `THookEvent` row in `packages/agent-core/docs/SPEC.md` said **13 events**,
+while two other lines of the same document said 16 and prose I added in the same change said
+"the other fifteen events are advisory". Three statements of one quantity in one SSOT, two of them
+written by me, disagreeing. Review caught it; this file did not.
+
+So state the limitation plainly rather than let the file imply otherwise:
+
+> **A memory entry is a record that a lesson was learned, not a mechanism that applies it.** Its
+> half-life against the author's own next commit is short — measured once, at about four commits.
+
+The practical consequence is that "filed and written down" is not closure. A lesson only becomes
+load-bearing when something mechanical enforces it — a scan, a gate, a test that goes red. Where a
+mechanism is possible, the entry is a placeholder for one; where it is not, the entry must be
+re-read at the moment of the work rather than trusted to have been absorbed.
+
+For this specific lesson the mechanism is cheap and does not exist yet: nothing checks that two
+counts of the same quantity in one document agree. `scan-hook-catalog` guards `HOOK-CATALOG.md`,
+not the SPEC tables, which is why the row above went out.
