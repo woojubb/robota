@@ -8,11 +8,10 @@
  * `PreModelCall`, `PostModelCall`, and `PermissionDecision` (SELFHOST-009) are
  * INFORMATIONAL-ONLY: they are fired fire-and-forget from the turn owner at points it already
  * observes and their `runHooks` result is NOT awaited or consulted for gating. The sole BLOCKING
- * event is `PreToolUse`, on a `deny` outcome, on an `allow` whose stdout carries a deny directive,
- * and — since SEC-016 — on an `error` OR on a configured hook type with no registered executor,
- * because a hook that reached no verdict is not a hook that approved. That fourth cause is easy to
- * omit from a list of three, and the catalog SSOT names it: a gate nothing evaluated denies rather
- * than allowing silently. Which events enforce is recorded in `HOOK_ENFORCEMENT_POLICY`
+ * event is `PreToolUse`. The deny causes are enumerated once, in the catalog SSOT
+ * `packages/agent-core/docs/HOOK-CATALOG.md` § "Blocking semantics" — cited here rather than
+ * recounted, because two different groupings of the same set were in circulation and a second copy
+ * is what let them drift. Which events enforce is recorded in `HOOK_ENFORCEMENT_POLICY`
  * (`./enforcement-policy.ts`); see the catalog SSOT `packages/agent-core/docs/HOOK-CATALOG.md` for
  * per-event timing, fire-site, and blocking semantics.
  */

@@ -11,11 +11,28 @@ registry.
 
 ## Blocking semantics
 
-The **only** blocking event is `PreToolUse`. Three things deny there, not one: a hook whose executor
-returns the `deny` outcome (or an `allow` whose stdout carries
-`hookSpecificOutput.permissionDecision: "deny"` / `continue: false`) sets `IRunHooksResult.blocked`,
-and the turn owner's `runPreToolHook` → `PermissionEnforcer` path turns that into a denial
-`IToolResult` so the tool's `execute` never runs. Every other event is **informational-only**: its
+The **only** blocking event is `PreToolUse`. **This document is the owner of the deny-cause list;
+anything else that needs the count cites this section rather than recounting it.** Four causes deny
+there, enumerated here in full rather than promised and delivered in pieces:
+
+1. a hook whose executor returns the `deny` outcome;
+2. an `allow` whose stdout carries `hookSpecificOutput.permissionDecision: "deny"` or
+   `continue: false` — a deny directive in a non-deny outcome;
+3. **(SEC-016)** a hook that returns `error` — timeout, spawn failure, transport failure, HTTP
+   status, malformed response, non-zero exit — because a hook that reached no verdict is not a hook
+   that approved;
+4. **(SEC-016)** a configured hook type with **no registered executor**, because a gate nothing
+   evaluated denies rather than allowing silently.
+
+Causes 1 and 2 set `IRunHooksResult.blocked`; causes 3 and 4 are decided at the boundary from
+`errors` and `unknownHookTypes`, read per event through `isEnforcing`. In every case the turn
+owner's `runPreToolHook` → `PermissionEnforcer` path turns the decision into a denial `IToolResult`
+so the tool's `execute` never runs.
+
+Note the grouping, because two counts were in circulation: causes 1 and 2 were previously described
+as one thing, which is defensible — they are both an executor-supplied verdict — and produced a
+count of three against this section's four. Neither was wrong; they were counting different
+groupings without saying so. Four, split as above, is the count this document now owns. Every other event is **informational-only**: its
 `runHooks` result is not awaited or consulted for gating, so it cannot veto or mutate the action it
 observes.
 

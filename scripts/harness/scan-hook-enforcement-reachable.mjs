@@ -364,7 +364,7 @@ export function findFireSites(pathspecs) {
  * simply vanishes, and the scan exits 0 having examined 15 of 16. Comparing the parsed set against
  * the union is what makes a dropped row loud.
  */
-function readEventUnion(root = WORKSPACE_ROOT) {
+export function readEventUnion(root = WORKSPACE_ROOT) {
   const source = blankComments(
     readFileSync(path.join(root, 'packages/agent-core/src/hooks/types.ts'), 'utf8'),
   );

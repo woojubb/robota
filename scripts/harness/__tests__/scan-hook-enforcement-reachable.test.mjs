@@ -12,18 +12,20 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it, beforeAll } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
+import { skippedSuiteSpans } from '../check-functional-coverage.mjs';
 
 import {
   collectFireSitesFromSource,
   collectPolicyRows,
   evaluate,
   findFireSites,
+  readEventUnion,
   readsBlockedInScope,
   blankComments,
   isProductionSource,
@@ -551,6 +553,51 @@ describe('scan-hook-enforcement-reachable', () => {
     });
   });
 
+  describe('the union reader blanks comments too — the fourth call site', () => {
+    // `blankComments` has FOUR call sites. Three were fixtured; this one was not, and removing the
+    // blanking here left all 39 cases green. The enumeration that drove the derived-fixture work
+    // said "three blanking call sites" while four existed in the same commit, so the site was never
+    // reached — an enumeration that miscounts its own subject leaves exactly the element it missed.
+    //
+    // It is also the most consequential of the four: it decides the EVENT UNION, which is the
+    // population every other arm is judged against. A commented-out member counted as real silently
+    // changes what "all 16 events" means.
+    function unionFixture(body) {
+      const root = path.join(scratch, `union-${Math.random().toString(36).slice(2)}`);
+      mkdirSync(path.join(root, 'packages/agent-core/src/hooks'), { recursive: true });
+      writeFileSync(path.join(root, 'packages/agent-core/src/hooks/types.ts'), body);
+      return root;
+    }
+
+    it('does not count a commented-out member of the union', () => {
+      const root = unionFixture(
+        [
+          'export type THookEvent =',
+          "  | 'PreToolUse'",
+          "  // | 'RetiredEvent'",
+          "  | 'PostToolUse';",
+          '',
+        ].join('\n'),
+      );
+
+      expect(readEventUnion(root)).toEqual(['PreToolUse', 'PostToolUse']);
+    });
+
+    it('does not count an event name quoted in a comment above the union', () => {
+      const root = unionFixture(
+        [
+          "// Historically this also carried 'GhostEvent', removed in a later revision.",
+          'export type THookEvent =',
+          "  | 'PreToolUse'",
+          "  | 'PostToolUse';",
+          '',
+        ].join('\n'),
+      );
+
+      expect(readEventUnion(root)).toEqual(['PreToolUse', 'PostToolUse']);
+    });
+  });
+
   describe('a commented-out call is not a fire site', () => {
     // The second blanking call site. `findFireSites` enumerates via `git ls-files`, so this could
     // not be driven from a temp fixture, and the live corpus contains no commented-out `runHooks(`
@@ -658,35 +705,80 @@ describe('scan-hook-enforcement-reachable', () => {
       // enumeration, the codes derived from `evaluate`'s body, and the codes positively asserted by
       // tests must all be the same set. Any one of them drifting — a new arm, a lost derivation, a
       // deleted assertion — breaks the equality from a different side.
-      const codeToken = /\[([a-z][a-z0-9]*(?:-[a-z0-9]+)+)\]/g;
+      // Token shape kept permissive: a hyphen requirement made a code like `[phantomarm]`
+      // invisible to ALL THREE derivations at once, which the literal anchor cannot rescue — the
+      // anchor pins the nine known codes, it cannot see a tenth the rule never admitted.
+      const codeToken = /\[([a-z][a-z0-9-]*)\]/g;
 
       // (1) the docblock's enumerated list — the human-facing promise
       const docblock = SCAN_SOURCE.slice(0, SCAN_SOURCE.indexOf('*/'));
       const documented = new Set([...docblock.matchAll(codeToken)].map((m) => m[1]));
 
-      // (2) every code appearing anywhere in `evaluate`'s body, not only in a push argument, so a
-      //     message built into a local const is still seen
-      const evalStart = SCAN_SOURCE.indexOf('export function evaluate(');
-      expect(evalStart, 'evaluate() not found — the derivation broke').toBeGreaterThan(-1);
-      const evalBody = SCAN_SOURCE.slice(
-        evalStart,
-        SCAN_SOURCE.indexOf('\nexport ', evalStart + 10),
-      );
-      const emitted = new Set([...evalBody.matchAll(codeToken)].map((m) => m[1]));
+      // (2) EVERY `findings.push(` site in the file, not a positional slice of one function. The
+      // previous revision sliced `evaluate`'s body between `export function evaluate(` and the next
+      // `\nexport `, which returns -1 today — so the window silently ran to EOF while the comment
+      // said "evaluate's body", and an arm in any other function was invisible regardless.
+      const emitted = new Set();
+      const pushSites = [...SCAN_SOURCE.matchAll(/findings\.push\(/g)];
+      expect(pushSites.length, 'no emission sites found — the derivation broke').toBeGreaterThan(0);
+      for (const site of pushSites) {
+        const window = SCAN_SOURCE.slice(
+          site.index,
+          SCAN_SOURCE.indexOf('\n    );', site.index) + 7,
+        );
+        const codes = [...window.matchAll(codeToken)].map((m) => m[1]);
+        // An emission with no recognisable code is itself the failure: it means either a new arm
+        // whose code the token does not admit, or a push the derivation cannot classify. Either way
+        // the set below is incomplete and must not be compared as if it were whole.
+        expect(
+          codes.length,
+          `emission site with no recognisable code near index ${site.index}`,
+        ).toBeGreaterThan(0);
+        for (const code of codes) emitted.add(code);
+      }
 
-      // (3) codes named by a POSITIVE assertion in comment-blanked test source
+      // (3) codes named by a POSITIVE assertion in comment-blanked test source.
+      //
+      // LIMIT, stated because this half is a heuristic over assertion shapes and the repository
+      // already rejected that approach in general: `check-fixture-floor.mjs` records that detecting
+      // the red direction textually "would itself be a check that cannot reliably fail", and the
+      // undelivered general mechanism is HARNESS-098's second stage (whose record contradicts
+      // itself — issue #2264). This is a local, deliberately narrow approximation: it catches a code
+      // named nowhere and a code named only in prose. It does NOT establish that the naming
+      // assertion is meaningful, and a `.toContain` inside a skipped suite still counts.
+      //
+      // A skipped suite must not vouch: `describe.skip` counting as live coverage is the
+      // paper-coverage shape `check-functional-coverage.mjs` already owns, so its span finder is
+      // reused rather than re-derived. And the argument is un-wrapped first, because Prettier
+      // splits a long `.toContain(` across lines and a line-scoped filter would then drop the code —
+      // failing safe, but a spurious red is still a guard nobody trusts.
+      const liveTestSource = (() => {
+        // `skippedSuiteSpans` finds `describe.skip` spans; rewriting `it.skip(` to `describe.skip(`
+        // first lets the same paren-counting reach a skipped CASE as well, without re-deriving the
+        // walker. Its spans are TUPLES — the first integration read `.start`/`.end`, got `undefined`
+        // twice, blanked nothing, and still reported 41/41. Only the mutant probe showed it.
+        const blanked = blankComments(TEST_SOURCE).replace(
+          /\bit\s*\.\s*(skip|todo)\s*\(/g,
+          'describe.$1(',
+        );
+        let out = blanked;
+        for (const [start, end] of skippedSuiteSpans(blanked)) {
+          out = out.slice(0, start) + ' '.repeat(end - start) + out.slice(end);
+        }
+        return out.replace(/\.(toContain|toMatch)\(\s+/g, '.$1(');
+      })();
+
       const asserted = new Set(
-        blankComments(TEST_SOURCE)
+        liveTestSource
           .split('\n')
           .filter((line) => /\.toContain\(|\.toMatch\(/.test(line) && !/not\s*\.\s*to/.test(line))
           .flatMap((line) => [...line.matchAll(codeToken)].map((m) => m[1])),
       );
 
-      // (0) The anchor. Three sets derived with the SAME regex cannot disagree about what a code
-      // IS — narrowing the token made all three shrink together and stay equal, which review
-      // demonstrated by running it. A derivation compared only against other derivations can shrink
-      // silently; compared against a literal it cannot. This list is data, so losing an entry is a
-      // visible edit rather than a quiet regex change.
+      // (0) The anchor. Sets derived by one rule cannot disagree about what that rule MEANS —
+      // narrowing the token once made all three shrink together and stay equal. A derivation
+      // compared only against other derivations can shrink silently; compared against a literal it
+      // cannot, because data does not narrow itself and losing an entry is a visible edit.
       const EXPECTED_CODES = [
         'inert-enforcing-row',
         'no-enforcing-rows',
@@ -700,7 +792,7 @@ describe('scan-hook-enforcement-reachable', () => {
       ];
 
       const sorted = (set) => [...set].sort();
-      expect(sorted(emitted), 'codes in evaluate() vs the expected set').toEqual(
+      expect(sorted(emitted), 'codes emitted file-wide vs the expected set').toEqual(
         [...EXPECTED_CODES].sort(),
       );
       // Exact equality in both directions, never a floor: a derivation that shrinks fails against
