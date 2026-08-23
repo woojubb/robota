@@ -39,7 +39,7 @@ The phase notes below are the record of how it got there, not its current state:
   Neutrality held for these two highest-drift primitives — WHO delegates / WHO speaks next is caller-injected, and
   the standing `orchestration-neutrality` floor stays clean. **All five named primitives now implemented** (30 tests).
 - **GATE-VERIFY + GATE-COMPLETE PASSED** — spec moved `active/` → `.agents/spec-docs/done/`, `status: done`,
-  `completed: 2026-07-17`; task archived to `.agents/tasks/completed/SELFHOST-001.md`. All 6 Completion Criteria
+  `completed: 2026-07-17`; task archived to `.agents/archive/task-breakdowns/completed/SELFHOST-001.md`. All 6 Completion Criteria
   `[x]` with per-TC evidence; User-Execution done-gate passed via a public-SDK-usage scenario (UET-01, exit 0,
   all 5 primitives run — script in `scratch/src/`, INFRA-023). **SELFHOST-001 is DONE.**
 - **B3 extraction trigger** (deferred): when a second implementer family lands (a dag-\* adapter), move BOTH the

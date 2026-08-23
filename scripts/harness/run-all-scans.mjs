@@ -455,6 +455,13 @@ export const SCAN_COMMANDS = [
     name: 'reference-kind-qualified',
     command: ['node', 'scripts/harness/scan-reference-kind-qualified.mjs'],
   },
+  // HARNESS-118. A cited task-record path is a fact that a lifecycle move makes false in silence.
+  // Resolution is by ID AND slug, because an ID-only resolver answers three cases in this tree with
+  // a confident wrong document, and a resolved wrong link is one nobody questions.
+  {
+    name: 'task-path-citations',
+    command: ['node', 'scripts/harness/scan-task-path-citations.mjs'],
+  },
   // INFRA-127. A rule catalogue's row IS the unit of obligation, so a row short of the columns its
   // header declares renders with rule text missing and nothing said. Six of 92 entries were in that
   // state when this landed.

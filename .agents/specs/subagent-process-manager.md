@@ -2,7 +2,7 @@
 
 Status: Proposed
 Created: 2026-04-30
-Source research: `.agents/tasks/completed/CLI-BL-019-subagent-process-manager-research.md`
+Source research: `.agents/archive/task-breakdowns/completed/CLI-BL-019-subagent-process-manager-research.md`
 Common runtime layer: `.agents/specs/background-task-layer.md`
 
 ## Scope

@@ -178,7 +178,7 @@ None
 - `scripts/harness/run-all-scans.mjs`
 - `scripts/harness/__tests__/scan-barrel-parameter-exports.test.mjs`
 - `.changeset/arch-037-published-contract-hygiene.md`
-- `.agents/tasks/ARCH-037-published-contract-hygiene-from-the-arch-audit.md`
+- `.agents/tasks/completed/ARCH-037-published-contract-hygiene-from-the-arch-audit.md`
 
 ## Completion Criteria
 
@@ -225,7 +225,7 @@ Engineering evidence: `pnpm typecheck` across the workspace, `pnpm harness:scan`
 
 ## Tasks
 
-- [ ] `.agents/tasks/ARCH-037-published-contract-hygiene-from-the-arch-audit.md` — problem record
+- [ ] `.agents/tasks/completed/ARCH-037-published-contract-hygiene-from-the-arch-audit.md` — problem record
       created; implementation begins after GATE-APPROVAL
 
 ## Evidence Log

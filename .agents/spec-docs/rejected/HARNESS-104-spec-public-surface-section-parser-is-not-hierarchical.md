@@ -184,7 +184,7 @@ None
 - `scripts/harness/spec-surface-baseline.json`
 - `scripts/harness/__tests__/check-spec-public-surface.test.mjs`
 - `packages/agent-core/docs/SPEC.md`
-- `.agents/tasks/HARNESS-104-spec-public-surface-section-parser-is-not-hierarchical.md`
+- `.agents/tasks/completed/HARNESS-104-spec-public-surface-section-parser-is-not-hierarchical.md`
 
 ## Completion Criteria
 
@@ -230,7 +230,7 @@ nested subsections the flat parser was reading as public API).
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-104-spec-public-surface-section-parser-is-not-hierarchical.md` — problem
+- [ ] `.agents/tasks/completed/HARNESS-104-spec-public-surface-section-parser-is-not-hierarchical.md` — problem
       record created; implementation begins after GATE-APPROVAL
 
 ## Evidence Log

@@ -186,7 +186,7 @@ None
 - `scripts/harness/scan-node-version-single-valued.mjs`
 - `scripts/harness/run-all-scans.mjs`
 - `scripts/harness/__tests__/scan-node-version-single-valued.test.mjs`
-- `.agents/tasks/INFRA-102-node-version-is-not-single-valued-across-the-workspace.md`
+- `.agents/tasks/completed/INFRA-102-node-version-is-not-single-valued-across-the-workspace.md`
 
 ## Completion Criteria
 
@@ -236,7 +236,7 @@ including the drifted-literal, circular-`extends`, and examined-count reset case
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-102-node-version-is-not-single-valued-across-the-workspace.md` — problem
+- [ ] `.agents/tasks/completed/INFRA-102-node-version-is-not-single-valued-across-the-workspace.md` — problem
       record created; implementation begins after GATE-APPROVAL
 
 ## Evidence Log
