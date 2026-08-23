@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: RULE
 tags: [typescript]
 ---
@@ -220,20 +220,20 @@ gate going red.
 
 ## Completion Criteria
 
-- [ ] **TC-01** Every family exported by `agent-interface-transport`'s root barrel appears exactly
+- [x] **TC-01** Every family exported by `agent-interface-transport`'s root barrel appears exactly
       once in the owner-map table in `.agents/specs/contract-family-owner-map.md`; a script that diffs the barrel's
       export list against the table reports zero unassigned and zero doubly-assigned families.
-- [ ] **TC-02** A committed script re-derives the target package graph from the real source and
+- [x] **TC-02** A committed script re-derives the target package graph from the real source and
       prints `PASS — the proposed package graph is acyclic`; it exits non-zero if any cycle appears.
-- [ ] **TC-03** `.agents/specs/contract-family-owner-map.md` publishes the four-wave migration order and states
+- [x] **TC-03** `.agents/specs/contract-family-owner-map.md` publishes the four-wave migration order and states
       that issue #2110 is ordered after issues #2108/#2109/#2112, with the dependency edges that
       force it.
-- [ ] **TC-04** The amended Interface Package Rule names `interface-family-owner`
+- [x] **TC-04** The amended Interface Package Rule names `interface-family-owner`
       (`scripts/harness/scan-interface-family-owner.mjs`) as the guard to add, and states the three
       conditions it fails on.
-- [ ] **TC-05** `git diff --stat origin/develop...HEAD -- 'packages/**/src/**/*.ts'` reports no
+- [x] **TC-05** `git diff --stat origin/develop...HEAD -- 'packages/**/src/**/*.ts'` reports no
       changed files — no production TypeScript is moved by this task.
-- [ ] **TC-06** `pnpm harness:scan` exits 0 and `pnpm harness:verify-like-ci` reports green.
+- [x] **TC-06** `pnpm harness:scan` exits 0 and `pnpm harness:verify-like-ci` reports green.
 
 ## Test Plan
 
@@ -245,6 +245,23 @@ gate going red.
 | TC-04 | Document assertion    | Grep-level check that the rule text names the scan path and its three failure conditions                              | —                                                                                              |
 | TC-05 | Diff assertion        | `git diff --stat` over `packages/**/src/**/*.ts` against the merge base                                               | —                                                                                              |
 | TC-06 | Gate                  | `pnpm harness:scan`; `pnpm harness:verify-like-ci`                                                                    | manual invocation — `verify-like-ci` is the CI-mirror entry point and is run in the foreground |
+
+## User Execution Test Scenarios
+
+**Not applicable — this task delivers no user-facing behavior.** It amends architecture and rule
+documents and adds one repository verification scan, and it moves no production TypeScript, which is
+an explicit acceptance criterion of issue #2080 and is asserted mechanically by TC-05. No shipped
+surface changes: no CLI command, flag, output, file format, or API is added, removed or altered, so
+there is nothing a user could run to observe a difference.
+
+The verification surface is the harness gate, and it is recorded in the Test Plan and in the
+per-TC GATE-COMPLETE entries below rather than duplicated here. A developer can reproduce the whole
+deliverable with `node scripts/harness/scan-interface-family-owner.mjs`, but that is a repository
+check, not user-facing behavior, and recording it as a user scenario would misreport what shipped.
+
+## Tasks
+
+- `.agents/tasks/completed/ARCH-100-contract-family-owner-map-and-acyclic-target-graph.md` — complete.
 
 ## Evidence Log
 
@@ -335,3 +352,83 @@ outside the class and are filed rather than done:
 RULE-012 — the amendment that would describe how a standing delegation satisfies it — is
 `status: todo`, unlanded. This entry is written to RULE-012's proposed form because that form is
 stricter than the unamended rule's silence on the question, not because the amendment is in force.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-23
+
+**Status upgrade:** approved → in-progress
+Implementation landed on branch `docs/arch-100-contract-family-owner-map`, four commits
+(`e671cf508`, `38d5887e2`, `fe58700b9`, `43a05114b`) plus the review-finding fix `b78629e35`.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-23
+
+**Status upgrade:** in-progress → verifying
+`pnpm harness:verify-like-ci` → `PASS — all 12 stage(s) passed; mirrors the required checks of
+develop`, run at head `b78629e35`. `pnpm harness:scan` → 139 passed, 1 skipped, 0 failed.
+Reviewer verdict on pull request #2176 quoted base `ce5266b71` / head `b78629e35` with
+`ACTIONABLE FINDINGS: 0`, after one MUST finding was resolved in `b78629e35` and its thread answered
+and resolved.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-23
+
+Command: `node scripts/harness/scan-interface-family-owner.mjs`
+Output: `::examined:: 21 contract modules, 6 declared owners…` then
+`interface-family-owner scan passed — owner map is total and the projected package graph is acyclic.`
+Exit code 0. The ASSIGNMENT check is what makes "total and one-to-one" mechanical.
+Test reference: `scripts/harness/__tests__/scan-interface-family-owner.test.mjs` >
+`the real owner map in .agents/specs/contract-family-owner-map.md (ARCH-100 · issue #2080)` >
+`assigns every contract module of agent-interface-transport exactly once`.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-23
+
+Command: same scan; the ACYCLICITY check runs `findCycles` over the projected graph.
+Output: `…the projected package graph is acyclic.` Exit code 0.
+Test reference: same file > `yields an acyclic package graph — the precondition every migration leaf
+depends on`. Falsification recorded in the pull request: reassigning `driver-contracts` to the command
+owner made the same script report
+`ACYCLICITY: the projected package graph has a cycle — agent-interface-command → agent-interface-session → agent-interface-command`.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-23
+
+Action: read `.agents/specs/contract-family-owner-map.md` § Migration order.
+Result: the four-wave table is present, and the sentence "**This is a constraint, not a preference.**
+Issue #2110 may not run before issue #2108, issue #2109 and issue #2112" states the ordering with the
+dependency edges that force it.
+Test reference: `scan-interface-family-owner.test.mjs` >
+`orders issue #2110 (session) after the three leaves it depends on`.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-23
+
+Action: read `.agents/specs/contract-family-owner-map.md` § The guard.
+Result: names `interface-family-owner` / `scripts/harness/scan-interface-family-owner.mjs` and its
+three failure conditions (ASSIGNMENT, ACYCLICITY, PLACEMENT).
+Test skipped: no automated assertion that the prose names the scan. The scan is registered in
+`run-all-scans.mjs` and runs in `pnpm harness:scan`, so its existence is mechanical; the naming is
+document content, and a grep-for-a-string test would assert the sentence rather than the property.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-23
+
+Command: `git diff --stat f545c536e~1 f545c536e -- 'packages/**/src/**/*.ts'`
+Output: empty. Exit code 0. No production TypeScript was moved by the merged change.
+Test skipped: a one-off scope assertion about a single change, not a durable property to regress.
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-08-23
+
+Commands: `pnpm harness:scan` → `139 scans passed, 1 skipped`, exit 0;
+`pnpm harness:verify-like-ci` → `PASS — all 12 stage(s) passed`, exit 0.
+Test skipped: these ARE the gate; wrapping them in a test would assert the harness against itself.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-23
+
+**Status upgrade:** verifying → done
+All six TC-N checked with an evidence entry each; every Test Plan row carries a test reference or an
+explicit skip reason. Delivered by pull request #2176, squash-merged as `f545c536e`, verified present
+on `origin/develop` by content (`git merge-base --is-ancestor f545c536e origin/develop`, and all five
+files listed in `git ls-tree origin/develop`).
+
+**Recorded late, and why.** These entries were written on 2026-08-23 after the deliverable merged, not
+before. Issue #2080 stayed open — correctly, since GitHub ignores closing keywords on a pull request
+that does not target the default branch, and `promotion-closes.mjs` carries them at the develop→main
+promotion. But the task record kept `status: in-progress` and this document kept `status: approved`
+while the work was finished and merged, and **no gate is red about that**: `pnpm harness:scan` passes
+with a task record whose deliverable has landed. See HARNESS-116's pull request for the assessment of
+whether that gap is mechanically closable.

@@ -19,6 +19,28 @@
 // Today every module still lives in `agent-interface-transport`, so (3) passes trivially and (1)+(2)
 // verify the PLAN against the real source. The scan is the reason the plan cannot rot between now and
 // the last migration leaf.
+//
+// ## What it parses, and what it therefore cannot see (HARNESS-116)
+//
+// Edges are read from RELATIVE import/export statements by pattern, not by parsing TypeScript. The
+// forms it recognises are exactly:
+//
+//   import        { A } from './x'      export        { A } from './x'
+//   import type   { A } from './x'      export type   { A } from './x'
+//   import * as n from './x'            export *      from './x'
+//
+// with the specifier ending in `.js`, `.ts`, `.mjs`, `.mts`, or no extension. A DEFAULT import
+// (`import A from './x'`), a bare side-effect import (`import './x'`), a dynamic `import('./x')`, and
+// a non-relative specifier are all OUTSIDE that set and are invisible to this scan.
+//
+// That limit is stated because it is the scan's live failure mode rather than a hypothetical one: a
+// gate cannot tell "there is no edge" from "there is an edge I could not parse", and BOTH of this
+// scan's defects to date have been exactly that. The first shipped matching only `import … from
+// './x.js'` and was blind to 33% of the real edges; the second kept a brace requirement and was blind
+// to `export *`. An AST parse (`ts.createSourceFile`) would remove the enumeration problem instead of
+// shrinking it, and was rejected on cost — see the HARNESS-116 spec-doc, Alternative B. If a form
+// outside the list above ever appears in a package this scan reads, the fix is that parse, not
+// another pattern.
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
@@ -106,6 +128,26 @@ export function projectGraph(sources, moduleOwner, symbolOwner, corrections = []
     // for the same reason. The ACYCLICITY verdict survived only because each missed edge happened to
     // have a `.js` twin pointing at the same owner: a coincidence, not a property. That is the
     // unfalsifiable green this scan exists to refuse elsewhere. (MUST finding, PR #2176.)
+    // BRACELESS forms carry an edge too, and the named-binding pattern above requires braces, so it
+    // cannot see them at all. `export * from './x'` re-exports everything the target declares;
+    // `import * as ns from './x'` binds it under a namespace. Neither names a symbol, so the edge
+    // resolves to the TARGET MODULE's owner rather than through `symbolOwner`.
+    //
+    // Only one exists today and it is in `index.ts`, which is out of the graph by design (the barrel
+    // is not a contract module and has no owner). Handled anyway: the next `export * from './x'`
+    // between two owners would otherwise drop a real edge silently, and "the gate cannot tell 'no
+    // edge' from 'an edge I cannot parse'" is the defect this scan already had once.
+    for (const bare of src.matchAll(
+      /(?:export\s+\*|import\s+\*\s+as\s+[A-Za-z_$][\w$]*)\s+from\s*'\.\/([a-z-]+)(?:\.m?[jt]s)?'/gms,
+    )) {
+      const target = bare[1];
+      const corr = corrections.find((c) => c.from === mod && c.to === target && c.symbol === '*');
+      addEdge(
+        moduleOwner.get(mod),
+        moduleOwner.get(corr ? corr.redirect : target),
+        `* (${mod} → ${target})`,
+      );
+    }
     for (const imp of src.matchAll(
       /(?:import|export)\s+(?:type\s+)?\{([^}]*)\}\s*from\s*'\.\/([a-z-]+)(?:\.m?[jt]s)?'/gms,
     )) {
