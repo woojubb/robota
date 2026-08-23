@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: SECURITY
 tags: [security]
 ---

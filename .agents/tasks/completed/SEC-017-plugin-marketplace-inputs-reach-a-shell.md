@@ -1,7 +1,8 @@
 ---
 title: 'SEC-017: plugin marketplace inputs are interpolated into shell command strings'
 issue: https://github.com/woojubb/robota/issues/2019
-status: in-progress
+status: done
+completed: 2026-08-23
 created: 2026-08-23
 priority: critical
 urgency: now
@@ -102,3 +103,9 @@ whose negative case executes an attacker's command on the user's machine is not 
 The property is asserted instead at the port, where the hostile value can be observed without any
 process being spawned: the tests above capture what would have been passed and assert it is one inert
 argument. `.agents/tasks/README.md` requires the not-applicable to carry its reason; this is the reason.
+
+## Delivery
+
+Delivered by PR #2207, merged into `develop`. The record stayed `in-progress` after that
+merge, which is issue #2186 — a task record can stay open after its deliverable lands and nothing
+says so. Closed here rather than left as evidence of the gap.

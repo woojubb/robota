@@ -1,7 +1,8 @@
 ---
 title: 'SEC-018: plugin identifiers and registry paths escape the plugin root'
 issue: https://github.com/woojubb/robota/issues/2020
-status: in-progress
+status: done
+completed: 2026-08-23
 created: 2026-08-23
 priority: critical
 urgency: now
@@ -216,3 +217,9 @@ Twice the record claimed a fix that had not landed — once for the four value/s
 two narrowings. Both times the edit was written, believed, and not verified against the file
 afterwards. **An edit is not applied because it was authored**, and the cheapest proof is to read back
 the property rather than the diff you intended.
+
+## Delivery
+
+Delivered by PR #2210, merged into `develop`. The record stayed `in-progress` after that
+merge, which is issue #2186 — a task record can stay open after its deliverable lands and nothing
+says so. Closed here rather than left as evidence of the gap.
