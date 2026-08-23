@@ -33,8 +33,16 @@ const BEL = String.fromCharCode(7);
 
 /** OSC 52 writes the system clipboard; its introducer and parameters are what must not survive. */
 const CLIPBOARD_WRITE = `${ESC}]52;c;cG93bmVk${BEL}`;
-/** OSC 8 renders a link whose visible text and target differ. */
-const DECEPTIVE_LINK = `${ESC}]8;;https://evil.example${BEL}`;
+/**
+ * OSC 8 renders a link whose visible text and target differ.
+ *
+ * The target carries an opaque marker and the detector looks for THAT, not for the host. A
+ * `frame.includes('https://evil.example')` reads as URL-substring sanitization to any analyser and
+ * to any reader, and the objection is right even in a detector: a substring test on a URL is
+ * unreliable in general, and a marker is both stricter here and not a claim about URLs.
+ */
+const LINK_MARKER = 'pwn-link-marker-8f3a';
+const DECEPTIVE_LINK = `${ESC}]8;;https://evil.example/${LINK_MARKER}${BEL}`;
 /** CSI erases the screen above the prompt. */
 const ERASE_DISPLAY = `${ESC}[2J`;
 
@@ -53,7 +61,7 @@ function carriesPayload(frame: string): boolean {
     frame.includes(`${ESC}]8;;`) ||
     frame.includes(`${ESC}[2J`) ||
     frame.includes('52;c;cG93bmVk') ||
-    frame.includes('https://evil.example')
+    frame.includes(LINK_MARKER)
   );
 }
 
