@@ -198,8 +198,16 @@ describe('unenforceable manifest security controls (TOOL-005 / issue #2027)', ()
 
     const result = await applyWorkspaceManifest(client, manifest);
     expect(result.entries).toHaveLength(1);
+    // Pins the premise the refusal-ordering case depends on: an APPLIED entry really is readable at
+    // this path. Without it, `rejects.toThrow()` over the same path proves only that nothing is
+    // there — which a wrong path satisfies just as well. The negative control would become a
+    // tautology the day the target root changed, and silently.
+    await expect(client.readFile('/workspace/task.md')).resolves.toContain('Solve this task');
   });
 
+  // This records an ACCEPTED HOLE, not coverage: a delegating client still receives `environment`,
+  // and this function still cannot tell whether it honoured it. Making that observable needs a wider
+  // apply result, which is a published type — tracked on issue #2027.
   it('leaves the delegating path alone — a client owning applyManifest is not second-guessed', async () => {
     const manifest = { ...manifestWithOneEntry(), environment: { TOKEN: 'secret' } };
     let received: IWorkspaceManifest | undefined;

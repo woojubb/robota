@@ -67,11 +67,13 @@ function refuseUnenforceableManifestControls(manifest: IWorkspaceManifest): void
     unenforceable.push('environment');
   }
 
+  // Read over the object's VALUES rather than naming `read` and `write`. Naming them is exhaustive
+  // today by coincidence, not by construction: adding an `execute?: string[]` member to
+  // `IWorkspaceManifestPermissions` would leave a named check silently not covering it, so a manifest
+  // requesting `execute` would be accepted and ignored — this issue's own defect, reintroduced, with
+  // nothing failing. Values-based, a new member is covered the moment it exists.
   const permissions = manifest.permissions;
-  if (
-    permissions &&
-    ((permissions.read?.length ?? 0) > 0 || (permissions.write?.length ?? 0) > 0)
-  ) {
+  if (permissions && Object.values(permissions).some((list) => (list?.length ?? 0) > 0)) {
     unenforceable.push('permissions');
   }
 
