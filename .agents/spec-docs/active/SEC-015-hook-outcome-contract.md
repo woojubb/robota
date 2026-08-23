@@ -295,9 +295,9 @@ leaf, and its rationale is in `### Alternatives Considered` → adversarial pass
 `permissionDecision: "deny"` as a block on ANY event, while `hook-runner.ts` scopes the latter two to
 `UserPromptSubmit` and `PreToolUse` respectively. So `{"ok":"maybe","decision":"block"}` on
 `PreToolUse` now denies where it previously allowed. This is fail-CLOSED and therefore easy to miss —
-which is exactly why it needed a guard to find it rather than a reviewer's instinct. Filed as issue
-#2196 to be decided alongside issue #2093, since it is per-event directive semantics and that leaf is
-already choosing per-event policy. Its practical reach is currently bounded: no event other than
+which is exactly why it needed a guard to find it rather than a reviewer's instinct. Filed as
+issue #2196, to be decided alongside issue #2093, since it is per-event directive semantics and that
+leaf is already choosing per-event policy. Its practical reach is currently bounded: no event other than
 `PreToolUse` consults `blocked`, so a broader `deny` elsewhere changes nothing observable today.
 
 Every outcome other than (a) and (b) blocks exactly as it did before, which TC-07 pins.
@@ -507,20 +507,24 @@ reviewer judges it rather than re-deriving it.
 Type `SECURITY` + tags `typescript`/`json-schema`/`auth` derive: permission-boundary integration
 test, Zod/JSON-Schema-style validation test, and type tests.
 
-| TC-ID | Test Type                     | Tool / Approach                                                      | Notes                                                        |
-| ----- | ----------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------ |
-| TC-01 | Validation (boundary)         | vitest — `http-executor.test.ts`                                     | The regression the issue names first                         |
-| TC-02 | Validation (table)            | vitest — `verdict-decoder.test.ts` + per-executor tests              | One decoder, three consumers                                 |
-| TC-03 | Integration (process)         | vitest — `command-executor.test.ts`, real `spawn`                    | Timeout row uses a short `timeout` + `sleep`                 |
-| TC-04 | Integration (HTTP)            | vitest — `http-executor.test.ts` with a `node:http` server on port 0 | No network egress; connection-refused row uses a closed port |
-| TC-05 | Unit                          | vitest — assertion in each executor suite                            | Diagnostics-preservation criterion                           |
-| TC-06 | Integration (permission path) | vitest — `integration.test.ts` over `runHooks`                       | Aggregation + absence-when-clean                             |
-| TC-07 | Integration (permission path) | vitest — `integration.test.ts`                                       | Pins the scope boundary against regression                   |
-| TC-08 | Unit                          | vitest — `guardrail-executor.test.ts`                                | Capability-preservation for SELFHOST-005                     |
-| TC-09 | Command-form                  | `grep -rn "IHookResult" packages apps --include=*.ts`                | Proves no forwarding alias survived                          |
-| TC-10 | Build / typecheck             | `pnpm build && pnpm typecheck`                                       | The union's consumer sweep is compiler-enforced              |
-| TC-11 | SDK scenario (offline)        | `pnpm --filter @robota-sdk/agent-session scenario:verify`            | Also the user-execution gate; see scenario below             |
-| TC-12 | CI smoke                      | `pnpm harness:scan`                                                  | Repo-wide guards incl. `no-fallback`, `hook-catalog`         |
+| TC-ID | Test Type                     | Test reference (as delivered)                                                                                                                                                                                  |
+| ----- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Validation (boundary)         | `agent-core/src/hooks/__tests__/http-executor.test.ts` › "TC-01 — a truthy non-boolean `ok` must NOT read as allow" (4 rows)                                                                                   |
+| TC-02 | Validation (table)            | same file › "TC-02 — a falsy or absent `ok` must NOT read as deny" (7 rows); `verdict-decoder.test.ts` › both truthiness describes                                                                             |
+| TC-03 | Integration (process)         | `agent-core/src/hooks/__tests__/command-executor.test.ts` › "TC-03 exit mapping" (7 cases incl. signal kill and stubbed spawn error)                                                                           |
+| TC-04 | Integration (HTTP)            | `http-executor.test.ts` › non-2xx / non-JSON / unreachable / slow-endpoint cases, against a real `node:http` server on port 0                                                                                  |
+| TC-05 | Unit                          | `command-executor.test.ts`, `guardrail-executor.test.ts`, `prompt-executor.test.ts`, `agent-executor.test.ts` › "every outcome carries source…"; `verdict-decoder.test.ts` › "carries the source it was given" |
+| TC-06 | Integration (permission path) | `integration.test.ts` › "SEC-015 — errors are reported, not folded into a verdict" (5 cases)                                                                                                                   |
+| TC-07 | Integration (permission path) | same describe › "TC-07: enforcement policy is unchanged — deny blocks, error does not"                                                                                                                         |
+| TC-08 | Unit                          | `guardrail-executor.test.ts` › the six SELFHOST-005 verdict cases, unchanged in meaning                                                                                                                        |
+| TC-09 | Command-form                  | `git grep -n "IHookResult" -- 'packages/**' 'apps/**'` → no `.ts` matches. No automated test: absence-of-a-symbol is not a unit test                                                                           |
+| TC-10 | Build / typecheck             | `pnpm build && pnpm typecheck`. No automated test: the compiler IS the check                                                                                                                                   |
+| TC-11 | SDK scenario (offline)        | `agent-session/examples/verify-hook-outcome-contract.ts`, chained into `scenario:verify` in that package's `package.json`                                                                                      |
+| TC-12 | CI smoke                      | `pnpm harness:scan`. No automated test: the scan aggregate is itself the check                                                                                                                                 |
+
+Every row names what was delivered rather than what was planned, and the three command-form rows say
+why they carry no test file — a GATE-COMPLETE criterion asks for a reference or a skip reason, and a
+plan of what to write is neither.
 
 ## User Execution Test Scenarios
 
@@ -539,8 +543,8 @@ claim asserted its absence without looking for it.
 
 The actual reason is narrower and stronger: **this leaf's deliverable has no CLI-observable
 manifestation.** It adds `IRunHooksResult.errors`, and of the nine non-test files that call `runHooks(`, not one
-reads `.errors` off the result — the only occurrences in `hook-runner.ts` are its own writes. No product surface consumes it until issue
-#2093 wires enforcement onto it. A CLI run would therefore show the deny path (unchanged by this
+reads `.errors` off the result — the only occurrences in `hook-runner.ts` are its own writes. No
+product surface consumes it until issue #2093 wires enforcement onto it. A CLI run would therefore show the deny path (unchanged by this
 leaf) and could not show the two `error` cases, which are the change. Public SDK usage is where the
 delivered contract is visible, not a consolation for an unavailable CLI.
 
@@ -1187,3 +1191,148 @@ where the file already sits. Then re-dispatch GATE-COMPLETE, which will evaluate
 The write must not be folded into the closing commit or applied retroactively alongside a `done`
 status: GATE-COMPLETE cannot carry a document to `done` from a recorded `in-progress`, and a single
 commit that moves `in-progress → done` erases the transition this gate is defined to sit on.
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-08-23
+
+**Status remains:** verifying
+
+**Ordering — PASS.** Prior gate GATE-VERIFY shows ✅ PASS for this document (entry above, 2026-08-23).
+Input state now matches the prior-gate map's `verifying`: frontmatter reads `status: verifying`,
+written in commit `0ebc0796e` as the deferred output of that PASS, and the file sits in
+`.agents/spec-docs/active/`, which spec-workflow.md maps to `verifying` with no folder change. HEAD is
+`0ebc0796e` on top of `4db0235c4` (the squash of merged PR #2193, `origin/develop`'s head), so the code
+judged below is the merged tree. The NON-COMPLIANCE recorded by the previous GATE-COMPLETE run is
+resolved; nothing from that run was inherited and every criterion below was evaluated from scratch.
+
+**Per-criterion verification.**
+
+- `[GATE-COMPLETE: TC-01]` **Met.** `pnpm --filter @robota-sdk/agent-core exec vitest run src/hooks`
+  → exit 0, 9 files / 104 tests passed. The required assertion exists:
+  `http-executor.test.ts:124` is an `it.each(['{"ok":"false"}', '{"ok":1}', '{"ok":"true"}', '{"ok":{}}'])`
+  table asserting `error` / `malformed-response`, and `verdict-decoder.test.ts:55` carries the same
+  case at decoder level. Test reference: `packages/agent-core/src/hooks/__tests__/http-executor.test.ts`
+  (`it.each` at :124) + `packages/agent-core/src/hooks/__tests__/verdict-decoder.test.ts`.
+- `[GATE-COMPLETE: TC-02]` **Met.** Same suite run, exit 0. `verdict-decoder.test.ts` holds the table
+  over the malformed bodies and asserts `error`/`malformed-response`; the http, prompt and agent
+  executors all route through `decodeHookVerdict`, and the prompt/agent suites assert
+  `error`/`malformed-response` directly (`prompt-executor.test.ts:131-133`,
+  `agent-executor.test.ts:120-122`). `pnpm --filter @robota-sdk/agent-framework exec vitest run src/hooks`
+  → exit 0, 2 files / 21 tests.
+- `[GATE-COMPLETE: TC-03]` **Met.** `command-executor.test.ts` asserts exit-code rows at :58-60 and
+  :68-69 (`nonzero-exit`, reason containing `exited <code>`), the timeout row at :86-87
+  (`kind === 'timeout'`), and a dedicated `it('a spawn failure is error/spawn-failure')` at :90 — the
+  stubbed `child.on('error')` route the criterion specifies rather than a missing binary. Suite green.
+- `[GATE-COMPLETE: TC-04]` **Met.** `http-executor.test.ts:151-157` asserts `503` ⇒
+  `error`/`http-status` with `503` in the reason; :170-179 asserts an unreachable endpoint ⇒
+  `error`/`transport-failure`; :182 separates a slow endpoint as `error`/`timeout`. Suite green.
+- `[GATE-COMPLETE: TC-05]` **NOT met — behavior holds, the asserted-for-all-five clause does not.**
+  The behavior half was verified by driving the built executors directly rather than by reading the
+  tick (`node` probe against `packages/agent-core/dist/node/`, 13 outcomes across three executors):
+  `command` exit0/exit2/exit7/timeout → `source="command"`; `http` allow/deny/malformed/503/refused →
+  `source="http"`; `guardrail` allow/deny/throw/unknown-name → `source="guardrail"`; `MISSING_SOURCE=0`,
+  exit 0. `prompt` and `agent` set `source` on both of their return sites by inspection
+  (`decodeHookVerdict(jsonStr, 'prompt'|'agent')` and the `catch` block), and `decodeHookVerdict` sets
+  `source` on all five of its return paths. So no outcome anywhere lacks `source`.
+  The criterion, however, requires it **asserted for all five executors**, and that is false:
+  `grep` for a `source` assertion across the test tree returns `source: 'command'` (14),
+  `source: 'http'` (4), `source: 'agent'` (3), `source: 'prompt'` (2) — every one of the last two inside
+  `verdict-decoder.test.ts`, never in the prompt/agent executor suites — and `source: 'guardrail'`
+  **zero times**. `guardrail-executor.test.ts` asserts `outcome`, `reason` and `kind` and never `source`.
+  The one test that names all five, `verdict-decoder.test.ts:175-179`, is a decoder test
+  (`decodeHookVerdict('{}', source).source).toBe(source)`) which merely proves the decoder passes its
+  own argument through; `GuardrailExecutor` never calls `decodeHookVerdict` at all, so that loop's
+  `'guardrail'` iteration exercises no guardrail code. Consequence: a regression that made
+  `GuardrailExecutor` emit the wrong `source` — or made `PromptExecutor` pass `'http'` to the decoder —
+  is caught by no test in the workspace.
+- `[GATE-COMPLETE: TC-06]` **Met.** `integration.test.ts` asserts `errors` content and its absence over
+  `runHooks`; suite green (exit 0). `hook-runner.ts` builds `errors` in one `diagnostics()` helper
+  spread onto every return path including the four early blocking returns, and omits the key entirely
+  when empty, which is the `undefined`-when-clean half of the criterion.
+- `[GATE-COMPLETE: TC-07]` **Met.** `integration.test.ts` asserts `blocked` across the deny / error /
+  stdout-directive paths (`:41` blocked true, `:26/:67/:90` blocked false, plus the PreToolUse rows);
+  suite green. Corroborated by my own old-vs-new derivation below, which found the deny and
+  stdout-directive routes unchanged.
+- `[GATE-COMPLETE: TC-08]` **Met.** `guardrail-executor.test.ts` asserts `allow` at :32/:85/:91,
+  `deny` for `pass:false` at :38-39, for a thrown guardrail at :78-79 (reason contains "cannot
+  evaluate"), and for an unregistered named guardrail at :97-98. Suite green. Confirmed independently
+  by the probe above: all four guardrail paths returned the same verdicts as the pre-merge code.
+- `[GATE-COMPLETE: TC-09]` **Met.** `grep -rn --include='*.ts' "IHookResult" packages apps` → **exit 1,
+  zero matches** in any `.ts` file in the workspace. The type is deleted, not aliased.
+- `[GATE-COMPLETE: TC-10]` **Met, with the scope of my check stated.** `pnpm typecheck` → **exit 0**
+  across the workspace. I did not re-run `pnpm build` in this gate; `packages/agent-core/dist/`
+  (browser + node) is present and is what my TC-05 probe imported and executed successfully, so the
+  build output exists and runs. Note carried forward, not re-derived: the document's own `## Boundary`
+  records issue #2192 — `packages/agent-executor/tsconfig.json` excludes `**/*.test.ts`, so this
+  criterion's sweep is narrower than it reads wherever that exclusion applies.
+- `[GATE-COMPLETE: TC-11]` **Met.** `pnpm --filter @robota-sdk/agent-session scenario:verify` →
+  **exit 0**, and stdout carried all four required lines verbatim: `PASS deny: tool blocked,
+reason="SEC-015 scenario: denied by command hook"`, `PASS error/spawn-failure: tool NOT blocked,
+error reported (source=command)`, `PASS error/malformed-response: tool NOT blocked, error reported
+(source=http)`, `PASS allow: tool executed`.
+- `[GATE-COMPLETE: TC-12]` **NOT met. Ticked `[x]`, and false.** `pnpm harness:scan` → **exit 1**,
+  `1 of 142 scans failed`. The failing scan is `reference-kind-qualified`, and the file it names is
+  **this document**: "`.agents/spec-docs/active/SEC-015-hook-outcome-contract.md`: 2 unqualified
+  reference(s) in a file the baseline does not know", at lines 299 (`#2196`) and 543 (`#2093`). Both
+  are line-wrapped so the bare `#NNNN` begins the line with its qualifying word "issue" left on the
+  line above. Attribution checked rather than assumed: `git show 4db0235c4:<this file> | grep -n '^#[0-9]'`
+  returns **no matches**, and the same grep on the working tree returns exactly lines 299 and 543 — so
+  both were introduced by `0ebc0796e`, the commit that ticked this box. The scan was green before that
+  commit and is red after it. The two advisory findings in the same run (`action-references`
+  resolvability, `spec-whitebox-leakage`) are explicitly NOT failures and are not part of this finding.
+
+**Failed criteria:**
+
+- **TC-12** — required `pnpm harness:scan` → exits 0; found **exit 1**, `reference-kind-qualified`
+  failing on two unqualified issue references in this document itself (lines 299, 543), introduced by
+  the same commit that marked the criterion complete.
+  **Required action:** make the two references qualified (or freeze the file in the scan's baseline
+  deliberately), then re-run `pnpm harness:scan` to exit 0 before re-running this gate.
+- **TC-05** — required `source` "asserted for all five executors"; found it asserted for `command` and
+  `http` only. No test anywhere asserts `source` on a `GuardrailExecutor` outcome, and the prompt/agent
+  executor suites assert `outcome`/`kind`/`reason` but never `source`. The five-source loop at
+  `verdict-decoder.test.ts:175-179` is decoder-level and does not exercise any executor. The runtime
+  behavior itself is correct — verified by direct execution, not inferred.
+  **Required action:** add a `source` assertion to the guardrail, prompt and agent executor suites, or
+  narrow TC-05 to what is actually asserted. Ticking it on the strength of the decoder loop is the
+  overstatement this gate exists to catch.
+- **`## Test Plan` updated with test references or skip reasons for all TC-N rows** — required, per
+  this gate, either "test file path + test function/describe name" or an explicit skip reason for every
+  TC-N row; found the table still carrying its GATE-WRITE-era _plan_ text. Rows TC-01…TC-08 name bare
+  filenames with no path and no test/describe name (e.g. TC-01 "vitest — `http-executor.test.ts`"), and
+  rows TC-09, TC-10, TC-11, TC-12 name a command with no skip reason recorded for the absence of an
+  automated test. A plan of what to write is not a reference to what was written.
+  **Required action:** update each row to a resolvable reference (path + test name) or record the skip
+  reason. The references are available — this entry's per-TC lines above cite them.
+
+**Criteria met:** all twelve `## Completion Criteria` checkboxes are `[x]` (`grep -c '^- \[x\] TC-'` →
+12, `'^- \[ \] TC-'` → 0). The `## Tasks` section names the exact active task path,
+`.agents/tasks/SEC-015-hook-outcome-contract.md`, which exists. That task is completion-ready: 12
+checkboxes, all `[x]`, `grep -c '^\s*- \[ \]'` → 0, no blocked or pending item.
+
+**`## Boundary` re-derived independently against the merged code, not inherited.** I enumerated every
+executor path source-to-source at `6fb4fe92a` (pre-merge) versus `4db0235c4` (merged), asking only
+"did `blocked` change". Unchanged: all six `command` rows; all four `guardrail` rows (the defensive
+mis-dispatch branch moved exit-0 → `error`, non-blocking either way); `ok === true` ⇒ allow and
+`ok === false` ⇒ deny for `http`/`prompt`/`agent`; non-2xx, transport failure and non-JSON, all
+non-blocking before and after; and a JSON `null` body, which was non-blocking before too because the
+old `!body.ok` threw a `TypeError` into the executor's own catch. **Exactly two classes changed, and
+they are the two the document discloses** — (a) a falsy-but-not-`false` `ok`, or a non-object body,
+with no explicit block directive: old `deny`, new `error`; (b) a truthy-but-not-`true` `ok` carrying
+`decision: "block"` or `permissionDecision: "deny"`, where `explicitBlockDirective` is event-agnostic
+but the runner scoped those to `UserPromptSubmit` and `PreToolUse` respectively. **I found no third
+class in which a tool call's blocked/not-blocked answer changed**, so the section's closing claim
+holds as written.
+
+One thing the disclosure does not name, recorded because it is adjacent and was not asked of the
+author before: because a malformed-`ok` body is now an `error`, the runner never reads its stdout, so
+that body's **response-protocol side effects** are dropped as well — `hookSpecificOutput.updatedInput`
+is no longer applied on `PreToolUse`, a `permissionDecision` of `ask`/`defer`/`allow` no longer
+surfaces on `IRunHooksResult`, and on the one path where both old and new block
+(truthy-non-`true` `ok` + `permissionDecision: "deny"` on `PreToolUse`) the result no longer carries
+`permissionDecision: 'deny'` because it now blocks via the executor's `deny` rather than the runner's
+PreToolUse branch. None of these changes whether a call is blocked, which is why they fall outside
+(a) and (b) and outside this gate's criteria. Their reach is currently nil and I checked rather than
+assumed it: `grep` for `.permissionDecision` and `.updatedInput` off a `runHooks` result finds no
+consumer outside the hooks module and its tests — `tool-hook-helpers.ts` reads only `.blocked` and
+`.reason`. `### Alternatives Considered` (e) already discloses the stdout half of this same root
+cause. Recorded for the author to fold into issue #2196 or issue #2093, not as a defect of this gate.

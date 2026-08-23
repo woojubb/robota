@@ -134,4 +134,21 @@ describe('AgentExecutor', () => {
     expect(result.outcome).toBe('deny');
     expect(result.outcome === 'deny' && result.reason).toBe('nope');
   });
+
+  // SEC-015 TC-05 — the executor must stamp its OWN type, not whatever the decoder was handed.
+  it('every outcome carries source: "agent"', async () => {
+    const sources: string[] = [];
+    for (const response of [
+      '{"ok":true}',
+      '{"ok":false,"reason":"no"}',
+      'not json',
+      '{"ok":"x"}',
+    ]) {
+      const mockSession = { run: vi.fn().mockResolvedValue(response) };
+      const executor = new AgentExecutor({ sessionFactory: vi.fn().mockReturnValue(mockSession) });
+      const definition: IAgentHookDefinition = { type: 'agent', agent: 'reviewer' };
+      sources.push((await executor.execute(definition, makeInput())).source);
+    }
+    expect(sources).toEqual(['agent', 'agent', 'agent', 'agent']);
+  });
 });

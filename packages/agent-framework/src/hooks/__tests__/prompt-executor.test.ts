@@ -144,4 +144,23 @@ describe('PromptExecutor', () => {
 
     expect(result.outcome).toBe('allow');
   });
+
+  // SEC-015 TC-05 — the executor must stamp its OWN type, not whatever the decoder was handed.
+  it('every outcome carries source: "prompt"', async () => {
+    const sources: string[] = [];
+    for (const response of [
+      '{"ok":true}',
+      '{"ok":false,"reason":"no"}',
+      'not json',
+      '{"ok":"x"}',
+    ]) {
+      const mockProvider = { complete: vi.fn().mockResolvedValue(response) };
+      const executor = new PromptExecutor({
+        providerFactory: vi.fn().mockReturnValue(mockProvider),
+      });
+      const definition: IPromptHookDefinition = { type: 'prompt', prompt: 'check' };
+      sources.push((await executor.execute(definition, makeInput())).source);
+    }
+    expect(sources).toEqual(['prompt', 'prompt', 'prompt', 'prompt']);
+  });
 });

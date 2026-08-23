@@ -97,4 +97,18 @@ describe('SELFHOST-005 TC-02 — GuardrailExecutor', () => {
     expect(r.outcome).toBe('deny');
     expect(r.outcome === 'deny' && r.reason).toContain('missing');
   });
+
+  // SEC-015 TC-05. Asserted here rather than trusted to the decoder's own pass-through test:
+  // `GuardrailExecutor` never calls `decodeHookVerdict`, so nothing else in the suite would notice
+  // this executor emitting the wrong `source`. Found by the GATE-COMPLETE guard.
+  it('every outcome carries source: "guardrail"', async () => {
+    const allowed = await new GuardrailExecutor({ a: pass() }).execute(DEF, INPUT);
+    const denied = await new GuardrailExecutor({ a: block('nope') }).execute(DEF, INPUT);
+    const empty = await new GuardrailExecutor({}).execute(DEF, INPUT);
+    expect([allowed.source, denied.source, empty.source]).toEqual([
+      'guardrail',
+      'guardrail',
+      'guardrail',
+    ]);
+  });
 });
