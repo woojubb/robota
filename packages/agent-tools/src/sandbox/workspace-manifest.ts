@@ -70,10 +70,20 @@ function refuseUnenforceableManifestControls(manifest: IWorkspaceManifest): void
   // Read over the object's VALUES rather than naming `read` and `write`. Naming them is exhaustive
   // today by coincidence, not by construction: adding an `execute?: string[]` member to
   // `IWorkspaceManifestPermissions` would leave a named check silently not covering it, so a manifest
-  // requesting `execute` would be accepted and ignored — this issue's own defect, reintroduced, with
-  // nothing failing. Values-based, a new member is covered the moment it exists.
+  // requesting `execute` would be accepted and ignored — this function's own defect, reintroduced,
+  // with nothing failing.
+  //
+  // The emptiness rule differs by shape, and treating every member as array-valued would move the
+  // coincidence rather than remove it: `.length` on a `boolean` member reads `undefined`, so
+  // `{ network: true }` would pass unrefused, and on a `string` member it would refuse by accident.
+  // An array can be present and request nothing, so it is judged empty-or-not; anything else is a
+  // request by virtue of being there at all — including `false`, which asks for a control this
+  // applicator equally cannot apply. This is a runtime boundary of a published package, so a
+  // JavaScript caller can supply a member the type does not declare.
   const permissions = manifest.permissions;
-  if (permissions && Object.values(permissions).some((list) => (list?.length ?? 0) > 0)) {
+  const requestsSomething = (value: unknown): boolean =>
+    Array.isArray(value) ? value.length > 0 : value !== undefined;
+  if (permissions && Object.values(permissions).some(requestsSomething)) {
     unenforceable.push('permissions');
   }
 

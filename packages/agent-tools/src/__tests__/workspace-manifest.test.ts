@@ -165,6 +165,20 @@ describe('unenforceable manifest security controls (TOOL-005 / issue #2027)', ()
     await expect(applyWorkspaceManifest(client, manifest)).rejects.toThrow(/permissions/);
   });
 
+  it('refuses a non-array permissions member a JS caller can supply but the type does not declare', async () => {
+    const client = new InMemorySandboxClient();
+    // The type says `{ read?: string[]; write?: string[] }`. This package is published, so a
+    // JavaScript consumer reaches this function without that check. An array-only emptiness rule
+    // would read `.length` off a boolean, get `undefined`, and accept the request unenforced —
+    // which is the defect this function exists to refuse.
+    const manifest = {
+      ...manifestWithOneEntry(),
+      permissions: { network: true } as unknown as IWorkspaceManifest['permissions'],
+    };
+
+    await expect(applyWorkspaceManifest(client, manifest)).rejects.toThrow(/permissions/);
+  });
+
   it('names both fields when both are requested', async () => {
     const client = new InMemorySandboxClient();
     const manifest = {
