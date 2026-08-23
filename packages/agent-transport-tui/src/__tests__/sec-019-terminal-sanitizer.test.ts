@@ -203,6 +203,44 @@ describe('SEC-019 - a sequence split across streaming chunks is still removed', 
     expect(hasTerminalControl(s.flush())).toBe(false);
   });
 
+  // A sequence that ENDED inside the chunk is not an incomplete tail, and treating it as one is a
+  // stall rather than a leak: `push` returns the text before it and holds everything after, so the
+  // trailing content does not appear until the next chunk or the flush. Found in review of PR #2212
+  // — the streaming table above splits an OSC and never puts a COMPLETE sequence mid-chunk, so it
+  // could not see this.
+
+  it('emits text that follows a DCS sequence already terminated inside the chunk', () => {
+    const s = createStreamingTerminalSanitizer();
+    expect(s.push('hello' + ESC + 'Pq#0;2;0;0;0' + ESC + '\\' + 'world')).toBe('helloworld');
+    expect(s.flush()).toBe('');
+  });
+
+  it('emits text that follows an 8-bit APC sequence already terminated inside the chunk', () => {
+    const s = createStreamingTerminalSanitizer();
+    expect(s.push('hello' + C1(0x9f) + 'Ginline=1' + C1(0x9c) + 'world')).toBe('helloworld');
+    expect(s.flush()).toBe('');
+  });
+
+  // Exhaustive splits for the DCS family too, not only OSC. The 7-bit and 8-bit bodies are the two
+  // branches that carry the lookahead, so they are the two that must survive every boundary.
+  const DCS_PAYLOAD = 'A' + ESC + 'Pq#0;2;0;0;0' + ESC + '\\' + 'B';
+  const DCS_SPLITS = Array.from({ length: DCS_PAYLOAD.length - 1 }, (_, i) => i + 1);
+
+  it.each(DCS_SPLITS)('DCS split at %i', (at) => {
+    const s = createStreamingTerminalSanitizer();
+    const out = s.push(DCS_PAYLOAD.slice(0, at)) + s.push(DCS_PAYLOAD.slice(at)) + s.flush();
+    expect(out).toBe('AB');
+  });
+
+  const APC8_PAYLOAD = 'A' + C1(0x9f) + 'Ginline=1' + C1(0x9c) + 'B';
+  const APC8_SPLITS = Array.from({ length: APC8_PAYLOAD.length - 1 }, (_, i) => i + 1);
+
+  it.each(APC8_SPLITS)('8-bit APC split at %i', (at) => {
+    const s = createStreamingTerminalSanitizer();
+    const out = s.push(APC8_PAYLOAD.slice(0, at)) + s.push(APC8_PAYLOAD.slice(at)) + s.flush();
+    expect(out).toBe('AB');
+  });
+
   it('passes ordinary chunked text through unchanged', () => {
     const s = createStreamingTerminalSanitizer();
     expect(s.push('hello ') + s.push('world') + s.flush()).toBe('hello world');

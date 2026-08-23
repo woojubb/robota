@@ -72,10 +72,24 @@ const CONTROL_SEQUENCE =
   // eslint-disable-next-line no-control-regex
   /\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x9d[^\x07\x1b\x9c]*(?:\x07|\x9c|\x1b\\)?|\x1b[P^_X][\s\S]*?(?:\x1b\\|\x07)|\x1b[P^_X][\s\S]*$|[\x90\x98\x9e\x9f][\s\S]*?(?:\x9c|\x1b\\|\x07)|[\x90\x98\x9e\x9f][\s\S]*$|\x1b\[[0-9;?]*[ -/]*[@-~]|\x9b[0-9;?]*[ -/]*[@-~]|\x1b[@-Z\\-_]|[\x00-\x1f\x7f]|[\x80-\x9f]/g;
 
-/** The longest prefix of `text` that could still become a control sequence if more text arrived. */
+/**
+ * The longest prefix of `text` that could still become a control sequence if more text arrived.
+ *
+ * "Could still become" is the whole contract, and the DCS/PM/APC/SOS bodies are where it is easy to
+ * lose. Written as a plain `[\s\S]*`, they match a sequence that is ALREADY terminated inside the
+ * chunk — `'hello' ESC P … ESC \ 'world'` anchors from the introducer to the end, so `world` is held
+ * back and does not appear until the next `push` or the `flush`. Nothing dangerous escapes, but
+ * ordinary text stops arriving, which for a streaming renderer is a stall.
+ *
+ * So each body excludes its own terminators through a negative lookahead: a sequence that has already
+ * ended is not an incomplete tail. The OSC and CSI branches need no such guard — `[^\x07\x1b]*`
+ * cannot cross BEL or ESC, and a CSI without its final byte is incomplete by construction. Found in
+ * review of PR #2212, one round after the same asymmetry was fixed in {@link CONTROL_SEQUENCE}: the
+ * two patterns describe the same grammar and have to be changed together.
+ */
 const INCOMPLETE_TAIL =
   // eslint-disable-next-line no-control-regex
-  /(?:\x1b(?:\][^\x07\x1b]*|[P^_X][\s\S]*|\[[0-9;?]*[ -/]*|)?|\x9d[^\x07\x1b\x9c]*|[\x90\x98\x9e\x9f][\s\S]*|\x9b[0-9;?]*[ -/]*)$/;
+  /(?:\x1b(?:\][^\x07\x1b]*|[P^_X](?:(?!\x1b\\|\x07)[\s\S])*|\[[0-9;?]*[ -/]*|)?|\x9d[^\x07\x1b\x9c]*|[\x90\x98\x9e\x9f](?:(?!\x9c|\x1b\\|\x07)[\s\S])*|\x9b[0-9;?]*[ -/]*)$/;
 
 /**
  * `text` with every terminal control sequence removed, and tab/newline/carriage return preserved.
