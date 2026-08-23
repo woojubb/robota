@@ -54,6 +54,19 @@ import { fileURLToPath } from 'node:url';
 // ARCH-101: the layer declaration authorizes each edge, and ONE parser owns it. This scan judges
 // MODULE edges; `check-dependency-direction.mjs` judges MANIFEST edges. Same predicate, two altitudes.
 import { explainEdge, judgeEdge, readInterfaceLayers } from './interface-layers.mjs';
+// The npm scope is configuration, not a literal. A hardcoded `@robota-sdk/` does not FAIL when the
+// scope changes -- it matches nothing, and matching nothing reads as a pass. (`harness-scope-literal`.)
+import { loadHarnessConfig } from './harness-config.mjs';
+
+const HARNESS = loadHarnessConfig();
+// `internalPackagePrefix` is the FULL specifier prefix (`@robota-sdk/agent-`), scope included -- it is
+// not a bare package prefix to concatenate a scope onto, which is the mistake this comment records.
+const INTERFACE_PACKAGE_IMPORT = new RegExp(
+  String.raw`(?:import|export)\s+(?:type\s+)?(?:\{[^}]*\}|\*(?:\s+as\s+[A-Za-z_$][\w$]*)?)\s*from\s*'` +
+    HARNESS.internalPackagePrefix.replace(/[.*+?^${}()|[\]\\/]/g, String.raw`\$&`) +
+    String.raw`(interface-[a-z-]+)'`,
+  'gms',
+);
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RULE_DOC = path.join(ROOT, '.agents/specs/contract-family-owner-map.md');
@@ -142,6 +155,22 @@ export function projectGraph(sources, moduleOwner, symbolOwner, corrections = []
     // is not a contract module and has no owner). Handled anyway: the next `export * from './x'`
     // between two owners would otherwise drop a real edge silently, and "the gate cannot tell 'no
     // edge' from 'an edge I cannot parse'" is the defect this scan already had once.
+    // CROSS-PACKAGE edges, and this pattern is why the graph does not evaporate as the migration
+    // succeeds. A module's cross-family import is RELATIVE only while both families share a package.
+    // The moment a leaf moves one out, the same dependency is written as
+    // `@robota-sdk/agent-interface-<owner>` — and a relative-only parser stops seeing it.
+    //
+    // Measured on ARCH-105: after three leaves, `session-contracts`'s edges into execution, command
+    // and analytics had all become package specifiers, the projection lost them, and `session` moved
+    // into wave 1 as though it depended on nothing. The ACYCLICITY verdict was still green, on a
+    // graph that was quietly emptying — fewer edges make acyclicity EASIER to satisfy, so the green
+    // was getting cheaper exactly as the work progressed. Same class as the shrinking module set
+    // ARCH-103 fixed, one level over: there it was which FILES are read, here it is which EDGES are
+    // seen.
+    for (const pkg of src.matchAll(INTERFACE_PACKAGE_IMPORT)) {
+      const target = `${HARNESS.internalPackagePrefix.split('/').pop()}${pkg[1]}`;
+      addEdge(moduleOwner.get(mod), target, `package import (${mod} → ${target})`);
+    }
     for (const bare of src.matchAll(
       /(?:export\s+\*|import\s+\*\s+as\s+[A-Za-z_$][\w$]*)\s+from\s*'\.\/([a-z-]+)(?:\.m?[jt]s)?'/gms,
     )) {

@@ -102,8 +102,12 @@ describe('createBuildTypeTiers', () => {
     // The ORDER is the property the test is actually about, and it does not churn: the contract
     // owners sit one tier above agent-core, the transport package sits above them because it still
     // composes their types, and agent-cli stays last.
-    expect(packages).toHaveLength(78);
+    expect(packages).toHaveLength(79);
     expect(tiers).toHaveLength(11);
+    // agent-interface-analytics sits at tier 0, beside agent-core, because it depends on NOTHING —
+    // every field of its seven declarations is a primitive or internal to the set. That placement is
+    // the build graph confirming the empty dependency set rather than the manifest asserting it.
+    expect(tierByName.get('@robota-sdk/agent-interface-analytics')).toBe(0);
     expect(tierByName.get('@robota-sdk/agent-interface-command')).toBe(1);
     expect(tierByName.get('@robota-sdk/agent-interface-execution')).toBe(1);
     expect(tierByName.get('@robota-sdk/agent-interface-transport')).toBe(2);

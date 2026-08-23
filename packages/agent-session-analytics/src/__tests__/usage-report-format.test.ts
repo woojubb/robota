@@ -10,7 +10,7 @@ import { formatUsageReport } from '../report.js';
 import { summarizeUsageBySource } from '../usage.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { ISpanEntry, IUsageSnapshot } from '@robota-sdk/agent-interface-transport';
+import type { ISpanEntry, IUsageSnapshot } from '@robota-sdk/agent-interface-analytics';
 
 let seq = 0;
 function usageEntry(total: number, costUsd?: number): IHistoryEntry<IUsageSnapshot> {

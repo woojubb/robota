@@ -27,7 +27,7 @@
   "packages/agent-framework/src/testing/scripted-session-harness.ts": 453,
   "packages/agent-framework/src/update-check/update-check.ts": 305,
   "packages/agent-framework/src/user-local/memory.ts": 310,
-  "packages/agent-interface-transport/src/session-contracts.ts": 471,
+  "packages/agent-interface-transport/src/session-contracts.ts": 360,
   "packages/agent-playground/src/components/playground/assembly-canvas/assembly-canvas.tsx": 305,
   "packages/agent-playground/src/components/playground/workflow-visualization/events-to-flow.ts": 360,
   "packages/agent-playground/src/lib/playground/robota-executor/playground-executor.ts": 353,

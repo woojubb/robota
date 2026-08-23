@@ -294,6 +294,80 @@ describe('projectGraph + findCycles (ARCH-100)', () => {
   });
 });
 
+describe('projectGraph sees CROSS-PACKAGE edges, not only relative ones (ARCH-105)', () => {
+  // The regression this fixes: a module's cross-family import is relative only while both families
+  // share a package. Once a leaf moves one out, the same dependency is written as
+  // `@robota-sdk/agent-interface-<owner>`. A relative-only parser stops seeing it, so the projected
+  // graph EMPTIES as the migration succeeds — and fewer edges make acyclicity easier to satisfy, so
+  // the verdict gets cheaper exactly as the work progresses. Measured on ARCH-105: session's edges
+  // into execution, command and analytics had all become package specifiers and session moved into
+  // wave 1 as though it depended on nothing.
+  const owner = new Map([['a-contracts', 'agent-interface-session']]);
+  const targets = (edges) => [...(edges.get('agent-interface-session')?.keys() ?? [])];
+
+  it('sees a named package import as an edge to that owner', () => {
+    expect(
+      targets(
+        projectGraph(
+          { 'a-contracts': "import type { IThing } from '@robota-sdk/agent-interface-execution';" },
+          owner,
+          new Map(),
+        ),
+      ),
+    ).toEqual(['agent-interface-execution']);
+  });
+
+  it('sees a package RE-EXPORT as an edge', () => {
+    expect(
+      targets(
+        projectGraph(
+          { 'a-contracts': "export type { IThing } from '@robota-sdk/agent-interface-command';" },
+          owner,
+          new Map(),
+        ),
+      ),
+    ).toEqual(['agent-interface-command']);
+  });
+
+  it('sees a braceless package re-export as an edge', () => {
+    expect(
+      targets(
+        projectGraph(
+          { 'a-contracts': "export * from '@robota-sdk/agent-interface-analytics';" },
+          owner,
+          new Map(),
+        ),
+      ),
+    ).toEqual(['agent-interface-analytics']);
+  });
+
+  it('ignores a package outside the agent-interface family', () => {
+    expect(
+      projectGraph(
+        { 'a-contracts': "import type { IThing } from '@robota-sdk/agent-core';" },
+        owner,
+        new Map(),
+      ).size,
+    ).toBe(0);
+  });
+
+  it('detects a cycle whose ONLY closing edge is a package import', () => {
+    const two = new Map([
+      ['a-contracts', 'agent-interface-session'],
+      ['b-contracts', 'agent-interface-execution'],
+    ]);
+    const edges = projectGraph(
+      {
+        'a-contracts': "import type { IThing } from '@robota-sdk/agent-interface-execution';",
+        'b-contracts': "import type { IOther } from '@robota-sdk/agent-interface-session';",
+      },
+      two,
+      new Map(),
+    );
+    expect(findCycles(edges, new Set(two.values()))).toHaveLength(1);
+  });
+});
+
 describe('migrationWaves (ARCH-100)', () => {
   it('extracts owners with no outbound edge first', () => {
     const edges = new Map([

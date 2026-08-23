@@ -10,10 +10,10 @@ import type {
   ISessionRenamedEvent,
   IToolState,
   IUiIntentEvent,
-  IUsageBySourceReport,
   TActionResponse,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-transport';
+import type { IUsageBySourceReport } from '@robota-sdk/agent-interface-analytics';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type {
   IBackgroundJobGroupState,

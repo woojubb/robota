@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { summarizeUsageBySource } from '../usage.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IUsageSnapshot, IUsageSource } from '@robota-sdk/agent-interface-transport';
+import type { IUsageSnapshot, IUsageSource } from '@robota-sdk/agent-interface-analytics';
 
 let seq = 0;
 function usageEntry(total: number, source?: IUsageSource): IHistoryEntry<IUsageSnapshot> {
