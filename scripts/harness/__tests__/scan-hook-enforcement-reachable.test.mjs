@@ -112,6 +112,27 @@ describe('scan-hook-enforcement-reachable', () => {
       expect(narrowed.length).toBeLessThan(all.length);
       expect(examinedFireSiteCount()).toBe(narrowed.length);
     });
+
+    it('the ROW counter moves with its input too, not just the fire-site counter', () => {
+      // The case above exercises only `examinedFireSiteCount`. The row counter had exact-value and
+      // reset assertions but nothing that varied its input, so `examinedRows = 16` — a literal —
+      // satisfied every one of them. Two rows in, two rows counted.
+      const twoRows = path.join(scratch, `two-rows-${Math.random().toString(36).slice(2)}.ts`);
+      writeFileSync(
+        twoRows,
+        [
+          'export const HOOK_ENFORCEMENT_POLICY: Readonly<Record<THookEvent, IHookEventPolicy>> = Object.freeze({',
+          "    PreToolUse: { posture: 'enforcing', enforcementReachable: true, rationale: 'a' },",
+          "    PostToolUse: { posture: 'advisory', enforcementReachable: false, rationale: 'b' },",
+          '});',
+          '',
+        ].join('\n'),
+      );
+
+      const { entries } = collectPolicyRows(twoRows);
+      expect(entries.size).toBe(2);
+      expect(examinedRowCount()).toBe(2);
+    });
   });
 
   it('the shipped policy really does declare exactly one enforcing event', () => {
@@ -288,6 +309,40 @@ describe('scan-hook-enforcement-reachable', () => {
       expect(output).toContain('[policy-row-not-parsed]');
       expect(output).toContain('PostToolUse');
     });
+
+    it('a row whose posture the parser cannot resolve fires [unresolved-policy-row]', () => {
+      // This arm had no fixture anywhere — `git grep` found the string only at its own emission
+      // site, in the arm the module docblock calls "never skipped". Two independent mutants survived
+      // the whole suite because of it: downgrading the unresolved marker to a clean 'advisory', and
+      // dropping the helper-body bound on the row parser.
+      //
+      // Driven the way real code would reach it: a helper that spreads a shared base instead of
+      // writing the literal, so neither `posture:` literal appears in its body.
+      const helper = [
+        'const BASE_ADVISORY: IHookEventPolicy = {',
+        "  posture: 'advisory',",
+        '  enforcementReachable: false,',
+        "  rationale: 'base',",
+        '};',
+        '',
+        'function inheritsAdvisory(where: string): IHookEventPolicy {',
+        '  return { ...BASE_ADVISORY, rationale: `fires from ${where}` };',
+        '}',
+        '',
+      ].join('\n');
+      const mutant =
+        helper +
+        realPolicy.replace(
+          "    PostToolUse: firesAndForgets('tool-hook-helpers.ts'),",
+          "    PostToolUse: inheritsAdvisory('tool-hook-helpers.ts'),",
+        );
+      expect(mutant, 'mutation did not apply').not.toBe(realPolicy);
+
+      const { code, output } = runScan(mutant);
+      expect(code).not.toBe(0);
+      expect(output).toContain('[unresolved-policy-row]');
+      expect(output).toContain('PostToolUse');
+    });
   });
 
   describe('a demo script must not vouch for the production gate', () => {
@@ -298,6 +353,10 @@ describe('scan-hook-enforcement-reachable', () => {
       // left this scan green, a demo vouching for something that no longer existed.
       expect(isProductionSource('packages/agent-session/src/tool-hook-helpers.ts')).toBe(true);
       for (const notProduct of [
+        // Matches NO exclusion pattern — it fails only the positive `src/` requirement, so it is the
+        // one entry that pins the "a new sibling directory must EARN inclusion" half. Every other
+        // entry below is caught by a different clause, which let that half survive alone.
+        'packages/agent-core/tools/generate.ts',
         'packages/agent-session/examples/verify-hook-outcome-contract.ts',
         'packages/agent-core/src/hooks/__tests__/enforcement-policy.test.ts',
         'packages/agent-core/src/hooks/types.test.ts',
@@ -334,6 +393,15 @@ describe('scan-hook-enforcement-reachable', () => {
       '  return true;',
       '}',
       '',
+      // AFTER `ignores`, deliberately. The scope has an upper bound as well as a lower one, and
+      // with `ignores` last in the fixture there was nothing beyond it to leak in — so dropping the
+      // `bodyEnd` upper bound passed every case. A fixture pins a bound only if something sits on
+      // the far side of it.
+      'export function later() {',
+      '  const result = { blocked: true };',
+      '  return result.blocked;',
+      '}',
+      '',
     ].join('\n');
 
     /** Byte offset of the line at `index`. */
@@ -350,6 +418,16 @@ describe('scan-hook-enforcement-reachable', () => {
 
     it('does not let an earlier identical call line vouch for a later one', () => {
       // Measured on the pre-fix code, this returned TRUE — the whole finding.
+      expect(readsBlockedInScope(SOURCE, offsetOf(SOURCE, 7), 'result')).toBe(false);
+    });
+
+    it('does not let a LATER function vouch either — the scope is bounded at both ends', () => {
+      // Same offset as the case above, and it is the same answer for a different reason: `later()`
+      // reads `result.blocked` further down the file, so without the upper bound the window would
+      // run past `ignores`'s closing brace and find it. Dropping `bodyEnd` from the slice passed all
+      // 28 cases before this existed — the lower bound was pinned and the upper bound was not.
+      const withoutUpperBound = SOURCE.slice(offsetOf(SOURCE, 6));
+      expect(withoutUpperBound).toContain('result.blocked');
       expect(readsBlockedInScope(SOURCE, offsetOf(SOURCE, 7), 'result')).toBe(false);
     });
 

@@ -28,12 +28,25 @@
  * `set -e` does not fire on a command substitution used as a word-list, so an unresolvable range
  * produced an empty list, the loop body never ran, and a REQUIRED check reported green having linted
  * nothing. It now fails on an unresolvable range AND on a range that resolves but is empty. This
- * scan copies both arms and adds the third:
+ * scan copies both arms and adds more. Every finding code it can emit, because an earlier version of
+ * this list named three and the code emitted nine — a list that claims to enumerate is a claim, and
+ * three of the codes it omitted were arms no reader would know to look for:
  *
- *   1. A policy row whose fire site cannot be resolved → FAIL. Never skipped.
- *   2. A policy containing zero `enforcing` rows → FAIL. A table with nothing to check is
- *      degenerate, not clean.
- *   3. A row claiming `enforcing` whose fire site does not await and read `blocked` → FAIL.
+ *   - `[policy-row-not-parsed]`      a row the parser could not read at all → FAIL, never skipped
+ *   - `[policy-row-unknown-event]`   a parsed row naming an event outside the union
+ *   - `[unresolved-policy-row]`      a row whose posture the parser could not resolve
+ *   - `[unreadable-event-union]`     the `THookEvent` union itself could not be read
+ *   - `[no-enforcing-rows]`          zero `enforcing` rows; a table with nothing to check is
+ *                                    degenerate, not clean
+ *   - `[unresolvable-fire-site]`     an `enforcing` row with no resolvable fire site
+ *   - `[inert-enforcing-row]`        an `enforcing` row whose fire site does not await and read
+ *                                    `blocked`
+ *   - `[stale-reachability]`         `enforcementReachable` disagrees with what the fire sites show
+ *   - `[reachability-contradiction]` a row that is `enforcing` while `enforcementReachable` is false
+ *
+ * Note what this scan does NOT reach, because the boundary matters more than the list: it checks the
+ * `blocked` path only. Deleting the `isEnforcing('PreToolUse')` block in `tool-hook-helpers.ts`
+ * leaves this scan green — that gate is held by unit tests, not by here.
  *
  * Usage: `node scripts/harness/scan-hook-enforcement-reachable.mjs [--policy <path>] [--src <dir>]`
  * Exit 0 = every enforcing row is honoured by its fire site. Exit 1 = otherwise.

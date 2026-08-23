@@ -307,6 +307,9 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
             // Matched by the stub executor below, which reports an error outcome. The command
             // string is inert — the stub never spawns anything — so do not read it as the mechanism.
             { type: 'command', command: 'definitely-not-a-real-binary-sec016' },
+            // A second failing hook, so the "(+N more hook failure(s))" clause is exercised rather
+            // than skipped — with one error the clause is absent and its deletion is invisible.
+            { type: 'command', command: 'also-not-a-real-binary-sec016' },
             // No executor supplied for this type -> reported on `unknownHookTypes`.
             { type: 'guardrail' },
           ],
@@ -337,6 +340,9 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
     // AND the unregistered cause, in the SAME reason rather than on a later attempt.
     expect(reason).toContain('guardrail');
     expect(reason).toContain('no registered executor');
+    // AND the count of the OTHER failures. This clause is documented as contract in
+    // `packages/agent-session/docs/SPEC.md` and had no test — deleting it left all 19 cases green.
+    expect(reason).toContain('+1 more hook failure');
     // AND the remedy. The operator with two faults must not get LESS guidance than the one with a
     // single fault, which is what an abbreviated second clause produced.
     expect(reason).toContain('Remove the hook from the PreToolUse configuration');
