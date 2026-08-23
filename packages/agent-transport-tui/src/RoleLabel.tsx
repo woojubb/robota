@@ -1,4 +1,4 @@
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 import { Text } from 'ink';
 import React from 'react';
 

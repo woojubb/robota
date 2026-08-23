@@ -1,7 +1,8 @@
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { makeTemp } from './make-temp.mjs';
+
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
@@ -108,7 +109,7 @@ describe('the scan itself, not only its helpers', () => {
 
   /** A root carrying the real required-check declaration and nothing else. */
   function rootWithDeclarationOnly() {
-    const root = mkdtempSync(path.join(tmpdir(), 'required-check-needs-'));
+    const root = makeTemp('required-check-needs-');
     scratch.push(root);
     mkdirSync(path.join(root, '.github/workflows'), { recursive: true });
     writeFileSync(
@@ -128,7 +129,7 @@ describe('the scan itself, not only its helpers', () => {
   });
 
   it('REFUSES a root with no declaration rather than reporting it clean', () => {
-    const bare = mkdtempSync(path.join(tmpdir(), 'required-check-needs-bare-'));
+    const bare = makeTemp('required-check-needs-bare-');
     scratch.push(bare);
 
     expect(() => findRequiredCheckNeedsFindings(bare)).toThrow(/required-status-checks\.json/);
@@ -136,7 +137,7 @@ describe('the scan itself, not only its helpers', () => {
 
   /** A root carrying one hand-written branch declaration and the given workflow files. */
   function rootWith(workflows, contexts) {
-    const root = mkdtempSync(path.join(tmpdir(), 'required-check-needs-fixture-'));
+    const root = makeTemp('required-check-needs-fixture-');
     scratch.push(root);
     mkdirSync(path.join(root, '.github/workflows'), { recursive: true });
     for (const [name, text] of Object.entries(workflows)) {

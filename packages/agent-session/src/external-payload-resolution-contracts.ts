@@ -1,3 +1,5 @@
+import type { IExternalPayloadSource } from './session-log-sources.js';
+
 export type TSessionLogPayloadResolutionErrorCode =
   | 'INVALID_LIMIT'
   | 'INVALID_REFERENCE'
@@ -13,7 +15,7 @@ export type TSessionLogPayloadResolutionErrorCode =
   | 'CIRCULAR_REFERENCE';
 
 export interface ISessionLogPayloadResolutionOptions {
-  readonly baseDirectory: string;
+  readonly source?: IExternalPayloadSource;
   readonly maxDepth?: number;
   readonly maxTotalBytes?: number;
 }

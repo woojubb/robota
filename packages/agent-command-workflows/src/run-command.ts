@@ -1,6 +1,3 @@
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
-
 import { dagDefinitionFromParsedFile } from '@robota-sdk/dag-builder';
 
 import {
@@ -8,9 +5,12 @@ import {
   type IDagDefinition,
   type IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import { parseFileArg } from './args.js';
 import { createWorkspaceRuntime } from './workspace-runtime.js';
+import { assertWorkflowProject } from './workflow-project.js';
+
+import type { IWorkflowProject } from './workflow-project.js';
 
 /**
  * Read a workflow file in either supported on-disk format and return the canonical domain model.
@@ -21,8 +21,10 @@ import { createWorkspaceRuntime } from './workspace-runtime.js';
  * node ids and port names on the way. A definition on disk is now passed through untouched, and only
  * a genuine workflow file is converted.
  */
-async function readDagFile(absPath: string): Promise<IDagDefinition> {
-  return dagDefinitionFromParsedFile(JSON.parse(await readFile(absPath, 'utf-8')));
+function readDagFile(project: IWorkflowProject, relativePath: string): IDagDefinition {
+  const raw = assertWorkflowProject(project).readText(relativePath, 'run workflow definition');
+  if (raw === undefined) throw new Error('workflow file was not found');
+  return dagDefinitionFromParsedFile(JSON.parse(raw));
 }
 
 /**
@@ -34,7 +36,7 @@ async function readDagFile(absPath: string): Promise<IDagDefinition> {
  */
 export async function executeWorkflowsRun(
   argStr: string,
-  cwd: string,
+  project: IWorkflowProject,
   workspace: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
 ): Promise<ICommandResult> {
   const parsedArgs = parseFileArg(argStr, 'run');
@@ -44,16 +46,19 @@ export async function executeWorkflowsRun(
   const filePath = parsedArgs.value;
 
   // The read/parse error is surfaced as a failed command result, not silently swallowed.
-  const dag = await readDagFile(resolve(cwd, filePath)).catch((err: unknown) => {
+  let dag: IDagDefinition | Error;
+  try {
+    dag = readDagFile(project, filePath);
+  } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
-    return new Error(`Failed to read DAG file "${filePath}": ${detail}`);
-  });
+    dag = new Error(`Failed to read DAG file "${filePath}": ${detail}`);
+  }
   if (dag instanceof Error) {
     return { success: false, message: dag.message };
   }
 
   // Shared workspace runtime: built-ins + any prompt/composite nodes saved under `<root>/nodes/`.
-  const { provider } = await createWorkspaceRuntime(cwd, workspace);
+  const { provider } = await createWorkspaceRuntime(project, workspace);
   const result = await provider.execute(dag, {});
   if (!result.ok) {
     return {

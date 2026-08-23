@@ -25,11 +25,13 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const LIB = path.join(WORKSPACE_ROOT, '.claude/hooks/lib/canonical-path.sh');
@@ -48,7 +50,7 @@ afterAll(() => {
  */
 let sandbox;
 beforeAll(() => {
-  sandbox = mkdtempSync(path.join(tmpdir(), 'infra110-'));
+  sandbox = makeTemp('infra110-');
   scratch.push(sandbox);
   mkdirSync(path.join(sandbox, 'node_modules/pkg/src'), { recursive: true });
   mkdirSync(path.join(sandbox, 'app'), { recursive: true });

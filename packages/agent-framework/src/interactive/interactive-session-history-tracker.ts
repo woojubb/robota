@@ -8,7 +8,6 @@ import {
   recordInteractiveContextReferences,
 } from './interactive-session-context-references.js';
 import { SessionBranchEvents } from './session-branch-events.js';
-import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import { formatSkillActivationMessage } from '../commands/skill-activation-events.js';
 import {
   clearContextReferences,
@@ -18,8 +17,10 @@ import {
   VISIBLE_MEMORY_EVENT_TYPES,
   formatMemoryEventMessage,
 } from '../memory/memory-event-format.js';
+import { WorkspaceAuthorityRequiredError } from '../workspace-trust/index.js';
 
 import type { IHistoryTrackerState } from './session-history-state.js';
+import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import type {
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
@@ -35,8 +36,9 @@ import type {
 } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry, TUniversalValue } from '@robota-sdk/agent-core';
-import type { IActiveBranchPointer, IBranchEvent } from '@robota-sdk/agent-interface-transport';
+import type { IActiveBranchPointer, IBranchEvent } from '@robota-sdk/agent-interface-session';
 export { BRANCH_OPERATION_EVENT_MATRIX } from './session-branch-events.js';
 export type { IHistoryTrackerState } from './session-history-state.js';
 
@@ -58,6 +60,7 @@ export class SessionHistoryTracker {
 
   constructor(
     private readonly cwd: string,
+    private readonly projectAccess: TWorkspaceProjectAccess,
     private readonly getSessionId: () => string,
     private readonly getExecuting: () => boolean,
     private readonly persistSession: () => void,
@@ -297,6 +300,7 @@ export class SessionHistoryTracker {
     const { references, result } = await addInteractiveContextReference(
       this.contextReferences,
       path,
+      this.projectAccess,
       this.cwd,
     );
     this.contextReferences = references;
@@ -339,13 +343,9 @@ export class SessionHistoryTracker {
     this.emitSkillActivation(event);
     this.persistSession();
   }
-
   private getCheckpointStore(): EditCheckpointStore {
-    if (!this.editCheckpointStore) {
-      this.editCheckpointStore = new EditCheckpointStore({ cwd: this.cwd });
-    }
-    // SELFHOST-007: apply any stashed --resume branch pointer on first store access (session is ready
-    // by the time a read/nav command runs); idempotent — clears the stash once applied.
+    if (!this.editCheckpointStore)
+      throw new WorkspaceAuthorityRequiredError('Edit checkpoints require project authority.');
     this.applyPendingActiveBranch();
     return this.editCheckpointStore;
   }

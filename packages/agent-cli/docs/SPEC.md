@@ -21,14 +21,15 @@ No runners, all-success, and stop abandonment return `undefined` and leave the s
 surface, presets, capability packs, base command modules, and the injected transports/runners/subagent
 factory — is declared as DATA in `src/product/robota-profile.ts` and folded by the product-neutral
 `assembleProduct` (`@robota-sdk/agent-product`). The CLI is the SHELL around that fold: it parses args,
-performs every settings/env/file read, prints notices, runs first-run/`init`/`--configure`/`ensureConfig`,
+performs user-owned settings/env reads, accepts the host's trusted/restricted project-access decision,
+prints notices, runs first-run/`init`/`--configure`/`ensureConfig`,
 owns memory + session-resume UX, and dispatches print/serve/TUI mode. It resolves the inputs and binds the
 presentation; it no longer hand-wires the assembly. `robota` is one profile among many — an external repo
 brings its own and reuses the same kernel.
 
 ## Boundaries
 
-- Does NOT own Session/SessionStore — handled internally by `@robota-sdk/agent-framework`; CLI must NOT import from `@robota-sdk/agent-session`
+- Does NOT own Session or persistence adapters — handled through `@robota-sdk/agent-framework`; CLI must NOT import from `@robota-sdk/agent-session`
 - Does NOT own tools — assembled internally by `@robota-sdk/agent-framework`; CLI must NOT import from `@robota-sdk/agent-tools`
 - Does NOT own permissions/hooks — public types imported from `@robota-sdk/agent-core`; permission callback type (`TInteractivePermissionHandler`) owned by `@robota-sdk/agent-framework`
 - Does NOT own config/context loading — loaded internally by `InteractiveSession` constructor
@@ -155,10 +156,13 @@ The CLI is a pure TUI layer. All business logic (session lifecycle, slash comman
    already resolved over (ARCH-008) instead of building a second one.
 4. Applies the preset's `enabledCommandModules`/`disabledCommandModules` delta to that merged superset,
    then appends the fixed modules the delta never filters (`/workflows`, caller-injected).
-5. Creates `InteractiveSession({ cwd, provider, commandHostAdapters, sessionStore, agentDefinitions })` —
-   config and context loading happen internally inside the SDK. CLI-owned adapters expose host services
-   such as user-settings persistence and plugin management without letting command packages import CLI
-   files. Session persistence is passed only through SDK-owned facade types.
+5. Resolves one host-owned `TWorkspaceProjectAccess` decision, derives the allowed project sources and
+   state facets, then creates
+   `InteractiveSession({ cwd, provider, projectAccess, commandHostAdapters, sessionStore, agentDefinitions })`.
+   Project config/context loading occurs only through those explicit sources; `cwd` remains provenance.
+   CLI-owned adapters expose host services such as user-settings persistence and plugin management
+   without letting command packages import CLI files. Session persistence is passed only through
+   SDK-owned facade types.
 6. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
 
 Whitebox internals are not specified here. See:
@@ -289,6 +293,25 @@ Each `SKILL.md` may contain YAML frontmatter with the following fields:
 If no frontmatter is found, the directory name is used as the command name.
 
 ## Configuration
+
+### Workspace Project Access Composition (ARCH-042)
+
+`createCliWorkspaceComposition()` receives a host-owned `TWorkspaceProjectAccess` decision. Absence
+is deterministically Restricted: the composition includes only user contribution/settings sources,
+the user session store, and no project memory. Trusted composition derives project contribution and
+settings sources plus named `sessions`, `session-logs`, and `memory` state facets from the exact
+runtime-accepted authority. A separately approved, same-authority settings writer is required before
+a project settings store is added. `cwd` remains provenance and cannot mint any of these capabilities.
+Trusted composition is refused when the real CLI working directory is outside the authority's frozen
+workspace root.
+
+> **Contained — [ARCH-048](../../../.agents/tasks/ARCH-048-canonical-project-root-binding.md).**
+> This boundary check keeps the current independent `cwd` and `projectAccess` inputs fail-closed.
+> ARCH-048 owns replacing those independent root carriers with one canonical binding contract.
+
+ARCH-042 covers initial/stateless composition only. Lazy command transitions that still retain or
+reconstruct project access are the explicit ARCH-043 dependency; this package must not claim complete
+end-to-end Restricted Mode until that item passes.
 
 ### Provider Profile Creation
 
@@ -446,8 +469,9 @@ bin.ts → cli.ts (SHELL: arg parsing, settings IO, notices, mode dispatch)
               │     applies the preset delta to the merged superset, appends the fixed modules)
               └── renderApp({ ..., transportRegistry, cliAdapter })  (from @robota-sdk/agent-transport-tui)
                     └── TuiInteractionChannel (owns session lifecycle)
-                          ├── InteractiveSession({ cwd, provider })
-                          │   (from @robota-sdk/agent-framework; config/context loaded internally)
+                          ├── InteractiveSession({ cwd, provider, projectAccess })
+                          │   (from @robota-sdk/agent-framework; project config/context comes from
+                          │    authority-derived sources; omission is Restricted)
                           ├── TuiStateManager    (owned by agent-transport-tui)
                           │   holds history: IHistoryEntry[]  ← primary state for message list
                           │   syncs from interactiveSession.getFullHistory() on each update
@@ -529,11 +553,13 @@ prompt, or content (HARNESS-029 memory-neutrality).
 
   Absent everywhere ⇒ OFF ⇒ **no memory options are injected** (exactly today's behavior).
 
-- **When ON**, `buildMemorySessionOptions()` produces the session option fields
-  `{ memoryStore: createFileSystemMemoryStore(cwd), recallMemory: { budget }, automaticMemory: { policy, retrieval: budget } }`
-  with a default budget `{ maxTopics: 5, maxTopicChars: 2000 }`. Capture + recall are enabled **together**
-  (one switch). The capture policy defaults to `approval_required` (candidates are queued, not saved);
-  `memory.autoSave: true` (settings) or `--memory-autosave` flips it to `auto_save`.
+- **When ON**, `buildMemorySessionOptions()` requires the authority-backed `memoryStore` supplied by
+  `createCliWorkspaceComposition()` and produces `{ memoryStore, recallMemory: { budget },
+automaticMemory: { policy, retrieval: budget } }` with a default budget
+  `{ maxTopics: 5, maxTopicChars: 2000 }`. Restricted composition has no store and fails with
+  `WorkspaceAuthorityRequiredError` instead of falling back to `cwd`. Capture + recall are enabled
+  **together** (one switch). The capture policy defaults to `approval_required`; `memory.autoSave: true`
+  or `--memory-autosave` flips it to `auto_save`.
 
 - **Wiring.** The switch is resolved once in `src/cli.ts` and the resolved `IMemorySessionOptions` are
   threaded into all three construction sites — `runPrintMode` (→ `HeadlessInteractionChannel`),
@@ -579,7 +605,7 @@ Session logging is an SDK-internal concern. The CLI does not configure or manage
 | `@robota-sdk/agent-preset`              | Preset resolution (`resolvePreset`) and external preset loading (`loadExternalPresets`, `DEFAULT_AGENT_NAME`) consumed at startup                                                                                               |
 | `@robota-sdk/agent-framework`           | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts                                                                                            |
 | `@robota-sdk/agent-core`                | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                                                                                                                        |
-| `@robota-sdk/agent-provider-defaults`   | `createDefaultProviderDefinitions()` — the default provider definition set composed by the Robota binary (the concrete provider packages `agent-provider-{anthropic,openai,gemini,openai-compatible}` are bundled transitively) |
+| `@robota-sdk/agent-builtin-providers`   | `createDefaultProviderDefinitions()` — the default provider definition set composed by the Robota binary (the concrete provider packages `agent-provider-{anthropic,openai,gemini,openai-compatible}` are bundled transitively) |
 | `@robota-sdk/agent-interface-transport` | Transport/interaction contracts (`IInteractionChannel`, session/command contract types)                                                                                                                                         |
 | `@robota-sdk/agent-transport`           | `TransportRegistry` (root barrel) for the TUI transport registry                                                                                                                                                                |
 | `@robota-sdk/agent-transport/headless`  | Headless runner for print mode (`-p`) execution                                                                                                                                                                                 |
@@ -840,7 +866,12 @@ Session resolution applies to **both TUI and print mode**: `cli.ts` resolves the
 
 #### Session Storage
 
-The CLI asks `@robota-sdk/agent-framework` for a project-local session persistence facade rooted at `.robota/sessions`, not the generic user-level default. The CLI must not import `SessionStore` or `ISessionRecord` from `@robota-sdk/agent-session`; it may only consume SDK-owned store and resumable-session summary types. Every resumable session record must stay beside the project logs and must include provider messages, UI history, the exact system prompt, and registered tool schemas. This makes `/continue`, `/resume`, and local debugging inspect the same project-local `.robota` tree.
+The CLI must not import `NodeSessionStore` or `ISessionRecord` from `@robota-sdk/agent-session`; it
+consumes SDK-owned store and resumable-session summary types. In Restricted composition it uses the
+user session store and never opens project session/log paths. Trusted composition calls
+`createProjectSessionStore(sessions, logs)` with same-authority named state facets, keeping resumable
+records and replay logs under the authority adapter without exposing their host paths as a reusable
+capability.
 
 ### Zero-Config Startup (env-default)
 
@@ -899,7 +930,10 @@ after command setup and returns before any session starts. Behavior:
 4. After initialization, optionally offers interactive provider setup (via `onProviderSetup`
    callback).
 
-The settings path is resolved through `projectPaths(cwd).settings` from `@robota-sdk/agent-framework`.
+`runInitCommand` accepts no `cwd`. It requires trusted `projectAccess` plus a separately approved
+`IWorkspaceProjectMutation` for that exact authority; reads use the authority reader and writes are
+root-relative through the mutation facet. Restricted access, absent mutation permission, or a
+different-authority mutation fails with `WorkspaceAuthorityRequiredError` before any project I/O.
 
 **Non-interactive semantics.** All confirmations route through one `confirm()` helper:
 
@@ -928,10 +962,10 @@ Checks performed (CLI-067):
   resolved provider, model, and source (`settings profile` or `env-default via <ENV_NAME>`);
   ✗ carries the runtime's own resolution error plus configure guidance. Key values are
   never printed.
-- **Settings file(s)** — every file on the runtime merge-chain path
-  (`getProviderSettingsPaths(cwd)`: user-level and project-level) that exists is validated
-  independently; a corrupt user-level file is flagged with its path even when a valid
-  project file exists. Missing files are a warning at most, never a failure.
+- **Settings file(s)** — every explicit source in the runtime merge chain is validated independently.
+  Restricted composition supplies only host-owned managed/user sources; trusted composition appends
+  project sources derived from the accepted reader. A corrupt user source is flagged even when a valid
+  project source exists. Missing sources are a warning at most, never a failure.
 - **Terminal** — known-problem terminal warning.
 - **Network** — TCP reachability of the active provider endpoint.
 
@@ -1049,7 +1083,7 @@ A reusable confirmation prompt with arrow-key selection (`ConfirmPrompt.tsx`). U
 
 #### `/plugin` — Plugin Management
 
-The `/plugin` command is owned by `@robota-sdk/agent-command`. The CLI supplies a local `ICommandPluginAdapter` that connects the command package and `PluginTUI` to `PluginSettingsStore`, `BundlePluginLoader`, `BundlePluginInstaller`, and `MarketplaceClient`.
+The `/plugin` command is owned by `@robota-sdk/agent-command`. The CLI supplies a local `ICommandPluginAdapter` that connects the command package and `PluginTUI` to `NodeHostPluginSettingsStore`, `BundlePluginLoader`, `BundlePluginInstaller`, and `MarketplaceClient`.
 
 Subcommands:
 
@@ -1380,7 +1414,7 @@ The StatusBar shows real-time session information:
 | -------- | ------------------------------------------ | ------------------------------------------------------ |
 | Mode     | `session.getPermissionMode()`              | Current permission mode, shown only when not `default` |
 | Model    | `getModelName(config.provider.model)`      | Human-readable model name (e.g., "Claude Sonnet 4.6")  |
-| Git      | `resolveGitBranch(cwd)`                    | Current git branch when available and enabled          |
+| Git      | `resolveGitBranchFromNodeHost(cwd)`        | Current git branch from the explicit host adapter      |
 | Context  | `session.getContextState().usedPercentage` | Context usage with K/M formatting (e.g., "90K/1M")     |
 | Session  | `session.getName()`                        | Session name (shown only when a name is set)           |
 | Activity | CLI-derived display state                  | Left-side primary activity text without a field prefix |

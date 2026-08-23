@@ -1,7 +1,7 @@
 import type { IEventService, IBaseEventData, IEventContext } from '@robota-sdk/agent-core';
 import type { ISubagentManager } from '@robota-sdk/agent-executor';
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
-import type { ISubagentJobState } from '@robota-sdk/agent-interface-transport';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
+import type { ISubagentJobState } from '@robota-sdk/agent-interface-execution';
 
 export const TEST_CONTEXT = { parentSessionId: 'sess-1', cwd: '/tmp/work', depth: 0 };
 

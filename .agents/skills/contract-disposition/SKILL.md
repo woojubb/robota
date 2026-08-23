@@ -8,16 +8,21 @@ description: Decide what to do with an unconsumed or seemingly-immovable public 
 Two mirror-image errors, one substitution. Both were made in a single session, and both were acted on
 by the agent that made them.
 
-| Proxy signal read        | Conclusion drawn        | What was actually true                                    |
-| ------------------------ | ----------------------- | --------------------------------------------------------- |
-| `grep` finds no consumer | "dead — remove it"      | forward-provisioned, or the owner is wrong → **relocate** |
-| the surface is published | "we cannot change this" | pre-release; **nothing is externally exposed**            |
+| Proxy signal read         | Conclusion drawn          | What was actually true                                                                |
+| ------------------------- | ------------------------- | ------------------------------------------------------------------------------------- |
+| `grep` finds no consumer  | "dead — remove it"        | forward-provisioned, or the owner is wrong → **relocate**                             |
+| `grep` finds one consumer | "make it package-private" | a library surface with one in-repo assembly; its other consumers are outside the repo |
+| the surface is published  | "we cannot change this"   | pre-release; **nothing is externally exposed**                                        |
 
 ## Rule Anchor
 
-- [project-structure.md](../../project-structure.md) `:225` — "Removal of an unconsumed public surface
-  is a PRODUCT decision — never a grep-based cleanup." **This rule already existed and was violated
-  anyway**, which is why this skill is a procedure plus a mechanism rather than a restatement.
+- [project-structure.md](../../project-structure.md) § Forward-Provisioned Surface Rule (`:236`) —
+  "Removal or narrowing of a public surface is a PRODUCT decision — never a grep-based cleanup."
+  **This rule already existed and was violated anyway**, which is why this skill is a procedure plus a
+  mechanism rather than a restatement. That section also owns the broader form: **in-repo consumer
+  count is not evidence about whether a surface should be public, at any count** — the only grounds for
+  narrowing or removing one are that it is genuinely unnecessary or that it does not fit the design
+  (owner decision, 2026-08-23).
 - [code-quality.md](../../rules/code-quality.md) `:50`–`:51` — pre-release, legacy is disposable and
   there is no backward-compat constraint to preserve a lesser structure.
 
@@ -47,9 +52,17 @@ nothing" is not among them:
 1. **Keep + document** as intentional forward provision. Forward-provisioned surfaces carry the same
    quality bar as consumed ones — accurate SPEC/README, tests, and bug fixes are unconditional.
 2. **Relocate** if the owner is wrong. The surface is real; it is in the wrong place.
-3. **Remove**, only by an explicit product decision, proposed as a user decision item with options.
+3. **Remove or narrow**, only by an explicit product decision, proposed as a user decision item with
+   options — and only on one of the two grounds that qualify: the surface is genuinely unnecessary, or
+   it does not fit the design. A consumer count is never one of them; it is at most what made you look.
 
-## What "unconsumed" does not tell you
+## What a consumer COUNT does not tell you
+
+The heading below says "unconsumed" because zero is the count that gets misread most often. **The
+reasoning applies at every count**, and one is the second-most-misread: a library surface used by a
+single in-repo assembly is the normal shape for a library whose other consumers compose it from
+outside. `packages/` exists so that anyone can build their own agent from it; this repository's own
+agent is one assembly of it, not the definition of it.
 
 - **A consumer may exist that grep cannot see** — a re-export chain, a string-keyed dispatch, a
   published-package consumer outside this repo, a test.

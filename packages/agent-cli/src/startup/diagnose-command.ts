@@ -1,12 +1,16 @@
 import { createConnection } from 'node:net';
-import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-import { getProviderSettingsPaths, readProviderSettings } from '@robota-sdk/agent-framework';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
+import {
+  createDefaultUserSettingsSources,
+  readProviderSettings,
+  readSettingsSourceText,
+} from '@robota-sdk/agent-framework';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 
 import type { IProviderDefinition, ITerminalOutput } from '@robota-sdk/agent-core';
+import type { TSettingsSource } from '@robota-sdk/agent-framework';
 
 const PROVIDER_ENDPOINTS: Record<string, { host: string; port: number }> = {
   anthropic: { host: 'api.anthropic.com', port: 443 },
@@ -20,6 +24,7 @@ export interface IDiagnoseContext {
   version: string;
   terminal: ITerminalOutput;
   cwd: string;
+  settingsSources?: readonly TSettingsSource[];
 }
 
 export interface IDiagnosticCheck {
@@ -58,12 +63,15 @@ function checkCliVersion(version: string): IDiagnosticCheck {
  * Diagnose can never disagree with session start again. Never prints key values.
  */
 function checkApiKeyResolution(
-  cwd: string,
   providerDefinitions: readonly IProviderDefinition[],
   env: Record<string, string | undefined>,
+  settingsSources: readonly TSettingsSource[],
 ): IDiagnosticCheck {
   try {
-    const config = readProviderSettings(cwd, { providerDefinitions, env });
+    const config = readProviderSettings(settingsSources, {
+      providerDefinitions,
+      env,
+    });
     const source =
       config.source === 'env-default'
         ? `env-default via ${config.sourceEnvVar ?? 'environment'}`
@@ -81,9 +89,11 @@ function checkApiKeyResolution(
   }
 }
 
-function validateJsonFile(filePath: string): 'ok' | 'corrupt' {
+function validateJsonSource(source: TSettingsSource): 'ok' | 'corrupt' {
   try {
-    JSON.parse(readFileSync(filePath, 'utf-8'));
+    const content = readSettingsSourceText(source, 'diagnose user settings');
+    if (content === undefined) return 'ok';
+    JSON.parse(content);
     return 'ok';
   } catch {
     // allow-fallback: corrupt JSON → reported as diagnostic finding, not a crash
@@ -97,8 +107,10 @@ function validateJsonFile(filePath: string): 'ok' | 'corrupt' {
  * project file exists. Missing files are not an issue (the API-key check
  * reports actual resolution failures).
  */
-function checkSettingsFiles(cwd: string): IDiagnosticCheck[] {
-  const existing = getProviderSettingsPaths(cwd).filter((path) => existsSync(path));
+function checkSettingsFiles(settingsSources: readonly TSettingsSource[]): IDiagnosticCheck[] {
+  const existing = settingsSources.filter(
+    (source) => readSettingsSourceText(source, 'diagnose user settings') !== undefined,
+  );
   if (existing.length === 0) {
     return [
       {
@@ -108,20 +120,22 @@ function checkSettingsFiles(cwd: string): IDiagnosticCheck[] {
       },
     ];
   }
-  return existing.map((path) =>
-    validateJsonFile(path) === 'corrupt'
+  return existing.map((source) =>
+    validateJsonSource(source) === 'corrupt'
       ? {
           label: 'Settings file',
           status: 'fail' as const,
-          message: `${path} — invalid JSON\n  Fix or delete the file, or run: robota --configure`,
+          message: `${source.displayName} — invalid JSON\n  Fix or delete the file, or run: robota --configure`,
         }
-      : { label: 'Settings file', status: 'ok' as const, message: path },
+      : { label: 'Settings file', status: 'ok' as const, message: source.displayName },
   );
 }
 
-function tryReadCurrentProvider(settingsPath: string): string | undefined {
+function tryReadCurrentProvider(source: TSettingsSource): string | undefined {
   try {
-    const doc = JSON.parse(readFileSync(settingsPath, 'utf-8')) as { currentProvider?: string };
+    const content = readSettingsSourceText(source, 'diagnose provider network endpoint');
+    if (content === undefined) return undefined;
+    const doc = JSON.parse(content) as { currentProvider?: string };
     return typeof doc.currentProvider === 'string' ? doc.currentProvider : undefined;
   } catch {
     // allow-fallback: unreadable settings for network check → caller uses default endpoint
@@ -142,16 +156,18 @@ export function resolveUserSettingsPath(): string {
   return join(homedir(), '.robota', 'settings.json');
 }
 
-function resolveNetworkEndpoint(cwd: string): { host: string; port: number } {
-  const settingsPath = join(cwd, '.robota', 'settings.json');
-  const homeSettings = resolveUserSettingsPath();
-  const activePath = existsSync(settingsPath)
-    ? settingsPath
-    : existsSync(homeSettings)
-      ? homeSettings
-      : undefined;
-  if (activePath !== undefined) {
-    const providerKey = (tryReadCurrentProvider(activePath) ?? '').toLowerCase();
+function resolveNetworkEndpoint(settingsSources: readonly TSettingsSource[]): {
+  host: string;
+  port: number;
+} {
+  const activeSource = [...settingsSources]
+    .reverse()
+    .find(
+      (source) =>
+        readSettingsSourceText(source, 'diagnose provider network endpoint') !== undefined,
+    );
+  if (activeSource !== undefined) {
+    const providerKey = (tryReadCurrentProvider(activeSource) ?? '').toLowerCase();
     const match = Object.entries(PROVIDER_ENDPOINTS).find(([key]) => providerKey.startsWith(key));
     if (match) return match[1];
   }
@@ -208,15 +224,16 @@ export async function runDiagnoseCommand(
 ): Promise<number> {
   ctx.terminal.writeLine('\nrobota diagnose\n');
 
-  const networkEndpoint = resolveNetworkEndpoint(ctx.cwd);
+  const settingsSources = ctx.settingsSources ?? createDefaultUserSettingsSources();
+  const networkEndpoint = resolveNetworkEndpoint(settingsSources);
   const providerDefinitions = deps.providerDefinitions ?? createDefaultProviderDefinitions();
   const env = deps.env ?? process.env;
 
   const checks: IDiagnosticCheck[] = [
     checkNodeVersion(),
     checkCliVersion(ctx.version),
-    checkApiKeyResolution(ctx.cwd, providerDefinitions, env),
-    ...checkSettingsFiles(ctx.cwd),
+    checkApiKeyResolution(providerDefinitions, env, settingsSources),
+    ...checkSettingsFiles(settingsSources),
     checkTerminal(),
     await deps.checkNetwork(networkEndpoint),
   ];

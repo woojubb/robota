@@ -4,8 +4,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
+import { createTrustedProjectSessionStoreFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
-import { createProjectSessionStore } from '../session-persistence.js';
 
 import type {
   IMemoryStore,
@@ -14,6 +14,7 @@ import type {
   IPerTurnRecallConfig,
 } from '../../memory/types.js';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
+import { loadedRecordOrMissing } from './session-load-helpers.js';
 
 /**
  * SELFHOST-008 P3 — per-turn recall wired into the live turn: query = the turn input, rendered under a
@@ -104,7 +105,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
 
   it('TC-02: the recalled block is EPHEMERAL — absent from the persisted session record', async () => {
     const cwd = makeProject();
-    const sessionStore = createProjectSessionStore(cwd);
+    const sessionStore = await createTrustedProjectSessionStoreFixture(cwd);
     const { provider } = createProvider();
     const store = createFakeStore(async () => ({
       content: RECALL_BODY,
@@ -122,7 +123,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
 
     await session.submit('rotate the deploy key');
 
-    const saved = sessionStore.load(session.getSession().getSessionId());
+    const saved = loadedRecordOrMissing(sessionStore, session.getSession().getSessionId());
     // whole persisted record must not contain the ephemeral recall marker or body
     expect(JSON.stringify(saved ?? {})).not.toContain('recalled-memory');
     expect(JSON.stringify(saved ?? {})).not.toContain('staging deploy key');

@@ -1,9 +1,10 @@
-import { mkdirSync, readFileSync, writeFileSync, rmSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   listGovernedSpecs,
@@ -22,7 +23,7 @@ const BACKLOG_RULE = fileURLToPath(
 
 const HEADING = '## User Execution Test Scenarios';
 
-const root = mkdtempSync(path.join(tmpdir(), 'harness-105-'));
+const root = makeTemp('harness-105-');
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 const write = (rel, body) => {
@@ -135,7 +136,7 @@ describe('spec-user-execution-section — findings (HARNESS-105)', () => {
   });
 
   it('fails closed on a tree with no spec folders at all', () => {
-    const empty = mkdtempSync(path.join(tmpdir(), 'harness-105-empty-'));
+    const empty = makeTemp('harness-105-empty-');
 
     expect(() => findMissingSectionFindings(empty)).toThrow(/missing from/);
 

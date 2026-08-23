@@ -12,7 +12,7 @@ import { PermissionEnforcer } from '../permission-enforcer.js';
 
 import type { IPermissionEnforcerOptions } from '../permission-types.js';
 import type {
-  IHookResult,
+  THookOutcome,
   IHookTypeExecutor,
   IToolResult,
   IToolWithEventService,
@@ -41,19 +41,20 @@ function makeTool(name: string, execute: () => Promise<IToolResult>): IToolWithE
 }
 
 /** A PreToolUse hook executor that denies via the given mechanism. */
-function makeDenyExecutor(mode: 'exit2' | 'json-deny'): IHookTypeExecutor {
+function makeDenyExecutor(mode: 'outcome-deny' | 'json-deny'): IHookTypeExecutor {
   return {
     type: 'command',
-    execute: vi.fn(async (): Promise<IHookResult> => {
-      if (mode === 'exit2') {
-        return { exitCode: 2, stdout: '', stderr: 'Denied: dangerous tool' };
+    execute: vi.fn(async (): Promise<THookOutcome> => {
+      if (mode === 'outcome-deny') {
+        // Formerly exit code 2. The mechanism is renamed; the contract it drives is not.
+        return { outcome: 'deny', source: 'command', reason: 'Denied: dangerous tool' };
       }
       return {
-        exitCode: 0,
+        outcome: 'allow',
+        source: 'command',
         stdout: JSON.stringify({
           hookSpecificOutput: { permissionDecision: 'deny' },
         }),
-        stderr: '',
       };
     }),
   };
@@ -78,13 +79,13 @@ function makeEnforcer(executor: IHookTypeExecutor): PermissionEnforcer {
 }
 
 describe('SELFHOST-009 TC-02 — PreToolUse security gate (functional)', () => {
-  it('exit-code-2 hook blocks the tool: execute is never called, denial returned', async () => {
+  it('a deny outcome blocks the tool: execute is never called, denial returned', async () => {
     const underlying = vi.fn(async (): Promise<IToolResult> => ({
       success: true,
       data: 'ran',
       metadata: {},
     }));
-    const enforcer = makeEnforcer(makeDenyExecutor('exit2'));
+    const enforcer = makeEnforcer(makeDenyExecutor('outcome-deny'));
     const [wrapped] = enforcer.wrapTools([makeTool('Bash', underlying)]);
 
     const result = await wrapped!.execute({ command: 'rm -rf /' });
@@ -119,7 +120,11 @@ describe('SELFHOST-009 TC-02 — PreToolUse security gate (functional)', () => {
     }));
     const passExecutor: IHookTypeExecutor = {
       type: 'command',
-      execute: vi.fn(async () => ({ exitCode: 0, stdout: '', stderr: '' })),
+      execute: vi.fn(async () => ({
+        outcome: 'allow' as const,
+        source: 'command' as const,
+        stdout: '',
+      })),
     };
     const enforcer = makeEnforcer(passExecutor);
     const [wrapped] = enforcer.wrapTools([makeTool('Read', underlying)]);

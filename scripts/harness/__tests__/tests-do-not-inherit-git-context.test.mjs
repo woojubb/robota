@@ -1,9 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
@@ -94,7 +95,7 @@ describe('the ambient git context is not inherited (HARNESS-075)', () => {
     //
     // A scratch repository has no such indirection, so the question is asked without a layout
     // assumption riding on it: given a cwd, does git answer from that cwd?
-    const scratch = mkdtempSync(path.join(tmpdir(), 'git-context-'));
+    const scratch = makeTemp('git-context-');
     try {
       execFileSync('git', ['init', '--quiet'], { cwd: scratch });
 

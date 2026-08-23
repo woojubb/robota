@@ -1,8 +1,9 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   findImportSafetyFindings,
@@ -31,7 +32,7 @@ afterEach(() => {
 });
 
 function scriptDir(files) {
-  const root = mkdtempSync(path.join(tmpdir(), 'import-safety-'));
+  const root = makeTemp('import-safety-');
   dirs.push(root);
   const dir = path.join(root, 'scripts/harness');
   mkdirSync(dir, { recursive: true });
@@ -167,7 +168,7 @@ describe('scan-harness-script-import-safety', () => {
 
   describe('fail-closed', () => {
     it('throws when the script directory is absent', () => {
-      const root = mkdtempSync(path.join(tmpdir(), 'import-safety-bare-'));
+      const root = makeTemp('import-safety-bare-');
       dirs.push(root);
       expect(() => findImportSafetyFindings(root)).toThrow(/does not exist/);
     });

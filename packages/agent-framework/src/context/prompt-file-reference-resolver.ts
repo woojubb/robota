@@ -1,12 +1,7 @@
-import { resolve } from 'node:path';
+import { isAbsolute, win32 } from 'node:path';
 
 import { parsePromptFileReferences } from './prompt-file-reference-parser.js';
-import {
-  isPathWithinRoot,
-  normalizeRelativePath,
-  resolveCandidatePath,
-} from './prompt-file-reference-paths.js';
-import { NodeFileSystemAsync } from '../adapters/node-file-system.js';
+import { assertWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 import type {
   IPromptFileReferenceDiagnostic,
@@ -18,7 +13,7 @@ import type {
   TPromptFileReferenceDiagnosticCode,
   TPromptFileReferenceReason,
 } from './prompt-file-reference-types.js';
-import type { IFileSystemAsync } from '@robota-sdk/agent-core';
+import type { IWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 const DEFAULT_MAX_DEPTH = Number('2');
 const DEFAULT_MAX_REFERENCES = Number('8');
@@ -34,28 +29,23 @@ interface IResolvedLimits {
 }
 
 interface IResolveState {
-  rootPath: string;
+  reader: IWorkspaceProjectReader;
+  startRelativeDirectory: string;
   limits: IResolvedLimits;
   reason: TPromptFileReferenceReason;
   references: IResolvedPromptFileReference[];
   diagnostics: IPromptFileReferenceDiagnostic[];
   loadedPaths: Set<string>;
   totalBytes: number;
-  fsAsync: IFileSystemAsync;
-}
-
-interface IReferenceFileInfo {
-  sourcePath: string;
-  byteLength: number;
 }
 
 export async function resolvePromptFileReferences(
   input: string,
   options: IPromptFileReferenceResolveOptions,
 ): Promise<IResolvedPromptFileReferences> {
-  const state = await createResolveState(options);
+  const state = createResolveState(options);
   for (const reference of parsePromptFileReferences(input)) {
-    await resolveReference(reference, 0, [], state);
+    resolveReference(reference, 0, [], state);
   }
   return toResolvedReferences(state);
 }
@@ -64,9 +54,9 @@ export async function resolvePromptFileReferencePaths(
   referencePaths: readonly string[],
   options: IPromptFileReferenceResolveOptions,
 ): Promise<IResolvedPromptFileReferences> {
-  const state = await createResolveState(options);
+  const state = createResolveState(options);
   for (const referencePath of referencePaths) {
-    await resolveReference(
+    resolveReference(
       { original: `@${referencePath}`, path: referencePath, index: 0 },
       0,
       [],
@@ -76,27 +66,26 @@ export async function resolvePromptFileReferencePaths(
   return toResolvedReferences(state);
 }
 
-async function createResolveState(
-  options: IPromptFileReferenceResolveOptions,
-): Promise<IResolveState> {
-  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
+function createResolveState(options: IPromptFileReferenceResolveOptions): IResolveState {
   return {
-    rootPath: await resolveWorkspaceRoot(options.cwd, fsAsync),
+    reader: assertWorkspaceProjectReader(options.reader),
+    startRelativeDirectory: normalizeStartDirectory(options.startRelativeDirectory),
     limits: resolveLimits(options.limits),
     reason: options.reason ?? 'prompt-reference',
     references: [],
     diagnostics: [],
     loadedPaths: new Set<string>(),
     totalBytes: 0,
-    fsAsync,
   };
 }
 
-function toResolvedReferences(state: IResolveState): IResolvedPromptFileReferences {
-  return {
-    references: state.references,
-    diagnostics: state.diagnostics,
-  };
+function normalizeStartDirectory(value: string | undefined): string {
+  if (value === undefined || value === '') return '';
+  const normalized = value.replaceAll('\\', '/');
+  if (hasUnsafePathShape(normalized)) {
+    throw new Error('Prompt reference start directory must stay within the authorized project.');
+  }
+  return normalized;
 }
 
 function resolveLimits(limits: IPromptFileReferenceLimits | undefined): IResolvedLimits {
@@ -108,37 +97,34 @@ function resolveLimits(limits: IPromptFileReferenceLimits | undefined): IResolve
   };
 }
 
-async function resolveWorkspaceRoot(cwd: string, fsAsync: IFileSystemAsync): Promise<string> {
-  try {
-    return await fsAsync.realpath(cwd);
-  } catch {
-    // allow-fallback: realpath fails for non-existent cwd; resolve() gives a usable absolute path
-    return resolve(cwd);
-  }
-}
-
-async function resolveReference(
+function resolveReference(
   reference: IPromptFileReferenceToken,
   depth: number,
   activePaths: readonly string[],
   state: IResolveState,
-): Promise<void> {
+): void {
   if (!checkReferenceBudget(reference, depth, state)) return;
-
-  const sourcePath = await resolveReferencePath(reference, state);
+  const sourcePath = resolveReferencePath(reference, state);
   if (sourcePath === undefined) return;
   if (!checkReferenceCycleAndDuplicate(reference, sourcePath, activePaths, state)) return;
 
-  const fileInfo = await inspectReferenceFile(reference, sourcePath, state);
-  if (fileInfo === undefined) return;
-
-  const content = await readReferenceFile(reference, sourcePath, state);
+  const content = readReferenceFile(reference, sourcePath, state);
   if (content === undefined) return;
+  const byteLength = Buffer.byteLength(content, 'utf8');
+  if (!checkByteBudget(reference, byteLength, state)) return;
 
   state.loadedPaths.add(sourcePath);
-  state.totalBytes += fileInfo.byteLength;
-  state.references.push(buildResolvedReference(reference, fileInfo, depth, content, state));
-  await resolveNestedReferences(content, depth, [...activePaths, sourcePath], state);
+  state.totalBytes += byteLength;
+  state.references.push({
+    originalReference: reference.original,
+    sourcePath,
+    relativePath: sourcePath,
+    reason: state.reason,
+    depth,
+    byteLength,
+    content,
+  });
+  resolveNestedReferences(content, depth, [...activePaths, sourcePath], state);
 }
 
 function checkReferenceBudget(
@@ -157,30 +143,52 @@ function checkReferenceBudget(
   return true;
 }
 
-async function resolveReferencePath(
+function hasUnsafePathShape(value: string): boolean {
+  const segments = value.split('/');
+  return (
+    value.startsWith('~/') ||
+    isAbsolute(value) ||
+    win32.isAbsolute(value) ||
+    segments.some((segment) => segment === '' || segment === '.' || segment === '..')
+  );
+}
+
+function resolveReferencePath(
   reference: IPromptFileReferenceToken,
   state: IResolveState,
-): Promise<string | undefined> {
-  const candidatePath = resolveCandidatePath(reference.path, state.rootPath);
-  if (!isPathWithinRoot(candidatePath, state.rootPath)) {
+): string | undefined {
+  const normalized = reference.path.replaceAll('\\', '/');
+  if (hasUnsafePathShape(normalized)) {
     pushDiagnostic(state, 'outside-root', reference, 'Referenced path is outside the workspace.');
     return undefined;
   }
-
-  try {
-    const sourcePath = await state.fsAsync.realpath(candidatePath);
-    if (isPathWithinRoot(sourcePath, state.rootPath)) return sourcePath;
+  const sourcePath =
+    state.startRelativeDirectory === ''
+      ? normalized
+      : `${state.startRelativeDirectory}/${normalized}`;
+  const kind = state.reader.inspectKind(sourcePath, 'inspect prompt file reference');
+  if (kind === undefined) {
+    pushDiagnostic(state, 'not-found', reference, 'Referenced file was not found.');
+    return undefined;
+  }
+  if (kind === 'link') {
+    pushDiagnostic(state, 'outside-root', reference, 'Referenced path is a refused symbolic link.');
+    return undefined;
+  }
+  if (kind === 'directory') {
     pushDiagnostic(
       state,
-      'outside-root',
+      'directory-not-supported',
       reference,
-      'Referenced path resolves outside the workspace.',
+      'Directory references are not supported.',
     );
-  } catch {
-    // allow-fallback: realpath failure means file absent; diagnostic is the intended result
-    pushDiagnostic(state, 'not-found', reference, 'Referenced file was not found.');
+    return undefined;
   }
-  return undefined;
+  if (kind !== 'file') {
+    pushDiagnostic(state, 'unreadable', reference, 'Referenced file could not be inspected.');
+    return undefined;
+  }
+  return sourcePath;
 }
 
 function checkReferenceCycleAndDuplicate(
@@ -196,89 +204,56 @@ function checkReferenceCycleAndDuplicate(
   return !state.loadedPaths.has(sourcePath);
 }
 
-async function inspectReferenceFile(
+function readReferenceFile(
   reference: IPromptFileReferenceToken,
   sourcePath: string,
   state: IResolveState,
-): Promise<IReferenceFileInfo | undefined> {
-  try {
-    const fileStat = await state.fsAsync.stat(sourcePath);
-    if (fileStat.isDirectory()) {
-      pushDiagnostic(
-        state,
-        'directory-not-supported',
-        reference,
-        'Directory references are not supported.',
-      );
-      return undefined;
-    }
-    if (fileStat.size > state.limits.maxFileBytes) {
-      pushDiagnostic(
-        state,
-        'file-too-large',
-        reference,
-        'Referenced file exceeds the per-file size limit.',
-      );
-      return undefined;
-    }
-    if (state.totalBytes + fileStat.size > state.limits.maxTotalBytes) {
-      pushDiagnostic(
-        state,
-        'total-too-large',
-        reference,
-        'Referenced files exceed the total size limit.',
-      );
-      return undefined;
-    }
-    return { sourcePath, byteLength: fileStat.size };
-  } catch {
-    // allow-fallback: stat failure means unreadable; diagnostic is the intended result
-    pushDiagnostic(state, 'unreadable', reference, 'Referenced file could not be inspected.');
-    return undefined;
-  }
+): string | undefined {
+  const content = state.reader.readText(sourcePath, 'load prompt file reference');
+  if (content !== undefined) return content;
+  pushDiagnostic(state, 'not-found', reference, 'Referenced file was not found.');
+  return undefined;
 }
 
-async function readReferenceFile(
+function checkByteBudget(
   reference: IPromptFileReferenceToken,
-  sourcePath: string,
+  byteLength: number,
   state: IResolveState,
-): Promise<string | undefined> {
-  try {
-    return await state.fsAsync.readFile(sourcePath, 'utf8');
-  } catch {
-    // allow-fallback: read failure means unreadable; diagnostic is the intended result
-    pushDiagnostic(state, 'unreadable', reference, 'Referenced file could not be read.');
-    return undefined;
+): boolean {
+  if (byteLength > state.limits.maxFileBytes) {
+    pushDiagnostic(
+      state,
+      'file-too-large',
+      reference,
+      'Referenced file exceeds the per-file size limit.',
+    );
+    return false;
   }
+  if (state.totalBytes + byteLength > state.limits.maxTotalBytes) {
+    pushDiagnostic(
+      state,
+      'total-too-large',
+      reference,
+      'Referenced files exceed the total size limit.',
+    );
+    return false;
+  }
+  return true;
 }
 
-function buildResolvedReference(
-  reference: IPromptFileReferenceToken,
-  fileInfo: IReferenceFileInfo,
-  depth: number,
-  content: string,
-  state: IResolveState,
-): IResolvedPromptFileReference {
-  return {
-    originalReference: reference.original,
-    sourcePath: fileInfo.sourcePath,
-    relativePath: normalizeRelativePath(state.rootPath, fileInfo.sourcePath),
-    reason: state.reason,
-    depth,
-    byteLength: fileInfo.byteLength,
-    content,
-  };
-}
-
-async function resolveNestedReferences(
+function resolveNestedReferences(
   content: string,
   depth: number,
   activePaths: readonly string[],
   state: IResolveState,
-): Promise<void> {
+): void {
   for (const nestedReference of parsePromptFileReferences(content)) {
-    await resolveReference(nestedReference, depth + 1, activePaths, state);
+    resolveReference(nestedReference, depth + 1, activePaths, state);
   }
+}
+
+function toResolvedReferences(state: IResolveState): IResolvedPromptFileReferences {
+  return { references: state.references, diagnostics: state.diagnostics };
 }
 
 function pushDiagnostic(

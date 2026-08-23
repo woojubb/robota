@@ -22,12 +22,9 @@ import type {
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
-import type {
-  ICompactEvent,
-  IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-transport';
+import type { ICompactEvent, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
-export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface-transport';
+export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface-session';
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 
 /** Options for graceful session shutdown. */
@@ -156,6 +153,8 @@ export interface ISessionOptions {
   autoCompactThreshold?: TAutoCompactThreshold;
   /** Session logger — injected for pluggable session event logging. */
   sessionLogger?: ISessionLogger;
+  /** Host-projected transcript path for hook compatibility; never inferred from a record store. */
+  transcriptPath?: string;
   /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
   hookTypeExecutors?: IHookTypeExecutor[];
   /** Name reported to the Robota agent config. Defaults to 'agent' if not provided. */

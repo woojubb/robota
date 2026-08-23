@@ -4,7 +4,7 @@ import {
   type TTuiNoticeInput,
 } from './tui-session-events.js';
 
-import type { TInteractiveEventName } from '@robota-sdk/agent-interface-transport';
+import type { TInteractiveEventName } from '@robota-sdk/agent-interface-session';
 
 const NOTICE_LIMIT = 50;
 

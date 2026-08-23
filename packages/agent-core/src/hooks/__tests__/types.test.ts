@@ -45,7 +45,11 @@ describe('Hook types', () => {
   it('should define IHookTypeExecutor interface', () => {
     const executor: IHookTypeExecutor = {
       type: 'command',
-      execute: async (_definition, _input) => ({ exitCode: 0, stdout: '', stderr: '' }),
+      execute: async (_definition, _input) => ({
+        outcome: 'allow' as const,
+        source: 'command' as const,
+        stdout: '',
+      }),
     };
     expect(executor.type).toBe('command');
   });

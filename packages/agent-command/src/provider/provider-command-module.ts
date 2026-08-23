@@ -6,7 +6,7 @@ import type {
   IProviderCommandSettingsAdapter,
   ISystemCommand as TSystemCommand,
 } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-transport';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
 export type { IProviderCommandModuleOptions, IProviderCommandSettingsAdapter };
 
 function buildProviderSubcommands(): ICommand[] {

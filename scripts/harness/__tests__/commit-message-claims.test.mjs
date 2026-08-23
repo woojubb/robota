@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 // allow-missing-artifact-file: every path in this file is an invented fixture — the case is what a claim looks like
 
@@ -122,7 +123,7 @@ describe('what counts as a citation', () => {
     // runs, exits non-zero, and that is a real answer, so the token IS refused. The outage case is
     // the one above it in the code — it throws rather than returning empty — and this case pins the
     // boundary between them by asserting the ANSWERING side still answers.
-    const notARepo = mkdtempSync(path.join(tmpdir(), 'claims-not-a-repo-'));
+    const notARepo = makeTemp('claims-not-a-repo-');
     try {
       expect(objectIsKnown('0123456789abcdef0123456789abcdef01234567', { root: notARepo })).toBe(
         false,
@@ -263,7 +264,7 @@ describe('which tree the path is judged against', () => {
     //
     // A scratch file outside the checkout, created by this case, so the assertion does not depend
     // on what the host happens to have lying around.
-    const outside = mkdtempSync(path.join(tmpdir(), 'outside-the-repo-'));
+    const outside = makeTemp('outside-the-repo-');
     writeFileSync(path.join(outside, 'target.md'), 'reachable only by escaping the root\n');
     try {
       const escaping = path.relative(WORKSPACE_ROOT, path.join(outside, 'target.md'));
@@ -348,7 +349,7 @@ describe('the rule is wired where commits actually pass through', () => {
 });
 
 function runCommitlint(message) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'commit-claims-'));
+  const dir = makeTemp('commit-claims-');
   const file = path.join(dir, 'MSG');
   writeFileSync(file, message);
   try {

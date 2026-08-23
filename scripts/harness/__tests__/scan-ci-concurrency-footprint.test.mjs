@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { findFootprint, readWorkflowFacts } from '../scan-ci-concurrency-footprint.mjs';
 
@@ -19,7 +20,7 @@ afterEach(() => {
 });
 
 function workflowRoot(files) {
-  const root = mkdtempSync(path.join(tmpdir(), 'ci-footprint-'));
+  const root = makeTemp('ci-footprint-');
   dirs.push(root);
   mkdirSync(path.join(root, '.github/workflows'), { recursive: true });
   for (const [name, body] of Object.entries(files)) {
@@ -67,7 +68,7 @@ describe('scan-ci-concurrency-footprint', () => {
   });
 
   it('(RED) fails closed when there are no workflows to measure', () => {
-    const bare = mkdtempSync(path.join(tmpdir(), 'ci-footprint-bare-'));
+    const bare = makeTemp('ci-footprint-bare-');
     dirs.push(bare);
     expect(() => findFootprint(bare)).toThrow(/does not exist/);
   });

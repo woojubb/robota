@@ -20,7 +20,7 @@ import {
 import TextPrompt from './TextPrompt.js';
 
 import type { IMenuSelectItem } from './MenuSelect.js';
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-transport';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 
 type TScreenId =
   | 'main'

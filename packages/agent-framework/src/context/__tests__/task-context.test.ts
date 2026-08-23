@@ -11,6 +11,10 @@ import {
   parseTaskFile,
   selectRelevantTasks,
 } from '../task-context.js';
+import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
+import { getWorkspaceProjectReader } from '../../workspace-trust/index.js';
+
+import type { IWorkspaceProjectReader } from '../../workspace-trust/index.js';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-task-context-'));
 
@@ -21,9 +25,15 @@ function makeProject(): string {
 }
 
 function writeTask(cwd: string, name: string, content: string): string {
-  const path = join(cwd, '.agents', 'tasks', name);
-  writeFileSync(path, content, 'utf8');
-  return path;
+  const relativePath = join('.agents', 'tasks', name);
+  writeFileSync(join(cwd, relativePath), content, 'utf8');
+  return relativePath;
+}
+
+async function projectReader(cwd: string): Promise<IWorkspaceProjectReader> {
+  const access = await createTrustedProjectAccessFixture(cwd);
+  if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
+  return getWorkspaceProjectReader(access.authority);
 }
 
 afterEach(() => {
@@ -33,19 +43,19 @@ afterEach(() => {
 });
 
 describe('task context loading', () => {
-  it('discovers direct task markdown files and excludes README and completed tasks', () => {
+  it('discovers direct task markdown files and excludes README and completed tasks', async () => {
     const cwd = makeProject();
     writeTask(cwd, 'CLI-BL-001-example.md', '# CLI-BL-001');
     writeTask(cwd, 'README.md', '# Tasks');
     mkdirSync(join(cwd, '.agents', 'tasks', 'completed'), { recursive: true });
     writeFileSync(join(cwd, '.agents', 'tasks', 'completed', 'DONE.md'), '# Done', 'utf8');
 
-    expect(discoverTaskFiles(cwd).map((path) => path.replace(cwd, ''))).toEqual([
-      '/.agents/tasks/CLI-BL-001-example.md',
+    expect(discoverTaskFiles(await projectReader(cwd))).toEqual([
+      '.agents/tasks/CLI-BL-001-example.md',
     ]);
   });
 
-  it('parses task metadata, objective, and unchecked completion items', () => {
+  it('parses task metadata, objective, and unchecked completion items', async () => {
     const cwd = makeProject();
     const path = writeTask(
       cwd,
@@ -68,7 +78,7 @@ describe('task context loading', () => {
       ].join('\n'),
     );
 
-    expect(parseTaskFile(path, cwd)).toMatchObject({
+    expect(parseTaskFile(path, await projectReader(cwd))).toMatchObject({
       title: 'CLI-BL-001: Example',
       relativePath: '.agents/tasks/CLI-BL-001-example.md',
       status: 'in-progress',
@@ -79,17 +89,21 @@ describe('task context loading', () => {
     });
   });
 
-  it('selects current-branch tasks before other active tasks and respects the max task count', () => {
+  it('selects current-branch tasks before other active tasks and respects the max task count', async () => {
     const cwd = makeProject();
+    const reader = await projectReader(cwd);
     const first = parseTaskFile(
       writeTask(cwd, 'A.md', '# A\n\n- **Status**: todo\n- **Branch**: feat/other\n'),
-      cwd,
+      reader,
     );
     const second = parseTaskFile(
       writeTask(cwd, 'B.md', '# B\n\n- **Status**: in-progress\n- **Branch**: feat/current\n'),
-      cwd,
+      reader,
     );
-    const third = parseTaskFile(writeTask(cwd, 'C.md', '# C\n\n- **Status**: in-progress\n'), cwd);
+    const third = parseTaskFile(
+      writeTask(cwd, 'C.md', '# C\n\n- **Status**: in-progress\n'),
+      reader,
+    );
 
     expect(
       selectRelevantTasks([first, third, second], {
@@ -99,7 +113,7 @@ describe('task context loading', () => {
     ).toEqual(['B', 'C']);
   });
 
-  it('formats selected tasks as neutral markdown without behavior instructions', () => {
+  it('formats selected tasks as neutral markdown without behavior instructions', async () => {
     const cwd = makeProject();
     const task = parseTaskFile(
       writeTask(
@@ -115,7 +129,7 @@ describe('task context loading', () => {
           '- [ ] Verify prompt output',
         ].join('\n'),
       ),
-      cwd,
+      await projectReader(cwd),
     );
 
     const formatted = formatTaskContext([task]);
@@ -128,11 +142,11 @@ describe('task context loading', () => {
     expect(formatted).not.toContain('Always');
   });
 
-  it('loads bounded task context for the current project', () => {
+  it('loads bounded task context for the current project', async () => {
     const cwd = makeProject();
     writeTask(cwd, 'CLI-BL-001-example.md', '# CLI-BL-001\n\n- **Status**: in-progress\n');
 
-    const context = loadTaskContext(cwd, { maxTasks: 3 });
+    const context = loadTaskContext(await projectReader(cwd), { maxTasks: 3 });
 
     expect(context).toContain('CLI-BL-001');
   });

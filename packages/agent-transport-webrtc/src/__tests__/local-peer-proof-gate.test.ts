@@ -1,4 +1,4 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -6,7 +6,7 @@ import { judgeLocalProof, localProofFrame, type ILocalPeerProof } from '../local
 import { PairingGate, type IPairingGateOptions } from '../pairing-gate.js';
 
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
-import type { IPeerAdmission } from '@robota-sdk/agent-interface-transport';
+import type { IPeerAdmission } from '@robota-sdk/agent-interface-session-mobility';
 import type { createWsHandler } from '@robota-sdk/agent-transport-protocol';
 
 /**

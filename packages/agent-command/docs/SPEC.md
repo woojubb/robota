@@ -24,7 +24,7 @@ Each command domain lives in its own subdirectory (`src/<command>/`) with a cons
 
 Two cross-cutting subdirectories:
 
-- `src/default/` — `createDefaultCommandModules` assembles all 25 standard command modules and returns `IDefaultCommandModulesResult` (`{ modules, unknownModuleNames }`, INFRA-032). Consumers pass `cwd`, `providerDefinitions`, `providerSettingsAdapter`, and optionally `enabledCommandModules` / `disabledCommandModules` (allow-then-deny module name filters). The allow-then-deny filtering is delegated to agent-framework's `selectCommandModules` (the single filter implementation — the local `applyModuleSelection` is a thin delegator, INFRA-032), and `unknownModuleNames` is computed via the framework's `findUnknownModuleNames(builtModuleNames, enabled, disabled)`: any `enabled`/`disabled` name that matched no built module (a short form like `editor` instead of `agent-command-editor`, or a typo) is returned as data — not silently dropped — so the CLI startup path can surface a non-fatal notice. `orgPolicy` is not an option here — it is wired at the provider-command-module level via `createProviderCommandModule`.
+- `src/default/` — `createDefaultCommandModules` assembles all 25 standard command modules and returns `IDefaultCommandModulesResult` (`{ modules, unknownModuleNames }`, INFRA-032). Consumers pass `cwd`, explicit `contributionSources`, `providerDefinitions`, `providerSettingsAdapter`, and optionally `enabledCommandModules` / `disabledCommandModules` (allow-then-deny module name filters). Skills discovery consumes only those sources; it never reconstructs project reads from `cwd`. The allow-then-deny filtering is delegated to agent-framework's `selectCommandModules` (the single filter implementation — the local `applyModuleSelection` is a thin delegator, INFRA-032), and `unknownModuleNames` is computed via the framework's `findUnknownModuleNames(builtModuleNames, enabled, disabled)`: any `enabled`/`disabled` name that matched no built module (a short form like `editor` instead of `agent-command-editor`, or a typo) is returned as data — not silently dropped — so the CLI startup path can surface a non-fatal notice. `orgPolicy` is not an option here — it is wired at the provider-command-module level via `createProviderCommandModule`.
 - `src/plugins/` — provides `createDefaultPluginCommandAdapter` (wires `BundlePluginInstaller`, `BundlePluginLoader`, `MarketplaceClient` into an `ICommandPluginAdapter`) and `reloadPluginCommandSource` (synchronously reloads plugin commands into a `CommandRegistry`).
 
 The `agent` command module sets `sessionRequirements: ['agent-runtime']`, which signals to the session layer that this module must only be registered when an agent runtime is available.
@@ -44,19 +44,19 @@ No circular dependencies. This package does not depend on any other `agent-comma
 
 Types defined (SSOT) in this package:
 
-| Type                             | Location                                 | Purpose                                                  |
-| -------------------------------- | ---------------------------------------- | -------------------------------------------------------- |
-| `IDefaultCommandModulesOptions`  | `src/default/default-command-modules.ts` | Options for `createDefaultCommandModules`                |
-| `ISkillsCommandModuleOptions`    | `src/skills/skills-command-module.ts`    | Options for `createSkillsCommandModule` (requires `cwd`) |
-| `IProviderSetupFlowState`        | `src/provider/provider-setup-flow.ts`    | Immutable state machine for the provider setup wizard    |
-| `IProviderSetupFlowOptions`      | `src/provider/provider-setup-flow.ts`    | Initial options for `createProviderSetupFlow`            |
-| `IProviderSetupPromptStep`       | `src/provider/provider-setup-flow.ts`    | One step in the provider setup wizard                    |
-| `TProviderSetupFlowSubmitResult` | `src/provider/provider-setup-flow.ts`    | Union result of `submitProviderSetupValue`               |
-| `TProviderSetupType`             | `src/provider/provider-setup-flow.ts`    | String alias for provider type identifier                |
-| `TPromptInput`                   | `src/provider/provider-setup-flow.ts`    | Callback signature for interactive text prompts          |
-| `IProviderStartupContext`        | `src/provider/provider-startup.ts`       | Context passed to `runProviderStartupSetup`              |
-| `IEnsureProviderConfigOptions`   | `src/provider/provider-startup.ts`       | Options for `ensureProviderConfig`                       |
-| `IUserLocalDirectCommandOptions` | `src/user-local/user-local-command.ts`   | Options for `executeUserLocalDirectCommand`              |
+| Type                             | Location                                 | Purpose                                                                 |
+| -------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------- |
+| `IDefaultCommandModulesOptions`  | `src/default/default-command-modules.ts` | Options for `createDefaultCommandModules`                               |
+| `ISkillsCommandModuleOptions`    | `src/skills/skills-command-module.ts`    | Options for `createSkillsCommandModule` (explicit contribution sources) |
+| `IProviderSetupFlowState`        | `src/provider/provider-setup-flow.ts`    | Immutable state machine for the provider setup wizard                   |
+| `IProviderSetupFlowOptions`      | `src/provider/provider-setup-flow.ts`    | Initial options for `createProviderSetupFlow`                           |
+| `IProviderSetupPromptStep`       | `src/provider/provider-setup-flow.ts`    | One step in the provider setup wizard                                   |
+| `TProviderSetupFlowSubmitResult` | `src/provider/provider-setup-flow.ts`    | Union result of `submitProviderSetupValue`                              |
+| `TProviderSetupType`             | `src/provider/provider-setup-flow.ts`    | String alias for provider type identifier                               |
+| `TPromptInput`                   | `src/provider/provider-setup-flow.ts`    | Callback signature for interactive text prompts                         |
+| `IProviderStartupContext`        | `src/provider/provider-startup.ts`       | Context passed to `runProviderStartupSetup`                             |
+| `IEnsureProviderConfigOptions`   | `src/provider/provider-startup.ts`       | Options for `ensureProviderConfig`                                      |
+| `IUserLocalDirectCommandOptions` | `src/user-local/user-local-command.ts`   | Options for `executeUserLocalDirectCommand`                             |
 
 Types re-exported from `agent-framework` (not owned here):
 
@@ -164,9 +164,9 @@ does not maintain a parallel role-to-name registry. Renaming an owner command th
 that command value, while the framework projection follows the declaration.
 
 - **`ICommandModule`** (from `agent-framework`): every command domain creates one via its factory function. Consumers can create additional `ICommandModule` values and register them alongside the defaults.
-- **`ICommandSource`** (from `agent-framework`): each `*CommandSource` class implements `ICommandSource`. The skills module pushes a second source (`SkillCommandSource` from `agent-framework`) to expose file-based skills loaded from `cwd`.
+- **`ICommandSource`** (from `agent-framework`): each `*CommandSource` class implements `ICommandSource`. The skills module pushes a second source (`SkillCommandSource` from `agent-framework`) to expose file-based skills from explicit host or authority-backed contribution sources.
 - **`ICommandPluginAdapter`** (from `agent-framework`): `createDefaultPluginCommandAdapter` returns a production implementation. Consumers may supply a different adapter (e.g., in tests) that satisfies the same interface.
-- **`IProviderCommandSettingsAdapter`** (from `agent-framework`): consumers implement this interface to connect provider command operations to their settings backend.
+- **`IProviderCommandSettingsAdapter`** (from `agent-framework`): consumers implement this interface to connect provider command operations to their settings backend. Startup helpers additionally accept discriminated `settingsSources` and `settingsStores`; project writes require an authority-backed store, while an unavailable requested project-local target fails with `WorkspaceAuthorityRequiredError` rather than deriving a path from `cwd`.
 - **`IOrgPolicy`** (from `agent-framework`): passed to `createProviderCommandModule` and `createDefaultCommandModules`; gates provider switching and API key configuration per org policy.
 - **CMD-004 ask seam** (`context.getUserInteraction()?.ask(IActionRequest)`, contract owned by `agent-core`): a command that needs input (mode/preset/language selection, the provider setup/edit/duplicate/delete wizard, exit/clear confirmation) asks for it inline at the top of `execute`. The host renders the `IActionRequest` per-environment; with no interactive renderer attached (headless/automation), `getUserInteraction()` returns `undefined` and the command takes its explicit no-human path. The CLI does not hard-code command-specific dialog logic.
 

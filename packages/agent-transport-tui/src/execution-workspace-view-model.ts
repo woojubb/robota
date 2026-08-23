@@ -5,7 +5,7 @@ import type {
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
   TExecutionWorkspaceStatus,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 // "Active" for the in-flight COUNT (countActiveBackgroundWorkspaceEntries) —
 // intentionally includes `waiting_permission` (a task awaiting permission is still

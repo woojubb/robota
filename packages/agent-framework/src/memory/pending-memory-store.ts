@@ -1,13 +1,11 @@
-import { dirname, join } from 'node:path';
-
-import { NodeFileSystem } from '../adapters/node-file-system.js';
+import { assertWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
 import type {
   IMemoryCandidate,
   IMemoryPendingRecord,
   TMemoryCandidateStatus,
 } from './automatic-memory-types.js';
-import type { IFileSystem } from '@robota-sdk/agent-core';
+import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
 interface IPendingMemoryDocument {
   version: 1;
@@ -15,10 +13,6 @@ interface IPendingMemoryDocument {
 }
 
 const PENDING_FILENAME = 'pending.json';
-
-function memoryRoot(cwd: string): string {
-  return join(cwd, '.robota', 'memory');
-}
 
 function emptyDocument(): IPendingMemoryDocument {
   return { version: 1, records: [] };
@@ -29,11 +23,14 @@ export class PendingMemoryStore {
   private readonly now: () => Date;
 
   constructor(
-    cwd: string,
+    private readonly storage: IWorkspaceProjectStateStorage,
     now: () => Date = () => new Date(),
-    private readonly fs: IFileSystem = new NodeFileSystem(),
   ) {
-    this.path = join(memoryRoot(cwd), PENDING_FILENAME);
+    assertWorkspaceProjectStateStorage(storage);
+    if (storage.namespace !== 'memory') {
+      throw new Error('PendingMemoryStore requires the memory state namespace.');
+    }
+    this.path = storage.projectRelativePath(PENDING_FILENAME);
     this.now = now;
   }
 
@@ -84,9 +81,10 @@ export class PendingMemoryStore {
   }
 
   private read(): IPendingMemoryDocument {
-    if (!this.fs.existsSync(this.path)) return emptyDocument();
+    const raw = this.storage.readText(PENDING_FILENAME, 'load pending memory');
+    if (raw === undefined) return emptyDocument();
     try {
-      const parsed = JSON.parse(this.fs.readFileSync(this.path, 'utf8')) as IPendingMemoryDocument;
+      const parsed = JSON.parse(raw) as IPendingMemoryDocument;
       return { version: 1, records: parsed.records ?? [] };
     } catch {
       // allow-fallback: corrupt JSON treated as empty document
@@ -95,7 +93,10 @@ export class PendingMemoryStore {
   }
 
   private write(document: IPendingMemoryDocument): void {
-    this.fs.mkdirSync(dirname(this.path), { recursive: true });
-    this.fs.writeFileSync(this.path, JSON.stringify(document, null, 2), 'utf8');
+    this.storage.writeText(
+      PENDING_FILENAME,
+      JSON.stringify(document, null, 2),
+      'persist pending memory',
+    );
   }
 }

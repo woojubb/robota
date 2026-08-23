@@ -26,17 +26,22 @@
  * hand off to a destination that then crashed before writing.
  */
 
+import { decodeInteractiveSessionRecord } from '@robota-sdk/agent-session';
+
 import type {
   IHandoffAssemblerPort,
   IHandoffChunkFrame,
   IHandoffComposition,
 } from './handoff-composition.js';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 import type {
   IHandoffCommitAck,
   IHandoffManifest,
-  IInteractiveSessionRecord,
   THandoffRefusal,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session-mobility';
+
+/** How many decode issues a refusal detail carries before it elides the rest. */
+const MAX_REPORTED_ISSUES = 5;
 
 /** What this end is doing. `staged` is complete and verified; it is NOT live. */
 export type TDestinationState = 'idle' | 'receiving' | 'staged' | 'committed' | 'discarded';
@@ -106,7 +111,15 @@ export class HandoffDestination {
           `${verdict.expectedBytes ?? manifest.integrity.byteLength} byte(s), ${verdict.actualBytes ?? 0} arrived`,
       );
     }
-    this.record = JSON.parse(result.serialized ?? '') as IInteractiveSessionRecord;
+    // TRANS-006: integrity is not validity. The digest proves the bytes that arrived are the bytes
+    // that were sent; it says nothing about whether they are a session record. A source on a
+    // different build, a partially written record, or a crafted payload all produce an intact
+    // transfer of an invalid record — and `staged` is a promise that this machine could commit it.
+    const decoded = this.decodePayload(result.serialized ?? '');
+    if (decoded.status !== 'valid') {
+      return this.discard('payload-undecodable', decoded.detail);
+    }
+    this.record = decoded.record;
     this.state = 'staged';
     return this.settle({ state: this.state });
   }
@@ -159,6 +172,47 @@ export class HandoffDestination {
    */
   acknowledgement(): IHandoffCommitAck | null {
     return this.ack;
+  }
+
+  /**
+   * Decode a verified payload, reporting a non-JSON body the same way as a non-record body.
+   *
+   * `JSON.parse` throwing and the decoder refusing are one failure for the source — the bytes are
+   * not a session record — so they are not two outcomes to distinguish. An exception escaping
+   * `receiveChunk` would be worse than either: the destination would be left in `receiving` with no
+   * report, and the source would wait on a transfer that already failed.
+   */
+  private decodePayload(
+    serialized: string,
+  ):
+    | { readonly status: 'valid'; readonly record: IInteractiveSessionRecord }
+    | { readonly status: 'invalid'; readonly detail: string } {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(serialized) as unknown;
+    } catch {
+      return { status: 'invalid', detail: 'payload verified intact but is not JSON' };
+    }
+    const outcome = decodeInteractiveSessionRecord(parsed);
+    if (outcome.status === 'valid') return { status: 'valid', record: outcome.record };
+    if (outcome.status === 'unsupported') {
+      return {
+        status: 'invalid',
+        detail: `payload declares session-record schema version ${outcome.schemaVersion ?? '(absent)'}, which this build does not read`,
+      };
+    }
+    const shown = outcome.issues.slice(0, MAX_REPORTED_ISSUES);
+    const detail = shown
+      .map((issue) => `${issue.path === '' ? '(root)' : issue.path}: ${issue.message}`)
+      .join('; ');
+    const elided =
+      outcome.issues.length > shown.length
+        ? ` (+${outcome.issues.length - shown.length} more)`
+        : '';
+    return {
+      status: 'invalid',
+      detail: `payload verified intact but did not decode as a session record — ${detail}${elided}`,
+    };
   }
 
   /** Throw away a transfer that has not committed. The source is unaffected — it was never told. */

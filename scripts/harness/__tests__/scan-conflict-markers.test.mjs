@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   examinedDocumentCount,
@@ -19,7 +19,7 @@ const GREEN_AGENTS_MD = '# AGENTS\n\nAll guidance here is rule-conforming.\n';
 const GREEN_RULE_MD = '# Rule\n\nUse strict types everywhere.\n';
 
 async function createFixture(files = {}) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-conflict-markers-'));
+  const root = makeTemp('robota-conflict-markers-');
   // HARNESS-052: the scan now also looks for LITERAL git conflict debris in the source trees, and
   // fails closed when one is absent — so a fixture must provide them, empty, to represent a clean
   // tree. Their absence means "could not read", which is deliberately not the same as "clean".
@@ -61,7 +61,7 @@ describe('literal git conflict debris', () => {
   });
 
   it('FAILS CLOSED when a governed source tree is absent', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-conflict-bare-'));
+    const root = makeTemp('robota-conflict-bare-');
     expect(() => findConflictMarkerFindings(root)).toThrow(/governed tree\(s\) absent/);
   });
 });

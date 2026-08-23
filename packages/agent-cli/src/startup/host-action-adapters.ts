@@ -17,7 +17,7 @@ import { startLocalPeerMessaging } from '../remote-control/local-peer-messaging.
 
 import type { ILocalPeerPresence } from '../remote-control/local-peer-presence.js';
 import type { IPeerMessaging } from '../remote-control/local-peer-messaging.js';
-import type { ITurnHandle } from '@robota-sdk/agent-interface-transport';
+import type { ITurnHandle } from '@robota-sdk/agent-interface-session';
 
 /** The one session operation peer messaging needs — narrow, so this file cannot grow a second one. */
 interface IPeerIngressSession {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { EditCheckpointStore } from '@robota-sdk/agent-framework';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import { toChannelOptions } from '../render.js';
 import type { IRenderOptions } from '../render.js';
@@ -48,5 +49,17 @@ describe('toChannelOptions', () => {
       cliAdapter: {} as ITuiCliAdapter,
     });
     expect(channelOptions.model).toBeUndefined();
+  });
+
+  it('threads the explicit checkpoint capability without deriving it from cwd', () => {
+    const editCheckpointStore = {} as EditCheckpointStore;
+    const channelOptions = toChannelOptions({
+      cwd: '/tmp/project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+      editCheckpointStore,
+    });
+
+    expect(channelOptions.editCheckpointStore).toBe(editCheckpointStore);
   });
 });

@@ -1,14 +1,14 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { makeTemp } from './make-temp.mjs';
+
 import { findDevDepOnlyRuntimeImports } from '../check-dep-kind.mjs';
 
 async function createFixture(packages) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-dep-kind-'));
+  const root = makeTemp('robota-dep-kind-');
   for (const pkg of packages) {
     const pkgDir = path.join(root, 'packages', pkg.dir);
     mkdirSync(path.join(pkgDir, 'src'), { recursive: true });

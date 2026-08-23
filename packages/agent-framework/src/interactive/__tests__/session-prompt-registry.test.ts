@@ -9,7 +9,7 @@ import type {
   IAskRequestEvent,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 /**
  * REMOTE-007 (B4-2a) — the transport-neutral pending-prompt registry. A stub emitter with a

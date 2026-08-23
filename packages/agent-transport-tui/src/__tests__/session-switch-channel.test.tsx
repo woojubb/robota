@@ -26,7 +26,7 @@ import type { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 const TICK_MS = 30;
 const FRAME_DEADLINE_MS = 3000;
@@ -131,8 +131,11 @@ function asChannel(fake: IFakeChannel): TuiInteractionChannel {
 function createFakeStore(records: IInteractiveSessionRecord[]): IInteractiveSessionStore {
   return {
     save: () => undefined,
-    load: (id) => records.find((r) => r.id === id),
-    list: () => records,
+    load: (id) => {
+      const record = records.find((r) => r.id === id);
+      return record === undefined ? { status: 'missing' } : { status: 'valid', record };
+    },
+    list: () => records.map((record) => ({ id: record.id, outcome: { status: 'valid', record } })),
     delete: () => undefined,
   };
 }

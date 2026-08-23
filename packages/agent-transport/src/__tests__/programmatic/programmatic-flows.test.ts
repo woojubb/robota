@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createProgrammaticAgent } from '../../programmatic/index.js';
 
 import type { ICommandModule } from '@robota-sdk/agent-framework';
-import type { IAgentDriver, InteractionEvent } from '@robota-sdk/agent-interface-transport';
+import type { IAgentDriver, InteractionEvent } from '@robota-sdk/agent-interface-session';
 
 function commandResults(
   events: readonly InteractionEvent[],

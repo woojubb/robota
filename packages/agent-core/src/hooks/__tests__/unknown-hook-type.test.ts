@@ -26,7 +26,7 @@ const input = { toolName: 'Bash', toolInput: {} } as never;
 
 const passingExecutor: IHookTypeExecutor = {
   type: 'command',
-  execute: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
+  execute: async () => ({ outcome: 'allow' as const, source: 'command' as const, stdout: '' }),
 };
 
 describe('#1831 — an unrecognised hook type is reported, not skipped in silence', () => {
@@ -68,7 +68,11 @@ describe('#1831 — an unrecognised hook type is reported, not skipped in silenc
     // disabled gates would see them only when nothing blocked.
     const blocking: IHookTypeExecutor = {
       type: 'command',
-      execute: async () => ({ exitCode: 2, stdout: '', stderr: 'denied' }),
+      execute: async () => ({
+        outcome: 'deny' as const,
+        source: 'command' as const,
+        reason: 'denied',
+      }),
     };
     const mixed = {
       PreToolUse: [
@@ -106,7 +110,7 @@ describe('#1831 — an unrecognised hook type is reported, not skipped in silenc
       type: 'command',
       execute: async () => {
         ran = true;
-        return { exitCode: 0, stdout: 'ok', stderr: '' };
+        return { outcome: 'allow' as const, source: 'command' as const, stdout: 'ok' };
       },
     };
 

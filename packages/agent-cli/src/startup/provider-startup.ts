@@ -3,12 +3,19 @@ import type { IParsedCliArgs } from '../utils/cli-args.js';
 import {
   applyProviderConfiguration,
   applyProviderSwitch,
+  createDefaultUserSettingsSources,
+  createNodeHostSettingsStore,
+  getUserSettingsPath,
   readMergedProviderSettings,
-  resolveProviderSettingsWriteTargetPath,
-  resolveSettingsPathForScope,
+  resolveProviderSettingsWriteTarget,
+  WorkspaceAuthorityRequiredError,
 } from '@robota-sdk/agent-framework';
-import type { TSettingsScope } from '@robota-sdk/agent-framework';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
+import type {
+  ISettingsDocumentStore,
+  TSettingsScope,
+  TSettingsSource,
+} from '@robota-sdk/agent-framework';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import { type IProviderSetupInput } from '@robota-sdk/agent-framework';
 import {
   ensureProviderConfig,
@@ -16,6 +23,35 @@ import {
   type TPromptInput,
 } from '@robota-sdk/agent-command';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
+
+export interface IProviderStartupSettingsAccess {
+  readonly settingsSources?: readonly TSettingsSource[];
+  readonly settingsStores?: readonly ISettingsDocumentStore[];
+}
+
+function resolveStartupSettingsAccess(
+  access: IProviderStartupSettingsAccess,
+): Required<IProviderStartupSettingsAccess> {
+  return {
+    settingsSources: access.settingsSources ?? createDefaultUserSettingsSources(),
+    settingsStores: access.settingsStores ?? [
+      createNodeHostSettingsStore('user', getUserSettingsPath()),
+    ],
+  };
+}
+
+function selectStartupSettingsStore(
+  stores: readonly ISettingsDocumentStore[],
+  scope: TSettingsScope | undefined,
+): ISettingsDocumentStore {
+  if (scope === undefined) return resolveProviderSettingsWriteTarget(stores);
+  const targetScope = scope === 'user' ? 'user' : 'project-local';
+  const store = stores.findLast((candidate) => candidate.scope === targetScope);
+  if (store !== undefined) return store;
+  throw new WorkspaceAuthorityRequiredError(
+    `No authorized ${targetScope} settings store is available.`,
+  );
+}
 
 function validateSettingsScope(scope: string | undefined): TSettingsScope | undefined {
   if (scope === undefined || scope === 'user' || scope === 'project-local') {
@@ -25,24 +61,26 @@ function validateSettingsScope(scope: string | undefined): TSettingsScope | unde
 }
 
 export function handleProviderConfigurationArgs(
-  cwd: string,
+  _cwd: string,
   args: IParsedCliArgs,
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
+  settingsAccess: IProviderStartupSettingsAccess = {},
 ): boolean {
-  const settingsPath = resolveSettingsPathForScope(cwd, validateSettingsScope(args.settingsScope));
+  const scope = validateSettingsScope(args.settingsScope);
+  const access = resolveStartupSettingsAccess(settingsAccess);
+  const settingsStore = selectStartupSettingsStore(access.settingsStores, scope);
+  const settingsSources = access.settingsSources;
   if (args.configureProvider) {
-    applyProviderConfiguration(settingsPath, buildSetupInputFromArgs(args), {
+    applyProviderConfiguration(settingsStore, buildSetupInputFromArgs(args), {
       providerDefinitions,
     });
-    terminal.writeLine(`Provider profile saved to ${settingsPath}`);
+    terminal.writeLine(`Provider profile saved to ${settingsStore.displayName}`);
     return !args.printMode && args.positional.length === 0;
   }
   if (args.provider && args.setCurrent) {
-    const switchSettingsPath =
-      args.settingsScope === undefined ? resolveProviderSettingsWriteTargetPath(cwd) : settingsPath;
-    applyProviderSwitch(switchSettingsPath, args.provider, {
-      knownProviders: readMergedProviderSettings(cwd).providers,
+    applyProviderSwitch(settingsStore, args.provider, {
+      knownProviders: readMergedProviderSettings(settingsSources).providers,
     });
     terminal.writeLine(`Current provider set to ${args.provider}`);
     return !args.printMode && args.positional.length === 0;
@@ -57,10 +95,17 @@ export async function ensureConfig(
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
   isInteractive?: boolean,
+  settingsAccess: IProviderStartupSettingsAccess = {},
 ): Promise<void> {
+  const access = resolveStartupSettingsAccess(settingsAccess);
   await ensureProviderConfig(
     cwd,
-    { provider: args.provider, settingsScope: validateSettingsScope(args.settingsScope) },
+    {
+      provider: args.provider,
+      settingsScope: validateSettingsScope(args.settingsScope),
+      settingsSources: access.settingsSources,
+      settingsStores: access.settingsStores,
+    },
     promptInput,
     terminal,
     providerDefinitions,
@@ -80,10 +125,16 @@ export async function runInteractiveProviderSetup(
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
+  settingsAccess: IProviderStartupSettingsAccess = {},
 ): Promise<void> {
+  const access = resolveStartupSettingsAccess(settingsAccess);
   await runProviderStartupSetup(
     cwd,
-    { settingsScope: validateSettingsScope(args.settingsScope) },
+    {
+      settingsScope: validateSettingsScope(args.settingsScope),
+      settingsSources: access.settingsSources,
+      settingsStores: access.settingsStores,
+    },
     promptInput,
     terminal,
     providerDefinitions,

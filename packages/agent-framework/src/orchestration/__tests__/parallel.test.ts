@@ -12,7 +12,7 @@ import type {
   ISubagentManager,
   ISubagentRunner,
 } from '@robota-sdk/agent-executor';
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
 import { runParallel } from '../parallel';
 import { createInProcessSubagentRunner } from '../../subagents/index';
 import {

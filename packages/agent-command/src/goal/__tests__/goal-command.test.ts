@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { executeGoalCommand } from '../goal-command.js';
 
-import type { IGoalState } from '@robota-sdk/agent-interface-transport';
+import type { IGoalState } from '@robota-sdk/agent-interface-session';
 import {
   createTestCommandHost,
   type ICreateTestCommandHostOptions,

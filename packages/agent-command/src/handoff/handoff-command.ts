@@ -4,7 +4,7 @@ import type {
   ICommandHostUserInteraction,
   IHandoffProgress,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 /**
  * `/handoff` (HANDOFF-001, issue #1864) — move this session to another machine.

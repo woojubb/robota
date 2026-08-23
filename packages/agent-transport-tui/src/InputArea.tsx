@@ -28,7 +28,7 @@ import WaveText from './WaveText.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
-import type { ICommand } from '@robota-sdk/agent-interface-transport';
+import type { ICommand } from '@robota-sdk/agent-interface-command';
 
 interface IProps {
   onSubmit: (value: string) => void;

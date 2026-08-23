@@ -31,6 +31,7 @@ import { createUserLocalCommandModule } from '../user-local/index.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
+  IContributionSource,
   ICommandModule,
   IProviderCommandSettingsAdapter,
   IUnknownCommandModuleName,
@@ -38,6 +39,7 @@ import type {
 
 export interface IDefaultCommandModulesOptions {
   cwd: string;
+  contributionSources?: readonly IContributionSource[];
   providerDefinitions: readonly IProviderDefinition[];
   providerSettingsAdapter: IProviderCommandSettingsAdapter;
   /**
@@ -82,13 +84,14 @@ export interface IDefaultCommandModulesResult {
 
 export function createDefaultCommandModules({
   cwd,
+  contributionSources,
   providerDefinitions,
   providerSettingsAdapter,
   enabledCommandModules,
   disabledCommandModules,
 }: IDefaultCommandModulesOptions): IDefaultCommandModulesResult {
   const modules: readonly ICommandModule[] = [
-    createSkillsCommandModule({ cwd }),
+    createSkillsCommandModule({ contributionSources: contributionSources ?? [] }),
     createHelpCommandModule(),
     createAgentCommandModule(),
     createPermissionsCommandModule(),

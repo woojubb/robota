@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vite
 import { MarketplaceClient } from '../marketplace-client.js';
 
 import type { TMarketplaceSource } from '../marketplace-client.js';
+import type { TExecFn } from '../marketplace-types.js';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-marketplace-test-'));
 
@@ -31,7 +32,7 @@ describe('MarketplaceClient', () => {
     mockExec = vi.fn().mockReturnValue('');
     client = new MarketplaceClient({
       pluginsDir,
-      exec: mockExec as (cmd: string, opts: { timeout: number; stdio?: string }) => string | Buffer,
+      exec: mockExec as unknown as TExecFn,
     });
   });
 
@@ -46,10 +47,9 @@ describe('MarketplaceClient', () => {
       const source: TMarketplaceSource = { type: 'github', repo: 'owner/marketplace-repo' };
 
       // Mock exec to simulate git clone by creating the directory with a manifest
-      mockExec.mockImplementation((cmd: string) => {
-        if (cmd.includes('git clone')) {
-          // Extract target directory from clone command
-          const parts = cmd.split(' ');
+      mockExec.mockImplementation((file: string, args: readonly string[]) => {
+        if (file === 'git' && args[0] === 'clone') {
+          const parts = args;
           const targetDir = parts[parts.length - 1];
           setupDir(join(targetDir, '.claude-plugin'));
           writeJson(join(targetDir, '.claude-plugin', 'marketplace.json'), {
@@ -64,12 +64,21 @@ describe('MarketplaceClient', () => {
       const name = client.addMarketplace(source);
 
       expect(name).toBe('test-marketplace');
+      // SEC-017 (issue #2019): executable and ARGUMENT VECTOR asserted separately. A
+      // `stringContaining` assertion over one command string passes equally well when the URL has
+      // been folded back into a shell line, which is the defect this port removes.
       expect(mockExec).toHaveBeenCalledWith(
-        expect.stringContaining('git clone --depth 1'),
+        'git',
+        [
+          'clone',
+          '--depth',
+          '1',
+          '--',
+          'https://github.com/owner/marketplace-repo.git',
+          expect.any(String),
+        ],
         expect.objectContaining({ timeout: expect.any(Number) }),
       );
-      const cloneCmd = mockExec.mock.calls[0][0] as string;
-      expect(cloneCmd).toContain('https://github.com/owner/marketplace-repo.git');
 
       // Should be registered in known_marketplaces.json
       const registryPath = join(pluginsDir, 'known_marketplaces.json');
@@ -81,9 +90,9 @@ describe('MarketplaceClient', () => {
     it('should clone a git URL source', () => {
       const source: TMarketplaceSource = { type: 'git', url: 'https://example.com/repo.git' };
 
-      mockExec.mockImplementation((cmd: string) => {
-        if (cmd.includes('git clone')) {
-          const parts = cmd.split(' ');
+      mockExec.mockImplementation((file: string, args: readonly string[]) => {
+        if (file === 'git' && args[0] === 'clone') {
+          const parts = args;
           const targetDir = parts[parts.length - 1];
           setupDir(join(targetDir, '.claude-plugin'));
           writeJson(join(targetDir, '.claude-plugin', 'marketplace.json'), {
@@ -98,8 +107,8 @@ describe('MarketplaceClient', () => {
       const name = client.addMarketplace(source);
 
       expect(name).toBe('git-marketplace');
-      const cloneCmd = mockExec.mock.calls[0][0] as string;
-      expect(cloneCmd).toContain('https://example.com/repo.git');
+      expect(mockExec.mock.calls[0][0]).toBe('git');
+      expect(mockExec.mock.calls[0][1]).toContain('https://example.com/repo.git');
     });
 
     it('should throw when clone fails', () => {
@@ -115,9 +124,9 @@ describe('MarketplaceClient', () => {
     it('should throw when cloned repo has no marketplace.json', () => {
       const source: TMarketplaceSource = { type: 'github', repo: 'owner/repo' };
 
-      mockExec.mockImplementation((cmd: string) => {
-        if (cmd.includes('git clone')) {
-          const parts = cmd.split(' ');
+      mockExec.mockImplementation((file: string, args: readonly string[]) => {
+        if (file === 'git' && args[0] === 'clone') {
+          const parts = args;
           const targetDir = parts[parts.length - 1];
           // Create dir but no manifest
           setupDir(targetDir);
@@ -133,9 +142,9 @@ describe('MarketplaceClient', () => {
     it('should throw when marketplace name already exists', () => {
       const source: TMarketplaceSource = { type: 'github', repo: 'owner/repo' };
 
-      mockExec.mockImplementation((cmd: string) => {
-        if (cmd.includes('git clone')) {
-          const parts = cmd.split(' ');
+      mockExec.mockImplementation((file: string, args: readonly string[]) => {
+        if (file === 'git' && args[0] === 'clone') {
+          const parts = args;
           const targetDir = parts[parts.length - 1];
           setupDir(join(targetDir, '.claude-plugin'));
           writeJson(join(targetDir, '.claude-plugin', 'marketplace.json'), {
@@ -312,11 +321,11 @@ describe('MarketplaceClient', () => {
       client.updateMarketplace('update-mp');
 
       expect(mockExec).toHaveBeenCalledWith(
-        expect.stringContaining('git -C'),
+        'git',
+        expect.arrayContaining(['-C']),
         expect.objectContaining({ timeout: expect.any(Number) }),
       );
-      const pullCmd = mockExec.mock.calls[0][0] as string;
-      expect(pullCmd).toContain('pull');
+      expect(mockExec.mock.calls[0][1]).toEqual(['-C', expect.any(String), 'pull']);
     });
 
     it('should throw when marketplace not found', () => {

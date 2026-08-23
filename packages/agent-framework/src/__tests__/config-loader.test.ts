@@ -4,7 +4,8 @@ import { join } from 'path';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { loadConfig } from '../config/config-loader.js';
+import { loadConfig as loadConfigFromSources } from '../config/config-loader.js';
+import { createTrustedSettingsSourcesFixture } from '../testing/trusted-project-state-fixture.js';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-cli-test-'));
 
@@ -14,6 +15,10 @@ function setupDir(path: string): void {
 
 function writeJson(path: string, data: unknown): void {
   writeFileSync(path, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+async function loadConfig(cwd: string) {
+  return loadConfigFromSources(await createTrustedSettingsSourcesFixture(cwd));
 }
 
 describe('loadConfig', () => {

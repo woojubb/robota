@@ -11,7 +11,7 @@ import type {
   ICommandHostAdapterAccess,
   ICommandHostSessionAccess,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 export function executePermissionsCommand(
   context: ICommandHostAdapterAccess & ICommandHostSessionAccess,

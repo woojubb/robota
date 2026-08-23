@@ -21,8 +21,9 @@ import type {
 } from '@robota-sdk/agent-core';
 import type {
   IInteractiveSessionRecord,
+  TSessionLoadOutcome,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 const logger = createLogger('SessionHistoryOps');
 
@@ -166,12 +167,33 @@ export interface IPersistContext {
   }>;
 }
 
-/** Persist the current session to the store */
-export function persistSession(ctx: IPersistContext): void {
+/**
+ * Persist the current session to the store.
+ *
+ * ## Why this can decline to write (TRANS-007)
+ *
+ * The existing record is read to preserve the members this function does not own. When `load`
+ * answered `undefined` for both "no record" and "the file is damaged", the spread contributed
+ * nothing in the damaged case and this function OVERWROTE a recoverable file with a fresh, nearly
+ * empty one — on the next autosave, which is however long the user keeps typing.
+ *
+ * So a non-`valid` load is no longer treated as "no prior record". `missing` is the only outcome
+ * that legitimately means there is nothing to preserve; `corrupt` and `unsupported` mean there IS
+ * something and this build cannot read it, and writing over it destroys the only copy.
+ *
+ * Returning silently is deliberate over throwing: this runs on an autosave path, and turning a
+ * damaged file into a crashed session helps nobody. The outcome is reported to the caller so a
+ * surface can say something; the guarantee this function makes is that it does not destroy.
+ */
+export function persistSession(ctx: IPersistContext): TSessionLoadOutcome {
   const history = ctx.agent.getHistory();
   const now = new Date().toISOString();
 
-  const existing = ctx.sessionStore.load(ctx.sessionId);
+  const outcome = ctx.sessionStore.load(ctx.sessionId);
+  if (outcome.status !== 'valid' && outcome.status !== 'missing') {
+    return outcome;
+  }
+  const existing = outcome.status === 'valid' ? outcome.record : undefined;
 
   const record: IInteractiveSessionRecord = {
     ...existing,
@@ -187,4 +209,5 @@ export function persistSession(ctx: IPersistContext): void {
   };
 
   ctx.sessionStore.save(record);
+  return { status: 'valid', record };
 }

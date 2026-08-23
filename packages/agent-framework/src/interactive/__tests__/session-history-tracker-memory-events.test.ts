@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { SessionHistoryTracker } from '../interactive-session-history-tracker.js';
+import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/index.js';
 
 import type { IMemoryEvent } from '../../memory/automatic-memory-types.js';
 
@@ -13,6 +14,7 @@ function createTracker(): {
   const persist = vi.fn();
   const tracker = new SessionHistoryTracker(
     '/workspace',
+    createRestrictedWorkspaceProjectAccess('untrusted', '/workspace'),
     () => 'test-session',
     () => false,
     persist,

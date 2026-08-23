@@ -1,4 +1,4 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { parsePairingUrl } from '@robota-sdk/agent-remote-pairing';
 import { describe, expect, it, vi } from 'vitest';
@@ -8,10 +8,8 @@ import { RemoteControlController } from '../remote-control-controller.js';
 import type { IRemoteControlControllerDeps } from '../remote-control-controller.js';
 import type { ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
 import type { TransportRegistry } from '@robota-sdk/agent-transport';
-import type {
-  IConfigurableTransport,
-  IInteractiveSession,
-} from '@robota-sdk/agent-interface-transport';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /**
  * REMOTE-008 Step 4 — the composition-root remote-control controller. Driven with injected construction

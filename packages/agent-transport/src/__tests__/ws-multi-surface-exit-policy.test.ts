@@ -17,7 +17,7 @@ import { createOutboundDelivery, createWsHandler } from '@robota-sdk/agent-trans
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
 function createRuntimeSession(): Record<string, unknown> {

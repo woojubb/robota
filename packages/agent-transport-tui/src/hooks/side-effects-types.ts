@@ -1,5 +1,5 @@
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
-import type { IStatusLineCommandSettings as TStatusLineSettings } from '@robota-sdk/agent-interface-transport';
+import type { IStatusLineCommandSettings as TStatusLineSettings } from '@robota-sdk/agent-interface-command';
 
 export type { TStatusLineSettings };
 

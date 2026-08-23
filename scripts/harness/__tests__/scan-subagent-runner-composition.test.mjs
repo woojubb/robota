@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { findSubagentRunnerCompositionFindings } from '../scan-subagent-runner-composition.mjs';
 
@@ -12,7 +13,7 @@ import { findSubagentRunnerCompositionFindings } from '../scan-subagent-runner-c
  * fail is worse than no floor, so every case here is a case that MUST go red.
  */
 function createFixture(files) {
-  const root = mkdtempSync(join(tmpdir(), 'arch-021-scan-'));
+  const root = makeTemp('arch-021-scan-');
   const defaults = {
     'packages/agent-subagent-runner/package.json': JSON.stringify({
       name: '@robota-sdk/agent-subagent-runner',
@@ -57,7 +58,7 @@ describe('findSubagentRunnerCompositionFindings', () => {
   it('flags an import of createDefaultProviderDefinitions', () => {
     const root = createFixture({
       'packages/agent-subagent-runner/src/worker.ts':
-        "import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';\nexport const p = createDefaultProviderDefinitions;\n",
+        "import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';\nexport const p = createDefaultProviderDefinitions;\n",
     });
 
     const { findings } = findSubagentRunnerCompositionFindings(root);
@@ -70,7 +71,7 @@ describe('findSubagentRunnerCompositionFindings', () => {
   it('flags the manifest edge independently of any import', () => {
     const root = createFixture({
       'packages/agent-subagent-runner/package.json': JSON.stringify({
-        dependencies: { '@robota-sdk/agent-provider-defaults': 'workspace:*' },
+        dependencies: { '@robota-sdk/agent-builtin-providers': 'workspace:*' },
       }),
     });
 

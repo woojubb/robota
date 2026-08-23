@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   collectStringUnions,
@@ -129,7 +130,7 @@ describe('scan-literal-cast-union', () => {
     );
 
     // Fail-closed: a root without the governed tree is an error, never a pass.
-    const bare = mkdtempSync(path.join(tmpdir(), 'literal-cast-bare-'));
+    const bare = makeTemp('literal-cast-bare-');
     try {
       expect(() => findLiteralCastUnionFindings(bare)).toThrow(/nothing could be examined/);
     } finally {

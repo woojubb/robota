@@ -8,11 +8,11 @@
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   findReviewTokenSupplyFindings,
@@ -50,7 +50,7 @@ function workflow({ token = true, nameForm = false } = {}) {
 }
 
 async function createFixture(content) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-review-token-'));
+  const root = makeTemp('robota-review-token-');
   const workflowPath = path.join(root, '.github/workflows/claude-code-review.yml');
   mkdirSync(path.dirname(workflowPath), { recursive: true });
   writeFileSync(workflowPath, content, 'utf8');

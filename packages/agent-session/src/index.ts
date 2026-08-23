@@ -27,17 +27,18 @@ export {
 } from './compaction-orchestrator.js';
 
 // SELFHOST-014: shareable/resumable session artifact envelope + the opt-in sensitive-key scrub (SSOT).
-export {
-  SESSION_ARTIFACT_SCHEMA_VERSION,
-  serializeSessionArtifact,
-  deserializeSessionArtifact,
-} from './session-artifact.js';
-export type { ISessionArtifact, ISerializeSessionArtifactOptions } from './session-artifact.js';
+export { serializeSessionArtifact, deserializeSessionArtifact } from './session-artifact.js';
+export type { ISerializeSessionArtifactOptions } from './session-artifact.js';
 export { SENSITIVE_KEY_PATTERN, isSensitiveKey, scrubSensitiveKeys } from './scrub-sensitive.js';
 export type { TScrubbableValue } from './scrub-sensitive.js';
 
 // Session logging
 export { FileSessionLogger, SilentSessionLogger } from './session-logger.js';
+export {
+  createSessionLogExternalPayloadReference,
+  NodeSessionLogSink,
+} from './session-log-sinks.js';
+export type { IExternalPayloadSink, ISessionLogSink } from './session-log-sinks.js';
 export { SESSION_LOG_EVENT, isSessionLogEvent } from './session-log-events.js';
 export type {
   TSessionLogEventName,
@@ -52,6 +53,8 @@ export type {
   TSessionLogData,
   TSessionLogValue,
 } from './session-logger.js';
+export { NodeExternalPayloadSource, NodeSessionLogSource } from './session-log-sources.js';
+export type { IExternalPayloadSource, ISessionLogSource } from './session-log-sources.js';
 export {
   resolveSessionLogExternalPayloads,
   SessionLogPayloadResolutionError,
@@ -76,14 +79,29 @@ export type {
 
 // Session persistence
 export { assertSafeSessionId, isSafeSessionId } from './session-id.js';
-export { SessionStore } from './session-store.js';
+export { NodeSessionStore } from './session-store.js';
 export type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   IInteractiveSessionRecord as ISessionRecord,
   IInteractiveSessionStore as ISessionStore,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 // SELFHOST-007: neutral checkpoint tree (branching time-travel) — pure, I/O-free.
 export { CheckpointTree } from './checkpoint-tree.js';
 export type { ICheckpointNode } from './checkpoint-tree.js';
+
+// TRANS-005 (issue #2081): the total runtime decoder for a PERSISTED session record. It lives here,
+// beside the store and artifact paths that will consume it, rather than with the contract it decodes:
+// an `agent-interface-*` package publishes contracts, vocabulary and discriminators — not mechanisms
+// (`scan-interface-runtime`), and a decoder is a mechanism.
+export {
+  INTERACTIVE_SESSION_RECORD_KEYS,
+  SESSION_ARTIFACT_SCHEMA_VERSION,
+  decodeInteractiveSessionRecord,
+  decodeVersionedInteractiveSessionRecord,
+} from './session-record-codec/index.js';
+export type {
+  IVersionedInteractiveSessionRecord,
+  TSessionRecordDecodeOutcome,
+} from './session-record-codec/index.js';

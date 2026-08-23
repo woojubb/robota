@@ -3,17 +3,17 @@
  * Parses arguments and delegates to startup modules, mode runners, and transports.
  */
 
-import { PrintTerminal, promptInput } from '@robota-sdk/agent-transport/headless';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
+import { PrintTerminal } from '@robota-sdk/agent-transport/headless';
 import {
-  createProjectSessionStore,
-  projectPaths,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
   readProviderSettings,
   checkForCliUpdate,
   formatCliUpdateCheckMessage,
   resolveCliUpdateNotice,
-  ProviderConfigError,
   readSettings,
   getUserSettingsPath,
 } from '@robota-sdk/agent-framework';
@@ -35,11 +35,6 @@ import {
   selectProductCommandModules,
   createChannelReadyHandler,
 } from './product/robota-plumbing.js';
-import {
-  ensureConfig,
-  handleProviderConfigurationArgs,
-  runInteractiveProviderSetup,
-} from './startup/provider-startup.js';
 import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport-tui';
 import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
 import { createRemoteControlController } from './remote-control/index.js';
@@ -57,11 +52,13 @@ import { runEvalCommand } from './eval/eval-command.js';
 import { readVersion } from './startup/version.js';
 import { runResetConfig } from './startup/reset-config.js';
 import { runDiagnoseCommand } from './startup/diagnose-command.js';
-import { runInitCommand } from './init/init-command.js';
 import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first-run.js';
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetup } from './startup/command-setup.js';
+import { createInitialCliWorkspaceComposition } from './startup/workspace-project-composition.js';
+import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
+import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { runServeMode } from './modes/serve-mode.js';
@@ -75,21 +72,7 @@ import {
 export type { IStartCliOptions };
 
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
-  // OBS-001: `session analyze` carries its own flags (--last/--session) that the strict
-  // global parser does not know. Intercept it BEFORE parseCliArgs() so those flags reach
-  // the subcommand instead of being rejected as "Unknown option".
-  if (process.argv[2] === 'session' && process.argv[3] === 'analyze') {
-    await runSessionAnalyze(process.argv.slice(4), process.cwd());
-    return;
-  }
-
-  // SELFHOST-011: `robota eval <definition>` carries a file path + `--threshold` the strict global parser
-  // would reject. Intercept it BEFORE parseCliArgs() (like `session analyze`); the returned count maps to the
-  // CI exit code (0 = pass, 1 = fail — mirrors `robota diagnose`).
-  if (process.argv[2] === 'eval') {
-    process.exitCode = await runEvalCommand(process.argv.slice(3), process.cwd());
-    return;
-  }
+  if (await runPreparsedCliCommand(options)) return;
 
   let args: IParsedCliArgs;
   try {
@@ -135,8 +118,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   if (args.positional[0] === 'diagnose') {
+    const diagnosticWorkspace = createInitialCliWorkspaceComposition(cwd, options);
     // Exit contract (CLI-067): 0 = no issues, 1 = one or more failed checks.
-    const failCount = await runDiagnoseCommand({ version, terminal, cwd });
+    const failCount = await runDiagnoseCommand({
+      version,
+      terminal,
+      cwd,
+      settingsSources: diagnosticWorkspace.settingsSources,
+    });
     process.exitCode = failCount > 0 ? 1 : 0;
     return;
   }
@@ -144,7 +133,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   if (args.positional[0] === 'eval') {
     // Normally unreachable — the pre-parse interceptor above handles `eval`.
     // Kept as a defensive fallthrough for non-argv invocations.
-    process.exitCode = await runEvalCommand(process.argv.slice(3), cwd);
+    const composition = createInitialCliWorkspaceComposition(cwd, options);
+    process.exitCode = await runEvalCommand(process.argv.slice(3), cwd, {
+      settingsSources: composition.settingsSources,
+      projectAccess: composition.projectAccess,
+    });
     return;
   }
 
@@ -199,6 +192,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     fixedCommandModules,
     startupUpdateNoticePromise,
     remoteCommandPolicy,
+    workspaceComposition,
   } = buildCommandSetup(cwd, args, options, version, packCommandModules);
   // REMOTE-008: the shell owns the transport registry + the remote-control controller (it has settings, the
   // registry, and — via onChannelReady — the live session), and injects the registry into the profile. The
@@ -215,45 +209,26 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     resolvedPreset,
   );
 
-  if (args.positional[0] === 'init') {
-    try {
-      await runInitCommand(cwd, terminal, {
-        yes: args.yes,
-        onProviderSetup: async () => {
-          await runInteractiveProviderSetup(cwd, args, promptInput, terminal, providerDefinitions);
-        },
-      });
-    } catch (error) {
-      // allow-fallback: init prompt failure is terminal — exit is the correct response
-      terminal.writeError(error instanceof Error ? error.message : String(error));
-      process.exit(1);
-    }
+  if (
+    await routeProjectSetup({
+      cwd,
+      args,
+      startOptions: options,
+      terminal,
+      providerDefinitions,
+      workspace: workspaceComposition,
+    })
+  ) {
     return;
-  }
-
-  if (args.configure) {
-    await runInteractiveProviderSetup(cwd, args, promptInput, terminal, providerDefinitions);
-    return;
-  }
-
-  if (handleProviderConfigurationArgs(cwd, args, terminal, providerDefinitions)) {
-    return;
-  }
-
-  try {
-    await ensureConfig(cwd, args, promptInput, terminal, providerDefinitions);
-  } catch (error) {
-    // allow-fallback: terminal failure — not a silent fallback
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    // Exit-code contract: provider configuration errors in print mode exit 3 so
-    // automation can distinguish "reconfigure" from runtime failures (exit 1).
-    process.exit(error instanceof ProviderConfigError && args.printMode ? 3 : 1);
   }
 
   const providerOptions = args.provider
     ? { providerOverride: args.provider, providerDefinitions }
     : { providerDefinitions };
-  const providerSettings = readProviderSettings(cwd, providerOptions);
+  const providerSettings = readProviderSettings(
+    workspaceComposition.settingsSources,
+    providerOptions,
+  );
   const modelId = resolvedPreset.model ?? providerSettings.model;
   if (providerSettings.source === 'env-default' && providerSettings.sourceEnvVar !== undefined) {
     const notice = `Using ${providerSettings.name} (${modelId}) via ${providerSettings.sourceEnvVar} — run \`robota --configure\` to persist a profile.\n`;
@@ -264,11 +239,10 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     }
   }
   const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
-  const paths = projectPaths(cwd);
   const subagentRunnerFactory = createRobotaChildProcessSubagentRunner({
     packContext,
     providerConfig: { ...providerSettings, model: modelId },
-    logsDir: paths.logs,
+    logsDir: join(homedir(), '.robota', 'logs'),
     workerEntry: resolveSelfForkWorkerEntry(),
     worktreeAdapter: createGitWorktreeIsolationAdapter(),
   });
@@ -314,6 +288,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
         resolvedPreset,
       ),
       ...(args.permissionMode !== undefined ? { permissionMode: args.permissionMode } : {}),
+      projectAccess: workspaceComposition.projectAccess,
     });
   // A capability the merge refused (a colliding id) is reported, never silently dropped.
   for (const { kind, id, reason } of product.rejectedCapabilities) {
@@ -328,7 +303,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     cli,
   );
 
-  const sessionStore = createProjectSessionStore(cwd);
+  const sessionStore = workspaceComposition.sessionStore;
   let resumeSessionId: string | undefined;
   let showSessionPickerOnStart = false;
 
@@ -355,7 +330,10 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     flagAutoSave: args.memoryAutoSave,
     env: process.env['ROBOTA_MEMORY'],
   });
-  const memorySessionOptions = buildMemorySessionOptions(memoryEnablement, cwd);
+  const memorySessionOptions = buildMemorySessionOptions(
+    memoryEnablement,
+    workspaceComposition.memoryStore,
+  );
   if (memoryEnablement.enabled) printMemoryEnableNoticeOnce(cwd);
 
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
@@ -374,6 +352,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       { resumeSessionId, forkSession: args.forkSession },
       { model: modelId, ...presetSurface },
       memorySessionOptions,
+      workspaceComposition.projectAccess,
     );
     return;
   }
@@ -388,6 +367,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       args,
       provider,
       sessionStore,
+      projectAccess: workspaceComposition.projectAccess,
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
@@ -428,6 +408,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     onChannelReady: createChannelReadyHandler(setLiveChannel, setRemoteControlChannel, startPeers),
     cwd,
     provider,
+    projectAccess: workspaceComposition.projectAccess,
     providerOverride: args.provider,
     providerType: providerSettings.name,
     modelId,

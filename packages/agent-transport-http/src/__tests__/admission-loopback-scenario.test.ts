@@ -17,12 +17,12 @@
 
 import { createServer, type Server } from 'node:http';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createHttpTransport } from '../http-transport.js';
 
-import type { IInteractiveSession, ITurnHandle } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession, ITurnHandle } from '@robota-sdk/agent-interface-session';
 
 /**
  * A CONFORMANT turn handle. Not `{ status: 'started' }` behind a cast: `ITurnHandle` is

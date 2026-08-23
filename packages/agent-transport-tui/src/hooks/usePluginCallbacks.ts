@@ -8,7 +8,7 @@
 
 import { useMemo } from 'react';
 
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-transport';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 
 function createNoOpPluginAdapter(): ICommandPluginAdapter {
   return {

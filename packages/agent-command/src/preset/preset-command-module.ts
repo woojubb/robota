@@ -3,7 +3,7 @@ import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import { executePresetCommand } from './preset-command.js';
 
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-transport';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
 
 const PRESET_COMMAND_DESCRIPTION = 'List presets or switch the active preset';
 const PRESET_ARGUMENT_HINT = 'list | <preset-id>';

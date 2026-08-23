@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 import { afterEach, describe, expect, expectTypeOf, it } from 'vitest';
 
-import { Session, SessionStore } from '../index.js';
+import { NodeSessionStore, Session } from '../index.js';
 
 import type {
   IChatOptions,
@@ -16,7 +16,8 @@ import type {
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
+import { loadedOrMissing } from './store-load-helpers.js';
 
 const SESSION_ID = 'arch-015-record-preservation';
 const CREATED_AT = '2026-08-01T00:00:00.000Z';
@@ -85,7 +86,15 @@ function createExistingRecord(): IInteractiveSessionRecord {
     cwd: '/stale/session',
     createdAt: CREATED_AT,
     updatedAt: STALE_UPDATED_AT,
-    messages: [{ role: 'user', content: 'stale message' }],
+    messages: [
+      {
+        id: 'm-stale',
+        role: 'user',
+        content: 'stale message',
+        timestamp: new Date('2026-08-01T00:00:00.000Z'),
+        state: 'complete',
+      },
+    ],
     history: [
       {
         id: 'stale-history',
@@ -170,14 +179,14 @@ describe('ARCH-015 Session record field preservation', () => {
   });
 
   it('implements the canonical interactive-session store port directly', () => {
-    expectTypeOf<SessionStore>().toMatchTypeOf<IInteractiveSessionStore>();
-    expectTypeOf<IInteractiveSessionStore>().toHaveProperty('getFilePath');
+    expectTypeOf<NodeSessionStore>().toMatchTypeOf<IInteractiveSessionStore>();
+    expectTypeOf<IInteractiveSessionStore>().not.toHaveProperty('getFilePath');
   });
 
   it('preserves every non-owned field while refreshing Session-owned fields', async () => {
     const scratchDir = mkdtempSync(join(tmpdir(), 'arch-015-'));
     scratchDirs.push(scratchDir);
-    const store = new SessionStore(join(scratchDir, 'sessions'));
+    const store = new NodeSessionStore(join(scratchDir, 'sessions'));
     const existing = createExistingRecord();
     store.save(existing);
 
@@ -197,7 +206,7 @@ describe('ARCH-015 Session record field preservation', () => {
     );
     await session.shutdown();
 
-    const reloaded = store.load(SESSION_ID);
+    const reloaded = loadedOrMissing(store, SESSION_ID);
     expect(reloaded).toBeDefined();
 
     const preservedKeys = [

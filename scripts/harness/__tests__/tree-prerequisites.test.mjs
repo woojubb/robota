@@ -12,11 +12,12 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   checkTreePrerequisites,
@@ -34,7 +35,7 @@ import {
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
 function createFixture(files) {
-  const root = mkdtempSync(path.join(tmpdir(), 'tree-prerequisites-'));
+  const root = makeTemp('tree-prerequisites-');
   for (const [rel, content] of Object.entries(files)) {
     const full = path.join(root, rel);
     mkdirSync(path.dirname(full), { recursive: true });
@@ -98,7 +99,7 @@ describe('listBuildablePackageDirs / findMissingDist', () => {
  * the code no longer uses.
  */
 function createGitRepo() {
-  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'tree-prerequisites-git-')));
+  const root = realpathSync(makeTemp('tree-prerequisites-git-'));
   const git = (...args) => execFileSync('git', ['-C', root, ...args], { stdio: 'pipe' });
   git('init', '-q', '-b', 'main');
   git('config', 'user.email', 'harness@example.test');
@@ -127,10 +128,7 @@ describe('describeTree', () => {
 
   it('marks a worktree outside the parent clone as NOT nested', () => {
     const { root, git } = createGitRepo();
-    const sibling = path.join(
-      realpathSync(mkdtempSync(path.join(tmpdir(), 'tree-prerequisites-sibling-'))),
-      'wt',
-    );
+    const sibling = path.join(realpathSync(makeTemp('tree-prerequisites-sibling-')), 'wt');
     git('worktree', 'add', '-q', '-b', 'sibling-branch', sibling);
     const described = describeTree(sibling);
     expect(described.kind).toBe('worktree');
@@ -228,10 +226,7 @@ describe('formatPrerequisiteFailure', () => {
 
   it('explains a sibling worktree by the opposite symptom', () => {
     const { git } = createGitRepo();
-    const sibling = path.join(
-      realpathSync(mkdtempSync(path.join(tmpdir(), 'tree-prerequisites-sibling-'))),
-      'wt',
-    );
+    const sibling = path.join(realpathSync(makeTemp('tree-prerequisites-sibling-')), 'wt');
     git('worktree', 'add', '-q', '-b', `sibling-${Date.now()}`, sibling);
     const message = formatPrerequisiteFailure('verify-like-ci', inspectTree(sibling));
     expect(message).toContain("Could not resolve 'vitest/config'");

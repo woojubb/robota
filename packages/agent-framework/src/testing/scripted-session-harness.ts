@@ -22,6 +22,7 @@ import {
   createReplayProvider,
   createRecordingProvider,
 } from '@robota-sdk/agent-core/testing';
+import { NodeSessionLogSink, NodeSessionStore } from '@robota-sdk/agent-session';
 
 import { peerTurnOptions } from './harness-peer-driver.js';
 import {
@@ -34,7 +35,6 @@ import {
   workspaceFiles,
 } from './harness-workspace-inspectors.js';
 import { InteractiveSession } from '../interactive/index.js';
-import { createProjectSessionStore } from '../interactive/index.js';
 
 import type { ICommandModule } from '../command-api/index.js';
 import type {
@@ -44,8 +44,8 @@ import type {
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type {
-  ICommandResult,
   IExecutionResult,
   IGoalState,
   IInteractiveSessionEvents,
@@ -54,7 +54,7 @@ import type {
   ITerminalHandoff,
   IToolSummary,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 /** Options for {@link scriptedSession}. Provide exactly one of `turns`, `cassette`, or `record`. */
 export interface IScriptedSessionOptions {
@@ -174,7 +174,7 @@ export class ScriptedSessionHarness {
     } else {
       base = createScriptedProvider(this.substituteWorkspacePath(options.turns ?? [])).provider;
     }
-    // Capture every request uniformly (works for both scripted and cassette providers).
+    // Capture every scripted or cassette request uniformly.
     this.requests = [];
     const provider: IAIProvider = {
       ...base,
@@ -183,9 +183,8 @@ export class ScriptedSessionHarness {
         return base.chat(messages, chatOptions);
       },
     };
-
-    this.sessionStore = options.persistence ? createProjectSessionStore(this.cwd) : undefined;
-
+    const persistenceDir = join(this.cwd, '.robota', 'sessions');
+    this.sessionStore = options.persistence ? new NodeSessionStore(persistenceDir) : undefined;
     this.session = new InteractiveSession({
       cwd: this.cwd,
       provider,
@@ -194,6 +193,7 @@ export class ScriptedSessionHarness {
       ...(options.allowedTools ? { allowedTools: options.allowedTools } : {}),
       ...(options.deniedTools ? { deniedTools: options.deniedTools } : {}),
       ...(this.sessionStore ? { sessionStore: this.sessionStore } : {}),
+      sessionLogSink: new NodeSessionLogSink(join(this.cwd, '.robota', 'logs')),
       ...(options.resumeSessionId ? { resumeSessionId: options.resumeSessionId } : {}),
       ...(options.forkSession ? { forkSession: options.forkSession } : {}),
       ...(options.commandModules ? { commandModules: options.commandModules } : {}),
@@ -364,7 +364,8 @@ export class ScriptedSessionHarness {
   /** The persisted session record (requires `persistence: true`), or undefined. */
   sessionRecord(): IInteractiveSessionRecord | undefined {
     if (!this.sessionStore) return undefined;
-    return this.sessionStore.load(this.session.getSession().getSessionId());
+    const o = this.sessionStore.load(this.session.getSession().getSessionId());
+    return o.status === 'valid' ? o.record : undefined;
   }
 
   /**

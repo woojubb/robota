@@ -5,6 +5,7 @@
  */
 import type { IWorkspaceLayout } from '@robota-sdk/dag-core';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
+import type { TSettingsSource } from '@robota-sdk/agent-framework';
 
 import { tokenize, type TParseResult } from '../args.js';
 
@@ -12,6 +13,8 @@ import { tokenize, type TParseResult } from '../args.js';
 export interface IWorkflowsAuthoringDeps {
   readonly workspace?: IWorkspaceLayout;
   readonly providerDefinitions?: readonly IProviderDefinition[];
+  /** Explicit provider settings layers; project layers require an authority-backed source. */
+  readonly settingsSources?: readonly TSettingsSource[];
   /** Override provider resolution (tests inject a stub). Default: the active provider from settings. */
   readonly resolveProvider?: (cwd: string) => IAIProvider;
   /** Model passed to the authoring chat call. Default path resolves it from settings. */

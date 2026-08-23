@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { createOutboundDelivery } from '../outbound-delivery.js';
 import { subscribeSessionEvents } from '../ws-session-events.js';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
-import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface-session';
 
 /**
  * ARCH-012 — the sharp edge of an optional contract member.

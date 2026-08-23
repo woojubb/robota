@@ -11,11 +11,12 @@
  * fires on the wrong subject is not a weaker check, it is a different one.
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { collectRows, examinedSpecCount, measure } from '../check-spec-whitebox-leakage.mjs';
 import { readSpecSectionContract } from '../spec-sections.mjs';
@@ -23,7 +24,7 @@ import { readSpecSectionContract } from '../spec-sections.mjs';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const contract = readSpecSectionContract(WORKSPACE_ROOT);
 
-const root = mkdtempSync(path.join(tmpdir(), 'spec-leakage-'));
+const root = makeTemp('spec-leakage-');
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 // The finder refuses a root it cannot judge (HARNESS-052), so the fixture root carries the trees it
@@ -60,7 +61,7 @@ describe('the declared counter', () => {
   });
 
   it('refuses a root with no governed tree rather than reporting a clean corpus', () => {
-    const bare = mkdtempSync(path.join(tmpdir(), 'spec-leakage-bare-'));
+    const bare = makeTemp('spec-leakage-bare-');
     try {
       expect(() => collectRows(bare, contract, [])).toThrow(/missing from/);
     } finally {

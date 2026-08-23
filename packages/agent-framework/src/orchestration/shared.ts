@@ -14,7 +14,7 @@ import type {
   TOrchestrationPrimitive,
 } from '@robota-sdk/agent-core';
 import type { ISubagentManager } from '@robota-sdk/agent-executor';
-import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface-transport';
+import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface-execution';
 
 /**
  * Neutral run context threaded into each spawned subagent request. Shared by

@@ -29,7 +29,7 @@ import type {
   IPeerMessage,
   IPeerMessageAck,
   IPeerMessageIngress,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session-mobility';
 
 /** What this module needs from `PeerMessageIngress`, and nothing more. */
 export interface IPeerIngressPort {

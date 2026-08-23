@@ -1,11 +1,9 @@
-import type { ISessionConversationRead, TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { ISessionConversationRead, TDriverId } from '@robota-sdk/agent-interface-session';
+import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
 import type {
   IAskRequestEvent,
   IBranchEvent,
-  IBackgroundJobGroupState,
-  ICommandResult,
   IExecutionResult,
-  IExecutionWorkspaceSnapshot,
   IContextFileRefreshedEvent,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
@@ -13,11 +11,15 @@ import type {
   ISessionRenamedEvent,
   IToolState,
   IUiIntentEvent,
-  IUsageBySourceReport,
-  TActionResponse,
-  TBackgroundJobGroupEvent,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
+import type { IUsageBySourceReport } from '@robota-sdk/agent-interface-analytics';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type {
+  IBackgroundJobGroupState,
+  IExecutionWorkspaceSnapshot,
+  TBackgroundJobGroupEvent,
+} from '@robota-sdk/agent-interface-execution';
 import type {
   IBackgroundTaskInput,
   IBackgroundTaskListFilter,
@@ -25,7 +27,7 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 export type TBackgroundControlAction = 'cancel' | 'close' | 'send';
 

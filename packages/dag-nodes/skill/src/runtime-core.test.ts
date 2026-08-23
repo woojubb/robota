@@ -3,7 +3,7 @@ import type {
   ICommand,
   ISkillExecutionPort,
   ISkillResolutionResult,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-command';
 import { SkillResolverRuntime, type ISkillResolveRequest } from './runtime-core.js';
 
 const greet: ICommand = {
@@ -38,19 +38,23 @@ function stubPort(overrides?: Partial<ISkillExecutionPort>): ISkillExecutionPort
 }
 
 function req(overrides?: Partial<ISkillResolveRequest>): ISkillResolveRequest {
-  return { skillName: 'greet', args: 'World', cwd: '/tmp/x', ...overrides };
+  return { skillName: 'greet', args: 'World', ...overrides };
 }
 
 describe('SkillResolverRuntime (ARCH-PROVIDER-005 — port-injected)', () => {
   it('routes discovery + resolution through the injected port and returns its result', async () => {
+    const loadCommands = vi.fn(() => [greet, forkSkill]);
     const resolveSkill = vi.fn(async () => ({ mode: 'inject', prompt: 'PROMPT-FROM-PORT' }));
-    const runtime = new SkillResolverRuntime({ skillPort: stubPort({ resolveSkill }) });
+    const runtime = new SkillResolverRuntime({
+      skillPort: stubPort({ loadCommands, resolveSkill }),
+    });
     const result = await runtime.resolvePrompt(req());
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.mode).toBe('inject');
       expect(result.value.prompt).toBe('PROMPT-FROM-PORT');
     }
+    expect(loadCommands).toHaveBeenCalledWith();
     // The port's resolveSkill is called with the discovered skill + args (callbacks hidden by the port).
     expect(resolveSkill).toHaveBeenCalledWith(greet, 'World', undefined);
   });

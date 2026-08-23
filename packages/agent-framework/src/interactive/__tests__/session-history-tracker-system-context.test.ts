@@ -9,12 +9,14 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { SessionHistoryTracker } from '../interactive-session-history-tracker.js';
+import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/index.js';
 
 import type { IContextFileEntry } from '../../context/context-file-tracker.js';
 
 function createTracker(): SessionHistoryTracker {
   return new SessionHistoryTracker(
     '/workspace',
+    createRestrictedWorkspaceProjectAccess('untrusted', '/workspace'),
     () => 'test-session',
     () => false,
     vi.fn(),

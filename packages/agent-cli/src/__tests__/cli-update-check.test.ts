@@ -96,7 +96,7 @@ describe('CLI update check command', () => {
     const home = join(TMP_BASE, 'task-home');
     const project = join(TMP_BASE, 'task-project');
     mkdirSync(project, { recursive: true });
-    writeProjectSettings(project);
+    writeProjectSettings(home);
     writeFileSync(join(project, 'task.md'), 'Loop objective: inspect the repository.\n', 'utf8');
     process.env.HOME = home;
     vi.spyOn(process, 'cwd').mockReturnValue(project);
@@ -162,7 +162,7 @@ describe('CLI update check command', () => {
       const home = join(TMP_BASE, 'headless-home');
       const project = join(TMP_BASE, `project-${outputFormat}`);
       mkdirSync(project, { recursive: true });
-      writeProjectSettings(project);
+      writeProjectSettings(home);
       process.env.HOME = home;
       vi.spyOn(process, 'cwd').mockReturnValue(project);
       const outputArgs = outputFormat === 'text' ? [] : ['--output-format', outputFormat];

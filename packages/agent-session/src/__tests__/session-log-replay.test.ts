@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { FileSessionLogger } from '../session-logger.js';
+import { NodeSessionLogSink } from '../session-log-sinks.js';
+import { NodeSessionLogSource } from '../session-log-sources.js';
 import {
   loadSessionLogEntries,
   replaySessionLogEntries,
@@ -11,9 +13,16 @@ import {
 } from '../session-log-replay.js';
 
 describe('session log replay support', () => {
+  it('ARCH-042: rejects an empty Node session-log path before deriving sidecar authority', () => {
+    expect(() => new NodeSessionLogSource('')).toThrow(/log-file path/i);
+    expect(() => new NodeSessionLogSource('   ')).toThrow(/log-file path/i);
+  });
+
   it('redacts sensitive fields and stores large payloads by content-addressed reference', () => {
     const logDir = mkdtempSync(join(tmpdir(), 'robota-log-'));
-    const logger = new FileSessionLogger(logDir, { externalPayloadThresholdBytes: 32 });
+    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir), {
+      externalPayloadThresholdBytes: 32,
+    });
 
     logger.log('session_replay_test', 'tool_execution_result', {
       apiKey: 'secret-key',
@@ -47,7 +56,9 @@ describe('session log replay support', () => {
 
   it('ARCH-014: loadSessionLogEntries hydrates externalized values before replay', () => {
     const logDir = mkdtempSync(join(tmpdir(), 'robota-log-hydration-'));
-    const logger = new FileSessionLogger(logDir, { externalPayloadThresholdBytes: 32 });
+    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir), {
+      externalPayloadThresholdBytes: 32,
+    });
 
     logger.log('hydrated_session', 'history_mutation', {
       mutation: 'append_message',
@@ -60,7 +71,9 @@ describe('session log replay support', () => {
       },
     });
 
-    const [entry] = loadSessionLogEntries(join(logDir, 'hydrated_session.jsonl'));
+    const [entry] = loadSessionLogEntries(
+      new NodeSessionLogSource(join(logDir, 'hydrated_session.jsonl')),
+    );
 
     expect(entry?.message).toEqual(
       expect.objectContaining({ role: 'assistant', content: 'x'.repeat(128) }),

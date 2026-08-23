@@ -6,18 +6,19 @@ import { join } from 'node:path';
 import { createAssistantMessage, createUserMessage } from '@robota-sdk/agent-core';
 import { describe, expect, it } from 'vitest';
 
+import { createTrustedProjectSessionStoreFixture } from '../../testing/trusted-project-state-fixture.js';
 import {
-  createProjectSessionStore,
   listResumableSessionSummaries,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
 } from '../session-persistence.js';
+import { loadedRecordOrMissing } from './session-load-helpers.js';
 
 describe('session persistence facade', () => {
   it('creates a project-local session store and resolves resumable summaries', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'robota-sdk-session-store-'));
     mkdirSync(join(cwd, '.robota'), { recursive: true });
-    const store = createProjectSessionStore(cwd);
+    const store = await createTrustedProjectSessionStoreFixture(cwd);
 
     store.save({
       id: 'session_one',
@@ -39,7 +40,9 @@ describe('session persistence facade', () => {
     expect(resolveLatestSessionId(store, cwd)).toBe('session_two');
     expect(resolveSessionIdByIdOrName(store, 'first')).toBe('session_one');
     expect(resolveSessionIdByIdOrName(store, 'session_two')).toBe('session_two');
-    expect(store.load('session_one')?.sandboxSnapshotId).toBe('sandbox-snapshot-one');
+    expect(loadedRecordOrMissing(store, 'session_one')?.sandboxSnapshotId).toBe(
+      'sandbox-snapshot-one',
+    );
     expect(listResumableSessionSummaries(store, cwd)).toEqual([
       {
         id: 'session_two',

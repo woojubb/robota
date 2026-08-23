@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { findDeprecatedMarkerFindings } from '../scan-deprecated-markers.mjs';
 
@@ -20,7 +20,7 @@ const WORKSPACE_PACKAGES_HELPER = fileURLToPath(
 const DEPRECATED_SOURCE = '/**\n * @deprecated use newThing instead\n */\nexport const x = 1;\n';
 
 async function createFixture(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-deprecated-markers-'));
+  const root = makeTemp('robota-deprecated-markers-');
   for (const [relativePath, content] of Object.entries(files)) {
     const targetPath = path.join(root, relativePath);
     mkdirSync(path.dirname(targetPath), { recursive: true });

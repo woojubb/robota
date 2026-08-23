@@ -8,7 +8,10 @@ import {
   sourceStillOwns,
 } from '../handoff-ownership.js';
 
-import type { IHandoffCommitAck, IHandoffManifest } from '@robota-sdk/agent-interface-transport';
+import type {
+  IHandoffCommitAck,
+  IHandoffManifest,
+} from '@robota-sdk/agent-interface-session-mobility';
 
 const MANIFEST: IHandoffManifest = {
   handoffId: 'handoff_1',

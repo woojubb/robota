@@ -19,7 +19,7 @@ import {
 } from '@robota-sdk/agent-command';
 import { createOutboundDelivery, createWsHandler } from '@robota-sdk/agent-transport-protocol';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 function createRuntimeSession(): Record<string, unknown> {
   return {

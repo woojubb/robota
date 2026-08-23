@@ -2,7 +2,8 @@ import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag
 
 import { createWorkspaceRuntime } from './workspace-runtime.js';
 
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { IWorkflowProject } from './workflow-project.js';
 
 /**
  * `/workflows list` — list the workflow nodes available to the in-process DAG runtime: the built-in
@@ -11,10 +12,10 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
  * Composes `dag-framework`'s local provider; no dependency on the `dag-cli` product.
  */
 export async function executeWorkflowsList(
-  cwd: string,
+  project: IWorkflowProject,
   layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
 ): Promise<ICommandResult> {
-  const { provider, instantNodes } = await createWorkspaceRuntime(cwd, layout);
+  const { provider, instantNodes } = await createWorkspaceRuntime(project, layout);
   const saved = new Set(instantNodes.map((n) => n.nodeType));
   const nodes = await provider.listNodes();
   const sorted = [...nodes].sort((a, b) => a.nodeType.localeCompare(b.nodeType));

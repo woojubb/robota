@@ -8,6 +8,7 @@ import { join } from 'node:path';
 
 import { describe, it, expect, vi } from 'vitest';
 
+import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
 
 import type { ICommandModule } from '../../command-api/command-module.js';
@@ -82,9 +83,17 @@ function createControllableRun(): {
 function createMockSessionStore(records: Record<string, unknown> = {}) {
   const store = new Map<string, unknown>(Object.entries(records));
   return {
-    load: vi.fn((id: string) => store.get(id)),
+    // TRANS-007: the port returns an outcome, so a double that returns a record (or `undefined`)
+    // no longer satisfies it. The cast at the call site hid that from the compiler; the tests found
+    // it at runtime instead.
+    load: vi.fn((id: string) => {
+      const record = store.get(id);
+      return record === undefined ? { status: 'missing' } : { status: 'valid', record };
+    }),
     save: vi.fn((record: { id: string }) => store.set(record.id, record)),
-    list: vi.fn(() => [...store.values()]),
+    list: vi.fn(() =>
+      [...store.entries()].map(([id, record]) => ({ id, outcome: { status: 'valid', record } })),
+    ),
     delete: vi.fn((id: string) => store.delete(id)),
   };
 }
@@ -137,6 +146,7 @@ describe('InteractiveSession', () => {
       const session = new InteractiveSession({
         session: mockSession as never,
         cwd,
+        projectAccess: await createTrustedProjectAccessFixture(cwd),
       });
 
       const completedResults: IExecutionResult[] = [];
@@ -179,6 +189,7 @@ describe('InteractiveSession', () => {
       const session = new InteractiveSession({
         session: mockSession as never,
         cwd,
+        projectAccess: await createTrustedProjectAccessFixture(cwd),
       });
 
       const addResult = await session.addContextReference('notes.md');
@@ -443,8 +454,20 @@ describe('InteractiveSession', () => {
           createdAt: '2026-01-01T00:00:00Z',
           updatedAt: '2026-01-01T00:00:00Z',
           messages: [
-            { role: 'user', content: 'hello' },
-            { role: 'assistant', content: 'hi there' },
+            {
+              id: 'm-1',
+              role: 'user',
+              content: 'hello',
+              timestamp: new Date('2026-08-01T00:00:00.000Z'),
+              state: 'complete',
+            },
+            {
+              id: 'm-2',
+              role: 'assistant',
+              content: 'hi there',
+              timestamp: new Date('2026-08-01T00:00:00.000Z'),
+              state: 'complete',
+            },
           ],
           history: [],
         },
@@ -474,7 +497,13 @@ describe('InteractiveSession', () => {
           timestamp: new Date(),
           category: 'chat',
           type: 'message',
-          data: { role: 'user', content: 'hello' },
+          data: {
+            id: 'm-5',
+            role: 'user',
+            content: 'hello',
+            timestamp: new Date('2026-08-01T00:00:00.000Z'),
+            state: 'complete',
+          },
         },
       ];
       const mockStore = createMockSessionStore({
@@ -527,7 +556,15 @@ describe('InteractiveSession', () => {
           cwd: '/tmp',
           createdAt: '2026-01-01T00:00:00Z',
           updatedAt: '2026-01-01T00:00:00Z',
-          messages: [{ role: 'user', content: 'pending msg' }],
+          messages: [
+            {
+              id: 'm-6',
+              role: 'user',
+              content: 'pending msg',
+              timestamp: new Date('2026-08-01T00:00:00.000Z'),
+              state: 'complete',
+            },
+          ],
           history: [],
         },
       });
@@ -702,14 +739,26 @@ describe('InteractiveSession', () => {
           timestamp: new Date(),
           category: 'chat',
           type: 'user',
-          data: { role: 'user', content: 'q1' },
+          data: {
+            id: 'm-8',
+            role: 'user',
+            content: 'q1',
+            timestamp: new Date('2026-08-01T00:00:00.000Z'),
+            state: 'complete',
+          },
         },
         {
           id: 'h2',
           timestamp: new Date(),
           category: 'chat',
           type: 'assistant',
-          data: { role: 'assistant', content: 'a1' },
+          data: {
+            id: 'm-9',
+            role: 'assistant',
+            content: 'a1',
+            timestamp: new Date('2026-08-01T00:00:00.000Z'),
+            state: 'complete',
+          },
         },
         { id: 'h3', timestamp: new Date(), category: 'event', type: 'tool-start', data: {} },
       ];

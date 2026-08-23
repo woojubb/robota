@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   judgeRule,
@@ -21,6 +22,7 @@ import {
  * skill and in the orchestration map — so the two could disagree, and did.
  */
 const scratch = [];
+const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
 afterAll(() => {
   for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
@@ -143,6 +145,20 @@ describe('the map and the skill state one bound', () => {
       'auto → bounded (2 attempts)',
     );
     expect(bounds.get('caller')).toBe('auto → no cap (2026-08-03)');
+  });
+
+  it('gives the architecture fanout its own bounded row apart from the outer refresh loop', () => {
+    const map = readFileSync(
+      path.join(WORKSPACE_ROOT, '.agents/specs/orchestration-map.md'),
+      'utf8',
+    );
+    const bounds = readMapBounds(map);
+
+    expect(bounds.get('architecture-audit-fanout')).toMatch(
+      /no-progress.*bounded per owning skill/,
+    );
+    expect(bounds.get('architecture-refresh')).toMatch(/no-progress/);
+    expect(bounds.get('architecture-refresh')).not.toMatch(/3 rounds/);
   });
 
   it('fails when the map understates an escape the skill declares', () => {
@@ -327,7 +343,7 @@ describe('over the tree it governs', () => {
   it('refuses a root with no skills, and one with no map', () => {
     // Fail closed on both. A population read from a directory that is not there is empty, and an
     // empty population is a pass that examined nothing.
-    const dir = mkdtempSync(path.join(tmpdir(), 'loops-'));
+    const dir = makeTemp('loops-');
     scratch.push(dir);
     expect(() => scanLoops(dir)).toThrow(/\.agents\/skills does not exist/);
 

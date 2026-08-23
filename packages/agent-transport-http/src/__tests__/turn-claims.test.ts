@@ -10,11 +10,11 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { createTurnClaims } from '../turn-claims.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /**
  * A session that names itself however the case needs it to.

@@ -8,7 +8,7 @@ import {
 } from '../handoff-chunking.js';
 import { sealHandoffRecord, verifyHandoffPayload } from '../handoff-manifest.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 const ID = 'handoff_1';
 

@@ -8,11 +8,12 @@
  * output.
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, appendFileSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync, appendFileSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { LEDGER_DIR } from '../loop-run.mjs';
 import { collectLoopEconomics, examinedRunCount, renderLoopEconomics } from '../loop-economics.mjs';
@@ -20,7 +21,7 @@ import { collectLoopEconomics, examinedRunCount, renderLoopEconomics } from '../
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
 function corpus(ledgers) {
-  const root = mkdtempSync(path.join(tmpdir(), 'loop-econ-'));
+  const root = makeTemp('loop-econ-');
   mkdirSync(path.join(root, LEDGER_DIR), { recursive: true });
   for (const [loop, entries] of Object.entries(ledgers)) {
     writeFileSync(
@@ -43,7 +44,7 @@ const run = (runId, roundFindings, terminal) => ({
 
 describe('collectLoopEconomics', () => {
   it('reports NO DATA on an empty corpus — a rate over zero runs is not 0%', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'loop-econ-'));
+    const root = makeTemp('loop-econ-');
     expect(collectLoopEconomics(root)).toEqual([]);
     expect(renderLoopEconomics([])[0]).toMatch(/NO DATA/);
     // The property is that no RATE is reported, not that the string "0%" is absent — the NO DATA line

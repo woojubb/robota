@@ -1,14 +1,11 @@
-import { resolve } from 'node:path';
+import { createHash } from 'node:crypto';
 
-import {
-  readExternalPayloadJson,
-  resolveExternalPayloadPath,
-  validateExternalPayloadReference,
-} from './external-payload-file-reader.js';
+import { validateExternalPayloadReference } from './external-payload-file-reader.js';
 import { SessionLogPayloadResolutionError } from './external-payload-resolution-contracts.js';
 
-import type { IExternalPayloadFileState } from './external-payload-file-reader.js';
 import type { ISessionLogPayloadResolutionOptions } from './external-payload-resolution-contracts.js';
+import type { IExternalPayloadSource } from './session-log-sources.js';
+import type { IExternalPayloadReference } from './session-logger.js';
 
 export { SessionLogPayloadResolutionError } from './external-payload-resolution-contracts.js';
 export type {
@@ -23,8 +20,11 @@ const BYTES_PER_KIB = 1024;
 const KIB_PER_MIB = 1024;
 const DEFAULT_MAX_TOTAL_BYTES = DEFAULT_MAX_TOTAL_MIB * KIB_PER_MIB * BYTES_PER_KIB;
 
-interface IResolutionState extends IExternalPayloadFileState {
+interface IResolutionState {
   readonly maxDepth: number;
+  readonly maxTotalBytes: number;
+  readonly source: IExternalPayloadSource | undefined;
+  totalBytes: number;
   readonly activePayloadPaths: Set<string>;
   readonly activeObjects: WeakSet<object>;
 }
@@ -42,19 +42,13 @@ export function resolveSessionLogExternalPayloads(
 }
 
 function createResolutionState(options: ISessionLogPayloadResolutionOptions): IResolutionState {
-  if (typeof options.baseDirectory !== 'string' || options.baseDirectory.length === 0) {
-    throw new SessionLogPayloadResolutionError(
-      'INVALID_REFERENCE',
-      'External-payload resolution requires a non-empty base directory.',
-    );
-  }
   const maxDepth = validateLimit('maxDepth', options.maxDepth ?? DEFAULT_MAX_DEPTH);
   const maxTotalBytes = validateLimit(
     'maxTotalBytes',
     options.maxTotalBytes ?? DEFAULT_MAX_TOTAL_BYTES,
   );
   return {
-    baseDirectory: resolve(options.baseDirectory),
+    source: options.source,
     maxDepth,
     maxTotalBytes,
     totalBytes: 0,
@@ -136,21 +130,80 @@ function resolveReference(
       { relativePath: reference.relativePath, depth: referenceDepth },
     );
   }
-  const payloadPath = resolveExternalPayloadPath(reference.relativePath, state);
-  if (state.activePayloadPaths.has(payloadPath)) {
+  if (state.source === undefined) {
+    throw new SessionLogPayloadResolutionError(
+      'UNRESOLVED_REFERENCE',
+      'An external session-log payload requires an explicit payload source.',
+      { relativePath: reference.relativePath, depth: referenceDepth },
+    );
+  }
+  if (state.activePayloadPaths.has(reference.relativePath)) {
     throw new SessionLogPayloadResolutionError(
       'CIRCULAR_REFERENCE',
       `External payload ${reference.relativePath} recursively references an active payload.`,
-      { relativePath: reference.relativePath, resolvedPath: payloadPath, depth: referenceDepth },
+      { relativePath: reference.relativePath, depth: referenceDepth },
     );
   }
 
-  const parsed = readExternalPayloadJson(reference, payloadPath, state);
-  state.activePayloadPaths.add(payloadPath);
+  const parsed = readExternalPayloadJson(reference, state);
+  state.activePayloadPaths.add(reference.relativePath);
   try {
     return resolveValue(parsed, state, referenceDepth + 1);
   } finally {
-    state.activePayloadPaths.delete(payloadPath);
+    state.activePayloadPaths.delete(reference.relativePath);
+  }
+}
+
+function readExternalPayloadJson(
+  reference: IExternalPayloadReference,
+  state: IResolutionState,
+): unknown {
+  const remainingBytes = state.maxTotalBytes - state.totalBytes;
+  const bytes = state.source?.readBytes(reference.relativePath, remainingBytes);
+  if (bytes === undefined) {
+    throw new SessionLogPayloadResolutionError(
+      'PAYLOAD_NOT_FOUND',
+      `External payload was not found: ${reference.relativePath}.`,
+      { relativePath: reference.relativePath },
+    );
+  }
+  const nextTotalBytes = state.totalBytes + bytes.byteLength;
+  if (!Number.isSafeInteger(nextTotalBytes) || nextTotalBytes > state.maxTotalBytes) {
+    throw new SessionLogPayloadResolutionError(
+      'MAX_TOTAL_BYTES_EXCEEDED',
+      `External-payload bytes exceed the configured maximum of ${state.maxTotalBytes}.`,
+      { expected: state.maxTotalBytes, actual: nextTotalBytes },
+    );
+  }
+  state.totalBytes = nextTotalBytes;
+  if (bytes.byteLength !== reference.byteLength) {
+    throw new SessionLogPayloadResolutionError(
+      'BYTE_LENGTH_MISMATCH',
+      `External payload byte length does not match its reference: ${reference.relativePath}.`,
+      {
+        relativePath: reference.relativePath,
+        expected: reference.byteLength,
+        actual: bytes.byteLength,
+      },
+    );
+  }
+  const actualSha256 = createHash('sha256').update(bytes).digest('hex');
+  if (actualSha256 !== reference.sha256) {
+    throw new SessionLogPayloadResolutionError(
+      'SHA256_MISMATCH',
+      `External payload sha256 does not match its reference: ${reference.relativePath}.`,
+      { relativePath: reference.relativePath, expected: reference.sha256, actual: actualSha256 },
+    );
+  }
+  try {
+    return JSON.parse(Buffer.from(bytes).toString('utf8')) as unknown;
+  } catch (error) {
+    throw new SessionLogPayloadResolutionError(
+      'INVALID_JSON',
+      `External payload is not valid JSON: ${reference.relativePath}.`,
+      { relativePath: reference.relativePath },
+      error,
+    );
   }
 }
 

@@ -33,16 +33,15 @@ import type { TAutoCompactThreshold } from './context/context-command-api.js';
 import type { IContextWindowState, IUserInteraction } from '@robota-sdk/agent-core';
 import type {
   ICommandListEntry,
-  IGoalState,
-  IPlanArtifact,
   TCommandInvocationSource,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-command';
 import type {
   IBackgroundTaskListFilter,
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
+import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface-session';
 
 /** Reaching the live session, and the whole-conversation operations that sit beside it. */
 export interface ICommandHostSessionAccess {

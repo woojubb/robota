@@ -1,14 +1,10 @@
-import {
-  createTestInteractiveSession,
-  runTransportLifecycleConformance,
-} from '@robota-sdk/agent-interface-transport/testing';
+import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { RTCPeerConnection } from 'werift';
-import type {
-  IConfigurableTransport,
-  IInteractiveSession,
-} from '@robota-sdk/agent-interface-transport';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
 
 import { WebRtcTransport } from '../webrtc-transport.js';

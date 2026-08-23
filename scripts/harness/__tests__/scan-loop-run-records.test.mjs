@@ -7,11 +7,12 @@
  * the suite happens to run.
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { LEDGER_DIR } from '../loop-run.mjs';
 import {
@@ -25,7 +26,7 @@ const FINDING_SET = 'over=finding-set; escape=no-progress';
 const ATTEMPT = 'over=attempt; bound=3 attempts';
 
 function workspace(skills, { wireRecorder = true } = {}) {
-  const root = mkdtempSync(path.join(tmpdir(), 'loop-records-'));
+  const root = makeTemp('loop-records-');
   for (const [name, declaration] of Object.entries(skills)) {
     mkdirSync(path.join(root, '.agents/skills', name), { recursive: true });
     const recorder = wireRecorder
@@ -91,6 +92,24 @@ describe('findLoopRunRecordFindings', () => {
     expect(findLoopRunRecordFindings(root, NOW)[0].detail).toMatch(/escape=no-progress/);
   });
 
+  it('requires parseable chronological timestamps for closed records', () => {
+    const root = workspace({ looper: FINDING_SET });
+    ledger(root, 'looper', [closed('bad-open', [0], 'converged', 'not-a-date')]);
+    expect(findLoopRunRecordFindings(root, NOW)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ detail: expect.stringContaining('no parseable `opened`') }),
+      ]),
+    );
+
+    const backwards = closed('backwards', [0], 'converged', '2026-08-18T02:00:00.000Z');
+    ledger(root, 'looper', [backwards]);
+    expect(findLoopRunRecordFindings(root, NOW)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ detail: expect.stringContaining('closes before it opens') }),
+      ]),
+    );
+  });
+
   it('fails an entry left OPEN past the staleness horizon, and passes one inside it', () => {
     const root = workspace({ looper: FINDING_SET });
     const stale = new Date(NOW - (STALE_OPEN_DAYS + 1) * 86_400_000).toISOString();
@@ -113,6 +132,29 @@ describe('findLoopRunRecordFindings', () => {
       .join(' | ');
     expect(details).toMatch(/more than once/);
     expect(details).toMatch(/non-negative integers/);
+  });
+
+  it('fails malformed architecture-signal metadata when a run carries the extended schema', () => {
+    const root = workspace({ looper: FINDING_SET });
+    ledger(root, 'looper', [
+      {
+        ...closed('r1', [0], 'converged'),
+        extensions: {
+          architectureRefresh: {
+            signalExpectations: 'not-an-array',
+            signalObservations: [],
+            verificationPassThroughIds: [],
+            draftFindings: [],
+            finalFindings: [],
+            foundationalIds: [],
+            reconciliationRoutes: [],
+            dispositions: [],
+            nestedRuns: [],
+          },
+        },
+      },
+    ]);
+    expect(findLoopRunRecordFindings(root, NOW)[0].detail).toMatch(/signalExpectations.*array/);
   });
 });
 
@@ -157,7 +199,7 @@ describe('the recording instruction lives in the skill that is read', () => {
   });
 
   it('does not fire on a skill that declares no loop at all', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'loop-records-'));
+    const root = makeTemp('loop-records-');
     mkdirSync(path.join(root, '.agents/skills/plain'), { recursive: true });
     writeFileSync(
       path.join(root, '.agents/skills/plain/SKILL.md'),
@@ -170,7 +212,7 @@ describe('the recording instruction lives in the skill that is read', () => {
 
 describe('the governed tree', () => {
   it('THROWS over a root with no skills tree — absence is not emptiness (HARNESS-052)', () => {
-    const bare = mkdtempSync(path.join(tmpdir(), 'loop-records-bare-'));
+    const bare = makeTemp('loop-records-bare-');
     expect(() => findLoopRunRecordFindings(bare, NOW)).toThrow(/\.agents\/skills missing/);
   });
 

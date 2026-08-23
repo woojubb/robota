@@ -71,7 +71,7 @@ jobs:
       # The smoke reads the provider DEFINITIONS from built output, so only the provider-defaults
       # dependency closure needs building (js only — no d.ts is needed to execute).
       - name: Build provider closure
-        run: pnpm --filter @robota-sdk/agent-provider-defaults... build:js
+        run: pnpm --filter @robota-sdk/agent-builtin-providers... build:js
 
       - name: Run live provider smoke
         env:

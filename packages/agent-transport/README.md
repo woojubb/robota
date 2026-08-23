@@ -24,6 +24,10 @@ standalone packages.
 This package also exposes the `./testing` (scripted-provider fixtures) and
 `./programmatic` sub-paths.
 
+All session-owning entry points treat `cwd` as provenance, not project trust. Pass a host-issued
+`TWorkspaceProjectAccess` decision through `projectAccess`; omitting it creates a Restricted session
+that does not load project contributions.
+
 ## Quick Start
 
 ### Headless

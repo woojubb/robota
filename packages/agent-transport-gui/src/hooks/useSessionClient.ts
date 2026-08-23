@@ -22,11 +22,9 @@ import {
 import { createWsSessionClient } from '../client/ws-session-client.js';
 
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
-import type {
-  IExecutionWorkspaceSnapshot,
-  TActionResponse,
-  TPermissionResultValue,
-} from '@robota-sdk/agent-interface-transport';
+import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
+import type { TPermissionResultValue } from '@robota-sdk/agent-interface-session';
+import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
 export interface IConversationMessage {

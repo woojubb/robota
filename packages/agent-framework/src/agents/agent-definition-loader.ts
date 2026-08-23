@@ -1,11 +1,10 @@
-import { homedir } from 'node:os';
 import { join, basename } from 'node:path';
 
 import { BUILT_IN_AGENTS } from './built-in-agents.js';
-import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 import type { IAgentDefinition } from './agent-definition-types.js';
-import type { IFileSystem, IDirent } from '@robota-sdk/agent-core';
+import type { IContributionSource } from '../contributions/index.js';
+import type { IWorkspaceDirectoryEntry } from '../workspace-trust/index.js';
 
 /** Known frontmatter keys that should be parsed as comma-separated or whitespace-separated lists. */
 const LIST_KEYS = new Set(['tools', 'disallowedTools']);
@@ -85,24 +84,25 @@ function parseFrontmatter(content: string): { frontmatter: IRawFrontmatter | nul
 }
 
 /** Scan a directory for .md files and return parsed agent definitions. */
-function scanAgentsDir(dir: string, fs: IFileSystem): IAgentDefinition[] {
-  if (!fs.existsSync(dir)) return [];
+function scanAgentsDir(dir: string, source: IContributionSource): IAgentDefinition[] {
+  if (source.inspectKind(dir, 'discover agent directory') !== 'directory') return [];
 
   const agents: IAgentDefinition[] = [];
-  let entries: IDirent[];
+  let entries: readonly IWorkspaceDirectoryEntry[];
 
   try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
+    entries = source.listDirectory(dir, 'discover agent definitions');
   } catch {
     // allow-fallback: unreadable agents directory returns empty list
     return [];
   }
 
   for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+    if (entry.kind !== 'file' || !entry.name.endsWith('.md')) continue;
 
     const filePath = join(dir, entry.name);
-    const content = fs.readFileSync(filePath, 'utf-8');
+    const content = source.readText(filePath, 'load agent definition');
+    if (content === undefined) continue;
     const { frontmatter, body } = parseFrontmatter(content);
     const fallbackName = basename(entry.name, '.md');
 
@@ -138,40 +138,30 @@ function scanAgentsDir(dir: string, fs: IFileSystem): IAgentDefinition[] {
  * Custom agents override built-in agents on name collision.
  */
 export class AgentDefinitionLoader {
-  private readonly cwd: string;
-  private readonly home: string;
-  private readonly fs: IFileSystem;
   private readonly builtInAgents: readonly IAgentDefinition[];
 
   constructor(
-    cwd: string,
-    home?: string,
-    fs: IFileSystem = new NodeFileSystem(),
+    private readonly sources: readonly IContributionSource[],
     // NEUT-003: injectable built-in set — replaces the default three when supplied
     // (empty array = no built-ins merged).
     builtInAgents: readonly IAgentDefinition[] = BUILT_IN_AGENTS,
   ) {
-    this.cwd = cwd;
-    this.home = home ?? homedir();
-    this.fs = fs;
     this.builtInAgents = builtInAgents;
   }
 
   /** Load all agent definitions, merged with built-in agents. Custom overrides built-in on name collision. */
   loadAll(): IAgentDefinition[] {
-    const sources: IAgentDefinition[][] = [
-      scanAgentsDir(join(this.cwd, '.robota', 'agents'), this.fs),
-      scanAgentsDir(join(this.cwd, '.agents', 'agents'), this.fs),
-      scanAgentsDir(join(this.cwd, '.claude', 'agents'), this.fs),
-      scanAgentsDir(join(this.home, '.robota', 'agents'), this.fs),
-      scanAgentsDir(join(this.home, '.claude', 'agents'), this.fs),
-    ];
+    const discovered = this.sources.flatMap((source) => [
+      scanAgentsDir(join('.robota', 'agents'), source),
+      scanAgentsDir(join('.agents', 'agents'), source),
+      scanAgentsDir(join('.claude', 'agents'), source),
+    ]);
 
     // Deduplicate custom agents: higher-priority source wins
     const seen = new Set<string>();
     const customAgents: IAgentDefinition[] = [];
 
-    for (const agents of sources) {
+    for (const agents of discovered) {
       for (const agent of agents) {
         if (!seen.has(agent.name)) {
           seen.add(agent.name);

@@ -295,7 +295,7 @@ describe('command-api contracts', () => {
 
   it('exposes memory command common APIs without command implementation imports', async () => {
     const context = createCommandHostContext();
-    // P1R: createCommandMemoryStores returns the single injected IMemoryStore (fs default here).
+    // P1R: createCommandMemoryStores returns the single injected IMemoryStore.
     const store = createCommandMemoryStores(context);
 
     expect(buildMemoryCommandSubcommands().map((command) => command.name)).toEqual([
@@ -310,7 +310,7 @@ describe('command-api contracts', () => {
     expect(isCommandMemoryType('project')).toBe(true);
     expect(isCommandMemoryType('secret')).toBe(false);
     expect(hasSensitiveCommandMemoryContent('api key is sk-test-secret')).toBe(true);
-    expect((await store.list()).indexPath).toContain('.robota/memory/MEMORY.md');
+    expect((await store.list()).indexPath).toBe('');
     expect(await store.listPending()).toEqual([]);
     expect(listCommandUsedMemoryReferences(context)).toEqual([]);
   });

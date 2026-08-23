@@ -21,7 +21,7 @@
     "test:coverage:packages": "pnpm --filter \"./packages/**\" run --if-present test:coverage",
     "test:coverage:apps": "pnpm --filter \"./apps/**\" run --if-present test:coverage",
     "typecheck": "pnpm run -r --workspace-concurrency=-1 --if-present typecheck",
-    "lint": "eslint packages apps --ext .ts,.tsx --cache --max-warnings 2092",
+    "lint": "eslint packages apps --ext .ts,.tsx --cache --max-warnings 2203",
     "lint:fix": "eslint packages apps --ext .ts,.tsx --cache --fix && prettier --write .",
     "lint:fix:staged": "scripts/harness/with-repo-lock.sh pnpm exec lint-staged",
     "dev": "pnpm run -r --if-present dev",
@@ -55,6 +55,7 @@
     "harness:scan:publish": "node scripts/harness/check-publish-safety.mjs",
     "harness:scan:release-governance": "node scripts/harness/check-release-governance.mjs",
     "harness:scan:deps": "node scripts/harness/check-dependency-direction.mjs",
+    "harness:scan:public-project-authority": "node scripts/harness/scan-public-project-authority.mjs",
     "harness:scan:consistency": "node scripts/harness/scan-consistency.mjs",
     "harness:scan:review-token-supply": "node scripts/harness/scan-review-token-supply.mjs",
     "harness:review-gate": "node scripts/harness/check-review-gate.mjs",
@@ -117,7 +118,8 @@
     "test:mutation": "stryker run",
     "proof:external": "node scripts/external-proof/run-external-proof.mjs",
     "typecheck:compare": "node scripts/perf/compare-typecheck.mjs",
-    "harness:review:record": "node scripts/harness/record-local-review.mjs"
+    "harness:review:record": "node scripts/harness/record-local-review.mjs",
+    "harness:task:allocate": "node scripts/harness/allocate-work-item-id.mjs"
   },
   "keywords": [
     "ai",

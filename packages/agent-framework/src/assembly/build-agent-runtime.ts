@@ -18,7 +18,7 @@ import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import type { IAIProvider, IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
 import type { ISessionLogger } from '@robota-sdk/agent-session';
 
 export interface IAgentRuntimeResult {
@@ -47,7 +47,7 @@ export function buildAgentRuntime(
     const builtInTier = options.agentDefinitions
       ? [...options.agentDefinitions, ...BUILT_IN_AGENTS]
       : BUILT_IN_AGENTS;
-    const agentLoader = new AgentDefinitionLoader(cwd, undefined, undefined, builtInTier);
+    const agentLoader = new AgentDefinitionLoader(options.contributionSources ?? [], builtInTier);
     agentDefinitions = agentLoader.loadAll();
     agentToolDeps = {
       config: options.config,

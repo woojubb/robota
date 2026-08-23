@@ -556,6 +556,10 @@ const STAGE_RUNNERS = {
   build: runBuild,
   'scan-suite': runScanSuite,
   'affected-verify': runAffectedVerify,
+  // The workspace count against the ceiling. `affected-verify` lints only the affected scopes, so a
+  // warning it reports is a warning in ITS packages — the number the ceiling governs is the sum over
+  // all of them, and only a whole-workspace run produces it (issue #1984).
+  'lint-ceiling': async () => ({ code: await run('pnpm', ['lint']) }),
   'binary-e2e': async () => ({
     code: await run('pnpm', ['--filter', '@robota-sdk/agent-cli', 'test:bin']),
   }),
@@ -742,6 +746,20 @@ export function annotateNotMirrored(
     // A workflow edit is not `code` — the `changes` classifier reports infrastructure-only work as
     // N/A — so `workflow provenance` would have been marked irrelevant on exactly the diffs it
     // exists to judge. Its own subject is the file list, so its relevance is a file-list question.
+    //
+    // A DIRECTORY test, not a registry lookup, and the imprecision is deliberate. Asking
+    // `readGuardedWorkflows()` which files actually provide a required context is more precise, and
+    // it was tried: it makes relevance depend on a file THE CHANGE CAN EDIT. A change that edits a
+    // workflow and drops its context from the registry in the same commit would compute its own
+    // relevance as false — which is the shape `workflow-provenance-gate` exists to refuse,
+    // reproduced inside the relevance calculation. The gate reads the registry from the BASE for
+    // exactly this reason; `annotateNotMirrored` runs locally against the working tree and has no
+    // base to read from.
+    //
+    // The imprecision costs one advisory line on a diff already touching CI, where someone is
+    // already looking. Under-reporting hides a required check nobody will run by hand. If the noise
+    // ever matters, the fix is to read the registry from the merge base — which needs a base ref
+    // this function does not take.
     if (key === 'guarded-workflow')
       return changedFiles.some((file) => file.startsWith('.github/workflows/'));
     // An unknown key must SHOUT rather than be ignored: the alternative is a required check

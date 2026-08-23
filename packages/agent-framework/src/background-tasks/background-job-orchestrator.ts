@@ -12,7 +12,7 @@ import type {
   TBackgroundJobGroupEvent,
   TBackgroundJobGroupEventListener,
   TBackgroundJobGroupIdFactory,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 export type {
   TBackgroundJobWaitPolicy,
@@ -24,12 +24,12 @@ export type {
   TBackgroundJobGroupEvent,
   TBackgroundJobGroupEventListener,
   TBackgroundJobGroupIdFactory,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 import type {
   IBackgroundTaskState,
   TBackgroundTaskEvent,
   TBackgroundTaskStatus,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 const DEFAULT_SUMMARY_LENGTH = 1_000;
 

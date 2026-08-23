@@ -6,7 +6,7 @@
  * session-record type. History entries are the canonical `IHistoryEntry` (agent-core).
  */
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 /** Minimal session-record projection the analyzer reads — SSOT-derived, not a duplicate. */
 export type TSessionAnalysisInput = Pick<

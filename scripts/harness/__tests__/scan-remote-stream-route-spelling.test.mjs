@@ -7,11 +7,12 @@
  * live tree is fine says nothing about whether it CAN say otherwise.
  */
 
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   examinedDeclarationCount,
@@ -26,7 +27,7 @@ afterEach(() => {
 
 /** A tree carrying just the two files the scan reads, with the spellings under test. */
 function fixture({ served, suffix, omitServerFile = false }) {
-  const root = mkdtempSync(path.join(tmpdir(), 'route-spelling-'));
+  const root = makeTemp('route-spelling-');
   dirs.push(root);
   mkdirSync(path.join(root, 'apps/agent-server/src/routes'), { recursive: true });
   mkdirSync(path.join(root, 'packages/agent-remote-client/src/client'), { recursive: true });

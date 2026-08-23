@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   judgeEntries,
@@ -69,7 +70,7 @@ describe('a named mechanism must exist', () => {
     // The configuration here is JSON, where a rule name is double-quoted. Matching single quotes
     // only reported two real, configured rules as not existing — the check firing on correct data,
     // caught by running it.
-    const root = mkdtempSync(path.join(tmpdir(), 'mech-'));
+    const root = makeTemp('mech-');
     scratch.push(root);
     writeFileSync(
       path.join(root, '.eslintrc.json'),
@@ -85,7 +86,7 @@ describe('a named mechanism must exist', () => {
 describe('over the catalogue it governs', () => {
   it('refuses a root with no catalogue, and one with no entries', () => {
     // Fail closed: a catalogue that is not there has no unanswered entries, and that is not a pass.
-    const dir = mkdtempSync(path.join(tmpdir(), 'mech-empty-'));
+    const dir = makeTemp('mech-empty-');
     scratch.push(dir);
     expect(() => scanMistakeMechanisms(dir)).toThrow(/does not exist/);
 

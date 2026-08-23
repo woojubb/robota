@@ -142,7 +142,9 @@ fix → push → re-review loop this hands off to is
 ### 6. Spec-gated (code) work clears its gate BEFORE implementation
 
 For code items requiring a spec, run draft → GATE-WRITE → **independent** GATE-APPROVAL first — independent
-meaning a reviewer that did not author the spec (the `proposal-reviewer` / `architecture-auditor` roles).
+meaning a `proposal-reviewer` that did not author the spec. When architecture evidence is additionally
+required, dispatch the complete `architecture-audit-fanout` or an explicitly scoped dimension; dimensional
+auditors emit coverage signals, not GATE-APPROVAL verdicts.
 Fold every REVISE finding, then approve — all per the spec-workflow / backlog-execution rules. Only
 APPROVED items enter the parallel implementation wave.
 

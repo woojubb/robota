@@ -7,6 +7,7 @@ import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
 import type { IProjectInfo } from '../context/project-detector.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
+import type { IContributionSource } from '../contributions/index.js';
 import type { TSessionFactory } from '../hooks/agent-executor.js';
 import type { TProviderFactory } from '../hooks/prompt-executor.js';
 import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
@@ -24,7 +25,7 @@ import type {
   IUserInteraction,
 } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
+import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 import type {
   Session,
   ISessionOptions,
@@ -49,6 +50,8 @@ export interface ICreateSessionOptions {
   config: IResolvedConfig;
   /** Working directory used for project context, skills, and agent definitions. */
   cwd?: string;
+  /** Explicit contribution sources; absence means no skill or agent-definition file access. */
+  contributionSources?: readonly IContributionSource[];
   /** Loaded AGENTS.md / CLAUDE.md context */
   context: ILoadedContext;
   /** Terminal I/O for permission prompts */
@@ -148,6 +151,8 @@ export interface ICreateSessionOptions {
   toolDescriptions?: string[];
   /** Session logger — injected for pluggable session event logging. */
   sessionLogger?: ISessionLogger;
+  /** Trusted host projection of the session transcript path for hook compatibility. */
+  transcriptPath?: string;
   /** Provider factory for prompt hook executors (DI). */
   providerFactory?: TProviderFactory;
   /** Session factory for agent hook executors (DI). */

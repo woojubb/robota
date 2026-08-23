@@ -30,6 +30,7 @@ import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
@@ -39,9 +40,10 @@ import type {
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-transport';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
+import type { ISessionLogSink } from '@robota-sdk/agent-session';
 import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
 import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
@@ -50,6 +52,7 @@ import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools
 export interface IInitOptions {
   cwd: string;
   provider: IAIProvider;
+  projectAccess?: TWorkspaceProjectAccess;
   permissionMode?: ICreateSessionOptions['permissionMode'];
   /** CMD-005: unified ask renderer, forwarded into the session as the model-question tool seam. */
   askHandler?: IUserInteraction['ask'];
@@ -57,6 +60,10 @@ export interface IInitOptions {
   permissionHandler?: TInteractivePermissionHandler;
   resumeSessionId?: string;
   forkSession?: boolean;
+  /** Explicit session-log sink; absence disables diagnostic project logging. */
+  sessionLogSink?: ISessionLogSink;
+  /** Trusted host-only path projection for hook compatibility. */
+  transcriptPath?: string;
   onTextDelta: (delta: string) => void;
   onContextUpdate?: (state: IContextWindowState) => void;
   onCompactEvent?: (event: ICompactEvent) => void;
@@ -121,7 +128,7 @@ export interface IInitOptions {
   sandboxType?: string;
   /**
    * SELFHOST-008: optional durable-memory store. When present, startup-memory injection reads through
-   * it; absent, the neutral filesystem reference adapter is the default (memory works unchanged).
+   * it; absence leaves project memory inaccessible.
    */
   memoryStore?: IMemoryStore;
   /** Fresh-session workspace manifest applied through the sandbox client. */

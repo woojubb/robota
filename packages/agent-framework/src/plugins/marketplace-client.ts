@@ -8,11 +8,14 @@
 
 import { join } from 'node:path';
 
+import { readMarketplaceManifest } from './marketplace-manifest.js';
 import {
   readRegistry,
   writeRegistry,
   removeInstalledPluginsForMarketplace,
 } from './marketplace-registry.js';
+import { resolveMarketplaceCloneUrl } from './marketplace-source.js';
+import { assertContainedPath, assertSafePluginSegment } from './plugin-paths.js';
 import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 import type {
@@ -20,6 +23,7 @@ import type {
   IMarketplacePluginEntry,
   IMarketplaceManifest,
   IMarketplaceClientOptions,
+  IKnownMarketplaceEntry,
   TExecFn,
 } from './marketplace-types.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
@@ -74,10 +78,15 @@ export class MarketplaceClient {
       }
       this.fs.cpSync(source.path, tempDir, { recursive: true });
     } else {
-      const cloneUrl = this.resolveCloneUrl(source);
-      const command = `git clone --depth 1 ${cloneUrl} ${tempDir}`;
+      const cloneUrl = resolveMarketplaceCloneUrl(source);
       try {
-        this.exec(command, { timeout: GIT_TIMEOUT_MS, stdio: 'pipe' });
+        // `--` before the operands: a URL or path beginning with `-` is an OPERAND, never an option.
+        // Argv alone stops shell interpretation; it does not stop git reading `--upload-pack=…` as a
+        // flag it should honour.
+        this.exec('git', ['clone', '--depth', '1', '--', cloneUrl, tempDir], {
+          timeout: GIT_TIMEOUT_MS,
+          stdio: 'pipe',
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(`Failed to clone marketplace: ${message}`);
@@ -94,7 +103,7 @@ export class MarketplaceClient {
       );
     }
 
-    const manifest = this.readManifestFromPath(manifestPath);
+    const manifest = readMarketplaceManifest(manifestPath, this.fs);
     const name = manifest.name;
 
     if (!name) {
@@ -108,7 +117,11 @@ export class MarketplaceClient {
       throw new Error(`Marketplace "${name}" already exists`);
     }
 
+    // SEC-018: `name` comes from a REMOTE marketplace manifest and selects this rename destination.
+    // A manifest named `../../escaped-market` placed the marketplace outside its root.
+    assertSafePluginSegment(name, 'marketplace name');
     const finalDir = join(this.marketplacesDir, name);
+    assertContainedPath(this.marketplacesDir, finalDir, 'install a marketplace', this.fs);
     this.fs.renameSync(tempDir, finalDir);
 
     registry[name] = {
@@ -126,15 +139,34 @@ export class MarketplaceClient {
    * Uninstalls all plugins from that marketplace, then deletes the clone directory
    * and removes from the registry.
    */
-  removeMarketplace(name: string): void {
-    const registry = readRegistry(this.registryPath, this.fs);
-    const entry = registry[name];
+  /**
+   * The registry entry for `name`, with its `installLocation` proven inside the marketplaces root.
+   *
+   * SEC-018. `known_marketplaces.json` is the sibling of `installed_plugins.json`, and its
+   * `installLocation` reaches three sinks: a recursive delete in `removeMarketplace`, a
+   * delete-then-copy in `updateMarketplace`'s local branch, and `git -C <dir> pull` in its git
+   * branch. All three were unguarded while the other registry's `installPath` was guarded twice —
+   * the principle was established and the sibling file was never enumerated.
+   *
+   * Checked once, where the entry is read, rather than at each of the three sinks: three call sites
+   * are three chances to miss one, which is how this was missed in the first place.
+   */
+  private requireContainedEntry(name: string, what: string): IKnownMarketplaceEntry {
+    const entry = readRegistry(this.registryPath, this.fs)[name];
     if (!entry) {
       throw new Error(`Marketplace "${name}" not found`);
     }
+    assertContainedPath(this.marketplacesDir, entry.installLocation, what, this.fs);
+    return entry;
+  }
+
+  removeMarketplace(name: string): void {
+    const entry = this.requireContainedEntry(name, 'remove a marketplace');
+    const registry = readRegistry(this.registryPath, this.fs);
 
     removeInstalledPluginsForMarketplace(this.pluginsDir, name, this.fs);
 
+    // SEC-018: proven contained above; the registry value is a hint, not a fact.
     if (this.fs.existsSync(entry.installLocation)) {
       this.fs.rmSync(entry.installLocation, { recursive: true, force: true });
     }
@@ -149,11 +181,9 @@ export class MarketplaceClient {
    * updated manifest is automatically available after pull.
    */
   updateMarketplace(name: string): void {
+    const entry = this.requireContainedEntry(name, 'update a marketplace');
     const registry = readRegistry(this.registryPath, this.fs);
-    const entry = registry[name];
-    if (!entry) {
-      throw new Error(`Marketplace "${name}" not found`);
-    }
+    registry[name] = entry;
 
     if (!this.fs.existsSync(entry.installLocation)) {
       throw new Error(`Marketplace directory for "${name}" does not exist`);
@@ -167,9 +197,11 @@ export class MarketplaceClient {
       this.fs.rmSync(entry.installLocation, { recursive: true, force: true });
       this.fs.cpSync(localSource.path, entry.installLocation, { recursive: true });
     } else {
-      const command = `git -C ${entry.installLocation} pull`;
       try {
-        this.exec(command, { timeout: GIT_TIMEOUT_MS, stdio: 'pipe' });
+        this.exec('git', ['-C', entry.installLocation, 'pull'], {
+          timeout: GIT_TIMEOUT_MS,
+          stdio: 'pipe',
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(`Failed to update marketplace "${name}": ${message}`);
@@ -205,7 +237,7 @@ export class MarketplaceClient {
       );
     }
 
-    return this.readManifestFromPath(manifestPath);
+    return readMarketplaceManifest(manifestPath, this.fs);
   }
 
   /** Get the clone directory path for a registered marketplace. */
@@ -225,7 +257,7 @@ export class MarketplaceClient {
   getMarketplaceSha(name: string): string {
     const dir = this.getMarketplaceDir(name);
     try {
-      const result = this.exec(`git -C ${dir} rev-parse HEAD`, {
+      const result = this.exec('git', ['-C', dir, 'rev-parse', 'HEAD'], {
         timeout: GIT_TIMEOUT_MS,
         stdio: 'pipe',
       });
@@ -259,33 +291,4 @@ export class MarketplaceClient {
   // --- Private helpers ---
 
   /** Resolve a marketplace source to a git clone URL. */
-  private resolveCloneUrl(source: TMarketplaceSource): string {
-    switch (source.type) {
-      case 'github':
-        return `https://github.com/${source.repo}.git`;
-      case 'git':
-        return source.url;
-      case 'local':
-        throw new Error('Local source type does not use git cloning');
-      case 'url':
-        throw new Error('URL marketplace source is not yet supported');
-    }
-  }
-
-  /** Read and parse a marketplace.json from a file path. */
-  private readManifestFromPath(path: string): IMarketplaceManifest {
-    const raw = this.fs.readFileSync(path, 'utf-8');
-    const data: unknown = JSON.parse(raw);
-
-    if (typeof data !== 'object' || data === null) {
-      throw new Error('Invalid marketplace manifest: not an object');
-    }
-
-    const obj = data as Record<string, unknown>;
-    if (typeof obj.name !== 'string') {
-      throw new Error('Invalid marketplace manifest: missing "name" field');
-    }
-
-    return data as IMarketplaceManifest;
-  }
 }

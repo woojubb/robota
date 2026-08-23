@@ -17,16 +17,21 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskResult,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 function createSessionStoreStub() {
   const records = new Map<string, unknown>();
   return {
-    load: vi.fn((id: string) => records.get(id)),
+    load: vi.fn((id: string) => {
+      const record = records.get(id);
+      return record === undefined ? { status: 'missing' } : { status: 'valid', record };
+    }),
     save: vi.fn((record: { id: string } & Record<string, unknown>) =>
       records.set(record.id, record),
     ),
-    list: vi.fn(() => [...records.values()]),
+    list: vi.fn(() =>
+      [...records.entries()].map(([id, record]) => ({ id, outcome: { status: 'valid', record } })),
+    ),
     delete: vi.fn((id: string) => records.delete(id)),
   };
 }

@@ -17,6 +17,24 @@ and the shipped code follows one while the other still reads as absolute. This i
 contradiction (the class HARNESS-072 wants detected), and per the rules index an amendment requires a
 filed item — this is that item.
 
+## Location correction (ARCH-108, 2026-08-23)
+
+**The contradiction stands; only its address moved.** This record cites the double at
+`packages/agent-interface-transport/src/testing/index.ts` and the constraint at
+`packages/agent-interface-transport/docs/SPEC.md:356-359`. ARCH-108 (issue #2113) moved
+`createTestInteractiveSession` to `packages/agent-interface-session/src/testing/`, because
+`agent-interface-session` declares the contract it doubles, and rewrote that SPEC — the cited line
+range no longer exists in it.
+
+Read the citations below against `agent-interface-session` instead. Nothing about Side A / Side B
+changes: an `agent-interface-*` package still hosts a behavioural factory under `/testing` while the
+Interface Package Rule still says those packages hold no runtime logic. The move made the
+contradiction cleaner, not smaller — the double now sits in the package whose SPEC states the
+constraint most directly.
+
+The `area:` field is left as written rather than silently corrected; whoever takes this item should
+re-measure it, per the footprint lesson recorded in ARCH-108.
+
 ## Evidence
 
 - Side A — `.agents/project-structure.md:294` — "`agent-interface-*` packages contain **only type

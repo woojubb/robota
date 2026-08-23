@@ -12,9 +12,20 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  createRestrictedWorkspaceProjectAccess,
+  createWorkspaceProjectMutation,
+  WorkspaceAuthorityRequiredError,
+} from '@robota-sdk/agent-framework';
+
+import { createTrustedWorkspaceProjectAccess } from '../../__tests__/helpers/trusted-workspace-project-access.js';
 import { InitPromptUnavailableError, runInitCommand } from '../init-command.js';
 
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
+import type {
+  ITrustedWorkspaceProjectAccess,
+  IWorkspaceProjectMutation,
+} from '@robota-sdk/agent-framework';
 
 function createTerminal(): { terminal: ITerminalOutput; output(): string } {
   const lines: string[] = [];
@@ -37,10 +48,17 @@ function createTerminal(): { terminal: ITerminalOutput; output(): string } {
 describe('runInitCommand prompt matrix (CLI-065)', () => {
   let cwd: string;
   let promptSpy: ReturnType<typeof vi.fn<(question: string) => Promise<string>>>;
+  let projectAccess: ITrustedWorkspaceProjectAccess;
+  let projectMutation: IWorkspaceProjectMutation;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     cwd = mkdtempSync(join(tmpdir(), 'robota-init-test-'));
     promptSpy = vi.fn<(question: string) => Promise<string>>(async () => 'y');
+    projectAccess = await createTrustedWorkspaceProjectAccess(cwd);
+    projectMutation = createWorkspaceProjectMutation(projectAccess.authority, {
+      status: 'approved',
+      purpose: 'initialize test project',
+    });
   });
 
   afterEach(() => {
@@ -61,7 +79,9 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     const { agentsMd, settings } = seedExistingFiles();
     const { terminal, output } = createTerminal();
 
-    await runInitCommand(cwd, terminal, {
+    await runInitCommand(terminal, {
+      projectAccess,
+      projectMutation,
       yes: true,
       promptFn: promptSpy as never,
       isTTY: false,
@@ -83,7 +103,9 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     );
     const { terminal } = createTerminal();
 
-    await runInitCommand(cwd, terminal, {
+    await runInitCommand(terminal, {
+      projectAccess,
+      projectMutation,
       yes: true,
       promptFn: promptSpy as never,
       isTTY: false,
@@ -102,7 +124,9 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     seedExistingFiles();
     const { terminal, output } = createTerminal();
 
-    await runInitCommand(cwd, terminal, {
+    await runInitCommand(terminal, {
+      projectAccess,
+      projectMutation,
       promptFn: promptSpy as never,
       isTTY: false,
       ci: true,
@@ -118,7 +142,9 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
 
     let thrown: unknown;
     try {
-      await runInitCommand(cwd, terminal, {
+      await runInitCommand(terminal, {
+        projectAccess,
+        projectMutation,
         promptFn: promptSpy as never,
         isTTY: false,
         ci: false,
@@ -140,7 +166,9 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     const { terminal, output } = createTerminal();
     promptSpy.mockResolvedValueOnce('n');
 
-    await runInitCommand(cwd, terminal, {
+    await runInitCommand(terminal, {
+      projectAccess,
+      projectMutation,
       promptFn: promptSpy as never,
       isTTY: true,
       ci: false,
@@ -163,7 +191,9 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     promptSpy.mockResolvedValueOnce('y'); // overwrite
     promptSpy.mockResolvedValueOnce('n'); // migrate
 
-    await runInitCommand(cwd, terminal, {
+    await runInitCommand(terminal, {
+      projectAccess,
+      projectMutation,
       promptFn: promptSpy as never,
       isTTY: true,
       ci: false,
@@ -181,7 +211,9 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     const { terminal } = createTerminal();
     const onProviderSetup = vi.fn(async () => {});
 
-    await runInitCommand(cwd, terminal, {
+    await runInitCommand(terminal, {
+      projectAccess,
+      projectMutation,
       yes: true,
       onProviderSetup,
       promptFn: promptSpy as never,
@@ -197,7 +229,9 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     const { terminal, output } = createTerminal();
     const onProviderSetup = vi.fn(async () => {});
 
-    await runInitCommand(cwd, terminal, {
+    await runInitCommand(terminal, {
+      projectAccess,
+      projectMutation,
       onProviderSetup,
       promptFn: promptSpy as never,
       isTTY: false,
@@ -206,5 +240,19 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
 
     expect(onProviderSetup).not.toHaveBeenCalled();
     expect(output()).toContain('Initialization complete.');
+  });
+
+  it('does not inspect or mutate project files without trusted access and mutation authority', async () => {
+    seedExistingFiles();
+    const { terminal, output } = createTerminal();
+
+    await expect(
+      runInitCommand(terminal, {
+        projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
+        yes: true,
+      }),
+    ).rejects.toBeInstanceOf(WorkspaceAuthorityRequiredError);
+
+    expect(output()).toBe('');
   });
 });

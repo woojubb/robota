@@ -6,24 +6,29 @@
  */
 
 import { refreshContextEntries } from '../context/context-file-tracker.js';
+import { getWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 
 export async function checkAndRefreshContextIfStale(
   agentsFileEntries: IContextFileEntry[],
   projectNotesFileEntries: IContextFileEntry[],
   rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null,
+  projectAccess: TWorkspaceProjectAccess,
   setEntries: (agents: IContextFileEntry[], claude: IContextFileEntry[]) => void,
   getSessionOrThrow: () => { updateSystemMessage: (msg: string) => void },
   emit: (event: string, payload: unknown) => void,
 ): Promise<void> {
+  if (projectAccess.status !== 'trusted') return;
   if (!rebuildSystemMessage) return;
   const allEntries = [...agentsFileEntries, ...projectNotesFileEntries];
   if (allEntries.length === 0) return;
 
   const agentsCount = agentsFileEntries.length;
-  const { updated, refreshed } = await refreshContextEntries(allEntries);
+  const reader = getWorkspaceProjectReader(projectAccess.authority);
+  const { updated, refreshed } = await refreshContextEntries(allEntries, reader);
   if (refreshed.length === 0) return;
 
   const newAgents = updated.slice(0, agentsCount);

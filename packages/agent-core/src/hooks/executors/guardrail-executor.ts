@@ -3,7 +3,7 @@
  *
  * A registered `IHookTypeExecutor` (`type: 'guardrail'`) that fans out the registered guardrail SET in
  * PARALLEL and FAILS FAST: the first guardrail that returns `pass: false` (or throws — fail-safe) maps
- * onto the existing exit-code-2 / `blocked` contract `runHooks` understands, so a guardrail block flows
+ * onto the `deny` outcome `runHooks` understands (SEC-015; formerly exit code 2), so a guardrail block flows
  * through the SAME `runHooks` → `runPreToolHook` → `PermissionEnforcer` denial path hooks already use —
  * no new runner, no second turn-blocking mechanism. Parallelism lives INSIDE the executor; the guardrail
  * SET runs concurrently while the turn still carries exactly one block decision.
@@ -13,7 +13,7 @@
  */
 
 import type {
-  IHookResult,
+  THookOutcome,
   IHookInput,
   IHookTypeExecutor,
   THookDefinition,
@@ -40,10 +40,17 @@ export class GuardrailExecutor implements IHookTypeExecutor {
       guardrails instanceof Map ? new Map(guardrails) : new Map(Object.entries(guardrails));
   }
 
-  async execute(definition: THookDefinition, input: IHookInput): Promise<IHookResult> {
+  async execute(definition: THookDefinition, input: IHookInput): Promise<THookOutcome> {
     if (definition.type !== 'guardrail') {
-      // Defensive: the runner dispatches by type, so this should never happen.
-      return { exitCode: 0, stdout: '', stderr: '' };
+      // Defensive: the runner dispatches by type, so this should never happen. It answers `error`
+      // rather than `allow` because a mis-dispatched gate has rendered no verdict — the old
+      // exit-code-0 here was itself a small instance of the coercion SEC-015 removes.
+      return {
+        outcome: 'error',
+        source: 'guardrail',
+        kind: 'malformed-response',
+        reason: `GuardrailExecutor received a '${definition.type}' definition`,
+      };
     }
 
     // Fail-safe on misconfiguration: a NAMED guardrail that isn't registered is a config error that
@@ -53,15 +60,15 @@ export class GuardrailExecutor implements IHookTypeExecutor {
       const unknown = definition.guardrails.filter((name) => !this.guardrails.has(name));
       if (unknown.length > 0) {
         return {
-          exitCode: 2,
-          stdout: '',
-          stderr: `Unknown guardrail(s) referenced but not registered: ${unknown.join(', ')}`,
+          outcome: 'deny',
+          source: 'guardrail',
+          reason: `Unknown guardrail(s) referenced but not registered: ${unknown.join(', ')}`,
         };
       }
     }
 
     const selected = this.selectGuardrails(definition.guardrails);
-    if (selected.length === 0) return { exitCode: 0, stdout: '', stderr: '' };
+    if (selected.length === 0) return { outcome: 'allow', source: 'guardrail', stdout: '' };
 
     try {
       // Parallel fan-out + fail-fast: Promise.all rejects on the FIRST guardrail that blocks/throws,
@@ -83,12 +90,12 @@ export class GuardrailExecutor implements IHookTypeExecutor {
       );
     } catch (err) {
       if (err instanceof GuardrailBlock) {
-        return { exitCode: 2, stdout: '', stderr: err.guardrailReason };
+        return { outcome: 'deny', source: 'guardrail', reason: err.guardrailReason };
       }
       throw err;
     }
 
-    return { exitCode: 0, stdout: '', stderr: '' };
+    return { outcome: 'allow', source: 'guardrail', stdout: '' };
   }
 
   /** Resolve the definition's optional name list to registered guardrails; omitted ⇒ all. */

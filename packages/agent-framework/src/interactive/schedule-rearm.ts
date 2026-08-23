@@ -7,7 +7,7 @@
  * removes that divergence risk (review CONSIDER).
  */
 
-import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-transport';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
 
 /**
  * A restored scheduled task that can be re-armed from its persisted schedule: a `sleeping` one re-arms to fire

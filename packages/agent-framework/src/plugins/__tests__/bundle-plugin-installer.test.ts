@@ -4,9 +4,10 @@ import { join } from 'node:path';
 
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
 import { BundlePluginInstaller } from '../bundle-plugin-installer.js';
 import { MarketplaceClient } from '../marketplace-client.js';
-import { PluginSettingsStore } from '../plugin-settings-store.js';
+import { NodeHostPluginSettingsStore } from '../plugin-settings-store.js';
 
 import type { TExecFn } from '../marketplace-types.js';
 
@@ -26,6 +27,7 @@ describe('BundlePluginInstaller', () => {
   let installer: BundlePluginInstaller;
   let marketplaceClient: MarketplaceClient;
   let mockExec: Mock;
+  let installerFs: NodeFileSystem;
 
   beforeEach(() => {
     const runDir = join(TMP_BASE, 'run-' + Math.random().toString(36).slice(2));
@@ -37,11 +39,13 @@ describe('BundlePluginInstaller', () => {
 
     marketplaceClient = new MarketplaceClient({ pluginsDir, exec: mockExec as TExecFn });
 
+    installerFs = new NodeFileSystem();
     installer = new BundlePluginInstaller({
       pluginsDir,
-      settingsStore: new PluginSettingsStore(settingsPath),
+      settingsStore: new NodeHostPluginSettingsStore(settingsPath),
       marketplaceClient,
       exec: mockExec as TExecFn,
+      fs: installerFs,
     });
   });
 
@@ -133,27 +137,35 @@ describe('BundlePluginInstaller', () => {
       ]);
 
       // Mock exec for git clone
-      mockExec.mockImplementation((cmd: string) => {
-        if (cmd.includes('git clone') && cmd.includes('user/gh-plugin')) {
+      mockExec.mockImplementation((file: string, args: readonly string[]) => {
+        if (
+          file === 'git' &&
+          args[0] === 'clone' &&
+          args.some((a) => a.includes('user/gh-plugin'))
+        ) {
           // The installer removes the pre-created dir and clones
-          const parts = cmd.split(' ');
-          const targetDir = parts[parts.length - 1];
-          setupDir(targetDir);
+          setupDir(args[args.length - 1] as string);
         }
         return '';
       });
 
       await installer.install('gh-plugin', 'gh-market');
 
+      // SEC-017 (issue #2019): the executable and its ARGUMENT VECTOR are asserted separately. A
+      // `stringContaining('git clone …')` assertion passes just as well when the URL has been folded
+      // back into one shell string, which is the defect this port removes.
       expect(mockExec).toHaveBeenCalledWith(
-        expect.stringContaining('git clone --depth 1'),
+        'git',
+        [
+          'clone',
+          '--depth',
+          '1',
+          '--',
+          'https://github.com/user/gh-plugin.git',
+          expect.any(String),
+        ],
         expect.objectContaining({ timeout: expect.any(Number) }),
       );
-      const cloneCmd = mockExec.mock.calls.find((c: string[]) =>
-        (c[0] as string).includes('git clone'),
-      );
-      expect(cloneCmd).toBeDefined();
-      expect(cloneCmd![0]).toContain('https://github.com/user/gh-plugin.git');
     });
 
     it('should use git SHA as version when no explicit version', async () => {
@@ -172,8 +184,8 @@ describe('BundlePluginInstaller', () => {
       setupDir(join(marketplaceDir, 'packages', 'no-ver-plugin'));
 
       // Mock git rev-parse to return a SHA
-      mockExec.mockImplementation((cmd: string) => {
-        if (cmd.includes('rev-parse HEAD')) {
+      mockExec.mockImplementation((file: string, args: readonly string[]) => {
+        if (file === 'git' && args.includes('rev-parse')) {
           return 'abcdef123456789012345678901234567890\n';
         }
         return '';
@@ -244,8 +256,8 @@ describe('BundlePluginInstaller', () => {
         },
       ]);
 
-      mockExec.mockImplementation((cmd: string) => {
-        if (cmd.includes('git clone')) {
+      mockExec.mockImplementation((file: string, args: readonly string[]) => {
+        if (file === 'git' && args[0] === 'clone') {
           throw new Error('git clone failed');
         }
         return '';
@@ -376,6 +388,98 @@ describe('BundlePluginInstaller', () => {
     it('should return empty array when no plugins from marketplace', () => {
       const plugins = installer.getPluginsByMarketplace('nonexistent');
       expect(plugins).toEqual([]);
+    });
+  });
+
+  describe('SEC-018 - every sink USES the guard, not just the module that defines it', () => {
+    // The first pass of SEC-018 tested `plugin-paths.ts` thoroughly and guarded two of the four
+    // value/sink pairs. A review found the other two. Testing the predicate proves the predicate;
+    // it does not prove that each sink calls it — the same shape as ARCH-101's guard that was
+    // reachable only through `main()`. These drive the real installer methods instead.
+
+    it('uninstall does not delete a registry installPath outside the plugin cache', async () => {
+      const victim = join(TMP_BASE, 'victim-' + Math.random().toString(36).slice(2));
+      setupDir(victim);
+      writeFileSync(join(victim, 'keep.txt'), 'do not delete me', 'utf-8');
+
+      // A tampered installed_plugins.json — the value is a HINT read from disk, not one we derived.
+      writeJson(join(pluginsDir, 'installed_plugins.json'), {
+        'evil@market': {
+          pluginName: 'evil',
+          marketplace: 'market',
+          version: '1.0.0',
+          installPath: victim,
+          installedAt: new Date().toISOString(),
+        },
+      });
+
+      await installer.uninstall('evil@market');
+
+      expect(existsSync(join(victim, 'keep.txt')), 'a path outside the cache was deleted').toBe(
+        true,
+      );
+
+      // ...and the entry is still gone, so one tampered record cannot pin itself in place and block
+      // every later uninstall.
+      const registry = JSON.parse(
+        readFileSync(join(pluginsDir, 'installed_plugins.json'), 'utf-8'),
+      ) as Record<string, unknown>;
+      expect(registry['evil@market']).toBeUndefined();
+    });
+
+    it('refuses a marketplace manifest whose plugin source escapes the marketplace directory', async () => {
+      const marketplaceDir = join(pluginsDir, 'marketplaces', 'escape-market');
+      setupDir(join(marketplaceDir, '.claude-plugin'));
+      writeJson(join(marketplaceDir, '.claude-plugin', 'marketplace.json'), {
+        name: 'escape-market',
+        version: '1.0',
+        // `source` is a RELATIVE path from a remote manifest, joined onto the marketplace clone and
+        // then cpSync-ed into the cache and loaded as plugin code.
+        plugins: [{ name: 'escaper', source: '../../../..', version: '1.0.0' }],
+      });
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'escape-market': {
+          source: { type: 'local', path: marketplaceDir },
+          installLocation: marketplaceDir,
+          lastUpdated: new Date().toISOString(),
+        },
+      });
+
+      await expect(installer.install('escaper', 'escape-market')).rejects.toThrow(
+        /outside the plugin root/,
+      );
+    });
+
+    it('lets a real filesystem failure propagate instead of recording a successful removal', async () => {
+      // The refusal and an EACCES/EBUSY are different events. Swallowing both meant a delete that
+      // failed for an ordinary reason still dropped the registry entry, leaving the directory on disk
+      // with nothing tracking it.
+      const inCache = join(pluginsDir, 'cache', 'market', 'plug', '1.0.0');
+      setupDir(inCache);
+      writeJson(join(pluginsDir, 'installed_plugins.json'), {
+        'plug@market': {
+          pluginName: 'plug',
+          marketplace: 'market',
+          version: '1.0.0',
+          installPath: inCache,
+          installedAt: new Date().toISOString(),
+        },
+      });
+
+      const boom = new Error('EBUSY: resource busy or locked');
+      const realRm = installerFs.rmSync.bind(installerFs);
+      installerFs.rmSync = (target: string, options?: { recursive?: boolean; force?: boolean }) => {
+        if (target === inCache) throw boom;
+        realRm(target, options);
+      };
+
+      await expect(installer.uninstall('plug@market')).rejects.toThrow(/EBUSY/);
+
+      // ...and the registry still records it, because the directory is still there.
+      const registry = JSON.parse(
+        readFileSync(join(pluginsDir, 'installed_plugins.json'), 'utf-8'),
+      ) as Record<string, unknown>;
+      expect(registry['plug@market'], 'the entry was dropped after a failed delete').toBeDefined();
     });
   });
 });

@@ -17,7 +17,7 @@ import type {
   IBackgroundJobGroupState,
   IBackgroundTaskState,
   ISubagentJobState,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 /**
  * ARCH-029: the same double, for the capability `ICommandHostContext` reaches through

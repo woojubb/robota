@@ -8,11 +8,11 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { relayTurn, reportStreamFailure } from '../submit-stream.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { SSEStreamingApi } from 'hono/streaming';
 
 function fakeStream(overrides: Partial<SSEStreamingApi> = {}): {

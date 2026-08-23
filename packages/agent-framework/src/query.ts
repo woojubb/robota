@@ -6,9 +6,18 @@
  *   const answer = await query('What files are here?');
  */
 
+import { realpathSync } from 'node:fs';
+
 import { InteractiveSession } from './interactive/interactive-session.js';
+import {
+  WorkspaceAuthorityRequiredError,
+  createRestrictedWorkspaceProjectAccess,
+  getWorkspaceProjectIdentity,
+} from './workspace-trust/index.js';
+import { isWorkspacePathContained } from './workspace-trust/project-reader-path.js';
 
 import type { IExecutionResult, TInteractivePermissionHandler } from './interactive/types.js';
+import type { TWorkspaceProjectAccess } from './workspace-trust/index.js';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 
 export interface ICreateQueryOptions {
@@ -16,6 +25,8 @@ export interface ICreateQueryOptions {
   provider: IAIProvider;
   /** Working directory. Defaults to process.cwd(). */
   cwd?: string;
+  /** Host-owned initial project decision. Absence produces an observable Restricted query. */
+  projectAccess?: TWorkspaceProjectAccess;
   /** Permission mode. Defaults to 'bypassPermissions' for programmatic use. */
   permissionMode?: TPermissionMode;
   /** Maximum agentic turns per query. */
@@ -30,8 +41,40 @@ export interface ICreateQueryOptions {
   responseFormat?: { type: 'text' | 'json_object' };
 }
 
-/** Type of the function returned by createQuery(). */
-export type TQueryFunction = (prompt: string) => Promise<string>;
+/** Callable query surface plus its immutable initial project-access decision. */
+export type TQueryFunction = ((prompt: string) => Promise<string>) & {
+  readonly projectAccess: TWorkspaceProjectAccess;
+};
+
+function submitQuery(session: InteractiveSession, prompt: string): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const cleanup = (): void => {
+      session.off('complete', onComplete);
+      session.off('interrupted', onInterrupted);
+      session.off('error', onError);
+    };
+    const onComplete = (result: IExecutionResult): void => {
+      cleanup();
+      resolve(result.response);
+    };
+    const onInterrupted = (result: IExecutionResult): void => {
+      cleanup();
+      resolve(result.response);
+    };
+    const onError = (error: Error): void => {
+      cleanup();
+      reject(error);
+    };
+
+    session.on('complete', onComplete);
+    session.on('interrupted', onInterrupted);
+    session.on('error', onError);
+    session.submit(prompt).catch((error) => {
+      cleanup();
+      reject(error instanceof Error ? error : new Error(String(error)));
+    });
+  });
+}
 
 /**
  * Create a prompt-only query function bound to a provider.
@@ -44,10 +87,32 @@ export type TQueryFunction = (prompt: string) => Promise<string>;
  * const answer = await query('List all TypeScript files');
  * ```
  */
-export function createQuery(options: ICreateQueryOptions): (prompt: string) => Promise<string> {
+export function createQuery(options: ICreateQueryOptions): TQueryFunction {
+  const cwd = options.cwd ?? process.cwd();
+  const projectAccess =
+    options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable', cwd);
+  // Contained — ARCH-048. These boundaries reject cross-root pairs until one canonical project-root
+  // binding contract replaces the independent cwd and projectAccess carriers.
+  if (projectAccess.status === 'trusted') {
+    const trustedRoot = getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot;
+    let resolvedCwd: string;
+    try {
+      resolvedCwd = realpathSync(cwd);
+    } catch {
+      throw new WorkspaceAuthorityRequiredError(
+        'Trusted project access cannot validate the requested working directory.',
+      );
+    }
+    if (!isWorkspacePathContained(trustedRoot, resolvedCwd)) {
+      throw new WorkspaceAuthorityRequiredError(
+        'Trusted project access does not cover the requested working directory.',
+      );
+    }
+  }
   const session = new InteractiveSession({
-    cwd: options.cwd ?? process.cwd(),
+    cwd,
     provider: options.provider,
+    projectAccess,
     permissionMode: options.permissionMode ?? 'bypassPermissions',
     maxTurns: options.maxTurns,
     additionalTools: options.additionalTools,
@@ -67,34 +132,6 @@ export function createQuery(options: ICreateQueryOptions): (prompt: string) => P
     session.on('text_delta', options.onTextDelta);
   }
 
-  return async (prompt: string): Promise<string> => {
-    return new Promise<string>((resolve, reject) => {
-      const onComplete = (result: IExecutionResult): void => {
-        cleanup();
-        resolve(result.response);
-      };
-      const onInterrupted = (result: IExecutionResult): void => {
-        cleanup();
-        resolve(result.response);
-      };
-      const onError = (error: Error): void => {
-        cleanup();
-        reject(error);
-      };
-      const cleanup = (): void => {
-        session.off('complete', onComplete);
-        session.off('interrupted', onInterrupted);
-        session.off('error', onError);
-      };
-
-      session.on('complete', onComplete);
-      session.on('interrupted', onInterrupted);
-      session.on('error', onError);
-
-      session.submit(prompt).catch((err) => {
-        cleanup();
-        reject(err instanceof Error ? err : new Error(String(err)));
-      });
-    });
-  };
+  const query = (prompt: string): Promise<string> => submitQuery(session, prompt);
+  return Object.freeze(Object.assign(query, { projectAccess }));
 }

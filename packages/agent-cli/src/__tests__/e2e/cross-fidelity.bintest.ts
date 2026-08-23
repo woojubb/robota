@@ -22,7 +22,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createBinaryAgentDriver } from '../../testing/binary-agent-driver.js';
 
-import type { IAgentDriver } from '@robota-sdk/agent-interface-transport';
+import type { IAgentDriver } from '@robota-sdk/agent-interface-session';
 
 const ANSWER = 'CROSS_FIDELITY_OK';
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'cross-fidelity.jsonl');
@@ -36,8 +36,8 @@ async function runScenario(driver: IAgentDriver): Promise<string | undefined> {
   return last;
 }
 
-function writeProviderSettings(projectDir: string): void {
-  const dir = join(projectDir, '.robota');
+function writeProviderSettings(homeDir: string): void {
+  const dir = join(homeDir, '.robota');
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, 'settings.json'),
@@ -61,7 +61,7 @@ describe('IAgentDriver cross-fidelity (INFRA-020 TC-04)', () => {
     progCwd = mkdtempSync(join(tmpdir(), 'robota-xf-prog-'));
     binCwd = mkdtempSync(join(tmpdir(), 'robota-xf-bin-'));
     homeDir = mkdtempSync(join(tmpdir(), 'robota-xf-home-'));
-    writeProviderSettings(binCwd);
+    writeProviderSettings(homeDir);
   });
 
   afterEach(() => {

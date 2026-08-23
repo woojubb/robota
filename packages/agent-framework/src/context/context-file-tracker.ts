@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
 
-import { NodeFileSystem } from '../adapters/node-file-system.js';
+import { assertWorkspaceProjectReader } from '../workspace-trust/index.js';
 
-import type { IFileSystem } from '@robota-sdk/agent-core';
+import type { IWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 /** A single context file entry tracked with its content hash. */
 export interface IContextFileEntry {
-  /** Absolute path to the file. */
+  /** Authority-scoped path; project entries are relative to their authenticated root. */
   filePath: string;
   /** Content as read at load time. */
   content: string;
@@ -19,12 +19,13 @@ export function computeContentHash(content: string): string {
   return createHash('sha256').update(content, 'utf-8').digest('hex');
 }
 
-/** Read a file from disk and return an entry with its content hash. */
+/** Read a project-relative file through an authorized reader and return its content hash. */
 export function loadFileWithHash(
   filePath: string,
-  fs: IFileSystem = new NodeFileSystem(),
+  reader: IWorkspaceProjectReader,
 ): IContextFileEntry {
-  const content = fs.readFileSync(filePath, 'utf-8');
+  const content = assertWorkspaceProjectReader(reader).readText(filePath, 'load project context');
+  if (content === undefined) throw new Error(`Project context file is missing: ${filePath}`);
   return { filePath, content, contentHash: computeContentHash(content) };
 }
 
@@ -40,17 +41,20 @@ export interface IContextStalenessCheckResult {
  */
 export async function checkContextStaleness(
   entries: readonly IContextFileEntry[],
-  fs: IFileSystem = new NodeFileSystem(),
+  reader: IWorkspaceProjectReader,
 ): Promise<IContextStalenessCheckResult> {
   const stale: IContextFileEntry[] = [];
   const fresh: IContextFileEntry[] = [];
 
   for (const entry of entries) {
-    if (!fs.existsSync(entry.filePath)) {
+    const diskContent = assertWorkspaceProjectReader(reader).readText(
+      entry.filePath,
+      'check project context staleness',
+    );
+    if (diskContent === undefined) {
       fresh.push(entry);
       continue;
     }
-    const diskContent = fs.readFileSync(entry.filePath, 'utf-8');
     const diskHash = computeContentHash(diskContent);
     if (diskHash !== entry.contentHash) {
       stale.push(entry);
@@ -76,15 +80,17 @@ export interface IContextRefreshResult {
  */
 export async function refreshContextEntries(
   entries: readonly IContextFileEntry[],
-  fs: IFileSystem = new NodeFileSystem(),
+  reader: IWorkspaceProjectReader,
 ): Promise<IContextRefreshResult> {
-  const { stale } = await checkContextStaleness(entries, fs);
+  const accepted = assertWorkspaceProjectReader(reader);
+  const { stale } = await checkContextStaleness(entries, accepted);
   const staleSet = new Set(stale.map((e) => e.filePath));
   const refreshed: string[] = [];
 
   const updated = entries.map((entry) => {
     if (!staleSet.has(entry.filePath)) return entry;
-    const diskContent = fs.readFileSync(entry.filePath, 'utf-8');
+    const diskContent = accepted.readText(entry.filePath, 'refresh project context');
+    if (diskContent === undefined) return entry;
     refreshed.push(entry.filePath);
     return {
       filePath: entry.filePath,

@@ -17,15 +17,22 @@ import { pathToFileURL } from 'node:url';
 
 import {
   createAgentRuntime,
+  createDefaultUserSettingsSources,
   createProviderFromSettings,
   createSessionRunFn,
   defineEval,
   formatEvalReport,
   runEval,
 } from '@robota-sdk/agent-framework';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 
-import type { IEvalDefinition, IEvalReport, TEvalRunFn } from '@robota-sdk/agent-framework';
+import type {
+  IEvalDefinition,
+  IEvalReport,
+  TEvalRunFn,
+  TSettingsSource,
+  TWorkspaceProjectAccess,
+} from '@robota-sdk/agent-framework';
 
 /** Injection seams so the exit-code contract test can run without a live provider (TC-03). */
 export interface IRunEvalDeps {
@@ -33,6 +40,10 @@ export interface IRunEvalDeps {
   runFn?: TEvalRunFn;
   /** Override definition loading (default: dynamic `import()` of the module path). */
   loadDefinition?: (absPath: string) => Promise<IEvalDefinition>;
+  /** Explicit settings layers for the default provider resolver. */
+  settingsSources?: readonly TSettingsSource[];
+  /** Initial project decision forwarded to the eval agent runtime. */
+  projectAccess?: TWorkspaceProjectAccess;
 }
 
 interface IEvalCommandArgs {
@@ -85,11 +96,19 @@ async function loadEvalDefinition(absPath: string): Promise<IEvalDefinition> {
 }
 
 /** Build the default `runFn` from the CLI-resolved provider (a live agent run per case). */
-function buildDefaultRunFn(cwd: string): TEvalRunFn {
-  const provider = createProviderFromSettings(cwd, undefined, {
-    providerDefinitions: createDefaultProviderDefinitions(),
+function buildDefaultRunFn(cwd: string, deps: IRunEvalDeps): TEvalRunFn {
+  const provider = createProviderFromSettings(
+    deps.settingsSources ?? createDefaultUserSettingsSources(),
+    undefined,
+    {
+      providerDefinitions: createDefaultProviderDefinitions(),
+    },
+  );
+  const runtime = createAgentRuntime({
+    cwd,
+    provider,
+    ...(deps.projectAccess === undefined ? {} : { projectAccess: deps.projectAccess }),
   });
-  const runtime = createAgentRuntime({ cwd, provider });
   return createSessionRunFn(runtime);
 }
 // SELFHOST-011 P3: the report is rendered by the shared SDK `formatEvalReport` (the CLI's private copy was removed).
@@ -127,7 +146,7 @@ export async function runEvalCommand(
   try {
     // Build the runFn inside the try so a provider-config error (no provider configured — a common CI case)
     // honors this function's number-return contract instead of rejecting.
-    const runFn = deps.runFn ?? buildDefaultRunFn(cwd);
+    const runFn = deps.runFn ?? buildDefaultRunFn(cwd, deps);
     report = await runEval(definition, runFn);
   } catch (error) {
     // allow-fallback: a failed agent run / unconfigured provider is a terminal gate failure (exit 1), on stderr

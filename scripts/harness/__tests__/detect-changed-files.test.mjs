@@ -13,11 +13,11 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const PLAN_SCRIPT = path.resolve(import.meta.dirname, '../plan-change.mjs');
 const VERIFY_SCRIPT = path.resolve(import.meta.dirname, '../verify-change.mjs');
@@ -53,7 +53,7 @@ function git(cwd, args) {
  * "base ref cannot be resolved" condition.
  */
 async function createWorkspaceFixture({ baseBranch = null, sourceChange = true } = {}) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-detect-changed-'));
+  const root = makeTemp('robota-detect-changed-');
   mkdirSync(path.join(root, 'packages/widget/src'), { recursive: true });
   writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf8');
   writeFileSync(path.join(root, 'package.json'), '{"name":"root","private":true}\n', 'utf8');

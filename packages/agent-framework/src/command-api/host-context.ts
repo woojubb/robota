@@ -2,7 +2,7 @@ import type { TModelEffort } from '@robota-sdk/agent-core';
 import type {
   ICommandListEntry,
   TCommandInvocationSource,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-command';
 import type { ISessionReplayValidationResult } from '@robota-sdk/agent-session';
 
 // ICommandListEntry SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).

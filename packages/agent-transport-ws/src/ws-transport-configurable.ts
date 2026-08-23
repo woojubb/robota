@@ -22,10 +22,10 @@ import { DEFAULT_MAX_RETRIES, DEFAULT_PORT } from './ws-transport-config.js';
 
 import type { IWsTransportConfig } from './ws-transport-config.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
   IChannelDescriptor,
   IConfigurableTransport,
-  IInteractiveSession,
   ITransportLifecycleError,
   IPayloadChannel,
   IPayloadChannelHost,

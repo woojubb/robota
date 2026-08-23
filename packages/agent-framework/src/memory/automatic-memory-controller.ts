@@ -1,4 +1,3 @@
-import { createFileSystemMemoryStore } from './file-system-memory-store.js';
 import { RegexMemoryCandidateExtractor } from './memory-candidate-extractor.js';
 import { MemoryPolicyEvaluator } from './memory-policy-evaluator.js';
 import { PROJECT_MEMORY_TRUST_NOTE, RECALLED_MEMORY_TRUST_NOTE } from './memory-trust-framing.js';
@@ -14,16 +13,14 @@ import type { IMemoryCandidateExtractor } from './memory-candidate-extractor.js'
 import type { IMemoryStore } from './types.js';
 
 export interface IAutomaticMemoryControllerOptions {
-  cwd: string;
   config: IAutomaticMemoryConfig;
   extractor?: IMemoryCandidateExtractor;
   now?: () => Date;
   /**
-   * SELFHOST-008: the durable-memory port the capture path reads/writes through. Defaults to the neutral
-   * filesystem reference adapter over `cwd`, so post-turn capture works unchanged; a surface may inject
-   * an alternate `IMemoryStore` to swap the backend without a library change.
+   * Durable-memory port for the capture path. Project composition must derive this from authority;
+   * non-project hosts may inject a different explicit store.
    */
-  memoryStore?: IMemoryStore;
+  memoryStore: IMemoryStore;
 }
 
 export interface IMemoryCaptureResult {
@@ -64,9 +61,7 @@ export class AutomaticMemoryController {
     this.config = options.config;
     this.extractor = options.extractor ?? new RegexMemoryCandidateExtractor();
     this.now = options.now ?? (() => new Date());
-    // SELFHOST-008: read/write durable + pending memory through the injected port, defaulting to the
-    // neutral fs reference adapter (composes the same ProjectMemoryStore/PendingMemoryStore/recall).
-    this.store = options.memoryStore ?? createFileSystemMemoryStore(options.cwd, this.now);
+    this.store = options.memoryStore;
   }
 
   async retrieve(query: string): Promise<IMemoryRetrievalResult> {

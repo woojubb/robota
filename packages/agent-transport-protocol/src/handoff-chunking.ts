@@ -28,7 +28,7 @@
  * set that was sent.
  */
 
-import type { IHandoffIntegrity } from '@robota-sdk/agent-interface-transport';
+import type { IHandoffIntegrity } from '@robota-sdk/agent-interface-session-mobility';
 
 /**
  * One piece of a payload in flight.

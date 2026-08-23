@@ -1,8 +1,9 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it, afterAll } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   findEntryBaselineFindings,
@@ -126,7 +127,7 @@ describe('interface-package ENTRY surface (HARNESS-103)', () => {
   // types". So a 100-line prototype-walking forwarder passed while sitting outside the rule.
   // This edge asks what the ENTRY publishes, and distinguishes a contract's vocabulary and
   // discriminators from a mechanism.
-  const root = mkdtempSync(path.join(tmpdir(), 'harness-103-'));
+  const root = makeTemp('harness-103-');
   const pkgSrc = path.join(root, 'agent-interface-fixture', 'src');
 
   const write = (rel, text) => {

@@ -24,7 +24,7 @@ import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { DEFAULT_AGENT_NAME, createPresetRegistry } from '@robota-sdk/agent-preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import { describe, expect, it } from 'vitest';
 
 import {

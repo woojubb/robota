@@ -1,8 +1,9 @@
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { collectHookSyntaxFindings } from '../scan-hook-syntax.mjs';
 
@@ -57,7 +58,7 @@ describe('scan-hook-syntax', () => {
     // The empty-tree case, and the reason it is a throw rather than a pass: the one state that
     // produces "0 shell scripts" is the state in which every guard in this repository is already
     // gone. Reporting clean there is the scan agreeing with its own worst outcome.
-    const bare = mkdtempSync(path.join(tmpdir(), 'no-hooks-'));
+    const bare = makeTemp('no-hooks-');
     scratch.push(bare);
 
     expect(() => collectHookSyntaxFindings(bare)).toThrow(/examined nothing/);

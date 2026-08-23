@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   findPublishRegistryFindings,
@@ -35,7 +36,7 @@ afterEach(() => {
  * than hardcoding them — which is the whole point of the fix that made it read `packages/dag-nodes/*`.
  */
 function workspace(registry, packages, globs = ['packages/*']) {
-  const root = mkdtempSync(path.join(tmpdir(), 'publish-registry-'));
+  const root = makeTemp('publish-registry-');
   dirs.push(root);
   mkdirSync(path.join(root, '.agents'), { recursive: true });
   writeFileSync(
@@ -203,7 +204,7 @@ describe('scan-publish-registry', () => {
 
   describe('fail-closed', () => {
     it('throws when the registry file is absent', () => {
-      const root = mkdtempSync(path.join(tmpdir(), 'publish-registry-bare-'));
+      const root = makeTemp('publish-registry-bare-');
       dirs.push(root);
       expect(() => findPublishRegistryFindings(root)).toThrow(/does not exist/);
     });

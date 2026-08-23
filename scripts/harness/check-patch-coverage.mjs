@@ -72,11 +72,30 @@ export function packageRootOf(filePath, hasPkgJson) {
   return null;
 }
 
-/** Coverable = a non-test TS/JS file under `<pkgRoot>/src/` (excluding `.d.ts`). */
+/**
+ * Coverable = a non-test TS/JS file under `<pkgRoot>/src/`, excluding `.d.ts` and `.tsx`/`.jsx`.
+ *
+ * INFRA-046 (the issue #1348 class), owner decision 2026-08-22: **render surfaces are excluded from
+ * the patch denominator.** Line coverage over JSX says little — exercising every branch of a render
+ * tree needs component-test infrastructure, and without it every UI pull request pays a tax it
+ * cannot discharge. Measured at the time of the decision, three of the four GUI packages owned SOME
+ * tests, so the issue #1344 untested-package classification did not excuse them and would not have:
+ *
+ *   packages/agent-cli-web   tsx=1     test files=0
+ *   apps/agent-web           tsx=6     test files=1
+ *   apps/agent-app           tsx=3     test files=1
+ *   packages/agent-playground tsx=184  test files=32
+ *
+ * This is an exclusion from the DENOMINATOR, not a pass: a `.tsx` file's lines are neither measured
+ * nor counted as covered, so the percentage describes only the code the gate can speak about. The
+ * alternative the owner declined was standing up component-test infrastructure for those packages,
+ * which remains the way to bring render surfaces back INTO the denominator later.
+ */
 export function isCoverableSource(filePath, pkgRoot) {
   if (!filePath.startsWith(`${pkgRoot}/src/`)) return false;
   if (isTestFile(filePath)) return false;
   if (filePath.endsWith('.d.ts')) return false;
+  if (/\.[jt]sx$/.test(filePath)) return false;
   return /\.[cm]?[jt]sx?$/.test(filePath);
 }
 
@@ -151,6 +170,69 @@ export function parseLcov(lcovText, pkgRoot = '') {
 }
 
 // ── Pure: patch-coverage computation ──────────────────────────────────────────────────────────────
+
+/**
+ * Does a package own any test file at all?
+ *
+ * #1344. A package with no tests can still emit an lcov report whose every record is zero-hit —
+ * `coverage.all: true` instruments the source whether or not anything exercises it. Those lines then
+ * arrive as MEASURED-and-uncovered and drag the patch percentage to BELOW-TARGET, so a pull request
+ * is charged for a package that has no way to discharge the debt. That is a false positive, and one
+ * is one more than the promotion criterion allows.
+ *
+ * Injectable (`listFiles`) so the classification is unit-testable without a real tree.
+ */
+export function packageOwnsTests(pkgRoot, listFiles = defaultListFiles) {
+  for (const rel of listFiles(pkgRoot)) {
+    if (isTestFile(rel)) return true;
+  }
+  return false;
+}
+
+/** Every file under a package root, repo-relative, skipping `node_modules` and build output. */
+function defaultListFiles(pkgRoot) {
+  const out = [];
+  const walk = (dirRel) => {
+    const abs = path.join(WORKSPACE_ROOT, dirRel);
+    let entries;
+    try {
+      entries = fs.readdirSync(abs, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const rel = path.posix.join(dirRel, entry.name);
+      if (entry.isSymbolicLink()) continue; // never follow: a pnpm workspace link reaches the store
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === 'coverage') {
+          continue;
+        }
+        walk(rel);
+      } else {
+        out.push(rel);
+      }
+    }
+  };
+  walk(pkgRoot);
+  return out;
+}
+
+/**
+ * Is this package's lcov entirely unexercised? True when it produced records and NOT ONE has a hit.
+ *
+ * Deliberately not "some records are zero": a package with real tests and one uncovered file is the
+ * defect this gate exists to catch. Only a report with no hits AT ALL is evidence that nothing ran.
+ */
+export function lcovIsEntirelyUnexercised(lcovByFileForPackage) {
+  let sawRecord = false;
+  for (const da of lcovByFileForPackage.values()) {
+    for (const hits of da.values()) {
+      sawRecord = true;
+      if (hits > 0) return false;
+    }
+  }
+  return sawRecord;
+}
 
 /**
  * Compute per-file and total patch coverage.
@@ -283,6 +365,7 @@ export async function runPatchCoverage(io = {}) {
   const diffText = io.diffText ?? git(['diff', '-U0', `${base}..HEAD`]);
   const hasPkgJson = io.hasPkgJson ?? defaultHasPkgJson;
   const collectLcov = io.collectLcov ?? defaultCollectLcov;
+  const listFiles = io.listFiles ?? defaultListFiles;
 
   const changedNewLines = parseChangedNewLines(diffText);
   const byPkg = groupCoverableChanges([...changedNewLines.keys()], hasPkgJson);
@@ -308,7 +391,24 @@ export async function runPatchCoverage(io = {}) {
       noDataPackages.push(pkgRoot);
       continue;
     }
-    for (const [file, da] of parseLcov(lcovText, pkgRoot)) {
+    const parsed = parseLcov(lcovText, pkgRoot);
+
+    // #1344. A package that owns NO test file can still emit an lcov report whose every record is
+    // zero-hit — `coverage.all: true` instruments the source whether or not anything exercises it.
+    // Folding those lines into the measured total charges a pull request for a package that has no
+    // way to discharge the debt, which is a false positive, and one is one more than the promotion
+    // criterion allows. Both conditions are required: a package WITH tests and a wholly-uncovered
+    // report is exactly the defect this gate exists to catch, and must still fail.
+    if (lcovIsEntirelyUnexercised(parsed) && !packageOwnsTests(pkgRoot, listFiles)) {
+      log(
+        `⚠︎  ${pkgRoot}: NO-DATA — lcov has no covered line and the package owns no test file, so ` +
+          `its changed lines are UNMEASURED rather than uncovered (#1344).`,
+      );
+      noDataPackages.push(pkgRoot);
+      continue;
+    }
+
+    for (const [file, da] of parsed) {
       const merged = lcovByFile.get(file) ?? new Map();
       for (const [line, hits] of da) merged.set(line, Math.max(merged.get(line) ?? 0, hits));
       lcovByFile.set(file, merged);
@@ -382,6 +482,14 @@ function fixtureIo(dir) {
     // fixture package roots are the two-segment `packages/<x>` / `apps/<x>` shape
     hasPkgJson: (dirRel) => dirRel.split('/').length === 2,
     collectLcov: () => fs.readFileSync(path.join(abs, 'lcov.info'), 'utf8'),
+    // #1344 needs to know whether the package OWNS tests, so the fixture has to be able to say. A
+    // `tests.txt` (one repo-relative path per line) is that statement; absent, the fixture declares
+    // no test files, which is the untested-package shape rather than an accident of the harness.
+    listFiles: () => {
+      const manifest = path.join(abs, 'tests.txt');
+      if (!existsSync(manifest)) return [];
+      return fs.readFileSync(manifest, 'utf8').split('\n').filter(Boolean);
+    },
   };
 }
 

@@ -12,7 +12,7 @@ import { scriptedSession, type ScriptedSessionHarness } from '@robota-sdk/agent-
 
 import { createShellCommandModule } from '../shell-command-module.js';
 
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-transport';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
 
 const TEST_TIMEOUT = 20_000;
 

@@ -1,8 +1,9 @@
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { describeCiSource } from '../ci-mirror-map.mjs';
 import {
@@ -30,7 +31,7 @@ import {
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
 function createFixture(files) {
-  const root = mkdtempSync(path.join(tmpdir(), 'verify-like-ci-'));
+  const root = makeTemp('verify-like-ci-');
   for (const [rel, content] of Object.entries(files)) {
     const full = path.join(root, rel);
     mkdirSync(path.dirname(full), { recursive: true });

@@ -18,11 +18,28 @@ import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import { createAssistantMessage } from '@robota-sdk/agent-core';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
-import { executeWorkflowsCreate } from '../create-command.js';
-import { executeWorkflowsRun } from '../run-command.js';
+import { executeWorkflowsCreate as executeWorkflowsCreateWithProject } from '../create-command.js';
+import { executeWorkflowsRun as executeWorkflowsRunWithProject } from '../run-command.js';
+import { createWorkflowProjectFixture } from './workflow-project-fixture.js';
+
+async function executeWorkflowsCreate(
+  args: string,
+  root: string,
+  deps?: Parameters<typeof executeWorkflowsCreateWithProject>[2],
+) {
+  return executeWorkflowsCreateWithProject(args, await createWorkflowProjectFixture(root), deps);
+}
+
+async function executeWorkflowsRun(
+  args: string,
+  root: string,
+  layout?: Parameters<typeof executeWorkflowsRunWithProject>[2],
+) {
+  return executeWorkflowsRunWithProject(args, await createWorkflowProjectFixture(root), layout);
+}
 
 /** Provider stub whose `chat` returns a fixed authoring spec (used to remove authoring nondeterminism). */
 function stubAuthoringProvider(specJson: string): IAIProvider {

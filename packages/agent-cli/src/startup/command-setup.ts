@@ -1,3 +1,5 @@
+import { homedir } from 'node:os';
+
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
   deleteSettings,
@@ -5,7 +7,7 @@ import {
   getUserSettingsPath,
   readMergedProviderSettings,
   readSettings,
-  resolveProviderSettingsWriteTargetPath,
+  resolveProviderSettingsWriteTarget,
   shouldRunStartupCliUpdateCheck,
   writeSettings,
 } from '@robota-sdk/agent-framework';
@@ -13,7 +15,10 @@ import type {
   ICliUpdateNotice,
   ICommandHostAdapters,
   ICommandModule,
+  IWorkspaceProjectMutation,
+  IWorkspaceProjectSettingsWriter,
   TProviderSettingsDocument,
+  TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import type { IRemoteCommandPolicy } from '@robota-sdk/agent-framework';
@@ -21,9 +26,16 @@ import {
   createDefaultCommandModules,
   createDefaultPluginCommandAdapter,
 } from '@robota-sdk/agent-command';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
-import { createWorkflowsCommandModule } from '@robota-sdk/agent-command-workflows';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import {
+  createWorkspaceWorkflowProject,
+  createWorkflowsCommandModule,
+} from '@robota-sdk/agent-command-workflows';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
+import {
+  createCliWorkspaceComposition,
+  type ICliWorkspaceComposition,
+} from './workspace-project-composition.js';
 
 /**
  * Build the `/workflows` command module (WORKFLOW-003). INFRA-028: the DAG/workflow subsystem is
@@ -33,15 +45,34 @@ import type { IParsedCliArgs } from '../utils/cli-args.js';
  */
 function loadWorkflowsCommandModule(
   providerDefinitions: readonly IProviderDefinition[],
+  workspaceComposition: ICliWorkspaceComposition,
+  projectMutation: IWorkspaceProjectMutation | undefined,
 ): ICommandModule {
   // FLOW-007: pass the provider definitions so `/workflows create` can resolve the ACTIVE provider
   // to author a workflow from natural language. Workspace layout defaults to `.workflows/`.
-  return createWorkflowsCommandModule({ providerDefinitions });
+  const project =
+    workspaceComposition.projectAccess.status === 'trusted'
+      ? createWorkspaceWorkflowProject(
+          workspaceComposition.projectAccess.authority,
+          projectMutation,
+        )
+      : undefined;
+  return createWorkflowsCommandModule({
+    providerDefinitions,
+    settingsSources: workspaceComposition.settingsSources,
+    ...(project === undefined ? {} : { project }),
+  });
 }
 
 export interface IStartCliOptions {
   commandModules?: readonly ICommandModule[];
   providerDefinitions?: readonly IProviderDefinition[];
+  /** Initial trusted-or-restricted workspace decision. Absence is Restricted. */
+  projectAccess?: TWorkspaceProjectAccess;
+  /** Separately approved project-settings write capability. */
+  projectSettingsWriter?: IWorkspaceProjectSettingsWriter;
+  /** Separately approved bounded project mutation capability. */
+  projectMutation?: IWorkspaceProjectMutation;
 }
 
 export interface ICliSetup {
@@ -69,6 +100,7 @@ export interface ICliSetup {
    * dangerous). Injected only so a consumer can opt into a restriction.
    */
   remoteCommandPolicy: IRemoteCommandPolicy;
+  workspaceComposition: ICliWorkspaceComposition;
 }
 
 /**
@@ -87,6 +119,14 @@ export function buildCommandSetup(
   version: string,
   packCommandModuleNames: readonly string[] = [],
 ): ICliSetup {
+  const workspaceComposition = createCliWorkspaceComposition({
+    cwd,
+    userHome: homedir(),
+    ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
+    ...(options.projectSettingsWriter !== undefined
+      ? { projectSettingsWriter: options.projectSettingsWriter }
+      : {}),
+  });
   const commandHostAdapters: ICommandHostAdapters = {
     settings: {
       read: () => readSettings(getUserSettingsPath()),
@@ -97,16 +137,23 @@ export function buildCommandSetup(
     plugin: createDefaultPluginCommandAdapter(cwd),
   };
   const providerDefinitions = options.providerDefinitions ?? createDefaultProviderDefinitions();
+  const providerSettingsSources = workspaceComposition.settingsSources;
+  const providerSettingsStore = resolveProviderSettingsWriteTarget(
+    workspaceComposition.settingsStores,
+  );
   const providerSettingsAdapter = {
-    readMergedSettings: () => readMergedProviderSettings(cwd),
-    readTargetSettings: () =>
-      readSettings(resolveProviderSettingsWriteTargetPath(cwd)) as TProviderSettingsDocument,
+    readMergedSettings: () => readMergedProviderSettings(providerSettingsSources),
+    readTargetSettings: () => providerSettingsStore.read() as TProviderSettingsDocument,
     writeTargetSettings: (settings: TProviderSettingsDocument) =>
-      writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
+      providerSettingsStore.write(settings),
   };
   // DAG workflow engine surfaced as `/workflows` (WORKFLOW-003) — INFRA-028: bundled into the
   // self-contained CLI, so it is always present (statically imported, no runtime `@robota-sdk` edge).
-  const workflowsModule = loadWorkflowsCommandModule(providerDefinitions);
+  const workflowsModule = loadWorkflowsCommandModule(
+    providerDefinitions,
+    workspaceComposition,
+    options.projectMutation,
+  );
   // The pack-supplied modules are excluded from the base; `assembleProduct` merges them back in from the
   // profile's packs. `unknownModuleNames` is not read here — every excluded name is a real module, and the
   // preset delta's unknown-name diagnostics are computed by the shell against the MERGED superset.
@@ -114,6 +161,7 @@ export function buildCommandSetup(
     cwd,
     providerDefinitions,
     providerSettingsAdapter,
+    contributionSources: workspaceComposition.contributionSources,
     ...(packCommandModuleNames.length > 0
       ? { disabledCommandModules: packCommandModuleNames }
       : {}),
@@ -128,5 +176,6 @@ export function buildCommandSetup(
     fixedCommandModules: [workflowsModule, ...(options.commandModules ?? [])],
     startupUpdateNoticePromise,
     remoteCommandPolicy: createDefaultRemoteCommandPolicy(), // REMOTE-006: allow-by-default (local == remote).
+    workspaceComposition,
   };
 }

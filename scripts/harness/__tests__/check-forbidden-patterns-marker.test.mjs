@@ -11,11 +11,12 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/check-forbidden-patterns.sh');
@@ -24,7 +25,7 @@ const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/check-forbidden-patterns.s
 // Left unset, that falls back to the real workspace, and every status-2 case here writes a
 // synthetic block record into the log the lessons pipeline reads. The isolation convention is
 // hook-boundary-parity.test.mjs's: point the project dir at a scratch directory.
-const SCRATCH = mkdtempSync(path.join(tmpdir(), 'forbidden-marker-'));
+const SCRATCH = makeTemp('forbidden-marker-');
 mkdirSync(path.join(SCRATCH, '.agents/evals/local-metrics'), { recursive: true });
 afterAll(() => rmSync(SCRATCH, { recursive: true, force: true }));
 

@@ -1,6 +1,6 @@
 # Transport Architecture
 
-Source-verified against `develop` on 2026-07-12.
+Source-verified on 2026-08-22.
 
 Transport packages, protocol semantics, React isolation, MCP roles, and type contract ownership.
 
@@ -30,6 +30,11 @@ protocol, WS, HTTP, MCP, node WebRTC — and presentation — TUI, GUI, browser 
 The `agent-transport` root export (`.`) surfaces the `TransportRegistry` contract. Application code
 imports the specific transport package (`@robota-sdk/agent-transport-{tui,ws,http,mcp,gui,webrtc,webrtc-web}`,
 `agent-transport-protocol`) or the `agent-transport/headless` subpath for print mode.
+
+Session-owning transport entry points that accept `cwd` also carry
+`projectAccess?: TWorkspaceProjectAccess`: headless, programmatic, and TUI rendering/channel options
+forward the host's decision unchanged to `InteractiveSession`. Omission is Restricted; `cwd` is not
+project authority. The `public-project-authority` AST guard checks these published option surfaces.
 
 ## Diamond Dependency Pattern
 

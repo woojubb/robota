@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   automergeSignals,
@@ -17,7 +17,7 @@ import {
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
 async function createWorkflowFixture(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-automerge-permission-'));
+  const root = makeTemp('robota-automerge-permission-');
   mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
   for (const [name, content] of Object.entries(files)) {
     writeFileSync(path.join(root, '.github', 'workflows', name), content, 'utf8');

@@ -9,8 +9,8 @@ import React, { useState, useCallback } from 'react';
 
 import { PALETTE } from './tui-palette.js';
 
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
-  IInteractiveSession,
   ITransportEntry,
   ITransportSettingsRegistryView,
 } from '@robota-sdk/agent-interface-transport';

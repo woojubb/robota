@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, it, expect, afterEach } from 'vitest';
 
-import { checkSettingsFile } from '../command-api/provider/settings-check.js';
+import { checkNodeHostSettingsFile } from '../command-api/provider/settings-check.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
@@ -47,7 +47,7 @@ function writeJson(path: string, data: unknown): void {
   writeFileSync(path, JSON.stringify(data, null, 2), 'utf8');
 }
 
-describe('checkSettingsFile', () => {
+describe('checkNodeHostSettingsFile', () => {
   afterEach(() => {
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.DASHSCOPE_API_KEY;
@@ -55,7 +55,7 @@ describe('checkSettingsFile', () => {
   });
 
   it('returns missing when the file does not exist', () => {
-    expect(checkSettingsFile(join(TMP_BASE, 'missing.json'))).toBe('missing');
+    expect(checkNodeHostSettingsFile(join(TMP_BASE, 'missing.json'))).toBe('missing');
   });
 
   it('returns incomplete for an empty file', () => {
@@ -63,7 +63,7 @@ describe('checkSettingsFile', () => {
     const path = join(TMP_BASE, 'settings.json');
     writeFileSync(path, '', 'utf8');
 
-    expect(checkSettingsFile(path)).toBe('incomplete');
+    expect(checkNodeHostSettingsFile(path)).toBe('incomplete');
   });
 
   it('returns corrupt for invalid JSON', () => {
@@ -71,7 +71,7 @@ describe('checkSettingsFile', () => {
     const path = join(TMP_BASE, 'settings.json');
     writeFileSync(path, '{', 'utf8');
 
-    expect(checkSettingsFile(path)).toBe('corrupt');
+    expect(checkNodeHostSettingsFile(path)).toBe('corrupt');
   });
 
   it('accepts legacy provider config with an apiKey', () => {
@@ -86,7 +86,7 @@ describe('checkSettingsFile', () => {
       },
     });
 
-    expect(checkSettingsFile(path, providerDefinitions)).toBe('valid');
+    expect(checkNodeHostSettingsFile(path, providerDefinitions)).toBe('valid');
   });
 
   it('accepts an OpenAI-compatible profile without a real API key', () => {
@@ -103,7 +103,7 @@ describe('checkSettingsFile', () => {
       },
     });
 
-    expect(checkSettingsFile(path, providerDefinitions)).toBe('valid');
+    expect(checkNodeHostSettingsFile(path, providerDefinitions)).toBe('valid');
   });
 
   it('returns incomplete when currentProvider points to a profile without usable provider data', () => {
@@ -119,7 +119,7 @@ describe('checkSettingsFile', () => {
       },
     });
 
-    expect(checkSettingsFile(path, providerDefinitions)).toBe('incomplete');
+    expect(checkNodeHostSettingsFile(path, providerDefinitions)).toBe('incomplete');
   });
 
   it('returns incomplete for an Anthropic profile with only a non-api-key credential field', () => {
@@ -136,7 +136,7 @@ describe('checkSettingsFile', () => {
       },
     });
 
-    expect(checkSettingsFile(path, providerDefinitions)).toBe('incomplete');
+    expect(checkNodeHostSettingsFile(path, providerDefinitions)).toBe('incomplete');
   });
 
   it('does not let legacy provider config mask an unusable active provider profile', () => {
@@ -158,7 +158,7 @@ describe('checkSettingsFile', () => {
       },
     });
 
-    expect(checkSettingsFile(path, providerDefinitions)).toBe('incomplete');
+    expect(checkNodeHostSettingsFile(path, providerDefinitions)).toBe('incomplete');
   });
 
   it('returns incomplete when a required API key environment reference is unset', () => {
@@ -175,7 +175,7 @@ describe('checkSettingsFile', () => {
       },
     });
 
-    expect(checkSettingsFile(path, providerDefinitions)).toBe('incomplete');
+    expect(checkNodeHostSettingsFile(path, providerDefinitions)).toBe('incomplete');
   });
 
   it('accepts a required API key environment reference when it resolves', () => {
@@ -193,6 +193,6 @@ describe('checkSettingsFile', () => {
       },
     });
 
-    expect(checkSettingsFile(path, providerDefinitions)).toBe('valid');
+    expect(checkNodeHostSettingsFile(path, providerDefinitions)).toBe('valid');
   });
 });

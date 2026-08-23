@@ -17,11 +17,11 @@
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { findDevDepOnlyRuntimeImports } from '../check-dep-kind.mjs';
 import { checkWorkspacePackageNames } from '../check-dependency-direction.mjs';
@@ -33,7 +33,7 @@ import { findMemoryNeutralityFindings } from '../scan-memory-neutrality.mjs';
 
 /** A fixture workspace whose only package is a NESTED group member — the set a depth-1 walk misses. */
 async function nestedWorkspace(files, { manifest = { name: '@fixture/member' } } = {}) {
-  const root = await mkdtemp(path.join(tmpdir(), 'harness-052-nested-'));
+  const root = makeTemp('harness-052-nested-');
   const member = path.join(root, 'packages', 'group', 'member');
   mkdirSync(member, { recursive: true });
   writeFileSync(path.join(member, 'package.json'), JSON.stringify(manifest), 'utf8');
@@ -101,7 +101,7 @@ describe('scan-memory-neutrality covers nested group members', () => {
    * found no library has not found it neutral.
    */
   it('throws rather than passing when packages/ is absent entirely', async () => {
-    const bare = await mkdtemp(path.join(tmpdir(), 'harness-052-bare-'));
+    const bare = makeTemp('harness-052-bare-');
     expect(() => findMemoryNeutralityFindings(bare)).toThrow(/missing/i);
   });
 });

@@ -9,6 +9,7 @@ import {
   MEMORY_INDEX_MAX_LINES,
   MEMORY_INDEX_MAX_BYTES,
 } from '../project-memory-store.js';
+import { createTrustedProjectStateFixture } from '../../testing/trusted-project-state-fixture.js';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-memory-store-'));
 
@@ -18,13 +19,17 @@ function makeProject(): string {
   return dir;
 }
 
+async function makeStore(cwd: string, now?: () => Date): Promise<ProjectMemoryStore> {
+  return new ProjectMemoryStore(await createTrustedProjectStateFixture(cwd, 'memory'), now);
+}
+
 afterEach(() => {
   if (existsSync(TMP_BASE)) rmSync(TMP_BASE, { recursive: true, force: true });
 });
 
 describe('ProjectMemoryStore', () => {
-  it('Given no memory files When loading startup memory Then returns empty content', () => {
-    const store = new ProjectMemoryStore(makeProject());
+  it('Given no memory files When loading startup memory Then returns empty content', async () => {
+    const store = await makeStore(makeProject());
 
     const memory = store.loadStartupMemory();
 
@@ -33,13 +38,13 @@ describe('ProjectMemoryStore', () => {
     expect(memory.truncated).toBe(false);
   });
 
-  it('Given a MEMORY.md longer than the line cap When loading startup memory Then only first 200 lines are returned', () => {
+  it('Given a MEMORY.md longer than the line cap When loading startup memory Then only first 200 lines are returned', async () => {
     const cwd = makeProject();
     const memoryDir = join(cwd, '.robota', 'memory');
     mkdirSync(memoryDir, { recursive: true });
     const lines = Array.from({ length: MEMORY_INDEX_MAX_LINES + 3 }, (_, index) => `line-${index}`);
     writeFileSync(join(memoryDir, 'MEMORY.md'), lines.join('\n'), 'utf8');
-    const store = new ProjectMemoryStore(cwd);
+    const store = await makeStore(cwd);
 
     const memory = store.loadStartupMemory();
 
@@ -50,12 +55,12 @@ describe('ProjectMemoryStore', () => {
     expect(memory.truncated).toBe(true);
   });
 
-  it('Given a MEMORY.md larger than the byte cap When loading startup memory Then it is truncated without exceeding cap', () => {
+  it('Given a MEMORY.md larger than the byte cap When loading startup memory Then it is truncated without exceeding cap', async () => {
     const cwd = makeProject();
     const memoryDir = join(cwd, '.robota', 'memory');
     mkdirSync(memoryDir, { recursive: true });
     writeFileSync(join(memoryDir, 'MEMORY.md'), 'x'.repeat(MEMORY_INDEX_MAX_BYTES + 20), 'utf8');
-    const store = new ProjectMemoryStore(cwd);
+    const store = await makeStore(cwd);
 
     const memory = store.loadStartupMemory();
 
@@ -63,9 +68,9 @@ describe('ProjectMemoryStore', () => {
     expect(memory.truncated).toBe(true);
   });
 
-  it('Given a memory item When appending Then index and topic files are created', () => {
+  it('Given a memory item When appending Then index and topic files are created', async () => {
     const cwd = makeProject();
-    const store = new ProjectMemoryStore(cwd, () => new Date('2026-05-02T00:00:00.000Z'));
+    const store = await makeStore(cwd, () => new Date('2026-05-02T00:00:00.000Z'));
 
     const result = store.append({
       type: 'project',
@@ -77,12 +82,14 @@ describe('ProjectMemoryStore', () => {
     expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
       '[2026-05-02] (project/build-commands) Use pnpm for package scripts.',
     );
-    expect(readFileSync(result.topicPath, 'utf8')).toContain('Use pnpm for package scripts.');
+    expect(readFileSync(join(cwd, result.topicPath), 'utf8')).toContain(
+      'Use pnpm for package scripts.',
+    );
   });
 
-  it('Given the same memory item already exists When appending again Then duplicate entries are skipped', () => {
+  it('Given the same memory item already exists When appending again Then duplicate entries are skipped', async () => {
     const cwd = makeProject();
-    const store = new ProjectMemoryStore(cwd, () => new Date('2026-05-02T00:00:00.000Z'));
+    const store = await makeStore(cwd, () => new Date('2026-05-02T00:00:00.000Z'));
     const input = {
       type: 'project' as const,
       topic: 'build',
@@ -95,18 +102,20 @@ describe('ProjectMemoryStore', () => {
     expect(first.deduplicated).toBe(false);
     expect(second.deduplicated).toBe(true);
     expect(
-      readFileSync(first.topicPath, 'utf8').match(/Use pnpm for package scripts\./g),
+      readFileSync(join(cwd, first.topicPath), 'utf8').match(/Use pnpm for package scripts\./g),
     ).toHaveLength(1);
   });
 
-  it('Given topic files When listing memory Then returns topic names and paths', () => {
+  it('Given topic files When listing memory Then returns topic names and paths', async () => {
     const cwd = makeProject();
     const topicsDir = join(cwd, '.robota', 'memory', 'topics');
     mkdirSync(topicsDir, { recursive: true });
     writeFileSync(join(topicsDir, 'build.md'), '# Build\n', 'utf8');
 
-    const summary = new ProjectMemoryStore(cwd).list();
+    const summary = (await makeStore(cwd)).list();
 
-    expect(summary.topics).toEqual([{ name: 'build', path: join(topicsDir, 'build.md') }]);
+    expect(summary.topics).toEqual([
+      { name: 'build', path: join('.robota', 'memory', 'topics', 'build.md') },
+    ]);
   });
 });

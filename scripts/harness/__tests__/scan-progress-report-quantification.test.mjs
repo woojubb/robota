@@ -1,8 +1,10 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { loadHarnessConfig } from '../harness-config.mjs';
 import { ADVISORY_MARKER } from '../run-all-scans.mjs';
@@ -23,7 +25,7 @@ const POLICY = loadHarnessConfig().progressReportQuantification;
 
 const tempDirs = [];
 function makeTempDir() {
-  const dir = mkdtempSync(path.join(os.tmpdir(), 'progress-report-scan-'));
+  const dir = makeTemp('progress-report-scan-');
   tempDirs.push(dir);
   return dir;
 }

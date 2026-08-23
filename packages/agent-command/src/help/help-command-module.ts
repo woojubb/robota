@@ -3,7 +3,7 @@ import { HELP_COMMAND_DESCRIPTION } from '@robota-sdk/agent-framework';
 import { executeHelpCommand } from './help-command.js';
 
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-transport';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
 
 export function createHelpCommandEntry(): ICommand {
   return {

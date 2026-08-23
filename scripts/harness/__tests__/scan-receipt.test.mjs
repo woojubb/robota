@@ -4,11 +4,12 @@
  * mechanism can only fail in one dangerous direction, and it is this one.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { isCleanTree, realDirtyLines } from '../verification-receipt.mjs';
 
@@ -168,7 +169,7 @@ describe('receipt eligibility in a real agent clone (HARNESS-109)', () => {
    * without it the assertion would be about git, which is not ours to test.
    */
   it('a per-clone harness config file does not make the tree dirty', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'harness-109-'));
+    const root = makeTemp('harness-109-');
     try {
       const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
       git('init', '-q');

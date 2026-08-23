@@ -1,27 +1,19 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+
+import { ensureOwnerOnlyDirectory, tightenExistingFile } from '@robota-sdk/agent-core/node';
 
 import { SettingsParseError } from './settings-parse-error.js';
 
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 export type TSettingsData = Record<string, TUniversalValue>;
+/** CLI-selectable settings write scope; project-local still requires an authorized project store. */
+export type TSettingsScope = 'user' | 'project-local';
 
 export function getUserSettingsPath(): string {
   const home = process.env.HOME ?? process.env.USERPROFILE ?? '/';
   return join(home, '.robota', 'settings.json');
-}
-
-export type TSettingsScope = 'user' | 'project-local';
-
-export function resolveSettingsPathForScope(
-  cwd: string,
-  scope: TSettingsScope | undefined,
-): string {
-  if (scope === undefined || scope === 'user') {
-    return getUserSettingsPath();
-  }
-  return join(cwd, '.robota', 'settings.local.json');
 }
 
 /**
@@ -43,10 +35,15 @@ export function readSettings(path: string): TSettingsData {
  * SEC-003: settings files can hold a plaintext provider credential — `provider-settings.ts`
  * persists `apiKey` verbatim when `--api-key-env` is not used (and warns while doing it). A
  * default-umask create would leave that credential world-readable, so the file is created
- * owner-only. `mode` applies at creation; a settings file that already exists keeps its mode.
+ * owner-only. `mode` applies at creation, so a settings file an older version already wrote keeps
+ * its mode — which is why SEC-020 tightens it before the write rather than trusting `mode` alone.
  */
 export function writeSettings(path: string, settings: TSettingsData): void {
-  mkdirSync(dirname(path), { recursive: true });
+  // SEC-020: created with no mode at all, so the settings directory came out 0755 under umask 022
+  // and every account on the host could list what it holds. The file itself was already
+  // owner-only, but a rewrite leaves an older 0644 copy at 0644 — `mode` applies only at create.
+  ensureOwnerOnlyDirectory(dirname(path));
+  tightenExistingFile(path);
   writeFileSync(path, JSON.stringify(settings, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 });
 }
 

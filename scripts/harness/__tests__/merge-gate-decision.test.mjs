@@ -1,9 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/merge-gate.sh');
@@ -47,7 +48,7 @@ function stubbedPath({
   totalThreads,
   threadsUnreadable = false,
 }) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'merge-gate-'));
+  const dir = makeTemp('merge-gate-');
   scratch.push(dir);
 
   const fixture = path.join(dir, 'fixture.json');

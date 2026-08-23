@@ -2,7 +2,7 @@
  * GOAL-001: headless autonomous goal runner. A fake session emits goal lifecycle events; the
  * runner resolves to exit 0 when satisfied, GOAL_NOT_SATISFIED_EXIT_CODE at a bound, and 1 on error.
  */
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -12,7 +12,7 @@ import type {
   IGoalEvent,
   IGoalState,
   IInteractiveSession,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 type TListener = (...args: unknown[]) => void;
 

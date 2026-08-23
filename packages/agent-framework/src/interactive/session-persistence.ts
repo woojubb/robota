@@ -1,51 +1,55 @@
-import { join } from 'node:path';
+import { dirname } from 'node:path';
 
-import {
-  isSafeSessionId,
-  loadSessionLogEntries,
-  replaySessionLogEntries,
-  SessionStore,
-} from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session';
 
-import { NodeFileSystem } from '../adapters/node-file-system.js';
-import { projectPaths, userPaths } from '../paths.js';
+import { userPaths } from '../paths.js';
+import { WorkspaceProjectSessionStore } from './workspace-session-store.js';
 
-import type {
-  IBackgroundJobGroupState,
-  TBackgroundJobGroupEvent,
-} from '../background-tasks/index.js';
-import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
-import type { IFileSystem } from '@robota-sdk/agent-core';
-import type { TUniversalMessage } from '@robota-sdk/agent-core';
 // Session persistence contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   IResumableSessionSummary,
-} from '@robota-sdk/agent-interface-transport';
-import type {
-  IBackgroundTaskState,
-  TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-transport';
+  TSessionLoadOutcome,
+} from '@robota-sdk/agent-interface-session';
 
-export type { IInteractiveSessionRecord, IInteractiveSessionStore, IResumableSessionSummary };
+export type {
+  IInteractiveSessionRecord,
+  IInteractiveSessionStore,
+  IResumableSessionSummary,
+  TSessionLoadOutcome,
+};
+export { WorkspaceSessionLogSink, WorkspaceSessionLogSource } from './workspace-session-io.js';
+export { WorkspaceProjectSessionStore } from './workspace-session-store.js';
 
 export function createProjectSessionStore(
-  cwd: string,
-  fs: IFileSystem = new NodeFileSystem(),
+  sessions: IWorkspaceProjectStateStorage,
+  logs: IWorkspaceProjectStateStorage,
 ): IInteractiveSessionStore {
-  const paths = projectPaths(cwd);
-  return new ProjectSessionStoreFacade(paths.sessions, paths.logs, fs);
+  return new WorkspaceProjectSessionStore(sessions, logs);
+}
+
+/** Explicit host-filesystem session store. This does not establish project trust. */
+export function createNodeHostSessionStore(
+  baseDirectory: string,
+  ownedRoot?: string,
+): IInteractiveSessionStore {
+  return new NodeSessionStore(baseDirectory, ownedRoot);
 }
 
 /**
  * User-level session store (`~/.robota/sessions`). Symmetric to {@link createProjectSessionStore};
  * there is no user-level replay-log directory, so it reads persisted records only.
  */
-export function createUserSessionStore(
-  fs: IFileSystem = new NodeFileSystem(),
-): IInteractiveSessionStore {
-  return new ProjectSessionStoreFacade(userPaths().sessions, undefined, fs);
+export function createUserSessionStore(): IInteractiveSessionStore {
+  // SEC-020: the user store root is passed as OWNED, so it is tightened along with the sessions
+  // directory inside it. This is the composition that knows the layout — `userPaths()` is here —
+  // and it is the path the restricted-workspace fallback takes, where no other writer may ever run
+  // to tighten the root on its behalf.
+  const sessions = userPaths().sessions;
+  return new NodeSessionStore(sessions, dirname(sessions));
 }
 
 export function listResumableSessionSummaries(
@@ -53,6 +57,7 @@ export function listResumableSessionSummaries(
   cwd: string,
 ): IResumableSessionSummary[] {
   return (sessionStore?.list() ?? [])
+    .flatMap((entry) => (entry.outcome.status === 'valid' ? [entry.outcome.record] : []))
     .filter((session) => session.cwd === cwd)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .map((session) => ({
@@ -63,6 +68,23 @@ export function listResumableSessionSummaries(
       messageCount: session.messages.length,
       preview: getLastAssistantPreview(session.messages),
     }));
+}
+
+/**
+ * The sessions this build cannot read (TRANS-007).
+ *
+ * `listResumableSessionSummaries` returns only what can be resumed, which is what its name promises
+ * — an unreadable session is genuinely not resumable. What it must not do is make those sessions
+ * DISAPPEAR: before this, both stores dropped what they could not parse, so a damaged or
+ * older-format session read as gone rather than as unreadable. A surface that wants to say "3
+ * sessions here were written by a different build" asks this.
+ *
+ * Not filtered by `cwd`: an unreadable entry has no record, so it has no `cwd` to compare.
+ */
+export function listUnreadableSessions(
+  sessionStore: IInteractiveSessionStore | undefined,
+): readonly { readonly id: string; readonly outcome: TSessionLoadOutcome }[] {
+  return (sessionStore?.list() ?? []).filter((entry) => entry.outcome.status !== 'valid');
 }
 
 export function resolveLatestSessionId(
@@ -76,90 +98,14 @@ export function resolveSessionIdByIdOrName(
   sessionStore: IInteractiveSessionStore | undefined,
   idOrName: string,
 ): string | undefined {
+  // A name lives on the record, so only a readable entry can be matched by name. An unreadable one
+  // can still be matched by its id, which is what a user holding an old id would type.
   const match = (sessionStore?.list() ?? []).find(
-    (session) => session.id === idOrName || session.name === idOrName,
+    (entry) =>
+      entry.id === idOrName ||
+      (entry.outcome.status === 'valid' && entry.outcome.record.name === idOrName),
   );
   return match?.id;
-}
-
-class ProjectSessionStoreFacade implements IInteractiveSessionStore {
-  private readonly store: SessionStore;
-  private readonly logsDir: string | undefined;
-  private readonly fs: IFileSystem;
-
-  constructor(baseDir: string, logsDir?: string, fs: IFileSystem = new NodeFileSystem()) {
-    this.store = new SessionStore(baseDir);
-    this.logsDir = logsDir;
-    this.fs = fs;
-  }
-
-  save(session: IInteractiveSessionRecord): void {
-    // TYPE-003: `agent-session`'s ISessionRecord is now an alias of IInteractiveSessionRecord,
-    // so the store persists the typed record directly — the former toSessionRecord/
-    // fromSessionRecord spread + `as unknown as` cast bridge (DATA-006) is gone.
-    this.store.save(session);
-  }
-
-  load(id: string): IInteractiveSessionRecord | undefined {
-    return this.store.load(id) ?? this.loadFromReplayLog(id);
-  }
-
-  list(): IInteractiveSessionRecord[] {
-    const records: IInteractiveSessionRecord[] = this.store.list();
-    const seen = new Set(records.map((record) => record.id));
-    for (const replayRecord of this.listReplayLogRecords()) {
-      if (!seen.has(replayRecord.id)) {
-        records.push(replayRecord);
-      }
-    }
-    return records.sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-    );
-  }
-
-  delete(id: string): void {
-    this.store.delete(id);
-  }
-
-  private loadFromReplayLog(id: string): IInteractiveSessionRecord | undefined {
-    if (!this.logsDir) return undefined;
-    // SEC-006: third sink on the same id the session store guards — `id` is interpolated into a path
-    // component below, and reaches here from `load()` with a remote-supplied value.
-    if (!isSafeSessionId(id)) return undefined;
-    const replay = replaySessionLogEntries(
-      loadSessionLogEntries(join(this.logsDir, `${id}.jsonl`)),
-    );
-    if (!replay.sessionId || replay.messages.length === 0) {
-      return undefined;
-    }
-    const backgroundTaskEvents = replay.backgroundTaskEvents as TBackgroundTaskEvent[];
-    const backgroundJobGroupEvents = replay.backgroundJobGroupEvents as TBackgroundJobGroupEvent[];
-    return {
-      id: replay.sessionId,
-      cwd: replay.cwd ?? '',
-      createdAt: replay.createdAt ?? replay.updatedAt ?? new Date(0).toISOString(),
-      updatedAt: replay.updatedAt ?? replay.createdAt ?? new Date(0).toISOString(),
-      messages: replay.messages,
-      history: replay.history,
-      backgroundTasks: deriveBackgroundTasks(backgroundTaskEvents),
-      backgroundTaskEvents,
-      backgroundJobGroups: deriveBackgroundJobGroups(backgroundJobGroupEvents),
-      backgroundJobGroupEvents,
-      skillActivationEvents: [],
-      memoryEvents: replay.memoryEvents as IMemoryEvent[],
-    };
-  }
-
-  private listReplayLogRecords(): IInteractiveSessionRecord[] {
-    if (!this.logsDir || !this.fs.existsSync(this.logsDir)) {
-      return [];
-    }
-    return this.fs
-      .readdirSync(this.logsDir)
-      .filter((file) => file.endsWith('.jsonl'))
-      .map((file) => this.loadFromReplayLog(file.slice(0, -'.jsonl'.length)))
-      .filter((record): record is IInteractiveSessionRecord => record !== undefined);
-  }
 }
 
 function getLastAssistantPreview(messages: readonly TUniversalMessage[]): string {
@@ -169,37 +115,4 @@ function getLastAssistantPreview(messages: readonly TUniversalMessage[]): string
     return message.content.replace(/[\n\r]+/g, ' ').trim();
   }
   return '';
-}
-
-function deriveBackgroundTasks(events: readonly TBackgroundTaskEvent[]): IBackgroundTaskState[] {
-  const tasks = new Map<string, IBackgroundTaskState>();
-  for (const event of events) {
-    const task = getBackgroundTaskSnapshot(event);
-    if (task) tasks.set(task.id, task);
-  }
-  return [...tasks.values()];
-}
-
-function getBackgroundTaskSnapshot(event: TBackgroundTaskEvent): IBackgroundTaskState | undefined {
-  switch (event.type) {
-    case 'background_task_created':
-    case 'background_task_started':
-    case 'background_task_updated':
-    case 'background_task_completed':
-    case 'background_task_failed':
-    case 'background_task_cancelled':
-      return event.task;
-    default:
-      return undefined;
-  }
-}
-
-function deriveBackgroundJobGroups(
-  events: readonly TBackgroundJobGroupEvent[],
-): IBackgroundJobGroupState[] {
-  const groups = new Map<string, IBackgroundJobGroupState>();
-  for (const event of events) {
-    groups.set(event.group.id, event.group);
-  }
-  return [...groups.values()];
 }

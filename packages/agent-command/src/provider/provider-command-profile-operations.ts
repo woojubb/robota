@@ -15,7 +15,7 @@ import type {
   IProviderProfileSettings,
   IProviderSetupInput,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 export function formatProviderChoiceLabel(
   name: string,

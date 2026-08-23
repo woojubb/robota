@@ -24,7 +24,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createProgrammaticAgent } from '../programmatic/index.js';
 
 import type { ICommandHostAdapters, ICommandModule } from '@robota-sdk/agent-framework';
-import type { IAgentDriver, InteractionEvent } from '@robota-sdk/agent-interface-transport';
+import type { IAgentDriver, InteractionEvent } from '@robota-sdk/agent-interface-session';
 
 /** The minimal runtime-session stub the InteractiveSession wraps (no provider turn is run here). */
 function createRuntimeSession(): Record<string, unknown> {

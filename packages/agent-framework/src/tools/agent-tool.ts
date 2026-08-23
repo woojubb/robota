@@ -36,7 +36,7 @@ import type { IInProcessSubagentRunnerDeps } from '../subagents/index.js';
 import type { IToolExecutionContext } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type { ISubagentManager } from '@robota-sdk/agent-executor';
-import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface-transport';
+import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface-execution';
 
 export const AGENT_TOOL_DESCRIPTION = [
   'Creates delegated subagent jobs in isolated contexts.',

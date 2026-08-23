@@ -8,26 +8,6 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-/** Project-level .robota/ paths (relative to cwd). */
-export function projectPaths(cwd: string): {
-  settings: string;
-  settingsLocal: string;
-  logs: string;
-  sessions: string;
-  memory: string;
-  checkpoints: string;
-} {
-  const base = join(cwd, '.robota');
-  return {
-    settings: join(base, 'settings.json'),
-    settingsLocal: join(base, 'settings.local.json'),
-    logs: join(base, 'logs'),
-    sessions: join(base, 'sessions'),
-    memory: join(base, 'memory'),
-    checkpoints: join(base, 'checkpoints'),
-  };
-}
-
 /** User-level ~/.robota/ paths. */
 export function userPaths(): {
   settings: string;

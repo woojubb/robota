@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { collectOrchestrationMapFindings, dispatchedAgents } from '../scan-orchestration-map.mjs';
 
@@ -30,7 +30,7 @@ Worker agent.
 `;
 
 async function createFixture(files = {}) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-orchestration-map-'));
+  const root = makeTemp('robota-orchestration-map-');
   for (const [relativePath, content] of Object.entries(files)) {
     const targetPath = path.join(root, relativePath);
     mkdirSync(path.dirname(targetPath), { recursive: true });

@@ -3,28 +3,12 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import { createTransportFailedOutcome, isTransportRunOutcome } from '../index.js';
 
 import type {
-  ICapabilityDescriptor,
-  ICommand,
-  ICommandListEntry,
-  ICommandPluginAdapter,
-  ICommandResult,
   IConfigurableTransport,
-  IExecutionResult,
-  IExecutionWorkspaceEntry,
-  IAgentDriver,
-  IInteractionChannel,
-  IInteractiveSession,
-  IInteractiveSessionStore,
-  IResumableSessionSummary,
-  IToolState,
   ITransportAdapter,
   ITransportCompletionRecord,
   ITransportConfig,
   ITransportRunnerAdapter,
   TTransportRunOutcome,
-  IUsageSnapshot,
-  TCommandHostAction,
-  TPermissionResultValue,
 } from '../index.js';
 
 /**
@@ -48,36 +32,5 @@ describe('agent-interface-transport contract surface', () => {
       expect(() => createTransportFailedOutcome(invalid)).toThrow(/integer from 1 through 255/i);
       expect(isTransportRunOutcome({ status: 'failed', exitCode: invalid })).toBe(false);
     }
-  });
-
-  it('exports the command-system contracts', () => {
-    expectTypeOf<ICommand>().toHaveProperty('name');
-    expectTypeOf<ICommandResult>().toHaveProperty('success');
-    expectTypeOf<ICommandListEntry>().toHaveProperty('name');
-    expectTypeOf<ICommandPluginAdapter>().toHaveProperty('reloadPlugins');
-    expectTypeOf<ICapabilityDescriptor>().toHaveProperty('kind');
-    expectTypeOf<TCommandHostAction>().not.toBeNever();
-  });
-
-  it('exports the interaction-channel contracts', () => {
-    expectTypeOf<IInteractionChannel>().toHaveProperty('askUser');
-    expectTypeOf<IAgentDriver>().toHaveProperty('send');
-    expectTypeOf<IAgentDriver>().toHaveProperty('events');
-    expectTypeOf<IAgentDriver>().toHaveProperty('queueUserAction');
-  });
-
-  it('exports the interactive-session contracts', () => {
-    expectTypeOf<IInteractiveSession>().toHaveProperty('submit');
-    expectTypeOf<IExecutionResult>().toHaveProperty('response');
-    expectTypeOf<IToolState>().toHaveProperty('toolName');
-    expectTypeOf<IUsageSnapshot>().toHaveProperty('totalTokens');
-    expectTypeOf<TPermissionResultValue>().not.toBeNever();
-    expectTypeOf<IInteractiveSessionStore>().toHaveProperty('save');
-    expectTypeOf<IInteractiveSessionStore>().toHaveProperty('getFilePath');
-    expectTypeOf<IResumableSessionSummary>().toHaveProperty('messageCount');
-  });
-
-  it('exports the execution-workspace contracts', () => {
-    expectTypeOf<IExecutionWorkspaceEntry>().toHaveProperty('origin');
   });
 });

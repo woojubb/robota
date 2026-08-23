@@ -1,19 +1,15 @@
 import { createServer } from 'node:net';
 
-import {
-  createTestInteractiveSession,
-  runTransportLifecycleConformance,
-} from '@robota-sdk/agent-interface-transport/testing';
+import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { WebSocket } from 'ws';
 import { describe, it, expect, expectTypeOf, vi, afterEach } from 'vitest';
 
 import { WsTransport } from '../ws-transport-configurable.js';
 
-import type {
-  IConfigurableTransport,
-  IInteractiveSession,
-} from '@robota-sdk/agent-interface-transport';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
 
 /**

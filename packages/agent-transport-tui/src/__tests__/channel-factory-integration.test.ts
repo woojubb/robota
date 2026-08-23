@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createProjectSessionStore } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createScriptedProvider } from '@robota-sdk/agent-transport/testing';
@@ -20,7 +20,7 @@ import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 const RESTORE_DEADLINE_MS = 10_000;
 const POLL_MS = 50;
@@ -37,11 +37,26 @@ function fakeCliAdapter(settingsPath: string): ITuiCliAdapter {
 }
 
 function persistConversation(store: IInteractiveSessionStore, id: string, cwd: string): void {
+  // TRANS-007: the store decodes on load, so a message must satisfy the contract. These were cast
+  // stubs with only `role` and `content`; the store accepted them because it never looked.
+  const at = new Date('2026-06-13T00:00:00.000Z');
   const messages: TUniversalMessage[] = [
-    { role: 'user', content: 'Remember the number 42.' } as TUniversalMessage,
-    { role: 'assistant', content: 'Noted: 42.' } as TUniversalMessage,
-    { role: 'user', content: 'And the city is Busan.' } as TUniversalMessage,
-    { role: 'assistant', content: 'Noted: Busan.' } as TUniversalMessage,
+    {
+      id: 'm-0',
+      role: 'user',
+      content: 'Remember the number 42.',
+      timestamp: at,
+      state: 'complete',
+    },
+    { id: 'm-1', role: 'assistant', content: 'Noted: 42.', timestamp: at, state: 'complete' },
+    {
+      id: 'm-2',
+      role: 'user',
+      content: 'And the city is Busan.',
+      timestamp: at,
+      state: 'complete',
+    },
+    { id: 'm-3', role: 'assistant', content: 'Noted: Busan.', timestamp: at, state: 'complete' },
   ];
   store.save({
     id,
@@ -67,7 +82,7 @@ describe('channel factory restores persisted context (CLI-B11 TC-02)', () => {
   });
 
   it('createChannel(sessionId) over a real FileSessionStore yields usedTokens > 0', async () => {
-    const store = createProjectSessionStore(cwd);
+    const store = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
     const sessionId = 'b11-restore-session';
     persistConversation(store, sessionId, cwd);
 
@@ -103,7 +118,7 @@ describe('channel factory restores persisted context (CLI-B11 TC-02)', () => {
   });
 
   it('a channel created WITHOUT resumeSessionId starts with an empty context (control)', async () => {
-    const store = createProjectSessionStore(cwd);
+    const store = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
     persistConversation(store, 'b11-other-session', cwd);
 
     const scripted = createScriptedProvider([{ text: 'unused' }]);

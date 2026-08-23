@@ -9,11 +9,11 @@ export type {
   TPermissionResultValue,
   IToolState,
   IDiffLine,
-  IUsageSnapshot,
   IExecutionResult,
   IToolSummary,
   TInteractivePermissionHandler,
   IInteractiveSessionEvents,
   IContextFileRefreshedEvent,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
+export type { IUsageSnapshot } from '@robota-sdk/agent-interface-analytics';

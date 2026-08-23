@@ -87,6 +87,23 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // DOCS-028 (issue #2194). Measured as `collectSpecs(bare)`: throws `packages missing from
+    // <root>` before a single SPEC is opened.
+    file: 'check-spec-manifest-restatement.mjs',
+    finder: 'collectSpecs',
+    tree: 'packages',
+    why: 'the package SPEC corpus IS the population this check governs — over a root without it there is no SPEC to judge, and "no findings" would claim that no SPEC restates its manifest when none was read. The defect it exists to catch was two SPECs whose stated dependency set was already false',
+  },
+  {
+    // issue #2036. Measured BEFORE the guard existed: over a root with no `.github`, this returned
+    // `[]` — which reads as "every declared context name is published" when nothing was read at all.
+    // The classification is what caught it, exactly as it caught INFRA-127's exported finder.
+    file: 'scan-main-required-checks.mjs',
+    finder: 'findContextNameFindings',
+    tree: '.github/required-status-checks.json',
+    why: 'the declaration file IS the population — it is the SOURCE of what each ruleset must require, so its absence is a broken checkout, and "no findings" would claim every declared name matches a published context when none was read',
+  },
+  {
     // INFRA-126. Measured as `findTempDirOwnerFindings(bare)`: throws
     // `scripts/harness/__tests__ missing from <root>` before a single file is read.
     file: 'scan-temp-dir-owner.mjs',
@@ -113,6 +130,17 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'the catalogue IS the subject — over a root without it there is no row to shape-check, and a silent zero would read as "every row fills its columns" while the file it governs had vanished',
   },
   {
+    // INFRA-128. Measured as `findPromotionLagAt(bare, 'HEAD', 'origin/main')`: throws
+    // `could not resolve the promotion ref \`origin/main\`` before any workflow is read. The
+    // classification is what fixed it — the first cut resolved nothing up front, so `readAtRef`
+    // returned null for both "this ref has no such file" and "there is no such ref", and every
+    // workflow came back `absent` over a root that was never a repository.
+    file: 'scan-pull-request-target-promotion-lag.mjs',
+    finder: 'findPromotionLagAt',
+    tree: '.github/workflows',
+    why: 'the comparison IS the check — over a root without the promotion ref there is nothing to compare against, and "0 do not match" would read as "every gate is promoted" when neither side was ever read',
+  },
+  {
     // Measured as `findLoopProofFindings(bare)`: throws `.agents/skills missing from <root>` before it
     // reads a baseline or a ledger.
     file: 'scan-loop-proof.mjs',
@@ -127,6 +155,22 @@ export const MANDATORY_TREE_GUARDS = [
     finder: 'findLoopRunRecordFindings',
     tree: '.agents/skills',
     why: 'the skills tree is the population these ledgers belong to — over a root missing it, every ledger is unattributable and the skill-wiring half examines nothing, so "no findings" would mean "nothing was examined". The LEDGER directory is deliberately not governed: its absence is a legitimate state, because it is created by the first recorded run',
+  },
+  {
+    // INFRA-131. The skills tree declares whether either architecture loop belongs to the governed
+    // population; the ledger directory remains optional because a loop may not have run yet.
+    file: 'scan-architecture-refresh-signals.mjs',
+    finder: 'findArchitectureRefreshSignalFindings',
+    tree: '.agents/skills',
+    why: 'the skills tree declares the architecture loops whose runtime signals this floor judges — without it an empty ledger result cannot distinguish “no run yet” from “no governed loop population”',
+  },
+  {
+    // INFRA-131. Retirement is a whole-live-instruction-tree claim. Every named path is required so
+    // deleting or renaming one cannot silently remove it from the reference population.
+    file: 'scan-retired-agent-references.mjs',
+    finder: 'findRetiredAgentReferenceFindings',
+    tree: '.claude/agents, .agents/{rules,skills,specs,memory,tasks,spec-docs/{draft,backlog,todo,active}}, .agents/architecture-remediation-log.md, scripts/harness',
+    why: 'these paths are the complete live retirement population — if any disappears, “no retired references remain” would be a claim over only a subset of the governed instructions',
   },
   {
     // Measured as `findRouteSpellingFindings(bare)`: throws `apps, packages missing from <root>`

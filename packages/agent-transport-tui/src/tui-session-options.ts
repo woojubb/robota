@@ -17,6 +17,10 @@ export function buildTuiSessionOptions(
   return {
     cwd: opts.cwd,
     provider: opts.provider,
+    ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
+    ...(opts.editCheckpointStore !== undefined
+      ? { editCheckpointStore: opts.editCheckpointStore }
+      : {}),
     // CLI-076: forward the resolved model so `--model` takes effect rather than falling through to the
     // session's config/default model.
     ...(opts.model !== undefined ? { model: opts.model } : {}),

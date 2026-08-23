@@ -9,7 +9,7 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import type { ICommandHostBackgroundTasks } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 function parseCommandParts(args: string): string[] {
   return args.trim().split(/\s+/).filter(Boolean);

@@ -6,7 +6,7 @@ import {
   createBackgroundCommandModule,
   executeBackgroundCommand,
 } from '../index.js';
-import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-transport';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
 import { createTestSessionRuntime } from '@robota-sdk/agent-framework/testing';
 import {
   createTestCommandHost,

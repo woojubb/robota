@@ -19,16 +19,21 @@
  * the app-supplied `redact` seam. It carries NO link/cloud/upload/access-control and NO redaction FIELD policy.
  */
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import {
+  SESSION_ARTIFACT_SCHEMA_VERSION,
+  decodeVersionedInteractiveSessionRecord,
+} from './session-record-codec/index.js';
 
-/** Bump when the envelope shape changes incompatibly; `deserialize` rejects a version it does not understand. */
-export const SESSION_ARTIFACT_SCHEMA_VERSION = 1;
+import type { IVersionedInteractiveSessionRecord } from './session-record-codec/index.js';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
-/** The on-the-wire envelope: a schema-version header + the storage-neutral session record. */
-export interface ISessionArtifact {
-  schemaVersion: number;
-  record: IInteractiveSessionRecord;
-}
+/**
+ * TRANS-006: the envelope type and its version constant are the codec's (`session-record-codec/`).
+ * They used to be declared here as `ISessionArtifact` and a local constant, which was a second name
+ * and a second number for one shape — the envelope the codec decodes and the envelope this module
+ * writes were always the same `{ schemaVersion, record }`. Nothing on disk changed when they were
+ * unified, because there was nothing to change.
+ */
 
 export interface ISerializeSessionArtifactOptions {
   /**
@@ -37,6 +42,23 @@ export interface ISerializeSessionArtifactOptions {
    * full-fidelity local round-trip.
    */
   redact?: (record: IInteractiveSessionRecord) => IInteractiveSessionRecord;
+}
+
+/** How many decode issues an error message carries before it elides the rest. */
+const MAX_REPORTED_ISSUES = 5;
+
+/**
+ * Parse the bytes, reporting a non-JSON body the same way a non-record body is reported.
+ *
+ * `JSON.parse` throwing and the decoder refusing are the same failure for a caller — the bytes are
+ * not an artifact — so they are not two different exceptions to catch.
+ */
+function parseArtifactBytes(bytes: string): unknown {
+  try {
+    return JSON.parse(bytes) as unknown;
+  } catch {
+    throw new Error('Invalid session artifact: the bytes are not JSON.');
+  }
 }
 
 /**
@@ -48,7 +70,7 @@ export function serializeSessionArtifact(
   options: ISerializeSessionArtifactOptions = {},
 ): string {
   const payload = options.redact ? options.redact(record) : record;
-  const artifact: ISessionArtifact = {
+  const artifact: IVersionedInteractiveSessionRecord = {
     schemaVersion: SESSION_ARTIFACT_SCHEMA_VERSION,
     record: payload,
   };
@@ -60,23 +82,26 @@ export function serializeSessionArtifact(
  * does not understand (so an incompatible artifact is never silently mis-imported).
  */
 export function deserializeSessionArtifact(bytes: string): IInteractiveSessionRecord {
-  const artifact = JSON.parse(bytes) as ISessionArtifact;
-  if (!artifact || typeof artifact.schemaVersion !== 'number') {
-    throw new Error('Invalid session artifact: missing schema version header.');
-  }
-  if (artifact.schemaVersion !== SESSION_ARTIFACT_SCHEMA_VERSION) {
+  const outcome = decodeVersionedInteractiveSessionRecord(parseArtifactBytes(bytes));
+  if (outcome.status === 'unsupported') {
     throw new Error(
-      `Unsupported session artifact schema version ${artifact.schemaVersion} (this build reads ${SESSION_ARTIFACT_SCHEMA_VERSION}).`,
+      `Unsupported session artifact schema version ${outcome.schemaVersion ?? '(absent or not a number)'} ` +
+        `(this build reads ${SESSION_ARTIFACT_SCHEMA_VERSION}).`,
     );
   }
-  if (
-    !artifact.record ||
-    typeof artifact.record !== 'object' ||
-    Array.isArray(artifact.record) ||
-    typeof artifact.record.id !== 'string'
-  ) {
-    // Reject a degenerate/crafted payload (`record: []` / `{}` / no id) rather than importing an empty record.
-    throw new Error('Invalid session artifact: missing or malformed session record.');
+  if (outcome.status === 'corrupt') {
+    // The paths are the point: an artifact that cannot be imported should tell its holder WHERE it
+    // is wrong, not that it is wrong. Bounded, because a wholly unrelated payload produces an issue
+    // per member and a thousand-line error informs nobody.
+    const shown = outcome.issues.slice(0, MAX_REPORTED_ISSUES);
+    const detail = shown
+      .map((issue) => `${issue.path === '' ? '(root)' : issue.path}: ${issue.message}`)
+      .join('; ');
+    const elided =
+      outcome.issues.length > shown.length
+        ? ` (+${outcome.issues.length - shown.length} more)`
+        : '';
+    throw new Error(`Invalid session artifact: ${detail}${elided}`);
   }
-  return artifact.record;
+  return outcome.record;
 }

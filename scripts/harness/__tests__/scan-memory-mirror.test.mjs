@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { collectMemoryMirrorFindings, examinedFactFileCount } from '../scan-memory-mirror.mjs';
 
@@ -15,7 +15,7 @@ const SCAN_SCRIPT = fileURLToPath(new URL('../scan-memory-mirror.mjs', import.me
 const GOVERNED_TREE_MODULE = fileURLToPath(new URL('../governed-tree.mjs', import.meta.url));
 
 async function createFixture(files = {}) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-memory-mirror-'));
+  const root = makeTemp('robota-memory-mirror-');
   for (const [relativePath, content] of Object.entries(files)) {
     const targetPath = path.join(root, relativePath);
     mkdirSync(path.dirname(targetPath), { recursive: true });

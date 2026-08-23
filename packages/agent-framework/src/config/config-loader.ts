@@ -9,23 +9,15 @@
  *   5. .claude/settings.json         (project, Claude Code compat)
  *   6. .claude/settings.local.json   (project-local, highest priority)
  */
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-
 import {
   SettingsSchema,
   type TSettings,
   type TEnvResolvedSettings,
   type IResolvedConfig,
 } from './config-types.js';
+import { readSettingsSourceText } from './settings-source.js';
 
-/**
- * Return the current user home directory.
- * Reads process.env.HOME at call time so tests can override it.
- */
-function getHomeDir(): string {
-  return process.env.HOME ?? process.env.USERPROFILE ?? '/';
-}
+import type { TSettingsSource } from './settings-source.js';
 
 /** Default resolved config values */
 const DEFAULTS: IResolvedConfig = {
@@ -46,11 +38,10 @@ const DEFAULTS: IResolvedConfig = {
  * Read and parse a JSON file. Returns undefined if the file does not exist.
  * Throws on parse errors.
  */
-function readJsonFile(filePath: string): unknown {
-  if (!existsSync(filePath)) {
-    return undefined;
-  }
-  const raw = readFileSync(filePath, 'utf-8').trim();
+function readJsonSource(source: TSettingsSource): unknown {
+  const content = readSettingsSourceText(source, 'load configuration settings');
+  if (content === undefined) return undefined;
+  const raw = content.trim();
   if (raw.length === 0) {
     // Empty file — likely from a crash during write. Treat as missing.
     return undefined;
@@ -241,40 +232,21 @@ function toResolvedConfig(merged: TEnvResolvedSettings): IResolvedConfig {
 }
 
 /**
- * Build the ordered list of settings file paths (lowest → highest priority).
- */
-function getSettingsPaths(cwd: string): string[] {
-  const home = getHomeDir();
-  return [
-    join(home, '.robota', 'settings.json'), // 1. user (lowest)
-    join(home, '.claude', 'settings.json'), // 1b. user (Claude Code compat)
-    join(cwd, '.robota', 'settings.json'), // 2. project
-    join(cwd, '.robota', 'settings.local.json'), // 3. project-local
-    join(cwd, '.claude', 'settings.json'), // 4. project, Claude Code compat
-    join(cwd, '.claude', 'settings.local.json'), // 5. project-local (highest)
-  ];
-}
-
-/**
  * Load and merge all settings files, validate with Zod, return resolved config.
- *
- * @param cwd - The working directory (project root) to search for settings
  */
-export async function loadConfig(cwd: string): Promise<IResolvedConfig> {
-  const allPaths = getSettingsPaths(cwd);
-
-  const rawEntries: Array<{ raw: unknown; path: string }> = [];
-  for (const filePath of allPaths) {
-    const raw = readJsonFile(filePath);
+export async function loadConfig(sources: readonly TSettingsSource[]): Promise<IResolvedConfig> {
+  const rawEntries: Array<{ raw: unknown; source: TSettingsSource }> = [];
+  for (const source of sources) {
+    const raw = readJsonSource(source);
     if (raw !== undefined) {
-      rawEntries.push({ raw, path: filePath });
+      rawEntries.push({ raw, source });
     }
   }
 
-  const parsedLayers: TEnvResolvedSettings[] = rawEntries.map(({ raw, path }) => {
+  const parsedLayers: TEnvResolvedSettings[] = rawEntries.map(({ raw, source }) => {
     const result = SettingsSchema.safeParse(raw);
     if (!result.success) {
-      throw new Error(`Invalid settings in ${path}: ${result.error.message}`);
+      throw new Error(`Invalid settings in ${source.displayName}: ${result.error.message}`);
     }
     return resolveEnvRefs(result.data);
   });

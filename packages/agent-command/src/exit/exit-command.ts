@@ -2,7 +2,7 @@ import { confirmAction, isConfirmed } from '@robota-sdk/agent-core';
 import { createSessionExitHostAction } from '@robota-sdk/agent-framework';
 
 import type { ICommandHostUserInteraction } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 export async function executeExitCommand(
   context: ICommandHostUserInteraction,

@@ -1,17 +1,11 @@
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-  appendFileSync,
-} from 'fs';
-import { basename, join } from 'path';
+import { basename, join } from 'node:path';
 
 import { trimEdgeChars } from '../utils/trim-char.js';
+import { assertWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
+import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 // TMemoryType SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
-import type { TMemoryType } from '@robota-sdk/agent-interface-transport';
+import type { TMemoryType } from '@robota-sdk/agent-interface-session';
 
 export type { TMemoryType };
 
@@ -62,10 +56,6 @@ export function isMemoryType(value: string): value is TMemoryType {
   return VALID_TYPES.includes(value as TMemoryType);
 }
 
-function memoryRoot(cwd: string): string {
-  return join(cwd, '.robota', 'memory');
-}
-
 function truncateToUtf8Bytes(value: string, maxBytes: number): string {
   const buffer = Buffer.from(value, 'utf8');
   if (buffer.byteLength <= maxBytes) return value;
@@ -103,29 +93,29 @@ function normalizeMemoryText(text: string): string {
 }
 
 export class ProjectMemoryStore {
-  private readonly cwd: string;
+  private readonly storage: IWorkspaceProjectStateStorage;
   private readonly now: () => Date;
 
-  constructor(cwd: string, now: () => Date = () => new Date()) {
-    this.cwd = cwd;
+  constructor(storage: IWorkspaceProjectStateStorage, now: () => Date = () => new Date()) {
+    this.storage = assertWorkspaceProjectStateStorage(storage);
+    if (storage.namespace !== 'memory') {
+      throw new Error('ProjectMemoryStore requires the memory state namespace.');
+    }
     this.now = now;
   }
 
   getIndexPath(): string {
-    return join(memoryRoot(this.cwd), INDEX_FILENAME);
+    return this.storage.projectRelativePath(INDEX_FILENAME);
   }
 
   getTopicsPath(): string {
-    return join(memoryRoot(this.cwd), TOPICS_DIRNAME);
+    return this.storage.projectRelativePath(TOPICS_DIRNAME);
   }
 
   loadStartupMemory(): IStartupMemory {
     const path = this.getIndexPath();
-    if (!existsSync(path)) {
-      return { content: '', path, lineCount: 0, truncated: false };
-    }
-
-    const raw = readFileSync(path, 'utf8');
+    const raw = this.storage.readText(INDEX_FILENAME, 'load startup memory');
+    if (raw === undefined) return { content: '', path, lineCount: 0, truncated: false };
     const byBytes = truncateToUtf8Bytes(raw, MEMORY_INDEX_MAX_BYTES);
     const byteTruncated = Buffer.byteLength(raw, 'utf8') > MEMORY_INDEX_MAX_BYTES;
     const byLines = limitLines(byBytes, MEMORY_INDEX_MAX_LINES);
@@ -140,15 +130,14 @@ export class ProjectMemoryStore {
 
   list(): IProjectMemorySummary {
     const topicsPath = this.getTopicsPath();
-    const topics = existsSync(topicsPath)
-      ? readdirSync(topicsPath, { withFileTypes: true })
-          .filter((entry) => entry.isFile() && entry.name.endsWith(TOPIC_EXTENSION))
-          .map((entry) => ({
-            name: basename(entry.name, TOPIC_EXTENSION),
-            path: join(topicsPath, entry.name),
-          }))
-          .sort((a, b) => a.name.localeCompare(b.name))
-      : [];
+    const topics = this.storage
+      .listDirectory(TOPICS_DIRNAME, 'list memory topics')
+      .filter((entry) => entry.kind === 'file' && entry.name.endsWith(TOPIC_EXTENSION))
+      .map((entry) => ({
+        name: basename(entry.name, TOPIC_EXTENSION),
+        path: this.storage.projectRelativePath(join(TOPICS_DIRNAME, entry.name)),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     return {
       indexPath: this.getIndexPath(),
@@ -159,34 +148,34 @@ export class ProjectMemoryStore {
 
   readTopic(topic: string): string {
     const normalized = sanitizeTopic(topic);
-    const path = join(this.getTopicsPath(), `${normalized}${TOPIC_EXTENSION}`);
-    if (!existsSync(path)) return '';
-    return readFileSync(path, 'utf8').trimEnd();
+    return (
+      this.storage.readText(
+        join(TOPICS_DIRNAME, `${normalized}${TOPIC_EXTENSION}`),
+        'read memory topic',
+      ) ?? ''
+    ).trimEnd();
   }
 
   append(input: IAppendMemoryInput): IAppendMemoryResult {
     const topic = sanitizeTopic(input.topic);
-    const root = memoryRoot(this.cwd);
-    const topicsPath = this.getTopicsPath();
-    mkdirSync(topicsPath, { recursive: true });
-
     const indexPath = this.getIndexPath();
-    const topicPath = join(topicsPath, `${topic}${TOPIC_EXTENSION}`);
+    const topicRelativePath = join(TOPICS_DIRNAME, `${topic}${TOPIC_EXTENSION}`);
+    const topicPath = this.storage.projectRelativePath(topicRelativePath);
     const entry = formatEntry(this.now(), input, topic);
-    const topicHeader = existsSync(topicPath) ? '' : `# ${topic}\n\n`;
+    const existingTopic = this.storage.readText(topicRelativePath, 'deduplicate memory topic');
+    const topicHeader = existingTopic === undefined ? `# ${topic}\n\n` : '';
     const normalizedText = normalizeMemoryText(input.text);
 
-    if (existsSync(topicPath) && readFileSync(topicPath, 'utf8').includes(`) ${normalizedText}`)) {
+    if (existingTopic?.includes(`) ${normalizedText}`) === true) {
       return { indexPath, topicPath, topic, deduplicated: true };
     }
 
-    if (!existsSync(indexPath)) {
-      mkdirSync(root, { recursive: true });
-      writeFileSync(indexPath, '# Project Memory\n\n', 'utf8');
+    if (this.storage.readText(INDEX_FILENAME, 'inspect memory index') === undefined) {
+      this.storage.writeText(INDEX_FILENAME, '# Project Memory\n\n', 'initialize memory index');
     }
 
-    appendFileSync(indexPath, `- ${entry}\n`, 'utf8');
-    appendFileSync(topicPath, `${topicHeader}- ${entry}\n`, 'utf8');
+    this.storage.appendText(INDEX_FILENAME, `- ${entry}\n`, 'append memory index');
+    this.storage.appendText(topicRelativePath, `${topicHeader}- ${entry}\n`, 'append memory topic');
 
     return { indexPath, topicPath, topic, deduplicated: false };
   }

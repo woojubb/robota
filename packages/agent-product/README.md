@@ -11,7 +11,7 @@ import { assembleProduct } from '@robota-sdk/agent-product';
 import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
-declare const providerDefinitions: readonly IProviderDefinition[]; // e.g. agent-provider-defaults
+declare const providerDefinitions: readonly IProviderDefinition[]; // e.g. agent-builtin-providers
 declare const provider: IAIProvider;
 declare const acmeJiraPack: ICapabilityPack;
 declare const cwd: string;

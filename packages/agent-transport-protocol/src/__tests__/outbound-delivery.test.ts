@@ -7,7 +7,7 @@
  * inbound listener. Guarding only the first would have left six families still escaping.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { describe, expect, it } from 'vitest';
 
 import { createOutboundDelivery } from '../outbound-delivery.js';
@@ -15,7 +15,7 @@ import { createWsHandler } from '../ws-handler.js';
 
 import type { TOutboundDeliver } from '../outbound-delivery.js';
 import type { TServerMessage } from '../ws-protocol.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 interface ICarrierProbe {
   readonly deliver: TOutboundDeliver;

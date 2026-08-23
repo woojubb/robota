@@ -1,4 +1,4 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { describe, expect, it, vi } from 'vitest';
 import { RTCPeerConnection } from 'werift';
@@ -6,7 +6,7 @@ import { WebRtcTransport, WsSignalingClient } from '@robota-sdk/agent-transport-
 
 import { startSignalingServer } from '../server.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /**
  * REMOTE-004 B2 TC-01 — full end-to-end over the REAL relay (no in-memory pair): a `WebRtcTransport` (offerer)

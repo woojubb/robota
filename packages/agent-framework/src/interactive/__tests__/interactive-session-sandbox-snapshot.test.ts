@@ -6,6 +6,7 @@ import type {
   IInteractiveSessionStore,
 } from '../session-persistence.js';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import { loadedRecordOrMissing } from './session-load-helpers.js';
 
 const events: string[] = [];
 
@@ -97,10 +98,14 @@ function createMemorySessionStore(record: IInteractiveSessionRecord): IInteracti
       records.set(session.id, session);
     },
     load(id) {
-      return records.get(id);
+      const record = records.get(id);
+      return record === undefined ? { status: 'missing' } : { status: 'valid', record };
     },
     list() {
-      return [...records.values()];
+      return [...records.values()].map((record) => ({
+        id: record.id,
+        outcome: { status: 'valid' as const, record },
+      }));
     },
     delete(id) {
       records.delete(id);
@@ -195,6 +200,8 @@ describe('InteractiveSession sandbox snapshot hydration', () => {
     await interactiveSession.shutdown();
 
     expect(events).toContain('sandbox-snapshotted:snapshot-after-shutdown');
-    expect(sessionStore.load('session-restore')?.sandboxSnapshotId).toBe('snapshot-after-shutdown');
+    expect(loadedRecordOrMissing(sessionStore, 'session-restore')?.sandboxSnapshotId).toBe(
+      'snapshot-after-shutdown',
+    );
   });
 });

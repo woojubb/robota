@@ -9,12 +9,12 @@ import { TuiSessionNoticeStore } from './tui-session-notice-store.js';
 
 import type { TTuiNoticeInput } from './tui-session-events.js';
 import type { IContextWindowState, IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
 import type {
   IExecutionResult,
-  IExecutionWorkspaceSnapshot,
   IToolState,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 /** Debounce interval for streaming text notify (limits renderMarkdown frequency) */
 const STREAMING_DEBOUNCE_MS = 300;

@@ -15,7 +15,7 @@ import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createWsHandler } from '../ws-handler.js';
 
 import type { TServerMessage } from '../ws-protocol.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 type TEmittingSession = IInteractiveSession & {
   _emit: (event: string, ...args: unknown[]) => void;

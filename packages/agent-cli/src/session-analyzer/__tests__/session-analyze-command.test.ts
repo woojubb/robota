@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
 
 import { runSessionAnalyze } from '../session-analyze-command.js';
 
@@ -20,6 +21,9 @@ function sessionRecord(id: string, cwd: string): unknown {
     cwd,
     createdAt: t(0),
     updatedAt: t(20_000),
+    // TRANS-007: `messages` is required by the contract. The store now decodes, so a fixture without
+    // it is a corrupt record rather than a partial one.
+    messages: [],
     history: [
       { id: 'h1', timestamp: t(0), category: 'chat', type: 'user' },
       { id: 'h2', timestamp: t(2_000), category: 'event', type: 'tool-start' },
@@ -32,7 +36,14 @@ function sessionRecord(id: string, cwd: string): unknown {
 
 function writeSession(sessionsDir: string, id: string, cwd: string): void {
   mkdirSync(sessionsDir, { recursive: true });
-  writeFileSync(join(sessionsDir, `${id}.json`), JSON.stringify(sessionRecord(id, cwd)), 'utf8');
+  // TRANS-007: the store persists the versioned envelope, so a fixture that writes the bare record
+  // is a pre-envelope file and now loads as `unsupported` — which is correct, and not what this
+  // suite is testing.
+  writeFileSync(
+    join(sessionsDir, `${id}.json`),
+    JSON.stringify({ schemaVersion: 1, record: sessionRecord(id, cwd) }),
+    'utf8',
+  );
 }
 
 describe('runSessionAnalyze integration (OBS-001)', () => {
@@ -72,7 +83,11 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
 
   async function run(argv: string[]): Promise<void> {
     try {
-      await runSessionAnalyze(argv, project);
+      await runSessionAnalyze(
+        argv,
+        project,
+        createNodeHostSessionStore(join(project, '.robota', 'sessions')),
+      );
     } catch (error) {
       if (!(error instanceof Error) || !error.message.startsWith('process.exit:')) throw error;
     }
@@ -107,9 +122,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     expect(exitCode).toBe(1);
     const err = stderr.join('');
     expect(err).toContain('No session files found');
-    // names BOTH searched locations
-    expect(err).toContain(join(project, '.robota', 'sessions'));
-    expect(err).toContain('.robota/sessions');
+    expect(err).toContain('configured user or authorized project session stores');
   });
 
   it('TC-07: --session <prefix> selects a specific session', async () => {
@@ -163,6 +176,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
       cwd: project,
       createdAt: new Date(1_781_000_005_000).toISOString(),
       updatedAt: new Date(1_781_000_006_000).toISOString(),
+      messages: [],
       history: [
         {
           id: 'u1',
@@ -182,7 +196,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     };
     const dir = join(project, '.robota', 'sessions');
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, `${id}.json`), JSON.stringify(record), 'utf8');
+    writeFileSync(join(dir, `${id}.json`), JSON.stringify({ schemaVersion: 1, record }), 'utf8');
 
     await run(['--usage']);
 

@@ -1,18 +1,17 @@
 import { normalizeProviderConfig } from '@robota-sdk/agent-executor';
 
-import { NodeFileSystem } from '../../adapters/node-file-system.js';
 import { SettingsParseError } from '../../config/settings-parse-error.js';
+import { readSettingsSourceText } from '../../config/settings-source.js';
 
 import type { IProviderProfileSettings, TProviderSettingsDocument } from './provider-settings.js';
-import type { IFileSystem } from '@robota-sdk/agent-core';
+import type { TSettingsSource } from '../../config/settings-source.js';
 import type { IProviderDefinitionConfig, IProviderDefinition } from '@robota-sdk/agent-core';
 
-export function readMergedProviderSettingsFromPaths(
-  paths: readonly string[],
-  fs: IFileSystem = new NodeFileSystem(),
+export function readMergedProviderSettingsFromSources(
+  sources: readonly TSettingsSource[],
 ): TProviderSettingsDocument {
-  return paths.reduce<TProviderSettingsDocument>((settings, filePath) => {
-    const parsed = readSettingsFile(filePath, fs);
+  return sources.reduce<TProviderSettingsDocument>((settings, source) => {
+    const parsed = readSettingsSource(source);
     if (parsed === undefined) {
       return settings;
     }
@@ -24,19 +23,17 @@ export function readMergedProviderSettingsFromPaths(
  * CLI-069: a missing file is a non-error (undefined); an EXISTING file that
  * fails to parse throws SettingsParseError — corrupt is never treated as missing.
  */
-function readSettingsFile(
-  filePath: string,
-  fs: IFileSystem,
-): TProviderSettingsDocument | undefined {
-  if (!fs.existsSync(filePath)) {
-    return undefined;
-  }
-  const raw = fs.readFileSync(filePath, 'utf8');
+function readSettingsSource(source: TSettingsSource): TProviderSettingsDocument | undefined {
+  const raw = readSettingsSourceText(source, 'load provider settings');
+  if (raw === undefined) return undefined;
   try {
     return JSON.parse(raw) as TProviderSettingsDocument;
   } catch (error) {
     // allow-fallback: rethrown as typed SettingsParseError — fail-fast, not a fallback
-    throw new SettingsParseError(filePath, error instanceof Error ? error.message : String(error));
+    throw new SettingsParseError(
+      source.displayName,
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }
 

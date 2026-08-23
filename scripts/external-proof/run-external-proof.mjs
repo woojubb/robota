@@ -40,7 +40,7 @@ const ENTRY_PACKAGES = [
   '@robota-sdk/agent-capability-pack',
   '@robota-sdk/pack-coding',
   '@robota-sdk/agent-preset',
-  '@robota-sdk/agent-provider-defaults',
+  '@robota-sdk/agent-builtin-providers',
   '@robota-sdk/agent-core',
   '@robota-sdk/agent-framework',
 ];

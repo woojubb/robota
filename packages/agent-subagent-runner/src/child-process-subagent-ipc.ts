@@ -3,7 +3,7 @@ import type { IAgentDefinition, IInProcessSubagentRunnerDeps } from '@robota-sdk
 import type {
   ISerializableProviderProfile,
   ISubagentSpawnRequest,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 export type TSubagentWorkerWireValue = string | number | boolean | null | undefined | object;
 

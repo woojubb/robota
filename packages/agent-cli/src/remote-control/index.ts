@@ -9,7 +9,7 @@ import { createTrustedDeviceStore } from './trusted-device-store.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TransportRegistry } from '@robota-sdk/agent-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /** The surface the controller needs from the live TUI channel (structural — no coupling to the class). */
 interface ILiveChannel {

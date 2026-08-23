@@ -32,8 +32,9 @@ import type {
   IRemoteCommandPolicy,
 } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
+import type { IContributionSource } from '../contributions/index.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
-import type { TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId } from '@robota-sdk/agent-interface-session';
 
 function normalizeNameToken(name: string): string {
   return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
@@ -54,10 +55,9 @@ export class SessionSkillRouter {
   private commandInvocationSource: TCommandInvocationSource = 'user';
   /** CMD-004: the in-flight command's origin driver id (REMOTE-014 E5 server-assigned). */
   private commandOriginDriverId: TDriverId | undefined;
-
   constructor(
     commandModules: readonly ICommandModule[],
-    cwd: string,
+    contributionSources: readonly IContributionSource[],
     commandHostAdapters: ICommandHostAdapters | undefined,
     private readonly getSession: () => ICommandHostContext,
     private readonly getSessionId: () => string,
@@ -91,7 +91,7 @@ export class SessionSkillRouter {
     this.commandExecutor = new SystemCommandExecutor(
       commandModules.flatMap((module) => module.systemCommands ?? []),
     );
-    this.skillCommandSource = new SkillCommandSource(cwd);
+    this.skillCommandSource = new SkillCommandSource(contributionSources);
     this.commandHostAdapters = commandHostAdapters;
   }
   /**

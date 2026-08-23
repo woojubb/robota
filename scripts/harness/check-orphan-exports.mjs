@@ -20,6 +20,18 @@
  * dynamic access (obj[name]) is invisible. The goal is catching refactor
  * fallout, not perfect reachability.
  *
+ * WHAT THIS SCAN DOES NOT SAY, stated because its finding text was read as saying it. A `packages/`
+ * PUBLIC surface is exempt by construction — entry points, `package.json` export sources and
+ * barrel-re-exported modules are all skipped above — so a red here is never evidence that an
+ * exported library surface should be privatized or removed. In-repo consumer count is not evidence
+ * about whether a surface should be public, at any count; the only grounds for narrowing one are
+ * that it is genuinely unnecessary or that it does not fit the design
+ * (`.agents/project-structure.md` § Forward-Provisioned Surface Rule, owner decision 2026-08-23).
+ * Measured 2026-08-23: a session cleared nine of these by unexporting them, and the outcome was
+ * right only because they were genuinely internal helpers of one codec directory. The session said
+ * plainly that it unexported them because a scan was red, not because it had judged them internal —
+ * so the message, not the logic, is what needed fixing.
+ *
  * The 2026-06-11 launch baseline (153 frozen findings) was burned down to
  * zero and removed in HARNESS-015 (2026-06-13) — the scan now enforces
  * unconditionally. Intentional no-consumer exports live in the reasoned
@@ -204,7 +216,14 @@ export async function findOrphanExportFindings(root = WORKSPACE_ROOT, options = 
           findings.push({
             file: relativeFile,
             type: 'orphan-export',
-            detail: `${symbol} is exported but referenced nowhere else in the workspace.`,
+            detail:
+              `${symbol} is exported from a non-entry module that no same-package barrel re-exports, ` +
+              `and no other file references it. This is an INTERNAL export with no consumer — not a ` +
+              `judgement about public surface. A packages/ public surface is exempt here (entry ` +
+              `points, package.json export sources and barrel-re-exported modules are skipped) and is ` +
+              `never judged by consumer count: see .agents/project-structure.md ` +
+              `§ Forward-Provisioned Surface Rule. Unexport it, consume it, or route it through the ` +
+              `barrel if it is meant to be public — do not privatize a public surface to clear this.`,
           });
         }
       }

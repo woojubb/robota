@@ -21,7 +21,7 @@ is a partial landing, not forward-provisioning.
 
 ## Evidence (adversarially verified 2026-08-13, CONFIRMED)
 
-- `packages/agent-interface-transport/src/session-contracts.ts:318-319` — declares
+- `packages/agent-interface-session/src/session-contracts.ts:318-319` — declares
   `branch_event: (event: IBranchEvent) => void;` with the "emitted on every transition" TSDoc.
 - `branch_event`/`IBranchEvent` occur exactly three times repo-wide: the declaration
   (`session-contracts.ts:273,319`) and the `index.ts:211` re-export — ZERO emit sites, ZERO

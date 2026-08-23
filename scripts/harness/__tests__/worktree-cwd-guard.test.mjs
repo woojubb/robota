@@ -1,9 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { cpSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 // The hook under test — a PreToolUse Bash guard that blocks destructive git commands when a
 // worktree-assigned subagent's cwd has silently fallen back to the MAIN checkout (HARNESS-043).
@@ -62,7 +63,7 @@ let mainRepo;
 let worktreeRepo;
 
 beforeAll(() => {
-  root = mkdtempSync(path.join(tmpdir(), 'wt-cwd-guard-'));
+  root = makeTemp('wt-cwd-guard-');
   // MAIN checkout — its toplevel path does NOT contain `.claude/worktrees/`.
   mainRepo = initRepo(path.join(root, 'mainrepo'));
   // Assigned worktree — its toplevel path DOES contain `.claude/worktrees/`.
@@ -381,7 +382,7 @@ describe('worktree-cwd-guard: the two accidents that leave no trace', () => {
     // rule, but its subject is GIT commands, and a refusal wider than the subject is an outage.
     // The hook copy runs from a directory with no list beside it and no project dir to fall back
     // to, so the load fails — and a non-git command must not care.
-    const bare = mkdtempSync(path.join(tmpdir(), 'no-ambient-list-'));
+    const bare = makeTemp('no-ambient-list-');
     cleanupDirs.push(bare);
     mkdirSync(path.join(bare, 'hooks'), { recursive: true });
     cpSync(path.dirname(HOOK), path.join(bare, 'hooks'), { recursive: true });

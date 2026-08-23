@@ -7,12 +7,12 @@
  * so tool status renders one way everywhere.
  */
 
-import { humanizeToolName } from './humanize-tool-name.js';
+import { humanizeToolArgument, humanizeToolName } from './humanize-tool-name.js';
 import { STATUS_GLYPH, toolStateStatusKind } from './status-glyph.js';
 
 import type { TUiStatusKind } from './status-glyph.js';
 import type { IToolCallSummary } from './utils/tool-call-extractor.js';
-import type { IToolState } from '@robota-sdk/agent-interface-transport';
+import type { IToolState } from '@robota-sdk/agent-interface-session';
 
 /** A tool item as persisted in a `tool-summary` history entry (loosely-typed session data). */
 export type TToolSummaryItem = {
@@ -50,5 +50,6 @@ export function toolSummaryStatusKind(
 
 /** One-line summary label: SSOT glyph + humanized tool name + first argument. */
 export function getToolSummaryLabel(tool: TToolSummaryItem, kind: TUiStatusKind): string {
-  return `${STATUS_GLYPH[kind].symbol} ${humanizeToolName(tool.toolName)}${tool.firstArg ? `(${tool.firstArg})` : ''}`;
+  const argument = humanizeToolArgument(tool.firstArg);
+  return `${STATUS_GLYPH[kind].symbol} ${humanizeToolName(tool.toolName)}${argument ? `(${argument})` : ''}`;
 }

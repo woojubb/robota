@@ -1,6 +1,6 @@
 # Agent CLI Layering Audit
 
-Source-verified against `develop` on 2026-07-12.
+Source-verified on 2026-08-22.
 
 Resolved audit findings, durable lessons, and mechanical guard candidates.
 
@@ -14,8 +14,9 @@ Resolved audit findings, durable lessons, and mechanical guard candidates.
 Status: resolved — PR #205.
 
 Session persistence construction now lives behind framework-owned APIs in
-`agent-framework/src/interactive/session-persistence.ts`. CLI calls `createProjectSessionStore(cwd)` and
-related facades from `@robota-sdk/agent-framework`; it has no direct dependency on
+`agent-framework/src/interactive/session-persistence.ts`. CLI calls
+`createProjectSessionStore(sessionsFacet, sessionLogsFacet)` only after
+`createCliWorkspaceComposition()` receives trusted project access; it has no direct dependency on
 `@robota-sdk/agent-session`.
 
 Mechanical guard: `scripts/harness/check-command-layering.mjs` flags production CLI imports from
@@ -141,8 +142,9 @@ Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
 pure path resolution logic with no CLI-type dependencies. Equivalent path-resolution functions
 (`getUserSettingsPath`, `resolveProviderSettingsWriteTargetPath`) already live in agent-framework.
 
-Target: rename to `resolveSettingsPathForScope`, move to agent-framework, validate scope values
-in agent-cli before calling.
+ARCH-042 follow-up (2026-08-22): the path-only public helper was removed. CLI now composes explicit
+user host stores or an authority-bound project settings store; a scope plus `cwd` cannot select a
+project write target.
 
 ### CLI-AUDIT-013: `utils/provider-setup.ts` is startup orchestration, not a utility
 
@@ -230,15 +232,15 @@ Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
 
 `packages/agent-cli/src/utils/provider-default-definitions.ts` assembled the standard set of all
 `IProviderDefinition` instances. It had zero CLI-specific type dependencies — only `IProviderDefinition`
-from `agent-core` and factory functions from `@robota-sdk/agent-provider-defaults/*` sub-paths.
+from `agent-core` and factory functions from `@robota-sdk/agent-builtin-providers/*` sub-paths.
 
 The decision of "which providers are available by default" is a provider package concern.
-`agent-provider-defaults` assembles the default set from the per-vendor `agent-provider-*` packages
+`agent-builtin-providers` assembles the default set from the per-vendor `agent-provider-*` packages
 (there is no bare `agent-provider` package).
 
-Fix: added `createDefaultProviderDefinitions()` to `packages/agent-provider-defaults/src/default-provider-definitions.ts`,
-exported from `@robota-sdk/agent-provider-defaults` root. All callers in `agent-cli` now import from
-`@robota-sdk/agent-provider-defaults`. Original file deleted.
+Fix: added `createDefaultProviderDefinitions()` to `packages/agent-builtin-providers/src/default-provider-definitions.ts`,
+exported from `@robota-sdk/agent-builtin-providers` root. All callers in `agent-cli` now import from
+`@robota-sdk/agent-builtin-providers`. Original file deleted.
 
 ### CLI-AUDIT-021: `promptInput` — raw stdin adapter owned by CLI, belongs in agent-transport/headless
 

@@ -1,14 +1,11 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type {
-  IExecutionResult,
-  IInteractiveSession,
-  TBackgroundJobGroupEvent,
-} from '@robota-sdk/agent-interface-transport';
+import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { TBackgroundJobGroupEvent } from '@robota-sdk/agent-interface-execution';
 
 import { createHeadlessRunner } from '../headless-runner.js';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
 
 function createMockSession(behavior: 'complete' | 'interrupted' | 'error', response = '') {
   const listeners = new Map<string, Array<(...args: unknown[]) => void>>();

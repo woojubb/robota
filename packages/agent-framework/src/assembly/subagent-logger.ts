@@ -8,7 +8,7 @@
 
 import { join } from 'node:path';
 
-import { FileSessionLogger } from '@robota-sdk/agent-session';
+import { FileSessionLogger, NodeSessionLogSink } from '@robota-sdk/agent-session';
 
 import { NodeFileSystem } from '../adapters/node-file-system.js';
 
@@ -33,7 +33,7 @@ export function createSubagentLogger(
 ): FileSessionLogger {
   const subagentDir = join(baseLogsDir, parentSessionId, 'subagents');
   fs.mkdirSync(subagentDir, { recursive: true });
-  return new FileSessionLogger(subagentDir);
+  return new FileSessionLogger(new NodeSessionLogSink(subagentDir));
 }
 
 /**

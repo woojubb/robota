@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
+import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
 
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
@@ -114,7 +115,11 @@ describe('InteractiveSession skill activation common API', () => {
     const cwd = mkdtempSync(join(tmpdir(), 'robota-user-skill-common-api-'));
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
-    const session = new InteractiveSession({ session: parentSession as never, cwd });
+    const session = new InteractiveSession({
+      session: parentSession as never,
+      cwd,
+      projectAccess: await createTrustedProjectAccessFixture(cwd),
+    });
     const skillActivation = vi.fn();
     session.on('skill_activation', skillActivation);
 
@@ -157,7 +162,11 @@ describe('InteractiveSession skill activation common API', () => {
     const cwd = mkdtempSync(join(tmpdir(), 'robota-model-skill-'));
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
-    const session = new InteractiveSession({ session: parentSession as never, cwd });
+    const session = new InteractiveSession({
+      session: parentSession as never,
+      cwd,
+      projectAccess: await createTrustedProjectAccessFixture(cwd),
+    });
 
     const result = await session.executeSkillCommandByName('audit', 'src/index.ts', {
       invocationSource: 'model',
@@ -185,7 +194,11 @@ describe('InteractiveSession skill activation common API', () => {
     const cwd = mkdtempSync(join(tmpdir(), 'robota-user-skill-'));
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
-    const session = new InteractiveSession({ session: parentSession as never, cwd });
+    const session = new InteractiveSession({
+      session: parentSession as never,
+      cwd,
+      projectAccess: await createTrustedProjectAccessFixture(cwd),
+    });
 
     const result = await session.executeSkillCommandByName('audit', 'src/index.ts', {
       invocationSource: 'user',
@@ -257,13 +270,14 @@ describe('InteractiveSession skill activation common API', () => {
       save: (record) => {
         savedRecord = record;
       },
-      load: () => undefined,
+      load: () => ({ status: 'missing' }) as const,
       list: () => [],
       delete: vi.fn(),
     };
     const session = new InteractiveSession({
       session: parentSession as never,
       cwd,
+      projectAccess: await createTrustedProjectAccessFixture(cwd),
       sessionStore,
     });
 
@@ -281,7 +295,11 @@ describe('InteractiveSession skill activation common API', () => {
     const cwd = mkdtempSync(join(tmpdir(), 'robota-fork-skill-common-api-'));
     createTempSkill(cwd, 'audit', ['context: fork', 'agent: Explore', 'allowed-tools: Read']);
     const parentSession = makeParentSession(cwd);
-    const session = new InteractiveSession({ session: parentSession as never, cwd });
+    const session = new InteractiveSession({
+      session: parentSession as never,
+      cwd,
+      projectAccess: await createTrustedProjectAccessFixture(cwd),
+    });
     const exploreAgent: IAgentDefinition = {
       name: 'Explore',
       description: 'Read-only explorer',

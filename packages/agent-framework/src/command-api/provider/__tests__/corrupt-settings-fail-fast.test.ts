@@ -12,8 +12,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SettingsParseError } from '../../../config/settings-parse-error.js';
 import { readSettings } from '../../../config/settings-io.js';
-import { readMergedProviderSettingsFromPaths } from '../provider-merge.js';
+import {
+  createDefaultUserSettingsSources,
+  createNodeHostSettingsSource,
+  createWorkspaceProjectSettingsSources,
+} from '../../../config/settings-source.js';
+import { createTrustedProjectAccessFixture } from '../../../testing/trusted-project-state-fixture.js';
+import { getWorkspaceProjectReader } from '../../../workspace-trust/index.js';
+import { readMergedProviderSettingsFromSources } from '../provider-merge.js';
 import { readProviderSettings, ProviderConfigError } from '../provider-factory.js';
+
+import type { TSettingsSource } from '../../../config/settings-source.js';
 
 describe('corrupt settings fail fast (CLI-069)', () => {
   let home: string;
@@ -38,12 +47,21 @@ describe('corrupt settings fail fast (CLI-069)', () => {
     return path;
   }
 
-  it('TC-01: corrupt user-level settings throws SettingsParseError naming the file — not ProviderConfigError', () => {
+  async function sources(): Promise<readonly TSettingsSource[]> {
+    const access = await createTrustedProjectAccessFixture(cwd);
+    if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
+    return [
+      ...createDefaultUserSettingsSources(home),
+      ...createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(access.authority)),
+    ];
+  }
+
+  it('TC-01: corrupt user-level settings throws SettingsParseError naming the file — not ProviderConfigError', async () => {
     const corruptPath = writeSettingsFile(home, '{ broken');
 
     let thrown: unknown;
     try {
-      readProviderSettings(cwd, { env: {} });
+      readProviderSettings(await sources(), { env: {} });
     } catch (error) {
       thrown = error;
     }
@@ -55,22 +73,25 @@ describe('corrupt settings fail fast (CLI-069)', () => {
     expect(parseError.message).toContain('invalid JSON');
   });
 
-  it('TC-02: corrupt project-level settings throws the same typed error', () => {
-    const corruptPath = writeSettingsFile(cwd, '{ "currentProvider": ');
+  it('TC-02: corrupt project-level settings throws the same typed error', async () => {
+    writeSettingsFile(cwd, '{ "currentProvider": ');
 
-    expect(() => readProviderSettings(cwd, { env: {} })).toThrowError(SettingsParseError);
+    const settingsSources = await sources();
+    expect(() => readProviderSettings(settingsSources, { env: {} })).toThrowError(
+      SettingsParseError,
+    );
     try {
-      readProviderSettings(cwd, { env: {} });
+      readProviderSettings(settingsSources, { env: {} });
     } catch (error) {
-      expect((error as SettingsParseError).filePath).toBe(corruptPath);
+      expect((error as SettingsParseError).filePath).toBe('.robota/settings.json');
     }
   });
 
   it('TC-03: missing files at both levels keep the CLI-066 order — ProviderConfigError without env key, env-default with one', () => {
-    expect(() => readProviderSettings(cwd, { env: {} })).toThrowError(ProviderConfigError);
+    expect(() => readProviderSettings([], { env: {} })).toThrowError(ProviderConfigError);
   });
 
-  it('TC-04: valid settings files resolve unchanged (regression)', () => {
+  it('TC-04: valid settings files resolve unchanged (regression)', async () => {
     writeSettingsFile(
       cwd,
       JSON.stringify({
@@ -79,7 +100,7 @@ describe('corrupt settings fail fast (CLI-069)', () => {
       }),
     );
 
-    const config = readProviderSettings(cwd, { env: {} });
+    const config = readProviderSettings(await sources(), { env: {} });
     expect(config.name).toBe('anthropic');
     expect(config.model).toBe('claude-test');
   });
@@ -109,8 +130,10 @@ describe('corrupt settings fail fast (CLI-069)', () => {
     const corrupt = writeSettingsFile(home, '{ broken');
     const valid = writeSettingsFile(cwd, '{}');
 
-    expect(() => readMergedProviderSettingsFromPaths([corrupt, valid])).toThrowError(
-      SettingsParseError,
-    );
+    expect(() =>
+      readMergedProviderSettingsFromSources(
+        [corrupt, valid].map((path) => createNodeHostSettingsSource('user', path)),
+      ),
+    ).toThrowError(SettingsParseError);
   });
 });

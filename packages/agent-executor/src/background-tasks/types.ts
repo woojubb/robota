@@ -22,7 +22,7 @@ import type {
   TBackgroundTaskErrorCategory,
   TBackgroundTaskKind,
   TBackgroundTaskRequest,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 export type {
   TBackgroundTaskKind,
@@ -49,8 +49,8 @@ export type {
   IBackgroundTaskListFilter,
   TBackgroundTaskEvent,
   TBackgroundTaskEventListener,
-} from '@robota-sdk/agent-interface-transport';
-import type { TBackgroundTaskEventListener } from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
+import type { TBackgroundTaskEventListener } from '@robota-sdk/agent-interface-execution';
 
 export class BackgroundTaskError extends Error implements IBackgroundTaskError {
   readonly category: TBackgroundTaskErrorCategory;

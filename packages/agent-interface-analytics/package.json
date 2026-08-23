@@ -1,0 +1,57 @@
+{
+  "name": "@robota-sdk/agent-interface-analytics",
+  "version": "3.0.0-beta.79",
+  "description": "Analytics contract interfaces for the Robota SDK — usage snapshots, per-source totals and run-trace timelines",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "source": "./src/index.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woojubb/robota.git"
+  },
+  "homepage": "https://robota.io/",
+  "bugs": {
+    "url": "https://github.com/woojubb/robota/issues"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "build:js": "tsdown --no-dts",
+    "build:types": "tsdown --dts",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "typecheck": "tsgo --noEmit",
+    "lint": "eslint src/ --ext .ts",
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "devDependencies": {
+    "rimraf": "^5.0.10",
+    "tsdown": "^0.22.14",
+    "vitest": "^3.2.6"
+  },
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "publishConfig": {
+    "access": "public"
+  },
+  "private": false,
+  "volta": {
+    "extends": "../../package.json"
+  }
+}

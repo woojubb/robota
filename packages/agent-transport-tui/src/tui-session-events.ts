@@ -3,7 +3,7 @@ import type {
   IContextFileRefreshedEvent,
   IPlanApprovalEvent,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 export type TTuiSessionEventClassification = 'channel' | 'react-side-effect' | 'non-surface';
 

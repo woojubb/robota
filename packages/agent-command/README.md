@@ -71,6 +71,11 @@ const helpCmd = createHelpCommandModule();
 All command factory functions are re-exported from the root entry point. `createDefaultCommandModules`
 registers 24 default command modules.
 
+Project-aware command composition is capability-based. Supply framework contribution sources for
+skills and discriminated settings sources/stores for provider setup. The command package does not
+turn `cwd` into project read/write authority; requesting a project-local write without an
+authority-backed store is refused explicitly.
+
 ## Dependencies
 
 - `@robota-sdk/agent-core` — core types and interfaces

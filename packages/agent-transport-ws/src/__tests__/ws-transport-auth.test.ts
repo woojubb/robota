@@ -1,11 +1,11 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { WebSocket } from 'ws';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
 import { WsTransport } from '../ws-transport-configurable.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /**
  * GUI-002 TC-03 — required loopback auth token. A configured token MUST be presented (query param or

@@ -7,10 +7,20 @@
 
 import { join, dirname } from 'node:path';
 
+import {
+  readInstalledPluginsRegistry,
+  writeInstalledPluginsRegistry,
+} from './installed-plugins-registry.js';
+import {
+  assertContainedPath,
+  PluginPathContainmentError,
+  assertSafePluginSegment,
+  resolveContainedRelative,
+} from './plugin-paths.js';
 import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 import type { MarketplaceClient, IMarketplacePluginEntry, TExecFn } from './marketplace-client.js';
-import type { PluginSettingsStore } from './plugin-settings-store.js';
+import type { NodeHostPluginSettingsStore } from './plugin-settings-store.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
 
 /** Record of an installed plugin in installed_plugins.json. */
@@ -30,7 +40,7 @@ export interface IBundlePluginInstallerOptions {
   /** Base plugins directory (e.g., `~/.robota/plugins`). */
   pluginsDir: string;
   /** Shared settings store for enable/disable persistence. */
-  settingsStore: PluginSettingsStore;
+  settingsStore: NodeHostPluginSettingsStore;
   /** MarketplaceClient for reading marketplace manifests. */
   marketplaceClient: MarketplaceClient;
   /** Shell exec adapter — must be provided at composition root (e.g., execSync). */
@@ -47,7 +57,7 @@ export class BundlePluginInstaller {
   private readonly pluginsDir: string;
   private readonly cacheDir: string;
   private readonly registryPath: string;
-  private readonly settingsStore: PluginSettingsStore;
+  private readonly settingsStore: NodeHostPluginSettingsStore;
   private readonly marketplaceClient: MarketplaceClient;
   private readonly exec: TExecFn;
   private readonly fs: IFileSystem;
@@ -81,8 +91,16 @@ export class BundlePluginInstaller {
     // Determine version
     const version = this.resolveVersion(entry, marketplaceName);
 
+    // SEC-018: all three become path components, and `version` comes from a remote manifest entry.
+    // Checked before the join so a malformed value cannot reach any sink — the target is used for a
+    // recursive delete during cleanup as well as for the write.
+    assertSafePluginSegment(marketplaceName, 'marketplace name');
+    assertSafePluginSegment(pluginName, 'plugin name');
+    assertSafePluginSegment(version, 'plugin version');
+
     // Target directory: cache/<marketplace>/<plugin>/<version>/
     const targetDir = join(this.cacheDir, marketplaceName, pluginName, version);
+    assertContainedPath(this.cacheDir, targetDir, 'install a plugin', this.fs);
 
     if (this.fs.existsSync(targetDir)) {
       throw new Error(
@@ -95,7 +113,7 @@ export class BundlePluginInstaller {
 
     // Record in installed_plugins.json
     const pluginId = `${pluginName}@${marketplaceName}`;
-    const registry = this.readRegistry();
+    const registry = readInstalledPluginsRegistry(this.registryPath, this.fs);
     registry[pluginId] = {
       pluginName,
       marketplace: marketplaceName,
@@ -103,7 +121,7 @@ export class BundlePluginInstaller {
       installPath: targetDir,
       installedAt: new Date().toISOString(),
     };
-    this.writeRegistry(registry);
+    writeInstalledPluginsRegistry(this.registryPath, registry, this.fs);
   }
 
   /**
@@ -111,21 +129,40 @@ export class BundlePluginInstaller {
    * Removes from cache and from installed_plugins.json.
    */
   async uninstall(pluginId: string): Promise<void> {
-    const registry = this.readRegistry();
+    const registry = readInstalledPluginsRegistry(this.registryPath, this.fs);
     const record = registry[pluginId];
 
     if (!record) {
       throw new Error(`Plugin "${pluginId}" is not installed`);
     }
 
-    // Remove the installed directory
+    // SEC-018: `installPath` is a HINT read from installed_plugins.json, and it drives a recursive
+    // delete. The marketplace-wide cleanup guards the identical value/sink pair; this single-plugin
+    // path is the SECOND sink on the same value and was missed in the first pass.
+    //
+    // Refused per entry, as there: the removal is skipped but the registry entry is still dropped, so
+    // a tampered record cannot pin itself in place and block every later uninstall.
     if (this.fs.existsSync(record.installPath)) {
-      this.fs.rmSync(record.installPath, { recursive: true, force: true });
+      try {
+        assertContainedPath(
+          this.cacheDir,
+          record.installPath,
+          'remove a plugin directory',
+          this.fs,
+        );
+        this.fs.rmSync(record.installPath, { recursive: true, force: true });
+      } catch (error) {
+        // allow-fallback: ONLY a containment refusal is swallowed. A real `rmSync` failure (EACCES,
+        // EBUSY) must propagate — dropping the registry entry after one would leave the directory on
+        // disk with nothing tracking it, which is worse than the failed uninstall.
+        if (!(error instanceof PluginPathContainmentError)) throw error;
+        process.stderr.write(`${error.message}\n`);
+      }
     }
 
     // Remove from registry
     delete registry[pluginId];
-    this.writeRegistry(registry);
+    writeInstalledPluginsRegistry(this.registryPath, registry, this.fs);
 
     // Remove from enabled plugins settings
     this.settingsStore.removePluginEntry(pluginId);
@@ -143,12 +180,12 @@ export class BundlePluginInstaller {
 
   /** Get all installed plugins. */
   getInstalledPlugins(): TInstalledPluginsRegistry {
-    return this.readRegistry();
+    return readInstalledPluginsRegistry(this.registryPath, this.fs);
   }
 
   /** Get plugins installed from a specific marketplace. */
   getPluginsByMarketplace(marketplaceName: string): IInstalledPluginRecord[] {
-    const registry = this.readRegistry();
+    const registry = readInstalledPluginsRegistry(this.registryPath, this.fs);
     return Object.values(registry).filter((r) => r.marketplace === marketplaceName);
   }
 
@@ -193,9 +230,16 @@ export class BundlePluginInstaller {
 
     try {
       if (typeof source === 'string') {
-        // Relative path — copy from the marketplace clone
+        // SEC-018: `source` comes from the REMOTE marketplace manifest and is joined onto the
+        // marketplace clone. `../../../../etc` pointed outside it, and the result is `cpSync`-ed into
+        // the plugin cache and then loaded as plugin code.
         const marketplaceDir = this.marketplaceClient.getMarketplaceDir(marketplaceName);
-        const sourcePath = join(marketplaceDir, source);
+        const sourcePath = resolveContainedRelative(
+          marketplaceDir,
+          source,
+          'install a plugin from a marketplace source',
+          this.fs,
+        );
 
         if (!this.fs.existsSync(sourcePath)) {
           throw new Error(
@@ -234,39 +278,15 @@ export class BundlePluginInstaller {
     // Remove the directory first since mkdirSync already created it
     this.fs.rmSync(targetDir, { recursive: true, force: true });
 
-    const command = `git clone --depth 1 ${repoUrl} ${targetDir}`;
     try {
-      this.exec(command, { timeout: GIT_CLONE_TIMEOUT_MS, stdio: 'pipe' });
+      // `--` before the operands: a repository URL beginning with `-` is an OPERAND, not an option.
+      this.exec('git', ['clone', '--depth', '1', '--', repoUrl, targetDir], {
+        timeout: GIT_CLONE_TIMEOUT_MS,
+        stdio: 'pipe',
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to clone plugin "${pluginName}": ${message}`);
     }
-  }
-
-  /** Read the installed_plugins.json registry. */
-  private readRegistry(): TInstalledPluginsRegistry {
-    if (!this.fs.existsSync(this.registryPath)) {
-      return {};
-    }
-    try {
-      const raw = this.fs.readFileSync(this.registryPath, 'utf-8');
-      const data: unknown = JSON.parse(raw);
-      if (typeof data === 'object' && data !== null) {
-        return data as TInstalledPluginsRegistry;
-      }
-      return {};
-    } catch {
-      // allow-fallback: corrupt installed_plugins.json returns empty registry to allow recovery
-      return {};
-    }
-  }
-
-  /** Write the installed_plugins.json registry. */
-  private writeRegistry(registry: TInstalledPluginsRegistry): void {
-    const dir = dirname(this.registryPath);
-    if (!this.fs.existsSync(dir)) {
-      this.fs.mkdirSync(dir, { recursive: true });
-    }
-    this.fs.writeFileSync(this.registryPath, JSON.stringify(registry, null, 2), 'utf-8');
   }
 }

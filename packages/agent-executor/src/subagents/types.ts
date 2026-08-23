@@ -12,7 +12,7 @@ import type {
   ISubagentSpawnRequest,
   TSubagentJobMode,
   TSubagentJobStatus,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 /**
  * ARCH-031: imported and re-exported here for INTRA-PACKAGE use only. The owner is

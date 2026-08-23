@@ -1,15 +1,30 @@
 import { writeFileSync, mkdirSync, rmSync, existsSync, mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { join, relative } from 'path';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { loadContext } from '../context/context-loader.js';
+import { createWorkspaceMemoryStore } from '../memory/file-system-memory-store.js';
+import {
+  createTrustedProjectAccessFixture,
+  createTrustedProjectStateFixture,
+} from '../testing/trusted-project-state-fixture.js';
+import { getWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-context-test-'));
 
 function setupDir(path: string): void {
   mkdirSync(path, { recursive: true });
+}
+
+async function projectSource(root: string, start = root) {
+  const access = await createTrustedProjectAccessFixture(root);
+  if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
+  return {
+    reader: getWorkspaceProjectReader(access.authority),
+    startRelativeDirectory: relative(root, start),
+  };
 }
 
 describe('loadContext', () => {
@@ -27,30 +42,32 @@ describe('loadContext', () => {
   });
 
   it('returns empty strings when no context files exist', async () => {
-    const result = await loadContext(rootDir);
+    const result = await loadContext(await projectSource(rootDir));
     expect(result.agentsMd).toBe('');
     expect(result.projectNotesMd).toBe('');
   });
 
   it('finds AGENTS.md in cwd', async () => {
     writeFileSync(join(rootDir, 'AGENTS.md'), '# Root AGENTS');
-    const result = await loadContext(rootDir);
+    const result = await loadContext(await projectSource(rootDir));
     expect(result.agentsMd).toContain('# Root AGENTS');
   });
 
   it('finds CLAUDE.md in cwd', async () => {
     writeFileSync(join(rootDir, 'CLAUDE.md'), '# Root CLAUDE');
-    const result = await loadContext(rootDir);
+    const result = await loadContext(await projectSource(rootDir));
     expect(result.projectNotesMd).toContain('# Root CLAUDE');
   });
 
   it('loads project memory index when .robota/memory/MEMORY.md exists', async () => {
-    setupDir(join(rootDir, '.robota', 'memory'));
-    writeFileSync(join(rootDir, '.robota', 'memory', 'MEMORY.md'), '- Remember pnpm\n');
+    const memoryStore = createWorkspaceMemoryStore(
+      await createTrustedProjectStateFixture(rootDir, 'memory'),
+    );
+    await memoryStore.append({ type: 'project', topic: 'build', text: 'Remember pnpm' });
 
-    const result = await loadContext(rootDir);
+    const result = await loadContext(await projectSource(rootDir), memoryStore);
 
-    expect(result.memoryMd).toBe('- Remember pnpm');
+    expect(result.memoryMd).toContain('Remember pnpm');
   });
 
   it('loads active task context when .agents/tasks contains task files', async () => {
@@ -60,7 +77,7 @@ describe('loadContext', () => {
       '# CLI-BL-001\n\n- **Status**: in-progress\n\n## Objective\nKeep focus.\n',
     );
 
-    const result = await loadContext(rootDir);
+    const result = await loadContext(await projectSource(rootDir));
 
     expect(result.taskContext).toContain('### CLI-BL-001');
     expect(result.taskContext).toContain('- **Objective:** Keep focus.');
@@ -77,7 +94,7 @@ describe('loadContext', () => {
     const deepDir = join(subDir, 'deep');
     setupDir(deepDir);
 
-    const result = await loadContext(deepDir);
+    const result = await loadContext(await projectSource(rootDir, deepDir));
     const lines = result.agentsMd.split('\n').filter((l) => l.trim());
     // root comes before sub in concatenated content
     const rootIdx = lines.findIndex((l) => l.includes('# Root'));
@@ -93,14 +110,14 @@ describe('loadContext', () => {
     setupDir(sub);
     writeFileSync(join(sub, 'AGENTS.md'), '# Level2');
 
-    const result = await loadContext(sub);
+    const result = await loadContext(await projectSource(rootDir, sub));
     expect(result.agentsMd).toContain('# Level1');
     expect(result.agentsMd).toContain('# Level2');
   });
 
   it('deduplicates when same file would be found twice', async () => {
     writeFileSync(join(rootDir, 'AGENTS.md'), '# Unique');
-    const result = await loadContext(rootDir);
+    const result = await loadContext(await projectSource(rootDir));
     const count = (result.agentsMd.match(/# Unique/g) ?? []).length;
     expect(count).toBe(1);
   });

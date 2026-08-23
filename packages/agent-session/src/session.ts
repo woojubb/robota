@@ -7,6 +7,7 @@ import {
   buildSessionTrackers,
 } from './session-components.js';
 import { buildCompactContext, compact, persistSession } from './session-history-ops.js';
+import { createSessionId } from './session-id.js';
 import {
   configureProvider,
   fireSessionEndHook,
@@ -40,7 +41,7 @@ import type {
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
 import type { Robota } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export type {
   ICompactEvent,
@@ -53,9 +54,6 @@ export type {
   TCompactTrigger,
 };
 export type { TAutoCompactThreshold } from './context-window-tracker.js';
-
-const ID_RADIX = 36;
-const ID_RANDOM_LENGTH = 9;
 
 /** Wraps a Robota agent with project context, permission state, and optional persistence. */
 export class Session extends SessionBase {
@@ -113,9 +111,7 @@ export class Session extends SessionBase {
     this.onCompactEventCallback = options.onCompactEvent;
     this.maxTurns = options.maxTurns;
     this.model = options.model ?? 'claude-sonnet-4-5';
-    this.sessionId =
-      options.sessionId ??
-      `session_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
+    this.sessionId = options.sessionId ?? createSessionId();
     this.permissionMode =
       options.permissionMode ??
       (options.defaultTrustLevel ? TRUST_TO_MODE[options.defaultTrustLevel] : undefined) ??
@@ -124,7 +120,7 @@ export class Session extends SessionBase {
     // PRESET-016: default true preserves the current behavior — subagent dispatch is allowed
     // unless a preset explicitly disables it.
     this.parallelSubagentsEnabled = options.enableParallelSubagents ?? true;
-    this.transcriptPath = options.sessionStore?.getFilePath?.(this.sessionId);
+    this.transcriptPath = options.transcriptPath;
     this.log('session_init', {
       cwd: this.cwd,
       systemPromptLength: systemMessage.length,

@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,7 +6,7 @@ import {
   BundlePluginInstaller,
   BundlePluginLoader,
   MarketplaceClient,
-  PluginSettingsStore,
+  NodeHostPluginSettingsStore,
 } from '@robota-sdk/agent-framework';
 
 import type { IMarketplaceManifest } from '@robota-sdk/agent-framework';
@@ -16,14 +16,72 @@ import type {
   ICommandMarketplaceSource,
   ICommandPluginAdapter,
   TPluginInstallScope,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-command';
 
 interface IPluginServices {
   cwd: string;
   marketplace: MarketplaceClient;
   installer: BundlePluginInstaller;
   loader: BundlePluginLoader;
-  settingsStore: PluginSettingsStore;
+  settingsStore: NodeHostPluginSettingsStore;
+}
+
+/**
+ * Variables a git subprocess may inherit. Everything else is dropped.
+ *
+ * SEC-017 (issue #2019). Argv stops the SHELL from reading attacker-controlled text; it does not stop
+ * GIT itself. `GIT_SSH_COMMAND`, `GIT_EXTERNAL_DIFF`, `GIT_PROXY_COMMAND` and `GIT_ASKPASS` each name a
+ * program git executes, so an inherited one turns `git clone` into "run whatever that variable says" —
+ * the same outcome the string-shell port had, reached through a different door. An ALLOWLIST rather
+ * than a denylist because the set of git-honoured variables is git's to grow, and a denylist written
+ * today is wrong the next time it does.
+ *
+ * `PATH` and `HOME` are here because git cannot find its own subcommands or the user's config without
+ * them. The proxy variables are here because dropping them breaks clone behind a corporate proxy, which
+ * is a real configuration rather than an attack surface — they name a SERVER, not a program to run.
+ */
+const GIT_ENV_ALLOWLIST = [
+  'PATH',
+  'HOME',
+  'LANG',
+  'LC_ALL',
+  'TMPDIR',
+  'HTTP_PROXY',
+  'HTTPS_PROXY',
+  'NO_PROXY',
+  'http_proxy',
+  'https_proxy',
+  'no_proxy',
+] as const;
+
+/** The inherited environment, reduced to the allowlist. */
+export function scrubbedGitEnv(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  for (const key of GIT_ENV_ALLOWLIST) {
+    const value = source[key];
+    if (value !== undefined) env[key] = value;
+  }
+  return env;
+}
+
+/**
+ * The argv process adapter injected at the composition root.
+ *
+ * `execFileSync` does not spawn a shell, so no value in `args` is ever parsed as syntax. `shell` is
+ * passed explicitly as `false` rather than left to the default: the default is what a later edit
+ * changes without noticing, and this is the one line the whole fix rests on.
+ */
+export function runGit(
+  file: string,
+  args: readonly string[],
+  options: { timeout: number; stdio?: string },
+): Buffer {
+  return execFileSync(file, [...args], {
+    timeout: options.timeout,
+    stdio: (options.stdio ?? 'pipe') as 'pipe' | 'inherit' | 'ignore',
+    shell: false,
+    env: scrubbedGitEnv(),
+  });
 }
 
 function createPluginServices(cwd: string): IPluginServices {
@@ -31,19 +89,13 @@ function createPluginServices(cwd: string): IPluginServices {
   const pluginsDir = join(home, '.robota', 'plugins');
   const userSettingsPath = join(home, '.robota', 'settings.json');
 
-  const exec = (command: string, options: { timeout: number; stdio?: string }): Buffer =>
-    execSync(command, {
-      timeout: options.timeout,
-      stdio: (options.stdio ?? 'pipe') as 'pipe' | 'inherit' | 'ignore',
-    });
-
-  const settingsStore = new PluginSettingsStore(userSettingsPath);
-  const marketplace = new MarketplaceClient({ pluginsDir, exec });
+  const settingsStore = new NodeHostPluginSettingsStore(userSettingsPath);
+  const marketplace = new MarketplaceClient({ pluginsDir, exec: runGit });
   const installer = new BundlePluginInstaller({
     pluginsDir,
     settingsStore,
     marketplaceClient: marketplace,
-    exec,
+    exec: runGit,
   });
   const loader = new BundlePluginLoader(pluginsDir);
 
@@ -107,16 +159,11 @@ async function installPlugin(
   }
   if (scope === 'project') {
     const projectPluginsDir = join(services.cwd, '.robota', 'plugins');
-    const projectExec = (command: string, options: { timeout: number; stdio?: string }): Buffer =>
-      execSync(command, {
-        timeout: options.timeout,
-        stdio: (options.stdio ?? 'pipe') as 'pipe' | 'inherit' | 'ignore',
-      });
     const projectInstaller = new BundlePluginInstaller({
       pluginsDir: projectPluginsDir,
       settingsStore: services.settingsStore,
       marketplaceClient: services.marketplace,
-      exec: projectExec,
+      exec: runGit,
     });
     await projectInstaller.install(name, marketplaceName);
     return;

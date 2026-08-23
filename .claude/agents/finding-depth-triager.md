@@ -65,8 +65,13 @@ For each finding, independently:
 
 ## Output contract
 
-Human-readable reasoning, then one line per finding, then the terminal count. End your report with these
-lines and nothing after them:
+Human-readable reasoning comes first. The caller selects one of two terminal modes:
+
+- **Identity-preserving single-finding mode.** When the caller supplies exactly one stable finding ID and
+  requests this mode, end with exactly `DEPTH: id=<id> outcome=<LOCAL|FOUNDATIONAL|INVALID|UNDETERMINED>`.
+  This is the architecture-refresh contract: it preserves all four routes instead of collapsing three of
+  them into a zero-foundational count.
+- **Batch mode.** Otherwise, emit one line per finding and the terminal count below, with nothing after it:
 
 ```
 DEPTH: LOCAL — <finding, one line>
@@ -76,5 +81,4 @@ DEPTH: UNDETERMINED — <finding> — needs: <the specific thing that would sett
 DEPTH: <n> FOUNDATIONAL of <total>
 ```
 
-The final `DEPTH: <n> FOUNDATIONAL of <total>` line is the machine signal an orchestrator routes on. Emit it
-exactly once, as the last line.
+In either mode, emit exactly one terminal machine-signal line as the last line.

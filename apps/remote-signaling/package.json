@@ -34,10 +34,10 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@robota-sdk/agent-interface-session": "workspace:*",
     "ws": "^8.21.1"
   },
   "devDependencies": {
-    "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-transport-webrtc": "workspace:*",
     "@types/node": "^22.19.21",
     "@types/ws": "^8.18.1",

@@ -9,7 +9,7 @@
 
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import { createCodingPack } from '@robota-sdk/pack-coding';
 
 import { ACME_PROVIDER_SETTINGS } from './acme.js';

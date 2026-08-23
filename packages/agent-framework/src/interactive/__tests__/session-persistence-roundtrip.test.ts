@@ -3,10 +3,11 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 import { describe, expect, it } from 'vitest';
 
-import { createProjectSessionStore } from '../session-persistence.js';
+import { createTrustedProjectSessionStoreFixture } from '../../testing/trusted-project-state-fixture.js';
+import { loadedRecordOrMissing } from './session-load-helpers.js';
 
 /**
  * DATA-006 (ARL-08): the SessionStore JSON record round-trip must preserve EVERY
@@ -18,12 +19,12 @@ import { createProjectSessionStore } from '../session-persistence.js';
  */
 describe('session persistence round-trip (DATA-006 / ARL-08)', () => {
   async function makeStore(): Promise<{
-    store: ReturnType<typeof createProjectSessionStore>;
+    store: Awaited<ReturnType<typeof createTrustedProjectSessionStoreFixture>>;
     cwd: string;
   }> {
     const cwd = await mkdtemp(join(tmpdir(), 'robota-sdk-session-roundtrip-'));
     mkdirSync(join(cwd, '.robota'), { recursive: true });
-    return { store: createProjectSessionStore(cwd), cwd };
+    return { store: await createTrustedProjectSessionStoreFixture(cwd), cwd };
   }
 
   function fullRecord(cwd: string): Required<IInteractiveSessionRecord> {
@@ -77,7 +78,7 @@ describe('session persistence round-trip (DATA-006 / ARL-08)', () => {
     const record = fullRecord(cwd);
 
     store.save(record);
-    const loaded = store.load(record.id);
+    const loaded = loadedRecordOrMissing(store, record.id);
 
     expect(loaded?.goal).toEqual(record.goal);
   });
@@ -87,7 +88,7 @@ describe('session persistence round-trip (DATA-006 / ARL-08)', () => {
     const record = fullRecord(cwd);
 
     store.save(record);
-    const loaded = store.load(record.id);
+    const loaded = loadedRecordOrMissing(store, record.id);
 
     expect(loaded).toEqual(record);
   });

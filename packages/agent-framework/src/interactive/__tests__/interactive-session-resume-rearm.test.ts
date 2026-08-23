@@ -139,9 +139,14 @@ function sleepingScheduledRecord(nextFireAt: string): Record<string, unknown> {
 function createStore(record: Record<string, unknown>) {
   const map = new Map<string, unknown>([['session_resumed', record]]);
   return {
-    load: vi.fn((id: string) => map.get(id)),
+    load: vi.fn((id: string) => {
+      const record = map.get(id);
+      return record === undefined ? { status: 'missing' } : { status: 'valid', record };
+    }),
     save: vi.fn((r: { id: string }) => map.set(r.id, r)),
-    list: vi.fn(() => [...map.values()]),
+    list: vi.fn(() =>
+      [...map.entries()].map(([id, record]) => ({ id, outcome: { status: 'valid', record } })),
+    ),
     delete: vi.fn((id: string) => map.delete(id)),
   };
 }

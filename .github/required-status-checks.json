@@ -97,16 +97,21 @@
           "local": {
             "notRunnable": "ci-mirror-map NOT_MIRRORED"
           }
+        },
+        {
+          "context": "regression-red-proof (enforcing: accidental-green only)",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "regression-red-proof",
+          "verifies": "INFRA-046 — a regression test must FAIL with its fix reversed. Only the `accidental-green` verdict blocks (`REGRESSION_RED_PROOF_ENFORCE=1`): a test that still passes against the pre-fix code guards nothing, and that is a defect whatever else the run found. `inconclusive`, `skipped` and `red-proof-unreached` all pass, so a verdict the checker could not reach never blocks a pull request — the property that makes this refusal trustworthy. PROMOTED 2026-08-22 on exactly the evidence its own exclusion demanded: `accidental-green` had never fired on a real pull request, and \"one observed firing is what promotes it\". It fired twice on PR #1983 and caught a real defect — a `run-all-scans.mjs` registration hunk reversible with every changed test still passing — which the author repaired in three rounds without assistance.",
+          "local": {
+            "notRunnable": "the checker RUNS locally and is useful there (`REGRESSION_RED_PROOF_ENFORCE=1 node scripts/harness/check-regression-red-proof.mjs`), but it cannot reproduce this context's VERDICT. The opt-out is read from `PR_BODY` joined with the commit subjects; off a pull request `PR_BODY` is empty, so an `allow-green-at-base: <reason>` declared in the body alone is invisible locally and the run reports `accidental-green` for a case CI legitimately excuses. A mirror that can disagree with the gate on the gate's own escape hatch is not a mirror."
+          }
         }
       ],
       "deliberately_not_required": [
         {
-          "context": "patch-coverage",
+          "context": "patch-coverage (advisory)",
           "reason": "Advisory by design (HARNESS-041). It runs and prints a verdict on every code PR but never blocks; excluded because a required context must be able to fail, and this one deliberately cannot. INFRA-046 holds it advisory over two open defects: NO-DATA lines are folded into the below-target total, and the React-UI denominator policy is undecided."
-        },
-        {
-          "context": "regression-red-proof",
-          "reason": "CAN fail as of INFRA-046 — `REGRESSION_RED_PROOF_ENFORCE=1` makes an `accidental-green` verdict exit 1 — so the 'deliberately cannot fail' reason above does NOT apply to it. Excluded for a different reason, by owner decision: `accidental-green` has never fired on a real pull request, and making it required would put an untested refusal in the merge path. One observed firing is the evidence that promotes it. Note this exclusion does not make the job harmless: `merge-gate.sh` refuses any non-CLEAN mergeStateStatus, and GitHub reports UNSTABLE when a NON-required check fails."
         },
         {
           "context": "promotion ancestry / promotion closes / main PR source guard / release-grade verification",

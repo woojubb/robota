@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { findDesignDocFindings } from '../check-design-doc-completeness.mjs';
 import { ADVISORY_MARKER } from '../run-all-scans.mjs';
@@ -38,7 +38,7 @@ How it is verified.
 `;
 
 async function createDesignDir(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-design-doc-'));
+  const root = makeTemp('robota-design-doc-');
   for (const [relativePath, content] of Object.entries(files)) {
     const targetPath = path.join(root, relativePath);
     mkdirSync(path.dirname(targetPath), { recursive: true });
@@ -227,7 +227,7 @@ describe('check-design-doc-completeness CLI', () => {
  */
 describe('findDesignDocFindings — the searched count when auto-discovering', () => {
   async function workspaceFixture(packages, designDocs = {}) {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-design-doc-ws-'));
+    const root = makeTemp('robota-design-doc-ws-');
     for (const name of packages) {
       const dir = path.join(root, 'packages', name);
       mkdirSync(dir, { recursive: true });

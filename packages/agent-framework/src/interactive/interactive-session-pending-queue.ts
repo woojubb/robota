@@ -8,7 +8,7 @@
  */
 
 import type { IQueuedInput } from './interactive-session-execution-controller.js';
-import type { TDriverId, TTurnNotRunReason } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId, TTurnNotRunReason } from '@robota-sdk/agent-interface-session';
 
 /**
  * REMOTE-014 E5: max co-drive queue depth — beyond this, drop-newest with an attributed notice.

@@ -12,7 +12,7 @@ import { PermissionEnforcer } from '../permission-enforcer.js';
 import type { IPermissionEnforcerOptions } from '../permission-types.js';
 import type {
   IHookInput,
-  IHookResult,
+  THookOutcome,
   IHookTypeExecutor,
   ITerminalOutput,
   TToolArgs,
@@ -37,9 +37,11 @@ function makeRecordingExecutor(exitCode = 0): {
   const inputs: IHookInput[] = [];
   const executor: IHookTypeExecutor = {
     type: 'command',
-    execute: vi.fn(async (_def, input: IHookInput): Promise<IHookResult> => {
+    execute: vi.fn(async (_def, input: IHookInput): Promise<THookOutcome> => {
       inputs.push(input);
-      return { exitCode, stdout: '', stderr: exitCode === 2 ? 'denied' : '' };
+      return exitCode === 2
+        ? { outcome: 'deny', source: 'command', reason: 'denied' }
+        : { outcome: 'allow', source: 'command', stdout: '' };
     }),
   };
   return { executor, inputs };

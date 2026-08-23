@@ -16,7 +16,7 @@ import {
   type TUiIntentNotice,
 } from '../ui-intent-state.js';
 
-import type { TCommandUiIntent } from '@robota-sdk/agent-interface-transport';
+import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
 function intentMessage(intent: TCommandUiIntent, requesterDriverId?: string): TServerMessage {

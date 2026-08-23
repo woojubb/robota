@@ -1,13 +1,7 @@
-import { mkdtempSync, readdirSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readdirSync, realpathSync, symlinkSync } from 'node:fs';
 import path from 'node:path';
 
-import { afterAll } from 'vitest';
-
-const farms = [];
-afterAll(() => {
-  while (farms.length > 0) rmSync(farms.pop(), { recursive: true, force: true });
-});
+import { makeTemp } from '../make-temp.mjs';
 
 /**
  * A PATH in which the named tools genuinely do not exist.
@@ -23,8 +17,7 @@ afterAll(() => {
  * would be the defect wearing the fix as a costume.
  */
 export function pathWithout(hidden) {
-  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'path-without-')));
-  farms.push(dir);
+  const dir = realpathSync(makeTemp('path-without-'));
   const seen = new Set();
   for (const entry of (process.env.PATH ?? '').split(':')) {
     if (!entry) continue;

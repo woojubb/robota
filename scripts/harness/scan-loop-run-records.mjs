@@ -31,6 +31,10 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 
 import { requireGovernedTree } from './governed-tree.mjs';
 import {
+  ARCHITECTURE_REFRESH_ARRAY_FIELDS,
+  ARCHITECTURE_REFRESH_EXTENSION,
+} from './architecture-refresh-record.mjs';
+import {
   LEDGER_DIR,
   ledgerSkills,
   permitsTerminal,
@@ -137,11 +141,38 @@ export function findLoopRunRecordFindings(root = WORKSPACE_ROOT, now = Date.now(
         );
       }
 
+      if (
+        Object.prototype.hasOwnProperty.call(entry, 'extensions') &&
+        (entry.extensions === null ||
+          typeof entry.extensions !== 'object' ||
+          Array.isArray(entry.extensions))
+      ) {
+        at(rel, `run \`${entry.runId}\`: \`extensions\` must be an object`);
+      }
+      const architecture = entry.extensions?.[ARCHITECTURE_REFRESH_EXTENSION];
+      if (architecture !== undefined) {
+        if (
+          architecture === null ||
+          typeof architecture !== 'object' ||
+          Array.isArray(architecture)
+        ) {
+          at(rel, `run \`${entry.runId}\`: \`extensions.architectureRefresh\` must be an object`);
+        } else {
+          for (const field of ARCHITECTURE_REFRESH_ARRAY_FIELDS) {
+            if (!Array.isArray(architecture[field])) {
+              at(rel, `run \`${entry.runId}\`: \`${field}\` must be an array`);
+            }
+          }
+        }
+      }
+
+      const openedMs = Date.parse(entry.opened ?? '');
+      if (Number.isNaN(openedMs)) {
+        at(rel, `run \`${entry.runId}\` has no parseable \`opened\` timestamp`);
+      }
+
       if (entry.terminal === null || entry.terminal === undefined) {
-        const openedMs = Date.parse(entry.opened ?? '');
-        if (Number.isNaN(openedMs)) {
-          at(rel, `run \`${entry.runId}\` is OPEN and its \`opened\` timestamp does not parse`);
-        } else if (now - openedMs > STALE_OPEN_DAYS * 86_400_000) {
+        if (!Number.isNaN(openedMs) && now - openedMs > STALE_OPEN_DAYS * 86_400_000) {
           at(
             rel,
             `run \`${entry.runId}\` has been OPEN since ${entry.opened} — longer than ${STALE_OPEN_DAYS} days. ` +
@@ -153,11 +184,14 @@ export function findLoopRunRecordFindings(root = WORKSPACE_ROOT, now = Date.now(
 
       const permitted = permitsTerminal(declaration, entry.terminal);
       if (!permitted.ok) at(rel, `run \`${entry.runId}\`: ${permitted.why}`);
-      if (typeof entry.closed !== 'string' || Number.isNaN(Date.parse(entry.closed))) {
+      const closedMs = Date.parse(entry.closed ?? '');
+      if (typeof entry.closed !== 'string' || Number.isNaN(closedMs)) {
         at(
           rel,
           `run \`${entry.runId}\` is closed as \`${entry.terminal}\` and has no parseable \`closed\` timestamp`,
         );
+      } else if (!Number.isNaN(openedMs) && closedMs < openedMs) {
+        at(rel, `run \`${entry.runId}\` closes before it opens`);
       }
     }
   }

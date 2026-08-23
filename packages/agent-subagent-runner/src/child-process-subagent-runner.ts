@@ -38,7 +38,7 @@ import type {
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
   ISerializableProviderProfile,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 /** POSIX children are forked detached so a process-group kill reaps grandchildren (CORE-023). */
 const SPAWN_DETACHED = process.platform !== 'win32';

@@ -1,17 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import {
-  chmodSync,
-  cpSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOKS_SRC = path.join(WORKSPACE_ROOT, '.claude/hooks');
@@ -36,18 +29,6 @@ const HOOKS_SRC = path.join(WORKSPACE_ROOT, '.claude/hooks');
  * happens to be checked out. `gh` is stubbed to fail loudly, so a case that is supposed to be
  * decided locally can never quietly reach the network and pass for the wrong reason.
  */
-const scratch = [];
-
-afterAll(() => {
-  for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
-});
-
-function makeTemp(prefix) {
-  const dir = mkdtempSync(path.join(tmpdir(), prefix));
-  scratch.push(dir);
-  return dir;
-}
-
 function scratchRepo() {
   const dir = makeTemp('bg-repo-');
   const run = (...args) =>

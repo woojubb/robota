@@ -116,6 +116,8 @@ run, appended when it opens and sealed when it closes:
 
 ```bash
 node scripts/harness/loop-run.mjs open  --loop <skill>
+node scripts/harness/loop-run.mjs expect --loop <skill> --run <id> --phase <phase> --agent <agent> --subject <subject> --token <signal>
+node scripts/harness/loop-run.mjs observe --loop <skill> --run <id> --phase <phase> --agent <agent> --subject <subject> --signal '<terminal-line>'
 node scripts/harness/loop-run.mjs round --loop <skill> --run <id> --findings <n>
 node scripts/harness/loop-run.mjs close --loop <skill> --run <id> --terminal <reason>
 ```
@@ -140,6 +142,18 @@ every run was recorded.
 Enforced by: `scripts/harness/scan-loop-run-records.mjs`, registered as `loop-run-records`. It refuses a
 ledger naming no loop-declaring skill, a line that does not parse, a terminal reason the declaration
 cannot reach, and a run left open past seven days.
+
+Pipelines whose guardians declare runtime signal contracts also record every expectation **before**
+dispatch and exactly one matching observation afterward. Pipeline-owned scans validate the payload and
+route metadata because the canonical ledger owns persistence while each pipeline owns the meaning of its
+signals. For architecture audit, `architecture-refresh-signals` fails on silence, duplication,
+misattribution, malformed counts, missing verifier pass-through, incomplete foundational reconciliation,
+or an unresolved material disposition. A nested fanout is linked to its outer run with `loop-run.mjs link`;
+that link is evidence of composition, not a replacement for either ledger.
+
+A retired agent definition must also become unreachable from every live instruction that could still dispatch
+it. The `retired-agent-references` scan enforces that retirement boundary while preserving only exact,
+fingerprinted provenance records; deleting the definition alone is not completion.
 
 ## Applying it to a new enforced step
 

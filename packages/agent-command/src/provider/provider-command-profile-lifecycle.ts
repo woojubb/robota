@@ -9,7 +9,7 @@ import { formatProviderChoiceLabel } from './provider-command-profile-operations
 
 import type { IUserInteraction } from '@robota-sdk/agent-core';
 import type { IProviderCommandModuleOptions } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 const MAX_DUPLICATE_PROFILE_SUFFIX = 1000;
 const PROVIDER_RESTART_ACTION = {

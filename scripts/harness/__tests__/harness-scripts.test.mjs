@@ -334,7 +334,7 @@ describe('CLI dev source resolution', () => {
     'packages/agent-provider-openai',
     'packages/agent-provider-openai-compatible',
     'packages/agent-provider-gemini',
-    'packages/agent-provider-defaults',
+    'packages/agent-builtin-providers',
     'packages/agent-session',
     'packages/agent-tools',
     'packages/agent-transport',
@@ -431,6 +431,17 @@ describe('SDK public surface scan', () => {
       'node scripts/harness/check-sdk-public-surface.mjs',
     );
     expect(runAllScansSource).toContain('check-sdk-public-surface.mjs');
+  });
+});
+
+describe('public project authority scan', () => {
+  it('is wired into the root harness scan', () => {
+    const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
+
+    expect(rootPackage.scripts['harness:scan:public-project-authority']).toBe(
+      'node scripts/harness/scan-public-project-authority.mjs',
+    );
+    expect(runAllScansSource).toContain('scan-public-project-authority.mjs');
   });
 });
 

@@ -13,10 +13,35 @@ import { createAssistantMessage } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { LocalDagRuntimeProvider } from '@robota-sdk/dag-framework';
 
-import { executeWorkflowsBuild } from '../build-command.js';
+import { executeWorkflowsBuild as executeWorkflowsBuildWithProject } from '../build-command.js';
 import type { IWorkflowsAuthoringDeps } from '../authoring/args.js';
-import { executeWorkflowsRun } from '../run-command.js';
-import { executeWorkflowsValidate } from '../validate-command.js';
+import { executeWorkflowsRun as executeWorkflowsRunWithProject } from '../run-command.js';
+import { executeWorkflowsValidate as executeWorkflowsValidateWithProject } from '../validate-command.js';
+import { createWorkflowProjectFixture } from './workflow-project-fixture.js';
+
+async function executeWorkflowsBuild(args: string, root: string, deps?: IWorkflowsAuthoringDeps) {
+  return executeWorkflowsBuildWithProject(args, await createWorkflowProjectFixture(root), deps);
+}
+
+async function executeWorkflowsRun(
+  args: string,
+  root: string,
+  layout?: Parameters<typeof executeWorkflowsRunWithProject>[2],
+) {
+  return executeWorkflowsRunWithProject(args, await createWorkflowProjectFixture(root), layout);
+}
+
+async function executeWorkflowsValidate(
+  args: string,
+  root: string,
+  layout?: Parameters<typeof executeWorkflowsValidateWithProject>[2],
+) {
+  return executeWorkflowsValidateWithProject(
+    args,
+    await createWorkflowProjectFixture(root),
+    layout,
+  );
+}
 
 /** A provider stub whose `chat` always returns the given JSON string as assistant content. */
 function stubProvider(specJson: string): IAIProvider {
@@ -85,11 +110,11 @@ describe('executeWorkflowsBuild (TC-01: author + save, never execute)', () => {
 
     const savedPath = join(dir, '.workflows', 'uppercase-it.json');
     await expect(stat(savedPath)).resolves.toBeDefined();
-    expect(result.message).toContain(savedPath);
+    expect(result.message).toContain('.workflows/uppercase-it.json');
 
     // Explicit next steps — build hands off to the existing subcommands.
-    expect(result.message).toContain(`/workflows validate ${savedPath}`);
-    expect(result.message).toContain(`/workflows run ${savedPath}`);
+    expect(result.message).toContain('/workflows validate .workflows/uppercase-it.json');
+    expect(result.message).toContain('/workflows run .workflows/uppercase-it.json');
 
     // NO run output: nothing executed, so no outputs/duration lines can exist.
     expect(result.message).not.toContain('Outputs:');
@@ -119,7 +144,7 @@ describe('build → validate → run round-trip (TC-02)', () => {
       baseDeps(UPPERCASE_SPEC),
     );
     expect(built.success).toBe(true);
-    const savedPath = join(dir, '.workflows', 'uppercase-it.json');
+    const savedPath = join('.workflows', 'uppercase-it.json');
 
     // build itself executed nothing…
     expect(executeCanary).toHaveBeenCalledTimes(0);

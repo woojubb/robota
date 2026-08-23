@@ -52,8 +52,11 @@ agent-transport/src
 
 ### Programmatic driving
 
-`createProgrammaticAgent({ provider, cwd, commandModules?, sessionStore?, permissionMode? })` wires a
-`ProgrammaticInteractionChannel` to a real `InteractiveSession` via `createInteractiveRuntime`.
+`createProgrammaticAgent({ provider, cwd, projectAccess?, commandModules?, sessionStore?, permissionMode? })`
+wires a `ProgrammaticInteractionChannel` to a real `InteractiveSession` via
+`createInteractiveRuntime`. `cwd` is provenance only: an omitted `projectAccess` produces the
+framework's explicit Restricted decision, while a host-issued trusted decision is forwarded
+unchanged to the session.
 `send(text)` pushes a user submission and awaits the whole turn; the channel records the framework's
 one-way `InteractionEvent` stream into `events`, which the driver exposes as `assistantReplies()`,
 `lastAssistantText()`, `toolCalls()`, and `errors()`. `queueUserAction(response)` pre-answers the next
@@ -117,11 +120,11 @@ The in-process driver surface itself is `IAgentDriver`, owned by
 
 ### `/programmatic`
 
-| Export                            | Kind      | Description                                                                                       |
-| --------------------------------- | --------- | ------------------------------------------------------------------------------------------------- |
-| `ProgrammaticInteractionChannel`  | class     | In-process `IInteractionChannel` adapter: buffers `InteractionEvent`s, FIFO action-response queue |
-| `createProgrammaticAgent`         | function  | Driver over `createInteractiveRuntime`: `start`/`send`/`stop` + structured accessors              |
-| `ICreateProgrammaticAgentOptions` | interface | `{ provider, cwd, commandModules?, sessionStore?, permissionMode? }`                              |
+| Export                            | Kind      | Description                                                                                                  |
+| --------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------ |
+| `ProgrammaticInteractionChannel`  | class     | In-process `IInteractionChannel` adapter: buffers `InteractionEvent`s, FIFO action-response queue            |
+| `createProgrammaticAgent`         | function  | Driver over `createInteractiveRuntime`: `start`/`send`/`stop` + structured accessors                         |
+| `ICreateProgrammaticAgentOptions` | interface | `{ provider, cwd, projectAccess?, commandModules?, sessionStore?, permissionMode? }`; omission is Restricted |
 
 The driver returned by `createProgrammaticAgent` is typed as `IAgentDriver` (owned by
 `@robota-sdk/agent-interface-transport`, not re-exported here): `events`, `start`, `send`,
@@ -165,6 +168,10 @@ process may exit. It writes exactly one terminal record per run (CI-001).
 ## 8. Test Strategy
 
 Headless runner/channel unit + integration tests and scripted-provider tests under `src/**/__tests__`.
+The programmatic integration suite proves that an explicitly trusted project decision reaches the
+real session and enables its authority-bound context source. The `public-project-authority` AST guard
+also requires every published high-level construction interface that accepts `cwd` to carry
+`TWorkspaceProjectAccess`.
 The headless public adapter invokes the shared interface-transport lifecycle conformance helper; the
 harness roster scan proves it is one of exactly six registered public subjects.
 

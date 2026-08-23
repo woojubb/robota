@@ -7,7 +7,7 @@
 
 import { GOAL_SIGNAL_TOOL_NAME } from './goal-status-tool.js';
 
-import type { IGoalState } from '@robota-sdk/agent-interface-transport';
+import type { IGoalState } from '@robota-sdk/agent-interface-session';
 
 const SIGNAL_INSTRUCTION =
   `When you have made as much progress as you can this turn, call \`${GOAL_SIGNAL_TOOL_NAME}\`: ` +

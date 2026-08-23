@@ -1,9 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { copyFileSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { hooksOutsideAWorktree } from './helpers/hooks-outside-a-worktree.mjs';
 
@@ -42,7 +43,7 @@ function git(cwd, ...args) {
  * the hook — which is what `.claude/settings.json` invokes through `CLAUDE_PROJECT_DIR`.
  */
 function repoWithWorktree() {
-  const root = mkdtempSync(path.join(tmpdir(), 'wt-alive-'));
+  const root = makeTemp('wt-alive-');
   scratch.push(root);
   const main = path.join(root, 'mainrepo');
   mkdirSync(main, { recursive: true });
@@ -158,7 +159,7 @@ describe('an ambient GIT_DIR is seen even INSIDE a correct worktree', () => {
   // which is the exact accident this guard exists for, in the one place it was trusted to be safe.
   it('refuses a destructive command redirected at another repository', () => {
     const { worktree, hook } = repoWithWorktree();
-    const elsewhere = mkdtempSync(path.join(tmpdir(), 'elsewhere-'));
+    const elsewhere = makeTemp('elsewhere-');
     scratch.push(elsewhere);
     git(elsewhere, 'init', '-q');
     git(elsewhere, 'commit', '--allow-empty', '-q', '-m', 'init');

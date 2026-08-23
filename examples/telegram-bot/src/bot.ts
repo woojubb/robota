@@ -1,6 +1,7 @@
 import 'dotenv/config';
+import { join } from 'node:path';
 import { Bot } from 'grammy';
-import { createAgentRuntime, createProjectSessionStore } from '@robota-sdk/agent-framework';
+import { createAgentRuntime, createNodeHostSessionStore } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -15,7 +16,7 @@ const bot = new Bot(BOT_TOKEN);
 const runtime = createAgentRuntime({
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: ANTHROPIC_API_KEY }),
-  sessionStore: createProjectSessionStore(process.cwd()),
+  sessionStore: createNodeHostSessionStore(join(process.cwd(), '.robota', 'sessions')),
 });
 
 const chatSessions = new Map<number, string>();

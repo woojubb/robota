@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   baseHistorySignals,
@@ -15,7 +15,7 @@ import {
 } from '../scan-ci-base-history.mjs';
 
 async function createWorkflowFixture(files) {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-ci-base-history-'));
+  const root = makeTemp('robota-ci-base-history-');
   mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
   for (const [name, content] of Object.entries(files)) {
     writeFileSync(path.join(root, '.github', 'workflows', name), content, 'utf8');
@@ -134,7 +134,7 @@ describe('findBaseHistoryFindings (INFRA-050)', () => {
 
 describe('staleInvocations', () => {
   it('reports every indirect entry as stale when its backing script is absent', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'robota-ci-base-history-empty-'));
+    const root = makeTemp('robota-ci-base-history-empty-');
     expect(staleInvocations(root).length).toBeGreaterThan(0);
   });
 

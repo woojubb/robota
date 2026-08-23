@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   checkDagNodesLeaf,
@@ -82,7 +83,7 @@ describe('checkPackagePurity (Rule 10, absorbed from check-sdk-react-free)', () 
   ];
 
   it('TC-04: flags a forbidden import + a forbidden dependency in the scanned package', () => {
-    const root = mkdtempSync(join(tmpdir(), 'robota-sdk-react-free-'));
+    const root = makeTemp('robota-sdk-react-free-');
     const src = join(root, 'packages', 'agent-framework', 'src');
     mkdirSync(src, { recursive: true });
     writeFileSync(join(src, 'x.ts'), `import { useState } from 'react';\nexport const a = 1;\n`);
@@ -96,7 +97,7 @@ describe('checkPackagePurity (Rule 10, absorbed from check-sdk-react-free)', () 
   });
 
   it('flags a missing scan target instead of silently passing (dead-guard guard)', () => {
-    const root = mkdtempSync(join(tmpdir(), 'robota-sdk-react-free-missing-'));
+    const root = makeTemp('robota-sdk-react-free-missing-');
     // husk dir — no src/, no package.json
     const v = checkPackagePurity(root, [
       { dir: 'packages/agent-sdk', forbiddenModules: ['react'], reason: 'husk.' },
@@ -118,7 +119,7 @@ describe('checkWorkspacePackageNames (Rule 9, absorbed from check-architecture-c
   const NAMES = new Set(['@robota-sdk/agent-core']);
 
   function archFixture(files) {
-    const root = mkdtempSync(join(tmpdir(), 'robota-pkg-name-guard-'));
+    const root = makeTemp('robota-pkg-name-guard-');
     for (const [rel, text] of Object.entries(files)) {
       mkdirSync(join(root, rel, '..'), { recursive: true });
       writeFileSync(join(root, rel), text);

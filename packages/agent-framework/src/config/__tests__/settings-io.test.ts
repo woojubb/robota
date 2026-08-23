@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
+import * as settingsIo from '../settings-io.js';
 import {
   readSettings,
   writeSettings,
@@ -22,6 +23,10 @@ afterEach(() => {
 });
 
 describe('readSettings', () => {
+  it('does not expose an ambient project-scope path resolver', () => {
+    expect('resolveSettingsPathForScope' in settingsIo).toBe(false);
+  });
+
   it('returns empty object for non-existent file', () => {
     expect(readSettings(join(TEST_DIR, 'nope.json'))).toEqual({});
   });

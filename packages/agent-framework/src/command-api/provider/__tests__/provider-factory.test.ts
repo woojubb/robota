@@ -27,15 +27,7 @@ describe('readProviderSettings error typing (CLI-064)', () => {
       // Issue #1929: `cwd` isolates the PROJECT settings and nothing else — the default list also
       // reads the developer's real `~/.robota/settings.json`, so "no configuration exists" has to be
       // stated rather than assumed of the host. `env: {}` closes the other environment-shaped input.
-      readProviderSettings(cwd, {
-        env: {},
-        settingsPaths: [
-          join(cwd, '.robota', 'settings.json'),
-          join(cwd, '.robota', 'settings.local.json'),
-          join(cwd, '.claude', 'settings.json'),
-          join(cwd, '.claude', 'settings.local.json'),
-        ],
-      });
+      readProviderSettings([], { env: {} });
       expect.unreachable('readProviderSettings must throw without configuration');
     } catch (error) {
       expect(error).toBeInstanceOf(ProviderConfigError);

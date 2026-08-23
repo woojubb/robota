@@ -158,7 +158,11 @@ export async function playgroundSessionCreateHandler(req: Request, res: Response
 
   const restoredMessages: IRestoredMessage[] = [];
   if (resolvedResumeSessionId) {
-    const record = sessionStore.load(resolvedResumeSessionId);
+    // TRANS-007: only a readable record is replayed into the playground transcript. A damaged or
+    // older-format session used to arrive here as `undefined` and produce an empty transcript that
+    // looked like a session with no history — the same silence this leaf removes from the CLI path.
+    const outcome = sessionStore.load(resolvedResumeSessionId);
+    const record = outcome.status === 'valid' ? outcome.record : undefined;
     if (record) {
       for (const msg of record.messages) {
         if (isUserMessage(msg)) {

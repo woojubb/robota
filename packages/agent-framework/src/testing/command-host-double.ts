@@ -1,12 +1,12 @@
 import { createTestAgentJobHost } from './agent-job-host-double.js';
 import { FAKE_ROOT, NEVER } from './double-constants.js';
 import { mergeOverrides, type TOverrides } from './double-overrides.js';
-import { createFileSystemMemoryStore } from '../memory/file-system-memory-store.js';
 
 import type { IEditCheckpointRestoreResult } from '../checkpoints/edit-checkpoint-types.js';
 import type { ICommandHostAdapters } from '../command-api/host-adapters.js';
 import type { ICommandHostContext, ICommandSessionRuntime } from '../command-api/host-context.js';
-import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface-transport';
+import type { IMemoryStore } from '../memory/types.js';
+import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface-session';
 
 /**
  * ARCH-029: a conformant, cast-free `ICommandHostContext` double.
@@ -85,6 +85,33 @@ const EMPTY_PLAN: IPlanArtifact = {
 
 /** No adapter is injected by default — a test that needs one states it through `overrides`. */
 const EMPTY_ADAPTERS: ICommandHostAdapters = {};
+
+/** Explicit in-memory absence for command tests; it carries no ambient filesystem authority. */
+const EMPTY_MEMORY_STORE: IMemoryStore = {
+  loadStartupMemory: () =>
+    Promise.resolve({ content: '', path: '', lineCount: 0, truncated: false }),
+  list: () => Promise.resolve({ indexPath: '', topicsPath: '', topics: [] }),
+  readTopic: () => Promise.resolve(''),
+  append: (input) =>
+    Promise.resolve({ indexPath: '', topicPath: '', topic: input.topic, deduplicated: false }),
+  recall: () => Promise.resolve({ content: '', references: [], truncated: false }),
+  getPending: () => Promise.resolve(undefined),
+  listPending: () => Promise.resolve([]),
+  markPending: (id, status, reason) =>
+    Promise.resolve({
+      id,
+      type: 'project',
+      topic: '',
+      text: '',
+      sourceMessageIds: [],
+      confidence: 0,
+      createdAt: NEVER,
+      reason,
+      status,
+      updatedAt: NEVER,
+    }),
+  upsertPending: () => Promise.resolve(),
+};
 
 /** Counts doubles so each gets a distinguishable cwd when a test does not name one. */
 let doublesCreated = 0;
@@ -185,7 +212,7 @@ export function createTestCommandHost(
     getPlanState: () => null,
     approvePlan: () => EMPTY_PLAN,
     revertPlan: () => EMPTY_PLAN,
-    getMemoryStore: () => createFileSystemMemoryStore(cwd, () => new Date(NEVER)),
+    getMemoryStore: () => EMPTY_MEMORY_STORE,
     runWithTerminal: (fn) => fn(),
     getContextState: () => EMPTY_CONTEXT_STATE,
     getAutoCompactThreshold: () => false,

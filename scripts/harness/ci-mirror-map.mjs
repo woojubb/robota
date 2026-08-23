@@ -161,6 +161,12 @@ export const CI_STAGES = [
     why: 'THE package test suites, lint and scoped typecheck — the gates verify-like-ci omitted entirely (INFRA-056)',
   },
   {
+    name: 'lint-ceiling',
+    needsBuildOutput: false,
+    mirrors: [{ job: 'quality', steps: ['Lint-warning ceiling'] }],
+    why: 'the WORKSPACE count against `--max-warnings`, which `affected-verify` cannot see: it lints only the affected scopes, so a warning added in one package is invisible to a ceiling that counts all of them (issue #1984)',
+  },
+  {
     name: 'binary-e2e',
     needsBuildOutput: true,
     mirrors: [{ job: 'quality', steps: ['Binary e2e (agent-cli bintests, dist-dependent)'] }],
@@ -192,6 +198,15 @@ export const CI_STAGES = [
  * behind it would describe a condition nobody computes — a smaller version of the same defect.
  */
 export const NOT_MIRRORED = [
+  {
+    context: 'regression-red-proof (enforcing: accidental-green only)',
+    reason:
+      "the checker RUNS locally and is useful there, but it cannot reproduce this context's VERDICT. The opt-out is read from `PR_BODY` joined with the commit subjects, and off a pull request `PR_BODY` is empty — so an `allow-green-at-base: <reason>` declared in the body ALONE is invisible locally and the run reports `accidental-green` for a case CI legitimately excuses. A mirror that can disagree with the gate on the gate's own escape hatch is worse than no mirror: it would report a blocking verdict the required check does not hold.",
+    relevance: 'code',
+    relevantWhen: 'the diff changes product code — ci.yml reports docs-only work as N/A',
+    manualCommand:
+      'REGRESSION_RED_PROOF_ENFORCE=1 node scripts/harness/check-regression-red-proof.mjs   (reads the opt-out from commit subjects only; a PR-body opt-out will NOT be seen, so a local `accidental-green` is a question to check against the pull request, not a verdict)',
+  },
   {
     context: 'dependency audit',
     reason:

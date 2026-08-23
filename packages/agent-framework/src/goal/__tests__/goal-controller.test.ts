@@ -11,7 +11,7 @@ import type {
   IExecutionResult,
   IToolSummary,
   IGoalState,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 const deps = { now: () => '2026-06-27T00:00:00.000Z', createId: () => 'goal_test' };
 

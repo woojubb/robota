@@ -1,9 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 import { hooksOutsideAWorktree } from './helpers/hooks-outside-a-worktree.mjs';
@@ -57,7 +58,7 @@ afterAll(() => {
 });
 
 function scratchDir(prefix) {
-  const dir = mkdtempSync(path.join(tmpdir(), prefix));
+  const dir = makeTemp(prefix);
   scratch.push(dir);
   return dir;
 }

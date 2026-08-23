@@ -4,8 +4,8 @@ import { parseParallelRequests, parseRunRequest, tokenizeArgs } from './agent-co
 
 import type { IAgentRunRequest } from './agent-command-parser.js';
 import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
-import type { ISubagentJobState } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ISubagentJobState } from '@robota-sdk/agent-interface-execution';
 
 function formatError<TError>(error: TError): string {
   return error instanceof Error ? error.message : String(error);

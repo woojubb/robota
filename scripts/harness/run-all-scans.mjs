@@ -378,6 +378,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/check-capability-placement.mjs'],
   },
   {
+    name: 'spec-manifest-restatement',
+    command: ['node', 'scripts/harness/check-spec-manifest-restatement.mjs'],
+  },
+  {
     name: 'nested-package-glob-coverage',
     command: ['node', 'scripts/harness/check-nested-package-glob-coverage.mjs'],
   },
@@ -522,6 +526,13 @@ export const SCAN_COMMANDS = [
     name: 'workflow-provenance',
     command: ['node', 'scripts/harness/scan-workflow-provenance.mjs'],
   },
+  // Issue #2039. The sibling above makes a `pull_request` gate's edit VISIBLE; a `pull_request_target`
+  // gate fails the opposite way — it loads its YAML from the default branch, so a fix to it is inert
+  // on the branch that carries it and stays inert until promotion. This reports that gap.
+  {
+    name: 'pull-request-target-promotion-lag',
+    command: ['node', 'scripts/harness/scan-pull-request-target-promotion-lag.mjs'],
+  },
   {
     name: 'new-rule-declares-enforcement',
     command: ['node', 'scripts/harness/scan-new-rule-declares-enforcement.mjs'],
@@ -583,6 +594,12 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-browser-package-node-subpath.mjs'],
   },
   { name: 'authority-bypass', command: ['node', 'scripts/harness/scan-authority-bypass.mjs'] },
+  {
+    // ARCH-042: public project APIs consume opaque authority/facets; removed cwd helpers and
+    // ambient fallbacks must not re-enter through an initial/stateless consumer.
+    name: 'public-project-authority',
+    command: ['node', 'scripts/harness/scan-public-project-authority.mjs'],
+  },
   {
     name: 'run-advancement-owner',
     command: ['node', 'scripts/harness/scan-run-advancement-owner.mjs'],
@@ -672,6 +689,14 @@ export const SCAN_COMMANDS = [
   {
     name: 'loop-run-records',
     command: ['node', 'scripts/harness/scan-loop-run-records.mjs'],
+  },
+  {
+    name: 'architecture-refresh-signals',
+    command: ['node', 'scripts/harness/scan-architecture-refresh-signals.mjs'],
+  },
+  {
+    name: 'retired-agent-references',
+    command: ['node', 'scripts/harness/scan-retired-agent-references.mjs'],
   },
   {
     name: 'loop-proof',
@@ -786,6 +811,21 @@ export const SCAN_COMMANDS = [
   {
     name: 'interface-runtime',
     command: ['node', 'scripts/harness/scan-interface-runtime.mjs'],
+  },
+  {
+    // ARCH-100 (issue #2080): the contract-family owner map in
+    // `.agents/project-structure.md` is the SSOT; this scan parses it and refuses an
+    // unassigned/doubly-assigned family, a cyclic projected package graph, or a module
+    // sitting outside an owner package that already exists.
+    name: 'interface-family-owner',
+    command: ['node', 'scripts/harness/scan-interface-family-owner.mjs'],
+  },
+  {
+    // HARNESS-117 (issue #2178): a rule that is ENFORCED still has a STATEMENT somebody can read.
+    // Binds the rule IDENTIFIER a scan emits, not the scan file — a file implements many rules, so
+    // one rule's statement can vanish while the file is still named for another.
+    name: 'rule-statement-floor',
+    command: ['node', 'scripts/harness/scan-rule-statement-floor.mjs'],
   },
   {
     // ARCH-021: the same family as interface-runtime — "package X's src/ must not import Y". This one

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { decodeChannelFrame, encodeBinaryFrame } from '@robota-sdk/agent-transport-protocol';
 import { WebSocket } from 'ws';
 import { describe, it, expect, afterEach, vi } from 'vitest';
@@ -8,7 +8,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { WsTransport } from '../ws-transport-configurable.js';
 
 import type { IBinaryFrame } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
 /**

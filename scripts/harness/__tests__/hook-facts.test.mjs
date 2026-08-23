@@ -1,17 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 // One owner for the farm too. Both this file and `hook-json-reader-agrees.test.mjs` need "a PATH
 // where jq genuinely does not exist", and a second copy of the thing that decides WHICH ARM RUNS,
@@ -62,7 +55,7 @@ afterAll(() => {
 });
 
 function scratchDir(prefix) {
-  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), prefix)));
+  const dir = realpathSync(makeTemp(prefix));
   scratch.push(dir);
   return dir;
 }

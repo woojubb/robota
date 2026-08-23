@@ -127,10 +127,14 @@ This package is the single source of truth (SSOT) for the following types:
 | `IGuardrailHookDefinition`          | `hooks/types.ts`                        | SELFHOST-005 guardrail hook: `type: 'guardrail'`, optional `guardrails: string[]` (names to run; omitted = all)                                                                                                                                                                                                             |
 | `IGuardrailResult`                  | `hooks/types.ts`                        | SELFHOST-005 guardrail verdict: `pass: boolean`, optional `reason` (`pass: false` fails the turn fast)                                                                                                                                                                                                                      |
 | `TGuardrail`                        | `hooks/types.ts`                        | SELFHOST-005 registerable guardrail mechanism: `(input: IHookInput) => IGuardrailResult \| Promise<IGuardrailResult>`                                                                                                                                                                                                       |
-| `GuardrailExecutor`                 | `hooks/executors/guardrail-executor.ts` | SELFHOST-005 `IHookTypeExecutor` (`type: 'guardrail'`): parallel fan-out + fail-fast over the registered guardrail set → exit-code-2/`blocked`                                                                                                                                                                              |
+| `GuardrailExecutor`                 | `hooks/executors/guardrail-executor.ts` | SELFHOST-005 `IHookTypeExecutor` (`type: 'guardrail'`): parallel fan-out + fail-fast over the registered guardrail set → `deny`/`blocked` (SEC-015; formerly exit code 2)                                                                                                                                                   |
+| `IHookAllowOutcome`                 | `hooks/types.ts`                        | SEC-015 `outcome: 'allow'` — the hook approved; `stdout` carries the Claude Code response protocol                                                                                                                                                                                                                          |
+| `IHookDenyOutcome`                  | `hooks/types.ts`                        | SEC-015 `outcome: 'deny'` — the hook blocked, carrying its `reason`                                                                                                                                                                                                                                                         |
+| `IHookErrorOutcome`                 | `hooks/types.ts`                        | SEC-015 `outcome: 'error'` — the hook rendered NO verdict, carrying `kind` + `reason`. Not a third verdict; the per-event policy for it is deliberately not encoded (issue #2093)                                                                                                                                           |
+| `THookErrorKind`                    | `hooks/types.ts`                        | SEC-015 failure classification: `timeout`, `spawn-failure`, `transport-failure`, `http-status`, `malformed-response`, `nonzero-exit`                                                                                                                                                                                        |
 | `IHookTypeExecutor`                 | `hooks/types.ts`                        | Strategy interface for hook type execution                                                                                                                                                                                                                                                                                  |
 | `IHookInput`                        | `hooks/types.ts`                        | Input passed to hook commands via stdin                                                                                                                                                                                                                                                                                     |
-| `IHookResult`                       | `hooks/types.ts`                        | Hook execution result (exitCode, stdout, stderr)                                                                                                                                                                                                                                                                            |
+| `THookOutcome`                      | `hooks/types.ts`                        | SEC-015 decoded hook execution result: `allow \| deny \| error` discriminated union. Replaces the former `IHookResult` (exitCode/stdout/stderr), whose single numeric channel forced every failure to be coerced into a verdict                                                                                             |
 | `IContextTokenUsage`                | `context/types.ts`                      | Token usage from a single API call (input, output, cache tokens)                                                                                                                                                                                                                                                            |
 | `IContextWindowState`               | `context/types.ts`                      | Context window state snapshot (maxTokens, usedTokens, percentage)                                                                                                                                                                                                                                                           |
 | `IContextTokenEstimate`             | `context/estimation.ts`                 | Effective context token estimate used by status display, session compaction policy, and execution safety guards                                                                                                                                                                                                             |
@@ -259,6 +263,49 @@ graph. The import path is where the Node dependency becomes legible.
 | `isPathInside`                | function | `@robota-sdk/agent-core/node` | Whether `candidate` is `root` itself or lies beneath it, decided on the CANONICAL form of both                                   |
 | `canonicalizePath`            | function | `@robota-sdk/agent-core/node` | Realpath-resolve a path, tolerating a not-yet-created tail so `Write`/`Edit` targets still resolve                               |
 | `resolveTrustedExecutionRoot` | function | `@robota-sdk/agent-core/node` | Validate that an execution authority is a non-empty absolute, existing, traversable directory and return its canonical real path |
+
+### Owner-Only Store Public API (SEC-020)
+
+The SSOT for "create this directory or file so only its owner can read it", for every host store
+under `~/.robota` and a project's `.robota` — session records and logs, settings, device
+credentials. Measured under umask 022 before this existed: a fresh sessions directory came out 0755
+and its records 0644, and `~/.robota` itself was 0755.
+
+Three facts about the Node API make the naive form wrong, and the module exists because each of them
+had already produced a defect here:
+
+- **`mkdirSync(path, { recursive: true, mode })` does not set the mode of a directory that already
+  exists.** It returns successfully and adopts whatever is there — measured on a log directory
+  pre-created at 0777, which stayed 0777 while its records were 0600. Another account could not read
+  a record, and could unlink and replace one, and could enumerate every session id.
+- **`writeFileSync(path, data, { mode })` applies the mode only when the file is CREATED.** A record
+  an older version left at 0644 keeps 0644 through every later save.
+- **Creating wide and tightening afterwards leaves a window** in which the full record is on disk
+  readable. The atomic write therefore carries the mode from creation with `wx` and never chmods
+  after, so a mutation that removes the mode is caught rather than masked.
+
+Create, set the mode, then VERIFY — and the verification is the load-bearing third step, not a
+belt-and-braces one. The IO seams exist so the condition it alone catches, a filesystem that accepts
+`chmod` and ignores it, is reachable from a test.
+
+Windows cannot express owner-only through `chmod`; inherited NTFS ACLs govern instead.
+`ownerOnlyGuarantee()` reports which guarantee is in force rather than making the POSIX claim
+everywhere, and a project-local `.robota` inside a world-writable directory on Windows is NOT
+protected by this module.
+
+Exported from **`@robota-sdk/agent-core/node`** (CORE-028) for the same reason as path containment:
+these read and write the filesystem.
+
+| Export                      | Kind      | Import from                   | Description                                                                           |
+| --------------------------- | --------- | ----------------------------- | ------------------------------------------------------------------------------------- |
+| `ensureOwnerOnlyDirectory`  | function  | `@robota-sdk/agent-core/node` | Create a directory, set it to 0700 whether or not it existed, and refuse if it is not |
+| `writeOwnerOnlyFile`        | function  | `@robota-sdk/agent-core/node` | Replace a file atomically through a temp file that is 0600 from creation              |
+| `tightenExistingFile`       | function  | `@robota-sdk/agent-core/node` | Narrow a file an older version left readable; a no-op on a path that does not exist   |
+| `ownerOnlyGuarantee`        | function  | `@robota-sdk/agent-core/node` | Which guarantee this platform can make — `posix-mode` or `windows-acl`                |
+| `OwnerOnlyModeError`        | class     | `@robota-sdk/agent-core/node` | Raised when a path cannot be made owner-only; never swallowed into a weaker mode      |
+| `OWNER_ONLY_FILE_MODE`      | constant  | `@robota-sdk/agent-core/node` | `0o600`                                                                               |
+| `OWNER_ONLY_DIRECTORY_MODE` | constant  | `@robota-sdk/agent-core/node` | `0o700`                                                                               |
+| `IOwnerOnlyIo`              | interface | `@robota-sdk/agent-core/node` | Injected create/chmod/stat seams, so the verification's own failure path is testable  |
 
 ### Permission Argument Registry Public API (CORE-030)
 
@@ -453,22 +500,28 @@ host so an LLM authoring commands avoids cross-family syntax mistakes.
 
 ### Hooks
 
-| Export                   | Kind      | Description                                                                                                                                                                                  |
-| ------------------------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `runHooks`               | function  | Execute hooks for lifecycle events using pluggable type executors; returns `IRunHooksResult`                                                                                                 |
-| `GuardrailExecutor`      | class     | SELFHOST-005 `IHookTypeExecutor` (`type: 'guardrail'`): runs the registered guardrail set in parallel and fails fast → exit-code-2/`blocked` (constructed with the consumer's guardrail map) |
-| `THookEvent`             | type      | 13 events: PreToolUse, PostToolUse, SessionStart, SessionEnd, Stop, StopFailure, PreCompact, PostCompact, UserPromptSubmit, SubagentStart, SubagentStop, WorktreeCreate, WorktreeRemove      |
-| `TSessionEndReason`      | type      | Session end reason union: clear, resume, logout, prompt_input_exit, bypass_permissions_disabled, other                                                                                       |
-| `THooksConfig`           | type      | Event to hook group array mapping                                                                                                                                                            |
-| `IHookGroup`             | type      | Matcher pattern + hook definitions array; optional `env` for child-process environment injection                                                                                             |
-| `THookDefinition`        | type      | Discriminated union of all hook definition types: command, http, prompt, agent                                                                                                               |
-| `ICommandHookDefinition` | interface | `type: 'command'` hook — shell command execution via stdin/exit code                                                                                                                         |
-| `IHttpHookDefinition`    | interface | `type: 'http'` hook — HTTP request to external endpoint                                                                                                                                      |
-| `IPromptHookDefinition`  | interface | `type: 'prompt'` hook — LLM prompt injection                                                                                                                                                 |
-| `IAgentHookDefinition`   | interface | `type: 'agent'` hook — sub-agent delegation                                                                                                                                                  |
-| `IHookTypeExecutor`      | interface | Strategy interface for executing a specific hook type                                                                                                                                        |
-| `IHookInput`             | type      | JSON input passed to hooks via stdin                                                                                                                                                         |
-| `IHookResult`            | type      | Hook result: exitCode (0=allow, 2=block), stdout, stderr                                                                                                                                     |
+| Export                   | Kind      | Description                                                                                                                                                                                      |
+| ------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `runHooks`               | function  | Execute hooks for lifecycle events using pluggable type executors; returns `IRunHooksResult` (which carries `errors: readonly IHookErrorOutcome[]` for hooks that rendered no verdict — SEC-015) |
+| `GuardrailExecutor`      | class     | SELFHOST-005 `IHookTypeExecutor` (`type: 'guardrail'`): runs the registered guardrail set in parallel and fails fast → `deny`/`blocked` (constructed with the consumer's guardrail map)          |
+| `THookEvent`             | type      | 13 events: PreToolUse, PostToolUse, SessionStart, SessionEnd, Stop, StopFailure, PreCompact, PostCompact, UserPromptSubmit, SubagentStart, SubagentStop, WorktreeCreate, WorktreeRemove          |
+| `TSessionEndReason`      | type      | Session end reason union: clear, resume, logout, prompt_input_exit, bypass_permissions_disabled, other                                                                                           |
+| `THooksConfig`           | type      | Event to hook group array mapping                                                                                                                                                                |
+| `IHookGroup`             | type      | Matcher pattern + hook definitions array; optional `env` for child-process environment injection                                                                                                 |
+| `THookDefinition`        | type      | Discriminated union of all hook definition types: command, http, prompt, agent                                                                                                                   |
+| `ICommandHookDefinition` | interface | `type: 'command'` hook — shell command execution via stdin/exit code                                                                                                                             |
+| `IHttpHookDefinition`    | interface | `type: 'http'` hook — HTTP request to external endpoint                                                                                                                                          |
+| `IPromptHookDefinition`  | interface | `type: 'prompt'` hook — LLM prompt injection                                                                                                                                                     |
+| `IAgentHookDefinition`   | interface | `type: 'agent'` hook — sub-agent delegation                                                                                                                                                      |
+| `IHookTypeExecutor`      | interface | Strategy interface for executing a specific hook type                                                                                                                                            |
+| `IHookInput`             | type      | JSON input passed to hooks via stdin                                                                                                                                                             |
+| `THookOutcome`           | type      | SEC-015 decoded hook result: `allow \| deny \| error` union (replaces `IHookResult`)                                                                                                             |
+| `decodeHookVerdict`      | function  | SEC-015 sole decoder for a `{ ok, reason }` hook response; a non-boolean or missing `ok` is `error`, never a coerced verdict                                                                     |
+
+NOTE (SEC-015): the union's member interfaces — `IHookAllowOutcome`, `IHookDenyOutcome`,
+`IHookErrorOutcome` and `THookErrorKind` — are exported from `hooks/index.ts`, not from the package
+root. A consumer switching on `outcome` narrows `THookOutcome` without naming them; one that needs to
+name a member imports it from the hooks barrel.
 
 NOTE (CORE-028): `CommandExecutor` and `HttpExecutor` are exported from **`@robota-sdk/agent-core/node`**, not from `hooks/index.ts` and not from `src/index.ts`. They spawn processes and open sockets, so a barrel carrying them puts `node:child_process` in the static import graph of every consumer — including the `browser` build, which is the defect CORE-028 removed. A consumer that only imports from `@robota-sdk/agent-core` must supply custom executors via the `executors` parameter of `runHooks`. `IRunHooksResult` follows the same export boundary.
 
@@ -795,7 +848,11 @@ Patterns follow the format `ToolName(argGlob)`:
 
 ## Hook System
 
-The hook module (`src/hooks/`) provides a pluggable lifecycle hook mechanism. Hooks support multiple execution types (command, http, prompt, agent) via the strategy pattern. Command hooks receive JSON input on stdin and communicate results via exit codes.
+The hook module (`src/hooks/`) provides a pluggable lifecycle hook mechanism. Hooks support multiple execution types (command, http, prompt, agent, guardrail) via the strategy pattern. Command hooks receive JSON input on stdin.
+
+**Outcome contract (SEC-015).** An executor returns a decoded `THookOutcome`, not an exit code. `allow` and `deny` are the two verdicts; `error` is the ABSENCE of one, and carries a `THookErrorKind` naming why. The distinction exists because the previous `{ exitCode, stdout, stderr }` shape had no channel for a failure, so every failure was coerced into a verdict by JavaScript truthiness — a non-boolean `ok` read as approval and silently disabled the gate, while a missing one read as denial and blocked a tool call no hook had objected to. `runHooks` reports every `error` on `IRunHooksResult.errors`.
+
+Whether an `error` should BLOCK on an enforcing event is a per-event policy that this package deliberately does not decide (issue #2093); today `deny` blocks and `error` does not.
 
 ### Hook Events
 
@@ -833,7 +890,7 @@ The hook module (`src/hooks/`) provides a pluggable lifecycle hook mechanism. Ho
 ```typescript
 interface IHookTypeExecutor {
   readonly type: string;
-  execute(hook: IHookDefinition, input: IHookInput): Promise<IHookResult>;
+  execute(hook: IHookDefinition, input: IHookInput): Promise<THookOutcome>;
 }
 ```
 
@@ -841,10 +898,10 @@ interface IHookTypeExecutor {
 
 **Built-in executors (agent-core):**
 
-| Executor          | Hook Type | Behavior                                                     |
-| ----------------- | --------- | ------------------------------------------------------------ |
-| `CommandExecutor` | `command` | Spawns shell process, passes JSON via stdin, reads exit code |
-| `HttpExecutor`    | `http`    | Sends HTTP request, maps response status to exit code        |
+| Executor          | Hook Type | Behavior                                                                 |
+| ----------------- | --------- | ------------------------------------------------------------------------ |
+| `CommandExecutor` | `command` | Spawns shell process, passes JSON via stdin, maps its exit to an outcome |
+| `HttpExecutor`    | `http`    | Sends HTTP request, decodes the response body into an outcome            |
 
 **Extended executors (agent-framework):**
 
@@ -853,13 +910,29 @@ interface IHookTypeExecutor {
 | `PromptExecutor` | `prompt`  | Injects prompt text into session context                   |
 | `AgentExecutor`  | `agent`   | Delegates to a nested agent session for complex processing |
 
-### Exit Code Protocol
+### Outcome Protocol (SEC-015)
 
-| Code  | Meaning                        |
-| ----- | ------------------------------ |
-| 0     | Allow / proceed                |
-| 2     | Block / deny (stderr = reason) |
-| other | Proceed with warning           |
+An executor returns a decoded `THookOutcome`. A command hook's exit code is one INPUT to that
+decision, no longer the contract itself:
+
+| Executor condition                               | Outcome                        |
+| ------------------------------------------------ | ------------------------------ |
+| exit `0`                                         | `allow` (stdout carried)       |
+| exit `2`                                         | `deny` (stderr = reason)       |
+| any other exit code, or a signal kill            | `error` / `nonzero-exit`       |
+| deadline elapsed                                 | `error` / `timeout`            |
+| process or transport never started               | `error` / `spawn-failure`      |
+| well-formed non-2xx response                     | `error` / `http-status`        |
+| started then failed mid-flight                   | `error` / `transport-failure`  |
+| response arrived but no verdict could be decoded | `error` / `malformed-response` |
+
+A `{ ok, reason }` body is decoded by `decodeHookVerdict`: `ok` must be exactly `true` or exactly
+`false`. A body whose `ok` is undecodable is `error` — UNLESS it also carries an explicit block
+directive (`continue: false`, `decision: "block"`, `hookSpecificOutput.permissionDecision: "deny"`),
+which is a decision the hook stated outright and which an undecodable `ok` beside it does not retract.
+
+`error` is not a third verdict; it is the absence of one. It does not block on any event today, and
+whether it should on an enforcing event is issue #2093.
 
 ### Hook Configuration
 
@@ -1105,7 +1178,7 @@ from the final `{ done: true, value }` iterator result).
   already resolves to `response_schema`; the providers that lack a schema parameter (`deepseek` →
   `json_object`, `qwen` → `none`) have no strict-tool support to carry it. A union member nothing
   produces is a branch every consumer must handle and no test can reach.
-  `packages/agent-provider-defaults/src/forced-tool-transport-applicability.test.ts` fails if a
+  `packages/agent-builtin-providers/src/forced-tool-transport-applicability.test.ts` fails if a
   provider ever qualifies, and records the questions that must be answered first.
 - **Endpoint provenance is a separate answer from the capability table.** `IAIProvider` carries
   `endpointIsVendorDefault?()` alongside `capabilityTable?()` rather than a field inside it, because

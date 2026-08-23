@@ -3,7 +3,8 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createReplayProviderFromLogFile } from '@robota-sdk/agent-provider-replay';
+import { createReplayProviderFromSource } from '@robota-sdk/agent-provider-replay';
+import { NodeSessionLogSource } from '@robota-sdk/agent-session';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { InteractiveSession } from '../../index.js';
@@ -40,7 +41,9 @@ describe('session-log external-payload replay (framework functional)', () => {
       expect(reference).toBeDefined();
       expect(existsSync(join(source.logsDir(), reference!.relativePath))).toBe(true);
 
-      const replayProvider = createReplayProviderFromLogFile(source.transcriptPath());
+      const replayProvider = createReplayProviderFromSource(
+        new NodeSessionLogSource(source.transcriptPath()),
+      );
       replayWorkspace = mkdtempSync(join(tmpdir(), 'robota-replay-functional-'));
       replaySession = new InteractiveSession({
         cwd: replayWorkspace,

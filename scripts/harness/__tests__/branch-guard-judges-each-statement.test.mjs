@@ -1,9 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, cpSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOKS_SRC = path.join(WORKSPACE_ROOT, '.claude/hooks');
@@ -34,17 +35,6 @@ const HOOKS_SRC = path.join(WORKSPACE_ROOT, '.claude/hooks');
  * guard is not simply refusing everything: an override on the guarded statement itself excuses it,
  * and an override on a SIBLING does not.
  */
-
-const scratch = [];
-afterAll(() => {
-  for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
-});
-
-function makeTemp(prefix) {
-  const dir = mkdtempSync(path.join(tmpdir(), prefix));
-  scratch.push(dir);
-  return dir;
-}
 
 /**
  * A repository where `main` and `origin/develop` are DIFFERENT commits, checked out on a feature

@@ -7,7 +7,7 @@ import type {
   IContextReferenceItem,
   TContextReferenceLoadType,
   TContextReferenceStatus,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 export type { IContextReferenceItem, TContextReferenceLoadType, TContextReferenceStatus };
 

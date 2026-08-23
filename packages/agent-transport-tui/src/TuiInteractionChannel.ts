@@ -33,14 +33,16 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
 import type {
-  ICommandInfo,
   IExecutionDetailPage,
-  IExecutionResult,
   IExecutionWorkspaceEvent,
+} from '@robota-sdk/agent-interface-execution';
+import type {
+  ICommandInfo,
+  IExecutionResult,
   IInteractiveSessionEvents,
   TInteractiveEventName,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 const SESSION_INIT_POLL_MS = 200;
 const SESSION_INIT_TIMEOUT_MS = 15000;

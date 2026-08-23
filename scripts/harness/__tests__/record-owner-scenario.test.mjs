@@ -1,10 +1,11 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { validateScenarioRecordArtifact } from '../scenario-records.mjs';
 
@@ -18,7 +19,7 @@ afterEach(() => {
 });
 
 function createWorkspace() {
-  const directory = mkdtempSync(path.join(tmpdir(), 'record-owner-scenario-'));
+  const directory = makeTemp('record-owner-scenario-');
   temporaryDirectories.push(directory);
   return directory;
 }

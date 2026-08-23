@@ -31,17 +31,18 @@ import TransportTUI from './TransportTUI.js';
 import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
 import { PALETTE } from './tui-palette.js';
 import UpdateNotice from './UpdateNotice.js';
+import { useTerminalTitle } from './use-terminal-title.js';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { TuiInteractionChannel } from './TuiInteractionChannel.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { IExecutionDetailPage } from '@robota-sdk/agent-interface-execution';
 import type {
-  IExecutionDetailPage,
   IInteractiveSession,
   IInteractiveSessionStore,
-  ITransportRegistryView,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 /**
  * SCREEN-010: items committed to the terminal scrollback via a single Ink `<Static>` — the startup
@@ -274,11 +275,7 @@ function AppInner(
     };
   }, [props.startupUpdateNotice]);
 
-  // Update terminal title
-  useEffect(() => {
-    const title = sessionName ? `Robota — ${sessionName}` : 'Robota';
-    process.stdout.write(`\x1b]0;${title}\x07`);
-  }, [sessionName]);
+  useTerminalTitle(sessionName);
 
   // ESC abort
   useInput((_input: string, key: { escape: boolean }) => {

@@ -18,6 +18,9 @@ import {
   readProviderSettings,
   resolveEnvDefaultProvider,
 } from '../provider-factory.js';
+import { createTrustedProjectAccessFixture } from '../../../testing/trusted-project-state-fixture.js';
+import { createWorkspaceProjectSettingsSources } from '../../../config/settings-source.js';
+import { getWorkspaceProjectReader } from '../../../workspace-trust/index.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
@@ -64,13 +67,10 @@ const DEFINITIONS = [ANTHROPIC, OPENAI_NO_MODEL, GEMINI, GEMMA_LITERAL_KEY, DEEP
  * machine whose developer had never configured the CLI — and read that developer's real profile
  * otherwise. Stating the list makes the premise true by construction.
  */
-function projectSettingsPaths(root: string): string[] {
-  return [
-    join(root, '.robota', 'settings.json'),
-    join(root, '.robota', 'settings.local.json'),
-    join(root, '.claude', 'settings.json'),
-    join(root, '.claude', 'settings.local.json'),
-  ];
+async function projectSettingsSources(root: string) {
+  const access = await createTrustedProjectAccessFixture(root);
+  if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
+  return createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(access.authority));
 }
 
 describe('resolveEnvDefaultProvider (CLI-066)', () => {
@@ -144,19 +144,18 @@ describe('readProviderSettings env-default integration (CLI-066)', () => {
   it('TC-01: no settings anywhere + env key set → env-default config', () => {
     cwd = mkdtempSync(join(tmpdir(), 'robota-env-default-'));
 
-    const config = readProviderSettings(cwd, {
+    const config = readProviderSettings([], {
       providerDefinitions: DEFINITIONS,
       env: { ANTHROPIC_API_KEY: 'sk-test' },
       // Issue #1929: the default list reaches the developer's real `~/.robota/settings.json`, which
       // no `cwd` isolates — "no settings anywhere" has to be stated, not hoped for.
-      settingsPaths: projectSettingsPaths(cwd),
     });
 
     expect(config.name).toBe('anthropic');
     expect(config.source).toBe('env-default');
   });
 
-  it('TC-03: settings profile wins over the env key', () => {
+  it('TC-03: settings profile wins over the env key', async () => {
     cwd = mkdtempSync(join(tmpdir(), 'robota-env-default-'));
     const robotaDir = join(cwd, '.robota');
     mkdirSync(robotaDir, { recursive: true });
@@ -171,7 +170,7 @@ describe('readProviderSettings env-default integration (CLI-066)', () => {
       'utf8',
     );
 
-    const config = readProviderSettings(cwd, {
+    const config = readProviderSettings(await projectSettingsSources(cwd), {
       providerDefinitions: DEFINITIONS,
       env: { ANTHROPIC_API_KEY: 'sk-test', GEMINI_API_KEY: 'g-key' },
     });
@@ -185,10 +184,9 @@ describe('readProviderSettings env-default integration (CLI-066)', () => {
     cwd = mkdtempSync(join(tmpdir(), 'robota-env-default-'));
 
     expect(() =>
-      readProviderSettings(cwd as string, {
+      readProviderSettings([], {
         providerDefinitions: DEFINITIONS,
         env: {},
-        settingsPaths: projectSettingsPaths(cwd as string),
       }),
     ).toThrow(ProviderConfigError);
   });

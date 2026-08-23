@@ -34,6 +34,11 @@ agent-transport-tui
 and subscribes to `IInteractiveSessionEvents` directly, because the narrower `InteractionEvent` stream
 cannot carry the full TUI state. `IInteractionChannel` remains the port for
 `createInteractiveRuntime`-wired in-process channels such as `ProgrammaticInteractionChannel`.
+Both `IRenderOptions` and `ITuiInteractionChannelOptions` carry the composition root's optional
+`TWorkspaceProjectAccess` decision unchanged. A bare `cwd` is provenance only; omission produces the
+framework's explicit Restricted decision and cannot enable project contribution discovery.
+The same surfaces forward an optional `EditCheckpointStore`; trusted project access alone never
+creates checkpoint mutation authority inside the TUI.
 
 Plan lifecycle, context-file refresh, and checkpoint/branch events are projected by the pure
 `createTuiSessionEventNotice` function into a bounded, append-only notice list owned by
@@ -112,9 +117,12 @@ reset, exit/restart, rename, statusline patch, remote control. The renderer only
 
 ## Type Ownership
 
-Owns the TUI rendering/presentation types (`IRenderOptions`, `ITuiCliAdapter`,
-`IDefaultTuiCliAdapterOptions`). Re-exports the `agent-interface-tui` interaction contracts for
-convenience at the transport boundary.
+Owns the TUI rendering/presentation types (`IRenderOptions`, `ITuiInteractionChannelOptions`,
+`ITuiCliAdapter`, `IDefaultTuiCliAdapterOptions`). The two session-construction option types carry
+`projectAccess?: TWorkspaceProjectAccess` and `editCheckpointStore?: EditCheckpointStore`;
+`renderApp` forwards the same explicit capabilities into the channel and then the real
+`InteractiveSession`. Re-exports the `agent-interface-tui` interaction contracts for convenience at
+the transport boundary.
 
 ## Public API Surface
 

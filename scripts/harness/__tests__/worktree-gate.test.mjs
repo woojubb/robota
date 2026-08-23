@@ -8,11 +8,12 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   ambientGitEnvFindings,
@@ -35,7 +36,7 @@ let root;
 let repo;
 
 beforeAll(() => {
-  root = mkdtempSync(path.join(tmpdir(), 'worktree-gate-'));
+  root = makeTemp('worktree-gate-');
   repo = path.join(root, 'repo');
   mkdirSync(repo, { recursive: true });
   execFileSync('git', ['init', '-q', repo]);
@@ -365,7 +366,7 @@ describe('the gate refuses to run without the argument its checks need', () => {
     // traffic table BEFORE running any check, so the CLI — the thing the gate agents actually
     // invoke — still crashed on that line first. A stack trace does not read as the refusal the
     // rest of this script speaks in.
-    const notARepo = mkdtempSync(path.join(tmpdir(), 'worktree-gate-bare-'));
+    const notARepo = makeTemp('worktree-gate-bare-');
     scratch.push(notARepo);
 
     const { status, output } = runGateProcess('--phase', 'before', '--branch', 'anything', {

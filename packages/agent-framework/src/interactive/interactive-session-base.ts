@@ -21,7 +21,7 @@ import {
   buildWorkspaceTaskSpawner,
   readWorkspaceDetail,
 } from './interactive-session-workspace.js';
-import { computeSessionReplayValidationReport } from '../command-api/session/session-command-api.js';
+import { validateWorkspaceSessionReplayLog as validateReplay } from './workspace-session-replay-validation.js';
 
 import type { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import type { SessionExecutionController } from './interactive-session-execution-controller.js';
@@ -61,9 +61,10 @@ import type {
   IContextReferenceRemoveResult,
 } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry, TUniversalMessage, IContextWindowState } from '@robota-sdk/agent-core';
 import type { IScheduleEditPatch } from '@robota-sdk/agent-executor';
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
 import type {
   IBackgroundTaskInput,
   IBackgroundTaskListFilter,
@@ -71,8 +72,8 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
   ISubagentJobState,
-  TDriverId,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
+import type { TDriverId } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
 
 export abstract class InteractiveSessionBase {
@@ -83,6 +84,7 @@ export abstract class InteractiveSessionBase {
   protected abstract getSessionOrThrow(): Session;
   protected abstract ensureInitialized(): Promise<void>;
   protected abstract getCwd(): string;
+  protected abstract getProjectAccess(): TWorkspaceProjectAccess;
 
   isExecuting(): boolean {
     return this.execCtrl.executing;
@@ -120,13 +122,9 @@ export abstract class InteractiveSessionBase {
     await this.ensureInitialized();
     return this.skillRouter.executeModelCommand(name, args);
   }
-  /**
-   * ARCH-029 TC-08 — delegates to the SAME helper the framework used as its default, so there is
-   * one computed path with one owner and no fallback branch beside it.
-   */
+  /** ARCH-029 TC-08: one replay-validation path with no fallback branch. */
   validateCurrentSessionReplayLog(): ICommandSessionReplayValidationReport {
-    const sessionId = this.getSessionOrThrow().getSessionId();
-    return computeSessionReplayValidationReport(this.getCwd(), sessionId);
+    return validateReplay(this.getProjectAccess(), this.getSessionOrThrow().getSessionId());
   }
 
   getCommandInvocationSource(): TCommandInvocationSource {

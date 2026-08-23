@@ -3,7 +3,7 @@ import { render } from 'ink-testing-library';
 import { describe, it, expect } from 'vitest';
 import SlashAutocomplete from '../SlashAutocomplete.js';
 import { formatKeyHints, SELECTION_INDICATOR } from '../key-hint-footer.js';
-import type { ICommand } from '@robota-sdk/agent-interface-transport';
+import type { ICommand } from '@robota-sdk/agent-interface-command';
 
 // ink-testing-library fixes stdout.columns = 100
 // outer box chrome = 4 → rowWidth = 96 in tests

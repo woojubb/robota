@@ -15,19 +15,25 @@ import {
   readErrors,
   readLastAssistantText,
   readToolCalls,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 import { ProgrammaticInteractionChannel } from './ProgrammaticInteractionChannel.js';
 
 import type { IAIProvider, TActionResponse, TPermissionMode } from '@robota-sdk/agent-core';
-import type { ICommandModule, IInteractiveRuntime } from '@robota-sdk/agent-framework';
-import type { IAgentDriver, IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
+import type {
+  ICommandModule,
+  IInteractiveRuntime,
+  TWorkspaceProjectAccess,
+} from '@robota-sdk/agent-framework';
+import type { IAgentDriver, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export interface ICreateProgrammaticAgentOptions {
   /** Provider that answers the agent loop (e.g. a real provider, or the scripted provider in tests). */
   provider: IAIProvider;
   /** Working directory for session creation. */
   cwd: string;
+  /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
+  projectAccess?: TWorkspaceProjectAccess;
   /** Slash-command modules to register (defaults to none). */
   commandModules?: readonly ICommandModule[];
   /** Optional session store for persistence. */
@@ -47,6 +53,7 @@ export function createProgrammaticAgent(options: ICreateProgrammaticAgentOptions
     commandModules: options.commandModules ?? [],
     provider: options.provider,
     cwd: options.cwd,
+    projectAccess: options.projectAccess,
     sessionStore: options.sessionStore,
     permissionMode: options.permissionMode,
   });

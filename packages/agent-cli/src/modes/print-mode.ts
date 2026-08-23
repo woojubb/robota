@@ -5,6 +5,7 @@ import type {
   ICommandHostAdapters,
   ICommandModule,
   ICreateSessionOptions,
+  TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
 import { HeadlessInteractionChannel } from '@robota-sdk/agent-transport/headless';
@@ -58,6 +59,7 @@ export async function runPrintMode(
   sessionResolution: IPrintModeSessionResolution = {},
   presetOptions: IPrintModePresetOptions = {},
   memorySessionOptions: IMemorySessionOptions = {},
+  projectAccess?: TWorkspaceProjectAccess,
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -93,6 +95,7 @@ export async function runPrintMode(
   const channel = new HeadlessInteractionChannel({
     cwd,
     provider,
+    ...(projectAccess !== undefined ? { projectAccess } : {}),
     outputFormat: args.outputFormat ?? 'text',
     // CLI-076: forward the resolved model so `--model` takes effect (an invalid model then surfaces the
     // provider's error and a non-zero exit, instead of a silent substitution succeeding with exit 0).

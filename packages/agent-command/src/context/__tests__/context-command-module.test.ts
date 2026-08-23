@@ -8,7 +8,7 @@ import type {
   IContextReferenceRemoveResult,
   TAutoCompactThresholdSource,
 } from '@robota-sdk/agent-framework';
-import type { IContextReferenceItem } from '@robota-sdk/agent-interface-transport';
+import type { IContextReferenceItem } from '@robota-sdk/agent-interface-session';
 import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createContextCommandModule } from '../context-command-module.js';
 import type { ICommandHostContextWindow } from '@robota-sdk/agent-framework';

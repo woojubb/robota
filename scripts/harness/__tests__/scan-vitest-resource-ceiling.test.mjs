@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   ceilingViolation,
@@ -13,7 +14,7 @@ import {
 const CEILING_IMPORT = "import { resourceCeiling } from '../../vitest.shared';";
 
 function scratch() {
-  const root = mkdtempSync(path.join(tmpdir(), 'vitest-ceiling-'));
+  const root = makeTemp('vitest-ceiling-');
   mkdirSync(path.join(root, 'packages'), { recursive: true });
   return root;
 }

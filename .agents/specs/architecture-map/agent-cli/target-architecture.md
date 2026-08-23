@@ -2,7 +2,7 @@
 
 Part of the [agent-cli composition map](../agent-cli-composition.md).
 
-Source-verified against `develop` on 2026-07-12.
+Source-verified on 2026-08-22.
 
 Target CLI ownership model and dependency graph.
 
@@ -12,7 +12,8 @@ Target CLI ownership model and dependency graph.
 
 - terminal layout, rendering, input handling, keyboard navigation;
 - ephemeral UI selection state (highlighted panel/menu entry);
-- concrete local host adapters: terminal I/O, process spawning, IPC, Git/filesystem worktree, settings-file access;
+- concrete local host adapters: terminal I/O, process spawning, IPC, Git/filesystem worktree, user settings-file access;
+- composition of a host-issued trusted/restricted project-access decision; `cwd` alone remains provenance;
 - composition of product-default command modules, provider definitions, transports, and optional runtime packages;
 - preset selection glue only: pick the active preset id (`--preset` flag > `settings.preset` > `'default'`) and forward CLI-flag overrides; it owns none of the preset merge, posture-mapping, or `applyPresetToSession` application logic.
 
@@ -38,11 +39,13 @@ agent-cli
       v
 agent-framework  [React-free — React belongs in the presentation transports (tui/gui) only]
   owns InteractiveSession, command contracts/common APIs, provider-neutral facades,
-  host adapter ports, prompt file-reference preprocessing, session orchestration,
+  workspace project authority/facets, host adapter ports, prompt file-reference preprocessing,
+  session orchestration,
   buildRuntimeSession (the single session-construction seam) +
   startRuntimeHost (build + start; serves the loopback WS sidecar for --serve)
       |
-      +--> agent-session    owns conversation run loop, persistence, compaction
+      +--> agent-session    owns conversation run loop, neutral persistence/log ports,
+                            explicit Node host adapters, and compaction
       +--> agent-executor   owns reusable background/subagent lifecycle ports and state
       +--> agent-tools      owns generic tools and tool schemas
       +--> agent-core       owns provider, history, permission, hook, and model catalog contracts
@@ -82,7 +85,7 @@ Target ownership rules:
 | Provider settings/profile setup common APIs                           | `agent-framework` + provider packages         | Provide concrete settings adapters and provider definitions.                     |
 | Prompt `@file` parsing, file reads, diagnostics                       | `agent-framework`                             | Pass ordinary prompt text through `InteractiveSession.submit()`.                 |
 | Provider-specific defaults, probes, model fallback data               | `agent-provider` via `agent-core`             | Compose definitions; never branch on provider names in TUI hooks.                |
-| Session persistence facade                                            | `agent-framework`                             | Request project-local store; display framework-owned summaries.                  |
+| Session persistence facade                                            | `agent-framework`                             | Derive project store only from accepted named state facets; display summaries.   |
 | Reusable background/subagent state machines and ports                 | `agent-executor`                              | Supply local process/worktree adapters via agent-subagent-runner.                |
 | Child-process subagent runner + worker                                | `agent-subagent-runner` (opt-in)              | Import factory; dispatch worker mode in bin.ts; pass workerEntry (DIST-006).     |
 | Background task workspace/read model and retention                    | `agent-framework` + `agent-executor`          | Render framework projection; keep only selected-entry UI state.                  |
@@ -102,10 +105,10 @@ flowchart TD
   Framework["@robota-sdk/agent-framework\nInteractiveSession, command contracts, common APIs"]
   Commands["@robota-sdk/agent-command\nall built-in command modules\n+ plugin-to-command bridge adapters"]
   Core["@robota-sdk/agent-core\nprovider, permission, history, message contracts"]
-  Session["@robota-sdk/agent-session\nSession, SessionStore, compaction"]
+  Session["@robota-sdk/agent-session\nSession, neutral store/log ports,\nexplicit Node host adapters, compaction"]
   Tools["@robota-sdk/agent-tools\nbuilt-in tools"]
   Executor["@robota-sdk/agent-executor\nbackground tasks, subagents, worktree"]
-  Provider["@robota-sdk/agent-provider-defaults\nprovider definitions + createDefaultProviderDefinitions()"]
+  Provider["@robota-sdk/agent-builtin-providers\nprovider definitions + createDefaultProviderDefinitions()"]
   Transport["@robota-sdk/agent-transport\nheadless transport + TransportRegistry (root + /headless)"]
   TransportTui["@robota-sdk/agent-transport-tui\nrenderApp, App, TuiTransport, TuiInteractionChannel,\ncreateDefaultTuiCliAdapter"]
   TransportWs["@robota-sdk/agent-transport-ws\nWsTransport"]

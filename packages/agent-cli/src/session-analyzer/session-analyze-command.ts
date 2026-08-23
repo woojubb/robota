@@ -13,12 +13,7 @@
  * agent-framework session-store facades). agent-cli stays a thin shell.
  */
 
-import {
-  createProjectSessionStore,
-  createUserSessionStore,
-  projectPaths,
-  userPaths,
-} from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework';
 import {
   aggregateReports,
   analyzeSession,
@@ -29,6 +24,7 @@ import {
 } from '@robota-sdk/agent-session-analytics';
 
 import type { TSessionAnalysisInput } from '@robota-sdk/agent-session-analytics';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 interface ISessionAnalyzeArgs {
   last: number | undefined;
@@ -62,13 +58,18 @@ function parseSessionAnalyzeArgs(argv: string[]): ISessionAnalyzeArgs {
  * (`cwd/.robota/sessions` + replay logs), de-duped by id (project wins on collision) and sorted by
  * id ascending — session ids are timestamp-prefixed, so lexical order is chronological.
  */
-function loadSessionRecords(cwd: string): TSessionAnalysisInput[] {
+function loadSessionRecords(
+  projectSessionStore: IInteractiveSessionStore | undefined,
+): TSessionAnalysisInput[] {
+  // TRANS-007: analysis needs readable records, so unreadable entries are skipped HERE rather than
+  // by the store — the store now reports them, and each consumer decides what it can do with one.
+  // An analyzer has nothing to analyse in a record it cannot decode.
   const byId = new Map<string, TSessionAnalysisInput>();
-  for (const record of createUserSessionStore().list()) {
-    byId.set(record.id, record);
+  for (const entry of createUserSessionStore().list()) {
+    if (entry.outcome.status === 'valid') byId.set(entry.id, entry.outcome.record);
   }
-  for (const record of createProjectSessionStore(cwd).list()) {
-    byId.set(record.id, record);
+  for (const entry of projectSessionStore?.list() ?? []) {
+    if (entry.outcome.status === 'valid') byId.set(entry.id, entry.outcome.record);
   }
   return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
@@ -76,13 +77,14 @@ function loadSessionRecords(cwd: string): TSessionAnalysisInput[] {
 export async function runSessionAnalyze(
   argv: string[],
   cwd: string = process.cwd(),
+  projectSessionStore?: IInteractiveSessionStore,
 ): Promise<void> {
   const args = parseSessionAnalyzeArgs(argv);
-  const records = loadSessionRecords(cwd);
+  const records = loadSessionRecords(projectSessionStore);
 
   if (records.length === 0) {
     process.stderr.write(
-      `No session files found in ${projectPaths(cwd).sessions} or ${userPaths().sessions}\n`,
+      'No session files found in configured user or authorized project session stores.\n',
     );
     process.exit(1);
   }

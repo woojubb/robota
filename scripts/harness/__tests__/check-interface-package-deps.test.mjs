@@ -97,3 +97,57 @@ describe('checkFullGraphCycles (HARNESS-022)', () => {
     expect(checkFullGraphCycles(packages)).toEqual([]);
   });
 });
+
+describe('checkInterfacePackageDeps — peer edges by declared layer (ARCH-101)', () => {
+  const layers = new Map([
+    ['agent-interface-transport', 0],
+    ['agent-interface-command', 0],
+    ['agent-interface-execution', 0],
+    ['agent-interface-session', 1],
+    ['agent-interface-session-mobility', 2],
+  ]);
+  const pkg = (name, dependencies) => new Map([[name, { name, path: '/x', dependencies }]]);
+  const run = (name, deps) => checkInterfacePackageDeps(pkg(name, deps), layers);
+
+  it('ACCEPTS a downward peer edge — the whole point of the amendment', () => {
+    expect(
+      run('@robota-sdk/agent-interface-session', ['@robota-sdk/agent-interface-execution']),
+    ).toEqual([]);
+  });
+
+  it('ACCEPTS a downward edge spanning two layers', () => {
+    expect(
+      run('@robota-sdk/agent-interface-session-mobility', [
+        '@robota-sdk/agent-interface-execution',
+      ]),
+    ).toEqual([]);
+  });
+
+  it('REFUSES a same-layer peer edge', () => {
+    const v = run('@robota-sdk/agent-interface-command', ['@robota-sdk/agent-interface-execution']);
+    expect(v).toHaveLength(1);
+    expect(v[0].message).toContain('SAME-LAYER');
+  });
+
+  it('REFUSES an upward peer edge', () => {
+    const v = run('@robota-sdk/agent-interface-execution', ['@robota-sdk/agent-interface-session']);
+    expect(v).toHaveLength(1);
+    expect(v[0].message).toContain('UPWARD');
+  });
+
+  it('REFUSES an undeclared peer rather than treating it as legal by default', () => {
+    const v = run('@robota-sdk/agent-interface-session', ['@robota-sdk/agent-interface-nowhere']);
+    expect(v).toHaveLength(1);
+    expect(v[0].message).toContain('no declared layer');
+  });
+
+  it('still REFUSES an implementation dependency, which layers do not excuse', () => {
+    const v = run('@robota-sdk/agent-interface-session', ['@robota-sdk/agent-framework']);
+    expect(v).toHaveLength(1);
+    expect(v[0].dep).toBe('@robota-sdk/agent-framework');
+  });
+
+  it('still allows agent-core', () => {
+    expect(run('@robota-sdk/agent-interface-session', ['@robota-sdk/agent-core'])).toEqual([]);
+  });
+});

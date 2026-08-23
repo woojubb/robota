@@ -1,10 +1,11 @@
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { evaluatePromotion, resolveBase, resolveHead } from '../scan-promotion-ancestry.mjs';
 
@@ -32,7 +33,7 @@ function makeGit(root) {
 }
 
 async function newRepo() {
-  const root = await mkdtemp(path.join(tmpdir(), 'robota-promotion-ancestry-'));
+  const root = makeTemp('robota-promotion-ancestry-');
   roots.push(root);
   const git = makeGit(root);
   git(['init', '--quiet', '--initial-branch=develop']);

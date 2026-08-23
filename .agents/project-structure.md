@@ -13,12 +13,13 @@ packages/
 ├── agent-preset/                # Preset contract (IPreset) + resolvePreset + built-in presets (depends on agent-framework only)
 ├── agent-capability-pack/       # Additive capability-bundle contract (ICapabilityPack) + pure mergeCapabilityPacks merger; additive analog of agent-preset (deps: agent-framework + agent-core types only, no IO)
 ├── agent-product/               # Product-assembly kernel: assembleProduct — a pure, IO-free fold over IProductProfile that delegates runtime construction to agent-framework (deps: agent-framework + agent-preset + agent-capability-pack + type-only agent-interface-transport + agent-core types; NO concrete transport/TUI/CLI). ARCH-005; neutrality mechanically enforced by scan-composition-neutrality
-├── agent-subagent-runner/       # Optional: child-process subagent runner + worker (depends on agent-framework; ARCH-021 removed the agent-provider-defaults edge — the composition root supplies ISubagentWorkerComposition)
+├── agent-subagent-runner/       # Optional: child-process subagent runner + worker (depends on agent-framework; ARCH-021 removed the provider-aggregator edge — the composition root supplies ISubagentWorkerComposition)
 ├── agent-command/               # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
 ├── agent-command-*/             # Command-module bridge packages to other subsystems (e.g. agent-command-workflows: surfaces the DAG engine as `/workflows`, composing dag-framework)
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-cli-web/               # GUI-007 — the CLI's built-in web monitor SPA (Vite; index.html → SessionMonitor over localhost WS); `private` product-shell; agent-cli builds its dist + serves it over localhost HTTP. Not deployable
-├── agent-provider-*/            # Provider family (per-vendor split, ARCH-PROVIDER-002): agent-provider-anthropic, -bytedance, -gemini, -openai, -openai-compatible, -defaults (default-set aggregator), -replay (deterministic session-log replay provider; depends on agent-core + agent-session). There is NO bare `agent-provider` package. deepseek/qwen/gemma are `openai-compatible` *definitions* surfaced by agent-provider-openai-compatible, not standalone packages
+├── agent-builtin-*/             # What the SDK ships with, named apart from what it bundles (STRUCT-011): agent-builtin-providers (built-in chat provider definitions + the default role→model mapping). An aggregator is named apart from the family it bundles
+├── agent-provider-*/            # Provider family (per-vendor split, ARCH-PROVIDER-002): agent-provider-anthropic, -bytedance, -gemini, -openai, -openai-compatible, -replay (deterministic session-log replay provider; depends on agent-core + agent-session). There is NO bare `agent-provider` package. deepseek/qwen/gemma are `openai-compatible` *definitions* surfaced by agent-provider-openai-compatible, not standalone packages
 ├── agent-playground/            # Playground UI package
 ├── agent-remote-client/         # Remote execution client
 ├── agent-remote-pairing/        # Isomorphic pairing + DTLS-fingerprint channel binding (WebCrypto only, zero workspace deps; host + Stage-D browser reuse) (REMOTE-001)
@@ -30,7 +31,6 @@ packages/
 ├── agent-process/               # Domain-free child-process termination primitives (killProcessTree: SIGTERM→grace→SIGKILL, process-group aware); zero @robota-sdk deps, leaf. Consumed by agent-executor/agent-tools/agent-subagent-runner (CORE-023)
 ├── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
 ├── pack-*/                      # Capability packs (`@robota-sdk/pack-*`): additive ICapabilityPack bundles composed by agent-product's assembleProduct. e.g. pack-coding — robota's coding capability (built-in tools + /shell + /editor command modules + coding subagents); imports agent-tools/agent-command/agent-framework, re-implements nothing (ARCH-005)
-│
 │   # DAG subsystem (workflow engine; absorbed via WORKFLOW-001, decoupled from the external workflow runtime)
 ├── dag-core/                    # DAG foundation: runtime-provider + workflow-file contracts, engine types, lifecycle services
 ├── dag-framework/               # DAG assembly: createDagFramework, local in-process runtime provider, default node registry
@@ -220,18 +220,18 @@ any project, with the Robota-specific assembly (if any) staying in `agent-cli` /
 
 ## Forward-Provisioned Surface Rule
 
-A public surface in `packages/` with zero in-repo consumers is **not dead code**. Libraries and
-frameworks ship surfaces FOR external consumers; deliberate forward-provisioning ("built ahead so
-it is available when needed") is a legitimate product state (owner decision, 2026-07-04 re-audit).
+**In-repo consumer count is not evidence about whether a `packages/` surface should be public — at any
+count**, because `packages/` is a library others compose into their own agents (owner decisions
+2026-07-04 and 2026-08-23; reasoning in [ARCH-102](spec-docs/done/ARCH-102-public-surface-is-not-judged-by-in-repo-consumer-count.md)).
 
-- Removal of an unconsumed public surface is a PRODUCT decision — never a grep-based cleanup.
-  Propose it as a user decision item with options; do not file it as "dead code".
-- Forward-provisioned surfaces carry the same first-class quality bar as consumed ones: accurate
-  SPEC/README, tests, and bug fixes are unconditional — "nobody uses it yet" never downgrades a
-  defect on such a surface.
-- Consumption-based detectors (orphan-export style scans) must not treat in-repo non-consumption
-  of `packages/` public surfaces as a violation. (Pass-through re-exports remain banned — that
-  rule is about ownership, not consumption.)
+- The only grounds for narrowing or removing one are that it is **genuinely unnecessary** or **does
+  not fit the design** — judgements about the surface, never its callers. It is a PRODUCT decision,
+  never a grep-based cleanup: propose it as a user decision item; do not file it as "dead code".
+- Forward-provisioned surfaces carry the same quality bar as consumed ones: accurate SPEC/README,
+  tests and bug fixes are unconditional — "nobody uses it yet" never downgrades a defect.
+- Consumption-based detectors (orphan-export style scans) must not treat in-repo non-consumption of
+  `packages/` public surfaces as a violation. (Pass-through re-exports remain banned — ownership, not
+  consumption.)
 
 ## Planned Packages (Not Yet Created)
 
@@ -299,7 +299,7 @@ User-visible internal commands belong in `agent-command` or command-module owner
 `agent-interface-*` packages contain **only type contracts and interfaces — no implementation**.
 They are the SSOT for cross-cutting contracts shared between implementation families.
 
-- `agent-interface-transport` — transport contracts (`ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`) plus, post-DATA-001, the session (`IInteractiveSessionRecord`/`Store`, `IInteractiveSession`), workspace (`IExecutionWorkspace*`), command (`ICommand`/`ICommandResult`), event (`InteractionEvent`, session-event payloads), and usage (`IBackgroundTaskUsage`) contract families
+- `agent-interface-transport` — transport contracts (`ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`) plus, post-DATA-001, the session, workspace, command, event, and usage families. ARCH-100 (issue #2080) reassigns all eleven families to six owners: [`specs/contract-family-owner-map.md`](specs/contract-family-owner-map.md) is the SSOT for the owner map, the acyclic target graph and the migration order, and the `interface-family-owner` scan parses it. Do not restate it here.
 - `agent-interface-tui` — TUI interaction contracts (`ITuiPickerItem`, `ITuiCommandInteraction`, `ITuiPickerInteraction`, `ITuiConfirmInteraction`, `TAnyTuiCommandInteraction`, `TOnMissingArgsAction`)
 - Future: `agent-interface-provider`, `agent-interface-plugin` if those families need isolated contracts
 
@@ -316,12 +316,12 @@ doubles→owner /testing`). Pre-existing mechanisms are frozen per package in
   `scripts/harness/interface-entry-baseline.json` and the count may only shrink. The entry edge
   exists because the source edge alone measured something narrower than this rule's words, so a
   100-line prototype-walking forwarder sat outside the rule and inside the green.
-- An `agent-interface-*` package's internal dependencies are a subset of `{agent-core}` —
-  contracts never depend on implementation packages (INFRA-025; mechanized as the
-  `INTERFACE-DEPS` rule in the `deps` scan). `agent-interface-transport` owns the
-  background-task/subagent/compaction data contracts and, post-DATA-001, the
-  session/workspace/command/event/usage contract families; `agent-executor`/`agent-session` import
-  them and keep only runtime SPI.
+- An `agent-interface-*` package depends on `{agent-core}`, and on a PEER `agent-interface-*` package
+  only DOWNWARD across the declared layers, one-directionally. Same-layer and upward are refused, as
+  is any implementation package — contracts never depend on implementations (INFRA-025; ARCH-101;
+  mechanized as the `INTERFACE-DEPS` rule in the `deps` scan). The layer that authorizes an edge is
+  declared once in [`specs/contract-family-owner-map.md`](specs/contract-family-owner-map.md) and read
+  by both guards through `scripts/harness/interface-layers.mjs`. Do not restate a layer elsewhere.
 - Implementation packages (`agent-transport` with subpath `/headless`; the per-concern `agent-transport-tui` / `-ws` / `-http` / `-mcp` packages; `agent-provider` with subpaths `/anthropic`, `/openai`, etc.; `agent-command`) depend on the corresponding `agent-interface-*` package, not on `agent-framework`, for interface types. The transport-facing contract types (command, interaction, event, workspace, session, and transport contracts) live in `agent-interface-transport` as their SSOT (per INFRA-010). This is **mechanically enforced** by `scripts/harness/check-interface-imports.mjs` (wired into `pnpm harness:scan` as the `interface-imports` scan): any implementation package that imports an `agent-interface-transport`-exported symbol from `@robota-sdk/agent-framework` fails the gate. Runtime values and framework-owned types (e.g. `TInteractiveSessionOptions`, `ICommandHostContext`, `ICommandModule`, `TSettingsData`) still come from `agent-framework`.
 - `agent-framework` depends on the `agent-interface-transport` package to consume the contracts it needs (it does not depend on `agent-interface-tui`, which only `agent-transport-tui` consumes).
 - Do not place interface packages in `agent-core` — `agent-core` is zero-deps and owns foundational primitives only.

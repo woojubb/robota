@@ -5,20 +5,36 @@ import { join } from 'node:path';
 import { LocalDagRuntimeProvider } from '@robota-sdk/dag-framework';
 import { describe, expect, it } from 'vitest';
 
-import { executeWorkflowsCatalog } from '../catalog-command.js';
+import { executeWorkflowsCatalog as executeWorkflowsCatalogWithProject } from '../catalog-command.js';
 import { subcommandUsage, WORKFLOWS_SUBCOMMANDS } from '../subcommands.js';
-import { executeWorkflowsValidate } from '../validate-command.js';
+import { executeWorkflowsValidate as executeWorkflowsValidateWithProject } from '../validate-command.js';
 import { createWorkflowsCommandModule } from '../workflows-command-module.js';
+import { createWorkflowProjectFixture } from './workflow-project-fixture.js';
 
 import type { ICommandHostContext, ISystemCommand } from '@robota-sdk/agent-framework';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 const FAKE_CONTEXT = createTestCommandHost({ cwd: process.cwd() });
 
-function workflowsCommand(): ISystemCommand {
-  const cmd = createWorkflowsCommandModule().systemCommands?.[0];
+function workflowsCommand(
+  project?: Awaited<ReturnType<typeof createWorkflowProjectFixture>>,
+): ISystemCommand {
+  const cmd = createWorkflowsCommandModule(project === undefined ? {} : { project })
+    .systemCommands?.[0];
   if (!cmd) throw new Error('workflows system command missing');
   return cmd;
+}
+
+async function trustedWorkflowsCommand(root: string = process.cwd()): Promise<ISystemCommand> {
+  return workflowsCommand(await createWorkflowProjectFixture(root));
+}
+
+async function executeWorkflowsValidate(file: string, root: string) {
+  return executeWorkflowsValidateWithProject(file, await createWorkflowProjectFixture(root));
+}
+
+async function executeWorkflowsCatalog(root: string) {
+  return executeWorkflowsCatalogWithProject(await createWorkflowProjectFixture(root));
 }
 
 async function knownNodeType(): Promise<string> {
@@ -29,6 +45,19 @@ async function knownNodeType(): Promise<string> {
 }
 
 describe('workflows command module', () => {
+  it('refuses project workflow discovery when no explicit project capability was injected', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'wf-restricted-'));
+    await mkdir(join(dir, '.workflows'), { recursive: true });
+    await writeFile(join(dir, '.workflows', 'canary.json'), '{}');
+    const context = createTestCommandHost({ cwd: dir });
+
+    const result = await workflowsCommand().execute(context, 'catalog');
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('WorkspaceAuthorityRequired');
+    expect(result.message).not.toContain('canary');
+  });
+
   it('exposes a slash-free `workflows` command with create/list/catalog/validate/run subcommands', () => {
     const mod = createWorkflowsCommandModule();
     expect(mod.name).toBe('agent-command-workflows');
@@ -55,13 +84,13 @@ describe('workflows command module', () => {
   });
 
   it('dispatches `build` and reports the build usage on empty args (WORKFLOW-004)', async () => {
-    const result = await workflowsCommand().execute(FAKE_CONTEXT, 'build');
+    const result = await (await trustedWorkflowsCommand()).execute(FAKE_CONTEXT, 'build');
     expect(result.success).toBe(false);
     expect(result.message).toContain('Usage: /workflows build');
   });
 
   it('dispatches `list` to the in-process node catalog', async () => {
-    const result = await workflowsCommand().execute(FAKE_CONTEXT, 'list');
+    const result = await (await trustedWorkflowsCommand()).execute(FAKE_CONTEXT, 'list');
     expect(result.success).toBe(true);
     expect(result.message).toContain('workflow nodes');
   });
@@ -77,7 +106,7 @@ describe('workflows command module', () => {
   // argumentHint must match the `Usage:` line its executor emits, and the hint must be advertised
   // to the CLI verbatim.
   it('dispatches every registered subcommand (no advertised-but-unroutable verb)', async () => {
-    const cmd = workflowsCommand();
+    const cmd = await trustedWorkflowsCommand();
     for (const sub of WORKFLOWS_SUBCOMMANDS) {
       const result = await cmd.execute(FAKE_CONTEXT, sub.name);
       expect(result.message, `subcommand "${sub.name}" is not dispatched`).not.toContain(
@@ -100,7 +129,7 @@ describe('workflows command module', () => {
   });
 
   it('reports a usage error when `run`/`validate` are given no file', async () => {
-    const cmd = workflowsCommand();
+    const cmd = await trustedWorkflowsCommand();
     expect((await cmd.execute(FAKE_CONTEXT, 'run')).message).toContain('Usage: /workflows run');
     expect((await cmd.execute(FAKE_CONTEXT, 'validate')).message).toContain(
       'Usage: /workflows validate',

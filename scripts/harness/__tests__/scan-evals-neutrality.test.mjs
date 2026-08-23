@@ -1,8 +1,9 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   findEvalsContentInSource,
@@ -112,7 +113,7 @@ describe('HARNESS-034 TC-04b — disk walk positive path (PR #1246 review CONSID
   let root;
   beforeAll(() => {
     // A throwaway workspace with planted content, to exercise the walk + per-file read + Class1→continue.
-    root = mkdtempSync(path.join(tmpdir(), 'evals-neutrality-'));
+    root = makeTemp('evals-neutrality-');
     const evalsDir = path.join(root, 'packages', 'demo', 'src', 'evals');
     mkdirSync(evalsDir, { recursive: true });
     writeFileSync(path.join(evalsDir, 'cases.jsonl'), '{"input":"a","expected":"b"}\n');

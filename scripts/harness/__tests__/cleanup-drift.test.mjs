@@ -3,16 +3,16 @@ import {
   copyFileSync,
   chmodSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   rmSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
@@ -48,7 +48,7 @@ afterEach(() => {
 
 /** A copy of the frozen baseline, mutated, written somewhere the repository does not care about. */
 function temporaryBaseline(mutate) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'cleanup-drift-'));
+  const dir = makeTemp('cleanup-drift-');
   dirs.push(dir);
   const frozen = JSON.parse(readFileSync(BASELINE, 'utf8'));
   mutate(frozen);
@@ -120,7 +120,7 @@ describe('cleanup-drift publishes its verdict (HARNESS-069)', () => {
     // One run must not answer the same question two ways. A tree with nothing to find still fails the
     // ratchet when a frozen count fell without a re-freeze, and the reassuring sentence on stdout is
     // the one a reader skims.
-    const root = mkdtempSync(path.join(tmpdir(), 'cleanup-drift-clean-'));
+    const root = makeTemp('cleanup-drift-clean-');
     dirs.push(root);
     mkdirSync(path.join(root, 'packages'), { recursive: true });
     writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
@@ -156,7 +156,7 @@ describe('cleanup-drift publishes its verdict (HARNESS-069)', () => {
     // RULE-013 red-proof. `cleanup-drift.mjs` carried its own 8-entry required list missing
     // `Class Contract Registry`, so no run ever reported a SPEC lacking it. Without this case,
     // re-introducing that array leaves every other test green — which is how the defect survived.
-    const root = mkdtempSync(path.join(tmpdir(), 'cleanup-drift-ccr-'));
+    const root = makeTemp('cleanup-drift-ccr-');
     dirs.push(root);
     mkdirSync(path.join(root, 'packages/widget/docs'), { recursive: true });
     writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
@@ -216,7 +216,7 @@ describe('cleanup-drift publishes its verdict (HARNESS-069)', () => {
     // reported against the real tree were comments; the true count was zero. Without this case, the
     // anchor can be dropped and every other test here stays green, because the frozen baseline would
     // simply be re-frozen at whatever prose happens to be in the tree that day.
-    const root = mkdtempSync(path.join(tmpdir(), 'cleanup-drift-prose-'));
+    const root = makeTemp('cleanup-drift-prose-');
     dirs.push(root);
     mkdirSync(path.join(root, 'packages/widget/src'), { recursive: true });
     writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
@@ -259,7 +259,7 @@ describe('cleanup-drift publishes its verdict (HARNESS-069)', () => {
 
   it('still counts a real blind `as any` assertion (#1803)', () => {
     // The anchor must not be a way to stop measuring. Same fixture shape, one actual assertion.
-    const root = mkdtempSync(path.join(tmpdir(), 'cleanup-drift-real-'));
+    const root = makeTemp('cleanup-drift-real-');
     dirs.push(root);
     mkdirSync(path.join(root, 'packages/widget/src'), { recursive: true });
     writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
@@ -314,7 +314,7 @@ describe('cleanup-drift publishes its verdict (HARNESS-069)', () => {
 describe('a measurement that failed is an error, not a clean result (HARNESS-069)', () => {
   /** A `grep` earlier on PATH that fails the way a real one does when it cannot read a tree. */
   function brokenGrepDir(exitCode) {
-    const dir = mkdtempSync(path.join(tmpdir(), 'cleanup-drift-grep-'));
+    const dir = makeTemp('cleanup-drift-grep-');
     dirs.push(dir);
     const stub = path.join(dir, 'grep');
     writeFileSync(
@@ -340,7 +340,7 @@ describe('a measurement that failed is an error, not a clean result (HARNESS-069
     // only for `<package>/src`, every forbidden-term measurement failed, nothing was printed, and the
     // script exited 0. A stub that breaks ALL greps could not have caught it — the first thrown error
     // would have come from one of the converted sites.
-    const dir = mkdtempSync(path.join(tmpdir(), 'cleanup-drift-grep-src-'));
+    const dir = makeTemp('cleanup-drift-grep-src-');
     dirs.push(dir);
     const realGrep = spawnSync('sh', ['-c', 'command -v grep'], { encoding: 'utf8' }).stdout.trim();
     const stub = path.join(dir, 'grep');
@@ -381,7 +381,7 @@ describe('a freeze cannot bake in a clock-derived number (HARNESS-069)', () => {
     // own `.design/tmp` and removed it in a `finally` — the exact pattern this file's header rejects
     // three paragraphs up, since a timeout or a SIGKILL never runs the restore and leaves an aged
     // untracked file in a tracked directory. Review caught the file contradicting itself.
-    const root = mkdtempSync(path.join(tmpdir(), 'cleanup-drift-freeze-'));
+    const root = makeTemp('cleanup-drift-freeze-');
     dirs.push(root);
     // The three things the script's other checks need, so the run reaches the freeze.
     mkdirSync(path.join(root, 'packages'), { recursive: true });
@@ -448,7 +448,7 @@ describe('a freeze cannot bake in a clock-derived number (HARNESS-069)', () => {
  */
 describe('fail-closed over a root it cannot judge (HARNESS-069)', () => {
   it('(RED) refuses to report when packages/ is absent', () => {
-    const dir = mkdtempSync(path.join(tmpdir(), 'cleanup-drift-bare-'));
+    const dir = makeTemp('cleanup-drift-bare-');
     dirs.push(dir);
     // Seeded with the two things the script's OTHER checks need, so the root is bare in exactly the
     // way this case is about. Without them the unfixed script died on a missing

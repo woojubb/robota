@@ -244,7 +244,7 @@
         "\\bgemini-[0-9][a-z0-9.-]*\\b",
         "['\"`]o[13](?:-mini|-pro)?['\"`]"
       ],
-      "allowedPathIncludes": ["packages/agent-provider-defaults/"]
+      "allowedPathIncludes": ["packages/agent-builtin-providers/"]
     }
   },
   "authorityBypass": [
@@ -459,7 +459,7 @@
       "packages/agent-product/src/index.ts",
       "packages/agent-provider-anthropic/src/index.ts",
       "packages/agent-provider-bytedance/src/index.ts",
-      "packages/agent-provider-defaults/src/index.ts",
+      "packages/agent-builtin-providers/src/index.ts",
       "packages/agent-provider-gemini/src/index.ts",
       "packages/agent-provider-openai-compatible/src/index.ts",
       "packages/agent-provider-openai/src/index.ts",

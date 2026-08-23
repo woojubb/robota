@@ -12,19 +12,21 @@ import type {
   ICommandHostAdapters,
   ICommandModule,
   ICreateSessionOptions,
+  EditCheckpointStore,
   IMemoryStore,
   IPerTurnRecallConfig,
   IRemoteCommandPolicy,
   TShellExecFn,
   TSubagentRunnerFactory,
+  TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
 import type {
   IInteractiveSession,
   IInteractiveSessionStore,
-  ITransportRegistryView,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 /**
  * The TUI channel's option surface.
@@ -47,6 +49,9 @@ export interface ITuiInteractionChannelOptions {
   providerDefinitions?: readonly IProviderDefinition[];
   cwd: string;
   provider: IAIProvider;
+  projectAccess?: TWorkspaceProjectAccess;
+  /** Explicit authority- and permission-backed edit checkpoint capability. */
+  editCheckpointStore?: EditCheckpointStore;
   /**
    * CLI-076: the resolved model id (the same value the status line displays). Forwarded to the session so an
    * explicit `--model` override reaches the provider chat call instead of being silently replaced by the

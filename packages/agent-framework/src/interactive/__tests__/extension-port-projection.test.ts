@@ -27,8 +27,8 @@ const DEPS: ICreateSessionProjectionDeps = {
   context: {} as ICreateSessionProjectionDeps['context'],
   projectInfo: {} as ICreateSessionProjectionDeps['projectInfo'],
   sessionId: 'test-session',
-  logsDir: '/arch-013-stage-3/logs',
   contextCapacityHint: undefined,
+  contributionSources: [],
 };
 
 function initOptions(extra: Partial<IInitOptions>): IInitOptions {

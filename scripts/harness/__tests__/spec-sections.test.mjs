@@ -18,11 +18,12 @@
  * from one that never fires, which is the vacuous-green class this backlog item exists to remove.
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   isRequiredSpecSection,
@@ -87,7 +88,7 @@ describe('the section contract is parsed from its owner, not copied', () => {
 
 describe('the parser refuses a bad parse instead of shrinking the contract', () => {
   const writeSkill = (body) => {
-    const dir = mkdtempSync(path.join(tmpdir(), 'spec-contract-'));
+    const dir = makeTemp('spec-contract-');
     mkdirSync(path.join(dir, '.agents/skills/spec-writing-standard'), { recursive: true });
     writeFileSync(path.join(dir, '.agents/skills/spec-writing-standard/SKILL.md'), body, 'utf8');
     return dir;

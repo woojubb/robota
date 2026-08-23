@@ -61,6 +61,14 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 └────────────────────────────────────────────────────────────┘
 ```
 
+> **Type contracts are being decomposed (ARCH-100 · issue #2080).** `agent-interface-transport` is
+> named for transport but currently owns eleven contract families — session, command, workspace,
+> execution, analytics and more — and 15 packages reach it for session contracts alone. The
+> contract-family **owner map**, the proven-acyclic target graph, and the migration order live in
+> [`.agents/project-structure.md`](.agents/project-structure.md) § Interface Package Rule and are
+> enforced by the `interface-family-owner` scan. The box above lists the packages that exist **today**;
+> the five new owners appear in it as their migration leaves (the leaves from issue #2108 through issue #2113) land.
+
 > **DAG / workflow subsystem.** The `dag-*` and `agent-command-workflows` packages are private and
 > not published on their own. They are bundled into `@robota-sdk/agent-cli` (INFRA-028) and surfaced
 > to users through the `/workflows` command (e.g. `/workflows create "<natural language>"`). The
