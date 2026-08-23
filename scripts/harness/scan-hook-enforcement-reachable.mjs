@@ -85,54 +85,16 @@ const DEFAULT_POLICY = 'packages/agent-core/src/hooks/enforcement-policy.ts';
 /** @typedef {{ file: string, line: number, events: string[], awaited: boolean, readsBlocked: boolean }} TFireSite */
 
 /**
- * Replace every comment byte with a space, preserving offsets and line structure.
- *
- * This scan matches regexes against raw source, which means COMMENT TEXT COUNTS AS CODE. Measured
- * on this very file's subject: deleting the entire `if (hookResult.blocked) { … }` statement from
- * `tool-hook-helpers.ts` left the scan GREEN, because a comment three lines below mentions
- * `hookResult.blocked` in backticks — a comment added to describe the guard was the only thing
- * still vouching for it. Same root, three more effects: a commented-out policy row overrode the
- * real one (later inline match wins), a stray `}` inside a comment defeated the brace walk and
- * restored the permissive `readsBlocked` direction, and a commented-out `runHooks(` call inflated
- * the fire-site count.
- *
- * Offset-PRESERVING on purpose: `lineOffsets`, `enclosingBlockStart` and `bodyEnd` all index into
- * the same buffer, so collapsing a comment would silently shift every position after it. The
- * repository's existing `stripComments` helper collapses, which is why this is a local variant
- * rather than a reuse.
- *
- * String literals AND regex literals are tracked, both for the same reason: so a `//` or `/*` inside
- * one does not start a false comment. The regex half was missing and it mattered: a regex ending in
- * an escaped slash puts `//` in the source, which was read as a line comment and blanked the rest of
- * that line of live code, closing bracket included.
- *
- * The population that protects, measured rather than asserted: **135 of the 1650 production `.ts`
- * files this scan enumerates contain a regex literal.** An earlier version of this sentence said the
- * idiom "appears four times in the file this scan reads" — false twice over. It appears three times
- * in THIS file (two of them prose, one live), and this scan never blanks its own source: it
- * enumerates `packages`/`apps` under `src/`, and no file it reads contains that token at all. The
- * fix was right; the reason given for it was measured on the wrong file.
- *
- * Contained — #2258. What is NOT tracked, and the list is the point because an enumeration that
- * omits the one construct a filed issue names is the defect that issue is about:
- *   - JSX;
- *   - the division-versus-regex call is a heuristic on the preceding token, not a parse;
- *   - **braces inside string and template literals are NOT neutralised.** Literals are skipped, not
- *     blanked, so `enclosingBlockStart` and `bodyEnd` count a `{` inside an ordinary message string.
- *     19 production files carry such a literal today. Measured end to end: with the `blocked` gate
- *     deleted, adding one English message string ending in `{` inside `runPreToolHook` takes the
- *     scan from `[inert-enforcing-row]` (exit 1) to exit 0. Blanking literals is issue #2258's open
- *     question and is not decided here; the sibling `scan-hook-catalog.mjs` states the same
- *     limitation plainly rather than denying it.
- */
-/**
  * Is the `/` at `index` the start of a regex literal rather than division?
  *
  * The classic ambiguity, resolved the standard way: a regex may begin only where a VALUE may begin.
- * After an identifier, a number, a string, `)` or `]`, a `/` is division. Deliberately a heuristic
- * and not a parser — stated rather than hidden, because the failure it replaces was silent and this
- * one is not: misreading division as a regex blanks to the next `/` on the line, which shrinks a
- * window rather than widening it, and a too-small window fails conservative.
+ * After an identifier, a number, a string, `)` or `]`, a `/` is division. A heuristic, not a parser.
+ *
+ * Its failure direction is PERMISSIVE, and that is stated here rather than in the caller because an
+ * earlier revision claimed the opposite. The regex branch in `blankComments` only advances the
+ * cursor — it never blanks — so a `/` that is really division, taken for a regex, causes the span to
+ * the next `/` to be SKIPPED. A `//` inside that span then never starts a comment, and the comment
+ * survives as code. See the limitation list on `blankComments`; contained under #2258.
  */
 function startsRegexLiteral(source, index) {
   let j = index - 1;
@@ -149,6 +111,42 @@ function startsRegexLiteral(source, index) {
   return true;
 }
 
+/**
+ * Replace every comment byte with a space, preserving offsets and line structure.
+ *
+ * Offset-PRESERVING on purpose: `lineOffsets`, `enclosingBlockStart`, `bodyEnd` and `pushWindow` all
+ * index into the same buffer, so collapsing a comment would shift every position after it. The
+ * repository's `stripComments` collapses, which is why this is local rather than a reuse.
+ *
+ * String and regex literals are SKIPPED so a `//` or an unbalanced quote inside one cannot start a
+ * false comment. Skipped, not blanked — that distinction is the whole of the limitations below.
+ *
+ * Contained — #2258. What this does NOT do, stated as a list because an earlier revision of it
+ * omitted the one construct that issue names, and because three separate numbers attached to these
+ * paragraphs have since been measured wrong:
+ *
+ *   1. **Braces inside string and template literals are not neutralised.** They are skipped, so
+ *      `enclosingBlockStart` and `bodyEnd` count a `{` inside an ordinary message string as a real
+ *      brace. 19 production files carry such a literal today (AST-measured, base and head).
+ *   2. **A misfire of the division-versus-regex heuristic fails PERMISSIVE, not conservative.** The
+ *      regex branch only advances the cursor; it never blanks. So when a `/` that is really division
+ *      is taken for a regex, the span to the next `/` is skipped, and a `//` inside that span never
+ *      starts a comment — the comment survives as CODE. A previous revision of this docblock claimed
+ *      the opposite ("shrinks a window rather than widening it… fails conservative"); that was
+ *      inverted. Live instances: 0 of the enumerated production files, so latent rather than active.
+ *   3. JSX is not handled.
+ *
+ * Whether to blank literals rather than skip them is #2258's open question and is not decided here.
+ * The sibling `scan-hook-catalog.mjs` states the same brace limitation plainly; this file used to
+ * deny it.
+ *
+ * On the evidence that used to live here: several end-to-end demonstrations were attached to these
+ * limitations and did not reproduce — one claimed a message string ending in `{` flips the scan to
+ * exit 0 (408 cases were run against that; none do), another named `/\/dist\//` as the idiom that
+ * produced a pre-fix exit 0 (it does not; a regex containing a QUOTE does, by opening a phantom
+ * string that swallows the following comment). The limitations are real and are what the list above
+ * states; the demonstrations were not, and are removed rather than restated.
+ */
 export function blankComments(source) {
   const out = source.split('');
   let i = 0;
@@ -169,8 +167,9 @@ export function blankComments(source) {
     } else if (source[i] === '/' && startsRegexLiteral(source, i)) {
       // A REGEX LITERAL, not a comment and not division. Without this branch the `//` inside the
       // trailing `//` of a regex such as `/\/dist\//` reads as a line comment and blanks the REST
-      // OF THAT LINE OF LIVE CODE, including a closing `]` or `}`. 135 of the 1650 production files
-      // this scan enumerates contain a regex literal.
+      // OF THAT LINE OF LIVE CODE, including a closing `]` or `}`. No corpus count is given here on
+      // purpose: three different numbers have been attached to this paragraph and measured wrong,
+      // each by a different method. The limitation is what matters and it does not need a count.
       // A blanked unmatched brace makes `bodyEnd` run past its function, which is the permissive
       // direction: an unrelated later function then answers for this one. Measured end to end —
       // with the `blocked` gate deleted and one regex-carrying line added, the scan reported every
@@ -222,12 +221,17 @@ export function blankComments(source) {
  * cautious. Twice now the direction has inverted for a reason outside the arithmetic: while
  * `blankComments` mis-read a regex literal as a comment, blanking an unmatched bracket let the walk
  * run past its own function; and today, because literals are skipped rather than neutralised, a `{`
- * inside an ordinary message string is counted as a real brace and does the same. The second is
- * measured — one added string takes the scan from `[inert-enforcing-row]` to exit 0 with the gate
- * deleted — and is contained under issue #2258 rather than fixed here.
+ * inside an ordinary message string is counted as a real brace and does the same. That second one
+ * is contained under issue #2258 rather than fixed here.
  *
- * So: do not read this as "the failure direction is safe". Read it as "the arithmetic does not
- * widen the window; the primitive underneath it can, and every helper here inherits that.
+ * An earlier revision attached an end-to-end demonstration to that sentence — "one added string
+ * takes the scan from `[inert-enforcing-row]` to exit 0". It does not reproduce; 408 cases were run
+ * against it and none go green, because once the gate is deleted no un-blanked occurrence of the
+ * symbol remains for any window width to find. The limitation is real, the demonstration was not,
+ * and it is removed rather than restated.
+ *
+ * So: do not read this as "the failure direction is safe". Read it as "the arithmetic does not widen
+ * the window; the primitive underneath it can, and every helper here inherits that."
  */
 function enclosingBlockStart(source, offset) {
   let depth = 0;

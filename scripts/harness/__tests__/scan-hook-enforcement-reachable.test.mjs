@@ -560,10 +560,12 @@ describe('scan-hook-enforcement-reachable', () => {
     // closing `]`, and a blanked unmatched bracket makes the brace walks over-run: the permissive
     // direction the docblock had claimed was impossible.
     //
-    // The population, measured: 135 of the 1650 production files this scan enumerates contain a
-    // regex literal. An earlier version of this note said the idiom "appears four times in the
-    // scanned file itself" — false twice: it appears three times in the SCAN's own source, and the
-    // scan never reads its own source. The fix was right and the number attached to it was not.
+    // No count is given here on purpose. Three different numbers have been attached to this
+    // paragraph across three rounds — "four times in the scanned file", then "three times in the
+    // scan's own source", then "135 of 1650 files" — and every one was measured wrong, each by a
+    // different method. The exact figure is two occurrences in the scan's own source, which the
+    // scan never reads. The limitation is what these cases pin; the arithmetic around it kept
+    // being the part that was false.
     // Of the four cases below only THIS one goes red when the regex branch is disabled. The other
     // three guard the opposite direction — that real comments still blank, that division is not
     // mistaken for a regex, and that a `/` inside a character class does not terminate one — and a
@@ -585,6 +587,22 @@ describe('scan-hook-enforcement-reachable', () => {
 
       expect(out).toContain('const re = /a\\/b/;');
       expect(out).not.toContain('this must go');
+    });
+
+    it('a quote before a slash is the case that actually misfires', () => {
+      // The division case below uses an IDENTIFIER before `/`, which the value-position rule already
+      // handles — so it pins the easy half. The heuristic's real misfire is a quote or backtick
+      // before the slash, which is not in the value-position class. Recorded with what it does today
+      // rather than asserted as safe: the branch SKIPS rather than blanks, so a misfire leaves a
+      // following comment as code (contained under #2258, see `blankComments`).
+      const src = ["const q = s.endsWith('x') / 2; // tail", 'const keep = 9;'].join('\n');
+
+      const out = blankComments(src);
+
+      // Whatever the heuristic decides here, the line after it must survive intact — that is the
+      // property a reader can rely on, and the one a widened skip would break.
+      expect(out.split('\n')[1]).toBe('const keep = 9;');
+      expect(out).toHaveLength(src.length);
     });
 
     it('does not mistake division for a regex', () => {

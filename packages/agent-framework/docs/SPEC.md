@@ -443,21 +443,31 @@ execution. Both are an override that cannot override, from opposite directions; 
 only arrangement that is neither. The rule is pinned by
 `packages/agent-core/src/hooks/__tests__/executor-precedence.test.ts` in the package that owns it.
 
-**The obvious objection, because the argument above invites it:** this factory seeds the built-ins
-unconditionally, with no opt-out — which is the very effect the paragraph rejects for `runHooks`.
-The distinction is the layer, and it is worth stating rather than leaving a reader to notice the
-tension. `runHooks` is a library primitive any caller may use, including one that deliberately
-supplies a restricted executor set to keep process execution out; merging there would take that
-choice away from every such caller, silently. `createSession()` is one specific composition, it is
-**not exported**, and the public `InteractiveSession` options expose no executor injection — so
-there is no sandboxed caller of _this_ function whose restriction could be overridden. A caller that
-wants a restricted set calls `runHooks` directly with one, and that still works exactly as before.
+**The objection the argument above invites, and the answer it needed.** This factory seeds the
+built-ins, which is the effect the paragraph rejects for `runHooks`. An earlier version of this
+section resolved the tension by asserting that `createSession()` is **not exported**, so no caller
+could be restricting anything. **That premise was false.** `src/index.ts` exports `createSession`,
+and `ICreateSessionOptions`, which carries `additionalHookExecutors`, is exported beside it. The
+escape clause that same paragraph wrote — "if `createSession()` ever becomes public, this seeding
+needs an opt-out" — had already triggered when it was written.
 
-If `createSession()` ever becomes public, or grows a caller that means to restrict rather than
-extend, this seeding needs an opt-out and the argument above stops covering it. The option contract
-that made the original defect possible is issue #2238.
+**There is currently no opt-out, and that is a live gap rather than a decision.** A consumer who
+supplies only a restricted executor set — deliberately, to keep shell and HTTP execution out of a
+sandboxed host — gets the built-ins back. Filed as issue #2266.
 
-**Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. This seam is internal-assembly-level only: `createSession()` is not exported, and the public `InteractiveSession` options do not expose executor injection.
+It is filed rather than fixed here for a reason worth recording: an opt-out is a new public
+capability, and this repository's `option-reachability` scan refuses a declared option that no
+production code assigns — _"a capability nothing can turn on is not delivered"_. An option only an
+external consumer can set is, from inside this repository, unverifiable; delivering it means also
+deciding which internal surface exercises it. That is a design decision with consumer impact, not a
+correction to this change.
+
+That asymmetry is the principle the false premise was standing in for: **restriction must be asked
+for, and extension may be assumed.** Inferring restriction from the shape of an array — a non-empty
+list meaning "replace", an empty one meaning "extend" — is the option-contract defect filed as
+issue #2238, and it is what produced the original deny-all.
+
+**Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. A custom executor reaches this seam through `createSession`, which IS exported along with `ICreateSessionOptions`; the public `InteractiveSession` options do not expose executor injection, so that is the narrower surface. An earlier revision described the whole seam as internal on the strength of `createSession` being unexported, which it is not.
 
 ### Bundle Plugins
 

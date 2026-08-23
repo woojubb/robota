@@ -642,7 +642,7 @@ record fails the scan for the document.
   that caused the original miscount is now stated rather than elided.
 - **The `### Decision` > Reachability bullet now cites a command that reproduces.** It quotes
   `git grep -n 'runHooks(' -- 'packages/*/src/**'` excluding tests and the definition → "13 fire
-  sites in 8 files". Executed that exact pathspec: 56 raw matches, 13 after excluding tests and the
+  sites in 8 files". Executed that exact pathspec AT THE MERGE-BASE: 56 raw matches, 13 after excluding tests and the
   definition, across 8 files. The cited command reproduces the cited figures.
 
 **Every other criterion, re-applied:**
