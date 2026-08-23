@@ -191,3 +191,45 @@ before this leaf:
   ARCH-101.
 
 Nothing here decides which family belongs to which owner — that is ARCH-100's, merged and unchanged.
+
+### [GATE-COMPLETE] — 🔴 NON-COMPLIANCE | 2026-08-24
+
+**Status remains:** approved
+
+**Violation:** The ordering check for GATE-COMPLETE fails on both halves, and the work this pipeline
+was supposed to authorize has already shipped.
+
+- **Missing prior gate.** `gate-catalogue.md` § Prior-gate map requires GATE-VERIFY to show PASS
+  before GATE-COMPLETE runs. This Evidence Log contains exactly two entries — `[GATE-WRITE] ✅ PASS |
+2026-08-23` and `[GATE-APPROVAL] ✅ PASS | 2026-08-23`. There is no GATE-VERIFY entry, and no
+  GATE-IMPLEMENT entry either, so the missing predecessor is itself missing a predecessor.
+- **Wrong input state.** The gate expects `verifying` / `active/`. Frontmatter reads `status:
+approved` and the file sits in `.agents/spec-docs/todo/` — the state GATE-APPROVAL left it in, two
+  transitions back.
+- **Work already performed without its authorizing gate.** GATE-IMPLEMENT is the verdict that
+  implementation may _start_. Implementation is merged: `c621e4d49` ("feat(interface): extract
+  analytics contracts to their reporting owner (ARCH-105)" (PR #2214), 2026-08-23), verified an ancestor
+  of HEAD, creating `packages/agent-interface-analytics/` (`src/usage-contracts.ts`, 123 lines),
+  removing 111 lines from `packages/agent-interface-transport/src/session-contracts.ts` and 7 barrel
+  exports from its `src/index.ts`, and rewiring 4 consumer packages. A gate that authorizes a start
+  cannot be recorded after the finish; that entry would be a backdate, not a judgement.
+
+**Not adjudicated:** GATE-COMPLETE's own criteria were deliberately not evaluated, per the
+guardian ordering rule (evaluate ordering first; on failure, name the missing gate and stop). For the
+record, two of them are independently observable and would not have carried a PASS: all six TC-01…
+TC-06 boxes in `## Completion Criteria` are unchecked `[ ]` with no `[GATE-COMPLETE: TC-N]` evidence
+entries, and the spec has no `## Tasks` section at all (section list: Problem, Prior Art Research,
+Architecture Review Checklist, Alternatives Considered, Decision, Completion Criteria, Test Plan,
+User Execution Test Scenarios, Evidence Log), so no active task path is named.
+
+**Working-tree note:** the paired task record
+`.agents/tasks/ARCH-105-extract-analytics-contracts-to-their-reporting-owner.md` reads `status:
+in-progress` with 0 of 5 completion criteria checked, and `git status --porcelain` reports it clean.
+An uncommitted change in another clone is not evidence available to this gate.
+
+**Required action:** Not this guardian's call to sequence, but the record cannot be repaired by
+re-running GATE-COMPLETE. The pipeline owner must decide how a spec whose implementation merged ahead
+of its GATE-IMPLEMENT verdict is reconciled — the choice is between a recorded, dated
+out-of-order-execution finding that the later gates then judge against the shipped state, and
+rejection of the spec document — per `spec-workflow.md` HARD GATE and
+`backlog-execution-orchestrator` Phase 5.

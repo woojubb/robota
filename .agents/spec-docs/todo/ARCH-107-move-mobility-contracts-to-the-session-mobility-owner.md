@@ -185,3 +185,52 @@ edge under ARCH-101.
 The layer change to 0 is not a new decision either — it is the state ARCH-106's corrected rule
 predicts once mobility leaves, and it is separated into its own commit so it stays reviewable as a
 decision.
+
+### [GATE-COMPLETE] — 🔴 NON-COMPLIANCE | 2026-08-24
+
+**Status remains:** approved
+
+**Violation:** The ordering check failed on both of its parts, so GATE-COMPLETE's own criteria were not
+evaluated.
+
+- **Missing prior gate.** The gate catalogue's prior-gate map requires **GATE-VERIFY = PASS** before
+  GATE-COMPLETE. The Evidence Log above holds exactly two entries — `[GATE-WRITE]` and
+  `[GATE-APPROVAL]`. There is no `[GATE-IMPLEMENT]` entry and no `[GATE-VERIFY]` entry. Two gates are
+  missing, not one.
+- **Wrong input state.** GATE-COMPLETE expects `status: verifying` in `.agents/spec-docs/active/`. This
+  document is `status: approved` in `.agents/spec-docs/todo/`. Status and folder agree with each other,
+  but they are the state expected as _input to GATE-IMPLEMENT_ — two transitions upstream.
+
+**Work this gate never authorized has already shipped.** Verified in-tree, not taken on report:
+
+- `packages/agent-interface-session-mobility` exists on `origin/develop`.
+- `4ed80522b feat(interface): move mobility contracts to the session-mobility owner (ARCH-107) (#2220)`
+  is merged.
+- A dependent follow-on leaf is merged on top of it:
+  `c1dd93768 refactor(interface): narrow the transport owner to what it owns (ARCH-108) (#2244)`.
+
+GATE-IMPLEMENT is the verdict that implementation may **start**. It was never run, and the
+implementation has since merged — which is the `NON-COMPLIANCE trigger` named under GATE-APPROVAL
+("implementation work was started before this gate ran") applied to the gate after it.
+
+**The missing gates are outside this gate's remit.** GATE-COMPLETE judges TC-N verification evidence
+against a document that GATE-VERIFY has already passed. It cannot stand in for GATE-IMPLEMENT or
+GATE-VERIFY, and it cannot authorize retroactively: a PASS recorded here would not be a judgement of
+those two gates, it would be a **backdating** of them — writing `verifying → done` over a document that
+never entered `in-progress`. That is the one thing a gate must never do, so this halts here.
+
+**Paired task record contradicts completion** (judged as this working tree holds it, unmodified —
+`git status` reports it clean): `.agents/tasks/ARCH-107-move-mobility-contracts-to-the-session-mobility-owner.md`
+is `status: in-progress` with **0 of 4 tasks checked**. An uncommitted change in a different clone is
+not evidence in this one.
+
+**Incidental, not the deciding basis** (recorded so a later run does not read this entry as clearing
+them): the spec has **no `## Tasks` section at all**, so no active task path is named; all 5 TC-N
+boxes are `[ ]`; and there are **0** `[GATE-COMPLETE: TC-N]` entries. Each is independently fatal to
+GATE-COMPLETE, but none was reached — the ordering check decided this run.
+
+**Required action:** Not resolvable by re-running this gate, and not by editing this document. The
+gap between the recorded pipeline state and the merged tree is a process breach that needs an owner
+decision — reconstruct the skipped GATE-IMPLEMENT/GATE-VERIFY record against the merged commit, or
+close this item out under the Rejection Action. Routing that decision belongs to the orchestrator,
+not to this guardian.
