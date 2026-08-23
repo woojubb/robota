@@ -87,6 +87,14 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // DOCS-028 (issue #2194). Measured as `collectSpecs(bare)`: throws `packages missing from
+    // <root>` before a single SPEC is opened.
+    file: 'check-spec-manifest-restatement.mjs',
+    finder: 'collectSpecs',
+    tree: 'packages',
+    why: 'the package SPEC corpus IS the population this check governs — over a root without it there is no SPEC to judge, and "no findings" would claim that no SPEC restates its manifest when none was read. The defect it exists to catch was two SPECs whose stated dependency set was already false',
+  },
+  {
     // issue #2036. Measured BEFORE the guard existed: over a root with no `.github`, this returned
     // `[]` — which reads as "every declared context name is published" when nothing was read at all.
     // The classification is what caught it, exactly as it caught INFRA-127's exported finder.

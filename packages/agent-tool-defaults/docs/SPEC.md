@@ -28,7 +28,7 @@ independently.
 ## Package Identity
 
 - **npm name**: `@robota-sdk/agent-tool-defaults`
-- **Layer**: composition leaf (depends on `agent-core` and `agent-tools` only; never imports from `agent-framework`, `agent-session`, `agent-command`, or `agent-transport`)
+- **Layer**: composition leaf — the dependency set that places it there is declared in this package\'s manifest and enforced by `check-dependency-direction.mjs`; not restated here
 - **SDK**: (none directly — composes the tool factories)
 - **Platform**: node
 
