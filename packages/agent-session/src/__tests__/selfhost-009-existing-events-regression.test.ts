@@ -21,7 +21,7 @@ import type { IPermissionEnforcerOptions } from '../permission-types.js';
 import type {
   IAIProvider,
   IHookInput,
-  IHookResult,
+  THookOutcome,
   IHookTypeExecutor,
   IToolResult,
   IToolWithEventService,
@@ -38,9 +38,11 @@ function makeRecordingExecutor(exitCode = 0): {
   const events: string[] = [];
   const executor: IHookTypeExecutor = {
     type: 'command',
-    execute: vi.fn(async (_def, input: IHookInput): Promise<IHookResult> => {
+    execute: vi.fn(async (_def, input: IHookInput): Promise<THookOutcome> => {
       events.push(input.hook_event_name);
-      return { exitCode, stdout: '', stderr: '' };
+      return exitCode === 2
+        ? { outcome: 'deny', source: 'command', reason: 'denied' }
+        : { outcome: 'allow', source: 'command', stdout: '' };
     }),
   };
   return { executor, events };

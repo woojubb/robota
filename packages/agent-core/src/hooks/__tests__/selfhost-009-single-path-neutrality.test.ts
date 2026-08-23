@@ -2,8 +2,8 @@
  * SELFHOST-009 TC-05 (single path, no new tier) + TC-06 (neutrality).
  *
  * TC-05: every catalogued event dispatches through the ONE `runHooks` engine and the ONE
- * `exitCode:2 → blocked` contract — there is no second parallel hook/registry system and no second
- * block-decision point.
+ * `deny → blocked` contract (SEC-015; formerly `exitCode: 2 → blocked`) — there is no second
+ * parallel hook/registry system and no second block-decision point.
  *
  * TC-06: the hook engine + event catalog stay a NEUTRAL mechanism — no product/domain hook policy is
  * baked into `packages/` (policy lives in the consumer, keyed off config-provided groups/matchers).
@@ -43,12 +43,16 @@ describe('SELFHOST-009 TC-05 — single runHooks path, no second tier', () => {
     expect(src).not.toMatch(/export\s+(?:async\s+)?function\s+\w*[Dd]ispatchHook\w*/);
   });
 
-  it('has a single block contract: IRunHooksResult.blocked, driven by exitCode 2', () => {
+  it('has a single block contract: IRunHooksResult.blocked, driven by the deny outcome', () => {
     const runner = readFileSync(path.join(HOOKS_DIR, 'hook-runner.ts'), 'utf8');
     expect(runner).toMatch(/interface\s+IRunHooksResult\b/);
     expect(runner).toMatch(/blocked:\s*boolean/);
-    // The one block trigger.
-    expect(runner).toMatch(/exitCode\s*===\s*2/);
+    // The one EXECUTOR-driven block trigger (SEC-015 renamed it from `exitCode === 2`).
+    expect(runner).toMatch(/outcome\.outcome === 'deny'/);
+    // And the trigger stays singular: an `error` outcome must NOT also be wired to block here.
+    // That is issue #2093's decision to make, and if it is made by editing this file rather than by
+    // adding a per-event policy, this assertion is what notices.
+    expect(runner).not.toMatch(/outcome\.outcome === 'error'[\s\S]{0,200}blocked:\s*true/);
   });
 });
 

@@ -415,7 +415,9 @@ await transport.start();
 
 ### Hook Executors
 
-The internal assembly factory `createSession()` accepts custom `IHookTypeExecutor` implementations (`additionalHookExecutors`) alongside the SDK-built-in `PromptExecutor` and `AgentExecutor`. Executors are keyed by hook type string and receive hook configuration plus a JSON payload. This seam is internal-assembly-level only: `createSession()` is not exported, and the public `InteractiveSession` options do not expose executor injection.
+The internal assembly factory `createSession()` accepts custom `IHookTypeExecutor` implementations (`additionalHookExecutors`) alongside the SDK-built-in `PromptExecutor` and `AgentExecutor`. Executors are keyed by hook type string and receive hook configuration plus a JSON payload.
+
+**Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. This seam is internal-assembly-level only: `createSession()` is not exported, and the public `InteractiveSession` options do not expose executor injection.
 
 ### Bundle Plugins
 

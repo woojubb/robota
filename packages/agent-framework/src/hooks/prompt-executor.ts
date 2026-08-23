@@ -4,16 +4,17 @@
  * Makes a single-turn LLM call with hook input context as the prompt.
  * Parses { ok: boolean, reason?: string } from the AI response.
  *
- * Exit codes:
- * - 0: ok: true (allow/proceed)
- * - 2: ok: false (block/deny), reason in stderr
- * - 1: execution error (provider failure, parse error)
+ * Outcomes (SEC-015): `ok: true` → `allow`; `ok: false` → `deny` with its reason; a non-boolean
+ * or missing `ok`, or an unparseable response → `error`/`malformed-response`; a provider or
+ * session failure → `error`/`transport-failure`. The three used to share exit code 1.
  */
+
+import { decodeHookVerdict } from '@robota-sdk/agent-core';
 
 import type {
   IPromptHookDefinition,
   IHookInput,
-  IHookResult,
+  THookOutcome,
   IHookTypeExecutor,
   THookDefinition,
 } from '@robota-sdk/agent-core';
@@ -52,7 +53,7 @@ export class PromptExecutor implements IHookTypeExecutor {
     this.defaultModel = options.defaultModel;
   }
 
-  async execute(definition: THookDefinition, input: IHookInput): Promise<IHookResult> {
+  async execute(definition: THookDefinition, input: IHookInput): Promise<THookOutcome> {
     const promptDef = definition as IPromptHookDefinition;
     const model = promptDef.model ?? this.defaultModel;
 
@@ -62,29 +63,14 @@ export class PromptExecutor implements IHookTypeExecutor {
       const rawResponse = await provider.complete(prompt);
       const jsonStr = extractJson(rawResponse);
 
-      let parsed: { ok: boolean; reason?: string };
-      try {
-        parsed = JSON.parse(jsonStr) as { ok: boolean; reason?: string };
-      } catch {
-        return {
-          exitCode: 1,
-          stdout: '',
-          stderr: `Failed to parse AI response as JSON: ${rawResponse}`,
-        };
-      }
-
-      if (parsed.ok) {
-        return { exitCode: 0, stdout: JSON.stringify(parsed), stderr: '' };
-      }
-
-      return {
-        exitCode: 2,
-        stdout: '',
-        stderr: parsed.reason ?? 'Blocked by prompt hook',
-      };
+      return decodeHookVerdict(jsonStr, 'prompt');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      return { exitCode: 1, stdout: '', stderr: message };
+      return {
+        outcome: 'error',
+        source: 'prompt',
+        kind: 'transport-failure',
+        reason: err instanceof Error ? err.message : String(err),
+      };
     }
   }
 }

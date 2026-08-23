@@ -58,7 +58,7 @@ describe('AgentExecutor', () => {
     expect(promptArg).toContain(JSON.stringify(input));
   });
 
-  it('should return exitCode 0 when agent response has ok: true', async () => {
+  it('should allow when agent response has ok: true', async () => {
     const mockSession = { run: vi.fn().mockResolvedValue(JSON.stringify({ ok: true })) };
     const sessionFactory = vi.fn().mockReturnValue(mockSession);
     const executor = new AgentExecutor({ sessionFactory });
@@ -66,12 +66,11 @@ describe('AgentExecutor', () => {
     const definition: IAgentHookDefinition = { type: 'agent', agent: 'reviewer' };
     const result = await executor.execute(definition, makeInput());
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('"ok":true');
-    expect(result.stderr).toBe('');
+    expect(result.outcome).toBe('allow');
+    expect(result.outcome === 'allow' && result.stdout).toContain('"ok":true');
   });
 
-  it('should return exitCode 2 with reason when agent response has ok: false', async () => {
+  it('should deny with the reason when agent response has ok: false', async () => {
     const response = JSON.stringify({ ok: false, reason: 'Code review failed' });
     const mockSession = { run: vi.fn().mockResolvedValue(response) };
     const sessionFactory = vi.fn().mockReturnValue(mockSession);
@@ -80,11 +79,11 @@ describe('AgentExecutor', () => {
     const definition: IAgentHookDefinition = { type: 'agent', agent: 'reviewer' };
     const result = await executor.execute(definition, makeInput());
 
-    expect(result.exitCode).toBe(2);
-    expect(result.stderr).toBe('Code review failed');
+    expect(result.outcome).toBe('deny');
+    expect(result.outcome === 'deny' && result.reason).toBe('Code review failed');
   });
 
-  it('should return exitCode 2 with default reason when ok: false and no reason', async () => {
+  it('should deny with a default reason when ok: false and no reason', async () => {
     const response = JSON.stringify({ ok: false });
     const mockSession = { run: vi.fn().mockResolvedValue(response) };
     const sessionFactory = vi.fn().mockReturnValue(mockSession);
@@ -93,11 +92,11 @@ describe('AgentExecutor', () => {
     const definition: IAgentHookDefinition = { type: 'agent', agent: 'reviewer' };
     const result = await executor.execute(definition, makeInput());
 
-    expect(result.exitCode).toBe(2);
-    expect(result.stderr).toBe('Blocked by agent hook');
+    expect(result.outcome).toBe('deny');
+    expect(result.outcome === 'deny' && result.reason).toBe('Blocked by agent hook');
   });
 
-  it('should return exitCode 1 when session throws', async () => {
+  it('should error when session throws', async () => {
     const mockSession = { run: vi.fn().mockRejectedValue(new Error('Session timeout')) };
     const sessionFactory = vi.fn().mockReturnValue(mockSession);
     const executor = new AgentExecutor({ sessionFactory });
@@ -105,11 +104,12 @@ describe('AgentExecutor', () => {
     const definition: IAgentHookDefinition = { type: 'agent', agent: 'reviewer' };
     const result = await executor.execute(definition, makeInput());
 
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toBe('Session timeout');
+    expect(result.outcome).toBe('error');
+    expect(result.outcome === 'error' && result.kind).toBe('transport-failure');
+    expect(result.outcome === 'error' && result.reason).toBe('Session timeout');
   });
 
-  it('should return exitCode 1 when agent response is not valid JSON', async () => {
+  it('should error when agent response is not valid JSON', async () => {
     const mockSession = { run: vi.fn().mockResolvedValue('not json') };
     const sessionFactory = vi.fn().mockReturnValue(mockSession);
     const executor = new AgentExecutor({ sessionFactory });
@@ -117,8 +117,9 @@ describe('AgentExecutor', () => {
     const definition: IAgentHookDefinition = { type: 'agent', agent: 'reviewer' };
     const result = await executor.execute(definition, makeInput());
 
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('Failed to parse');
+    expect(result.outcome).toBe('error');
+    expect(result.outcome === 'error' && result.kind).toBe('malformed-response');
+    expect(result.outcome === 'error' && result.reason).toContain('not valid JSON');
   });
 
   it('should handle JSON response embedded in markdown code blocks', async () => {
@@ -130,7 +131,7 @@ describe('AgentExecutor', () => {
     const definition: IAgentHookDefinition = { type: 'agent', agent: 'reviewer' };
     const result = await executor.execute(definition, makeInput());
 
-    expect(result.exitCode).toBe(2);
-    expect(result.stderr).toBe('nope');
+    expect(result.outcome).toBe('deny');
+    expect(result.outcome === 'deny' && result.reason).toBe('nope');
   });
 });
