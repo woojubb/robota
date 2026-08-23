@@ -10,7 +10,12 @@
 
 ## Architecture Overview
 
-{Layer structure, key components, design patterns used.}
+{Layer structure, key components, design patterns used — INSIDE this package.}
+
+<!-- The package's position in the repository is not this document's to state. Its family, its layer,
+     and which dependency edges are legal live in .agents/specs/ARCHITECTURE-MAP.md and in this
+     package's package.json. Point at them; do not restate them. `spec-manifest-restatement` refuses
+     a Layer field that enumerates dependencies (DOCS-028). -->
 
 ## Type Ownership
 

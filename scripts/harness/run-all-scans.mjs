@@ -378,6 +378,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/check-capability-placement.mjs'],
   },
   {
+    name: 'spec-manifest-restatement',
+    command: ['node', 'scripts/harness/check-spec-manifest-restatement.mjs'],
+  },
+  {
     name: 'nested-package-glob-coverage',
     command: ['node', 'scripts/harness/check-nested-package-glob-coverage.mjs'],
   },

@@ -34,7 +34,13 @@ Use when no `docs/SPEC.md` exists for the package.
 2. **Write all required sections** (all mandatory):
    - **Scope**: What the package owns (2–4 sentences).
    - **Boundaries**: What the package does NOT own and where those responsibilities live.
-   - **Architecture Overview**: Layer structure, key components, design patterns used.
+   - **Architecture Overview**: Layer structure, key components, design patterns used. This means the
+     structure INSIDE the package. The package's position in the repository — its family, its layer,
+     and which dependency edges are legal — belongs to
+     [`.agents/specs/ARCHITECTURE-MAP.md`](../../specs/ARCHITECTURE-MAP.md) and to the package's own
+     `package.json`, and a SPEC points at them rather than restating them (DOCS-028). Measured before
+     that rule existed: 7 SPECs stated a dependency set in prose, five by copy-paste, and two were
+     already false. `spec-manifest-restatement` in `pnpm harness:scan` refuses a new one.
    - **Type Ownership**: SSOT types this package defines. Table: Type | Location | Purpose.
    - **Public API Surface**: Exported classes, functions, types. Table: Export | Kind | Description. The table MUST list every runtime export of the package entry (`src/index.ts`) — the reverse-edge `check-spec-public-surface` gate enforces this completeness contract.
    - **Extension Points**: How consumers extend behavior (abstract classes, interfaces, strategies).
