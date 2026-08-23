@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-117: a rule can lose its statement while its enforcement survives'
-status: in-progress
+status: done
 created: 2026-08-23
+completed: 2026-08-23
 priority: medium
 urgency: soon
 area: scripts/harness
@@ -74,3 +75,7 @@ Issue #2188 — nine dependency and interface rules are enforced on every push a
 document. Found by this task's measurement, filed rather than absorbed: closing it means writing rule
 text, which is a documentation migration and a different decision from adding a scan. The nine are
 frozen in this task's baseline so the debt is counted on every run.
+
+## Outcome
+
+Delivered by pull request #2189, squash-merged as `6fb4fe92a` on `develop` and verified present by content.

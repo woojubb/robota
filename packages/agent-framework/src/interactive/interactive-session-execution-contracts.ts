@@ -14,8 +14,8 @@
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IContextWindowState } from '@robota-sdk/agent-core';
+import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
 import type {
-  IExecutionWorkspaceSnapshot,
   ISubmitOptions,
   ITurnHandle,
   TTurnSource,

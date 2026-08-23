@@ -31,7 +31,7 @@ import type {
   TBackgroundTaskMode,
   TBackgroundTaskStatus,
   TBackgroundTaskTimeoutReason,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 export const TASK_KINDS = [
   'agent',

@@ -11,7 +11,7 @@ import { addIssue, atIndex, atKey, describeValue } from './decode-outcome.js';
 
 import type { TDecodeIssues } from './decode-outcome.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
-import type { TBackgroundPrimitive } from '@robota-sdk/agent-interface-transport';
+import type { TBackgroundPrimitive } from '@robota-sdk/agent-interface-execution';
 
 /** Decode an optional member: absent stays absent, present is decoded, `null` is a defect. */
 export function decodeOptional<TValue>(

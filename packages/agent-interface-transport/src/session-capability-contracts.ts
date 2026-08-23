@@ -1,16 +1,4 @@
 import type {
-  IBackgroundJobGroupCreateRequest,
-  IBackgroundJobGroupState,
-} from './background-group-contracts.js';
-import type {
-  IBackgroundTaskInput,
-  IBackgroundTaskListFilter,
-  IBackgroundTaskLogCursor,
-  IBackgroundTaskLogPage,
-  IBackgroundTaskState,
-  TBackgroundTaskIsolation,
-} from './background-task-contracts.js';
-import type {
   ICommandListEntry,
   ICommandResult,
   TCommandInvocationSource,
@@ -22,17 +10,29 @@ import type {
   TInteractiveEventName,
   TPermissionResultValue,
 } from './session-contracts.js';
-import type { ISubagentJobState } from './subagent-contracts.js';
 import type { ITurnHandle } from './turn-contracts.js';
-import type {
-  IExecutionWorkspaceSnapshot,
-  IExecutionWorkspaceSnapshotOptions,
-} from './workspace-contracts.js';
 import type {
   IContextWindowState,
   TActionResponse,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
+import type { ISubagentJobState } from '@robota-sdk/agent-interface-execution';
+import type {
+  IExecutionWorkspaceSnapshot,
+  IExecutionWorkspaceSnapshotOptions,
+} from '@robota-sdk/agent-interface-execution';
+import type {
+  IBackgroundTaskInput,
+  IBackgroundTaskListFilter,
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  IBackgroundTaskState,
+  TBackgroundTaskIsolation,
+} from '@robota-sdk/agent-interface-execution';
+import type {
+  IBackgroundJobGroupCreateRequest,
+  IBackgroundJobGroupState,
+} from '@robota-sdk/agent-interface-execution';
 
 export interface ISessionLifecycle {
   /** True once the underlying session has been initialized. */

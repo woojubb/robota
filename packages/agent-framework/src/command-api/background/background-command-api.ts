@@ -5,7 +5,7 @@ import type {
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 const DECIMAL_RADIX = 10;
 const INLINE_METADATA_LIMIT = 160;

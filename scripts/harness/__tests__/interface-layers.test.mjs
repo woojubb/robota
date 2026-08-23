@@ -161,11 +161,21 @@ describe('the real declaration', () => {
   });
 
   it('keeps the layer-0 owners mutually forbidden, which is what makes them independent', () => {
+    // `agent-interface-transport` is NOT asserted here: ARCH-103 declared it at layer 1, because it
+    // still holds `session-contracts` until issue #2110 and composes downward exactly as the session
+    // owner will. Asserting it as layer-0 was this test's own staleness, caught by the harness suite.
     expect(judgeEdge('agent-interface-command', 'agent-interface-execution', layers).legal).toBe(
       false,
     );
-    expect(judgeEdge('agent-interface-transport', 'agent-interface-analytics', layers).legal).toBe(
+    expect(judgeEdge('agent-interface-execution', 'agent-interface-analytics', layers).legal).toBe(
       false,
+    );
+  });
+
+  it('places agent-interface-transport above execution while it still holds the session family', () => {
+    expect(layers.get('agent-interface-transport')).toBe(1);
+    expect(judgeEdge('agent-interface-transport', 'agent-interface-execution', layers).legal).toBe(
+      true,
     );
   });
 });

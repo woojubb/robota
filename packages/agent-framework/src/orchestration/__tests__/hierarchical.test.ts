@@ -14,7 +14,7 @@ import type {
   ISubagentJobStart,
   ISubagentRunner,
 } from '@robota-sdk/agent-executor';
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
 import { runHierarchical, type PlanDelegation } from '../hierarchical';
 import { createInProcessSubagentRunner } from '../../subagents/index';
 import {

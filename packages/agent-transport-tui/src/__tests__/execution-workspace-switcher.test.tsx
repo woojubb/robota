@@ -4,7 +4,7 @@ import { render } from 'ink-testing-library';
 import type {
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 import ExecutionWorkspaceSwitcher from '../ExecutionWorkspaceSwitcher.js';
 import { formatKeyHints, SELECTION_INDICATOR } from '../key-hint-footer.js';
 import ExecutionWorkspaceDetailPane from '../ExecutionWorkspaceDetailPane.js';

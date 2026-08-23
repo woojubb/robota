@@ -17,14 +17,14 @@ import type { IContextReferenceItem } from '../context/context-reference-invento
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { TUniversalMessage, IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
-  IGoalState,
-  IPlanArtifact,
-  IActiveBranchPointer,
-} from '@robota-sdk/agent-interface-transport';
-import type {
   IBackgroundTaskState,
   TBackgroundTaskEvent,
   TBackgroundTaskStatus,
+} from '@robota-sdk/agent-interface-execution';
+import type {
+  IGoalState,
+  IPlanArtifact,
+  IActiveBranchPointer,
 } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 

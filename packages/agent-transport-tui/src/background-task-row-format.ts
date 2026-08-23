@@ -1,7 +1,7 @@
 import { formatExecutionWorkspaceEntryRow } from './execution-workspace-view-model.js';
 import { STATUS_GLYPH, workspaceStatusKind } from './status-glyph.js';
 
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-transport';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
 
 export interface IBackgroundTaskRow {
   connector: '├' | '└';

@@ -18,7 +18,7 @@ import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import type { IAIProvider, IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
 import type { ISessionLogger } from '@robota-sdk/agent-session';
 
 export interface IAgentRuntimeResult {

@@ -6,7 +6,7 @@ import type {
   THooksConfig,
   THookEvent,
 } from '@robota-sdk/agent-core';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
 
 const logger = createLogger('BackgroundTaskHooks');
 

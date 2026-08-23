@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [typescript]
 ---
@@ -135,19 +135,19 @@ leaf-expansion the execution rules forbid.
 
 ## Completion Criteria
 
-- [ ] **TC-01** The scan reports every rule identifier emitted by a harness scan that no normative
+- [x] **TC-01** The scan reports every rule identifier emitted by a harness scan that no normative
       document states, naming the emitting scan for each.
-- [ ] **TC-02** A document under `.agents/archive/` or `.agents/spec-docs/done/` does NOT satisfy the
+- [x] **TC-02** A document under `.agents/archive/` or `.agents/spec-docs/done/` does NOT satisfy the
       requirement — asserted directly, since accepting them is what made design C green for the wrong
       reason.
-- [ ] **TC-03** Removing `INTERFACE-DEPS` from the corpus makes the scan report it, demonstrated
+- [x] **TC-03** Removing `INTERFACE-DEPS` from the corpus makes the scan report it, demonstrated
       against the real repository content.
-- [ ] **TC-04** The currently-unstated identifiers are frozen in a baseline file; an identifier absent
+- [x] **TC-04** The currently-unstated identifiers are frozen in a baseline file; an identifier absent
       from both the baseline and the documents fails the gate, and the baseline count is printed on
       every run.
-- [ ] **TC-05** `node scripts/harness/scan-rule-statement-floor.mjs` exits 0 on the real tree and
+- [x] **TC-05** `node scripts/harness/scan-rule-statement-floor.mjs` exits 0 on the real tree and
       declares the size of what it examined.
-- [ ] **TC-06** `pnpm harness:scan` exits 0 and `pnpm harness:verify-like-ci` reports green.
+- [x] **TC-06** `pnpm harness:scan` exits 0 and `pnpm harness:verify-like-ci` reports green.
 
 ## Test Plan
 
@@ -159,6 +159,14 @@ leaf-expansion the execution rules forbid.
 | TC-04 | Unit              | `vitest`: an unstated identifier absent from the baseline produces a finding; present, none           | —                                                                          |
 | TC-05 | Integration       | Run the scan on the real tree; assert exit 0 and an `::examined::` declaration                        | —                                                                          |
 | TC-06 | Gate              | `pnpm harness:scan`; `pnpm harness:verify-like-ci`                                                    | manual invocation — `verify-like-ci` is the CI-mirror entry point          |
+
+## User Execution Test Scenarios
+
+**Not applicable — this task delivers no user-facing behavior.** It adds a repository verification
+scan and its baseline. Nothing a user runs changes.
+
+The verification surface is the harness gate, recorded in the Test Plan above, plus the scan's own
+failure output when a rule identifier loses its statement.
 
 ## Evidence Log
 

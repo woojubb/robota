@@ -14,7 +14,7 @@ import {
   type IChildProcessRuntime,
 } from './child-process-subagent-transport.js';
 
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
 
 /**
  * DIST-006: how long a spawned worker may take to say anything at all. Generous — it covers process

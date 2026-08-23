@@ -13,10 +13,12 @@ import { assertWorkspaceProjectStateStoragePair } from '../workspace-trust/proje
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import type {
-  IInteractiveSessionRecord,
-  IInteractiveSessionStore,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
+} from '@robota-sdk/agent-interface-execution';
+import type {
+  IInteractiveSessionRecord,
+  IInteractiveSessionStore,
 } from '@robota-sdk/agent-interface-transport';
 
 function assertNamespace(

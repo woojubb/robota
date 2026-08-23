@@ -6,11 +6,6 @@
  * session-store implementation live in agent-framework and import these declarations.
  */
 
-import type {
-  IBackgroundJobGroupState,
-  TBackgroundJobGroupEvent,
-} from './background-group-contracts.js';
-import type { IBackgroundTaskState, TBackgroundTaskEvent } from './background-task-contracts';
 import type { ICompactEvent } from './compact-contracts';
 import type { ISessionRenamedEvent, IUiIntentEvent, TDriverId } from './driver-contracts.js';
 import type {
@@ -39,7 +34,6 @@ import type {
   ISessionWorkspaceLocation,
 } from './session-capability-contracts.js';
 import type { IExecutionResult, TTurnSource } from './turn-contracts.js';
-import type { IExecutionWorkspaceEvent } from './workspace-contracts.js';
 import type {
   IActionRequest,
   IContextWindowState,
@@ -48,6 +42,15 @@ import type {
   TToolArgs,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
+import type { IExecutionWorkspaceEvent } from '@robota-sdk/agent-interface-execution';
+import type {
+  IBackgroundTaskState,
+  TBackgroundTaskEvent,
+} from '@robota-sdk/agent-interface-execution';
+import type {
+  IBackgroundJobGroupState,
+  TBackgroundJobGroupEvent,
+} from '@robota-sdk/agent-interface-execution';
 
 export type {
   ISessionAgentJobs,
@@ -68,20 +71,6 @@ export type {
   ISessionTurnSubmission,
   ISessionWorkspaceLocation,
 } from './session-capability-contracts.js';
-
-// Re-export the background job-group contracts referenced by the session surface so
-// that this module stays the single import hub for session-facing types.
-export type {
-  IBackgroundJobGroupCreateRequest,
-  IBackgroundJobGroupState,
-  IBackgroundJobGroupSummary,
-  IBackgroundJobResultEnvelope,
-  TBackgroundJobGroupEvent,
-  TBackgroundJobGroupEventListener,
-  TBackgroundJobGroupIdFactory,
-  TBackgroundJobGroupStatus,
-  TBackgroundJobWaitPolicy,
-} from './background-group-contracts.js';
 
 /** Permission handler result — SDK-owned type (mirrors agent-sessions TPermissionResult).
  *  true = allow, false = deny, 'allow-session' = allow and remember for this session,

@@ -15,7 +15,7 @@ import type {
 import type {
   IBackgroundTaskResult,
   TBackgroundTaskRequest,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 interface IControlledTask {
   taskId: string;

@@ -64,16 +64,12 @@ const MARKER = '<!-- arch-100:owner-map -->';
 // to the projection below, because the target graph is acyclic only once they land. Delete an entry
 // when its leaf has applied it for real — at that point the raw source already agrees.
 const PENDING_CORRECTIONS = [
-  {
-    leaf: 'issue #2109',
-    from: 'workspace-contracts',
-    to: 'session-contracts',
-    symbol: 'IBackgroundJobGroupState',
-    redirect: 'background-group-contracts',
-    why: 'pass-through re-export; the type is declared in background-group-contracts',
-  },
+  // EMPTY, and that is the point: issue #2109's correction has been APPLIED. `workspace-contracts`
+  // now imports `IBackgroundJobGroupState` from `background-group-contracts`, its declaring module,
+  // so the raw source already agrees and the projection needs no adjustment. Removing the entry when
+  // its leaf lands is what keeps this list a statement about work still outstanding rather than a
+  // permanent fiction the projection is corrected against.
 ];
-
 /**
  * Parse the owner-map table out of the rule document. PURE over the document text so the parser is
  * testable without a repository on disk.
@@ -229,6 +225,34 @@ export function migrationWaves(edges, owners) {
  * The contract modules this scan examines. PURE over a directory, so a test can point it at a
  * fixture of known size.
  */
+/**
+ * Where each declared module's source lives NOW, across every owner package that exists.
+ *
+ * The scan used to read one directory — `agent-interface-transport/src`. That was right while the
+ * omnibus held every family and WRONG the moment a migration leaf succeeded: after ARCH-103 moved
+ * four modules out, the examined count fell from 21 to 17 and the four were reported as "no longer
+ * exists". **The subject shrank as the work succeeded** — carried to the end of the programme, the
+ * scan would have measured nothing while still printing a pass.
+ *
+ * Resolving per-module against the owner map keeps the subject whole: a module is read from its
+ * declared owner when that package exists, and from the transport package until its leaf moves it.
+ * A module found in NEITHER is a failure, not a note — a declared module nobody can locate means the
+ * map has drifted from the tree.
+ */
+export function resolveModuleSources(moduleOwner, root = ROOT) {
+  const sources = {};
+  const missing = [];
+  for (const [mod, owner] of moduleOwner) {
+    const found = [
+      path.join(root, 'packages', owner, 'src', `${mod}.ts`),
+      path.join(root, 'packages/agent-interface-transport/src', `${mod}.ts`),
+    ].find((candidate) => existsSync(candidate));
+    if (found) sources[mod] = readFileSync(found, 'utf8');
+    else missing.push(mod);
+  }
+  return { sources, missing };
+}
+
 export function findContractModules(srcDir = SOURCE_PKG) {
   return readdirSync(srcDir)
     .filter((f) => f.endsWith('.ts') && f !== 'index.ts')
@@ -299,24 +323,22 @@ function main() {
     process.exit(1);
   }
 
-  // ASSIGNMENT — every contract module is assigned exactly once.
-  const modules = findContractModules();
-  for (const mod of modules) {
+  // ASSIGNMENT — every contract module is assigned exactly once, and every assigned module is found.
+  const { sources, missing } = resolveModuleSources(moduleOwner);
+  const modules = Object.keys(sources).sort();
+  for (const mod of findContractModules()) {
     if (!moduleOwner.has(mod))
       fail.push(`ASSIGNMENT: contract module \`${mod}\` has no owner in the map.`);
   }
-  for (const mod of moduleOwner.keys()) {
-    if (!modules.includes(mod)) {
-      note.push(
-        `the map assigns \`${mod}\`, which no longer exists in agent-interface-transport/src (already migrated, or renamed).`,
-      );
-    }
+  for (const mod of missing) {
+    fail.push(
+      `ASSIGNMENT: the map assigns \`${mod}\` but no source exists in its owner package or in ` +
+        `agent-interface-transport. A declared module that cannot be found is a map that has drifted ` +
+        `from the tree, not a module that is finished.`,
+    );
   }
 
   // ACYCLICITY — project the real import edges onto the owner map.
-  const sources = Object.fromEntries(
-    modules.map((m) => [m, readFileSync(path.join(SOURCE_PKG, `${m}.ts`), 'utf8')]),
-  );
   const edges = projectGraph(sources, moduleOwner, symbolOwner, PENDING_CORRECTIONS);
   for (const c of findCycles(edges, owners)) {
     fail.push(`ACYCLICITY: the projected package graph has a cycle — ${c.join(' → ')}`);

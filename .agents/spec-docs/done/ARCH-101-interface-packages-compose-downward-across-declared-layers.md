@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: RULE
 tags: [typescript]
 ---
@@ -130,18 +130,18 @@ guards derive from it. Whoever takes issue #2194 has that rather than a blank pa
 
 ## Completion Criteria
 
-- [ ] **TC-01** `.agents/project-structure.md` § Interface Package Rule states that an
+- [x] **TC-01** `.agents/project-structure.md` § Interface Package Rule states that an
       `agent-interface-*` package may depend on another only downward across declared layers and
       one-directionally, and that same-layer and upward dependencies are refused.
-- [ ] **TC-02** The layer assignment is machine-readable in
+- [x] **TC-02** The layer assignment is machine-readable in
       `.agents/specs/contract-family-owner-map.md` under a marker, and `interface-layers.mjs` parses
       it; a missing marker fails rather than yielding an empty legal-by-default answer.
-- [ ] **TC-03** `checkInterfacePackageDeps` accepts a downward interface→interface manifest edge and
+- [x] **TC-03** `checkInterfacePackageDeps` accepts a downward interface→interface manifest edge and
       reports a same-layer one and an upward one, each with the layers named.
-- [ ] **TC-04** `interface-family-owner` reports a same-layer and an upward MODULE edge, and each case
+- [x] **TC-04** `interface-family-owner` reports a same-layer and an upward MODULE edge, and each case
       is demonstrated to pass the acyclicity check — proving the new check is not redundant.
-- [ ] **TC-05** Every new refusal is demonstrated RED before the code satisfying it is written.
-- [ ] **TC-06** `pnpm harness:scan` exits 0 and `pnpm harness:verify-like-ci` reports green.
+- [x] **TC-05** Every new refusal is demonstrated RED before the code satisfying it is written.
+- [x] **TC-06** `pnpm harness:scan` exits 0 and `pnpm harness:verify-like-ci` reports green.
 
 ## Test Plan
 
@@ -153,6 +153,14 @@ guards derive from it. Whoever takes issue #2194 has that rather than a blank pa
 | TC-04 | Unit (falsifying)  | `vitest`: a same-layer edge that `findCycles` reports as acyclic must still be refused           | This is what proves the new check adds a property           |
 | TC-05 | Procedure          | Each new case run against the pre-change guard and observed failing                              | manual red-before-green step, recorded in the PR body       |
 | TC-06 | Gate               | `pnpm harness:scan`; `pnpm harness:verify-like-ci`                                               | manual invocation — `verify-like-ci` is the CI-mirror entry |
+
+## User Execution Test Scenarios
+
+**Not applicable — this task delivers no user-facing behavior.** It amends a repository rule and two
+verification guards, and moves no production TypeScript. No shipped surface changes.
+
+The verification surface is the harness gate, recorded in the Test Plan above — specifically that a
+same-layer or upward interface edge is refused at both the manifest and module altitudes.
 
 ## Evidence Log
 

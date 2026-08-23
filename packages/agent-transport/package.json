@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-transport",
   "version": "3.0.0-beta.79",
-  "description": "Core transport package for Robota SDK \u2014 headless adapter, scripted-provider testing fixtures, and the transport registry",
+  "description": "Core transport package for Robota SDK — headless adapter, scripted-provider testing fixtures, and the transport registry",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -85,6 +85,7 @@
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
+    "@robota-sdk/agent-interface-execution": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*"
   },
   "devDependencies": {

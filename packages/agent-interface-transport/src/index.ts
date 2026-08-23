@@ -150,84 +150,8 @@ export type {
   IPlanApprovalEvent,
 } from './event-contracts.js';
 
-// ── Background-task data contracts (INFRA-025 SSOT) ─────────
-export type {
-  TBackgroundTaskKind,
-  TBackgroundTaskMode,
-  TBackgroundTaskIsolation,
-  TBackgroundTaskStatus,
-  TBackgroundTaskTimeoutReason,
-  TBackgroundTaskErrorCategory,
-  TBackgroundPrimitive,
-  IBackgroundTaskError,
-  ISerializableProviderProfile,
-  IBaseBackgroundTaskRequest,
-  IAgentBackgroundTaskRequest,
-  IProcessBackgroundTaskRequest,
-  IScheduledBackgroundTaskRequest,
-  TBackgroundTaskRequest,
-  IBackgroundTaskUsage,
-  IBackgroundTaskResult,
-  IBackgroundTaskState,
-  IBackgroundTaskSchedule,
-  IBackgroundTaskInput,
-  IBackgroundTaskLogCursor,
-  IBackgroundTaskLogPage,
-  IBackgroundTaskListFilter,
-  TBackgroundTaskEvent,
-  TBackgroundTaskEventListener,
-} from './background-task-contracts.js';
-
-// ── Subagent job data contracts (INFRA-025 SSOT; ARCH-031 request/result) ────
-export type {
-  TSubagentJobStatus,
-  TSubagentJobMode,
-  ISubagentJobState,
-  ISubagentJobResult,
-  ISubagentSpawnRequest,
-} from './subagent-contracts.js';
-
 // ── Context-compaction contracts (INFRA-025 SSOT) ────────────
 export type { TCompactTrigger, ICompactEvent } from './compact-contracts.js';
-
-// ── Background job-group contracts ───────────────────────────
-export type {
-  IBackgroundJobGroupState,
-  IBackgroundJobGroupSummary,
-  IBackgroundJobGroupCreateRequest,
-  IBackgroundJobResultEnvelope,
-  TBackgroundJobGroupEvent,
-  TBackgroundJobGroupEventListener,
-  TBackgroundJobGroupIdFactory,
-  TBackgroundJobGroupStatus,
-  TBackgroundJobWaitPolicy,
-} from './background-group-contracts.js';
-
-// ── Execution-workspace contracts ────────────────────────────
-export type {
-  IExecutionOrigin,
-  IExecutionWorkspaceEntry,
-  IExecutionWorkspaceEntryRef,
-  IExecutionWorkspaceEvent,
-  IExecutionWorkspaceFilter,
-  IExecutionWorkspaceSnapshot,
-  IExecutionWorkspaceSnapshotOptions,
-  IExecutionDetailCursor,
-  IExecutionDetailPage,
-  IExecutionDetailRecord,
-  ICreateExecutionWorkspaceSnapshotInput,
-  ICreateLineDetailPageInput,
-  ICreateMainThreadDetailPageInput,
-  ICreateMainThreadEntryInput,
-  TExecutionAttention,
-  TExecutionControl,
-  TExecutionDetailRecordKind,
-  TExecutionEntryKind,
-  TExecutionOriginKind,
-  TExecutionWorkspaceStatus,
-  TExecutionWorkspaceUpdateCause,
-  TExecutionWorkspaceVisibility,
-} from './workspace-contracts.js';
 
 // ── Interactive-session contracts ────────────────────────────
 export type {

@@ -25,7 +25,7 @@ import type {
   TBackgroundJobGroupEvent,
   TBackgroundJobGroupStatus,
   TBackgroundJobWaitPolicy,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 const WAIT_POLICIES = [
   'detached',

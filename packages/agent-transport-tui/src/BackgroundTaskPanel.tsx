@@ -4,7 +4,7 @@ import React from 'react';
 import { formatBackgroundTaskRow } from './background-task-row-format.js';
 import { PALETTE } from './tui-palette.js';
 
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-transport';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
 
 interface IProps {
   entries: IExecutionWorkspaceEntry[];

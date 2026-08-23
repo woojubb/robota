@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-101: interface packages compose downward across declared layers'
-status: in-progress
+status: done
 created: 2026-08-23
+completed: 2026-08-23
 priority: high
 urgency: now
 area: .agents/project-structure.md, .agents/specs, scripts/harness
@@ -55,14 +56,14 @@ Measured on `origin/develop`.
 
 ## Completion Criteria
 
-- [ ] The Interface Package Rule states the layer ruling: downward one-directional composition is
+- [x] The Interface Package Rule states the layer ruling: downward one-directional composition is
       permitted, same-layer and upward are refused.
-- [ ] The layer assignment is machine-readable, with one owner and one parser.
-- [ ] `checkInterfacePackageDeps` permits a downward interface→interface manifest edge and refuses a
+- [x] The layer assignment is machine-readable, with one owner and one parser.
+- [x] `checkInterfacePackageDeps` permits a downward interface→interface manifest edge and refuses a
       same-layer or upward one.
-- [ ] `interface-family-owner` refuses a same-layer or upward module edge, not only a cycle.
-- [ ] Each new refusal is demonstrated red before the code that satisfies it.
-- [ ] `pnpm harness:scan` exit 0.
+- [x] `interface-family-owner` refuses a same-layer or upward module edge, not only a cycle.
+- [x] Each new refusal is demonstrated red before the code that satisfies it.
+- [x] `pnpm harness:scan` exit 0.
 
 ## Test Plan
 
@@ -74,3 +75,7 @@ Measured on `origin/develop`.
 
 This task delivers no user-facing behavior: it amends a rule and two repository verification scans, and
 moves no production TypeScript. The verification surface is the harness gate, recorded in the Test Plan.
+
+## Outcome
+
+Delivered by pull request #2199, squash-merged as `917f849de` on `develop` and verified present by content.

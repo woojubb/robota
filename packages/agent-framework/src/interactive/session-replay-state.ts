@@ -3,7 +3,7 @@ import type {
   IBackgroundTaskState,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 export function deriveBackgroundTasks(
   events: readonly TBackgroundTaskEvent[],

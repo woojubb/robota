@@ -9,19 +9,19 @@ import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createWsHandler } from '../ws-handler.js';
 import { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from '../ws-session-events.js';
 import type { TServerMessage } from '../ws-protocol.js';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import type {
   IBackgroundJobGroupState,
   IExecutionWorkspaceEvent,
   IExecutionWorkspaceSnapshot,
-  IInteractiveSession,
   TBackgroundJobGroupEvent,
   TExecutionWorkspaceUpdateCause,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 const backgroundTask: IBackgroundTaskState = {
   id: 'task_1',

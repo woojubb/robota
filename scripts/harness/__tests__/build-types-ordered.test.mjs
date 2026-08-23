@@ -94,9 +94,15 @@ describe('createBuildTypeTiers', () => {
     );
     const cli = tiers.flat().find((pkg) => pkg.name === '@robota-sdk/agent-cli');
 
-    expect(packages).toHaveLength(76);
-    expect(tiers).toHaveLength(10);
-    expect(tierByName.get('@robota-sdk/agent-cli')).toBe(9);
+    // ARCH-103 added `agent-interface-execution` and made `agent-interface-transport` depend on it,
+    // which lengthened the declaration chain by one link: 76 → 77 packages, 10 → 11 tiers, and every
+    // package above transport moved down one. The order is what matters and it still holds —
+    // agent-core (0) → agent-interface-execution (1) → agent-interface-transport (2) → … → agent-cli.
+    expect(packages).toHaveLength(77);
+    expect(tiers).toHaveLength(11);
+    expect(tierByName.get('@robota-sdk/agent-interface-execution')).toBe(1);
+    expect(tierByName.get('@robota-sdk/agent-interface-transport')).toBe(2);
+    expect(tierByName.get('@robota-sdk/agent-cli')).toBe(10);
     expect(cli).toBeDefined();
     for (const dependency of cli.deps) {
       expect(tierByName.get(dependency), dependency).toBeLessThan(
