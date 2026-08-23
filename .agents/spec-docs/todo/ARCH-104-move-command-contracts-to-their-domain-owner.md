@@ -177,3 +177,63 @@ were both settled before this leaf:
   ARCH-101, which landed the owner's layer ruling.
 
 Nothing here decides which family belongs to which owner — that is ARCH-100's, merged and unchanged.
+
+### [GATE-COMPLETE] — 🔴 NON-COMPLIANCE | 2026-08-24
+
+**Status remains:** approved
+
+**Violation:** the ordering check fails on both limbs, and the work this pipeline gates has already
+shipped.
+
+- **Prior gate absent.** GATE-COMPLETE's prior gate is GATE-VERIFY (gate-catalogue § Prior-gate map).
+  This Evidence Log contains exactly two entries — `[GATE-WRITE]` (2026-08-23) and `[GATE-APPROVAL]`
+  (2026-08-23). There is no `[GATE-IMPLEMENT]` and no `[GATE-VERIFY]` entry, PASS, FAIL or otherwise.
+  Two gates were skipped, not one.
+- **Input state wrong.** GATE-COMPLETE expects `status: verifying` in `.agents/spec-docs/active/`.
+  Frontmatter reads `status: approved` and the file sits in `.agents/spec-docs/todo/` — the
+  GATE-APPROVAL output state, unchanged since 2026-08-23.
+- **The gated work is already merged.** GATE-IMPLEMENT is the verdict that implementation may START.
+  Implementation landed on `develop` as `0c9c9fd59` "feat(interface): move command contracts to their
+  domain owner (ARCH-104)" (PR #2209), creating `packages/agent-interface-command` with 109 files rewired
+  across 9 consumer packages. Two later leaves (`c621e4d49` ARCH-105, `22152ef9d` ARCH-106) have since
+  built on it. Passing GATE-COMPLETE now would not be judging the gate; it would be writing a
+  2026-08-24 PASS over a pipeline whose implement-authorisation gate never ran and can no longer be
+  run against an unstarted tree. That is backdating, and it is refused.
+
+**Not evaluated:** this gate's own criteria (TC-01…TC-06 verification entries, Test Plan references,
+`## Tasks` pointer, active-task completion). The guardian charter halts the run at a failed ordering
+check; evaluating them would manufacture the record the skipped gates were supposed to produce.
+Recorded only as ordering context, not as criterion verdicts: the spec has **no `## Tasks` section at
+all** (sections present: Problem, Prior Art Research, Architecture Review Checklist, Alternatives
+Considered, Decision, Completion Criteria, Test Plan, User Execution Test Scenarios, Evidence Log), and
+all six TC-N checkboxes in `## Completion Criteria` are `[ ]`.
+
+**Two collateral findings surfaced while checking prior evidence:**
+
+1. `[GATE-WRITE]` self-declares "Judged by: self-assessment against `.agents/specs/gate-catalogue.md`
+   § GATE-WRITE. Not a `backlog-gate-guard` verdict." A gate's own author is not its guardian, so the
+   one recorded PASS that precedes GATE-APPROVAL is not independent evidence. Its GATE-WRITE
+   "Structure" criterion (Tasks section present) is also contradicted by the file: no `## Tasks`
+   section exists, and the entry does not mention the item.
+2. The paired task record `.agents/tasks/ARCH-104-move-command-contracts-to-their-domain-owner.md` is
+   `status: in-progress` in `.agents/tasks/`, with all six of its completion criteria unchecked. The
+   reported uncommitted move to `completed/` with `status: done` is **not present in this clone** —
+   `git status --porcelain` on `develop` shows only `.agents/evals/lessons/auto-lessons.md` and
+   `.agents/evals/lessons/weekly-digest.md` modified.
+
+**Expired criterion — cannot be treated as met.** The task's fifth criterion,
+"`agent-interface-transport` stays declared at layer 1 — it still holds the session family", was true
+when `0c9c9fd59` landed: `contract-family-owner-map.md` at that commit reads "**`agent-interface-transport`
+is at layer 1 TODAY.**" It is no longer true. The same document on `develop` now reads
+"**`agent-interface-transport` is at layer 2 TODAY**", because `22152ef9d` (ARCH-106) closed
+issue #2110 and moved the session family out — the very condition the criterion was scoped
+by ("until issue #2110"). An expired criterion is not a met criterion: the gate asks whether the document demonstrably
+satisfies it, and the observable it names no longer exists to be observed. It is also not a FAIL of
+the implementation, which did retain layer 1 at the time. The correct handling is a criterion
+re-statement pinned to `0c9c9fd59` (or an explicit superseded-by-ARCH-106 note), decided by whoever
+owns the criteria — not a guardian ticking a box against a fact that has moved.
+
+**Required action:** not this guardian's call to sequence, but the record cannot be closed by this
+gate. Resolution requires the orchestrator to rule on a pipeline whose GATE-IMPLEMENT and GATE-VERIFY
+cannot be honestly recorded after the fact, and the layer-1 criterion to be re-stated or marked
+superseded before any completion verdict is attempted.

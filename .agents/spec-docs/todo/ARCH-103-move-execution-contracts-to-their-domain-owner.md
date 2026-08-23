@@ -202,3 +202,55 @@ were both settled before this leaf:
   illegal until ARCH-101, which landed the owner's layer ruling. It is now a declared downward edge.
 
 Nothing here decides which family belongs to which owner — that is ARCH-100's, merged and unchanged.
+
+### [GATE-COMPLETE] — 🔴 NON-COMPLIANCE | 2026-08-24
+
+**Status remains:** approved (`.agents/spec-docs/todo/`)
+
+**Violation:** the ordering check for GATE-COMPLETE fails on both limbs, and the work this pipeline
+was supposed to authorize has already shipped.
+
+- **Prior gate absent.** `gate-catalogue.md` § Prior-gate map requires a recorded **GATE-VERIFY PASS**
+  before GATE-COMPLETE. This Evidence Log contains exactly two entries — `[GATE-WRITE] ✅ PASS
+2026-08-23` and `[GATE-APPROVAL] ✅ PASS 2026-08-23`. There is **no GATE-IMPLEMENT entry and no
+  GATE-VERIFY entry**. Two gates in the pipeline were skipped, not one.
+- **Input state wrong.** GATE-COMPLETE expects `verifying` / `active/`. The frontmatter reads
+  `status: approved` and the file sits in `todo/` — the state GATE-APPROVAL leaves behind, i.e. the
+  document never left the approval step.
+- **Authorized-work-already-done.** GATE-IMPLEMENT is the verdict that implementation may _start_.
+  Implementation is merged: `bd50f8b28` "feat(interface): move execution contracts to their domain
+  owner (ARCH-103)" (PR #2203), dated 2026-08-23, verified an ancestor of `origin/develop` via
+  `git merge-base --is-ancestor`. `packages/agent-interface-execution` exists on disk. Passing
+  GATE-COMPLETE now would not be judging the pipeline; it would be backdating two verdicts that were
+  never rendered — the definition of a bypassed gate.
+
+**Corroborating irregularities observed while establishing the above (not the deciding finding):**
+
+- The spec has **no `## Tasks` section at all** (sections present: Problem, Prior Art Research,
+  Architecture Review Checklist, Alternatives Considered, Decision, Completion Criteria, Test Plan,
+  User Execution Test Scenarios, Evidence Log). GATE-WRITE § Structure requires one, and GATE-IMPLEMENT
+  requires the tasks-file path be recorded in it. The GATE-WRITE PASS entry does not mention the
+  Structure criterion at all — an unanswered criterion, which the catalogue treats as NON-COMPLIANCE on
+  the next run.
+- The GATE-WRITE entry states on its face: "Judged by: self-assessment … Not a `backlog-gate-guard`
+  verdict — no guardian agent was dispatched." The only prior evidence for the upstream gate is
+  author-recorded, not an independent guardian verdict.
+- All six TC-01…TC-06 checkboxes in `## Completion Criteria` are `[ ]` unchecked, and the paired task
+  record `.agents/tasks/ARCH-103-move-execution-contracts-to-their-domain-owner.md` carries
+  `status: in-progress` with all six of its task items `[ ]` unchecked — while the implementation is
+  merged. (The claim that an uncommitted change moves that task to `completed/` with `status: done`
+  does not hold in this clone: `git status --porcelain` shows only
+  `.agents/evals/lessons/auto-lessons.md` and `.agents/evals/lessons/weekly-digest.md` modified.)
+
+Per the ordering rule, GATE-COMPLETE's own criteria were **not** evaluated — a gate judged out of order
+is meaningless, and a per-TC evidence pass here would manufacture the record the skipped gates should
+have produced.
+
+**Required action:** not this gate's call to make, and not resolvable by re-running GATE-COMPLETE.
+The skipped `GATE-IMPLEMENT` and `GATE-VERIFY` are **outside GATE-COMPLETE's remit to judge** — this
+gate may only observe that they are missing and refuse. Resolution belongs to the orchestrator
+(`backlog-pipeline` / `backlog-execution-orchestrator`): either reconstruct the pipeline honestly with
+each gate dated when it is actually run and labelled as retrospective, or reject the item and record
+the merged-without-gates state as the process finding it is. Whichever is chosen, the missing
+`## Tasks` section must be authored and the TC checkboxes and task record brought into agreement with
+the shipped code before GATE-COMPLETE can be run at all.

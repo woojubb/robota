@@ -193,3 +193,34 @@ this leaf:
   so it is reviewable as a decision rather than as diff noise.
 
 Nothing here decides which family belongs to which owner — that is ARCH-100's, merged and unchanged.
+
+### [GATE-COMPLETE] — 🔴 NON-COMPLIANCE | 2026-08-24
+
+**Status remains:** approved (`.agents/spec-docs/todo/`)
+**Violation:** Ordering check failed on both halves, so this gate's own criteria were not reached.
+
+- **Missing prior gate.** `gate-catalogue.md` § Prior-gate map requires GATE-VERIFY PASS before
+  GATE-COMPLETE. The Evidence Log records exactly two entries — `[GATE-WRITE]` (2026-08-23) and
+  `[GATE-APPROVAL]` (2026-08-23). There is no `[GATE-IMPLEMENT]` entry and no `[GATE-VERIFY]` entry.
+  Two gates, not one, are absent.
+- **Wrong input state.** GATE-COMPLETE expects `verifying` / `active/`. Frontmatter reads
+  `status: approved` and the file sits in `todo/` — the state GATE-APPROVAL leaves behind, i.e. the
+  document never entered implementation on the record.
+- **Work this gate chain was to authorize has already shipped.** `packages/agent-interface-session`
+  exists on `develop`; commit `22152ef9d` "feat(interface): move session contracts to the runtime
+  owner (ARCH-106)" (PR #2217, 2026-08-23) is an ancestor of HEAD, and `4ed80522b` (ARCH-107, PR #2220)
+  already builds on it. GATE-IMPLEMENT is the verdict that implementation may _start_; issuing it
+  after the merge would be backdating, not judging. It is outside GATE-COMPLETE's remit either way —
+  a guardian applies one gate per run and cannot supply a predecessor's verdict.
+- **Corroborating tree state (not the deciding finding).** The paired task
+  `.agents/tasks/ARCH-106-move-session-contracts-to-the-runtime-owner.md` is `status: in-progress`
+  with 0 of 5 checklist items `[x]`; the spec has no `## Tasks` section at all, so no task path is
+  recorded where GATE-IMPLEMENT requires it; all six TC-N boxes are `[ ]` and the log holds zero
+  `[GATE-COMPLETE: TC-N]` entries. Judged against this working tree only; an uncommitted change in
+  another clone is not evidence here.
+
+**Required action:** Not a re-run of this gate. The pipeline owner must reconcile the record with the
+merged reality — decide whether ARCH-106 is closed out by a retrospective correction that is labelled
+as one (never a PASS-shaped GATE-IMPLEMENT entry dated after `22152ef9d`), or rejected and re-filed.
+Only once the document legitimately reads `verifying` with a GATE-VERIFY PASS may GATE-COMPLETE be
+invoked. No status change, no folder move and no content fix was made by this run.
