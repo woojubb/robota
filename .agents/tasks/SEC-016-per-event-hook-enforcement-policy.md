@@ -296,3 +296,42 @@ not rebuild it.
 Consequence for this record: `backlog-execution.md` § Done Gate forbids `status: done` while a
 scenario is unexecuted, so this Task remains `in-progress` after its PR merges. The two are
 different gates.
+
+## How the SSOT sweep can be claimed clean at all
+
+Recorded because "swept four axes" is exactly the claim this leaf already made once in a commit
+message that was true and covered nothing. That message said _"every listing of the hook types now
+agrees, no document still claims the policy is unencoded."_ Both clauses were true. Both described
+the axes I had thought of. The next review round returned three findings, on three axes I had not.
+
+Rereading does not fix that — it is the same reader, with the same model of the file, asked to fail
+differently. So the sweep was rebuilt as a checker that derives its expectation from the source of
+truth:
+
+| axis                          | derived from                                                                                   |
+| ----------------------------- | ---------------------------------------------------------------------------------------------- |
+| the Public API Surface table  | `packages/agent-core/src/index.ts` exports, with a NOTE required to disclaim a non-root member |
+| the Type Ownership table      | the exported symbols the diff adds under `packages/agent-core/src`                             |
+| every listing of a closed set | the `THookEvent` and `THookDefinition` unions in `hooks/types.ts`                              |
+| sibling packages in scope     | the paired spec document's own Affected Files list vs the actual diff                          |
+
+**Its first run returned 21 findings and five of them were defects in the checker**: it read only
+committed changes; it scraped backticked paths from the whole plan rather than its Affected Files
+section; it matched `export {` but not `export type {`, which produced thirteen false findings from
+one missing token; it filtered list items with `/^[a-z]+$/` so a trailing paren made `guardrail)`
+read as absent; and it tested "is this member disclaimed by a NOTE" with a line-bounded pattern
+against notes that wrap across lines.
+
+Those were caught because 21 was implausible. **A first run returning zero is the dangerous
+outcome** — a derivation that is too narrow reports clean, and clean is the answer the author wants.
+
+So each axis was falsified before the result was trusted: a known defect injected per axis — a plan
+naming an untouched file, a table row for a non-root export, a count disagreeing with its union, an
+added export mentioned nowhere — and each axis confirmed to fire. **Three of four fired; the fourth
+did not, and that was a bad probe rather than an unguarded axis** (the probe symbol was one the
+document genuinely disclaims). Re-probed with a symbol nothing mentions, it fired. An axis passing
+and a probe being invalid look identical from the output, and one of them means that axis guards
+nothing.
+
+Only after that is "all four axes clean" a claim someone else can check. The lesson is in
+`.agents/memory/a-red-proof-is-not-proof-of-its-reason.md`.

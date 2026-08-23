@@ -33,6 +33,49 @@ Two operational consequences:
 - **Mutate more than one way.** Mechanisms 1 and 2 both survive the obvious mutation and die to a
   different one. One mutant tests one hypothesis about how the code could be wrong.
 
+## The same defect one level up: an unfalsified instrument
+
+When eye-reading keeps missing things, the right move is an instrument — a check that derives its
+expectation from the source of truth instead of from a reader's model of the file. That is correct,
+and it does **not** escape this class. It re-enters it one level up:
+
+> **An instrument that reports clean is only as trustworthy as its derivation, and a broken
+> derivation reports clean. An unfalsified instrument is prose wearing a uniform.**
+
+Measured. I built a four-axis SPEC checker (public-export table vs the package root's exports; type
+ownership vs the symbols the change adds; every closed-set listing vs the union type; the plan's
+affected-files list vs the actual diff). **First run: 21 findings, nearly all defects in the
+instrument.** Five of them, and every one is an instance of something already known:
+
+| defect                                                                             | what it is                                                                           |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| read only committed changes                                                        | a corpus missing the working tree                                                    |
+| scraped the whole plan, not its Affected Files section                             | a corpus too wide                                                                    |
+| matched `export {` but not `export type {`                                         | **a filter after a correct derivation** — one missing token, thirteen false findings |
+| filtered list items on `/^[a-z]+$/`, so `guardrail)` failed                        | a filter that cannot see what it looks for                                           |
+| tested "is this disclaimed?" with a line-bounded `[^\n]*` against prose that WRAPS | a corpus that stops before the answer                                                |
+
+**I caught them only because 21 was implausible.** A first run returning **0** is the dangerous
+outcome, and it is the one a tidier author gets — a too-narrow derivation reports clean, and clean is
+what the author is hoping for. The instrument would then have carried more authority than the
+eye-reading it replaced.
+
+### Falsify the derivation, and check the probe
+
+Inject a known defect on each axis and confirm that axis fires. Three of my four did. The fourth did
+not — and that turned out to be a **bad probe**, not an unguarded axis: I had picked a symbol that
+the document genuinely does disclaim, so passing was correct. Re-probed with a symbol nothing
+mentions, and it fired.
+
+> _The instrument passing_ and _the probe being wrong_ look identical from the output, and one of
+> them means that axis is guarding nothing.
+
+Probe validity is its own claim, and it does not regress infinitely: check the probe against the code
+once, by hand.
+
+**The rule, whole:** prose does not apply a rule; an instrument applies its derivation; falsify the
+derivation, and check the probe.
+
 ## Related
 
 - [[two-measurements-that-disagree]] — same family, one layer up: there, two numbers for one
