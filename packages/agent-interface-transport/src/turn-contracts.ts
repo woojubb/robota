@@ -7,8 +7,9 @@
  */
 
 import type { IPromptFileReferenceRecord } from './event-contracts.js';
-import type { IToolSummary, IUsageSnapshot } from './session-contracts.js';
+import type { IToolSummary } from './session-contracts.js';
 import type { IContextWindowState, IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IUsageSnapshot } from '@robota-sdk/agent-interface-analytics';
 
 /**
  * RUNTIME-003: the identity of one submission, handed back to whoever made it.

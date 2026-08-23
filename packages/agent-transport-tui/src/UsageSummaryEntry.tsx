@@ -5,7 +5,7 @@ import React from 'react';
 import { PALETTE } from './tui-palette.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IUsageSnapshot } from '@robota-sdk/agent-interface-transport';
+import type { IUsageSnapshot } from '@robota-sdk/agent-interface-analytics';
 
 const TOKEN_COMPACT_THRESHOLD = 1000;
 

@@ -16,7 +16,6 @@ import type {
   ITransportConfig,
   ITransportRunnerAdapter,
   TTransportRunOutcome,
-  IUsageSnapshot,
   TPermissionResultValue,
 } from '../index.js';
 
@@ -54,7 +53,6 @@ describe('agent-interface-transport contract surface', () => {
     expectTypeOf<IInteractiveSession>().toHaveProperty('submit');
     expectTypeOf<IExecutionResult>().toHaveProperty('response');
     expectTypeOf<IToolState>().toHaveProperty('toolName');
-    expectTypeOf<IUsageSnapshot>().toHaveProperty('totalTokens');
     expectTypeOf<TPermissionResultValue>().not.toBeNever();
     expectTypeOf<IInteractiveSessionStore>().toHaveProperty('save');
     expectTypeOf<IInteractiveSessionStore>().not.toHaveProperty('getFilePath');

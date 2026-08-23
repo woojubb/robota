@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import type { TServerMessage } from '../ws-protocol.js';
-import type { IUsageBySourceReport } from '@robota-sdk/agent-interface-transport';
+import type { IUsageBySourceReport } from '@robota-sdk/agent-interface-analytics';
 
 /**
  * SELFHOST-004 P5 (TC-08): the new `usage_report` TServerMessage variant carries the assembled

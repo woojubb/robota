@@ -17,7 +17,7 @@ import type {
   ISpanEntry,
   IUsageSnapshot,
   IUsageSource,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-analytics';
 
 let seq = 0;
 

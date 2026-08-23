@@ -22,7 +22,7 @@ import type {
   IEventService,
   TEventListener,
 } from '@robota-sdk/agent-core';
-import type { IUsageSource, ISpanEntry } from '@robota-sdk/agent-interface-transport';
+import type { IUsageSource, ISpanEntry } from '@robota-sdk/agent-interface-analytics';
 
 /** Detect an abort/cancel. CORE-027: the substring heuristic that stood here reported a provider
  * failure as the user's own cancellation; `isAbortFailure` owns the decision and says why. */

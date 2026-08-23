@@ -9,7 +9,6 @@
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
-  IInteractiveSessionRecord,
   ISpanEntry,
   IUsageSnapshot,
   IUsageSource,
@@ -17,7 +16,8 @@ import type {
   IRunTraceSpan,
   IRunTraceTurn,
   IUsageBySourceReport,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-analytics';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
 
 // SELFHOST-004: the trace/cost read-model is a boundary contract owned by `agent-interface-transport`
 // (it crosses the sidecar boundary via a TServerMessage carrier). Re-exported here for consumers that
@@ -27,7 +27,7 @@ export type {
   IRunTraceSpan,
   IRunTraceTurn,
   IUsageBySourceReport,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-analytics';
 
 /** The `type` of the per-turn usage history entry (agent-framework `createUsageSummaryEntry`). */
 const USAGE_SUMMARY_ENTRY_TYPE = 'usage-summary';
