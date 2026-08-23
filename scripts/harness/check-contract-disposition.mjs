@@ -7,12 +7,15 @@
  * its actual state:
  *
  *   grep finds no consumer  → "dead, remove it"      (it was forward-provisioned, or misplaced)
+ *   grep finds one consumer → "make it private"       (a library surface with one in-repo assembly)
  *   the surface is published → "we cannot change it"  (the project is pre-release; nothing is exposed)
  *
- * `project-structure.md:225` already forbids the first — "Removal of an unconsumed public surface is a
- * PRODUCT decision — never a grep-based cleanup" — and it was violated anyway, in a shipped changeset
- * that labelled a carried-but-not-honored field a "dead contract field". Prose did not hold, so this
- * is the mechanical half.
+ * `project-structure.md` § Forward-Provisioned Surface Rule already forbids the first two — "Removal
+ * or narrowing of a public surface is a PRODUCT decision — never a grep-based cleanup", and in-repo
+ * consumer count is not evidence about whether a surface should be public at ANY count (owner
+ * decision, 2026-08-23; ARCH-102). It was violated anyway, in a shipped changeset that labelled a
+ * carried-but-not-honored field a "dead contract field". Prose did not hold, so this is the
+ * mechanical half.
  *
  * WHAT IT CHECKS. Changeset bodies (`.changeset/*.md`) are the surface where a disposition becomes a
  * public claim about a contract. A changeset asserting a contract is dead/unused must name which

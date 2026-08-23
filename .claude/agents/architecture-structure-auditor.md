@@ -31,7 +31,12 @@ for reading the implementation. Produce findings; never edit code, configuration
    dependency direction.
 4. **Public surfaces.** Compare package entry points and export declarations with actual files and
    consumers. Report leaked internals, missing promised symbols, and configuration that disagrees with the
-   reachable public surface.
+   reachable public surface. **An export with few or no in-repo consumers is none of those things.**
+   `packages/` is a library others compose into their own agents, so a surface can be entirely correct and
+   have every real consumer outside this repository. Never recommend privatizing or deleting a `packages/`
+   export because of how many places consume it; recommend it only when the surface is genuinely
+   unnecessary or does not fit the design, and say which. See `.agents/project-structure.md`
+   § Forward-Provisioned Surface Rule, which owns this.
 5. **Workspace configuration consistency.** Establish whether compiler inheritance, test collection,
    linting, dead-code detection, and other repository-wide checks actually cover every target, especially
    a recently added one.

@@ -27,7 +27,14 @@ Produce findings; never edit code, configuration, or documentation.
 2. **Encapsulation and information hiding.** Do signatures or types leak lower-layer runtime, transport,
    vendor, or storage concepts? Do consumers depend on internal representation or concrete types rather
    than interfaces? Measure casts and implementation-specific branches at real consumption sites.
-3. **Contract quality and evolution safety.** Does every public symbol have a real consumer? Are symmetric
+3. **Contract quality and evolution safety.** Does every public symbol belong to the contract it is
+   exported from, and is it coherent with the rest of that contract? **Do not ask whether it has a
+   consumer.** `packages/` is a library for composing agents, so its consumers may all be outside this
+   repository; an in-repo consumer count — zero, one, or many — is not evidence about whether a symbol
+   should be public. Report a count as an observation if it is useful, never as a reason to privatize
+   or remove. The grounds that DO support narrowing a surface are that it is genuinely unnecessary or
+   that it does not fit the design, and both are judgements about the symbol, not about its callers.
+   See `.agents/project-structure.md` § Forward-Provisioned Surface Rule, which owns this. Are symmetric
    responsibilities such as serialize/deserialize owned together? Find function-valued fields crossing a
    serialization or transport boundary. Determine whether each operation is total or partial and whether
    failure is first-class in the contract rather than an undocumented throw. Check that contract replacement
