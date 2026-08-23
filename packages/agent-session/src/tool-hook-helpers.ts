@@ -83,8 +83,17 @@ export async function runPreToolHook(
   // because this function is `runPreToolHook`, so a future enforcing event needs its own boundary
   // and does not inherit anything — an earlier version of this comment claimed otherwise and review
   // caught it. What the indirection does buy is that flipping `PreToolUse` to advisory in the table
-  // turns this gate off, and `scan-hook-enforcement-reachable.mjs` notices if the table and the code
-  // disagree.
+  // turns this gate off.
+  //
+  // And be exact about the scan, because the earlier wording here was too generous. Measured: with
+  // this entire block deleted and the `hookResult.blocked` branch above left in place,
+  // `scan-hook-enforcement-reachable.mjs` still passes. Its arm 3 asks whether SOME fire site awaits
+  // `runHooks` and reads `.blocked` — which guards the older SELFHOST-009 denial path, not the
+  // `errors` / `unknownHookTypes` gate SEC-016 adds. What the scan does catch is the converse pair:
+  // deleting the `.blocked` read fires `[inert-enforcing-row]`, and flipping the row to advisory
+  // while the code still enforces fires `[stale-reachability]`. This gate is held by the unit tests
+  // in `__tests__/tool-hook-helpers.test.ts`, which are red-proved against its removal — not by the
+  // scan.
   //
   // The check stays HERE rather than inside `runHooks`, because the runner reports outcomes and must
   // not decide policy — the same split issue #2083 established between the decoder and the runner.

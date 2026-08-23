@@ -22,6 +22,7 @@ import { makeTemp } from './make-temp.mjs';
 import {
   collectPolicyRows,
   findFireSites,
+  readsBlockedInScope,
   isProductionSource,
   examinedRowCount,
   examinedFireSiteCount,
@@ -310,6 +311,49 @@ describe('scan-hook-enforcement-reachable', () => {
       const sites = findFireSites(['packages', 'apps']);
       expect(sites.every((s) => isProductionSource(s.file))).toBe(true);
       expect(sites.some((s) => s.file.includes('/examples/'))).toBe(false);
+    });
+  });
+
+  describe('readsBlocked is scoped to the enclosing block, not the rest of the file', () => {
+    // Reported four times before it was taken. `source.slice(source.indexOf(text))` searched from
+    // the FIRST textual occurrence of the call line to end-of-FILE. Two consequences, both
+    // PERMISSIVE in a scan whose entire job is to refuse a fire site that ignores an enforcing row:
+    // an identically-spelled second call site read the first one's window, and any later function
+    // whose variable happened to share the name and read `.blocked` vouched for it.
+    const SOURCE = [
+      'export async function honours(hooks, input) {',
+      "  const result = await runHooks(hooks, 'PreToolUse', input);",
+      '  if (result.blocked) return false;',
+      '  return true;',
+      '}',
+      '',
+      'export async function ignores(hooks, input) {',
+      // byte-identical to the call line above — that identity IS the defect
+      "  const result = await runHooks(hooks, 'PreToolUse', input);",
+      '  return true;',
+      '}',
+      '',
+    ].join('\n');
+
+    /** Byte offset of the line at `index`. */
+    function offsetOf(source, index) {
+      return source
+        .split('\n')
+        .slice(0, index)
+        .reduce((n, line) => n + line.length + 1, 0);
+    }
+
+    it('answers true for the site whose own block reads .blocked', () => {
+      expect(readsBlockedInScope(SOURCE, offsetOf(SOURCE, 1), 'result')).toBe(true);
+    });
+
+    it('does not let an earlier identical call line vouch for a later one', () => {
+      // Measured on the pre-fix code, this returned TRUE — the whole finding.
+      expect(readsBlockedInScope(SOURCE, offsetOf(SOURCE, 7), 'result')).toBe(false);
+    });
+
+    it('is false when nothing was assigned, rather than throwing', () => {
+      expect(readsBlockedInScope(SOURCE, offsetOf(SOURCE, 1), undefined)).toBe(false);
     });
   });
 });

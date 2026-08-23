@@ -71,6 +71,46 @@ const DEFAULT_POLICY = 'packages/agent-core/src/hooks/enforcement-policy.ts';
 /** Where a `runHooks` call was found, and what the surrounding code does with its result. */
 /** @typedef {{ file: string, line: number, events: string[], awaited: boolean, readsBlocked: boolean }} TFireSite */
 
+/**
+ * Index of the `{` opening the innermost block that CONTAINS `offset`.
+ *
+ * Pairs with `bodyEnd` to bound a search to one function body. Without it, `readsBlocked` searched
+ * `source.slice(source.indexOf(text))` — from the FIRST textual occurrence of the call line to the
+ * end of the file — so two identically-spelled call lines made the second read the first's window,
+ * and any later function whose variable happened to share the name and read `.blocked` vouched for
+ * this site. Both errors were permissive, in a scan whose whole purpose is to refuse a fire site
+ * that does not honour an enforcing row.
+ *
+ * A mis-bounded window here is now too SMALL rather than too large, so the failure direction is
+ * `readsBlocked: false` — which makes an enforcing row fail loudly instead of passing quietly.
+ */
+function enclosingBlockStart(source, offset) {
+  let depth = 0;
+  for (let i = offset; i >= 0; i--) {
+    if (source[i] === '}') depth++;
+    else if (source[i] === '{') {
+      if (depth === 0) return i;
+      depth--;
+    }
+  }
+  return 0;
+}
+
+/**
+ * Does the code that CONTAINS `lineOffset` read `<assigned>.blocked`?
+ *
+ * Exported because this is the unit that carried the defect and `findFireSites` enumerates from the
+ * workspace root, so the end-to-end path cannot be driven from a temporary fixture. Testing the
+ * enclosing-block helper alone would test a proxy; this takes the real source text and answers the
+ * real question.
+ */
+export function readsBlockedInScope(source, lineOffset, assigned) {
+  if (assigned === undefined) return false;
+  const start = enclosingBlockStart(source, lineOffset);
+  const scope = source.slice(start, bodyEnd(source, start));
+  return new RegExp(`\\b${assigned}\\.blocked\\b`).test(scope);
+}
+
 /** Index just past the `}` that closes the block opening at `start`. */
 function bodyEnd(source, start) {
   let depth = 0;
@@ -188,6 +228,15 @@ export function findFireSites(pathspecs) {
       if (!source.includes('runHooks(')) continue;
       const lines = source.split('\n');
 
+      // Offset of the START of each line. `indexOf(text)` finds the first line that LOOKS like this
+      // one, which is a different thing whenever two call sites are spelled identically.
+      const lineOffsets = [];
+      let running = 0;
+      for (const line of lines) {
+        lineOffsets.push(running);
+        running += line.length + 1;
+      }
+
       lines.forEach((text, index) => {
         if (!text.includes('runHooks(')) return;
         if (/export\s+async\s+function\s+runHooks/.test(text)) return; // the definition, not a site
@@ -202,9 +251,7 @@ export function findFireSites(pathspecs) {
 
         // `blocked` is read from the result if the assignment's identifier is later used with it.
         const assigned = /(?:const|let)\s+(\w+)\s*=\s*await\s+runHooks\(/.exec(text)?.[1];
-        const readsBlocked =
-          assigned !== undefined &&
-          new RegExp(`\\b${assigned}\\.blocked\\b`).test(source.slice(source.indexOf(text)));
+        const readsBlocked = readsBlockedInScope(source, lineOffsets[index], assigned);
 
         sites.push({
           file: relative,
