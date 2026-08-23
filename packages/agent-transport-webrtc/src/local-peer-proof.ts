@@ -36,7 +36,7 @@
  * `node:fs` out of this package, and keeps the ledger testable without a data channel.
  */
 
-import type { IPeerAdmission } from '@robota-sdk/agent-interface-transport';
+import type { IPeerAdmission } from '@robota-sdk/agent-interface-session-mobility';
 
 /** The frame a local peer presents to show it reached the guarded rendezvous. */
 export interface ILocalProofFrame {

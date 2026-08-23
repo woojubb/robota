@@ -7,7 +7,7 @@ import {
   forgetPeerOrigin,
 } from '../peer-message-ledger.js';
 
-import type { IPeerMessage } from '@robota-sdk/agent-interface-transport';
+import type { IPeerMessage } from '@robota-sdk/agent-interface-session-mobility';
 
 function message(over: Partial<IPeerMessage> = {}): IPeerMessage {
   return {

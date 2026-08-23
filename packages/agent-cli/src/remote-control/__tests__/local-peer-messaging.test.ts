@@ -19,7 +19,7 @@ import { sendPeerMessage } from '../local-peer-channel.js';
 import { peerDriverId, startLocalPeerMessaging } from '../local-peer-messaging.js';
 
 import type { IAddressablePeer, IPeerIngressPort } from '../local-peer-messaging.js';
-import type { IPeerMessageIngress } from '@robota-sdk/agent-interface-transport';
+import type { IPeerMessageIngress } from '@robota-sdk/agent-interface-session-mobility';
 
 let guardedDirectory: string;
 

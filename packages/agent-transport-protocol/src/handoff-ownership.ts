@@ -29,7 +29,7 @@ import {
   type IHandoffOutcome,
   type THandoffPhase,
   type THandoffRefusal,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session-mobility';
 
 /** One transfer's state, as the SOURCE sees it. */
 export interface IHandoffTransaction {

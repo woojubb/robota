@@ -45,14 +45,14 @@
  * - **Shutdown/cancel** → settles `refused` with reason `cancelled`.
  */
 
-import { isSameEnvironmentPeer } from '@robota-sdk/agent-interface-transport';
+import { isSameEnvironmentPeer } from '@robota-sdk/agent-interface-session-mobility';
 
 import type { ITurnHandle, ITurnNotRunError } from '@robota-sdk/agent-interface-session';
 import type {
   IPeerMessageAck,
   IPeerMessageIngress,
   IPeerOrigin,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session-mobility';
 
 /** What happened to an arriving peer message at the moment it was received. */
 export type TIngressOutcome =

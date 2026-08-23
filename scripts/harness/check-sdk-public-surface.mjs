@@ -387,7 +387,7 @@ const FROZEN_FINDING_COUNTS = {
   'agent-command': 27,
   'agent-core': 20,
   'agent-executor': 2,
-  'agent-interface-transport': 2,
+  'agent-interface-transport': 1,
   'agent-plugin': 8,
   'agent-provider-anthropic': 4,
   'agent-provider-bytedance': 3,

@@ -34,7 +34,7 @@ import path from 'node:path';
 
 import { admitLocalPeerSocket } from '@robota-sdk/agent-remote-pairing/local';
 
-import type { IPeerMessage, IPeerMessageAck } from '@robota-sdk/agent-interface-transport';
+import type { IPeerMessage, IPeerMessageAck } from '@robota-sdk/agent-interface-session-mobility';
 
 const LINE_TIMEOUT_MS = 10_000;
 
