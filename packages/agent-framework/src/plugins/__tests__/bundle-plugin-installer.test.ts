@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
 import { BundlePluginInstaller } from '../bundle-plugin-installer.js';
 import { MarketplaceClient } from '../marketplace-client.js';
 import { NodeHostPluginSettingsStore } from '../plugin-settings-store.js';
@@ -26,6 +27,7 @@ describe('BundlePluginInstaller', () => {
   let installer: BundlePluginInstaller;
   let marketplaceClient: MarketplaceClient;
   let mockExec: Mock;
+  let installerFs: NodeFileSystem;
 
   beforeEach(() => {
     const runDir = join(TMP_BASE, 'run-' + Math.random().toString(36).slice(2));
@@ -37,11 +39,13 @@ describe('BundlePluginInstaller', () => {
 
     marketplaceClient = new MarketplaceClient({ pluginsDir, exec: mockExec as TExecFn });
 
+    installerFs = new NodeFileSystem();
     installer = new BundlePluginInstaller({
       pluginsDir,
       settingsStore: new NodeHostPluginSettingsStore(settingsPath),
       marketplaceClient,
       exec: mockExec as TExecFn,
+      fs: installerFs,
     });
   });
 
@@ -444,6 +448,38 @@ describe('BundlePluginInstaller', () => {
       await expect(installer.install('escaper', 'escape-market')).rejects.toThrow(
         /outside the plugin root/,
       );
+    });
+
+    it('lets a real filesystem failure propagate instead of recording a successful removal', async () => {
+      // The refusal and an EACCES/EBUSY are different events. Swallowing both meant a delete that
+      // failed for an ordinary reason still dropped the registry entry, leaving the directory on disk
+      // with nothing tracking it.
+      const inCache = join(pluginsDir, 'cache', 'market', 'plug', '1.0.0');
+      setupDir(inCache);
+      writeJson(join(pluginsDir, 'installed_plugins.json'), {
+        'plug@market': {
+          pluginName: 'plug',
+          marketplace: 'market',
+          version: '1.0.0',
+          installPath: inCache,
+          installedAt: new Date().toISOString(),
+        },
+      });
+
+      const boom = new Error('EBUSY: resource busy or locked');
+      const realRm = installerFs.rmSync.bind(installerFs);
+      installerFs.rmSync = (target: string, options?: { recursive?: boolean; force?: boolean }) => {
+        if (target === inCache) throw boom;
+        realRm(target, options);
+      };
+
+      await expect(installer.uninstall('plug@market')).rejects.toThrow(/EBUSY/);
+
+      // ...and the registry still records it, because the directory is still there.
+      const registry = JSON.parse(
+        readFileSync(join(pluginsDir, 'installed_plugins.json'), 'utf-8'),
+      ) as Record<string, unknown>;
+      expect(registry['plug@market'], 'the entry was dropped after a failed delete').toBeDefined();
     });
   });
 });

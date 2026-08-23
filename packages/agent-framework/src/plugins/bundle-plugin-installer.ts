@@ -13,6 +13,7 @@ import {
 } from './installed-plugins-registry.js';
 import {
   assertContainedPath,
+  PluginPathContainmentError,
   assertSafePluginSegment,
   resolveContainedRelative,
 } from './plugin-paths.js';
@@ -151,9 +152,11 @@ export class BundlePluginInstaller {
         );
         this.fs.rmSync(record.installPath, { recursive: true, force: true });
       } catch (error) {
-        // allow-fallback: a registry entry pointing outside the plugin cache is not deleted; the
-        // entry is still removed below.
-        process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+        // allow-fallback: ONLY a containment refusal is swallowed. A real `rmSync` failure (EACCES,
+        // EBUSY) must propagate — dropping the registry entry after one would leave the directory on
+        // disk with nothing tracking it, which is worse than the failed uninstall.
+        if (!(error instanceof PluginPathContainmentError)) throw error;
+        process.stderr.write(`${error.message}\n`);
       }
     }
 

@@ -134,3 +134,24 @@ whose manifest is named `../../escaped-market`. On the fixed build it is refused
 that it WAS exploitable means running the vulnerable code, and a scenario whose negative case writes
 outside the user's plugin root is not one to hand a user. The property is asserted at the boundary,
 where the hostile value is observable with no filesystem mutation attempted.
+
+## Second review round: two SHOULDs, both real, both about the shape of the guard rather than its presence
+
+**1. The refusal and a filesystem failure were caught by one `catch`.** `assertContainedPath` and
+`fs.rmSync` sat inside a single `try`, so an `EACCES` or `EBUSY` was swallowed exactly like a
+containment refusal — and the registry entry was then dropped either way, leaving the directory on
+disk with nothing tracking it. **A containment refusal is a decision; a filesystem error is a
+failure.** `PluginPathContainmentError` now distinguishes them, and only the decision is swallowed.
+
+**2. The same value was checked against two different roots.** `uninstall()` checked
+`record.installPath` against `cacheDir`; `removeInstalledPluginsForMarketplace()` checked the same
+kind of value against `pluginsDir`. A tampered entry naming `pluginsDir/known_marketplaces.json` or
+another marketplace clone — inside the plugins root, outside the cache — passed the wider check and
+was recursively deleted. **One value, one root**: both now use the cache directory.
+
+That second one is the sharper finding, because both sinks were "guarded" and the class was still
+partially reachable. A guard is not a property of a call site; it is a property of the (value, root)
+pair, and two sites can each look correct while disagreeing about the root.
+
+Mutant for the propagation fix, application verified before reading the result: removing the
+`instanceof` narrowing turns 1 test red; restored, 18 green.

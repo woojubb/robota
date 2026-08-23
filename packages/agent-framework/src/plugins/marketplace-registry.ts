@@ -7,7 +7,7 @@
 
 import { join, dirname } from 'node:path';
 
-import { assertContainedPath } from './plugin-paths.js';
+import { assertContainedPath, PluginPathContainmentError } from './plugin-paths.js';
 import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 import type { TKnownMarketplacesRegistry } from './marketplace-types.js';
@@ -80,7 +80,16 @@ export function removeInstalledPluginsForMarketplace(
       // the others, so the removal is skipped and the entry is still dropped from the registry.
       if (record.installPath && fs.existsSync(record.installPath)) {
         try {
-          assertContainedPath(pluginsDir, record.installPath, 'remove a plugin directory', fs);
+          // SEC-018: the SAME root as the installer's uninstall path. Checking this value against
+          // `pluginsDir` instead let a tampered entry name `pluginsDir/known_marketplaces.json` or
+          // another marketplace clone — inside the plugins root, outside the cache — and have it
+          // recursively deleted. One value, one root.
+          assertContainedPath(
+            join(pluginsDir, 'cache'),
+            record.installPath,
+            'remove a plugin directory',
+            fs,
+          );
           fs.rmSync(record.installPath, { recursive: true, force: true });
         } catch (error) {
           // allow-fallback: a registry entry pointing outside the plugin root is not deleted. The

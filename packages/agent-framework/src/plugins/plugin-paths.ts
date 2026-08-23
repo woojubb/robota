@@ -28,6 +28,18 @@ import type { IFileSystem } from '@robota-sdk/agent-core';
  */
 
 /**
+ * Refusal to act on a path outside its root.
+ *
+ * A distinct type because callers that continue past a refusal must swallow ONLY this. Catching
+ * everything around a `rmSync` would swallow `EACCES` and `EBUSY` identically — the delete then fails
+ * for an ordinary reason, the registry entry is dropped anyway, and the directory is left on disk with
+ * nothing tracking it. A containment refusal is a decision; a filesystem error is a failure.
+ */
+export class PluginPathContainmentError extends Error {
+  override readonly name = 'PluginPathContainmentError';
+}
+
+/**
  * A single, safe path component.
  *
  * Admits no `/`, no `\` and no `:`, so the value can introduce neither a path separator nor a Windows
@@ -112,7 +124,7 @@ export function assertContainedPath(
       canonicalRoot.endsWith(sep) ? canonicalRoot : canonicalRoot + sep,
     );
   if (!contained) {
-    throw new Error(
+    throw new PluginPathContainmentError(
       `Refusing to ${what} outside the plugin root: ${JSON.stringify(candidate)} resolves to ` +
         `${JSON.stringify(canonicalCandidate)}, which is not inside ${JSON.stringify(canonicalRoot)}.`,
     );
@@ -132,7 +144,7 @@ export function resolveContainedRelative(
   fs: IFileSystem,
 ): string {
   if (isAbsolute(relative)) {
-    throw new Error(
+    throw new PluginPathContainmentError(
       `Refusing to ${what} from an absolute path: ${JSON.stringify(relative)}. This field takes a ` +
         'path relative to the plugin root.',
     );
