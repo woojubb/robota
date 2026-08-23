@@ -41,14 +41,35 @@ a file-level move plan for issue #2112 would silently fail.
 
 ## Target dependency graph, and the two corrections it rests on
 
-```text
-layer 0 (no outbound edges)
-  agent-interface-transport   agent-interface-command
-  agent-interface-execution   agent-interface-analytics
+### Layer declaration (ARCH-101 · issue #2180)
 
-layer 1  agent-interface-session  →  command, execution, analytics
-layer 2  agent-interface-session-mobility  →  session
+<!-- arch-101:layer-map -->
+
+The owner ruled that the general layer rule governs this prefix: an `agent-interface-*` package may
+compose another **when the layers differ and the composition is one-directional**. Only **same-layer**
+dependencies are forbidden, and an upward dependency is forbidden by the same sentence.
+
+So these numbers are not description. They are **the thing that authorizes each edge**, and both
+guards read this table through one parser (`scripts/harness/interface-layers.mjs`). Rows are
+`| layer | package |`.
+
+| Layer | Package                            |
+| ----- | ---------------------------------- |
+| 0     | `agent-interface-transport`        |
+| 0     | `agent-interface-command`          |
+| 0     | `agent-interface-execution`        |
+| 0     | `agent-interface-analytics`        |
+| 1     | `agent-interface-session`          |
+| 2     | `agent-interface-session-mobility` |
+
+```text
+layer 0   transport   command   execution   analytics     (no edges among them)
+layer 1   session      → command, execution, analytics
+layer 2   mobility     → session
 ```
+
+A layer-0 package depends on no other `agent-interface-*` package. `agent-interface-tui` is not in the
+table: it composes no peer and is depended on by none, so it has no layer to declare until it does.
 
 The graph is acyclic **only** with these two corrections, each a precondition of its leaf:
 

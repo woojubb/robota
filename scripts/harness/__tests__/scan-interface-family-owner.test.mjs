@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
 
+import { judgeEdge, readInterfaceLayers } from '../interface-layers.mjs';
+
 import {
   findCycles,
   findContractModules,
@@ -368,5 +370,48 @@ describe('readExaminedModuleCount — the size this scan reports (measurement-pr
 
   it('the count it reports is the set it actually checks', () => {
     expect(readExaminedModuleCount()).toBe(findContractModules().length);
+  });
+});
+
+describe('LAYER — acyclicity does not imply legality (ARCH-101 · issue #2180)', () => {
+  // The reason the layer condition had to ship in the SAME change that relaxed the manifest
+  // prohibition: a same-layer edge is perfectly acyclic, so `findCycles` reports nothing and the case
+  // the ruling exists to forbid would be reachable and unguarded.
+  const twoOwners = new Map([
+    ['a-contracts', 'agent-interface-command'],
+    ['b-contracts', 'agent-interface-execution'],
+  ]);
+  const sameLayer = new Map([
+    ['agent-interface-command', 0],
+    ['agent-interface-execution', 0],
+  ]);
+
+  const edges = projectGraph(
+    { 'a-contracts': "import type { IThing } from './b-contracts.js';", 'b-contracts': '' },
+    twoOwners,
+    new Map(),
+  );
+
+  it('the same-layer graph is ACYCLIC — findCycles reports nothing', () => {
+    expect(findCycles(edges, new Set(twoOwners.values()))).toEqual([]);
+  });
+
+  it('and it is still ILLEGAL — the layer check refuses what acyclicity permits', () => {
+    const verdict = judgeEdge('agent-interface-command', 'agent-interface-execution', sameLayer);
+    expect(verdict.legal).toBe(false);
+    expect(verdict.reason).toBe('same-layer');
+  });
+
+  it('the real module graph is legal under the real declaration', () => {
+    const parsed = parseOwnerMap(readFileSync(RULE_DOC, 'utf8'));
+    const realEdges = projectGraph(realSources(), parsed.moduleOwner, parsed.symbolOwner, PENDING);
+    const layers = readInterfaceLayers();
+    const illegal = [];
+    for (const [from, outs] of realEdges) {
+      for (const to of outs.keys()) {
+        if (!judgeEdge(from, to, layers).legal) illegal.push(`${from} → ${to}`);
+      }
+    }
+    expect(illegal).toEqual([]);
   });
 });
