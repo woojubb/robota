@@ -1,7 +1,8 @@
 ---
 title: 'SEC-015: decoded allow/deny/error outcomes for hook execution'
-status: in-progress
+status: done
 created: 2026-08-23
+completed: 2026-08-23
 priority: critical
 urgency: now
 area: agent-core, agent-framework, agent-session

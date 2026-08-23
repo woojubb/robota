@@ -1,5 +1,6 @@
 ---
-status: verifying
+status: done
+completed: 2026-08-23
 type: SECURITY
 tags: [typescript, json-schema, async, auth]
 ---
@@ -597,7 +598,7 @@ Tracker issue #2075 is not complete until it passes.
 
 ## Tasks
 
-- [ ] SEC-015 — in-progress — `.agents/tasks/SEC-015-hook-outcome-contract.md`
+- [x] SEC-015 — done — `.agents/tasks/completed/SEC-015-hook-outcome-contract.md`
 
 ## Evidence Log
 
@@ -939,7 +940,7 @@ origin/develop...HEAD` empty; no `.ts`/`.tsx`/`.js`/`.mjs` created or edited, so
   `<ID>-<slug>.md` form matches every other file in that directory, and there is no duplicate or stale copy
   under `completed/`.
 - Criterion 2, path recorded in the spec's `## Tasks` — **met.** `## Tasks` (line 543) contains
-  ``- [ ] SEC-015 — in-progress — `.agents/tasks/SEC-015-hook-outcome-contract.md` `` and nothing else; the
+  ``- [x] SEC-015 — done — `.agents/tasks/completed/SEC-015-hook-outcome-contract.md` `` and nothing else; the
   `미생성 (GATE-APPROVAL 통과 후 생성)` placeholder is gone. The recorded path resolves to the file found in
   criterion 1. Verified as a like-for-line replacement rather than an untracked wider edit: every `##`
   heading offset above `## Evidence Log` (11, 107, 151, 262, 276, 295, 392, 429, 469, 489, 543, 547) is
@@ -1136,7 +1137,7 @@ are GATE-COMPLETE criteria and will FAIL there in the document's current state.
    `grep -c '^- \[x\] TC-'` → 0. Only the Task's `## Plan` is ticked. GATE-COMPLETE requires every
    spec checkbox `[x]` plus a `[GATE-COMPLETE: TC-N]` evidence entry per criterion; none of the
    twelve exists yet.
-2. The spec's `## Tasks` line still reads ``- [ ] SEC-015 — in-progress — `.agents/tasks/SEC-015-hook-outcome-contract.md` ``
+2. The spec's `## Tasks` line still reads ``- [x] SEC-015 — done — `.agents/tasks/completed/SEC-015-hook-outcome-contract.md` ``
    while that task file's frontmatter reads `status: in-progress`. The path is correct and the file
    exists; the inline status and checkbox are stale.
 
@@ -1336,3 +1337,116 @@ assumed it: `grep` for `.permissionDecision` and `.updatedInput` off a `runHooks
 consumer outside the hooks module and its tests — `tool-hook-helpers.ts` reads only `.blocked` and
 `.reason`. `### Alternatives Considered` (e) already discloses the stdout half of this same root
 cause. Recorded for the author to fold into issue #2196 or issue #2093, not as a defect of this gate.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-23
+
+**Status upgrade:** verifying → done
+
+**Ordering — PASS.** Prior gate GATE-VERIFY shows ✅ PASS for this document. Input state matches the
+prior-gate map's `verifying`: frontmatter reads `status: verifying`, file in `.agents/spec-docs/active/`,
+which spec-workflow.md maps to that status with no folder change. HEAD is `8e86fc57d`, parent
+`0ebc0796e` (the `verifying` write), grandparent `4db0235c4` (the squash of merged PR #2193). Judged
+from scratch: nothing was carried over from the two earlier GATE-COMPLETE runs, including criteria
+those runs marked met.
+
+**Per-criterion verification.** Every command below was run in this gate; exit codes are the real ones,
+captured directly rather than through a wrapper that could mask them.
+
+- `[GATE-COMPLETE: TC-01]` **Met.** `pnpm --filter … agent-core … test` → exit 0, 94 files / 1164 tests.
+  Reference resolves: `packages/agent-core/src/hooks/__tests__/http-executor.test.ts:123`
+  `describe('TC-01 — a truthy non-boolean `ok` must NOT read as allow')`, a 4-row table over
+  `{"ok":"false"}`, `{"ok":1}`, `{"ok":"true"}`, `{"ok":{}}`.
+- `[GATE-COMPLETE: TC-02]` **Met.** Same run. `http-executor.test.ts:135`
+  `describe('TC-02 — a falsy or absent `ok` must NOT read as deny')`; decoder-level coverage in
+  `verdict-decoder.test.ts`; the prompt and agent suites assert `error`/`malformed-response` directly.
+  `agent-framework` → exit 0, 186 files / 1458 tests.
+- `[GATE-COMPLETE: TC-03]` **Met.** `command-executor.test.ts:41` `describe('TC-03 exit mapping')`,
+  covering exit 0/2/other, signal kill, timeout, and the stubbed `child.on('error')` spawn failure the
+  criterion specifies in place of a missing binary. Suite green.
+- `[GATE-COMPLETE: TC-04]` **Met.** `http-executor.test.ts` asserts `503` ⇒ `error`/`http-status`,
+  unreachable ⇒ `transport-failure`, slow ⇒ `timeout`, non-JSON ⇒ `malformed-response`, against a real
+  `node:http` server on port 0. Suite green.
+- `[GATE-COMPLETE: TC-05]` **Met — and the assertions were checked for the ability to fail, not just to
+  exist.** This criterion failed the previous run; it now holds on both halves.
+  _Behavior_, re-probed against a freshly rebuilt `dist/` (the earlier `dist` was stale, which
+  `harness:scan` flagged as an advisory): a `node` probe drove 13 outcomes — `command`
+  exit0/exit2/exit7/timeout, `http` allow/deny/malformed/503/refused, `guardrail`
+  allow/deny/throw/unknown-name — every one carrying the right stamp, `MISSING_SOURCE=0`, exit 0.
+  _Assertion coverage_: `it('every outcome carries source: …')` now exists in all five executor suites —
+  `command-executor.test.ts:108`, `http-executor.test.ts:192`, `guardrail-executor.test.ts:104`,
+  `prompt-executor.test.ts:149`, `agent-executor.test.ts:139`.
+  _Mutation, verified in both directions rather than accepted._ I ran the repository's own guardrail
+  suite against a mutated `GuardrailExecutor` whose stamp was changed to `'command'`, using a Vitest
+  `resolve.alias` onto a copy held outside the repository — no working-tree file was altered. Result:
+  `FAIL … expected [ 'command', 'command', 'command' ] to deeply equal [ 'guardrail', 'guardrail', …(1) ]`,
+  1 failed / 8 passed. The counterfactual was run too, because "it fails now" is only half the claim:
+  the pre-commit version of that same suite (`git show 4db0235c4:…guardrail-executor.test.ts`, which
+  contains zero occurrences of `source`) run against the identical mutated executor → **8 passed, green**.
+  So the mutation was genuinely undetectable before `8e86fc57d` and is genuinely detected after it.
+- `[GATE-COMPLETE: TC-06]` **Met.** `integration.test.ts:230`
+  `describe('SEC-015 — errors are reported, not folded into a verdict')`, 5 cases. `hook-runner.ts`
+  builds `errors` in one `diagnostics()` helper spread onto every return path including the four early
+  blocking returns, and omits the key when empty — the `undefined`-when-clean half. Suite green.
+- `[GATE-COMPLETE: TC-07]` **Met.** `integration.test.ts:350`
+  `it('TC-07: enforcement policy is unchanged — deny blocks, error does not')`. Corroborated by my own
+  old-vs-new derivation below.
+- `[GATE-COMPLETE: TC-08]` **Met.** All four required verdicts are asserted in
+  `guardrail-executor.test.ts`: all-pass ⇒ `allow` (:29), `pass:false` ⇒ `deny` with reason (:35), a
+  throwing guardrail ⇒ `deny` (:72), an unregistered NAMED guardrail ⇒ `deny` (:94). Suite green.
+  Independently reproduced by the probe above, which returned the same four verdicts. Non-blocking
+  imprecision, recorded not waived: the Test Plan row calls these "the six SELFHOST-005 verdict cases"
+  while that describe holds eight pre-existing tests. The reference resolves and every behavior TC-08
+  names is present, so the criterion is met; only the parenthetical count is loose.
+- `[GATE-COMPLETE: TC-09]` **Met.** The criterion's own command,
+  `grep -rn --include='*.ts' "IHookResult" packages apps` → **exit 1, zero matches**. The Test Plan's
+  broader `git grep -n "IHookResult" -- 'packages/**' 'apps/**'` returns exactly two hits, both in
+  `packages/agent-core/docs/SPEC.md` (lines 137, 475) — inside `docs/`, which the criterion permits, and
+  both describing the type as replaced rather than aliasing it.
+- `[GATE-COMPLETE: TC-10]` **Met.** `pnpm build` → **exit 0**; `pnpm typecheck` → **exit 0** across the
+  workspace. Both re-run in this gate, and the build is what my TC-05 probe then imported and executed.
+  Note carried forward, not re-derived: `## Boundary` records issue #2192 — `agent-executor`'s tsconfig
+  excludes `**/*.test.ts`, so this sweep is narrower than it reads wherever that exclusion applies.
+- `[GATE-COMPLETE: TC-11]` **Met.** `pnpm --filter @robota-sdk/agent-session scenario:verify` →
+  **exit 0**, stdout carrying all four required lines verbatim: `PASS deny: tool blocked,
+reason="SEC-015 scenario: denied by command hook"`, `PASS error/spawn-failure: tool NOT blocked, error
+reported (source=command)`, `PASS error/malformed-response: tool NOT blocked, error reported
+(source=http)`, `PASS allow: tool executed`. The example it runs,
+  `packages/agent-session/examples/verify-hook-outcome-contract.ts`, exists and is chained into
+  `scenario:verify`.
+- `[GATE-COMPLETE: TC-12]` **Met.** `pnpm harness:scan` → **exit 0**, `141 scans passed, 1 skipped`.
+  This criterion failed the previous run on `reference-kind-qualified`, which named this document for two
+  line-wrapped references; both are re-wrapped and that scan is green. The run reports 4 advisory
+  findings, which are explicitly not failures and do not affect the verdict; one of them
+  (`dist` staleness) I acted on anyway by rebuilding before re-probing TC-05.
+
+**After-all-criteria checks.**
+
+- Every `## Completion Criteria` checkbox is `[x]`: `grep -c '^- \[x\] TC-'` → 12, `'^- \[ \] TC-'` → 0.
+- `## Test Plan` carries a test reference or a skip reason for all twelve rows, and **every reference was
+  resolved rather than read**: the TC-01, TC-02, TC-03, TC-06 describes and the TC-07 and five
+  `every outcome carries source` test titles were each located by grep at the line numbers cited above,
+  and the TC-11 example file exists on disk. The three command-form rows (TC-09, TC-10, TC-12) each state
+  why they carry no test file rather than leaving the cell to be guessed at.
+- The `## Tasks` section names the exact active task path, `.agents/tasks/SEC-015-hook-outcome-contract.md`,
+  and that file exists.
+- That task is completion-ready: 12 checkboxes, all `[x]`, zero unchecked, and no TODO/WIP/blocked/pending
+  marker anywhere in the file.
+
+**`## Boundary` — enumeration re-checked, and the premise for reusing it verified mechanically.** Rather
+than assume this commit could not have moved the answer, I checked:
+`git diff --name-only 4db0235c4 HEAD -- packages apps` returns exactly three paths, all of them test
+files (`guardrail-executor.test.ts`, `prompt-executor.test.ts`, `agent-executor.test.ts`). No production
+source changed since the merge, so the old-vs-new enumeration cannot have shifted. That enumeration,
+run source-to-source at `6fb4fe92a` against `4db0235c4`, found exactly two classes in which a tool call's
+blocked/not-blocked answer changed, and they are the two this section discloses as (a) and (b). **No
+third blocking class exists.**
+
+On the point left open for me to disagree with: I do not. The side effects I raised — a malformed-`ok`
+body's `updatedInput` no longer applied, a non-deny `permissionDecision` no longer surfaced, and the one
+still-blocking path now blocking via the executor's `deny` rather than the runner's PreToolUse branch —
+change what accompanies a decision, never whether a call is blocked. `## Boundary` is scoped to blocking
+and says so, `### Alternatives Considered` (e) already discloses the stdout half of the same root cause,
+and the reach is nil: nothing outside the hooks module reads those fields off a `runHooks` result, which
+I confirmed by grep in an earlier run and which is unchanged here since no production source moved.
+Carrying it to issue #2196 is the right home; widening this document's Boundary would blur a scope that is
+currently precise.
