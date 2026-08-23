@@ -556,10 +556,14 @@ describe('scan-hook-enforcement-reachable', () => {
   describe('a regex literal is not a comment', () => {
     // The third re-entry of this scan's founding defect: something that is not code vouching for a
     // gate that no longer exists. First a comment, then a stray `}` inside a comment, now the `//`
-    // that ends a regex — `/\/dist\//` is the repo's commonest idiom and appears four times in the
-    // scanned file itself. Reading it as a line comment blanked the REST OF THAT LINE, including a
+    // that ends a regex. Reading it as a line comment blanked the REST OF THAT LINE, including a
     // closing `]`, and a blanked unmatched bracket makes the brace walks over-run: the permissive
     // direction the docblock had claimed was impossible.
+    //
+    // The population, measured: 135 of the 1650 production files this scan enumerates contain a
+    // regex literal. An earlier version of this note said the idiom "appears four times in the
+    // scanned file itself" — false twice: it appears three times in the SCAN's own source, and the
+    // scan never reads its own source. The fix was right and the number attached to it was not.
     // Of the four cases below only THIS one goes red when the regex branch is disabled. The other
     // three guard the opposite direction — that real comments still blank, that division is not
     // mistaken for a regex, and that a `/` inside a character class does not terminate one — and a

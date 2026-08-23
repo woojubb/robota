@@ -443,6 +443,20 @@ execution. Both are an override that cannot override, from opposite directions; 
 only arrangement that is neither. The rule is pinned by
 `packages/agent-core/src/hooks/__tests__/executor-precedence.test.ts` in the package that owns it.
 
+**The obvious objection, because the argument above invites it:** this factory seeds the built-ins
+unconditionally, with no opt-out — which is the very effect the paragraph rejects for `runHooks`.
+The distinction is the layer, and it is worth stating rather than leaving a reader to notice the
+tension. `runHooks` is a library primitive any caller may use, including one that deliberately
+supplies a restricted executor set to keep process execution out; merging there would take that
+choice away from every such caller, silently. `createSession()` is one specific composition, it is
+**not exported**, and the public `InteractiveSession` options expose no executor injection — so
+there is no sandboxed caller of _this_ function whose restriction could be overridden. A caller that
+wants a restricted set calls `runHooks` directly with one, and that still works exactly as before.
+
+If `createSession()` ever becomes public, or grows a caller that means to restrict rather than
+extend, this seeding needs an opt-out and the argument above stops covering it. The option contract
+that made the original defect possible is issue #2238.
+
 **Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. This seam is internal-assembly-level only: `createSession()` is not exported, and the public `InteractiveSession` options do not expose executor injection.
 
 ### Bundle Plugins

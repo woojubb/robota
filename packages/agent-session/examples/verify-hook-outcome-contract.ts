@@ -162,8 +162,15 @@ async function main(): Promise<void> {
     const spawnError = spawnResult.errors?.[0];
     const spawnToolRan = await toolRuns(join(cwd, 'does-not-exist'), spawnHooks, command);
     check(
-      !spawnToolRan && spawnError?.kind === 'spawn-failure' && spawnError.source === 'command',
-      `error/spawn-failure: tool BLOCKED, error reported (source=${spawnError?.source ?? 'MISSING'})`,
+      // `!spawnResult.blocked` is the half that makes this demo show the DESIGN rather than just
+      // the outcome: the runner still does not set `blocked` on an error — it reports and the
+      // BOUNDARY decides. Dropping it left the demo proving the tool was stopped without showing
+      // which layer stopped it, which is the whole split SEC-015 and SEC-016 rest on.
+      !spawnToolRan &&
+        !spawnResult.blocked &&
+        spawnError?.kind === 'spawn-failure' &&
+        spawnError.source === 'command',
+      `error/spawn-failure: tool BLOCKED by the boundary, runner did NOT set blocked (source=${spawnError?.source ?? 'MISSING'})`,
     );
 
     // ── 3. error / malformed-response ────────────────────────────────────────────────────────
@@ -181,8 +188,11 @@ async function main(): Promise<void> {
     const httpError = httpResult.errors?.[0];
     const httpToolRan = await toolRuns(cwd, httpHooks, http);
     check(
-      !httpToolRan && httpError?.kind === 'malformed-response' && httpError.source === 'http',
-      `error/malformed-response: tool BLOCKED, error reported (source=${httpError?.source ?? 'MISSING'})`,
+      !httpToolRan &&
+        !httpResult.blocked &&
+        httpError?.kind === 'malformed-response' &&
+        httpError.source === 'http',
+      `error/malformed-response: tool BLOCKED by the boundary, runner did NOT set blocked (source=${httpError?.source ?? 'MISSING'})`,
     );
 
     // ── 4. allow ─────────────────────────────────────────────────────────────────────────────
