@@ -23,7 +23,7 @@ import { persistSession } from '../session-history-ops.js';
 import { SESSION_ARTIFACT_SCHEMA_VERSION } from '../session-record-codec/index.js';
 import { NodeSessionStore } from '../session-store.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 const SESSION_ID = 'sess_outcomes';
 

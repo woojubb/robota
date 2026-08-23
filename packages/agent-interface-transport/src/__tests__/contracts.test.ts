@@ -10,16 +10,6 @@ import type {
   ITransportRunnerAdapter,
   TTransportRunOutcome,
 } from '../index.js';
-import type {
-  IExecutionResult,
-  IAgentDriver,
-  IInteractionChannel,
-  IInteractiveSession,
-  IInteractiveSessionStore,
-  IResumableSessionSummary,
-  IToolState,
-  TPermissionResultValue,
-} from '@robota-sdk/agent-interface-session';
 
 /**
  * Type-import test (TC-01): asserts the transport-facing contract closure is exported
@@ -43,23 +33,4 @@ describe('agent-interface-transport contract surface', () => {
       expect(isTransportRunOutcome({ status: 'failed', exitCode: invalid })).toBe(false);
     }
   });
-
-  it('exports the interaction-channel contracts', () => {
-    expectTypeOf<IInteractionChannel>().toHaveProperty('askUser');
-    expectTypeOf<IAgentDriver>().toHaveProperty('send');
-    expectTypeOf<IAgentDriver>().toHaveProperty('events');
-    expectTypeOf<IAgentDriver>().toHaveProperty('queueUserAction');
-  });
-
-  it('exports the interactive-session contracts', () => {
-    expectTypeOf<IInteractiveSession>().toHaveProperty('submit');
-    expectTypeOf<IExecutionResult>().toHaveProperty('response');
-    expectTypeOf<IToolState>().toHaveProperty('toolName');
-    expectTypeOf<TPermissionResultValue>().not.toBeNever();
-    expectTypeOf<IInteractiveSessionStore>().toHaveProperty('save');
-    expectTypeOf<IInteractiveSessionStore>().not.toHaveProperty('getFilePath');
-    expectTypeOf<IResumableSessionSummary>().toHaveProperty('messageCount');
-  });
-
-  it('exports the execution-workspace contracts', () => {});
 });

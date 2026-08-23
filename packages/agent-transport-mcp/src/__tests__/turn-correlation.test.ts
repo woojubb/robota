@@ -19,7 +19,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { createAgentMcpServer } from '../mcp-server.js';
 

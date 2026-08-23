@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createWsHandler } from '../ws-handler.js';
 import { SessionResumeBridge } from '../session-resume-bridge.js';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 

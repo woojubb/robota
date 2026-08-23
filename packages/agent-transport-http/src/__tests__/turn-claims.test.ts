@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { createTurnClaims } from '../turn-claims.js';
 

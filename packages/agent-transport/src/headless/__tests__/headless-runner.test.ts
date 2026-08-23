@@ -1,4 +1,4 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-interface-session';

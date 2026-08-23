@@ -6,7 +6,7 @@
  * command-registry/autocomplete refresh.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { homedir } from 'node:os';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';

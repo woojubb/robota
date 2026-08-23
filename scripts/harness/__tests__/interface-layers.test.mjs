@@ -174,15 +174,35 @@ describe('the real declaration', () => {
 
   it('places agent-interface-transport at the HIGHEST layer of what it still holds', () => {
     // 1 under ARCH-104, when it held the session family. 2 under ARCH-106, when session LEFT and the
-    // three mobility modules it still holds became the highest thing in it. A package's layer is the
-    // HIGHEST of its contents, not the lowest — ARCH-106 predicted 0 by reasoning from what would
-    // stop being held, and missed what still was. It reaches 0 when issue #2111 moves mobility out.
-    expect(layers.get('agent-interface-transport')).toBe(2);
-    expect(judgeEdge('agent-interface-transport', 'agent-interface-session', layers).legal).toBe(
-      true,
+    // three mobility modules it still held became the highest thing in it. 2 again under ARCH-107,
+    // when mobility left but the `/testing` subpath still imported a session type. 0 under ARCH-108,
+    // when that double moved to the package that declares the contract it doubles.
+    //
+    // The layer was predicted as 0 TWICE before it measured 0, and both predictions computed a
+    // maximum over too small a domain: ARCH-106 over what would stop being held, ARCH-107 over the
+    // contract modules while forgetting a published subpath. The rule states the aggregation and not
+    // the domain — issue #2218 is the amendment. This test pins the arrival, not the target.
+    expect(layers.get('agent-interface-transport')).toBe(0);
+
+    // Layer 0 is not a label: it is what makes these two edges ILLEGAL. Transport may no longer
+    // compose session (upward) or execution (same-layer), which is the whole content of the claim.
+    expect(judgeEdge('agent-interface-transport', 'agent-interface-session', layers)).toMatchObject(
+      {
+        legal: false,
+        reason: 'upward',
+      },
     );
-    expect(judgeEdge('agent-interface-transport', 'agent-interface-execution', layers).legal).toBe(
-      true,
-    );
+    expect(
+      judgeEdge('agent-interface-transport', 'agent-interface-execution', layers),
+    ).toMatchObject({ legal: false, reason: 'same-layer' });
+
+    // And it is now a leaf of the migration order, which is the observable consequence one altitude
+    // up: nothing is left in it that another owner is waiting for.
+    expect(
+      judgeEdge('agent-interface-session-mobility', 'agent-interface-transport', layers),
+    ).toMatchObject({
+      legal: true,
+      reason: 'downward',
+    });
   });
 });

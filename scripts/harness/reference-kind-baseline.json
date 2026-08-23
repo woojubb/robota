@@ -270,7 +270,6 @@
   "docs/superpowers/research/2026-03-21-terminal-app-ime-crash-root-cause.md": 1,
   "docs/superpowers/research/2026-03-22-terminal-app-korean-ime-crash-deep-research.md": 5,
   "packages/agent-cli/docs/SPEC.md": 1,
-  "packages/agent-interface-transport/docs/SPEC.md": 2,
   "packages/agent-remote-pairing/docs/SPEC.md": 2,
   "packages/agent-transport-protocol/docs/SPEC.md": 2,
   "packages/agent-transport-webrtc/docs/SPEC.md": 1,

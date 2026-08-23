@@ -1,9 +1,7 @@
 import { createServer } from 'node:net';
 
-import {
-  createTestInteractiveSession,
-  runTransportLifecycleConformance,
-} from '@robota-sdk/agent-interface-transport/testing';
+import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { WebSocket } from 'ws';
 import { describe, it, expect, expectTypeOf, vi, afterEach } from 'vitest';

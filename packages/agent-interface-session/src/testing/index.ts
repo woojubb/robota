@@ -10,3 +10,9 @@ export {
   createSessionCapabilityHost as createTestSessionCapabilityHost,
 } from './session-capability-host.js';
 export { readSessionCapability } from './session-capability-host.js';
+
+// ARCH-108: the conformant `IInteractiveSession` double, moved here from
+// `agent-interface-transport/testing`. `.agents/project-structure.md:314` states the convention —
+// `contracts→agent-interface-*, doubles→owner /testing` — and this package owns the contract it
+// doubles. Its previous home is also what held that package at layer 2.
+export { createTestInteractiveSession } from './interactive-session-double.js';

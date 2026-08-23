@@ -73,6 +73,31 @@ family ships no test double.
 The four runtime values are **discriminators**, which the Interface Package Rule permits at the entry
 alongside a contract's vocabulary. None of them decides policy.
 
+## Peer messaging — two axes that must not collapse (PEER-001, issue #1809 / issue #1810)
+
+Moved here from `agent-interface-transport`'s SPEC by ARCH-108 (issue #2113): this package declares
+`peer-message-contracts`, so it owns the prose that explains them.
+
+A peer message is **not** `TClientMessage.submit`. `submit` is a remote surface DRIVING a host
+session — one party operates, the other is operated. A peer message is symmetric: two sessions, each
+with its own agent, neither driving the other. Widening `submit` would make those indistinguishable
+at the point a session decides how much authority the sender has.
+
+Admission answers **two independent questions**, and `IPeerAdmission` carries both because collapsing
+them into one boolean is the defect issue #1810 exists to remove:
+
+| Question                          | Answered by                                                                                          | Property                                      |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| What did the peer **present**?    | `ITransportAdmission` (SEC-008, `agent-interface-transport`) — a token, or an explicit open decision | Possession, and possession is **copyable**    |
+| Where did the peer **come from**? | The environment proof (SEC-010)                                                                      | Evidence the OS enforces; **nothing to copy** |
+
+`TPeerTrust` names what was established: `same-user-same-host` is what SEC-010's kernel-enforced
+rendezvous produces, `token-only` means a credential was presented and nothing about origin was
+proven, and the two are not interchangeable however convenient a single flag would be.
+
+`TDriverId` on `IPeerOrigin` is **display and attribution only** and must never become an
+authentication or authorization input — asserted in the suite, not merely stated here.
+
 ## Extension Points
 
 None by design.

@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createTestInteractiveSession } from '../testing/index.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '../index.js';
 
 describe('every surface of the double names the same session', () => {
   it('agrees with an OVERRIDDEN getSession', async () => {
