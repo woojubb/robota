@@ -30,7 +30,7 @@ import type {
   IPeerMessage,
   IPeerMessageAck,
   TPeerDeliveryState,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session-mobility';
 
 /**
  * What the receiver has seen from one origin.

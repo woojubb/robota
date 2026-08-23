@@ -40,7 +40,7 @@ import type {
   IHandoffManifest,
   IHandoffStateItem,
   THandoffRefusal,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session-mobility';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 /** What the source knows about work that has not settled, and about state the record cannot see. */

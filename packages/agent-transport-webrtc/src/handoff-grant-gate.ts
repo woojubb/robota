@@ -40,7 +40,7 @@
  * by whoever reads it next.
  */
 
-import type { IPeerAdmission } from '@robota-sdk/agent-interface-transport';
+import type { IPeerAdmission } from '@robota-sdk/agent-interface-session-mobility';
 
 /** The frame a source device presents to show it holds a grant for this transfer. */
 export interface IHandoffGrantFrame {

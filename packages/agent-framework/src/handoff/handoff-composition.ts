@@ -25,7 +25,7 @@ import type {
   IHandoffManifest,
   THandoffPhase,
   THandoffRefusal,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session-mobility';
 
 /** What the source knows about work that has not settled. Mirrors the wire package's input shape. */
 export interface IHandoffRuntimeState {

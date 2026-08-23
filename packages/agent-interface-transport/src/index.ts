@@ -75,8 +75,3 @@ export type {
 // SEC-008: the SHAPE of an admission decision. The machinery that produces it lives in
 // @robota-sdk/agent-transport-protocol — an interface package carries no runtime dependency edge.
 export type { ITransportAdmission, ITransportAdmissionConfig } from './admission.js';
-
-// Session mobility — moving MESSAGES between live sessions (PEER-001) and AUTHORITY over a session
-// to another machine (HANDOFF-001). One sub-barrel: they are one axis, and the root barrel is held
-// under the anti-monolith limit rather than growing a section per feature.
-export * from './session-mobility-contracts.js';

@@ -28,7 +28,7 @@ import {
   type IRendezvousGrant,
 } from '@robota-sdk/agent-remote-pairing/local';
 
-import type { IPeerAdmission } from '@robota-sdk/agent-interface-transport';
+import type { IPeerAdmission } from '@robota-sdk/agent-interface-session-mobility';
 
 /** What a composition root needs from a live rendezvous. */
 export interface ILocalPeerRendezvous {

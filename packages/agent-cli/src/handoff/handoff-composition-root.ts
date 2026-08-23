@@ -12,7 +12,7 @@
  */
 
 import type { IHandoffComposition, IHandoffTransactionPort } from '@robota-sdk/agent-framework';
-import type { IHandoffManifest } from '@robota-sdk/agent-interface-transport';
+import type { IHandoffManifest } from '@robota-sdk/agent-interface-session-mobility';
 import {
   HandoffChunkAssembler,
   advanceHandoff,

@@ -4,7 +4,6 @@
   "@robota-sdk/agent-core": 93,
   "@robota-sdk/agent-executor": 1,
   "@robota-sdk/agent-framework": 150,
-  "@robota-sdk/agent-interface-transport": 2,
   "@robota-sdk/agent-playground": 26,
   "@robota-sdk/agent-session-analytics": 8,
   "@robota-sdk/dag-adapters-sqlite": 2,

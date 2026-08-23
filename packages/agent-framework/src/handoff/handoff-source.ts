@@ -26,7 +26,7 @@ import type {
   IHandoffCommitAck,
   IHandoffManifest,
   IHandoffOutcome,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session-mobility';
 
 /** Where the frames go. The orchestration never learns what is underneath. */
 export interface IHandoffCarrier {

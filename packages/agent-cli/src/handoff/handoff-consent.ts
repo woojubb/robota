@@ -20,7 +20,7 @@
  * that into a refusal that never exposes the session.
  */
 
-import type { IPeerAdmission } from '@robota-sdk/agent-interface-transport';
+import type { IPeerAdmission } from '@robota-sdk/agent-interface-session-mobility';
 import type { IUserInteraction } from '@robota-sdk/agent-core';
 
 /** What the prompt needs, beyond the verified admission. */
