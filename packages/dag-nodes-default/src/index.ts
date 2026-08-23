@@ -78,7 +78,7 @@ export type TProviderDefinitionLoader = () => Promise<readonly IProviderDefiniti
 const loadDefaultProviderDefinitions: TProviderDefinitionLoader = async () => {
   try {
     // eslint-disable-next-line no-restricted-syntax -- lazy default set; keeps dag-framework SDK-free
-    const mod = (await import('@robota-sdk/agent-provider-defaults')) as {
+    const mod = (await import('@robota-sdk/agent-builtin-providers')) as {
       createDefaultProviderDefinitions: () => readonly IProviderDefinition[];
     };
     return mod.createDefaultProviderDefinitions();
@@ -86,7 +86,7 @@ const loadDefaultProviderDefinitions: TProviderDefinitionLoader = async () => {
     const cause = error instanceof Error ? error.message : String(error);
     throw new Error(
       'Failed to load the default LLM provider set for the llm-text node. A provider SDK package is ' +
-        'likely not installed. Install @robota-sdk/agent-provider-defaults (and its provider SDKs), or ' +
+        'likely not installed. Install @robota-sdk/agent-builtin-providers (and its provider SDKs), or ' +
         `pass createDagFramework({ providers: [...] }) explicitly. Cause: ${cause}`,
     );
   }

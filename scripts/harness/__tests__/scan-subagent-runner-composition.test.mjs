@@ -58,7 +58,7 @@ describe('findSubagentRunnerCompositionFindings', () => {
   it('flags an import of createDefaultProviderDefinitions', () => {
     const root = createFixture({
       'packages/agent-subagent-runner/src/worker.ts':
-        "import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';\nexport const p = createDefaultProviderDefinitions;\n",
+        "import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';\nexport const p = createDefaultProviderDefinitions;\n",
     });
 
     const { findings } = findSubagentRunnerCompositionFindings(root);
@@ -71,7 +71,7 @@ describe('findSubagentRunnerCompositionFindings', () => {
   it('flags the manifest edge independently of any import', () => {
     const root = createFixture({
       'packages/agent-subagent-runner/package.json': JSON.stringify({
-        dependencies: { '@robota-sdk/agent-provider-defaults': 'workspace:*' },
+        dependencies: { '@robota-sdk/agent-builtin-providers': 'workspace:*' },
       }),
     });
 

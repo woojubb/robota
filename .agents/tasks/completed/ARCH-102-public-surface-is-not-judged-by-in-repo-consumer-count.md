@@ -1,8 +1,9 @@
 ---
 title: 'ARCH-102: a public surface is not judged by its in-repo consumer count'
 issue: https://github.com/woojubb/robota/issues/2177
-status: in-progress
+status: done
 created: 2026-08-23
+completed: 2026-08-23
 priority: high
 urgency: now
 area: .agents/project-structure.md, .agents/skills/contract-disposition, .claude/agents, scripts/harness

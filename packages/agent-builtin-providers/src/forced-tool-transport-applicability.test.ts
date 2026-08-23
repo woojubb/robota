@@ -39,7 +39,7 @@
  * parameter, the question becomes live and nothing would say so. This file fails on that day and
  * names what has to be answered before the transport can be built.
  *
- * It lives here because `agent-provider-defaults` is the one package that depends on every provider;
+ * It lives here because `agent-builtin-providers` is the one package that depends on every provider;
  * `agent-core` cannot, and no single provider can see its siblings.
  */
 

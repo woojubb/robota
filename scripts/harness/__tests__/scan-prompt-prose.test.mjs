@@ -225,7 +225,7 @@ describe('evaluateRoleVocabulary (audit role-vocab assertion)', () => {
   const CFG = {
     roleTermPattern: '[\'"`](?:planner|editor|reviewer)[\'"`]|\\b(?:planner|editor|reviewer)\\s*:',
     modelIdPatterns: ['\\bclaude-[a-z0-9][a-z0-9.-]*\\b', '\\bgpt-[0-9][a-z0-9.-]*\\b'],
-    allowedPathIncludes: ['packages/agent-provider-defaults/'],
+    allowedPathIncludes: ['packages/agent-builtin-providers/'],
   };
 
   it('flags a role name bound alongside a concrete model id outside the defaults package', () => {
@@ -246,7 +246,7 @@ describe('evaluateRoleVocabulary (audit role-vocab assertion)', () => {
     const findings = evaluateRoleVocabulary(
       [
         {
-          relPath: 'packages/agent-provider-defaults/src/default-role-models.ts',
+          relPath: 'packages/agent-builtin-providers/src/default-role-models.ts',
           content: "planner: [{ provider: 'anthropic', model: 'claude-opus-4-5' }]",
         },
       ],

@@ -1,4 +1,4 @@
-# SPEC: agent-provider-defaults
+# SPEC: agent-builtin-providers
 
 ## Overview
 
@@ -8,7 +8,7 @@ Users who need a provider not included here can implement `IAIProvider` from `@r
 
 ## Package Identity
 
-- **npm name**: `@robota-sdk/agent-provider-defaults`
+- **npm name**: `@robota-sdk/agent-builtin-providers`
 - **Layer**: Layer 1 (depends on `agent-core` only among framework packages; never imports from `agent-framework`, `agent-session`, `agent-tools`, `agent-command`, or `agent-transport`)
 - **SDK**: (none directly — composes the LLM leaf packages)
 - **Platform**: node

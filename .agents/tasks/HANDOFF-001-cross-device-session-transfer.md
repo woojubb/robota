@@ -106,7 +106,7 @@ destination DO across a real transfer, not about the frames.
 The orchestration composes the wire layer, and `agent-framework` does not depend on
 `agent-transport-protocol`. Every consumer of that package is a transport package or a composition
 root, and ARCH-021 is the precedent for keeping an assembly package clear of such an edge by having
-the root supply the collaborator — `agent-subagent-runner`'s `agent-provider-defaults` dependency was
+the root supply the collaborator — `agent-subagent-runner`'s `agent-builtin-providers` dependency was
 DELETED for exactly this reason. So `IHandoffComposition` names the five operations the orchestration
 needs, and `packages/agent-cli/src/handoff/handoff-composition-root.ts` is the only file in the tree
 where `@robota-sdk/agent-framework` and `@robota-sdk/agent-transport-protocol` appear together.

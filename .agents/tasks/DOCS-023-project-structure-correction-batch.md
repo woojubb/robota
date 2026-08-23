@@ -43,7 +43,7 @@ document contradicting the manifests — and itself — in at least eleven place
 8. `:14` — agent-product's core edge described as "agent-core types"; the code imports and calls the
    runtime value `createProviderFromConfig` (assemble-product.ts:2,136-140; SPEC-recorded owner
    decision).
-9. `:15` — subagent-runner "(depends on agent-framework + agent-provider-defaults)"; the manifest
+9. `:15` — subagent-runner "(depends on agent-framework + agent-builtin-providers)"; the manifest
    has six edges (core, executor, framework, interface-transport, process, provider-defaults).
 10. `:61` — "Remote WebRTC (`agent-transport-webrtc-web`) is an optional in-app feature" of
     agent-app; the app has no such dependency, import, or SPEC mention (aspirational-as-present).

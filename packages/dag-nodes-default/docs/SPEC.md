@@ -14,7 +14,7 @@
 - Depends on the concrete node packages (`@robota-sdk/dag-node-*`) + `@robota-sdk/dag-node` (assembly base) +
   `@robota-sdk/dag-core`/`agent-core` contracts. It does NOT depend on `@robota-sdk/dag-framework` (one-way:
   the framework lazy-loads this package, not the reverse).
-- The default provider set for the `llm-text` node is loaded lazily from `@robota-sdk/agent-provider-defaults`
+- The default provider set for the `llm-text` node is loaded lazily from `@robota-sdk/agent-builtin-providers`
   (optional dependency); a load failure surfaces a **typed diagnostic naming the missing package**, never a
   silent empty registry. Optional media/skill nodes (gemini-image-edit, text-to-image, seedance-video, skill)
   are dynamically imported and silently skipped when their optional SDK peer is absent (`// allow-fallback`).
@@ -56,7 +56,7 @@ await loadDefaults())` + the dynamically-loaded optional media/skill nodes.
 
 | Condition                                   | Behavior                                                          |
 | ------------------------------------------- | ----------------------------------------------------------------- |
-| default provider set cannot load (SDK gone) | throws a typed Error naming `@robota-sdk/agent-provider-defaults` |
+| default provider set cannot load (SDK gone) | throws a typed Error naming `@robota-sdk/agent-builtin-providers` |
 | optional media/skill SDK peer absent        | node silently skipped (`// allow-fallback`), catalog still builds |
 
 ## Test Strategy

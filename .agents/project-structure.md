@@ -13,12 +13,13 @@ packages/
 ├── agent-preset/                # Preset contract (IPreset) + resolvePreset + built-in presets (depends on agent-framework only)
 ├── agent-capability-pack/       # Additive capability-bundle contract (ICapabilityPack) + pure mergeCapabilityPacks merger; additive analog of agent-preset (deps: agent-framework + agent-core types only, no IO)
 ├── agent-product/               # Product-assembly kernel: assembleProduct — a pure, IO-free fold over IProductProfile that delegates runtime construction to agent-framework (deps: agent-framework + agent-preset + agent-capability-pack + type-only agent-interface-transport + agent-core types; NO concrete transport/TUI/CLI). ARCH-005; neutrality mechanically enforced by scan-composition-neutrality
-├── agent-subagent-runner/       # Optional: child-process subagent runner + worker (depends on agent-framework; ARCH-021 removed the agent-provider-defaults edge — the composition root supplies ISubagentWorkerComposition)
+├── agent-subagent-runner/       # Optional: child-process subagent runner + worker (depends on agent-framework; ARCH-021 removed the provider-aggregator edge — the composition root supplies ISubagentWorkerComposition)
 ├── agent-command/               # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
 ├── agent-command-*/             # Command-module bridge packages to other subsystems (e.g. agent-command-workflows: surfaces the DAG engine as `/workflows`, composing dag-framework)
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-cli-web/               # GUI-007 — the CLI's built-in web monitor SPA (Vite; index.html → SessionMonitor over localhost WS); `private` product-shell; agent-cli builds its dist + serves it over localhost HTTP. Not deployable
-├── agent-provider-*/            # Provider family (per-vendor split, ARCH-PROVIDER-002): agent-provider-anthropic, -bytedance, -gemini, -openai, -openai-compatible, -defaults (default-set aggregator), -replay (deterministic session-log replay provider; depends on agent-core + agent-session). There is NO bare `agent-provider` package. deepseek/qwen/gemma are `openai-compatible` *definitions* surfaced by agent-provider-openai-compatible, not standalone packages
+├── agent-builtin-*/             # What the SDK ships with, named apart from what it bundles (STRUCT-011): agent-builtin-providers (built-in chat provider definitions + the default role→model mapping). An aggregator is named apart from the family it bundles
+├── agent-provider-*/            # Provider family (per-vendor split, ARCH-PROVIDER-002): agent-provider-anthropic, -bytedance, -gemini, -openai, -openai-compatible, -replay (deterministic session-log replay provider; depends on agent-core + agent-session). There is NO bare `agent-provider` package. deepseek/qwen/gemma are `openai-compatible` *definitions* surfaced by agent-provider-openai-compatible, not standalone packages
 ├── agent-playground/            # Playground UI package
 ├── agent-remote-client/         # Remote execution client
 ├── agent-remote-pairing/        # Isomorphic pairing + DTLS-fingerprint channel binding (WebCrypto only, zero workspace deps; host + Stage-D browser reuse) (REMOTE-001)
@@ -30,7 +31,6 @@ packages/
 ├── agent-process/               # Domain-free child-process termination primitives (killProcessTree: SIGTERM→grace→SIGKILL, process-group aware); zero @robota-sdk deps, leaf. Consumed by agent-executor/agent-tools/agent-subagent-runner (CORE-023)
 ├── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
 ├── pack-*/                      # Capability packs (`@robota-sdk/pack-*`): additive ICapabilityPack bundles composed by agent-product's assembleProduct. e.g. pack-coding — robota's coding capability (built-in tools + /shell + /editor command modules + coding subagents); imports agent-tools/agent-command/agent-framework, re-implements nothing (ARCH-005)
-│
 │   # DAG subsystem (workflow engine; absorbed via WORKFLOW-001, decoupled from the external workflow runtime)
 ├── dag-core/                    # DAG foundation: runtime-provider + workflow-file contracts, engine types, lifecycle services
 ├── dag-framework/               # DAG assembly: createDagFramework, local in-process runtime provider, default node registry
@@ -222,7 +222,7 @@ any project, with the Robota-specific assembly (if any) staying in `agent-cli` /
 
 **In-repo consumer count is not evidence about whether a `packages/` surface should be public — at any
 count**, because `packages/` is a library others compose into their own agents (owner decisions
-2026-07-04 and 2026-08-23; reasoning in [ARCH-102](spec-docs/todo/ARCH-102-public-surface-is-not-judged-by-consumer-count.md)).
+2026-07-04 and 2026-08-23; reasoning in [ARCH-102](spec-docs/done/ARCH-102-public-surface-is-not-judged-by-in-repo-consumer-count.md)).
 
 - The only grounds for narrowing or removing one are that it is **genuinely unnecessary** or **does
   not fit the design** — judgements about the surface, never its callers. It is a PRODUCT decision,

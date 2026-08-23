@@ -66,6 +66,7 @@ const PROVIDER_PACKAGE_FORBIDDEN_DEPENDENCY_PREFIXES = [
 ];
 
 const DOCUMENTED_WORKSPACE_PATTERNS = [
+  { pathPattern: /^packages\/agent-builtin-[^/]+$/, textPattern: /agent-builtin-\*/ },
   { pathPattern: /^packages\/agent-command$/, textPattern: /agent-command\// },
   { pathPattern: /^packages\/agent-command-[^/]+$/, textPattern: /agent-command-\*/ },
   { pathPattern: /^packages\/agent-provider$/, textPattern: /agent-provider\// },
@@ -319,7 +320,7 @@ async function findPackageDependencyFindings(packages) {
     if (isCommandPackage) {
       // Production deps only: the rule keeps command packages from *shipping* provider
       // implementations. A test-only devDependency (e.g. a `.live.test.ts` importing
-      // `agent-provider-defaults` for default provider definitions) is not a runtime layering
+      // `agent-builtin-providers` for default provider definitions) is not a runtime layering
       // violation (ARCH-PROVIDER-002). Layering, like dependency-direction, is production-scoped.
       const productionDependencies = Object.keys(workspacePackage.packageJson.dependencies ?? {});
       for (const dependency of productionDependencies) {

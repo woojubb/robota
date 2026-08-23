@@ -17,7 +17,7 @@ self-consumes.
 `agent-framework`, so while the aggregator was on that barrel a neutral runner could compose the
 product's tool surface and only a scan stood in the way. It has no manifest edge to THIS package, so
 the same import is now `TS2307` — the identical shape ARCH-021 achieved on the provider axis with
-`@robota-sdk/agent-provider-defaults`.
+`@robota-sdk/agent-builtin-providers`.
 
 `agent-framework` still offers the tier to zero-config consumers (`createQuery` and the headless
 runtime have no `defaultTools` seam, and the published contract in its README says the built-in tools

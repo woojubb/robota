@@ -10,7 +10,7 @@
  * `agent-framework` does NOT take a dependency on the wire package. Every consumer of
  * `agent-transport-protocol` today is either a transport package or the composition root, and the
  * repository's own recent direction is to REMOVE such edges from assembly packages rather than add
- * them — ARCH-021 deleted `agent-subagent-runner`'s `agent-provider-defaults` dependency for exactly
+ * them — ARCH-021 deleted `agent-subagent-runner`'s `agent-builtin-providers` dependency for exactly
  * this reason and had the composition root supply `ISubagentWorkerComposition` instead. This is that
  * shape again.
  *

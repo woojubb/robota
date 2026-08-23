@@ -98,7 +98,7 @@
     "@robota-sdk/agent-preset": "workspace:*",
     "@robota-sdk/agent-product": "workspace:*",
     "@robota-sdk/agent-provider-anthropic": "workspace:*",
-    "@robota-sdk/agent-provider-defaults": "workspace:*",
+    "@robota-sdk/agent-builtin-providers": "workspace:*",
     "@robota-sdk/agent-provider-gemini": "workspace:*",
     "@robota-sdk/agent-provider-openai": "workspace:*",
     "@robota-sdk/agent-provider-openai-compatible": "workspace:*",

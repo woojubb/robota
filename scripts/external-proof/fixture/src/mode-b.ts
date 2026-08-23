@@ -9,7 +9,7 @@
 
 import { resolvePreset as globalResolvePreset } from '@robota-sdk/agent-preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 
 import { ACME_PROVIDER_SETTINGS, acmeReviewerPreset } from './acme.js';
 import { check, checkEqual, checkThrows, mode, note, section } from './harness.js';

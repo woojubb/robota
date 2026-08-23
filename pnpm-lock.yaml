@@ -1041,6 +1041,40 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
+  packages/agent-builtin-providers:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@robota-sdk/agent-provider-anthropic':
+        specifier: workspace:*
+        version: link:../agent-provider-anthropic
+      '@robota-sdk/agent-provider-gemini':
+        specifier: workspace:*
+        version: link:../agent-provider-gemini
+      '@robota-sdk/agent-provider-openai':
+        specifier: workspace:*
+        version: link:../agent-provider-openai
+      '@robota-sdk/agent-provider-openai-compatible':
+        specifier: workspace:*
+        version: link:../agent-provider-openai-compatible
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.21
+        version: 22.19.21
+      rimraf:
+        specifier: ^5.0.10
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.14
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)
+
   packages/agent-capability-pack:
     dependencies:
       '@robota-sdk/agent-core':
@@ -1141,6 +1175,9 @@ importers:
       '@homebridge/node-pty-prebuilt-multiarch':
         specifier: ^0.14.1
         version: 0.14.1
+      '@robota-sdk/agent-builtin-providers':
+        specifier: workspace:*
+        version: link:../agent-builtin-providers
       '@robota-sdk/agent-command':
         specifier: workspace:*
         version: link:../agent-command
@@ -1168,9 +1205,6 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: workspace:*
         version: link:../agent-provider-anthropic
-      '@robota-sdk/agent-provider-defaults':
-        specifier: workspace:*
-        version: link:../agent-provider-defaults
       '@robota-sdk/agent-provider-gemini':
         specifier: workspace:*
         version: link:../agent-provider-gemini
@@ -1348,9 +1382,9 @@ importers:
         specifier: workspace:*
         version: link:../dag-nodes-default
     devDependencies:
-      '@robota-sdk/agent-provider-defaults':
+      '@robota-sdk/agent-builtin-providers':
         specifier: workspace:*
-        version: link:../agent-provider-defaults
+        version: link:../agent-builtin-providers
       '@types/node':
         specifier: ^22.19.21
         version: 22.19.21
@@ -1771,40 +1805,6 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)
-
-  packages/agent-provider-defaults:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: workspace:*
-        version: link:../agent-provider-anthropic
-      '@robota-sdk/agent-provider-gemini':
-        specifier: workspace:*
-        version: link:../agent-provider-gemini
-      '@robota-sdk/agent-provider-openai':
-        specifier: workspace:*
-        version: link:../agent-provider-openai
-      '@robota-sdk/agent-provider-openai-compatible':
-        specifier: workspace:*
-        version: link:../agent-provider-openai-compatible
     devDependencies:
       '@types/node':
         specifier: ^22.19.21
@@ -2553,12 +2553,12 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
+      '@robota-sdk/agent-builtin-providers':
+        specifier: workspace:*
+        version: link:../agent-builtin-providers
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
-      '@robota-sdk/agent-provider-defaults':
-        specifier: workspace:*
-        version: link:../agent-provider-defaults
       '@robota-sdk/dag-adapters-local':
         specifier: workspace:*
         version: link:../dag-adapters-local
@@ -2828,9 +2828,9 @@ importers:
         specifier: ^4.104.0
         version: 4.104.0(ws@8.21.1)(zod@3.25.76)
     optionalDependencies:
-      '@robota-sdk/agent-provider-defaults':
+      '@robota-sdk/agent-builtin-providers':
         specifier: workspace:*
-        version: link:../agent-provider-defaults
+        version: link:../agent-builtin-providers
       '@robota-sdk/dag-node-gemini-image-edit':
         specifier: workspace:*
         version: link:../dag-nodes/gemini-image-edit
@@ -3677,6 +3677,9 @@ importers:
 
   scratch:
     dependencies:
+      '@robota-sdk/agent-builtin-providers':
+        specifier: workspace:*
+        version: link:../packages/agent-builtin-providers
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../packages/agent-core
@@ -3686,9 +3689,6 @@ importers:
       '@robota-sdk/agent-framework':
         specifier: workspace:*
         version: link:../packages/agent-framework
-      '@robota-sdk/agent-provider-defaults':
-        specifier: workspace:*
-        version: link:../packages/agent-provider-defaults
       '@robota-sdk/agent-provider-openai':
         specifier: workspace:*
         version: link:../packages/agent-provider-openai
