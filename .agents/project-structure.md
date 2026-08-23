@@ -220,18 +220,18 @@ any project, with the Robota-specific assembly (if any) staying in `agent-cli` /
 
 ## Forward-Provisioned Surface Rule
 
-A public surface in `packages/` with zero in-repo consumers is **not dead code**. Libraries and
-frameworks ship surfaces FOR external consumers; deliberate forward-provisioning ("built ahead so
-it is available when needed") is a legitimate product state (owner decision, 2026-07-04 re-audit).
+**In-repo consumer count is not evidence about whether a `packages/` surface should be public — at any
+count**, because `packages/` is a library others compose into their own agents (owner decisions
+2026-07-04 and 2026-08-23; reasoning in [ARCH-102](spec-docs/todo/ARCH-102-public-surface-is-not-judged-by-consumer-count.md)).
 
-- Removal of an unconsumed public surface is a PRODUCT decision — never a grep-based cleanup.
-  Propose it as a user decision item with options; do not file it as "dead code".
-- Forward-provisioned surfaces carry the same first-class quality bar as consumed ones: accurate
-  SPEC/README, tests, and bug fixes are unconditional — "nobody uses it yet" never downgrades a
-  defect on such a surface.
-- Consumption-based detectors (orphan-export style scans) must not treat in-repo non-consumption
-  of `packages/` public surfaces as a violation. (Pass-through re-exports remain banned — that
-  rule is about ownership, not consumption.)
+- The only grounds for narrowing or removing one are that it is **genuinely unnecessary** or **does
+  not fit the design** — judgements about the surface, never its callers. It is a PRODUCT decision,
+  never a grep-based cleanup: propose it as a user decision item; do not file it as "dead code".
+- Forward-provisioned surfaces carry the same quality bar as consumed ones: accurate SPEC/README,
+  tests and bug fixes are unconditional — "nobody uses it yet" never downgrades a defect.
+- Consumption-based detectors (orphan-export style scans) must not treat in-repo non-consumption of
+  `packages/` public surfaces as a violation. (Pass-through re-exports remain banned — ownership, not
+  consumption.)
 
 ## Planned Packages (Not Yet Created)
 
