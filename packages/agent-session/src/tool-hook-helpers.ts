@@ -89,11 +89,19 @@ export async function runPreToolHook(
   // this entire block deleted and the `hookResult.blocked` branch above left in place,
   // `scan-hook-enforcement-reachable.mjs` still passes. Its arm 3 asks whether SOME fire site awaits
   // `runHooks` and reads `.blocked` — which guards the older SELFHOST-009 denial path, not the
-  // `errors` / `unknownHookTypes` gate SEC-016 adds. What the scan does catch is the converse pair:
-  // deleting the `.blocked` read fires `[inert-enforcing-row]`, and flipping the row to advisory
-  // while the code still enforces fires `[stale-reachability]`. This gate is held by the unit tests
-  // in `__tests__/tool-hook-helpers.test.ts`, which are red-proved against its removal — not by the
+  // `errors` / `unknownHookTypes` gate SEC-016 adds. This gate is held by the unit tests in
+  // `__tests__/tool-hook-helpers.test.ts`, which are red-proved against its removal — not by the
   // scan.
+  //
+  // What the scan DOES catch, each measured rather than assumed: deleting the `.blocked` read above
+  // fires `[inert-enforcing-row]`; flipping BOTH `posture` and `enforcementReachable` fires
+  // `[stale-reachability]`. Flipping only `posture` fires `[no-enforcing-rows]` instead — and note
+  // that arm only holds while `PreToolUse` is the sole enforcing row, so a second enforcing event
+  // would make the same disarming edit silent (issue #2259).
+  //
+  // The first of those was FALSE until the scan learned to blank comments before matching. It
+  // matched raw source, so this very comment's mention of `hookResult.blocked` vouched for the
+  // branch after the branch was deleted — prose holding up the guard it describes.
   //
   // The check stays HERE rather than inside `runHooks`, because the runner reports outcomes and must
   // not decide policy — the same split issue #2083 established between the decoder and the runner.

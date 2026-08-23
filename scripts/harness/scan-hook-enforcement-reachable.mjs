@@ -72,6 +72,57 @@ const DEFAULT_POLICY = 'packages/agent-core/src/hooks/enforcement-policy.ts';
 /** @typedef {{ file: string, line: number, events: string[], awaited: boolean, readsBlocked: boolean }} TFireSite */
 
 /**
+ * Replace every comment byte with a space, preserving offsets and line structure.
+ *
+ * This scan matches regexes against raw source, which means COMMENT TEXT COUNTS AS CODE. Measured
+ * on this very file's subject: deleting the entire `if (hookResult.blocked) { … }` statement from
+ * `tool-hook-helpers.ts` left the scan GREEN, because a comment three lines below mentions
+ * `hookResult.blocked` in backticks — a comment added to describe the guard was the only thing
+ * still vouching for it. Same root, three more effects: a commented-out policy row overrode the
+ * real one (later inline match wins), a stray `}` inside a comment defeated the brace walk and
+ * restored the permissive `readsBlocked` direction, and a commented-out `runHooks(` call inflated
+ * the fire-site count.
+ *
+ * Offset-PRESERVING on purpose: `lineOffsets`, `enclosingBlockStart` and `bodyEnd` all index into
+ * the same buffer, so collapsing a comment would silently shift every position after it. The
+ * repository's existing `stripComments` helper collapses, which is why this is a local variant
+ * rather than a reuse.
+ *
+ * String literals are tracked only so a `//` or `/*` inside one does not start a false comment.
+ */
+export function blankComments(source) {
+  const out = source.split('');
+  let i = 0;
+  const blank = (from, to) => {
+    for (let k = from; k < to && k < out.length; k++) if (out[k] !== '\n') out[k] = ' ';
+  };
+  while (i < source.length) {
+    const two = source.slice(i, i + 2);
+    if (two === '//') {
+      const end = source.indexOf('\n', i);
+      blank(i, end === -1 ? source.length : end);
+      i = end === -1 ? source.length : end;
+    } else if (two === '/*') {
+      const end = source.indexOf('*/', i + 2);
+      const stop = end === -1 ? source.length : end + 2;
+      blank(i, stop);
+      i = stop;
+    } else if (source[i] === "'" || source[i] === '"' || source[i] === '`') {
+      const quote = source[i];
+      i += 1;
+      while (i < source.length && source[i] !== quote) {
+        if (source[i] === '\\') i += 1;
+        i += 1;
+      }
+      i += 1;
+    } else {
+      i += 1;
+    }
+  }
+  return out.join('');
+}
+
+/**
  * Index of the `{` opening the innermost block that CONTAINS `offset`.
  *
  * Pairs with `bodyEnd` to bound a search to one function body. Without it, `readsBlocked` searched
@@ -104,8 +155,11 @@ function enclosingBlockStart(source, offset) {
  * enclosing-block helper alone would test a proxy; this takes the real source text and answers the
  * real question.
  */
-export function readsBlockedInScope(source, lineOffset, assigned) {
+export function readsBlockedInScope(rawSource, lineOffset, assigned) {
   if (assigned === undefined) return false;
+  // Blanked here too, so the exported unit is correct when called directly. Idempotent: blanking a
+  // buffer that is already blanked changes nothing, and offsets are preserved either way.
+  const source = blankComments(rawSource);
   const start = enclosingBlockStart(source, lineOffset);
   const scope = source.slice(start, bodyEnd(source, start));
   return new RegExp(`\\b${assigned}\\.blocked\\b`).test(scope);
@@ -135,7 +189,10 @@ function bodyEnd(source, start) {
  * @returns {{ entries: Map<string, {posture: string, reachable: boolean}>, helpers: Set<string> }}
  */
 export function collectPolicyRows(policyPath) {
-  const source = readFileSync(policyPath, 'utf8');
+  // Blank comments before parsing: a commented-out row otherwise overrides the real one, because a
+  // later inline match wins. Measured — a `/* … */` block holding an `enforcing` PreToolUse row made
+  // the scan report the gate armed while the real row said advisory.
+  const source = blankComments(readFileSync(policyPath, 'utf8'));
 
   // Helper-constructed rows (`firesAndForgets(...)`, `awaitsButIgnoresBlocked(...)`) are advisory by
   // the helper's own definition; the helpers are read so a renamed or added one is not silently
@@ -224,7 +281,9 @@ export function findFireSites(pathspecs) {
     const file = path.join(WORKSPACE_ROOT, relative);
     if (!existsSync(file)) continue;
     {
-      const source = readFileSync(file, 'utf8');
+      // Blanked, not raw: a commented-out `runHooks(` line otherwise creates a phantom fire site,
+      // and a comment mentioning `<ident>.blocked` vouches for a gate that no longer exists.
+      const source = blankComments(readFileSync(file, 'utf8'));
       if (!source.includes('runHooks(')) continue;
       const lines = source.split('\n');
 
@@ -277,7 +336,9 @@ export function findFireSites(pathspecs) {
  * the union is what makes a dropped row loud.
  */
 function readEventUnion(root = WORKSPACE_ROOT) {
-  const source = readFileSync(path.join(root, 'packages/agent-core/src/hooks/types.ts'), 'utf8');
+  const source = blankComments(
+    readFileSync(path.join(root, 'packages/agent-core/src/hooks/types.ts'), 'utf8'),
+  );
   const block = /export type THookEvent =([\s\S]*?);/.exec(source)?.[1];
   if (block === undefined) return null;
   return [...block.matchAll(/'([A-Za-z]+)'/g)].map((m) => m[1]);

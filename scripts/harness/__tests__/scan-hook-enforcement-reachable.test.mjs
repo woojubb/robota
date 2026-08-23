@@ -23,6 +23,7 @@ import {
   collectPolicyRows,
   findFireSites,
   readsBlockedInScope,
+  blankComments,
   isProductionSource,
   examinedRowCount,
   examinedFireSiteCount,
@@ -354,6 +355,79 @@ describe('scan-hook-enforcement-reachable', () => {
 
     it('is false when nothing was assigned, rather than throwing', () => {
       expect(readsBlockedInScope(SOURCE, offsetOf(SOURCE, 1), undefined)).toBe(false);
+    });
+  });
+
+  describe('comment text does not count as code', () => {
+    // Issue #2258. The scan regex-matches file contents, so before this every comment was a
+    // potential vouching site. Measured on the real tree: deleting the entire
+    // `if (hookResult.blocked) { … }` statement left the scan at exit 0, because a comment three
+    // lines below mentioned `hookResult.blocked` in backticks — prose holding up the guard it
+    // describes, and that comment had been added by the commit whose purpose was to narrow an
+    // over-claim about the same guard.
+    it('blanks comments while preserving every offset', () => {
+      const src = ['const a = 1; // x.blocked', '/* y.blocked', '   }', '*/', 'const b = 2;'].join(
+        '\n',
+      );
+      const out = blankComments(src);
+
+      // Offset preservation is the requirement, not a nicety: lineOffsets, enclosingBlockStart and
+      // bodyEnd all index into this same buffer, so collapsing would shift every later position.
+      expect(out).toHaveLength(src.length);
+      expect(out.split('\n')).toHaveLength(src.split('\n').length);
+      expect(out).not.toMatch(/x\.blocked/);
+      expect(out).not.toMatch(/y\.blocked/);
+      expect(out).toMatch(/const a = 1;/);
+      expect(out).toMatch(/const b = 2;/);
+    });
+
+    it('does not treat a comment mentioning .blocked as the site reading it', () => {
+      const src = [
+        'function ignores(hooks, input) {',
+        '  // the `result.blocked` branch used to be here',
+        "  const result = await runHooks(hooks, 'PreToolUse', input);",
+        '  return true;',
+        '}',
+      ].join('\n');
+      const offset = src
+        .split('\n')
+        .slice(0, 2)
+        .reduce((n, line) => n + line.length + 1, 0);
+
+      expect(readsBlockedInScope(src, offset, 'result')).toBe(false);
+    });
+
+    it('does not let a stray brace inside a comment escape the enclosing block', () => {
+      // The brace walk counts `{`/`}` literally, so a `}` inside a comment above the call site pops
+      // the walker out of the real function and lands the scope on an UNRELATED earlier block. The
+      // ordering here is load-bearing: the decoy `.blocked` read has to sit where the widened scope
+      // actually lands, which is the block before this one — a fixture with the decoy AFTER the call
+      // site passes with or without the fix and therefore pins nothing.
+      const src = [
+        'function elsewhere() { const result = { blocked: true }; return result.blocked; }',
+        'function ignores(hooks, input) {',
+        '  // a comment containing a stray } brace',
+        "  const result = await runHooks(hooks, 'PreToolUse', input);",
+        '  return true;',
+        '}',
+      ].join('\n');
+      const offset = src
+        .split('\n')
+        .slice(0, 3)
+        .reduce((n, line) => n + line.length + 1, 0);
+
+      expect(readsBlockedInScope(src, offset, 'result')).toBe(false);
+    });
+
+    it('leaves a // sequence inside a string literal alone', () => {
+      // Note this case guards OVER-blanking, so unlike its three siblings it passes with the blanker
+      // disabled — a no-op blanker cannot destroy a string. Recorded because "it went red under the
+      // mutant" is the evidence for the other three, and this one is not offered as that.
+      const src = ['const url = "https://example.test";', 'const r = { blocked: true };'].join(
+        '\n',
+      );
+
+      expect(blankComments(src)).toContain('https://example.test');
     });
   });
 });
