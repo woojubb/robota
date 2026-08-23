@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
 import { MarketplaceClient } from '../marketplace-client.js';
 import { removeInstalledPluginsForMarketplace } from '../marketplace-registry.js';
 
@@ -68,6 +69,26 @@ describe('SEC-018 - the marketplace-wide cleanup refuses a path outside the plug
     removeInstalledPluginsForMarketplace(pluginsDir, 'market');
 
     expect(existsSync(join(sibling, 'keep.txt')), 'a sibling marketplace was deleted').toBe(true);
+  });
+
+  it('lets a real filesystem failure propagate rather than recording a successful cleanup', () => {
+    // The narrowing that was claimed for both sinks and applied to one. Without it an EBUSY is
+    // swallowed exactly like a containment refusal and the entry is dropped anyway, leaving the
+    // directory on disk with nothing tracking it.
+    const legit = join(pluginsDir, 'cache', 'market', 'plug', '1.0.0');
+    mkdirSync(legit, { recursive: true });
+    writeJson(join(pluginsDir, 'installed_plugins.json'), {
+      'plug@market': { marketplace: 'market', installPath: legit },
+    });
+
+    const fs = new NodeFileSystem();
+    const realRm = fs.rmSync.bind(fs);
+    fs.rmSync = (target: string, options?: { recursive?: boolean; force?: boolean }) => {
+      if (target === legit) throw new Error('EBUSY: resource busy or locked');
+      realRm(target, options);
+    };
+
+    expect(() => removeInstalledPluginsForMarketplace(pluginsDir, 'market', fs)).toThrow(/EBUSY/);
   });
 
   it('still deletes a legitimate cache directory', () => {

@@ -143,6 +143,12 @@ containment refusal — and the registry entry was then dropped either way, leav
 disk with nothing tracking it. **A containment refusal is a decision; a filesystem error is a
 failure.** `PluginPathContainmentError` now distinguishes them, and only the decision is swallowed.
 
+**Correction, round five:** that fix was recorded as applied to both sinks and reached only one. The
+edit to `marketplace-registry.ts` failed to match its anchor after formatting and was written up as
+done — the import landed, the narrowing did not, and CodeQL's "unused import" was the visible half of a
+silent no-op. The claim above was false when written; both sinks now narrow, and a test drives the
+propagation on each rather than only on the one I remembered editing.
+
 **2. The same value was checked against two different roots.** `uninstall()` checked
 `record.installPath` against `cacheDir`; `removeInstalledPluginsForMarketplace()` checked the same
 kind of value against `pluginsDir`. A tampered entry naming `pluginsDir/known_marketplaces.json` or
@@ -202,6 +208,11 @@ Mutant, application verified: removing the guard turns 2 of the sink tests red; 
 
 ## The count, stated plainly
 
-Five rounds. Four found by review, one by the accidental-green floor, **all of them the same defect**:
+Six rounds. Five found by review, one by the accidental-green floor, **all of them the same defect**:
 a guard exists and something that should call it does not, or the set of things that should call it was
 never enumerated. The guard module itself was correct from the first commit and is still unchanged.
+
+Twice the record claimed a fix that had not landed — once for the four value/sink pairs, once for the
+two narrowings. Both times the edit was written, believed, and not verified against the file
+afterwards. **An edit is not applied because it was authored**, and the cheapest proof is to read back
+the property rather than the diff you intended.

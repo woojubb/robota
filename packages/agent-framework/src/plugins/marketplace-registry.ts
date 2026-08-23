@@ -92,9 +92,11 @@ export function removeInstalledPluginsForMarketplace(
           );
           fs.rmSync(record.installPath, { recursive: true, force: true });
         } catch (error) {
-          // allow-fallback: a registry entry pointing outside the plugin root is not deleted. The
-          // entry is still removed below, so a tampered record cannot pin itself in place.
-          process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+          // allow-fallback: ONLY a containment refusal is swallowed. A real `rmSync` failure (EACCES,
+          // EBUSY) must propagate — dropping the registry entry after one would leave the directory
+          // on disk with nothing tracking it, which is worse than the failed cleanup.
+          if (!(error instanceof PluginPathContainmentError)) throw error;
+          process.stderr.write(`${error.message}\n`);
         }
       }
       delete registry[pluginId];
