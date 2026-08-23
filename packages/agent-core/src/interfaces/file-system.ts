@@ -23,6 +23,14 @@ export interface IFileSystem {
   rmSync(path: string, options?: { recursive?: boolean; force?: boolean }): void;
   cpSync(source: string, destination: string, options?: { recursive?: boolean }): void;
   renameSync(oldPath: string, newPath: string): void;
+  /**
+   * The canonical path with every symlink resolved. Throws if `path` does not exist.
+   *
+   * SEC-018: containment checks compare canonical forms. Without this, `<root>/link` pointing at
+   * `/etc` passes a lexical prefix test, so a symlink inside a plugin root can redirect a copy,
+   * rename, load or recursive delete outside it.
+   */
+  realpathSync(path: string): string;
   constants: { F_OK: number; R_OK: number; W_OK: number };
 }
 

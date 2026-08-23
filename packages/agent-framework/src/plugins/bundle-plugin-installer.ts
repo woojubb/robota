@@ -7,6 +7,11 @@
 
 import { join, dirname } from 'node:path';
 
+import {
+  assertContainedPath,
+  assertSafePluginSegment,
+  resolveContainedRelative,
+} from './plugin-paths.js';
 import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 import type { MarketplaceClient, IMarketplacePluginEntry, TExecFn } from './marketplace-client.js';
@@ -81,8 +86,16 @@ export class BundlePluginInstaller {
     // Determine version
     const version = this.resolveVersion(entry, marketplaceName);
 
+    // SEC-018: all three become path components, and `version` comes from a remote manifest entry.
+    // Checked before the join so a malformed value cannot reach any sink — the target is used for a
+    // recursive delete during cleanup as well as for the write.
+    assertSafePluginSegment(marketplaceName, 'marketplace name');
+    assertSafePluginSegment(pluginName, 'plugin name');
+    assertSafePluginSegment(version, 'plugin version');
+
     // Target directory: cache/<marketplace>/<plugin>/<version>/
     const targetDir = join(this.cacheDir, marketplaceName, pluginName, version);
+    assertContainedPath(this.cacheDir, targetDir, 'install a plugin', this.fs);
 
     if (this.fs.existsSync(targetDir)) {
       throw new Error(

@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  realpathSync as nodeRealpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -67,6 +68,10 @@ export class NodeFileSystem implements IFileSystem {
 
   renameSync(oldPath: string, newPath: string): void {
     renameSync(oldPath, newPath);
+  }
+
+  realpathSync(path: string): string {
+    return nodeRealpathSync(path);
   }
 
   get constants(): { F_OK: number; R_OK: number; W_OK: number } {

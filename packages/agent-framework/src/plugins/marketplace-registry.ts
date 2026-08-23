@@ -7,6 +7,7 @@
 
 import { join, dirname } from 'node:path';
 
+import { assertContainedPath } from './plugin-paths.js';
 import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 import type { TKnownMarketplacesRegistry } from './marketplace-types.js';
@@ -73,9 +74,19 @@ export function removeInstalledPluginsForMarketplace(
   let changed = false;
   for (const [pluginId, record] of Object.entries(registry)) {
     if (record.marketplace === marketplaceName) {
-      // Remove the cache directory for this plugin
+      // SEC-018: `installPath` is a HINT read from a file on disk, and it drives a recursive delete.
+      // A tampered registry pointing it outside the plugin root deleted whatever it named. Refused
+      // rather than sanitised, and refused per-entry: one bad record must not abort the cleanup of
+      // the others, so the removal is skipped and the entry is still dropped from the registry.
       if (record.installPath && fs.existsSync(record.installPath)) {
-        fs.rmSync(record.installPath, { recursive: true, force: true });
+        try {
+          assertContainedPath(pluginsDir, record.installPath, 'remove a plugin directory', fs);
+          fs.rmSync(record.installPath, { recursive: true, force: true });
+        } catch (error) {
+          // allow-fallback: a registry entry pointing outside the plugin root is not deleted. The
+          // entry is still removed below, so a tampered record cannot pin itself in place.
+          process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+        }
       }
       delete registry[pluginId];
       changed = true;

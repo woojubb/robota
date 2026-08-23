@@ -8,11 +8,13 @@
 
 import { join } from 'node:path';
 
+import { readMarketplaceManifest } from './marketplace-manifest.js';
 import {
   readRegistry,
   writeRegistry,
   removeInstalledPluginsForMarketplace,
 } from './marketplace-registry.js';
+import { assertContainedPath, assertSafePluginSegment } from './plugin-paths.js';
 import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 import type {
@@ -99,7 +101,7 @@ export class MarketplaceClient {
       );
     }
 
-    const manifest = this.readManifestFromPath(manifestPath);
+    const manifest = readMarketplaceManifest(manifestPath, this.fs);
     const name = manifest.name;
 
     if (!name) {
@@ -113,7 +115,11 @@ export class MarketplaceClient {
       throw new Error(`Marketplace "${name}" already exists`);
     }
 
+    // SEC-018: `name` comes from a REMOTE marketplace manifest and selects this rename destination.
+    // A manifest named `../../escaped-market` placed the marketplace outside its root.
+    assertSafePluginSegment(name, 'marketplace name');
     const finalDir = join(this.marketplacesDir, name);
+    assertContainedPath(this.marketplacesDir, finalDir, 'install a marketplace', this.fs);
     this.fs.renameSync(tempDir, finalDir);
 
     registry[name] = {
@@ -212,7 +218,7 @@ export class MarketplaceClient {
       );
     }
 
-    return this.readManifestFromPath(manifestPath);
+    return readMarketplaceManifest(manifestPath, this.fs);
   }
 
   /** Get the clone directory path for a registered marketplace. */
@@ -277,22 +283,5 @@ export class MarketplaceClient {
       case 'url':
         throw new Error('URL marketplace source is not yet supported');
     }
-  }
-
-  /** Read and parse a marketplace.json from a file path. */
-  private readManifestFromPath(path: string): IMarketplaceManifest {
-    const raw = this.fs.readFileSync(path, 'utf-8');
-    const data: unknown = JSON.parse(raw);
-
-    if (typeof data !== 'object' || data === null) {
-      throw new Error('Invalid marketplace manifest: not an object');
-    }
-
-    const obj = data as Record<string, unknown>;
-    if (typeof obj.name !== 'string') {
-      throw new Error('Invalid marketplace manifest: missing "name" field');
-    }
-
-    return data as IMarketplaceManifest;
   }
 }
