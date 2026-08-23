@@ -264,6 +264,49 @@ graph. The import path is where the Node dependency becomes legible.
 | `canonicalizePath`            | function | `@robota-sdk/agent-core/node` | Realpath-resolve a path, tolerating a not-yet-created tail so `Write`/`Edit` targets still resolve                               |
 | `resolveTrustedExecutionRoot` | function | `@robota-sdk/agent-core/node` | Validate that an execution authority is a non-empty absolute, existing, traversable directory and return its canonical real path |
 
+### Owner-Only Store Public API (SEC-020)
+
+The SSOT for "create this directory or file so only its owner can read it", for every host store
+under `~/.robota` and a project's `.robota` — session records and logs, settings, device
+credentials. Measured under umask 022 before this existed: a fresh sessions directory came out 0755
+and its records 0644, and `~/.robota` itself was 0755.
+
+Three facts about the Node API make the naive form wrong, and the module exists because each of them
+had already produced a defect here:
+
+- **`mkdirSync(path, { recursive: true, mode })` does not set the mode of a directory that already
+  exists.** It returns successfully and adopts whatever is there — measured on a log directory
+  pre-created at 0777, which stayed 0777 while its records were 0600. Another account could not read
+  a record, and could unlink and replace one, and could enumerate every session id.
+- **`writeFileSync(path, data, { mode })` applies the mode only when the file is CREATED.** A record
+  an older version left at 0644 keeps 0644 through every later save.
+- **Creating wide and tightening afterwards leaves a window** in which the full record is on disk
+  readable. The atomic write therefore carries the mode from creation with `wx` and never chmods
+  after, so a mutation that removes the mode is caught rather than masked.
+
+Create, set the mode, then VERIFY — and the verification is the load-bearing third step, not a
+belt-and-braces one. The IO seams exist so the condition it alone catches, a filesystem that accepts
+`chmod` and ignores it, is reachable from a test.
+
+Windows cannot express owner-only through `chmod`; inherited NTFS ACLs govern instead.
+`ownerOnlyGuarantee()` reports which guarantee is in force rather than making the POSIX claim
+everywhere, and a project-local `.robota` inside a world-writable directory on Windows is NOT
+protected by this module.
+
+Exported from **`@robota-sdk/agent-core/node`** (CORE-028) for the same reason as path containment:
+these read and write the filesystem.
+
+| Export                      | Kind      | Import from                   | Description                                                                           |
+| --------------------------- | --------- | ----------------------------- | ------------------------------------------------------------------------------------- |
+| `ensureOwnerOnlyDirectory`  | function  | `@robota-sdk/agent-core/node` | Create a directory, set it to 0700 whether or not it existed, and refuse if it is not |
+| `writeOwnerOnlyFile`        | function  | `@robota-sdk/agent-core/node` | Replace a file atomically through a temp file that is 0600 from creation              |
+| `tightenExistingFile`       | function  | `@robota-sdk/agent-core/node` | Narrow a file an older version left readable; a no-op on a path that does not exist   |
+| `ownerOnlyGuarantee`        | function  | `@robota-sdk/agent-core/node` | Which guarantee this platform can make — `posix-mode` or `windows-acl`                |
+| `OwnerOnlyModeError`        | class     | `@robota-sdk/agent-core/node` | Raised when a path cannot be made owner-only; never swallowed into a weaker mode      |
+| `OWNER_ONLY_FILE_MODE`      | constant  | `@robota-sdk/agent-core/node` | `0o600`                                                                               |
+| `OWNER_ONLY_DIRECTORY_MODE` | constant  | `@robota-sdk/agent-core/node` | `0o700`                                                                               |
+| `IOwnerOnlyIo`              | interface | `@robota-sdk/agent-core/node` | Injected create/chmod/stat seams, so the verification's own failure path is testable  |
+
 ### Permission Argument Registry Public API (CORE-030)
 
 Which argument a tool's permission patterns are scoped to. The gate resolved this from a hardcoded

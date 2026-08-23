@@ -17,4 +17,14 @@ export {
   isPathInside,
   resolveTrustedExecutionRoot,
 } from './utils/path-containment.js';
+export type { IOwnerOnlyIo } from './utils/owner-only-store.js';
+export {
+  OWNER_ONLY_DIRECTORY_MODE,
+  OWNER_ONLY_FILE_MODE,
+  OwnerOnlyModeError,
+  ensureOwnerOnlyDirectory,
+  ownerOnlyGuarantee,
+  tightenExistingFile,
+  writeOwnerOnlyFile,
+} from './utils/owner-only-store.js';
 export { CommandExecutor, HttpExecutor } from './hooks/executors/index.js';
