@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [typescript]
 ---
@@ -125,18 +125,18 @@ rather than left for a third finding to discover.
 
 ## Completion Criteria
 
-- [ ] **TC-01** `projectGraph` returns an edge to the target module's owner for
+- [x] **TC-01** `projectGraph` returns an edge to the target module's owner for
       `export * from './x'`, asserted on an in-memory source.
-- [ ] **TC-02** `projectGraph` returns an edge to the target module's owner for
+- [x] **TC-02** `projectGraph` returns an edge to the target module's owner for
       `import * as ns from './x'`, asserted on an in-memory source.
-- [ ] **TC-03** `findCycles` reports exactly one cycle for a two-owner graph whose ONLY closing edge
+- [x] **TC-03** `findCycles` reports exactly one cycle for a two-owner graph whose ONLY closing edge
       is braceless, for each of the two forms — and each case is demonstrated to report zero against
       the pre-fix parser.
-- [ ] **TC-04** The scan's header states which relative-import forms it parses and that a form
+- [x] **TC-04** The scan's header states which relative-import forms it parses and that a form
       outside that set is invisible to it.
-- [ ] **TC-05** `node scripts/harness/scan-interface-family-owner.mjs` exits 0 on the real tree and
+- [x] **TC-05** `node scripts/harness/scan-interface-family-owner.mjs` exits 0 on the real tree and
       still reports the same six owners and acyclic verdict.
-- [ ] **TC-06** `pnpm harness:scan` exits 0 and `pnpm harness:verify-like-ci` reports green.
+- [x] **TC-06** `pnpm harness:scan` exits 0 and `pnpm harness:verify-like-ci` reports green.
 
 ## Test Plan
 
@@ -148,6 +148,17 @@ rather than left for a third finding to discover.
 | TC-04 | Document assertion | Read the scan header; assert the parsed-form list and the stated limitation are present          | —                                                                         |
 | TC-05 | Integration        | Run the scan on the real tree; compare owner count and verdict to the pre-change run             | —                                                                         |
 | TC-06 | Gate               | `pnpm harness:scan`; `pnpm harness:verify-like-ci`                                               | manual invocation — `verify-like-ci` is the CI-mirror entry point         |
+
+## User Execution Test Scenarios
+
+**Not applicable — this task delivers no user-facing behavior.** It corrects the import parser of a
+repository verification scan. No CLI command, flag, output, file format or API changes, so there is
+nothing a user could run to observe a difference.
+
+The verification surface is the harness gate, recorded in the Test Plan above. A developer can
+reproduce the fix with `node scripts/harness/scan-interface-family-owner.mjs`, but that is a
+repository check rather than user-facing behavior, and recording it as a user scenario would
+misreport what shipped.
 
 ## Evidence Log
 

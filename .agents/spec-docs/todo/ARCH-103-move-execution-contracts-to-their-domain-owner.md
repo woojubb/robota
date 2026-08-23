@@ -132,6 +132,17 @@ compile, which is precisely why no forwarding barrel is left in place to mask it
 | TC-05 | Gate        | `node scripts/harness/scan-interface-family-owner.mjs`; `check-dependency-direction.mjs` | PLACEMENT arms itself here for the first time                      |
 | TC-06 | Gate        | `pnpm harness:scan`; `pnpm harness:verify-like-ci`                                       | manual invocation — `verify-like-ci` is the CI-mirror entry point  |
 
+## User Execution Test Scenarios
+
+**Not applicable — this task delivers no user-facing behavior.** It relocates type contracts between
+packages. No runtime value, function signature, CLI surface, file format or observable behavior
+changes; every moved declaration is a type erased at build time.
+
+What a consumer sees is the import specifier, which is a source-level concern for developers building
+on the SDK rather than an end-user surface. The verification surface is the workspace typecheck — a
+missed or over-eager rewrite fails to resolve — plus the harness gate and the 10 consumer packages'
+own suites, recorded in the Test Plan above.
+
 ## Evidence Log
 
 ### [GATE-WRITE] — ✅ PASS | 2026-08-23

@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-116: braceless relative imports are invisible to the owner-map scan'
-status: in-progress
+status: done
 created: 2026-08-23
+completed: 2026-08-23
 priority: medium
 urgency: soon
 area: scripts/harness
@@ -51,12 +52,12 @@ acyclic graph either way.
 
 ## Completion Criteria
 
-- [ ] `export * from './x'` and `import * as ns from './x'` produce graph edges to the target
+- [x] `export * from './x'` and `import * as ns from './x'` produce graph edges to the target
       module's owner.
-- [ ] A regression test exists for each in which the braceless edge is the ONLY link between two
+- [x] A regression test exists for each in which the braceless edge is the ONLY link between two
       owners, so the verdict flips rather than the fixture merely containing the form.
-- [ ] Each new test is demonstrated to fail against the pre-fix parser.
-- [ ] `pnpm harness:scan` exit 0.
+- [x] Each new test is demonstrated to fail against the pre-fix parser.
+- [x] `pnpm harness:scan` exit 0.
 
 ## Test Plan
 
@@ -67,3 +68,7 @@ acyclic graph either way.
 
 This task delivers no user-facing behavior: it corrects a repository verification scan. The
 verification surface is the harness gate, recorded in the Test Plan above.
+
+## Outcome
+
+Delivered by pull request #2183, squash-merged as `5ca65a477` on `develop` and verified present by content.
