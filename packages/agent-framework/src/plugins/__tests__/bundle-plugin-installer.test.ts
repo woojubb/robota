@@ -386,4 +386,64 @@ describe('BundlePluginInstaller', () => {
       expect(plugins).toEqual([]);
     });
   });
+
+  describe('SEC-018 - every sink USES the guard, not just the module that defines it', () => {
+    // The first pass of SEC-018 tested `plugin-paths.ts` thoroughly and guarded two of the four
+    // value/sink pairs. A review found the other two. Testing the predicate proves the predicate;
+    // it does not prove that each sink calls it — the same shape as ARCH-101's guard that was
+    // reachable only through `main()`. These drive the real installer methods instead.
+
+    it('uninstall does not delete a registry installPath outside the plugin cache', async () => {
+      const victim = join(TMP_BASE, 'victim-' + Math.random().toString(36).slice(2));
+      setupDir(victim);
+      writeFileSync(join(victim, 'keep.txt'), 'do not delete me', 'utf-8');
+
+      // A tampered installed_plugins.json — the value is a HINT read from disk, not one we derived.
+      writeJson(join(pluginsDir, 'installed_plugins.json'), {
+        'evil@market': {
+          pluginName: 'evil',
+          marketplace: 'market',
+          version: '1.0.0',
+          installPath: victim,
+          installedAt: new Date().toISOString(),
+        },
+      });
+
+      await installer.uninstall('evil@market');
+
+      expect(existsSync(join(victim, 'keep.txt')), 'a path outside the cache was deleted').toBe(
+        true,
+      );
+
+      // ...and the entry is still gone, so one tampered record cannot pin itself in place and block
+      // every later uninstall.
+      const registry = JSON.parse(
+        readFileSync(join(pluginsDir, 'installed_plugins.json'), 'utf-8'),
+      ) as Record<string, unknown>;
+      expect(registry['evil@market']).toBeUndefined();
+    });
+
+    it('refuses a marketplace manifest whose plugin source escapes the marketplace directory', async () => {
+      const marketplaceDir = join(pluginsDir, 'marketplaces', 'escape-market');
+      setupDir(join(marketplaceDir, '.claude-plugin'));
+      writeJson(join(marketplaceDir, '.claude-plugin', 'marketplace.json'), {
+        name: 'escape-market',
+        version: '1.0',
+        // `source` is a RELATIVE path from a remote manifest, joined onto the marketplace clone and
+        // then cpSync-ed into the cache and loaded as plugin code.
+        plugins: [{ name: 'escaper', source: '../../../..', version: '1.0.0' }],
+      });
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'escape-market': {
+          source: { type: 'local', path: marketplaceDir },
+          installLocation: marketplaceDir,
+          lastUpdated: new Date().toISOString(),
+        },
+      });
+
+      await expect(installer.install('escaper', 'escape-market')).rejects.toThrow(
+        /outside the plugin root/,
+      );
+    });
+  });
 });

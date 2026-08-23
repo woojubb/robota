@@ -8,6 +8,10 @@
 import { join, dirname } from 'node:path';
 
 import {
+  readInstalledPluginsRegistry,
+  writeInstalledPluginsRegistry,
+} from './installed-plugins-registry.js';
+import {
   assertContainedPath,
   assertSafePluginSegment,
   resolveContainedRelative,
@@ -108,7 +112,7 @@ export class BundlePluginInstaller {
 
     // Record in installed_plugins.json
     const pluginId = `${pluginName}@${marketplaceName}`;
-    const registry = this.readRegistry();
+    const registry = readInstalledPluginsRegistry(this.registryPath, this.fs);
     registry[pluginId] = {
       pluginName,
       marketplace: marketplaceName,
@@ -116,7 +120,7 @@ export class BundlePluginInstaller {
       installPath: targetDir,
       installedAt: new Date().toISOString(),
     };
-    this.writeRegistry(registry);
+    writeInstalledPluginsRegistry(this.registryPath, registry, this.fs);
   }
 
   /**
@@ -124,21 +128,38 @@ export class BundlePluginInstaller {
    * Removes from cache and from installed_plugins.json.
    */
   async uninstall(pluginId: string): Promise<void> {
-    const registry = this.readRegistry();
+    const registry = readInstalledPluginsRegistry(this.registryPath, this.fs);
     const record = registry[pluginId];
 
     if (!record) {
       throw new Error(`Plugin "${pluginId}" is not installed`);
     }
 
-    // Remove the installed directory
+    // SEC-018: `installPath` is a HINT read from installed_plugins.json, and it drives a recursive
+    // delete. The marketplace-wide cleanup guards the identical value/sink pair; this single-plugin
+    // path is the SECOND sink on the same value and was missed in the first pass.
+    //
+    // Refused per entry, as there: the removal is skipped but the registry entry is still dropped, so
+    // a tampered record cannot pin itself in place and block every later uninstall.
     if (this.fs.existsSync(record.installPath)) {
-      this.fs.rmSync(record.installPath, { recursive: true, force: true });
+      try {
+        assertContainedPath(
+          this.cacheDir,
+          record.installPath,
+          'remove a plugin directory',
+          this.fs,
+        );
+        this.fs.rmSync(record.installPath, { recursive: true, force: true });
+      } catch (error) {
+        // allow-fallback: a registry entry pointing outside the plugin cache is not deleted; the
+        // entry is still removed below.
+        process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+      }
     }
 
     // Remove from registry
     delete registry[pluginId];
-    this.writeRegistry(registry);
+    writeInstalledPluginsRegistry(this.registryPath, registry, this.fs);
 
     // Remove from enabled plugins settings
     this.settingsStore.removePluginEntry(pluginId);
@@ -156,12 +177,12 @@ export class BundlePluginInstaller {
 
   /** Get all installed plugins. */
   getInstalledPlugins(): TInstalledPluginsRegistry {
-    return this.readRegistry();
+    return readInstalledPluginsRegistry(this.registryPath, this.fs);
   }
 
   /** Get plugins installed from a specific marketplace. */
   getPluginsByMarketplace(marketplaceName: string): IInstalledPluginRecord[] {
-    const registry = this.readRegistry();
+    const registry = readInstalledPluginsRegistry(this.registryPath, this.fs);
     return Object.values(registry).filter((r) => r.marketplace === marketplaceName);
   }
 
@@ -206,9 +227,16 @@ export class BundlePluginInstaller {
 
     try {
       if (typeof source === 'string') {
-        // Relative path — copy from the marketplace clone
+        // SEC-018: `source` comes from the REMOTE marketplace manifest and is joined onto the
+        // marketplace clone. `../../../../etc` pointed outside it, and the result is `cpSync`-ed into
+        // the plugin cache and then loaded as plugin code.
         const marketplaceDir = this.marketplaceClient.getMarketplaceDir(marketplaceName);
-        const sourcePath = join(marketplaceDir, source);
+        const sourcePath = resolveContainedRelative(
+          marketplaceDir,
+          source,
+          'install a plugin from a marketplace source',
+          this.fs,
+        );
 
         if (!this.fs.existsSync(sourcePath)) {
           throw new Error(
@@ -257,32 +285,5 @@ export class BundlePluginInstaller {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to clone plugin "${pluginName}": ${message}`);
     }
-  }
-
-  /** Read the installed_plugins.json registry. */
-  private readRegistry(): TInstalledPluginsRegistry {
-    if (!this.fs.existsSync(this.registryPath)) {
-      return {};
-    }
-    try {
-      const raw = this.fs.readFileSync(this.registryPath, 'utf-8');
-      const data: unknown = JSON.parse(raw);
-      if (typeof data === 'object' && data !== null) {
-        return data as TInstalledPluginsRegistry;
-      }
-      return {};
-    } catch {
-      // allow-fallback: corrupt installed_plugins.json returns empty registry to allow recovery
-      return {};
-    }
-  }
-
-  /** Write the installed_plugins.json registry. */
-  private writeRegistry(registry: TInstalledPluginsRegistry): void {
-    const dir = dirname(this.registryPath);
-    if (!this.fs.existsSync(dir)) {
-      this.fs.mkdirSync(dir, { recursive: true });
-    }
-    this.fs.writeFileSync(this.registryPath, JSON.stringify(registry, null, 2), 'utf-8');
   }
 }
