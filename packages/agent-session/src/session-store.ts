@@ -26,9 +26,19 @@ import type {
  */
 export class NodeSessionStore implements IInteractiveSessionStore {
   private readonly baseDir: string;
+  private readonly ownedRoot: string | undefined;
 
-  constructor(baseDir: string) {
+  /**
+   * @param baseDir the directory holding the records.
+   * @param ownedRoot an ancestor of `baseDir` the HOST also owns, tightened along with it (SEC-020).
+   *   Optional because this adapter does not interpret its base directory as a trusted root and must
+   *   not guess that a parent belongs to the product — which of them do is composition's knowledge.
+   *   Omitting it leaves a store root an older version created at whatever mode it was given, which
+   *   is what review of PR #2224 found: the leaf was 0700 and the directory above it was not.
+   */
+  constructor(baseDir: string, ownedRoot?: string) {
     this.baseDir = baseDir;
+    this.ownedRoot = ownedRoot;
   }
 
   /**
@@ -41,7 +51,10 @@ export class NodeSessionStore implements IInteractiveSessionStore {
    * stayed 0777.
    */
   private ensureDir(): void {
-    ensureOwnerOnlyDirectory(this.baseDir);
+    ensureOwnerOnlyDirectory(
+      this.baseDir,
+      this.ownedRoot === undefined ? {} : { withinRoot: this.ownedRoot },
+    );
   }
 
   /**

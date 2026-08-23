@@ -1,3 +1,5 @@
+import { dirname } from 'node:path';
+
 import { NodeSessionStore } from '@robota-sdk/agent-session';
 
 import { userPaths } from '../paths.js';
@@ -24,8 +26,11 @@ export function createProjectSessionStore(
 }
 
 /** Explicit host-filesystem session store. This does not establish project trust. */
-export function createNodeHostSessionStore(baseDirectory: string): IInteractiveSessionStore {
-  return new NodeSessionStore(baseDirectory);
+export function createNodeHostSessionStore(
+  baseDirectory: string,
+  ownedRoot?: string,
+): IInteractiveSessionStore {
+  return new NodeSessionStore(baseDirectory, ownedRoot);
 }
 
 /**
@@ -33,7 +38,12 @@ export function createNodeHostSessionStore(baseDirectory: string): IInteractiveS
  * there is no user-level replay-log directory, so it reads persisted records only.
  */
 export function createUserSessionStore(): IInteractiveSessionStore {
-  return new NodeSessionStore(userPaths().sessions);
+  // SEC-020: the user store root is passed as OWNED, so it is tightened along with the sessions
+  // directory inside it. This is the composition that knows the layout — `userPaths()` is here —
+  // and it is the path the restricted-workspace fallback takes, where no other writer may ever run
+  // to tighten the root on its behalf.
+  const sessions = userPaths().sessions;
+  return new NodeSessionStore(sessions, dirname(sessions));
 }
 
 export function listResumableSessionSummaries(

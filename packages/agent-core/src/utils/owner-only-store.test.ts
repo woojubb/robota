@@ -192,3 +192,52 @@ describe('SEC-020 — verification, not hope', () => {
     }
   });
 });
+
+describe('SEC-020 — withinRoot tightens the ancestors the caller owns', () => {
+  it('TC-31: a store ROOT an older version left at 0755 is tightened, not only the leaf', () => {
+    // The defect review of PR #2224 found: `mkdirSync(path, { recursive: true, mode })` applies the
+    // mode only to the directories it CREATES, so a root that already existed keeps whatever it had
+    // while the sessions directory inside it came out 0700. On the restricted-workspace fallback no
+    // other writer runs, so nothing else would ever repair it.
+    const owned = join(root, 'store-root');
+    mkdirSync(owned);
+    chmodSync(owned, 0o755);
+    const leaf = join(owned, 'sessions');
+    ensureOwnerOnlyDirectory(leaf, { withinRoot: owned });
+    expect(mode(owned)).toBe(OWNER_ONLY_DIRECTORY_MODE);
+    expect(mode(leaf)).toBe(OWNER_ONLY_DIRECTORY_MODE);
+  });
+
+  it('TC-32: every segment between the root and the leaf is tightened', () => {
+    const owned = join(root, 'deep-root');
+    const middle = join(owned, 'a');
+    mkdirSync(middle, { recursive: true });
+    chmodSync(owned, 0o755);
+    chmodSync(middle, 0o777);
+    const leaf = join(middle, 'b');
+    ensureOwnerOnlyDirectory(leaf, { withinRoot: owned });
+    for (const path of [owned, middle, leaf]) {
+      expect(mode(path)).toBe(OWNER_ONLY_DIRECTORY_MODE);
+    }
+  });
+
+  it('TC-33: a withinRoot that is NOT an ancestor is refused, not silently ignored', () => {
+    // The guard that stops this module chmodding a directory nobody said it owns. Without it a
+    // caller could pass a home directory and this would narrow it.
+    const elsewhere = join(root, 'elsewhere');
+    const leaf = join(root, 'target', 'sessions');
+    mkdirSync(elsewhere, { recursive: true });
+    expect(() => ensureOwnerOnlyDirectory(leaf, { withinRoot: elsewhere })).toThrow(
+      OwnerOnlyModeError,
+    );
+  });
+
+  it('TC-34: without withinRoot only the leaf is touched — the parent is not this call to narrow', () => {
+    const parent = join(root, 'not-ours');
+    mkdirSync(parent);
+    chmodSync(parent, 0o755);
+    ensureOwnerOnlyDirectory(join(parent, 'leaf'));
+    expect(mode(parent)).toBe(0o755);
+    expect(mode(join(parent, 'leaf'))).toBe(OWNER_ONLY_DIRECTORY_MODE);
+  });
+});

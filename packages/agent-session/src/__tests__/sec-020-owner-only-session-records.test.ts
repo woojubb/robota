@@ -151,3 +151,29 @@ describe('SEC-020 — NodeSessionLogSink', () => {
     expect(() => sink.append('s5', 'line\n')).not.toThrow();
   });
 });
+
+describe('SEC-020 — the store root the host declares it owns', () => {
+  it('TC-35: a root left at 0755 by an older version is tightened with the sessions directory', () => {
+    // Review of PR #2224: the leaf was 0700 and the directory above it was not, on exactly the path
+    // the change says matters most — the restricted-workspace fallback, where no settings or
+    // device-store write ever runs to tighten the root on the session store's behalf.
+    const owned = join(root, 'store-root');
+    mkdirSync(owned);
+    chmodSync(owned, 0o755);
+    const base = join(owned, 'sessions');
+    new NodeSessionStore(base, owned).save(record('d'));
+    expect(mode(owned)).toBe(OWNER_ONLY_DIRECTORY);
+    expect(mode(base)).toBe(OWNER_ONLY_DIRECTORY);
+  });
+
+  it('TC-36: without a declared root the store narrows only its own directory', () => {
+    // The adapter does not interpret its base directory as a trusted root and must not guess that a
+    // parent belongs to the product. Which ancestors are owned is composition's knowledge.
+    const parent = join(root, 'someone-elses');
+    mkdirSync(parent);
+    chmodSync(parent, 0o755);
+    new NodeSessionStore(join(parent, 'sessions')).save(record('e'));
+    expect(mode(parent)).toBe(0o755);
+    expect(mode(join(parent, 'sessions'))).toBe(OWNER_ONLY_DIRECTORY);
+  });
+});

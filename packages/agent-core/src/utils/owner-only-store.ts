@@ -42,14 +42,14 @@
 
 import {
   chmodSync,
-  existsSync,
   mkdirSync,
   renameSync,
+  rmSync,
   statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, isAbsolute, join, relative as relativePath, sep } from 'node:path';
 
 /** Owner read/write. Nothing for group, nothing for other. */
 export const OWNER_ONLY_FILE_MODE = 0o600;
@@ -92,6 +92,41 @@ export interface IOwnerOnlyIo {
   readonly readMode?: (target: string) => number;
 }
 
+export interface IEnsureOwnerOnlyOptions extends IOwnerOnlyIo {
+  /**
+   * An ANCESTOR of `directory` that the caller also owns, tightened along with every segment between
+   * them.
+   *
+   * Needed because `mkdirSync(path, { recursive: true, mode })` applies the mode only to the
+   * directories it CREATES. A store root an older version already made sits at whatever mode it was
+   * given and this call would leave it there — which is the module's own headline defect surviving
+   * one level up, on the very path it exists to protect. Found in review of PR #2224.
+   *
+   * It is a parameter rather than a walk up to some inferred boundary because WHICH ancestors belong
+   * to the caller is the caller's knowledge. This module must not guess that a parent is ours; it
+   * would eventually chmod someone's home directory.
+   */
+  readonly withinRoot?: string;
+}
+
+/** Every directory from `root` down to `target`, outermost first. `root` must be an ancestor. */
+function segmentsFromRoot(root: string, target: string): string[] {
+  const relative = relativePath(root, target);
+  if (relative.startsWith('..') || isAbsolute(relative)) {
+    throw new OwnerOnlyModeError(
+      `withinRoot ${root} is not an ancestor of ${target}, so this call cannot own the path between them.`,
+    );
+  }
+  const parts = relative.split(sep).filter((part) => part.length > 0);
+  const chain: string[] = [root];
+  let current = root;
+  for (const part of parts) {
+    current = join(current, part);
+    chain.push(current);
+  }
+  return chain;
+}
+
 function assertOwnerOnly(target: string, kind: 'directory' | 'file', io: IOwnerOnlyIo = {}): void {
   if (ownerOnlyGuarantee() !== 'posix-mode') return;
   const mode = (io.readMode ?? ((path: string) => statSync(path).mode & 0o7777))(target);
@@ -109,16 +144,28 @@ function assertOwnerOnly(target: string, kind: 'directory' | 'file', io: IOwnerO
  * The `chmod` is unconditional because `mkdir` does not touch an existing directory's mode, and the
  * `stat` afterwards is what turns two hopeful calls into a checked one.
  */
-export function ensureOwnerOnlyDirectory(directory: string, io: IOwnerOnlyIo = {}): void {
+export function ensureOwnerOnlyDirectory(
+  directory: string,
+  options: IEnsureOwnerOnlyOptions = {},
+): void {
   const makeDirectory =
-    io.makeDirectory ??
+    options.makeDirectory ??
     ((target: string, mode: number): void => {
       mkdirSync(target, { recursive: true, mode });
     });
-  const setMode = io.setMode ?? ((target: string, mode: number): void => chmodSync(target, mode));
+  const setMode =
+    options.setMode ?? ((target: string, mode: number): void => chmodSync(target, mode));
   makeDirectory(directory, OWNER_ONLY_DIRECTORY_MODE);
-  if (ownerOnlyGuarantee() === 'posix-mode') setMode(directory, OWNER_ONLY_DIRECTORY_MODE);
-  assertOwnerOnly(directory, 'directory', io);
+  // Every directory the caller declared it owns, not only the leaf. `mkdir` set the mode on what it
+  // CREATED; a root an older version left at 0755 was created by nobody here and would keep it.
+  const owned =
+    options.withinRoot === undefined
+      ? [directory]
+      : segmentsFromRoot(options.withinRoot, directory);
+  for (const target of owned) {
+    if (ownerOnlyGuarantee() === 'posix-mode') setMode(target, OWNER_ONLY_DIRECTORY_MODE);
+    assertOwnerOnly(target, 'directory', options);
+  }
 }
 
 /**
@@ -136,7 +183,12 @@ export function writeOwnerOnlyFile(filePath: string, content: string): void {
   // mid-write, its contents are meaningless, and — the part that matters here — `writeFileSync` does
   // not apply `mode` to a file that already exists, so reusing one at 0666 would put the whole
   // record on disk world-readable before the rename.
-  if (existsSync(temporaryPath)) unlinkSync(temporaryPath);
+  //
+  // Removed with `force` rather than `if (exists) unlink`: checking and then acting on a path is a
+  // race, and the race is exploitable here — another process can create the path between the two
+  // calls, and the `wx` write below would then fail on a file this call believed it had cleared.
+  // CodeQL flagged the check-then-act form on PR #2224 and it was right to.
+  rmSync(temporaryPath, { force: true });
   // `wx` guarantees this call CREATES the file, which is the only condition under which `mode` is
   // applied. There is deliberately no `chmod` after it: tightening a file that was created wide
   // leaves a window in which the full record is readable, and a `chmod` here would make the mode
