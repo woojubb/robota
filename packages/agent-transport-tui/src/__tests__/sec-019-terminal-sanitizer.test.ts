@@ -73,7 +73,7 @@ const ATTACKS: Array<[string, string, string]> = [
 function hasTerminalControl(text: string): boolean {
   for (const ch of text) {
     const code = ch.codePointAt(0) ?? 0;
-    if (ch === '\t' || ch === '\n' || ch === '\r') continue;
+    if (ch === '\t' || ch === '\n') continue;
     if (code <= 0x1f || code === 0x7f) return true;
     if (code >= 0x80 && code <= 0x9f) return true;
   }
@@ -142,8 +142,18 @@ describe('SEC-019 - a control sequence in untrusted text is neutralized', () => 
     );
   });
 
-  it('keeps tab, newline and carriage return, which are content', () => {
-    expect(sanitizeTerminalText('a\tb\nc\rd')).toBe('a\tb\nc\rd');
+  it('keeps tab and newline, which are content', () => {
+    expect(sanitizeTerminalText('a\tb\nc')).toBe('a\tb\nc');
+  });
+
+  it('normalizes CRLF and removes a bare CR, which is a cursor move', () => {
+    // Measured against a real terminal stream: Ink strips OSC 52 and CSI on its way out, and passes
+    // a bare `\r` through intact. `safe text\rEVIL` therefore prints EVIL over what the transcript
+    // said — the same "what you read is not what happened" attack as a deceptive hyperlink, with no
+    // escape sequence in it at all. The first version of this module kept CR as content.
+    expect(sanitizeTerminalText('safe text\rEVIL')).toBe('safe textEVIL');
+    expect(sanitizeTerminalText('a\r\nb\r\nc')).toBe('a\nb\nc');
+    expect(sanitizeTerminalText('trailing\r')).toBe('trailing');
   });
 
   it('leaves ordinary Unicode alone - the goal is what the TERMINAL acts on', () => {

@@ -1,16 +1,31 @@
 /**
  * SEC-019 (issue #2022) - the one place untrusted text is made safe to put on a terminal.
  *
- * Model output, tool output, file contents and plugin text all reach Ink `<Text>`, and Ink does not
- * strip control sequences - it passes them through. So a repository, a fetched document, a plugin or
- * a model response could emit OSC and CSI sequences that act on the terminal independently of what
- * the transcript appears to say: OSC 52 writes the clipboard, OSC 8 makes a link whose visible text
- * and target differ, and CSI moves the cursor or erases what is already on screen.
+ * Model output, tool output, file contents and plugin text all reach Ink `<Text>`, and from there a
+ * terminal. What that terminal actually receives was MEASURED against a real stream rather than
+ * assumed, because the first version of this module assumed Ink passed everything through and that
+ * is not true:
+ *
+ *   stripped by Ink   OSC 52 (clipboard), OSC 0 (title), CSI erase/cursor/alt-screen, DCS, APC,
+ *                     8-bit CSI
+ *   REACHES the tty   SGR colour, OSC 8 hyperlink, a bare carriage return
+ *
+ * So through `<Text>` the live attack is a link whose visible text and target differ, and a `\r`
+ * that overwrites the line the transcript just printed. `useTerminalTitle` writes to stdout directly
+ * and is subject to none of Ink's filtering, so everything reaches the terminal there.
+ *
+ * ## Why sanitize the whole class when Ink removes most of it
+ *
+ * Because Ink's removal is INCIDENTAL. It falls out of slicing text for layout; it is in no
+ * contract, no test of Ink's asserts it, and a dependency upgrade can return the entire class
+ * without a line changing here. A boundary that rests on another project's implementation detail is
+ * a boundary in name. The two sequences that reach the terminal today prove the exposure is real;
+ * the ones Ink happens to remove are the reason this must not be scoped to them.
  *
  * ## Allowlist, not denylist
  *
- * Everything is passed through EXCEPT the control range, and inside that range exactly three
- * characters survive - tab, newline, carriage return. A denylist of "known dangerous sequences" is
+ * Everything is passed through EXCEPT the control range, and inside that range exactly two
+ * characters survive - tab and newline. A denylist of "known dangerous sequences" is
  * wrong for the same reason it is wrong for shell metacharacters: the set belongs to the terminal
  * emulator, and a list written today is incomplete the next time one adds an escape.
  *
@@ -31,8 +46,22 @@
  * having only the stateless function available is how that caller would get it wrong.
  */
 
-/** Tab, newline and carriage return are content; every other C0 control is not. */
-const KEPT_C0 = new Set(['\t', '\n', '\r']);
+/**
+ * Tab and newline are content. Carriage return is NOT, and that is a correction.
+ *
+ * A bare `\r` returns the cursor to column zero, so `safe text\rEVIL` prints `EVIL` over what the
+ * transcript said — the same "what you read is not what happened" attack as a deceptive hyperlink,
+ * with no escape sequence involved. It was kept here as content in the first version of this module
+ * on the assumption that CR is a line ending; measurement against a real terminal stream showed a
+ * bare CR reaching it intact.
+ *
+ * `\r\n` IS a line ending, and is normalized to `\n` before the control filter runs, so a document
+ * written on Windows keeps its line structure and loses only the overwrite primitive.
+ */
+const KEPT_C0 = new Set(['\t', '\n']);
+
+/** `\r\n` is one line break written in two bytes; a `\r` that is not part of one is a cursor move. */
+const CRLF = /\r\n/g;
 
 /**
  * One escape sequence, or a lone control character.
@@ -103,7 +132,9 @@ const INCOMPLETE_TAIL =
  * what the TERMINAL acts on, not to restrict what a document may say.
  */
 export function sanitizeTerminalText(text: string): string {
-  return text.replace(CONTROL_SEQUENCE, (match) => (KEPT_C0.has(match) ? match : ''));
+  return text
+    .replace(CRLF, '\n')
+    .replace(CONTROL_SEQUENCE, (match) => (KEPT_C0.has(match) ? match : ''));
 }
 
 /** A sanitizer that carries an incomplete escape across chunk boundaries. */

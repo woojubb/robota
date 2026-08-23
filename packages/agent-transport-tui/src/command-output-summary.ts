@@ -1,3 +1,5 @@
+import { sanitizeTerminalText } from './sanitize-terminal-text.js';
+
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 const MAX_PREVIEW_LINES = 4;
@@ -30,7 +32,12 @@ export function formatCommandOutputSummary(
   const successValue = getBooleanValue(parsed, 'success');
   const output = buildOutputText(tool.toolResultData, parsed);
   const lines = trimTrailingBlankLines(splitOutputLines(output));
-  const previewLines = lines.slice(0, MAX_PREVIEW_LINES);
+  // SEC-019: these lines ARE the command's stdout and stderr — the most directly attacker-chosen
+  // text in the whole surface. Sanitized where the summary is BUILT rather than where it is
+  // rendered, because this function exists to produce display text and a second render site would
+  // otherwise have to remember. `statusLabel` and `transcriptHint` are built from numbers and need
+  // nothing.
+  const previewLines = lines.slice(0, MAX_PREVIEW_LINES).map(sanitizeTerminalText);
   const omittedLineCount = Math.max(0, lines.length - previewLines.length);
   const isFailed =
     tool.result === 'error' ||

@@ -209,7 +209,7 @@ function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactEleme
       {lines.map((line, i) => (
         <Text key={i} color={PALETTE.text.success}>
           {'  '}
-          {line}
+          {sanitizeTerminalText(line)}
         </Text>
       ))}
     </Box>
@@ -218,12 +218,17 @@ function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactEleme
 
 function EventEntry({ entry }: { entry: IHistoryEntry }): React.ReactElement {
   const eventData = entry.data as Record<string, TUniversalValue> | undefined;
-  const eventMessage =
+  // SEC-019: an event message is BUILT by a neutral package from untrusted parts — a skill name that
+  // may come from a plugin, a memory topic the model chose — and interpolated into a sentence. The
+  // formatter cannot sanitize for a terminal (the same string reaches the GUI, where escapes are not
+  // the threat and stripping them would be arbitrary), so this render site is the boundary.
+  const eventMessage = sanitizeTerminalText(
     typeof eventData?.message === 'string'
       ? eventData.message
       : typeof eventData?.content === 'string'
         ? eventData.content
-        : entry.type;
+        : entry.type,
+  );
 
   return (
     <Box flexDirection="column" marginBottom={1}>
