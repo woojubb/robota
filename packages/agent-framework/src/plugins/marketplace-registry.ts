@@ -7,6 +7,7 @@
 
 import { join, dirname } from 'node:path';
 
+import { assertContainedPath, PluginPathContainmentError } from './plugin-paths.js';
 import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 import type { TKnownMarketplacesRegistry } from './marketplace-types.js';
@@ -73,9 +74,30 @@ export function removeInstalledPluginsForMarketplace(
   let changed = false;
   for (const [pluginId, record] of Object.entries(registry)) {
     if (record.marketplace === marketplaceName) {
-      // Remove the cache directory for this plugin
+      // SEC-018: `installPath` is a HINT read from a file on disk, and it drives a recursive delete.
+      // A tampered registry pointing it outside the plugin root deleted whatever it named. Refused
+      // rather than sanitised, and refused per-entry: one bad record must not abort the cleanup of
+      // the others, so the removal is skipped and the entry is still dropped from the registry.
       if (record.installPath && fs.existsSync(record.installPath)) {
-        fs.rmSync(record.installPath, { recursive: true, force: true });
+        try {
+          // SEC-018: the SAME root as the installer's uninstall path. Checking this value against
+          // `pluginsDir` instead let a tampered entry name `pluginsDir/known_marketplaces.json` or
+          // another marketplace clone — inside the plugins root, outside the cache — and have it
+          // recursively deleted. One value, one root.
+          assertContainedPath(
+            join(pluginsDir, 'cache'),
+            record.installPath,
+            'remove a plugin directory',
+            fs,
+          );
+          fs.rmSync(record.installPath, { recursive: true, force: true });
+        } catch (error) {
+          // allow-fallback: ONLY a containment refusal is swallowed. A real `rmSync` failure (EACCES,
+          // EBUSY) must propagate — dropping the registry entry after one would leave the directory
+          // on disk with nothing tracking it, which is worse than the failed cleanup.
+          if (!(error instanceof PluginPathContainmentError)) throw error;
+          process.stderr.write(`${error.message}\n`);
+        }
       }
       delete registry[pluginId];
       changed = true;
