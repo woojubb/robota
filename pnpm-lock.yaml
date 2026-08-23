@@ -551,9 +551,6 @@ importers:
         specifier: ^8.21.1
         version: 8.21.1
     devDependencies:
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../../packages/agent-interface-transport
       '@robota-sdk/agent-transport-webrtc':
         specifier: workspace:*
         version: link:../../packages/agent-transport-webrtc
@@ -1647,9 +1644,6 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
     devDependencies:
       rimraf:
         specifier: ^5.0.10

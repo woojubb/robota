@@ -7,7 +7,7 @@
  * inbound listener. Guarding only the first would have left six families still escaping.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { describe, expect, it } from 'vitest';
 
 import { createOutboundDelivery } from '../outbound-delivery.js';

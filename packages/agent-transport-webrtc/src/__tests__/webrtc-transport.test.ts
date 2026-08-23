@@ -1,7 +1,5 @@
-import {
-  createTestInteractiveSession,
-  runTransportLifecycleConformance,
-} from '@robota-sdk/agent-interface-transport/testing';
+import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { RTCPeerConnection } from 'werift';

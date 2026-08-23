@@ -9,7 +9,7 @@
  * handshake, the way `pairing-gate.test.ts` does, because that is the one that ships by default.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { PairingGate } from '../pairing-gate.js';

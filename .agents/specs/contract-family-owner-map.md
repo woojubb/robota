@@ -11,7 +11,7 @@ admission, peers, handoff, and transport. 21 workspace packages depend on it; `a
 
 This document is the SSOT for where each family is going, in what order, and why that order is forced.
 The reasoning behind it — alternatives, prior art, the decision — lives in the paired spec-doc
-`.agents/spec-docs/todo/ARCH-100-contract-family-owner-map-and-acyclic-target-graph.md` and is not
+`.agents/spec-docs/done/ARCH-100-contract-family-owner-map-and-acyclic-target-graph.md` and is not
 repeated here.
 
 ## The owner map
@@ -55,7 +55,7 @@ guards read this table through one parser (`scripts/harness/interface-layers.mjs
 
 | Layer | Package                            |
 | ----- | ---------------------------------- |
-| 2     | `agent-interface-transport`        |
+| 0     | `agent-interface-transport`        |
 | 0     | `agent-interface-command`          |
 | 0     | `agent-interface-execution`        |
 | 0     | `agent-interface-analytics`        |
@@ -68,33 +68,43 @@ layer 1   session      → command, execution, analytics
 layer 2   mobility     → session
 ```
 
+Transport reached layer 0 in ARCH-108 (issue #2113), the leaf that emptied it of everything it did
+not own. Both guards accept the row: `interface-family-owner` over module edges, `deps` over
+manifest edges.
+
 #### A layer declares where a package IS, not where it is going
 
 **This table describes the tree as it stands, and it is re-declared by each leaf that changes it.**
 It is not a picture of the finished state. A package's layer follows what it HOLDS today; when a
 migration moves a family, the layer moves in the same change.
 
-The trap this exists to prevent, because it already fired once: `agent-interface-transport`'s TARGET
-is layer 0, and declaring it there early made the real `transport → execution` edge read as
-**same-layer** — so ARCH-101's rule refused a migration that was legal. Every remaining leaf meets
-this, because every leaf changes what some package holds.
+The trap this exists to prevent, because it fired twice: `agent-interface-transport`'s TARGET was
+layer 0 from the first day of the decomposition, and declaring it there early made the real
+`transport → execution` edge read as **same-layer** — so ARCH-101's rule would have refused a
+migration that was legal. Every leaf met this, because every leaf changed what some package held.
 
-So: **`agent-interface-transport` is at layer 2 TODAY** — and ARCH-106 predicted layer 0, which was
-wrong in an instructive way.
+The row now reads 0 because the package finally holds only layer-0 content — not because the target
+was reached by declaration.
 
-The prediction reasoned from what the package would STOP holding: session leaves, so transport keeps
-only `transport-adapter`, `transport-config`, `channel-contracts` and `admission`, which is layer-0
-content. What it missed is what the package still HOLDS: the three **mobility** modules
-(`peer-message-contracts`, `handoff-contracts`, `session-mobility-contracts`), which the map assigns
-to layer 2 and which name session types.
+**Two predictions of that row were recorded before it was measured, and both were wrong.** They are
+kept here because what they were wrong ABOUT is the same thing each time, and one wrong prediction
+looks like a slip while two look like a defect in the rule's wording.
 
-While session and mobility shared this package that edge was a relative import and no layer question
-arose. The moment session left, `handoff-contracts → IInteractiveSessionRecord` became a package edge
-and the layer became checkable — at which point transport is layer 2, because a package's layer is
-the HIGHEST of what it holds, not the lowest.
+- **ARCH-106** predicted layer 0 and measured 2. It reasoned from what the package would STOP
+  holding — session leaves, so transport keeps `transport-adapter`, `transport-config`,
+  `channel-contracts` and `admission`, which is layer-0 content. What it missed is what the package
+  still HELD: the three **mobility** modules, which the map assigns to layer 2. While session and
+  mobility shared this package that edge was a relative import and no layer question arose; the
+  moment session left, `handoff-contracts → IInteractiveSessionRecord` became a package edge and the
+  layer became checkable.
+- **ARCH-107** predicted layer 0 and measured 2 again. It enumerated the contract modules the package
+  held — correctly — and forgot the `/testing` subpath, where a session double still imported
+  `IInteractiveSession`. A published subpath is part of what a package holds.
 
-It drops to 0 when issue #2111 moves mobility out, which is also when its name finally describes its
-whole contents.
+The shared cause: **the rule states an AGGREGATION — take the maximum — and does not state the
+DOMAIN it aggregates over.** Both predictions computed a maximum; both computed it over too small a
+set. The rule's wording admits that reading, which makes this the rule's defect rather than the
+author's, and the amendment is filed as issue #2218.
 
 The same applies in reverse to a package that has not been created yet: an owner's row is declared
 when its package exists, not when its leaf is planned.
@@ -131,12 +141,20 @@ package graph cyclic. Issue #2110 inherits it rather than being surprised by it.
 Extract owners with no outbound edges first, so a moved family never reaches back into the package it
 just left.
 
-| Wave | Owners                                     | Leaves                                |
-| ---- | ------------------------------------------ | ------------------------------------- |
-| 1    | command, execution, analytics              | issue #2108, issue #2109, issue #2112 |
-| 2    | session                                    | issue #2110                           |
-| 3    | session-mobility                           | issue #2111                           |
-| 4    | transport narrowed, omnibus barrel deleted | issue #2113                           |
+| Wave | Owners                             | Leaves                                |
+| ---- | ---------------------------------- | ------------------------------------- |
+| 1    | command, execution, analytics      | issue #2108, issue #2109, issue #2112 |
+| 2    | session                            | issue #2110                           |
+| 3    | session-mobility                   | issue #2111                           |
+| 4    | transport narrowed to what it owns | issue #2113 — **done**                |
+
+Wave 4 was planned as "transport narrowed, **omnibus barrel deleted**". The narrowing happened; the
+deletion had nothing left to delete. By the time ARCH-108 ran, transport's barrel exported 39 symbols,
+38 of them declared in its own four modules and the 39th (`TActionResponse`) a documented ARCH-037
+exception — the omnibus had already been dismantled by waves 1–3, one family at a time. Recorded as
+**satisfied by predecessors** rather than closed by manufacturing a deletion, because a leaf that
+reports a deliverable it did not perform is worse than one that reports the deliverable was
+unnecessary.
 
 **This is a constraint, not a preference.** Issue #2110 may not run before issue #2108, issue #2109
 and issue #2112 —

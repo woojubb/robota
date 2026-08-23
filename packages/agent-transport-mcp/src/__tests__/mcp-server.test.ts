@@ -2,7 +2,7 @@
  * Tests for MCP transport adapter.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { describe, it, expect, vi } from 'vitest';
 import { createAgentMcpServer } from '../mcp-server.js';

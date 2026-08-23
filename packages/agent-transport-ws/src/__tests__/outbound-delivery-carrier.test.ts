@@ -6,7 +6,7 @@
  * half that was missing before, because the carrier's cleanup was written, idempotent, and never called.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
 import { describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
