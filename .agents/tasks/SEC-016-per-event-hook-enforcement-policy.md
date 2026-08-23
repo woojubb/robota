@@ -129,6 +129,26 @@ Recorded 2026-08-23 on branch `fix/sec-016-per-event-hook-enforcement`, base `or
 - **Table invariant (TC-12).** `assertPolicyCoherent` rejects the narrow contradiction independently
   of the scan, and names every dishonest row rather than the first.
 
+## Two things this leaf learned that outlive it
+
+**A gate refusing me produced better evidence than I had authored.** `pnpm scenario:verify` blocked
+the push because SEC-015's merged, passing user-execution scenario asserted the behaviour this leaf
+changes. Nothing in the diff touched that file and no import graph reaches it; it failed because the
+fact it recorded stopped being true. Updated, it became the strongest end-to-end evidence here —
+`tool BLOCKED, error reported (source=command)` through the real `PermissionEnforcer.wrapTools`
+boundary. Worth stating plainly because it is the counter-argument to every instinct to route around
+a gate: the gate was not an obstacle between me and the evidence, it was the thing that produced it.
+
+**A size baseline measures POST-FORMAT lines, so a formatter can turn a zero-cost edit into a
+six-line cost.** I told the orchestrator that one export line was the entire remaining headroom on
+`packages/agent-core/src/index.ts` (312 against a frozen 313), then added two names to an existing
+line believing that cost nothing. Prettier split the export across seven lines and the file went to
+319 — six over. `file-size` caught it on the post-rebase re-verify, not before.
+
+The mechanism is not obvious and anyone reasoning about that headroom from the source they typed
+will get it wrong the same way. It is also the argument for re-verifying after a rebase rather than
+reusing the green: the pre-rebase run had never seen the formatted result.
+
 ## Test Plan
 
 Engineering verification. The spec's `## Test Plan` table is the owner; this is the execution record.
