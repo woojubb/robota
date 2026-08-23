@@ -941,8 +941,9 @@ A `{ ok, reason }` body is decoded by `decodeHookVerdict`: `ok` must be exactly 
 directive (`continue: false`, `decision: "block"`, `hookSpecificOutput.permissionDecision: "deny"`),
 which is a decision the hook stated outright and which an undecodable `ok` beside it does not retract.
 
-`error` is not a third verdict; it is the absence of one. It does not block on any event today, and
-whether it should on an enforcing event is issue #2093.
+`error` is not a third verdict; it is the absence of one. **Whether that blocks is per-event policy,
+and `PreToolUse` fails closed on it (SEC-016)** — see "Per-event enforcement posture" above. Every
+other event is advisory, because no other fire site consults `blocked` at all.
 
 ### Hook Configuration
 
