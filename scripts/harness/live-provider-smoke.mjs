@@ -47,7 +47,7 @@
  *
  * Run:
  *   node scripts/harness/live-provider-smoke.mjs [--provider <type>] [--report-file <path>]
- * Prerequisite: the provider packages must be built (`pnpm --filter @robota-sdk/agent-provider-defaults... build:js`).
+ * Prerequisite: the provider packages must be built (`pnpm --filter @robota-sdk/agent-builtin-providers... build:js`).
  */
 
 import { appendFile, writeFile, mkdir } from 'node:fs/promises';
@@ -58,7 +58,7 @@ import { pathToFileURL } from 'node:url';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 /** Packages the smoke loads at runtime, by manifest name — never by build-output path. */
-const PROVIDER_DEFAULTS_PACKAGE = '@robota-sdk/agent-provider-defaults';
+const PROVIDER_DEFAULTS_PACKAGE = '@robota-sdk/agent-builtin-providers';
 const CORE_PACKAGE = '@robota-sdk/agent-core';
 
 /** The one prompt every provider gets. Short, deterministic to grade, cheap to answer. */
@@ -383,7 +383,7 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   if (workspace === undefined) {
     process.stdout.write(
       'live-provider-smoke: workspace is not built — run\n' +
-        '  pnpm --filter @robota-sdk/agent-provider-defaults... build:js\n',
+        '  pnpm --filter @robota-sdk/agent-builtin-providers... build:js\n',
     );
     process.exitCode = 1;
     return;

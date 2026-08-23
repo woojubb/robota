@@ -1135,7 +1135,7 @@ from the final `{ done: true, value }` iterator result).
   already resolves to `response_schema`; the providers that lack a schema parameter (`deepseek` →
   `json_object`, `qwen` → `none`) have no strict-tool support to carry it. A union member nothing
   produces is a branch every consumer must handle and no test can reach.
-  `packages/agent-provider-defaults/src/forced-tool-transport-applicability.test.ts` fails if a
+  `packages/agent-builtin-providers/src/forced-tool-transport-applicability.test.ts` fails if a
   provider ever qualifies, and records the questions that must be answered first.
 - **Endpoint provenance is a separate answer from the capability table.** `IAIProvider` carries
   `endpointIsVendorDefault?()` alongside `capabilityTable?()` rather than a field inside it, because

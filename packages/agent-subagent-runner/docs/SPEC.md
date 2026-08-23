@@ -13,7 +13,7 @@ Applications that do not use subagents should not carry this dependency.
 
 - Depends on `@robota-sdk/agent-core`, `@robota-sdk/agent-executor`, `@robota-sdk/agent-framework`,
   `@robota-sdk/agent-interface-transport`, and `@robota-sdk/agent-process`. **ARCH-021 removed the
-  `@robota-sdk/agent-provider-defaults` edge**: a neutral runner must not compose the product's surface.
+  `@robota-sdk/agent-builtin-providers` edge**: a neutral runner must not compose the product's surface.
 - Must NOT import from `@robota-sdk/agent-command` or `@robota-sdk/agent-cli`.
 - Must NOT import from `@robota-sdk/agent-session` directly — session lifecycle is accessed through
   `agent-framework` facades.

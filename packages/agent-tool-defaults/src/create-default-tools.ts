@@ -11,7 +11,7 @@
  * `import { createDefaultTools } from '@robota-sdk/agent-tool-defaults'` does not resolve there at
  * all. A neutral runner composing the product's tool surface is now a compile error rather than a
  * scan finding — the same shape ARCH-021 achieved on the provider axis with
- * `@robota-sdk/agent-provider-defaults`.
+ * `@robota-sdk/agent-builtin-providers`.
  *
  * `DEFAULT_TOOL_DESCRIPTIONS` deliberately did NOT come along: its only consumer builds the system
  * prompt synchronously, and dragging it here would force either a static edge back into this leaf or

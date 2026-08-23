@@ -232,15 +232,15 @@ Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
 
 `packages/agent-cli/src/utils/provider-default-definitions.ts` assembled the standard set of all
 `IProviderDefinition` instances. It had zero CLI-specific type dependencies — only `IProviderDefinition`
-from `agent-core` and factory functions from `@robota-sdk/agent-provider-defaults/*` sub-paths.
+from `agent-core` and factory functions from `@robota-sdk/agent-builtin-providers/*` sub-paths.
 
 The decision of "which providers are available by default" is a provider package concern.
-`agent-provider-defaults` assembles the default set from the per-vendor `agent-provider-*` packages
+`agent-builtin-providers` assembles the default set from the per-vendor `agent-provider-*` packages
 (there is no bare `agent-provider` package).
 
-Fix: added `createDefaultProviderDefinitions()` to `packages/agent-provider-defaults/src/default-provider-definitions.ts`,
-exported from `@robota-sdk/agent-provider-defaults` root. All callers in `agent-cli` now import from
-`@robota-sdk/agent-provider-defaults`. Original file deleted.
+Fix: added `createDefaultProviderDefinitions()` to `packages/agent-builtin-providers/src/default-provider-definitions.ts`,
+exported from `@robota-sdk/agent-builtin-providers` root. All callers in `agent-cli` now import from
+`@robota-sdk/agent-builtin-providers`. Original file deleted.
 
 ### CLI-AUDIT-021: `promptInput` — raw stdin adapter owned by CLI, belongs in agent-transport/headless
 

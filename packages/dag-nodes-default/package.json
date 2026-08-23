@@ -65,7 +65,7 @@
     "@robota-sdk/dag-node-utility-text": "workspace:*"
   },
   "optionalDependencies": {
-    "@robota-sdk/agent-provider-defaults": "workspace:*",
+    "@robota-sdk/agent-builtin-providers": "workspace:*",
     "@robota-sdk/dag-node-gemini-image-edit": "workspace:*"
   },
   "peerDependencies": {

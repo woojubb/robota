@@ -41,7 +41,7 @@
     "packages/agent-product/package.json",
     "packages/agent-provider-anthropic/package.json",
     "packages/agent-provider-bytedance/package.json",
-    "packages/agent-provider-defaults/package.json",
+    "packages/agent-builtin-providers/package.json",
     "packages/agent-provider-gemini/package.json",
     "packages/agent-provider-openai-compatible/package.json",
     "packages/agent-provider-openai/package.json",

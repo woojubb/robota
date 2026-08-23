@@ -58,7 +58,7 @@ const FORBIDDEN_IMPORTS = [
 // Built from the configured scope, not hardcoded: a hardcoded scope does not FAIL when the scope
 // changes — it matches nothing, and that reads as a pass.
 const HARNESS = loadHarnessConfig();
-const FORBIDDEN_DEPENDENCY = `${HARNESS.npmScopePrefix}agent-provider-defaults`;
+const FORBIDDEN_DEPENDENCY = `${HARNESS.npmScopePrefix}agent-builtin-providers`;
 
 function collectSourceFiles(dir) {
   const files = [];

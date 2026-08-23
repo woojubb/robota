@@ -64,7 +64,7 @@
     "@google/genai": "^1.52.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-provider-defaults": "workspace:*",
+    "@robota-sdk/agent-builtin-providers": "workspace:*",
     "@robota-sdk/dag-adapters-local": "workspace:*",
     "@robota-sdk/dag-builder": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",

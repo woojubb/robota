@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: RULE
 tags: [architecture]
 ---
@@ -99,3 +99,12 @@ before and after, since only its message changed.
   change, so repairing them means guessing what each meant. The general defect — line-number citations
   into a living document rot silently and nothing checks them — is filed separately rather than fixed
   opportunistically here.
+
+## User Execution Test Scenarios
+
+**Not applicable.** This change delivers rule text, two agent definitions, one skill, and the finding
+message of one scan. No runnable user-facing product behaviour changes — no CLI command, TUI action,
+browser flow, or public SDK surface. Per `.agents/tasks/README.md`, a rule-only change records the
+not-applicable with its reason rather than inventing a product scenario; the checks that do apply are
+in the Test Plan, and the load-bearing one is that `check-orphan-exports` reports identically before
+and after, since only its message changed.

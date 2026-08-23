@@ -334,7 +334,7 @@ describe('CLI dev source resolution', () => {
     'packages/agent-provider-openai',
     'packages/agent-provider-openai-compatible',
     'packages/agent-provider-gemini',
-    'packages/agent-provider-defaults',
+    'packages/agent-builtin-providers',
     'packages/agent-session',
     'packages/agent-tools',
     'packages/agent-transport',

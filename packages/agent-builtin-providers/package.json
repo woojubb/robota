@@ -1,7 +1,7 @@
 {
-  "name": "@robota-sdk/agent-provider-defaults",
+  "name": "@robota-sdk/agent-builtin-providers",
   "version": "3.0.0-beta.79",
-  "description": "Default provider definition aggregator for Robota SDK",
+  "description": "Built-in chat provider definitions and the default role-to-model mapping shipped with the Robota SDK",
   "type": "module",
   "publishConfig": {
     "access": "public"

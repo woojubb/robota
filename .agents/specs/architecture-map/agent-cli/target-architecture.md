@@ -108,7 +108,7 @@ flowchart TD
   Session["@robota-sdk/agent-session\nSession, neutral store/log ports,\nexplicit Node host adapters, compaction"]
   Tools["@robota-sdk/agent-tools\nbuilt-in tools"]
   Executor["@robota-sdk/agent-executor\nbackground tasks, subagents, worktree"]
-  Provider["@robota-sdk/agent-provider-defaults\nprovider definitions + createDefaultProviderDefinitions()"]
+  Provider["@robota-sdk/agent-builtin-providers\nprovider definitions + createDefaultProviderDefinitions()"]
   Transport["@robota-sdk/agent-transport\nheadless transport + TransportRegistry (root + /headless)"]
   TransportTui["@robota-sdk/agent-transport-tui\nrenderApp, App, TuiTransport, TuiInteractionChannel,\ncreateDefaultTuiCliAdapter"]
   TransportWs["@robota-sdk/agent-transport-ws\nWsTransport"]

@@ -45,7 +45,7 @@ packages/agent-cli/src/bin.ts
    |  |- commandHostAdapters
    |  |  |- settings adapter -> agent-framework settings-io
    |  |  `- plugin adapter -> createDefaultPluginCommandAdapter()  (agent-command)
-   |  |- providerDefinitions = createDefaultProviderDefinitions()  (agent-provider-defaults)
+   |  |- providerDefinitions = createDefaultProviderDefinitions()  (agent-builtin-providers)
    |  |  |- createAnthropicProviderDefinition()  (agent-provider-anthropic)
    |  |  |- createOpenAIProviderDefinition()  (agent-provider-openai)
    |  |  |- createGeminiProviderDefinition()  (agent-provider-gemini)

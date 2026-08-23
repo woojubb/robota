@@ -7,7 +7,7 @@ import {
   readProviderSettings,
   readSettingsSourceText,
 } from '@robota-sdk/agent-framework';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 
 import type { IProviderDefinition, ITerminalOutput } from '@robota-sdk/agent-core';
 import type { TSettingsSource } from '@robota-sdk/agent-framework';
