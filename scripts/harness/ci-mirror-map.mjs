@@ -197,7 +197,7 @@ export const CI_STAGES = [
  * `relevance` is a KEY the runner evaluates, not prose. A `relevantWhen` sentence with no code
  * behind it would describe a condition nobody computes — a smaller version of the same defect.
  */
-export const NOT_MIRRORED = [
+const NOT_MIRRORED_ENTRIES = [
   {
     context: 'regression-red-proof (enforcing: accidental-green only)',
     reason:
@@ -246,6 +246,50 @@ export const NOT_MIRRORED = [
       'no local equivalent — push and read the check, or query it directly: gh api "repos/<owner>/<repo>/code-scanning/alerts?pr=<n>&state=open" --paginate  (note --paginate: a single page silently truncates, which is how a 40-high backlog once read as clean)',
   },
 ];
+
+/**
+ * The same entries, keyed by context — and the reason the list above is not the export.
+ *
+ * A duplicate `context` used to be undetectable. `scan-required-check-local-reachability.mjs` reads
+ * this through `new Set(...)`, which collapses one; the tests read it through `.find()`, which
+ * returns the first and never looks again. Neither is wrong about what it asks — both ask EXISTENCE,
+ * and the property is UNIQUENESS.
+ *
+ * The runtime path is what makes an assertion insufficient here. `annotateNotMirrored` maps over
+ * every entry and `renderSummary` prints every one, so a duplicate reaches the USER as one required
+ * check excused twice, in two different voices, with nothing saying which governs. `CI_STAGES` and
+ * `SCAN_COMMANDS` are guarded by a test because their duplicates are collapsed before anyone sees
+ * them; this one is not, so it refuses at construction.
+ *
+ * Refusing HERE rather than in a test is deliberate: a test has to be run, and this throws the
+ * moment any consumer imports the module. Issue #2042.
+ */
+function keyByContext(entries) {
+  const byContext = new Map();
+  for (const entry of entries) {
+    const existing = byContext.get(entry.context);
+    if (existing) {
+      throw new Error(
+        `ci-mirror-map: NOT_MIRRORED declares \`${entry.context}\` twice. A required check cannot ` +
+          'have two reasons for being un-mirrorable — verify-like-ci prints both and names neither ' +
+          `as governing. First reason: ${existing.reason.slice(0, 80)}… Second: ${entry.reason.slice(0, 80)}…`,
+      );
+    }
+    byContext.set(entry.context, entry);
+  }
+  return byContext;
+}
+
+/** Required contexts this entry point cannot reproduce, keyed by context. Insertion-ordered. */
+export const NOT_MIRRORED_BY_CONTEXT = keyByContext(NOT_MIRRORED_ENTRIES);
+
+/**
+ * The entries as a list, for the consumers that iterate rather than look up.
+ *
+ * Derived from the Map, so it cannot disagree with it — a second array would be a second place for
+ * the same fact, which is what this change removes.
+ */
+export const NOT_MIRRORED = [...NOT_MIRRORED_BY_CONTEXT.values()];
 
 /** The relevance keys the runner knows how to evaluate. */
 export const RELEVANCE_KEYS = ['manifest-or-lockfile', 'code', 'guarded-workflow'];

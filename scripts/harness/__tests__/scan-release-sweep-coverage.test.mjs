@@ -128,6 +128,22 @@ describe('R2 reachability — the pre-fix, hand-maintained shape', () => {
   });
 });
 
+describe('the exclusion list is well-formed', () => {
+  // Issue #2042. `EXCLUSIONS` is read through `.some((e) => e.script === script)`, which is
+  // satisfied by one entry and never looks for a second — so a duplicate `script` puts a reason in
+  // the file that nothing will ever read, wearing the same authoritative face as the one that
+  // governs. The check asks EXISTENCE; the property is UNIQUENESS.
+  //
+  // An assertion rather than a Map, because the second entry is dropped before anyone sees it —
+  // unlike NOT_MIRRORED, whose duplicates are printed to the user and so are refused structurally.
+  // The shape follows `CI_STAGES`'s `stage names are unique` and `SCAN_COMMANDS`'s
+  // `registers every scan exactly once`, which is what this repository already does twice.
+  it('excludes every script exactly once — a second entry is a reason nobody reads', () => {
+    const scripts = EXCLUSIONS.map((entry) => entry.script);
+    expect(new Set(scripts).size).toBe(scripts.length);
+  });
+});
+
 describe('R0 vacuity', () => {
   it('fails when it discovers no test scripts at all, rather than reporting a complete sweep', () => {
     const root = baseRoot({
