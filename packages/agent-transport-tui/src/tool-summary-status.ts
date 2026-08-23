@@ -7,7 +7,7 @@
  * so tool status renders one way everywhere.
  */
 
-import { humanizeToolName } from './humanize-tool-name.js';
+import { humanizeToolArgument, humanizeToolName } from './humanize-tool-name.js';
 import { STATUS_GLYPH, toolStateStatusKind } from './status-glyph.js';
 
 import type { TUiStatusKind } from './status-glyph.js';
@@ -50,5 +50,6 @@ export function toolSummaryStatusKind(
 
 /** One-line summary label: SSOT glyph + humanized tool name + first argument. */
 export function getToolSummaryLabel(tool: TToolSummaryItem, kind: TUiStatusKind): string {
-  return `${STATUS_GLYPH[kind].symbol} ${humanizeToolName(tool.toolName)}${tool.firstArg ? `(${tool.firstArg})` : ''}`;
+  const argument = humanizeToolArgument(tool.firstArg);
+  return `${STATUS_GLYPH[kind].symbol} ${humanizeToolName(tool.toolName)}${argument ? `(${argument})` : ''}`;
 }

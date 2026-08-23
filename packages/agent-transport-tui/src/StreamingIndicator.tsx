@@ -6,7 +6,7 @@
 import { Box, Text } from 'ink';
 import React from 'react';
 
-import { humanizeToolName } from './humanize-tool-name.js';
+import { humanizeToolArgument, humanizeToolName } from './humanize-tool-name.js';
 import { renderMarkdown } from './render-markdown.js';
 import { STATUS_GLYPH, toolStateStatusKind } from './status-glyph.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
@@ -52,7 +52,7 @@ function renderTools(activeTools: IToolState[]): React.ReactElement {
           <Box key={`${t.toolName}-${i}`} flexDirection="column">
             <Text color={color} strikethrough={strikethrough}>
               {'  '}
-              {icon} {humanizeToolName(t.toolName)}({t.firstArg})
+              {icon} {humanizeToolName(t.toolName)}({humanizeToolArgument(t.firstArg)})
             </Text>
             {t.diffLines && t.diffLines.length > 0 && (
               <ToolDiffBlock file={t.diffFile} lines={t.diffLines} />
