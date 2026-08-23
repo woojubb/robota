@@ -132,4 +132,36 @@ describe('HOOK_ENFORCEMENT_POLICY', () => {
       expect(() => assertPolicyCoherent(deliberate)).not.toThrow();
     });
   });
+
+  describe('the table cannot be mutated at runtime', () => {
+    // `readonly` is compile-time only and `Object.freeze` is shallow, so a single-level freeze left
+    // every ROW writable. `isEnforcing` reads `.posture` on every tool call, so a writable row means
+    // one assignment silently disarms the gate — from inside the process, with no type error and no
+    // diff. Asserted rather than trusted, because a freeze nothing checks is a freeze that can be
+    // dropped in a refactor with the suite still green.
+    it('refuses a write to a row field', () => {
+      expect(() => {
+        (HOOK_ENFORCEMENT_POLICY.PreToolUse as { posture: string }).posture = 'advisory';
+      }).toThrow(TypeError);
+      expect(HOOK_ENFORCEMENT_POLICY.PreToolUse.posture).toBe('enforcing');
+      expect(isEnforcing('PreToolUse')).toBe(true);
+    });
+
+    it('refuses replacing a whole row', () => {
+      // Asserts object IDENTITY rather than re-reading `posture`. If the row freeze above is ever
+      // broken, the preceding case's write SUCCEEDS and leaks `advisory` into this one — so a
+      // `posture` assertion here would go red on that leak rather than on this case's own property,
+      // and its failure would point at the wrong defect. Identity is unaffected by that leak.
+      const before = HOOK_ENFORCEMENT_POLICY.PreToolUse;
+
+      expect(() => {
+        (HOOK_ENFORCEMENT_POLICY as Record<string, unknown>).PreToolUse = {
+          posture: 'advisory',
+          enforcementReachable: false,
+          rationale: 'disarmed',
+        };
+      }).toThrow(TypeError);
+      expect(HOOK_ENFORCEMENT_POLICY.PreToolUse).toBe(before);
+    });
+  });
 });

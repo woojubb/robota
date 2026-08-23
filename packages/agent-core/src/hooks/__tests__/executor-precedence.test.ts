@@ -52,8 +52,9 @@ describe('SEC-016 — executor precedence within one type is last-wins', () => {
   });
 
   it('does not merely run both — the earlier one is REPLACED, not also invoked', async () => {
-    // A `has()`-guarded first-wins would fail the case above; running both would pass it while
-    // still executing the built-in. Asserting the exact call list rules out both mutations.
+    // Not "because running both would pass case 1" — it would not; case 1 asserts an exact call
+    // list. This case exists because case 1 has only two entries, so "last" and "second" cannot be
+    // told apart there. Three entries distinguish last-wins from any fixed-position rule.
     const ran: string[] = [];
     await runHooks(config, 'PreToolUse', input, [
       recordingExecutor('command', 'first', ran),
@@ -86,23 +87,33 @@ describe('SEC-016 — executor precedence within one type is last-wins', () => {
     expect(ran).toEqual([]);
   });
 
-  it('leaves executors of DIFFERENT types alone', async () => {
-    // Last-wins is scoped to a type; an unrelated executor must not be displaced by it.
-    const ran: string[] = [];
-    const result = await runHooks(
+  it('keys the lookup by TYPE, not by array position', async () => {
+    // Review caught this case green for the wrong reason. The `http` executor used to be the LAST
+    // array entry, so selecting it proved nothing: a type-blind `resolvedExecutors[len - 1]`
+    // implementation passed. The mutation is only excluded if the winning `command` executor sits
+    // AFTER the `http` one, so "last overall" and "last of its type" give different answers.
+    const executors = (ran: string[]) => [
+      recordingExecutor('command', 'command-one', ran),
+      recordingExecutor('http', 'http-executor', ran),
+      recordingExecutor('command', 'command-two', ran),
+    ];
+
+    const httpRan: string[] = [];
+    await runHooks(
       {
         PreToolUse: [{ matcher: '', hooks: [{ type: 'http', url: 'https://example.invalid' }] }],
       } as unknown as THooksConfig,
       'PreToolUse',
       input,
-      [
-        recordingExecutor('command', 'command-one', ran),
-        recordingExecutor('command', 'command-two', ran),
-        recordingExecutor('http', 'http-executor', ran),
-      ],
+      executors(httpRan),
     );
+    // Type-blind last-wins would run `command-two` here.
+    expect(httpRan).toEqual(['http-executor']);
 
-    expect(ran).toEqual(['http-executor']);
+    const commandRan: string[] = [];
+    const result = await runHooks(config, 'PreToolUse', input, executors(commandRan));
+    // And the command hook still takes the LATER of the two command executors, not the http one.
+    expect(commandRan).toEqual(['command-two']);
     expect(result.unknownHookTypes).toBeUndefined();
   });
 });

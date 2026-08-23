@@ -58,13 +58,28 @@ function awaitsButIgnoresBlocked(where: string, reads: string): IHookEventPolicy
 }
 
 /**
+ * Freeze the table AND every row in it.
+ *
+ * `Object.freeze` is shallow and `readonly` is compile-time only, so a single-level freeze leaves
+ * `HOOK_ENFORCEMENT_POLICY.PreToolUse.posture = 'advisory'` working at runtime — silently disarming
+ * the gate `isEnforcing` consults on every tool call. For a table whose entire value is that it
+ * cannot drift, freezing the outer object states an intent the code only half-delivers.
+ */
+function deepFreezePolicy(
+  policy: Record<THookEvent, IHookEventPolicy>,
+): Readonly<Record<THookEvent, IHookEventPolicy>> {
+  for (const row of Object.values(policy)) Object.freeze(row);
+  return Object.freeze(policy);
+}
+
+/**
  * The posture for every lifecycle event.
  *
  * Exhaustive over `THookEvent` by construction — `Record` makes a missing member a compile error,
  * and `assertPolicyCoherent` catches an extra one.
  */
 export const HOOK_ENFORCEMENT_POLICY: Readonly<Record<THookEvent, IHookEventPolicy>> =
-  Object.freeze({
+  deepFreezePolicy({
     PreToolUse: {
       posture: 'enforcing',
       enforcementReachable: true,
