@@ -133,3 +133,65 @@ describe('SEC-018 - a marketplace manifest name cannot select a destination outs
     expect(client.addMarketplace({ type: 'local', path: localSource })).toBe('good-market');
   });
 });
+
+describe('SEC-018 - known_marketplaces.json installLocation is a hint, not a fact', () => {
+  let base: string;
+  let pluginsDir: string;
+  let mockExec: Mock;
+  let client: MarketplaceClient;
+
+  beforeEach(() => {
+    base = mkdtempSync(join(tmpdir(), 'sec-018-known-'));
+    pluginsDir = join(base, 'plugins');
+    mkdirSync(pluginsDir, { recursive: true });
+    mockExec = vi.fn().mockReturnValue('');
+    client = new MarketplaceClient({ pluginsDir, exec: mockExec as unknown as TExecFn });
+  });
+
+  afterEach(() => rmSync(base, { recursive: true, force: true }));
+
+  function registerTampered(installLocation: string): void {
+    writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+      tampered: {
+        source: { type: 'local', path: join(base, 'src') },
+        installLocation,
+        lastUpdated: new Date().toISOString(),
+      },
+    });
+  }
+
+  it('removeMarketplace refuses an installLocation outside the marketplaces root', () => {
+    const victim = join(base, 'victim');
+    mkdirSync(victim, { recursive: true });
+    writeFileSync(join(victim, 'keep.txt'), 'do not delete me', 'utf-8');
+    registerTampered(victim);
+
+    expect(() => client.removeMarketplace('tampered')).toThrow(/outside the plugin root/);
+    expect(existsSync(join(victim, 'keep.txt')), 'a path outside the root was deleted').toBe(true);
+  });
+
+  it('updateMarketplace refuses the same value before it deletes and copies over it', () => {
+    const victim = join(base, 'victim2');
+    mkdirSync(victim, { recursive: true });
+    writeFileSync(join(victim, 'keep.txt'), 'do not overwrite me', 'utf-8');
+    mkdirSync(join(base, 'src'), { recursive: true });
+    registerTampered(victim);
+
+    expect(() => client.updateMarketplace('tampered')).toThrow(/outside the plugin root/);
+    expect(existsSync(join(victim, 'keep.txt')), 'a path outside the root was overwritten').toBe(
+      true,
+    );
+    // ...and no git ran against it either: `git -C <dir> pull` is a third sink on the same value.
+    expect(mockExec).not.toHaveBeenCalled();
+  });
+
+  it('still removes a legitimate marketplace directory', () => {
+    const legit = join(pluginsDir, 'marketplaces', 'good');
+    mkdirSync(legit, { recursive: true });
+    registerTampered(legit);
+
+    client.removeMarketplace('tampered');
+
+    expect(existsSync(legit), 'the guard refused a legitimate removal').toBe(false);
+  });
+});

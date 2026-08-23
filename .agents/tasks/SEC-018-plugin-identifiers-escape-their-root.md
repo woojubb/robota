@@ -179,3 +179,29 @@ files — and it means: **a test that proves a fix belongs to the fix's own comm
 
 The general lesson across all three rounds is one sentence: _a guard is not covered because the module
 that defines it is covered._
+
+## Fourth round: the sibling registry file was never enumerated
+
+`known_marketplaces.json`'s `installLocation` reached three sinks unguarded, while
+`installed_plugins.json`'s `installPath` had been guarded twice:
+
+- `removeMarketplace()` — recursive `rmSync`
+- `updateMarketplace()` local branch — `rmSync` then `cpSync` over it
+- `updateMarketplace()` git branch — `git -C <dir> pull`, which runs git in an arbitrary directory
+
+**The root cause is the enumeration, not the guard.** This Task's table listed four value/sink pairs,
+taken from the issue's evidence links, and the issue's links did not cover the sibling registry. I
+established "a registry value is a HINT, not a fact", applied it to one registry file, and never asked
+which OTHER persisted fields reach a path sink. Working from a provided evidence list is not the same
+as enumerating the class it exemplifies.
+
+Guarded once at `requireContainedEntry`, where the entry is read, rather than at each of the three
+sinks — three call sites are three chances to miss one, which is precisely how this was missed.
+
+Mutant, application verified: removing the guard turns 2 of the sink tests red; restored, 8 green.
+
+## The count, stated plainly
+
+Five rounds. Four found by review, one by the accidental-green floor, **all of them the same defect**:
+a guard exists and something that should call it does not, or the set of things that should call it was
+never enumerated. The guard module itself was correct from the first commit and is still unchanged.
