@@ -37,11 +37,26 @@ function fakeCliAdapter(settingsPath: string): ITuiCliAdapter {
 }
 
 function persistConversation(store: IInteractiveSessionStore, id: string, cwd: string): void {
+  // TRANS-007: the store decodes on load, so a message must satisfy the contract. These were cast
+  // stubs with only `role` and `content`; the store accepted them because it never looked.
+  const at = new Date('2026-06-13T00:00:00.000Z');
   const messages: TUniversalMessage[] = [
-    { role: 'user', content: 'Remember the number 42.' } as TUniversalMessage,
-    { role: 'assistant', content: 'Noted: 42.' } as TUniversalMessage,
-    { role: 'user', content: 'And the city is Busan.' } as TUniversalMessage,
-    { role: 'assistant', content: 'Noted: Busan.' } as TUniversalMessage,
+    {
+      id: 'm-0',
+      role: 'user',
+      content: 'Remember the number 42.',
+      timestamp: at,
+      state: 'complete',
+    },
+    { id: 'm-1', role: 'assistant', content: 'Noted: 42.', timestamp: at, state: 'complete' },
+    {
+      id: 'm-2',
+      role: 'user',
+      content: 'And the city is Busan.',
+      timestamp: at,
+      state: 'complete',
+    },
+    { id: 'm-3', role: 'assistant', content: 'Noted: Busan.', timestamp: at, state: 'complete' },
   ];
   store.save({
     id,

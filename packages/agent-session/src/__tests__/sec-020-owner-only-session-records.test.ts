@@ -19,6 +19,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { NodeSessionLogSink } from '../session-log-sinks.js';
 import { NodeSessionStore } from '../session-store.js';
+import { loadedOrMissing } from './store-load-helpers.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
 
@@ -86,10 +87,12 @@ describe('SEC-020 — NodeSessionStore', () => {
     // cannot see.
     const store = new NodeSessionStore(join(root, 'sessions'));
     store.save(record('keep'));
-    expect(store.load('keep')?.id).toBe('keep');
+    // TRANS-007: `load` reports WHICH of four things happened, so "the record is there" and "the
+    // record is gone" are now distinct answers rather than two readings of `undefined`.
+    expect(loadedOrMissing(store, 'keep')?.id).toBe('keep');
     expect(store.list().map((entry) => entry.id)).toEqual(['keep']);
     store.delete('keep');
-    expect(store.load('keep')).toBeUndefined();
+    expect(store.load('keep')).toEqual({ status: 'missing' });
   });
 });
 

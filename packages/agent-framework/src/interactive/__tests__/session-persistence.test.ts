@@ -12,6 +12,7 @@ import {
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
 } from '../session-persistence.js';
+import { loadedRecordOrMissing } from './session-load-helpers.js';
 
 describe('session persistence facade', () => {
   it('creates a project-local session store and resolves resumable summaries', async () => {
@@ -39,7 +40,9 @@ describe('session persistence facade', () => {
     expect(resolveLatestSessionId(store, cwd)).toBe('session_two');
     expect(resolveSessionIdByIdOrName(store, 'first')).toBe('session_one');
     expect(resolveSessionIdByIdOrName(store, 'session_two')).toBe('session_two');
-    expect(store.load('session_one')?.sandboxSnapshotId).toBe('sandbox-snapshot-one');
+    expect(loadedRecordOrMissing(store, 'session_one')?.sandboxSnapshotId).toBe(
+      'sandbox-snapshot-one',
+    );
     expect(listResumableSessionSummaries(store, cwd)).toEqual([
       {
         id: 'session_two',

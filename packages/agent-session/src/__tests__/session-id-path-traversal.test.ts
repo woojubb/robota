@@ -24,6 +24,7 @@ import { NodeSessionLogSink } from '../session-log-sinks.js';
 import { NodeSessionStore } from '../session-store.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import { loadedOrMissing } from './store-load-helpers.js';
 
 const TRAVERSAL_IDS = [
   '../escaped',
@@ -34,13 +35,19 @@ const TRAVERSAL_IDS = [
   '/absolute',
 ];
 
+/**
+ * TRANS-007: a real record. This used to be a stub cast through `as unknown as` — no `cwd` — which
+ * the store accepted because it did not decode. It now does, so a fixture that is not a record
+ * cannot pretend to be one, and the cast is gone rather than widened.
+ */
 function makeRecord(id: string): IInteractiveSessionRecord {
   return {
     id,
+    cwd: '/work',
     messages: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  } as unknown as IInteractiveSessionRecord;
+  };
 }
 
 describe('SessionStore — session id path traversal (SEC-006)', () => {
@@ -65,7 +72,7 @@ describe('SessionStore — session id path traversal (SEC-006)', () => {
   });
 
   it.each(TRAVERSAL_IDS)('load() rejects a traversing id (%s)', (id) => {
-    expect(() => store.load(id)).toThrow(/session id/i);
+    expect(() => loadedOrMissing(store, id)).toThrow(/session id/i);
   });
 
   it.each(TRAVERSAL_IDS)('delete() rejects a traversing id (%s)', (id) => {
@@ -74,7 +81,7 @@ describe('SessionStore — session id path traversal (SEC-006)', () => {
 
   it('load() cannot read a JSON file outside the store directory', () => {
     writeFileSync(join(root, 'secret.json'), JSON.stringify({ id: 'secret', stolen: true }));
-    expect(() => store.load('../secret')).toThrow(/session id/i);
+    expect(() => loadedOrMissing(store, '../secret')).toThrow(/session id/i);
   });
 
   it('delete() cannot unlink a file outside the store directory', () => {
@@ -92,7 +99,7 @@ describe('SessionStore — session id path traversal (SEC-006)', () => {
       'a',
     ]) {
       expect(() => store.save(makeRecord(id))).not.toThrow();
-      expect(store.load(id)?.id).toBe(id);
+      expect(loadedOrMissing(store, id)?.id).toBe(id);
     }
   });
 });

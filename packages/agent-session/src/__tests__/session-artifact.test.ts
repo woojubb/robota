@@ -10,6 +10,7 @@ import { SESSION_ARTIFACT_SCHEMA_VERSION } from '../session-record-codec/index.j
 import { NodeSessionStore } from '../session-store.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import { loadedOrMissing } from './store-load-helpers.js';
 
 /**
  * SELFHOST-014 — the export/import artifact envelope over the canonical interactive session record.
@@ -111,31 +112,6 @@ function fullRecord(): IInteractiveSessionRecord {
   };
 }
 
-/**
- * What a record looks like after a STORE round-trip, which is not what it looks like after an
- * ARTIFACT round-trip.
- *
- * TRANS-006 routes the artifact importer through the decoder, so `deserializeSessionArtifact`
- * returns real `Date`s. `NodeSessionStore.load` still does a bare `JSON.parse` cast — that is
- * issue #2096's scope, not this leaf's — so a record written to the store and read back has ISO
- * STRINGS where the contract declares `Date`.
- *
- * The asymmetry is asserted rather than papered over: these helpers make it visible, and when
- * issue #2096 lands and the store decodes too, these expectations go red and are deleted. A test
- * that quietly compared only the fields JSON preserves would let that day pass unnoticed.
- */
-function asStoreRoundTripped(
-  messages: IInteractiveSessionRecord['messages'],
-): IInteractiveSessionRecord['messages'] {
-  return JSON.parse(JSON.stringify(messages)) as IInteractiveSessionRecord['messages'];
-}
-
-function asStoreRoundTrippedHistory(
-  history: NonNullable<IInteractiveSessionRecord['history']>,
-): NonNullable<IInteractiveSessionRecord['history']> {
-  return JSON.parse(JSON.stringify(history)) as NonNullable<IInteractiveSessionRecord['history']>;
-}
-
 function newStore(): NodeSessionStore {
   return new NodeSessionStore(mkdtempSync(path.join(tmpdir(), 'artifact-store-')));
 }
@@ -209,22 +185,24 @@ describe('session artifact — async share → resume across two independent sur
     storeA.save(record);
 
     // Export from A → hand off → import into an INDEPENDENT store B (different baseDir; A may be offline).
-    const artifact = serializeSessionArtifact(storeA.load(record.id)!);
+    const artifact = serializeSessionArtifact(loadedOrMissing(storeA, record.id)!);
     const storeB = newStore();
     storeB.save(deserializeSessionArtifact(artifact));
 
-    const onB = storeB.load(record.id);
-    expect(onB?.messages).toEqual(asStoreRoundTripped(record.messages));
-    expect(onB?.history).toEqual(asStoreRoundTrippedHistory(record.history!));
+    const onB = loadedOrMissing(storeB, record.id);
+    expect(onB?.messages).toEqual(record.messages);
+    expect(onB?.history).toEqual(record.history);
     expect(onB?.goal).toEqual(record.goal);
 
-    // The import DID decode — the asymmetry is the store's, not the artifact's.
+    // TRANS-006 recorded an asymmetry here: the artifact path decoded and the store did not, so a
+    // record that came back through the store carried ISO strings. TRANS-007 made the store decode
+    // too, and this asserts the asymmetry is gone rather than leaving it merely untested.
     expect(deserializeSessionArtifact(artifact).messages[0]?.timestamp).toBeInstanceOf(Date);
-    expect(typeof (onB?.messages[0]?.timestamp as unknown)).toBe('string');
+    expect(onB?.messages[0]?.timestamp).toBeInstanceOf(Date);
     // Stores are independent — deleting B's imported record does not affect A.
     storeB.delete(record.id);
-    expect(storeA.load(record.id)?.id).toBe(record.id);
-    expect(storeB.load(record.id)).toBeUndefined();
+    expect(loadedOrMissing(storeA, record.id)?.id).toBe(record.id);
+    expect(loadedOrMissing(storeB, record.id)).toBeUndefined();
   });
 });
 
@@ -244,10 +222,10 @@ describe('session artifact — a REDACTED artifact still resumes on B with impor
     const storeB = newStore();
     storeB.save({ ...imported, cwd: '/surface-b/checkout' });
 
-    const onB = storeB.load(record.id);
+    const onB = loadedOrMissing(storeB, record.id);
     expect(onB?.cwd).toBe('/surface-b/checkout'); // rebound
-    expect(onB?.messages).toEqual(asStoreRoundTripped(record.messages)); // content intact
-    expect(onB?.history).toEqual(asStoreRoundTrippedHistory(record.history!));
+    expect(onB?.messages).toEqual(record.messages); // content intact
+    expect(onB?.history).toEqual(record.history);
     expect(onB?.goal).toEqual(record.goal);
   });
 });

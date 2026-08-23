@@ -25,8 +25,14 @@ package publishes contracts, vocabulary and discriminators rather than mechanism
   declared there, and the mechanism that validates a value against it lives here.
   The former local `ISessionRecord` and `ISessionStore` declarations were removed because they drifted
   from the canonical contract. Public compatibility names are renamed re-exports only. The store remains
-  payload-agnostic in behavior (it never inspects persisted fields; `load`/`list` keep the honest
-  `JSON.parse(...) as IInteractiveSessionRecord` trust boundary). Consumers obtain a session store through SDK facades
+  **decodes what it stores, and nothing further (TRANS-007).** It previously kept a
+  `JSON.parse(...) as IInteractiveSessionRecord` trust boundary and never inspected the payload; that
+  property is retired, because distinguishing a corrupt snapshot from a valid one IS inspection and
+  is what stops a damaged file being read as an absent one. **What replaces it:** `load` decodes the
+  `{ schemaVersion, record }` envelope and the record against its contract, and reports
+  `valid` / `missing` / `corrupt` / `unsupported`. It reads no field for its MEANING — no branch on
+  a `cwd`, a `name`, a message body or any other member — so the store still holds no domain policy;
+  the boundary moved from "does not look" to "checks the shape and nothing else". Consumers obtain a session store through SDK facades
   (`createProjectSessionStore`) rather than treating a host directory as project authority.
 - **Owns the shareable session-artifact envelope (SELFHOST-014).** `session-artifact.ts` — a
   record-**transport** sibling of the file-backed `session-store.ts` — is the neutral export/import envelope
@@ -283,7 +289,14 @@ consumes it directly. The compatibility `ISessionRecord` export is only a rename
 owned and documented by `@robota-sdk/agent-interface-transport` (`session-contracts.ts`, DATA-001)
 and is intentionally NOT duplicated here. Store-relevant invariants:
 
-- The store never inspects payload fields; it persists/loads the record as opaque JSON.
+- The store decodes on load (TRANS-007). It persists `{ schemaVersion, record }` and returns a
+  `TSessionLoadOutcome` — `valid` / `missing` / `corrupt` / `unsupported` — rather than
+  `record | undefined`. **Scope of the inspection:** the envelope's version and the record's shape,
+  and nothing beyond. No persisted field is read for its meaning, so the store still owns no domain
+  policy. It previously treated the payload as opaque JSON; that made a damaged file
+  indistinguishable from an absent one, and a consumer that read the existing record to preserve
+  fields it does not own then OVERWROTE the damaged file with a fresh one. A non-`valid` outcome is
+  never treated as "no prior record" on a write path.
 - `load`/`list` return `JSON.parse(...) as IInteractiveSessionRecord` — an honest trust boundary with no
   runtime validation (a hand-edited file is the caller's responsibility, unchanged from before).
 - `IHistoryEntry.timestamp` is `Date`-typed at compile time but round-trips through JSON as an ISO

@@ -22,14 +22,14 @@ One family, one owner. This table is the SSOT: `scripts/harness/scan-interface-f
 PARSES it — it is not restated in the scan, because a second copy is the drift this map exists to
 prevent. Rows are `| owner | contract modules | leaf |`.
 
-| Target owner                       | Contract modules                                                                                                                                                                        | Leaf        |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| `agent-interface-transport`        | `transport-adapter`, `transport-config`, `channel-contracts`, `admission`                                                                                                               | issue #2113 |
-| `agent-interface-command`          | `command-contracts`, `capability-contracts`                                                                                                                                             | issue #2108 |
-| `agent-interface-execution`        | `background-task-contracts`, `background-group-contracts`, `subagent-contracts`, `workspace-contracts`                                                                                  | issue #2109 |
-| `agent-interface-session`          | `session-contracts`, `session-capability-contracts`, `session-summary-contracts`, `interaction-contracts`, `event-contracts`, `driver-contracts`, `turn-contracts`, `compact-contracts` | issue #2110 |
-| `agent-interface-session-mobility` | `peer-message-contracts`, `handoff-contracts`, `session-mobility-contracts`                                                                                                             | issue #2111 |
-| `agent-interface-analytics`        | symbols@`session-contracts`: `IUsageSource`, `IUsageSnapshot`, `ISpanEntry`, `IUsageSourceTotals`, `IRunTraceSpan`, `IRunTraceTurn`, `IUsageBySourceReport`                             | issue #2112 |
+| Target owner                       | Contract modules                                                                                                                                                                                                   | Leaf        |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| `agent-interface-transport`        | `transport-adapter`, `transport-config`, `channel-contracts`, `admission`                                                                                                                                          | issue #2113 |
+| `agent-interface-command`          | `command-contracts`, `capability-contracts`                                                                                                                                                                        | issue #2108 |
+| `agent-interface-execution`        | `background-task-contracts`, `background-group-contracts`, `subagent-contracts`, `workspace-contracts`                                                                                                             | issue #2109 |
+| `agent-interface-session`          | `session-contracts`, `session-store-contracts`, `session-capability-contracts`, `session-summary-contracts`, `interaction-contracts`, `event-contracts`, `driver-contracts`, `turn-contracts`, `compact-contracts` | issue #2110 |
+| `agent-interface-session-mobility` | `peer-message-contracts`, `handoff-contracts`, `session-mobility-contracts`                                                                                                                                        | issue #2111 |
+| `agent-interface-analytics`        | symbols@`session-contracts`: `IUsageSource`, `IUsageSnapshot`, `ISpanEntry`, `IUsageSourceTotals`, `IRunTraceSpan`, `IRunTraceTurn`, `IUsageBySourceReport`                                                        | issue #2112 |
 
 `capability-contracts` goes with **command**, not transport: its only importer is `command-contracts`,
 and leaving it behind would give the command owner an edge onto a package named for transport — the

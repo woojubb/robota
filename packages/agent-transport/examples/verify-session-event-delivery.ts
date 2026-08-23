@@ -91,7 +91,8 @@ async function main(): Promise<void> {
     });
     failureCleanup = failureCarrier.cleanup;
     await session.forkCheckpointBranch(first.id);
-    const forkRecord = store.load(session.getSession().getSessionId());
+    const forkOutcome = store.load(session.getSession().getSessionId());
+    const forkRecord = forkOutcome.status === 'valid' ? forkOutcome.record : undefined;
     const forkFrame = transcript.findLast(
       (message) => message.type === 'branch_event' && message.event.kind === 'branch_forked',
     );
@@ -103,7 +104,8 @@ async function main(): Promise<void> {
     failureCleanup = undefined;
 
     session.switchCheckpointBranch(second.id);
-    const finalRecord = store.load(session.getSession().getSessionId());
+    const finalOutcome = store.load(session.getSession().getSessionId());
+    const finalRecord = finalOutcome.status === 'valid' ? finalOutcome.record : undefined;
     const branchFrames = transcript.filter(
       (message): message is Extract<TServerMessage, { type: 'branch_event' }> =>
         message.type === 'branch_event',

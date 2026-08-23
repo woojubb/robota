@@ -11,12 +11,54 @@ import { join } from 'path';
 
 import { ensureOwnerOnlyDirectory, writeOwnerOnlyFile } from '@robota-sdk/agent-core/node';
 
-import { assertSafeSessionId } from './session-id.js';
+import { assertSafeSessionId, isSafeSessionId } from './session-id.js';
+import {
+  SESSION_ARTIFACT_SCHEMA_VERSION,
+  decodeVersionedInteractiveSessionRecord,
+} from './session-record-codec/index.js';
 
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
+  ISessionListEntry,
+  TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
+
+/** A read failure described without leaking the whole error object into a persisted diagnostic. */
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : 'unknown error';
+}
+
+/** Decode stored bytes into an outcome, keeping "not JSON" and "not a record" the same answer. */
+function decodeStoredSession(raw: string): TSessionLoadOutcome {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return {
+      status: 'corrupt',
+      issues: [{ path: '', message: 'the session file is not JSON' }],
+    };
+  }
+  const outcome = decodeVersionedInteractiveSessionRecord(parsed);
+  if (outcome.status === 'valid') return { status: 'valid', record: outcome.record };
+  if (outcome.status === 'unsupported') {
+    return { status: 'unsupported', schemaVersion: outcome.schemaVersion };
+  }
+  return { status: 'corrupt', issues: outcome.issues };
+}
+
+/**
+ * Most recent first, and an unreadable entry sorts last rather than being dropped.
+ *
+ * An entry with no record has no `updatedAt` to sort by; giving it the epoch keeps it present and
+ * out of the way, which is the whole point of listing it at all.
+ */
+function compareListEntriesByRecency(left: ISessionListEntry, right: ISessionListEntry): number {
+  const at = (entry: ISessionListEntry): number =>
+    entry.outcome.status === 'valid' ? new Date(entry.outcome.record.updatedAt).getTime() : 0;
+  return at(right) - at(left);
+}
 
 /**
  * Persistent session store backed by individual JSON files.
@@ -84,51 +126,82 @@ export class NodeSessionStore implements IInteractiveSessionStore {
    */
   save(session: IInteractiveSessionRecord): void {
     this.ensureDir();
-    writeOwnerOnlyFile(this.filePath(session.id), JSON.stringify(session, null, 2));
+    // TRANS-007: the versioned envelope, not the bare record. Without a version on disk there is
+    // nothing to compare, so "written by a build this one does not read" cannot be told from
+    // "damaged" even in principle — and those two need different things from the user.
+    // SEC-020's owner-only atomic write carries it: the envelope is WHAT is written, the mode is HOW.
+    writeOwnerOnlyFile(
+      this.filePath(session.id),
+      JSON.stringify({ schemaVersion: SESSION_ARTIFACT_SCHEMA_VERSION, record: session }, null, 2),
+    );
   }
 
   /**
-   * Load a session by its ID.
-   * Returns `undefined` when the session file does not exist or is corrupt.
+   * Load a session by its ID, saying WHICH of the four things happened.
+   *
+   * `undefined` used to answer all four — never saved, damaged, written by a build this one cannot
+   * read, and the read failed — and a caller that meant to preserve fields it does not own then
+   * treated "damaged" as "no prior record" and overwrote the file. The outcome type is what removes
+   * that, by making the caller answer the question it was not asking.
    */
-  load(id: string): IInteractiveSessionRecord | undefined {
+  load(id: string): TSessionLoadOutcome {
     const path = this.filePath(id);
     if (!existsSync(path)) {
-      return undefined;
+      return { status: 'missing' };
     }
+    let raw: string;
     try {
-      const raw = readFileSync(path, 'utf-8');
-      return JSON.parse(raw) as IInteractiveSessionRecord;
-    } catch {
-      // allow-fallback: corrupt session file is unrecoverable; treat as missing to avoid crash on --continue/--resume
-      return undefined;
+      raw = readFileSync(path, 'utf-8');
+    } catch (error) {
+      // A file that exists and cannot be read is NOT missing. Reporting it as missing is what let a
+      // recovery path run over a session that was still there.
+      return {
+        status: 'corrupt',
+        issues: [{ path: '', message: `could not read the session file: ${describeError(error)}` }],
+      };
     }
+    return decodeStoredSession(raw);
   }
 
   /**
-   * List all persisted sessions, sorted by `updatedAt` descending (most recent first).
+   * Every session this directory holds, each with what the store concluded about it.
+   *
+   * Unreadable entries are REPORTED rather than skipped. A store that distinguishes four outcomes on
+   * `load` and then hides two of them from the surface a person browses has moved the defect rather
+   * than removed it: the difference a user experiences is between "my session vanished" and "my
+   * session needs a different build".
    */
-  list(): IInteractiveSessionRecord[] {
+  list(): readonly ISessionListEntry[] {
     if (!existsSync(this.baseDir)) {
       return [];
     }
+    return readdirSync(this.baseDir)
+      .filter((file) => file.endsWith('.json'))
+      .map((file) => file.slice(0, -'.json'.length))
+      .map((id) => ({ id, outcome: this.outcomeForListedId(id) }))
+      .sort(compareListEntriesByRecency);
+  }
 
-    const files = readdirSync(this.baseDir).filter((f) => f.endsWith('.json'));
-    const sessions: IInteractiveSessionRecord[] = [];
-
-    for (const file of files) {
-      try {
-        const raw = readFileSync(join(this.baseDir, file), 'utf-8');
-        const record = JSON.parse(raw) as IInteractiveSessionRecord;
-        sessions.push(record);
-      } catch {
-        // Skip malformed files
-      }
+  /**
+   * The outcome for one directory entry, without letting a bad NAME throw out of `list`.
+   *
+   * `load` validates the id, because an id reaching it is a caller's value and a malformed one is a
+   * bug or an attack (SEC-006). A name read out of the directory is neither: the store did not
+   * choose it, and one file it cannot use as an id must not take the whole listing down with it.
+   * Routing `list` through `load` made exactly that happen — a single `my session.json` in the
+   * sessions directory threw, and the resume picker went with it.
+   *
+   * Reporting it is the same answer `list` gives for every other file it cannot read, which is the
+   * property this work exists to establish.
+   */
+  private outcomeForListedId(id: string): TSessionLoadOutcome {
+    if (!isSafeSessionId(id)) {
+      return {
+        status: 'corrupt',
+        issues: [{ path: '', message: 'the file name is not a usable session id' }],
+      };
     }
-
-    return sessions.sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-    );
+    return this.load(id);
   }
 
   /**

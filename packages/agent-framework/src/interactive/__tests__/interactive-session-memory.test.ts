@@ -12,6 +12,7 @@ import {
 import { InteractiveSession } from '../interactive-session.js';
 
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
+import { loadedRecordOrMissing } from './session-load-helpers.js';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-interactive-memory-'));
 const ORIGINAL_HOME = process.env.HOME;
@@ -68,7 +69,7 @@ describe('InteractiveSession memory command integration', () => {
     await session.submit('remember that this project uses pnpm for package scripts');
 
     expect(existsSync(join(cwd, '.robota', 'memory', 'pending.json'))).toBe(false);
-    const saved = sessionStore.load(session.getSession().getSessionId());
+    const saved = loadedRecordOrMissing(sessionStore, session.getSession().getSessionId());
     expect(saved?.memoryEvents).toEqual([]);
   });
 

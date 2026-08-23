@@ -83,11 +83,10 @@ describe('imported session artifact resumes via loadSessionRecord (TC-03)', () =
       null,
     );
 
-    // The IMPORT decodes, so `deserializeSessionArtifact` returns real `Date`s — but the store
-    // round-trip in between is still a bare `JSON.parse` cast (issue #2096), so what comes back out
-    // has ISO strings. Compared against a store-round-tripped expectation rather than the in-memory
-    // fixture, so the asymmetry is visible instead of hidden by a looser assertion.
-    expect(resumed.history).toEqual(JSON.parse(JSON.stringify(source.history)));
+    // TRANS-006 recorded an asymmetry here — the import decoded and the store did not, so a record
+    // that came back through the store carried ISO strings. TRANS-007 made the store decode too, so
+    // the expectation is now the in-memory fixture, and this line is the evidence the gap closed.
+    expect(resumed.history).toEqual(source.history);
     expect(resumed.goal).toEqual(source.goal);
     expect(deserializeSessionArtifact(artifact).history?.[0]?.timestamp).toBeInstanceOf(Date);
   });

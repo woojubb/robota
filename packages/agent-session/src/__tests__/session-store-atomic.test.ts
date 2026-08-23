@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { NodeSessionStore } from '../session-store.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import { loadedOrMissing } from './store-load-helpers.js';
 
 let baseDir: string;
 
@@ -27,7 +28,15 @@ function createRecord(
     cwd: '/tmp',
     createdAt: '2026-07-04T00:00:00.000Z',
     updatedAt: '2026-07-04T00:00:00.000Z',
-    messages: [{ role: 'user', content: 'original' }],
+    messages: [
+      {
+        id: 'm-0',
+        role: 'user',
+        content: 'original',
+        timestamp: new Date('2026-08-01T00:00:00.000Z'),
+        state: 'complete',
+      },
+    ],
     ...overrides,
   };
 }
@@ -45,8 +54,8 @@ describe('SessionStore atomic persistence (CORE-019)', () => {
     const store = new NodeSessionStore(baseDir);
     store.save(createRecord());
 
-    const loaded = store.load('core-019-atomic');
-    expect(loaded?.messages).toEqual([{ role: 'user', content: 'original' }]);
+    const loaded = loadedOrMissing(store, 'core-019-atomic');
+    expect(loaded?.messages[0]?.content).toBe('original');
 
     const files = readdirSync(baseDir);
     expect(files).toEqual(['core-019-atomic.json']);
@@ -55,10 +64,22 @@ describe('SessionStore atomic persistence (CORE-019)', () => {
   it('save() over an existing record replaces it atomically', () => {
     const store = new NodeSessionStore(baseDir);
     store.save(createRecord());
-    store.save(createRecord({ messages: [{ role: 'user', content: 'updated' }] }));
+    store.save(
+      createRecord({
+        messages: [
+          {
+            id: 'm-0',
+            role: 'user',
+            content: 'updated',
+            timestamp: new Date('2026-08-01T00:00:00.000Z'),
+            state: 'complete',
+          },
+        ],
+      }),
+    );
 
     const raw = readFileSync(join(baseDir, 'core-019-atomic.json'), 'utf-8');
-    expect(JSON.parse(raw).messages).toEqual([{ role: 'user', content: 'updated' }]);
+    expect(JSON.parse(raw).record.messages[0].content).toBe('updated');
     expect(readdirSync(baseDir)).toEqual(['core-019-atomic.json']);
   });
 
@@ -72,8 +93,8 @@ describe('SessionStore atomic persistence (CORE-019)', () => {
     circular.self = circular;
     expect(() => store.save(createRecord({ messages: [circular] }))).toThrow();
 
-    const loaded = store.load('core-019-atomic');
-    expect(loaded?.messages).toEqual([{ role: 'user', content: 'original' }]);
+    const loaded = loadedOrMissing(store, 'core-019-atomic');
+    expect(loaded?.messages[0]?.content).toBe('original');
     expect(readdirSync(baseDir)).toEqual(['core-019-atomic.json']);
   });
 });

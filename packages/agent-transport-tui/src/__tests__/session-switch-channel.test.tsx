@@ -131,8 +131,11 @@ function asChannel(fake: IFakeChannel): TuiInteractionChannel {
 function createFakeStore(records: IInteractiveSessionRecord[]): IInteractiveSessionStore {
   return {
     save: () => undefined,
-    load: (id) => records.find((r) => r.id === id),
-    list: () => records,
+    load: (id) => {
+      const record = records.find((r) => r.id === id);
+      return record === undefined ? { status: 'missing' } : { status: 'valid', record };
+    },
+    list: () => records.map((record) => ({ id: record.id, outcome: { status: 'valid', record } })),
     delete: () => undefined,
   };
 }

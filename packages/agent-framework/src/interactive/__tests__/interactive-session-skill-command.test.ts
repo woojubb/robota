@@ -270,7 +270,7 @@ describe('InteractiveSession skill activation common API', () => {
       save: (record) => {
         savedRecord = record;
       },
-      load: () => undefined,
+      load: () => ({ status: 'missing' }) as const,
       list: () => [],
       delete: vi.fn(),
     };

@@ -364,7 +364,8 @@ export class ScriptedSessionHarness {
   /** The persisted session record (requires `persistence: true`), or undefined. */
   sessionRecord(): IInteractiveSessionRecord | undefined {
     if (!this.sessionStore) return undefined;
-    return this.sessionStore.load(this.session.getSession().getSessionId());
+    const o = this.sessionStore.load(this.session.getSession().getSessionId());
+    return o.status === 'valid' ? o.record : undefined;
   }
 
   /**

@@ -102,7 +102,6 @@ export {
   decodeVersionedInteractiveSessionRecord,
 } from './session-record-codec/index.js';
 export type {
-  ISessionRecordDecodeIssue,
   IVersionedInteractiveSessionRecord,
   TSessionRecordDecodeOutcome,
 } from './session-record-codec/index.js';

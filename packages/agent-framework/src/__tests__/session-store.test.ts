@@ -15,13 +15,44 @@ import { createTrustedProjectAccessFixture } from '../testing/trusted-project-st
 import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
 import type { ISessionRecord } from '@robota-sdk/agent-session';
+import {
+  listedRecords,
+  loadedRecordOrMissing,
+} from '../interactive/__tests__/session-load-helpers.js';
 
-// TYPE-003: ISessionRecord is now the typed IInteractiveSessionRecord alias. These tests exercise
-// the store's OPAQUE persistence behavior with loose JSON-shaped payloads (what a real on-disk file
-// contains after a JSON round-trip), so the literals cross the same `as` trust boundary the store's
-// own `load` does.
+// TRANS-007: the store is no longer opaque. It used to persist and return the record without
+// inspecting it, so these tests crossed the same `as` trust boundary `load` did and asserted the
+// store's indifference to what it held. `load` now decodes, which is what issue #2096 asks for —
+// distinguishing corrupt from valid IS inspection — so a payload that is not a session record is a
+// `corrupt` outcome rather than a value the store hands back.
+//
+// The literals below are therefore real records. `loosePayload` survives for the one case where an
+// unreadable payload is the SUBJECT rather than a shortcut, which after this leaf is a first-class
+// outcome rather than a cast.
 function loosePayload<T>(value: unknown): T {
   return value as T;
+}
+
+/** A message that satisfies the contract, for tests whose subject is persistence rather than shape. */
+function testMessage(id: string, role: 'user' | 'assistant', content: string) {
+  return {
+    id,
+    role,
+    content,
+    timestamp: new Date('2026-08-01T00:00:00.000Z'),
+    state: 'complete' as const,
+  };
+}
+
+/** A history entry that satisfies the contract. */
+function testHistoryEntry(id: string, type: string, data: Record<string, unknown>) {
+  return {
+    id,
+    timestamp: new Date('2026-08-01T00:00:00.000Z'),
+    category: 'chat',
+    type,
+    data,
+  };
 }
 
 function makeRecord(overrides: Partial<ISessionRecord> = {}): ISessionRecord {
@@ -61,7 +92,7 @@ describe('SessionStore', () => {
     it('saves a session and loads it back by id', () => {
       const record = makeRecord();
       store.save(record);
-      const loaded = store.load(record.id);
+      const loaded = loadedRecordOrMissing(store, record.id);
       expect(loaded).toEqual(record);
     });
 
@@ -72,10 +103,10 @@ describe('SessionStore', () => {
         const record = makeRecord({ id: 'authority-session', cwd });
 
         project.save(record);
-        expect(project.load(record.id)).toEqual(record);
-        expect(project.list()).toEqual([record]);
+        expect(loadedRecordOrMissing(project, record.id)).toEqual(record);
+        expect(listedRecords(project)).toEqual([record]);
         project.delete(record.id);
-        expect(project.load(record.id)).toBeUndefined();
+        expect(loadedRecordOrMissing(project, record.id)).toBeUndefined();
       } finally {
         rmSync(cwd, { recursive: true, force: true });
       }
@@ -107,10 +138,7 @@ describe('SessionStore', () => {
       const record = makeRecord({
         id: 'msg-session',
         name: 'My Session',
-        messages: loosePayload<ISessionRecord['messages']>([
-          { role: 'user', content: 'hello' },
-          { role: 'assistant', content: 'world' },
-        ]),
+        messages: [testMessage('m-0', 'user', 'hello'), testMessage('m-1', 'assistant', 'world')],
         systemPrompt: 'system prompt with /agent capability',
         toolSchemas: [
           {
@@ -121,7 +149,7 @@ describe('SessionStore', () => {
         ],
       });
       store.save(record);
-      const loaded = store.load(record.id);
+      const loaded = loadedRecordOrMissing(store, record.id);
       expect(loaded?.messages).toHaveLength(2);
       expect(loaded?.name).toBe('My Session');
       expect(loaded?.systemPrompt).toBe('system prompt with /agent capability');
@@ -141,11 +169,11 @@ describe('SessionStore', () => {
       const updated = {
         ...record,
         updatedAt: '2024-06-01T00:00:00.000Z',
-        messages: loosePayload<ISessionRecord['messages']>([{ x: 1 }]),
+        messages: [testMessage('m-updated', 'user', 'updated')],
       };
       store.save(updated);
 
-      const loaded = store.load(record.id);
+      const loaded = loadedRecordOrMissing(store, record.id);
       expect(loaded?.updatedAt).toBe('2024-06-01T00:00:00.000Z');
       expect(loaded?.messages).toHaveLength(1);
     });
@@ -153,7 +181,7 @@ describe('SessionStore', () => {
 
   describe('load', () => {
     it('returns undefined for a missing session', () => {
-      const result = store.load('nonexistent-id');
+      const result = loadedRecordOrMissing(store, 'nonexistent-id');
       expect(result).toBeUndefined();
     });
 
@@ -242,7 +270,7 @@ describe('SessionStore', () => {
       try {
         const sessionStorage = getWorkspaceProjectStateStorage(access.authority, 'sessions');
         const store = createProjectSessionStore(sessionStorage, logStorage);
-        const loaded = store.load('log-only-session');
+        const loaded = loadedRecordOrMissing(store, 'log-only-session');
 
         expect(loaded?.cwd).toBe(cwd);
         expect(loaded?.messages.map((message) => message.role)).toEqual(['user', 'assistant']);
@@ -319,14 +347,14 @@ describe('SessionStore', () => {
 
   describe('list', () => {
     it('returns empty array when no sessions exist', () => {
-      expect(store.list()).toEqual([]);
+      expect(listedRecords(store)).toEqual([]);
     });
 
     it('lists all saved sessions', () => {
       store.save(makeRecord({ id: 'a', updatedAt: '2024-01-01T00:00:00.000Z' }));
       store.save(makeRecord({ id: 'b', updatedAt: '2024-01-02T00:00:00.000Z' }));
       store.save(makeRecord({ id: 'c', updatedAt: '2024-01-03T00:00:00.000Z' }));
-      const sessions = store.list();
+      const sessions = listedRecords(store);
       expect(sessions).toHaveLength(3);
     });
 
@@ -334,7 +362,7 @@ describe('SessionStore', () => {
       store.save(makeRecord({ id: 'old', updatedAt: '2024-01-01T00:00:00.000Z' }));
       store.save(makeRecord({ id: 'new', updatedAt: '2024-03-01T00:00:00.000Z' }));
       store.save(makeRecord({ id: 'mid', updatedAt: '2024-02-01T00:00:00.000Z' }));
-      const sessions = store.list();
+      const sessions = listedRecords(store);
       expect(sessions[0].id).toBe('new');
       expect(sessions[1].id).toBe('mid');
       expect(sessions[2].id).toBe('old');
@@ -342,7 +370,7 @@ describe('SessionStore', () => {
 
     it('returns empty array when base directory does not exist', () => {
       const nonExistentStore = new NodeSessionStore(join(tmpDir, 'does-not-exist'));
-      expect(nonExistentStore.list()).toEqual([]);
+      expect(listedRecords(nonExistentStore)).toEqual([]);
     });
   });
 
@@ -351,7 +379,7 @@ describe('SessionStore', () => {
       const record = makeRecord();
       store.save(record);
       store.delete(record.id);
-      expect(store.load(record.id)).toBeUndefined();
+      expect(loadedRecordOrMissing(store, record.id)).toBeUndefined();
     });
 
     it('does not throw when deleting a nonexistent session', () => {
@@ -362,7 +390,7 @@ describe('SessionStore', () => {
       store.save(makeRecord({ id: 'keep' }));
       store.save(makeRecord({ id: 'remove' }));
       store.delete('remove');
-      const sessions = store.list();
+      const sessions = listedRecords(store);
       expect(sessions).toHaveLength(1);
       expect(sessions[0].id).toBe('keep');
     });
@@ -372,37 +400,37 @@ describe('SessionStore', () => {
     it('saves and loads a record with history field', () => {
       const record = makeRecord({
         id: 'history-session',
-        history: loosePayload<ISessionRecord['history']>([
-          { category: 'chat', role: 'user', content: 'hello' },
-          { category: 'event', type: 'tool-call', name: 'read' },
-          { category: 'chat', role: 'assistant', content: 'world' },
-        ]),
+        history: [
+          testHistoryEntry('h-0', 'user', { content: 'hello' }),
+          testHistoryEntry('h-1', 'tool-call', { name: 'read' }),
+          testHistoryEntry('h-2', 'assistant', { content: 'world' }),
+        ],
       });
       store.save(record);
-      const loaded = store.load(record.id);
+      const loaded = loadedRecordOrMissing(store, record.id);
       expect(loaded?.history).toHaveLength(3);
       expect(loaded?.history).toEqual(record.history);
     });
 
     it('round-trips history entries with different categories', () => {
       const historyEntries = [
-        { category: 'chat', role: 'user', content: 'What is 2+2?' },
-        { category: 'event', type: 'thinking', text: 'calculating...' },
-        { category: 'chat', role: 'assistant', content: '4' },
+        testHistoryEntry('h-0', 'user', { content: 'What is 2+2?' }),
+        testHistoryEntry('h-1', 'thinking', { text: 'calculating...' }),
+        testHistoryEntry('h-2', 'assistant', { content: '4' }),
       ];
       const record = makeRecord({
         id: 'roundtrip',
-        history: loosePayload<ISessionRecord['history']>(historyEntries),
+        history: historyEntries,
       });
       store.save(record);
-      const loaded = store.load(record.id);
+      const loaded = loadedRecordOrMissing(store, record.id);
       expect(loaded?.history).toEqual(historyEntries);
     });
 
     it('defaults history to undefined when not provided', () => {
       const record = makeRecord({ id: 'no-history' });
       store.save(record);
-      const loaded = store.load(record.id);
+      const loaded = loadedRecordOrMissing(store, record.id);
       expect(loaded?.history).toBeUndefined();
     });
   });
@@ -434,7 +462,7 @@ describe('SessionStore', () => {
         }),
       );
 
-      const projectA = store.list().filter((s) => s.cwd === '/project-a');
+      const projectA = listedRecords(store).filter((s) => s.cwd === '/project-a');
       expect(projectA).toHaveLength(2);
       expect(projectA[0].id).toBe('s3'); // most recent
     });
@@ -450,7 +478,7 @@ describe('SessionStore', () => {
         }),
       );
 
-      const sessions = store.list();
+      const sessions = listedRecords(store);
       const found = sessions.find((s) => s.name === 'my-feature');
       expect(found).toBeDefined();
       expect(found!.id).toBe('abc');
@@ -462,7 +490,7 @@ describe('SessionStore', () => {
       const nestedDir = join(tmpDir, 'nested', 'sessions');
       const nestedStore = new NodeSessionStore(nestedDir);
       nestedStore.save(makeRecord({ id: 'first' }));
-      const loaded = nestedStore.load('first');
+      const loaded = loadedRecordOrMissing(nestedStore, 'first');
       expect(loaded?.id).toBe('first');
     });
   });

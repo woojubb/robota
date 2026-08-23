@@ -97,7 +97,12 @@ describe('CLI workspace project composition', () => {
       updatedAt: '2026-08-22T00:00:00.000Z',
       messages: [],
     });
-    expect(composition.sessionStore.load('trusted-session')?.cwd).toBe(cwd);
+    expect(
+      (() => {
+        const o = composition.sessionStore.load('trusted-session');
+        return o.status === 'valid' ? o.record.cwd : undefined;
+      })(),
+    ).toBe(cwd);
   });
 
   it('refuses trusted project access minted for a different CLI workspace root', async () => {

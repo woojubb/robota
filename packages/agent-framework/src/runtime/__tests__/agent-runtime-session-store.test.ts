@@ -16,9 +16,16 @@ import {
 } from '../../testing/trusted-project-state-fixture.js';
 
 import type { InteractiveSession } from '../../index.js';
+import {
+  listedRecords,
+  loadedRecordOrMissing,
+} from '../../interactive/__tests__/session-load-helpers.js';
+
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
+  ISessionListEntry,
+  TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
 
 function createMemoryStore(): IInteractiveSessionStore {
@@ -27,11 +34,15 @@ function createMemoryStore(): IInteractiveSessionStore {
     save(record): void {
       records.set(record.id, record);
     },
-    load(id): IInteractiveSessionRecord | undefined {
-      return records.get(id);
+    load(id): TSessionLoadOutcome {
+      const record = records.get(id);
+      return record === undefined ? { status: 'missing' } : { status: 'valid', record };
     },
-    list(): IInteractiveSessionRecord[] {
-      return [...records.values()];
+    list(): readonly ISessionListEntry[] {
+      return [...records.values()].map((record) => ({
+        id: record.id,
+        outcome: { status: 'valid' as const, record },
+      }));
     },
     delete(id): void {
       records.delete(id);
@@ -146,8 +157,8 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
     const sessionId = session.getSession().getSessionId();
     await session.shutdown();
 
-    expect(customStore.load(sessionId)).toBeDefined();
-    expect(runtimeStore.load(sessionId)).toBeUndefined();
+    expect(loadedRecordOrMissing(customStore, sessionId)).toBeDefined();
+    expect(loadedRecordOrMissing(runtimeStore, sessionId)).toBeUndefined();
   });
 
   it('allows explicit undefined to disable a runtime default store', async () => {
@@ -164,7 +175,7 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
     await completeTurn(session, 'disable persistence');
     await session.shutdown();
 
-    expect(runtimeStore.list()).toEqual([]);
+    expect(listedRecords(runtimeStore)).toEqual([]);
     expect(existsSync(join(cwd, '.robota', 'sessions'))).toBe(false);
   });
 
@@ -192,6 +203,6 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
     const sessionId = session.getSession().getSessionId();
     await session.shutdown();
 
-    expect(customStore.load(sessionId)).toBeDefined();
+    expect(loadedRecordOrMissing(customStore, sessionId)).toBeDefined();
   });
 });
