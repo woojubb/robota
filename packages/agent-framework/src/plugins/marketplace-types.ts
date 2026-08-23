@@ -35,9 +35,25 @@ export interface IKnownMarketplaceEntry {
 /** Shape of known_marketplaces.json. */
 export type TKnownMarketplacesRegistry = Record<string, IKnownMarketplaceEntry>;
 
-/** Exec function type for running shell commands. Injected at composition root. */
+/**
+ * Run one executable with an ARGUMENT VECTOR. Injected at composition root.
+ *
+ * SEC-017 (issue #2019): this was `(command: string, …)`, and the adapter behind it passed that string
+ * to `execSync`, which always runs its argument through a shell. Every marketplace URL, plugin
+ * repository URL and persisted install path was interpolated into that string, so a source containing
+ * `;` or `$(…)` executed additional host commands during add, update, revision lookup or install.
+ *
+ * A vector is what makes it safe by construction rather than by quoting: no shell parses these values,
+ * so there is no quoting to get right. The repository already reached this conclusion once —
+ * `apps/action/src/build-invocation.ts` (SEC-006) replaced `execSync(args.join(' '))` for the same
+ * reason — and this is that fix applied to the plugin surface.
+ *
+ * `file` is the executable. `args` is readonly because an implementation must not be able to fold an
+ * argument back into the command line.
+ */
 export type TExecFn = (
-  command: string,
+  file: string,
+  args: readonly string[],
   options: { timeout: number; stdio?: string },
 ) => string | Buffer;
 
@@ -45,6 +61,6 @@ export type TExecFn = (
 export interface IMarketplaceClientOptions {
   /** Base plugins directory (e.g., `~/.robota/plugins`). */
   pluginsDir: string;
-  /** Shell exec adapter — must be provided at composition root (e.g., execSync). */
+  /** Argv process adapter — must be provided at composition root (e.g., execFileSync). */
   exec: TExecFn;
 }
