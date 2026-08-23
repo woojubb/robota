@@ -145,7 +145,7 @@ None
 - `scripts/harness/scan-subagent-runner-deps-parity.mjs`
 - `scripts/harness/run-all-scans.mjs`
 - `scripts/harness/__tests__/scan-subagent-runner-deps-parity.test.mjs`
-- `.agents/tasks/ARCH-036-child-process-runner-drops-builtin-agents.md`
+- `.agents/tasks/completed/ARCH-036-child-process-runner-drops-builtin-agents.md`
 
 ## Completion Criteria
 
@@ -233,7 +233,7 @@ Durable engineering artifacts backing the same behavior:
 
 ## Tasks
 
-- [ ] `.agents/tasks/ARCH-036-child-process-runner-drops-builtin-agents.md` — problem record exists;
+- [ ] `.agents/tasks/completed/ARCH-036-child-process-runner-drops-builtin-agents.md` — problem record exists;
       implementation begins after GATE-APPROVAL
 
 ## Evidence Log

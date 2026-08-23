@@ -74,7 +74,7 @@ const FILE_TOKEN = /^\.?[\w][\w./-]*\.(?:mjs|cjs|js|ts|mts|cts|sh|json|ya?ml)$/;
 /** Docs-only paths used to pin that zero scopes remains reachable and passing (R4). */
 export const DOCS_ONLY_CONTROL = [
   'README.md',
-  '.agents/tasks/INFRA-060-ci-yml-job-by-job-audit.md',
+  '.agents/tasks/completed/INFRA-060-ci-yml-job-by-job-audit.md',
   'docs/plans/example.md',
 ];
 

@@ -266,7 +266,7 @@ the next promotion rather than executed here.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-104-promotion-carries-closing-keywords-to-main.md` — 생성됨 (TC-01…TC-10 전부 Plan 항목으로 존재)
+- [ ] `.agents/tasks/completed/INFRA-104-promotion-carries-closing-keywords-to-main.md` — 생성됨 (TC-01…TC-10 전부 Plan 항목으로 존재)
 
 ## Evidence Log
 
@@ -315,7 +315,7 @@ checked against the document; the deviation is in who ran the gate, not in wheth
 
 **Status upgrade:** approved → in-progress
 
-- Tasks file created: `.agents/tasks/INFRA-104-promotion-carries-closing-keywords-to-main.md`
+- Tasks file created: `.agents/tasks/completed/INFRA-104-promotion-carries-closing-keywords-to-main.md`
   (frontmatter `status: in-progress`, `created: 2026-08-18`, `priority: high`, `urgency: now`).
 - Its path is recorded in the `## Tasks` section above.
 - Its `## Plan` carries one task per TC-N — TC-01 through TC-10, ten items, matching the ten Completion

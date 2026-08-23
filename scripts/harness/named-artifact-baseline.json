@@ -65,7 +65,7 @@
   "scripts/harness/scan-named-artifact-resolves.mjs -> scan-x.mjs",
   "scripts/harness/scan-named-artifact-resolves.mjs -> src/ghost.ts",
   "scripts/harness/scan-named-artifact-resolves.mjs -> test.ts",
-  "scripts/harness/scan-no-fake-in-src.mjs -> .agents/tasks/HARNESS-033-fake-in-src-sweep.md",
+  "scripts/harness/scan-no-fake-in-src.mjs -> .agents/tasks/completed/HARNESS-033-fake-in-src-sweep.md",
   "scripts/harness/scan-review-token-supply.mjs -> src/github/token.ts",
   "scripts/harness/scan-test-selection-tolerance.mjs -> shell-resolver.test.ts",
   "scripts/harness/scan-unearned-done-claims.mjs -> cli-provider-profile-naming-research.md",

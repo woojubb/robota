@@ -35,7 +35,7 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 /**
  * Documented allowlist of PRE-EXISTING test-double-named shipped files (mirrors the `conflict-markers` scan's
  * allowlist convention). These predate this floor and are tracked for relocation/rename by
- * `.agents/tasks/HARNESS-033-fake-in-src-sweep.md` — remove each entry as HARNESS-033 fixes it. A NEW file
+ * `.agents/tasks/completed/HARNESS-033-fake-in-src-sweep.md` — remove each entry as HARNESS-033 fixes it. A NEW file
  * with a `Fake*`/`Mock*`/`Stub*` declaration is NOT on this list and therefore FAILS. Normalized to `/`.
  */
 // HARNESS-033 emptied this baseline: the dag-adapters-local test-support ports were relocated to the

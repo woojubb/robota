@@ -15,4 +15,4 @@ sanctioned occurrence with `// allow-fake: <reason>` (reason-less anti-rot). Rul
 [code-quality.md](../rules/code-quality.md) Development Patterns. Correct fix for a hit: rename to what it IS
 (`InMemory…`/`Manual…`/`Recording…`/`Scripted…`) OR move the test double under a `testing/` subpath exported via
 `./testing` (the `@robota-sdk/agent-core/testing` `scripted-provider` precedent). Sibling of the No-Fallback floor
-([[no-fallback-gate]]). Pre-existing debt is allowlisted in the scan + tracked by `.agents/tasks/HARNESS-033-fake-in-src-sweep.md`.
+([[no-fallback-gate]]). Pre-existing debt is allowlisted in the scan + tracked by `.agents/tasks/completed/HARNESS-033-fake-in-src-sweep.md`.

@@ -457,7 +457,7 @@ in `## Test Plan`.
 
 ## References
 
-- `.agents/tasks/HARNESS-051-dead-code-satisfies-architecture-gate.md` — records the same class
+- `.agents/tasks/completed/HARNESS-051-dead-code-satisfies-architecture-gate.md` — records the same class
   from SEC-005's angle: the vacuously-satisfied `agent-server-boundary` gate, the test-file
   `no-unused-vars` exemption that hid the assertion-free tests, and `verify-change.mjs`'s `passed`
   field that is structurally always `true`. Not duplicated here.

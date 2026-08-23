@@ -82,6 +82,7 @@
     "symlink-following-enumeration",
     "task-archival",
     "task-frontmatter-fields",
+    "task-path-citations",
     "temp-dir-owner",
     "test-plans",
     "test-selection-tolerance",

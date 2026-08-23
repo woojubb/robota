@@ -33,7 +33,7 @@ does, because no scan reads the config against the rule.
 ## Why this is filed rather than fixed in passing
 
 Found while classifying the release impact of ARCH-030
-(`.agents/tasks/ARCH-030-outbound-protocol-replies-bypass-carrier-delivery-boundary.md`), whose changeset
+(`.agents/tasks/completed/ARCH-030-outbound-protocol-replies-bypass-carrier-delivery-boundary.md`), whose changeset
 classifies `agent-transport-protocol` as `major` and its two dependents as `patch`. That classification is
 what the semver table forces once the config is taken as the operative artifact, and it is correct for that
 item. The disagreement it exposes is monorepo-wide and pre-existing: ARCH-030 neither caused it nor is the

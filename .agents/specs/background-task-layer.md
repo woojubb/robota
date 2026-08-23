@@ -2,7 +2,7 @@
 
 Status: Proposed
 Created: 2026-04-30
-Source research: `.agents/tasks/completed/CLI-BL-024-background-task-layer-research.md`
+Source research: `.agents/archive/task-breakdowns/completed/CLI-BL-024-background-task-layer-research.md`
 Related spec: `.agents/specs/subagent-process-manager.md`
 
 ## Scope
