@@ -1,4 +1,4 @@
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
 
 export function stringifyUnknownAgentType(agentType: string): string {
   return JSON.stringify({

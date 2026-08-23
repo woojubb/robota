@@ -14,7 +14,7 @@ import type {
   IBackgroundTaskState,
   IProcessBackgroundTaskRequest,
   TBackgroundTaskMode,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 /**
  * ARCH-031: the third declaration of the seam's field family, now DERIVED like the other two.

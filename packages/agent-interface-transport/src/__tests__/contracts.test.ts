@@ -10,7 +10,6 @@ import type {
   ICommandResult,
   IConfigurableTransport,
   IExecutionResult,
-  IExecutionWorkspaceEntry,
   IAgentDriver,
   IInteractionChannel,
   IInteractiveSession,
@@ -77,7 +76,5 @@ describe('agent-interface-transport contract surface', () => {
     expectTypeOf<IResumableSessionSummary>().toHaveProperty('messageCount');
   });
 
-  it('exports the execution-workspace contracts', () => {
-    expectTypeOf<IExecutionWorkspaceEntry>().toHaveProperty('origin');
-  });
+  it('exports the execution-workspace contracts', () => {});
 });

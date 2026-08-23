@@ -17,7 +17,7 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskResult,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 function createSessionStoreStub() {
   const records = new Map<string, unknown>();

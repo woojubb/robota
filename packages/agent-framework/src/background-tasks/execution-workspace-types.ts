@@ -2,7 +2,7 @@
 import type {
   IExecutionOrigin,
   IExecutionWorkspaceEntryRef,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 export type {
   TExecutionEntryKind,
@@ -27,8 +27,8 @@ export type {
   IExecutionWorkspaceEntryRef,
   ICreateMainThreadDetailPageInput,
   ICreateLineDetailPageInput,
-} from '@robota-sdk/agent-interface-transport';
-import type { TBackgroundPrimitive } from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
+import type { TBackgroundPrimitive } from '@robota-sdk/agent-interface-execution';
 
 export const MAIN_THREAD_ENTRY_PREFIX = 'main';
 export const BACKGROUND_TASK_ENTRY_PREFIX = 'task';

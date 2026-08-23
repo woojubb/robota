@@ -5,10 +5,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createWsHandler } from '../ws-handler.js';
 import type { TServerMessage } from '../ws-protocol.js';
-import type {
-  IInteractiveSession,
-  TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
 
 /**
  * REMOTE-014 E5 TC-03/05 — the protocol layer: the SERVER-ASSIGNED driver id is injected into inbound

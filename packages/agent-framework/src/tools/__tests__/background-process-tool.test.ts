@@ -7,7 +7,7 @@ import type { IToolResult } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskState,
   TBackgroundTaskRequest,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 function parseToolResult(toolResult: IToolResult): Record<string, unknown> {
   return JSON.parse(toolResult.data as string);

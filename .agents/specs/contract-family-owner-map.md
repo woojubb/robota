@@ -55,7 +55,7 @@ guards read this table through one parser (`scripts/harness/interface-layers.mjs
 
 | Layer | Package                            |
 | ----- | ---------------------------------- |
-| 0     | `agent-interface-transport`        |
+| 1     | `agent-interface-transport`        |
 | 0     | `agent-interface-command`          |
 | 0     | `agent-interface-execution`        |
 | 0     | `agent-interface-analytics`        |
@@ -67,6 +67,14 @@ layer 0   transport   command   execution   analytics     (no edges among them)
 layer 1   session      → command, execution, analytics
 layer 2   mobility     → session
 ```
+
+**`agent-interface-transport` is at layer 1 TODAY and drops to layer 0 when issue #2113 narrows it.**
+The layer declares what a package HOLDS, not what it will hold. Until issue #2110 moves the session
+family out, this package still owns `session-contracts` and `session-capability-contracts`, which name
+execution and command types — so it composes downward exactly as the session owner will, and layer 1
+is what authorizes those edges. Declaring the target 0 early would have made the real
+`transport → execution` edge read as same-layer and refused a legal migration. Move it to 0 in the
+same change that removes the last non-transport family.
 
 A layer-0 package depends on no other `agent-interface-*` package. `agent-interface-tui` is not in the
 table: it composes no peer and is depended on by none, so it has no layer to declare until it does.

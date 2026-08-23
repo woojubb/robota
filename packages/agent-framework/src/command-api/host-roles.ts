@@ -32,16 +32,16 @@ import type { IMemoryStore } from '../memory/types.js';
 import type { TAutoCompactThreshold } from './context/context-command-api.js';
 import type { IContextWindowState, IUserInteraction } from '@robota-sdk/agent-core';
 import type {
-  ICommandListEntry,
-  IGoalState,
-  IPlanArtifact,
-  TCommandInvocationSource,
-} from '@robota-sdk/agent-interface-transport';
-import type {
   IBackgroundTaskListFilter,
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
+} from '@robota-sdk/agent-interface-execution';
+import type {
+  ICommandListEntry,
+  IGoalState,
+  IPlanArtifact,
+  TCommandInvocationSource,
 } from '@robota-sdk/agent-interface-transport';
 
 /** Reaching the live session, and the whole-conversation operations that sit beside it. */

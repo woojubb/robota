@@ -36,8 +36,8 @@ import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { TuiInteractionChannel } from './TuiInteractionChannel.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { IExecutionDetailPage } from '@robota-sdk/agent-interface-execution';
 import type {
-  IExecutionDetailPage,
   IInteractiveSession,
   IInteractiveSessionStore,
   ITransportRegistryView,

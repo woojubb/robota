@@ -33,10 +33,12 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
 import type {
-  ICommandInfo,
   IExecutionDetailPage,
-  IExecutionResult,
   IExecutionWorkspaceEvent,
+} from '@robota-sdk/agent-interface-execution';
+import type {
+  ICommandInfo,
+  IExecutionResult,
   IInteractiveSessionEvents,
   TInteractiveEventName,
   TPermissionResultValue,

@@ -14,16 +14,18 @@ import type {
   IBranchEvent,
   IContextFileRefreshedEvent,
   IExecutionResult,
-  IExecutionWorkspaceEvent,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
   IPlanApprovalEvent,
   ISessionRenamedEvent,
   IToolState,
   IUiIntentEvent,
+} from '@robota-sdk/agent-interface-transport';
+import type {
+  IExecutionWorkspaceEvent,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 export type TProtocolSessionEventClassification = 'forwarded' | 'requester-routed' | 'non-surface';
 

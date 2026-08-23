@@ -13,10 +13,10 @@
 import { PALETTE } from './tui-palette.js';
 
 import type {
-  IToolState,
   TExecutionAttention,
   TExecutionWorkspaceStatus,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
+import type { IToolState } from '@robota-sdk/agent-interface-transport';
 
 export type TUiStatusKind =
   'running' | 'success' | 'error' | 'denied' | 'waiting' | 'cancelled' | 'idle';

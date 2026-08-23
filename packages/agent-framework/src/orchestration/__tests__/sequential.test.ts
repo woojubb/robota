@@ -17,8 +17,8 @@ import type {
   ISubagentManager,
   ISubagentRunner,
 } from '@robota-sdk/agent-executor';
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
-import type { ISubagentJobState } from '@robota-sdk/agent-interface-transport';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
+import type { ISubagentJobState } from '@robota-sdk/agent-interface-execution';
 import { runSequential } from '../sequential';
 import { createInProcessSubagentRunner } from '../../subagents/index';
 

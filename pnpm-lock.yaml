@@ -218,6 +218,9 @@ importers:
       '@robota-sdk/agent-framework':
         specifier: workspace:*
         version: link:../../packages/agent-framework
+      '@robota-sdk/agent-interface-execution':
+        specifier: workspace:*
+        version: link:../../packages/agent-interface-execution
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../../packages/agent-interface-transport
@@ -1295,6 +1298,9 @@ importers:
       '@robota-sdk/agent-framework':
         specifier: workspace:*
         version: link:../agent-framework
+      '@robota-sdk/agent-interface-execution':
+        specifier: workspace:*
+        version: link:../agent-interface-execution
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
@@ -1412,6 +1418,9 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-interface-execution':
+        specifier: workspace:*
+        version: link:../agent-interface-execution
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
@@ -1446,6 +1455,9 @@ importers:
       '@robota-sdk/agent-executor':
         specifier: workspace:*
         version: link:../agent-executor
+      '@robota-sdk/agent-interface-execution':
+        specifier: workspace:*
+        version: link:../agent-interface-execution
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
@@ -1484,11 +1496,33 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)
 
+  packages/agent-interface-execution:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.10
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.14
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)
+
   packages/agent-interface-transport:
     dependencies:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-interface-execution':
+        specifier: workspace:*
+        version: link:../agent-interface-execution
     devDependencies:
       rimraf:
         specifier: ^5.0.10
@@ -1967,6 +2001,9 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-interface-execution':
+        specifier: workspace:*
+        version: link:../agent-interface-execution
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
@@ -2020,9 +2057,9 @@ importers:
       '@robota-sdk/agent-framework':
         specifier: workspace:*
         version: link:../agent-framework
-      '@robota-sdk/agent-interface-transport':
+      '@robota-sdk/agent-interface-execution':
         specifier: workspace:*
-        version: link:../agent-interface-transport
+        version: link:../agent-interface-execution
       '@robota-sdk/agent-process':
         specifier: workspace:*
         version: link:../agent-process
@@ -2147,6 +2184,9 @@ importers:
       '@robota-sdk/agent-framework':
         specifier: workspace:*
         version: link:../agent-framework
+      '@robota-sdk/agent-interface-execution':
+        specifier: workspace:*
+        version: link:../agent-interface-execution
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
@@ -2175,6 +2215,9 @@ importers:
 
   packages/agent-transport-gui:
     dependencies:
+      '@robota-sdk/agent-interface-execution':
+        specifier: workspace:*
+        version: link:../agent-interface-execution
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
@@ -2268,6 +2311,9 @@ importers:
 
   packages/agent-transport-protocol:
     dependencies:
+      '@robota-sdk/agent-interface-execution':
+        specifier: workspace:*
+        version: link:../agent-interface-execution
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
@@ -2293,6 +2339,9 @@ importers:
       '@robota-sdk/agent-framework':
         specifier: workspace:*
         version: link:../agent-framework
+      '@robota-sdk/agent-interface-execution':
+        specifier: workspace:*
+        version: link:../agent-interface-execution
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport

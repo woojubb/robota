@@ -19,7 +19,7 @@ import {
 } from './scalars.js';
 
 import type { TDecodeIssues } from './decode-outcome.js';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
 
 /** The task-event variants whose entire payload is a task state. */
 const TASK_CARRYING_EVENTS = [

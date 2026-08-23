@@ -5,7 +5,8 @@
 import { parseScheduleSpec } from './schedule-spec-parser.js';
 
 import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
-import type { IBackgroundTaskState, ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
+import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 const MAX_LABEL_LENGTH = 48;
 

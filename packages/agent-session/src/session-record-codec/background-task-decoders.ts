@@ -30,7 +30,7 @@ import {
 } from './scalars.js';
 
 import type { TDecodeIssues } from './decode-outcome.js';
-import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-transport';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
 
 const OPTIONAL_STRING_KEYS = [
   'agentType',

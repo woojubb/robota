@@ -12,7 +12,7 @@ import type {
   ISubagentManager,
   ISubagentRunner,
 } from '@robota-sdk/agent-executor';
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
 import { runHandoff, type ResolveHandoff } from '../handoff';
 import { createInProcessSubagentRunner } from '../../subagents/index';
 import {

@@ -33,7 +33,7 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 import type { Session } from '@robota-sdk/agent-session';
 
 export interface IBackgroundTrackerState {

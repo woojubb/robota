@@ -28,7 +28,7 @@ import TextPrompt, { TEXT_PROMPT_FOOTER_HINTS } from '../TextPrompt.js';
 import { formatKeyHints, type IKeyHint } from '../key-hint-footer.js';
 
 import type { ICommand } from '@robota-sdk/agent-interface-transport';
-import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-transport';
+import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
 
 /**
  * Footer ordering contract: navigate → modify → primary → dismiss (docs/SPEC.md "Interaction

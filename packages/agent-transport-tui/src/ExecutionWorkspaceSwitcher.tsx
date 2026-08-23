@@ -21,7 +21,7 @@ import { PALETTE } from './tui-palette.js';
 import type {
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
 
 const MAX_VISIBLE_WORKSPACE_ENTRIES = 8;
 

@@ -64,7 +64,7 @@ import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry, TUniversalMessage, IContextWindowState } from '@robota-sdk/agent-core';
 import type { IScheduleEditPatch } from '@robota-sdk/agent-executor';
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-transport';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
 import type {
   IBackgroundTaskInput,
   IBackgroundTaskListFilter,
@@ -72,8 +72,8 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
   ISubagentJobState,
-  TDriverId,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-execution';
+import type { TDriverId } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 
 export abstract class InteractiveSessionBase {
