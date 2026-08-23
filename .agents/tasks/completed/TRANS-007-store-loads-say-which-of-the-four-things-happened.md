@@ -51,6 +51,50 @@ written before this loads as `unsupported`, so a beta user's in-progress session
 - [x] TC-10 — the bytes on disk are `{ "schemaVersion": 1, "record": … }`.
 - [x] TC-11 — `pnpm build` then `pnpm -w typecheck`, in that order; all nine call sites migrated.
 - [x] TC-12 — `run-all-scans` green, with both `allow-fallback` markers removed rather than moved.
+- [x] TC-13 — a file whose NAME cannot be used as a session id is REPORTED by `list()`, in both
+      stores. Added during implementation, not planned; see below.
+
+## What the plan did not predict
+
+TC-13 was not in the plan and is the best evidence in the change. It exists because a CodeQL
+`js/path-injection` alert on `load` — a pre-existing one this work inherited by moving a line —
+had to be answered, and answering it meant tracing every path from the parameter to the sink. The
+second path was one the plan never considered: `list()` routed a filename read from `readdirSync`
+through `assertSafeSessionId`, a guard that is correct for a caller-supplied id and wrong for a
+directory entry. One `my session.json` in the sessions directory threw out of `list()` and took the
+resume picker with it.
+
+`WorkspaceSessionStore` had the mirror-image bug, pre-existing: `.filter(isSafeSessionId)` before
+the map, so the same file silently disappeared from the listing.
+
+**Those two are the argument for this whole change, arrived at from outside it.** One store threw
+and the other silently dropped, over the same input — the store's answer was conditional on which
+implementation the caller happened to hold, which is precisely what an outcome type exists to
+remove. And the silent drop is the same disappearance this work removes on the CONTENT axis,
+surviving on the NAME axis. A nullable return could only ever have made that disagreement quieter.
+Both stores now report a `corrupt` outcome naming the unusable name; both fixes are mutation-verified
+against the throw AND the silent drop.
+
+## Decisions on the record
+
+**`review-findings-acknowledged` was applied to PR #2231** for the blocking `js/path-injection`
+finding, on three grounds: it is open code-scanning alert 398 on `develop` and `main` (2026-08-15) at the same
+sink in the same function, reported as introduced only because `load` gained the outcome branches and
+`review-gate` attributes by position; the verification was a by-hand trace that found a live defect
+rather than coming back clean; and making the guard visible to the analyser would mean scattering
+`assertSafeSessionId` to the sinks or sanitizing at the `join`, both of which undo SEC-006's
+single-validation-point property. The decision was made by the pipeline orchestrator on that
+evidence, not unilaterally by the implementer.
+
+Two follow-ups filed rather than fixed here:
+
+- **issue #2240** — the alert re-blocks every future PR that moves that line, so the cost recurs on
+  whoever next refactors `load`. Options include a branded return type from `filePath`, which would
+  preserve the single validation point; whether CodeQL follows a TypeScript brand must be MEASURED
+  before that option is chosen.
+- **issue #2241** — `pre-push-check` read this PR as merge-ready from a reviewer's
+  `ACTIONABLE FINDINGS: 0` while `review-gate` had it BLOCKED with 13 findings, and refused the
+  pushes that were narrowing them. Two documented overrides on this PR are the evidence.
 
 ## Test Plan
 
