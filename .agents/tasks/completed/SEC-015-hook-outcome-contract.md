@@ -155,8 +155,8 @@ is the owner and this is the execution record.
 
   The real reason is that **this leaf's deliverable has no CLI-observable manifestation.** What it
   adds is `IRunHooksResult.errors`, and no consumer reads it. Verified with the check that actually
-  establishes that, after a guard caught an earlier draft citing an over-broad one: of the nine
-  non-test files that call `runHooks(`, not one reads `.errors` off the result — the only `.errors`
+  establishes that, after a guard caught an earlier draft citing an over-broad one: of the fourteen
+  non-test `runHooks(` call sites across nine files, not one reads `.errors` off the result — the only `.errors`
   occurrences in `hook-runner.ts` are its own writes. (The earlier draft cited
   `git grep '\.errors' -- 'packages/*/src/**'`, which also matches `externalPresetLoad.errors` and
   `this.stats.errors` and so proves nothing about this field.) No product surface consumes it until

@@ -149,6 +149,23 @@ describe('AgentExecutor', () => {
       const definition: IAgentHookDefinition = { type: 'agent', agent: 'reviewer' };
       sources.push((await executor.execute(definition, makeInput())).source);
     }
-    expect(sources).toEqual(['agent', 'agent', 'agent', 'agent']);
+    // The four above all route through the single `decodeHookVerdict(…, 'agent')` call, so they
+    // constrain ONE literal — and the pre-existing "default reason" test already did that via
+    // `Blocked by ${source} hook`. The executor's OTHER stamp is hand-written in its catch block,
+    // and nothing reached it until this case. Found in review after I claimed these assertions were
+    // mutation-verified when only the guardrail one was.
+    const sessionFactory = vi
+      .fn()
+      .mockReturnValue({ run: vi.fn().mockRejectedValue(new Error('boom')) });
+    const threwDefinition: IAgentHookDefinition = { type: 'agent', agent: 'reviewer' };
+    const errored = await new AgentExecutor({ sessionFactory }).execute(
+      threwDefinition,
+      makeInput(),
+    );
+    expect(errored.outcome).toBe('error');
+    expect(errored.outcome === 'error' && errored.kind).toBe('transport-failure');
+    sources.push(errored.source);
+
+    expect(sources).toEqual(['agent', 'agent', 'agent', 'agent', 'agent']);
   });
 });

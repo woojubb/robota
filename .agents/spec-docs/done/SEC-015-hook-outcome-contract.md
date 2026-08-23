@@ -508,20 +508,20 @@ reviewer judges it rather than re-deriving it.
 Type `SECURITY` + tags `typescript`/`json-schema`/`auth` derive: permission-boundary integration
 test, Zod/JSON-Schema-style validation test, and type tests.
 
-| TC-ID | Test Type                     | Test reference (as delivered)                                                                                                                                                                                  |
-| ----- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Validation (boundary)         | `agent-core/src/hooks/__tests__/http-executor.test.ts` › "TC-01 — a truthy non-boolean `ok` must NOT read as allow" (4 rows)                                                                                   |
-| TC-02 | Validation (table)            | same file › "TC-02 — a falsy or absent `ok` must NOT read as deny" (7 rows); `verdict-decoder.test.ts` › both truthiness describes                                                                             |
-| TC-03 | Integration (process)         | `agent-core/src/hooks/__tests__/command-executor.test.ts` › "TC-03 exit mapping" (7 cases incl. signal kill and stubbed spawn error)                                                                           |
-| TC-04 | Integration (HTTP)            | `http-executor.test.ts` › non-2xx / non-JSON / unreachable / slow-endpoint cases, against a real `node:http` server on port 0                                                                                  |
-| TC-05 | Unit                          | `command-executor.test.ts`, `guardrail-executor.test.ts`, `prompt-executor.test.ts`, `agent-executor.test.ts` › "every outcome carries source…"; `verdict-decoder.test.ts` › "carries the source it was given" |
-| TC-06 | Integration (permission path) | `integration.test.ts` › "SEC-015 — errors are reported, not folded into a verdict" (5 cases)                                                                                                                   |
-| TC-07 | Integration (permission path) | same describe › "TC-07: enforcement policy is unchanged — deny blocks, error does not"                                                                                                                         |
-| TC-08 | Unit                          | `guardrail-executor.test.ts` › the six SELFHOST-005 verdict cases, unchanged in meaning                                                                                                                        |
-| TC-09 | Command-form                  | `git grep -n "IHookResult" -- 'packages/**' 'apps/**'` → no `.ts` matches. No automated test: absence-of-a-symbol is not a unit test                                                                           |
-| TC-10 | Build / typecheck             | `pnpm build && pnpm typecheck`. No automated test: the compiler IS the check                                                                                                                                   |
-| TC-11 | SDK scenario (offline)        | `agent-session/examples/verify-hook-outcome-contract.ts`, chained into `scenario:verify` in that package's `package.json`                                                                                      |
-| TC-12 | CI smoke                      | `pnpm harness:scan`. No automated test: the scan aggregate is itself the check                                                                                                                                 |
+| TC-ID | Test Type                     | Test reference (as delivered)                                                                                                                                                                                                                                                                                                                                                      |
+| ----- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Validation (boundary)         | `agent-core/src/hooks/__tests__/http-executor.test.ts` › "TC-01 — a truthy non-boolean `ok` must NOT read as allow" (4 rows)                                                                                                                                                                                                                                                       |
+| TC-02 | Validation (table)            | same file › "TC-02 — a falsy or absent `ok` must NOT read as deny" (7 rows); `verdict-decoder.test.ts` › both truthiness describes                                                                                                                                                                                                                                                 |
+| TC-03 | Integration (process)         | `agent-core/src/hooks/__tests__/command-executor.test.ts` › "TC-03 exit mapping" (7 cases incl. signal kill and stubbed spawn error)                                                                                                                                                                                                                                               |
+| TC-04 | Integration (HTTP)            | `http-executor.test.ts` › non-2xx / non-JSON / unreachable / slow-endpoint cases, against a real `node:http` server on port 0                                                                                                                                                                                                                                                      |
+| TC-05 | Unit                          | All five executor suites › "every outcome carries source…": `command-executor.test.ts`, `http-executor.test.ts`, `guardrail-executor.test.ts`, `prompt-executor.test.ts`, `agent-executor.test.ts`; plus `verdict-decoder.test.ts` › "carries the source it was given". Mutation-checked: each of the 11 stamping sites across guardrail/prompt/agent fails its suite when flipped |
+| TC-06 | Integration (permission path) | `integration.test.ts` › "SEC-015 — errors are reported, not folded into a verdict" (5 cases)                                                                                                                                                                                                                                                                                       |
+| TC-07 | Integration (permission path) | same describe › "TC-07: enforcement policy is unchanged — deny blocks, error does not"                                                                                                                                                                                                                                                                                             |
+| TC-08 | Unit                          | `guardrail-executor.test.ts` › the SELFHOST-005 verdict cases, unchanged in meaning                                                                                                                                                                                                                                                                                                |
+| TC-09 | Command-form                  | `git grep -n "IHookResult" -- 'packages/**' 'apps/**'` → no `.ts` matches. No automated test: absence-of-a-symbol is not a unit test                                                                                                                                                                                                                                               |
+| TC-10 | Build / typecheck             | `pnpm build && pnpm typecheck`. No automated test: the compiler IS the check                                                                                                                                                                                                                                                                                                       |
+| TC-11 | SDK scenario (offline)        | `agent-session/examples/verify-hook-outcome-contract.ts`, chained into `scenario:verify` in that package's `package.json`                                                                                                                                                                                                                                                          |
+| TC-12 | CI smoke                      | `pnpm harness:scan`. No automated test: the scan aggregate is itself the check                                                                                                                                                                                                                                                                                                     |
 
 Every row names what was delivered rather than what was planned, and the three command-form rows say
 why they carry no test file — a GATE-COMPLETE criterion asks for a reference or a skip reason, and a
@@ -1450,3 +1450,25 @@ and the reach is nil: nothing outside the hooks module reads those fields off a 
 I confirmed by grep in an earlier run and which is unchanged here since no production source moved.
 Carrying it to issue #2196 is the right home; widening this document's Boundary would blur a scope that is
 currently precise.
+
+---
+
+<!-- Author's note, appended after the GATE-COMPLETE PASS above. It corrects the ANCHOR of that
+     entry's evidence; it does not alter, soften or re-judge any verdict in it. -->
+
+**Anchor note on the GATE-COMPLETE entry (added 2026-08-23).** That entry was recorded at
+`8e86fc57d`, whose parent chain runs to `4db0235c4`. This branch was subsequently rebased onto
+`origin/develop` at `bd50f8b28`, so **neither hash is an ancestor of the branch head any more** and
+the entry's `git diff --name-only 4db0235c4 HEAD -- packages apps` no longer reproduces — against
+the current head it returns roughly 170 paths, because five develop commits (including ARCH-103's
+contract-package split) now sit between them.
+
+The conclusions survive, and were re-derived against the real base rather than assumed: against
+`bd50f8b28` the branch's own diff IS exactly the three test files the entry describes, and
+`git diff --name-only 4db0235c4 bd50f8b28 -- packages/agent-core/src/hooks packages/agent-framework/src/hooks`
+is empty — no intervening commit touched the hook modules, so the enumeration the entry performed
+cannot have shifted underneath it.
+
+Recorded rather than silently corrected because a stale mechanical claim that reads as reproducible
+is exactly the defect this document's own history is about. A reader re-running that command must
+know which base it was written against. Found in the pre-push review of the closing branch.
