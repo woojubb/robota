@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-100: agent-interface-transport contract families have no owner map or acyclic target graph'
-status: in-progress
+status: done
 created: 2026-08-23
+completed: 2026-08-23
 priority: high
 urgency: now
 area: .agents/project-structure.md, ARCHITECTURE.md, packages/agent-interface-transport
@@ -62,11 +63,11 @@ Measured on `origin/develop` @ `73dff3344`; scripts retained under this task's s
 
 ## Completion Criteria
 
-- [ ] Every exported family in `agent-interface-transport` has exactly one named target owner.
-- [ ] The proposed package graph is proven acyclic against current consumers, mechanically.
-- [ ] A migration order is published that introduces no temporary cycle.
-- [ ] The rule amendment names the mechanical owner/dependency guard to add.
-- [ ] No production TypeScript is moved by this task.
+- [x] Every exported family in `agent-interface-transport` has exactly one named target owner.
+- [x] The proposed package graph is proven acyclic against current consumers, mechanically.
+- [x] A migration order is published that introduces no temporary cycle.
+- [x] The rule amendment names the mechanical owner/dependency guard to add.
+- [x] No production TypeScript is moved by this task.
 
 ## Test Plan
 
@@ -79,3 +80,24 @@ Measured on `origin/develop` @ `73dff3344`; scripts retained under this task's s
 This task delivers no user-facing behavior: it amends architecture and rule documents and moves no
 production TypeScript (a stated acceptance criterion of issue #2080). The verification surface is the
 harness gate, recorded in the Test Plan above.
+
+## Outcome
+
+Delivered by pull request #2176, squash-merged as `f545c536e` on `develop` and verified present by
+content. Paired spec-doc: `.agents/spec-docs/done/ARCH-100-contract-family-owner-map-and-acyclic-target-graph.md`.
+
+The owner map, the proven-acyclic target graph and the four-wave migration order live in
+`.agents/specs/contract-family-owner-map.md`, parsed by the `interface-family-owner` scan.
+
+**Two things this task produced that are not in its completion criteria**, recorded so the next
+reader is not surprised:
+
+- The migration order **corrected the orchestration plan**. Issue #2110 was scheduled first on cost
+  grounds (it is the largest migration); the map showed the session owner depends on the three wave-1
+  owners, so starting there creates the temporary cycle this task exists to prevent. Order is now
+  issue #2108, issue #2109 and issue #2112, then issue #2110, then issue #2111, then issue #2113.
+- The decomposition is **blocked** by issue #2180: the Interface Package Rule restricts an
+  `agent-interface-*` package's dependencies to `{agent-core}`, and the map requires
+  interface→interface edges. That contradiction was not visible until a leaf tried to create an owner
+  package. This task's spec-doc asserted the rule already permitted peer edges, which was false — the
+  correction is recorded in issue #2180.

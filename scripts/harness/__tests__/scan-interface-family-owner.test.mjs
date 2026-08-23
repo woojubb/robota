@@ -222,6 +222,28 @@ describe('projectGraph + findCycles (ARCH-100)', () => {
     expect([...(edges.get('owner-a')?.keys() ?? [])]).toEqual(['owner-b']);
   });
 
+  it('detects a cycle whose ONLY closing edge is a star re-export', () => {
+    const edges = projectGraph(
+      {
+        'a-contracts': "import type { IThing } from './b-contracts.js';",
+        // braceless: the brace-requiring pattern could not see this form at all
+        'b-contracts': "export * from './a-contracts.js';",
+      },
+      twoOwners,
+      new Map(),
+    );
+    expect(findCycles(edges, new Set(['owner-a', 'owner-b']))).toHaveLength(1);
+  });
+
+  it('sees a namespace import (`import * as ns from`) as an edge', () => {
+    const edges = projectGraph(
+      { 'a-contracts': "import * as b from './b-contracts.js';", 'b-contracts': '' },
+      twoOwners,
+      new Map(),
+    );
+    expect([...(edges.get('owner-a')?.keys() ?? [])]).toEqual(['owner-b']);
+  });
+
   it('a pending correction redirects the edge and can break a cycle', () => {
     const owner = new Map([
       ['workspace-contracts', 'owner-exec'],
