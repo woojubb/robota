@@ -1,5 +1,4 @@
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-export { createSessionCapabilityHost as createTestSessionCapabilityHost } from './session-capability-host.js';
 export { runTransportLifecycleConformance } from './transport-lifecycle-conformance.js';
 export type { ITransportLifecycleConformanceFixture } from './transport-lifecycle-conformance.js';
 

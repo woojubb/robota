@@ -96,21 +96,21 @@ describe('createBuildTypeTiers', () => {
 
     // The COUNT changes on every contract-migration leaf under issue #2068 — each creates one owner
     // package — and it is kept anyway, because it is what catches a package nobody meant to add. 76
-    // before ARCH-103, 77 after it, 78 after ARCH-104. Expect to update it once more per remaining
-    // leaf (issues #2110, #2111, #2112, #2113).
+    // before ARCH-103, 77, 78, 79, and 80 after ARCH-106. One more per remaining leaf (issues #2111,
+    // #2113).
     //
-    // The ORDER is the property the test is actually about, and it does not churn: the contract
-    // owners sit one tier above agent-core, the transport package sits above them because it still
-    // composes their types, and agent-cli stays last.
-    expect(packages).toHaveLength(79);
+    // The ORDER is the property the test is about, and it now mirrors the declared LAYERS exactly:
+    // analytics has no dependencies at all (tier 0); command and execution depend only on agent-core
+    // (tier 1); session composes those three (tier 2); transport composes session because it still
+    // holds the mobility family (tier 3). Build order falling out of the layer declaration is the
+    // graph agreeing with the map, from a source that never read it.
+    expect(packages).toHaveLength(80);
     expect(tiers).toHaveLength(11);
-    // agent-interface-analytics sits at tier 0, beside agent-core, because it depends on NOTHING —
-    // every field of its seven declarations is a primitive or internal to the set. That placement is
-    // the build graph confirming the empty dependency set rather than the manifest asserting it.
     expect(tierByName.get('@robota-sdk/agent-interface-analytics')).toBe(0);
     expect(tierByName.get('@robota-sdk/agent-interface-command')).toBe(1);
     expect(tierByName.get('@robota-sdk/agent-interface-execution')).toBe(1);
-    expect(tierByName.get('@robota-sdk/agent-interface-transport')).toBe(2);
+    expect(tierByName.get('@robota-sdk/agent-interface-session')).toBe(2);
+    expect(tierByName.get('@robota-sdk/agent-interface-transport')).toBe(3);
     expect(tierByName.get('@robota-sdk/agent-cli')).toBe(10);
     expect(cli).toBeDefined();
     for (const dependency of cli.deps) {

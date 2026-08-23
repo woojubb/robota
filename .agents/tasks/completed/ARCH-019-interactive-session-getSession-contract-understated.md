@@ -39,7 +39,7 @@ Two fidelity defects in the contract that ARCH-012 made the SSOT double for:
 
 ## Evidence (adversarially verified 2026-08-13, PARTIAL — (2) and the surface facts confirmed; (1) reframed)
 
-- `packages/agent-interface-transport/src/session-contracts.ts:372` — `getSession(): { getSessionId():
+- `packages/agent-interface-session/src/session-contracts.ts:372` — `getSession(): { getSessionId():
 string }`. `packages/agent-framework/src/interactive/interactive-session-prompt.ts:72` calls
   `ctx.getSession().getEventService()`. **Reframe (verifier correction):** that call is legally typed
   WITHIN agent-framework because `IPromptTurnContext.getSession` is declared `() => Session`

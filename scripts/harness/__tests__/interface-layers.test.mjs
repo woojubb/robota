@@ -172,8 +172,15 @@ describe('the real declaration', () => {
     );
   });
 
-  it('places agent-interface-transport above execution while it still holds the session family', () => {
-    expect(layers.get('agent-interface-transport')).toBe(1);
+  it('places agent-interface-transport at the HIGHEST layer of what it still holds', () => {
+    // 1 under ARCH-104, when it held the session family. 2 under ARCH-106, when session LEFT and the
+    // three mobility modules it still holds became the highest thing in it. A package's layer is the
+    // HIGHEST of its contents, not the lowest — ARCH-106 predicted 0 by reasoning from what would
+    // stop being held, and missed what still was. It reaches 0 when issue #2111 moves mobility out.
+    expect(layers.get('agent-interface-transport')).toBe(2);
+    expect(judgeEdge('agent-interface-transport', 'agent-interface-session', layers).legal).toBe(
+      true,
+    );
     expect(judgeEdge('agent-interface-transport', 'agent-interface-execution', layers).legal).toBe(
       true,
     );

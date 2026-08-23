@@ -1,5 +1,6 @@
 {
-  "//": "HARNESS-103. Frozen count of RUNTIME MECHANISMS each agent-interface-* package publishes from its entry. project-structure.md forbids runtime logic in these packages; the guard used to measure only class/enum declarations and bare value imports, so mechanisms sat outside the rule and inside the green. These are the ones that were already there when the guard started measuring the rule. The count may only SHRINK.",
-  "agent-interface-transport": 5,
+  "//": "HARNESS-103. Frozen count of RUNTIME MECHANISMS each agent-interface-* package publishes from its entry. project-structure.md forbids runtime logic in these packages; the guard used to measure only class/enum declarations and bare value imports, so mechanisms sat outside the rule and inside the green. These are the ones that were already there when the guard started measuring the rule. The count may only SHRINK. ARCH-106: the four interaction-event readers moved to agent-interface-session WITH their module; transport 5 -> 1 and session 0 -> 4, total unchanged at 5. A frozen count travels with the code it froze -- otherwise a migration either invents an allowance or forces a redesign the leaf did not scope.",
+  "agent-interface-session": 4,
+  "agent-interface-transport": 1,
   "agent-interface-tui": 0
 }

@@ -9,6 +9,7 @@ import { judgeEdge, readInterfaceLayers } from '../interface-layers.mjs';
 
 import {
   findCycles,
+  resolveModuleSources,
   findLayerViolations,
   findContractModules,
   migrationWaves,
@@ -37,10 +38,17 @@ function realModules() {
     .map((f) => f.replace(/\.ts$/, ''));
 }
 
+/**
+ * The real module sources, resolved through the SCAN's own resolver rather than a fixed directory.
+ *
+ * This helper used to read `agent-interface-transport/src` directly, and it decayed exactly as the
+ * scan it tests did: each migration leaf moved modules out, the helper read fewer of them, and the
+ * assertions it feeds got weaker without failing. Same defect as issue #2215, inside the test for the
+ * scan that issue is about.
+ */
 function realSources() {
-  return Object.fromEntries(
-    realModules().map((m) => [m, readFileSync(path.join(SRC_DIR, `${m}.ts`), 'utf8')]),
-  );
+  const parsed = parseOwnerMap(readFileSync(RULE_DOC, 'utf8'));
+  return resolveModuleSources(parsed.moduleOwner).sources;
 }
 
 /** A minimal owner-map document: the marker plus a table. */

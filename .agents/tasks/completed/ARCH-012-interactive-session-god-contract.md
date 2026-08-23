@@ -44,7 +44,7 @@ tell the two apart.
 Observed independently by **L0 (foundation, as a contract-quality and testability defect)** and
 **L3 (transport, as the seam that makes transport parity impossible)**.
 
-- L0 F7 — `packages/agent-interface-transport/src/session-contracts.ts:337-440`: one interface
+- L0 F7 — `packages/agent-interface-session/src/session-contracts.ts:337-440`: one interface
   carrying submission, abort, queue control, shutdown, autonomous-goal lifecycle, execution state,
   message/context/cwd accessors, command execution and listing, event subscription, prompt resolution,
   background tasks (7 methods), job groups (4), workspace snapshots and agent jobs (5) — nine
