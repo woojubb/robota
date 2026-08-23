@@ -302,9 +302,14 @@ is the same defect this leaf's own review kept finding in the SPEC.
 
 Five actionable findings arrived across five review rounds. Two of them changed the design:
 
-- `packages/agent-framework/src/assembly/build-hook-type-executors.ts` (new), and its callers
-  `packages/agent-framework/src/assembly/create-session.ts` and
-  `packages/agent-framework/src/assembly/build-agent-runtime.ts`. `runHooks` resolves executors as
+- `packages/agent-framework/src/assembly/build-hook-type-executors.ts` (new), and its caller
+  `packages/agent-framework/src/assembly/create-session.ts`. (`build-agent-runtime.ts` was touched
+  and then reverted: the edit removed a ternary that had become dead at its only production caller,
+  which the repository's accidental-green floor correctly refused as guarded by nothing. It also
+  made a direct-caller path less safe — that caller passing `[]` used to collapse to `undefined` and
+  fall back to the built-ins, and would instead have forwarded an empty registry into a fail-closed
+  `PreToolUse`. Consistency with a sibling edit was not a reason to change a call path no test
+  covers.) `runHooks` resolves executors as
   `executors ?? createDefaultExecutors()` — an UNDEFINED-ONLY fallback, so a non-empty array
   REPLACES the built-ins. The composition root collapsed its array to `undefined` only when empty,
   so supplying any one of four unrelated options silently deregistered `command` and `http`. Under
