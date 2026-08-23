@@ -38,6 +38,15 @@ const ATTACKS: Array<[string, string, string]> = [
   ['CSI cursor move', ESC + '[10;10H', 'beforeafter'],
   ['CSI erase display', ESC + '[2J', 'beforeafter'],
   ['CSI private mode', ESC + '[?1049h', 'beforeafter'],
+  // ECMA-48 parameter bytes are 0x30-0x3F, which is `0123456789:;<=>?` — not the digits, `;` and
+  // `?` an author writes from memory. Every row below was left as visible text by that shorter
+  // class, and the first two are not exotic: colon-separated SGR is the standard truecolor form and
+  // the `<` report is what a terminal sends on every mouse event.
+  ['CSI truecolor SGR, colon form', ESC + '[38:2:255:0:0m', 'beforeafter'],
+  ['CSI SGR mouse report', ESC + '[<0;10;20M', 'beforeafter'],
+  ['CSI device attributes, > parameter', ESC + '[>c', 'beforeafter'],
+  ['CSI = parameter', ESC + '[=1h', 'beforeafter'],
+  ['8-bit CSI SGR mouse report', C1(0x9b) + '<0;10;20M', 'beforeafter'],
   ['DCS', ESC + 'Pq#0;2;0;0;0' + ESC + '\\', 'beforeafter'],
   ['APC', ESC + '_Ginline=1' + ESC + '\\', 'beforeafter'],
   ['PM', ESC + '^payload' + ESC + '\\', 'beforeafter'],
@@ -110,6 +119,15 @@ describe('SEC-019 - a control sequence in untrusted text is neutralized', () => 
     const out = sanitizeTerminalText('before' + ESC + 'Pq#0;2;0;0;0' + ESC + '\\' + 'after');
     expect(out).toBe('beforeafter');
     expect(out).not.toContain('q#0');
+  });
+
+  it('removes a CSI carrying any ECMA-48 parameter byte, not only digits and ? and ;', () => {
+    // The shorter parameter class left `38:2:255:0:0m` and `<0;10;20M` standing as text: neither
+    // matched the CSI alternative, the two-character-escape alternative does not accept `[` as its
+    // second character, and the lone-control fallback took only the ESC.
+    for (const body of ['38:2:255:0:0m', '<0;10;20M', '>c', '=1h', ':::x']) {
+      expect(sanitizeTerminalText(`before${ESC}[${body}after`)).toBe('beforeafter');
+    }
   });
 
   it('removes the whole 8-bit sequence, not only its one-byte C1 introducer', () => {

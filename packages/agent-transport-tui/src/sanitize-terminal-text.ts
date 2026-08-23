@@ -62,15 +62,20 @@ const KEPT_C0 = new Set(['\t', '\n', '\r']);
  *    alternative rather than an optional terminator, for the reason directly above.
  *  - `[\x90\x98\x9e\x9f][\s\S]*?(?:\x9c|\x1b\\|\x07)` and `[\x90\x98\x9e\x9f][\s\S]*$`
  *    DCS/SOS/PM/APC again, 8-bit introducers, terminated and unterminated.
- *  - `\x1b\[[0-9;?]*[ -/]*[@-~]`  CSI, including private-mode `?` parameters.
- *  - `\x9b[0-9;?]*[ -/]*[@-~]`  the same, 8-bit introducer.
+ *  - `\x1b\[[0-?]*[ -/]*[@-~]`  CSI. The parameter class is the ECMA-48 range 0x30–0x3F written as
+ *    a range, not the digits-plus-`;`-plus-`?` an author reaches for from memory. That shorter class
+ *    omits `:`, `<`, `=` and `>`, and the omission is not academic: `ESC [ 38:2:255:0:0 m` is the
+ *    colon form of a truecolor SGR and `ESC [ < 0;10;20 M` is an SGR mouse report. Neither matched
+ *    any alternative, so the lone-control fallback took the ESC and left `38:2:255:0:0m` as visible
+ *    text. Found in review of PR #2212.
+ *  - `\x9b[0-?]*[ -/]*[@-~]`  the same, 8-bit introducer.
  *  - `\x1b[@-Z\\-_]`  any other two-character escape.
  *  - `[\x00-\x1f\x7f]`  a lone control character, including a bare ESC or BEL.
  *  - `[\x80-\x9f]`  a lone C1 control that started no sequence any alternative above matched.
  */
 const CONTROL_SEQUENCE =
   // eslint-disable-next-line no-control-regex
-  /\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x9d[^\x07\x1b\x9c]*(?:\x07|\x9c|\x1b\\)?|\x1b[P^_X][\s\S]*?(?:\x1b\\|\x07)|\x1b[P^_X][\s\S]*$|[\x90\x98\x9e\x9f][\s\S]*?(?:\x9c|\x1b\\|\x07)|[\x90\x98\x9e\x9f][\s\S]*$|\x1b\[[0-9;?]*[ -/]*[@-~]|\x9b[0-9;?]*[ -/]*[@-~]|\x1b[@-Z\\-_]|[\x00-\x1f\x7f]|[\x80-\x9f]/g;
+  /\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x9d[^\x07\x1b\x9c]*(?:\x07|\x9c|\x1b\\)?|\x1b[P^_X][\s\S]*?(?:\x1b\\|\x07)|\x1b[P^_X][\s\S]*$|[\x90\x98\x9e\x9f][\s\S]*?(?:\x9c|\x1b\\|\x07)|[\x90\x98\x9e\x9f][\s\S]*$|\x1b\[[0-?]*[ -/]*[@-~]|\x9b[0-?]*[ -/]*[@-~]|\x1b[@-Z\\-_]|[\x00-\x1f\x7f]|[\x80-\x9f]/g;
 
 /**
  * The longest prefix of `text` that could still become a control sequence if more text arrived.
@@ -89,7 +94,7 @@ const CONTROL_SEQUENCE =
  */
 const INCOMPLETE_TAIL =
   // eslint-disable-next-line no-control-regex
-  /(?:\x1b(?:\][^\x07\x1b]*|[P^_X](?:(?!\x1b\\|\x07)[\s\S])*|\[[0-9;?]*[ -/]*|)?|\x9d[^\x07\x1b\x9c]*|[\x90\x98\x9e\x9f](?:(?!\x9c|\x1b\\|\x07)[\s\S])*|\x9b[0-9;?]*[ -/]*)$/;
+  /(?:\x1b(?:\][^\x07\x1b]*|[P^_X](?:(?!\x1b\\|\x07)[\s\S])*|\[[0-?]*[ -/]*|)?|\x9d[^\x07\x1b\x9c]*|[\x90\x98\x9e\x9f](?:(?!\x9c|\x1b\\|\x07)[\s\S])*|\x9b[0-?]*[ -/]*)$/;
 
 /**
  * `text` with every terminal control sequence removed, and tab/newline/carriage return preserved.
