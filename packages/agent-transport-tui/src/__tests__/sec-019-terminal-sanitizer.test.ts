@@ -93,6 +93,37 @@ describe('SEC-019 - a control sequence in untrusted text is neutralized', () => 
     expect(out).toBe('before');
   });
 
+  // The two cases below repeat rows of the table above under literal titles ON PURPOSE.
+  //
+  // `it.each` builds each case's title from a printf placeholder (`'removes %s'`), and the
+  // accidental-green floor reads added case titles out of the diff — where the only text present is
+  // `removes %s`, which matches no runtime title. Every `it.each` case is therefore invisible to it,
+  // so a suite built entirely from tables can supply no red proof at all. Measured on this branch:
+  // reversing the fix turned 5 `it.each` cases red and the floor still reported accidental-green.
+  //
+  // These two are the named proof for the defect review found on PR #2212, and they are the cases
+  // that must go red if anyone restores the introducer-only behaviour.
+
+  it('removes the whole DCS sequence, not only its two-character introducer', () => {
+    // The lazy-quantifier bug left this as 'beforeq#0;2;0;0;0after' while every "no control byte
+    // survives" assertion in the file stayed green.
+    const out = sanitizeTerminalText('before' + ESC + 'Pq#0;2;0;0;0' + ESC + '\\' + 'after');
+    expect(out).toBe('beforeafter');
+    expect(out).not.toContain('q#0');
+  });
+
+  it('removes the whole 8-bit sequence, not only its one-byte C1 introducer', () => {
+    // A terminal reads \x9b and `ESC [` as the same CSI. An alternation that names only the 7-bit
+    // spelling leaves the parameters standing: '2J' and '52;c;x' as visible text.
+    expect(sanitizeTerminalText('before' + C1(0x9b) + '2J' + 'after')).toBe('beforeafter');
+    expect(sanitizeTerminalText('before' + C1(0x9d) + '52;c;x' + BEL + 'after')).toBe(
+      'beforeafter',
+    );
+    expect(sanitizeTerminalText('before' + C1(0x9f) + 'Ginline=1' + C1(0x9c) + 'after')).toBe(
+      'beforeafter',
+    );
+  });
+
   it('keeps tab, newline and carriage return, which are content', () => {
     expect(sanitizeTerminalText('a\tb\nc\rd')).toBe('a\tb\nc\rd');
   });
