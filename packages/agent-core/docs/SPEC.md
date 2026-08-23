@@ -860,9 +860,9 @@ That asymmetry is not a preference. Measured across the tree, `PreToolUse` is th
 
 Two independent checks keep the two fields honest: `assertPolicyCoherent` rejects a row claiming `enforcing` with `enforcementReachable: false`, and `scripts/harness/scan-hook-enforcement-reachable.mjs` rejects a row whose fire site does not in fact await and read `blocked`. Neither is the only thing standing between them.
 
-`HOOK_ENFORCEMENT_POLICY` and `isEnforcing` are on the package root; `assertPolicyCoherent` and the two policy types are exported from `hooks/index.ts`.
+`isEnforcing` is the only member on the package root. `HOOK_ENFORCEMENT_POLICY`, `assertPolicyCoherent` and the two policy types are exported from `hooks/index.ts`.
 
-**A consumer asking "does this event enforce?" reads `isEnforcing`, or the table for the full posture — it does not re-derive the predicate.** Stated here rather than left to be discovered, because the way a successor WOULD discover it is by adding their own root-barrel export and hitting the `spec-public-surface` ratchet: `packages/agent-core/src/index.ts` sits at 312 lines against a frozen baseline of 313, so one added export line is the entire remaining budget, and SEC-016 spends it. A predicate re-derived at a second site is also a second thing that can disagree with the table, which is what `scan-hook-enforcement-reachable.mjs` exists to prevent — re-deriving it would put the drift back one layer out of that scan's reach.
+**A consumer asking "does this event enforce?" calls `isEnforcing` — it does not re-derive the predicate, and it does not need the table to answer that question.** Stated here rather than left to be discovered, because of how tight the budget is: `packages/agent-core/src/index.ts` sits at 312 lines against a frozen size baseline of 313, and `spec-public-surface` separately ratchets undocumented root exports. SEC-016 publishes ONE name for this reason — an attempt to publish two split the export across seven lines under the formatter and blew the size baseline by six, which is how the constraint was measured rather than assumed. A predicate re-derived at a second site is also a second thing that can disagree with the table, which is what `scan-hook-enforcement-reachable.mjs` exists to prevent — re-deriving it would put the drift back one layer out of that scan's reach.
 
 ### Hook Events
 

@@ -14,7 +14,7 @@ import {
   buildHookInput,
   truncateToolResult,
 } from '../tool-hook-helpers.js';
-import { runHooks, isEnforcing, HOOK_ENFORCEMENT_POLICY } from '@robota-sdk/agent-core';
+import { runHooks, isEnforcing } from '@robota-sdk/agent-core';
 
 import type { IHookInput, IHookTypeExecutor, THookEvent } from '@robota-sdk/agent-core';
 import type { THooksConfig } from '@robota-sdk/agent-core';
@@ -298,9 +298,30 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
     // The criterion says "the fifteen advisory events", and the first version of this test drove
     // one. Review caught the gap. Driven at `runHooks`, which is where every event is observable:
     // an errored hook must report and must not block, for each advisory event by name.
-    const advisory = Object.entries(HOOK_ENFORCEMENT_POLICY)
-      .filter(([, entry]) => entry.posture === 'advisory')
-      .map(([event]) => event as THookEvent);
+    // Enumerated literally and narrowed by `isEnforcing`, rather than read from the table. Two
+    // reasons: the predicate is what `agent-core`'s root barrel publishes — the table stays on the
+    // hooks barrel, because one export line is the whole remaining budget against that file's frozen
+    // size baseline — and a test that derived the advisory set FROM the table would be checking the
+    // table against itself. `satisfies` makes the compiler reject a name that is not a THookEvent.
+    const everyEvent = [
+      'PreToolUse',
+      'PostToolUse',
+      'SessionStart',
+      'SessionEnd',
+      'Stop',
+      'StopFailure',
+      'PreCompact',
+      'PostCompact',
+      'UserPromptSubmit',
+      'SubagentStart',
+      'SubagentStop',
+      'WorktreeCreate',
+      'WorktreeRemove',
+      'PreModelCall',
+      'PostModelCall',
+      'PermissionDecision',
+    ] as const satisfies readonly THookEvent[];
+    const advisory = everyEvent.filter((event) => !isEnforcing(event));
     expect(advisory).toHaveLength(15);
 
     for (const event of advisory) {
