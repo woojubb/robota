@@ -15,6 +15,11 @@
 //   3. PLACEMENT — an `agent-interface-*` package holds a module it does not own. Inert until the
 //      migration leaves (issues #2108-#2113) begin to move families; it is the condition that keeps
 //      the map honest once they do.
+//   4. LAYER (ARCH-101) — a module edge runs same-layer or upward between owner packages. ACYCLICITY
+//      does not cover this: `command → execution` is perfectly acyclic and forbidden, because both
+//      sit at layer 0 and the ruling permits composition only across DIFFERING layers,
+//      one-directionally. The layer declaration is read through `interface-layers.mjs`, the same
+//      parser `check-dependency-direction.mjs` uses for manifest edges.
 //
 // Today every module still lives in `agent-interface-transport`, so (3) passes trivially and (1)+(2)
 // verify the PLAN against the real source. The scan is the reason the plan cannot rot between now and
@@ -45,6 +50,10 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+// ARCH-101: the layer declaration authorizes each edge, and ONE parser owns it. This scan judges
+// MODULE edges; `check-dependency-direction.mjs` judges MANIFEST edges. Same predicate, two altitudes.
+import { explainEdge, judgeEdge, readInterfaceLayers } from './interface-layers.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RULE_DOC = path.join(ROOT, '.agents/specs/contract-family-owner-map.md');
@@ -236,6 +245,33 @@ export function readExaminedModuleCount(srcDir = SOURCE_PKG) {
   return findContractModules(srcDir).length;
 }
 
+/**
+ * LAYER — module edges that run same-layer or upward between owner packages.
+ *
+ * PURE and EXPORTED, and that is not incidental. When this lived inline in `main()` the tests
+ * exercised `judgeEdge` directly and never the scan's USE of it, so reversing this condition left the
+ * whole suite green — `regression-red-proof` reported `accidental-green-fail (all-pass)` on exactly
+ * that. A guard reachable only through `main()` is a guard no test can falsify.
+ *
+ * ACYCLICITY does not cover this: `command → execution` is perfectly acyclic and forbidden, because
+ * both sit at layer 0 and the ruling permits composition only across DIFFERING layers,
+ * one-directionally.
+ */
+export function findLayerViolations(edges, layers) {
+  const out = [];
+  for (const [from, outs] of edges) {
+    for (const [to, why] of outs) {
+      const verdict = judgeEdge(from, to, layers);
+      if (verdict.legal) continue;
+      const sample = [...why].slice(0, 3).join(', ');
+      out.push(
+        `LAYER: ${explainEdge(from, to, verdict)} (via ${sample}${why.size > 3 ? `, … ${why.size} total` : ''})`,
+      );
+    }
+  }
+  return out;
+}
+
 function main() {
   const fail = [];
   const note = [];
@@ -286,6 +322,15 @@ function main() {
     fail.push(`ACYCLICITY: the projected package graph has a cycle — ${c.join(' → ')}`);
   }
 
+  let layers;
+  try {
+    layers = readInterfaceLayers();
+  } catch (error) {
+    console.error(`interface-family-owner: ${error.message}`);
+    process.exit(1);
+  }
+  fail.push(...findLayerViolations(edges, layers));
+
   // PLACEMENT — a module is misplaced only once its declared owner package actually exists. Before
   // that, sitting in `agent-interface-transport` is the expected pre-migration state, not a
   // violation: the map states a TARGET. So this edge arms itself one leaf at a time — the moment
@@ -318,7 +363,7 @@ function main() {
 
   const waves = migrationWaves(edges, owners);
   console.log(
-    `::examined:: ${modules.length} contract modules, ${owners.size} declared owners, ${placementChecked} modules placement-checked, ${placementPending} awaiting an owner package that does not exist yet`,
+    `::examined:: ${modules.length} contract modules, ${owners.size} declared owners, ${layers.size} declared layers, ${placementChecked} modules placement-checked, ${placementPending} awaiting an owner package that does not exist yet`,
   );
   for (const n of note) console.log(`- [note] ${n}`);
   if (PENDING_CORRECTIONS.length) {
@@ -341,7 +386,8 @@ function main() {
     process.exit(1);
   }
   console.log(
-    'interface-family-owner scan passed — owner map is total and the projected package graph is acyclic.',
+    'interface-family-owner scan passed — owner map is total, every module edge is a legal downward ' +
+      'layer composition, and the projected package graph is acyclic.',
   );
 }
 

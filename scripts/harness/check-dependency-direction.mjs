@@ -25,6 +25,12 @@
  *
  * Exit code 0 = clean, 1 = violations found.
  */
+import {
+  explainEdge,
+  isInterfacePackage,
+  judgeEdge,
+  readInterfaceLayers,
+} from './interface-layers.mjs';
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
@@ -220,26 +226,53 @@ function checkPluginLayerDeps(packages) {
 }
 
 /**
- * Rule 5 (INFRA-025): agent-interface-* packages are pure contract SSOTs — their production
- * dependencies must be a subset of {agent-core}. Depending on an implementation package
- * reverses the contract direction (the inversion that let executor/session types leak into
- * agent-interface-transport until 2026-07-04).
+ * Rule 5 (INFRA-025, amended by ARCH-101): agent-interface-* packages are pure contract SSOTs.
+ *
+ * TWO things are refused, and they are different:
+ *
+ *  - depending on an IMPLEMENTATION package, which reverses the contract direction (the inversion
+ *    that let executor/session types leak into agent-interface-transport until 2026-07-04);
+ *  - depending on a PEER interface package at the same declared layer, or upward.
+ *
+ * The rule used to say `deps ⊆ {agent-core}` — the interface layer had to be EDGELESS. That was an
+ * exact proxy while one package held every contract family. ARCH-100 decomposed it into six owners,
+ * and the owner then ruled that the general layer rule governs this prefix too: composition across
+ * DIFFERING layers, one-directional, is permitted; only SAME-LAYER is forbidden. Edgelessness is an
+ * over-approximation of that, and it forbade the target graph, so it is replaced by the direct
+ * property.
+ *
+ * The layer assignment is NOT decided here. It is declared once in
+ * `.agents/specs/contract-family-owner-map.md` and read through `interface-layers.mjs`, which
+ * `interface-family-owner` also uses for module-level edges. One fact, one parser, two altitudes.
  */
-export function checkInterfacePackageDeps(packages) {
+export function checkInterfacePackageDeps(packages, layers = readInterfaceLayers()) {
   const violations = [];
   const interfacePrefix = `${HARNESS.internalPackagePrefix}interface-`;
 
   for (const [name, pkg] of packages) {
     if (!name.startsWith(interfacePrefix)) continue;
     for (const dep of pkg.dependencies) {
-      if (dep.startsWith(HARNESS.npmScopePrefix) && dep !== HARNESS.corePackage) {
+      if (!dep.startsWith(HARNESS.npmScopePrefix) || dep === HARNESS.corePackage) continue;
+
+      if (!isInterfacePackage(dep)) {
         violations.push({
           package: name,
           dep,
           message:
             `Interface-package violation: ${name} must not depend on ${dep}. ` +
             `agent-interface-* packages own contracts; implementations depend on them, ` +
-            `never the reverse (deps ⊆ {${HARNESS.corePackage}}).`,
+            `never the reverse. A peer agent-interface-* package is permitted only DOWNWARD ` +
+            `across declared layers (ARCH-101).`,
+        });
+        continue;
+      }
+
+      const verdict = judgeEdge(name, dep, layers);
+      if (!verdict.legal) {
+        violations.push({
+          package: name,
+          dep,
+          message: `Interface-package violation: ${explainEdge(name, dep, verdict)}`,
         });
       }
     }
