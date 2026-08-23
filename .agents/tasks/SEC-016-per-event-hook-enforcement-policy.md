@@ -210,7 +210,40 @@ rm -rf "$TMP"
 The contrast is the observable. One run alone could be explained by the fixture; the pair cannot.
 
 - **Cleanup:** the scenario removes its temp project.
-- **Evidence: NOT PRODUCED. This criterion is unmet and the Task stays `in-progress` because of it.**
+- **Evidence: TC-11 AS SPECIFIED IS UNMET — its surface is the CLI and no CLI run was achieved.**
+  The Task stays `in-progress` because of it. But a product-surface scenario DID execute and does
+  demonstrate this leaf's behaviour, and recording only "unmet" would understate what is verified.
+
+  **What executed.** `pnpm --filter @robota-sdk/agent-session scenario:verify` — the SDK-surface
+  chain — refused the push until it was updated, because SEC-015's scenario asserted the behaviour
+  this leaf changes. Under SEC-015 alone the two error cases printed "tool NOT blocked"; they now
+  block. After updating the expectations to the shipped behaviour:
+
+  ```
+  PASS deny: tool blocked, reason="SEC-015 scenario: denied by command hook"
+  PASS error/spawn-failure: tool BLOCKED, error reported (source=command)
+  PASS error/malformed-response: tool BLOCKED, error reported (source=http)
+  PASS allow: tool executed
+  SEC-015 hook outcome contract scenario passed.
+  ```
+
+  That drives the real `PermissionEnforcer.wrapTools` boundary and `runHooks`, and the two BLOCKED
+  lines are exactly what SEC-016 delivers — a tool call stopped because its hook reached no verdict,
+  with the failure kind and source named. It is a genuine end-to-end demonstration.
+
+  **Why that does not tick TC-11.** The criterion names the CLI, and the reason it does is recorded
+  above: this leaf's deliverable IS CLI-observable, unlike SEC-015's. Ticking it on a different
+  surface would be moving the criterion to fit what I could run, which `backlog-execution.md`
+  forbids in spirit even though its literal prohibition is about rewriting an expected RESULT. The
+  criterion stands as written and unmet; the SDK evidence is recorded beside it rather than in place
+  of it.
+
+  **A consequence worth flagging beyond this leaf.** SEC-015's own user-execution evidence, recorded
+  in `.agents/tasks/completed/SEC-015-hook-outcome-contract.md`, quotes the pre-SEC-016 output and is
+  now historically true but behaviourally stale. It is left as recorded — a closed record is a
+  record of what was observed then — and this note is where a reader learns the behaviour moved.
+
+  **What could not be produced:**
 
   The scenario was attempted against the completed implementation and did not execute. The replay
   fixture is correct in isolation — `createReplayProviderFromNodeLogFile` yields the recorded tool

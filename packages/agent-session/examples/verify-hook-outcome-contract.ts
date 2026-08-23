@@ -6,19 +6,21 @@
  *
  * What it shows, at the public SDK surface and with no provider credentials:
  *
- *   1. A hook that DENIES still blocks the tool call — the underlying tool never runs.
- *   2. A hook that FAILS (its process could not start) does not block, and the failure is now
- *      REPORTED on `IRunHooksResult.errors` instead of being indistinguishable from approval.
- *   3. A hook that answers `{"ok": "false"}` — a string, not a boolean — is reported the same way.
- *      Before this change that body was truthy, so the engine read it as approval and the gate was
- *      silently disabled. Its mirror image, `{}`, was falsy and BLOCKED the tool on a verdict no
- *      endpoint issued.
+ *   1. A hook that DENIES blocks the tool call — the underlying tool never runs.
+ *   2. A hook that FAILS (its process could not start) now BLOCKS too, and the failure is reported
+ *      on `IRunHooksResult.errors` with its `kind` and `source`.
+ *   3. A hook that answers `{"ok": "false"}` — a string, not a boolean — blocks the same way.
+ *      Before SEC-015 that body was truthy, so the engine read it as approval and the gate was
+ *      silently disabled. Its mirror image, `{}`, was falsy and blocked on a verdict no endpoint
+ *      issued. Both are now `error`, and under SEC-016 `PreToolUse` fails closed on `error`.
  *   4. A hook that allows lets the tool run.
  *
- * Cases 2 and 3 print "tool NOT blocked" deliberately, and that is not an oversight: deciding that a
- * failed hook must DENY on an enforcing event is issue #2093, and this leaf only makes the failure
- * representable so that decision has something to act on. What changed here is the reporting, not
- * the policy.
+ * **Cases 2 and 3 changed with SEC-016 (issue #2093), and this file is the record of that.** Under
+ * SEC-015 alone they printed "tool NOT blocked": the failure was representable and nothing consumed
+ * it, because deciding that a failed hook must DENY was the next leaf's job. SEC-016 made that
+ * decision, `runPreToolHook` now reads `errors`, and these two cases block. `pnpm scenario:verify`
+ * refused the push until this file said so — a scenario asserting the old behaviour is a scenario
+ * that has become false, not one that needs its expectation relaxed.
  */
 
 import { createServer, type Server } from 'node:http';
@@ -160,11 +162,8 @@ async function main(): Promise<void> {
     const spawnError = spawnResult.errors?.[0];
     const spawnToolRan = await toolRuns(join(cwd, 'does-not-exist'), spawnHooks, command);
     check(
-      spawnToolRan &&
-        !spawnResult.blocked &&
-        spawnError?.kind === 'spawn-failure' &&
-        spawnError.source === 'command',
-      `error/spawn-failure: tool NOT blocked, error reported (source=${spawnError?.source ?? 'MISSING'})`,
+      !spawnToolRan && spawnError?.kind === 'spawn-failure' && spawnError.source === 'command',
+      `error/spawn-failure: tool BLOCKED, error reported (source=${spawnError?.source ?? 'MISSING'})`,
     );
 
     // ── 3. error / malformed-response ────────────────────────────────────────────────────────
@@ -182,11 +181,8 @@ async function main(): Promise<void> {
     const httpError = httpResult.errors?.[0];
     const httpToolRan = await toolRuns(cwd, httpHooks, http);
     check(
-      httpToolRan &&
-        !httpResult.blocked &&
-        httpError?.kind === 'malformed-response' &&
-        httpError.source === 'http',
-      `error/malformed-response: tool NOT blocked, error reported (source=${httpError?.source ?? 'MISSING'})`,
+      !httpToolRan && httpError?.kind === 'malformed-response' && httpError.source === 'http',
+      `error/malformed-response: tool BLOCKED, error reported (source=${httpError?.source ?? 'MISSING'})`,
     );
 
     // ── 4. allow ─────────────────────────────────────────────────────────────────────────────
