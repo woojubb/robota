@@ -277,8 +277,9 @@ leave the destination in `receiving` with no report.
 ## Completion Criteria
 
 - [x] TC-01: `deserializeSessionArtifact` throws for every member of a malformed-record corpus that
-      currently deserializes successfully — including `{"schemaVersion":1,"record":{"id":"x",
-  "messages":"not-an-array"}}` — and the thrown message contains the offending field path.
+      currently deserializes successfully — a record whose `id` is a string and whose `messages` is
+      not an array is the representative case — and the thrown message contains the offending field
+      path.
 - [x] TC-02: `deserializeSessionArtifact(serializeSessionArtifact(record))` still round-trips a
       valid maximal record to a deep-equal value, with `messages[].timestamp` a `Date`.
 - [x] TC-03: An artifact whose `schemaVersion` this build does not read throws an error naming both
