@@ -155,3 +155,27 @@ pair, and two sites can each look correct while disagreeing about the root.
 
 Mutant for the propagation fix, application verified before reading the result: removing the
 `instanceof` narrowing turns 1 test red; restored, 18 green.
+
+## Third round: the accidental-green floor found the same defect twice more
+
+`regression-red-proof` reported `accidental-green-fail (all-pass)` for `marketplace-registry.ts` and
+`marketplace-client.ts` — reversing those guards changed nothing, because no test reached either sink.
+
+**That is the same defect for the third time in one change.** A reviewer found two unguarded sinks; the
+floor found two guarded-but-untested ones. The pattern is identical each time: `plugin-paths.ts` was
+tested exhaustively, so the guard was proven to WORK, and nothing asserted that each sink CALLS it.
+
+**And diagnosing it surfaced a non-obvious property of the floor worth recording.** The proof tests were
+first committed as `test:`. The floor kept reporting all-pass while a manual reversal of the identical
+hunks turned those very cases red. The cause is `check-regression-red-proof.mjs:680` — _"Scope by the
+commit that owns each file. A mixed PR must not turn unrelated `feat:` / `perf:` files into alleged
+defect fixes merely because another commit in the range is spelled `fix:`."_ Files are attributed to
+their owning commit and only `fix:` files are read, so a proof shipped under `test:` is **invisible to
+the check it exists to satisfy**.
+
+That is correct behaviour — the scoping stops a `fix:` elsewhere in the range from laundering unrelated
+files — and it means: **a test that proves a fix belongs to the fix's own commit.** Re-committed as
+`fix:`; all five source files now report `red-proof-ok (assertion-fail)`.
+
+The general lesson across all three rounds is one sentence: _a guard is not covered because the module
+that defines it is covered._
