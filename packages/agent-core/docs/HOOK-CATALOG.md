@@ -71,8 +71,8 @@ owner must be wired to consult `blocked` there — that is not the case now.)
 
 ## Fire-site dispatch note (for the drift-guard scan)
 
-Most events pass their name as a **string literal** to `runHooks('<Event>', …)`. Four are dispatched
-through a **variable**, so the name never appears as a literal first argument:
+Most events pass their name as a **string literal** to `runHooks('<Event>', …)`. **Six** are
+dispatched through a **variable**, so the name never appears as a literal first argument:
 
 - `SubagentStart` / `SubagentStop` — `runHooks(hooks, hookEventName, …)` where `hookEventName` comes
   from the `getSubagentHookEvent` mapping table
@@ -80,6 +80,9 @@ through a **variable**, so the name never appears as a literal first argument:
 - `WorktreeCreate` / `WorktreeRemove` — `runHooks(options.hooks, event, …)` where `event` is a
   `fireWorktreeHook` parameter passed the string literal at each call-site
   (`agent-executor/src/subagents/worktree-subagent-runner.ts`).
+- `PreModelCall` / `PostModelCall` — `void runHooks(…, hookEvent, …)` where `hookEvent` is a
+  `fireModelCallHook` parameter passed the string literal at each call-site
+  (`agent-session/src/session-run.ts`).
 
 `scan-hook-catalog.mjs` resolves a firing event name from any of **four** rules: (a) a string
 literal passed as the second argument to `runHooks(`; (b) a `hook_event_name:` field literal;
@@ -92,11 +95,17 @@ Those four rules cover all 16 events, including the **six** dispatched through a
 than a literal: `SubagentStart`, `SubagentStop`, `WorktreeCreate`, `WorktreeRemove`, `PreModelCall`,
 `PostModelCall`.
 
-Two facts here were stale and are corrected together, because they are one drift: this sentence said
-"the variable-dispatched four" and folded `fireWorktreeHook` into rule (c) while omitting
-`fireModelCallHook` entirely — both dating from before the two model-call events existed. The scan
-has enumerated four rules and six variable-dispatched events throughout, so the document and the
-scan it describes disagreed on both counts.
+**Three** facts here were stale, all dating from before the two model-call events existed: this
+sentence said "the variable-dispatched four"; it folded `fireWorktreeHook` into rule (c) while
+omitting `fireModelCallHook` entirely; and the _heading above_ said "Four are dispatched through a
+variable" over a four-item list. The scan has enumerated four rules and six variable-dispatched
+events throughout, so the document and the scan it describes disagreed on every count.
+
+An earlier revision of this paragraph said "two facts … corrected together, because they are one
+drift" — and it was written in a change whose commit message claimed to have run that finding's axis
+over the rest of the file. It had not: the heading seventeen lines above was the third instance, and
+it survived a sweep declared clean. **Running an axis means enumerating its instances, not fixing the
+one that was reported and asserting the rest.**
 
 ## Naming note
 

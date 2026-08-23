@@ -644,31 +644,73 @@ describe('scan-hook-enforcement-reachable', () => {
     );
 
     it('every finding code the scan can emit is asserted by a test', () => {
-      // Both halves of this were wrong when first written, and review demonstrated each by running
-      // it. The derivation anchored the code to a leading backtick, so a tenth arm emitting
-      // `${event}: [brand-new-arm] …` was invisible — 39 green with an unfixtured arm. And the
-      // predicate was `TEST_SOURCE.includes('[code]')`, which a COMMENT satisfies: an entire
-      // security arm was deleted along with its assertions, leaving two comment mentions, and this
-      // still passed. "A guard that counts prose is a guard that will one day be satisfied by
-      // prose" — the file said that about the scan and then did it here.
+      // Third revision. Each earlier one could not fail in a way review demonstrated by running it.
       //
-      // Now: emission sites found structurally, and the code must sit inside a POSITIVE assertion
-      // in comment-blanked test source.
-      const emitted = new Set();
-      for (const m of SCAN_SOURCE.matchAll(/findings\.push\(/g)) {
-        const window = SCAN_SOURCE.slice(m.index, SCAN_SOURCE.indexOf(');', m.index) + 2);
-        for (const code of window.matchAll(/\[([a-z][a-z-]+)\]/g)) emitted.add(code[1]);
-      }
-      expect(emitted.size, 'no finding codes derived — the derivation broke').toBeGreaterThan(5);
+      // v1 anchored the code to a leading backtick, so `${event}: [code] …` was invisible.
+      // v2 accepted a COMMENT as a fixture, so an arm could be deleted with its assertions and the
+      //    two prose mentions left behind still vouched for it.
+      // v3 (this) closes three more escapes review found: a code built into a local `const` and
+      //    pushed by name, a code containing a digit, and — worst — `toBeGreaterThan(5)`, a FLOOR,
+      //    which passed while the derivation silently lost three of the nine codes. This file argues
+      //    against floor assertions a few hundred lines above and then used one.
+      //
+      // The shape that closes the shrink direction is a THREE-WAY equality: the docblock's
+      // enumeration, the codes derived from `evaluate`'s body, and the codes positively asserted by
+      // tests must all be the same set. Any one of them drifting — a new arm, a lost derivation, a
+      // deleted assertion — breaks the equality from a different side.
+      const codeToken = /\[([a-z][a-z0-9]*(?:-[a-z0-9]+)+)\]/g;
 
-      // Comments cannot vouch, and neither can an `it()` title or a `not.toContain`.
-      const assertedLines = blankComments(TEST_SOURCE)
-        .split('\n')
-        .filter((line) => /\.toContain\(|\.toMatch\(/.test(line) && !/not\s*\.\s*to/.test(line));
-      const asserted = assertedLines.join('\n');
+      // (1) the docblock's enumerated list — the human-facing promise
+      const docblock = SCAN_SOURCE.slice(0, SCAN_SOURCE.indexOf('*/'));
+      const documented = new Set([...docblock.matchAll(codeToken)].map((m) => m[1]));
 
-      const unfixtured = [...emitted].filter((code) => !asserted.includes(`[${code}]`));
-      expect(unfixtured, 'finding codes with no POSITIVE assertion naming them').toEqual([]);
+      // (2) every code appearing anywhere in `evaluate`'s body, not only in a push argument, so a
+      //     message built into a local const is still seen
+      const evalStart = SCAN_SOURCE.indexOf('export function evaluate(');
+      expect(evalStart, 'evaluate() not found — the derivation broke').toBeGreaterThan(-1);
+      const evalBody = SCAN_SOURCE.slice(
+        evalStart,
+        SCAN_SOURCE.indexOf('\nexport ', evalStart + 10),
+      );
+      const emitted = new Set([...evalBody.matchAll(codeToken)].map((m) => m[1]));
+
+      // (3) codes named by a POSITIVE assertion in comment-blanked test source
+      const asserted = new Set(
+        blankComments(TEST_SOURCE)
+          .split('\n')
+          .filter((line) => /\.toContain\(|\.toMatch\(/.test(line) && !/not\s*\.\s*to/.test(line))
+          .flatMap((line) => [...line.matchAll(codeToken)].map((m) => m[1])),
+      );
+
+      // (0) The anchor. Three sets derived with the SAME regex cannot disagree about what a code
+      // IS — narrowing the token made all three shrink together and stay equal, which review
+      // demonstrated by running it. A derivation compared only against other derivations can shrink
+      // silently; compared against a literal it cannot. This list is data, so losing an entry is a
+      // visible edit rather than a quiet regex change.
+      const EXPECTED_CODES = [
+        'inert-enforcing-row',
+        'no-enforcing-rows',
+        'policy-row-not-parsed',
+        'policy-row-unknown-event',
+        'reachability-contradiction',
+        'stale-reachability',
+        'unreadable-event-union',
+        'unresolvable-fire-site',
+        'unresolved-policy-row',
+      ];
+
+      const sorted = (set) => [...set].sort();
+      expect(sorted(emitted), 'codes in evaluate() vs the expected set').toEqual(
+        [...EXPECTED_CODES].sort(),
+      );
+      // Exact equality in both directions, never a floor: a derivation that shrinks fails against
+      // the docblock, and an arm added to either without the other fails too.
+      expect(sorted(emitted), 'codes in evaluate() vs the docblock enumeration').toEqual(
+        sorted(documented),
+      );
+      expect(sorted(asserted), 'codes positively asserted vs codes emitted').toEqual(
+        sorted(emitted),
+      );
     });
 
     it('every NON_PRODUCTION clause is pinned by a path only that clause excludes', () => {
