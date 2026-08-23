@@ -38,23 +38,44 @@ const KEPT_C0 = new Set(['\t', '\n', '\r']);
  * One escape sequence, or a lone control character.
  *
  * The alternation is ordered longest-context-first so a two-character C1 introducer (`ESC ]`) is
- * consumed as the start of its sequence rather than as a bare `ESC`.
+ * consumed as the start of its sequence rather than as a bare `ESC`, and every 8-bit C1 form is
+ * matched with its BODY before the lone-C1 alternative can take the introducer on its own.
+ *
+ * Each introducer appears in both spellings, because a terminal accepts both: `ESC ]` and the single
+ * byte `\x9d` are the same OSC. An alternation that removed only the 7-bit spelling would leave the
+ * 8-bit one's parameters standing as visible text.
  *
  *  - `\x1b][^\x07\x1b]*(?:\x07|\x1b\\)?`  OSC, terminated by BEL or ST - or unterminated at the end
  *    of the input, which is the streaming case and must still be removed rather than left visible.
- *  - `\x1b[P^_X][\s\S]*?(?:\x1b\\|\x07)?` DCS, PM, APC, SOS - same shape, different introducer.
- *  - `\x1b\[[0-9;?]*[ -/]*[@-~]`          CSI, including private-mode `?` parameters.
- *  - `\x1b[@-Z\\-_]`                      any other two-character escape.
- *  - `[\x00-\x1f\x7f]`                    a lone control character, including a bare ESC or BEL.
- *  - `[\x80-\x9f]`                        the 8-bit C1 controls, which are OSC/CSI without the ESC.
+ *  - `\x9d[^\x07\x1b\x9c]*(?:\x07|\x9c|\x1b\\)?`  the same, 8-bit introducer, with `\x9c` as a
+ *    third accepted terminator because 8-bit ST is one byte.
+ *  - `\x1b[P^_X][\s\S]*?(?:\x1b\\|\x07)`  DCS, PM, APC, SOS, terminated by ST or BEL. The
+ *    terminator is MANDATORY here, and that is the difference from the OSC alternative above. OSC's
+ *    body is `[^\x07\x1b]*`, which is greedy and cannot cross its own terminator, so an optional
+ *    terminator costs nothing. A DCS body is `[\s\S]*?`, which is lazy - and a lazy quantifier
+ *    followed by an OPTIONAL group prefers the empty match at every position, so the alternative
+ *    would consume the two-character introducer and nothing else, leaving `q#0;2;0;0;0` from a Sixel
+ *    sequence standing as visible text. Found in review of PR #2212, and the reason every case in
+ *    the test table now asserts the exact output rather than "no control byte survives" - the weaker
+ *    assertion holds for a sanitizer that strips only introducers.
+ *  - `\x1b[P^_X][\s\S]*$`  the same, unterminated at the end of the input. Written as its own
+ *    alternative rather than an optional terminator, for the reason directly above.
+ *  - `[\x90\x98\x9e\x9f][\s\S]*?(?:\x9c|\x1b\\|\x07)` and `[\x90\x98\x9e\x9f][\s\S]*$`
+ *    DCS/SOS/PM/APC again, 8-bit introducers, terminated and unterminated.
+ *  - `\x1b\[[0-9;?]*[ -/]*[@-~]`  CSI, including private-mode `?` parameters.
+ *  - `\x9b[0-9;?]*[ -/]*[@-~]`  the same, 8-bit introducer.
+ *  - `\x1b[@-Z\\-_]`  any other two-character escape.
+ *  - `[\x00-\x1f\x7f]`  a lone control character, including a bare ESC or BEL.
+ *  - `[\x80-\x9f]`  a lone C1 control that started no sequence any alternative above matched.
  */
 const CONTROL_SEQUENCE =
   // eslint-disable-next-line no-control-regex
-  /\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x1b[P^_X][\s\S]*?(?:\x1b\\|\x07)?|\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b[@-Z\\-_]|[\x00-\x1f\x7f]|[\x80-\x9f]/g;
+  /\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x9d[^\x07\x1b\x9c]*(?:\x07|\x9c|\x1b\\)?|\x1b[P^_X][\s\S]*?(?:\x1b\\|\x07)|\x1b[P^_X][\s\S]*$|[\x90\x98\x9e\x9f][\s\S]*?(?:\x9c|\x1b\\|\x07)|[\x90\x98\x9e\x9f][\s\S]*$|\x1b\[[0-9;?]*[ -/]*[@-~]|\x9b[0-9;?]*[ -/]*[@-~]|\x1b[@-Z\\-_]|[\x00-\x1f\x7f]|[\x80-\x9f]/g;
 
 /** The longest prefix of `text` that could still become a control sequence if more text arrived. */
-// eslint-disable-next-line no-control-regex
-const INCOMPLETE_TAIL = /(?:\x1b(?:\][^\x07\x1b]*|[P^_X][\s\S]*|\[[0-9;?]*[ -/]*|)?)$/;
+const INCOMPLETE_TAIL =
+  // eslint-disable-next-line no-control-regex
+  /(?:\x1b(?:\][^\x07\x1b]*|[P^_X][\s\S]*|\[[0-9;?]*[ -/]*|)?|\x9d[^\x07\x1b\x9c]*|[\x90\x98\x9e\x9f][\s\S]*|\x9b[0-9;?]*[ -/]*)$/;
 
 /**
  * `text` with every terminal control sequence removed, and tab/newline/carriage return preserved.

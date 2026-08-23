@@ -16,26 +16,48 @@ import {
 const ESC = String.fromCharCode(27);
 const BEL = String.fromCharCode(7);
 
-// Each entry is a real attack from the issue's impact list, not a synthetic control character.
-const ATTACKS: Array<[string, string]> = [
-  ['OSC 52 clipboard write', ESC + ']52;c;aGVsbG8=' + BEL],
-  ['OSC 52 with ST terminator', ESC + ']52;c;aGVsbG8=' + ESC + '\\'],
+// Each entry is a real attack from the issue's impact list, not a synthetic control character, and
+// each carries the EXACT output expected from `'before' + payload + 'after'`.
+//
+// The exact string is the point. The first version of this table asserted only that no control byte
+// survived and that `before` was still there, and both held for a sanitizer that stripped a DCS
+// introducer and left `q#0;2;0;0;0` standing as visible text — the defect review found on PR #2212.
+// An assertion that a buggy implementation also satisfies is not a regression test.
+const C1 = (code: number): string => String.fromCharCode(code);
+const ATTACKS: Array<[string, string, string]> = [
+  ['OSC 52 clipboard write', ESC + ']52;c;aGVsbG8=' + BEL, 'beforeafter'],
+  ['OSC 52 with ST terminator', ESC + ']52;c;aGVsbG8=' + ESC + '\\', 'beforeafter'],
   [
     'OSC 8 deceptive hyperlink',
     ESC + ']8;;https://evil.example' + BEL + 'click me' + ESC + ']8;;' + BEL,
+    // The visible half survives as ordinary text; only the target and its framing are gone, which is
+    // exactly the deception being removed — the link text was never the dangerous part.
+    'beforeclick meafter',
   ],
-  ['OSC 0 window title', ESC + ']0;pwned' + BEL],
-  ['CSI cursor move', ESC + '[10;10H'],
-  ['CSI erase display', ESC + '[2J'],
-  ['CSI private mode', ESC + '[?1049h'],
-  ['DCS', ESC + 'Pq#0;2;0;0;0' + ESC + '\\'],
-  ['APC', ESC + '_Ginline=1' + ESC + '\\'],
-  ['PM', ESC + '^payload' + ESC + '\\'],
-  ['bare ESC', ESC],
-  ['bare BEL', BEL],
-  ['8-bit CSI (C1)', String.fromCharCode(0x9b) + '2J'],
-  ['8-bit OSC (C1)', String.fromCharCode(0x9d) + '52;c;x' + BEL],
-  ['unterminated OSC', ESC + ']52;c;dangling'],
+  ['OSC 0 window title', ESC + ']0;pwned' + BEL, 'beforeafter'],
+  ['CSI cursor move', ESC + '[10;10H', 'beforeafter'],
+  ['CSI erase display', ESC + '[2J', 'beforeafter'],
+  ['CSI private mode', ESC + '[?1049h', 'beforeafter'],
+  ['DCS', ESC + 'Pq#0;2;0;0;0' + ESC + '\\', 'beforeafter'],
+  ['APC', ESC + '_Ginline=1' + ESC + '\\', 'beforeafter'],
+  ['PM', ESC + '^payload' + ESC + '\\', 'beforeafter'],
+  ['SOS with BEL terminator', ESC + 'Xdata' + BEL, 'beforeafter'],
+  ['bare ESC', ESC, 'beforeafter'],
+  ['bare BEL', BEL, 'beforeafter'],
+  // The 8-bit spellings are the same sequences with a one-byte introducer. They are listed
+  // separately because an alternation that names only `ESC [` removes the introducer and leaves the
+  // parameters — the identical defect, reached by a different route.
+  ['8-bit CSI (C1)', C1(0x9b) + '2J', 'beforeafter'],
+  ['8-bit OSC with BEL', C1(0x9d) + '52;c;x' + BEL, 'beforeafter'],
+  ['8-bit OSC with 8-bit ST', C1(0x9d) + '52;c;x' + C1(0x9c), 'beforeafter'],
+  ['8-bit DCS', C1(0x90) + 'q#0;2;0;0;0' + C1(0x9c), 'beforeafter'],
+  ['8-bit APC', C1(0x9f) + 'Ginline=1' + C1(0x9c), 'beforeafter'],
+  ['8-bit PM', C1(0x9e) + 'payload' + C1(0x9c), 'beforeafter'],
+  ['lone 8-bit ST', C1(0x9c), 'beforeafter'],
+  // An unterminated sequence swallows what follows, which is what the terminal itself does.
+  ['unterminated OSC', ESC + ']52;c;dangling', 'before'],
+  ['unterminated 8-bit APC', C1(0x9f) + 'dangling', 'before'],
+  ['unterminated DCS', ESC + 'Pq#0;2;0;0;0', 'before'],
 ];
 
 /** No byte a terminal reads as a command survives. */
@@ -50,11 +72,12 @@ function hasTerminalControl(text: string): boolean {
 }
 
 describe('SEC-019 - a control sequence in untrusted text is neutralized', () => {
-  it.each(ATTACKS)('removes %s', (_label, payload) => {
+  it.each(ATTACKS)('removes %s', (_label, payload, expected) => {
     const out = sanitizeTerminalText('before' + payload + 'after');
+    // The exact output, not a property. `hasTerminalControl` is asserted as well because the two
+    // claims are different: one says the string is safe, the other says the whole sequence is gone.
+    expect(out).toBe(expected);
     expect(hasTerminalControl(out), JSON.stringify(out)).toBe(false);
-    // Text before the sequence always survives; only the machinery is gone.
-    expect(out.startsWith('before')).toBe(true);
   });
 
   it('keeps the text after a TERMINATED sequence', () => {
@@ -121,6 +144,18 @@ describe('SEC-019 - a sequence split across streaming chunks is still removed', 
     const out = s.push(PAYLOAD.slice(0, at)) + s.push(PAYLOAD.slice(at)) + s.flush();
     expect(hasTerminalControl(out), JSON.stringify(out)).toBe(false);
     expect(out).toBe('AB');
+  });
+
+  // The 8-bit spelling has its own held-back tail in `INCOMPLETE_TAIL`, and a claim with no test is
+  // the thing this file exists to refuse. Same exhaustive split, different introducer.
+  const C1_PAYLOAD = 'A' + C1(0x9d) + '52;c;aGVsbG8=' + C1(0x9c) + 'B';
+  const C1_SPLITS = Array.from({ length: C1_PAYLOAD.length - 1 }, (_, i) => i + 1);
+
+  it.each(C1_SPLITS)('8-bit OSC split at %i', (at) => {
+    const s = createStreamingTerminalSanitizer();
+    const out = s.push(C1_PAYLOAD.slice(0, at)) + s.push(C1_PAYLOAD.slice(at)) + s.flush();
+    expect(out).toBe('AB');
+    expect(hasTerminalControl(out), JSON.stringify(out)).toBe(false);
   });
 
   it('holds back an incomplete tail rather than emitting its visible half', () => {
