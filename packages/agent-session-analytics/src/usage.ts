@@ -17,7 +17,7 @@ import type {
   IRunTraceTurn,
   IUsageBySourceReport,
 } from '@robota-sdk/agent-interface-analytics';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 // SELFHOST-004: the trace/cost read-model is a boundary contract owned by `agent-interface-transport`
 // (it crosses the sidecar boundary via a TServerMessage carrier). Re-exported here for consumers that

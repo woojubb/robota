@@ -4,7 +4,7 @@ import type {
   ISessionGoal,
   ISessionIdentity,
   ISessionTurnSubmission,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 /** Session roles required by the headless runner and transport. */
 export interface IHeadlessSession

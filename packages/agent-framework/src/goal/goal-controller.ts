@@ -17,7 +17,7 @@ import type {
   IGoalState,
   IToolSummary,
   TGoalStopReason,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 export const DEFAULT_GOAL_MAX_ITERATIONS = 25;
 export const DEFAULT_GOAL_NO_PROGRESS_LIMIT = 2;

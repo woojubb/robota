@@ -37,8 +37,8 @@ import type {
 import type {
   IInteractiveSession,
   IInteractiveSessionStore,
-  ITransportRegistryView,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 export interface IRenderOptions {
   cwd: string;

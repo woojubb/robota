@@ -14,7 +14,7 @@ import type { IExecutionControllerCallbacks } from './interactive-session-execut
 import type { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import type { IToolState } from './types.js';
 import type { TToolArgs } from '@robota-sdk/agent-core';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
+import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 
 export function projectCompactEvent(
   histTracker: SessionHistoryTracker,

@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runEvalCommand } from '../eval-command.js';
 
 import type { IEvalDefinition, IMetric } from '@robota-sdk/agent-framework';
-import type { IExecutionResult } from '@robota-sdk/agent-interface-transport';
+import type { IExecutionResult } from '@robota-sdk/agent-interface-session';
 
 function makeResult(response: string): IExecutionResult {
   return {

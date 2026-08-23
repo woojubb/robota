@@ -21,7 +21,7 @@ import { InteractiveSession } from '../interactive-session.js';
 
 import type { ICommandHostAdapters } from '../../command-api/host-adapters.js';
 import type { ICommandModule, ICommandResult } from '../../commands/index.js';
-import type { IUiIntentEvent } from '@robota-sdk/agent-interface-transport';
+import type { IUiIntentEvent } from '@robota-sdk/agent-interface-session';
 
 function createRuntimeSession(): Record<string, unknown> {
   return {

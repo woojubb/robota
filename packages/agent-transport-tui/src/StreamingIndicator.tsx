@@ -12,7 +12,7 @@ import { STATUS_GLYPH, toolStateStatusKind } from './status-glyph.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
 import { PALETTE } from './tui-palette.js';
 
-import type { IToolState } from '@robota-sdk/agent-interface-transport';
+import type { IToolState } from '@robota-sdk/agent-interface-session';
 
 function getToolStyle(t: IToolState): {
   color: string;

@@ -12,7 +12,7 @@ import { STATUS_GLYPH, toolStateStatusKind } from './status-glyph.js';
 
 import type { TUiStatusKind } from './status-glyph.js';
 import type { IToolCallSummary } from './utils/tool-call-extractor.js';
-import type { IToolState } from '@robota-sdk/agent-interface-transport';
+import type { IToolState } from '@robota-sdk/agent-interface-session';
 
 /** A tool item as persisted in a `tool-summary` history entry (loosely-typed session data). */
 export type TToolSummaryItem = {

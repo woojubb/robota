@@ -39,9 +39,9 @@ import type {
   IHandoffIntegrity,
   IHandoffManifest,
   IHandoffStateItem,
-  IInteractiveSessionRecord,
   THandoffRefusal,
 } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 /** What the source knows about work that has not settled, and about state the record cannot see. */
 export interface ISourceRuntimeState {

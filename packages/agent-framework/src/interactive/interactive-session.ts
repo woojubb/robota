@@ -1,5 +1,5 @@
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 
 import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import { InteractiveSessionBase } from './interactive-session-base.js';
@@ -72,7 +72,6 @@ import type {
 import type { ISession } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type {
-  ITransportAdapter,
   IGoalState,
   ITurnHandle,
   IPlanArtifact,
@@ -81,7 +80,8 @@ import type {
   TTurnSource,
   TDriverId,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
+import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 export type { TInteractiveSessionOptions } from './interactive-session-options.js';

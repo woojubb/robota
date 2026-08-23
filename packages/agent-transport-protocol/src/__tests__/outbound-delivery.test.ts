@@ -15,7 +15,7 @@ import { createWsHandler } from '../ws-handler.js';
 
 import type { TOutboundDeliver } from '../outbound-delivery.js';
 import type { TServerMessage } from '../ws-protocol.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 interface ICarrierProbe {
   readonly deliver: TOutboundDeliver;

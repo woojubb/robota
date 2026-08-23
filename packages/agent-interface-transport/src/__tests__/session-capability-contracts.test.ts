@@ -8,14 +8,15 @@ import {
   type ISessionEvents,
   type ISessionTurnSubmission,
   type TSessionCapabilityHost,
-} from '../index.js';
-import { createTestInteractiveSession, createTestSessionCapabilityHost } from '../testing/index.js';
+} from '@robota-sdk/agent-interface-session';
+import { createTestInteractiveSession } from '../testing/index.js';
+import { createTestSessionCapabilityHost } from '@robota-sdk/agent-interface-session/testing';
 // HARNESS-103: the host mechanism moved out of the contract surface. The contracts still come from
 // the package entry above; the factory now comes from where doubles live.
 import {
   createSessionCapabilityHost,
   readSessionCapability,
-} from '../testing/session-capability-host.js';
+} from '@robota-sdk/agent-interface-session/testing';
 
 describe('session capability contracts (ARCH-012)', () => {
   it('keeps the runtime role registry in exact 16-role and 39-member parity', () => {

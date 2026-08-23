@@ -23,7 +23,7 @@ import { FileSessionLogger } from '../session-logger.js';
 import { NodeSessionLogSink } from '../session-log-sinks.js';
 import { NodeSessionStore } from '../session-store.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 const TRAVERSAL_IDS = [
   '../escaped',

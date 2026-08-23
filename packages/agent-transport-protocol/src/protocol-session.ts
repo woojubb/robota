@@ -10,7 +10,7 @@ import type {
   ISessionPromptResolution,
   ISessionTurnControl,
   ISessionTurnSubmission,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 /** Session roles required by the shared WebSocket/WebRTC protocol. */
 export interface IProtocolSession

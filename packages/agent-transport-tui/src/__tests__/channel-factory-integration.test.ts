@@ -20,7 +20,7 @@ import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 const RESTORE_DEADLINE_MS = 10_000;
 const POLL_MS = 50;

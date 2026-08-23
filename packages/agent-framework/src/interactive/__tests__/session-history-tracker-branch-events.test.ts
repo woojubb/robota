@@ -12,7 +12,7 @@ import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js'
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createWorkspaceProjectMutation } from '../../workspace-trust/index.js';
 
-import type { IBranchEvent } from '@robota-sdk/agent-interface-transport';
+import type { IBranchEvent } from '@robota-sdk/agent-interface-session';
 
 const roots: string[] = [];
 

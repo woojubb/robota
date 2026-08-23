@@ -8,7 +8,7 @@
 
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
-import type { TDriverId, TInteractiveEventName } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId, TInteractiveEventName } from '@robota-sdk/agent-interface-session';
 import type {
   IAskRequestEvent,
   IBranchEvent,
@@ -20,7 +20,7 @@ import type {
   ISessionRenamedEvent,
   IToolState,
   IUiIntentEvent,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 import type {
   IExecutionWorkspaceEvent,
   TBackgroundJobGroupEvent,

@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 
 import type { IActionRequest } from '@robota-sdk/agent-core';
-import type { IPromptResolvedEvent } from '@robota-sdk/agent-interface-transport';
+import type { IPromptResolvedEvent } from '@robota-sdk/agent-interface-session';
 
 const TEST_TIMEOUT = 20_000;
 

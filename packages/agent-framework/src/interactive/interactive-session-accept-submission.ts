@@ -15,7 +15,7 @@
  * Split out of `interactive-session.ts`, which had grown past its size ratchet.
  */
 
-import { AGENT_DRIVER_ID, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
+import { AGENT_DRIVER_ID, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 
 import type {
   IQueuedInput,
@@ -23,7 +23,7 @@ import type {
   SessionExecutionController,
 } from './interactive-session-execution-controller.js';
 import type { IExecutionResult } from './types.js';
-import type { TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId } from '@robota-sdk/agent-interface-session';
 
 export interface IAcceptedSubmission {
   readonly driverId: TDriverId;

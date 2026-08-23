@@ -1,7 +1,7 @@
 import { isTransportRunOutcome } from '@robota-sdk/agent-interface-transport';
 
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
-  IInteractiveSession,
   ITransportCompletionRecord,
   ITransportFailureRecord,
   ITransportLifecycleError,

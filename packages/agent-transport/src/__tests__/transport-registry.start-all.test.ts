@@ -9,10 +9,10 @@ import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transp
 import { TransportRegistry } from '../transport-registry.js';
 
 import type {
-  IInteractiveSession,
   ITransportRunnerAdapter,
   TTransportRunOutcome,
 } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 const tempDirs: string[] = [];
 

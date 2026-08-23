@@ -8,7 +8,7 @@ import {
   type ISourceRuntimeState,
 } from '../handoff-manifest.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 const NOW = 1_700_000_000_000;
 

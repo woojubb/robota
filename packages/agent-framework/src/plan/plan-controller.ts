@@ -18,7 +18,7 @@ import type {
   IPlanArtifact,
   IPlanStep,
   TPlanStepStatus,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 /** An approval decision: flip to `acceptEdits`. */
 export type TPlanApproveDecision = {

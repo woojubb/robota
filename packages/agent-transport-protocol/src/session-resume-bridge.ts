@@ -27,7 +27,7 @@ import { subscribeSessionEvents } from './ws-session-events.js';
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
 import type { TSeqServerMessage, TServerMessage } from './ws-protocol.js';
-import type { TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId } from '@robota-sdk/agent-interface-session';
 
 /** The current channel sink — receives a serialized JSON frame to put on the wire. */
 export type TResumeSink = (data: string) => void;

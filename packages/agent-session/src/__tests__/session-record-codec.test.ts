@@ -18,7 +18,7 @@ import {
   decodeVersionedInteractiveSessionRecord,
 } from '../session-record-codec/index.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 import type { TSessionRecordDecodeOutcome } from '../session-record-codec/index.js';
 
 /** A record with every optional field populated and every nested contract family present. */

@@ -1,4 +1,4 @@
-import type { InteractionEvent } from '../interaction-contracts.js';
+import type { InteractionEvent } from '../index.js';
 import { expect, it } from 'vitest';
 
 const legacySettlement: InteractionEvent = {

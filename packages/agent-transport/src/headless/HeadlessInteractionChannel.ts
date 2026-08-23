@@ -26,7 +26,7 @@ import type {
   IPerTurnRecallConfig,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export interface IHeadlessInteractionChannelOptions {
   cwd: string;

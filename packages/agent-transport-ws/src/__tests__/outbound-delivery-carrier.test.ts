@@ -13,7 +13,7 @@ import { WebSocket } from 'ws';
 
 import { WsSessionDelivery } from '../ws-session-delivery.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /** Collect unhandled rejections while `run` executes, then drain the queue Node reports them on. */
 async function withUnhandledRejectionCapture(run: () => void | Promise<void>): Promise<unknown[]> {

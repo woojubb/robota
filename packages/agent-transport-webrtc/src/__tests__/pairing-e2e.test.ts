@@ -8,7 +8,7 @@ import { WebRtcTransport } from '../webrtc-transport.js';
 import { createInMemorySignalingPair, type ISignalingClient } from '../signaling.js';
 
 import type { TPairingFrame } from '@robota-sdk/agent-remote-pairing';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /**
  * REMOTE-008 Step 1/5 — end-to-end PAIRED handshake over a REAL werift data channel. The host is a

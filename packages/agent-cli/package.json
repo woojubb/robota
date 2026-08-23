@@ -60,7 +60,7 @@
     "build:bun:windows-x64": "bun scripts/build-bun.mjs windows-x64",
     "test:bun": "node scripts/e2e-bun-binary.mjs"
   },
-  "comment:dependencies": "INFRA-028: agent-cli publishes as a SELF-CONTAINED bundle. ALL @robota-sdk workspace code (incl. the /workflows + dag-* chain) is bundled into dist (see devDependencies + tsdown.config.ts). Runtime `dependencies` therefore contain ONLY the third-party npm packages that the bundled closure imports \u2014 kept external so npm installs them from the public registry. Do NOT add any @robota-sdk edge here.",
+  "comment:dependencies": "INFRA-028: agent-cli publishes as a SELF-CONTAINED bundle. ALL @robota-sdk workspace code (incl. the /workflows + dag-* chain) is bundled into dist (see devDependencies + tsdown.config.ts). Runtime `dependencies` therefore contain ONLY the third-party npm packages that the bundled closure imports — kept external so npm installs them from the public registry. Do NOT add any @robota-sdk edge here.",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.114.0",
     "@google/genai": "^1.52.0",
@@ -89,16 +89,17 @@
   },
   "devDependencies": {
     "@homebridge/node-pty-prebuilt-multiarch": "^0.14.1",
+    "@robota-sdk/agent-builtin-providers": "workspace:*",
     "@robota-sdk/agent-command": "workspace:*",
     "@robota-sdk/agent-command-workflows": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-executor": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
+    "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-preset": "workspace:*",
     "@robota-sdk/agent-product": "workspace:*",
     "@robota-sdk/agent-provider-anthropic": "workspace:*",
-    "@robota-sdk/agent-builtin-providers": "workspace:*",
     "@robota-sdk/agent-provider-gemini": "workspace:*",
     "@robota-sdk/agent-provider-openai": "workspace:*",
     "@robota-sdk/agent-provider-openai-compatible": "workspace:*",

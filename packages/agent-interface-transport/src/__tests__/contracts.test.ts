@@ -4,6 +4,13 @@ import { createTransportFailedOutcome, isTransportRunOutcome } from '../index.js
 
 import type {
   IConfigurableTransport,
+  ITransportAdapter,
+  ITransportCompletionRecord,
+  ITransportConfig,
+  ITransportRunnerAdapter,
+  TTransportRunOutcome,
+} from '../index.js';
+import type {
   IExecutionResult,
   IAgentDriver,
   IInteractionChannel,
@@ -11,13 +18,8 @@ import type {
   IInteractiveSessionStore,
   IResumableSessionSummary,
   IToolState,
-  ITransportAdapter,
-  ITransportCompletionRecord,
-  ITransportConfig,
-  ITransportRunnerAdapter,
-  TTransportRunOutcome,
   TPermissionResultValue,
-} from '../index.js';
+} from '@robota-sdk/agent-interface-session';
 
 /**
  * Type-import test (TC-01): asserts the transport-facing contract closure is exported

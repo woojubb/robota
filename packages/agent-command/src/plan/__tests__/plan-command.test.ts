@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { executePlanCommand } from '../plan-command.js';
 
-import type { IPlanArtifact } from '@robota-sdk/agent-interface-transport';
+import type { IPlanArtifact } from '@robota-sdk/agent-interface-session';
 import {
   createTestCommandHost,
   type ICreateTestCommandHostOptions,

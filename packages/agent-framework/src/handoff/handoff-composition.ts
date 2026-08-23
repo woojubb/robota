@@ -19,10 +19,10 @@
  * be read without reading the wire package at all.
  */
 
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 import type {
   IHandoffIntegrity,
   IHandoffManifest,
-  IInteractiveSessionRecord,
   THandoffPhase,
   THandoffRefusal,
 } from '@robota-sdk/agent-interface-transport';

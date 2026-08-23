@@ -16,10 +16,8 @@ import type {
   ISignalingClient,
 } from '@robota-sdk/agent-transport-webrtc';
 import type { IPairingResult } from '@robota-sdk/agent-remote-pairing';
-import type {
-  IConfigurableTransport,
-  IInteractiveSession,
-} from '@robota-sdk/agent-interface-transport';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
 
 export interface ITransportHooks {

@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
 
-import type { IGoalEvent } from '@robota-sdk/agent-interface-transport';
+import type { IGoalEvent } from '@robota-sdk/agent-interface-session';
 import type { ICommandResult } from '../../commands/index.js';
 import { createSessionStub as createSharedSessionStub } from './helpers/session-stub.js';
 

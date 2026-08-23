@@ -47,12 +47,11 @@
 
 import { isSameEnvironmentPeer } from '@robota-sdk/agent-interface-transport';
 
+import type { ITurnHandle, ITurnNotRunError } from '@robota-sdk/agent-interface-session';
 import type {
   IPeerMessageAck,
   IPeerMessageIngress,
   IPeerOrigin,
-  ITurnHandle,
-  ITurnNotRunError,
 } from '@robota-sdk/agent-interface-transport';
 
 /** What happened to an arriving peer message at the moment it was received. */

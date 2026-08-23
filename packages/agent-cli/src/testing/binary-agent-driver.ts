@@ -20,9 +20,9 @@ import {
   readErrors,
   readLastAssistantText,
   readToolCalls,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
-import type { IAgentDriver, InteractionEvent } from '@robota-sdk/agent-interface-transport';
+import type { IAgentDriver, InteractionEvent } from '@robota-sdk/agent-interface-session';
 
 const DEFAULT_BIN = fileURLToPath(new URL('../../bin/robota.cjs', import.meta.url));
 

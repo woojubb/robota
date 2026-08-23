@@ -6,7 +6,7 @@ import type {
   TSkillActivationSource,
   TSkillActivationMode,
   TSkillActivationStatus,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 export type {
   TSkillActivationSource,

@@ -15,7 +15,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createAgentMcpServer } from '../mcp-server.js';

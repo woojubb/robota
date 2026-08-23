@@ -3,7 +3,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 import { describe, expect, it } from 'vitest';
 
 import { createTrustedProjectSessionStoreFixture } from '../../testing/trusted-project-state-fixture.js';

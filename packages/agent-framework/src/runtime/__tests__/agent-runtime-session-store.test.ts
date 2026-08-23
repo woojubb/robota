@@ -19,7 +19,7 @@ import type { InteractiveSession } from '../../index.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 function createMemoryStore(): IInteractiveSessionStore {
   const records = new Map<string, IInteractiveSessionRecord>();

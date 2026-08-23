@@ -22,12 +22,9 @@ import type {
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
-import type {
-  ICompactEvent,
-  IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-transport';
+import type { ICompactEvent, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
-export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface-transport';
+export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface-session';
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 
 /** Options for graceful session shutdown. */

@@ -78,11 +78,8 @@ tee "$scenario_root/tsconfig.json" >/dev/null <<'JSON'
 JSON
 
 tee "$scenario_root/custom-transport.ts" >/dev/null <<'TYPESCRIPT'
-import type {
-  IInteractiveSession,
-  TTransportRunOutcome,
-  ITransportRunnerAdapter,
-} from '@robota-sdk/agent-interface-transport';
+import type { TTransportRunOutcome, ITransportRunnerAdapter } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 export class Arch011Runner implements ITransportRunnerAdapter<IInteractiveSession> {
   readonly name = 'arch011-runner';

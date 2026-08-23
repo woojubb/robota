@@ -15,7 +15,7 @@ import type {
   IInteractionChannel,
   ICommandInfo,
   InteractionEvent,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 export class ProgrammaticInteractionChannel implements IInteractionChannel {
   /** Full structured event stream pushed by the framework, in order. */

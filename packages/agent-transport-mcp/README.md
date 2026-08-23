@@ -20,7 +20,7 @@ wraps it for the SDK's transport registry.
 
 ```typescript
 import { createAgentMcpServer } from '@robota-sdk/agent-transport-mcp';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 declare const session: IInteractiveSession;
 const server = createAgentMcpServer({

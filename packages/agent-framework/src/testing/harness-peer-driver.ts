@@ -5,7 +5,7 @@
  * size ratchet where the rule is to split rather than extend.
  */
 
-import type { ISubmitOptions } from '@robota-sdk/agent-interface-transport';
+import type { ISubmitOptions } from '@robota-sdk/agent-interface-session';
 
 /**
  * Submission options for a message that arrived from a peer session.

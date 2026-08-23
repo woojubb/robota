@@ -16,7 +16,7 @@ import type {
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 const SESSION_ID = 'arch-015-record-preservation';
 const CREATED_AT = '2026-08-01T00:00:00.000Z';

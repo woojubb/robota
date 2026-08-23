@@ -9,7 +9,7 @@ import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createWsHandler } from '../ws-handler.js';
 import { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from '../ws-session-events.js';
 import type { TServerMessage } from '../ws-protocol.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
   IBackgroundJobGroupState,
   IExecutionWorkspaceEvent,

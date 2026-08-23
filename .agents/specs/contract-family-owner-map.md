@@ -55,7 +55,7 @@ guards read this table through one parser (`scripts/harness/interface-layers.mjs
 
 | Layer | Package                            |
 | ----- | ---------------------------------- |
-| 1     | `agent-interface-transport`        |
+| 2     | `agent-interface-transport`        |
 | 0     | `agent-interface-command`          |
 | 0     | `agent-interface-execution`        |
 | 0     | `agent-interface-analytics`        |
@@ -79,10 +79,22 @@ is layer 0, and declaring it there early made the real `transport → execution`
 **same-layer** — so ARCH-101's rule refused a migration that was legal. Every remaining leaf meets
 this, because every leaf changes what some package holds.
 
-So: **`agent-interface-transport` is at layer 1 TODAY.** It still owns `session-contracts` and
-`session-capability-contracts`, which name execution and command types, so it composes downward
-exactly as the session owner will and layer 1 is what authorizes those edges. It drops to 0 in the
-same change that removes the last non-transport family (issue #2113).
+So: **`agent-interface-transport` is at layer 2 TODAY** — and ARCH-106 predicted layer 0, which was
+wrong in an instructive way.
+
+The prediction reasoned from what the package would STOP holding: session leaves, so transport keeps
+only `transport-adapter`, `transport-config`, `channel-contracts` and `admission`, which is layer-0
+content. What it missed is what the package still HOLDS: the three **mobility** modules
+(`peer-message-contracts`, `handoff-contracts`, `session-mobility-contracts`), which the map assigns
+to layer 2 and which name session types.
+
+While session and mobility shared this package that edge was a relative import and no layer question
+arose. The moment session left, `handoff-contracts → IInteractiveSessionRecord` became a package edge
+and the layer became checkable — at which point transport is layer 2, because a package's layer is
+the HIGHEST of what it holds, not the lowest.
+
+It drops to 0 when issue #2111 moves mobility out, which is also when its name finally describes its
+whole contents.
 
 The same applies in reverse to a package that has not been created yet: an owner's row is declared
 when its package exists, not when its leaf is planned.

@@ -27,7 +27,7 @@ import type {
   TSettingsSource,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export interface ICreateCliWorkspaceCompositionOptions {
   readonly cwd: string;

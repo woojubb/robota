@@ -30,7 +30,7 @@ import type {
   TGoalStopReason,
   TPlanPhase,
   TPlanStepStatus,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 const GOAL_STATUSES = ['active', 'satisfied', 'stopped'] as const satisfies readonly TGoalStatus[];
 

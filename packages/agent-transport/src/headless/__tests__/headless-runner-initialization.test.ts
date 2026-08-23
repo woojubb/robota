@@ -1,7 +1,7 @@
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
 
 import { describe, it, expect, vi } from 'vitest';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import { createHeadlessRunner } from '../headless-runner.js';
 
 describe('createHeadlessRunner initialization', () => {

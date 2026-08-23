@@ -33,10 +33,10 @@ import type {
   IHandoffChunkFrame,
   IHandoffComposition,
 } from './handoff-composition.js';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 import type {
   IHandoffCommitAck,
   IHandoffManifest,
-  IInteractiveSessionRecord,
   THandoffRefusal,
 } from '@robota-sdk/agent-interface-transport';
 

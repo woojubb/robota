@@ -5,9 +5,9 @@ import { readSettings, writeSettings, type TSettingsData } from '@robota-sdk/age
 import { TransportRunGeneration } from './transport-run-generation.js';
 
 import type { IDestroyResult, TUniversalValue } from '@robota-sdk/agent-core';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
   IConfigurableTransport,
-  IInteractiveSession,
   ITransportAdapter,
   ITransportCompletionRecord,
   ITransportConfig,

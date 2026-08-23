@@ -15,7 +15,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { PairingGate } from '../pairing-gate.js';
 
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { RTCDataChannel } from 'werift';
 
 /** Collect unhandled rejections while `run` executes, then drain the queue Node reports them on. */

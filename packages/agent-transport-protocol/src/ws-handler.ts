@@ -17,7 +17,7 @@ import { subscribeSessionEvents } from './ws-session-events.js';
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
 import type { TClientMessage } from './ws-protocol.js';
-import type { TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId } from '@robota-sdk/agent-interface-session';
 
 // Outbound session→TServerMessage fan-out (incl. CMD-004 requester-routed `ui_intent`) lives in
 // `ws-session-events.ts`; re-exported here for the bridge and existing importers.

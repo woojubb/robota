@@ -15,7 +15,7 @@ import type {
   IGoalState,
   IPlanArtifact,
   IActiveBranchPointer,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
 
 /**

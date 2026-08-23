@@ -12,7 +12,7 @@
  * state. Mirrors `prompt-state.ts` (pure list transition, shared by the WS and RTC clients).
  */
 
-import type { TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId } from '@robota-sdk/agent-interface-session';
 import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 

@@ -20,7 +20,7 @@ notifications fire and reach no surface — TUI, WS bridge, or headless.
 
 ## Evidence (round-2 cross-cluster critic, 2026-08-13)
 
-- `packages/agent-interface-transport/src/event-contracts.ts:4-8` — "SSOT for the event/record payload
+- `packages/agent-interface-session/src/event-contracts.ts:4-8` — "SSOT for the event/record payload
   shapes … consumed by transports through IInteractiveSessionEvents";
   `session-contracts.ts:316-317` — `plan_event` "Emitted on every plan-mode lifecycle transition …
   SELFHOST-002"; `:310-311` — `context_file_refreshed` "Emitted when a context file (AGENTS.md or

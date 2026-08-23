@@ -20,7 +20,7 @@ import type {
   TWorkspaceProjectStateNamespace,
   TWorkspaceProjectAccess,
 } from '../workspace-trust/index.js';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 class TrustedFixtureStore implements IWorkspaceTrustStore {
   inspect(): Promise<IWorkspaceTrustStoreSnapshot> {

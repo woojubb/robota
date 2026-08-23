@@ -9,7 +9,7 @@ import { deserializeSessionArtifact, serializeSessionArtifact } from '../session
 import { SESSION_ARTIFACT_SCHEMA_VERSION } from '../session-record-codec/index.js';
 import { NodeSessionStore } from '../session-store.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 /**
  * SELFHOST-014 — the export/import artifact envelope over the canonical interactive session record.

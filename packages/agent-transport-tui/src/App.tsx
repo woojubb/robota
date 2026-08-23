@@ -40,8 +40,8 @@ import type { IExecutionDetailPage } from '@robota-sdk/agent-interface-execution
 import type {
   IInteractiveSession,
   IInteractiveSessionStore,
-  ITransportRegistryView,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 /**
  * SCREEN-010: items committed to the terminal scrollback via a single Ink `<Static>` — the startup

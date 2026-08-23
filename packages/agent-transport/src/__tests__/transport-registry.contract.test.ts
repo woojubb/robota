@@ -10,7 +10,6 @@ import { TransportRegistry } from '../transport-registry.js';
 
 import type {
   IConfigurableTransport,
-  IInteractiveSession,
   ITransportAdapter,
   ITransportRunnerAdapter,
   ITransportServiceAdapter,
@@ -18,6 +17,7 @@ import type {
   TTransportAdapter,
   TTransportRunOutcome,
 } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 const tempDirs: string[] = [];
 

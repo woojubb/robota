@@ -16,7 +16,7 @@ import type {
   IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
-import type { IToolState } from '@robota-sdk/agent-interface-transport';
+import type { IToolState } from '@robota-sdk/agent-interface-session';
 
 export interface IInteractiveSessionState {
   interactiveSession: InteractiveSession;

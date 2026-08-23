@@ -22,7 +22,7 @@ import { assertSafeSessionId } from './session-id.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 
 /**
  * Persistent session store backed by individual JSON files.

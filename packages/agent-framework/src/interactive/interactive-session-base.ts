@@ -73,7 +73,7 @@ import type {
   IBackgroundTaskState,
   ISubagentJobState,
 } from '@robota-sdk/agent-interface-execution';
-import type { TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
 
 export abstract class InteractiveSessionBase {

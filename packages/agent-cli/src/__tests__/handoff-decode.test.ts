@@ -21,7 +21,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHandoffComposition } from '../handoff/handoff-composition-root.js';
 
 import type { IHandoffCarrier, IHandoffChunkFrame } from '@robota-sdk/agent-framework';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 const composition = createHandoffComposition();
 

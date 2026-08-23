@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
-import type { IInteractiveSession } from '../session-contracts.js';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import { createTestInteractiveSession } from '../testing/index.js';
 
 describe('createTestInteractiveSession turn identity (ARCH-019)', () => {

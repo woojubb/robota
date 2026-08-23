@@ -13,7 +13,7 @@
  * two halves fit.
  */
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 import { buildHandoffManifest } from '@robota-sdk/agent-transport-protocol';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 

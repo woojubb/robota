@@ -5,7 +5,7 @@ import { WebSocket } from 'ws';
 
 import { WsSessionDelivery } from '../ws-session-delivery.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 function createSessionHarness(): {
   session: IInteractiveSession;

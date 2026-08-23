@@ -8,10 +8,8 @@ import { describe, expect, it } from 'vitest';
 
 import { TransportRegistry } from '../transport-registry';
 
-import type {
-  IConfigurableTransport,
-  IInteractiveSession,
-} from '@robota-sdk/agent-interface-transport';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /**
  * SELFHOST-013 TC-01 — the load-bearing "one agent definition → many channels" DIP claim: the registry fans a

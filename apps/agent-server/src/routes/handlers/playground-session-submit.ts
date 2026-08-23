@@ -3,7 +3,7 @@ import { createLogger } from '@robota-sdk/agent-core';
 import { getSession } from '../../session/playground-session-store.js';
 
 import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
-import type { IToolState } from '@robota-sdk/agent-interface-transport';
+import type { IToolState } from '@robota-sdk/agent-interface-session';
 import type { Request, Response } from 'express';
 
 // CORE-029: these two sites used raw `console.log` with printf placeholders while every sibling

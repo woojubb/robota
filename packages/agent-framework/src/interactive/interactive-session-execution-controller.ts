@@ -43,8 +43,8 @@ import type { ICommand, ICommandResult, ISkillExecutionResult } from '../command
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { TToolArgs } from '@robota-sdk/agent-core';
-import type { TDriverId, TTurnSource } from '@robota-sdk/agent-interface-transport';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId, TTurnSource } from '@robota-sdk/agent-interface-session';
+import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 
 export type { TTurnSource };
 

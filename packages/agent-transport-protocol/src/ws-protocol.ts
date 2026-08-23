@@ -1,4 +1,5 @@
-import type { ISessionConversationRead, TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { ISessionConversationRead, TDriverId } from '@robota-sdk/agent-interface-session';
+import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
 import type {
   IAskRequestEvent,
   IBranchEvent,
@@ -10,9 +11,8 @@ import type {
   ISessionRenamedEvent,
   IToolState,
   IUiIntentEvent,
-  TActionResponse,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-session';
 import type { IUsageBySourceReport } from '@robota-sdk/agent-interface-analytics';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type {
