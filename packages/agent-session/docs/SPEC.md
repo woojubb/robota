@@ -34,10 +34,25 @@ package publishes contracts, vocabulary and discriminators rather than mechanism
   Two non-conflated operations: (1) `serializeSessionArtifact(record)` — full-fidelity round-trip
   (`deserialize(serialize(record))` deep-equals); (2) `serializeSessionArtifact(record, { redact })` — the
   share path, applying an **app-supplied, policy-free** `redact` transform before writing bytes. A
-  schema-version header lets `deserializeSessionArtifact` reject an incompatible artifact. The envelope carries
+  schema-version header lets `deserializeSessionArtifact` reject an incompatible artifact, and since
+  TRANS-006 the version check is followed by the **same total record decoder** the rest of the
+  persistence paths use — an artifact whose envelope is current and whose record is not a record is
+  refused with the field path that failed, rather than imported as a partial session.
+
+  **A `redact` must return a record.** "Policy-free" governs which FIELDS the app removes; it has
+  never governed whether the result is still an `IInteractiveSessionRecord`, and the seam's own type
+  (`(record: IInteractiveSessionRecord) => IInteractiveSessionRecord`) is a total function on
+  records. So a required member is BLANKED (`{ ...record, cwd: '' }`), not deleted; an optional one
+  may be removed entirely. The share workflow is unchanged — strip the host path, import on the other
+  surface, rebind there — and a redact that deletes a required member now fails at import with a
+  located reason instead of silently producing a partial session that reaches the store. This is not
+  a contract change: it is an input the type never permitted, which nothing used to check.
+
+  The envelope carries
   NO link/cloud/access/redaction-FIELD policy (a product concern owned by the app surfaces) — mechanically
   fenced by `scan-session-artifact-neutrality` and the `deps` scan (no edge to `agent-remote-pairing`/
   `agent-transport-webrtc`). Import = `deserialize → store.save → the existing `loadSessionRecord` resume path`.
+
 - **Owns the sensitive-key scrub SSOT.** `scrub-sensitive.ts` (`SENSITIVE_KEY_PATTERN`, `isSensitiveKey`,
   `scrubSensitiveKeys`) is the single definition of which keys are secrets, consumed by BOTH `FileSessionLogger`
   (persistence-time redaction) and, as an opt-in, the app's share-artifact `redact` transform. It is never
@@ -136,64 +151,63 @@ Types consumed from other packages (not owned here):
 
 ## Public API Surface
 
-| Export                                      | Kind                 | Description                                                                                                                               |
-| ------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `Session`                                   | Class                | Wraps Robota agent with permissions, hooks, streaming, and persistence                                                                    |
-| `serializeSessionArtifact`                  | Function             | SELFHOST-014: serialize an `IInteractiveSessionRecord` into a portable versioned artifact (round-trip; or share-path via an app `redact`) |
-| `deserializeSessionArtifact`                | Function             | SELFHOST-014: parse a session artifact back to `IInteractiveSessionRecord`, rejecting an incompatible schema version                      |
-| `SESSION_ARTIFACT_SCHEMA_VERSION`           | Constant             | SELFHOST-014: the artifact envelope schema version                                                                                        |
-| `scrubSensitiveKeys`                        | Function             | SELFHOST-014: pure recursive redaction of values under sensitive keys (opt-in for a share `redact`; SSOT, also used by the logger)        |
-| `isSensitiveKey`                            | Function             | SELFHOST-014: the single predicate for a secret-bearing key                                                                               |
-| `SENSITIVE_KEY_PATTERN`                     | Constant             | SELFHOST-014: the sensitive-key regex SSOT                                                                                                |
-| `TurnClaim`                                 | Class                | RUNTIME-003: owns the identity of the turn a session is running — claim/release/abort/isRunning (see Turn Identity)                       |
-| `SessionBusyError`                          | Class                | RUNTIME-003: `run()` rejects with this when the session already has a turn in flight; `recoverable: true`                                 |
-| `PermissionEnforcer`                        | Class                | Tool permission checking, hook execution, output truncation                                                                               |
-| `ContextWindowTracker`                      | Class                | Token usage tracking and auto-compact threshold                                                                                           |
-| `CompactionOrchestrator`                    | Class                | Conversation compaction via LLM summary                                                                                                   |
-| `CompactionError`                           | Class                | Thrown when a compaction summary is invalid — history is preserved untouched (see Compaction Failure Contract)                            |
-| `DEFAULT_COMPACTION_PROMPT`                 | Constant             | Domain-neutral base template of the compaction summarization prompt; replaceable via `ISessionOptions.compactionBasePrompt`               |
-| `NodeSessionStore`                          | Class                | Explicit host-filesystem JSON persistence adapter for session records                                                                     |
-| `decodeInteractiveSessionRecord`            | Function             | TRANS-005: decode `unknown` into a fully validated `IInteractiveSessionRecord`, or report every place it failed                           |
-| `decodeVersionedInteractiveSessionRecord`   | Function             | TRANS-005: the same behind the schema-version gate — a version this build does not implement stops the decode                             |
-| `INTERACTIVE_SESSION_RECORD_VERSION`        | Constant             | TRANS-005: the persisted record shape this build reads and writes                                                                         |
-| `INTERACTIVE_SESSION_RECORD_KEYS`           | Constant             | TRANS-005: the record's declared key set, so a contract member added without a decoder branch is caught by test                           |
-| `isSafeSessionId`                           | Function             | SEC-006: whether a session id is safe to use as a single filesystem path component                                                        |
-| `assertSafeSessionId`                       | Function             | SEC-006: throws unless the session id is a safe path component — the guard `NodeSessionStore` applies to every id it joins into a path    |
-| `CheckpointTree`                            | Class                | SELFHOST-007 neutral, I/O-free branch tree over `{id,parentId}` checkpoint nodes (fork/switch/listBranches/ancestors/activeLeaf)          |
-| `FileSessionLogger`                         | Class                | Sink-driven JSONL session event logger; it opens no path itself                                                                           |
-| `NodeSessionLogSource`                      | Class                | Explicit host filesystem adapter for one JSONL file and its relative payload sidecars                                                     |
-| `NodeSessionLogSink`                        | Class                | Explicit host filesystem adapter for append/flush and owner-only payload sidecars                                                         |
-| `NodeExternalPayloadSource`                 | Class                | Explicit host filesystem adapter for bounded relative external-payload reads                                                              |
-| `createSessionLogExternalPayloadReference`  | Function             | SSOT that validates a safe session id and exact lowercase content digest before constructing a sidecar reference                          |
-| `SilentSessionLogger`                       | Class                | No-op session logger                                                                                                                      |
-| `ISessionOptions`                           | Interface            | Constructor options for Session                                                                                                           |
-| `ISessionShutdownOptions`                   | Interface            | Graceful shutdown options for `Session.shutdown()`                                                                                        |
-| `TAutoCompactThreshold`                     | Type                 | Auto-compact threshold fraction, or `false` to disable automatic compaction                                                               |
-| `TPermissionHandler`                        | Type                 | Custom permission approval callback                                                                                                       |
-| `TPermissionResult`                         | Type                 | Permission decision result                                                                                                                |
-| `ITerminalOutput`                           | Interface            | Terminal I/O abstraction                                                                                                                  |
-| `ISpinner`                                  | Interface            | Spinner handle                                                                                                                            |
-| ~~`IPermissionEnforcerOptions`~~            | Interface (internal) | Options for constructing `PermissionEnforcer` — **not exported** from `src/index.ts`. Internal to the package.                            |
-| `ISessionLogger`                            | Interface            | Pluggable session event logger interface                                                                                                  |
-| `TSessionLogData`                           | Type                 | Structured log event data                                                                                                                 |
-| `IInteractiveSessionRecord`                 | Interface            | Canonical resumable-session record, re-exported from `agent-interface-transport`                                                          |
-| `IInteractiveSessionStore`                  | Interface            | Canonical persistence port, re-exported from `agent-interface-transport`                                                                  |
-| `ISessionRecord`                            | Compatibility export | Renamed re-export of canonical `IInteractiveSessionRecord`; not used internally                                                           |
-| `ISessionStore`                             | Compatibility export | Renamed re-export of canonical `IInteractiveSessionStore`; not used internally                                                            |
-| `AUTO_COMPACT_THRESHOLD`                    | Constant             | Default auto-compact threshold fraction of the context window (exported from `context-window-tracker.ts`)                                 |
-| `SESSION_LOG_EVENT`                         | Constant             | Session log event-name enum object (`session-log-events.ts`)                                                                              |
-| `isSessionLogEvent`                         | Function             | Type guard for a `TSessionLogEventName`                                                                                                   |
-| `loadSessionLogEntries`                     | Function             | Parses and hydrates entries from an explicit `ISessionLogSource`/`IExternalPayloadSource`; it never opens a path by default               |
-| `replaySessionLogEntries`                   | Function             | Reconstructs session state from already hydrated entries without performing I/O                                                           |
-| `validateSessionReplayLogEntries`           | Function             | Validates already hydrated replay entries without opening a file or payload path                                                          |
-| `resolveSessionLogExternalPayloads`         | Function             | Recursively hydrates content-addressed JSON sidecars under bounded depth/bytes and verified containment/integrity                         |
-| `SessionLogPayloadResolutionError`          | Class                | Typed fail-closed error with stable `code` and structured resolution metadata                                                             |
-| `ISessionLogPayloadResolutionOptions`       | Interface            | Explicit payload source and optional `maxDepth` / `maxTotalBytes` limits                                                                  |
-| `ISessionLogPayloadResolutionErrorMetadata` | Interface            | Structured optional path, depth, and expected/actual resolution-failure context                                                           |
-| `TSessionLogPayloadResolutionErrorCode`     | Type                 | Resolver error-code union                                                                                                                 |
-| `ISessionLogLoadOptions`                    | Type                 | `loadSessionLogEntries` options for depth and aggregate-byte limits                                                                       |
-| `ISessionLogEntry`                          | Interface            | One parsed session log entry (`session-log-replay.ts`)                                                                                    |
-| `ISessionReplayValidationResult`            | Interface            | Result of validating a session replay log for integrity                                                                                   |
+| Export                                      | Kind                 | Description                                                                                                                                                                                              |
+| ------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Session`                                   | Class                | Wraps Robota agent with permissions, hooks, streaming, and persistence                                                                                                                                   |
+| `serializeSessionArtifact`                  | Function             | SELFHOST-014: serialize an `IInteractiveSessionRecord` into a portable versioned artifact (round-trip; or share-path via an app `redact`)                                                                |
+| `deserializeSessionArtifact`                | Function             | SELFHOST-014 + TRANS-006: parse a session artifact back to `IInteractiveSessionRecord`, rejecting an incompatible schema version AND any record that does not decode, naming the field paths that failed |
+| `SESSION_ARTIFACT_SCHEMA_VERSION`           | Constant             | SELFHOST-014: the versioned-envelope schema version, shared by the artifact path and the codec (TRANS-006 retired the codec's duplicate; issue #2185 tracks the name)                                    |
+| `scrubSensitiveKeys`                        | Function             | SELFHOST-014: pure recursive redaction of values under sensitive keys (opt-in for a share `redact`; SSOT, also used by the logger)                                                                       |
+| `isSensitiveKey`                            | Function             | SELFHOST-014: the single predicate for a secret-bearing key                                                                                                                                              |
+| `SENSITIVE_KEY_PATTERN`                     | Constant             | SELFHOST-014: the sensitive-key regex SSOT                                                                                                                                                               |
+| `TurnClaim`                                 | Class                | RUNTIME-003: owns the identity of the turn a session is running — claim/release/abort/isRunning (see Turn Identity)                                                                                      |
+| `SessionBusyError`                          | Class                | RUNTIME-003: `run()` rejects with this when the session already has a turn in flight; `recoverable: true`                                                                                                |
+| `PermissionEnforcer`                        | Class                | Tool permission checking, hook execution, output truncation                                                                                                                                              |
+| `ContextWindowTracker`                      | Class                | Token usage tracking and auto-compact threshold                                                                                                                                                          |
+| `CompactionOrchestrator`                    | Class                | Conversation compaction via LLM summary                                                                                                                                                                  |
+| `CompactionError`                           | Class                | Thrown when a compaction summary is invalid — history is preserved untouched (see Compaction Failure Contract)                                                                                           |
+| `DEFAULT_COMPACTION_PROMPT`                 | Constant             | Domain-neutral base template of the compaction summarization prompt; replaceable via `ISessionOptions.compactionBasePrompt`                                                                              |
+| `NodeSessionStore`                          | Class                | Explicit host-filesystem JSON persistence adapter for session records                                                                                                                                    |
+| `decodeInteractiveSessionRecord`            | Function             | TRANS-005: decode `unknown` into a fully validated `IInteractiveSessionRecord`, or report every place it failed                                                                                          |
+| `decodeVersionedInteractiveSessionRecord`   | Function             | TRANS-005: the same behind the schema-version gate — a version this build does not implement stops the decode                                                                                            |
+| `INTERACTIVE_SESSION_RECORD_KEYS`           | Constant             | TRANS-005: the record's declared key set, so a contract member added without a decoder branch is caught by test                                                                                          |
+| `isSafeSessionId`                           | Function             | SEC-006: whether a session id is safe to use as a single filesystem path component                                                                                                                       |
+| `assertSafeSessionId`                       | Function             | SEC-006: throws unless the session id is a safe path component — the guard `NodeSessionStore` applies to every id it joins into a path                                                                   |
+| `CheckpointTree`                            | Class                | SELFHOST-007 neutral, I/O-free branch tree over `{id,parentId}` checkpoint nodes (fork/switch/listBranches/ancestors/activeLeaf)                                                                         |
+| `FileSessionLogger`                         | Class                | Sink-driven JSONL session event logger; it opens no path itself                                                                                                                                          |
+| `NodeSessionLogSource`                      | Class                | Explicit host filesystem adapter for one JSONL file and its relative payload sidecars                                                                                                                    |
+| `NodeSessionLogSink`                        | Class                | Explicit host filesystem adapter for append/flush and owner-only payload sidecars                                                                                                                        |
+| `NodeExternalPayloadSource`                 | Class                | Explicit host filesystem adapter for bounded relative external-payload reads                                                                                                                             |
+| `createSessionLogExternalPayloadReference`  | Function             | SSOT that validates a safe session id and exact lowercase content digest before constructing a sidecar reference                                                                                         |
+| `SilentSessionLogger`                       | Class                | No-op session logger                                                                                                                                                                                     |
+| `ISessionOptions`                           | Interface            | Constructor options for Session                                                                                                                                                                          |
+| `ISessionShutdownOptions`                   | Interface            | Graceful shutdown options for `Session.shutdown()`                                                                                                                                                       |
+| `TAutoCompactThreshold`                     | Type                 | Auto-compact threshold fraction, or `false` to disable automatic compaction                                                                                                                              |
+| `TPermissionHandler`                        | Type                 | Custom permission approval callback                                                                                                                                                                      |
+| `TPermissionResult`                         | Type                 | Permission decision result                                                                                                                                                                               |
+| `ITerminalOutput`                           | Interface            | Terminal I/O abstraction                                                                                                                                                                                 |
+| `ISpinner`                                  | Interface            | Spinner handle                                                                                                                                                                                           |
+| ~~`IPermissionEnforcerOptions`~~            | Interface (internal) | Options for constructing `PermissionEnforcer` — **not exported** from `src/index.ts`. Internal to the package.                                                                                           |
+| `ISessionLogger`                            | Interface            | Pluggable session event logger interface                                                                                                                                                                 |
+| `TSessionLogData`                           | Type                 | Structured log event data                                                                                                                                                                                |
+| `IInteractiveSessionRecord`                 | Interface            | Canonical resumable-session record, re-exported from `agent-interface-transport`                                                                                                                         |
+| `IInteractiveSessionStore`                  | Interface            | Canonical persistence port, re-exported from `agent-interface-transport`                                                                                                                                 |
+| `ISessionRecord`                            | Compatibility export | Renamed re-export of canonical `IInteractiveSessionRecord`; not used internally                                                                                                                          |
+| `ISessionStore`                             | Compatibility export | Renamed re-export of canonical `IInteractiveSessionStore`; not used internally                                                                                                                           |
+| `AUTO_COMPACT_THRESHOLD`                    | Constant             | Default auto-compact threshold fraction of the context window (exported from `context-window-tracker.ts`)                                                                                                |
+| `SESSION_LOG_EVENT`                         | Constant             | Session log event-name enum object (`session-log-events.ts`)                                                                                                                                             |
+| `isSessionLogEvent`                         | Function             | Type guard for a `TSessionLogEventName`                                                                                                                                                                  |
+| `loadSessionLogEntries`                     | Function             | Parses and hydrates entries from an explicit `ISessionLogSource`/`IExternalPayloadSource`; it never opens a path by default                                                                              |
+| `replaySessionLogEntries`                   | Function             | Reconstructs session state from already hydrated entries without performing I/O                                                                                                                          |
+| `validateSessionReplayLogEntries`           | Function             | Validates already hydrated replay entries without opening a file or payload path                                                                                                                         |
+| `resolveSessionLogExternalPayloads`         | Function             | Recursively hydrates content-addressed JSON sidecars under bounded depth/bytes and verified containment/integrity                                                                                        |
+| `SessionLogPayloadResolutionError`          | Class                | Typed fail-closed error with stable `code` and structured resolution metadata                                                                                                                            |
+| `ISessionLogPayloadResolutionOptions`       | Interface            | Explicit payload source and optional `maxDepth` / `maxTotalBytes` limits                                                                                                                                 |
+| `ISessionLogPayloadResolutionErrorMetadata` | Interface            | Structured optional path, depth, and expected/actual resolution-failure context                                                                                                                          |
+| `TSessionLogPayloadResolutionErrorCode`     | Type                 | Resolver error-code union                                                                                                                                                                                |
+| `ISessionLogLoadOptions`                    | Type                 | `loadSessionLogEntries` options for depth and aggregate-byte limits                                                                                                                                      |
+| `ISessionLogEntry`                          | Interface            | One parsed session log entry (`session-log-replay.ts`)                                                                                                                                                   |
+| `ISessionReplayValidationResult`            | Interface            | Result of validating a session replay log for integrity                                                                                                                                                  |
 
 `ICompactEvent` and `TCompactTrigger` are **not** part of the public API surface. Their SSOT is
 `@robota-sdk/agent-interface-transport` (INFRA-025); `src/session-types.ts` re-exports them
@@ -336,8 +350,8 @@ Four decisions a consumer depends on:
   persisted date is a string indistinguishable from any other string, and reviving by shape would
   convert a user's date-like text into a `Date`. Open-map contents decode as JSON values.
 
-**Versioning.** `INTERACTIVE_SESSION_RECORD_VERSION` names the shape this build reads and writes, and
-`IVersionedInteractiveSessionRecord` (`{ schemaVersion, record }`) is how it travels with the bytes.
+**Versioning.** `SESSION_ARTIFACT_SCHEMA_VERSION` names the shape this build reads and writes, and
+`IVersionedInteractiveSessionRecord` (`{ schemaVersion, record }`) is how it travels with the bytes. TRANS-005 introduced a second constant for this number and TRANS-006 retired it: the surviving name is the incumbent one, published before the codec and written by the producing path. Its name describes the artifact that was its first consumer — tracked as issue #2185, not settled here.
 The version is NOT a member of `IInteractiveSessionRecord`: required would oblige every producer to
 set it, and optional would mean absent-is-acceptable, which is the permissive reader this codec
 replaces. `decodeVersionedInteractiveSessionRecord` reads the version FIRST and returns `unsupported`

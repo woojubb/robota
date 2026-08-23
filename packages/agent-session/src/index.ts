@@ -27,12 +27,8 @@ export {
 } from './compaction-orchestrator.js';
 
 // SELFHOST-014: shareable/resumable session artifact envelope + the opt-in sensitive-key scrub (SSOT).
-export {
-  SESSION_ARTIFACT_SCHEMA_VERSION,
-  serializeSessionArtifact,
-  deserializeSessionArtifact,
-} from './session-artifact.js';
-export type { ISessionArtifact, ISerializeSessionArtifactOptions } from './session-artifact.js';
+export { serializeSessionArtifact, deserializeSessionArtifact } from './session-artifact.js';
+export type { ISerializeSessionArtifactOptions } from './session-artifact.js';
 export { SENSITIVE_KEY_PATTERN, isSensitiveKey, scrubSensitiveKeys } from './scrub-sensitive.js';
 export type { TScrubbableValue } from './scrub-sensitive.js';
 
@@ -101,7 +97,7 @@ export type { ICheckpointNode } from './checkpoint-tree.js';
 // (`scan-interface-runtime`), and a decoder is a mechanism.
 export {
   INTERACTIVE_SESSION_RECORD_KEYS,
-  INTERACTIVE_SESSION_RECORD_VERSION,
+  SESSION_ARTIFACT_SCHEMA_VERSION,
   decodeInteractiveSessionRecord,
   decodeVersionedInteractiveSessionRecord,
 } from './session-record-codec/index.js';

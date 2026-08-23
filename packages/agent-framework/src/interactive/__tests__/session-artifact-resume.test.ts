@@ -19,16 +19,49 @@ import type { IInteractiveSessionStore } from '../session-persistence.js';
  * machinery): export → deserialize → store.save → loadSessionRecord rehydrates history/goal identically.
  */
 
+/**
+ * A record that actually satisfies the contract.
+ *
+ * TRANS-006: this was a stub cast through `as unknown as ISessionRecord` — a message with no `id`,
+ * `timestamp` or `state`, and a history entry carrying a `text` member the contract does not
+ * declare. It passed because the import path validated the envelope and one field. Now that the
+ * importer decodes, a fixture that is not a record cannot pretend to be one, and the cast that let
+ * it is gone.
+ */
 function record(id: string): ISessionRecord {
   return {
     id,
     cwd: '/work',
     createdAt: '2026-07-19T00:00:00.000Z',
     updatedAt: '2026-07-19T01:00:00.000Z',
-    messages: [{ role: 'user', content: 'resume me' }],
-    history: [{ type: 'chat', text: 'resume me' }],
-    goal: { objective: 'finish', status: 'active' },
-  } as unknown as ISessionRecord;
+    messages: [
+      {
+        id: 'm-0',
+        role: 'user',
+        content: 'resume me',
+        timestamp: new Date('2026-07-19T00:30:00.000Z'),
+        state: 'complete',
+      },
+    ],
+    history: [
+      {
+        id: 'h-0',
+        timestamp: new Date('2026-07-19T00:30:00.000Z'),
+        category: 'chat',
+        type: 'user',
+        data: { text: 'resume me' },
+      },
+    ],
+    goal: {
+      id: 'g-0',
+      objective: 'finish',
+      status: 'active',
+      iterations: 0,
+      maxIterations: 5,
+      startedAt: '2026-07-19T00:10:00.000Z',
+      progress: [],
+    },
+  };
 }
 
 function newStore(): NodeSessionStore {
@@ -50,7 +83,12 @@ describe('imported session artifact resumes via loadSessionRecord (TC-03)', () =
       null,
     );
 
-    expect(resumed.history).toEqual(source.history);
+    // The IMPORT decodes, so `deserializeSessionArtifact` returns real `Date`s — but the store
+    // round-trip in between is still a bare `JSON.parse` cast (issue #2096), so what comes back out
+    // has ISO strings. Compared against a store-round-tripped expectation rather than the in-memory
+    // fixture, so the asymmetry is visible instead of hidden by a looser assertion.
+    expect(resumed.history).toEqual(JSON.parse(JSON.stringify(source.history)));
     expect(resumed.goal).toEqual(source.goal);
+    expect(deserializeSessionArtifact(artifact).history?.[0]?.timestamp).toBeInstanceOf(Date);
   });
 });

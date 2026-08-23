@@ -25,14 +25,25 @@ import type { TDecodeIssues, TSessionRecordDecodeOutcome } from './decode-outcom
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
 
 /**
- * The version of the persisted record shape this build reads and writes.
+ * The version of the persisted record envelope this build reads and writes.
  *
  * Bump it when the shape changes in a way an older reader would decode WRONGLY rather than not at
  * all. A reader that meets a version it does not implement reports `unsupported` and stops — it does
  * not decode the members it recognises, because a partially decoded session is the silent
  * field-loss this codec replaces.
+ *
+ * The name is the incumbent one (TRANS-006). TRANS-005 introduced a second constant for the same
+ * number on an envelope with no producer; this one is published, predates it, and is what the
+ * producing path actually writes, so the duplicate was retired rather than this. The name describes
+ * the artifact that was its first consumer and will read oddly at its second — filed as issue #2185
+ * rather than changed here, because renaming a published surface to suit a new caller is a decision
+ * of its own.
+ *
+ * Its DECLARATION lives here rather than beside the artifact functions because `session-artifact.ts`
+ * imports this module; declaring it there and importing it back would be a module cycle. The export
+ * from the package barrel is unchanged.
  */
-export const INTERACTIVE_SESSION_RECORD_VERSION = 1;
+export const SESSION_ARTIFACT_SCHEMA_VERSION = 1;
 
 /** A persisted record with the version of the shape it was written in. */
 export interface IVersionedInteractiveSessionRecord {
@@ -104,7 +115,7 @@ export function decodeVersionedInteractiveSessionRecord(
   if (typeof declaredVersion !== 'number' || !Number.isFinite(declaredVersion)) {
     return { status: 'unsupported', schemaVersion: undefined };
   }
-  if (declaredVersion !== INTERACTIVE_SESSION_RECORD_VERSION) {
+  if (declaredVersion !== SESSION_ARTIFACT_SCHEMA_VERSION) {
     return { status: 'unsupported', schemaVersion: declaredVersion };
   }
 
