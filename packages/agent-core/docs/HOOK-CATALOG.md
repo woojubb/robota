@@ -81,10 +81,22 @@ through a **variable**, so the name never appears as a literal first argument:
   `fireWorktreeHook` parameter passed the string literal at each call-site
   (`agent-executor/src/subagents/worktree-subagent-runner.ts`).
 
-`scan-hook-catalog.mjs` resolves a firing event name from any of: (a) a string literal passed to
-`runHooks(`; (b) a `hook_event_name:` field literal; (c) the string literals returned by
-`getSubagentHookEvent` and the literals passed as the `event` argument at each `fireWorktreeHook`
-call-site — so all 16 events, including the variable-dispatched four, are covered.
+`scan-hook-catalog.mjs` resolves a firing event name from any of **four** rules: (a) a string
+literal passed as the second argument to `runHooks(`; (b) a `hook_event_name:` field literal;
+(c) a string literal returned from within the `getSubagentHookEvent` mapping function body, scoped
+to that function so a stray `return '<Event>'` elsewhere cannot satisfy the check; (d) a string
+literal passed as the second argument to a `fire*Hook` helper — **both** `fireWorktreeHook` and
+`fireModelCallHook`.
+
+Those four rules cover all 16 events, including the **six** dispatched through a variable rather
+than a literal: `SubagentStart`, `SubagentStop`, `WorktreeCreate`, `WorktreeRemove`, `PreModelCall`,
+`PostModelCall`.
+
+Two facts here were stale and are corrected together, because they are one drift: this sentence said
+"the variable-dispatched four" and folded `fireWorktreeHook` into rule (c) while omitting
+`fireModelCallHook` entirely — both dating from before the two model-call events existed. The scan
+has enumerated four rules and six variable-dispatched events throughout, so the document and the
+scan it describes disagreed on both counts.
 
 ## Naming note
 
