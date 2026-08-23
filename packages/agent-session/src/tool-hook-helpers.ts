@@ -78,16 +78,27 @@ export async function runPreToolHook(
   // SEC-016. A hook that reached NO verdict is not a hook that approved. Issue #2083 made that
   // distinction representable; this is where it starts costing something.
   //
-  // Guarded by the policy rather than hardcoded to this event, so the posture is stated in one place
-  // and a future enforcing event inherits the behaviour instead of re-deriving it. The check stays
-  // HERE rather than inside `runHooks`, because the runner reports outcomes and must not decide
-  // policy — the same split issue #2083 established between the decoder and the runner.
+  // Guarded by the policy rather than by a literal `true`, so the posture is stated in ONE place and
+  // this boundary cannot drift from it. Note what this does NOT buy: the event is hardcoded here
+  // because this function is `runPreToolHook`, so a future enforcing event needs its own boundary
+  // and does not inherit anything — an earlier version of this comment claimed otherwise and review
+  // caught it. What the indirection does buy is that flipping `PreToolUse` to advisory in the table
+  // turns this gate off, and `scan-hook-enforcement-reachable.mjs` notices if the table and the code
+  // disagree.
+  //
+  // The check stays HERE rather than inside `runHooks`, because the runner reports outcomes and must
+  // not decide policy — the same split issue #2083 established between the decoder and the runner.
   if (isEnforcing('PreToolUse')) {
     const failure = hookResult.errors?.[0];
     if (failure !== undefined) {
       // The reason names the kind, the executor and the failure text, because a fail-closed gate
       // turns a misconfigured hook into a hard stop: whoever hits it needs enough to fix it.
-      const reason = `Hook could not evaluate (${failure.kind}, source: ${failure.source}): ${failure.reason}`;
+      const others = (hookResult.errors?.length ?? 1) - 1;
+      const reason =
+        `Hook could not evaluate (${failure.kind}, source: ${failure.source}): ${failure.reason}` +
+        // Naming only the first would hide that several gates failed; the count is the cheap half of
+        // that, and the reason line stays one line.
+        (others > 0 ? ` (+${others} more hook failure(s))` : '');
       return toolFailure('hook-blocked', reason, { blocked: true, reason });
     }
 

@@ -359,53 +359,52 @@ calls, and `packages/agent-cli/src/cli.ts:254` wires it behind `--session-log` s
 - **Prerequisites:** a built workspace. No API key, no network egress. A recorded session log
   containing a tool call, shipped with this work as a fixture; a `.robota/settings.json` in a temp
   project declaring a `PreToolUse` command hook whose command does not exist.
-- **Exact commands.** Written against the real entry point, not `robota` on `PATH` — `command -v
-robota` exits 1 in this repo and `node_modules/.bin/robota` does not exist; the only invocation the
-  tree verifies is `process.execPath <repo>/packages/agent-cli/bin/robota.cjs`
-  (`packages/agent-cli/src/testing/binary-agent-driver.ts:90-99`). The setup half is written out too,
-  because a scenario whose prerequisites are prose is a scenario that has not been shown to run.
+- **Exact commands.** These are the commands as RUN, not as imagined — the earlier version named a
+  fixture path that does not exist and used fences that did not render. `robota` is not on `PATH` in
+  this repo (`command -v robota` exits 1, `node_modules/.bin/robota` is absent), and Volta resolves
+  Node through `HOME`, so the real Node binary is captured before `HOME` is overridden.
 
-  ```bash
-  REPO="$(git rev-parse --show-toplevel)"
-  CLI="$REPO/packages/agent-cli/bin/robota.cjs"
-  FIXTURE="$REPO/packages/agent-cli/src/__tests__/fixtures/sec-016-tool-call.session.jsonl"
-  TMP="$(mktemp -d)"; export HOME="$TMP/home"; mkdir -p "$HOME" "$TMP/.robota"
+```bash
+REPO="$(git rev-parse --show-toplevel)"
+CLI="$REPO/packages/agent-cli/bin/robota.cjs"
+FIXTURE="$REPO/packages/agent-cli/src/__tests__/e2e/fixtures/sec-016-tool-call.jsonl"
+REALNODE="$(node -e 'console.log(process.execPath)')"   # not the Volta shim
 
-  # A provider profile must exist even for replay: config-loader.ts:187 throws
-  # "currentProvider is required" without one. The replay provider overrides it (no key is used).
-  cat > "$TMP/.robota/settings.json" <<JSON
-  { "currentProvider": "replay",
-    "providers": { "replay": { "name": "replay", "model": "replay" } },
-    "hooks": { "PreToolUse": [ { "matcher": "",
-      "hooks": [ { "type": "command", "command": "/nonexistent/sec-016-hook" } ] } ] } }
-  ```
+TMP="$(mktemp -d)"; HOMEDIR="$TMP/home"; mkdir -p "$HOMEDIR/.robota" "$TMP/proj"
+echo "SEC-016 probe" > "$TMP/proj/SEC-016-PROBE.txt"
 
+# A provider profile must exist even for replay: config-loader.ts throws "currentProvider is
+# required" without one. `--session-log` swaps in the replay provider, so no key is ever used.
+cat > "$HOMEDIR/.robota/settings.json" <<'JSON'
+{ "currentProvider": "anthropic",
+  "providers": { "anthropic": { "type": "anthropic", "model": "claude-test-model", "apiKey": "sec016-dummy-key" } },
+  "hooks": { "PreToolUse": [ { "matcher": "",
+    "hooks": [ { "type": "command", "command": "/nonexistent/sec-016-hook" } ] } ] } }
 JSON
 
-cd "$TMP"
-  node "$CLI" -p "list the files" --output-format stream-json \
---no-session-persistence --session-log "$FIXTURE"; echo "denied-run exit=$?"
+cd "$TMP/proj"
+HOME="$HOMEDIR" "$REALNODE" "$CLI" -p "read the probe file" \
+  --output-format stream-json --no-session-persistence --session-log "$FIXTURE"
+echo "denied-run exit=$?"
 
-# Contrast: same settings MINUS the hooks block, so the provider profile survives. Removing
-
-# .robota entirely would trip "currentProvider is required" and prove nothing about the gate.
-
-cat > "$TMP/.robota/settings.json" <<JSON
-  { "currentProvider": "replay",
-    "providers": { "replay": { "name": "replay", "model": "replay" } } }
-JSON
-  node "$CLI" -p "list the files" --output-format stream-json \
---no-session-persistence --session-log "$FIXTURE"; echo "allowed-run exit=$?"
+# Contrast: the SAME settings minus the hooks block, so the provider profile survives. Deleting
+# .robota outright would trip "currentProvider is required" and prove nothing about the gate.
+python3 - "$HOMEDIR/.robota/settings.json" <<'PY_INNER'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p)); d.pop("hooks", None); json.dump(d, open(p, "w"))
+PY_INNER
+HOME="$HOMEDIR" "$REALNODE" "$CLI" -p "read the probe file" \
+  --output-format stream-json --no-session-persistence --session-log "$FIXTURE"
+echo "allowed-run exit=$?"
 rm -rf "$TMP"
-
 ```
 
 - **Expected observable result.** The denied run's `stream-json` output contains a tool result whose
-text carries all three of `spawn-failure`, `command`, and `/nonexistent/sec-016-hook` — the failure
-kind, the source executor, and the hook that could not evaluate. The allowed run's output contains
-none of those and instead shows the tool result the fixture records. Both runs exit `0`: the tool
-call is denied, the SESSION is not, and asserting a non-zero exit would be asserting a behaviour
-this leaf does not deliver.
+  text carries all three of `spawn-failure`, `command`, and `/nonexistent/sec-016-hook` — the failure
+  kind, the source executor, and the hook that could not evaluate. The allowed run's output contains
+  none of those and instead shows the tool result the fixture records. Both runs exit `0`: the tool
+  call is denied, the SESSION is not, and asserting a non-zero exit would be asserting a behaviour
+  this leaf does not deliver.
 
 The contrast is the observable. One run alone could be explained by the fixture; the pair cannot.
 
@@ -424,127 +423,129 @@ The contrast is the observable. One run alone could be explained by the fixture;
 **Failed criteria:**
 
 - **Architecture Review Checklist — sibling scan `[x]` with completion evidence**: the recorded
-evidence is `16 events, 9 non-test runHooks fire sites, all enumerated with await/read state`.
-Enumerated against the tree at `36090e2e6`
-(`git grep -n "runHooks(" -- 'packages/**/src/**' ':!*__tests__*' ':!*.test.*'`): there are **13
-fire sites** in **8** firing files. `9` is the count of non-test FILES matching `runHooks(`, and
-that count only reaches nine by including `packages/agent-core/src/hooks/hook-runner.ts:102`,
-which is the DEFINITION of `runHooks`, not a fire site. The `### Decision` > Reachability bullet
-states the same figure correctly as "nine non-test files"; the checklist restates it as fire
-sites. Required: sibling-scan evidence that states the quantity it actually measured.
-**Required action:** correct the checklist line to the measured figures (13 fire sites / 8 firing
-files, or 9 files matching `runHooks(` including the definition), then re-run GATE-WRITE.
+  evidence is `16 events, 9 non-test runHooks fire sites, all enumerated with await/read state`.
+  Enumerated against the tree at `36090e2e6`
+  (`git grep -n "runHooks(" -- 'packages/**/src/**' ':!*__tests__*' ':!*.test.*'`): there are **13
+  fire sites** in **8** firing files. `9` is the count of non-test FILES matching `runHooks(`, and
+  that count only reaches nine by including `packages/agent-core/src/hooks/hook-runner.ts:102`,
+  which is the DEFINITION of `runHooks`, not a fire site. The `### Decision` > Reachability bullet
+  states the same figure correctly as "nine non-test files"; the checklist restates it as fire
+  sites. Required: sibling-scan evidence that states the quantity it actually measured.
+  **Required action:** correct the checklist line to the measured figures (13 fire sites / 8 firing
+  files, or 9 files matching `runHooks(` including the definition), then re-run GATE-WRITE.
 
 - **`## Problem` — the measured baseline summary contradicts its own table**: the prose under the
-table reads "The other fifteen are advisory _by construction_ — five fire `void`, five are
-unawaited, and five await a result they never inspect for `blocked`." Verified by reading all 13
-fire sites. By EVENT the split is **7 / 5 / 3**: `void` = `SubagentStart`, `SubagentStop`
-(`agent-framework/src/assembly/background-task-hooks.ts:68`), `WorktreeCreate`, `WorktreeRemove`
-(`agent-executor/src/subagents/worktree-subagent-runner.ts:256`), `PreModelCall`, `PostModelCall`
-(`agent-session/src/session-run.ts:51`), `PermissionDecision`
-(`agent-session/src/permission-enforcer.ts:231`) = 7; unawaited = `PostToolUse`, `SessionStart`,
-`PostCompact`, `Stop`, `StopFailure` = 5; awaited-but-never-consulting-`blocked` = `SessionEnd`,
-`PreCompact`, `UserPromptSubmit` = 3. By FIRE SITE the split is 4 / 5 / 3 (+1 awaited-and-
-consulted). Neither reading yields 5/5/5, and the document's own table refutes the sentence.
-**Required action:** restate the breakdown as 7 void / 5 unawaited / 3 awaited-but-not-consulted
-(or drop the numeric split), then re-run GATE-WRITE.
+  table reads "The other fifteen are advisory _by construction_ — five fire `void`, five are
+  unawaited, and five await a result they never inspect for `blocked`." Verified by reading all 13
+  fire sites. By EVENT the split is **7 / 5 / 3**: `void` = `SubagentStart`, `SubagentStop`
+  (`agent-framework/src/assembly/background-task-hooks.ts:68`), `WorktreeCreate`, `WorktreeRemove`
+  (`agent-executor/src/subagents/worktree-subagent-runner.ts:256`), `PreModelCall`, `PostModelCall`
+  (`agent-session/src/session-run.ts:51`), `PermissionDecision`
+  (`agent-session/src/permission-enforcer.ts:231`) = 7; unawaited = `PostToolUse`, `SessionStart`,
+  `PostCompact`, `Stop`, `StopFailure` = 5; awaited-but-never-consulting-`blocked` = `SessionEnd`,
+  `PreCompact`, `UserPromptSubmit` = 3. By FIRE SITE the split is 4 / 5 / 3 (+1 awaited-and-
+  consulted). Neither reading yields 5/5/5, and the document's own table refutes the sentence.
+  **Required action:** restate the breakdown as 7 void / 5 unawaited / 3 awaited-but-not-consulted
+  (or drop the numeric split), then re-run GATE-WRITE.
 
 **Criteria verified as MET (recorded so the re-run need not re-derive them):**
 
 - Frontmatter: opens with `---`; `status: draft`; `type: SECURITY` (in the 11-prefix list); `tags:
 [typescript, async, auth]` present.
 - `## Problem` — concrete symptom: `packages/agent-session/src/tool-hook-helpers.ts:69` reads
-`if (hookResult.blocked)` and nothing else — confirmed verbatim at that line. Reproduction
-condition present (non-existent `command` path / unreachable `http` endpoint in
-`.robota/settings.json` → tool call proceeds). No "TBD"/"TODO" anywhere in the file.
+  `if (hookResult.blocked)` and nothing else — confirmed verbatim at that line. Reproduction
+  condition present (non-existent `command` path / unreachable `http` endpoint in
+  `.robota/settings.json` → tool call proceeds). No "TBD"/"TODO" anywhere in the file.
 - `## Problem` — **every row of the baseline table is correct.** Checked file+line, await/void
-state and fields read for all 16 `THookEvent` members (union confirmed at
-`packages/agent-core/src/hooks/types.ts:15-31`, exactly 16): `PreToolUse`
-`tool-hook-helpers.ts:63` await → `.blocked`/`.reason`; `PostToolUse` `:92` unawaited `.catch`;
-`SessionStart` `session-lifecycle.ts:67` unawaited `.then(result => result.stdout)`; `SessionEnd`
-`session-lifecycle.ts:98` await, result discarded; `PreCompact`
-`compaction-orchestrator.ts:126` await, result discarded; `PostCompact`
-`session-history-ops.ts:132` unawaited; `UserPromptSubmit` `session-run.ts:136` await, reads
-`hookResult.stdout` only (line 155) and never `.blocked` — the specifically flagged row, correct;
-`StopFailure` `session-run.ts:238` and `Stop` `:296` unawaited; the four `void` sites as listed.
-**The headline "one of sixteen events can block" is TRUE** — `tool-hook-helpers.ts:69` is the only
-read of `.blocked` in any non-test fire site. The `### Decision` therefore does NOT rest on a
-false premise; both failures above are miscounts in summary prose, not defective rows.
+  state and fields read for all 16 `THookEvent` members (union confirmed at
+  `packages/agent-core/src/hooks/types.ts:15-31`, exactly 16): `PreToolUse`
+  `tool-hook-helpers.ts:63` await → `.blocked`/`.reason`; `PostToolUse` `:92` unawaited `.catch`;
+  `SessionStart` `session-lifecycle.ts:67` unawaited `.then(result => result.stdout)`; `SessionEnd`
+  `session-lifecycle.ts:98` await, result discarded; `PreCompact`
+  `compaction-orchestrator.ts:126` await, result discarded; `PostCompact`
+  `session-history-ops.ts:132` unawaited; `UserPromptSubmit` `session-run.ts:136` await, reads
+  `hookResult.stdout` only (line 155) and never `.blocked` — the specifically flagged row, correct;
+  `StopFailure` `session-run.ts:238` and `Stop` `:296` unawaited; the four `void` sites as listed.
+  **The headline "one of sixteen events can block" is TRUE** — `tool-hook-helpers.ts:69` is the only
+  read of `.blocked` in any non-test fire site. The `### Decision` therefore does NOT rest on a
+  false premise; both failures above are miscounts in summary prose, not defective rows.
 - `## Prior Art Research` — present and substantiated; 3 documentation citations, all fetched and
-checked against the live sources at gate time, not accepted as claimed. (a) Claude Code hooks:
-the "Exit code 2 behavior per event" table exists and lists `PreToolUse`/`UserPromptSubmit`/
-`Stop`/`SubagentStop`/`PreCompact` as `Can block? Yes` and `PostToolUse`/`PostToolUseFailure`/
-`Notification`/`SessionStart`/`SessionEnd`/`CwdChanged` as `No`; `PermissionRequest` reads "Exit
-code 2 isn't honored ... Deny through the decision object instead" — the doc's paraphrase is
-accurate. All three fail-open quotes verified verbatim: "doesn't block the tool call", "lands in
-the same non-blocking bucket", "non-blocking error, execution continues" (Connection failure).
-(b) Kubernetes: source shows `failurePolicy: 'Fail' # Fail-closed (the default)` and the failure
-policy applying to "Network errors, timeouts, or connection failures" — accurate. (c) Envoy:
-`failure_mode_allow` "Defaults to false", rejects with `Forbidden`, "Errors can always be tracked
-in the stats" — accurate; minor imprecision only, in that
-`x-envoy-auth-failure-mode-allowed: true` requires `failure_mode_allow_header_add` to be set as
-well, which the section does not mention. Not a criterion failure.
+  checked against the live sources at gate time, not accepted as claimed. (a) Claude Code hooks:
+  the "Exit code 2 behavior per event" table exists and lists `PreToolUse`/`UserPromptSubmit`/
+  `Stop`/`SubagentStop`/`PreCompact` as `Can block? Yes` and `PostToolUse`/`PostToolUseFailure`/
+  `Notification`/`SessionStart`/`SessionEnd`/`CwdChanged` as `No`; `PermissionRequest` reads "Exit
+  code 2 isn't honored ... Deny through the decision object instead" — the doc's paraphrase is
+  accurate. All three fail-open quotes verified verbatim: "doesn't block the tool call", "lands in
+  the same non-blocking bucket", "non-blocking error, execution continues" (Connection failure).
+  (b) Kubernetes: source shows `failurePolicy: 'Fail' # Fail-closed (the default)` and the failure
+  policy applying to "Network errors, timeouts, or connection failures" — accurate. (c) Envoy:
+  `failure_mode_allow` "Defaults to false", rejects with `Forbidden`, "Errors can always be tracked
+  in the stats" — accurate; minor imprecision only, in that
+  `x-envoy-auth-failure-mode-allowed: true` requires `failure_mode_allow_header_add` to be set as
+  well, which the section does not mention. Not a criterion failure.
 - `## Prior Art Research` feeds Alternatives/Decision: Envoy's make-the-open-case-observable posture
-is the stated steer for Alternative C's reachability scan; Kubernetes' per-webhook `failurePolicy`
-is the stated basis for Alternative D. Evidence-based, not asserted.
+  is the stated steer for Alternative C's reachability scan; Kubernetes' per-webhook `failurePolicy`
+  is the stated basis for Alternative D. Evidence-based, not asserted.
 - Architecture Review Checklist: all 4 items are `[x]`. Alternatives Considered has 4 entries
-(A/B/C/D), each with Pro and Con. Decision names the driving trade-off (a table whose rows cannot
-be honoured vs. eleven call sites this leaf has no mandate to change).
+  (A/B/C/D), each with Pro and Con. Decision names the driving trade-off (a table whose rows cannot
+  be honoured vs. eleven call sites this leaf has no mandate to change).
 - New-surface placement: **N/A** — no new package, app, presentation or interface surface, and no
-layer/product-family reclassification. `enforcement-policy.ts` is a new module inside the existing
-`packages/agent-core/src/hooks/` surface; the new scan is a file in the existing
-`scripts/harness/` surface. The Affected Scope's negative claims were spot-checked and hold:
-`packages/agent-framework/src/interactive/` contains no non-test `runHooks` call site, and
-`packages/agent-framework/src/index.ts:704` re-exports only `IResolvedConfig` from
-`config/config-types.js`.
+  layer/product-family reclassification. `enforcement-policy.ts` is a new module inside the existing
+  `packages/agent-core/src/hooks/` surface; the new scan is a file in the existing
+  `scripts/harness/` surface. The Affected Scope's negative claims were spot-checked and hold:
+  `packages/agent-framework/src/interactive/` contains no non-test `runHooks` call site, and
+  `packages/agent-framework/src/index.ts:704` re-exports only `IResolvedConfig` from
+  `config/config-types.js`.
 - `## Fallback & Degradation Declaration` present, declares `None` with justification.
 - `## Completion Criteria`: 11 items, every one carries a `TC-N` prefix (TC-01…TC-11); ≥1 criterion
-per sub-item (policy table TC-06, enforcement boundary TC-01/02/03/04/08, scan TC-07, advisory
-no-change TC-05, build/scan TC-09/10, scenario TC-11). None uses "works correctly", "no errors",
-"implemented" or "displays correctly". TC-11 is the weakest (observable deferred to the scenario
-below) but names an observable and a contrast run, so it meets the bar. Supporting facts checked:
-`THookErrorKind` includes `timeout`, `spawn-failure`, `malformed-response` (types.ts:180);
-`unknownHookTypes` and `errors` exist on `IRunHooksResult`; `hook-blocked` exists
-(`permission-types.ts:100`); TC-08's "five executors" is correct — `command`, `guardrail`, `http`
-(agent-core) + `agent`, `prompt` (agent-framework).
+  per sub-item (policy table TC-06, enforcement boundary TC-01/02/03/04/08, scan TC-07, advisory
+  no-change TC-05, build/scan TC-09/10, scenario TC-11). None uses "works correctly", "no errors",
+  "implemented" or "displays correctly". TC-11 is the weakest (observable deferred to the scenario
+  below) but names an observable and a contrast run, so it meets the bar. Supporting facts checked:
+  `THookErrorKind` includes `timeout`, `spawn-failure`, `malformed-response` (types.ts:180);
+  `unknownHookTypes` and `errors` exist on `IRunHooksResult`; `hook-blocked` exists
+  (`permission-types.ts:100`); TC-08's "five executors" is correct — `command`, `guardrail`, `http`
+  (agent-core) + `agent`, `prompt` (agent-framework).
 - `## Test Plan`: present; 11 rows for 11 TC-N (count matches); every row has a non-empty Test Type
-and Tool/Approach; no "TBD". No row uses Tool `manual`, so the manual-Notes criterion is **N/A**
-— the table carries no Notes column, which is permitted only because nothing triggers it.
+  and Tool/Approach; no "TBD". No row uses Tool `manual`, so the manual-Notes criterion is **N/A**
+  — the table carries no Notes column, which is permitted only because nothing triggers it.
 - Structure: `## Tasks` present with the placeholder; `## Evidence Log` present and empty before
-this entry; no `## Status` or `## Classification` section in the body.
+  this entry; no `## Status` or `## Classification` section in the body.
 - Ordering check: **exempt** — GATE-WRITE is the entry gate with no prior status gate. Input state
-verified anyway: frontmatter `status: draft` and the file sits in `.agents/spec-docs/draft/`.
+  verified anyway: frontmatter `status: draft` and the file sits in `.agents/spec-docs/draft/`.
 
 **Judged, not failing — recorded for the orchestrator:**
 
 - **Alternative C is justified by the measured baseline; it is not leaf inflation.** Independently
-confirmed that flipping any of the other fifteen events to `enforcing` would change no behaviour,
-because no fire site other than `tool-hook-helpers.ts:69` consults `blocked` — so Alternative A's
-table would be unfalsifiable in exactly the direction that matters, and `enforcementReachable` +
-the scan is the minimum machinery that makes that detectable. Against issue #2079 § Execution
-rules (fetched; text reads "Do not make a leaf absorb a newly discovered concern; create a sibling
-under the same tracker"), C absorbs nothing new: it changes no fire site (that is Alternative B,
-declined), adds no startup validation (issue #2099, confirmed as "reject configured hook types
-without reachable executors"), and defers configurable posture to a sibling under tracker issue #2075.
-The scan polices this leaf's own artefact rather than a new concern.
+  confirmed that flipping any of the other fifteen events to `enforcing` would change no behaviour,
+  because no fire site other than `tool-hook-helpers.ts:69` consults `blocked` — so Alternative A's
+  table would be unfalsifiable in exactly the direction that matters, and `enforcementReachable` +
+  the scan is the minimum machinery that makes that detectable. Against issue #2079 § Execution
+  rules (fetched; text reads "Do not make a leaf absorb a newly discovered concern; create a sibling
+  under the same tracker"), C absorbs nothing new: it changes no fire site (that is Alternative B,
+  declined), adds no startup validation (issue #2099, confirmed as "reject configured hook types
+  without reachable executors"), and defers configurable posture to a sibling under tracker issue #2075.
+  The scan polices this leaf's own artefact rather than a new concern.
+
 <!-- Author's note: one word ("issue") was inserted before `#2075` in the line above, and nothing
      else in this guardian entry was altered. `reference-kind-qualified` judges the FILE, so an
      unqualified reference anywhere in it fails the scan — including inside a gate's own record. The
      edit is mechanical and changes no finding, no count, and no verdict. Recorded because silently
      editing a guardian's entry is indistinguishable from tampering unless it is declared. -->
+
 - **`## User Execution Test Scenarios` is out of scope for this gate.** GATE-WRITE has no criterion
-covering that section — it belongs to DONE-GATE-STAGE-1, which applies to the item under
-`.agents/tasks/` that does not yet exist. Scenario 1's deferral therefore does not fail here.
-Flagged for the later gate: DONE-GATE-STAGE-1 requires "exact commands", and `-p` and
-`--session-log` already compose today at
-`packages/agent-cli/src/testing/binary-agent-driver.ts:93,98`, so the flag surface is
-determinable now rather than "during implementation". The scenario's premise is otherwise sound —
-`packages/agent-provider-replay` exists, `--session-log` is wired at
-`packages/agent-cli/src/cli.ts:254-263` via `loadReplayProvider`, and
-`.agents/spec-docs/done/SEC-015-hook-outcome-contract.md:540-553` corroborates the claim that
-SEC-015's record was wrong about no such path existing.
+  covering that section — it belongs to DONE-GATE-STAGE-1, which applies to the item under
+  `.agents/tasks/` that does not yet exist. Scenario 1's deferral therefore does not fail here.
+  Flagged for the later gate: DONE-GATE-STAGE-1 requires "exact commands", and `-p` and
+  `--session-log` already compose today at
+  `packages/agent-cli/src/testing/binary-agent-driver.ts:93,98`, so the flag surface is
+  determinable now rather than "during implementation". The scenario's premise is otherwise sound —
+  `packages/agent-provider-replay` exists, `--session-log` is wired at
+  `packages/agent-cli/src/cli.ts:254-263` via `loadReplayProvider`, and
+  `.agents/spec-docs/done/SEC-015-hook-outcome-contract.md:540-553` corroborates the claim that
+  SEC-015's record was wrong about no such path existing.
 - Issue #2083 is still `OPEN` on GitHub although PR #2193 is `MERGED` (2026-08-23) and the
-`errors` field is present in the tree. Bookkeeping only; not a GATE-WRITE criterion.
+  `errors` field is present in the tree. Bookkeeping only; not a GATE-WRITE criterion.
 
 ### [GATE-WRITE] — ✅ PASS | 2026-08-23
 
@@ -565,64 +566,64 @@ record fails the scan for the document.
 **Previously failed criteria — now met:**
 
 - **`## Problem` baseline summary.** Now reads "the split by event is **7 / 5 / 3**" and names every
-event in each group. Checked member by member against the tree: `void` = `SubagentStart`,
-`SubagentStop`, `WorktreeCreate`, `WorktreeRemove`, `PreModelCall`, `PostModelCall`,
-`PermissionDecision` (7); called without `await` = `PostToolUse`, `SessionStart`, `PostCompact`,
-`Stop`, `StopFailure` (5); awaited but never inspected for `blocked` = `SessionEnd`, `PreCompact`,
-`UserPromptSubmit` (3). Each matches the fire site read in the first run. The stated arithmetic
-`7 + 5 + 3 + PreToolUse = 16` is correct and matches the 16-member `THookEvent` union at
-`packages/agent-core/src/hooks/types.ts:15-31`. The sentence now agrees with the table above it.
+  event in each group. Checked member by member against the tree: `void` = `SubagentStart`,
+  `SubagentStop`, `WorktreeCreate`, `WorktreeRemove`, `PreModelCall`, `PostModelCall`,
+  `PermissionDecision` (7); called without `await` = `PostToolUse`, `SessionStart`, `PostCompact`,
+  `Stop`, `StopFailure` (5); awaited but never inspected for `blocked` = `SessionEnd`, `PreCompact`,
+  `UserPromptSubmit` (3). Each matches the fire site read in the first run. The stated arithmetic
+  `7 + 5 + 3 + PreToolUse = 16` is correct and matches the 16-member `THookEvent` union at
+  `packages/agent-core/src/hooks/types.ts:15-31`. The sentence now agrees with the table above it.
 - **Architecture Review Checklist sibling-scan evidence.** Now reads "16 events; **13** non-test
-`runHooks` fire sites across **8** firing files (a ninth file, `hooks/hook-runner.ts`, holds the
-definition rather than a fire site)". Re-measured: 13 fire sites, 8 distinct files, and
-`hook-runner.ts:102` is the definition. All three figures correct, and the file/site distinction
-that caused the original miscount is now stated rather than elided.
+  `runHooks` fire sites across **8** firing files (a ninth file, `hooks/hook-runner.ts`, holds the
+  definition rather than a fire site)". Re-measured: 13 fire sites, 8 distinct files, and
+  `hook-runner.ts:102` is the definition. All three figures correct, and the file/site distinction
+  that caused the original miscount is now stated rather than elided.
 - **The `### Decision` > Reachability bullet now cites a command that reproduces.** It quotes
-`git grep -n 'runHooks(' -- 'packages/*/src/**'` excluding tests and the definition → "13 fire
-sites in 8 files". Executed that exact pathspec: 56 raw matches, 13 after excluding tests and the
-definition, across 8 files. The cited command reproduces the cited figures.
+  `git grep -n 'runHooks(' -- 'packages/*/src/**'` excluding tests and the definition → "13 fire
+  sites in 8 files". Executed that exact pathspec: 56 raw matches, 13 after excluding tests and the
+  definition, across 8 files. The cited command reproduces the cited figures.
 
 **Every other criterion, re-applied:**
 
 - Frontmatter: `---` block present; `status: draft`; `type: SECURITY` (in the 11-prefix list);
-`tags: [typescript, async, auth]`.
+  `tags: [typescript, async, auth]`.
 - `## Problem`: concrete symptom (`tool-hook-helpers.ts:69` reads `if (hookResult.blocked)` and
-nothing else) and reproduction condition (non-existent `command` path or unreachable `http`
-endpoint in `.robota/settings.json` → the tool call proceeds). No "TBD"/"TODO" anywhere in the
-document body. All 16 baseline table rows re-confirmed correct in the first run and unchanged
-here, including `UserPromptSubmit` at `session-run.ts:136` (awaits; reads `.stdout` only).
+  nothing else) and reproduction condition (non-existent `command` path or unreachable `http`
+  endpoint in `.robota/settings.json` → the tool call proceeds). No "TBD"/"TODO" anywhere in the
+  document body. All 16 baseline table rows re-confirmed correct in the first run and unchanged
+  here, including `UserPromptSubmit` at `session-run.ts:136` (awaits; reads `.stdout` only).
 - `## Prior Art Research`: present, substantiated, 3 documentation citations, all fetched and
-compared against the live sources. The Envoy imprecision flagged in the first run is corrected —
-the section now states that `x-envoy-auth-failure-mode-allowed: true` requires
-`failure_mode_allow_header_add` in addition to `failure_mode_allow`, which matches the proto
-documentation ("When failure_mode_allow and failure_mode_allow_header_add are both set to true").
-The Claude Code per-event exit-2 table and the Kubernetes `failurePolicy: 'Fail'` default were
-verified verbatim in the first run and the text is unchanged.
+  compared against the live sources. The Envoy imprecision flagged in the first run is corrected —
+  the section now states that `x-envoy-auth-failure-mode-allowed: true` requires
+  `failure_mode_allow_header_add` in addition to `failure_mode_allow`, which matches the proto
+  documentation ("When failure_mode_allow and failure_mode_allow_header_add are both set to true").
+  The Claude Code per-event exit-2 table and the Kubernetes `failurePolicy: 'Fail'` default were
+  verified verbatim in the first run and the text is unchanged.
 - Research feeds Alternatives/Decision: Envoy's observable-fail-open posture is the stated steer for
-Alternative C's reachability scan; Kubernetes' per-webhook `failurePolicy` is the stated basis for
-Alternative D. Evidence-based, not asserted.
+  Alternative C's reachability scan; Kubernetes' per-webhook `failurePolicy` is the stated basis for
+  Alternative D. Evidence-based, not asserted.
 - Architecture Review Checklist: 4/4 `[x]`. Alternatives Considered has 4 entries (A/B/C/D) each with
-Pro and Con. Decision names the driving trade-off — a table whose rows cannot be honoured, versus
-eleven call sites this leaf has no mandate to change.
+  Pro and Con. Decision names the driving trade-off — a table whose rows cannot be honoured, versus
+  eleven call sites this leaf has no mandate to change.
 - New-surface placement: **N/A** — no new package, app, presentation or interface surface and no
-layer/product-family reclassification. `enforcement-policy.ts` is a new module inside the existing
-`packages/agent-core/src/hooks/` surface; the new scan is a file in the existing `scripts/harness/`
-surface.
+  layer/product-family reclassification. `enforcement-policy.ts` is a new module inside the existing
+  `packages/agent-core/src/hooks/` surface; the new scan is a file in the existing `scripts/harness/`
+  surface.
 - `## Fallback & Degradation Declaration`: present, `None`, with justification.
 - `## Completion Criteria`: 11 items, every one `TC-N` prefixed (TC-01…TC-11), ≥1 per sub-item, none
-using "works correctly" / "no errors" / "implemented" / "displays correctly". TC-11 is no longer
-the weakest item — the scenario it points at now carries a concrete command.
+  using "works correctly" / "no errors" / "implemented" / "displays correctly". TC-11 is no longer
+  the weakest item — the scenario it points at now carries a concrete command.
 - `## Test Plan`: 11 rows for 11 TC-N (count matches); every row has a non-empty Test Type and
-Tool/Approach; no "TBD"; no row uses Tool `manual`, so the manual-Notes criterion is **N/A**.
+  Tool/Approach; no "TBD"; no row uses Tool `manual`, so the manual-Notes criterion is **N/A**.
 - Structure: `## Tasks` present with the pre-GATE-IMPLEMENT placeholder; no `## Status` or
-`## Classification` section in the body. `## Evidence Log` present and carrying exactly the prior
-FAIL entry — the "empty" clause of that criterion is scoped to the first GATE-WRITE run, and a
-retained prior verdict is the required state for a second one, not a violation.
+  `## Classification` section in the body. `## Evidence Log` present and carrying exactly the prior
+  FAIL entry — the "empty" clause of that criterion is scoped to the first GATE-WRITE run, and a
+  retained prior verdict is the required state for a second one, not a violation.
 - Ordering check: **exempt** — GATE-WRITE is the entry gate with no prior status gate. Input state
-verified regardless: frontmatter `status: draft`, file under `.agents/spec-docs/draft/`.
+  verified regardless: frontmatter `status: draft`, file under `.agents/spec-docs/draft/`.
 - Mechanical checks re-run rather than accepted from the author's report:
-`scan-reference-kind-qualified.mjs` exit 0 (3018 documents), `check-spec-doc-frontmatter.mjs` on
-this file exit 0, `scan-spec-research.mjs` exit 0 (17 spec documents).
+  `scan-reference-kind-qualified.mjs` exit 0 (3018 documents), `check-spec-doc-frontmatter.mjs` on
+  this file exit 0, `scan-spec-research.mjs` exit 0 (17 spec documents).
 
 **Out of scope for this gate, recorded for the next one.** `## User Execution Test Scenarios` has no
 GATE-WRITE criterion — it is judged by DONE-GATE-STAGE-1 against the item under `.agents/tasks/`,
@@ -679,7 +680,7 @@ decision rather than a single path dressed as one.
 **What would have failed criterion 2, recorded so the bar is legible.** A quoted approval consisting
 of the bare selector alone ("1", "the first one", "ㅇㅇ") with no design content carried in the quoted
 text — that is precisely the excluded case, and no amount of surrounding option text would repair it,
-because the catalogue requires the *user's statement* to be the thing that confirms the design.
+because the catalogue requires the _user's statement_ to be the thing that confirms the design.
 Equally failing: option text that said only "approve as specified" without naming SEC-016 or its
 deliverables (ambiguous as to which item, and confirms nothing); or an approval that omitted the
 fail-closed trade-off, since this spec's one owner-visible judgement call is that a broken hook script
@@ -712,24 +713,24 @@ introduces a new package / app / surface or reclassifies a layer / product-famil
 limb fires:
 
 - _New package / app / surface._ `common-mistakes.md` row 78 glosses the repo's own term as "a NEW
-surface (package/app/UI)". No package or app is created. `packages/agent-core/src/hooks/
+  surface (package/app/UI)". No package or app is created. `packages/agent-core/src/hooks/
 enforcement-policy.ts` is a seventh module inside an existing, populated directory whose siblings
-are `hook-runner.ts`, `hook-matching.ts`, `types.ts`, `response-protocol.ts`, `verdict-decoder.ts`
-and `executors/`, exported through the directory's existing `index.ts` barrel — it joins a surface,
-it does not create one. `scripts/harness/scan-hook-enforcement-reachable.mjs` is a 104th
-`scan-*.mjs` (103 exist today) registered as one more row in the existing `run-all-scans.mjs` table,
-alongside structurally identical peers including `scan-hook-catalog.mjs`,
-`scan-hook-registration.mjs` and `scan-hook-syntax.mjs`. No UI or interface surface is added.
+  are `hook-runner.ts`, `hook-matching.ts`, `types.ts`, `response-protocol.ts`, `verdict-decoder.ts`
+  and `executors/`, exported through the directory's existing `index.ts` barrel — it joins a surface,
+  it does not create one. `scripts/harness/scan-hook-enforcement-reachable.mjs` is a 104th
+  `scan-*.mjs` (103 exist today) registered as one more row in the existing `run-all-scans.mjs` table,
+  alongside structurally identical peers including `scan-hook-catalog.mjs`,
+  `scan-hook-registration.mjs` and `scan-hook-syntax.mjs`. No UI or interface surface is added.
 - _Reclassifies a layer / product-family boundary._ The rule's parenthetical — "a new module that
-could plausibly live in more than one place, or that consumes or extends an existing product" — was
-tested, not assumed. `enforcement-policy.ts` is a `Readonly<Record<THookEvent, IHookEventPolicy>>`,
-and `THookEvent` is defined at `packages/agent-core/src/hooks/types.ts:15-31` and exported from
-`packages/agent-core/src/hooks/index.ts`; a table that exhausts a union is placed by ownership of
-that union, so there is no second plausible home — siting it in `agent-session` would put a table
-keyed by an `agent-core` type outside the package that owns the type. Its consumer relationship
-adds no edge: `packages/agent-session/package.json` already declares
-`"@robota-sdk/agent-core": "workspace:*"`. The scan consumes no product and depends on no package.
-No dependency direction changes, no package composition changes, no layer is reassigned.
+  could plausibly live in more than one place, or that consumes or extends an existing product" — was
+  tested, not assumed. `enforcement-policy.ts` is a `Readonly<Record<THookEvent, IHookEventPolicy>>`,
+  and `THookEvent` is defined at `packages/agent-core/src/hooks/types.ts:15-31` and exported from
+  `packages/agent-core/src/hooks/index.ts`; a table that exhausts a union is placed by ownership of
+  that union, so there is no second plausible home — siting it in `agent-session` would put a table
+  keyed by an `agent-core` type outside the package that owns the type. Its consumer relationship
+  adds no edge: `packages/agent-session/package.json` already declares
+  `"@robota-sdk/agent-core": "workspace:*"`. The scan consumes no product and depends on no package.
+  No dependency direction changes, no package composition changes, no layer is reassigned.
 
 Because neither limb fires, no `proposal-reviewer` ENDORSE and no `architecture-audit-fanout`
 structure-channel result is required, and their absence from this Evidence Log is not a gap. Had
@@ -863,28 +864,28 @@ the parse table; `-p` short form) and to compose together today at
 `packages/agent-cli/src/testing/binary-agent-driver.ts:90-99`; `--session-log` does wire
 `loadReplayProvider` at `packages/agent-cli/src/cli.ts:263`; and the premise that replay can drive a
 TOOL CALL — not merely a text reply — is supported by `packages/agent-provider-replay/docs/SPEC.md`
+
 > Test Strategy, which names "tool-call turn then completion (TC-04)". The two-run contrast is written
-out with `echo "exit=$?"` after each run. But it is not yet runnable as written, on three checked
-points: (1) `robota` is not an invocable name — `command -v robota` exits 1 and
-`node_modules/.bin/robota` does not exist; the bin is declared only by
-`packages/agent-cli/package.json` as `./bin/robota.cjs`, and the one verified invocation in the tree
-spawns `process.execPath <repo>/packages/agent-cli/bin/robota.cjs`. From a `$TMP` outside the
-workspace the command as written is `command not found`. (2) `$TMP` and `$FIXTURE` are never assigned
-and no command creates the `.robota/settings.json` carrying the failing hook — the setup half, which is
-what determines whether the gate fires at all, is still prose beside the block. (3) The control run
-`rm -rf "$TMP/.robota"` removes the whole project settings directory, which is also where a project-level
-`currentProvider` / `providers` would live; `packages/agent-framework/src/config/config-loader.ts:187`
-throws `currentProvider is required` without one, so the control run's outcome depends on ambient
-`~/.robota` state that the prerequisites declare absent ("No API key"). The reference e2e
-`packages/agent-cli/src/__tests__/e2e/cross-fidelity.bintest.ts` writes a dummy provider profile into a
-temp `HOME` for exactly this reason; the scenario does not. Also unpinned: the expected observable names
-no exact line or exit code, while TC-11 asserts the scenario "prints its expected lines". **This changes
-no GATE-IMPLEMENT verdict** — no criterion of this gate covers `## User Execution Test Scenarios`, which
-DONE-GATE-STAGE-1 owns against the item under `.agents/tasks/`. Recorded so that gate need not
-re-derive it.
+> out with `echo "exit=$?"` after each run. But it is not yet runnable as written, on three checked
+> points: (1) `robota` is not an invocable name — `command -v robota` exits 1 and
+> `node_modules/.bin/robota` does not exist; the bin is declared only by
+> `packages/agent-cli/package.json` as `./bin/robota.cjs`, and the one verified invocation in the tree
+> spawns `process.execPath <repo>/packages/agent-cli/bin/robota.cjs`. From a `$TMP` outside the
+> workspace the command as written is `command not found`. (2) `$TMP` and `$FIXTURE` are never assigned
+> and no command creates the `.robota/settings.json` carrying the failing hook — the setup half, which is
+> what determines whether the gate fires at all, is still prose beside the block. (3) The control run
+> `rm -rf "$TMP/.robota"` removes the whole project settings directory, which is also where a project-level
+> `currentProvider` / `providers` would live; `packages/agent-framework/src/config/config-loader.ts:187`
+> throws `currentProvider is required` without one, so the control run's outcome depends on ambient
+> `~/.robota` state that the prerequisites declare absent ("No API key"). The reference e2e
+> `packages/agent-cli/src/__tests__/e2e/cross-fidelity.bintest.ts` writes a dummy provider profile into a
+> temp `HOME` for exactly this reason; the scenario does not. Also unpinned: the expected observable names
+> no exact line or exit code, while TC-11 asserts the scenario "prints its expected lines". **This changes
+> no GATE-IMPLEMENT verdict** — no criterion of this gate covers `## User Execution Test Scenarios`, which
+> DONE-GATE-STAGE-1 owns against the item under `.agents/tasks/`. Recorded so that gate need not
+> re-derive it.
 
 **Verdict:** PASS. All four criteria answered and met; the NON-COMPLIANCE trigger was checked against
 the working tree and both of its limbs found clear. The deciding evidence is criterion 3 — 11 plan
 items matched per-TC to 11 Completion Criteria by content, with the three abridgements named rather
 than glossed.
-```

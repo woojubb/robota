@@ -71,6 +71,16 @@ const DEFAULT_POLICY = 'packages/agent-core/src/hooks/enforcement-policy.ts';
 /** Where a `runHooks` call was found, and what the surrounding code does with its result. */
 /** @typedef {{ file: string, line: number, events: string[], awaited: boolean, readsBlocked: boolean }} TFireSite */
 
+/** Index just past the `}` that closes the block opening at `start`. */
+function bodyEnd(source, start) {
+  let depth = 0;
+  for (let i = start; i < source.length; i++) {
+    if (source[i] === '{') depth++;
+    else if (source[i] === '}' && --depth === 0) return i + 1;
+  }
+  return source.length;
+}
+
 /**
  * Collect the posture table's rows out of the policy module.
  *
@@ -107,7 +117,13 @@ export function collectPolicyRows(policyPath) {
   for (const match of source.matchAll(/^\s{4}(\w+):\s*(\w+)\(/gm)) {
     const [, event, helper] = match;
     if (!helpers.has(helper) || entries.has(event)) continue;
-    const body = source.slice(source.indexOf(`function ${helper}`));
+    // Bounded to the helper's OWN body. Slicing to end-of-file let a helper resolve its posture
+    // from the first matching literal anywhere below it — including the policy table's own rows —
+    // so arm 1 could never fire. Review demonstrated a helper with neither field resolving from an
+    // unrelated constant.
+    const declaration = source.indexOf(`function ${helper}`);
+    const bodyStart = source.indexOf('{', declaration);
+    const body = declaration === -1 ? '' : source.slice(bodyStart, bodyEnd(source, bodyStart));
     const posture = /posture:\s*'(\w+)'/.exec(body)?.[1];
     const reachable = /enforcementReachable:\s*(true|false)/.exec(body)?.[1];
     if (posture === undefined || reachable === undefined) {
@@ -129,13 +145,42 @@ export function collectPolicyRows(policyPath) {
  * scan judge" (INFRA-121). It counts untracked files too, which matters here: a scan that judged
  * only the git index would report clean on a policy or fire site that had not been `git add`ed yet.
  */
+/**
+ * Trees that are NOT the product, and must not vouch for it.
+ *
+ * Review found the defect this closes: excluding only `__tests__` left
+ * `packages/agent-session/examples/verify-hook-outcome-contract.ts` counted as a fire site. It
+ * awaits `runHooks(…, 'PreToolUse', …)` and reads `.blocked` — because it is a demonstration OF the
+ * gate — so arm 3 was satisfied by it. Deleting the entire production gate left this scan green: a
+ * demo script vouching for something that no longer existed.
+ *
+ * The honesty requirement is that a row claiming to enforce points at code the PRODUCT runs. A path
+ * under `src/` that is not a test is that; an example, a fixture, or built output is not.
+ */
+const NON_PRODUCTION = [
+  /\/__tests__\//,
+  /\.test\.ts$/,
+  /\/examples?\//,
+  /\/dist\//,
+  /\/fixtures?\//,
+  /\/testing\//,
+];
+
+/** Is this path product source — the code a user's session actually runs? */
+export function isProductionSource(relative) {
+  if (NON_PRODUCTION.some((pattern) => pattern.test(relative))) return false;
+  // Positively require `src/`, rather than only excluding known non-product trees: a new sibling
+  // directory should have to EARN inclusion, not be included until someone remembers to exclude it.
+  return /^(packages|apps)\/[^/]+\/src\//.test(relative);
+}
+
 export function findFireSites(pathspecs) {
   /** @type {TFireSite[]} */
   const sites = [];
 
   for (const relative of enumerateFiles(pathspecs)) {
     if (!relative.endsWith('.ts')) continue;
-    if (relative.includes('__tests__') || relative.endsWith('.test.ts')) continue;
+    if (!isProductionSource(relative)) continue;
     const file = path.join(WORKSPACE_ROOT, relative);
     if (!existsSync(file)) continue;
     {
@@ -175,8 +220,45 @@ export function findFireSites(pathspecs) {
   return sites;
 }
 
-export function evaluate(entries, sites) {
+/**
+ * Every `THookEvent` member, read from the union rather than restated.
+ *
+ * The scan's arm-1 promise is "a row this scan cannot read is a row it did not check — failing
+ * rather than skipping". Review showed that promise was false: three valid TypeScript spellings of a
+ * row (fields reordered, `rationale` omitted, double quotes) slip past the inline regex, the row
+ * simply vanishes, and the scan exits 0 having examined 15 of 16. Comparing the parsed set against
+ * the union is what makes a dropped row loud.
+ */
+function readEventUnion(root = WORKSPACE_ROOT) {
+  const source = readFileSync(path.join(root, 'packages/agent-core/src/hooks/types.ts'), 'utf8');
+  const block = /export type THookEvent =([\s\S]*?);/.exec(source)?.[1];
+  if (block === undefined) return null;
+  return [...block.matchAll(/'([A-Za-z]+)'/g)].map((m) => m[1]);
+}
+
+export function evaluate(entries, sites, expectedEvents = readEventUnion()) {
   const findings = [];
+
+  // Arm 0 — the parsed set must BE the union. A row the parser silently dropped is the failure
+  // mode arm 1 claims to prevent and, before this, did not.
+  if (expectedEvents === null) {
+    findings.push(
+      `[unreadable-event-union] could not read the THookEvent union from packages/agent-core/src/hooks/types.ts — failing rather than judging a policy against nothing.`,
+    );
+  } else {
+    const missing = expectedEvents.filter((event) => !entries.has(event));
+    const extra = [...entries.keys()].filter((event) => !expectedEvents.includes(event));
+    if (missing.length > 0) {
+      findings.push(
+        `[policy-row-not-parsed] ${missing.join(', ')} — declared in THookEvent but no policy row was parsed for them. Either the row is absent, or it is spelled in a form this scan cannot read; both are unchecked rows, not clean ones.`,
+      );
+    }
+    if (extra.length > 0) {
+      findings.push(
+        `[policy-row-unknown-event] ${extra.join(', ')} — a policy row naming something that is not a THookEvent member.`,
+      );
+    }
+  }
   const enforcing = [...entries].filter(([, e]) => e.posture === 'enforcing');
 
   // Arm 1 — unresolved rows.

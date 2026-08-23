@@ -309,4 +309,10 @@ export type {
   THookOutcome,
   IHookTypeExecutor,
 } from './hooks/index.js';
-export { runHooks, GuardrailExecutor, decodeHookVerdict, isEnforcing } from './hooks/index.js';
+export {
+  runHooks,
+  GuardrailExecutor,
+  decodeHookVerdict,
+  isEnforcing,
+  HOOK_ENFORCEMENT_POLICY,
+} from './hooks/index.js';

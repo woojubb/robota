@@ -22,6 +22,7 @@ import { makeTemp } from './make-temp.mjs';
 import {
   collectPolicyRows,
   findFireSites,
+  isProductionSource,
   examinedRowCount,
   examinedFireSiteCount,
 } from '../scan-hook-enforcement-reachable.mjs';
@@ -80,7 +81,7 @@ describe('scan-hook-enforcement-reachable', () => {
     it('examinedFireSiteCount is exactly what the walk read', () => {
       const sites = findFireSites(['packages', 'apps']);
       expect(examinedFireSiteCount()).toBe(sites.length);
-      expect(examinedFireSiteCount()).toBe(17);
+      expect(examinedFireSiteCount()).toBe(13);
     });
 
     it('examinedRowCount resets on a SECOND run rather than accumulating', () => {
@@ -98,7 +99,7 @@ describe('scan-hook-enforcement-reachable', () => {
       const first = examinedFireSiteCount();
       findFireSites(['packages', 'apps']);
       expect(examinedFireSiteCount()).toBe(first);
-      expect(examinedFireSiteCount()).toBe(17);
+      expect(examinedFireSiteCount()).toBe(13);
     });
 
     it('the counters move with the input rather than being constants', () => {
@@ -215,15 +216,100 @@ describe('scan-hook-enforcement-reachable', () => {
 
   describe('a stale reachability flag', () => {
     it('fails when a row records unreachable but its fire site awaits and reads blocked', () => {
+      // Drives `[stale-reachability]` specifically: PreToolUse turned ADVISORY, so it is not an
+      // enforcing row, yet its fire site plainly awaits and reads `.blocked`. The first version of
+      // this case flipped the posture to `enforcing` and asserted
+      // `[reachability-contradiction]` — a different arm — so `[stale-reachability]` had no fixture
+      // at all while a describe block claimed to cover it. Review found it.
+      const mutant = realPolicy.replace(
+        "      posture: 'enforcing',\n      enforcementReachable: true,",
+        "      posture: 'advisory',\n      enforcementReachable: false,",
+      );
+      expect(mutant, 'mutation did not apply').not.toBe(realPolicy);
+
+      const { code, output } = runScan(mutant);
+      expect(code).not.toBe(0);
+      expect(output).toContain('[stale-reachability]');
+      expect(output).toContain('PreToolUse');
+    });
+
+    it('fails when a row claims enforcing AND records unreachable', () => {
       const mutant = realPolicy.replace(
         "      posture: 'enforcing',\n      enforcementReachable: true,",
         "      posture: 'enforcing',\n      enforcementReachable: false,",
       );
-      expect(mutant).not.toBe(realPolicy);
+      expect(mutant, 'mutation did not apply').not.toBe(realPolicy);
 
       const { code, output } = runScan(mutant);
       expect(code).not.toBe(0);
       expect(output).toContain('[reachability-contradiction]');
+    });
+  });
+
+  describe('a row naming an event with no fire site', () => {
+    it('fails with [unresolvable-fire-site] rather than skipping it', () => {
+      const mutant = realPolicy.replace(
+        "    PostToolUse: firesAndForgets('tool-hook-helpers.ts'),",
+        "    PostToolUse: { posture: 'enforcing', enforcementReachable: true, rationale: 'x' },\n    NotAnEvent: { posture: 'enforcing', enforcementReachable: true, rationale: 'x' },",
+      );
+      expect(mutant, 'mutation did not apply').not.toBe(realPolicy);
+
+      const { code, output } = runScan(mutant);
+      expect(code).not.toBe(0);
+      expect(output).toContain('[unresolvable-fire-site]');
+      expect(output).toContain('NotAnEvent');
+      // And the union comparison notices the stranger independently.
+      expect(output).toContain('[policy-row-unknown-event]');
+    });
+  });
+
+  describe('a policy row the parser cannot read must FAIL, not vanish', () => {
+    // The module promises "a row this scan cannot read is a row it did not check — failing rather
+    // than skipping". Review showed that promise was false: three valid TypeScript spellings slipped
+    // past the inline regex, the row vanished, and the scan exited 0 having examined 15 of 16.
+    it.each([
+      ['fields reordered', "{ enforcementReachable: true, posture: 'enforcing', rationale: 'x' }"],
+      ['rationale omitted', "{ posture: 'enforcing', enforcementReachable: true }"],
+      [
+        'double-quoted posture',
+        '{ posture: "enforcing", enforcementReachable: true, rationale: \'x\' }',
+      ],
+    ])('%s', (_label, spelling) => {
+      const mutant = realPolicy.replace(
+        "    PostToolUse: firesAndForgets('tool-hook-helpers.ts'),",
+        `    PostToolUse: ${spelling},`,
+      );
+      expect(mutant, 'mutation did not apply').not.toBe(realPolicy);
+
+      const { code, output } = runScan(mutant);
+      expect(code).not.toBe(0);
+      expect(output).toContain('[policy-row-not-parsed]');
+      expect(output).toContain('PostToolUse');
+    });
+  });
+
+  describe('a demo script must not vouch for the production gate', () => {
+    it('an enforcing row is honoured only by product source, not by an example', () => {
+      // The defect review found: `findFireSites` excluded `__tests__` but not `examples/`, and
+      // `agent-session/examples/verify-hook-outcome-contract.ts` awaits runHooks on PreToolUse and
+      // reads `.blocked` — because it DEMONSTRATES the gate. Deleting the entire production gate
+      // left this scan green, a demo vouching for something that no longer existed.
+      expect(isProductionSource('packages/agent-session/src/tool-hook-helpers.ts')).toBe(true);
+      for (const notProduct of [
+        'packages/agent-session/examples/verify-hook-outcome-contract.ts',
+        'packages/agent-core/src/hooks/__tests__/enforcement-policy.test.ts',
+        'packages/agent-core/src/hooks/types.test.ts',
+        'packages/agent-core/dist/node/index.ts',
+        'packages/agent-cli/src/__tests__/e2e/fixtures/thing.ts',
+      ]) {
+        expect(isProductionSource(notProduct), `${notProduct} must not vouch`).toBe(false);
+      }
+    });
+
+    it('the counted population is product source only', () => {
+      const sites = findFireSites(['packages', 'apps']);
+      expect(sites.every((s) => isProductionSource(s.file))).toBe(true);
+      expect(sites.some((s) => s.file.includes('/examples/'))).toBe(false);
     });
   });
 });

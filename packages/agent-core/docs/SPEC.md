@@ -500,24 +500,25 @@ host so an LLM authoring commands avoids cross-family syntax mistakes.
 
 ### Hooks
 
-| Export                   | Kind      | Description                                                                                                                                                                                      |
-| ------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `runHooks`               | function  | Execute hooks for lifecycle events using pluggable type executors; returns `IRunHooksResult` (which carries `errors: readonly IHookErrorOutcome[]` for hooks that rendered no verdict — SEC-015) |
-| `GuardrailExecutor`      | class     | SELFHOST-005 `IHookTypeExecutor` (`type: 'guardrail'`): runs the registered guardrail set in parallel and fails fast → `deny`/`blocked` (constructed with the consumer's guardrail map)          |
-| `THookEvent`             | type      | 13 events: PreToolUse, PostToolUse, SessionStart, SessionEnd, Stop, StopFailure, PreCompact, PostCompact, UserPromptSubmit, SubagentStart, SubagentStop, WorktreeCreate, WorktreeRemove          |
-| `TSessionEndReason`      | type      | Session end reason union: clear, resume, logout, prompt_input_exit, bypass_permissions_disabled, other                                                                                           |
-| `THooksConfig`           | type      | Event to hook group array mapping                                                                                                                                                                |
-| `IHookGroup`             | type      | Matcher pattern + hook definitions array; optional `env` for child-process environment injection                                                                                                 |
-| `THookDefinition`        | type      | Discriminated union of all hook definition types: command, http, prompt, agent                                                                                                                   |
-| `ICommandHookDefinition` | interface | `type: 'command'` hook — shell command execution via stdin/exit code                                                                                                                             |
-| `IHttpHookDefinition`    | interface | `type: 'http'` hook — HTTP request to external endpoint                                                                                                                                          |
-| `IPromptHookDefinition`  | interface | `type: 'prompt'` hook — LLM prompt injection                                                                                                                                                     |
-| `IAgentHookDefinition`   | interface | `type: 'agent'` hook — sub-agent delegation                                                                                                                                                      |
-| `IHookTypeExecutor`      | interface | Strategy interface for executing a specific hook type                                                                                                                                            |
-| `IHookInput`             | type      | JSON input passed to hooks via stdin                                                                                                                                                             |
-| `THookOutcome`           | type      | SEC-015 decoded hook result: `allow \| deny \| error` union (replaces `IHookResult`)                                                                                                             |
-| `decodeHookVerdict`      | function  | SEC-015 sole decoder for a `{ ok, reason }` hook response; a non-boolean or missing `ok` is `error`, never a coerced verdict                                                                     |
-| `isEnforcing`            | function  | SEC-016 — whether a hook that reached NO verdict blocks at this event. Reads `HOOK_ENFORCEMENT_POLICY`; `PreToolUse` is the only enforcing event                                                 |
+| Export                    | Kind      | Description                                                                                                                                                                                      |
+| ------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `runHooks`                | function  | Execute hooks for lifecycle events using pluggable type executors; returns `IRunHooksResult` (which carries `errors: readonly IHookErrorOutcome[]` for hooks that rendered no verdict — SEC-015) |
+| `GuardrailExecutor`       | class     | SELFHOST-005 `IHookTypeExecutor` (`type: 'guardrail'`): runs the registered guardrail set in parallel and fails fast → `deny`/`blocked` (constructed with the consumer's guardrail map)          |
+| `THookEvent`              | type      | 13 events: PreToolUse, PostToolUse, SessionStart, SessionEnd, Stop, StopFailure, PreCompact, PostCompact, UserPromptSubmit, SubagentStart, SubagentStop, WorktreeCreate, WorktreeRemove          |
+| `TSessionEndReason`       | type      | Session end reason union: clear, resume, logout, prompt_input_exit, bypass_permissions_disabled, other                                                                                           |
+| `THooksConfig`            | type      | Event to hook group array mapping                                                                                                                                                                |
+| `IHookGroup`              | type      | Matcher pattern + hook definitions array; optional `env` for child-process environment injection                                                                                                 |
+| `THookDefinition`         | type      | Discriminated union of all hook definition types: command, http, prompt, agent                                                                                                                   |
+| `ICommandHookDefinition`  | interface | `type: 'command'` hook — shell command execution via stdin/exit code                                                                                                                             |
+| `IHttpHookDefinition`     | interface | `type: 'http'` hook — HTTP request to external endpoint                                                                                                                                          |
+| `IPromptHookDefinition`   | interface | `type: 'prompt'` hook — LLM prompt injection                                                                                                                                                     |
+| `IAgentHookDefinition`    | interface | `type: 'agent'` hook — sub-agent delegation                                                                                                                                                      |
+| `IHookTypeExecutor`       | interface | Strategy interface for executing a specific hook type                                                                                                                                            |
+| `IHookInput`              | type      | JSON input passed to hooks via stdin                                                                                                                                                             |
+| `THookOutcome`            | type      | SEC-015 decoded hook result: `allow \| deny \| error` union (replaces `IHookResult`)                                                                                                             |
+| `decodeHookVerdict`       | function  | SEC-015 sole decoder for a `{ ok, reason }` hook response; a non-boolean or missing `ok` is `error`, never a coerced verdict                                                                     |
+| `isEnforcing`             | function  | SEC-016 — whether a hook that reached NO verdict blocks at this event. Reads `HOOK_ENFORCEMENT_POLICY`; `PreToolUse` is the only enforcing event                                                 |
+| `HOOK_ENFORCEMENT_POLICY` | const     | SEC-016 — the per-event posture table: `posture`, `enforcementReachable`, and the `rationale` for each. The SSOT for which events enforce; a consumer enumerating postures reads it directly     |
 
 NOTE (SEC-015): the union's member interfaces — `IHookAllowOutcome`, `IHookDenyOutcome`,
 `IHookErrorOutcome` and `THookErrorKind` — are exported from `hooks/index.ts`, not from the package
@@ -859,7 +860,9 @@ That asymmetry is not a preference. Measured across the tree, `PreToolUse` is th
 
 Two independent checks keep the two fields honest: `assertPolicyCoherent` rejects a row claiming `enforcing` with `enforcementReachable: false`, and `scripts/harness/scan-hook-enforcement-reachable.mjs` rejects a row whose fire site does not in fact await and read `blocked`. Neither is the only thing standing between them.
 
-`HOOK_ENFORCEMENT_POLICY`, `assertPolicyCoherent` and the two policy types are exported from `hooks/index.ts`; only `isEnforcing` is on the package root, because it is the sole member an enforcement boundary outside this package needs.
+`HOOK_ENFORCEMENT_POLICY` and `isEnforcing` are on the package root; `assertPolicyCoherent` and the two policy types are exported from `hooks/index.ts`.
+
+**A consumer asking "does this event enforce?" reads `isEnforcing`, or the table for the full posture — it does not re-derive the predicate.** Stated here rather than left to be discovered, because the way a successor WOULD discover it is by adding their own root-barrel export and hitting the `spec-public-surface` ratchet: `packages/agent-core/src/index.ts` sits at 312 lines against a frozen baseline of 313, so one added export line is the entire remaining budget, and SEC-016 spends it. A predicate re-derived at a second site is also a second thing that can disagree with the table, which is what `scan-hook-enforcement-reachable.mjs` exists to prevent — re-deriving it would put the drift back one layer out of that scan's reach.
 
 ### Hook Events
 

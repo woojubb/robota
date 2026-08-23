@@ -160,53 +160,52 @@ calls, and `packages/agent-cli/src/cli.ts:254` wires it behind `--session-log` s
   A recorded session log containing a tool call, shipped with this work as a fixture. A temp project
   whose `.robota/settings.json` declares a `PreToolUse` command hook pointing at a path that does not
   exist.
-- **Exact commands.** Written against the real entry point, not `robota` on `PATH` — `command -v
-robota` exits 1 in this repo and `node_modules/.bin/robota` does not exist; the only invocation the
-  tree verifies is `process.execPath <repo>/packages/agent-cli/bin/robota.cjs`
-  (`packages/agent-cli/src/testing/binary-agent-driver.ts:90-99`). The setup half is written out too,
-  because a scenario whose prerequisites are prose is a scenario that has not been shown to run.
+- **Exact commands.** These are the commands as RUN, not as imagined — the earlier version named a
+  fixture path that does not exist and used fences that did not render. `robota` is not on `PATH` in
+  this repo (`command -v robota` exits 1, `node_modules/.bin/robota` is absent), and Volta resolves
+  Node through `HOME`, so the real Node binary is captured before `HOME` is overridden.
 
-  ```bash
-  REPO="$(git rev-parse --show-toplevel)"
-  CLI="$REPO/packages/agent-cli/bin/robota.cjs"
-  FIXTURE="$REPO/packages/agent-cli/src/__tests__/fixtures/sec-016-tool-call.session.jsonl"
-  TMP="$(mktemp -d)"; export HOME="$TMP/home"; mkdir -p "$HOME" "$TMP/.robota"
+```bash
+REPO="$(git rev-parse --show-toplevel)"
+CLI="$REPO/packages/agent-cli/bin/robota.cjs"
+FIXTURE="$REPO/packages/agent-cli/src/__tests__/e2e/fixtures/sec-016-tool-call.jsonl"
+REALNODE="$(node -e 'console.log(process.execPath)')"   # not the Volta shim
 
-  # A provider profile must exist even for replay: config-loader.ts:187 throws
-  # "currentProvider is required" without one. The replay provider overrides it (no key is used).
-  cat > "$TMP/.robota/settings.json" <<JSON
-  { "currentProvider": "replay",
-    "providers": { "replay": { "name": "replay", "model": "replay" } },
-    "hooks": { "PreToolUse": [ { "matcher": "",
-      "hooks": [ { "type": "command", "command": "/nonexistent/sec-016-hook" } ] } ] } }
-  ```
+TMP="$(mktemp -d)"; HOMEDIR="$TMP/home"; mkdir -p "$HOMEDIR/.robota" "$TMP/proj"
+echo "SEC-016 probe" > "$TMP/proj/SEC-016-PROBE.txt"
 
+# A provider profile must exist even for replay: config-loader.ts throws "currentProvider is
+# required" without one. `--session-log` swaps in the replay provider, so no key is ever used.
+cat > "$HOMEDIR/.robota/settings.json" <<'JSON'
+{ "currentProvider": "anthropic",
+  "providers": { "anthropic": { "type": "anthropic", "model": "claude-test-model", "apiKey": "sec016-dummy-key" } },
+  "hooks": { "PreToolUse": [ { "matcher": "",
+    "hooks": [ { "type": "command", "command": "/nonexistent/sec-016-hook" } ] } ] } }
 JSON
 
-cd "$TMP"
-  node "$CLI" -p "list the files" --output-format stream-json \
---no-session-persistence --session-log "$FIXTURE"; echo "denied-run exit=$?"
+cd "$TMP/proj"
+HOME="$HOMEDIR" "$REALNODE" "$CLI" -p "read the probe file" \
+  --output-format stream-json --no-session-persistence --session-log "$FIXTURE"
+echo "denied-run exit=$?"
 
-# Contrast: same settings MINUS the hooks block, so the provider profile survives. Removing
-
-# .robota entirely would trip "currentProvider is required" and prove nothing about the gate.
-
-cat > "$TMP/.robota/settings.json" <<JSON
-  { "currentProvider": "replay",
-    "providers": { "replay": { "name": "replay", "model": "replay" } } }
-JSON
-  node "$CLI" -p "list the files" --output-format stream-json \
---no-session-persistence --session-log "$FIXTURE"; echo "allowed-run exit=$?"
+# Contrast: the SAME settings minus the hooks block, so the provider profile survives. Deleting
+# .robota outright would trip "currentProvider is required" and prove nothing about the gate.
+python3 - "$HOMEDIR/.robota/settings.json" <<'PY_INNER'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p)); d.pop("hooks", None); json.dump(d, open(p, "w"))
+PY_INNER
+HOME="$HOMEDIR" "$REALNODE" "$CLI" -p "read the probe file" \
+  --output-format stream-json --no-session-persistence --session-log "$FIXTURE"
+echo "allowed-run exit=$?"
 rm -rf "$TMP"
-
 ```
 
 - **Expected observable result.** The denied run's `stream-json` output contains a tool result whose
-text carries all three of `spawn-failure`, `command`, and `/nonexistent/sec-016-hook` — the failure
-kind, the source executor, and the hook that could not evaluate. The allowed run's output contains
-none of those and instead shows the tool result the fixture records. Both runs exit `0`: the tool
-call is denied, the SESSION is not, and asserting a non-zero exit would be asserting a behaviour
-this leaf does not deliver.
+  text carries all three of `spawn-failure`, `command`, and `/nonexistent/sec-016-hook` — the failure
+  kind, the source executor, and the hook that could not evaluate. The allowed run's output contains
+  none of those and instead shows the tool result the fixture records. Both runs exit `0`: the tool
+  call is denied, the SESSION is not, and asserting a non-zero exit would be asserting a behaviour
+  this leaf does not deliver.
 
 The contrast is the observable. One run alone could be explained by the fixture; the pair cannot.
 
@@ -244,4 +243,3 @@ not rebuild it.
 Consequence for this record: `backlog-execution.md` § Done Gate forbids `status: done` while a
 scenario is unexecuted, so this Task remains `in-progress` after its PR merges. The two are
 different gates.
-```

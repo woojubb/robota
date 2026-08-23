@@ -14,7 +14,9 @@ import {
   buildHookInput,
   truncateToolResult,
 } from '../tool-hook-helpers.js';
-import type { IHookInput, IHookTypeExecutor } from '@robota-sdk/agent-core';
+import { runHooks, isEnforcing, HOOK_ENFORCEMENT_POLICY } from '@robota-sdk/agent-core';
+
+import type { IHookInput, IHookTypeExecutor, THookEvent } from '@robota-sdk/agent-core';
 import type { THooksConfig } from '@robota-sdk/agent-core';
 
 // ---------------------------------------------------------------------------
@@ -272,7 +274,52 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
     expect(denied?.error).toBe('no');
   });
 
-  it('TC-05: the same failure on PostToolUse does not block — that event is advisory', async () => {
+  it('TC-03b: the SAME unknown-executor config on PostToolUse does not deny', async () => {
+    // The half of TC-03 that had no test. `runPreToolHook` is PreToolUse-specific, so the contrast
+    // is drawn where it is observable: the runner reports `unknownHookTypes` for both events, and
+    // only the enforcing one turns that into a denial.
+    const guardrailOnPost: THooksConfig = {
+      PostToolUse: [{ matcher: '', hooks: [{ type: 'guardrail' }] }],
+    };
+    const post = await runHooks(guardrailOnPost, 'PostToolUse', makeHookInput(), []);
+    expect(post.unknownHookTypes).toEqual(['guardrail']);
+    expect(post.blocked).toBe(false);
+    expect(isEnforcing('PostToolUse')).toBe(false);
+
+    // Same config, enforcing event, opposite outcome.
+    const guardrailOnPre: THooksConfig = {
+      PreToolUse: [{ matcher: '', hooks: [{ type: 'guardrail' }] }],
+    };
+    const denial = await runPreToolHook(guardrailOnPre, makeHookInput(), []);
+    expect(denial).not.toBeNull();
+  });
+
+  it('TC-05: EVERY advisory event tolerates a failed hook — all fifteen', async () => {
+    // The criterion says "the fifteen advisory events", and the first version of this test drove
+    // one. Review caught the gap. Driven at `runHooks`, which is where every event is observable:
+    // an errored hook must report and must not block, for each advisory event by name.
+    const advisory = Object.entries(HOOK_ENFORCEMENT_POLICY)
+      .filter(([, entry]) => entry.posture === 'advisory')
+      .map(([event]) => event as THookEvent);
+    expect(advisory).toHaveLength(15);
+
+    for (const event of advisory) {
+      const config: THooksConfig = {
+        [event]: [{ matcher: '', hooks: [{ type: 'command', command: 'gate' }] }],
+      };
+      const result = await runHooks(config, event, { ...makeHookInput(), hook_event_name: event }, [
+        makeFailingExecutor('timeout'),
+      ]);
+      // Reported…
+      expect(result.errors, `${event} should report the failure`).toHaveLength(1);
+      // …and not blocking. Both halves: reporting without blocking is the advisory contract, and a
+      // test asserting only `blocked === false` would pass on a runner that dropped the error.
+      expect(result.blocked, `${event} must not block`).toBe(false);
+      expect(isEnforcing(event), `${event} must be advisory`).toBe(false);
+    }
+  });
+
+  it('TC-05b: the same failure on PostToolUse does not block at the boundary', async () => {
     // `firePostToolHook` is fire-and-forget by construction, so there is no result to block on.
     // Asserted through the enforcing helper to show the difference is the EVENT, not the outcome:
     // an identical executor produces a denial at PreToolUse and nothing here.

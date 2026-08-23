@@ -27,9 +27,17 @@ outcome.
 
 **A hook that FAILS is not a hook that approved (SEC-015).** An executor that could not reach a verdict —
 timeout, spawn failure, HTTP status, unreachable endpoint, undecodable body, unexpected exit code —
-returns the `error` outcome, and `runHooks` reports every one on `IRunHooksResult.errors`. `error` does
-not currently block on any event, including `PreToolUse`; making it block there is issue #2093. The
-contract exists first so that decision has a fact to act on rather than a number to guess from. A body
+returns the `error` outcome, and `runHooks` reports every one on `IRunHooksResult.errors`.
+
+**Whether that blocks is per-event policy, and `PreToolUse` fails closed (SEC-016).** A `PreToolUse`
+hook that reached no verdict — or a configured hook type with no registered executor — now denies the
+tool call, with the failure `kind` and the `source` executor named in the reason.
+`HOOK_ENFORCEMENT_POLICY` (`packages/agent-core/src/hooks/enforcement-policy.ts`) is the SSOT for
+which events enforce. Every other event is `advisory`, and each records WHY: measured across the
+tree, `PreToolUse` is the only event whose fire site awaits `runHooks` and consults `blocked`, so the
+other fifteen could not honour an enforcing posture even if one were declared. That is what each
+row's `enforcementReachable` field records, and what
+`scripts/harness/scan-hook-enforcement-reachable.mjs` refuses to let drift. A body
 whose `{ ok }` verdict is undecodable but which carries an explicit block directive is a `deny`, not an
 `error` — the hook said so outright.
 
