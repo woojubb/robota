@@ -19,8 +19,15 @@
  *   "lint": "eslint packages apps --ext .ts,.tsx --cache --max-warnings <N>"
  *
  * That script is part of `harness:verify:release` (asserted by `check-release-governance.mjs`), and
- * `release-grade verification` is a REQUIRED context on every pull request to `main`. So the ceiling
- * is enforced on the promotion path by the tool itself.
+ * `release-grade verification` is a REQUIRED context on every pull request to `main`, and the
+ * `quality` job runs the same script on every pull request to `develop` (issue #1984). So the
+ * ceiling is enforced by the tool itself on BOTH paths.
+ *
+ * It was the promotion path alone until 2026-08-23, and the cost of that is the reason the second
+ * one exists: 111 warnings accumulated across 42 commits with every develop pull request green, and
+ * the first thing to notice was a promotion that could not merge. A gate that runs once per release
+ * reports a number nobody can act on — by the time it speaks, the additions are spread across
+ * dozens of merged commits and no author is left to attribute them to.
  *
  * WHAT THIS SCAN IS FOR. A number written into a script is a hand-maintained second source, and this
  * repository has spent whole items removing those. So the ceiling is checked against the tree:
@@ -32,7 +39,8 @@
  * WHAT IT DOES NOT DO, stated rather than discovered: it does not run eslint. A full workspace lint
  * is minutes, and `harness:scan` runs on every pre-push — putting it here would move a required
  * gate onto a path that must stay fast. The COUNT is measured by the lint script itself, on the
- * release path; this scan governs the CEILING that script carries.
+ * lint script itself, on the release path AND on every develop pull request; this scan governs the
+ * CEILING that script carries.
  *
  * Exit code 0 = the ceiling is present and matches its baseline, 1 = otherwise.
  */
@@ -118,7 +126,7 @@ function main() {
   // declaring one. Found by doing exactly that.
   console.log(
     `lint-warning-ratchet scan passed (ceiling ${ceiling}, at baseline; enforced by ` +
-      '`--max-warnings` on the release path, not by this scan).',
+      '`--max-warnings` on the release path and on every develop pull request, not by this scan).',
   );
 }
 

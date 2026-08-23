@@ -427,6 +427,24 @@ jobs:
         if: env.PRODUCT_APPLICABLE == 'true'
         run: pnpm harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-build --skip-record-check --skip-repository-check harness-tests
 
+      # issue #1984 — the lint-warning CEILING runs on EVERY pull request, not only the promotion.
+      #
+      # The ceiling is `--max-warnings` on the root `lint` script, and until this step existed the
+      # only CI path that executed it was `release-grade verification`, which is required on pull
+      # requests to `main` and therefore runs once per promotion. Measured 2026-08-23: 111 warnings
+      # had accumulated across 42 commits with every develop pull request green, and the first thing
+      # to notice was a promotion that could not merge. A ratchet nothing turns is a number.
+      #
+      # It lives HERE and not in `harness:scan`: that scan runs on every pre-push and a full
+      # workspace lint is minutes, which `scan-lint-warning-ratchet.mjs` rejects for that reason. CI
+      # has the time and the pre-push path does not. `quality` is already a required context on
+      # develop, so this gates without a ruleset change.
+      #
+      # `--cache` is deliberate and load-bearing for the runtime; the count it reports is unaffected.
+      - name: Lint-warning ceiling
+        if: env.PRODUCT_APPLICABLE == 'true'
+        run: pnpm lint
+
       # INFRA-037: build-contracts is the ONE scan that reads packages/*/dist (validates that declared
       # main/types/exports paths resolve to built files) and silently no-ops without dist. It stays in
       # `quality` (which restores dist above) so its coverage is preserved; the other 47 scans + the

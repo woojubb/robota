@@ -556,6 +556,10 @@ const STAGE_RUNNERS = {
   build: runBuild,
   'scan-suite': runScanSuite,
   'affected-verify': runAffectedVerify,
+  // The workspace count against the ceiling. `affected-verify` lints only the affected scopes, so a
+  // warning it reports is a warning in ITS packages — the number the ceiling governs is the sum over
+  // all of them, and only a whole-workspace run produces it (issue #1984).
+  'lint-ceiling': async () => ({ code: await run('pnpm', ['lint']) }),
   'binary-e2e': async () => ({
     code: await run('pnpm', ['--filter', '@robota-sdk/agent-cli', 'test:bin']),
   }),

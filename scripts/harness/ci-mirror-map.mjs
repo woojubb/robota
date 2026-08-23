@@ -161,6 +161,12 @@ export const CI_STAGES = [
     why: 'THE package test suites, lint and scoped typecheck — the gates verify-like-ci omitted entirely (INFRA-056)',
   },
   {
+    name: 'lint-ceiling',
+    needsBuildOutput: false,
+    mirrors: [{ job: 'quality', steps: ['Lint-warning ceiling'] }],
+    why: 'the WORKSPACE count against `--max-warnings`, which `affected-verify` cannot see: it lints only the affected scopes, so a warning added in one package is invisible to a ceiling that counts all of them (issue #1984)',
+  },
+  {
     name: 'binary-e2e',
     needsBuildOutput: true,
     mirrors: [{ job: 'quality', steps: ['Binary e2e (agent-cli bintests, dist-dependent)'] }],
