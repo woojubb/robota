@@ -4,16 +4,17 @@
  * Creates a subagent session with maxTurns and timeout limits,
  * runs hook input as the initial prompt, and parses the result.
  *
- * Exit codes:
- * - 0: ok: true (allow/proceed)
- * - 2: ok: false (block/deny), reason in stderr
- * - 1: execution error (session failure, parse error)
+ * Outcomes (SEC-015): `ok: true` → `allow`; `ok: false` → `deny` with its reason; a non-boolean or
+ * missing `ok`, or an unparseable response → `error`/`malformed-response`; a session failure →
+ * `error`/`transport-failure`. The last two used to share exit code 1.
  */
+
+import { decodeHookVerdict } from '@robota-sdk/agent-core';
 
 import type {
   IAgentHookDefinition,
   IHookInput,
-  IHookResult,
+  THookOutcome,
   IHookTypeExecutor,
   THookDefinition,
 } from '@robota-sdk/agent-core';
@@ -55,7 +56,7 @@ export class AgentExecutor implements IHookTypeExecutor {
     this.sessionFactory = options.sessionFactory;
   }
 
-  async execute(definition: THookDefinition, input: IHookInput): Promise<IHookResult> {
+  async execute(definition: THookDefinition, input: IHookInput): Promise<THookOutcome> {
     const agentDef = definition as IAgentHookDefinition;
     const maxTurns = agentDef.maxTurns ?? DEFAULT_MAX_TURNS;
     const timeout = agentDef.timeout ?? DEFAULT_TIMEOUT_SECONDS;
@@ -66,29 +67,14 @@ export class AgentExecutor implements IHookTypeExecutor {
       const rawResponse = await session.run(prompt);
       const jsonStr = extractJson(rawResponse);
 
-      let parsed: { ok: boolean; reason?: string };
-      try {
-        parsed = JSON.parse(jsonStr) as { ok: boolean; reason?: string };
-      } catch {
-        return {
-          exitCode: 1,
-          stdout: '',
-          stderr: `Failed to parse agent response as JSON: ${rawResponse}`,
-        };
-      }
-
-      if (parsed.ok) {
-        return { exitCode: 0, stdout: JSON.stringify(parsed), stderr: '' };
-      }
-
-      return {
-        exitCode: 2,
-        stdout: '',
-        stderr: parsed.reason ?? 'Blocked by agent hook',
-      };
+      return decodeHookVerdict(jsonStr, 'agent');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      return { exitCode: 1, stdout: '', stderr: message };
+      return {
+        outcome: 'error',
+        source: 'agent',
+        kind: 'transport-failure',
+        reason: err instanceof Error ? err.message : String(err),
+      };
     }
   }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { subagentExecutionRoot } from '../execution-root.js';
-import type { IHookInput, IHookResult, IHookTypeExecutor } from '@robota-sdk/agent-core';
+import type { IHookInput, THookOutcome, IHookTypeExecutor } from '@robota-sdk/agent-core';
 import type {
   ISubagentJobHandle,
   ISubagentJobResult,
@@ -281,9 +281,9 @@ describe('WorktreeSubagentRunner', () => {
     const hookInputs: IHookInput[] = [];
     const hookExecutor: IHookTypeExecutor = {
       type: 'prompt',
-      execute: async (_definition, input): Promise<IHookResult> => {
+      execute: async (_definition, input): Promise<THookOutcome> => {
         hookInputs.push(input);
-        return { exitCode: 0, stdout: '', stderr: '' };
+        return { outcome: 'allow', source: 'prompt', stdout: '' };
       },
     };
     const runner = new WorktreeSubagentRunner({

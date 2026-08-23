@@ -46,7 +46,7 @@
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsgo -p tsconfig.json --noEmit && tsgo -p tsconfig.examples.json --noEmit",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
-    "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-offline.ts && pnpm exec tsx --conditions=source examples/verify-session-record-field-preservation.ts && pnpm exec tsx --conditions=source examples/verify-compaction-contract.ts",
+    "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-offline.ts && pnpm exec tsx --conditions=source examples/verify-session-record-field-preservation.ts && pnpm exec tsx --conditions=source examples/verify-compaction-contract.ts && pnpm exec tsx --conditions=source examples/verify-hook-outcome-contract.ts",
     "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-session --output examples/scenarios/offline-verify.record.json -- pnpm scenario:verify",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },

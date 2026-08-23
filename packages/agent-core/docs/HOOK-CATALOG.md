@@ -11,8 +11,9 @@ registry.
 
 ## Blocking semantics
 
-The **only** blocking event is `PreToolUse`: a hook returning exit code `2` (or
-`hookSpecificOutput.permissionDecision: "deny"` / `continue: false`) sets `IRunHooksResult.blocked`,
+The **only** blocking event is `PreToolUse`: a hook whose executor returns the `deny` outcome (or an
+`allow` whose stdout carries `hookSpecificOutput.permissionDecision: "deny"` / `continue: false`) sets
+`IRunHooksResult.blocked`,
 and the turn owner's `runPreToolHook` → `PermissionEnforcer` path turns that into a denial
 `IToolResult` so the tool's `execute` never runs. Every other event is **informational-only**: its
 `runHooks` result is not awaited or consulted for gating, so it cannot veto or mutate the action it
@@ -23,6 +24,14 @@ In particular `PreModelCall`, `PostModelCall`, and `PermissionDecision` (SELFHOS
 points the turn owner already observes (a void, un-awaited `onExecutionEvent` callback, and
 post-`evaluatePermission`), so they cannot block or mutate `provider.chat()` or the permission
 outcome.
+
+**A hook that FAILS is not a hook that approved (SEC-015).** An executor that could not reach a verdict —
+timeout, spawn failure, HTTP status, unreachable endpoint, undecodable body, unexpected exit code —
+returns the `error` outcome, and `runHooks` reports every one on `IRunHooksResult.errors`. `error` does
+not currently block on any event, including `PreToolUse`; making it block there is issue #2093. The
+contract exists first so that decision has a fact to act on rather than a number to guess from. A body
+whose `{ ok }` verdict is undecodable but which carries an explicit block directive is a `deny`, not an
+`error` — the hook said so outright.
 
 ## Events
 

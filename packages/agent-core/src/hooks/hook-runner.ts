@@ -4,10 +4,12 @@
  * Dispatches to registered IHookTypeExecutor implementations by definition type.
  * Default executors: CommandExecutor (shell), HttpExecutor (HTTP POST).
  *
- * Exit code semantics:
- * - 0: allow/proceed
- * - 2: block/deny (stderr contains reason)
- * - other: proceed (logged as warning)
+ * Outcome semantics (SEC-015). Executors return a decoded `THookOutcome`, not an exit code:
+ * - `allow` → its stdout is decoded for the response protocol below
+ * - `deny`  → blocks, carrying the hook's reason
+ * - `error` → the hook rendered NO verdict; recorded in `IRunHooksResult.errors` and, for now,
+ *   does not block. Whether an enforcing event should treat that as a denial is a per-event POLICY
+ *   this runner deliberately does not decide — see issue #2093.
  *
  * stdout JSON semantics (Claude Code compatible):
  * - { continue: false } → block, regardless of exit code
@@ -15,12 +17,15 @@
  * - UserPromptSubmit: { decision: "block" } → block; hookSpecificOutput.additionalContext → injected into stdout
  */
 
+import { matchesGroup, getMatcherTarget } from './hook-matching.js';
+import { PERMISSION_PRIORITY, parseHookJson } from './response-protocol.js';
+
 import type {
   THookEvent,
   THooksConfig,
-  IHookGroup,
   IHookInput,
   IHookTypeExecutor,
+  IHookErrorOutcome,
 } from './types.js';
 
 /**
@@ -47,48 +52,11 @@ async function createDefaultExecutors(): Promise<IHookTypeExecutor[]> {
   return [new CommandExecutor(), new HttpExecutor()];
 }
 
-/** Permission decision priority: deny=3 > defer=2 > ask=1 > allow=0 */
-const PERMISSION_PRIORITY: Record<string, number> = { deny: 3, defer: 2, ask: 1, allow: 0 };
-
-/** Parse hook stdout as JSON if it starts with '{', otherwise return null. */
-function parseHookJson(stdout: string): Record<string, unknown> | null {
-  const trimmed = stdout.trim();
-  if (!trimmed.startsWith('{')) return null;
-  try {
-    return JSON.parse(trimmed) as Record<string, unknown>;
-  } catch {
-    // allow-fallback: hook stdout may be plain text; malformed JSON means raw stdout
-    return null;
-  }
-}
-
-/** Check if a tool name matches a hook group's matcher pattern. */
-function matchesGroup(group: IHookGroup, matcherTarget: string | undefined): boolean {
-  // Empty matcher = match everything
-  if (!group.matcher) return true;
-  if (!matcherTarget) return false;
-  try {
-    return new RegExp(group.matcher).test(matcherTarget);
-  } catch {
-    // allow-fallback: invalid regex → fall back to exact string match
-    return group.matcher === matcherTarget;
-  }
-}
-
-function getMatcherTarget(input: IHookInput): string | undefined {
-  if (input.tool_name) return input.tool_name;
-  if (input.hook_event_name === 'SubagentStart' || input.hook_event_name === 'SubagentStop') {
-    return input.agent_type ?? input.agent_id;
-  }
-  if (input.hook_event_name === 'SessionEnd') return input.reason;
-  return undefined;
-}
-
 /** Result of running hooks for an event. */
 export interface IRunHooksResult {
   blocked: boolean;
   reason?: string;
-  /** Collected stdout from all successful hooks (exit code 0). */
+  /** Collected stdout from all hooks that returned `allow`. */
   stdout: string;
   /** Parsed updatedInput from PreToolUse hookSpecificOutput (PreToolUse only). */
   updatedInput?: Record<string, unknown>;
@@ -107,12 +75,22 @@ export interface IRunHooksResult {
    * Absent when every configured hook had an executor — the ordinary case draws no attention.
    */
   unknownHookTypes?: readonly string[];
+  /**
+   * Hook executions that rendered no verdict (SEC-015). Absent when every hook decided.
+   *
+   * This is the field an enforcing consumer needs in order to fail closed, and its absence is why
+   * it could not. A runner that folded `error` into `allow` would leave this `undefined` while
+   * returning the same `blocked` value as correct code — which is exactly why the tests assert on
+   * this rather than on `blocked` alone.
+   */
+  errors?: readonly IHookErrorOutcome[];
 }
 
 /**
  * Run all hooks for a given event.
  *
- * For PreToolUse: if any hook returns exit code 2 or JSON deny, the tool call is blocked.
+ * For PreToolUse: if any hook returns the `deny` outcome, or an `allow` whose stdout carries a JSON
+ * deny directive, the tool call is blocked.
  * JSON stdout responses are parsed and applied per Claude Code spec.
  * Returns { blocked: true, reason } if blocked, otherwise { blocked: false, stdout }.
  *
@@ -130,6 +108,19 @@ export async function runHooks(
   if (!config) return { blocked: false, stdout: '' };
 
   const unknownHookTypes = new Set<string>();
+  /** Hooks that rendered no verdict. Reported, never folded into a verdict — see `errors`. */
+  const errors: IHookErrorOutcome[] = [];
+  /**
+   * The two "what did NOT decide" facts, carried on EVERY return path.
+   *
+   * They are built in one place because the previous shape repeated the `unknownHookTypes` spread at
+   * each early return, and a second such field would have been four more chances to omit it on the
+   * path that matters most — the one that returns early because something blocked.
+   */
+  const diagnostics = (): Pick<IRunHooksResult, 'unknownHookTypes' | 'errors'> => ({
+    ...(unknownHookTypes.size > 0 && { unknownHookTypes: [...unknownHookTypes].sort() }),
+    ...(errors.length > 0 && { errors: [...errors] }),
+  });
   const groups = config[event];
   if (!groups || groups.length === 0) return { blocked: false, stdout: '' };
 
@@ -162,24 +153,27 @@ export async function runHooks(
         continue;
       }
 
-      const result = await executor.execute(hook, groupInput);
+      const outcome = await executor.execute(hook, groupInput);
 
-      // Exit code 2 = block/deny (exit early)
-      if (result.exitCode === 2) {
+      // An explicit denial blocks, exactly as exit code 2 did.
+      if (outcome.outcome === 'deny') {
         return {
           blocked: true,
-          reason: result.stderr || 'Blocked by hook',
+          reason: outcome.reason || 'Blocked by hook',
           stdout: stdoutParts.join('\n'),
-          // Carried on the blocked path too: which hooks never ran is a fact the caller
-          // needs whatever the outcome, and an answer that depends on the path is a new trap.
-          ...(unknownHookTypes.size > 0 && { unknownHookTypes: [...unknownHookTypes].sort() }),
+          ...diagnostics(),
         };
       }
 
-      // Only parse stdout for exit code 0 responses
-      if (result.exitCode !== 0) continue;
+      // No verdict. Recorded and skipped — the hook's output is NOT read, because a hook that
+      // failed has not said anything, and treating its stdout as a response is how a malformed
+      // body came to be a verdict in the first place. Whether this should block is #2093's call.
+      if (outcome.outcome === 'error') {
+        errors.push(outcome);
+        continue;
+      }
 
-      const json = parseHookJson(result.stdout);
+      const json = parseHookJson(outcome.stdout);
 
       if (json !== null) {
         // Common: continue: false → block
@@ -192,9 +186,7 @@ export async function runHooks(
             blocked: true,
             reason: stopReason,
             stdout: stdoutParts.join('\n'),
-            // Carried on the blocked path too: which hooks never ran is a fact the caller
-            // needs whatever the outcome, and an answer that depends on the path is a new trap.
-            ...(unknownHookTypes.size > 0 && { unknownHookTypes: [...unknownHookTypes].sort() }),
+            ...diagnostics(),
           };
         }
 
@@ -213,9 +205,7 @@ export async function runHooks(
             stdout: additionalContext
               ? [...stdoutParts, additionalContext].join('\n')
               : stdoutParts.join('\n'),
-            // Carried on the blocked path too: which hooks never ran is a fact the caller
-            // needs whatever the outcome, and an answer that depends on the path is a new trap.
-            ...(unknownHookTypes.size > 0 && { unknownHookTypes: [...unknownHookTypes].sort() }),
+            ...diagnostics(),
           };
         }
 
@@ -251,11 +241,7 @@ export async function runHooks(
                   reason: 'Blocked by hook (permissionDecision: deny)',
                   stdout: stdoutParts.join('\n'),
                   permissionDecision: 'deny',
-                  // Carried on the blocked path too: which hooks never ran is a fact the caller
-                  // needs whatever the outcome, and an answer that depends on the path is a new trap.
-                  ...(unknownHookTypes.size > 0 && {
-                    unknownHookTypes: [...unknownHookTypes].sort(),
-                  }),
+                  ...diagnostics(),
                 };
               }
               // Track updatedInput from the highest-priority decision
@@ -270,9 +256,9 @@ export async function runHooks(
         if (typeof json['systemMessage'] === 'string' && json['systemMessage']) {
           stdoutParts.push(json['systemMessage']);
         }
-      } else if (result.stdout.trim()) {
+      } else if (outcome.stdout.trim()) {
         // Raw text stdout (non-JSON)
-        stdoutParts.push(result.stdout.trim());
+        stdoutParts.push(outcome.stdout.trim());
       }
     }
   }
@@ -288,9 +274,9 @@ export async function runHooks(
   if (lastUpdatedInput !== undefined) {
     finalResult.updatedInput = lastUpdatedInput;
   }
-  if (unknownHookTypes.size > 0) {
-    finalResult.unknownHookTypes = [...unknownHookTypes].sort();
-  }
+  const { unknownHookTypes: unrecognised, errors: failed } = diagnostics();
+  if (unrecognised !== undefined) finalResult.unknownHookTypes = unrecognised;
+  if (failed !== undefined) finalResult.errors = failed;
 
   return finalResult;
 }

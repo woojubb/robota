@@ -27,9 +27,19 @@ function makeHookInput(toolName = 'bash'): IHookInput {
 }
 
 function makeMockExecutor(exitCode: number, stderr = '', stdout = ''): IHookTypeExecutor {
+  // `exitCode` is kept as this helper's INPUT vocabulary so each call site still reads as the
+  // condition it is describing; the executor now answers in outcomes (SEC-015).
   return {
     type: 'command',
-    execute: vi.fn().mockResolvedValue({ exitCode, stdout, stderr }),
+    execute: vi
+      .fn()
+      .mockResolvedValue(
+        exitCode === 2
+          ? { outcome: 'deny', source: 'command', reason: stderr || 'Blocked by hook' }
+          : exitCode === 0
+            ? { outcome: 'allow', source: 'command', stdout }
+            : { outcome: 'error', source: 'command', kind: 'nonzero-exit', reason: stderr },
+      ),
   };
 }
 
@@ -47,7 +57,7 @@ const baseConfig: THooksConfig = {
 // ---------------------------------------------------------------------------
 
 describe('runPreToolHook — HOOK-003 blocked format', () => {
-  it('returns { blocked: true, reason } when hook exits with code 2', async () => {
+  it('returns { blocked: true, reason } when the hook denies', async () => {
     const executor = makeMockExecutor(2, 'Denied: dangerous tool');
     const input = makeHookInput('bash');
 

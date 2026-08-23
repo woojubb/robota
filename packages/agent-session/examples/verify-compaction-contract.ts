@@ -15,7 +15,7 @@ import {
 import type {
   IChatOptions,
   IHookInput,
-  IHookResult,
+  THookOutcome,
   IHookTypeExecutor,
   THooksConfig,
   TUniversalMessage,
@@ -83,9 +83,9 @@ const compactHooks: THooksConfig = {
 function createSession(cwd: string, hookInputs: IHookInput[]): Session {
   const executor: IHookTypeExecutor = {
     type: 'command',
-    execute: async (_definition, input): Promise<IHookResult> => {
+    execute: async (_definition, input): Promise<THookOutcome> => {
       hookInputs.push(input);
-      return { exitCode: 0, stdout: '', stderr: '' };
+      return { outcome: 'allow', source: 'command', stdout: '' };
     },
   };
   const session = new Session({

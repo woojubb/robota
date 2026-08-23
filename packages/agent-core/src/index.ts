@@ -306,7 +306,7 @@ export type {
   IGuardrailResult,
   TGuardrail,
   IHookInput,
-  IHookResult,
+  THookOutcome,
   IHookTypeExecutor,
 } from './hooks/index.js';
-export { runHooks, GuardrailExecutor } from './hooks/index.js';
+export { runHooks, GuardrailExecutor, decodeHookVerdict } from './hooks/index.js';

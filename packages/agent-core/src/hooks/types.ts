@@ -170,18 +170,72 @@ export interface IHookInput {
   env?: Record<string, string>;
 }
 
-/** Hook execution result */
-export interface IHookResult {
-  /** 0 = allow/proceed, 2 = block/deny, other = proceed with warning */
-  exitCode: number;
-  stdout: string;
-  stderr: string;
+/**
+ * Why a hook execution could not produce a verdict (SEC-015).
+ *
+ * The distinction these six names carry is the one the exit-code channel could not: a hook that
+ * DECIDED versus one that never got to. Which of the six it was is diagnostic detail; that it was
+ * any of them is what an enforcing consumer acts on.
+ */
+export type THookErrorKind =
+  /** The executor's own deadline elapsed before the hook answered. */
+  | 'timeout'
+  /** The process or transport never started (ENOENT, EACCES, a refused handshake). */
+  | 'spawn-failure'
+  /** It started and failed mid-flight — network drop, provider error, session failure. */
+  | 'transport-failure'
+  /** A well-formed response carrying a non-2xx status. */
+  | 'http-status'
+  /** A response arrived and could not be decoded into a verdict. */
+  | 'malformed-response'
+  /** The process exited with a code that is neither 0 nor 2, or was killed by a signal. */
+  | 'nonzero-exit';
+
+/** The hook approved. Its stdout carries the Claude Code response protocol, which the runner decodes. */
+export interface IHookAllowOutcome {
+  readonly outcome: 'allow';
+  /** Which executor produced this outcome — preserved for diagnostics. */
+  readonly source: THookDefinition['type'];
+  readonly stdout: string;
 }
+
+/** The hook decided to block, and said why. */
+export interface IHookDenyOutcome {
+  readonly outcome: 'deny';
+  /** Which executor produced this outcome — preserved for diagnostics. */
+  readonly source: THookDefinition['type'];
+  readonly reason: string;
+}
+
+/**
+ * The hook rendered no verdict.
+ *
+ * This is NOT a third verdict — it is the absence of one, and the policy for what an enforcing event
+ * does about it is deliberately not encoded here.
+ */
+export interface IHookErrorOutcome {
+  readonly outcome: 'error';
+  /** Which executor produced this outcome — preserved for diagnostics. */
+  readonly source: THookDefinition['type'];
+  readonly kind: THookErrorKind;
+  readonly reason: string;
+}
+
+/**
+ * The decoded result of one hook execution (SEC-015).
+ *
+ * It replaces an `{ exitCode, stdout, stderr }` record whose only channel for a failure was a
+ * number, which forced every failure to be coerced into a verdict: a truthy non-boolean `ok` read
+ * as allow and disabled the gate, while a falsy or missing one read as deny and blocked the user's
+ * tool call on a decision no hook made. Making the third outcome representable is what removes the
+ * coercion — a malformed response is now `error`, which is neither.
+ */
+export type THookOutcome = IHookAllowOutcome | IHookDenyOutcome | IHookErrorOutcome;
 
 /** Strategy interface for hook type executors */
 export interface IHookTypeExecutor {
   /** The hook type this executor handles */
   type: THookDefinition['type'];
   /** Execute a hook definition with the given input */
-  execute(definition: THookDefinition, input: IHookInput): Promise<IHookResult>;
+  execute(definition: THookDefinition, input: IHookInput): Promise<THookOutcome>;
 }
