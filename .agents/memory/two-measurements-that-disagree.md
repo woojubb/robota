@@ -53,6 +53,30 @@ Three near-misses in this repository trace to the move: this one; a plan nearly 
 "outside references" were all comment mentions; and a pull request green against a base that had
 moved, visible only when the two trees were put together.
 
+## The limit of this file, measured on this file
+
+**Writing the lesson down is not applying it, and this entry has the datum to prove it.**
+
+Four commits after committing this file, in the same branch and the same series, I shipped the
+identical defect: the `THookEvent` row in `packages/agent-core/docs/SPEC.md` said **13 events**,
+while two other lines of the same document said 16 and prose I added in the same change said
+"the other fifteen events are advisory". Three statements of one quantity in one SSOT, two of them
+written by me, disagreeing. Review caught it; this file did not.
+
+So state the limitation plainly rather than let the file imply otherwise:
+
+> **A memory entry is a record that a lesson was learned, not a mechanism that applies it.** Its
+> half-life against the author's own next commit is short — measured once, at about four commits.
+
+The practical consequence is that "filed and written down" is not closure. A lesson only becomes
+load-bearing when something mechanical enforces it — a scan, a gate, a test that goes red. Where a
+mechanism is possible, the entry is a placeholder for one; where it is not, the entry must be
+re-read at the moment of the work rather than trusted to have been absorbed.
+
+For this specific lesson the mechanism is cheap and does not exist yet: nothing checks that two
+counts of the same quantity in one document agree. `scan-hook-catalog` guards `HOOK-CATALOG.md`,
+not the SPEC tables, which is why the row above went out.
+
 ## Related
 
 - Issue #2227 — the too-wide-corpus guard class, and the positive-inclusion repair
