@@ -14,25 +14,22 @@
  * decoder. The store composes its own `missing` with these three.
  */
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
-
-/**
- * One decode failure, located.
- *
- * `path` is the machine-readable half and is kept separate from the human half on purpose: a caller
- * that must CLASSIFY a failure cannot do it by reading prose. The rendering is dotted for object
- * members and bracketed for array indices — `messages[2].timestamp` — and is empty at the root.
- */
-export interface ISessionRecordDecodeIssue {
-  readonly path: string;
-  readonly message: string;
-}
+import type {
+  IInteractiveSessionRecord,
+  ISessionRecordDecodeIssue,
+} from '@robota-sdk/agent-interface-session';
 
 /** What a decode of a persisted session record can conclude. */
 export type TSessionRecordDecodeOutcome =
   | { readonly status: 'valid'; readonly record: IInteractiveSessionRecord }
   | { readonly status: 'corrupt'; readonly issues: readonly ISessionRecordDecodeIssue[] }
   | { readonly status: 'unsupported'; readonly schemaVersion: number | undefined };
+
+/**
+ * Re-stated for readers of this module: `ISessionRecordDecodeIssue` is declared with the record it
+ * describes, in the contract package (TRANS-007). The TYPE is a contract; this module owns the
+ * MECHANISM that produces it. `scan-interface-runtime` draws exactly that line.
+ */
 
 /**
  * The accumulator a decode pass writes into.

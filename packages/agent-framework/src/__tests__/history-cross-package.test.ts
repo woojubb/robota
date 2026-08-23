@@ -110,7 +110,7 @@ describe('IHistoryEntry cross-package integration', () => {
       save: vi.fn((record: Record<string, unknown>) => {
         savedRecord = record;
       }),
-      load: vi.fn().mockReturnValue(undefined),
+      load: vi.fn().mockReturnValue({ status: 'missing' }),
       list: vi.fn().mockReturnValue([]),
       delete: vi.fn(),
     };
@@ -130,8 +130,10 @@ describe('IHistoryEntry cross-package integration', () => {
       .history as IHistoryEntry[];
     expect(persistedHistory.length).toBeGreaterThan(0);
 
-    // Simulate restore: load returns saved record
-    mockSessionStore.load.mockReturnValue(savedRecord);
+    // Simulate restore: the port returns an OUTCOME, so the double wraps the saved record rather
+    // than returning it bare (TRANS-007). Returning the record here used to work because `load`'s
+    // contract was `record | undefined`; a double that still does so now reports `undefined.status`.
+    mockSessionStore.load.mockReturnValue({ status: 'valid', record: savedRecord });
 
     const restored = new InteractiveSession({
       session: createMockSession() as never,
@@ -184,12 +186,15 @@ describe('IHistoryEntry cross-package integration', () => {
     const mockStore = {
       save: vi.fn(),
       load: vi.fn().mockReturnValue({
-        id: 'round-trip-session',
-        cwd: '/tmp',
-        createdAt: '2026-01-01T00:00:00Z',
-        updatedAt: '2026-01-01T00:00:00Z',
-        messages: originalMessages,
-        history: [],
+        status: 'valid',
+        record: {
+          id: 'round-trip-session',
+          cwd: '/tmp',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          messages: originalMessages,
+          history: [],
+        },
       }),
       list: vi.fn().mockReturnValue([]),
       delete: vi.fn(),

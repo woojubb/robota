@@ -218,7 +218,8 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     const [sourceFile] = sessionFiles(project);
     expect(sourceFile).toBeDefined();
     const sourceRaw = readFileSync(join(project, '.robota', 'sessions', sourceFile!), 'utf8');
-    const sourceId = (JSON.parse(sourceRaw) as { id: string }).id;
+    // TRANS-007: the persisted shape is `{ schemaVersion, record }`, so the id is one level down.
+    const sourceId = (JSON.parse(sourceRaw) as { record: { id: string } }).record.id;
 
     const second = createScriptedProvider([{ text: 'it was 42' }]);
     const secondRun = await runScripted(

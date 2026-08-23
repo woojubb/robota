@@ -37,9 +37,17 @@ function createMockSession(options?: { sessionId?: string }) {
 function createMockSessionStore(records: Record<string, unknown> = {}) {
   const store = new Map<string, unknown>(Object.entries(records));
   return {
-    load: vi.fn((id: string) => store.get(id)),
+    // TRANS-007: the port returns an outcome, so a double that returns a record (or `undefined`)
+    // no longer satisfies it. The cast at the call site hid that from the compiler; the tests found
+    // it at runtime instead.
+    load: vi.fn((id: string) => {
+      const record = store.get(id);
+      return record === undefined ? { status: 'missing' } : { status: 'valid', record };
+    }),
     save: vi.fn((record: { id: string }) => store.set(record.id, record)),
-    list: vi.fn(() => [...store.values()]),
+    list: vi.fn(() =>
+      [...store.entries()].map(([id, record]) => ({ id, outcome: { status: 'valid', record } })),
+    ),
     delete: vi.fn((id: string) => store.delete(id)),
   };
 }

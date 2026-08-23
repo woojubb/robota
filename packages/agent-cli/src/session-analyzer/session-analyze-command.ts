@@ -61,12 +61,15 @@ function parseSessionAnalyzeArgs(argv: string[]): ISessionAnalyzeArgs {
 function loadSessionRecords(
   projectSessionStore: IInteractiveSessionStore | undefined,
 ): TSessionAnalysisInput[] {
+  // TRANS-007: analysis needs readable records, so unreadable entries are skipped HERE rather than
+  // by the store — the store now reports them, and each consumer decides what it can do with one.
+  // An analyzer has nothing to analyse in a record it cannot decode.
   const byId = new Map<string, TSessionAnalysisInput>();
-  for (const record of createUserSessionStore().list()) {
-    byId.set(record.id, record);
+  for (const entry of createUserSessionStore().list()) {
+    if (entry.outcome.status === 'valid') byId.set(entry.id, entry.outcome.record);
   }
-  for (const record of projectSessionStore?.list() ?? []) {
-    byId.set(record.id, record);
+  for (const entry of projectSessionStore?.list() ?? []) {
+    if (entry.outcome.status === 'valid') byId.set(entry.id, entry.outcome.record);
   }
   return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
 }

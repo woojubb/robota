@@ -15,6 +15,7 @@ import { createTrustedProjectSessionStoreFixture } from '../../testing/trusted-p
 
 import type { IInteractiveSessionStore } from '../session-persistence.js';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
+import { loadedRecordOrMissing } from './session-load-helpers.js';
 
 const SOURCE_ID = 'cli-073-source-session';
 
@@ -32,8 +33,20 @@ describe('fork restores conversation context (CLI-073)', () => {
       createdAt: '2026-06-13T00:00:00.000Z',
       updatedAt: '2026-06-13T00:00:00.000Z',
       messages: [
-        { role: 'user', content: 'Remember the number 42.' },
-        { role: 'assistant', content: 'Noted: 42.' },
+        {
+          id: 'm-1',
+          role: 'user',
+          content: 'Remember the number 42.',
+          timestamp: new Date('2026-08-01T00:00:00.000Z'),
+          state: 'complete',
+        },
+        {
+          id: 'm-2',
+          role: 'assistant',
+          content: 'Noted: 42.',
+          timestamp: new Date('2026-08-01T00:00:00.000Z'),
+          state: 'complete',
+        },
       ] as TUniversalMessage[],
     });
     storeFilePath = join(cwd, '.robota', 'sessions', `${SOURCE_ID}.json`);
@@ -62,7 +75,7 @@ describe('fork restores conversation context (CLI-073)', () => {
     const after = storeFilePath !== undefined ? readFileSync(storeFilePath, 'utf8') : undefined;
     expect(before).toBeDefined();
     expect(after).toBe(before);
-    expect(store.load(SOURCE_ID)?.messages).toHaveLength(2);
+    expect(loadedRecordOrMissing(store, SOURCE_ID)?.messages).toHaveLength(2);
   });
 
   it('TC-05: plain resume keeps yielding the messages (regression)', () => {

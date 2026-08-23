@@ -53,7 +53,15 @@ export function persistSession(
 ): void {
   try {
     const sessionId = session.getSessionId();
-    const existing = sessionStore.load(sessionId);
+    // TRANS-007: this reads the stored record to preserve members it does not own, so a load that
+    // failed for any reason OTHER than "no record" must not be treated as "no record" — writing
+    // then replaces a file this build merely cannot read with a fresh one, and that file is the
+    // only copy.
+    const outcome = sessionStore.load(sessionId);
+    if (outcome.status !== 'valid' && outcome.status !== 'missing') {
+      return;
+    }
+    const existing = outcome.status === 'valid' ? outcome.record : undefined;
     const sandboxSnapshotId = sandboxState?.snapshotId ?? existing?.sandboxSnapshotId;
     sessionStore.save(
       buildInteractiveSessionRecord({

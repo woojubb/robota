@@ -12,9 +12,15 @@ import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   IResumableSessionSummary,
+  TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
 
-export type { IInteractiveSessionRecord, IInteractiveSessionStore, IResumableSessionSummary };
+export type {
+  IInteractiveSessionRecord,
+  IInteractiveSessionStore,
+  IResumableSessionSummary,
+  TSessionLoadOutcome,
+};
 export { WorkspaceSessionLogSink, WorkspaceSessionLogSource } from './workspace-session-io.js';
 export { WorkspaceProjectSessionStore } from './workspace-session-store.js';
 
@@ -51,6 +57,7 @@ export function listResumableSessionSummaries(
   cwd: string,
 ): IResumableSessionSummary[] {
   return (sessionStore?.list() ?? [])
+    .flatMap((entry) => (entry.outcome.status === 'valid' ? [entry.outcome.record] : []))
     .filter((session) => session.cwd === cwd)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .map((session) => ({
@@ -61,6 +68,23 @@ export function listResumableSessionSummaries(
       messageCount: session.messages.length,
       preview: getLastAssistantPreview(session.messages),
     }));
+}
+
+/**
+ * The sessions this build cannot read (TRANS-007).
+ *
+ * `listResumableSessionSummaries` returns only what can be resumed, which is what its name promises
+ * — an unreadable session is genuinely not resumable. What it must not do is make those sessions
+ * DISAPPEAR: before this, both stores dropped what they could not parse, so a damaged or
+ * older-format session read as gone rather than as unreadable. A surface that wants to say "3
+ * sessions here were written by a different build" asks this.
+ *
+ * Not filtered by `cwd`: an unreadable entry has no record, so it has no `cwd` to compare.
+ */
+export function listUnreadableSessions(
+  sessionStore: IInteractiveSessionStore | undefined,
+): readonly { readonly id: string; readonly outcome: TSessionLoadOutcome }[] {
+  return (sessionStore?.list() ?? []).filter((entry) => entry.outcome.status !== 'valid');
 }
 
 export function resolveLatestSessionId(
@@ -74,8 +98,12 @@ export function resolveSessionIdByIdOrName(
   sessionStore: IInteractiveSessionStore | undefined,
   idOrName: string,
 ): string | undefined {
+  // A name lives on the record, so only a readable entry can be matched by name. An unreadable one
+  // can still be matched by its id, which is what a user holding an old id would type.
   const match = (sessionStore?.list() ?? []).find(
-    (session) => session.id === idOrName || session.name === idOrName,
+    (entry) =>
+      entry.id === idOrName ||
+      (entry.outcome.status === 'valid' && entry.outcome.record.name === idOrName),
   );
   return match?.id;
 }

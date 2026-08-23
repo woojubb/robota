@@ -350,10 +350,5 @@ export interface IInteractiveSessionRecord {
   activeBranch?: IActiveBranchPointer;
 }
 
-/** Persistence port for resumable interactive sessions. */
-export interface IInteractiveSessionStore {
-  save(session: IInteractiveSessionRecord): void;
-  load(id: string): IInteractiveSessionRecord | undefined;
-  list(): IInteractiveSessionRecord[];
-  delete(id: string): void;
-}
+// The persistence port and its load-outcome vocabulary live in `session-store-contracts.ts`
+// (TRANS-007): they are one subject, and this file is at its size ratchet.

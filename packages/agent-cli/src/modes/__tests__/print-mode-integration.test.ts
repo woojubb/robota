@@ -216,7 +216,13 @@ describe('print mode session resume integration (CLI-063)', () => {
     await runPrint(cwd, 'Remember this number: 42', first.provider);
 
     const store = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
-    const priorRecord = store.list()[0];
+    const priorEntry = store.list()[0];
+    if (priorEntry?.outcome.status !== 'valid') {
+      throw new Error(
+        `expected a readable prior session, store reported ${priorEntry?.outcome.status}`,
+      );
+    }
+    const priorRecord = priorEntry.outcome.record;
     expect(priorRecord).toBeDefined();
     const priorMessageCount = priorRecord.messages.length;
 
@@ -236,7 +242,10 @@ describe('print mode session resume integration (CLI-063)', () => {
     expect(contents).toContain('And in the fork?');
     expect(contents).toContain('Remember this number: 42');
 
-    const after = createNodeHostSessionStore(join(cwd, '.robota', 'sessions')).list();
+    const afterEntries = createNodeHostSessionStore(join(cwd, '.robota', 'sessions')).list();
+    const after = afterEntries.flatMap((e) =>
+      e.outcome.status === 'valid' ? [e.outcome.record] : [],
+    );
     expect(after).toHaveLength(2);
     const original = after.find((record) => record.id === priorRecord.id);
     expect(original).toBeDefined();

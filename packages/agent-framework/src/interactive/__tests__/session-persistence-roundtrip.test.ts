@@ -7,6 +7,7 @@ import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-sess
 import { describe, expect, it } from 'vitest';
 
 import { createTrustedProjectSessionStoreFixture } from '../../testing/trusted-project-state-fixture.js';
+import { loadedRecordOrMissing } from './session-load-helpers.js';
 
 /**
  * DATA-006 (ARL-08): the SessionStore JSON record round-trip must preserve EVERY
@@ -77,7 +78,7 @@ describe('session persistence round-trip (DATA-006 / ARL-08)', () => {
     const record = fullRecord(cwd);
 
     store.save(record);
-    const loaded = store.load(record.id);
+    const loaded = loadedRecordOrMissing(store, record.id);
 
     expect(loaded?.goal).toEqual(record.goal);
   });
@@ -87,7 +88,7 @@ describe('session persistence round-trip (DATA-006 / ARL-08)', () => {
     const record = fullRecord(cwd);
 
     store.save(record);
-    const loaded = store.load(record.id);
+    const loaded = loadedRecordOrMissing(store, record.id);
 
     expect(loaded).toEqual(record);
   });

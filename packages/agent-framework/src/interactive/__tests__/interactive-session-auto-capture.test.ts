@@ -14,6 +14,7 @@ import { InteractiveSession } from '../interactive-session.js';
 import type { IAutomaticMemoryConfig } from '../../memory/automatic-memory-types.js';
 import type { IMemoryStore } from '../../memory/types.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
+import { loadedRecordOrMissing } from './session-load-helpers.js';
 
 /**
  * SELFHOST-008 P2 — post-turn auto-capture wired into the live turn (option B: awaited in the execution
@@ -87,7 +88,7 @@ describe('SELFHOST-008 P2 TC-01/TC-05 — capture fires on a completed turn (que
     expect(existsSync(join(cwd, '.robota', 'memory', 'pending.json'))).toBe(true);
     expect(existsSync(join(cwd, '.robota', 'memory', 'MEMORY.md'))).toBe(false);
     // memory event recorded IN this turn's persisted record (proves await-before-persist)
-    const saved = sessionStore.load(session.getSession().getSessionId());
+    const saved = loadedRecordOrMissing(sessionStore, session.getSession().getSessionId());
     const types = (saved?.memoryEvents ?? []).map((e) => e.type);
     expect(types).toContain('memory_candidate_extracted');
     expect(types).toContain('memory_candidate_queued');
@@ -110,7 +111,7 @@ describe('SELFHOST-008 P2 TC-01/TC-05 — capture fires on a completed turn (que
     expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
       'this project uses pnpm for package scripts',
     );
-    const saved = sessionStore.load(session.getSession().getSessionId());
+    const saved = loadedRecordOrMissing(sessionStore, session.getSession().getSessionId());
     expect((saved?.memoryEvents ?? []).map((e) => e.type)).toContain('memory_candidate_saved');
   });
 });
@@ -129,7 +130,9 @@ describe('SELFHOST-008 P2 TC-03 — adapter-gating: no automaticMemory ⇒ captu
     await session.submit(CUE);
 
     expect(existsSync(join(cwd, '.robota', 'memory', 'pending.json'))).toBe(false);
-    expect(sessionStore.load(session.getSession().getSessionId())?.memoryEvents).toEqual([]);
+    expect(
+      loadedRecordOrMissing(sessionStore, session.getSession().getSessionId())?.memoryEvents,
+    ).toEqual([]);
   });
 });
 
@@ -225,7 +228,7 @@ describe('SELFHOST-008 P2 TC-02b — event lands in the SAME turn record even wh
 
     await session.submit(CUE);
 
-    const saved = sessionStore.load(session.getSession().getSessionId());
+    const saved = loadedRecordOrMissing(sessionStore, session.getSession().getSessionId());
     expect((saved?.memoryEvents ?? []).map((e) => e.type)).toContain('memory_candidate_queued');
   });
 });

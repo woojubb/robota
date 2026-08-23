@@ -17,6 +17,7 @@ import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
 } from '@robota-sdk/agent-interface-session';
+import { loadedOrMissing } from './store-load-helpers.js';
 
 const SESSION_ID = 'arch-015-record-preservation';
 const CREATED_AT = '2026-08-01T00:00:00.000Z';
@@ -85,7 +86,15 @@ function createExistingRecord(): IInteractiveSessionRecord {
     cwd: '/stale/session',
     createdAt: CREATED_AT,
     updatedAt: STALE_UPDATED_AT,
-    messages: [{ role: 'user', content: 'stale message' }],
+    messages: [
+      {
+        id: 'm-stale',
+        role: 'user',
+        content: 'stale message',
+        timestamp: new Date('2026-08-01T00:00:00.000Z'),
+        state: 'complete',
+      },
+    ],
     history: [
       {
         id: 'stale-history',
@@ -197,7 +206,7 @@ describe('ARCH-015 Session record field preservation', () => {
     );
     await session.shutdown();
 
-    const reloaded = store.load(SESSION_ID);
+    const reloaded = loadedOrMissing(store, SESSION_ID);
     expect(reloaded).toBeDefined();
 
     const preservedKeys = [

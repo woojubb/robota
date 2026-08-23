@@ -7,7 +7,7 @@
 
 import { isReArmableScheduledTask } from './schedule-rearm.js';
 
-import type { IInteractiveSessionStore } from './session-persistence.js';
+import type { IInteractiveSessionStore, TSessionLoadOutcome } from './session-persistence.js';
 import type {
   IBackgroundJobGroupState,
   TBackgroundJobGroupEvent,
@@ -35,13 +35,23 @@ export function injectSavedMessage(session: Session, msg: TUniversalMessage): vo
 
 /**
  * Restore session history and messages from a persisted session record.
- * Returns the loaded history and any pending messages that need injection once session is ready.
+ *
+ * Returns the loaded history, any pending messages that need injection once the session is ready,
+ * and — since TRANS-007 — WHY the record is empty when it is empty.
+ *
+ * The empty shape used to be returned for every failure: a damaged file produced a result
+ * indistinguishable from a brand-new session, and the user saw their conversation, goal, plan and
+ * branch pointer silently absent with nothing said. `loadOutcome` carries the store's verdict so a
+ * surface can tell "there was nothing to restore" from "there is something here this build cannot
+ * read", which are different sentences to show a person.
  */
 export function loadSessionRecord(
   sessionStore: IInteractiveSessionStore,
   resumeSessionId: string,
   existingSession: Session | null,
 ): {
+  /** TRANS-007: what the store concluded. `missing` is a new session; the rest are not. */
+  loadOutcome: TSessionLoadOutcome;
   history: IHistoryEntry[];
   sessionName: string | undefined;
   pendingRestoreMessages: TUniversalMessage[] | null;
@@ -58,9 +68,10 @@ export function loadSessionRecord(
   plan: IPlanArtifact | undefined;
   activeBranch: IActiveBranchPointer | undefined;
 } {
-  const record = sessionStore.load(resumeSessionId);
-  if (!record) {
+  const outcome = sessionStore.load(resumeSessionId);
+  if (outcome.status !== 'valid') {
     return {
+      loadOutcome: outcome,
       history: [],
       sessionName: undefined,
       pendingRestoreMessages: null,
@@ -78,6 +89,7 @@ export function loadSessionRecord(
       activeBranch: undefined,
     };
   }
+  const record = outcome.record;
 
   const history = record.history ?? [];
   const restoredBackgroundTasks = record.backgroundTasks ?? [];
@@ -109,6 +121,7 @@ export function loadSessionRecord(
   }
 
   return {
+    loadOutcome: outcome,
     history,
     sessionName,
     pendingRestoreMessages,

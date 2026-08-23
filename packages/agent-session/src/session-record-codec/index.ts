@@ -22,4 +22,4 @@ export {
 } from './record-decoder.js';
 
 export type { IVersionedInteractiveSessionRecord } from './record-decoder.js';
-export type { ISessionRecordDecodeIssue, TSessionRecordDecodeOutcome } from './decode-outcome.js';
+export type { TSessionRecordDecodeOutcome } from './decode-outcome.js';

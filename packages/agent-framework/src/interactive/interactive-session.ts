@@ -14,6 +14,7 @@ import {
 import { initializeInteractiveSessionAsync } from './interactive-session-init.js';
 import { persistSession } from './interactive-session-persistence.js';
 import { resolveUserSettingsProviderSwitch } from './interactive-session-provider-switch.js';
+import { persistSessionRename } from './interactive-session-rename.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { publicTurnOptions, submitNewTurn } from './interactive-session-turn-submission.js';
@@ -753,17 +754,15 @@ export class InteractiveSession
   setName(name: string): void {
     this.sessionName = name;
     if (this.sessionStore && this.session) {
+      let id: string;
       try {
-        const id = this.getSessionOrThrow().getSessionId();
-        const existing = this.sessionStore.load(id);
-        if (existing) {
-          existing.name = name;
-          existing.updatedAt = new Date().toISOString();
-          this.sessionStore.save(existing);
-        }
+        id = this.getSessionOrThrow().getSessionId();
       } catch {
-        /* Session not initialized yet */
+        return; // Session not initialized yet — nothing on disk to rename.
       }
+      // TRANS-007: the store outcome is NOT swallowed. It used to sit inside the catch above, so a
+      // record this build cannot read made the rename a silent no-op.
+      persistSessionRename(this.sessionStore, id, name);
     }
   }
 

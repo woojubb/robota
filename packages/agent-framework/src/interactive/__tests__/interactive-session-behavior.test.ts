@@ -200,7 +200,13 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('abort clears queue and emits interrupted event', async () => {
     const abortError = new DOMException('The operation was aborted.', 'AbortError');
     const abortHistory = [
-      { role: 'user', content: 'test' },
+      {
+        id: 'm-1',
+        role: 'user',
+        content: 'test',
+        timestamp: new Date('2026-08-01T00:00:00.000Z'),
+        state: 'complete',
+      },
       { role: 'assistant', content: 'partial answer', state: 'interrupted' },
     ];
     const mockSession = createMockSession();
@@ -545,13 +551,13 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('messages do not contain raw JSON tool summaries', async () => {
     const mockSession = createMockSession({
       history: [
-        { role: 'user', content: 'test' },
+        { role: 'user', content: 'test', state: 'complete' },
         {
           role: 'assistant',
           content: 'I will read the file',
           toolCalls: [{ function: { name: 'Read', arguments: '{"file_path":"/test.ts"}' } }],
         },
-        { role: 'assistant', content: 'Here is the result' },
+        { role: 'assistant', content: 'Here is the result', state: 'complete' },
       ],
     });
 
@@ -654,7 +660,13 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     mockSession.getHistory.mockReturnValue([]);
     mockSession.abort.mockImplementation(() => {
       mockSession.getHistory.mockReturnValue([
-        { role: 'user', content: 'write a story' },
+        {
+          id: 'm-4',
+          role: 'user',
+          content: 'write a story',
+          timestamp: new Date('2026-08-01T00:00:00.000Z'),
+          state: 'complete',
+        },
         { role: 'assistant', content: 'Once upon a time...', state: 'interrupted' },
       ]);
     });
@@ -697,7 +709,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('auto-persists session to SessionStore after submit', async () => {
     const mockSessionStore = {
       save: vi.fn(),
-      load: vi.fn().mockReturnValue(undefined),
+      load: vi.fn().mockReturnValue({ status: 'missing' }),
       list: vi.fn().mockReturnValue([]),
       delete: vi.fn(),
     };
@@ -725,29 +737,56 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
         timestamp: new Date().toISOString(),
         category: 'chat',
         type: 'user',
-        data: { role: 'user', content: 'previous' },
+        data: {
+          id: 'm-5',
+          role: 'user',
+          content: 'previous',
+          timestamp: new Date('2026-08-01T00:00:00.000Z'),
+          state: 'complete',
+        },
       },
       {
         id: '2',
         timestamp: new Date().toISOString(),
         category: 'chat',
         type: 'assistant',
-        data: { role: 'assistant', content: 'answer' },
+        data: {
+          id: 'm-6',
+          role: 'assistant',
+          content: 'answer',
+          timestamp: new Date('2026-08-01T00:00:00.000Z'),
+          state: 'complete',
+        },
       },
     ];
 
     const mockSessionStore = {
       save: vi.fn(),
       load: vi.fn().mockReturnValue({
-        id: 'prev-session',
-        cwd: '/tmp',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        history: savedHistory,
-        messages: [
-          { role: 'user', content: 'previous' },
-          { role: 'assistant', content: 'answer' },
-        ],
+        status: 'valid',
+        record: {
+          id: 'prev-session',
+          cwd: '/tmp',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          history: savedHistory,
+          messages: [
+            {
+              id: 'm-7',
+              role: 'user',
+              content: 'previous',
+              timestamp: new Date('2026-08-01T00:00:00.000Z'),
+              state: 'complete',
+            },
+            {
+              id: 'm-8',
+              role: 'assistant',
+              content: 'answer',
+              timestamp: new Date('2026-08-01T00:00:00.000Z'),
+              state: 'complete',
+            },
+          ],
+        },
       }),
       list: vi.fn().mockReturnValue([]),
       delete: vi.fn(),
@@ -793,11 +832,14 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     const mockSessionStore = {
       save: vi.fn(),
       load: vi.fn().mockReturnValue({
-        id: 'sess-1',
-        cwd: '/tmp',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        messages: [],
+        status: 'valid',
+        record: {
+          id: 'sess-1',
+          cwd: '/tmp',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          messages: [],
+        },
       }),
       list: vi.fn().mockReturnValue([]),
       delete: vi.fn(),
@@ -856,7 +898,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     it('persisted history matches InteractiveSession.getFullHistory() exactly', async () => {
       const mockSessionStore = {
         save: vi.fn(),
-        load: vi.fn().mockReturnValue(undefined),
+        load: vi.fn().mockReturnValue({ status: 'missing' }),
         list: vi.fn().mockReturnValue([]),
         delete: vi.fn(),
       };
@@ -879,7 +921,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     it('persists system prompt and tool schemas for session restore diagnostics', async () => {
       const mockSessionStore = {
         save: vi.fn(),
-        load: vi.fn().mockReturnValue(undefined),
+        load: vi.fn().mockReturnValue({ status: 'missing' }),
         list: vi.fn().mockReturnValue([]),
         delete: vi.fn(),
       };
@@ -905,7 +947,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     it('multiple submits accumulate in persisted history', async () => {
       const mockSessionStore = {
         save: vi.fn(),
-        load: vi.fn().mockReturnValue(undefined),
+        load: vi.fn().mockReturnValue({ status: 'missing' }),
         list: vi.fn().mockReturnValue([]),
         delete: vi.fn(),
       };
@@ -936,29 +978,56 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
           timestamp: new Date().toISOString(),
           category: 'chat',
           type: 'user',
-          data: { role: 'user', content: 'old' },
+          data: {
+            id: 'm-11',
+            role: 'user',
+            content: 'old',
+            timestamp: new Date('2026-08-01T00:00:00.000Z'),
+            state: 'complete',
+          },
         },
         {
           id: '2',
           timestamp: new Date().toISOString(),
           category: 'chat',
           type: 'assistant',
-          data: { role: 'assistant', content: 'old answer' },
+          data: {
+            id: 'm-12',
+            role: 'assistant',
+            content: 'old answer',
+            timestamp: new Date('2026-08-01T00:00:00.000Z'),
+            state: 'complete',
+          },
         },
       ];
 
       const mockSessionStore = {
         save: vi.fn(),
         load: vi.fn().mockReturnValue({
-          id: 'prev',
-          cwd: '/tmp',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          history: previousHistory,
-          messages: [
-            { role: 'user', content: 'old' },
-            { role: 'assistant', content: 'old answer' },
-          ],
+          status: 'valid',
+          record: {
+            id: 'prev',
+            cwd: '/tmp',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            history: previousHistory,
+            messages: [
+              {
+                id: 'm-13',
+                role: 'user',
+                content: 'old',
+                timestamp: new Date('2026-08-01T00:00:00.000Z'),
+                state: 'complete',
+              },
+              {
+                id: 'm-14',
+                role: 'assistant',
+                content: 'old answer',
+                timestamp: new Date('2026-08-01T00:00:00.000Z'),
+                state: 'complete',
+              },
+            ],
+          },
         }),
         list: vi.fn().mockReturnValue([]),
         delete: vi.fn(),

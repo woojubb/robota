@@ -49,7 +49,6 @@ export type {
   IPromptResolvedEvent,
   IContextFileRefreshedEvent,
   IInteractiveSessionRecord,
-  IInteractiveSessionStore,
   IBranchEvent,
   IActiveBranchPointer,
   IGoalState,
@@ -62,6 +61,12 @@ export type {
   TPlanPhase,
   IPlanArtifact,
 } from './session-contracts.js';
+export type {
+  IInteractiveSessionStore,
+  ISessionListEntry,
+  ISessionRecordDecodeIssue,
+  TSessionLoadOutcome,
+} from './session-store-contracts.js';
 export { SESSION_CAPABILITY_MEMBER_KEYS } from './session-capability-contracts.js';
 export type {
   ISessionCapabilityHost,
