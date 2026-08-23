@@ -211,7 +211,13 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
         outcome: 'error',
         source,
         kind,
-        reason: `simulated ${kind}`,
+        // Deliberately shares NO substring with `kind` or `source`. It used to be
+        // `simulated ${kind}`, which meant a `toContain(kind)` assertion was satisfied by the
+        // REASON interpolation — so replacing `${failure.kind}` in the message with a literal
+        // passed every case, and so did deleting `${failure.reason}`. Each field masked the other,
+        // and neither half of the documented shape was pinned. A fixture whose fields can stand in
+        // for each other cannot discriminate between them.
+        reason: 'stub failure text',
       }),
     };
   }
@@ -246,8 +252,11 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
         makeFailingExecutor(kind, source),
       ]);
       const reason = result?.error ?? '';
+      // Three separate assertions over three non-overlapping strings, so each names one field of
+      // the documented shape `Hook could not evaluate ({kind}, source: {source}): {reason}`.
       expect(reason, `${kind} reason should name the kind`).toContain(kind);
       expect(reason, `${kind} reason should name the source`).toContain(source);
+      expect(reason, `${kind} reason should carry the failure text`).toContain('stub failure text');
     }
   });
 

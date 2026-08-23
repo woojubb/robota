@@ -95,7 +95,8 @@ export async function runPreToolHook(
   //
   // What the scan DOES catch, each measured rather than assumed: deleting the `.blocked` read above
   // fires `[inert-enforcing-row]`; flipping BOTH `posture` and `enforcementReachable` fires
-  // `[stale-reachability]`. Flipping only `posture` fires `[no-enforcing-rows]` instead — and note
+  // `[stale-reachability]` — and, measured, `[no-enforcing-rows]` alongside it, because
+  // `PreToolUse` is currently the only enforcing row. Flipping only `posture` fires `[no-enforcing-rows]` instead — and note
   // that arm only holds while `PreToolUse` is the sole enforcing row, so a second enforcing event
   // would make the same disarming edit silent (issue #2259).
   //

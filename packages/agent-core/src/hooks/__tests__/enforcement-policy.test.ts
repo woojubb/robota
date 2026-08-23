@@ -88,6 +88,10 @@ describe('HOOK_ENFORCEMENT_POLICY', () => {
   describe('TC-12: a row may not claim to enforce where enforcement is unreachable', () => {
     it('the shipped policy is coherent', () => {
       expect(() => assertPolicyCoherent()).not.toThrow();
+      // And the no-argument form really is bound to the shipped table. Without this, changing the
+      // default to `= {}` passed — an empty table has nothing dishonest in it, so the assertion
+      // above held while the check examined nothing.
+      expect(() => assertPolicyCoherent({})).toThrow(/empty/i);
     });
 
     it('rejects posture "enforcing" with enforcementReachable: false, naming the event', () => {

@@ -284,6 +284,62 @@ export function isProductionSource(relative) {
   return /^(packages|apps)\/[^/]+\/src\//.test(relative);
 }
 
+/**
+ * Every `runHooks(` fire site in ONE source string.
+ *
+ * Exported for the same reason as `readsBlockedInScope`: `findFireSites` enumerates from the
+ * workspace root via `git ls-files`, so the blanking it applies per file cannot be driven from a
+ * temporary fixture, and the live corpus happens to contain no commented-out `runHooks(` — so
+ * nothing exercised it. Extracting the per-source unit pins the behaviour without writing a fixture
+ * file into `packages/`, where a parallel suite would see it.
+ *
+ * Takes RAW source and blanks it here, so the blanking is part of the unit under test.
+ */
+export function collectFireSitesFromSource(relative, rawSource) {
+  /** @type {TFireSite[]} */
+  const found = [];
+  // Blanked, not raw: a commented-out `runHooks(` line otherwise creates a phantom fire site,
+  // and a comment mentioning `<ident>.blocked` vouches for a gate that no longer exists.
+  const source = blankComments(rawSource);
+  if (!source.includes('runHooks(')) return found;
+  const lines = source.split('\n');
+
+  // Offset of the START of each line. `indexOf(text)` finds the first line that LOOKS like this
+  // one, which is a different thing whenever two call sites are spelled identically.
+  const lineOffsets = [];
+  let running = 0;
+  for (const line of lines) {
+    lineOffsets.push(running);
+    running += line.length + 1;
+  }
+
+  lines.forEach((text, index) => {
+    if (!text.includes('runHooks(')) return;
+    if (/export\s+async\s+function\s+runHooks/.test(text)) return; // the definition, not a site
+
+    // The call's argument list may span lines; take a window generous enough to hold it.
+    const window = lines.slice(index, index + 12).join('\n');
+    const events = [
+      ...window.matchAll(
+        /'(Pre[A-Z]\w+|Post[A-Z]\w+|Session\w+|Stop\w*|UserPromptSubmit|Subagent\w+|Worktree\w+|PermissionDecision)'/g,
+      ),
+    ].map((m) => m[1]);
+
+    // `blocked` is read from the result if the assignment's identifier is later used with it.
+    const assigned = /(?:const|let)\s+(\w+)\s*=\s*await\s+runHooks\(/.exec(text)?.[1];
+    const readsBlocked = readsBlockedInScope(source, lineOffsets[index], assigned);
+
+    found.push({
+      file: relative,
+      line: index + 1,
+      events,
+      awaited: /await\s+runHooks\(/.test(text),
+      readsBlocked,
+    });
+  });
+  return found;
+}
+
 export function findFireSites(pathspecs) {
   /** @type {TFireSite[]} */
   const sites = [];
@@ -293,47 +349,7 @@ export function findFireSites(pathspecs) {
     if (!isProductionSource(relative)) continue;
     const file = path.join(WORKSPACE_ROOT, relative);
     if (!existsSync(file)) continue;
-    {
-      // Blanked, not raw: a commented-out `runHooks(` line otherwise creates a phantom fire site,
-      // and a comment mentioning `<ident>.blocked` vouches for a gate that no longer exists.
-      const source = blankComments(readFileSync(file, 'utf8'));
-      if (!source.includes('runHooks(')) continue;
-      const lines = source.split('\n');
-
-      // Offset of the START of each line. `indexOf(text)` finds the first line that LOOKS like this
-      // one, which is a different thing whenever two call sites are spelled identically.
-      const lineOffsets = [];
-      let running = 0;
-      for (const line of lines) {
-        lineOffsets.push(running);
-        running += line.length + 1;
-      }
-
-      lines.forEach((text, index) => {
-        if (!text.includes('runHooks(')) return;
-        if (/export\s+async\s+function\s+runHooks/.test(text)) return; // the definition, not a site
-
-        // The call's argument list may span lines; take a window generous enough to hold it.
-        const window = lines.slice(index, index + 12).join('\n');
-        const events = [
-          ...window.matchAll(
-            /'(Pre[A-Z]\w+|Post[A-Z]\w+|Session\w+|Stop\w*|UserPromptSubmit|Subagent\w+|Worktree\w+|PermissionDecision)'/g,
-          ),
-        ].map((m) => m[1]);
-
-        // `blocked` is read from the result if the assignment's identifier is later used with it.
-        const assigned = /(?:const|let)\s+(\w+)\s*=\s*await\s+runHooks\(/.exec(text)?.[1];
-        const readsBlocked = readsBlockedInScope(source, lineOffsets[index], assigned);
-
-        sites.push({
-          file: relative,
-          line: index + 1,
-          events,
-          awaited: /await\s+runHooks\(/.test(text),
-          readsBlocked,
-        });
-      });
-    }
+    sites.push(...collectFireSitesFromSource(relative, readFileSync(file, 'utf8')));
   }
   examinedFireSites = sites.length;
   return sites;

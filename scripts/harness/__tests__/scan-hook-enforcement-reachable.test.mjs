@@ -20,7 +20,9 @@ import { describe, expect, it, beforeAll } from 'vitest';
 import { makeTemp } from './make-temp.mjs';
 
 import {
+  collectFireSitesFromSource,
   collectPolicyRows,
+  evaluate,
   findFireSites,
   readsBlockedInScope,
   blankComments,
@@ -353,9 +355,15 @@ describe('scan-hook-enforcement-reachable', () => {
       // left this scan green, a demo vouching for something that no longer existed.
       expect(isProductionSource('packages/agent-session/src/tool-hook-helpers.ts')).toBe(true);
       for (const notProduct of [
-        // Matches NO exclusion pattern — it fails only the positive `src/` requirement, so it is the
-        // one entry that pins the "a new sibling directory must EARN inclusion" half. Every other
-        // entry below is caught by a different clause, which let that half survive alone.
+        // Matches NO exclusion pattern — it fails only the positive `src/` requirement, so it is
+        // the one entry that pins the "a new sibling directory must EARN inclusion" half.
+        //
+        // Do NOT read the rest of this list as one-entry-per-clause: it is not, and an earlier
+        // comment here claimed it was. Two entries below are already excluded by the positive
+        // `src/` rule and so pin no clause at all, and others match two clauses each — which is why
+        // five of the six exclusion clauses survived deletion. The per-clause coverage is asserted
+        // separately, by a case that uses one path each which NO other clause and no other rule
+        // would reject.
         'packages/agent-core/tools/generate.ts',
         'packages/agent-session/examples/verify-hook-outcome-contract.ts',
         'packages/agent-core/src/hooks/__tests__/enforcement-policy.test.ts',
@@ -506,6 +514,165 @@ describe('scan-hook-enforcement-reachable', () => {
       );
 
       expect(blankComments(src)).toContain('https://example.test');
+    });
+  });
+
+  describe('the blankComments CALL SITES are pinned, not just the helper', () => {
+    // `blankComments` itself is well covered; its call sites were not. Dropping the blanking in
+    // `collectPolicyRows` left all 31 cases green while producing a fully green scan on a DISARMED
+    // policy — the first of the four effects that helper's own docblock enumerates.
+    it('a commented-out enforcing row does not override a disarmed real one', () => {
+      const disarmed = realPolicy.replace(
+        `    PreToolUse: {
+      posture: 'enforcing',
+      enforcementReachable: true,`,
+        `    PreToolUse: {
+      posture: 'advisory',
+      enforcementReachable: false,`,
+      );
+      expect(disarmed, 'disarming mutation did not apply').not.toBe(realPolicy);
+
+      const withDecoy = disarmed.replace(
+        '  // ── Awaited, but',
+        [
+          '  /*',
+          "    PreToolUse: { posture: 'enforcing', enforcementReachable: true, rationale: 'decoy' },",
+          '  */',
+          '  // ── Awaited, but',
+        ].join('\n'),
+      );
+      expect(withDecoy, 'decoy insertion did not apply').not.toBe(disarmed);
+
+      const { code, output } = runScan(withDecoy);
+      // The real row is advisory, so the table has no enforcing rows and the scan must say so
+      // rather than reporting the gate armed on the strength of a comment.
+      expect(code).not.toBe(0);
+      expect(output).not.toContain('enforcing: PreToolUse');
+    });
+  });
+
+  describe('a commented-out call is not a fire site', () => {
+    // The second blanking call site. `findFireSites` enumerates via `git ls-files`, so this could
+    // not be driven from a temp fixture, and the live corpus contains no commented-out `runHooks(`
+    // — so nothing exercised it. Testing the per-source unit pins it without writing a fixture file
+    // into `packages/`, where a parallel suite would see it.
+    it('counts the real call and ignores the commented one', () => {
+      const source = [
+        'export async function real(hooks, input) {',
+        "  const result = await runHooks(hooks, 'PreToolUse', input);",
+        '  if (result.blocked) return false;',
+        '  return true;',
+        '}',
+        '',
+        "// const dead = await runHooks(hooks, 'PreToolUse', input);",
+        '/*',
+        "  const alsoDead = await runHooks(hooks, 'PostToolUse', input);",
+        '*/',
+      ].join('\n');
+
+      const sites = collectFireSitesFromSource('packages/x/src/real.ts', source);
+
+      expect(sites).toHaveLength(1);
+      expect(sites[0].readsBlocked).toBe(true);
+      expect(sites[0].events).toContain('PreToolUse');
+    });
+
+    it('a file whose ONLY call is commented out yields no fire site at all', () => {
+      const source = ["// const dead = await runHooks(hooks, 'PreToolUse', input);", ''].join('\n');
+
+      expect(collectFireSitesFromSource('packages/x/src/dead.ts', source)).toEqual([]);
+    });
+  });
+
+  describe('enclosingBlockStart rebalances nested blocks', () => {
+    // Its `depth--` was pinned by nothing, and losing it fails PERMISSIVE — the direction the
+    // module docblock claims has been eliminated. The committed fixture had no nested block before
+    // either call line, so the decrement was never exercised.
+    const NESTED = [
+      'function elsewhere() { const result = { blocked: true }; return result.blocked; }',
+      'function ignores(hooks, input) {',
+      '  if (input) { log(input); }',
+      "  const result = await runHooks(hooks, 'PreToolUse', input);",
+      '  return true;',
+      '}',
+    ].join('\n');
+
+    it('a nested block before the call does not push the scope out of the function', () => {
+      const offset = NESTED.split('\n')
+        .slice(0, 3)
+        .reduce((n, line) => n + line.length + 1, 0);
+
+      expect(readsBlockedInScope(NESTED, offset, 'result')).toBe(false);
+    });
+  });
+
+  describe('arm 0 fails closed when the event union itself cannot be read', () => {
+    // The ninth finding code, and the only one with no fixture — deleting its `findings.push` left
+    // all 31 cases green. It is the arm that stops the scan judging a policy against nothing, so an
+    // unfixtured version of it is a fail-closed branch that could be removed silently.
+    it('emits [unreadable-event-union] rather than judging against nothing', () => {
+      const findings = evaluate(
+        new Map([['PreToolUse', { posture: 'enforcing', reachable: true }]]),
+        [],
+        null,
+      );
+
+      expect(findings.join('\n')).toContain('[unreadable-event-union]');
+    });
+
+    it('does not emit it when the union reads normally', () => {
+      // The contrast that makes the case above mean something: same call, real union.
+      const { entries } = collectPolicyRows(POLICY);
+      const findings = evaluate(entries, findFireSites(['packages', 'apps']));
+
+      expect(findings.join('\n')).not.toContain('[unreadable-event-union]');
+    });
+  });
+
+  describe('every checkable element of this scan has a fixture — derived, not listed', () => {
+    // Rounds 10 and 11 each found an unfixtured element, one at a time, because the fixture set was
+    // assembled case-by-case from reported defects while the scan's surface is ENUMERABLE. These
+    // cases derive the expectation from the source instead, so a NEW arm or clause added later
+    // without a fixture fails here rather than waiting for a reviewer to notice.
+    const SCAN_SOURCE = readFileSync(SCAN, 'utf8');
+    const TEST_SOURCE = readFileSync(
+      path.join(
+        WORKSPACE_ROOT,
+        'scripts/harness/__tests__/scan-hook-enforcement-reachable.test.mjs',
+      ),
+      'utf8',
+    );
+
+    it('every finding code the scan can emit is named by a test', () => {
+      const emitted = [...SCAN_SOURCE.matchAll(/`\[([a-z-]+)\]/g)].map((m) => m[1]);
+      expect(emitted.length).toBeGreaterThan(0);
+
+      const unfixtured = [...new Set(emitted)].filter((code) => !TEST_SOURCE.includes(`[${code}]`));
+      expect(unfixtured, 'finding codes with no test naming them').toEqual([]);
+    });
+
+    it('every NON_PRODUCTION clause is pinned by a path only that clause excludes', () => {
+      // Five of six survived deletion before this: the fixture list masked itself, because entries
+      // matched two clauses each or were already excluded by the positive `src/` requirement. A
+      // clause is pinned only by a path that NO other clause and NO other rule would reject.
+      const listStart = SCAN_SOURCE.indexOf('const NON_PRODUCTION = [');
+      expect(listStart, 'NON_PRODUCTION list not found').toBeGreaterThan(-1);
+      const clauses = SCAN_SOURCE.slice(listStart, SCAN_SOURCE.indexOf('];', listStart));
+      // Count the regex literals, one per line, rather than pattern-matching their bodies.
+      const count = clauses.split('\n').filter((line) => line.trim().startsWith('/')).length;
+
+      const oneClauseEach = [
+        'packages/agent-core/src/__tests__/helpers.ts', // only /__tests__/
+        'packages/agent-core/src/thing.test.ts', //        only \.test\.ts$
+        'packages/agent-core/src/examples/demo.ts', //     only /examples?/
+        'packages/agent-core/src/fixtures/policy.ts', //   only /fixtures?/
+        'packages/agent-core/src/testing/harness.ts', //   only /testing/
+        'packages/agent-core/src/dist/bundle.ts', //       only /dist/
+      ];
+      expect(oneClauseEach).toHaveLength(count);
+      for (const p of oneClauseEach) {
+        expect(isProductionSource(p), `${p} must not vouch`).toBe(false);
+      }
     });
   });
 });

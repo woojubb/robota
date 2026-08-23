@@ -128,7 +128,24 @@ export function isEnforcing(event: THookEvent): boolean {
 export function assertPolicyCoherent(
   policy: Readonly<Record<string, IHookEventPolicy>> = HOOK_ENFORCEMENT_POLICY,
 ): void {
-  const dishonest = Object.entries(policy)
+  const rows = Object.entries(policy);
+
+  // A table with no rows is degenerate, not coherent — the same reasoning
+  // `scan-hook-enforcement-reachable.mjs` applies to a policy containing zero enforcing rows.
+  // Without this, the only test of the production form was vacuous: changing the default binding to
+  // `= {}` left every agent-core hook test green, because an empty table has nothing dishonest in
+  // it. That default binding IS the mechanism behind this module's claim that two independent
+  // checks keep the two fields honest, so a check that passes on nothing silently removed one of
+  // them.
+  if (rows.length === 0) {
+    throw new Error(
+      'Hook enforcement policy is empty. A table with no rows has nothing to check, which is a ' +
+        'degenerate policy rather than a coherent one — most likely the default binding to ' +
+        'HOOK_ENFORCEMENT_POLICY was broken.',
+    );
+  }
+
+  const dishonest = rows
     .filter(([, entry]) => entry.posture === 'enforcing' && !entry.enforcementReachable)
     .map(([event]) => event);
 
