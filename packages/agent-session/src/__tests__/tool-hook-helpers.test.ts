@@ -294,6 +294,50 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
     expect(denial).not.toBeNull();
   });
 
+  it('TC-04b: a turn with BOTH causes reports both in one denial, not one per attempt', async () => {
+    // The error branch returns before the unregistered-type branch, so a config carrying both used
+    // to surface only the error. The operator fixes the named cause, retries, and is stopped again
+    // by a cause that was already known at the first denial. A fail-closed gate that reveals its
+    // reasons one attempt at a time is a gate you debug by being repeatedly stopped.
+    const both: THooksConfig = {
+      PreToolUse: [
+        {
+          matcher: '',
+          hooks: [
+            // Unresolvable binary -> the command executor reports an error outcome.
+            { type: 'command', command: 'definitely-not-a-real-binary-sec016' },
+            // No executor supplied for this type -> reported on `unknownHookTypes`.
+            { type: 'guardrail' },
+          ],
+        },
+      ],
+    };
+
+    // A real executor for `command` so that hook produces an ERROR outcome. Passing `[]` would
+    // leave `command` unregistered too — `[] ?? defaults` is `[]`, so an empty array is "no
+    // executors", not "use the built-ins" — and then both hooks would take the unregistered path
+    // and the test would prove nothing about combining the two causes.
+    const failingCommand = {
+      type: 'command' as const,
+      execute: async () => ({
+        outcome: 'error' as const,
+        source: 'command' as const,
+        kind: 'spawn-failure' as const,
+        reason: 'spawn ENOENT',
+      }),
+    };
+
+    const denial = await runPreToolHook(both, makeHookInput(), [failingCommand]);
+
+    expect(denial).not.toBeNull();
+    const reason = String(denial?.error ?? '');
+    // The error cause, named.
+    expect(reason).toContain('Hook could not evaluate');
+    // AND the unregistered cause, in the SAME reason rather than on a later attempt.
+    expect(reason).toContain('guardrail');
+    expect(reason).toContain('no registered executor');
+  });
+
   it('TC-05: EVERY advisory event tolerates a failed hook — all fifteen', async () => {
     // The criterion says "the fifteen advisory events", and the first version of this test drove
     // one. Review caught the gap. Driven at `runHooks`, which is where every event is observable:

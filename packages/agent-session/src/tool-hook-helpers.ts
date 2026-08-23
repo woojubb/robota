@@ -94,6 +94,7 @@ export async function runPreToolHook(
     // never be taken, which reads as though the array might be absent here.
     const failures = hookResult.errors;
     const failure = failures?.[0];
+    const unregistered = hookResult.unknownHookTypes ?? [];
     if (failures !== undefined && failure !== undefined) {
       // The reason names the kind, the executor and the failure text, because a fail-closed gate
       // turns a misconfigured hook into a hard stop: whoever hits it needs enough to fix it.
@@ -102,7 +103,14 @@ export async function runPreToolHook(
         `Hook could not evaluate (${failure.kind}, source: ${failure.source}): ${failure.reason}` +
         // Naming only the first would hide that several gates failed; the count is the cheap half of
         // that, and the reason line stays one line.
-        (others > 0 ? ` (+${others} more hook failure(s))` : '');
+        (others > 0 ? ` (+${others} more hook failure(s))` : '') +
+        // Both causes in ONE reason. This branch returns before the unregistered-type branch below,
+        // so a turn carrying both used to report only the error — the operator fixed the named cause,
+        // retried, and hit a second denial with no warning it was queued. A fail-closed gate that
+        // reveals its reasons one per attempt is a gate you debug by repeatedly being stopped.
+        (unregistered.length > 0
+          ? ` Also unevaluated — hook type(s) with no registered executor: ${unregistered.join(', ')}.`
+          : '');
       return toolFailure('hook-blocked', reason, { blocked: true, reason });
     }
 
