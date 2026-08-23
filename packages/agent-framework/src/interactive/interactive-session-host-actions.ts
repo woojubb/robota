@@ -25,11 +25,10 @@ import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { TCommandInvocationSource } from '../commands/index.js';
 import type {
   ICommandResult,
-  IUiIntentEvent,
   TCommandHostAction,
   TCommandUiIntent,
-  TDriverId,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-command';
+import type { IUiIntentEvent, TDriverId } from '@robota-sdk/agent-interface-transport';
 
 /** The session-side capabilities the applier needs beyond the plain adapters. */
 export interface IHostActionExecutionDeps {

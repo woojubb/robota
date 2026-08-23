@@ -4,7 +4,7 @@ import type {
   ICommandHostContextWindow,
   ICommandHostSessionAccess,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 function parseInstructions(args: string): string | undefined {
   const instructions = args.trim();

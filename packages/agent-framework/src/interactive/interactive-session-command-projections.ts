@@ -12,7 +12,7 @@
  */
 
 import type { ICommandSkillListEntry } from '../commands/index.js';
-import type { ICommandListEntry } from '@robota-sdk/agent-interface-transport';
+import type { ICommandListEntry } from '@robota-sdk/agent-interface-command';
 
 /** The internal command shape these projections read. Structural, so the executor stays uncoupled. */
 interface ISourceCommand {

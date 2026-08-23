@@ -9,7 +9,7 @@ import type {
   ICommandHostSessionAccess,
   ICommandHostUserInteraction,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { IPresetSummary } from '@robota-sdk/agent-preset';
 
 /**

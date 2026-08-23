@@ -2,7 +2,7 @@ import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag
 
 import { createWorkspaceRuntime } from './workspace-runtime.js';
 
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { IWorkflowProject } from './workflow-project.js';
 
 /**

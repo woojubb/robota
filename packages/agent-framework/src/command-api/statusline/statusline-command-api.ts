@@ -7,7 +7,7 @@ import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type {
   IStatusLineCommandSettings,
   TStatusLineCommandSettingsPatch,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-command';
 
 export type { IStatusLineCommandSettings, TStatusLineCommandSettingsPatch };
 

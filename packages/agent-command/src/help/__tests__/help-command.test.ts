@@ -1,5 +1,5 @@
 import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-framework';
-import type { ICommandListEntry } from '@robota-sdk/agent-interface-transport';
+import type { ICommandListEntry } from '@robota-sdk/agent-interface-command';
 import { formatCommandHelpMessage } from '@robota-sdk/agent-framework';
 import { describe, expect, it } from 'vitest';
 import {

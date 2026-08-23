@@ -4,7 +4,7 @@ import { USER_LOCAL_COMMAND_USAGE } from './user-local-command-constants.js';
 import { executeMemoryCommand } from './user-local-memory-command.js';
 
 import type { ICommandHostWorkspace } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 export {
   USER_LOCAL_COMMAND_ARGUMENT_HINT,
   USER_LOCAL_COMMAND_DESCRIPTION,

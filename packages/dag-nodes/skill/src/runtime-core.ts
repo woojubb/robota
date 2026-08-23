@@ -1,4 +1,4 @@
-import type { ICommand, ISkillExecutionPort } from '@robota-sdk/agent-interface-transport';
+import type { ICommand, ISkillExecutionPort } from '@robota-sdk/agent-interface-command';
 import {
   buildTaskExecutionError,
   buildValidationError,

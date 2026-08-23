@@ -3,7 +3,7 @@ import type {
   ICommand,
   ISkillExecutionPort,
   ISkillResolutionResult,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-command';
 import { SkillResolverRuntime, type ISkillResolveRequest } from './runtime-core.js';
 
 const greet: ICommand = {

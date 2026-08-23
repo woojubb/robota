@@ -3,7 +3,7 @@ import type {
   ICommandHostWorkspace,
   ICommandSkillListEntry,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 export const SKILLS_COMMAND_DESCRIPTION =
   'Skill command. Before following a matching registered skill from the system prompt Skills section, invoke the projected skills command tool with args "<skill-name> [args]". Without arguments, list registered skills. With a skill name, activate that skill. Slash syntax is a UI input/display concern; the SDK command identity is "skills".';

@@ -14,11 +14,7 @@ import type {
   ISystemCommand,
   TSettingsSource,
 } from '@robota-sdk/agent-framework';
-import type {
-  ICommand,
-  ICommandResult,
-  ICommandSource,
-} from '@robota-sdk/agent-interface-transport';
+import type { ICommand, ICommandResult, ICommandSource } from '@robota-sdk/agent-interface-command';
 import { assertWorkflowProject } from './workflow-project.js';
 
 import type { IWorkflowProject } from './workflow-project.js';

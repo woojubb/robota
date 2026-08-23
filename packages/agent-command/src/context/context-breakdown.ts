@@ -22,7 +22,8 @@ import type {
   ICommandHostContextWindow,
   ICommandHostSessionAccess,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult, IContextReferenceItem } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { IContextReferenceItem } from '@robota-sdk/agent-interface-transport';
 
 /** What the breakdown reads — no adapter role, no writes. */
 type TContextReadHost = ICommandHostContextReferences &

@@ -4,7 +4,7 @@ import type { ICommandHostNoCapability } from '@robota-sdk/agent-framework';
 import type {
   ICommandResult,
   TStatusLineCommandSettingsPatch,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-command';
 
 interface IStatusLineCommandSuccessAction {
   success: true;

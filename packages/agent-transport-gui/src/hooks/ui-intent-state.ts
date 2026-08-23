@@ -12,7 +12,8 @@
  * state. Mirrors `prompt-state.ts` (pure list transition, shared by the WS and RTC clients).
  */
 
-import type { TCommandUiIntent, TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
 /** A visible, dismissible entry for a `ui_intent` this surface cannot render as a screen. */

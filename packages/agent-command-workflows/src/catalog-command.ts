@@ -5,7 +5,7 @@ import {
   type IDagDefinition,
   type IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import { assertWorkflowProject } from './workflow-project.js';
 
 import type { IWorkflowProject } from './workflow-project.js';

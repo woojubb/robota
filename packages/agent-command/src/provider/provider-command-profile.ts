@@ -16,7 +16,7 @@ import type {
   IProviderCommandModuleOptions,
   IProviderProfileSettings,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 const ACTION_SWITCH = 'switch';
 const ACTION_EDIT = 'edit';

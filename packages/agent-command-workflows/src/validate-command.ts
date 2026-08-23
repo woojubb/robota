@@ -6,7 +6,7 @@ import { createWorkspaceRuntime } from './workspace-runtime.js';
 import { assertWorkflowProject } from './workflow-project.js';
 
 import type { IDagDefinition } from '@robota-sdk/dag-core';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { IWorkflowProject } from './workflow-project.js';
 
 /**

@@ -1,7 +1,7 @@
 import { isSlashCommand, tokeniseSlashCommand } from '@robota-sdk/agent-framework';
 
 import type { IHistoryEntry, TUniversalValue } from '@robota-sdk/agent-core';
-import type { ICommand } from '@robota-sdk/agent-interface-transport';
+import type { ICommand } from '@robota-sdk/agent-interface-command';
 
 export interface IAutocompleteInputKey {
   upArrow?: boolean;

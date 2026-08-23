@@ -13,7 +13,7 @@ import type {
   ICommandHostTerminalHandoff,
   ICommandHostWorkspace,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 export const EDITOR_COMMAND_DESCRIPTION =
   'Compose a message in $EDITOR (optionally pre-filled with `/editor <text>`), then return it.';

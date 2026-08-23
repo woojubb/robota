@@ -2,7 +2,6 @@ import type { ISessionConversationRead, TDriverId } from '@robota-sdk/agent-inte
 import type {
   IAskRequestEvent,
   IBranchEvent,
-  ICommandResult,
   IExecutionResult,
   IContextFileRefreshedEvent,
   IPermissionRequestEvent,
@@ -15,6 +14,7 @@ import type {
   TActionResponse,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type {
   IBackgroundJobGroupState,
   IExecutionWorkspaceSnapshot,

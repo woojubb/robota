@@ -1,5 +1,5 @@
 import type { ICommandHostAdapterAccess, TRemoteControlStatus } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 /**
  * `/remote-control` (REMOTE-008) — enable/stop P2P remote control and report status.

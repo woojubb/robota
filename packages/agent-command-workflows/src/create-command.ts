@@ -9,7 +9,7 @@
  * shared `authoring/pipeline.ts` (WORKFLOW-005 P3); `create` is that pipeline plus the run step —
  * the ONLY difference between `create` and `build`.
  */
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { IWorkflowProject } from './workflow-project.js';
 import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
 
