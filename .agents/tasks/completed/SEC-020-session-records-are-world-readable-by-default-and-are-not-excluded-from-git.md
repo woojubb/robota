@@ -1,7 +1,8 @@
 ---
 title: 'SEC-020: session records are world-readable by default and are not excluded from Git'
 issue: https://github.com/woojubb/robota/issues/2021
-status: in-progress
+status: done
+completed: 2026-08-23
 created: 2026-08-23
 priority: critical
 urgency: now
@@ -164,4 +165,59 @@ git status --porcelain
 Expected: `.robota/settings.json`, `.robota/.gitignore` and `AGENTS.md` appear as untracked;
 `.robota/sessions/` and `.robota/logs/` do not.
 
-**Evidence:** to be captured after implementation, against the merged build.
+### Evidence — executed 2026-08-23 against the merged build
+
+Run in a real pty with `umask 022`, in an **untrusted** workspace, so the session store is the
+restricted-workspace fallback — the path review found unguarded and the one this change calls most
+important. The user store directory was created BY HAND at 0755 before the run, so it is the
+pre-existing-wide case rather than a fresh create.
+
+```
+$ umask
+022
+
+# created by hand before the run, under umask 022 → 0755
+$ ls -ld ~/.robota
+drwxr-xr-x  ~/.robota
+
+$ robota            # one turn, then exit
+
+$ ls -la ~/.robota
+drwx------   .                    ← tightened from 0755 by the product
+drwx------   sessions
+-rw-r--r--   settings.json        ← written by hand, only READ this run (see gap 1)
+-rw-r--r--   update-check.json    ← written by the product this run (see gap 2)
+
+$ ls -l ~/.robota/sessions
+-rw-------  27984  session_2b2d1242-….json
+```
+
+**Scenario 1 satisfied** — the record is 0600 and its directory 0700, where the same run measured
+0644 and 0755 before the change.
+
+**Scenario 2 satisfied, and by the stronger form.** The scenario as written pre-created a log
+directory at 0777; what this run shows is a pre-existing **store root** at 0755 tightened to 0700 by
+the product, which is the case round-1 review found and the one no other writer would have repaired
+on this path.
+
+**Scenario 3 blocked, and the blocker is recorded rather than worked around.** `robota init` refuses
+with `Project initialization requires project access` in an untrusted workspace, and granting trust
+is an interactive decision with no non-interactive path — correctly, since it is a security grant.
+So the ignore rules cannot be exercised headlessly through the product surface. `TC-28` covers the
+claim that matters by asking **git itself** what it stages after `runInitCommand`, which is the
+behaviour the scenario would have observed.
+
+### Two gaps this run found, neither a confidentiality hole
+
+Both files sit inside a 0700 directory, so no other account can reach them; these are
+defence-in-depth inconsistencies rather than exposures. Recorded because the run found them and
+silence would read as their absence.
+
+1. **`settings.json` stays 0644 when the product only READS it.** `tightenExistingFile` runs on the
+   write path, so a settings file an older version left wide is repaired at its next write and not
+   before. That is the documented behaviour and it is worth stating: the repair is
+   write-triggered, not startup-triggered.
+2. **`update-check.json` is written at 0644 by `update-check.ts`**, which was in the enumeration of
+   `~/.robota` writers and was scoped out as not-a-session-record. It is not sensitive — a version
+   string and a timestamp — but it is now the only file the product writes into that directory
+   without an owner-only mode. Filed as issue #2229.
