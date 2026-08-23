@@ -7,6 +7,7 @@ import {
   InMemorySandboxClient,
   validateWorkspaceManifestPath,
 } from '../index.js';
+import type { IWorkspaceManifest } from '../sandbox/types.js';
 
 const tempDirs: string[] = [];
 
@@ -142,5 +143,75 @@ describe('workspace manifest application', () => {
         message: 's3Mount requires a provider-specific sandbox adapter.',
       },
     ]);
+  });
+});
+
+describe('unenforceable manifest security controls (TOOL-005 / issue #2027)', () => {
+  function manifestWithOneEntry(): IWorkspaceManifest {
+    return { entries: { 'task.md': { type: 'file', content: 'Solve this task.\n' } } };
+  }
+
+  it('refuses a manifest requesting an environment the built-in applicator cannot apply', async () => {
+    const client = new InMemorySandboxClient();
+    const manifest = { ...manifestWithOneEntry(), environment: { TOKEN: 'secret' } };
+
+    await expect(applyWorkspaceManifest(client, manifest)).rejects.toThrow(/environment/);
+  });
+
+  it('refuses a manifest requesting permissions the built-in applicator cannot apply', async () => {
+    const client = new InMemorySandboxClient();
+    const manifest = { ...manifestWithOneEntry(), permissions: { read: ['/etc'] } };
+
+    await expect(applyWorkspaceManifest(client, manifest)).rejects.toThrow(/permissions/);
+  });
+
+  it('names both fields when both are requested', async () => {
+    const client = new InMemorySandboxClient();
+    const manifest = {
+      ...manifestWithOneEntry(),
+      environment: { TOKEN: 'secret' },
+      permissions: { write: ['/tmp'] },
+    };
+
+    await expect(applyWorkspaceManifest(client, manifest)).rejects.toThrow(
+      /environment and permissions/,
+    );
+  });
+
+  it('refuses BEFORE applying any entry, so a refused manifest leaves nothing half-built', async () => {
+    const client = new InMemorySandboxClient();
+    const manifest = { ...manifestWithOneEntry(), environment: { TOKEN: 'secret' } };
+
+    await expect(applyWorkspaceManifest(client, manifest)).rejects.toThrow();
+    // The assertion that distinguishes "refused first" from "refused after the work":
+    // nothing reached the sandbox.
+    await expect(client.readFile('/workspace/task.md')).rejects.toThrow();
+  });
+
+  it('accepts declared-but-empty controls, which request nothing', async () => {
+    const client = new InMemorySandboxClient();
+    const manifest = {
+      ...manifestWithOneEntry(),
+      environment: {},
+      permissions: { read: [], write: [] },
+    };
+
+    const result = await applyWorkspaceManifest(client, manifest);
+    expect(result.entries).toHaveLength(1);
+  });
+
+  it('leaves the delegating path alone — a client owning applyManifest is not second-guessed', async () => {
+    const manifest = { ...manifestWithOneEntry(), environment: { TOKEN: 'secret' } };
+    let received: IWorkspaceManifest | undefined;
+    const client = new InMemorySandboxClient() as InMemorySandboxClient & {
+      applyManifest?: (m: IWorkspaceManifest) => Promise<{ entries: [] }>;
+    };
+    client.applyManifest = async (m) => {
+      received = m;
+      return { entries: [] };
+    };
+
+    await expect(applyWorkspaceManifest(client, manifest)).resolves.toEqual({ entries: [] });
+    expect(received?.environment).toEqual({ TOKEN: 'secret' });
   });
 });

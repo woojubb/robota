@@ -23,6 +23,21 @@ export async function applyWorkspaceManifest(
     return sandboxClient.applyManifest(manifest, options);
   }
 
+  // TOOL-005 / issue #2027. Past this point the built-in applicator is what runs, and it applies
+  // ENTRIES only — it has no mechanism for `environment` or `permissions`. Before this check it
+  // applied the entries and returned success, so a caller that had asked for an environment
+  // allowlist or a read/write policy got a sandbox with neither and no way to find out.
+  //
+  // A control that is requested and not applied must not be reported as applied, and the failure
+  // direction matters: this is a SECURITY surface, so the unenforceable request fails closed rather
+  // than warning. It throws before any entry is applied, so a refused manifest leaves nothing
+  // half-built.
+  //
+  // The delegating branch above is deliberately untouched: a client that implements `applyManifest`
+  // is claiming ownership of the whole manifest, and this function cannot know what it honoured.
+  // Making that claim observable needs a wider apply result and is tracked separately on #2027.
+  refuseUnenforceableManifestControls(manifest);
+
   const targetRoot = normalizeSandboxRoot(options.targetRoot ?? DEFAULT_TARGET_ROOT);
   const appliedEntries: IWorkspaceManifestAppliedEntry[] = [];
 
@@ -35,6 +50,42 @@ export async function applyWorkspaceManifest(
   }
 
   return { entries: appliedEntries };
+}
+
+/**
+ * Refuse a manifest whose security-bearing fields the built-in applicator cannot enforce.
+ *
+ * Emptiness is what is checked, not presence: `environment: {}` and `permissions: {}` request
+ * nothing, so refusing them would fail a caller that asked for no controls at all. `permissions`
+ * counts as empty when neither list has an entry — `{ read: [] }` is a declared-but-empty policy,
+ * not a policy.
+ */
+function refuseUnenforceableManifestControls(manifest: IWorkspaceManifest): void {
+  const unenforceable: string[] = [];
+
+  if (manifest.environment && Object.keys(manifest.environment).length > 0) {
+    unenforceable.push('environment');
+  }
+
+  const permissions = manifest.permissions;
+  if (
+    permissions &&
+    ((permissions.read?.length ?? 0) > 0 || (permissions.write?.length ?? 0) > 0)
+  ) {
+    unenforceable.push('permissions');
+  }
+
+  if (unenforceable.length === 0) {
+    return;
+  }
+
+  throw new Error(
+    `workspace manifest requests ${unenforceable.join(' and ')}, which this sandbox client cannot ` +
+      'enforce. The built-in applicator applies entries only. Supply a sandbox client that ' +
+      'implements applyManifest and honours these fields, or remove them from the manifest — they ' +
+      'were previously accepted and silently ignored, which reported a sandbox policy that was ' +
+      'never applied (issue #2027).',
+  );
 }
 
 export function validateWorkspaceManifestPath(path: string): string {
