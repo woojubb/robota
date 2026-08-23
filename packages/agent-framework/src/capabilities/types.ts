@@ -3,4 +3,4 @@ export type {
   TCapabilityKind,
   TCapabilitySafety,
   ICapabilityDescriptor,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-command';

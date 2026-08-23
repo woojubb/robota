@@ -1,8 +1,3 @@
-import type {
-  ICommandListEntry,
-  ICommandResult,
-  TCommandInvocationSource,
-} from './command-contracts.js';
 import type { ISubmitOptions, TDriverId } from './driver-contracts.js';
 import type {
   IGoalState,
@@ -16,6 +11,11 @@ import type {
   TActionResponse,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
+import type {
+  ICommandListEntry,
+  ICommandResult,
+  TCommandInvocationSource,
+} from '@robota-sdk/agent-interface-command';
 import type { ISubagentJobState } from '@robota-sdk/agent-interface-execution';
 import type {
   IExecutionWorkspaceSnapshot,

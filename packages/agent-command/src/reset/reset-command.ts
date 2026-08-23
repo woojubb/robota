@@ -1,4 +1,4 @@
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 export function executeResetCommand(): ICommandResult {
   return {

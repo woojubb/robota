@@ -4,7 +4,7 @@
   "packages/agent-cli/src/cli.ts": 444,
   "packages/agent-cli/src/remote-control/remote-control-controller.ts": 462,
   "packages/agent-cli/src/utils/cli-args.ts": 316,
-  "packages/agent-command/src/context/context-command.ts": 305,
+  "packages/agent-command/src/context/context-command.ts": 306,
   "packages/agent-command/src/provider/provider-setup-flow.ts": 320,
   "packages/agent-core/src/abstracts/abstract-ai-provider.ts": 306,
   "packages/agent-core/src/abstracts/abstract-module.ts": 315,

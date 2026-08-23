@@ -7,7 +7,7 @@ import type {
   ICommand,
   ISkillExecutionPort,
   ISkillResolutionResult,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-command';
 
 /**
  * The concrete {@link ISkillExecutionPort} backed by `agent-framework`'s `SkillCommandSource` (discovery) and

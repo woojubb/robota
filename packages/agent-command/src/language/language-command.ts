@@ -6,7 +6,7 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import type { ICommandHostUserInteraction } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 /**
  * Ask the user to pick a language (CMD-004 inline ask). Returns a validated language, or `undefined`

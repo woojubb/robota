@@ -44,8 +44,8 @@ import type {
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type {
-  ICommandResult,
   IExecutionResult,
   IGoalState,
   IInteractiveSessionEvents,

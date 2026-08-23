@@ -1,5 +1,5 @@
 import type { ICommandHostAdapterAccess, ICommandHostAdapters } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 /** One row as the port hands it over. Derived, so it cannot drift from the adapter it reads. */
 type TPeerSummary = ReturnType<NonNullable<ICommandHostAdapters['localPeers']>['list']>[number];

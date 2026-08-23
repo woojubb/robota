@@ -5,8 +5,8 @@
  * `session-contracts.ts` (which re-consumes these for the session surface and event map).
  */
 
-import type { TCommandUiIntent } from './command-contracts.js';
 import type { TTurnSource } from './turn-contracts.js';
+import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
 
 /**
  * REMOTE-014 E5 co-drive attribution: a stable, SERVER-ASSIGNED id for the driver of an input/turn. It is

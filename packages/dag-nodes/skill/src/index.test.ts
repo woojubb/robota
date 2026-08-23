@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { INodeExecutionContext, INodeConfigObject, TPortPayload } from '@robota-sdk/dag-core';
-import type { ICommand, ISkillExecutionPort } from '@robota-sdk/agent-interface-transport';
+import type { ICommand, ISkillExecutionPort } from '@robota-sdk/agent-interface-command';
 import { SkillNodeDefinition, SkillNodeConfigSchema } from './index.js';
 
 const greet: ICommand = {

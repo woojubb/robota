@@ -21,7 +21,7 @@ import type {
   ICommandHostUserInteraction,
   ICommandHostWorkspace,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 export const CLEAR_COMMAND_MESSAGE = 'Conversation cleared.';
 

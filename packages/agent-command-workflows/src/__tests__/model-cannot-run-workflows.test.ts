@@ -4,7 +4,7 @@ import { createWorkflowsCommandModule } from '../workflows-command-module.js';
 
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
-import type { TCommandInvocationSource } from '@robota-sdk/agent-interface-transport';
+import type { TCommandInvocationSource } from '@robota-sdk/agent-interface-command';
 
 /**
  * CMD-006 — the per-subcommand `modelInvocable` flag must actually gate the model path.

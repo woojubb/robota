@@ -3,11 +3,6 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import { createTransportFailedOutcome, isTransportRunOutcome } from '../index.js';
 
 import type {
-  ICapabilityDescriptor,
-  ICommand,
-  ICommandListEntry,
-  ICommandPluginAdapter,
-  ICommandResult,
   IConfigurableTransport,
   IExecutionResult,
   IAgentDriver,
@@ -22,7 +17,6 @@ import type {
   ITransportRunnerAdapter,
   TTransportRunOutcome,
   IUsageSnapshot,
-  TCommandHostAction,
   TPermissionResultValue,
 } from '../index.js';
 
@@ -47,15 +41,6 @@ describe('agent-interface-transport contract surface', () => {
       expect(() => createTransportFailedOutcome(invalid)).toThrow(/integer from 1 through 255/i);
       expect(isTransportRunOutcome({ status: 'failed', exitCode: invalid })).toBe(false);
     }
-  });
-
-  it('exports the command-system contracts', () => {
-    expectTypeOf<ICommand>().toHaveProperty('name');
-    expectTypeOf<ICommandResult>().toHaveProperty('success');
-    expectTypeOf<ICommandListEntry>().toHaveProperty('name');
-    expectTypeOf<ICommandPluginAdapter>().toHaveProperty('reloadPlugins');
-    expectTypeOf<ICapabilityDescriptor>().toHaveProperty('kind');
-    expectTypeOf<TCommandHostAction>().not.toBeNever();
   });
 
   it('exports the interaction-channel contracts', () => {

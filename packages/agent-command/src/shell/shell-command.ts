@@ -10,7 +10,7 @@ import type {
   ICommandHostTerminalHandoff,
   ICommandHostWorkspace,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 export const SHELL_COMMAND_DESCRIPTION =
   'Drop to an interactive shell (or run `/shell <command>` interactively), then return to the agent.';

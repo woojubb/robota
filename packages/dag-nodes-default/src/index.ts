@@ -1,6 +1,6 @@
 import type { IDagNodeDefinition } from '@robota-sdk/dag-core';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import type { ISkillExecutionPort } from '@robota-sdk/agent-interface-transport';
+import type { ISkillExecutionPort } from '@robota-sdk/agent-interface-command';
 import { createSkillExecutionPort } from '@robota-sdk/agent-framework';
 import { LlmTextNodeDefinition } from '@robota-sdk/dag-node-llm-text';
 import { InputNodeDefinition } from '@robota-sdk/dag-node-input';

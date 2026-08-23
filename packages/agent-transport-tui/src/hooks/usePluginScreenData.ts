@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 
 import type { IMenuSelectItem } from '../MenuSelect.js';
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-transport';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 
 export function usePluginScreenData(
   screen: string,

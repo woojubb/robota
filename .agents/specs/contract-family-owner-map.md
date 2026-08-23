@@ -68,13 +68,24 @@ layer 1   session      → command, execution, analytics
 layer 2   mobility     → session
 ```
 
-**`agent-interface-transport` is at layer 1 TODAY and drops to layer 0 when issue #2113 narrows it.**
-The layer declares what a package HOLDS, not what it will hold. Until issue #2110 moves the session
-family out, this package still owns `session-contracts` and `session-capability-contracts`, which name
-execution and command types — so it composes downward exactly as the session owner will, and layer 1
-is what authorizes those edges. Declaring the target 0 early would have made the real
-`transport → execution` edge read as same-layer and refused a legal migration. Move it to 0 in the
-same change that removes the last non-transport family.
+#### A layer declares where a package IS, not where it is going
+
+**This table describes the tree as it stands, and it is re-declared by each leaf that changes it.**
+It is not a picture of the finished state. A package's layer follows what it HOLDS today; when a
+migration moves a family, the layer moves in the same change.
+
+The trap this exists to prevent, because it already fired once: `agent-interface-transport`'s TARGET
+is layer 0, and declaring it there early made the real `transport → execution` edge read as
+**same-layer** — so ARCH-101's rule refused a migration that was legal. Every remaining leaf meets
+this, because every leaf changes what some package holds.
+
+So: **`agent-interface-transport` is at layer 1 TODAY.** It still owns `session-contracts` and
+`session-capability-contracts`, which name execution and command types, so it composes downward
+exactly as the session owner will and layer 1 is what authorizes those edges. It drops to 0 in the
+same change that removes the last non-transport family (issue #2113).
+
+The same applies in reverse to a package that has not been created yet: an owner's row is declared
+when its package exists, not when its leaf is planned.
 
 A layer-0 package depends on no other `agent-interface-*` package. `agent-interface-tui` is not in the
 table: it composes no peer and is depended on by none, so it has no layer to declare until it does.

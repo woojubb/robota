@@ -9,7 +9,7 @@ import {
 } from './key-hint-footer.js';
 import { PALETTE } from './tui-palette.js';
 
-import type { ICommand } from '@robota-sdk/agent-interface-transport';
+import type { ICommand } from '@robota-sdk/agent-interface-command';
 
 /** Footer for the autocomplete popup. */
 export const SLASH_AUTOCOMPLETE_FOOTER_HINTS: readonly IKeyHint[] = [

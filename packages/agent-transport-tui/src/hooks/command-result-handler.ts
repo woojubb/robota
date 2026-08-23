@@ -13,8 +13,8 @@ import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-co
 
 import type { TuiStateManager } from '../tui-state-manager.js';
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type {
-  ICommandResult,
   ISessionConversationRead,
   ISessionLifecycle,
 } from '@robota-sdk/agent-interface-transport';

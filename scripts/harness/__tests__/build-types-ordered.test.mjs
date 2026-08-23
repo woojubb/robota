@@ -94,12 +94,17 @@ describe('createBuildTypeTiers', () => {
     );
     const cli = tiers.flat().find((pkg) => pkg.name === '@robota-sdk/agent-cli');
 
-    // ARCH-103 added `agent-interface-execution` and made `agent-interface-transport` depend on it,
-    // which lengthened the declaration chain by one link: 76 → 77 packages, 10 → 11 tiers, and every
-    // package above transport moved down one. The order is what matters and it still holds —
-    // agent-core (0) → agent-interface-execution (1) → agent-interface-transport (2) → … → agent-cli.
-    expect(packages).toHaveLength(77);
+    // The COUNT changes on every contract-migration leaf under issue #2068 — each creates one owner
+    // package — and it is kept anyway, because it is what catches a package nobody meant to add. 76
+    // before ARCH-103, 77 after it, 78 after ARCH-104. Expect to update it once more per remaining
+    // leaf (issues #2110, #2111, #2112, #2113).
+    //
+    // The ORDER is the property the test is actually about, and it does not churn: the contract
+    // owners sit one tier above agent-core, the transport package sits above them because it still
+    // composes their types, and agent-cli stays last.
+    expect(packages).toHaveLength(78);
     expect(tiers).toHaveLength(11);
+    expect(tierByName.get('@robota-sdk/agent-interface-command')).toBe(1);
     expect(tierByName.get('@robota-sdk/agent-interface-execution')).toBe(1);
     expect(tierByName.get('@robota-sdk/agent-interface-transport')).toBe(2);
     expect(tierByName.get('@robota-sdk/agent-cli')).toBe(10);

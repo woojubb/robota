@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ICommand } from '@robota-sdk/agent-interface-transport';
+import type { ICommand } from '@robota-sdk/agent-interface-command';
 
 import { createSkillExecutionPort } from '../skill-execution-port.js';
 

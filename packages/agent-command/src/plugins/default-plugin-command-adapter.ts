@@ -16,7 +16,7 @@ import type {
   ICommandMarketplaceSource,
   ICommandPluginAdapter,
   TPluginInstallScope,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface-command';
 
 interface IPluginServices {
   cwd: string;

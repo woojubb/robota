@@ -4,7 +4,7 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import type { ICommandHostAdapterAccess } from '@robota-sdk/agent-framework';
-import type { ICommandPluginAdapter, ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandPluginAdapter, ICommandResult } from '@robota-sdk/agent-interface-command';
 
 function getSubcommandParts(args: string): { subcommand: string; subArgs: string } {
   const parts = args

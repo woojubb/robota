@@ -9,7 +9,7 @@
  * `authoring/execute-workflow.ts`, so no DAG runtime is constructed and no node (LLM or
  * side-effecting) runs. The explicit next steps are the existing `validate` / `run` subcommands.
  */
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { IWorkflowProject } from './workflow-project.js';
 
 import { authorAndSaveWorkflow } from './authoring/pipeline.js';

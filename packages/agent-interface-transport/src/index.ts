@@ -66,35 +66,6 @@ export type {
   TChannelReceiveResult,
 } from './channel-contracts.js';
 
-// ── Capability descriptor contracts ──────────────────────────
-export type {
-  ICapabilityDescriptor,
-  TCapabilityKind,
-  TCapabilitySafety,
-} from './capability-contracts.js';
-
-// ── Command-system contracts ─────────────────────────────────
-export type {
-  ICommand,
-  ICommandSource,
-  ISkillExecutionPort,
-  ISkillResolutionResult,
-  ICommandResult,
-  TCommandResultDataValue,
-  TCommandInvocationSource,
-  ICommandListEntry,
-  TCommandHostAction,
-  TCommandUiIntent,
-  ICommandPluginAdapter,
-  ICommandInstalledPlugin,
-  ICommandAvailablePlugin,
-  ICommandMarketplaceSource,
-  ICommandPluginReloadResult,
-  TPluginInstallScope,
-  IStatusLineCommandSettings,
-  TStatusLineCommandSettingsPatch,
-} from './command-contracts.js';
-
 // ── Interaction-channel contracts ────────────────────────────
 export type {
   IInteractionChannel,

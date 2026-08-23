@@ -11,15 +11,17 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import type {
-  ICommandResult,
   IInteractiveSession,
   IInteractiveSessionEvents,
   ISessionRenamedEvent,
   IUiIntentEvent,
-  TCommandHostAction,
-  TCommandUiIntent,
   TDriverId,
 } from '../index.js';
+import type {
+  ICommandResult,
+  TCommandHostAction,
+  TCommandUiIntent,
+} from '@robota-sdk/agent-interface-command';
 
 describe('CMD-004 Phase 2 split command contract (TC-01)', () => {
   it('exports TCommandHostAction with the nine host-executed kinds', () => {

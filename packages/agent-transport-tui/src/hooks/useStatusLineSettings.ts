@@ -5,7 +5,7 @@ import { useTuiCliAdapter } from '../tui-cli-adapter-context.js';
 
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
-import type { IStatusLineCommandSettings } from '@robota-sdk/agent-interface-transport';
+import type { IStatusLineCommandSettings } from '@robota-sdk/agent-interface-command';
 
 function readStatusLineSettings(
   settings: Record<string, TUniversalValue>,
