@@ -97,4 +97,37 @@ describe('SELFHOST-005 TC-02 — GuardrailExecutor', () => {
     expect(r.outcome).toBe('deny');
     expect(r.outcome === 'deny' && r.reason).toContain('missing');
   });
+
+  // SEC-015 TC-05. Asserted here rather than trusted to the decoder's own pass-through test:
+  // `GuardrailExecutor` never calls `decodeHookVerdict`, so nothing else in the suite would notice
+  // this executor emitting the wrong `source`. Found by the GATE-COMPLETE guard.
+  it('every outcome carries source: "guardrail"', async () => {
+    const allowed = await new GuardrailExecutor({ a: pass() }).execute(DEF, INPUT);
+    const denied = await new GuardrailExecutor({ a: block('nope') }).execute(DEF, INPUT);
+    const empty = await new GuardrailExecutor({}).execute(DEF, INPUT);
+    // The unknown-named-guardrail fail-safe is a fifth stamping site and a reachable one — a config
+    // error that must deny rather than silently pass. Review found the first version of this test
+    // covered three of five sites while its title claimed every outcome.
+    const misconfigured = await new GuardrailExecutor({ a: pass() }).execute(
+      { type: 'guardrail', guardrails: ['missing'] },
+      INPUT,
+    );
+    expect(misconfigured.outcome).toBe('deny');
+    // The fifth site is the mis-dispatch guard. Unreachable through `runHooks`, which dispatches by
+    // type — but `execute` is public, so a consumer can reach it, and the title above says EVERY
+    // outcome. Covering it is two lines; leaving the title overclaiming is the habit this item is
+    // about.
+    const misdispatched = await new GuardrailExecutor({}).execute(
+      { type: 'command', command: 'not mine' },
+      INPUT,
+    );
+    expect(misdispatched.outcome).toBe('error');
+    expect([
+      allowed.source,
+      denied.source,
+      empty.source,
+      misconfigured.source,
+      misdispatched.source,
+    ]).toEqual(['guardrail', 'guardrail', 'guardrail', 'guardrail', 'guardrail']);
+  });
 });

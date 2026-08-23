@@ -144,4 +144,40 @@ describe('PromptExecutor', () => {
 
     expect(result.outcome).toBe('allow');
   });
+
+  // SEC-015 TC-05 — the executor must stamp its OWN type, not whatever the decoder was handed.
+  it('every outcome carries source: "prompt"', async () => {
+    const sources: string[] = [];
+    for (const response of [
+      '{"ok":true}',
+      '{"ok":false,"reason":"no"}',
+      'not json',
+      '{"ok":"x"}',
+    ]) {
+      const mockProvider = { complete: vi.fn().mockResolvedValue(response) };
+      const executor = new PromptExecutor({
+        providerFactory: vi.fn().mockReturnValue(mockProvider),
+      });
+      const definition: IPromptHookDefinition = { type: 'prompt', prompt: 'check' };
+      sources.push((await executor.execute(definition, makeInput())).source);
+    }
+    // The four above all route through the single `decodeHookVerdict(…, 'prompt')` call, so they
+    // constrain ONE literal — and the pre-existing "default reason" test already did that via
+    // `Blocked by ${source} hook`. The executor's OTHER stamp is hand-written in its catch block,
+    // and nothing reached it until this case. Found in review after I claimed these assertions were
+    // mutation-verified when only the guardrail one was.
+    const providerFactory = vi
+      .fn()
+      .mockReturnValue({ complete: vi.fn().mockRejectedValue(new Error('boom')) });
+    const threwDefinition: IPromptHookDefinition = { type: 'prompt', prompt: 'check' };
+    const errored = await new PromptExecutor({ providerFactory }).execute(
+      threwDefinition,
+      makeInput(),
+    );
+    expect(errored.outcome).toBe('error');
+    expect(errored.outcome === 'error' && errored.kind).toBe('transport-failure');
+    sources.push(errored.source);
+
+    expect(sources).toEqual(['prompt', 'prompt', 'prompt', 'prompt', 'prompt']);
+  });
 });
