@@ -8,8 +8,10 @@
  * `~/.robota` means control of the host process, which IS the agent. The device pins this host's PUBLIC key
  * at first pair and verifies it on every reconnect (rogue-host defense).
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
+
+import { ensureOwnerOnlyDirectory } from '@robota-sdk/agent-core/node';
 import { dirname, join } from 'node:path';
 
 import {
@@ -89,7 +91,10 @@ export async function loadOrCreateHostIdentity(
 
   const keyPair = await generateIdentityKeyPair(true);
   const file: IHostIdentityFile = { version: 1, keyPair: await exportKeyPairJwk(keyPair) };
-  mkdirSync(dirname(filePath), { recursive: true });
+  // SEC-020: `~/.robota` was created with no mode, so it came out 0755 and every local account
+  // could enumerate the host identity, trusted devices and session records it holds. The file
+  // itself is written `wx` with 0600 and is never rewritten, so it needs no tightening.
+  ensureOwnerOnlyDirectory(dirname(filePath));
   try {
     writeFileSync(filePath, JSON.stringify(file, null, 2), { mode: 0o600, flag: 'wx' });
   } catch (cause) {

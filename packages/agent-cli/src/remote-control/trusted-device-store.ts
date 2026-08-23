@@ -8,8 +8,10 @@
  * trust store must surface, never be silently read as an empty allow-list that would force every device to
  * re-pair or, worse, mask tampering.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
+
+import { ensureOwnerOnlyDirectory, tightenExistingFile } from '@robota-sdk/agent-core/node';
 import { dirname, join } from 'node:path';
 
 /** One enrolled device. `publicKey` is a base64url SPKI; timestamps are ISO-8601 strings supplied by the caller. */
@@ -61,7 +63,11 @@ function readFile(filePath: string): ITrustedDeviceFile {
 }
 
 function writeFile(filePath: string, file: ITrustedDeviceFile): void {
-  mkdirSync(dirname(filePath), { recursive: true });
+  // SEC-020: the directory was created with no mode, and this file IS rewritten — `mode` applies
+  // only at creation, so a trusted-device list an older version left at 0644 stayed readable by
+  // every local account through every later pairing.
+  ensureOwnerOnlyDirectory(dirname(filePath));
+  tightenExistingFile(filePath);
   writeFileSync(filePath, JSON.stringify(file, null, 2), { mode: 0o600 });
 }
 

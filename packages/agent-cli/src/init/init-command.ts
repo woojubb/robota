@@ -5,6 +5,7 @@ import {
   WorkspaceAuthorityRequiredError,
 } from '@robota-sdk/agent-framework';
 
+import { writeRuntimeDataIgnore } from './runtime-data-ignore.js';
 import { AGENT_CLI_BIN } from '../constants.js';
 
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
@@ -151,6 +152,19 @@ export async function runInitCommand(
     promptFn: options.promptFn ?? promptInput,
     terminal,
   };
+
+  // SEC-020: BEFORE the overwrite prompt, deliberately. These rules are additive and protective —
+  // the merge below never removes a line — and the path that reaches the prompt is precisely the one
+  // where `.robota/` is already populated, so transcripts may already be sitting in the tree waiting
+  // to be committed. Declining to overwrite AGENTS.md is not a reason to leave them exposed, and a
+  // second call site for the cancel path would be one more thing to remember.
+  const ignoreOutcome = writeRuntimeDataIgnore(reader, mutation);
+  terminal.writeLine('');
+  terminal.writeLine(
+    ignoreOutcome === 'unchanged'
+      ? 'Unchanged: .robota/.gitignore (already covers runtime session data)'
+      : `${ignoreOutcome === 'created' ? 'Created' : 'Updated'}: .robota/.gitignore`,
+  );
 
   const hasClaudeDir =
     reader.inspectKind('.claude', 'inspect Claude project settings') === 'directory';

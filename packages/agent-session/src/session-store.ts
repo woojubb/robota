@@ -6,16 +6,10 @@
  * The store directory is created on first write if it does not exist.
  */
 
-import {
-  readFileSync,
-  writeFileSync,
-  existsSync,
-  mkdirSync,
-  unlinkSync,
-  readdirSync,
-  renameSync,
-} from 'fs';
+import { readFileSync, existsSync, unlinkSync, readdirSync } from 'fs';
 import { join } from 'path';
+
+import { ensureOwnerOnlyDirectory, writeOwnerOnlyFile } from '@robota-sdk/agent-core/node';
 
 import { assertSafeSessionId } from './session-id.js';
 
@@ -32,16 +26,35 @@ import type {
  */
 export class NodeSessionStore implements IInteractiveSessionStore {
   private readonly baseDir: string;
+  private readonly ownedRoot: string | undefined;
 
-  constructor(baseDir: string) {
+  /**
+   * @param baseDir the directory holding the records.
+   * @param ownedRoot an ancestor of `baseDir` the HOST also owns, tightened along with it (SEC-020).
+   *   Optional because this adapter does not interpret its base directory as a trusted root and must
+   *   not guess that a parent belongs to the product — which of them do is composition's knowledge.
+   *   Omitting it leaves a store root an older version created at whatever mode it was given, which
+   *   is what review of PR #2224 found: the leaf was 0700 and the directory above it was not.
+   */
+  constructor(baseDir: string, ownedRoot?: string) {
     this.baseDir = baseDir;
+    this.ownedRoot = ownedRoot;
   }
 
-  /** Ensure the storage directory exists */
+  /**
+   * Ensure the storage directory exists AND that only its owner can enter it (SEC-020).
+   *
+   * The `existsSync` guard this replaces is the whole defect. It skipped the case that matters: a
+   * directory some earlier version, a shared CI checkout, or another local user left at a wider
+   * mode was adopted as ours with no signal. Measured under umask 022 before this change, a fresh
+   * sessions directory came out 0755 and its records 0644 — and a directory pre-created at 0777
+   * stayed 0777.
+   */
   private ensureDir(): void {
-    if (!existsSync(this.baseDir)) {
-      mkdirSync(this.baseDir, { recursive: true });
-    }
+    ensureOwnerOnlyDirectory(
+      this.baseDir,
+      this.ownedRoot === undefined ? {} : { withinRoot: this.ownedRoot },
+    );
   }
 
   /**
@@ -62,19 +75,16 @@ export class NodeSessionStore implements IInteractiveSessionStore {
    * Bytes go to a same-directory temp file first, then move into place with rename —
    * a crash mid-write can therefore never leave a truncated JSON where the previous
    * record used to be. Same-directory is load-bearing: cross-device rename is a copy.
+   *
+   * SEC-020: the atomic write now comes from `writeOwnerOnlyFile`, which carries the mode from the
+   * moment the temp file is created. The hand-rolled version here wrote it at the umask's default
+   * and let `rename` carry that mode to the final path, so every record was 0644 — and even setting
+   * the mode after the write would leave a window in which the full transcript was world-readable
+   * on disk.
    */
   save(session: IInteractiveSessionRecord): void {
     this.ensureDir();
-    const finalPath = this.filePath(session.id);
-    const tempPath = `${finalPath}.${process.pid}.tmp`;
-    const serialized = JSON.stringify(session, null, 2);
-    writeFileSync(tempPath, serialized, 'utf-8');
-    try {
-      renameSync(tempPath, finalPath);
-    } catch (error) {
-      unlinkSync(tempPath);
-      throw error;
-    }
+    writeOwnerOnlyFile(this.filePath(session.id), JSON.stringify(session, null, 2));
   }
 
   /**
