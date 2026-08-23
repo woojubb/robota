@@ -1,21 +1,23 @@
-# @robota-sdk/agent-interface-command
+# @robota-sdk/agent-interface-command — documents
 
-TUI interaction contracts for the Robota SDK. Contains only type contracts and narrow type
-guards — no implementation, no React, no Ink. Defines the interaction protocol between
-command handlers and TUI renderers.
+Command contract interfaces for the Robota SDK. Type declarations only — no classes, no runtime
+logic. This package declares what a command **is**; it decides nothing about what any command
+**does**.
 
 ## Usage
 
 ```typescript
 import type {
-  ITuiCommandInteraction,
-  ITuiPickerInteraction,
-  ITuiConfirmInteraction,
-  TAnyTuiCommandInteraction,
+  ICommand,
+  ICommandResult,
+  ICommandListEntry,
+  ICapabilityDescriptor,
 } from '@robota-sdk/agent-interface-command';
-// Type contracts only — narrow TAnyTuiCommandInteraction on the `onMissingArgs` discriminant.
+// Contract declarations only. Command implementations live in `agent-command` and command-module
+// owners; command infrastructure lives in `agent-framework`.
 ```
 
 ## Documents
 
-- [SPEC.md](./SPEC.md) — package contract, interface catalog, and ownership boundaries.
+- [SPEC.md](./SPEC.md) — package contract, type ownership, boundaries, and why
+  `capability-contracts` is exported despite having no consumer outside the package.
