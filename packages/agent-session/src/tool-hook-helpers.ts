@@ -3,7 +3,7 @@
  * and output truncation used by PermissionEnforcer.
  */
 
-import { runHooks, createLogger } from '@robota-sdk/agent-core';
+import { runHooks, createLogger, isEnforcing } from '@robota-sdk/agent-core';
 
 import { MAX_TOOL_OUTPUT_CHARS, toolFailure } from './permission-types.js';
 
@@ -74,6 +74,34 @@ export async function runPreToolHook(
     const reason = hookResult.reason ?? 'Blocked by hook';
     return toolFailure('hook-blocked', reason, { blocked: true, reason });
   }
+
+  // SEC-016. A hook that reached NO verdict is not a hook that approved. Issue #2083 made that
+  // distinction representable; this is where it starts costing something.
+  //
+  // Guarded by the policy rather than hardcoded to this event, so the posture is stated in one place
+  // and a future enforcing event inherits the behaviour instead of re-deriving it. The check stays
+  // HERE rather than inside `runHooks`, because the runner reports outcomes and must not decide
+  // policy — the same split issue #2083 established between the decoder and the runner.
+  if (isEnforcing('PreToolUse')) {
+    const failure = hookResult.errors?.[0];
+    if (failure !== undefined) {
+      // The reason names the kind, the executor and the failure text, because a fail-closed gate
+      // turns a misconfigured hook into a hard stop: whoever hits it needs enough to fix it.
+      const reason = `Hook could not evaluate (${failure.kind}, source: ${failure.source}): ${failure.reason}`;
+      return toolFailure('hook-blocked', reason, { blocked: true, reason });
+    }
+
+    const unreachable = hookResult.unknownHookTypes;
+    if (unreachable !== undefined && unreachable.length > 0) {
+      // A configured hook type with no registered executor ran NOTHING. Before SEC-016 the runner
+      // reported it and the gate proceeded, so a config declaring a guardrail with no registry
+      // silently disabled itself. Startup rejection of such a config is issue #2099; this is the
+      // runtime half.
+      const reason = `Hook type(s) with no registered executor: ${unreachable.join(', ')}`;
+      return toolFailure('hook-blocked', reason, { blocked: true, reason });
+    }
+  }
+
   return null;
 }
 

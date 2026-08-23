@@ -327,6 +327,10 @@ export const SCAN_COMMANDS = [
   },
   { name: 'hook-catalog', command: ['node', 'scripts/harness/scan-hook-catalog.mjs'] },
   {
+    name: 'hook-enforcement-reachable',
+    command: ['node', 'scripts/harness/scan-hook-enforcement-reachable.mjs'],
+  },
+  {
     // INFRA-078 — `hooks-have-execution-coverage` proves a hook CAN run; nothing read the file that
     // decides whether the deployment CALLS it, so a hook registered to no event, and a matcher
     // naming a deleted file, both stayed green.

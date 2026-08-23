@@ -1,0 +1,286 @@
+#!/usr/bin/env node
+/**
+ * SEC-016 — a hook event that claims to ENFORCE must have a fire site that can honour it.
+ *
+ * ## What this exists to catch
+ *
+ * `HOOK_ENFORCEMENT_POLICY` records a posture per lifecycle event. Measured when it was written: of
+ * the sixteen `THookEvent` members, exactly ONE — `PreToolUse` — has a fire site that awaits
+ * `runHooks` and consults `blocked`. The other fifteen are advisory by construction, not by
+ * decision: seven fire `void`, five are called without `await`, and three await a result they never
+ * inspect.
+ *
+ * So the table is fifteen-sixteenths unreachable, and flipping any of those rows to `enforcing`
+ * changes NOTHING at runtime while reading as though a gate had been switched on. No behavioural
+ * test catches that: every enforcement test drives `PreToolUse`, and the one advisory-events test is
+ * a NEGATIVE assertion ("no denial, no thrown error") that the mutated table satisfies. This scan is
+ * what stands there.
+ *
+ * The table's other contradiction — `posture: 'enforcing'` with `enforcementReachable: false` — is
+ * caught by `assertPolicyCoherent` in the policy module itself, deliberately without needing this
+ * scan. Two independent checks, because whichever one is skipped would otherwise be the only thing
+ * standing between the two fields.
+ *
+ * ## Why it fails closed three ways
+ *
+ * A scan that reports green having checked nothing is the defect it was built to prevent, one layer
+ * up. `.github/workflows/ci.yml` (INFRA-058) records the measured instance in this repository:
+ * `set -e` does not fire on a command substitution used as a word-list, so an unresolvable range
+ * produced an empty list, the loop body never ran, and a REQUIRED check reported green having linted
+ * nothing. It now fails on an unresolvable range AND on a range that resolves but is empty. This
+ * scan copies both arms and adds the third:
+ *
+ *   1. A policy row whose fire site cannot be resolved → FAIL. Never skipped.
+ *   2. A policy containing zero `enforcing` rows → FAIL. A table with nothing to check is
+ *      degenerate, not clean.
+ *   3. A row claiming `enforcing` whose fire site does not await and read `blocked` → FAIL.
+ *
+ * Usage: `node scripts/harness/scan-hook-enforcement-reachable.mjs [--policy <path>] [--src <dir>]`
+ * Exit 0 = every enforcing row is honoured by its fire site. Exit 1 = otherwise.
+ */
+
+import { readFileSync, existsSync } from 'node:fs';
+import path from 'node:path';
+
+import { enumerateFiles } from './enumerate-files.mjs';
+
+const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+
+/**
+ * What the last run actually read.
+ *
+ * Set inside the traversals rather than derived afterwards, per `measurement-provenance.md`: a size
+ * recomputed for the report is a second measurement that agrees on the day it is written. Exported
+ * so a test can assert them — a self-reported number nothing checks is the shape this whole item is
+ * about.
+ */
+let examinedRows = 0;
+let examinedFireSites = 0;
+
+/** Policy rows the last `collectPolicyRows` actually parsed. */
+export function examinedRowCount() {
+  return examinedRows;
+}
+
+/** Non-test `runHooks` fire sites the last `findFireSites` walk actually read. */
+export function examinedFireSiteCount() {
+  return examinedFireSites;
+}
+const DEFAULT_POLICY = 'packages/agent-core/src/hooks/enforcement-policy.ts';
+
+/** Where a `runHooks` call was found, and what the surrounding code does with its result. */
+/** @typedef {{ file: string, line: number, events: string[], awaited: boolean, readsBlocked: boolean }} TFireSite */
+
+/**
+ * Collect the posture table's rows out of the policy module.
+ *
+ * Named `collect…` rather than `parse…` because `scan-measurement-provenance.mjs` resolves a counter's
+ * finder by that prefix — a reader with no recognisable finder is a size nothing can be shown to
+ * move. The name also describes it better: it gathers rows, and reports how many it gathered.
+ *
+ * Read as TEXT rather than imported: the scan must judge the file as committed, and an import would
+ * execute `assertPolicyCoherent`'s module-level siblings and couple this check to the build. Parsing
+ * is also what lets a deliberately-broken fixture be passed via `--policy` for the scan's own tests.
+ *
+ * @returns {{ entries: Map<string, {posture: string, reachable: boolean}>, helpers: Set<string> }}
+ */
+export function collectPolicyRows(policyPath) {
+  const source = readFileSync(policyPath, 'utf8');
+
+  // Helper-constructed rows (`firesAndForgets(...)`, `awaitsButIgnoresBlocked(...)`) are advisory by
+  // the helper's own definition; the helpers are read so a renamed or added one is not silently
+  // treated as an unparsed row.
+  const helpers = new Set(
+    [...source.matchAll(/function\s+(\w+)\s*\([^)]*\)\s*:\s*IHookEventPolicy/g)].map((m) => m[1]),
+  );
+
+  const entries = new Map();
+
+  // Inline object rows: `EventName: { posture: '…', enforcementReachable: …, … }`
+  for (const match of source.matchAll(
+    /^\s{4}(\w+):\s*\{\s*[\s\S]*?posture:\s*'(\w+)',\s*[\s\S]*?enforcementReachable:\s*(true|false),/gm,
+  )) {
+    entries.set(match[1], { posture: match[2], reachable: match[3] === 'true' });
+  }
+
+  // Helper-constructed rows: `EventName: helperName(...)`.
+  for (const match of source.matchAll(/^\s{4}(\w+):\s*(\w+)\(/gm)) {
+    const [, event, helper] = match;
+    if (!helpers.has(helper) || entries.has(event)) continue;
+    const body = source.slice(source.indexOf(`function ${helper}`));
+    const posture = /posture:\s*'(\w+)'/.exec(body)?.[1];
+    const reachable = /enforcementReachable:\s*(true|false)/.exec(body)?.[1];
+    if (posture === undefined || reachable === undefined) {
+      // Arm 1: a row we cannot resolve is a failure, not a skip.
+      entries.set(event, { posture: 'UNRESOLVED', reachable: false });
+      continue;
+    }
+    entries.set(event, { posture, reachable: reachable === 'true' });
+  }
+
+  examinedRows = entries.size;
+  return { entries, helpers };
+}
+
+/**
+ * Every non-test `runHooks(` call in the workspace, with what its caller does with the result.
+ *
+ * Enumeration goes through `enumerate-files.mjs`, the harness's single owner of "which files does a
+ * scan judge" (INFRA-121). It counts untracked files too, which matters here: a scan that judged
+ * only the git index would report clean on a policy or fire site that had not been `git add`ed yet.
+ */
+export function findFireSites(pathspecs) {
+  /** @type {TFireSite[]} */
+  const sites = [];
+
+  for (const relative of enumerateFiles(pathspecs)) {
+    if (!relative.endsWith('.ts')) continue;
+    if (relative.includes('__tests__') || relative.endsWith('.test.ts')) continue;
+    const file = path.join(WORKSPACE_ROOT, relative);
+    if (!existsSync(file)) continue;
+    {
+      const source = readFileSync(file, 'utf8');
+      if (!source.includes('runHooks(')) continue;
+      const lines = source.split('\n');
+
+      lines.forEach((text, index) => {
+        if (!text.includes('runHooks(')) return;
+        if (/export\s+async\s+function\s+runHooks/.test(text)) return; // the definition, not a site
+
+        // The call's argument list may span lines; take a window generous enough to hold it.
+        const window = lines.slice(index, index + 12).join('\n');
+        const events = [
+          ...window.matchAll(
+            /'(Pre[A-Z]\w+|Post[A-Z]\w+|Session\w+|Stop\w*|UserPromptSubmit|Subagent\w+|Worktree\w+|PermissionDecision)'/g,
+          ),
+        ].map((m) => m[1]);
+
+        // `blocked` is read from the result if the assignment's identifier is later used with it.
+        const assigned = /(?:const|let)\s+(\w+)\s*=\s*await\s+runHooks\(/.exec(text)?.[1];
+        const readsBlocked =
+          assigned !== undefined &&
+          new RegExp(`\\b${assigned}\\.blocked\\b`).test(source.slice(source.indexOf(text)));
+
+        sites.push({
+          file: relative,
+          line: index + 1,
+          events,
+          awaited: /await\s+runHooks\(/.test(text),
+          readsBlocked,
+        });
+      });
+    }
+  }
+  examinedFireSites = sites.length;
+  return sites;
+}
+
+export function evaluate(entries, sites) {
+  const findings = [];
+  const enforcing = [...entries].filter(([, e]) => e.posture === 'enforcing');
+
+  // Arm 1 — unresolved rows.
+  for (const [event, entry] of entries) {
+    if (entry.posture === 'UNRESOLVED') {
+      findings.push(
+        `[unresolved-policy-row] ${event}: its posture could not be parsed. A row this scan cannot read is a row it did not check — failing rather than skipping.`,
+      );
+    }
+  }
+
+  // Arm 2 — a table with nothing to check is degenerate, not clean.
+  if (enforcing.length === 0) {
+    findings.push(
+      `[no-enforcing-rows] the policy declares no 'enforcing' event. A scan that checked nothing must not report clean (the commitlint empty-range precedent, .github/workflows/ci.yml).`,
+    );
+  }
+
+  // Arm 3 — the claim each enforcing row makes about its fire site.
+  for (const [event, entry] of enforcing) {
+    const owning = sites.filter((s) => s.events.includes(event));
+    if (owning.length === 0) {
+      findings.push(
+        `[unresolvable-fire-site] ${event} is declared 'enforcing' but no non-test runHooks call site naming it could be found. Failing rather than skipping.`,
+      );
+      continue;
+    }
+    const honoured = owning.filter((s) => s.awaited && s.readsBlocked);
+    if (honoured.length === 0) {
+      const where = owning.map((s) => `${s.file}:${s.line}`).join(', ');
+      findings.push(
+        `[inert-enforcing-row] ${event} is declared 'enforcing', but no fire site both awaits runHooks and reads .blocked (${where}). The posture asserts a gate the code cannot operate.`,
+      );
+    }
+    if (!entry.reachable) {
+      findings.push(
+        `[reachability-contradiction] ${event} declares posture 'enforcing' with enforcementReachable: false.`,
+      );
+    }
+  }
+
+  // The recorded flag must not claim unreachable where the site plainly reaches.
+  for (const [event, entry] of entries) {
+    if (entry.posture !== 'advisory' || entry.reachable) continue;
+    const owning = sites.filter((s) => s.events.includes(event));
+    if (owning.some((s) => s.awaited && s.readsBlocked)) {
+      findings.push(
+        `[stale-reachability] ${event} records enforcementReachable: false, but its fire site awaits and reads .blocked. The flag is stale; the site changed under it.`,
+      );
+    }
+  }
+
+  return findings;
+}
+
+function main() {
+  const argv = process.argv.slice(2);
+  const policyArg = argv.indexOf('--policy');
+  const policyPath = path.resolve(
+    WORKSPACE_ROOT,
+    policyArg === -1 ? DEFAULT_POLICY : argv[policyArg + 1],
+  );
+  if (!existsSync(policyPath)) {
+    console.error(
+      `hook-enforcement-reachable: policy module not found at ${policyPath}. Failing rather than reporting clean.`,
+    );
+    process.exit(1);
+  }
+
+  const { entries } = collectPolicyRows(policyPath);
+  if (entries.size === 0) {
+    console.error(
+      `hook-enforcement-reachable: parsed zero policy rows from ${path.relative(WORKSPACE_ROOT, policyPath)}. A parse that found nothing is not a policy that is clean.`,
+    );
+    process.exit(1);
+  }
+
+  const srcArg = argv.indexOf('--src');
+  const pathspecs = srcArg === -1 ? ['packages', 'apps'] : [argv[srcArg + 1]];
+  const sites = findFireSites(pathspecs);
+  if (sites.length === 0) {
+    console.error(
+      `hook-enforcement-reachable: found zero non-test runHooks fire sites under ${pathspecs.join(', ')}. An enumeration that found nothing is not a tree that is clean.`,
+    );
+    process.exit(1);
+  }
+  const findings = evaluate(entries, sites);
+
+  console.log(
+    `::examined:: ${examinedRowCount()} policy row(s), ${examinedFireSiteCount()} non-test runHooks fire site(s)`,
+  );
+
+  if (findings.length > 0) {
+    for (const finding of findings) console.error(`- ${finding}`);
+    console.error(`hook-enforcement-reachable scan FAILED (${findings.length} finding(s)).`);
+    process.exit(1);
+  }
+
+  const enforcing = [...entries].filter(([, e]) => e.posture === 'enforcing').map(([n]) => n);
+  console.log(
+    `hook-enforcement-reachable scan passed — enforcing: ${enforcing.join(', ')}; every enforcing row has a fire site that awaits runHooks and reads .blocked.`,
+  );
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {
+  main();
+}

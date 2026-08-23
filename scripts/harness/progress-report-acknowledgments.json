@@ -252,6 +252,18 @@
       "timestamp": "2026-08-22T06:38:56.155Z",
       "ratio": "3/136",
       "reason": "A prior architecture-audit session reported three failing scans out of 136 without the percentage (2.2%). The transcript is append-only and cannot be corrected in place, so the real violation is acknowledged here through the scan's reasoned, stale-sensitive clearing path."
+    },
+    {
+      "transcript": "865e0ee8-aab9-4c83-8501-c75ed32dc1b9.jsonl",
+      "timestamp": "2026-08-23T09:00:56.806Z",
+      "ratio": "14/16",
+      "reason": "Mine, committed while migrating the SEC-016 enforcement-boundary tests: I reported \"Progress — 14/16\" with no percentage (87.5%). agent-conduct.md requires a mid-work update over a countable set to state the ratio AND the percentage, and the reason it does is the one this session kept rediscovering — a bare ratio reads as progress without saying how much is left, so the reader supplies a figure I did not give them. The transcript is append-only, so the violation is recorded here rather than corrected in place."
+    },
+    {
+      "transcript": "865e0ee8-aab9-4c83-8501-c75ed32dc1b9.jsonl",
+      "timestamp": "2026-08-23T09:10:11.430Z",
+      "reason": "The same session's SECOND violation, and it is the first one's echo: while explaining that I had reported a bare ratio, I quoted the bare ratio again. Acknowledging a violation by restating it unquantified reproduces it — the rule governs the narration, not only the original claim. Both entries stand because both findings are real and a transcript cannot be edited. Recorded with the percentage this time: 14 of 16 is 87.5%.",
+      "ratio": "14/16"
     }
   ]
 }

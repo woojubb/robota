@@ -8,7 +8,12 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { runPreToolHook, buildHookInput, truncateToolResult } from '../tool-hook-helpers.js';
+import {
+  runPreToolHook,
+  firePostToolHook,
+  buildHookInput,
+  truncateToolResult,
+} from '../tool-hook-helpers.js';
 import type { IHookInput, IHookTypeExecutor } from '@robota-sdk/agent-core';
 import type { THooksConfig } from '@robota-sdk/agent-core';
 
@@ -178,5 +183,115 @@ describe('truncateToolResult', () => {
     const result = { success: true, data: 42 as unknown as string, metadata: {} };
     const out = truncateToolResult(result);
     expect(out.data).toBe(42);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+// SEC-016 — a hook that reached NO verdict does not read as approval at an enforcing event.
+//
+// Issue #2083 made the failure representable; these are the cases where it starts costing something.
+// Every one of them ALLOWED the tool call before this change, which is what the fixture comments
+// below record — a regression test whose pre-fix behaviour is not stated is a test nobody can check.
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () => {
+  const hooks: THooksConfig = {
+    PreToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'gate' }] }],
+  };
+
+  /** An executor that reaches no verdict, in the way its `kind` names. */
+  function makeFailingExecutor(
+    kind: 'timeout' | 'spawn-failure' | 'malformed-response' | 'transport-failure',
+    source: 'command' | 'http' = 'command',
+  ): IHookTypeExecutor {
+    return {
+      type: 'command',
+      execute: vi.fn().mockResolvedValue({
+        outcome: 'error',
+        source,
+        kind,
+        reason: `simulated ${kind}`,
+      }),
+    };
+  }
+
+  it('TC-01: a hook whose process cannot start blocks the call', async () => {
+    // Before SEC-016: `errors` was populated and nothing read it, so this returned null → allowed.
+    const result = await runPreToolHook(hooks, makeHookInput(), [
+      makeFailingExecutor('spawn-failure'),
+    ]);
+    expect(result).not.toBeNull();
+    expect(result?.success).toBe(false);
+  });
+
+  it('TC-02: a timeout blocks, and so does a malformed response', async () => {
+    for (const kind of ['timeout', 'malformed-response'] as const) {
+      const result = await runPreToolHook(hooks, makeHookInput(), [makeFailingExecutor(kind)]);
+      expect(result, `${kind} should block`).not.toBeNull();
+      expect(result?.success).toBe(false);
+    }
+  });
+
+  it('TC-04: the denial reason names the failure kind and the source executor', async () => {
+    // A fail-closed gate turns a misconfigured hook into a hard stop, so whoever hits it needs
+    // enough in the message to fix it. Asserted per kind rather than once, because a reason that
+    // happened to carry one kind's name would pass a single-case check.
+    for (const [kind, source] of [
+      ['timeout', 'command'],
+      ['spawn-failure', 'command'],
+      ['malformed-response', 'http'],
+    ] as const) {
+      const result = await runPreToolHook(hooks, makeHookInput(), [
+        makeFailingExecutor(kind, source),
+      ]);
+      const reason = result?.error ?? '';
+      expect(reason, `${kind} reason should name the kind`).toContain(kind);
+      expect(reason, `${kind} reason should name the source`).toContain(source);
+    }
+  });
+
+  it('TC-03: a configured hook type with no registered executor blocks', async () => {
+    // Before SEC-016 the runner reported this on `unknownHookTypes` and the gate proceeded — so a
+    // config declaring a guardrail with no registry silently disabled itself. Startup rejection of
+    // such a config is issue #2099; this is the runtime half.
+    const guardrailHooks: THooksConfig = {
+      PreToolUse: [{ matcher: '', hooks: [{ type: 'guardrail' }] }],
+    };
+    const result = await runPreToolHook(guardrailHooks, makeHookInput(), []);
+    expect(result).not.toBeNull();
+    // The reason travels in `error` — `toolFailure` leaves `metadata` empty and puts the message
+    // there, because a blocked call is rendered to the model as one error line (CORE-027).
+    expect(result?.error).toContain('guardrail');
+  });
+
+  it('TC-08: an approving hook still proceeds, and an explicit deny still blocks', async () => {
+    const allowed = await runPreToolHook(hooks, makeHookInput(), [makeMockExecutor(0)]);
+    expect(allowed).toBeNull();
+
+    const denied = await runPreToolHook(hooks, makeHookInput(), [makeMockExecutor(2, 'no')]);
+    expect(denied).not.toBeNull();
+    expect(denied?.error).toBe('no');
+  });
+
+  it('TC-05: the same failure on PostToolUse does not block — that event is advisory', async () => {
+    // `firePostToolHook` is fire-and-forget by construction, so there is no result to block on.
+    // Asserted through the enforcing helper to show the difference is the EVENT, not the outcome:
+    // an identical executor produces a denial at PreToolUse and nothing here.
+    const postHooks: THooksConfig = {
+      PostToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'gate' }] }],
+    };
+    const blockedAtPre = await runPreToolHook(hooks, makeHookInput(), [
+      makeFailingExecutor('timeout'),
+    ]);
+    expect(blockedAtPre).not.toBeNull();
+
+    // The advisory path returns void and must not throw.
+    expect(() =>
+      firePostToolHook(
+        postHooks,
+        { ...makeHookInput(), hook_event_name: 'PostToolUse' },
+        { success: true, data: 'ran', metadata: {} },
+        [makeFailingExecutor('timeout')],
+      ),
+    ).not.toThrow();
   });
 });

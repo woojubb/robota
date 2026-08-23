@@ -517,6 +517,7 @@ host so an LLM authoring commands avoids cross-family syntax mistakes.
 | `IHookInput`             | type      | JSON input passed to hooks via stdin                                                                                                                                                             |
 | `THookOutcome`           | type      | SEC-015 decoded hook result: `allow \| deny \| error` union (replaces `IHookResult`)                                                                                                             |
 | `decodeHookVerdict`      | function  | SEC-015 sole decoder for a `{ ok, reason }` hook response; a non-boolean or missing `ok` is `error`, never a coerced verdict                                                                     |
+| `isEnforcing`            | function  | SEC-016 — whether a hook that reached NO verdict blocks at this event. Reads `HOOK_ENFORCEMENT_POLICY`; `PreToolUse` is the only enforcing event                                                 |
 
 NOTE (SEC-015): the union's member interfaces — `IHookAllowOutcome`, `IHookDenyOutcome`,
 `IHookErrorOutcome` and `THookErrorKind` — are exported from `hooks/index.ts`, not from the package
@@ -852,7 +853,13 @@ The hook module (`src/hooks/`) provides a pluggable lifecycle hook mechanism. Ho
 
 **Outcome contract (SEC-015).** An executor returns a decoded `THookOutcome`, not an exit code. `allow` and `deny` are the two verdicts; `error` is the ABSENCE of one, and carries a `THookErrorKind` naming why. The distinction exists because the previous `{ exitCode, stdout, stderr }` shape had no channel for a failure, so every failure was coerced into a verdict by JavaScript truthiness — a non-boolean `ok` read as approval and silently disabled the gate, while a missing one read as denial and blocked a tool call no hook had objected to. `runHooks` reports every `error` on `IRunHooksResult.errors`.
 
-Whether an `error` should BLOCK on an enforcing event is a per-event policy that this package deliberately does not decide (issue #2093); today `deny` blocks and `error` does not.
+**Per-event enforcement posture (SEC-016).** `HOOK_ENFORCEMENT_POLICY` in `hooks/enforcement-policy.ts` records, for every `THookEvent`, whether an `error` blocks there. `PreToolUse` is `enforcing`; the other fifteen events are `advisory`.
+
+That asymmetry is not a preference. Measured across the tree, `PreToolUse` is the only event whose fire site awaits `runHooks` and consults `blocked` — seven events fire `void`, five are called without `await`, and three await a result they never inspect. So each row also records `enforcementReachable`: whether its fire site _can_ honour an enforcing posture. Without it the table would assert postures for events that cannot act on them, and flipping such a row would change nothing while reading as though a gate had been switched on.
+
+Two independent checks keep the two fields honest: `assertPolicyCoherent` rejects a row claiming `enforcing` with `enforcementReachable: false`, and `scripts/harness/scan-hook-enforcement-reachable.mjs` rejects a row whose fire site does not in fact await and read `blocked`. Neither is the only thing standing between them.
+
+`HOOK_ENFORCEMENT_POLICY`, `assertPolicyCoherent` and the two policy types are exported from `hooks/index.ts`; only `isEnforcing` is on the package root, because it is the sole member an enforcement boundary outside this package needs.
 
 ### Hook Events
 

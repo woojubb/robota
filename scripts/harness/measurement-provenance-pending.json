@@ -19,6 +19,7 @@
     "scripts/harness/scan-barrel-parameter-types.mjs",
     "scripts/harness/scan-claude-review-coverage.mjs",
     "scripts/harness/scan-conflict-markers.mjs",
+    "scripts/harness/scan-hook-enforcement-reachable.mjs",
     "scripts/harness/scan-hook-override-declarations.mjs",
     "scripts/harness/scan-interface-family-owner.mjs",
     "scripts/harness/scan-interface-runtime.mjs",
