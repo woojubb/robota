@@ -6,6 +6,7 @@ import { formatCommandOutputSummary } from './command-output-summary.js';
 import { humanizeToolName } from './humanize-tool-name.js';
 import { renderMarkdown } from './render-markdown.js';
 import { RoleLabel } from './RoleLabel.js';
+import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 import { STATUS_GLYPH } from './status-glyph.js';
 import { getToolSummaryLabel, toolSummaryStatusKind } from './tool-summary-status.js';
 import ToolCommandOutput from './ToolCommandOutput.js';
@@ -57,7 +58,7 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
           <Box key={i} flexDirection="column">
             <Text color={PALETTE.text.success}>
               {'  '}
-              {'✓'} {s.line}
+              {'✓'} {sanitizeTerminalText(s.line)}
             </Text>
             {s.diffLines && s.diffLines.length > 0 && (
               <ToolDiffBlock file={s.diffFile} lines={s.diffLines} />
@@ -78,7 +79,7 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
         </Text>
         {toolName && (
           <Text color={PALETTE.text.emphasis} dimColor>
-            [{toolName}]
+            [{sanitizeTerminalText(toolName)}]
           </Text>
         )}
       </Box>
@@ -86,7 +87,7 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
       {lines.map((line, i) => (
         <Text key={i} color={PALETTE.text.success}>
           {'  '}
-          {'✓'} {line}
+          {'✓'} {sanitizeTerminalText(line)}
         </Text>
       ))}
     </Box>
@@ -95,7 +96,10 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
 
 /** ERR-001 G2: a failed turn renders as a styled error block, not a plain system note. */
 function ErrorEntryBlock({ message }: { message: TUniversalMessage }): React.ReactElement {
-  const content = (message.content ?? '').replace(/^Error:\s*/, '');
+  // SEC-019: an error message is untrusted text — it carries provider responses, tool stderr and
+  // file contents — and it reaches `<Text>` without going through the markdown renderer, so it does
+  // not inherit that path's sanitization.
+  const content = sanitizeTerminalText((message.content ?? '').replace(/^Error:\s*/, ''));
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>

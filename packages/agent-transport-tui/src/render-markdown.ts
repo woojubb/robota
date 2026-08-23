@@ -2,6 +2,7 @@ import { marked } from 'marked';
 // @ts-expect-error — marked-terminal has no type declarations
 import TerminalRenderer from 'marked-terminal';
 
+import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 import { isInteractiveColorTerminal } from './terminal-capabilities.js';
 import { ANSI } from './tui-ansi-palette.js';
 
@@ -112,8 +113,16 @@ function createTerminalRenderer(color: boolean, codeBlockWidth: number | undefin
  * Returns the rendered string (may include ANSI escape codes).
  */
 export function renderMarkdown(md: string, options: IRenderMarkdownOptions = {}): string {
-  const result = marked.parse(md, {
+  // SEC-019 (issue #2022): the untrusted string is sanitized BEFORE parsing, never after. The
+  // renderer ADDS ANSI — colours, bold, code-block framing — so filtering its output would strip the
+  // repository's own presentation along with the attacker's. Filtering its input removes what
+  // arrived from outside and leaves what is generated after.
+  //
+  // This is the choke point every render path shares (MessageList, StreamingIndicator,
+  // ToolDiffBlock), which is why it is here rather than at each of the three.
+  const safe = sanitizeTerminalText(md);
+  const result = marked.parse(safe, {
     renderer: createTerminalRenderer(shouldUseColor(options.color), options.codeBlockWidth),
   });
-  return typeof result === 'string' ? result.trimEnd() : md;
+  return typeof result === 'string' ? result.trimEnd() : safe;
 }
