@@ -112,6 +112,79 @@ function toolNamesOf(sessionOptions: Record<string, unknown>): string[] {
   return tools.map((tool) => tool.getName?.() ?? '').filter(Boolean);
 }
 
+describe('SEC-016: the built-in executors survive a non-empty executor array', () => {
+  // `runHooks` resolves executors as `executors ?? createDefaultExecutors()` — the fallback is
+  // UNDEFINED-only, so a non-empty array REPLACES the built-ins instead of extending them. Supplying
+  // guardrails (or providerFactory / sessionFactory / additionalHookExecutors) made the array
+  // non-empty and silently deregistered `command` and `http`. That was a fail-open: the hook was
+  // skipped. Once PreToolUse fails closed on an unregistered executor, the same config denies EVERY
+  // tool call — so this is an availability assertion, not a tidiness one.
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('keeps command and http registered when guardrails make the array non-empty', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+
+    await createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', projectNotesMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+      guardrails: { neverPasses: NEVER_PASSES },
+    });
+
+    const types = executorTypesOf(sessionCtorCalls[0]!);
+    expect(types).toContain('guardrail');
+    // The regression: before the fix these two were absent precisely BECAUSE 'guardrail' was present.
+    expect(types).toContain('command');
+    expect(types).toContain('http');
+  });
+
+  it('registers command and http when NO optional executor is supplied', async () => {
+    // Be precise about what this pins, because it fails at base for a reason worth stating. The
+    // EFFECTIVE executor set was already correct here: the empty array collapsed to `undefined` and
+    // `runHooks` resolved its own defaults later. What changed is WHERE that resolution happens —
+    // the composition root now states the built-ins instead of leaving them to be filled in
+    // downstream. So this test observes the hand-over, not the behaviour, and it goes red at base
+    // because the hand-over was `undefined` there, not because a hook failed to run.
+    const { createSession } = await import('../assembly/create-session.js');
+
+    await createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', projectNotesMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+    });
+
+    const types = executorTypesOf(sessionCtorCalls[0]!);
+    expect(types).toContain('command');
+    expect(types).toContain('http');
+  });
+
+  it('lets a caller-supplied executor override a built-in of the same type', async () => {
+    // Seeding must not make the built-ins unoverridable. `runHooks` builds its map by `set()` in
+    // array order, so the caller's entry — pushed after the seeds — wins. Without this, seeding
+    // would trade a fail-open for a different loss of control.
+    const { createSession } = await import('../assembly/create-session.js');
+    const custom = { type: 'command' as const, execute: vi.fn() };
+
+    await createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', projectNotesMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+      additionalHookExecutors: [custom as never],
+    });
+
+    const executors = (sessionCtorCalls[0]!.hookTypeExecutors ?? []) as Array<{ type?: string }>;
+    const commandEntries = executors.filter((executor) => executor.type === 'command');
+    expect(commandEntries).toHaveLength(2);
+    // Last wins in `runHooks`'s map build, so the caller's must be the later one.
+    expect(commandEntries[commandEntries.length - 1]).toBe(custom);
+  });
+});
+
 describe('createSession registers the guardrail machinery (pre-existing, previously untested)', () => {
   beforeEach(() => {
     sessionCtorCalls.length = 0;

@@ -6,10 +6,11 @@
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
-import { applyPresetToolLists, GuardrailExecutor } from '@robota-sdk/agent-core';
+import { applyPresetToolLists } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
 import { assembleSessionTools } from './assemble-session-tools.js';
+import { buildHookTypeExecutors } from './build-hook-type-executors.js';
 import {
   buildAgentRuntime,
   buildBackgroundProcessTool,
@@ -18,8 +19,6 @@ import {
 } from './create-session-runtime.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
 import { readSettings, writeSettings } from '../config/settings-io.js';
-import { AgentExecutor } from '../hooks/agent-executor.js';
-import { PromptExecutor } from '../hooks/prompt-executor.js';
 import {
   createModelCommandToolProjection,
   createProjectedCommandExecutionTools,
@@ -33,12 +32,7 @@ import type {
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { TSessionFactory } from '../hooks/agent-executor.js';
 import type { TProviderFactory } from '../hooks/prompt-executor.js';
-import type {
-  IToolWithEventService,
-  IHookTypeExecutor,
-  THooksConfig,
-  TGuardrail,
-} from '@robota-sdk/agent-core';
+import type { IToolWithEventService, THooksConfig, TGuardrail } from '@robota-sdk/agent-core';
 
 export type { ICreateSessionOptions, ICreateSessionResult } from './create-session-types.js';
 
@@ -143,26 +137,7 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
     );
   }
 
-  const hookTypeExecutors: IHookTypeExecutor[] = [];
-  if (options.providerFactory) {
-    hookTypeExecutors.push(
-      new PromptExecutor({
-        providerFactory: options.providerFactory,
-        defaultModel: options.config.provider.model,
-      }),
-    );
-  }
-  if (options.sessionFactory) {
-    hookTypeExecutors.push(new AgentExecutor({ sessionFactory: options.sessionFactory }));
-  }
-  if (options.guardrails && Object.keys(options.guardrails).length > 0) {
-    // SELFHOST-005: register the guardrail executor so a { type: 'guardrail' } hook definition runs
-    // the consumer's guardrail set in parallel and fails the turn fast via the existing blocked path.
-    hookTypeExecutors.push(new GuardrailExecutor(options.guardrails));
-  }
-  if (options.additionalHookExecutors) {
-    hookTypeExecutors.push(...options.additionalHookExecutors);
-  }
+  const hookTypeExecutors = buildHookTypeExecutors(options);
 
   // SELFHOST-005: registering guardrails only adds the EXECUTOR; the guardrail set fires only if a
   // { type: 'guardrail' } hook definition exists on an enforcing event. When guardrails are registered
@@ -279,7 +254,7 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
     autoCompactThreshold: options.autoCompactThreshold ?? options.config.autoCompactThreshold,
     sessionLogger: options.sessionLogger,
     transcriptPath: options.transcriptPath,
-    hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
+    hookTypeExecutors,
     agentName: options.agentName,
     ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
