@@ -4,7 +4,10 @@ status: in-progress
 created: 2026-08-23
 priority: high
 urgency: now
-area: packages/agent-interface-command, packages/agent-interface-transport
+area: packages/agent-command, packages/agent-command-workflows, packages/agent-framework,
+  packages/agent-interface-command, packages/agent-interface-transport, packages/agent-transport,
+  packages/agent-transport-gui, packages/agent-transport-protocol, packages/agent-transport-tui,
+  packages/dag-nodes, packages/dag-nodes-default, scripts/harness
 depends_on: []
 ---
 
@@ -59,6 +62,61 @@ Measured on `origin/develop` @ `bd50f8b28`.
 
 ## User Execution Test Scenarios
 
-This task delivers no user-facing behavior: it relocates type contracts between packages with no
-change to any runtime value, signature or shipped surface. The verification surface is the harness
-gate and the consumer packages' own suites, recorded in the Test Plan above.
+This task delivers no runnable user-facing behavior, so the rule is satisfied by this reasoned
+not-applicable entry rather than by scenarios.
+
+**The reason first recorded here was false, and is corrected rather than deleted (2026-08-24).** It
+read "no change to any runtime value, signature or shipped surface". The decomposition moved **15
+runtime values**, not only types, and four of them — `readAssistantReplies`, `readLastAssistantText`,
+`readToolCalls`, `readErrors` — are exported from the published
+`@robota-sdk/agent-interface-transport@3.0.0-beta.79` tarball and now live in
+`agent-interface-session`, which is not on the registry (`npm view` → E404). So the shipped surface
+did change.
+
+**Why scenarios are still not required.** The rule's trigger is runnable user-facing _behavior_.
+Every consumer inside this workspace was rewired in the same change, so nothing a user can run
+against this repository behaves differently. What the surface change reaches is the **registry**, and
+that is a release-configuration problem rather than a property of this task: the next publish would
+ship a transport without those four symbols and no published package that owns them. Issue #2260
+owns it. Recording that here is part of the reason — the consequence was measured and handed to an
+owner, not waved past.
+
+## Verification against the tree (2026-08-24)
+
+Every criterion above was **measured against `develop` @ `81a4ab97c`**. They are recorded here and
+left **unticked**: the spec document has not passed its gates, so ticking them would claim a
+completion the pipeline has not granted. The measurement is evidence for a later gate, not a
+substitute for one. The shared measurements, run once for all six leaves:
+
+| Owner            | Symbols declared | Still reachable through transport's built surface |
+| ---------------- | ---------------- | ------------------------------------------------- |
+| execution        | 60               | 0                                                 |
+| command          | 21               | 0                                                 |
+| analytics        | 7                | 0                                                 |
+| session          | 91               | 0                                                 |
+| session-mobility | 21               | 0                                                 |
+
+`agent-interface-transport` declares `@robota-sdk/agent-core` and nothing else, at layer 0. Checked
+against the BUILT `.d.ts` of both published entries rather than the source barrel, because a
+source-level check cannot see what a re-export chain publishes.
+
+**Layer 0, two modules, deps `{agent-core}`** — confirmed. `capability-contracts` moved with its
+barrel export per the issue #2177 ruling.
+
+**One criterion cannot be ticked, and the reason is a distinction I got half right** (recorded
+2026-08-24). The criterion reads: "`agent-interface-transport` stays declared at layer 1 — it still
+holds the session family."
+
+I first ticked it as _superseded rather than failed_ — correct at this leaf's merge (`0c9c9fd59`,
+where the owner map read "transport is at layer 1 TODAY") and no longer true, because ARCH-106 moved
+the session family out and ARCH-108 brought the row to 0.
+
+A `backlog-gate-guard` verdict reversed the conclusion while keeping the distinction:
+
+> **An expired criterion is not a met criterion.** Nor is it a failure — the implementation did hold
+> layer 1 at the time. But the gate asks whether the document satisfies its criterion **now**, and
+> what the criterion points at no longer exists.
+
+So it stays unticked. The distinction between _expired_ and _failed_ is worth keeping in the record;
+it just does not license a tick. That is the difference between describing a criterion's history and
+claiming it is satisfied.
