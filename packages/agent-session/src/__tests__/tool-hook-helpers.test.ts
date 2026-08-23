@@ -362,6 +362,9 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
     };
     const solo = await runPreToolHook(soloConfig, makeHookInput(), [failingCommand]);
     const soloReason = String(solo?.error ?? '');
+    // Without this, the containment below is vacuous: every string contains the empty string, so a
+    // standalone denial that produced no message at all would satisfy it.
+    expect(soloReason).not.toBe('');
     expect(reason).toContain(soloReason);
   });
 

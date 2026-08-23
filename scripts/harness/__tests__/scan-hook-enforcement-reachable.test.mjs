@@ -643,12 +643,32 @@ describe('scan-hook-enforcement-reachable', () => {
       'utf8',
     );
 
-    it('every finding code the scan can emit is named by a test', () => {
-      const emitted = [...SCAN_SOURCE.matchAll(/`\[([a-z-]+)\]/g)].map((m) => m[1]);
-      expect(emitted.length).toBeGreaterThan(0);
+    it('every finding code the scan can emit is asserted by a test', () => {
+      // Both halves of this were wrong when first written, and review demonstrated each by running
+      // it. The derivation anchored the code to a leading backtick, so a tenth arm emitting
+      // `${event}: [brand-new-arm] …` was invisible — 39 green with an unfixtured arm. And the
+      // predicate was `TEST_SOURCE.includes('[code]')`, which a COMMENT satisfies: an entire
+      // security arm was deleted along with its assertions, leaving two comment mentions, and this
+      // still passed. "A guard that counts prose is a guard that will one day be satisfied by
+      // prose" — the file said that about the scan and then did it here.
+      //
+      // Now: emission sites found structurally, and the code must sit inside a POSITIVE assertion
+      // in comment-blanked test source.
+      const emitted = new Set();
+      for (const m of SCAN_SOURCE.matchAll(/findings\.push\(/g)) {
+        const window = SCAN_SOURCE.slice(m.index, SCAN_SOURCE.indexOf(');', m.index) + 2);
+        for (const code of window.matchAll(/\[([a-z][a-z-]+)\]/g)) emitted.add(code[1]);
+      }
+      expect(emitted.size, 'no finding codes derived — the derivation broke').toBeGreaterThan(5);
 
-      const unfixtured = [...new Set(emitted)].filter((code) => !TEST_SOURCE.includes(`[${code}]`));
-      expect(unfixtured, 'finding codes with no test naming them').toEqual([]);
+      // Comments cannot vouch, and neither can an `it()` title or a `not.toContain`.
+      const assertedLines = blankComments(TEST_SOURCE)
+        .split('\n')
+        .filter((line) => /\.toContain\(|\.toMatch\(/.test(line) && !/not\s*\.\s*to/.test(line));
+      const asserted = assertedLines.join('\n');
+
+      const unfixtured = [...emitted].filter((code) => !asserted.includes(`[${code}]`));
+      expect(unfixtured, 'finding codes with no POSITIVE assertion naming them').toEqual([]);
     });
 
     it('every NON_PRODUCTION clause is pinned by a path only that clause excludes', () => {

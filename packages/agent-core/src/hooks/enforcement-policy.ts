@@ -75,8 +75,18 @@ function deepFreezePolicy(
 /**
  * The posture for every lifecycle event.
  *
- * Exhaustive over `THookEvent` by construction — `Record` makes a missing member a compile error,
- * and `assertPolicyCoherent` catches an extra one.
+ * Exhaustive over `THookEvent` by construction — `Record` makes a missing member a compile error.
+ *
+ * An EXTRA member is caught by three things, none of which is `assertPolicyCoherent`. That function
+ * checks only that the table is non-empty and that no row claims `enforcing` while
+ * `enforcementReachable` is false; it has no runtime knowledge of the union and was measured not to
+ * throw on an unknown key. An earlier version of this sentence credited it anyway, which is worse
+ * than saying nothing: a reader trusting it could delete the test below believing this function
+ * covered the case. What actually catches an extra member:
+ *
+ *   1. the compiler's excess-property check on the object literal passed to `deepFreezePolicy`;
+ *   2. the test asserting `Object.keys(HOOK_ENFORCEMENT_POLICY)` equals the union exactly;
+ *   3. `scan-hook-enforcement-reachable.mjs`'s `[policy-row-unknown-event]` arm.
  */
 export const HOOK_ENFORCEMENT_POLICY: Readonly<Record<THookEvent, IHookEventPolicy>> =
   deepFreezePolicy({
