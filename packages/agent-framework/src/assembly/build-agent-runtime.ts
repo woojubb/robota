@@ -60,7 +60,7 @@ export function buildAgentRuntime(
       permissionMode: options.permissionMode,
       permissionHandler: options.permissionHandler,
       hooks: options.config.hooks,
-      hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
+      hookTypeExecutors,
       onTextDelta: options.onTextDelta,
       onToolExecution: options.onToolExecution,
       customAgentRegistry: (name: string) => agentLoader.getAgent(name),
@@ -94,12 +94,7 @@ export function buildAgentRuntime(
     );
   }
   backgroundTaskManager.subscribe((event) =>
-    fireSubagentLifecycleHook(
-      event,
-      cwd,
-      options.config.hooks,
-      hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
-    ),
+    fireSubagentLifecycleHook(event, cwd, options.config.hooks, hookTypeExecutors),
   );
 
   return { agentToolDeps, agentDefinitions, backgroundTaskManager };
