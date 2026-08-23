@@ -296,9 +296,12 @@ describe('session artifact — the record is decoded, not cast (TRANS-006)', () 
       'cwd',
     ],
   ])('refuses %s and names %s', (_case, record, expectedPath) => {
-    expect(() => deserializeSessionArtifact(artifactOf(record))).toThrow(
-      new RegExp(expectedPath.replace(/[[\]().]/g, '\\$&')),
-    );
+    // A plain string, not a constructed RegExp: `toThrow(string)` is a substring match, which is
+    // exactly the assertion, and it removes the escaping question entirely. The previous form built
+    // a pattern by escaping `[]().` and not `\`, which CodeQL correctly flagged as incomplete —
+    // harmless here because every input is a literal in this table, and still the wrong shape: the
+    // test never needed a regex to ask whether a message contains a path.
+    expect(() => deserializeSessionArtifact(artifactOf(record))).toThrow(expectedPath);
   });
 
   it('reports an unsupported version without field issues — the two classes stay apart', () => {
