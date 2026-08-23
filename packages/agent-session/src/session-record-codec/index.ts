@@ -16,7 +16,7 @@
 
 export {
   INTERACTIVE_SESSION_RECORD_KEYS,
-  INTERACTIVE_SESSION_RECORD_VERSION,
+  SESSION_ARTIFACT_SCHEMA_VERSION,
   decodeInteractiveSessionRecord,
   decodeVersionedInteractiveSessionRecord,
 } from './record-decoder.js';

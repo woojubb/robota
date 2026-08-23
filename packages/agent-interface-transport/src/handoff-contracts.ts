@@ -133,6 +133,19 @@ export interface IHandoffCommitAck {
 /** Why a hand-off ended without committing. */
 export type THandoffRefusal =
   | 'integrity-failed'
+  /**
+   * The bytes arrived whole and did not decode as a session record (TRANS-006).
+   *
+   * Distinct from `integrity-failed` because integrity PASSED — the digest matched and the byte
+   * count matched, and only the shape was wrong. The two require opposite actions from the source:
+   * an integrity failure is retried, and this one never is, because a retransmission produces the
+   * identical payload and the identical refusal. Reporting one as the other sends a source into a
+   * loop it cannot leave.
+   *
+   * Distinct from `destination-cannot-resume` because that asserts something about THIS machine,
+   * while a payload that does not decode is malformed at every destination.
+   */
+  | 'payload-undecodable'
   | 'unauthorized'
   | 'destination-cannot-resume'
   | 'in-flight-work'
