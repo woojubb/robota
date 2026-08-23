@@ -26,7 +26,7 @@ import StreamingIndicator from '../StreamingIndicator.js';
 import { createToolMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IToolState } from '@robota-sdk/agent-interface-transport';
+import type { IToolState } from '@robota-sdk/agent-interface-session';
 
 const ESC = String.fromCharCode(27);
 const BEL = String.fromCharCode(7);
