@@ -9,6 +9,7 @@ import { judgeEdge, readInterfaceLayers } from '../interface-layers.mjs';
 
 import {
   findCycles,
+  findLayerViolations,
   findContractModules,
   migrationWaves,
   parseOwnerMap,
@@ -413,5 +414,59 @@ describe('LAYER — acyclicity does not imply legality (ARCH-101 · issue #2180)
       }
     }
     expect(illegal).toEqual([]);
+  });
+});
+
+describe("findLayerViolations — the SCAN's use of the layer predicate, not the predicate alone", () => {
+  // regression-red-proof reported `accidental-green-fail (all-pass)` when this condition lived inline
+  // in main(): the suite tested judgeEdge directly and never that the scan consulted it, so reversing
+  // the scan's fix left every test green. These cases fail if the condition is removed.
+  const layers = new Map([
+    ['agent-interface-command', 0],
+    ['agent-interface-execution', 0],
+    ['agent-interface-session', 1],
+  ]);
+  const edgesOf = (from, to) => new Map([[from, new Map([[to, new Set(['ISomeType (a → b)'])]])]]);
+
+  it('returns nothing for a legal downward edge', () => {
+    expect(
+      findLayerViolations(edgesOf('agent-interface-session', 'agent-interface-execution'), layers),
+    ).toEqual([]);
+  });
+
+  it('reports a same-layer edge', () => {
+    const out = findLayerViolations(
+      edgesOf('agent-interface-command', 'agent-interface-execution'),
+      layers,
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]).toContain('LAYER:');
+    expect(out[0]).toContain('SAME-LAYER');
+  });
+
+  it('reports an upward edge', () => {
+    const out = findLayerViolations(
+      edgesOf('agent-interface-execution', 'agent-interface-session'),
+      layers,
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]).toContain('UPWARD');
+  });
+
+  it('names the symbols that carry an illegal edge, so it can be acted on', () => {
+    const out = findLayerViolations(
+      edgesOf('agent-interface-command', 'agent-interface-execution'),
+      layers,
+    );
+    expect(out[0]).toContain('ISomeType');
+  });
+
+  it('reports an undeclared owner rather than passing it', () => {
+    const out = findLayerViolations(
+      edgesOf('agent-interface-session', 'agent-interface-unlisted'),
+      layers,
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]).toContain('no declared layer');
   });
 });

@@ -245,6 +245,33 @@ export function readExaminedModuleCount(srcDir = SOURCE_PKG) {
   return findContractModules(srcDir).length;
 }
 
+/**
+ * LAYER — module edges that run same-layer or upward between owner packages.
+ *
+ * PURE and EXPORTED, and that is not incidental. When this lived inline in `main()` the tests
+ * exercised `judgeEdge` directly and never the scan's USE of it, so reversing this condition left the
+ * whole suite green — `regression-red-proof` reported `accidental-green-fail (all-pass)` on exactly
+ * that. A guard reachable only through `main()` is a guard no test can falsify.
+ *
+ * ACYCLICITY does not cover this: `command → execution` is perfectly acyclic and forbidden, because
+ * both sit at layer 0 and the ruling permits composition only across DIFFERING layers,
+ * one-directionally.
+ */
+export function findLayerViolations(edges, layers) {
+  const out = [];
+  for (const [from, outs] of edges) {
+    for (const [to, why] of outs) {
+      const verdict = judgeEdge(from, to, layers);
+      if (verdict.legal) continue;
+      const sample = [...why].slice(0, 3).join(', ');
+      out.push(
+        `LAYER: ${explainEdge(from, to, verdict)} (via ${sample}${why.size > 3 ? `, … ${why.size} total` : ''})`,
+      );
+    }
+  }
+  return out;
+}
+
 function main() {
   const fail = [];
   const note = [];
@@ -295,10 +322,6 @@ function main() {
     fail.push(`ACYCLICITY: the projected package graph has a cycle — ${c.join(' → ')}`);
   }
 
-  // LAYER — acyclicity no longer implies legality. `command → execution` is perfectly acyclic and
-  // forbidden: both sit at layer 0, and the ruling permits composition only across DIFFERING layers,
-  // one-directionally. Without this condition, relaxing the manifest prohibition (ARCH-101) would
-  // leave the case the ruling exists to forbid reachable and unguarded at the module level.
   let layers;
   try {
     layers = readInterfaceLayers();
@@ -306,17 +329,7 @@ function main() {
     console.error(`interface-family-owner: ${error.message}`);
     process.exit(1);
   }
-  for (const [from, outs] of edges) {
-    for (const [to, why] of outs) {
-      const verdict = judgeEdge(from, to, layers);
-      if (!verdict.legal) {
-        const sample = [...why].slice(0, 3).join(', ');
-        fail.push(
-          `LAYER: ${explainEdge(from, to, verdict)} (via ${sample}${why.size > 3 ? `, … ${why.size} total` : ''})`,
-        );
-      }
-    }
-  }
+  fail.push(...findLayerViolations(edges, layers));
 
   // PLACEMENT — a module is misplaced only once its declared owner package actually exists. Before
   // that, sitting in `agent-interface-transport` is the expected pre-migration state, not a
