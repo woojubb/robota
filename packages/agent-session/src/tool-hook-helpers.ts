@@ -94,45 +94,55 @@ export async function runPreToolHook(
     // never be taken, which reads as though the array might be absent here.
     const failures = hookResult.errors;
     const failure = failures?.[0];
+    // ONE binding for one field. Two bindings, each defended differently against `undefined`, is a
+    // drift surface: the two branches below disagreed about whether the field could be absent.
     const unregistered = hookResult.unknownHookTypes ?? [];
+
+    // A configured hook type with no registered executor ran NOTHING. Before SEC-016 the runner
+    // reported it and the gate proceeded, so a config declaring a guardrail with no registry
+    // silently disabled itself. Startup rejection of such a config is issue #2099; this is the
+    // runtime half.
+    //
+    // Denying is deliberate and is the approved SEC-016 semantics: a PreToolUse hook the user wrote
+    // as a gate must not be silently skipped. But note WHICH configs land here, because it is wider
+    // than a mistake — `prompt`, `agent` and `guardrail` are accepted by the config schema while no
+    // product surface supplies the `providerFactory` / `sessionFactory` / `guardrails` those
+    // executors need, so such a config validates and can never run. That gap is issue #2245; it is
+    // the reason this text says what to DO rather than only what happened.
+    //
+    // Built once and used by both branches. The earlier shape wrote the cause twice — a full
+    // sentence in the standalone branch and a shorter one appended to the error branch — so the
+    // operator with TWO faults got less guidance than the one with a single fault, which is exactly
+    // backwards, and the two wordings were free to drift apart.
+    const unregisteredReason =
+      unregistered.length > 0
+        ? `Hook type(s) with no registered executor: ${unregistered.join(', ')}. ` +
+          'Nothing evaluated this gate, so the tool call is denied rather than silently allowed. ' +
+          'Remove the hook from the PreToolUse configuration, or supply an executor for its type.'
+        : '';
+
     if (failures !== undefined && failure !== undefined) {
       // The reason names the kind, the executor and the failure text, because a fail-closed gate
       // turns a misconfigured hook into a hard stop: whoever hits it needs enough to fix it.
       const others = failures.length - 1;
       const reason =
-        `Hook could not evaluate (${failure.kind}, source: ${failure.source}): ${failure.reason}` +
+        `Hook could not evaluate (${failure.kind}, source: ${failure.source}): ${failure.reason}.` +
         // Naming only the first would hide that several gates failed; the count is the cheap half of
         // that, and the reason line stays one line.
         (others > 0 ? ` (+${others} more hook failure(s))` : '') +
-        // Both causes in ONE reason. This branch returns before the unregistered-type branch below,
-        // so a turn carrying both used to report only the error — the operator fixed the named cause,
-        // retried, and hit a second denial with no warning it was queued. A fail-closed gate that
-        // reveals its reasons one per attempt is a gate you debug by repeatedly being stopped.
-        (unregistered.length > 0
-          ? ` Also unevaluated — hook type(s) with no registered executor: ${unregistered.join(', ')}.`
-          : '');
+        // Both causes in ONE reason. This branch returns before the unregistered branch, so a turn
+        // carrying both used to report only the error — the operator fixed the named cause, retried,
+        // and hit a second denial with no warning it was queued. A fail-closed gate that reveals its
+        // reasons one per attempt is a gate you debug by being repeatedly stopped.
+        (unregisteredReason !== '' ? ` Also unevaluated — ${unregisteredReason}` : '');
       return toolFailure('hook-blocked', reason, { blocked: true, reason });
     }
 
-    const unreachable = hookResult.unknownHookTypes;
-    if (unreachable !== undefined && unreachable.length > 0) {
-      // A configured hook type with no registered executor ran NOTHING. Before SEC-016 the runner
-      // reported it and the gate proceeded, so a config declaring a guardrail with no registry
-      // silently disabled itself. Startup rejection of such a config is issue #2099; this is the
-      // runtime half.
-      //
-      // Denying is deliberate and is the approved SEC-016 semantics: a PreToolUse hook the user
-      // wrote as a gate must not be silently skipped. But note WHICH configs land here, because it
-      // is wider than a mistake — `prompt`, `agent` and `guardrail` are accepted by the config
-      // schema while no product surface supplies the `providerFactory` / `sessionFactory` /
-      // `guardrails` those executors need, so such a config validates and can never run. That gap
-      // is issue #2245; it is the reason this message has to say what to do rather than only what
-      // happened.
-      const reason =
-        `Hook type(s) with no registered executor: ${unreachable.join(', ')}. ` +
-        'Nothing evaluated this gate, so the tool call is denied rather than silently allowed. ' +
-        'Remove the hook from the PreToolUse configuration, or supply an executor for its type.';
-      return toolFailure('hook-blocked', reason, { blocked: true, reason });
+    if (unregisteredReason !== '') {
+      return toolFailure('hook-blocked', unregisteredReason, {
+        blocked: true,
+        reason: unregisteredReason,
+      });
     }
   }
 

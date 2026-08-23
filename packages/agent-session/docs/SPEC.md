@@ -482,6 +482,30 @@ replay substrate unresolved.
 - `SessionEnd` fires exactly once from `Session.shutdown()`, after local persistence, and includes the Claude-compatible `reason`.
 - After the `SessionEnd` hook settles, `shutdown()` destroys the wrapped agent (`robota.destroy()`, CORE-022 disposal chain): every registered plugin is disposed, so the process holds no session-owned timers or listeners and can exit naturally.
 
+### PreToolUse enforcement posture (SEC-016)
+
+`PreToolUse` is the one **enforcing** event: a hook that reaches NO verdict there denies the tool
+call. Every other event is advisory — a failure is reported on `IRunHooksResult` and the turn
+proceeds. `isEnforcing` (`@robota-sdk/agent-core`) is the SSOT; this package reads it rather than
+hard-coding the event.
+
+Two causes deny a tool call in addition to an explicit `deny` outcome, and both were previously
+silent:
+
+| cause                                                                                                                          | reason shape                                                                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A hook returned `outcome: 'error'` — timeout, spawn failure, transport failure, HTTP status, malformed response, non-zero exit | `Hook could not evaluate ({kind}, source: {source}): {reason}` — plus ` (+N more hook failure(s))` when several failed                                                                                                            |
+| A configured hook type had no registered executor, so nothing evaluated the gate                                               | `Hook type(s) with no registered executor: {types}. Nothing evaluated this gate, so the tool call is denied rather than silently allowed. Remove the hook from the PreToolUse configuration, or supply an executor for its type.` |
+
+When one turn carries both, they appear in a **single** reason. A fail-closed gate that reveals its
+reasons one per attempt is a gate the operator debugs by being repeatedly stopped.
+
+Note the availability consequence, because it is reachable from valid configuration: the config
+schema accepts `prompt`, `agent` and `guardrail` hook types while no product surface supplies the
+factories their executors need, so such a config validates and denies every tool call. Denying is
+deliberate — silently skipping a gate the user wrote is the fail-open SEC-016 closes — but the
+schema accepting an unrunnable type is a defect, filed as issue #2245.
+
 ## Extension Points
 
 1. **`ISessionOptions.terminal`** (required) -- Inject an `ITerminalOutput` implementation for permission prompts and UI output. The consuming layer provides either a real terminal (CLI print mode) or an Ink-based no-op (TUI mode).
@@ -652,13 +676,14 @@ This package defines one custom error class: `CompactionError` (thrown when a co
 is invalid — see Compaction Failure Contract). All other errors are thrown as standard `Error`
 instances. Error scenarios include:
 
-| Error Condition         | Thrown By                | Message Pattern                                                                                       |
-| ----------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------- |
-| Invalid compact summary | `CompactionOrchestrator` | Throws `CompactionError`; conversation history is preserved untouched                                 |
-| Tool permission denied  | `PermissionEnforcer`     | Returns `IToolResult` with `"Permission denied"` (no throw)                                           |
-| Hook blocked tool       | `PermissionEnforcer`     | Returns `IToolResult` with `"Blocked by hook: {reason}"`                                              |
-| Tool execution error    | `PermissionEnforcer`     | Returns `IToolResult` with error message (never throws)                                               |
-| Unknown tool call       | `ExecutionService`       | Returns a failed tool result with `errorCode: "unknown_tool"` and explains that execution was skipped |
+| Error Condition                         | Thrown By                | Message Pattern                                                                                                                                                                                                |
+| --------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invalid compact summary                 | `CompactionOrchestrator` | Throws `CompactionError`; conversation history is preserved untouched                                                                                                                                          |
+| Tool permission denied                  | `PermissionEnforcer`     | Returns `IToolResult` with `"Permission denied"` (no throw)                                                                                                                                                    |
+| Hook blocked tool                       | `PermissionEnforcer`     | Returns `IToolResult` with `"Blocked by hook: {reason}"`                                                                                                                                                       |
+| Hook reached no verdict on `PreToolUse` | `tool-hook-helpers`      | SEC-016 fail-closed: returns `IToolResult` with failure kind `hook-blocked` and a reason naming the error kind and source, or the hook type(s) with no registered executor. Advisory events report and proceed |
+| Tool execution error                    | `PermissionEnforcer`     | Returns `IToolResult` with error message (never throws)                                                                                                                                                        |
+| Unknown tool call                       | `ExecutionService`       | Returns a failed tool result with `errorCode: "unknown_tool"` and explains that execution was skipped                                                                                                          |
 
 The permission wrapper deliberately catches all errors and returns them as `IToolResult` objects to avoid corrupting the conversation history with unmatched tool_use/tool_result pairs.
 

@@ -304,7 +304,8 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
         {
           matcher: '',
           hooks: [
-            // Unresolvable binary -> the command executor reports an error outcome.
+            // Matched by the stub executor below, which reports an error outcome. The command
+            // string is inert — the stub never spawns anything — so do not read it as the mechanism.
             { type: 'command', command: 'definitely-not-a-real-binary-sec016' },
             // No executor supplied for this type -> reported on `unknownHookTypes`.
             { type: 'guardrail' },
@@ -336,6 +337,17 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
     // AND the unregistered cause, in the SAME reason rather than on a later attempt.
     expect(reason).toContain('guardrail');
     expect(reason).toContain('no registered executor');
+    // AND the remedy. The operator with two faults must not get LESS guidance than the one with a
+    // single fault, which is what an abbreviated second clause produced.
+    expect(reason).toContain('Remove the hook from the PreToolUse configuration');
+    // One wording for one cause: the both-causes reason must carry the same sentence the standalone
+    // denial does, not a paraphrase that can drift from it.
+    const soloConfig: THooksConfig = {
+      PreToolUse: [{ matcher: '', hooks: [{ type: 'guardrail' }] }],
+    };
+    const solo = await runPreToolHook(soloConfig, makeHookInput(), [failingCommand]);
+    const soloReason = String(solo?.error ?? '');
+    expect(reason).toContain(soloReason);
   });
 
   it('TC-05: EVERY advisory event tolerates a failed hook — all fifteen', async () => {
