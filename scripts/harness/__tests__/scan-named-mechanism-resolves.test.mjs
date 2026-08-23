@@ -20,6 +20,19 @@ import { collectNamedMechanismFindings, MATCHERS } from '../scan-named-mechanism
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
+describe('the matcher table is well-formed', () => {
+  // Issue #2042. `MATCHERS` is looked up with `.find((m) => m.kind === kind)`, which returns the
+  // first and never looks again, so a duplicate `kind` leaves a matcher — pattern, resolver and
+  // hint — that no input can ever reach. The check asks EXISTENCE; the property is UNIQUENESS.
+  //
+  // Same shape as `CI_STAGES`'s `stage names are unique` and `SCAN_COMMANDS`'s
+  // `registers every scan exactly once`; this repository already answers this question twice.
+  it('declares every kind exactly once — a second matcher is unreachable', () => {
+    const kinds = MATCHERS.map((matcher) => matcher.kind);
+    expect(new Set(kinds).size).toBe(kinds.length);
+  });
+});
+
 describe('scan-named-mechanism-resolves', () => {
   it('is registered in run-all-scans.mjs', () => {
     const runner = readFileSync(
