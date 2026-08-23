@@ -286,6 +286,8 @@ the opposite. An event whose fire site cannot be resolved **fails** the scan; it
 - `packages/agent-core/docs/SPEC.md`, `packages/agent-core/docs/HOOK-CATALOG.md`
 - `packages/agent-session/src/tool-hook-helpers.ts`
 - `packages/agent-session/docs/SPEC.md`
+- `packages/agent-framework/docs/SPEC.md` — the executor-registry section, which this change
+  restructured (every other source-changed package has a SPEC row; this one was missing)
 - `scripts/harness/scan-hook-enforcement-reachable.mjs` (new), plus its registration in
   `scripts/harness/run-all-scans.mjs`
 - Tests: `packages/agent-core/src/hooks/__tests__/enforcement-policy.test.ts` (new),

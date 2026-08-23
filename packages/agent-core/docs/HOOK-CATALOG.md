@@ -11,9 +11,9 @@ registry.
 
 ## Blocking semantics
 
-The **only** blocking event is `PreToolUse`: a hook whose executor returns the `deny` outcome (or an
-`allow` whose stdout carries `hookSpecificOutput.permissionDecision: "deny"` / `continue: false`) sets
-`IRunHooksResult.blocked`,
+The **only** blocking event is `PreToolUse`. Three things deny there, not one: a hook whose executor
+returns the `deny` outcome (or an `allow` whose stdout carries
+`hookSpecificOutput.permissionDecision: "deny"` / `continue: false`) sets `IRunHooksResult.blocked`,
 and the turn owner's `runPreToolHook` → `PermissionEnforcer` path turns that into a denial
 `IToolResult` so the tool's `execute` never runs. Every other event is **informational-only**: its
 `runHooks` result is not awaited or consulted for gating, so it cannot veto or mutate the action it
