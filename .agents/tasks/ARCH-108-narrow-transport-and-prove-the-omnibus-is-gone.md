@@ -4,10 +4,11 @@ status: in-progress
 created: 2026-08-23
 priority: high
 urgency: now
-area: packages/agent-interface-transport, packages/agent-interface-session,
-  packages/agent-interface-session-mobility, packages/agent-transport,
-  packages/agent-transport-{http,mcp,protocol,tui,webrtc,ws}, packages/agent-cli,
-  apps/remote-signaling, scripts/harness
+area: apps/remote-signaling, packages/agent-cli, packages/agent-interface-session,
+  packages/agent-interface-session-mobility, packages/agent-interface-transport,
+  packages/agent-session, packages/agent-transport, packages/agent-transport-http,
+  packages/agent-transport-mcp, packages/agent-transport-protocol, packages/agent-transport-tui,
+  packages/agent-transport-webrtc, packages/agent-transport-ws, scripts/harness
 depends_on: []
 ---
 
@@ -66,11 +67,11 @@ owner's 2026-08-23 ruling that in-repo consumer count is not evidence about a `p
 
 ## Completion Criteria
 
-- [x] `createTestInteractiveSession` lives in `agent-interface-session/testing`; consumers updated.
-- [x] `agent-interface-transport` declares **layer 0**, and both guards agree.
-- [x] Resolution-level absence proof passes over source, consumers and the **freshly built** types.
-- [x] The omnibus finding is recorded as satisfied-by-predecessors with its measurement.
-- [x] `pnpm harness:scan` exit 0 and `pnpm harness:verify-like-ci` green.
+- [ ] `createTestInteractiveSession` lives in `agent-interface-session/testing`; consumers updated.
+- [ ] `agent-interface-transport` declares **layer 0**, and both guards agree.
+- [ ] Resolution-level absence proof passes over source, consumers and the **freshly built** types.
+- [ ] The omnibus finding is recorded as satisfied-by-predecessors with its measurement.
+- [ ] `pnpm harness:scan` exit 0 and `pnpm harness:verify-like-ci` green.
 
 ## Test Plan
 
@@ -82,8 +83,24 @@ owner's 2026-08-23 ruling that in-repo consumer count is not evidence about a `p
 
 ## User Execution Test Scenarios
 
-This task delivers no user-facing behavior: it relocates a test double and a layer declaration. The
-verification surface is the harness gate and the consumer packages' own suites.
+This task delivers no runnable user-facing behavior, so the rule is satisfied by this reasoned
+not-applicable entry rather than by scenarios.
+
+**The reason first recorded here was false, and is corrected rather than deleted (2026-08-24).** It
+read "no change to any runtime value, signature or shipped surface". The decomposition moved **15
+runtime values**, not only types, and four of them — `readAssistantReplies`, `readLastAssistantText`,
+`readToolCalls`, `readErrors` — are exported from the published
+`@robota-sdk/agent-interface-transport@3.0.0-beta.79` tarball and now live in
+`agent-interface-session`, which is not on the registry (`npm view` → E404). So the shipped surface
+did change.
+
+**Why scenarios are still not required.** The rule's trigger is runnable user-facing _behavior_.
+Every consumer inside this workspace was rewired in the same change, so nothing a user can run
+against this repository behaves differently. What the surface change reaches is the **registry**, and
+that is a release-configuration problem rather than a property of this task: the next publish would
+ship a transport without those four symbols and no published package that owns them. Issue #2260
+owns it. Recording that here is part of the reason — the consequence was measured and handed to an
+owner, not waved past.
 
 ## Footprint, declared and measured
 
@@ -130,3 +147,33 @@ Repaired by deriving its corpus from `package.json` `exports` rather than naming
 Filed on the way through: issue #2228 — `check-spec-public-surface.mjs` accepts a comment saying an
 export is NOT present as proof that it is. It reported 2 phantom SPEC rows where comparing against the
 built types found 6.
+
+## Verification against the tree (2026-08-24)
+
+Every criterion above was **measured against `develop` @ `81a4ab97c`**. They are recorded here and
+left **unticked**: the spec document has not passed its gates, so ticking them would claim a
+completion the pipeline has not granted. The measurement is evidence for a later gate, not a
+substitute for one. The shared measurements, run once for all six leaves:
+
+| Owner            | Symbols declared | Still reachable through transport's built surface |
+| ---------------- | ---------------- | ------------------------------------------------- |
+| execution        | 60               | 0                                                 |
+| command          | 21               | 0                                                 |
+| analytics        | 7                | 0                                                 |
+| session          | 91               | 0                                                 |
+| session-mobility | 21               | 0                                                 |
+
+`agent-interface-transport` declares `@robota-sdk/agent-core` and nothing else, at layer 0. Checked
+against the BUILT `.d.ts` of both published entries rather than the source barrel, because a
+source-level check cannot see what a re-export chain publishes.
+
+**Layer 0, four modules, deps `{agent-core}` across both published entries** — confirmed, and this is
+the row the program existed to reach.
+
+The full evidence is in this record's Outcome and Footprint sections and in the spec-doc's Evidence
+Log; it is not repeated here. What belongs in a closure note is what the leaf found in its own
+instruments: the absence proof read **2 of 6** built artifacts before being widened, having already
+missed the `/testing` subpath once — the same surface that had refuted ARCH-107's prediction, missed
+a second time by a check written after that lesson.
+
+Filed from this leaf: issue #2228, issue #2233, issue #2236, issue #2248, issue #2249.
