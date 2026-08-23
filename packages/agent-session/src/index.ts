@@ -94,3 +94,19 @@ export type {
 // SELFHOST-007: neutral checkpoint tree (branching time-travel) — pure, I/O-free.
 export { CheckpointTree } from './checkpoint-tree.js';
 export type { ICheckpointNode } from './checkpoint-tree.js';
+
+// TRANS-005 (issue #2081): the total runtime decoder for a PERSISTED session record. It lives here,
+// beside the store and artifact paths that will consume it, rather than with the contract it decodes:
+// an `agent-interface-*` package publishes contracts, vocabulary and discriminators — not mechanisms
+// (`scan-interface-runtime`), and a decoder is a mechanism.
+export {
+  INTERACTIVE_SESSION_RECORD_KEYS,
+  INTERACTIVE_SESSION_RECORD_VERSION,
+  decodeInteractiveSessionRecord,
+  decodeVersionedInteractiveSessionRecord,
+} from './session-record-codec/index.js';
+export type {
+  ISessionRecordDecodeIssue,
+  IVersionedInteractiveSessionRecord,
+  TSessionRecordDecodeOutcome,
+} from './session-record-codec/index.js';
