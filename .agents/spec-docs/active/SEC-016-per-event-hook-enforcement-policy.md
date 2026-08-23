@@ -290,35 +290,71 @@ the opposite. An event whose fire site cannot be resolved **fails** the scan; it
   `scripts/harness/run-all-scans.mjs`
 - Tests: `packages/agent-core/src/hooks/__tests__/enforcement-policy.test.ts` (new),
   `packages/agent-session/src/__tests__/tool-hook-helpers.test.ts`,
-  `packages/agent-session/src/__tests__/selfhost-009-pretooluse-gate.test.ts`,
-  `scripts/harness/__tests__/hook-enforcement-reachable.test.mjs` (new)
+  `scripts/harness/__tests__/scan-hook-enforcement-reachable.test.mjs` (new)
+
+### Added during review — not in the original plan
+
+Recorded because a plan that omits the work's hardest findings makes the change look smaller and
+less considered than it was, and because a stale plan shipping inside the change that made it stale
+is the same defect this leaf's own review kept finding in the SPEC.
+
+Five actionable findings arrived across five review rounds. Two of them changed the design:
+
+- `packages/agent-framework/src/assembly/build-hook-type-executors.ts` (new), and its callers
+  `packages/agent-framework/src/assembly/create-session.ts` and
+  `packages/agent-framework/src/assembly/build-agent-runtime.ts`. `runHooks` resolves executors as
+  `executors ?? createDefaultExecutors()` — an UNDEFINED-ONLY fallback, so a non-empty array
+  REPLACES the built-ins. The composition root collapsed its array to `undefined` only when empty,
+  so supplying any one of four unrelated options silently deregistered `command` and `http`. Under
+  the fail-open that skipped a hook; under this leaf's fail-closed `PreToolUse` it denied EVERY tool
+  call, in a configuration the documentation invites. The plan did not anticipate that closing a
+  fail-open would expose a second one underneath it. Contract defect filed as issue #2238.
+- `packages/agent-core/src/hooks/__tests__/executor-precedence.test.ts` (new), plus
+  `packages/agent-framework/src/__tests__/guardrail-registry-reaches-session.test.ts`. The seeding
+  above is only safe because `runHooks` builds its lookup with `Map.set` in array order, so a
+  caller-supplied executor appended after a built-in still wins. Nothing pinned that. A `has()`-
+  guarded first-wins mutation left all 113 pre-existing agent-core hook tests green while the
+  process-spawning built-in silently overrode a caller's deliberate replacement.
+
+Also: `packages/agent-core/src/hooks/hook-runner.ts` and `packages/agent-session/examples/verify-hook-outcome-contract.ts`
+were touched, `HOOK_ENFORCEMENT_POLICY` was deep-frozen after a shallow freeze was found to leave
+every row writable, and issue #2245 records that the config schema accepts three hook types no
+product surface can register — the reason the denial message names its cause and a remedy.
 
 ## Completion Criteria
 
-- [ ] TC-01: A `PreToolUse` command hook whose process cannot start returns a blocked
+- [x] TC-01: A `PreToolUse` command hook whose process cannot start returns a blocked
       `IToolResult` — `success: false`, failure kind `hook-blocked` — and the wrapped tool's
       `execute` is never called.
-- [ ] TC-02: The same for a hook that exceeds its `timeout`, and for an `http` hook whose body has a
+- [x] TC-02: The same for a hook that exceeds its `timeout`, and for an `http` hook whose body has a
       non-boolean `ok`; both block, where before this leaf both allowed.
-- [ ] TC-03: A `PreToolUse` hook whose configured type has no registered executor blocks
+- [x] TC-03: A `PreToolUse` hook whose configured type has no registered executor blocks
       (`unknownHookTypes` non-empty → denial), while the same configuration on `PostToolUse` does not.
-- [ ] TC-04: The denial reason names the failure `kind` and the `source` executor — asserted by
+- [x] TC-04: The denial reason names the failure `kind` and the `source` executor — asserted by
       substring for each of `timeout`, `spawn-failure`, `malformed-response`.
-- [ ] TC-05: Advisory events are unchanged — for each of the fifteen, a hook returning an `error`
+- [x] TC-05: Advisory events are unchanged — for each of the fifteen, a hook returning an `error`
       outcome produces no denial and no thrown error at its fire site.
-- [ ] TC-06: `HOOK_ENFORCEMENT_POLICY` has exactly one entry per `THookEvent` member, no more and no
+- [x] TC-06: `HOOK_ENFORCEMENT_POLICY` has exactly one entry per `THookEvent` member, no more and no
       fewer, asserted against the union rather than a hand-written list.
-- [ ] TC-07: `node scripts/harness/scan-hook-enforcement-reachable.mjs` exits 0 on the tree, exits
+- [x] TC-07: `node scripts/harness/scan-hook-enforcement-reachable.mjs` exits 0 on the tree, exits
       non-zero when a policy entry is flipped to `enforcing` at an inert fire site, non-zero when a
       fire site cannot be resolved, and non-zero when the policy contains zero `enforcing` rows —
       a scan that checked nothing must not report clean.
-- [ ] TC-08: Every outcome that blocked before this leaf still blocks — `deny` from each of the five
+- [x] TC-08: Every outcome that blocked before this leaf still blocks — `deny` from each of the five
       executors, and an `allow` carrying `continue: false` / `permissionDecision: "deny"`.
-- [ ] TC-09: `pnpm build && pnpm typecheck` → exits 0.
-- [ ] TC-10: `pnpm harness:scan` → exits 0, with the new scan present in its output.
+- [x] TC-09: `pnpm build && pnpm typecheck` → exits 0.
+- [x] TC-10: `pnpm harness:scan` → exits 0, with the new scan present in its output.
 - [ ] TC-11: The user-execution scenario runs; the denied run's output carries `spawn-failure`,
       `command` and the hook path, the allowed run's carries none of them, and both exit 0.
-- [ ] TC-12: A policy entry with `posture: 'enforcing'` and `enforcementReachable: false` is
+      **UNMET, and deliberately left unmet.** The criterion names the CLI, and no provider-free route
+      to a `PreToolUse` denial through a product surface has been demonstrated: the replay fixture is
+      verified correct in isolation, but driving it through the CLI completes the turn without
+      executing the tool, and the cause was not determined. Blocker filed as issue #2225. The Task
+      record stays `status: in-progress` for exactly this reason — `backlog-execution.md` § Done Gate
+      forbids `done` while a completion criterion is open, and ticking this box to close the record
+      would be the failure this leaf exists to prevent, one level up: a gate reporting a pass it did
+      not establish.
+- [x] TC-12: A policy entry with `posture: 'enforcing'` and `enforcementReachable: false` is
       rejected — the table-internal invariant, asserted by a unit test over the shipped policy and by
       the scan independently, so neither is the only thing standing between the two fields.
 
