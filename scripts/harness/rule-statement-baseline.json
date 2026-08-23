@@ -1,0 +1,15 @@
+{
+  "item": "HARNESS-117",
+  "reason": "Rule identifiers a harness scan EMITS for which no normative document states a rule. Each entry is enforcement a contributor cannot read, cite, argue with, or amend deliberately -- it can only be tripped over. Frozen at adoption so the debt is counted on every run rather than hidden; the set may only SHRINK. Writing the missing statements is a documentation migration filed separately, not this scan's job.",
+  "frozen": {
+    "CORE-ZERO-DEPS": "scripts/harness/check-dependency-direction.mjs",
+    "DAG-NODES-LEAF": "scripts/harness/check-dependency-direction.mjs",
+    "DEV-CYCLE": "scripts/harness/check-dependency-direction.mjs",
+    "ENTRY-POINT-ONLY": "scripts/harness/check-dependency-direction.mjs",
+    "FORBIDDEN-DEP": "scripts/harness/check-dependency-direction.mjs",
+    "INTERFACE-IMPORT": "scripts/harness/check-interface-imports.mjs",
+    "PACKAGE-NAME": "scripts/harness/check-dependency-direction.mjs",
+    "PLUGIN-LAYER": "scripts/harness/check-dependency-direction.mjs",
+    "RE-EXPORT": "scripts/harness/check-dependency-direction.mjs"
+  }
+}
