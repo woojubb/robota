@@ -744,6 +744,8 @@ export {
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):
 //   createProvider()       — REMOVED (provider comes from consumer)
+//   createSession()        — assembly factory (restored to this ledger by issue #2270; the entry
+//                            was deleted by 2d3b2c028 in the same commit that made it public)
 //   loadConfig()           — config loading (used by InteractiveSession internally)
 //   loadContext()          — context loading (used by InteractiveSession internally)
 // ──────────────────────────────────────────────────────────────

@@ -448,13 +448,13 @@ factory seeds the built-ins, which is the effect the paragraph rejects for `runH
 version of this section resolved that tension by asserting `createSession()` is not exported, so no
 caller could be restricting anything. **The premise was TRUE when `3f5195be7` wrote it on 2026-07-24,
 and false 23 days later** — `2d3b2c028` made the factory public on 2026-08-16 with no changeset and no
-Public API row, and in the same commit deleting the `createSession()` entry from the
+Public API row covering it, and in the same commit deleting the `createSession()` entry from the
 `// INTERNAL (not exported):` block that had recorded it since 2026-03-26. The regression that followed is what issue #2270 records.
 
 The distinction carries the lesson. Had the premise been born false, the fault would be that its
 author did not check. It WAS checked, and it rotted — because nothing mechanical held it.
 
-`createSession` is internal again (SEC-016 follow-up): it is reachable only from
+`createSession` is internal again (issue #2270): it is reachable only from
 `src/assembly/index.js`, not from the package root. **That does not make the seeding safe, and this
 section deliberately does not claim it does.** A safety property that rests on a symbol's export
 status has nothing mechanical holding it — which is precisely how the first version of this argument
@@ -480,7 +480,7 @@ exports both from its root today.
 
 The type is inert without the factory — no exported function accepts it, so nothing public reaches
 `additionalHookExecutors` through it. `ICreateSessionResult` is no longer re-exported from the root
-(it remains on `src/assembly/index.ts`): it is the return type of a factory that is no longer public,
+(it remains on `src/assembly/index.js`): it is the return type of a factory that is no longer public,
 so it describes nothing a consumer can obtain.
 
 It is filed rather than fixed here for a reason worth recording: an opt-out is a new public
@@ -495,9 +495,11 @@ for, and extension may be assumed.** Inferring restriction from the shape of an 
 list meaning "replace", an empty one meaning "extend" — is the option-contract defect filed as
 issue #2238, and it is what produced the original deny-all.
 
-**Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. A custom executor reaches THIS seam through `createSession`, which is INTERNAL — reachable from `src/assembly/index.js` but not from the package root — so `additionalHookExecutors` has no public entry point. **Executor injection in general does still have public entry points, and this section does not claim otherwise.** Known routes, NOT an exhaustive list — `createSubagentSession` (`ISubagentOptions.hookTypeExecutors`), `createInProcessSubagentRunner` (`IInProcessSubagentRunnerDeps.hookTypeExecutors`), `agent-session`'s `Session` (`ISessionOptions.hookTypeExecutors`), `PermissionEnforcer` (`IPermissionEnforcerOptions.hookTypeExecutors`), `CompactionOrchestrator` (`ICompactionOptions.hookTypeExecutors`), and `agent-executor`'s `WorktreeSubagentRunner` (`IWorktreeSubagentRunnerOptions.hookTypeExecutors`).
+**Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. A custom executor reaches THIS seam through `createSession`, which is INTERNAL — reachable from `src/assembly/index.js` but not from the package root — so `additionalHookExecutors` has no public entry point. **Executor injection in general does still have public entry points, and this section does not enumerate them.** Four attempts to describe that surface here were each wrong in a new way: first claiming no public entry point existed, then naming three of six, then offering a re-derivation recipe that both over-filtered (dropping routes whose option interface is not itself root-exported) and under-collected (blind to an inherited declaration, missing a route through `IAgentToolDeps`). A fifth description is not what this section needs.
 
-**Re-derive the list rather than trusting it**, because a hand-written enumeration here has now been wrong twice — first claiming no public entry point existed, then naming three when there were six. The set is `grep -rn "hookTypeExecutors?:" packages/*/src` for the option declarations, cross-checked against the `runHooks(...)` call sites that forward a fourth argument, and then filtered to those exported from a package ROOT — that third filter is what makes them PUBLIC routes, and without it the recipe over-collects (it also returns `IToolWrapperDeps`, which forwards but is not root-exported). What holds across all of them is the property, not the count: **none calls `buildHookTypeExecutors`, so none performs the seeding described above.** That is not the same as the built-ins being absent on those paths — `runHooks` resolves `executors ?? createDefaultExecutors()`, so a caller who passes nothing still gets `command` and `http`, and `buildAgentRuntime` hands an already-seeded array down to the in-process runner. The distinction is which code decides, not whether the built-ins can appear. Whether that is itself a defect is triage for the seam's own root item, not a claim to resolve here. Both statements are about reachability, not safety; see the seeding paragraph above for why this section refuses to treat "unexported" as a boundary.
+What it asserts instead is the one property that survived all four rounds: **`buildHookTypeExecutors` has exactly one caller, `createSession`**, so no other route performs the seeding described above. That is checkable in one command and does not decay into a list. It is deliberately NOT the claim that built-ins are absent elsewhere — `runHooks` resolves `executors ?? createDefaultExecutors()`, so a caller passing nothing still gets `command` and `http`, and `buildAgentRuntime` hands an already-seeded array to the in-process runner. The distinction is which code decides, not whether the built-ins can appear.
+
+Anyone needing the actual set of public injection routes should derive it against the built declaration files of every package root, not from this document and not from a grep of option declarations — the latter is what failed here. Whether that surface is itself a defect is triage for the seam's own root item, not a claim to resolve here. Both statements are about reachability, not safety; see the seeding paragraph above for why this section refuses to treat "unexported" as a boundary.
 
 ### Bundle Plugins
 
