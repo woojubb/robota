@@ -23,7 +23,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { projectParentConfig } from '../child-process-subagent-runner.js';
+import { projectParentConfig } from '../parent-config-projection.js';
 
 import type { IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
 

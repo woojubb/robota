@@ -43,8 +43,20 @@ const LEGACY_AGENT_TOOL_NAME = 'Agent';
 export interface ISubagentOptions {
   /** Agent definition (built-in or custom). */
   agentDefinition: IAgentDefinition;
-  /** Parent's resolved config (for provider, permissions, etc.). */
-  parentConfig: IResolvedConfig;
+  /**
+   * ARCH-044 (issue #2047): the config members this assembly READS, not the parent's whole config.
+   *
+   * Declared structurally so both callers satisfy it — the in-process runner passes its full
+   * `IResolvedConfig`, and the child-process runner passes a projection carrying only these. Before
+   * this it demanded `IResolvedConfig`, which is why the child's wire payload had to carry the
+   * parent's resolved credential and `env` map to typecheck, neither of which anything here reads.
+   */
+  parentConfig: {
+    readonly provider: { readonly model: string };
+    readonly permissions: IResolvedConfig['permissions'];
+    readonly defaultTrustLevel: IResolvedConfig['defaultTrustLevel'];
+    readonly hooks?: IResolvedConfig['hooks'];
+  };
   /** Parent's loaded context (CLAUDE.md, AGENTS.md). */
   parentContext: ILoadedContext;
   /** Parent session's available tools (to inherit/filter). */

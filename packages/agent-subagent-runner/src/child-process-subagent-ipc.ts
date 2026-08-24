@@ -1,5 +1,9 @@
 import type { ISessionUsageTotals, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
-import type { IAgentDefinition, IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
+import type {
+  IAgentDefinition,
+  IInProcessSubagentRunnerDeps,
+  IResolvedConfig,
+} from '@robota-sdk/agent-framework';
 import type {
   ISerializableProviderProfile,
   ISubagentSpawnRequest,
@@ -10,6 +14,14 @@ export type TSubagentWorkerWireValue = string | number | boolean | null | undefi
 type TSubagentWorkerWireRecord = Record<string, TSubagentWorkerWireValue>;
 
 import type { ISandboxProjection } from './worker-composition.js';
+
+/** ARCH-044: the four config members the child reads. See `projectParentConfig`. */
+export interface ISubagentWorkerParentConfig {
+  readonly provider: { readonly model: string };
+  readonly permissions: IResolvedConfig['permissions'];
+  readonly defaultTrustLevel: IResolvedConfig['defaultTrustLevel'];
+  readonly hooks?: IResolvedConfig['hooks'];
+}
 
 export interface ISubagentWorkerStartPayload {
   taskId: string;
@@ -25,7 +37,17 @@ export interface ISubagentWorkerStartPayload {
    */
   worktree?: { readonly path: string; readonly branch?: string };
   agentDefinition: IAgentDefinition;
-  parentConfig: IInProcessSubagentRunnerDeps['config'];
+  /**
+   * ARCH-044 (issue #2047): the config members the child reads, declared here rather than indexed
+   * out of the runtime type.
+   *
+   * It was `IInProcessSubagentRunnerDeps['config']`, so the wire shape was the in-process shape and
+   * grew with it — which put the parent's resolved `provider.apiKey` and its `env` map into a second
+   * process where nothing read either. Declaring the members means a new field on `IResolvedConfig`
+   * does not reach the child by default; `projectParentConfig` is what enforces it at runtime,
+   * because structural typing would accept the whole config here.
+   */
+  parentConfig: ISubagentWorkerParentConfig;
   parentContext: IInProcessSubagentRunnerDeps['context'];
   providerProfile: ISerializableProviderProfile;
   /**

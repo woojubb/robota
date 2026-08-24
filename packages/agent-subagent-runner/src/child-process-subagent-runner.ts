@@ -25,6 +25,7 @@ import {
   sendWorkerMessage,
   type IChildProcessRuntime,
 } from './child-process-subagent-transport.js';
+import { projectParentConfig } from './parent-config-projection.js';
 import { SUBAGENT_WORKER_MODE_FLAG, type ISubagentWorkerEntry } from './worker-entry.js';
 
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
@@ -193,7 +194,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       request: job.request,
       ...(job.worktree ? { worktree: job.worktree } : {}),
       agentDefinition: applyRequestOverrides(definition, job),
-      parentConfig: this.deps.config,
+      parentConfig: projectParentConfig(this.deps.config),
       parentContext: this.deps.context,
       providerProfile: createProviderProfile(this.providerConfig, this.deps, job),
       permissionMode: this.deps.permissionMode,
