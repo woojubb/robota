@@ -4,6 +4,8 @@ export type { IPluginSettings } from './plugin-settings-store.js';
 
 // BundlePlugin system — directory-based plugin packages
 export { BundlePluginLoader } from './bundle-plugin-loader.js';
+export { createHostBundlePluginLoader } from './host-bundle-plugin-loader.js';
+export type { IHostBundlePluginLoaderOptions } from './host-bundle-plugin-loader.js';
 export type {
   IBundlePluginManifest,
   IBundlePluginFeatures,

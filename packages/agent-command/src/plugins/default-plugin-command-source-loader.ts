@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-import { BundlePluginLoader, PluginCommandSource } from '@robota-sdk/agent-framework';
+import { createHostBundlePluginLoader, PluginCommandSource } from '@robota-sdk/agent-framework';
 
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
 
@@ -12,8 +12,10 @@ function getHomeDir(): string {
 }
 
 export function reloadPluginCommandSource(registry: CommandRegistry): number {
-  const pluginsDir = join(getHomeDir(), '.robota', 'plugins');
-  const loader = new BundlePluginLoader(pluginsDir);
+  const home = getHomeDir();
+  // PLG-021 / issue #2025: the reload path reported plugins as reloaded while a disabled plugin's
+  // commands came back with them, because the bare loader defaults its enablement map to `{}`.
+  const loader = createHostBundlePluginLoader({ pluginsDir: join(home, '.robota', 'plugins') });
   try {
     // allow-fallback: plugin load failure is non-fatal — clear source and return empty
     const plugins = loader.loadPluginsSync();
