@@ -538,6 +538,17 @@ export function evaluate(entries, sites, expectedEvents = readEventUnion()) {
 
 function main() {
   const argv = process.argv.slice(2);
+  // An option whose operand is missing must say so. Without this, `--policy` with nothing after it
+  // reaches path.resolve() as undefined and dies with a raw ERR_INVALID_ARG_TYPE stack, and `--src`
+  // with nothing after it prints a message naming an empty pathspec. Both already exit non-zero, so
+  // the failure was closed; only the diagnosis was missing.
+  for (const opt of ['--policy', '--src']) {
+    const i = argv.indexOf(opt);
+    if (i !== -1 && argv[i + 1] === undefined) {
+      console.error(`hook-enforcement-reachable: ${opt} requires an operand.`);
+      process.exit(1);
+    }
+  }
   const policyArg = argv.indexOf('--policy');
   const policyPath = path.resolve(
     WORKSPACE_ROOT,

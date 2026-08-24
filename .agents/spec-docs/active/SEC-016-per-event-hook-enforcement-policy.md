@@ -357,6 +357,13 @@ this work has been overtaken. Two of the findings changed the design:
   guarded first-wins mutation left all 113 pre-existing agent-core hook tests green while the
   process-spawning built-in silently overrode a caller's deliberate replacement.
 
+- `packages/agent-cli/src/__tests__/e2e/fixtures/sec-016-tool-call.jsonl` (new). Read by no test,
+  no bintest and no harness script — its only consumer is the user-execution scenario below, which is
+  recorded UNMET. It is committed deliberately: issue #2225 states that the tool call goes
+  undispatched for an undetermined reason, and the fixture is checked in so whoever resolves that
+  does not rebuild it. Named here because an unreferenced file is exactly the one a reader cannot
+  find a reason for by following its callers.
+
 Also: `packages/agent-core/src/hooks/hook-runner.ts` and `packages/agent-session/examples/verify-hook-outcome-contract.ts`
 were touched, `HOOK_ENFORCEMENT_POLICY` was deep-frozen after a shallow freeze was found to leave
 every row writable, and issue #2245 records that the config schema accepts three hook types no
