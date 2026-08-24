@@ -185,6 +185,46 @@ describe('loadConfig', () => {
     expect(config.permissions.allow).toEqual(['Read(**)', 'Glob(**)']);
   });
 
+  it('CONFIG-003: a project deny rule does not remove a user-global deny rule', async () => {
+    // The repository's settled combine rule, applied at the one site that disagreed:
+    // `agent-core`'s applyPresetToolLists says "the denylist UNIONS — a denial is not weakened by a
+    // later layer that forgot to repeat it", and settings-layer merging did exactly that weakening.
+    // A project layer declaring ANY deny dropped every deny the user had configured.
+    writeJson(join(userDir, 'settings.json'), {
+      permissions: { deny: ['Bash(rm -rf *)'] },
+    });
+    writeJson(join(projectDir, 'settings.json'), {
+      permissions: { deny: ['Read(.env)'] },
+    });
+    const config = await loadConfig(cwd);
+
+    expect(config.permissions.deny).toContain('Bash(rm -rf *)');
+    expect(config.permissions.deny).toContain('Read(.env)');
+  });
+
+  it('CONFIG-003: a repeated deny rule is not duplicated', async () => {
+    // Order-preserving and deduplicated, matching applyPresetToolLists. A union that grew on every
+    // layer would turn a repeated rule into a longer list that means the same thing.
+    writeJson(join(userDir, 'settings.json'), { permissions: { deny: ['Bash(rm -rf *)'] } });
+    writeJson(join(projectDir, 'settings.json'), {
+      permissions: { deny: ['Bash(rm -rf *)', 'Read(.env)'] },
+    });
+    const config = await loadConfig(cwd);
+
+    expect(config.permissions.deny).toEqual(['Bash(rm -rf *)', 'Read(.env)']);
+  });
+
+  it('CONFIG-003: allow still REPLACES — the asymmetry is the rule, not an oversight', async () => {
+    // Deliberately NOT changed. An allowlist states the complete permitted set, so a later, more
+    // specific layer supersedes it; unioning a GRANT would let a project widen what the user
+    // permitted, which is the same inverted trust direction the deny fix closes.
+    writeJson(join(userDir, 'settings.json'), { permissions: { allow: ['Bash(git *)'] } });
+    writeJson(join(projectDir, 'settings.json'), { permissions: { allow: ['Read(**)'] } });
+    const config = await loadConfig(cwd);
+
+    expect(config.permissions.allow).toEqual(['Read(**)']);
+  });
+
   it('throws on invalid settings (Zod validation)', async () => {
     writeJson(join(projectDir, 'settings.json'), {
       defaultTrustLevel: 'INVALID_VALUE',
