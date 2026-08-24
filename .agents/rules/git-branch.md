@@ -550,6 +550,42 @@ would be the automation this section exists to refuse.
 
 Case: [PROC-013](https://github.com/woojubb/robota/issues/2283).
 
+### Work that reaches `develop` is resolved — and the closure is performed, not inferred
+
+**When a pull request lands on `develop`, the session that owns it closes the issue that work resolves,
+by hand, as a step of the post-merge sequence.** `develop` is where resolution happens. Promotion to
+`main` is a release action; it is not what makes an issue done, and an issue must not wait on it.
+
+**Do not delegate the closure to the host's closing keywords.** They fire only on a pull request whose
+base is the **default branch** — which no feature pull request here has — so a keyword on a `develop`
+pull request closes nothing and reads, to its author and to every later reader, as though it had.
+`scripts/harness/promotion-closes.mjs` owns that fact; this section exists because relying on it is what
+left delivered work sitting in the open queue. Write the keyword if you like — it costs nothing and it
+documents intent — but it is not the act, and a pull request body is not a closure.
+
+**Close what was delivered, and say what was not.** This is the reason the step is a judgement rather
+than a setting. A keyword closes an issue whole, so a pull request delivering part of one either closes
+undelivered acceptance criteria along with the delivered ones, or carries no keyword and closes nothing.
+An issue with acceptance criteria is closed only after the criteria are compared item by item; where some
+remain, the issue stays open and the comment records which, so that "addressed" and "satisfied" do not
+collapse into one state.
+
+**The closing comment names the delivering commit on `develop`.** An issue closed without that is closed
+on someone's memory — the next reader cannot tell which change is supposed to have resolved it, and
+cannot check.
+
+Enforced by: nothing — whether a merged change satisfies an issue is not decidable from the tree. When
+this was measured, 57 open issues were named by a merged `develop` pull request and almost every one of
+those mentions was
+`filed as`, `parent tracker`, or `Filed from this` — a merged pull request naming an issue is usually
+**registering** work, not delivering it. A machine that closed on mention would close the backlog the
+repository had just written down. What a machine can do is make the gap visible, never decide it. So the
+step is carried by [`post-merge-cycle`](../skills/post-merge-cycle/SKILL.md), which must report the
+closure — or the reason there was none — as part of its outcome contract, where an omission is a missing
+field rather than a silence.
+
+Case: [PROC-015](https://github.com/woojubb/robota/issues/2289).
+
 ### An open PR's diff is frozen except to resolve a finding
 
 **Open a PR only when the unit of work is complete.** An open PR is a merge invitation: it may be
