@@ -8,12 +8,33 @@ import {
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { IHostReconnectConfig, ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
-import type { TransportRegistry } from '@robota-sdk/agent-transport';
+import { TransportRegistry } from '@robota-sdk/agent-transport';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import type { IHostIdentity } from '../host-identity.js';
 import { RemoteControlController } from '../remote-control-controller.js';
 import type { ITrustedDeviceRecord, ITrustedDeviceStore } from '../trusted-device-store.js';
+
+/**
+ * The REAL registry, not `{ register: () => {} }`.
+ *
+ * Issue #2043: these suites used to stub `register` with a no-op, which removed the one rule the
+ * reconnect path breaks — `register` refuses a duplicate `transport.name`, and every
+ * `WebRtcTransport` is named `webrtc`. A double whose refusal is the defect cannot fail on it, so
+ * the reconnect tests passed while every reconnect registration threw in production.
+ *
+ * Constructed with a temp settings path: the registry only reads it for saved transport config, and
+ * an absent file means "no saved config", which is what these tests want.
+ */
+function realRegistry(): TransportRegistry {
+  return new TransportRegistry(
+    join(mkdtempSync(join(tmpdir(), 'robota-rc-registry-')), 'settings.json'),
+  );
+}
 
 /**
  * REMOTE-012 E3 TC-05/08 — the controller wires a reconnect config from the host identity + trusted-device
@@ -46,7 +67,7 @@ function build(
 } {
   const captured: { reconnect?: IHostReconnectConfig } = {};
   const controller = new RemoteControlController({
-    registry: { register: () => {} } as unknown as TransportRegistry,
+    registry: realRegistry(),
     readRelayUrl: () => 'ws://127.0.0.1:9999',
     readClientUrl: () => 'https://remote.example/',
     getSession: () => stubSession(),
@@ -63,6 +84,12 @@ function build(
       captured.reconnect = reconnect;
       return {
         name: 'webrtc',
+        // Issue #2043: the real `WebRtcTransport` declares `lifecycle: { kind: 'service' }` and has no
+        // `waitForCompletion`, and `TransportRegistry.register` refuses a transport whose shape
+        // disagrees. This stub omitted it and nothing noticed, because `register` was a no-op double
+        // — the `as unknown as` cast hid the missing member from the compiler, and the no-op hid it
+        // from the runtime.
+        lifecycle: { kind: 'service' as const },
         defaultEnabled: false,
         attach: vi.fn(),
         start: vi.fn().mockResolvedValue(undefined),
@@ -124,7 +151,7 @@ describe('RemoteControlController E3 wiring (REMOTE-012)', () => {
   it('with no store configured, listDevices is empty and reconnect config is absent', async () => {
     const captured: { reconnect?: IHostReconnectConfig } = {};
     const controller = new RemoteControlController({
-      registry: { register: () => {} } as unknown as TransportRegistry,
+      registry: realRegistry(),
       readRelayUrl: () => 'ws://127.0.0.1:9999',
       readClientUrl: () => 'https://remote.example/',
       getSession: () => stubSession(),
@@ -139,6 +166,8 @@ describe('RemoteControlController E3 wiring (REMOTE-012)', () => {
         captured.reconnect = reconnect;
         return {
           name: 'webrtc',
+          // See the note on the sibling stub above: `lifecycle` was missing here too.
+          lifecycle: { kind: 'service' as const },
           defaultEnabled: false,
           attach: vi.fn(),
           start: vi.fn().mockResolvedValue(undefined),

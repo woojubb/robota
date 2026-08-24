@@ -8,12 +8,33 @@ import {
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
-import type { TransportRegistry } from '@robota-sdk/agent-transport';
+import { TransportRegistry } from '@robota-sdk/agent-transport';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import type { IHostIdentity } from '../host-identity.js';
 import { RemoteControlController } from '../remote-control-controller.js';
 import type { ITrustedDeviceRecord, ITrustedDeviceStore } from '../trusted-device-store.js';
+
+/**
+ * The REAL registry, not `{ register: () => {} }`.
+ *
+ * Issue #2043: these suites used to stub `register` with a no-op, which removed the one rule the
+ * reconnect path breaks — `register` refuses a duplicate `transport.name`, and every
+ * `WebRtcTransport` is named `webrtc`. A double whose refusal is the defect cannot fail on it, so
+ * the reconnect tests passed while every reconnect registration threw in production.
+ *
+ * Constructed with a temp settings path: the registry only reads it for saved transport config, and
+ * an absent file means "no saved config", which is what these tests want.
+ */
+function realRegistry(): TransportRegistry {
+  return new TransportRegistry(
+    join(mkdtempSync(join(tmpdir(), 'robota-rc-registry-')), 'settings.json'),
+  );
+}
 
 /**
  * REMOTE-013 E4 TC-04/05 (host) — the controller reconnect orchestration with fakes (no werift): first-pair
@@ -55,6 +76,11 @@ function memoryStore(): ITrustedDeviceStore {
 function fakeTransport(): IConfigurableTransport<IInteractiveSession> {
   return {
     name: 'webrtc',
+    // Issue #2043: `TransportRegistry.register` refuses a transport whose lifecycle shape disagrees
+    // with its `waitForCompletion` presence. This omitted `lifecycle` and nothing noticed, because
+    // `register` was stubbed to a no-op — the cast below hid it from the compiler and the no-op hid
+    // it from the runtime.
+    lifecycle: { kind: 'service' as const },
     defaultEnabled: false,
     attach: vi.fn(),
     start: vi.fn().mockResolvedValue(undefined),
@@ -81,8 +107,9 @@ function setup(store: ITrustedDeviceStore, identity: IHostIdentity) {
     off: vi.fn(),
     getMessages: () => [],
   });
+  const registry = realRegistry();
   const controller = new RemoteControlController({
-    registry: { register: () => {} } as unknown as TransportRegistry,
+    registry,
     readRelayUrl: () => 'ws://relay',
     readClientUrl: () => 'https://client/',
     getSession: () => session,
@@ -124,7 +151,7 @@ function setup(store: ITrustedDeviceStore, identity: IHostIdentity) {
       return transport;
     },
   });
-  return { controller, created, rendezvouses, ceilings, session };
+  return { controller, created, rendezvouses, ceilings, session, registry };
 }
 
 describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
@@ -177,6 +204,64 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
 
     expect(store.get('dev-1')?.reconnectCounter).toBe(2); // resync-on-success: used(1) + 1
     expect(ceilings).toHaveLength(0); // ceiling cancelled on reconnect
+    expect(controller.getStatus()).toEqual({ state: 'paired' });
+  });
+
+  it('a drop leaves exactly one webrtc entry — candidates are not registered (issue #2043)', async () => {
+    const store = memoryStore();
+    const { controller, created, registry } = setup(store, await hostIdentity());
+    await controller.enable();
+    (created[0].reconnect as { onEnroll: (id: string, spki: string) => void }).onEnroll(
+      'dev-1',
+      'spki',
+    );
+    created[0].hooks.onPaired({ sessionKey: generatePairingSecret().secret });
+    await waitForSeed(store, 'dev-1');
+
+    created[0].hooks.onDropped?.();
+    await new Promise((r) => setTimeout(r, 25));
+
+    // A drop opens TWO reconnect rooms while the original entry is still present. Registering each
+    // candidate threw `Duplicate transport name: webrtc` out of a callback nothing observed, so the
+    // suite stayed green on its assertions while six rejections went unhandled. The count is the
+    // observable that distinguishes "not registered" from "registered and the throw was swallowed".
+    expect(registry.getAll().filter((e) => e.transport.name === 'webrtc')).toHaveLength(1);
+    expect(created.length).toBeGreaterThan(1); // rooms really were opened
+
+    // The entry count alone does not distinguish "never registered" from "register threw", because a
+    // throw leaves the count at one too. What separates them is whether the candidates became
+    // USABLE: `register` ran before `attach`/`start`, so a throw there left every candidate created
+    // and never attached — the reconnect rooms existed and no device could be served by them.
+    for (const candidate of created.slice(1)) {
+      expect(candidate.transport.attach).toHaveBeenCalled();
+      expect(candidate.transport.start).toHaveBeenCalled();
+    }
+  });
+
+  it('promotion swaps the registry entry to the winner, not the abandoned peer (issue #2043)', async () => {
+    const store = memoryStore();
+    const { controller, created, registry } = setup(store, await hostIdentity());
+    await controller.enable();
+    (created[0].reconnect as { onEnroll: (id: string, spki: string) => void }).onEnroll(
+      'dev-1',
+      'spki',
+    );
+    created[0].hooks.onPaired({ sessionKey: generatePairingSecret().secret });
+    await waitForSeed(store, 'dev-1');
+
+    const original = created[0].transport;
+    created[0].hooks.onDropped?.();
+    await new Promise((r) => setTimeout(r, 25));
+    const seed = (store.get('dev-1') as ITrustedDeviceRecord).reconnectSeed as string;
+    const room1 = await deriveReconnectRendezvous(seed, 1);
+    const winner = created.slice(1).find((c) => c.rendezvous === room1)!;
+    winner.hooks.onPaired();
+
+    // Without the swap the entry keeps naming a peer the controller abandoned, so `stopAll` at
+    // shutdown stops that one and never reaches the peer actually serving the session.
+    const entry = registry.getAll().find((e) => e.transport.name === 'webrtc');
+    expect(entry?.transport).toBe(winner.transport);
+    expect(entry?.transport).not.toBe(original);
     expect(controller.getStatus()).toEqual({ state: 'paired' });
   });
 
