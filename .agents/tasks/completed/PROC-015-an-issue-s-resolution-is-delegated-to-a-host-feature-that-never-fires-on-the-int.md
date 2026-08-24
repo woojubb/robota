@@ -1,8 +1,9 @@
 ---
 title: "PROC-015: an issue's resolution is delegated to a host feature that never fires on the integration branch"
 issue: https://github.com/woojubb/robota/issues/2289
-status: in-progress
+status: done
 created: 2026-08-24
+completed: 2026-08-25
 priority: medium
 urgency: soon
 area: .agents/rules, .agents/skills
