@@ -27,6 +27,9 @@ export class WsSessionDelivery {
     this.deliver = createOutboundDelivery(
       (message) => this.rawSend(message),
       () => this.close(),
+      // ARCH-030 / issue #1734: the socket's own count of what it has accepted and not yet written.
+      // Read at call time — it changes underneath.
+      () => this.socket.bufferedAmount,
     );
   }
 

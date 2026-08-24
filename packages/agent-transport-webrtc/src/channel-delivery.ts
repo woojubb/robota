@@ -12,9 +12,16 @@ import { createOutboundDelivery } from '@robota-sdk/agent-transport-protocol';
 
 import type { TOutboundDeliver } from '@robota-sdk/agent-transport-protocol';
 
-/** The slice of `RTCDataChannel` an outbound boundary needs — `send`, and nothing else. */
+/**
+ * The slice of `RTCDataChannel` an outbound boundary needs.
+ *
+ * `bufferedAmount` is optional because the slice is structural — a test double may omit it — but a
+ * real `RTCDataChannel` always has it, so the production path reports a real number rather than a
+ * placeholder (ARCH-030 / issue #1734).
+ */
 export interface IDataChannelSink {
   send: (data: string) => void;
+  readonly bufferedAmount?: number;
 }
 
 /**
@@ -30,5 +37,8 @@ export function createChannelDelivery(
   return createOutboundDelivery(
     (message) => channel.send(JSON.stringify(message)),
     (error, event) => onDeliveryError(error, event),
+    // Read at CALL time, not captured: `bufferedAmount` is a live property and a value read once
+    // would answer with the backpressure of the moment the boundary was built.
+    () => channel.bufferedAmount,
   );
 }
