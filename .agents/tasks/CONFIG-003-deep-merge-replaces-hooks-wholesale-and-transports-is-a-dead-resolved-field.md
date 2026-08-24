@@ -65,3 +65,58 @@ file (same for the `preset` key).
   gone.
 - Cleanup: remove the fixture hooks.
 - Evidence (fill in after implementation): logs showing both hooks executed.
+
+## Direction item 1, hooks and taskContext — delivered 2026-08-24
+
+`mergeSettings` now merges `hooks` **per lifecycle event**, appending each layer's groups in layer
+order, and merges `taskContext` field-wise. A later layer can ADD hooks and can never REMOVE one it
+did not declare.
+
+**Why per-event and not per-object.** Replacing the `PreToolUse` array wholesale is exactly as fatal
+as replacing the whole `hooks` object, so an object-level merge would have looked like a fix and left
+the same hole one level down. The same-event case is pinned by its own test.
+
+**Why user-first ordering.** `runHooks` returns on the first `deny`, so a surviving user guard blocks
+regardless of position — but ordering decides which hook gets to speak for non-deny decisions, and
+the higher-trust layer should be the one that does.
+
+**The codebase already knew.** `plugins/plugin-hooks-merger.ts`'s `mergeHooksIntoConfig` composes
+plugin hooks with config hooks by concatenating per event, and always has. Settings-layer hooks were
+the only hook composition in the package that replaced instead of merging.
+
+Red-first, as the Test Plan above requires — all three fail on the property itself without the fix:
+
+```
+expected undefined to be 'user-guard'                       ← the guard was deleted
+expected [ { matcher: 'Bash' } ] to have a length of 2       ← the same-event group was replaced
+expected undefined to be false                              ← the user's taskContext.enabled was erased
+```
+
+`mergeSettings`/`mergeHooks`/`mergeProviders` moved to `config/config-merge.ts`: the loader READS and
+RESOLVES, while what a later layer may do to an earlier one is a different question — and the one
+with the security boundary in it.
+
+The SPEC's "Higher layers override lower layers via deep merge" now states the hooks exception where
+that claim is made, including that deliberate user-level _disable_ semantics are not defined and were
+not invented inside a merge function.
+
+### What this does NOT deliver
+
+- **`transports`** (Direction item 2). Wholesale replacement is real but reaches no consumer:
+  `toResolvedConfig` never populates it, so the merge behaviour of a field nothing reads was left
+  alone rather than "fixed" invisibly. The delete-or-populate decision is still open.
+- **`preset` routing**, same item.
+- **`permissions.allow` / `.deny`.** Measured while here and NOT changed: both are field-level
+  replacements (`layer.permissions?.deny ?? merged.permissions?.deny`), so a project layer declaring
+  `deny` erases the user's. That is a **deliberate** line somebody wrote, unlike the hooks case which
+  fell out of a spread, so it needs an argument rather than a correction — and `allow` needs a
+  different argument from `deny`, because unioning a restriction is safe while unioning a grant is
+  not. Raised separately.
+- **Provenance diagnostics** and **explicit disable semantics** from issue #2024's acceptance list.
+  Both are design decisions; this change deliberately makes neither.
+
+### Issue #2024 is the same defect, narrower
+
+Issue #2024 (2026-08-22) records the `hooks` half of this record (2026-08-13) with a reproduction and
+an acceptance list. This record owns it — it is earlier and names all three fields. Issue #2024's acceptance
+criteria are folded in above, and it closes when this record delivers.

@@ -1,0 +1,116 @@
+/**
+ * Settings-layer composition: how a later layer combines with an earlier one.
+ *
+ * Split out of `config-loader.ts` by CONFIG-003. The loader's job is to READ layers and RESOLVE the
+ * result; deciding what a later layer may do to an earlier one is a different question, and it is
+ * the one with a security boundary in it — `mergeHooks` is why a project cannot delete a user's
+ * guard. Keeping that decision in a file named for it means the next reader of "can a project
+ * override X" has somewhere to look.
+ */
+
+import type { TEnvResolvedSettings } from './config-types.js';
+
+/**
+ * Deep-merge settings objects. Later entries in the array win.
+ *
+ * Arrays are replaced (not concatenated) so that project settings fully override user settings for
+ * list-type fields — with ONE exception, stated here because the previous version of this comment
+ * described two behaviours and the function performed three.
+ *
+ * **`hooks` is merged per event, never replaced (CONFIG-003).** It is not a list-type field: it is an
+ * object keyed by lifecycle event, so it fell through the top-level spread and neither documented
+ * rule covered it. A project settings layer declaring one `PostToolUse` hook therefore deleted
+ * every user-global hook, including `PreToolUse` security guards — a lower-trust layer
+ * silently removing a higher-trust control. The layers are user-then-project, so concatenating each
+ * event's groups in layer order keeps the user's guards present and first; `runHooks` returns on the
+ * first `deny`, so a surviving guard still blocks whatever a later group would have permitted.
+ *
+ * A project layer can therefore ADD hooks and can never REMOVE one it did not declare. Deliberate
+ * user-level disable semantics are not part of this: there is no way to express "turn that off" yet,
+ * and inventing one here would be a policy decision made inside a merge function.
+ */
+export function mergeSettings(layers: TEnvResolvedSettings[]): TEnvResolvedSettings {
+  return layers.reduce<TEnvResolvedSettings>((merged, layer) => {
+    return {
+      ...merged,
+      ...layer,
+      provider:
+        merged.provider !== undefined || layer.provider !== undefined
+          ? { ...merged.provider, ...layer.provider }
+          : undefined,
+      permissions:
+        merged.permissions !== undefined || layer.permissions !== undefined
+          ? {
+              allow: layer.permissions?.allow ?? merged.permissions?.allow,
+              deny: layer.permissions?.deny ?? merged.permissions?.deny,
+            }
+          : undefined,
+      env: {
+        ...(merged.env ?? {}),
+        ...(layer.env ?? {}),
+      },
+      providers:
+        merged.providers !== undefined || layer.providers !== undefined
+          ? mergeProviders(merged.providers, layer.providers)
+          : undefined,
+      enabledPlugins:
+        merged.enabledPlugins !== undefined || layer.enabledPlugins !== undefined
+          ? { ...(merged.enabledPlugins ?? {}), ...(layer.enabledPlugins ?? {}) }
+          : undefined,
+      extraKnownMarketplaces: layer.extraKnownMarketplaces ?? merged.extraKnownMarketplaces,
+      autoCompactThreshold: layer.autoCompactThreshold ?? merged.autoCompactThreshold,
+      hooks:
+        merged.hooks !== undefined || layer.hooks !== undefined
+          ? mergeHooks(merged.hooks, layer.hooks)
+          : undefined,
+      taskContext:
+        merged.taskContext !== undefined || layer.taskContext !== undefined
+          ? { ...merged.taskContext, ...layer.taskContext }
+          : undefined,
+    };
+  }, {});
+}
+
+/**
+ * Merge two hooks objects by event, keeping the earlier layer's groups first.
+ *
+ * **The same operation already existed one module away.** `plugin-hooks-merger.ts`'s
+ * `mergeHooksIntoConfig` composes plugin hooks with config hooks by concatenating per event, and has
+ * done so all along. Settings-layer hooks were the only hook composition in this package that
+ * replaced instead of merging — the codebase knew the answer and this path did not use it.
+ *
+ * It is not reused directly: that helper is typed against a loose local `IHookGroup` and orders
+ * plugin groups first by design, where this needs `THooksConfig` and the user's layer first.
+ *
+ * Concatenation rather than replacement is the whole security property: the earlier layer is the
+ * user's, and a hook it declared must still be there after a later layer adds its own. Duplicates
+ * are kept and both run — a repeated guard costs an extra execution, while dropping one on a
+ * key-collision guess would be this defect again in a smaller form.
+ */
+function mergeHooks(
+  base: TEnvResolvedSettings['hooks'],
+  override: TEnvResolvedSettings['hooks'],
+): TEnvResolvedSettings['hooks'] {
+  const result: NonNullable<TEnvResolvedSettings['hooks']> = { ...(base ?? {}) };
+  for (const [event, groups] of Object.entries(override ?? {})) {
+    if (groups === undefined) continue;
+    const key = event as keyof NonNullable<TEnvResolvedSettings['hooks']>;
+    const existing = result[key];
+    result[key] = existing === undefined ? [...groups] : [...existing, ...groups];
+  }
+  return result;
+}
+
+function mergeProviders(
+  base: TEnvResolvedSettings['providers'],
+  override: TEnvResolvedSettings['providers'],
+): TEnvResolvedSettings['providers'] {
+  const result: NonNullable<TEnvResolvedSettings['providers']> = { ...(base ?? {}) };
+  for (const [name, profile] of Object.entries(override ?? {})) {
+    result[name] = {
+      ...result[name],
+      ...profile,
+    };
+  }
+  return result;
+}

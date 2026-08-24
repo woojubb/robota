@@ -2174,6 +2174,10 @@ Settings are loaded with a 6-file precedence model (lowest priority first). `.ro
 
 The `.claude/settings.json` layers provide Claude Code compatibility — settings written by Claude Code are automatically picked up by Robota. Higher layers override lower layers via deep merge. `$ENV:VAR` substitution is applied after merge for provider API keys.
 
+**`hooks` is the exception, and it is a security boundary rather than a merge preference (CONFIG-003).** Hooks are merged **per lifecycle event**, with each layer's groups appended in layer order. A higher layer can therefore ADD hooks and can never REMOVE one it did not declare. Without this, a project `.robota/settings.json` declaring any single hook replaced the entire user-global `hooks` object — a repository could disable a user's `PreToolUse` guard by declaring an unrelated `PostToolUse` automation. Project layers are read only for a workspace the user has marked trusted, but trusting a workspace is not the same as intending it to remove your own guards.
+
+Deliberate user-level disable semantics are NOT defined: there is no way to express "turn that hook off from a later layer", and the merge deliberately does not invent one.
+
 Provider resolution order:
 
 1. `currentProvider` plus `providers[currentProvider]`
