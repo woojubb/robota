@@ -6,7 +6,7 @@
 
 **Migration — `createSession`.** Use `InteractiveSession`, or `createAgentRuntime().createSession(IHeadlessSessionOptions)`, or `createQuery()`. It was the low-level assembly seam, not the intended session entry point; the session-creation route is unchanged for consumers already using one of those three.
 
-**Migration — `ICreateSessionResult`: there is none, and that is stated rather than glossed.** The package's `exports` map exposes only `.` and `./testing`, so the assembly barrel that still declares the type is unreachable from outside the package. A released consumer importing this type has no replacement path and must stop referring to it — it described the return of a factory that is no longer public, so nothing it named is obtainable any more either. This is the break the `major` bump declares.
+**Migration — `ICreateSessionResult`: there is none, and that is stated rather than glossed.** The package's `exports` map exposes only `.` and `./testing`, so the assembly barrel that still declares the type is unreachable from outside the package. A released consumer importing this type has no replacement path and must stop referring to it. What it _named_ is largely still reachable — its `session` field is a `Session`, which `@robota-sdk/agent-session` exports and which `InteractiveSession.getSession()` returns — so the loss is the aggregate type itself, not the things it described. This is the break the `major` bump declares.
 
 **Impact on published consumers differs between the two symbols, and the earlier draft of this note got it wrong.** Resolved against the published `3.0.0-beta.79` `dist/node/index.d.ts` (466 exported names), not against the source barrel:
 
