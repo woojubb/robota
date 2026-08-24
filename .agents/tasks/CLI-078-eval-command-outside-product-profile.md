@@ -88,7 +88,13 @@ comment at each call site + a line in `agent-cli/docs/SPEC.md` stating the exemp
 
 ## User Execution Test Scenarios
 
-Not authorable yet, and deliberately left empty rather than filled with a placeholder. This record's
-disposition is undecided — routing through the profile and documenting a separate path deliver
-different user-observable behavior, and one of them delivers none. The scenarios are authored when the
-disposition is chosen, before implementation.
+Unwritten, with the reason recorded here as Stage 1 requires — not left blank. This record's
+disposition is undecided: routing through the profile and documenting a separate path deliver
+different user-observable behavior, and one of them delivers none. Writing a scenario now would
+invent one for work whose shape is not chosen.
+
+**This reason is temporal and does not survive the choice.** It makes writing impossible _now_, and
+expires the moment the disposition is decided — at which point this section must be filled, before
+implementation. A reason that has expired reads exactly like one that has not, so it is said here
+explicitly: if the disposition is on record and this section is still empty, the exception no longer
+applies and the omission is a defect, not an exception.
