@@ -5,6 +5,7 @@ import {
   deleteSettings,
   getStartupCliUpdateNotice,
   getUserSettingsPath,
+  loadOrgPolicy,
   readMergedProviderSettings,
   readSettings,
   resolveProviderSettingsWriteTarget,
@@ -13,6 +14,7 @@ import {
 } from '@robota-sdk/agent-framework';
 import type {
   ICliUpdateNotice,
+  IOrgPolicy,
   ICommandHostAdapters,
   ICommandModule,
   IWorkspaceProjectMutation,
@@ -89,6 +91,22 @@ export interface ICliSetup {
    * This function is the only place that still knows which branch was taken.
    */
   callerSuppliedProviderDefinitions: boolean;
+  /**
+   * CLI-083 (issue #2287) — the org policy read from `~/.robota/org-policy.json`, `null` when there
+   * is none. Surfaced because it feeds TWO destinations and only one of them is inside this file:
+   * the command-module chain built here (provider `allowedProviders` / `requireApiKeyFromEnv`), and
+   * the SESSION, which `cli.ts` assembles for both the served and TUI paths.
+   *
+   * Loading it here and not returning it left three of the four enforcement sites dead while
+   * looking wired — the "the chain exists but is not fed" shape this item is about, recurring one
+   * level up. Found in review of the change that restored the loader.
+   *
+   * Optional rather than `| null` so callers forward it as a plain `orgPolicy,` instead of a
+   * conditional spread. A spread bypasses TypeScript's excess-property check, which is how a third
+   * recurrence reached the TUI layer and was dropped there in silence. Written plainly, a target
+   * that does not declare the field fails to compile.
+   */
+  orgPolicy?: IOrgPolicy | undefined;
   /**
    * ARCH-005 S2: the product's BASE command modules — the default set MINUS the modules a capability pack
    * supplies (`packCommandModuleNames`). They are handed to `assembleProduct` as
@@ -168,11 +186,17 @@ export function buildCommandSetup(
   // The pack-supplied modules are excluded from the base; `assembleProduct` merges them back in from the
   // profile's packs. `unknownModuleNames` is not read here — every excluded name is a real module, and the
   // preset delta's unknown-name diagnostics are computed by the shell against the MERGED superset.
+  // CLI-083 (issue #2287). This call is where `loadOrgPolicy()` used to be: `48ebec353` added it,
+  // `92596bc6f` removed it two days later while slimming this file, and four implemented enforcement
+  // sites have been unreachable since. Nothing failed, because the parameter is optional and its
+  // consumers read absence as "no policy configured".
+  const orgPolicy = loadOrgPolicy();
   const { modules: baseCommandModules } = createDefaultCommandModules({
     cwd,
     providerDefinitions,
     providerSettingsAdapter,
     contributionSources: workspaceComposition.contributionSources,
+    ...(orgPolicy === null ? {} : { orgPolicy }),
     ...(packCommandModuleNames.length > 0
       ? { disabledCommandModules: packCommandModuleNames }
       : {}),
@@ -185,6 +209,16 @@ export function buildCommandSetup(
     providerDefinitions,
     callerSuppliedProviderDefinitions: options.providerDefinitions !== undefined,
     baseCommandModules,
+    // CLI-083 (issue #2287). Returned, not just consumed above: the command-module chain reaches the
+    // provider checks, and the SESSION-level `blockedCommands` enforcement is fed from `cli.ts`
+    // instead. Loading it here and not surfacing it left three of the four enforcement sites dead
+    // and looked wired — the same "the chain exists but is not fed" shape this item is about, one
+    // level up. Found in review of this change.
+    //
+    // Normalised to `undefined` here so every downstream forward is a plain `orgPolicy,` rather than
+    // a conditional spread: a spread bypasses the excess-property check, which is how the third
+    // recurrence reached the TUI layer and was dropped in silence.
+    orgPolicy: orgPolicy ?? undefined,
     fixedCommandModules: [workflowsModule, ...(options.commandModules ?? [])],
     startupUpdateNoticePromise,
     remoteCommandPolicy: createDefaultRemoteCommandPolicy(), // REMOTE-006: allow-by-default (local == remote).

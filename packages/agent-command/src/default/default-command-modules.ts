@@ -31,6 +31,7 @@ import { createUserLocalCommandModule } from '../user-local/index.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
+  IOrgPolicy,
   IContributionSource,
   ICommandModule,
   IProviderCommandSettingsAdapter,
@@ -42,6 +43,15 @@ export interface IDefaultCommandModulesOptions {
   contributionSources?: readonly IContributionSource[];
   providerDefinitions: readonly IProviderDefinition[];
   providerSettingsAdapter: IProviderCommandSettingsAdapter;
+  /**
+   * CLI-083 (issue #2287) — the org policy, so `allowedProviders` and `requireApiKeyFromEnv` are
+   * reachable. This parameter existed, was removed by `92596bc6f` along with its only caller, and
+   * the consumer never stopped reading it: `provider-command-profile-operations.ts` still
+   * destructures `orgPolicy` from its options and enforces on it. Optional, so its absence stays
+   * distinguishable from a policy that allows everything — and that optionality is why nothing went
+   * red when the producer dropped it.
+   */
+  orgPolicy?: IOrgPolicy;
   /**
    * Whitelist of module `name`s to keep. When provided, only modules whose `name`
    * appears here survive. Omitted → all modules kept (no-regression).
@@ -87,6 +97,7 @@ export function createDefaultCommandModules({
   contributionSources,
   providerDefinitions,
   providerSettingsAdapter,
+  orgPolicy,
   enabledCommandModules,
   disabledCommandModules,
 }: IDefaultCommandModulesOptions): IDefaultCommandModulesResult {
@@ -124,6 +135,7 @@ export function createDefaultCommandModules({
     createProviderCommandModule({
       providerDefinitions,
       settings: providerSettingsAdapter,
+      ...(orgPolicy === undefined ? {} : { orgPolicy }),
     }),
   ];
   const builtModuleNames = modules.map((module) => module.name);
