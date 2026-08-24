@@ -9,6 +9,7 @@
  *   5. .claude/settings.json         (project, Claude Code compat)
  *   6. .claude/settings.local.json   (project-local, highest priority)
  */
+import { mergeSettings } from './config-merge.js';
 import {
   SettingsSchema,
   type TSettings,
@@ -115,59 +116,6 @@ function resolveProviderCredentialEnvRefs<TProvider extends { apiKey?: string }>
     apiKey: resolveEnvRef(provider.apiKey),
     ...(wasReference && { apiKeyEnv: provider.apiKey.slice(ENV_PREFIX.length) }),
   };
-}
-
-/**
- * Deep-merge settings objects. Later entries in the array win.
- * Arrays are replaced (not concatenated) so that project settings
- * fully override user settings for list-type fields.
- */
-function mergeSettings(layers: TEnvResolvedSettings[]): TEnvResolvedSettings {
-  return layers.reduce<TEnvResolvedSettings>((merged, layer) => {
-    return {
-      ...merged,
-      ...layer,
-      provider:
-        merged.provider !== undefined || layer.provider !== undefined
-          ? { ...merged.provider, ...layer.provider }
-          : undefined,
-      permissions:
-        merged.permissions !== undefined || layer.permissions !== undefined
-          ? {
-              allow: layer.permissions?.allow ?? merged.permissions?.allow,
-              deny: layer.permissions?.deny ?? merged.permissions?.deny,
-            }
-          : undefined,
-      env: {
-        ...(merged.env ?? {}),
-        ...(layer.env ?? {}),
-      },
-      providers:
-        merged.providers !== undefined || layer.providers !== undefined
-          ? mergeProviders(merged.providers, layer.providers)
-          : undefined,
-      enabledPlugins:
-        merged.enabledPlugins !== undefined || layer.enabledPlugins !== undefined
-          ? { ...(merged.enabledPlugins ?? {}), ...(layer.enabledPlugins ?? {}) }
-          : undefined,
-      extraKnownMarketplaces: layer.extraKnownMarketplaces ?? merged.extraKnownMarketplaces,
-      autoCompactThreshold: layer.autoCompactThreshold ?? merged.autoCompactThreshold,
-    };
-  }, {});
-}
-
-function mergeProviders(
-  base: TEnvResolvedSettings['providers'],
-  override: TEnvResolvedSettings['providers'],
-): TEnvResolvedSettings['providers'] {
-  const result: NonNullable<TEnvResolvedSettings['providers']> = { ...(base ?? {}) };
-  for (const [name, profile] of Object.entries(override ?? {})) {
-    result[name] = {
-      ...result[name],
-      ...profile,
-    };
-  }
-  return result;
 }
 
 function resolveProvider(merged: TEnvResolvedSettings): IResolvedConfig['provider'] {

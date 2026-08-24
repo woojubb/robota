@@ -294,7 +294,7 @@ describe('E2E: Hook configuration to execution', () => {
       },
     };
 
-    // 2. Create local settings with a Read hook (should override)
+    // 2. Create local settings with a Read hook (CONFIG-003: ADDS, does not replace)
     const localSettings = {
       hooks: {
         PreToolUse: [
@@ -315,10 +315,18 @@ describe('E2E: Hook configuration to execution', () => {
     // 3. Load config
     const config = await loadConfig(projectDir);
 
-    // 4. Verify local settings take precedence
+    // 4. CONFIG-003: both survive, in layer order.
+    //
+    // This test asserted length 1 and called itself "should merge". The title was right and the
+    // assertion pinned the defect: `hooks` fell through mergeSettings' top-level spread, so the
+    // later layer replaced the whole object and the base Bash hook vanished. Two project layers
+    // rather than user-vs-project makes the trust gap smaller, not the behaviour different — and
+    // there is no way to express "remove that hook", so replacement was never an override anyone
+    // asked for. It was the only thing a spread could do.
     expect(config.hooks).toBeDefined();
-    expect(config.hooks!.PreToolUse).toHaveLength(1);
-    expect(config.hooks!.PreToolUse![0]!.matcher).toBe('Read');
+    expect(config.hooks!.PreToolUse).toHaveLength(2);
+    expect(config.hooks!.PreToolUse![0]!.matcher).toBe('Bash');
+    expect(config.hooks!.PreToolUse![1]!.matcher).toBe('Read');
   });
 });
 

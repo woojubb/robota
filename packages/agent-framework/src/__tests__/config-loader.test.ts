@@ -456,6 +456,64 @@ describe('loadConfig', () => {
     expect(config.defaultTrustLevel).toBe('full');
   });
 
+  it('CONFIG-003: a project hook does not delete the user-global PreToolUse guard', async () => {
+    // The defect: `hooks` fell through mergeSettings' top-level spread, so ANY later layer that
+    // declared hooks replaced the whole object. A repository could disable a user's security guard
+    // by declaring an unrelated event — a lower-trust layer removing a higher-trust control, with
+    // nothing in normal output saying so.
+    writeJson(join(userDir, 'settings.json'), {
+      hooks: {
+        PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'user-guard' }] }],
+      },
+    });
+    writeJson(join(projectDir, 'settings.json'), {
+      hooks: {
+        PostToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'project-automation' }] }],
+      },
+    });
+    const config = await loadConfig(cwd);
+
+    // The guard is still there. This is the security property; everything else here is shape.
+    expect(config.hooks?.PreToolUse?.[0]?.hooks?.[0]).toMatchObject({ command: 'user-guard' });
+    // And the project's own hook was added rather than swapped in.
+    expect(config.hooks?.PostToolUse?.[0]?.hooks?.[0]).toMatchObject({
+      command: 'project-automation',
+    });
+  });
+
+  it("CONFIG-003: a project hook on the SAME event is appended after the user's, not instead of it", async () => {
+    // The same-event case is the one a per-object merge would still get wrong: replacing
+    // `PreToolUse` wholesale is exactly as fatal as replacing `hooks` wholesale, and only a
+    // per-event concatenation survives it. User first, because `runHooks` returns on the first
+    // `deny` and the user's guard should be the one that gets to say it.
+    writeJson(join(userDir, 'settings.json'), {
+      hooks: {
+        PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'user-guard' }] }],
+      },
+    });
+    writeJson(join(projectDir, 'settings.json'), {
+      hooks: {
+        PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'project-hook' }] }],
+      },
+    });
+    const config = await loadConfig(cwd);
+
+    expect(config.hooks?.PreToolUse).toHaveLength(2);
+    expect(config.hooks?.PreToolUse?.[0]?.hooks?.[0]).toMatchObject({ command: 'user-guard' });
+    expect(config.hooks?.PreToolUse?.[1]?.hooks?.[0]).toMatchObject({ command: 'project-hook' });
+  });
+
+  it('CONFIG-003: a project taskContext.dir does not silently re-enable an injection the user turned off', async () => {
+    // Same wholesale-replacement defect, without the security framing: `taskContext` is
+    // `{ enabled?, dir? }`, so a project setting only `dir` erased the user's `enabled: false`.
+    writeJson(join(userDir, 'settings.json'), { taskContext: { enabled: false } });
+    writeJson(join(projectDir, 'settings.json'), { taskContext: { dir: '.agents/tasks' } });
+    const config = await loadConfig(cwd);
+
+    expect(config.taskContext?.enabled).toBe(false);
+    expect(config.taskContext?.dir).toBe('.agents/tasks');
+  });
+
   it('hooks from .claude/settings.json are loaded and merged', async () => {
     writeJson(join(claudeProjectDir, 'settings.json'), {
       hooks: {

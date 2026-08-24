@@ -441,7 +441,7 @@ describe('Filesystem smoke: hook config loading', () => {
       },
     };
 
-    // Local settings override hooks entirely
+    // Local settings ADD hooks (CONFIG-003 — they used to replace them entirely)
     const localSettings = {
       hooks: {
         PreToolUse: [
@@ -462,9 +462,11 @@ describe('Filesystem smoke: hook config loading', () => {
     const config = await loadConfig(projectDir);
 
     expect(config.hooks).toBeDefined();
-    expect(config.hooks!.PreToolUse).toHaveLength(1);
-    // Local should win — matcher is "Read", not "Bash"
-    expect(config.hooks!.PreToolUse![0]!.matcher).toBe('Read');
+    // CONFIG-003: both layers' groups survive, earlier first. The previous assertion required the
+    // base hook to be gone, under a title that said "merge".
+    expect(config.hooks!.PreToolUse).toHaveLength(2);
+    expect(config.hooks!.PreToolUse![0]!.matcher).toBe('Bash');
+    expect(config.hooks!.PreToolUse![1]!.matcher).toBe('Read');
   });
 
   it('should load provider settings from .claude/settings.json', async () => {
