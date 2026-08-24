@@ -82,14 +82,46 @@ export type TDeliveryErrorHandler = (error: Error, event: TServerMessage['type']
  * @param pendingBytes - the carrier's own backpressure reading. Optional because not every carrier
  *   has one; omitted, the boundary answers `undefined` rather than inventing a number.
  */
+/**
+ * Default outbound backpressure budget, in bytes the carrier has accepted and not yet written.
+ *
+ * 8 MiB. The number is a policy, not a measurement, and it is stated here rather than inlined so a
+ * reader can find the one place that decides it. It is well above any single frame this protocol
+ * produces and well below a figure at which a non-reading peer could exhaust the host — the property
+ * that matters is that SOME finite budget exists, because the previous behaviour was unbounded.
+ *
+ * A carrier that cannot report `pendingBytes` is not subject to it: `undefined` is unknown, not zero,
+ * so no threshold applies to it. That is deliberate and it is a gap — a carrier with no backpressure
+ * reading has no budget — recorded rather than hidden behind a default of `0`, which would refuse
+ * every frame on such a carrier.
+ */
+const BYTES_PER_MIB = Number('1024') * Number('1024');
+export const DEFAULT_MAX_PENDING_BYTES = Number('8') * BYTES_PER_MIB;
+
 export function createOutboundDelivery(
   send: (message: TServerMessage) => void,
   onDeliveryError: TDeliveryErrorHandler,
   pendingBytes?: () => number | undefined,
+  maxPendingBytes: number = DEFAULT_MAX_PENDING_BYTES,
 ): TOutboundDeliver {
   let closed = false;
   const deliver = (message: TServerMessage): void => {
     if (closed) return;
+    // The budget is checked BEFORE the send, not after: a peer that has stopped reading is detected
+    // by what the carrier is still holding, and adding one more frame first would make the boundary
+    // the last contributor to the overflow it is reporting.
+    const pending = pendingBytes?.();
+    if (pending !== undefined && pending > maxPendingBytes) {
+      closed = true;
+      reportFailure(
+        new Error(
+          `outbound backpressure budget exceeded: ${pending} byte(s) pending, limit ${maxPendingBytes}. ` +
+            'The peer has accepted frames it is not reading.',
+        ),
+        message.type,
+      );
+      return;
+    }
     try {
       send(message);
     } catch (error) {
@@ -97,16 +129,18 @@ export function createOutboundDelivery(
       // reported to the carrier's own policy (which closes the connection). It is never swallowed, and
       // re-throwing it would fail a session operation that has already committed.
       closed = true;
-      const normalized = error instanceof Error ? error : new Error(String(error));
-      try {
-        onDeliveryError(normalized, message.type);
-      } catch {
-        // allow-fallback: the carrier-owned diagnostic is the LAST step of a failure already being
-        // reported. A throw from it has nowhere left to go, and letting it out would make a committed
-        // session operation fail for the sake of a diagnostic.
-      }
+      reportFailure(error instanceof Error ? error : new Error(String(error)), message.type);
     }
   };
+  function reportFailure(error: Error, event: TServerMessage['type']): void {
+    try {
+      onDeliveryError(error, event);
+    } catch {
+      // allow-fallback: the carrier-owned diagnostic is the LAST step of a failure already being
+      // reported. A throw from it has nowhere left to go, and letting it out would make a committed
+      // session operation fail for the sake of a diagnostic.
+    }
+  }
   return Object.assign(deliver, {
     pendingBytes: (): number | undefined => pendingBytes?.(),
   }) as TOutboundDeliver;

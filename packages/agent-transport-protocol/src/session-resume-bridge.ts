@@ -44,6 +44,14 @@ export interface IAttachOptions {
   readonly awaitResume?: boolean;
   /** Sink/carrier-owned failure lifecycle for this attachment only. */
   readonly onDeliveryError: (error: Error, event: string) => void;
+  /**
+   * ARCH-030: this attachment's carrier backpressure reading, if it has one.
+   *
+   * Threaded through because the replay path is the burst this budget exists for — a reconnecting
+   * peer is handed the whole retained tail at once, and without a reading the boundary here would
+   * have no budget at all while the per-channel boundary did.
+   */
+  readonly pendingBytes?: () => number | undefined;
 }
 
 export interface ISessionResumeBridgeOptions {
@@ -114,6 +122,7 @@ export class SessionResumeBridge {
     this.outbound = createOutboundDelivery(
       (message) => sink(JSON.stringify(message)),
       (error, event) => this.reportDeliveryError(error, event),
+      options.pendingBytes,
     );
     // On a reconnect, hold live forwarding until `resume` flushes the buffered tail (avoids the live-vs-replay race).
     this.holding = options.awaitResume === true;

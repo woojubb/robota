@@ -404,3 +404,62 @@ describe('outbound backpressure reporting (ARCH-030 / issue #1734)', () => {
     expect(deliver.pendingBytes()).toBe(0);
   });
 });
+
+describe('ARCH-030: the byte budget the boundary enforces itself', () => {
+  it('refuses and closes when the carrier is holding more than the budget', () => {
+    // The contract case the reopened scope names: a peer that accepted frames and stopped reading.
+    // Detected by what the CARRIER is still holding, not by anything this boundary counted.
+    const sent: TServerMessage[] = [];
+    const failures: Array<{ error: Error; event: string }> = [];
+    let pending = 0;
+    const deliver = createOutboundDelivery(
+      (message) => sent.push(message),
+      (error, event) => failures.push({ error, event }),
+      () => pending,
+      100,
+    );
+
+    deliver({ type: 'protocol_error', message: 'under budget' });
+    expect(sent).toHaveLength(1);
+
+    pending = 101;
+    deliver({ type: 'protocol_error', message: 'over budget' });
+
+    expect(sent).toHaveLength(1); // not sent
+    expect(failures).toHaveLength(1);
+    expect(failures[0]?.error.message).toContain('101 byte(s) pending, limit 100');
+  });
+
+  it('checks the budget BEFORE sending, so the boundary is not the last contributor to the overflow', () => {
+    // Checking after would let one more frame onto a carrier already past its limit, and would report
+    // an overflow the boundary had just helped cause.
+    const sent: TServerMessage[] = [];
+    const deliver = createOutboundDelivery(
+      (message) => sent.push(message),
+      () => {},
+      () => 500,
+      100,
+    );
+
+    deliver({ type: 'protocol_error', message: 'first frame, already over' });
+    expect(sent).toHaveLength(0);
+  });
+
+  it('applies no budget to a carrier that cannot report backpressure', () => {
+    // `undefined` is unknown, not zero. A default of 0 would refuse every frame on such a carrier —
+    // turning "cannot measure" into "always over budget".
+    const sent: TServerMessage[] = [];
+    const deliver = createOutboundDelivery(
+      (message) => sent.push(message),
+      () => {},
+      () => undefined,
+      // A limit BELOW zero, deliberately. With `0`, a mutant collapsing `undefined` to `0` still
+      // passes — `0 > 0` is false — so the case would assert nothing about the collapse it exists to
+      // forbid. Below zero, only "unknown means no budget applies" can explain the frame going out.
+      -1,
+    );
+
+    deliver({ type: 'protocol_error', message: 'no reading available' });
+    expect(sent).toHaveLength(1);
+  });
+});

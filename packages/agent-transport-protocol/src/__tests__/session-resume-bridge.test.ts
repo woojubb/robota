@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createOutboundDelivery } from '../outbound-delivery.js';
+import { createOutboundDelivery, DEFAULT_MAX_PENDING_BYTES } from '../outbound-delivery.js';
 import { createWsHandler } from '../ws-handler.js';
 import { SessionResumeBridge } from '../session-resume-bridge.js';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
@@ -261,6 +261,48 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
       bridge.onClientMessage(JSON.stringify({ type: 'resume', lastSeq: 0 }));
       expect(frames(healthy).map((f) => f.seq)).toEqual([1, 2, 3]);
       expect(frames(healthy).map((f) => f.delta)).toEqual(['a', 'b', 'c']);
+      bridge.dispose();
+    });
+
+    it('ARCH-030: a replay burst stops when the budget closes the boundary, and the rest survives', () => {
+      // The replay-burst contract case. A reconnecting peer is handed the whole retained tail at
+      // once; if it stops reading part-way, the loop must stop rather than push the remainder into a
+      // carrier that is already over budget.
+      const { session, fire } = fakeSession();
+      const failures: Array<{ message: string; event: string }> = [];
+      const bridge = new SessionResumeBridge({ session });
+
+      for (const delta of ['a', 'b', 'c', 'd']) fire('text_delta', delta);
+      expect(bridge.lastSeq).toBe(4);
+
+      const written: string[] = [];
+      let pending = 0;
+      bridge.attach(
+        (data) => {
+          written.push(data);
+          // The peer reads nothing. This carrier is already holding a large backlog, so the second
+          // frame of the replay finds it past DEFAULT_MAX_PENDING_BYTES — the real default, not a
+          // budget invented for the test.
+          pending += DEFAULT_MAX_PENDING_BYTES;
+        },
+        {
+          awaitResume: true,
+          onDeliveryError: (error, event) => failures.push({ message: error.message, event }),
+          pendingBytes: () => pending,
+        },
+      );
+      bridge.onClientMessage(JSON.stringify({ type: 'resume', lastSeq: 0 }));
+
+      // It stopped short rather than draining the tail into a carrier over its limit.
+      expect(written.length).toBeLessThan(4);
+      expect(failures).toHaveLength(1);
+      expect(failures[0]?.message).toContain('pending');
+
+      // And nothing was lost: the frames it did not push are still replayable on the next sink.
+      const healthy = sink();
+      bridge.attach(healthy, { awaitResume: true, onDeliveryError: vi.fn() });
+      bridge.onClientMessage(JSON.stringify({ type: 'resume', lastSeq: 0 }));
+      expect(frames(healthy).map((f) => f.seq)).toEqual([1, 2, 3, 4]);
       bridge.dispose();
     });
 
