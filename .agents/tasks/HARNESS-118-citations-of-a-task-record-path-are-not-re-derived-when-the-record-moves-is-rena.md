@@ -101,3 +101,25 @@ every one of the four outcomes was discovered in the real tree and no fixture wo
 `conflict`. Gate commands: `node scripts/harness/run-all-scans.mjs`, `pnpm lint` (exit code),
 `pnpm typecheck`, and the three mutants above run individually with an applied-check confirming the
 mutation is in the tree before the result is read.
+
+## User Execution Test Scenarios
+
+**Not applicable — no runnable user-facing behaviour, and the reason is the change's whole subject.**
+
+This delivers a harness scan over `.agents/` documents plus repairs to sixteen citations inside them.
+Its entire surface is repository governance: it changes no product command, no TUI or browser flow,
+no SDK or example flow, and no workflow a user of Robota can run. A person using the CLI cannot
+observe it at any input, because nothing it touches is reachable from one — the "users" of a
+task-record path citation are the agents and readers working inside this repository.
+
+`backlog-execution.md` warns specifically against inventing a scenario for documentation-only,
+rule-only or governance-only work, and this is all three. A scenario here would have to be an
+engineering command (`node scripts/harness/scan-task-path-citations.mjs`), which the same rule
+excludes by name: the engineering test plan above already owns it, and restating it under this
+heading would dress a harness invocation as user execution.
+
+Recorded rather than omitted because the rule requires the REASON, not merely the absence of a
+scenario — and because this record shipped without the section at all, which is the defect
+[issue #2308](https://github.com/woojubb/robota/issues/2308) exists for: nothing emits the section
+and nothing checks for it, so an author who fills in the headings they were given produces a
+non-compliant record and learns of it, if ever, from a gate long afterwards.
