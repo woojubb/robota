@@ -44,6 +44,22 @@ declare const outboundDeliveryBrand: unique symbol;
  */
 export type TOutboundDeliver = ((message: TServerMessage) => void) & {
   readonly [outboundDeliveryBrand]: true;
+
+  /**
+   * Bytes this carrier has ACCEPTED and not yet written to the peer — or `undefined` when it cannot
+   * say.
+   *
+   * `deliver` returning is not delivery. Both carriers hand this boundary a fire-and-forget sink, so
+   * a frame that has "been sent" may be sitting in a socket buffer the boundary cannot see. Anything
+   * this boundary counted itself would be a count of what it HANDED OVER, which is a different
+   * quantity from what the peer has not read — and a budget over the wrong quantity reports a
+   * healthy connection for a peer that stopped reading (ARCH-030 / issue #1734).
+   *
+   * `undefined` is deliberately not `0`. A carrier that cannot report backpressure and a carrier with
+   * nothing pending are different states, and collapsing them would let "unknown" satisfy any
+   * threshold placed on this number.
+   */
+  readonly pendingBytes: () => number | undefined;
 };
 
 /**
@@ -63,10 +79,13 @@ export type TDeliveryErrorHandler = (error: Error, event: TServerMessage['type']
  * @param send - the carrier's raw sink. May throw; that is what makes it raw.
  * @param onDeliveryError - the carrier's failure policy, invoked at most once. A handler that itself
  *   throws is isolated: a diagnostic cannot reverse an already-committed session operation.
+ * @param pendingBytes - the carrier's own backpressure reading. Optional because not every carrier
+ *   has one; omitted, the boundary answers `undefined` rather than inventing a number.
  */
 export function createOutboundDelivery(
   send: (message: TServerMessage) => void,
   onDeliveryError: TDeliveryErrorHandler,
+  pendingBytes?: () => number | undefined,
 ): TOutboundDeliver {
   let closed = false;
   const deliver = (message: TServerMessage): void => {
@@ -88,5 +107,7 @@ export function createOutboundDelivery(
       }
     }
   };
-  return deliver as TOutboundDeliver;
+  return Object.assign(deliver, {
+    pendingBytes: (): number | undefined => pendingBytes?.(),
+  }) as TOutboundDeliver;
 }

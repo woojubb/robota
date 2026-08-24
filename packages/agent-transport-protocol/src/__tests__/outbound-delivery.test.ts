@@ -331,3 +331,76 @@ describe('reply families that resolve after the carrier disconnected (ARCH-030)'
     expect(probe.failures).toHaveLength(1);
   });
 });
+
+/**
+ * ARCH-030 / issue #1734 — the boundary can be ASKED about backpressure, and never invents an answer.
+ *
+ * `deliver` returning is not delivery: both carriers hand this boundary a fire-and-forget sink, so a
+ * frame that has "been sent" may be sitting in a socket buffer the boundary cannot see. Before this,
+ * a non-reading peer — the contract case the issue names — was not observable at all, and any budget
+ * built here would have counted what the boundary HANDED OVER rather than what the peer had not read.
+ *
+ * These pin the two things that make the number worth having: it comes from the carrier, and
+ * "cannot say" is distinguishable from "nothing pending".
+ */
+describe('outbound backpressure reporting (ARCH-030 / issue #1734)', () => {
+  it('reports the carrier own reading, not a count the boundary kept', () => {
+    let carrierPending = 0;
+    const deliver = createOutboundDelivery(
+      () => {
+        // The carrier accepted it and has NOT written it — exactly the state the boundary cannot see
+        // by counting its own calls.
+        carrierPending += 100;
+      },
+      () => undefined,
+      () => carrierPending,
+    );
+
+    expect(deliver.pendingBytes()).toBe(0);
+    deliver({ type: 'protocol_error', message: 'x' } as never);
+    deliver({ type: 'protocol_error', message: 'y' } as never);
+    expect(deliver.pendingBytes()).toBe(200);
+  });
+
+  it('a peer that stops reading makes the number grow while every deliver still returns', () => {
+    let carrierPending = 0;
+    const deliver = createOutboundDelivery(
+      () => {
+        carrierPending += 10;
+      },
+      () => undefined,
+      () => carrierPending,
+    );
+
+    for (let i = 0; i < 50; i += 1) deliver({ type: 'protocol_error', message: 'x' } as never);
+
+    // Nothing threw and nothing reported a failure — which is the whole point: a non-reading peer is
+    // indistinguishable from a healthy one through `deliver` alone.
+    expect(deliver.pendingBytes()).toBe(500);
+  });
+
+  it('answers `undefined` — not 0 — when the carrier supplied no reading', () => {
+    const deliver = createOutboundDelivery(
+      () => undefined,
+      () => undefined,
+    );
+
+    // `0` would let "unknown" satisfy any threshold later placed on this number, which is the defect
+    // a budget over the wrong quantity would reintroduce.
+    expect(deliver.pendingBytes()).toBeUndefined();
+    expect(deliver.pendingBytes()).not.toBe(0);
+  });
+
+  it('re-reads at call time, so a value that changes underneath is not captured once', () => {
+    let carrierPending = 7;
+    const deliver = createOutboundDelivery(
+      () => undefined,
+      () => undefined,
+      () => carrierPending,
+    );
+
+    expect(deliver.pendingBytes()).toBe(7);
+    carrierPending = 0; // the peer drained
+    expect(deliver.pendingBytes()).toBe(0);
+  });
+});
