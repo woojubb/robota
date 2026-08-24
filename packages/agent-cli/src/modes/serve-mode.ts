@@ -17,7 +17,7 @@ import { settleOnServeTransportFailure } from './serve-transport-failure.js';
 import { startRuntimeHost } from '@robota-sdk/agent-framework';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
-import type { ICreateSessionOptions } from '@robota-sdk/agent-framework';
+import type { ICreateSessionOptions, IOrgPolicy } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
@@ -48,6 +48,13 @@ export interface IServeModeOptions {
   provider: IAIProvider;
   sessionStore: ReturnType<typeof createProjectSessionStore>;
   projectAccess?: TWorkspaceProjectAccess;
+  /**
+   * CLI-083 (issue #2287) — the org policy, forwarded so the session's `blockedCommands` and
+   * `allowedProviders` enforcement is reachable in a served session. Declared on this projection
+   * for the reason stated above `buildServeSessionOptions`: a field carried by one shell and
+   * dropped by another is invisible, so each projection is tested for it separately.
+   */
+  orgPolicy?: IOrgPolicy | undefined;
   backgroundTaskRunners: IBackgroundTaskRunner[];
   subagentRunnerFactory: ReturnType<typeof createChildProcessSubagentRunnerFactory>;
   /** ARCH-005: composition-root-contributed subagent definitions (the profile's merged pack subagents). */
@@ -102,6 +109,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     cwd: opts.cwd,
     provider: opts.provider,
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
+    ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     // CLI-076: forward the resolved model so `--model` takes effect in the served runtime session.
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     permissionMode: args.permissionMode ?? preset.permissionMode,

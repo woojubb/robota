@@ -153,14 +153,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     process.exit(1);
   }
 
-  // PRESET-002/004/007/011 + ARCH-008/ARCH-009: the shell's ONE preset resolution. `loadExternalPresets`
-  // reads `~/.robota/presets/*.json` (per-file problems are warnings, never fatal) and REGISTERS NOTHING —
-  // it returns the presets it loaded. `resolveShellPreset` builds the kernel's per-call registry (R8) over
-  // them and resolves the selected id over it, returning registry + id + override context as one value that
-  // travels whole into the profile, so `assembleProduct` adopts that same registry and surfaces it on the
-  // command host — which is where in-session `/preset` discovery reads it. One registry, one load, no
-  // process state: the two surfaces cannot disagree because there is only one of them. Resolved before
-  // command setup so the preset's module-selection delta can reach createDefaultCommandModules.
+  // The shell's ONE preset resolution — see `resolveShellPreset` for why it is one. Resolved before
+  // command setup so the preset's module-selection delta can reach `createDefaultCommandModules`.
   const userSettings = readSettings(getUserSettingsPath());
   const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
   const externalPresetLoad = loadExternalPresets();
@@ -189,6 +183,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     startupUpdateNoticePromise,
     remoteCommandPolicy,
     workspaceComposition,
+    orgPolicy,
   } = buildCommandSetup(cwd, args, options, version, packCommandModules);
   // REMOTE-008: the shell owns the transport registry + the remote-control controller (it has settings, the
   // registry, and — via onChannelReady — the live session), and injects the registry into the profile. The
@@ -368,6 +363,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       provider,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
+      orgPolicy,
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
@@ -409,6 +405,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     cwd,
     provider,
     projectAccess: workspaceComposition.projectAccess,
+    orgPolicy,
     providerOverride: args.provider,
     providerType: providerSettings.name,
     modelId,

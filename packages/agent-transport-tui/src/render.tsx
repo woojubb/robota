@@ -33,6 +33,7 @@ import type {
   IPerTurnRecallConfig,
   TWorkspaceProjectAccess,
   EditCheckpointStore,
+  IOrgPolicy,
 } from '@robota-sdk/agent-framework';
 import type {
   IInteractiveSession,
@@ -44,6 +45,17 @@ export interface IRenderOptions {
   cwd: string;
   provider: IAIProvider;
   projectAccess?: TWorkspaceProjectAccess;
+  /**
+   * CLI-083 (issue #2287) — the org policy, forwarded to the session so `blockedCommands` is
+   * enforced on the plain `robota` path as well as under `--serve`.
+   *
+   * DECLARED, not merely spread through. The shell forwards this with
+   * `...(orgPolicy === null ? {} : { orgPolicy })`, and a spread bypasses TypeScript's
+   * excess-property check — so before this field existed the value compiled, arrived, and was
+   * dropped by `toChannelOptions` below, which copies field by field. The idiom that looked safest
+   * is what disabled the one check that would have caught the missing declaration.
+   */
+  orgPolicy?: IOrgPolicy | undefined;
   /** Explicit authority- and permission-backed edit checkpoint capability. */
   editCheckpointStore?: EditCheckpointStore;
   providerOverride?: string | undefined;
@@ -123,10 +135,13 @@ export function toChannelOptions(
   options: IRenderOptions,
   resumeSessionId?: string,
 ): ConstructorParameters<typeof TuiInteractionChannel>[0] {
+  // Contained — ARCH-110. This hand-maintained projection can silently omit optional composition-root
+  // capabilities such as orgPolicy; keep the gap visible until ARCH-110 replaces or mechanically checks it.
   return {
     cwd: options.cwd,
     provider: options.provider,
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
+    ...(options.orgPolicy !== undefined ? { orgPolicy: options.orgPolicy } : {}),
     ...(options.editCheckpointStore !== undefined
       ? { editCheckpointStore: options.editCheckpointStore }
       : {}),

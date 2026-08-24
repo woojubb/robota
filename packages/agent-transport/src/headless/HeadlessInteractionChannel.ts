@@ -126,6 +126,8 @@ export class HeadlessInteractionChannel {
       ((command: string) =>
         execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd());
 
+    // Contained — ARCH-110. This hand-maintained channel-to-session projection can silently omit
+    // optional capabilities such as orgPolicy until ARCH-110 makes the relation mechanical.
     return buildRuntimeSession({
       cwd: this.opts.cwd,
       provider: this.opts.provider,
