@@ -176,6 +176,8 @@ once and the carriers stay dumb.
 | `createWsHandler`                       | function  |
 | `IWsHandlerOptions`                     | interface |
 | `createOutboundDelivery`                | function  | ARCH-030: the ONLY producer of a connection's outbound delivery boundary                   |
+| `isOverPendingBudget`                   | function  | ARCH-030: is a carrier holding more than the budget allows — `undefined` is never over     |
+| `DEFAULT_MAX_PENDING_BYTES`             | constant  | ARCH-030: the outbound backpressure budget, in carrier-pending bytes                       |
 | `TOutboundDeliver`                      | type      | ARCH-030: the branded boundary a carrier passes down as `IWsHandlerOptions.deliver`        |
 | `TDeliveryErrorHandler`                 | type      | ARCH-030: a carrier's failure policy — required, invoked at most once per boundary         |
 | `PROTOCOL_SESSION_EVENT_CLASSIFICATION` | constant  | Exhaustive protocol surface policy for every shared session-event key                      |

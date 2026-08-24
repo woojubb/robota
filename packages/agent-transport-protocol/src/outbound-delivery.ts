@@ -98,6 +98,24 @@ export type TDeliveryErrorHandler = (error: Error, event: TServerMessage['type']
 const BYTES_PER_MIB = Number('1024') * Number('1024');
 export const DEFAULT_MAX_PENDING_BYTES = Number('8') * BYTES_PER_MIB;
 
+/**
+ * Is this carrier holding more than the budget allows?
+ *
+ * Exported because a WebSocket carries TWO kinds of outbound frame over one socket — the text
+ * protocol and TRANS-001's payload channels — and only one of them goes through
+ * {@link createOutboundDelivery}. A budget the binary path re-implemented would be a second opinion
+ * about one socket's backpressure; a budget it skipped would leave the same non-reading peer
+ * unbounded on the other half of the connection.
+ *
+ * `undefined` is unknown, not zero: a carrier that cannot report backpressure is never over budget.
+ */
+export function isOverPendingBudget(
+  pending: number | undefined,
+  limit: number = DEFAULT_MAX_PENDING_BYTES,
+): boolean {
+  return pending !== undefined && pending > limit;
+}
+
 export function createOutboundDelivery(
   send: (message: TServerMessage) => void,
   onDeliveryError: TDeliveryErrorHandler,
@@ -111,7 +129,7 @@ export function createOutboundDelivery(
     // by what the carrier is still holding, and adding one more frame first would make the boundary
     // the last contributor to the overflow it is reporting.
     const pending = pendingBytes?.();
-    if (pending !== undefined && pending > maxPendingBytes) {
+    if (isOverPendingBudget(pending, maxPendingBytes)) {
       closed = true;
       reportFailure(
         new Error(
