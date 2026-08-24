@@ -221,8 +221,12 @@ function handleSessionControlMessage(
   driverId?: TDriverId,
 ): void {
   if (msg.type === 'submit') {
-    if (!msg.prompt) {
-      deliver({ type: 'protocol_error', message: 'prompt is required' });
+    // TRANS-008 (issue #2045). A TYPE check, not a falsy one: `{}`, `[]`, `42` and `true` are truthy
+    // and passed the previous `!msg.prompt` guard. It matters more here than at the other payload
+    // fields because the value does not stop at this session — it is re-emitted as `user_message` to
+    // EVERY attached client inside a frame whose `content` is declared `string`.
+    if (typeof msg.prompt !== 'string' || msg.prompt.length === 0) {
+      deliver({ type: 'protocol_error', message: 'prompt must be a non-empty string' });
       return;
     }
     // REMOTE-014 E5: attribute this remote turn to the SERVER-ASSIGNED driver id (never a client-sent one).

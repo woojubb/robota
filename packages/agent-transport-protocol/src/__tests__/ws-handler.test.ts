@@ -419,7 +419,12 @@ describe('WebSocket Transport Handler', () => {
   it('submit without prompt sends protocol_error', () => {
     const { onMessage, sent } = setup();
     onMessage(JSON.stringify({ type: 'submit' }));
-    expect(sent[0]).toEqual({ type: 'protocol_error', message: 'prompt is required' });
+    // TRANS-008: the wording changed with the guard. "required" was false for a prompt that WAS
+    // provided and had the wrong type; the refusal is about shape and the message now says so.
+    expect(sent[0]).toEqual({
+      type: 'protocol_error',
+      message: 'prompt must be a non-empty string',
+    });
   });
 
   it('submit rejection surfaces a protocol_error (WS-001)', async () => {
