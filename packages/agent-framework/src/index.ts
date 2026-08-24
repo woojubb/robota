@@ -484,8 +484,9 @@ export type {
 // index and a grep for the name cannot see it. Resolve exports against the built .d.ts instead of
 // grepping barrels.
 //
-// Written without the literal re-export syntax on purpose: `scan-sdk-public-surface` matches raw
-// source, so spelling it out here registers a phantom export-star in this barrel and fails the scan.
+// Written without the literal re-export syntax on purpose: `check-sdk-public-surface.mjs` (scan id
+// `sdk-public-surface`) matches raw source, so spelling it out here registers a phantom export-star
+// in this barrel and fails that scan.
 // That is issue #2258's defect — comment text read as code — arriving from the other direction.
 //
 // The type is inert without the factory: no exported function accepts it, so nothing public reaches
