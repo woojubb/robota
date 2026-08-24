@@ -17,10 +17,8 @@ import {
   command,
   createTrackedSubagent,
   hasProjectedSpawnTool,
-  readSystemMessage,
   verifyDuplicateRoleRejections,
   verifyOmissionBehaviors,
-  type TDirectSession,
   type TSubagentSession,
 } from './semantic-command-role-scenario-helpers.js';
 import { createScenarioProjectAccess } from './semantic-command-role-project-access.js';
@@ -35,7 +33,6 @@ async function main(): Promise<void> {
   const cwd = mkdtempSync(join(tmpdir(), 'arch-024-semantic-roles-'));
   let cleanupRemoved = false;
   let interactive: InteractiveSession | undefined;
-  const directSessions: TDirectSession[] = [];
   const subagentSessions: TSubagentSession[] = [];
   let scenarioResult: Record<string, unknown> | undefined;
   try {
@@ -117,28 +114,6 @@ async function main(): Promise<void> {
         'agent job provenance omitted the alternate semantic command id',
       );
 
-      const alternatePrompt = await readSystemMessage(
-        cwd,
-        'activate-skill-alt',
-        directSessions,
-        projectAccess,
-        { skillActivation: 'activate-skill-alt' },
-      );
-      const coincidentalPrompt = await readSystemMessage(
-        cwd,
-        'skills',
-        directSessions,
-        projectAccess,
-      );
-      assertCondition(
-        alternatePrompt.includes('## Skills'),
-        'alternate role omitted skill metadata',
-      );
-      assertCondition(
-        !coincidentalPrompt.includes('## Skills'),
-        'coincidental name gained semantics',
-      );
-
       const projectedSpawnTool = new FunctionTool(
         {
           name: 'robota_command_spawn-subagent-alt',
@@ -170,21 +145,17 @@ async function main(): Promise<void> {
         'shipped owner declarations were incomplete',
       );
 
-      const { unannotatedCoincidentalNames, singleRoleOmission, directCreateSessionOmission } =
-        await verifyOmissionBehaviors({
-          cwd,
-          projectAccess,
-          alternate,
-          injectedSession,
-          projectedSpawnTool,
-          directSessions,
-          subagentSessions,
-          directPromptWithoutRoles: coincidentalPrompt,
-        });
+      const { unannotatedCoincidentalNames, singleRoleOmission } = await verifyOmissionBehaviors({
+        cwd,
+        projectAccess,
+        alternate,
+        injectedSession,
+        projectedSpawnTool,
+        subagentSessions,
+      });
 
       const alternateBehaviors = {
         skillFallback: true,
-        modelVisibleSkillEnrichment: alternatePrompt.includes('## Skills'),
         contextCapacityHint:
           deriveContextCapacityHint(roles.contextReduction) ===
           'Run /reduce-context-alt and retry.',
@@ -202,13 +173,12 @@ async function main(): Promise<void> {
         alternateBehaviors,
         unannotatedCoincidentalNames,
         singleRoleOmission,
-        directCreateSessionOmission,
         duplicateRoleRejections,
         ownerDeclarations,
       };
     } finally {
       await interactive?.shutdown();
-      for (const session of [...subagentSessions, ...directSessions].reverse()) {
+      for (const session of [...subagentSessions].reverse()) {
         await session.shutdown();
       }
       rmSync(cwd, { recursive: true, force: true });

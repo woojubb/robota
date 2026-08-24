@@ -195,10 +195,20 @@ The `plugins/default-plugin-command-adapter.ts` allows fallback on marketplace m
 
 The maintained public-SDK scenario
 `examples/verify-semantic-command-roles.ts` verifies the three shipped declarations, alternate command
-ids, unannotated coincidental names, independent role omission, direct `createSession()` omission, and
-typed duplicate rejection with atomic preservation. `scenario:verify:semantic-command-roles` runs it
-offline and `scenario:record` owns
+ids, unannotated coincidental names, independent role omission as it reaches subagent tool filtering
+and the context-capacity hint, and typed duplicate rejection with atomic preservation.
+`scenario:verify:semantic-command-roles` runs it offline and `scenario:record` owns
 `examples/scenarios/semantic-command-roles.record.json` as its canonical observable.
+
+**What this scenario deliberately does NOT cover, and where it moved.** Assertions about the system
+message an assembled session composes for a role projection — alternate id gains skill metadata, a
+coincidental name does not, single-role omission at the prompt level, and a session assembled with no
+projection at all — now live in
+`packages/agent-framework/src/__tests__/semantic-role-projection-in-assembled-session.test.ts`. They
+are agent-framework behaviour end to end: no command module takes part in them. Proving them from
+here required reaching the framework's `createSession` assembly factory through its package root,
+which is the only reason that factory was ever exported (issue #2270). The framework test reaches it
+by relative import, so the behaviour stays pinned without a public surface.
 
 Test files: 22 (one per command module plus extras for `model-pricing`, `org-policy`, and `provider-setup-flow`).
 
