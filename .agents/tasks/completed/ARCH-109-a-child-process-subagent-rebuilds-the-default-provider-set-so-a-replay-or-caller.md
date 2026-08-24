@@ -156,21 +156,82 @@ This Task is `done` for what it set out to change. The issue is the thing that i
 
 ## User Execution Test Scenarios
 
-**Scenario 1 — a replay run makes no live call from a subagent.**
+Both were executed against the BUILT binary (`packages/agent-cli/bin/robota.cjs`) on 2026-08-25, in a
+throwaway `$HOME` with a minimal environment so no real key or token could reach the run.
 
-- Prerequisite: a session log recorded from a run whose transcript invokes the subagent tool, and a
-  configured provider profile whose key is invalid (so any live call fails loudly rather than
-  silently succeeding and billing).
-- Steps: `robota --session-log <path> -p "<the recorded prompt>"`
-- Expected: the run completes from the log; stderr carries the line beginning
-  `Subagents will run in-process:`; no authentication error appears, because no live call is made.
-- Before this change the same run produced a provider authentication error from the child, or — with
-  a valid key — a real billed call.
-- Evidence: to be captured on the implemented build.
+### Scenario 1 — a replay session does not reach the live provider
 
-**Scenario 2 — an embedded product with its own providers keeps working, quietly.**
+`robota --session-log <log> -p '<prompt>'`, with a profile whose key is deliberately invalid.
 
-- Steps: run any existing `startCli({ providerDefinitions })` embedding in print mode.
-- Expected: stdout unchanged and **stderr empty**. This is the scenario that rejected the first
-  design, so it is recorded as a scenario rather than only as a test.
-- Evidence: to be captured on the implemented build.
+```
+=== exit code ===
+0
+=== stdout ===
+two
+=== stderr ===
+Subagents will run in-process: this session composed a replay provider (--session-log), which a child
+process cannot rebuild, so child-process subagents would run on a different provider than this one.
+Process isolation is off for subagents; the provider is shared.
+=== observations ===
+in-process notice present: true
+authentication error present: false
+```
+
+**Control, and it is what makes this evidence rather than decoration.** The same setup with
+`--session-log` removed:
+
+```
+=== stderr ===
+[ERROR] [ExecutionService] [ROUND] Provider call failed
+401 {"type":"error","error":{"type":"authentication_error","message":"API key is invalid."}}
+=== observations ===
+in-process notice present: false
+authentication error present: true
+```
+
+So the key really is invalid and a live call really does happen on that path — which is what makes the
+replay run's _absence_ of an authentication error mean "no live call" instead of "nothing tried".
+The notice appears only for a replay session.
+
+### Scenario 1's second half could NOT be executed, and the reason is measured
+
+The scenario as written wanted the _subagent_ observed making no live call. **The subagent cannot be
+reached from this surface.** A recorded tool call has no observable effect under `--session-log -p`:
+
+| Round-0 tool call                                        | stdout |
+| -------------------------------------------------------- | ------ |
+| `Agent` (the subagent tool)                              | `two`  |
+| `NoSuchToolARCH109` (a name that does not exist)         | `two`  |
+| `Read` against a file containing `ARCH109-PROBE-CONTENT` | `two`  |
+
+`two` is round 1's recorded content. A tool name that cannot resolve produces output identical to one
+that can, and the probe file's content never appears; `--permission-mode bypassPermissions` changed
+nothing. Filed as issue #2302.
+
+**Recorded as a blocked half rather than a passed gate.** Had the first table been written without the
+`NoSuchToolARCH109` and `Read` rows, this scenario would have read as passing while proving nothing
+about the subagent — the exact shape the fix itself is about, one level up.
+
+### Scenario 2 — an embedded product with its own providers keeps working, and says nothing
+
+Public SDK usage: `startCli({ providerDefinitions: [...] })` in print mode.
+
+```
+=== exit code ===
+0
+=== stdout ===
+embedded provider answered
+=== stderr ===
+
+=== observations ===
+stderr empty: true
+startup refusal present: false
+```
+
+**This is a regression guard, not a demonstration.** It would also have passed before this change —
+that is the point, since the first design broke it. It proves the fallback did not cost the embedding
+path, and it is recorded as a scenario because it is what rejected the first design.
+
+One thing learned by running it rather than reasoning about it: a provider's response `timestamp` must
+be a `Date` instance, not an ISO string — `execution-event-emitter-high-level.ts` checks
+`instanceof Date`, and an ISO string fails with `[EXECUTION] assistant response timestamp is required`.
