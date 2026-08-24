@@ -20,16 +20,18 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createWsHandler } from '../ws-handler.js';
 
 import type { TServerMessage } from '../ws-protocol.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 function setup() {
   const submit = vi.fn().mockResolvedValue({ turnId: 't1', completed: Promise.resolve() });
-  const session = { submit, on: vi.fn(), off: vi.fn() } as unknown as IInteractiveSession;
+  // The published conformant double, not a cast: a hand-rolled object asserted to be an
+  // `IInteractiveSession` is a partial re-implementation nothing checks against the real contract.
+  const session = Object.assign(createTestInteractiveSession(), { submit });
   const sent: TServerMessage[] = [];
   const { onMessage } = createWsHandler({
     session,
