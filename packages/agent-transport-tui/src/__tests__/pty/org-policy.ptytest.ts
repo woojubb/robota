@@ -1,8 +1,9 @@
 /**
- * Real-PTY organization-policy scenario (CLI-083 done-gate evidence).
+ * Real-PTY organization-policy engineering regression scenario (CLI-083).
  *
  * Drives the built Robota CLI with an isolated HOME. Nothing injects a policy object into the
- * command module: the refusal can only come from the shipped `loadOrgPolicy()` startup path.
+ * command module: the refusal can only come from the shipped `loadOrgPolicy()` startup path. The
+ * update check is disabled so this isolated scenario performs no startup network request.
  */
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -54,7 +55,7 @@ describe('organization policy through the built CLI (CLI-083)', () => {
   });
 
   it('blocks a provider switch forbidden only by the policy loaded from disk', async () => {
-    session = spawnTui({ projectDir, homeDir });
+    session = spawnTui({ projectDir, homeDir, args: ['--disable-update-check'] });
     await session.waitFor(/Type a message or \/help/);
 
     const since = session.outputOffset();

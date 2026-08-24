@@ -1,9 +1,8 @@
 ---
 title: 'CLI-083: the org policy loader has no caller, so four enforcement sites are unreachable in the shipped product'
 issue: https://github.com/woojubb/robota/issues/2287
-status: done
+status: blocked
 created: 2026-08-24
-completed: 2026-08-25
 priority: medium
 urgency: soon
 area: packages/agent-cli, packages/agent-command, packages/agent-product
@@ -91,7 +90,7 @@ refactor lands on the same code. That is filed separately; it is not this item.
       end-to-end case must go RED. The chain being present is not the chain being fed.
 - [x] TC-08 — `run-all-scans` green on a clean tree; `pnpm lint` by EXIT CODE.
 
-## Completion disposition
+## Implementation and completion disposition
 
 PR #2293 delivered the loader call, provider-module wiring, serve-session projection, and the shell
 forwarding up to the default TUI channel. Merge commit
@@ -100,12 +99,19 @@ forwarding up to the default TUI channel. Merge commit
 
 Review exposed a broader, recurring cause: optional session capabilities are manually projected by
 the TUI and headless surfaces. The default TUI channel→session hop and print/goal path still omit
-`orgPolicy`. Those are not silently counted as delivered here: both sites carry `Contained —
-ARCH-110.` and the root work remains open in
-[`ARCH-110`](../ARCH-110-session-capability-projections-can-silently-drop-optional-fields.md) /
+`orgPolicy`. Those are not silently counted as delivered here: the actual omission sites in
+`buildTuiSessionOptions` and `HeadlessInteractionChannel` carry `Contained — ARCH-110.`, and the root
+work remains open in
+[`ARCH-110`](ARCH-110-session-capability-projections-can-silently-drop-optional-fields.md) /
 [issue #2295](https://github.com/woojubb/robota/issues/2295). CLI-083 completes the regression repair
 that made the four enforcement sites reachable in the shipped composition; ARCH-110 owns making
 every presentation path complete and mechanically preventing the next optional-field drop.
+
+The implementation disposition is not a valid completion disposition. The user-execution scenario
+was authored after implementation and after merge, so `DONE-GATE-STAGE-1` returned
+`NON-COMPLIANCE` on 2026-08-25 and the `user-execution-scenario` pipeline halted without entering
+Stage 2. This item therefore remains nonterminal and blocked even though issue #2287 correctly stays
+closed for the shipped product fix; no retrospective gate evidence is being fabricated.
 
 ## Not in scope
 
@@ -127,21 +133,38 @@ Gate commands: `pnpm build`, `pnpm typecheck`, the affected package suites,
 
 ### Scenario: a policy loaded from disk blocks a provider switch in the built TUI
 
+Executability decision: `agent-executable` through the repository's real-PTY driver.
+
 Prerequisites: build the Robota CLI; create an isolated HOME with Anthropic and OpenAI provider
 profiles and `.robota/org-policy.json` containing
 `{"allowedProviders":["anthropic"],"adminContact":"ops@example.com"}`.
 
-Steps: launch the built `robota` binary in a real terminal with that HOME, wait for the TUI prompt,
-enter `/provider switch openai`, and submit it.
+Steps: launch the built `robota --disable-update-check` binary in a real terminal with that HOME,
+wait for the TUI prompt, enter `/provider switch openai`, and submit it.
 
 Expected: the TUI reports `Provider "openai" is not allowed by your organization policy` and names
 `anthropic` as the allowed provider. No model call or network request occurs.
 
 Cleanup: terminate the TUI and remove the isolated project/HOME directory.
 
-Evidence (2026-08-25):
+Engineering regression evidence (2026-08-25; not Done Gate Stage 2 evidence):
 `pnpm --filter @robota-sdk/agent-transport-tui exec vitest run --config vitest.pty.config.ts src/__tests__/pty/org-policy.ptytest.ts`
 ran the built binary in a pseudo-terminal and passed 1/1 in 2.07s. The permanent scenario is
 `packages/agent-transport-tui/src/__tests__/pty/org-policy.ptytest.ts`. This scenario was added after
-the implementation PR rather than before implementation; that planning-order violation is recorded
-here instead of being rewritten as if the gate had run on time.
+the implementation PR rather than before implementation; the run therefore remains engineering
+regression evidence and does not satisfy either done-gate stage. That planning-order violation is
+recorded here instead of being rewritten as if the gate had run on time.
+
+### [DONE-GATE-STAGE-1] — 🔴 NON-COMPLIANCE | 2026-08-25
+
+**Status remains:** done
+**Violation:** `DONE-GATE-STAGE-1` has no prior gate, but its PLAN-stage ordering was bypassed: merge
+commit `d39c9e12979d46e9efe40e8ba823f0503c296c78` delivered the implementation before this scenario
+existed, while commit `3a44a5903bfae6cdb5eb60896736be2f31cc62ff` added the scenario afterward and already set the item
+to `status: done` under `.agents/tasks/completed/`. The scenario itself also explicitly records that it
+was added after the implementation PR. Per the Done Gate absolute rule, completion cannot precede both
+done-gate stages, and a retrospective scenario cannot establish the required pre-implementation PLAN
+ordering.
+**Required action:** Route this process violation through `user-execution-scenario`; do not treat the
+retrospective scenario or its engineering test output as a Stage 1 PASS, and do not run Stage 2 as though
+PLAN had returned `PLANNED`.

@@ -14,6 +14,8 @@ import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 export function buildTuiSessionOptions(
   opts: ITuiInteractionChannelOptions,
 ): TInteractiveSessionOptions {
+  // Contained — ARCH-110. This manual channel→session projection still omits `orgPolicy`; the
+  // cross-surface projection fix and its mechanical guard belong to that root work item.
   return {
     cwd: opts.cwd,
     provider: opts.provider,
