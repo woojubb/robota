@@ -16,6 +16,7 @@ import {
   type TEnvResolvedSettings,
   type IResolvedConfig,
 } from './config-types.js';
+import { SettingsParseError } from './settings-parse-error.js';
 import { readSettingsSourceText } from './settings-source.js';
 
 import type { TSettingsSource } from './settings-source.js';
@@ -41,17 +42,35 @@ const DEFAULTS: IResolvedConfig = {
  */
 function readJsonSource(source: TSettingsSource): unknown {
   const content = readSettingsSourceText(source, 'load configuration settings');
+  // A file that is not there was never a layer. Absence stays absence — that is the ONLY case that
+  // may answer `undefined`, because it is the only one where nothing was lost.
   if (content === undefined) return undefined;
+
   const raw = content.trim();
   if (raw.length === 0) {
-    // Empty file — likely from a crash during write. Treat as missing.
-    return undefined;
+    // An existing but empty file is corrupt, not absent. `settings-io.readSettings` in this
+    // directory reaches `JSON.parse('')` and throws for the same file, so treating empty as missing
+    // was this loader disagreeing with its neighbour rather than a considered policy — and a crash
+    // during write is precisely how a settings file becomes empty.
+    throw new SettingsParseError(source.displayName, 'the settings file is empty');
   }
+
   try {
     return JSON.parse(raw) as unknown;
-  } catch {
-    // allow-fallback: corrupt config JSON (likely a crash during write) is treated as missing config
-    return undefined;
+  } catch (error) {
+    // CONFIG-002 / issue #2023. This returned `undefined`, and `loadConfig` skips a layer whose raw
+    // value is `undefined` — so a corrupt layer never reached `SettingsSchema`. Shape validation is
+    // fail-closed; this step was fail-open; and the fail-open path therefore routed around the
+    // fail-closed one inside a single function.
+    //
+    // The direction is what makes it a security defect rather than a lost setting:
+    // `toResolvedConfig` resolves `merged.permissions?.deny ?? DEFAULTS.permissions.deny`, and that
+    // default is `[]`. A truncated project settings file that had carried a deny list came back as
+    // a config with none, and no caller could tell that from a file which never had one.
+    throw new SettingsParseError(
+      source.displayName,
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }
 

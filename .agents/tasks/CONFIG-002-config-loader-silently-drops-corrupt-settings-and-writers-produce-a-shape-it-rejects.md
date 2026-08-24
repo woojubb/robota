@@ -6,6 +6,7 @@ priority: high
 urgency: soon
 area: packages/agent-framework, packages/agent-cli
 depends_on: []
+issue: https://github.com/woojubb/robota/issues/2023
 ---
 
 # CONFIG-002: the loader and its writers disagree, and corruption silently widens permissions
@@ -36,11 +37,68 @@ model choice bricks every subsequent session against that file.
   (`src/index.ts:600`), documented (SPEC:282). `packages/agent-framework/src/config/config-loader.ts:169-173`
   — that exact shape makes `loadConfig` throw `'Legacy flat "provider" settings are not supported…'`.
 
+## Measurement (issue #2023, re-derived at `2a76b3869`)
+
+Issue #2023 was opened nine days after this record and names ONE file. The record's own evidence is
+two sites. Enumerating from code instead of from either text finds **12 parse sites over
+settings/policy/permission documents**, and the two axes the issue's title names must be judged
+separately, because a site can be one without the other:
+
+```
+parse sites ............ 12   @2a76b3869
+fail open ............... 5   @2a76b3869   (every one carries an allow-fallback marker)
+silently drop ........... 4   @2a76b3869
+validate shape .......... 4   @2a76b3869
+```
+
+`dag-cli/session/session-gate.ts` is the case that proves the axes are distinct: it fails open on a
+malformed `DAG_SESSION_PERMISSIONS` and writes a warning to stderr. Open, and not silent.
+
+**All five fail-opens are recorded decisions, not accidents** — each carries an `allow-fallback`
+marker with a stated reason: "likely a crash during write", "must not crash CLI startup", "to allow
+recovery", "open access is the safe default", "disables the feature gracefully". Every reason is an
+availability argument, and none of them mentions that the document being dropped is a security
+control. The decision was made; the consequence was not weighed in it.
+
+### The sharpest form: one file, two readers, opposite verdicts
+
+`config-loader.ts` and `command-api/provider/provider-merge.ts` both call `readSettingsSourceText`
+over the same `TSettingsSource` — the same files on disk. On a corrupt one:
+
+- `config-loader` caught and returned `undefined`, so the layer was dropped;
+- `provider-merge` catches and throws `SettingsParseError`.
+
+**The same corrupt file was fatal or ignored depending on which path reached it**, with both owners
+inside `agent-framework`, four directories apart, over one shared reader. Issue #2023 predicts this
+in the abstract ("different configuration owners may behave inconsistently if they parse files
+separately"); it is concrete, and it is between two modules that already share the reader.
+
+That also sharpens what "shape validation" means here. `loadConfig` DOES validate shape, with Zod,
+and fails closed on it — but corrupt JSON returned `undefined` and was filtered out one line before
+`safeParse` ran. **The fail-open path routed around the fail-closed one inside a single function.**
+
+### Corrected: three claims of an earlier reconnaissance pass that were wrong
+
+Recorded because the numbers were reported before they were checked, and a wrong measurement that
+survives is worse than none:
+
+- "10 parse sites" — the query returned 12 at both `81a4ab97c` and `2a76b3869`. Two sites were
+  dropped from the write-up without being mentioned.
+- "none of the sites validates shape" — four do, and for three others `TSettingsData` is
+  `Record<string, TUniversalValue>`, an open map with no shape to validate. That was counting the
+  absence of something those sites are not supposed to have.
+- A cited path that does not exist (`config/provider/provider-merge.ts`; the file is under
+  `command-api/`).
+
 ## Direction
 
-1. Make `readJsonFile` in `config-loader.ts` throw `SettingsParseError` (already defined in this
-   directory) on a corrupt EXISTING file, matching `settings-io.ts` — never silently skip. A missing
-   file stays missing; a corrupt file is an error, per CLI-069.
+1. **DONE (issue #2023).** `readJsonSource` in `config-loader.ts` throws `SettingsParseError` on a
+   corrupt EXISTING file, matching `settings-io.ts` — never silently skip. A missing file stays
+   missing; a corrupt file is an error, per CLI-069. An existing but EMPTY file is corrupt too:
+   `settings-io.readSettings` reaches `JSON.parse('')` and throws for the same file, so "empty is
+   missing" was this loader disagreeing with its neighbour rather than a considered policy. No
+   product path writes an empty settings file — `robota init` always writes `JSON.stringify(...)`
+   — so failing closed there costs nothing that existed.
 2. Make `updateModelInSettings`'s no-`currentProvider` branch synthesize a `currentProvider` +
    `providers` entry (or throw) instead of writing the legacy shape.
 
