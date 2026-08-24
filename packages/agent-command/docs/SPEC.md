@@ -204,7 +204,9 @@ and the context-capacity hint, and typed duplicate rejection with atomic preserv
 message an assembled session composes for a role projection — alternate id gains skill metadata, a
 coincidental name does not, single-role omission at the prompt level, and a session assembled with no
 projection at all — now live in
-`packages/agent-framework/src/__tests__/semantic-role-projection-in-assembled-session.test.ts`. They
+`packages/agent-framework/src/__tests__/semantic-role-projection-in-assembled-session.test.ts`, except
+the subagent-spawn half of that last one, which
+`packages/agent-framework/src/__tests__/create-subagent-session.test.ts` already covered independently. They
 are agent-framework behaviour end to end: no command module takes part in them. Proving them from
 here required reaching the framework's `createSession` assembly factory through its package root,
 which is the only reason that factory was ever exported (issue #2270). The framework test reaches it

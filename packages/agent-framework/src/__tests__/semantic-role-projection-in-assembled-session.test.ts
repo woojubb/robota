@@ -94,8 +94,22 @@ async function trustedProjectAccess(root: string): Promise<ITrustedWorkspaceProj
 }
 
 let cwd: string;
+/**
+ * An EMPTY directory standing in for the user home.
+ *
+ * `createContributionSourcesForProjectAccess` defaults its second argument to `homedir()`, so
+ * without this the suite reads whatever skills the runner happens to have in `~/.claude/skills`.
+ * That is not hypothetical: the first version of this file omitted both this and the workspace
+ * skill below, and passed on a developer machine with 13 unrelated skills installed while failing
+ * on CI, where there are none. The assertions were green for a reason that had nothing to do with
+ * the behaviour under test.
+ *
+ * Isolating it in BOTH directions is the point — host state can neither supply a skill nor
+ * withhold one.
+ */
+let userHome: string;
 let projectAccess: ITrustedWorkspaceProjectAccess;
-const openSessions: Array<{ shutdown?: () => unknown }> = [];
+const openSessions: Array<Awaited<ReturnType<typeof createSession>>['session']> = [];
 
 /**
  * The assembled system message for one role projection.
@@ -111,7 +125,7 @@ async function assembledSystemMessage(
   const created = await createSession({
     config: CONFIG,
     cwd,
-    contributionSources: createContributionSourcesForProjectAccess(projectAccess),
+    contributionSources: createContributionSourcesForProjectAccess(projectAccess, userHome),
     context: { agentsMd: '', projectNotesMd: '' },
     terminal: TERMINAL as never,
     provider: createScriptedProvider([]).provider,
@@ -126,7 +140,7 @@ async function assembledSystemMessage(
     ],
     ...(commandSemanticRoles ? { commandSemanticRoles } : {}),
   });
-  openSessions.push(created.session as unknown as { shutdown?: () => unknown });
+  openSessions.push(created.session);
   return created.session.getSystemMessage();
 }
 
@@ -144,16 +158,30 @@ const rolesFrom = (commands: readonly ISystemCommand[]): ISystemCommandSemanticR
 
 beforeAll(async () => {
   cwd = mkdtempSync(join(tmpdir(), 'semantic-role-projection-'));
+  userHome = mkdtempSync(join(tmpdir(), 'semantic-role-projection-home-'));
   mkdirSync(join(cwd, 'src'), { recursive: true });
   writeFileSync(join(cwd, 'src', 'index.ts'), 'export const value = 1;\n');
+
+  // The workspace owns the one skill these assertions are about. Without it every
+  // `toContain('## Skills')` below is red on correct code, and every `not.toContain` passes
+  // vacuously — which is how a host-supplied skill made this suite look green.
+  const skillDir = join(cwd, '.agents', 'skills', 'audit');
+  mkdirSync(skillDir, { recursive: true });
+  writeFileSync(
+    join(skillDir, 'SKILL.md'),
+    ['---', 'name: audit', 'description: Audit code', '---', 'Audit'].join('\n'),
+    'utf8',
+  );
+
   projectAccess = await trustedProjectAccess(cwd);
 });
 
 afterAll(async () => {
-  for (const session of openSessions) {
-    await session.shutdown?.();
+  for (const session of openSessions.reverse()) {
+    await session.shutdown();
   }
   rmSync(cwd, { recursive: true, force: true });
+  rmSync(userHome, { recursive: true, force: true });
 });
 
 describe('semantic-role projection reaching the assembled session', () => {
