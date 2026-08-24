@@ -1,0 +1,4 @@
+{"timestamp":"2026-08-23T00:00:00.000Z","sessionId":"sec-016","event":"provider_request","executionId":"e1","round":0}
+{"timestamp":"2026-08-23T00:00:01.000Z","sessionId":"sec-016","event":"provider_response_normalized","executionId":"e1","round":0,"response":{"role":"assistant","content":null,"id":"a1","state":"complete","timestamp":"2026-08-23T00:00:01.000Z","toolCalls":[{"id":"call-1","type":"function","function":{"name":"Read","arguments":"{\"filePath\":\"SEC-016-PROBE.txt\"}"}}]}}
+{"timestamp":"2026-08-23T00:00:02.000Z","sessionId":"sec-016","event":"provider_request","executionId":"e1","round":1}
+{"timestamp":"2026-08-23T00:00:03.000Z","sessionId":"sec-016","event":"provider_response_normalized","executionId":"e1","round":1,"response":{"role":"assistant","content":"SEC_016_TURN_COMPLETE","id":"a2","state":"complete","timestamp":"2026-08-23T00:00:03.000Z"}}

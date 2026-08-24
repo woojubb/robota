@@ -8,8 +8,15 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { runPreToolHook, buildHookInput, truncateToolResult } from '../tool-hook-helpers.js';
-import type { IHookInput, IHookTypeExecutor } from '@robota-sdk/agent-core';
+import {
+  runPreToolHook,
+  firePostToolHook,
+  buildHookInput,
+  truncateToolResult,
+} from '../tool-hook-helpers.js';
+import { runHooks, isEnforcing } from '@robota-sdk/agent-core';
+
+import type { IHookInput, IHookTypeExecutor, THookEvent } from '@robota-sdk/agent-core';
 import type { THooksConfig } from '@robota-sdk/agent-core';
 
 // ---------------------------------------------------------------------------
@@ -178,5 +185,255 @@ describe('truncateToolResult', () => {
     const result = { success: true, data: 42 as unknown as string, metadata: {} };
     const out = truncateToolResult(result);
     expect(out.data).toBe(42);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+// SEC-016 — a hook that reached NO verdict does not read as approval at an enforcing event.
+//
+// Issue #2083 made the failure representable; these are the cases where it starts costing something.
+// Every one of them ALLOWED the tool call before this change, which is what the fixture comments
+// below record — a regression test whose pre-fix behaviour is not stated is a test nobody can check.
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () => {
+  const hooks: THooksConfig = {
+    PreToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'gate' }] }],
+  };
+
+  /** An executor that reaches no verdict, in the way its `kind` names. */
+  function makeFailingExecutor(
+    kind: 'timeout' | 'spawn-failure' | 'malformed-response' | 'transport-failure',
+    source: 'command' | 'http' = 'command',
+  ): IHookTypeExecutor {
+    return {
+      type: 'command',
+      execute: vi.fn().mockResolvedValue({
+        outcome: 'error',
+        source,
+        kind,
+        // Deliberately shares NO substring with `kind` or `source`. It used to be
+        // `simulated ${kind}`, which meant a `toContain(kind)` assertion was satisfied by the
+        // REASON interpolation — so replacing `${failure.kind}` in the message with a literal
+        // passed every case, and so did deleting `${failure.reason}`. Each field masked the other,
+        // and neither half of the documented shape was pinned. A fixture whose fields can stand in
+        // for each other cannot discriminate between them.
+        reason: 'stub failure text',
+      }),
+    };
+  }
+
+  it('TC-01: a hook whose process cannot start blocks the call', async () => {
+    // Before SEC-016: `errors` was populated and nothing read it, so this returned null → allowed.
+    const result = await runPreToolHook(hooks, makeHookInput(), [
+      makeFailingExecutor('spawn-failure'),
+    ]);
+    expect(result).not.toBeNull();
+    expect(result?.success).toBe(false);
+  });
+
+  it('TC-02: a timeout blocks, and so does a malformed response', async () => {
+    for (const kind of ['timeout', 'malformed-response'] as const) {
+      const result = await runPreToolHook(hooks, makeHookInput(), [makeFailingExecutor(kind)]);
+      expect(result, `${kind} should block`).not.toBeNull();
+      expect(result?.success).toBe(false);
+    }
+  });
+
+  it('TC-04: the denial reason names the failure kind and the source executor', async () => {
+    // A fail-closed gate turns a misconfigured hook into a hard stop, so whoever hits it needs
+    // enough in the message to fix it. Asserted per kind rather than once, because a reason that
+    // happened to carry one kind's name would pass a single-case check.
+    for (const [kind, source] of [
+      ['timeout', 'command'],
+      ['spawn-failure', 'command'],
+      ['malformed-response', 'http'],
+    ] as const) {
+      const result = await runPreToolHook(hooks, makeHookInput(), [
+        makeFailingExecutor(kind, source),
+      ]);
+      const reason = result?.error ?? '';
+      // Three separate assertions over three non-overlapping strings, so each names one field of
+      // the documented shape `Hook could not evaluate ({kind}, source: {source}): {reason}`.
+      expect(reason, `${kind} reason should name the kind`).toContain(kind);
+      expect(reason, `${kind} reason should name the source`).toContain(source);
+      expect(reason, `${kind} reason should carry the failure text`).toContain('stub failure text');
+    }
+  });
+
+  it('TC-03: a configured hook type with no registered executor blocks', async () => {
+    // Before SEC-016 the runner reported this on `unknownHookTypes` and the gate proceeded — so a
+    // config declaring a guardrail with no registry silently disabled itself. Startup rejection of
+    // such a config is issue #2099; this is the runtime half.
+    const guardrailHooks: THooksConfig = {
+      PreToolUse: [{ matcher: '', hooks: [{ type: 'guardrail' }] }],
+    };
+    const result = await runPreToolHook(guardrailHooks, makeHookInput(), []);
+    expect(result).not.toBeNull();
+    // The reason travels in `error` — `toolFailure` leaves `metadata` empty and puts the message
+    // there, because a blocked call is rendered to the model as one error line (CORE-027).
+    expect(result?.error).toContain('guardrail');
+  });
+
+  it('TC-08: an approving hook still proceeds, and an explicit deny still blocks', async () => {
+    const allowed = await runPreToolHook(hooks, makeHookInput(), [makeMockExecutor(0)]);
+    expect(allowed).toBeNull();
+
+    const denied = await runPreToolHook(hooks, makeHookInput(), [makeMockExecutor(2, 'no')]);
+    expect(denied).not.toBeNull();
+    expect(denied?.error).toBe('no');
+  });
+
+  it('TC-03b: the SAME unknown-executor config on PostToolUse does not deny', async () => {
+    // The half of TC-03 that had no test. `runPreToolHook` is PreToolUse-specific, so the contrast
+    // is drawn where it is observable: the runner reports `unknownHookTypes` for both events, and
+    // only the enforcing one turns that into a denial.
+    const guardrailOnPost: THooksConfig = {
+      PostToolUse: [{ matcher: '', hooks: [{ type: 'guardrail' }] }],
+    };
+    const post = await runHooks(guardrailOnPost, 'PostToolUse', makeHookInput(), []);
+    expect(post.unknownHookTypes).toEqual(['guardrail']);
+    expect(post.blocked).toBe(false);
+    expect(isEnforcing('PostToolUse')).toBe(false);
+
+    // Same config, enforcing event, opposite outcome.
+    const guardrailOnPre: THooksConfig = {
+      PreToolUse: [{ matcher: '', hooks: [{ type: 'guardrail' }] }],
+    };
+    const denial = await runPreToolHook(guardrailOnPre, makeHookInput(), []);
+    expect(denial).not.toBeNull();
+  });
+
+  it('TC-04b: a turn with BOTH causes reports both in one denial, not one per attempt', async () => {
+    // The error branch returns before the unregistered-type branch, so a config carrying both used
+    // to surface only the error. The operator fixes the named cause, retries, and is stopped again
+    // by a cause that was already known at the first denial. A fail-closed gate that reveals its
+    // reasons one attempt at a time is a gate you debug by being repeatedly stopped.
+    const both: THooksConfig = {
+      PreToolUse: [
+        {
+          matcher: '',
+          hooks: [
+            // Matched by the stub executor below, which reports an error outcome. The command
+            // string is inert — the stub never spawns anything — so do not read it as the mechanism.
+            { type: 'command', command: 'definitely-not-a-real-binary-sec016' },
+            // A second failing hook, so the "(+N more hook failure(s))" clause is exercised rather
+            // than skipped — with one error the clause is absent and its deletion is invisible.
+            { type: 'command', command: 'also-not-a-real-binary-sec016' },
+            // No executor supplied for this type -> reported on `unknownHookTypes`.
+            { type: 'guardrail' },
+          ],
+        },
+      ],
+    };
+
+    // A real executor for `command` so that hook produces an ERROR outcome. Passing `[]` would
+    // leave `command` unregistered too — `[] ?? defaults` is `[]`, so an empty array is "no
+    // executors", not "use the built-ins" — and then both hooks would take the unregistered path
+    // and the test would prove nothing about combining the two causes.
+    const failingCommand = {
+      type: 'command' as const,
+      execute: async () => ({
+        outcome: 'error' as const,
+        source: 'command' as const,
+        kind: 'spawn-failure' as const,
+        reason: 'spawn ENOENT',
+      }),
+    };
+
+    const denial = await runPreToolHook(both, makeHookInput(), [failingCommand]);
+
+    expect(denial).not.toBeNull();
+    const reason = String(denial?.error ?? '');
+    // The error cause, named.
+    expect(reason).toContain('Hook could not evaluate');
+    // AND the unregistered cause, in the SAME reason rather than on a later attempt.
+    expect(reason).toContain('guardrail');
+    expect(reason).toContain('no registered executor');
+    // AND the count of the OTHER failures. This clause is documented as contract in
+    // `packages/agent-session/docs/SPEC.md` and had no test — deleting it left all 19 cases green.
+    expect(reason).toContain('+1 more hook failure');
+    // AND the remedy. The operator with two faults must not get LESS guidance than the one with a
+    // single fault, which is what an abbreviated second clause produced.
+    expect(reason).toContain('Remove the hook from the PreToolUse configuration');
+    // One wording for one cause: the both-causes reason must carry the same sentence the standalone
+    // denial does, not a paraphrase that can drift from it.
+    const soloConfig: THooksConfig = {
+      PreToolUse: [{ matcher: '', hooks: [{ type: 'guardrail' }] }],
+    };
+    const solo = await runPreToolHook(soloConfig, makeHookInput(), [failingCommand]);
+    const soloReason = String(solo?.error ?? '');
+    // Without this, the containment below is vacuous: every string contains the empty string, so a
+    // standalone denial that produced no message at all would satisfy it.
+    expect(soloReason).not.toBe('');
+    expect(reason).toContain(soloReason);
+  });
+
+  it('TC-05: EVERY advisory event tolerates a failed hook — all fifteen', async () => {
+    // The criterion says "the fifteen advisory events", and the first version of this test drove
+    // one. Review caught the gap. Driven at `runHooks`, which is where every event is observable:
+    // an errored hook must report and must not block, for each advisory event by name.
+    // Enumerated literally and narrowed by `isEnforcing`, rather than read from the table. Two
+    // reasons: the predicate is what `agent-core`'s root barrel publishes — the table stays on the
+    // hooks barrel, because one export line is the whole remaining budget against that file's frozen
+    // size baseline — and a test that derived the advisory set FROM the table would be checking the
+    // table against itself. `satisfies` makes the compiler reject a name that is not a THookEvent.
+    const everyEvent = [
+      'PreToolUse',
+      'PostToolUse',
+      'SessionStart',
+      'SessionEnd',
+      'Stop',
+      'StopFailure',
+      'PreCompact',
+      'PostCompact',
+      'UserPromptSubmit',
+      'SubagentStart',
+      'SubagentStop',
+      'WorktreeCreate',
+      'WorktreeRemove',
+      'PreModelCall',
+      'PostModelCall',
+      'PermissionDecision',
+    ] as const satisfies readonly THookEvent[];
+    const advisory = everyEvent.filter((event) => !isEnforcing(event));
+    expect(advisory).toHaveLength(15);
+
+    for (const event of advisory) {
+      const config: THooksConfig = {
+        [event]: [{ matcher: '', hooks: [{ type: 'command', command: 'gate' }] }],
+      };
+      const result = await runHooks(config, event, { ...makeHookInput(), hook_event_name: event }, [
+        makeFailingExecutor('timeout'),
+      ]);
+      // Reported…
+      expect(result.errors, `${event} should report the failure`).toHaveLength(1);
+      // …and not blocking. Both halves: reporting without blocking is the advisory contract, and a
+      // test asserting only `blocked === false` would pass on a runner that dropped the error.
+      expect(result.blocked, `${event} must not block`).toBe(false);
+      expect(isEnforcing(event), `${event} must be advisory`).toBe(false);
+    }
+  });
+
+  it('TC-05b: the same failure on PostToolUse does not block at the boundary', async () => {
+    // `firePostToolHook` is fire-and-forget by construction, so there is no result to block on.
+    // Asserted through the enforcing helper to show the difference is the EVENT, not the outcome:
+    // an identical executor produces a denial at PreToolUse and nothing here.
+    const postHooks: THooksConfig = {
+      PostToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'gate' }] }],
+    };
+    const blockedAtPre = await runPreToolHook(hooks, makeHookInput(), [
+      makeFailingExecutor('timeout'),
+    ]);
+    expect(blockedAtPre).not.toBeNull();
+
+    // The advisory path returns void and must not throw.
+    expect(() =>
+      firePostToolHook(
+        postHooks,
+        { ...makeHookInput(), hook_event_name: 'PostToolUse' },
+        { success: true, data: 'ran', metadata: {} },
+        [makeFailingExecutor('timeout')],
+      ),
+    ).not.toThrow();
   });
 });

@@ -46,7 +46,7 @@ export function usesMarker(code, marker) {
  * one ends is to count. Strings containing unbalanced parens would confuse it, which is stated
  * rather than hidden — the alternative is parsing, and this file is a grep-level guard by design.
  */
-function skippedSuiteSpans(code) {
+export function skippedSuiteSpans(code) {
   const spans = [];
   const opener = /\bdescribe((?:\s*\.\s*[A-Za-z]+(?:\([^()]*\))?)*)\s*\(/g;
   for (const match of code.matchAll(opener)) {

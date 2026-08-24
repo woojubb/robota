@@ -8,9 +8,12 @@
  * `PreModelCall`, `PostModelCall`, and `PermissionDecision` (SELFHOST-009) are
  * INFORMATIONAL-ONLY: they are fired fire-and-forget from the turn owner at points it already
  * observes and their `runHooks` result is NOT awaited or consulted for gating. The sole BLOCKING
- * event is `PreToolUse` (exit-code-2 / `permissionDecision: "deny"` → `blocked`). See the catalog
- * SSOT `packages/agent-core/docs/HOOK-CATALOG.md` for per-event timing, fire-site, and blocking
- * semantics.
+ * event is `PreToolUse`. The deny causes are enumerated once, in the catalog SSOT
+ * `packages/agent-core/docs/HOOK-CATALOG.md` § "Blocking semantics" — cited here rather than
+ * recounted, because two different groupings of the same set were in circulation and a second copy
+ * is what let them drift. Which events enforce is recorded in `HOOK_ENFORCEMENT_POLICY`
+ * (`./enforcement-policy.ts`); see the catalog SSOT `packages/agent-core/docs/HOOK-CATALOG.md` for
+ * per-event timing, fire-site, and blocking semantics.
  */
 export type THookEvent =
   | 'PreToolUse'

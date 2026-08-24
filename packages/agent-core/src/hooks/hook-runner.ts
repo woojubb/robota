@@ -7,9 +7,10 @@
  * Outcome semantics (SEC-015). Executors return a decoded `THookOutcome`, not an exit code:
  * - `allow` → its stdout is decoded for the response protocol below
  * - `deny`  → blocks, carrying the hook's reason
- * - `error` → the hook rendered NO verdict; recorded in `IRunHooksResult.errors` and, for now,
- *   does not block. Whether an enforcing event should treat that as a denial is a per-event POLICY
- *   this runner deliberately does not decide — see issue #2093.
+ * - `error` → the hook rendered NO verdict; recorded in `IRunHooksResult.errors`. Whether that
+ *   BLOCKS is a per-event policy this runner deliberately does not decide: it reports, and the
+ *   enforcement boundary reads `HOOK_ENFORCEMENT_POLICY` (SEC-016). `PreToolUse` fails closed on it
+ *   today; every other event is advisory, because no other fire site consults `blocked` at all.
  *
  * stdout JSON semantics (Claude Code compatible):
  * - { continue: false } → block, regardless of exit code
@@ -167,7 +168,8 @@ export async function runHooks(
 
       // No verdict. Recorded and skipped — the hook's output is NOT read, because a hook that
       // failed has not said anything, and treating its stdout as a response is how a malformed
-      // body came to be a verdict in the first place. Whether this should block is #2093's call.
+      // body came to be a verdict in the first place. Whether this BLOCKS is the boundary's call,
+      // read from `HOOK_ENFORCEMENT_POLICY` — the runner reports and does not enforce (SEC-016).
       if (outcome.outcome === 'error') {
         errors.push(outcome);
         continue;

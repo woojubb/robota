@@ -11,11 +11,30 @@ registry.
 
 ## Blocking semantics
 
-The **only** blocking event is `PreToolUse`: a hook whose executor returns the `deny` outcome (or an
-`allow` whose stdout carries `hookSpecificOutput.permissionDecision: "deny"` / `continue: false`) sets
-`IRunHooksResult.blocked`,
-and the turn owner's `runPreToolHook` → `PermissionEnforcer` path turns that into a denial
-`IToolResult` so the tool's `execute` never runs. Every other event is **informational-only**: its
+The **only** blocking event is `PreToolUse`. **This document is the owner of the deny-cause list;
+anything else that needs the count cites this section rather than recounting it.** Four causes deny
+there, enumerated here in full rather than promised and delivered in pieces:
+
+1. a hook whose executor returns the `deny` outcome;
+2. an `allow` whose stdout carries `hookSpecificOutput.permissionDecision: "deny"` or
+   `continue: false` — a deny directive in a non-deny outcome;
+3. **(SEC-016)** a hook that returns `error` — timeout, spawn failure, transport failure, HTTP
+   status, malformed response, non-zero exit — because a hook that reached no verdict is not a hook
+   that approved;
+4. **(SEC-016)** a configured hook type with **no registered executor**, because a gate nothing
+   evaluated denies rather than allowing silently.
+
+Causes 1 and 2 set `IRunHooksResult.blocked`; causes 3 and 4 are decided at the boundary from
+`errors` and `unknownHookTypes`, read per event through `isEnforcing`. In every case the turn
+owner's `runPreToolHook` → `PermissionEnforcer` path turns the decision into a denial `IToolResult`
+so the tool's `execute` never runs.
+
+Note the grouping, because two counts were in circulation: causes 1 and 2 were previously described
+as one thing, which is defensible — they are both an executor-supplied verdict — and produced a
+count of three against this section's four. Neither was wrong; they were counting different
+groupings without saying so. Four, split as above, is the count this document now owns.
+
+Every other event is **informational-only**: its
 `runHooks` result is not awaited or consulted for gating, so it cannot veto or mutate the action it
 observes.
 
@@ -27,9 +46,17 @@ outcome.
 
 **A hook that FAILS is not a hook that approved (SEC-015).** An executor that could not reach a verdict —
 timeout, spawn failure, HTTP status, unreachable endpoint, undecodable body, unexpected exit code —
-returns the `error` outcome, and `runHooks` reports every one on `IRunHooksResult.errors`. `error` does
-not currently block on any event, including `PreToolUse`; making it block there is issue #2093. The
-contract exists first so that decision has a fact to act on rather than a number to guess from. A body
+returns the `error` outcome, and `runHooks` reports every one on `IRunHooksResult.errors`.
+
+**Whether that blocks is per-event policy, and `PreToolUse` fails closed (SEC-016).** A `PreToolUse`
+hook that reached no verdict — or a configured hook type with no registered executor — now denies the
+tool call, with the failure `kind` and the `source` executor named in the reason.
+`HOOK_ENFORCEMENT_POLICY` (`packages/agent-core/src/hooks/enforcement-policy.ts`) is the SSOT for
+which events enforce. Every other event is `advisory`, and each records WHY: measured across the
+tree, `PreToolUse` is the only event whose fire site awaits `runHooks` and consults `blocked`, so the
+other fifteen could not honour an enforcing posture even if one were declared. That is what each
+row's `enforcementReachable` field records, and what
+`scripts/harness/scan-hook-enforcement-reachable.mjs` refuses to let drift. A body
 whose `{ ok }` verdict is undecodable but which carries an explicit block directive is a `deny`, not an
 `error` — the hook said so outright.
 
@@ -63,8 +90,8 @@ owner must be wired to consult `blocked` there — that is not the case now.)
 
 ## Fire-site dispatch note (for the drift-guard scan)
 
-Most events pass their name as a **string literal** to `runHooks('<Event>', …)`. Four are dispatched
-through a **variable**, so the name never appears as a literal first argument:
+Most events pass their name as a **string literal** to `runHooks('<Event>', …)`. **Six** are
+dispatched through a **variable**, so the name never appears as a literal first argument:
 
 - `SubagentStart` / `SubagentStop` — `runHooks(hooks, hookEventName, …)` where `hookEventName` comes
   from the `getSubagentHookEvent` mapping table
@@ -72,11 +99,32 @@ through a **variable**, so the name never appears as a literal first argument:
 - `WorktreeCreate` / `WorktreeRemove` — `runHooks(options.hooks, event, …)` where `event` is a
   `fireWorktreeHook` parameter passed the string literal at each call-site
   (`agent-executor/src/subagents/worktree-subagent-runner.ts`).
+- `PreModelCall` / `PostModelCall` — `void runHooks(…, hookEvent, …)` where `hookEvent` is a
+  `fireModelCallHook` parameter passed the string literal at each call-site
+  (`agent-session/src/session-run.ts`).
 
-`scan-hook-catalog.mjs` resolves a firing event name from any of: (a) a string literal passed to
-`runHooks(`; (b) a `hook_event_name:` field literal; (c) the string literals returned by
-`getSubagentHookEvent` and the literals passed as the `event` argument at each `fireWorktreeHook`
-call-site — so all 16 events, including the variable-dispatched four, are covered.
+`scan-hook-catalog.mjs` resolves a firing event name from any of **four** rules: (a) a string
+literal passed as the second argument to `runHooks(`; (b) a `hook_event_name:` field literal;
+(c) a string literal returned from within the `getSubagentHookEvent` mapping function body, scoped
+to that function so a stray `return '<Event>'` elsewhere cannot satisfy the check; (d) a string
+literal passed as the second argument to a `fire*Hook` helper — **both** `fireWorktreeHook` and
+`fireModelCallHook`.
+
+Those four rules cover all 16 events, including the **six** dispatched through a variable rather
+than a literal: `SubagentStart`, `SubagentStop`, `WorktreeCreate`, `WorktreeRemove`, `PreModelCall`,
+`PostModelCall`.
+
+**Three** facts here were stale, all dating from before the two model-call events existed: this
+sentence said "the variable-dispatched four"; it folded `fireWorktreeHook` into rule (c) while
+omitting `fireModelCallHook` entirely; and the _heading above_ said "Four are dispatched through a
+variable" over a four-item list. The scan has enumerated four rules and six variable-dispatched
+events throughout, so the document and the scan it describes disagreed on every count.
+
+An earlier revision of this paragraph said "two facts … corrected together, because they are one
+drift" — and it was written in a change whose commit message claimed to have run that finding's axis
+over the rest of the file. It had not: the heading seventeen lines above was the third instance, and
+it survived a sweep declared clean. **Running an axis means enumerating its instances, not fixing the
+one that was reported and asserting the rest.**
 
 ## Naming note
 

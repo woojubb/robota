@@ -417,9 +417,57 @@ await transport.start();
 
 ### Hook Executors
 
-The internal assembly factory `createSession()` accepts custom `IHookTypeExecutor` implementations (`additionalHookExecutors`) alongside the SDK-built-in `PromptExecutor` and `AgentExecutor`. Executors are keyed by hook type string and receive hook configuration plus a JSON payload.
+The registry is built by `buildHookTypeExecutors()` in `src/assembly/build-hook-type-executors.ts`,
+which owns it. `createSession()` calls it and passes the result through. Executors are keyed by hook
+type string and receive hook configuration plus a JSON payload.
 
-**Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. This seam is internal-assembly-level only: `createSession()` is not exported, and the public `InteractiveSession` options do not expose executor injection.
+**The built-ins are always registered (SEC-016).** `CommandExecutor` and `HttpExecutor` are seeded
+first, then `PromptExecutor` (with `providerFactory`), `AgentExecutor` (with `sessionFactory`),
+`GuardrailExecutor` (with `guardrails`), then `additionalHookExecutors`.
+
+This was previously not the case, and the difference is a behaviour change rather than a
+clarification. `runHooks` resolves executors as `executors ?? createDefaultExecutors()` — an
+**undefined-only** fallback, so a non-empty array REPLACES the built-ins instead of extending them.
+The old code collapsed its array to `undefined` only when empty, so supplying any one of
+`guardrails` / `providerFactory` / `sessionFactory` / `additionalHookExecutors` silently
+deregistered `command` and `http`. A `{ type: 'command' }` hook then did nothing, silently. **A
+command or http hook that was inert under one of those configurations now runs.** The option
+contract that made this possible is issue #2238.
+
+**Seeding order is load-bearing.** `runHooks` builds its lookup with `Map.set` in array order, so
+the LAST executor of a given type wins. Built-ins are therefore seeded **first**, so a
+caller-supplied executor of the same type still overrides one. Seeding them last would make the
+built-ins unoverridable — and making `runHooks` merge instead would leave a caller no way to exclude
+a built-in, so a sandboxed caller passing only a guardrail executor would silently regain process
+execution. Both are an override that cannot override, from opposite directions; seeding first is the
+only arrangement that is neither. The rule is pinned by
+`packages/agent-core/src/hooks/__tests__/executor-precedence.test.ts` in the package that owns it.
+
+**The objection the argument above invites, and the answer it needed.** This factory seeds the
+built-ins, which is the effect the paragraph rejects for `runHooks`. An earlier version of this
+section resolved the tension by asserting that `createSession()` is **not exported**, so no caller
+could be restricting anything. **That premise was false.** `src/index.ts` exports `createSession`,
+and `ICreateSessionOptions`, which carries `additionalHookExecutors`, is exported beside it. The
+escape clause that same paragraph wrote — "if `createSession()` ever becomes public, this seeding
+needs an opt-out" — had already triggered when it was written.
+
+**There is currently no opt-out, and that is a live gap rather than a decision.** A consumer who
+supplies only a restricted executor set — deliberately, to keep shell and HTTP execution out of a
+sandboxed host — gets the built-ins back. Filed as issue #2270.
+
+It is filed rather than fixed here for a reason worth recording: an opt-out is a new public
+capability, and this repository's `option-reachability` scan refuses a declared option that no
+production code assigns — _"a capability nothing can turn on is not delivered"_. An option only an
+external consumer can set is, from inside this repository, unverifiable; delivering it means also
+deciding which internal surface exercises it. That is a design decision with consumer impact, not a
+correction to this change.
+
+That asymmetry is the principle the false premise was standing in for: **restriction must be asked
+for, and extension may be assumed.** Inferring restriction from the shape of an array — a non-empty
+list meaning "replace", an empty one meaning "extend" — is the option-contract defect filed as
+issue #2238, and it is what produced the original deny-all.
+
+**Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. A custom executor reaches this seam through `createSession`, which IS exported along with `ICreateSessionOptions`; the public `InteractiveSession` options do not expose executor injection, so that is the narrower surface. An earlier revision described the whole seam as internal on the strength of `createSession` being unexported, which it is not.
 
 ### Bundle Plugins
 

@@ -25,6 +25,7 @@
     "harness-script-import-safety",
     "helper-limits",
     "hook-catalog",
+    "hook-enforcement-reachable",
     "hook-override-declarations",
     "hook-registration",
     "hook-syntax",
