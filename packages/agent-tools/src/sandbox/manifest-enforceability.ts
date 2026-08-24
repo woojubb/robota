@@ -29,7 +29,7 @@ export function refuseUnenforceableManifestControls(manifest: IWorkspaceManifest
   // applicator equally cannot apply. This is a runtime boundary of a published package, so a
   // JavaScript caller can supply a member the type does not declare.
   const permissions = manifest.permissions;
-  const requestsSomething = (value: unknown): boolean =>
+  const requestsSomething = (value: string[] | undefined): boolean =>
     Array.isArray(value) ? value.length > 0 : value !== undefined;
   if (permissions && Object.values(permissions).some(requestsSomething)) {
     unenforceable.push('permissions');
