@@ -7,6 +7,7 @@ import {
   InMemorySandboxClient,
   validateWorkspaceManifestPath,
 } from '../index.js';
+import type { IWorkspaceManifest } from '../sandbox/types.js';
 
 const tempDirs: string[] = [];
 
@@ -142,5 +143,97 @@ describe('workspace manifest application', () => {
         message: 's3Mount requires a provider-specific sandbox adapter.',
       },
     ]);
+  });
+});
+
+describe('unenforceable manifest security controls (TOOL-005 / issue #2027)', () => {
+  function manifestWithOneEntry(): IWorkspaceManifest {
+    return { entries: { 'task.md': { type: 'file', content: 'Solve this task.\n' } } };
+  }
+
+  it('refuses a manifest requesting an environment the built-in applicator cannot apply', async () => {
+    const client = new InMemorySandboxClient();
+    const manifest = { ...manifestWithOneEntry(), environment: { TOKEN: 'secret' } };
+
+    await expect(applyWorkspaceManifest(client, manifest)).rejects.toThrow(/environment/);
+  });
+
+  it('refuses a manifest requesting permissions the built-in applicator cannot apply', async () => {
+    const client = new InMemorySandboxClient();
+    const manifest = { ...manifestWithOneEntry(), permissions: { read: ['/etc'] } };
+
+    await expect(applyWorkspaceManifest(client, manifest)).rejects.toThrow(/permissions/);
+  });
+
+  it('refuses a non-array permissions member a JS caller can supply but the type does not declare', async () => {
+    const client = new InMemorySandboxClient();
+    // The type says `{ read?: string[]; write?: string[] }`. This package is published, so a
+    // JavaScript consumer reaches this function without that check. An array-only emptiness rule
+    // would read `.length` off a boolean, get `undefined`, and accept the request unenforced —
+    // which is the defect this function exists to refuse.
+    const manifest = {
+      ...manifestWithOneEntry(),
+      permissions: { network: true } as unknown as IWorkspaceManifest['permissions'],
+    };
+
+    await expect(applyWorkspaceManifest(client, manifest)).rejects.toThrow(/permissions/);
+  });
+
+  it('names both fields when both are requested', async () => {
+    const client = new InMemorySandboxClient();
+    const manifest = {
+      ...manifestWithOneEntry(),
+      environment: { TOKEN: 'secret' },
+      permissions: { write: ['/tmp'] },
+    };
+
+    await expect(applyWorkspaceManifest(client, manifest)).rejects.toThrow(
+      /environment and permissions/,
+    );
+  });
+
+  it('refuses BEFORE applying any entry, so a refused manifest leaves nothing half-built', async () => {
+    const client = new InMemorySandboxClient();
+    const manifest = { ...manifestWithOneEntry(), environment: { TOKEN: 'secret' } };
+
+    await expect(applyWorkspaceManifest(client, manifest)).rejects.toThrow();
+    // The assertion that distinguishes "refused first" from "refused after the work":
+    // nothing reached the sandbox.
+    await expect(client.readFile('/workspace/task.md')).rejects.toThrow();
+  });
+
+  it('accepts declared-but-empty controls, which request nothing', async () => {
+    const client = new InMemorySandboxClient();
+    const manifest = {
+      ...manifestWithOneEntry(),
+      environment: {},
+      permissions: { read: [], write: [] },
+    };
+
+    const result = await applyWorkspaceManifest(client, manifest);
+    expect(result.entries).toHaveLength(1);
+    // Pins the premise the refusal-ordering case depends on: an APPLIED entry really is readable at
+    // this path. Without it, `rejects.toThrow()` over the same path proves only that nothing is
+    // there — which a wrong path satisfies just as well. The negative control would become a
+    // tautology the day the target root changed, and silently.
+    await expect(client.readFile('/workspace/task.md')).resolves.toContain('Solve this task');
+  });
+
+  // This records an ACCEPTED HOLE, not coverage: a delegating client still receives `environment`,
+  // and this function still cannot tell whether it honoured it. Making that observable needs a wider
+  // apply result, which is a published type — tracked on issue #2027.
+  it('leaves the delegating path alone — a client owning applyManifest is not second-guessed', async () => {
+    const manifest = { ...manifestWithOneEntry(), environment: { TOKEN: 'secret' } };
+    let received: IWorkspaceManifest | undefined;
+    const client = new InMemorySandboxClient() as InMemorySandboxClient & {
+      applyManifest?: (m: IWorkspaceManifest) => Promise<{ entries: [] }>;
+    };
+    client.applyManifest = async (m) => {
+      received = m;
+      return { entries: [] };
+    };
+
+    await expect(applyWorkspaceManifest(client, manifest)).resolves.toEqual({ entries: [] });
+    expect(received?.environment).toEqual({ TOKEN: 'secret' });
   });
 });

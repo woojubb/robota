@@ -1,6 +1,8 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { isAbsolute, join, posix, resolve } from 'node:path';
 
+import { refuseUnenforceableManifestControls } from './manifest-enforceability.js';
+
 import type {
   ISandboxClient,
   IWorkspaceManifest,
@@ -22,6 +24,21 @@ export async function applyWorkspaceManifest(
   if (sandboxClient.applyManifest) {
     return sandboxClient.applyManifest(manifest, options);
   }
+
+  // TOOL-005 / issue #2027. Past this point the built-in applicator is what runs, and it applies
+  // ENTRIES only — it has no mechanism for `environment` or `permissions`. Before this check it
+  // applied the entries and returned success, so a caller that had asked for an environment
+  // allowlist or a read/write policy got a sandbox with neither and no way to find out.
+  //
+  // A control that is requested and not applied must not be reported as applied, and the failure
+  // direction matters: this is a SECURITY surface, so the unenforceable request fails closed rather
+  // than warning. It throws before any entry is applied, so a refused manifest leaves nothing
+  // half-built.
+  //
+  // The delegating branch above is deliberately untouched: a client that implements `applyManifest`
+  // is claiming ownership of the whole manifest, and this function cannot know what it honoured.
+  // Making that claim observable needs a wider apply result and is tracked separately on #2027.
+  refuseUnenforceableManifestControls(manifest);
 
   const targetRoot = normalizeSandboxRoot(options.targetRoot ?? DEFAULT_TARGET_ROOT);
   const appliedEntries: IWorkspaceManifestAppliedEntry[] = [];
