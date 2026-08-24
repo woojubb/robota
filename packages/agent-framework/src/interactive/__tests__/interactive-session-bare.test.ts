@@ -33,9 +33,15 @@ vi.mock('../../config/config-loader.js', () => ({
   loadConfig: mockLoadConfig,
 }));
 
-// Mock BundlePluginLoader — bare mode must skip plugin loading
+// Mock the plugin loader — bare mode must skip plugin loading.
+// PLG-021: the module under test now builds its loader through the composition root
+// (`createHostBundlePluginLoader`) rather than the bare constructor, so that is what is stubbed.
+// `BundlePluginLoader` stays in the mock because the module's TYPE surface still names it.
 const mockLoadPluginsSync = vi.fn().mockReturnValue([]);
 vi.mock('../../plugins/index.js', () => ({
+  createHostBundlePluginLoader: vi.fn().mockImplementation(() => ({
+    loadPluginsSync: mockLoadPluginsSync,
+  })),
   BundlePluginLoader: vi.fn().mockImplementation(() => ({
     loadPluginsSync: mockLoadPluginsSync,
   })),
