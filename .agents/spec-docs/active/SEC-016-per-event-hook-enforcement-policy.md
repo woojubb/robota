@@ -303,6 +303,11 @@ the opposite. An event whose fire site cannot be resolved **fails** the scan; it
   develop under the name above while this branch was in review, so the two were folded and the
   duplicate DELETED — the index requires one owner per fact, and two entries asserting the same
   thing had already begun to disagree about it
+- `.agents/memory/a-wide-corpus-makes-a-guard-pass-quietly.md` — the owner of the too-wide-corpus
+  fact, which gained this leaf's qualification that the direction of the danger is conditional
+  (a wide corpus suppresses a PRESENCE proof and only manufactures work for an ABSENCE proof). The
+  qualification was first written into a neighbouring entry, which put the correction somewhere
+  other than the fact it corrects
 - Tests: `packages/agent-core/src/hooks/__tests__/enforcement-policy.test.ts` (new),
   `packages/agent-session/src/__tests__/tool-hook-helpers.test.ts`,
   `scripts/harness/__tests__/scan-hook-enforcement-reachable.test.mjs` (new),
@@ -325,7 +330,11 @@ Recorded because a plan that omits the work's hardest findings makes the change 
 less considered than it was, and because a stale plan shipping inside the change that made it stale
 is the same defect this leaf's own review kept finding in the SPEC.
 
-Five actionable findings arrived across five review rounds. Two of them changed the design:
+Review found more than this section originally said. It claimed "five findings across five review
+rounds"; the count kept rising and the sentence did not, which is the stale-plan defect this very
+section exists to record — committed inside the paragraph apologising for it. No number is given
+now, for the same reason a count was deleted elsewhere in this document: every figure attached to
+this work has been overtaken. Two of the findings changed the design:
 
 - `packages/agent-framework/src/assembly/build-hook-type-executors.ts` (new), and its caller
   `packages/agent-framework/src/assembly/create-session.ts`. (`build-agent-runtime.ts` was touched

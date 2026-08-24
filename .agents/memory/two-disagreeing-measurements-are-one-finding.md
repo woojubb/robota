@@ -32,14 +32,12 @@ as thorough rather than as contradictory.
 
 Related: [[enumerating-a-sink-is-not-covering-it]], [[a-wide-corpus-makes-a-guard-pass-quietly]]
 
-## The direction of the danger is conditional, not absolute
+## Related
 
-Recorded because an earlier statement of this lesson made it absolute and that was wrong. A corpus
-wider than the claim does not always conceal: it suppresses a **presence** proof (the extra corpus
-supplies the thing being looked for, so a real absence reads as present), and it merely manufactures
-work for an **absence** proof. Which way it fails depends on what the guard is trying to establish,
-and a sibling entry in this corpus still states it as an absolute — see
-[[a-wide-corpus-makes-a-guard-pass-quietly]], which needs the same qualification.
+The direction-of-danger qualification for a too-wide corpus lives with its owner,
+[[a-wide-corpus-makes-a-guard-pass-quietly]], not here. It was briefly recorded in this file, which
+put a correction in one entry and left the fact it corrects stated absolutely in another — two
+entries disagreeing about one thing, which is precisely what this entry is about.
 
 ## The limit of this file, measured on this file
 
