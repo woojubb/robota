@@ -51,6 +51,10 @@ export function attachSession(
     bridge.attach((data) => options.channel.send(data), {
       awaitResume: viaReconnect,
       onDeliveryError,
+      // ARCH-030: without this the bridge's boundary has no backpressure reading, so the replay
+      // path — the burst this budget exists for — runs unbudgeted while every other outbound path
+      // on the same connection is guarded. Read at call time; `bufferedAmount` is live.
+      pendingBytes: () => options.channel.bufferedAmount,
     });
     return {
       onSessionMessage: (data) => bridge.onClientMessage(data),

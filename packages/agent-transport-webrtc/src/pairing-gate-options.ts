@@ -27,6 +27,15 @@ import type { ILocalPeerProof } from './local-peer-proof.js';
 export interface IPairingChannel {
   send(data: string): void;
   close(): void;
+  /**
+   * ARCH-030 / issue #1734: this channel's own count of what it has accepted and not yet written.
+   *
+   * Optional for the same reason `IDataChannelSink.bufferedAmount` is — the slice is structural and a
+   * test double may omit it — while a real `RTCDataChannel` always has it. It is here so the resume
+   * bridge's outbound boundary gets a reading: without one the replay path has no backpressure
+   * budget, which is a capability that exists and is never reached.
+   */
+  readonly bufferedAmount?: number;
 }
 
 /** E3 host reconnect/enrollment config. When present, the gate runs reactive (first-frame) mode detection. */
