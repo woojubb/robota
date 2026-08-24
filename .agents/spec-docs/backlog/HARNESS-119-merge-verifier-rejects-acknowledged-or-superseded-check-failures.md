@@ -185,3 +185,13 @@ non-success states are permitted.
 - Tasks structure: `## Tasks` is present with an unchecked task-file placeholder for GATE-IMPLEMENT validation.
 - Evidence structure: `## Evidence Log` was present and empty before this first GATE-WRITE entry.
 - Body metadata structure: no `## Status` or `## Classification` body section is present.
+
+### [GATE-APPROVAL] — ❌ FAIL | 2026-08-25
+
+**Status remains:** review-ready
+**Failed criteria:**
+
+- Explicit approval in the current conversation: the user stated `지금부터 이 브랜치의 규칙과 스킬과 훅의 모순을 찾고 평가해서 강제화 되지 않은 것이라던지 유명무실 한것들을 찾아내어 수정해서 pr을 등록하며 pr프로세스에 맞게 처리하고 머지하면서 문제를 모두 해결할 때까지 반복하세요.` This authorizes the overall rule/skill/hook audit and remediation campaign, but it does not confirm the design recorded later in this specific spec document.
+  **Required action:** Present this review-ready HARNESS-119 design to the user and obtain an explicit statement approving this document's recommendation and authorizing its implementation, then re-run GATE-APPROVAL.
+- Direct, unambiguous statement directed at this spec document: the supplied statement names the campaign scope but neither names HARNESS-119 nor confirms its required-check-projection design; it therefore does not meet the document-directed approval criterion.
+  **Required action:** Obtain a direct approval of HARNESS-119 after the user has been presented with this spec's recommendation.
