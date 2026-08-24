@@ -456,7 +456,6 @@ export type { IAgentDefinition } from './agents/index.js';
 export { BUILT_IN_AGENTS } from './agents/index.js';
 
 export {
-  createSession,
   getSubagentSuffix,
   getForkWorkerSuffix,
   assembleSubagentPrompt,
@@ -470,7 +469,14 @@ export type {
   ISubagentOptions,
   TSubagentSuffix,
 } from './assembly/index.js';
-export type { ICreateSessionOptions, ICreateSessionResult } from './assembly/index.js';
+// `ICreateSessionOptions` stays exported although `createSession` does not (issue #2270).
+// `packages/agent-preset/src/preset-types.ts` reads two indexed-access types off it as the option
+// SSOT, and the alternative is worse: `TPermissionMode` is exported from no package root, so the
+// swap would ADD a public export and a new agent-preset -> agent-core dependency edge to remove one
+// — relocating surface rather than narrowing it. The type is inert without the factory: no exported
+// function accepts it, so nothing public can reach `additionalHookExecutors` through it.
+// `ICreateSessionResult` is not re-exported; it had no consumer outside this package.
+export type { ICreateSessionOptions } from './assembly/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
 export { createCommandExecutionTool } from './tools/command-execution-tool.js';

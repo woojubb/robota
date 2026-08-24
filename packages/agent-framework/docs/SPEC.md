@@ -443,17 +443,33 @@ execution. Both are an override that cannot override, from opposite directions; 
 only arrangement that is neither. The rule is pinned by
 `packages/agent-core/src/hooks/__tests__/executor-precedence.test.ts` in the package that owns it.
 
-**The objection the argument above invites, and the answer it needed.** This factory seeds the
-built-ins, which is the effect the paragraph rejects for `runHooks`. An earlier version of this
-section resolved the tension by asserting that `createSession()` is **not exported**, so no caller
-could be restricting anything. **That premise was false.** `src/index.ts` exports `createSession`,
-and `ICreateSessionOptions`, which carries `additionalHookExecutors`, is exported beside it. The
-escape clause that same paragraph wrote — "if `createSession()` ever becomes public, this seeding
-needs an opt-out" — had already triggered when it was written.
+**The objection the argument above invites, and why the answer must not be "it is internal".** This
+factory seeds the built-ins, which is the effect the paragraph rejects for `runHooks`. An earlier
+version of this section resolved that tension by asserting `createSession()` is not exported, so no
+caller could be restricting anything. **The premise was false when it was written** — `2d3b2c028` had
+made the factory public five months earlier, with no changeset and no Public API row, deleting the
+line that recorded it as internal in the same hunk. The regression that followed is what issue #2270
+records.
 
-**There is currently no opt-out, and that is a live gap rather than a decision.** A consumer who
-supplies only a restricted executor set — deliberately, to keep shell and HTTP execution out of a
-sandboxed host — gets the built-ins back. Filed as issue #2270.
+`createSession` is internal again (SEC-016 follow-up): it is reachable only from
+`src/assembly/index.js`, not from the package root. **That does not make the seeding safe, and this
+section deliberately does not claim it does.** A safety property that rests on a symbol's export
+status has nothing mechanical holding it — which is precisely how the first version of this argument
+failed, silently, at a refactor five months downstream. Treating "unexported" as a security boundary
+is the mistake, not the specific export.
+
+**Restriction remains inexpressible at this seam, for every caller, internal and external.** The
+seeding stands as containment under issue #2238 — the option contract that infers "replace" from a
+non-empty array and "extend" from an empty one — which is the defect that produced the original
+deny-all and the only thing whose fix would make an opt-out coherent. Issue #2270's export half is
+closed here; its no-opt-out half stays open against issue #2238.
+
+`ICreateSessionOptions` remains exported although the factory does not:
+`packages/agent-preset/src/preset-types.ts` reads two indexed-access types off it as the option SSOT,
+and `TPermissionMode` is exported from no package root, so removing it would add a public export and a
+dependency edge to delete one. The type is inert without the factory — no exported function accepts
+it, so nothing public reaches `additionalHookExecutors` through it. `ICreateSessionResult` is not
+exported; it had no consumer outside this package.
 
 It is filed rather than fixed here for a reason worth recording: an opt-out is a new public
 capability, and this repository's `option-reachability` scan refuses a declared option that no
@@ -467,7 +483,7 @@ for, and extension may be assumed.** Inferring restriction from the shape of an 
 list meaning "replace", an empty one meaning "extend" — is the option-contract defect filed as
 issue #2238, and it is what produced the original deny-all.
 
-**Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. A custom executor reaches this seam through `createSession`, which IS exported along with `ICreateSessionOptions`; the public `InteractiveSession` options do not expose executor injection, so that is the narrower surface. An earlier revision described the whole seam as internal on the strength of `createSession` being unexported, which it is not.
+**Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. A custom executor reaches this seam through `createSession`, which is INTERNAL — reachable from `src/assembly/index.js` but not from the package root — so executor injection has no public entry point at all: `InteractiveSession`'s options do not expose it either. That is a statement about reachability, not a safety guarantee; see the seeding paragraph above for why this section refuses to treat "unexported" as a boundary.
 
 ### Bundle Plugins
 
