@@ -24,11 +24,6 @@ describe('ARCH-109 — the provider dimension of "can the child reproduce this?"
     { type: 'openai', createProvider: () => ({}) },
   ] as unknown as readonly IProviderDefinition[];
 
-  function record(): { readonly notices: string[]; readonly notice: (m: string) => void } {
-    const notices: string[] = [];
-    return { notices, notice: (m) => notices.push(m) };
-  }
-
   it('names each composition a child cannot rebuild, and says nothing about one it can', () => {
     expect(
       nonReproducibleProviderComposition({
