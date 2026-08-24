@@ -92,6 +92,8 @@ export async function runPrintMode(
     },
   };
 
+  // Contained — ARCH-110. This hand-maintained presentation-to-channel projection can silently omit
+  // optional session capabilities such as orgPolicy until ARCH-110 makes the relation mechanical.
   const channel = new HeadlessInteractionChannel({
     cwd,
     provider,
