@@ -120,3 +120,46 @@ not invented inside a merge function.
 Issue #2024 (2026-08-22) records the `hooks` half of this record (2026-08-13) with a reproduction and
 an acceptance list. This record owns it — it is earlier and names all three fields. Issue #2024's acceptance
 criteria are folded in above, and it closes when this record delivers.
+
+## `permissions.deny` — delivered 2026-08-24
+
+**Not a new rule. The repository's rule, applied at the one site that disagreed.**
+
+`agent-core`'s `applyPresetToolLists` states and implements it for the preset layer:
+
+> the allowlist REPLACES … the denylist UNIONS — a denial is not weakened by a later layer that
+> forgot to repeat it.
+
+`permission-enforcer.ts:126` cites the same rule when it explains why a newly applied denial outranks
+an earlier "always allow". ARCH-040's completed record calls it **settled**.
+
+`mergeSettings` was the exception: `layer.permissions?.deny ?? merged.permissions?.deny` meant a
+project layer declaring ANY deny silently dropped every deny the user had configured. `deny` now
+unions, deduplicated and order-preserving to match `applyPresetToolLists`.
+
+**`allow` is deliberately unchanged, and that asymmetry is the rule rather than an oversight.** An
+allowlist states the complete permitted set, so a later, more specific layer supersedes it; unioning
+a GRANT would let a project widen what the user permitted — the same inverted trust direction the
+deny fix closes. A test now pins it, so a future change that unions `allow` for symmetry goes red.
+
+**What this was, versus the `hooks` half.** The hooks defect fell out of a top-level spread and the
+code contradicted its own comment. This line was written on purpose. What makes it wrong is not that
+nobody decided it, but that **the decision contradicts one the repository had already made
+elsewhere** — which is why it needed a citation rather than an argument.
+
+**Mitigation, stated because it bounds the severity without excusing it:** project settings sources
+are read only when `projectAccess.status === 'trusted'`. Trusting a workspace means the user trusts
+it to contribute settings; it does not mean they intended it to remove their own deny rules, and a
+trusted workspace is still a cloned repository.
+
+Each of the three tests is falsifiable by its own mutant, verified rather than assumed:
+
+```
+deny replaces (the defect)   → "expected [ 'Read(.env)' ] to include 'Bash(rm -rf *)'"
+union without dedup          → "expected [ 'Bash(rm -rf *)', …(2) ] to deeply equal [ … ]"
+allow unioned too            → "expected [ 'Bash(git *)', 'Read(**)' ] to deeply equal [ 'Read(**)' ]"
+```
+
+Only the first is red against `develop`; the other two are red against a mutant of this change, and
+are characterisation rather than regression tests. Stated because "three red-first tests" would have
+been the easier and wrong claim.

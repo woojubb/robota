@@ -41,8 +41,11 @@ export function mergeSettings(layers: TEnvResolvedSettings[]): TEnvResolvedSetti
       permissions:
         merged.permissions !== undefined || layer.permissions !== undefined
           ? {
+              // `allow` REPLACES: an allowlist states the complete permitted set, so a later, more
+              // specific layer supersedes the earlier answer. Unchanged — this already conformed.
               allow: layer.permissions?.allow ?? merged.permissions?.allow,
-              deny: layer.permissions?.deny ?? merged.permissions?.deny,
+              // `deny` UNIONS: a denial is not weakened by a later layer that forgot to repeat it.
+              deny: unionDeny(merged.permissions?.deny, layer.permissions?.deny),
             }
           : undefined,
       env: {
@@ -87,6 +90,36 @@ export function mergeSettings(layers: TEnvResolvedSettings[]): TEnvResolvedSetti
  * are kept and both run — a repeated guard costs an extra execution, while dropping one on a
  * key-collision guess would be this defect again in a smaller form.
  */
+/**
+ * Combine two denylists.
+ *
+ * **This is not a new rule — it is the repository's rule, applied at the one site that disagreed.**
+ * `agent-core`'s `applyPresetToolLists` states and implements it for the preset layer:
+ *
+ * > the allowlist REPLACES … the denylist UNIONS — a denial is not weakened by a later layer that
+ * > forgot to repeat it.
+ *
+ * `permission-enforcer.ts` cites the same rule when it explains why a newly applied denial outranks
+ * an earlier "always allow", and ARCH-040's record calls it settled. Settings-layer merging was the
+ * exception: `layer.permissions?.deny ?? merged.permissions?.deny` meant a project layer declaring
+ * ANY deny silently dropped every deny the user had configured — the lower-trust layer relaxing the
+ * higher-trust policy, which is the trust direction inverted.
+ *
+ * Unlike the `hooks` defect this file was created for, that line was written on purpose rather than
+ * falling out of a spread. What makes it wrong is not that nobody decided it, but that the decision
+ * contradicts the one the repository had already made elsewhere.
+ *
+ * Deduplicated and order-preserving, matching `applyPresetToolLists`.
+ */
+function unionDeny(
+  base: readonly string[] | undefined,
+  layer: readonly string[] | undefined,
+): string[] | undefined {
+  if (base === undefined) return layer === undefined ? undefined : [...layer];
+  if (layer === undefined) return [...base];
+  return [...new Set([...base, ...layer])];
+}
+
 function mergeHooks(
   base: TEnvResolvedSettings['hooks'],
   override: TEnvResolvedSettings['hooks'],
