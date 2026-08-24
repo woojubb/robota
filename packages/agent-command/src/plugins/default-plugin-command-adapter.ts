@@ -3,13 +3,15 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  createHostBundlePluginLoader,
   BundlePluginInstaller,
-  BundlePluginLoader,
   MarketplaceClient,
   NodeHostPluginSettingsStore,
 } from '@robota-sdk/agent-framework';
 
-import type { IMarketplaceManifest } from '@robota-sdk/agent-framework';
+// `BundlePluginLoader` is now a TYPE here and nothing more: this module names it in
+// `IPluginServices` but no longer constructs one — the composition root does (PLG-021).
+import type { BundlePluginLoader, IMarketplaceManifest } from '@robota-sdk/agent-framework';
 import type {
   ICommandAvailablePlugin,
   ICommandInstalledPlugin,
@@ -97,7 +99,13 @@ function createPluginServices(cwd: string): IPluginServices {
     marketplaceClient: marketplace,
     exec: runGit,
   });
-  const loader = new BundlePluginLoader(pluginsDir);
+  // PLG-021 / issue #2025: the enablement state was never unreachable here — `settingsStore` is
+  // built eight lines above and knows exactly which plugins the user disabled. It simply was not
+  // passed, and the loader's optional map defaults to `{}`, which means "nothing disabled".
+  const loader = createHostBundlePluginLoader({
+    pluginsDir,
+    enabledPlugins: settingsStore.getEnabledPlugins(),
+  });
 
   return {
     cwd,

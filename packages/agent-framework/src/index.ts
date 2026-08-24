@@ -426,7 +426,12 @@ export type {
 } from './reversible-execution/index.js';
 
 // ── Plugin management ───────────────────────────────────────
-export { NodeHostPluginSettingsStore, BundlePluginLoader } from './plugins/index.js';
+export {
+  NodeHostPluginSettingsStore,
+  BundlePluginLoader,
+  createHostBundlePluginLoader,
+} from './plugins/index.js';
+export type { IHostBundlePluginLoaderOptions } from './plugins/index.js';
 export type { IPluginSettings } from './plugins/index.js';
 export { BundlePluginInstaller } from './plugins/index.js';
 export { MarketplaceClient } from './plugins/index.js';

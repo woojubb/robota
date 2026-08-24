@@ -25,7 +25,7 @@ import {
 import { injectSavedMessage } from './interactive-session-restore.js';
 import { deriveContextCapacityHint } from '../assembly/context-capacity-hint.js';
 import { createSession } from '../assembly/index.js';
-import { BundlePluginLoader } from '../plugins/index.js';
+import { createHostBundlePluginLoader } from '../plugins/index.js';
 import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
 
 import type {
@@ -89,7 +89,11 @@ export async function createInteractiveSession(
     : config;
 
   const pluginsDir = join(homedir(), '.robota', 'plugins');
-  const pluginLoader = new BundlePluginLoader(pluginsDir);
+  // PLG-021 / issue #2025: built through the composition root so a disabled plugin's hooks do not
+  // load. The bare constructor defaults the enablement map to `{}`, which reads as "nothing
+  // disabled" — indistinguishable from a user who disabled nothing. `pluginsDir` stays a local
+  // because the failure log below names it.
+  const pluginLoader = createHostBundlePluginLoader({ pluginsDir });
   if (!options.bare) {
     try {
       const plugins = pluginLoader.loadPluginsSync();
