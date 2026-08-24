@@ -3,9 +3,6 @@
  * Parses arguments and delegates to startup modules, mode runners, and transports.
  */
 
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-
 import { PrintTerminal } from '@robota-sdk/agent-transport/headless';
 import {
   resolveLatestSessionId,
@@ -39,12 +36,10 @@ import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transpo
 import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
-import { resolveSelfForkWorkerEntry } from './subagents/self-fork-worker-entry.js';
 import {
-  createRobotaChildProcessSubagentRunner,
   createRobotaPackSet,
+  createRobotaSubagentRunnerFactory,
 } from './product/robota-subagent-composition.js';
-import { createGitWorktreeIsolationAdapter } from './subagents/git-worktree-isolation-adapter.js';
 import { reloadPluginCommandSource } from '@robota-sdk/agent-command';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js';
@@ -188,6 +183,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const {
     commandHostAdapters,
     providerDefinitions,
+    callerSuppliedProviderDefinitions,
     baseCommandModules,
     fixedCommandModules,
     startupUpdateNoticePromise,
@@ -239,12 +235,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     }
   }
   const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
-  const subagentRunnerFactory = createRobotaChildProcessSubagentRunner({
+  const subagentRunnerFactory = createRobotaSubagentRunnerFactory({
     packContext,
     providerConfig: { ...providerSettings, model: modelId },
-    logsDir: join(homedir(), '.robota', 'logs'),
-    workerEntry: resolveSelfForkWorkerEntry(),
-    worktreeAdapter: createGitWorktreeIsolationAdapter(),
+    reproduction: {
+      callerSuppliedDefinitions: callerSuppliedProviderDefinitions,
+      replayProvider: args.sessionLog !== undefined,
+    },
+    notice: (message) => process.stderr.write(`${message}\n`),
   });
 
   // ARCH-005 S2: the ONE composition call. Everything product-specific about `robota` is declared as DATA
@@ -254,6 +252,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // INFRA-018: `--session-log` injects a replay provider that overrides settings-based construction — it
   // replays the recorded log deterministically instead of calling a model. Provider settings/model still
   // come from the configured profile (no key is ever used).
+  // ARCH-109: that parenthesis was true of this process and false of its children until
+  // `subagent-provider-reproduction.ts` made it hold session-wide.
   const product = assembleProduct(
     createRobotaProfile({
       version,

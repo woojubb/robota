@@ -1,8 +1,16 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import { createGoalStatusTool } from '@robota-sdk/agent-framework';
 
 import { createRobotaPacks, packCommandModuleNames } from './robota-profile.js';
+import { selectRobotaSubagentRunner } from './subagent-provider-reproduction.js';
+import { resolveSelfForkWorkerEntry } from '../subagents/self-fork-worker-entry.js';
+import { createGitWorktreeIsolationAdapter } from '../subagents/git-worktree-isolation-adapter.js';
+
+import type { IProviderReproduction } from './subagent-provider-reproduction.js';
 
 import type { ISubagentWorkerComposition } from '@robota-sdk/agent-subagent-runner';
 import type { TSubagentRunnerFactory } from '@robota-sdk/agent-framework';
@@ -115,9 +123,18 @@ export type TRobotaPackFactory = (context: IRobotaPackContext) => readonly TRobo
 /**
  * The recipe handed to a child-process subagent worker. `createTools` takes the root per call so the
  * child binds its own execution root (ARCH-010) rather than inheriting the parent's.
+ *
+ * ARCH-109: `providerDefinitions` is a PARAMETER for the same reason `createPacks` is. The seam it
+ * fills already existed — `ISubagentWorkerComposition.providerDefinitions` is documented as carrying
+ * definitions rather than a constructed provider precisely so "a custom provider type resolves
+ * instead of throwing `Unknown provider`" — but robota's own worker entry pinned it to the default
+ * set, so the seam was present and unused. A product that composes its own providers supplies a
+ * worker entry that builds THEM here, which is the only way the set crosses: rebuilt from code in
+ * the child, never serialized.
  */
 export function createRobotaSubagentComposition(
   createPacks: TRobotaPackFactory = createRobotaPacks,
+  providerDefinitions: readonly IProviderDefinition[] = robotaProviderDefinitions(),
 ): ISubagentWorkerComposition {
   return {
     createTools: (context: {
@@ -132,7 +149,7 @@ export function createRobotaSubagentComposition(
         ? [...tools, createGoalStatusTool() as IToolWithEventService]
         : tools;
     },
-    providerDefinitions: robotaProviderDefinitions(),
+    providerDefinitions,
   };
 }
 
@@ -152,7 +169,7 @@ export function packTools(
  * all. They live together because they read the same pack context: separating them is what would let
  * a guard check one value while the packs were built from another.
  */
-export function createRobotaChildProcessSubagentRunner(options: {
+function createRobotaChildProcessSubagentRunner(options: {
   readonly packContext: IRobotaPackContext;
   readonly providerConfig: IProviderDefinitionConfig;
   readonly logsDir: string;
@@ -218,4 +235,33 @@ export function createRobotaPackSet(
   // ARCH-006: scoped to the cwd they are built with.
   const packs = createRobotaPacks(packContext);
   return { packContext, packs, packCommandModules: packCommandModuleNames(packs) };
+}
+
+/**
+ * ARCH-109: robota's subagent runner, wired.
+ *
+ * The three fixed inputs below — the log directory, the self-fork entry, and the worktree adapter —
+ * are robota's own answers and have no reason to be spelled at the call site. Bringing them here is
+ * also what let the selection be added at all: `cli.ts` is a file the size floor has already frozen
+ * as debt, where the rule is "split instead of extending", so the change had to take more out of it
+ * than it put in.
+ */
+export function createRobotaSubagentRunnerFactory(options: {
+  readonly packContext: IRobotaPackContext;
+  readonly providerConfig: IProviderDefinitionConfig;
+  readonly reproduction: IProviderReproduction;
+  readonly notice: (message: string) => void;
+}): TSubagentRunnerFactory {
+  return selectRobotaSubagentRunner({
+    reproduction: options.reproduction,
+    notice: options.notice,
+    buildChildProcess: () =>
+      createRobotaChildProcessSubagentRunner({
+        packContext: options.packContext,
+        providerConfig: options.providerConfig,
+        logsDir: join(homedir(), '.robota', 'logs'),
+        workerEntry: resolveSelfForkWorkerEntry(),
+        worktreeAdapter: createGitWorktreeIsolationAdapter(),
+      }),
+  });
 }

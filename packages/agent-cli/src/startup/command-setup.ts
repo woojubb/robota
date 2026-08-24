@@ -79,6 +79,17 @@ export interface ICliSetup {
   commandHostAdapters: ICommandHostAdapters;
   providerDefinitions: readonly IProviderDefinition[];
   /**
+   * ARCH-109: whether `providerDefinitions` above came from the caller rather than from
+   * `createDefaultProviderDefinitions()`.
+   *
+   * Reported rather than re-derived, because it cannot be re-derived. The definitions carry
+   * `createProvider` and `probeProfile` — functions — so a downstream reader can compare them with
+   * the default set only by NAME, and that comparison says "same" in the one case that matters
+   * most: a caller-supplied definition sharing a built-in's name while running different code.
+   * This function is the only place that still knows which branch was taken.
+   */
+  callerSuppliedProviderDefinitions: boolean;
+  /**
    * ARCH-005 S2: the product's BASE command modules — the default set MINUS the modules a capability pack
    * supplies (`packCommandModuleNames`). They are handed to `assembleProduct` as
    * `IProductProfile.baseCommandModules`, which merges the packs on top; the preset's
@@ -172,6 +183,7 @@ export function buildCommandSetup(
   return {
     commandHostAdapters,
     providerDefinitions,
+    callerSuppliedProviderDefinitions: options.providerDefinitions !== undefined,
     baseCommandModules,
     fixedCommandModules: [workflowsModule, ...(options.commandModules ?? [])],
     startupUpdateNoticePromise,
