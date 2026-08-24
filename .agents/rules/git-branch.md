@@ -490,6 +490,66 @@ comment (or the PR description):
 No CONFIRMED/PLAUSIBLE finding may be left silently unaddressed. **Only after all findings are resolved**
 may the PR be merged.
 
+### One issue, one PR, one session (mandatory)
+
+**A GitHub issue and a pull request each have exactly ONE owning session while work on it is open.**
+No second session edits that branch, pushes to that PR, or starts work on that issue.
+
+This is not the One-Branch-At-A-Time rule above. That bounds how many branches a CLONE holds; this
+bounds how many SESSIONS touch one unit of work, and neither implies the other.
+
+**The orchestrator keeps the assignment list and reads it before assigning.** Ownership is not
+derivable from the issue tracker: an open issue and an unowned issue look identical there. Re-deriving
+"what is unassigned" from a list of what is open is how one item gets handed out twice.
+
+- An assignment without a named owner is not an assignment.
+- A session that finds work already owned reports it to the owner and does not act.
+- Releasing ownership is explicit and one-directional.
+
+**Why it is quiet:** the collision is not in the file system, so nothing local refuses it. Two sessions
+can hold disjoint branches, pass every hook, and discover at rebase time that they solved the same
+problem twice — or that one silently reverted the other's reasoning while resolving a clean merge.
+
+Enforced by: nothing — ownership exists only in the orchestrator's assignment list. A clone can see
+which branches exist and which issues are open; it cannot see who was TOLD to do what, and the two
+sessions in a collision each look correct locally. The only thing that has caught it is a session
+asking before acting.
+
+Case: [PROC-013](https://github.com/woojubb/robota/issues/2283).
+
+### `ACTIONABLE FINDINGS: 0` ends the loop — it does not start a merge
+
+**Zero findings obliges exactly one thing: STOP EDITING.** It is not a signal to merge, not a
+deadline, and not a reason to hurry.
+
+**Advice arriving alongside a zero count is not a finding.** A reviewer may add SHOULD or CONSIDER
+notes on a diff it has just passed. Those are input for a FUTURE pull request. Acting on them
+re-opens the diff, producing a new head, a new round, and new advice on the new code — a loop with no
+terminal condition, because each fix creates the surface the next round reads.
+
+**Merging is a separate judgement, made once, without urgency.**
+
+- **Green checks are not authorization.** A person or orchestrator decides; a state does not.
+- **Do not race the base.** Aiming at speed is what puts a merge in a race with base moves,
+  concurrent merges and stale verdicts. If the base moves, rebase and re-verify — that is not an edit
+  and does not restart the finding loop.
+- **Round count is not the condition.** A loop is not wrong because it is long; it is wrong when it
+  is editing a pull request that reported clean.
+
+**An override supplied every time is not an override.** The hatch exists for a push whose reason the
+hook cannot see. Reaching for it repeatedly is the signal that the reason has stopped being examined,
+and nothing counts repeated use.
+
+**If no more issues can be found, there is nothing left to fix.**
+
+Enforced by: `pre-push-check` for the half a machine can decide — it refuses a push into an open pull
+request whose latest reviewer verdict reports `ACTIONABLE FINDINGS: 0`, because there is then nothing
+for that push to resolve. The rest is not mechanizable here: whether to merge, and when, is a
+judgement about a state the repository can observe but not evaluate, and a check that merged on green
+would be the automation this section exists to refuse.
+
+Case: [PROC-013](https://github.com/woojubb/robota/issues/2283).
+
 ### An open PR's diff is frozen except to resolve a finding
 
 **Open a PR only when the unit of work is complete.** An open PR is a merge invitation: it may be
