@@ -470,12 +470,31 @@ export type {
   TSubagentSuffix,
 } from './assembly/index.js';
 // `ICreateSessionOptions` stays exported although `createSession` does not (issue #2270).
-// `packages/agent-preset/src/preset-types.ts` reads two indexed-access types off it as the option
-// SSOT, and the alternative is worse: `TPermissionMode` is exported from no package root, so the
-// swap would ADD a public export and a new agent-preset -> agent-core dependency edge to remove one
-// — relocating surface rather than narrowing it. The type is inert without the factory: no exported
-// function accepts it, so nothing public can reach `additionalHookExecutors` through it.
-// `ICreateSessionResult` is not re-exported; it had no consumer outside this package.
+//
+// It is agent-framework's OWN type, and four packages read indexed-access types off it as the option
+// SSOT: agent-preset, agent-cli, agent-transport, agent-transport-tui. Exporting a type this package
+// owns is ownership, not pass-through.
+//
+// The tempting alternative — re-export `agent-core`'s `TPermissionMode` / `TModelEffort` from here so
+// the options type can go — is banned as a pass-through re-export of another package's symbols
+// (STRUCT-07). Consumers that want those unions take them from `agent-core`, which exports both from
+// its root. NOTE for anyone re-deriving this: an earlier version of this comment claimed
+// `TPermissionMode` is exported from no package root. That was false — agent-core's root re-exports
+// its permissions barrel wholesale (a star re-export), so the symbol never appears BY NAME in that
+// index and a grep for the name cannot see it. Resolve exports against the built .d.ts instead of
+// grepping barrels.
+//
+// Written without the literal re-export syntax on purpose: `scan-sdk-public-surface` matches raw
+// source, so spelling it out here registers a phantom export-star in this barrel and fails the scan.
+// That is issue #2258's defect — comment text read as code — arriving from the other direction.
+//
+// The type is inert without the factory: no exported function accepts it, so nothing public reaches
+// `additionalHookExecutors` through it.
+//
+// `ICreateSessionResult` is no longer re-exported from this root (it stays on `assembly/index.ts`).
+// The ground is not that it had few consumers — `.agents/project-structure.md` bans that reasoning
+// about a public surface at any count. It is the return type of a factory that is no longer public,
+// so it describes nothing a consumer can obtain.
 export type { ICreateSessionOptions } from './assembly/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';

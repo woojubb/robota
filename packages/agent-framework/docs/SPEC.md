@@ -446,10 +446,13 @@ only arrangement that is neither. The rule is pinned by
 **The objection the argument above invites, and why the answer must not be "it is internal".** This
 factory seeds the built-ins, which is the effect the paragraph rejects for `runHooks`. An earlier
 version of this section resolved that tension by asserting `createSession()` is not exported, so no
-caller could be restricting anything. **The premise was false when it was written** — `2d3b2c028` had
-made the factory public five months earlier, with no changeset and no Public API row, deleting the
-line that recorded it as internal in the same hunk. The regression that followed is what issue #2270
-records.
+caller could be restricting anything. **The premise was TRUE when `3f5195be7` wrote it on 2026-07-24,
+and false 23 days later** — `2d3b2c028` made the factory public on 2026-08-16 with no changeset and no
+Public API row, deleting in the same hunk the `// INTERNAL (not exported)` line that had recorded it
+since 2026-03-26. The regression that followed is what issue #2270 records.
+
+The distinction carries the lesson. Had the premise been born false, the fault would be that its
+author did not check. It WAS checked, and it rotted — because nothing mechanical held it.
 
 `createSession` is internal again (SEC-016 follow-up): it is reachable only from
 `src/assembly/index.js`, not from the package root. **That does not make the seeding safe, and this
@@ -459,17 +462,26 @@ failed, silently, at a refactor five months downstream. Treating "unexported" as
 is the mistake, not the specific export.
 
 **Restriction remains inexpressible at this seam, for every caller, internal and external.** The
-seeding stands as containment under issue #2238 — the option contract that infers "replace" from a
-non-empty array and "extend" from an empty one — which is the defect that produced the original
-deny-all and the only thing whose fix would make an opt-out coherent. Issue #2270's export half is
+seeding stands against issue #2238 — the option contract that infers "replace" from a non-empty array
+and "extend" from an empty one — which is the defect that produced the original deny-all and the only
+thing whose fix would make an opt-out coherent. It is recorded here as a LIVE GAP, deliberately not as
+a labelled containment: `.agents/rules/finding-depth.md` permits containment only with a root item
+whose ID resolves under `.agents/tasks/`, and that issue has no such item, so calling this contained
+would assert a status nothing backs. Issue #2270's export half is
 closed here; its no-opt-out half stays open against issue #2238.
 
-`ICreateSessionOptions` remains exported although the factory does not:
-`packages/agent-preset/src/preset-types.ts` reads two indexed-access types off it as the option SSOT,
-and `TPermissionMode` is exported from no package root, so removing it would add a public export and a
-dependency edge to delete one. The type is inert without the factory — no exported function accepts
-it, so nothing public reaches `additionalHookExecutors` through it. `ICreateSessionResult` is not
-exported; it had no consumer outside this package.
+`ICreateSessionOptions` remains exported although the factory does not. Four packages read
+indexed-access types off it as the option SSOT — `agent-preset`, `agent-cli`, `agent-transport` and
+`agent-transport-tui` — and it is agent-framework's OWN type, so exporting it is ownership rather than
+pass-through. The obvious alternative is banned by a different rule: re-exporting `agent-core`'s
+`TPermissionMode` / `TModelEffort` from this root would be a pass-through re-export of another
+package's symbols (STRUCT-07). A consumer wanting those unions takes them from `agent-core`, which
+exports both from its root today.
+
+The type is inert without the factory — no exported function accepts it, so nothing public reaches
+`additionalHookExecutors` through it. `ICreateSessionResult` is no longer re-exported from the root
+(it remains on `src/assembly/index.ts`): it is the return type of a factory that is no longer public,
+so it describes nothing a consumer can obtain.
 
 It is filed rather than fixed here for a reason worth recording: an opt-out is a new public
 capability, and this repository's `option-reachability` scan refuses a declared option that no
@@ -483,7 +495,7 @@ for, and extension may be assumed.** Inferring restriction from the shape of an 
 list meaning "replace", an empty one meaning "extend" — is the option-contract defect filed as
 issue #2238, and it is what produced the original deny-all.
 
-**Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. A custom executor reaches this seam through `createSession`, which is INTERNAL — reachable from `src/assembly/index.js` but not from the package root — so executor injection has no public entry point at all: `InteractiveSession`'s options do not expose it either. That is a statement about reachability, not a safety guarantee; see the seeding paragraph above for why this section refuses to treat "unexported" as a boundary.
+**Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. A custom executor reaches THIS seam through `createSession`, which is INTERNAL — reachable from `src/assembly/index.js` but not from the package root — so `additionalHookExecutors` has no public entry point. **Executor injection in general does still have public entry points, and this section does not claim otherwise:** `createSubagentSession` (`ISubagentOptions.hookTypeExecutors`), `createInProcessSubagentRunner` (`IInProcessSubagentRunnerDeps.hookTypeExecutors`), and `agent-session`'s own `Session` (`ISessionOptions.hookTypeExecutors`) all reach `runHooks`' `executors` parameter — and none of them calls `buildHookTypeExecutors`, so none seeds the built-ins at all. Whether that is a defect is triage for the seam's own root item, not a claim to resolve here. Both statements are about reachability, not safety; see the seeding paragraph above for why this section refuses to treat "unexported" as a boundary.
 
 ### Bundle Plugins
 
@@ -1329,7 +1341,7 @@ reusing broad context-loading internals for repository interpretation.
 - **Model-invocable built-ins**: Product-composed command modules such as `skills`, `agent`, `memory`, and `compact` expose descriptors so explicit user/model requests can execute through SDK-projected provider-safe command tools such as `robota_command_skills`. The descriptor owns usage metadata and autonomous-use guidance; the system prompt composer must not add separate behavior instructions.
 - **`rewind`**: User-invocable product-composed code checkpoint command. `rewind list` lists prompt-turn checkpoints; `rewind inspect <checkpoint-id>` shows captured files plus restore/rollback ranges; `rewind restore <checkpoint-id>` and `rewind code <checkpoint-id>` restore files to the selected checkpoint. It is not model-invocable by default.
 - **Command modules**: Optional `ICommandModule` instances may contribute `ICommandSource` palette metadata, `ISystemCommand` handlers, model-visible descriptors, and session requirements. The SDK does not know command ids contributed by modules in advance. Instead, an executable command may declare one optional framework-owned semantic role: `skillActivation`, `contextReduction`, or `subagentSpawn`. `SystemCommandExecutor` resolves the typed role-to-command-id projection from the currently selected executable command set; command descriptors are presentation metadata and never a semantic source. Product assemblies can inject host-owned built-ins such as plugin and product-composed command packages such as exit and statusline without adding CLI-specific code to SDK core.
-- **Semantic-role propagation and absence**: the resolved projection is threaded without name inference through `IInitOptions` → `ICreateSessionOptions` → agent-runtime/subagent-session construction. A public direct `createSession()` call that omits it means all roles are absent. Absence is independent: no `skillActivation` disables virtual-skill fallback and model-visible skill enrichment; no `contextReduction` leaves the neutral capacity hint; no `subagentSpawn` skips only the projected spawn-command tool filter while the legacy framework `Agent` tool remains filtered. Coincidentally named unannotated commands receive no special behavior, and a role-bearing alternate id receives the behavior. A successful empty command result remains a present role result, not absence.
+- **Semantic-role propagation and absence**: the resolved projection is threaded without name inference through `IInitOptions` → `ICreateSessionOptions` → agent-runtime/subagent-session construction. A direct `createSession()` call that omits it means all roles are absent — an internal path now, not a public one. Absence is independent: no `skillActivation` disables virtual-skill fallback and model-visible skill enrichment; no `contextReduction` leaves the neutral capacity hint; no `subagentSpawn` skips only the projected spawn-command tool filter while the legacy framework `Agent` tool remains filtered. Coincidentally named unannotated commands receive no special behavior, and a role-bearing alternate id receives the behavior. A successful empty command result remains a present role result, not absence.
 
 ### Slash Command Registry (SDK-Specific)
 
