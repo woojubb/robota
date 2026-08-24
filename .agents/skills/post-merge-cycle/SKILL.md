@@ -24,15 +24,16 @@ the outcome tokens it routes on, because those _are_ the mechanism.
   per-hop mandates); "`--delete-branch` is Prohibited in `gh pr merge`" (the ban, the confirm-merged
   precondition, and the four conditions under which a branch must NOT be deleted); "Delete Merged
   Branches" (the local/remote deletion mechanics, the ancestry precondition, never the integration
-  branches); "Post-Merge Branch Cycle" (churn discipline and the fresh-base requirement); "Clean Working
+  branches); "Work that reaches `develop` is resolved" (the closure is performed, not inferred, and what a
+  partial delivery does instead); "Post-Merge Branch Cycle" (churn discipline and the fresh-base requirement); "Clean Working
   Tree Before Every Commit and Push" (names the CI-equivalent verification entry point).
 - The `merge-verifier` agent definition in `.claude/agents/merge-verifier.md`.
 
 ## Input
 
-The merge just performed: the PR (or merge commit) and its target branch; whether this is one hop of a
-multi-hop flow and, if so, which hops remain; and whether the caller intends to continue working in this
-same working tree afterwards. That last one decides whether phase 3 runs at all — ask rather than assume,
+The merge just performed: the PR (or merge commit) and its target branch; **the issue this work resolves,
+or that there is none**; whether this is one hop of a multi-hop flow and, if so, which hops remain; and
+whether the caller intends to continue working in this same working tree afterwards. That last one decides whether phase 4 runs at all — ask rather than assume,
 because a caller working in a disposable isolated tree has no next branch to base.
 
 ## The state machine
@@ -51,16 +52,39 @@ and do not treat a host UI's "merged" label as the answer.
 The `FAIL` edge is absolute: a merge that did not land is exactly the case where deleting the source
 branch destroys the only copy of the work.
 
-### 2. Decide and perform branch deletion
+### 2. Close what the merge resolved
+
+The merge landed, so the work is resolved — `develop` is where that happens, and the issue does not wait
+for a promotion. Close it here, in this step, as an act.
+
+Do not look for the host to have closed it. The rule owns why: a closing keyword needs a pull request
+based on the default branch, and this one was not, so nothing fired. A closed-looking issue at this point
+was closed by someone, not by the merge.
+
+| Outcome                                     | Routes to                                                                                                             |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| the issue's criteria are all delivered      | close it with a comment naming the delivering commit on the integration branch, then advance to 3                     |
+| some criteria remain                        | **leave it open**, comment which were delivered and which were not, then advance to 3                                 |
+| the merge delivered no issue                | advance to 3 — recorded as "none", never as an empty step                                                             |
+| the merge names an issue it did not deliver | **leave it open** — a pull request that files, tracks, or cross-references an issue has not resolved it; advance to 3 |
+
+The last row is the failure this step is most likely to cause, and it is the opposite of the one it was
+added to fix. Most merged pull requests here name issues they are _registering_, not delivering. Read what
+the body says about the issue before acting on the fact that it mentions one.
+
+Where the issue carries acceptance criteria, compare them item by item. "This change addressed the topic"
+is not "this change satisfied the criteria", and only the second one closes an issue.
+
+### 3. Decide and perform branch deletion
 
 The rule lists the conditions under which a merged branch must **not** be deleted. Evaluate each against
 observable state — they are all decidable, not matters of taste — and route:
 
 | Outcome                                          | Routes to                                                                                                |
 | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| every condition clear                            | delete local, then remote, then advance to 3                                                             |
-| any condition holds                              | **skip the deletion**, record which condition held and why, advance to 3                                 |
-| the ancestry precondition fails on remote delete | **do not delete**; surface it as a finding (the branch has commits the target does not) and advance to 3 |
+| every condition clear                            | delete local, then remote, then advance to 4                                                             |
+| any condition holds                              | **skip the deletion**, record which condition held and why, advance to 4                                 |
+| the ancestry precondition fails on remote delete | **do not delete**; surface it as a finding (the branch has commits the target does not) and advance to 4 |
 
 Order within the deletion itself is fixed by the rule: local first (its safe form refuses an unmerged
 branch, so it is a free second opinion), then the remote — and the remote only once the merge is confirmed,
@@ -69,7 +93,7 @@ which step 1 already established. Prune any worktree that was holding the branch
 Not deleting is a recorded outcome, not a silent one. A branch skipped here without a reason written down
 is how a backlog of stale branches accumulates.
 
-### 3. Reset onto a fresh base for the next branch
+### 4. Reset onto a fresh base for the next branch
 
 Run only when the caller continues in this working tree. The order matters and is the whole point of the
 phase:
@@ -85,19 +109,21 @@ phase:
 | Outcome                  | Routes to                                                                                                                           |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
 | base verification passes | **terminate** — the cycle is complete                                                                                               |
-| base verification fails  | return to step 3.1 and re-cut, **bounded at 2 attempts**                                                                            |
+| base verification fails  | return to step 4.1 and re-cut, **bounded at 2 attempts**                                                                            |
 | still failing after 2    | **terminate and escalate to the user** — a base that will not resolve is a repository-state problem, not something to keep retrying |
 
 ## Termination
 
 Terminate on any of: `merge-verifier` returning `FAIL`; the base-reset bound being exhausted; a caller
-with no next branch reaching the end of step 2; or any of the conditions the governing rules define as a
+with no next branch reaching the end of step 3; or any of the conditions the governing rules define as a
 stop. Those stop conditions are owned by the rules — do not restate them here.
 
 ## Outcome contract
 
-Report, per step: the landing verdict, whether the branch was deleted or which condition prevented it, and
-whether a fresh base was established. Aggregate "cleaned up" is not a report — the caller may be holding
+Report, per step: the landing verdict; **which issue was closed, or the reason none was** — `none`, or the
+criteria that remain; whether the branch was deleted or which condition prevented it; and whether a fresh
+base was established. The closure field is required, so a cycle that never reached it is a missing field
+rather than a silence. Aggregate "cleaned up" is not a report — the caller may be holding
 other work behind this cycle's completion.
 
 ## What This Skill Does NOT Do
@@ -109,6 +135,7 @@ other work behind this cycle's completion.
 | Perform the merge, or decide when to arm one   | the calling pipeline               |
 | Define what a clean tree or a green gate means | `.agents/rules/git-branch.md`      |
 | Judge the merged change's quality              | the code-review gate the rules own |
+| Decide whether an issue's criteria are met     | the session that owns the issue    |
 
 If you find yourself restating a rule here, stop — link the rule instead.
 

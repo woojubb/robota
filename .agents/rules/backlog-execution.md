@@ -43,6 +43,55 @@ Every Task converted from an issue must cite its source issue. Conversion does n
 implementation; the issue remains open until the tracked work lands or receives an explicit terminal
 disposition. The `issue-to-backlog` skill owns the conversion procedure; this rule owns the boundary.
 
+## Registration is not authorization — an item may be declined
+
+**An issue being open does not oblige anyone to implement it.** Issues arrive here through many routes —
+an audit sweep, a review finding filed rather than absorbed, a scan's output, a passing observation
+during unrelated work — and those routes do not share a bar. Some carry a security defect; some carry a
+wording preference. A rule that every registered item must be worked would let the cheapest route to
+create work set the queue.
+
+So **picking an item up begins with a judgement, and the judgement may be to decline it.** The two
+outcomes are symmetric: proceed with reasons, or decline with reasons. Neither is the default, and
+"it is open, therefore I work it" is not a judgement.
+
+**A decline is closed, not left open.** An item judged not worth doing and left open is worse than either
+outcome — it stays in every count, is re-picked by the next session, and is re-judged from scratch each
+time. Close it, with the disposition recorded **on the issue**, where the next reader looks. A Task file
+that mirrors it takes the terminal status this file already defines (`wontfix`, `skipped`, `superseded`)
+with its date.
+
+**What a decline must contain**, because the grounds are the whole substance of it:
+
+- **What the item claims**, restated — a decline that does not first state the claim usually declines a
+  different, easier claim.
+- **Why it is not worth doing**, against something outside the decider's convenience: the defect does not
+  reproduce, the cost exceeds the harm, a merged change already resolved it, another open item subsumes
+  it, or the premise is factually wrong — and if wrong, which measurement shows it.
+- **What would reverse the decision.** A decline that nothing could change is a refusal to judge wearing
+  the clothes of a judgement. Anyone reopening the issue should be able to read this line and know what
+  to bring.
+
+**What is not a ground.** That the item is tedious, unfamiliar, large, poorly written, old, or filed by a
+route the decider dislikes. Those describe the decider, not the item. A large item is decomposed or
+declined on cost against harm — with the cost stated — never declined for being large.
+
+**Which declines are not the agent's to make alone.** Route by
+[Agent Decision Authority](#agent-decision-authority) below, with one addition that follows from what a
+decline destroys: an item asserting a **security or data-correctness defect** is not declined on agent
+authority. Being unable to reproduce it is a finding to report, not a disposition to apply — the
+difference between "this does not happen" and "I did not make it happen" is exactly what a second reader
+is for. Recommend the decline with its grounds and let the user decide.
+
+Enforced by: the record half only. `backlog-placement` refuses a terminal status without its
+`completed:` date, so a declined item cannot be archived undated, and `task-archival` refuses the
+half-finished move. The judgement itself is not mechanizable and no scan is claimed for it: whether the
+grounds are sound is the thing being asked, and a machine that could decide it would not need the rule.
+What that leaves is visible by construction — the grounds are written on the issue, so a wrong decline is
+readable rather than silent, and reopening costs one comment.
+
+Case: [PROC-015](https://github.com/woojubb/robota/issues/2289).
+
 ## Agent Decision Authority
 
 When a decision must be made during backlog work, the agent must first determine whether it falls
