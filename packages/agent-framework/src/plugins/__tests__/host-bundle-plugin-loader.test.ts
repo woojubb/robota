@@ -127,3 +127,54 @@ describe('createHostBundlePluginLoader (PLG-021 / issue #2025)', () => {
     expect(plugins).toHaveLength(0);
   });
 });
+
+/**
+ * PLG-021, one step over: a CACHED loader answers with the map as it was when it was built.
+ *
+ * `BundlePluginLoader` captures the enablement map in its constructor. So an adapter that builds one
+ * loader and reuses it keeps loading a plugin that was disabled through that same adapter afterwards
+ * — the map is not missing, it is stale, and the visible symptom is identical.
+ *
+ * These pin the difference between the two shapes so the per-call factory in
+ * `default-plugin-command-adapter.ts` cannot quietly become a cached instance again.
+ */
+describe('a cached loader goes stale where a per-call one does not (PLG-021)', () => {
+  let root: string;
+  let pluginsDir: string;
+  let settingsPath: string;
+
+  beforeEach(() => {
+    root = join(TMP_BASE, 'stale-' + Math.random().toString(36).slice(2));
+    pluginsDir = join(root, 'plugins');
+    settingsPath = join(root, 'settings.json');
+    mkdirSync(pluginsDir, { recursive: true });
+    createPlugin(pluginsDir, 'market', 'disabled-later');
+    writeJson(settingsPath, { enabledPlugins: {} });
+  });
+
+  afterEach(() => {
+    if (existsSync(TMP_BASE)) rmSync(TMP_BASE, { recursive: true, force: true });
+  });
+
+  it('a loader built once keeps loading a plugin disabled after it was built', async () => {
+    const cached = createHostBundlePluginLoader({ pluginsDir, settingsPath });
+    expect(await cached.loadAll()).toHaveLength(1);
+
+    writeJson(settingsPath, { enabledPlugins: { 'disabled-later@market': false } });
+
+    // The defect, stated as an assertion rather than as a warning in a comment: the SAME instance
+    // still loads it. This is why the adapter holds a factory.
+    expect(await cached.loadAll()).toHaveLength(1);
+  });
+
+  it('a loader built per call does not', async () => {
+    const build = (): ReturnType<typeof createHostBundlePluginLoader> =>
+      createHostBundlePluginLoader({ pluginsDir, settingsPath });
+
+    expect(await build().loadAll()).toHaveLength(1);
+
+    writeJson(settingsPath, { enabledPlugins: { 'disabled-later@market': false } });
+
+    expect(await build().loadAll()).toHaveLength(0);
+  });
+});
