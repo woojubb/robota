@@ -1,8 +1,9 @@
 ---
 title: 'ARCH-109: a child-process subagent rebuilds the default provider set, so a replay or caller-supplied provider does not cross the boundary'
 issue: https://github.com/woojubb/robota/issues/2044
-status: in-progress
+status: done
 created: 2026-08-25
+completed: 2026-08-25
 priority: critical
 urgency: now
 area: packages/agent-cli, packages/agent-subagent-runner
@@ -66,6 +67,25 @@ of the entry point — it is the supported way to embed the product with your ow
 of those sessions spawn a subagent at all. A composition-time throw was a **false positive against
 working software**, and the count made that unarguable rather than a matter of taste.
 
+Delivered as `360695df1` (PR #2297). The two failing sets, as the runs reported them:
+
+```
+Test Files  4 failed | 51 passed (55)
+      Tests  20 failed | 417 passed (437)
+AssertionError: expected [Function] to throw error including 'process.exit:0'
+  but got 'robota cannot start: this session composed caller-supplied providerDefinitions…'
+  ❯ packages/agent-cli/src/__tests__/cli-exit-codes.test.ts:103
+
+Test Files  1 failed | 54 passed (55)
+      Tests  4 failed | 431 passed (435)
+AssertionError: expected 'Subagents will run in-process: this s…' to be ''
+  ❯ packages/agent-cli/src/__tests__/cli-update-check.test.ts:126
+```
+
+The second block is the narrower version — a warning rather than a throw — and
+`packages/agent-cli/src/__tests__/cli-update-check.test.ts:126` is `expect(stderr.mock.calls.join('')).toBe('')`,
+which is the print/JSON output contract rather than a test being fussy.
+
 Then four more tests failed on a narrower version: they assert an empty stderr for print and JSON
 runs, where stderr is part of the output contract. So even a _warning_ on every embedded startup was
 wrong.
@@ -116,6 +136,23 @@ correct fallback, and stopping would be the unsafe direction for the user's sess
   | —   | treatment                                                            | 21 passed            |
 
 - Package suite: 435 passed / 55 files.
+
+## What this Task did NOT deliver
+
+Recorded here as well as on the issue, because a `done` record beside an open issue invites the
+reading that the issue is stale. It is not: issue #2044 stays open with three of its four acceptance
+criteria unmet, and the comparison is in a comment there naming `360695df1`.
+
+- **A self-fork test using a custom provider across parent and child.** The seam is a parameter now,
+  but robota's worker entry still calls the recipe with no arguments and exposes no paired worker
+  entry, so there is no supported way to arrange the crossing yet.
+- **An end-to-end replay assertion.** The mechanism is asserted at the selector — zero calls to the
+  child-runner builder, which is what would read the key — but no test drives a replay run through
+  the subagent tool and observes no network call.
+- **Startup refusal.** Deliberately rejected on evidence; see the correction above. That rejection is
+  a proposal back to the issue's author, and the issue is where it is argued.
+
+This Task is `done` for what it set out to change. The issue is the thing that is not finished.
 
 ## User Execution Test Scenarios
 
