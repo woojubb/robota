@@ -155,6 +155,22 @@ the implementation PR rather than before implementation; the run therefore remai
 regression evidence and does not satisfy either done-gate stage. That planning-order violation is
 recorded here instead of being rewritten as if the gate had run on time.
 
+Control (2026-08-25; also NOT gate evidence): the run above establishes that the scenario passes,
+which on its own does not establish that it could fail. Removing the `loadOrgPolicy()` call from
+`command-setup.ts` and rebuilding the CLI turns the same scenario red —
+
+```
+× blocks a provider switch forbidden only by the policy loaded from disk
+  → PTY waitForSince timeout (15000ms) for
+    /Provider "openai" is not allowed by your organization policy/
+```
+
+— the refusal message never appears, so the scenario is not byte-identical with and without the
+behaviour it names. The call was restored and the green re-verified. This is recorded because a
+passing scenario and a discriminating one are different claims, and only the second says anything;
+it remains engineering regression evidence and satisfies neither done-gate stage, for the ordering
+reason stated above, which no amount of green can change.
+
 ### [DONE-GATE-STAGE-1] — 🔴 NON-COMPLIANCE | 2026-08-25
 
 **Status remains:** done
