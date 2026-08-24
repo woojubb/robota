@@ -1,23 +1,18 @@
 /** Transport lifecycle registry with optional settings capability per entry. */
 
-import { readSettings, writeSettings, type TSettingsData } from '@robota-sdk/agent-framework';
-
+import { configurationError, startupError } from './transport-registry-errors.js';
 import { TransportRunGeneration } from './transport-run-generation.js';
+import { TransportSettingsView } from './transport-settings-view.js';
 
 import type { IDestroyResult, TUniversalValue } from '@robota-sdk/agent-core';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
-  IConfigurableTransport,
-  ITransportAdapter,
   ITransportCompletionRecord,
-  ITransportConfig,
   ITransportEntry,
   ITransportFailureRecord,
   ITransportRunnerAdapter,
-  ITransportStartupError,
   TConfigurableTransport,
   TTransportAdapter,
-  TTransportConfigurationErrorCode,
 } from '@robota-sdk/agent-interface-transport';
 
 interface IRegistryEntry {
@@ -37,38 +32,11 @@ function isRunnerTransport(
   return transport.lifecycle.kind === 'runner';
 }
 
-function configurationError(transportName: string, code: TTransportConfigurationErrorCode): Error {
-  return Object.assign(new Error(`Transport ${transportName} is ${code}.`), {
-    name: 'TransportConfigurationError' as const,
-    code,
-    transportName,
-  });
-}
-
-function startupError(
-  transportName: string,
-  cause: unknown,
-  rollbackErrors: ITransportStartupError['rollbackErrors'],
-  rollbackCauses: readonly unknown[],
-): ITransportStartupError {
-  const error = Object.assign(new Error(`Transport ${transportName} failed during startup.`), {
-    name: 'TransportStartupError' as const,
-    transportName,
-    rollbackErrors: Object.freeze([...rollbackErrors]),
-  });
-  Object.defineProperty(error, 'cause', { value: cause, enumerable: false });
-  Object.defineProperty(error, 'rollbackCauses', {
-    value: Object.freeze([...rollbackCauses]),
-    enumerable: false,
-  });
-  return error;
-}
-
 type TRegistryState = 'idle' | 'starting' | 'active' | 'stopping';
 
 export class TransportRegistry {
   private readonly entries = new Map<string, IRegistryEntry>();
-  private readonly settingsPath: string;
+  private readonly settings: TransportSettingsView;
   private generation: TransportRunGeneration | undefined;
   private state: TRegistryState = 'idle';
   private startOperation: Promise<void> | undefined;
@@ -79,13 +47,11 @@ export class TransportRegistry {
     { readonly transportName: string; readonly cause: unknown } | undefined;
 
   constructor(settingsPath: string) {
-    this.settingsPath = settingsPath;
+    this.settings = new TransportSettingsView(settingsPath);
   }
 
-  register(transport: TTransportAdapter<IInteractiveSession>): void {
-    if (this.entries.has(transport.name)) {
-      throw new Error(`Duplicate transport name: ${transport.name}`);
-    }
+  /** The lifecycle/shape agreement every entry must satisfy, on the way in and on a replace. */
+  private assertRegisterableShape(transport: TTransportAdapter<IInteractiveSession>): void {
     const hasCompletion =
       'waitForCompletion' in transport && typeof transport.waitForCompletion === 'function';
     if (
@@ -96,6 +62,37 @@ export class TransportRegistry {
         `Transport ${transport.name} has an invalid ${transport.lifecycle.kind} shape.`,
       );
     }
+  }
+
+  register(transport: TTransportAdapter<IInteractiveSession>): void {
+    if (this.entries.has(transport.name)) {
+      throw new Error(`Duplicate transport name: ${transport.name}`);
+    }
+    this.assertRegisterableShape(transport);
+    this.entries.set(transport.name, {
+      transport,
+      configurable: isConfigurableTransport(transport) ? transport : undefined,
+    });
+  }
+
+  /**
+   * Swap the adapter registered under `transport.name` for a new instance of the same name.
+   *
+   * Narrower than an unregister: the name must ALREADY be registered and the count cannot change, so
+   * `stopAll` keeps its promise to reach everything. An entry is a claim about WHICH instance is
+   * live, and reconnect makes it false (issue #2043).
+   *
+   * Returns nothing and stops nothing: every caller that abandons an adapter already stops it on the
+   * path that abandoned it, and a registry that stopped it here would do so at a moment the caller
+   * did not choose.
+   */
+  replace(transport: TTransportAdapter<IInteractiveSession>): void {
+    if (!this.entries.has(transport.name)) {
+      throw new Error(
+        `Cannot replace transport ${transport.name}: no transport is registered under that name.`,
+      );
+    }
+    this.assertRegisterableShape(transport);
     this.entries.set(transport.name, {
       transport,
       configurable: isConfigurableTransport(transport) ? transport : undefined,
@@ -103,13 +100,13 @@ export class TransportRegistry {
   }
 
   getAll(): ITransportEntry<IInteractiveSession>[] {
-    const saved = this.readTransportSettings();
+    const saved = this.settings.readAll();
     return [...this.entries.values()].flatMap(({ configurable }) =>
       configurable
         ? [
             {
               transport: configurable,
-              config: this.resolveConfig(configurable, saved[configurable.name]),
+              config: this.settings.resolve(configurable, saved[configurable.name]),
             },
           ]
         : [],
@@ -117,31 +114,21 @@ export class TransportRegistry {
   }
 
   getEnabled(): TTransportAdapter<IInteractiveSession>[] {
-    const saved = this.readTransportSettings();
+    const saved = this.settings.readAll();
     return [...this.entries.values()].flatMap(({ transport, configurable }) => {
       if (!configurable) return [transport];
-      return this.resolveConfig(configurable, saved[transport.name]).enabled ? [transport] : [];
+      return this.settings.resolve(configurable, saved[transport.name]).enabled ? [transport] : [];
     });
   }
 
   async setEnabled(name: string, enabled: boolean): Promise<void> {
     this.requireConfigurable(name);
-    const settings = readSettings(this.settingsPath);
-    const transports = (settings.transports ?? {}) as TSettingsData;
-    const entry = (transports[name] ?? {}) as TSettingsData;
-    transports[name] = { ...entry, enabled } as TSettingsData;
-    settings.transports = transports;
-    writeSettings(this.settingsPath, settings);
+    this.settings.setEnabled(name, enabled);
   }
 
   async setOptions(name: string, options: Record<string, TUniversalValue>): Promise<void> {
     this.requireConfigurable(name);
-    const settings = readSettings(this.settingsPath);
-    const transports = (settings.transports ?? {}) as TSettingsData;
-    const entry = (transports[name] ?? {}) as TSettingsData;
-    transports[name] = { ...entry, options: options as TSettingsData } as TSettingsData;
-    settings.transports = transports;
-    writeSettings(this.settingsPath, settings);
+    this.settings.setOptions(name, options);
   }
 
   async startAll(session: IInteractiveSession): Promise<void> {
@@ -279,21 +266,5 @@ export class TransportRegistry {
     if (!entry) throw configurationError(name, 'unknown-transport');
     if (!entry.configurable) throw configurationError(name, 'not-configurable');
     return entry.configurable;
-  }
-
-  private resolveConfig(
-    transport: TConfigurableTransport<IInteractiveSession>,
-    saved?: TSettingsData,
-  ): ITransportConfig {
-    const enabled = (saved?.enabled as boolean | undefined) ?? transport.defaultEnabled;
-    const options = (saved?.options as Record<string, TUniversalValue> | undefined) ?? {};
-    return { enabled, options };
-  }
-
-  private readTransportSettings(): Record<string, TSettingsData> {
-    const settings = readSettings(this.settingsPath);
-    const raw = settings.transports;
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
-    return raw as Record<string, TSettingsData>;
   }
 }

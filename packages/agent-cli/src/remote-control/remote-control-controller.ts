@@ -345,7 +345,6 @@ export class RemoteControlController {
     );
     this.reconnectPeers.push(peer);
     this.reconnectSignalings.push(signaling);
-    this.deps.registry.register(peer);
     peer.attach(session);
     void peer.start().catch(() => undefined);
   }
@@ -372,6 +371,7 @@ export class RemoteControlController {
     }
     this.reconnectPeers = [];
     this.reconnectSignalings = [];
+    this.deps.registry.replace(winner); // #2043: the entry must name the live instance
     this.transport = winner;
     this.signaling = winnerSignaling;
     this.status = { state: 'paired' };
