@@ -135,6 +135,8 @@ export function toChannelOptions(
   options: IRenderOptions,
   resumeSessionId?: string,
 ): ConstructorParameters<typeof TuiInteractionChannel>[0] {
+  // Contained — ARCH-110. This hand-maintained projection can silently omit optional composition-root
+  // capabilities such as orgPolicy; keep the gap visible until ARCH-110 replaces or mechanically checks it.
   return {
     cwd: options.cwd,
     provider: options.provider,
