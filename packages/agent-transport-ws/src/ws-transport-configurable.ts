@@ -6,7 +6,7 @@
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 
 import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
-import { WebSocketServer, WebSocket } from 'ws';
+import { WebSocketServer } from 'ws';
 
 import { PayloadChannelRegistry } from './payload-channels.js';
 import {
@@ -32,7 +32,7 @@ import type {
   TChannelEventMap,
 } from '@robota-sdk/agent-interface-transport';
 import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
-import type { RawData } from 'ws';
+import type { RawData, WebSocket } from 'ws';
 
 /**
  * RUNTIME-13: forced-terminate deadline for `stop()`. `WebSocketServer.close()` fires its callback only after
@@ -245,9 +245,11 @@ export class WsTransport
           delivery.bindProtocolCleanup(handler.cleanup);
 
           delivery.bindSinkDetach(
-            channels.addSink((frame: Uint8Array) => {
-              if (ws.readyState === WebSocket.OPEN) ws.send(frame, { binary: true });
-            }),
+            // ARCH-030: through the connection's own delivery, so payload frames share the text
+            // protocol's backpressure budget and its close policy. The bare `readyState` check plus
+            // `ws.send` that stood here was the last outbound path on this socket outside the
+            // boundary.
+            channels.addSink((frame: Uint8Array) => delivery.deliverBinary(frame)),
           );
 
           // Route by frame opcode: TEXT → the text-agent protocol profile, BINARY → the

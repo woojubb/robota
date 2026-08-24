@@ -1,7 +1,11 @@
 export { createWsHandler } from './ws-handler.js';
 export type { IWsHandlerOptions } from './ws-handler.js';
 // ARCH-030: the connection-scoped outbound delivery boundary every carrier builds and passes down.
-export { createOutboundDelivery } from './outbound-delivery.js';
+export {
+  createOutboundDelivery,
+  isOverPendingBudget,
+  DEFAULT_MAX_PENDING_BYTES,
+} from './outbound-delivery.js';
 export type { TDeliveryErrorHandler, TOutboundDeliver } from './outbound-delivery.js';
 export { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from './ws-session-events.js';
 // `ISubscribeSessionEventsOptions` is NOT here (ARCH-030): it is the options bag of

@@ -1,4 +1,4 @@
-import { createOutboundDelivery } from '@robota-sdk/agent-transport-protocol';
+import { createOutboundDelivery, isOverPendingBudget } from '@robota-sdk/agent-transport-protocol';
 import { WebSocket } from 'ws';
 
 import type { TOutboundDeliver, TServerMessage } from '@robota-sdk/agent-transport-protocol';
@@ -32,6 +32,32 @@ export class WsSessionDelivery {
       () => this.socket.bufferedAmount,
     );
   }
+
+  /**
+   * Put a TRANS-001 payload frame on this socket, under the SAME budget and the same close policy as
+   * the text protocol (ARCH-030 / issue #1734).
+   *
+   * A WebSocket carries two kinds of outbound frame over one socket, and until this existed the
+   * binary half went straight to `socket.send` — outside the boundary, with no budget, and with a
+   * failure that could only surface as a throw inside a listener. `bufferedAmount` does not
+   * distinguish the two, so a non-reading peer accumulating payload frames was invisible to a budget
+   * that only guarded the other half.
+   *
+   * It is not `deliver`: that boundary is typed for `TServerMessage` and its brand is what makes a
+   * raw send unusable where a protocol frame is required. Widening it to accept bytes would remove
+   * the property the brand exists for.
+   */
+  readonly deliverBinary = (frame: Uint8Array): void => {
+    if (this.closed) return;
+    if (this.socket.readyState !== WebSocket.OPEN) return;
+    if (isOverPendingBudget(this.socket.bufferedAmount)) {
+      this.close();
+      return;
+    }
+    this.socket.send(frame, { binary: true }, (error) => {
+      if (error) this.close();
+    });
+  };
 
   private rawSend(message: TServerMessage): void {
     if (this.socket.readyState !== WebSocket.OPEN) throw new Error('WebSocket is not open');
