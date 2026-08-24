@@ -4,8 +4,6 @@ import {
   DuplicateSystemCommandSemanticRoleError,
   InteractiveSession,
   SystemCommandExecutor,
-  createContributionSourcesForProjectAccess,
-  createSession,
   createSubagentSession,
   deriveContextCapacityHint,
   type ICommandModule,
@@ -16,10 +14,6 @@ import {
 
 import { config, terminal } from './semantic-command-role-project-access.js';
 
-// ARCH-035 made `createSession` async, so its ReturnType is a Promise. INFRA-119 awaited the CALL and
-// left this alias reading `.session` off the promise — a `never`, silently, because nothing typechecked
-// this directory. It is the same defect one line over, and the reason issue #1902 exists.
-export type TDirectSession = Awaited<ReturnType<typeof createSession>>['session'];
 export type TSubagentSession = ReturnType<typeof createSubagentSession>;
 
 export function assertCondition(condition: boolean, message: string): asserts condition {
@@ -37,40 +31,6 @@ export function command(
     modelInvocable: true,
     execute: () => ({ success: true, message: '' }),
   };
-}
-
-/**
- * ARCH-035 made `createSession` async. This helper is `async` for that reason alone — awaiting the
- * result is not a style choice here: `created.session` on an unawaited promise is `undefined`, and
- * the failure surfaces two frames away as a missing method on the session.
- */
-export async function readSystemMessage(
-  cwd: string,
-  commandName: string,
-  sessions: TDirectSession[],
-  projectAccess: ITrustedWorkspaceProjectAccess,
-  commandSemanticRoles?: ISystemCommandSemanticRoles,
-): Promise<string> {
-  const created = await createSession({
-    config,
-    cwd,
-    contributionSources: createContributionSourcesForProjectAccess(projectAccess),
-    context: { agentsMd: '', projectNotesMd: '' },
-    terminal: terminal as never,
-    provider: createScriptedProvider([]).provider,
-    commandDescriptors: [
-      {
-        name: commandName,
-        kind: 'builtin-command',
-        description: 'Activate a skill',
-        userInvocable: true,
-        modelInvocable: true,
-      },
-    ],
-    ...(commandSemanticRoles ? { commandSemanticRoles } : {}),
-  });
-  sessions.push(created.session);
-  return created.session.getSystemMessage();
 }
 
 export function createTrackedSubagent(
@@ -148,43 +108,16 @@ export async function verifyOmissionBehaviors(options: {
   alternate: readonly ISystemCommand[];
   injectedSession: object;
   projectedSpawnTool: FunctionTool;
-  directSessions: TDirectSession[];
   subagentSessions: TSubagentSession[];
-  directPromptWithoutRoles: string;
 }): Promise<{
   unannotatedCoincidentalNames: Record<string, boolean>;
   singleRoleOmission: Record<string, Record<string, boolean>>;
-  directCreateSessionOmission: { allRolesAbsent: boolean };
 }> {
-  const { cwd, projectAccess, alternate, projectedSpawnTool, directSessions, subagentSessions } =
-    options;
+  const { cwd, projectAccess, alternate, projectedSpawnTool, subagentSessions } = options;
   const omissionRoles = {
     skillActivation: new SystemCommandExecutor(alternate.slice(1)).getSemanticRoles(),
     contextReduction: new SystemCommandExecutor([alternate[0]!, alternate[2]!]).getSemanticRoles(),
     subagentSpawn: new SystemCommandExecutor(alternate.slice(0, 2)).getSemanticRoles(),
-  };
-  const prompts = {
-    skillActivation: await readSystemMessage(
-      cwd,
-      'activate-skill-alt',
-      directSessions,
-      projectAccess,
-      omissionRoles.skillActivation,
-    ),
-    contextReduction: await readSystemMessage(
-      cwd,
-      'activate-skill-alt',
-      directSessions,
-      projectAccess,
-      omissionRoles.contextReduction,
-    ),
-    subagentSpawn: await readSystemMessage(
-      cwd,
-      'activate-skill-alt',
-      directSessions,
-      projectAccess,
-      omissionRoles.subagentSpawn,
-    ),
   };
   const omissionSubagents = {
     skillActivation: createTrackedSubagent(
@@ -208,20 +141,17 @@ export async function verifyOmissionBehaviors(options: {
   };
   const singleRoleOmission = {
     skillActivation: {
-      omitted: !prompts.skillActivation.includes('## Skills'),
       contextReductionActive:
         deriveContextCapacityHint(omissionRoles.skillActivation.contextReduction) ===
         'Run /reduce-context-alt and retry.',
       subagentSpawnActive: !hasProjectedSpawnTool(omissionSubagents.skillActivation),
     },
     contextReduction: {
-      skillActivationActive: prompts.contextReduction.includes('## Skills'),
       omitted:
         deriveContextCapacityHint(omissionRoles.contextReduction.contextReduction) === undefined,
       subagentSpawnActive: !hasProjectedSpawnTool(omissionSubagents.contextReduction),
     },
     subagentSpawn: {
-      skillActivationActive: prompts.subagentSpawn.includes('## Skills'),
       contextReductionActive:
         deriveContextCapacityHint(omissionRoles.subagentSpawn.contextReduction) ===
         'Run /reduce-context-alt and retry.',
@@ -252,13 +182,6 @@ export async function verifyOmissionBehaviors(options: {
   } finally {
     await unannotatedInteractive.shutdown();
   }
-  const unannotatedPrompt = await readSystemMessage(
-    cwd,
-    'skills',
-    directSessions,
-    projectAccess,
-    unannotatedRoles,
-  );
   const unannotatedSubagent = createTrackedSubagent(
     cwd,
     projectedSpawnTool,
@@ -266,7 +189,7 @@ export async function verifyOmissionBehaviors(options: {
     unannotatedRoles,
   );
   const unannotatedCoincidentalNames = {
-    skills: unannotatedSkillFallback === null && !unannotatedPrompt.includes('## Skills'),
+    skills: unannotatedSkillFallback === null,
     compact: deriveContextCapacityHint(unannotatedRoles.contextReduction) === undefined,
     agent: hasProjectedSpawnTool(unannotatedSubagent),
   };
@@ -275,21 +198,8 @@ export async function verifyOmissionBehaviors(options: {
     'an unannotated coincidental command name gained semantic behavior',
   );
 
-  const directSubagent = createTrackedSubagent(cwd, projectedSpawnTool, subagentSessions);
-  const directOmissionBehavior = {
-    skillActivationAbsent: !options.directPromptWithoutRoles.includes('## Skills'),
-    contextReductionAbsent: deriveContextCapacityHint(undefined) === undefined,
-    subagentSpawnAbsent: hasProjectedSpawnTool(directSubagent),
-  };
-  assertCondition(
-    Object.values(directOmissionBehavior).every(Boolean),
-    'direct session creation without roles gained semantic behavior',
-  );
   return {
     unannotatedCoincidentalNames,
     singleRoleOmission,
-    directCreateSessionOmission: {
-      allRolesAbsent: Object.values(directOmissionBehavior).every(Boolean),
-    },
   };
 }

@@ -94,15 +94,27 @@ REVIEW VERDICT: ENDORSE
 
 - **Expected observable:** exit code `0` and exactly one deterministic JSON object on stdout. It reports
   alternate role ids `activate-skill-alt`, `reduce-context-alt`, and `spawn-subagent-alt`; those exact ids
-  drive skill fallback plus model-visible skill enrichment, the context-capacity hint, agent-job command
-  provenance, and subagent spawn-command filtering. Its `unannotatedCoincidentalNames` object reports no
-  special behavior for unannotated commands named `skills`, `compact`, and `agent`. Its
-  `singleRoleOmission` object removes each role separately while leaving the other two behaviors active,
-  `directCreateSessionOmission.allRolesAbsent` is `true`, and `duplicateRoleRejections` records typed
-  failures for constructor, register, and replace without mutating the previously selected commands.
+  drive skill fallback, the context-capacity hint, agent-job command provenance, and subagent
+  spawn-command filtering. Its `unannotatedCoincidentalNames` object reports no special behavior for
+  unannotated commands named `skills`, `compact`, and `agent`. Its `singleRoleOmission` object removes
+  each role separately while leaving the other two behaviors active, and `duplicateRoleRejections`
+  records typed failures for constructor, register, and replace without mutating the previously selected
+  commands.
   `ownerDeclarations` proves the shipped skills, compact, and agent commands declare the three roles.
   `cleanupRemoved` is `true`. Any mismatch or cleanup failure writes a diagnostic to stderr and exits
   non-zero rather than printing a success object.
+
+  **Narrowed after completion, and where the rest went.** The assertions about the system message an
+  assembled session composes for a role projection — `alternateBehaviors.modelVisibleSkillEnrichment`,
+  the prompt half of each `singleRoleOmission` leg, and `directCreateSessionOmission` — moved to
+  `packages/agent-framework/src/__tests__/semantic-role-projection-in-assembled-session.test.ts`
+  (PR #2296). They are agent-framework behaviour with no command module involved, and proving them from
+  agent-command required reaching that package's `createSession` assembly factory through its public
+  barrel, which is issue #2270. The third leg of the former `directCreateSessionOmission`,
+  `subagentSpawnAbsent`, was already covered independently by
+  `packages/agent-framework/src/__tests__/create-subagent-session.test.ts`. The dated evidence block
+  below records the observable as it stood on 2026-08-16 and is left unchanged as history.
+
 - **Cleanup:** the example shuts down every session and recursively removes its temporary project/session
   directories in `finally`; it restores any process state it changed.
 - **Evidence (2026-08-16):** the exact command ran against the completed implementation and exited `0`.
