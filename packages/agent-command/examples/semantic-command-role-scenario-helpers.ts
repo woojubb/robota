@@ -4,7 +4,6 @@ import {
   DuplicateSystemCommandSemanticRoleError,
   InteractiveSession,
   SystemCommandExecutor,
-  createContributionSourcesForProjectAccess,
   createSubagentSession,
   deriveContextCapacityHint,
   type ICommandModule,
