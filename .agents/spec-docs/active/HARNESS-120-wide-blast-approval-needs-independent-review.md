@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [async]
 ---
@@ -327,3 +327,18 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Post-approval document integrity: comparison with exact endorsed revision `440529b9a861a925702368ecc45c36313b7bb210` shows no substantive design change; only the lifecycle status/path transition, this gate evidence, and the Task's exact independent-review record were added. `## Architecture Review`, `type: INFRA`, and `tags: [async]` remain unchanged.
 - Independent architecture validation: N/A — the Affected Scope and Decision introduce no package, application, presentation/interface surface, public API, runtime dependency, layer reclassification, or product-family boundary; the proposed scripts and contract edits remain inside the existing repository harness/governance surface. New-surface placement evidence is therefore not required by the current conditional criterion.
 - Premature implementation check: `origin/develop...440529b9a861a925702368ecc45c36313b7bb210` changes only the HARNESS-120 Task/spec planning artifacts plus the preceding HARNESS-121 post-merge-cycle ledger record; the current worktree changes only the Task review record and the spec lifecycle/evidence transaction. No implementation path listed in this spec's Affected Files has been modified or committed before this gate.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-26
+
+**Status upgrade:** approved → in-progress
+
+- Ordering: the immediately preceding lifecycle gate is a specific `GATE-APPROVAL` PASS dated 2026-08-26, and this document is `status: approved` at `.agents/spec-docs/todo/HARNESS-120-wide-blast-approval-needs-independent-review.md`, matching the required input state and folder.
+- Exact Task artifact: `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md` exists; its HARNESS-120 title, issue `#2326`, objective, and subject field bind it to this exact spec and work unit.
+- Task binding in spec: `## Tasks` records the exact active Task path `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md`.
+- TC correspondence: Task Plan item 1 covers the universal subject/projection/revision attestation in TC-01; items 2 and 4 cover the planning checkpoint plus staged/topic failure matrix in TC-02; item 5 covers immutable prospective adoption in TC-03; item 6 covers the shared reviewer/orchestrator/catalogue/scan/map wiring in TC-04 and its full-green proof in TC-05; item 3 additionally covers the universal current-ENDORSE requirement in TC-01.
+- Task Test Plan: the Task contains a substantive `## Test Plan` section longer than 50 characters, requiring focused guardian/scan fixtures plus the complete harness contract tier and `pnpm harness:scan`.
+- Subject-bound PLAN terminal outcome: the exact Task records subject `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md`, author verdict `SCENARIO DRAFTED: not-applicable | 0`, and a concrete reason that this repository-internal approval/governance enforcement delivers no CLI, TUI, browser, public-SDK, hidden capability, or other user-executable product behavior. DONE-GATE-STAGE-1 is therefore N/A.
+- PLAN ledger evidence: `.agents/loop-runs/user-execution-scenario.jsonl` contains closed run `r20260825173752`, opened `2026-08-25T17:37:52.224Z`, closed `2026-08-25T17:38:20.775Z`, `roundFindings: [0]`, `terminal: converged`, and ref `HARNESS-120-wide-blast-approval-needs-independent-review.md`, binding the successful run to the exact Task/spec basename; `scan-loop-run-records.mjs` exits 0 over the current ledgers.
+- Whole-worktree path inventory: `git status --short --untracked-files=all`, unstaged name-status, and staged name-status show no staged change and only the exact planning set: the paired Task modification, the paired spec's draft deletion plus approved/todo replacement (one lifecycle move), and the single subject-bound `user-execution-scenario.jsonl` PLAN record. No implementation path, unrelated planning path, rename outside the exact spec move, or other deletion is present.
+- Pre-gate branch history: `origin/develop..HEAD` changes only the HARNESS-120 Task/spec planning artifacts and the prior append-only HARNESS-121 post-merge-cycle record; no implementation file in this spec's Affected Files was modified or committed before this gate.
+- NON-COMPLIANCE trigger: N/A — the exact Task and prospective PLAN evidence predate implementation, and neither branch history nor the complete worktree contains a premature implementation path.

@@ -1,7 +1,7 @@
 ---
 title: 'HARNESS-120: recommendation endorsement is required but unenforced'
 issue: https://github.com/woojubb/robota/issues/2326
-status: todo
+status: in-progress
 created: 2026-08-25
 priority: high
 urgency: soon
@@ -76,7 +76,9 @@ HARNESS-120-wide-blast-approval-needs-independent-review.md`; `REVIEW REVISION:
 ## User Execution Test Scenarios
 
 - **Subject:** `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md`
-- **PLAN author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
 - **Reason:** Not applicable because this work changes only repository-internal recommendation approval
   governance, planning checkpoints, and harness enforcement. It delivers no runnable Robota CLI, TUI,
   browser, public SDK, or other product behavior that a user could execute and observe, and it does not
