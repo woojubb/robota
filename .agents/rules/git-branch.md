@@ -608,9 +608,23 @@ request where both are visible, not inside whichever session happened to look.
 
 **The ordering is already written down and nothing checks it.** `pr-finding-resolution-loop` step 5
 reads _"Dispatch `pr-review-writer` (posts the review to the PR), **then** `pr-review-fixer`"_ — publish
-first, fix second. Measured: no file under `scripts/harness/` or `.claude/hooks/` references
-`pr-review-writer` at all, so a session can run reviewer → fixer → push, thirty-two times, and no
-mechanism notices the middle step was skipped. **The rule was not missing; its enforcement was.** What
+first, fix second. Measured: **nothing enforces that ordering.** `scripts/harness/__tests__/`
+mentions the writer — in a doc comment and in an exemption set — and neither reference checks that a
+dispatch happened, so a session can run reviewer → fixer → push, thirty-two times, and no mechanism
+notices the middle step was skipped.
+
+**This paragraph first said "no file references it at all", which was false**, and the correction is
+worth keeping rather than quietly applying: _referenced by nothing_ and _enforced by nothing_ are
+different claims, and the first was the stronger one to make and the cheaper one to falsify — eleven
+words of `grep`. A rule about not overclaiming, overclaiming in its own evidence line.
+
+**And the surrounding mechanism does better than this paragraph did.** `scan-review-findings.mjs`
+scopes itself in its own header — it checks contract PRESENCE, not that any mechanism ran — and
+`orchestration-map.md` records it as a **partial** floor rather than counting it as a satisfied one.
+A check that declares what it does not cover, and a map that refuses to count it as coverage, is the
+opposite of the failure this section describes.
+
+**The rule was not missing; its enforcement was.** What
 catches the loop today is the frozen-diff refusal below, which refuses the second push once the pull
 request's own verdict reads zero — verified against this case's branch.
 
