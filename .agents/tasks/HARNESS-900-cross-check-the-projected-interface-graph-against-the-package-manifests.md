@@ -74,7 +74,7 @@ key or exported symbol differs, and nothing a user of the CLI runs behaves diffe
 after. The nearest executable surface is `pnpm harness:scan`, which is a developer gate — a scenario
 written against it would be a developer-execution scenario wearing a user-execution label.
 
-The evidence a reader can re-run in place of a user scenario:
+The evidence a reader can re-run in place of a user execution test scenario:
 
 ```
 node scripts/harness/scan-interface-family-owner.mjs

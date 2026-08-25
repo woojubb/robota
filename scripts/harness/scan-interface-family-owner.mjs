@@ -310,6 +310,58 @@ export function readExaminedModuleCount(srcDir = SOURCE_PKG) {
  * both sit at layer 0 and the ruling permits composition only across DIFFERING layers,
  * one-directionally.
  */
+/**
+ * The package manifests' own view of the edges between `agent-interface-*` packages.
+ *
+ * An INDEPENDENT ORACLE for the projection (issue #2215). `projectGraph` reads import statements;
+ * this reads `package.json` dependencies. They are produced by different work at different times, so
+ * a parser that stops seeing a kind of edge cannot take this down with it.
+ *
+ * That is the whole point. The projection once parsed only RELATIVE imports, which is correct while
+ * every family shares a package — and the moment a leaf moved one out, the same dependency was
+ * written as a package specifier and vanished from the graph. **Acyclicity got EASIER to satisfy as
+ * the evidence disappeared**, so the verdict strengthened while its subject shrank. The manifest
+ * declared the dependency the whole time.
+ */
+export function manifestEdges(root = ROOT) {
+  const edges = new Set();
+  const dir = path.join(root, 'packages');
+  if (!existsSync(dir)) return edges;
+  for (const entry of readdirSync(dir)) {
+    if (!entry.startsWith('agent-interface-')) continue;
+    const manifest = path.join(dir, entry, 'package.json');
+    if (!existsSync(manifest)) continue;
+    /** @type {{dependencies?: Record<string,string>, peerDependencies?: Record<string,string>}} */
+    const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
+    for (const dep of [
+      ...Object.keys(pkg.dependencies ?? {}),
+      ...Object.keys(pkg.peerDependencies ?? {}),
+    ]) {
+      // Built from the config, never spelled: `harness-scope-literal` refuses a hardcoded scope
+      // for the reason this whole issue is about — a literal that stops matching does not fail, it
+      // matches nothing, and matching nothing reads as a pass.
+      if (!dep.startsWith(`${HARNESS.internalPackagePrefix}interface-`)) continue;
+      const to = dep.slice(HARNESS.npmScopePrefix.length);
+      if (to !== entry) edges.add(`${entry} -> ${to}`);
+    }
+  }
+  return edges;
+}
+
+/**
+ * Every manifest edge the projection does not carry.
+ *
+ * A manifest edge with no projected edge means the parser missed something — NOT that the packages
+ * stopped depending on each other, because a manifest entry is written by hand and removed by hand.
+ * The reverse direction is deliberately NOT checked: a projected edge with no manifest entry is a
+ * missing dependency declaration, which is a different defect with a different owner.
+ */
+export function manifestEdgesMissingFromProjection(projected, manifest) {
+  const carried = new Set();
+  for (const [from, tos] of projected) for (const to of tos.keys()) carried.add(`${from} -> ${to}`);
+  return [...manifest].filter((edge) => !carried.has(edge)).sort();
+}
+
 export function findLayerViolations(edges, layers) {
   const out = [];
   for (const [from, outs] of edges) {
@@ -412,9 +464,21 @@ function main() {
     }
   }
 
+  // ISSUE #2215: the projection checked against a source that cannot decay with it.
+  const declaredEdges = manifestEdges();
+  const unprojected = manifestEdgesMissingFromProjection(edges, declaredEdges);
+  for (const edge of unprojected) {
+    fail.push(
+      `UNPROJECTED EDGE: \`${edge}\` is declared in the package manifests and absent from the ` +
+        `projected graph. A manifest edge the parser cannot see means the projection is reading ` +
+        `less than the tree contains — and every verdict over it, acyclicity included, gets ` +
+        `EASIER to satisfy as that happens.`,
+    );
+  }
+
   const waves = migrationWaves(edges, owners);
   console.log(
-    `::examined:: ${modules.length} contract modules, ${owners.size} declared owners, ${layers.size} declared layers, ${placementChecked} modules placement-checked, ${placementPending} awaiting an owner package that does not exist yet`,
+    `::examined:: ${modules.length} contract modules, ${owners.size} declared owners, ${layers.size} declared layers, ${placementChecked} modules placement-checked, ${placementPending} awaiting an owner package that does not exist yet, ${declaredEdges.size} manifest edge(s) cross-checked against the projection`,
   );
   for (const n of note) console.log(`- [note] ${n}`);
   if (PENDING_CORRECTIONS.length) {

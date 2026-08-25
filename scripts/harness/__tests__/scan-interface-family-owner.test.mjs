@@ -13,6 +13,8 @@ import {
   findLayerViolations,
   findContractModules,
   migrationWaves,
+  manifestEdges,
+  manifestEdgesMissingFromProjection,
   parseOwnerMap,
   projectGraph,
   readExaminedModuleCount,
@@ -550,5 +552,59 @@ describe("findLayerViolations — the SCAN's use of the layer predicate, not the
     );
     expect(out).toHaveLength(1);
     expect(out[0]).toContain('no declared layer');
+  });
+});
+
+describe('manifest edges as an independent oracle for the projection (issue #2215)', () => {
+  /** The projection over the real tree, which every case below compares against. */
+  function projectedNow() {
+    const map = parseOwnerMap(readFileSync(RULE_DOC, 'utf8'));
+    const { sources } = resolveModuleSources(map.moduleOwner);
+    return projectGraph(sources, map.moduleOwner, map.symbolOwner, map.corrections ?? []);
+  }
+
+  it('reads the edges the package manifests declare between interface packages', () => {
+    const edges = manifestEdges();
+    // Non-empty is the control: an oracle that reads nothing agrees with every projection, which is
+    // the unfalsifiable green this whole scan exists to refuse.
+    expect(edges.size).toBeGreaterThan(0);
+    for (const edge of edges) expect(edge).toMatch(/^agent-interface-\S+ -> agent-interface-\S+$/);
+  });
+
+  it('every manifest edge is carried by the projection today', () => {
+    expect(manifestEdgesMissingFromProjection(projectedNow(), manifestEdges())).toEqual([]);
+  });
+
+  it('CATCHES the historical defect: a projection blind to package specifiers', () => {
+    // The measured failure this oracle exists for. `session-contracts`' edges into execution,
+    // command and analytics became package specifiers as leaves moved out; a relative-only parser
+    // lost all three, `session` appeared to depend on nothing, and ACYCLICITY STAYED GREEN — fewer
+    // edges make it easier to satisfy. Simulated here by projecting with the package-specifier
+    // matches removed from the sources, which is what a relative-only parser would have seen.
+    const map = parseOwnerMap(readFileSync(RULE_DOC, 'utf8'));
+    const { sources } = resolveModuleSources(map.moduleOwner);
+    const relativeOnly = Object.fromEntries(
+      Object.entries(sources).map(([mod, src]) => [
+        mod,
+        src.replace(/@robota-sdk\/agent-interface-[a-z-]+/g, './REDACTED'),
+      ]),
+    );
+    const blind = projectGraph(
+      relativeOnly,
+      map.moduleOwner,
+      map.symbolOwner,
+      map.corrections ?? [],
+    );
+    const missed = manifestEdgesMissingFromProjection(blind, manifestEdges());
+    expect(missed.length).toBeGreaterThan(0);
+    // And the point: the blind projection is still ACYCLIC. The old verdict would have passed.
+    expect(findCycles(blind, new Set(map.moduleOwner.values()))).toEqual([]);
+  });
+
+  it('does not fault a projected edge the manifests do not declare', () => {
+    // The reverse direction is a MISSING DEPENDENCY DECLARATION — a different defect with a
+    // different owner. Checking it here would make one finding stand for two.
+    const projected = new Map([['agent-interface-a', new Map([['agent-interface-b', new Set()]])]]);
+    expect(manifestEdgesMissingFromProjection(projected, new Set())).toEqual([]);
   });
 });
