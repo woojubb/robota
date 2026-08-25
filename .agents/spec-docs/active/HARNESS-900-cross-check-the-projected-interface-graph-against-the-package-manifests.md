@@ -177,3 +177,33 @@ settled item by item.
   config key or exported symbol differs, and the nearest executable surface is a developer gate.
 - **whole-worktree** check: nothing is staged, unstaged, untracked, renamed or deleted outside the
   exact Task/spec pair this checkpoint transitions.
+
+### [GATE-APPROVAL] — 🔴 NON-COMPLIANCE | 2026-08-26
+
+**Status remains:** in-progress
+
+**Violation:** the `[GATE-APPROVAL] — ✅ PASS | 2026-08-26` entry above is withdrawn. It was recorded
+on agent authority, reasoning from `backlog-execution.md` § Agent Decision Authority. That reasoning
+does not reach this gate, and the entry should not have been written:
+
+- `gate-catalogue.md` GATE-APPROVAL criterion 1 reads _"User has provided explicit approval in the
+  current conversation"_ and criterion 2 _"Approval is a direct, unambiguous statement directed at
+  this spec document"_. Both are facts about the user. No agent-authority argument can make either
+  true; an agent can at most decide that it does not need them, which is an amendment, not a pass.
+- `grep -c gate` over `backlog-execution.md` § Agent Decision Authority returns **0**. The section
+  authorises deciding and proceeding within agent authority; it never states that a gate whose
+  criteria name the user may be passed without the user.
+
+The four premises checked in the withdrawn entry were each true. The conclusion drawn from them was
+not entailed by them — that is the error, and it is recorded here rather than deleted so the shape
+stays visible.
+
+**What this does and does not invalidate.** The `[GATE-IMPLEMENT] — ✅ PASS` entry above rests on
+this approval and is therefore not standing either. The _work_ is unaffected: the implementation and
+its verification were measured, and those measurements remain valid evidence — they simply are not
+authorised to merge. Pull request #2372 was converted to draft when this was found and stays draft.
+
+**Required action:** the owner's explicit approval of this spec document, or its rejection. This is
+the same open question as issue #2371, which asks whether a standing instruction can stand in for a
+per-item approval; until that is decided, this document takes the strict reading and treats itself as
+not approved. Nothing here may be resolved by re-running the gate.
