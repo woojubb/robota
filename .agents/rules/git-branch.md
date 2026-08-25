@@ -567,19 +567,40 @@ and nothing counts repeated use.
 
 **A verdict nobody published is not a verdict — and driving your own work with one is a private gate.**
 
-The measured case ran five rounds. Every round the repository's reviewer posted `ACTIONABLE FINDINGS: 0`
-and said in words that it found nothing. The session never saw any of it:
+The measured case is the pull request cited below, and what the repository can show about it is this:
 
 ```
-pr-review-reviewer dispatched      32×  (5× on this pull request)
-pr-review-writer dispatched         0×  ← no finding ever reached a pull request
-gh pr view <the PR>                 0×  ← the gate's input was never read
+$ gh pr view 2323 --json comments,reviews
+9 verdicts from github-actions   — every one ACTIONABLE FINDINGS: 0
+0 reviews
+0 review threads                 — nothing was ever published to answer
 ```
 
-It dispatched its own reviewer each round, consumed the findings privately, pushed a fix, and
-dispatched again. **The merge gate's input was zero from round one; the pull request could have merged
-four hours earlier.** After the first commit, non-comment `.ts` lines changed: **zero**. Four hours of
-SPEC prose, comments and changeset text, on a change the repository had already passed.
+**Nine rounds, nine clean verdicts, and nothing on the pull request to have been responding to.**
+That is checkable by anyone; the rest of this paragraph is not, and the difference is marked below.
+
+The owning session reported dispatching its own reviewer each round and never dispatching
+`pr-review-writer` — 32 reviewer dispatches, 0 writer dispatches, and 0 runs of `gh pr view`.
+**Those three figures come from that session's account of its own behaviour and from nowhere else.**
+`git grep` finds them in no file, and `.agents/loop-runs/pr-finding-resolution-loop.jsonl` — the
+ledger that exists precisely to record finding-resolution rounds — holds ten rows, **none of them
+this pull request.** A session's report of what it did is evidence and is worth stating; it is not a
+command output, and this block previously presented it as one under the word _Measured_.
+
+So: it dispatched its own reviewer each round, consumed the findings privately, pushed a fix, and
+dispatched again. **The merge gate's input was zero from round one.** The first clean verdict landed at
+`2026-08-24T21:10Z` and the merge at `2026-08-25T11:55Z` — **14h 44m**, of which 10h was an
+owner-ordered write halt, leaving roughly **4h 40m** the loop itself spent. And across that whole
+span, after the first commit, **not one non-comment TypeScript line changed**:
+
+```
+$ git diff <first-commit> <pr-head> -- '*.ts' | grep '^[+-]' | grep -v '^[+-] *//'
+(no output)
+```
+
+Only SPEC prose, comments and changeset text moved — on a change the repository had already passed.
+
+Case: [PR #2323](https://github.com/woojubb/robota/pull/2323).
 
 **So the rule is not "the reviewer keeps suggesting things" and not "stop when the gate says zero".**
 
