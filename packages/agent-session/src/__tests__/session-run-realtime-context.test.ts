@@ -54,11 +54,11 @@ function createFakeRobota(rounds: number): {
       return 'final response';
     },
   );
-  const robota = {
+  const agent = {
     getHistory: (): TUniversalMessage[] => [...messages],
     run,
   } as unknown as Robota;
-  return { robota, run };
+  return { agent, run };
 }
 
 function createProvider(): IAIProvider {
@@ -99,8 +99,8 @@ function createContext(
 describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
   it('TC-01: emits a context update per round, not only at start and end', async () => {
     const updates: IContextWindowState[] = [];
-    const { robota } = createFakeRobota(2);
-    const ctx = createContext(robota, (state) => updates.push(state));
+    const { agent } = createFakeRobota(2);
+    const ctx = createContext(agent, (state) => updates.push(state));
 
     await executeRun('hello', undefined, ctx, new AbortController().signal);
 
@@ -110,8 +110,8 @@ describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
 
   it('TC-02: emitted usedTokens are non-decreasing across the turn', async () => {
     const updates: IContextWindowState[] = [];
-    const { robota } = createFakeRobota(3);
-    const ctx = createContext(robota, (state) => updates.push(state));
+    const { agent } = createFakeRobota(3);
+    const ctx = createContext(agent, (state) => updates.push(state));
 
     await executeRun('hello', undefined, ctx, new AbortController().signal);
 
@@ -122,8 +122,8 @@ describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
 
   it('TC-03: only assistant_message_committed triggers a per-round update, not other events', async () => {
     const updates: IContextWindowState[] = [];
-    const { robota } = createFakeRobota(2);
-    const ctx = createContext(robota, (state) => updates.push(state));
+    const { agent } = createFakeRobota(2);
+    const ctx = createContext(agent, (state) => updates.push(state));
 
     await executeRun('hello', undefined, ctx, new AbortController().signal);
 

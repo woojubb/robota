@@ -167,7 +167,7 @@ describe('SELFHOST-009 TC-04 — existing events still fire (agent-session sites
     const enforcer = new PermissionEnforcer(options);
     const [wrapped] = enforcer.wrapTools([makeTool('Read')]);
 
-    await wrapped!.execute({ path: '/x' });
+    await wrapped!.execute({ path: '/x' }, { toolName: 'Read', parameters: { path: '/x' } });
     await flush();
 
     expect(events).toContain('PreToolUse');

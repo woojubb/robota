@@ -26,7 +26,13 @@ class ColdTestProvider extends AbstractAIProvider {
   readonly version = '1.0.0';
 
   override async chat(): Promise<TUniversalMessage> {
-    return { role: 'assistant', content: 'ok', state: 'complete', timestamp: new Date() };
+    return {
+      id: 'msg-cold-1',
+      role: 'assistant',
+      content: 'ok',
+      state: 'complete',
+      timestamp: new Date(),
+    };
   }
 }
 
