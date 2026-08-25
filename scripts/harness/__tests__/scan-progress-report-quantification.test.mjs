@@ -70,6 +70,38 @@ describe('findBareRatioProgressStatements — the rule', () => {
   });
 });
 
+describe('HARNESS-122: a parenthesised M/D date is not a ratio', () => {
+  // The literal line from the transcript that blocked a lane on 2026-08-25 (issue #2339).
+  // `8/14` is 14 August — ARCH-011's `completed:` date — not eight fourteenths of anything.
+  it('stays silent on a completion word joined directly to a parenthesised date', () => {
+    expect(findBareRatioProgressStatements('ARCH-011은 완료(8/14)입니다.', POLICY)).toHaveLength(0);
+  });
+
+  // THE POSITIVE CONTROL. Same words, same numbers, no parenthesis — a bare ratio in a completion
+  // context, which is exactly what this scan exists to catch. Without this case the suppression
+  // could pass by disabling the Korean completion rule outright.
+  it('still FAILS the same numbers written as a bare ratio', () => {
+    expect(findBareRatioProgressStatements('ARCH-011은 완료 8/14입니다.', POLICY)).toHaveLength(1);
+  });
+
+  // The second control: a parenthesis alone must not suppress. `3/7` can be three of seven, so a
+  // day component of 7 is not a date and the finding stands. This is the clause that keeps the
+  // class narrow rather than swallowing every parenthesised ratio.
+  it('still FAILS a parenthesised ratio whose second component could be a count', () => {
+    expect(findBareRatioProgressStatements('감사 완료(3/7)입니다.', POLICY)).toHaveLength(1);
+  });
+
+  // A parenthesis carrying more than the ratio is a progress note, not a date annotation.
+  it('still FAILS when the parenthesis holds more than the ratio', () => {
+    expect(findBareRatioProgressStatements('Audit (3/14 done) so far.', POLICY)).toHaveLength(1);
+  });
+
+  // A month above 12 is not a month. Left firing rather than guessed at.
+  it('still FAILS a parenthesised pair whose first component cannot be a month', () => {
+    expect(findBareRatioProgressStatements('작업 완료(13/28)입니다.', POLICY)).toHaveLength(1);
+  });
+});
+
 describe('findBareRatioProgressStatements — measured false-positive classes stay silent', () => {
   it('stays silent on a ratio that is being QUOTED rather than asserted', () => {
     // Measured 2026-07-26 and again 2026-07-28: a message about this scan's own false positive —

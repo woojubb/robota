@@ -220,6 +220,27 @@ export function findBareRatioProgressStatements(messageText, policy) {
       // is a progress statement that happens to use an arrow, and stays a violation.
       if (/(?:^|[^\w.])\d[\d.]*\s*(?:->|=>|~>|→|⇒)\s*$/.test(before)) continue;
 
+      // A PARENTHESISED M/D DATE, not a ratio (HARNESS-122, issue #2339). Measured on
+      // 2026-08-25: `ARCH-011은 완료(8/14)입니다.` reported 8/14 — 14 August, the record's
+      // `completed:` date — as eight fourteenths of some work. Korean puts the completion word
+      // directly against the parenthesis, with no preposition between them the way English has
+      // ("completed on 8/14"), so the five suppression classes derived from English transcripts
+      // never covered this one.
+      //
+      // Three conditions together, because no one of them is enough:
+      //   - the parenthesis holds the ratio and NOTHING else. `(3/7 done)` is a progress note and
+      //     stays a violation;
+      //   - the first component is a possible month;
+      //   - the second component is a possible day AND is above 12. That last clause is what keeps
+      //     the class narrow: `완료(3/7)` could be three of seven, so it still fires, while
+      //     `(8/14)` cannot be read as anything but a date. A date whose day is also ≤ 12 is left
+      //     firing rather than guessed at — this errs toward reporting, which is the safe side for
+      //     a guard.
+      // Range alone would be useless: `3/7 done` is the scan's most common true positive and both
+      // of its components are in date range.
+      const parenthesised = /\(\s*$/.test(before) && /^\s*\)/.test(after);
+      if (parenthesised && completed >= 1 && completed <= 12 && total > 12 && total <= 31) continue;
+
       findings.push({
         line: i + 1,
         excerpt: line.trim().slice(0, 200),
