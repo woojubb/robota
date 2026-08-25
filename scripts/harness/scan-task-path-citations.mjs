@@ -112,12 +112,6 @@ const SENTENCE_CONTRADICTS_REPAIR = [
     outcome: 'conflict',
     why: 'same conflict as the gate script, and the surrounding prose says DIST-002 too — renumbering one without the other would be worse',
   },
-  {
-    file: '.agents/memory/agent-run-capability-verification.md',
-    cited: `${TASKS_DIR}SELFHOST-008-P6-surface-wiring-and-agent-run-verification.md`,
-    outcome: 'conflict',
-    why: 'the document calls a completed item an open fix; that is a status claim, filed as issue #2262',
-  },
 ];
 
 /**
