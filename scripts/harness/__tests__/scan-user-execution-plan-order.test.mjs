@@ -1953,4 +1953,13 @@ describe('user-execution PLAN order — repository contract', () => {
     expect(runner).toContain("name: 'user-execution-plan-order'");
     expect(runner).toContain("'node', 'scripts/harness/scan-user-execution-plan-order.mjs'");
   });
+
+  it('propagates a staged PLAN guard failure from the pre-commit hook', () => {
+    const root = path.resolve(import.meta.dirname, '../../..');
+    const hook = readFileSync(path.join(root, '.husky/pre-commit'), 'utf8');
+
+    expect(hook).toContain(
+      'node scripts/harness/scan-user-execution-plan-order.mjs --staged || exit 1',
+    );
+  });
 });
