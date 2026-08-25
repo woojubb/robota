@@ -107,6 +107,7 @@ export {
   loadOrgPolicy,
   formatOrgPolicyViolationMessage,
   isApiKeyPlaintext,
+  OrgPolicyParseError,
 } from './command-api/org-policy/index.js';
 export type {
   IAgentJobHostContext,
