@@ -63,6 +63,29 @@ function runScan(policySource) {
   }
 }
 
+/**
+ * A fire-site corpus this suite OWNS (issue #2280).
+ *
+ * The exact count `measurement-provenance` requires used to be `toBe(13)` against the live
+ * workspace, so any package adding a `runHooks(` call turned this SEC-016 suite red in a file its
+ * author never touched. The count was right and the coupling was still wrong.
+ *
+ * The paths are production-SHAPED but do not exist on disk — `isProductionSource` positively
+ * requires `packages|apps/<name>/src/`, so a fixture tree under `scripts/` is never counted, and one
+ * under `packages/` is what this scan already declined to write because a parallel suite would see
+ * it. Injection gives the exactness without either.
+ *
+ * FIVE sites: two in the first file, one in the second, and the third file is gated OUT — which is
+ * what makes the number a measurement of the walk rather than of the array's length.
+ */
+const FIXTURE_CORPUS = [
+  { relative: 'packages/fixture-pkg/src/a.ts', source: 'runHooks(one);\nrunHooks(two);\n' },
+  { relative: 'packages/fixture-pkg/src/b.ts', source: 'runHooks(three);\n' },
+  { relative: 'packages/fixture-pkg/src/c.ts', source: 'runHooks(four);\nrunHooks(five);\n' },
+  { relative: 'scripts/harness/not-production.ts', source: 'runHooks(gated);\n' },
+];
+const FIXTURE_SITE_COUNT = 5;
+
 describe('scan-hook-enforcement-reachable', () => {
   it('passes on the shipped policy, and says what it examined', () => {
     const { code, output } = runScan(realPolicy);
@@ -85,9 +108,18 @@ describe('scan-hook-enforcement-reachable', () => {
     });
 
     it('examinedFireSiteCount is exactly what the walk read', () => {
+      // Two properties, deliberately split (issue #2280).
+      //
+      // Against the LIVE workspace the counter must follow the walk it was given — that is what a
+      // derived comparison pins, and it is not coupled to any package's edits.
       const sites = findFireSites(['packages', 'apps']);
       expect(examinedFireSiteCount()).toBe(sites.length);
-      expect(examinedFireSiteCount()).toBe(13);
+
+      // Against a corpus this suite OWNS the count is EXACT, which is what catches a walk that
+      // under-reads: a derived comparison re-runs the same walk and cannot see it read too little.
+      findFireSites(null, FIXTURE_CORPUS);
+      expect(examinedFireSiteCount()).toBe(FIXTURE_SITE_COUNT);
+      expect(examinedFireSiteCount()).toBe(5);
     });
 
     it('examinedRowCount resets on a SECOND run rather than accumulating', () => {
@@ -101,11 +133,11 @@ describe('scan-hook-enforcement-reachable', () => {
     });
 
     it('examinedFireSiteCount resets on a SECOND run rather than accumulating', () => {
-      findFireSites(['packages', 'apps']);
+      findFireSites(null, FIXTURE_CORPUS);
       const first = examinedFireSiteCount();
-      findFireSites(['packages', 'apps']);
+      findFireSites(null, FIXTURE_CORPUS);
       expect(examinedFireSiteCount()).toBe(first);
-      expect(examinedFireSiteCount()).toBe(13);
+      expect(examinedFireSiteCount()).toBe(5);
     });
 
     it('the counters move with the input rather than being constants', () => {

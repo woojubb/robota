@@ -425,16 +425,41 @@ export function collectFireSitesFromSource(relative, rawSource) {
   return found;
 }
 
-export function findFireSites(pathspecs) {
+/**
+ * The live corpus: every tracked production `.ts` under `pathspecs`, paired with its source.
+ *
+ * Split out so `findFireSites` has a seam. It is the only part that touches disk.
+ */
+function* liveCorpus(pathspecs) {
+  for (const relative of enumerateFiles(pathspecs)) {
+    if (!relative.endsWith('.ts')) continue;
+    const file = path.join(WORKSPACE_ROOT, relative);
+    if (!existsSync(file)) continue;
+    yield { relative, source: readFileSync(file, 'utf8') };
+  }
+}
+
+/**
+ * Every `runHooks(` fire site across a corpus.
+ *
+ * `corpus` is injectable — an iterable of `{ relative, source }` — and defaults to the live
+ * workspace. It exists so the EXACT count assertion `measurement-provenance` requires can run
+ * against a corpus the test owns.
+ *
+ * The alternative the coupling issue proposed, a fixture tree on disk, is refused by this scan's
+ * own gate: `isProductionSource` positively requires `packages|apps/<name>/src/`, so a fixture
+ * under `scripts/` is never counted — and putting one under `packages/` is what the note above
+ * `collectFireSitesFromSource` already declined, because a parallel suite would see it. An injected
+ * corpus takes production-SHAPED paths without those files existing, so the gate is unchanged and
+ * nothing is written where another suite can find it.
+ */
+export function findFireSites(pathspecs, corpus) {
   /** @type {TFireSite[]} */
   const sites = [];
 
-  for (const relative of enumerateFiles(pathspecs)) {
-    if (!relative.endsWith('.ts')) continue;
+  for (const { relative, source } of corpus ?? liveCorpus(pathspecs)) {
     if (!isProductionSource(relative)) continue;
-    const file = path.join(WORKSPACE_ROOT, relative);
-    if (!existsSync(file)) continue;
-    sites.push(...collectFireSitesFromSource(relative, readFileSync(file, 'utf8')));
+    sites.push(...collectFireSitesFromSource(relative, source));
   }
   examinedFireSites = sites.length;
   return sites;
