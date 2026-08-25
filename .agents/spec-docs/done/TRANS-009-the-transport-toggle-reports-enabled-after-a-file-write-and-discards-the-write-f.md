@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: BEHAVIOR
 tags: [transport, tui, correctness]
 ---
