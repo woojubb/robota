@@ -442,3 +442,12 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Focused verification: the exact seven affected harness test files passed 202 tests; the direct projection/endorsement pair passed 47 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
 - Complete verification: `pnpm harness:test:contracts` passed 3,941 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
 - Review status: the five findings are fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.
+
+### [LOCAL REVIEW ROUND 4] — 🔁 RESOLVED | 2026-08-26
+
+- Exact review range: independent local re-review compared base `675cd814edb4121fd92023fe7721c905a1acf321` with fix head `5acd7e79d56c58297cf430b36c43bdc4a5c39e1d` and returned `ACTIONABLE FINDINGS: 4`.
+- Resolved findings: replay treats deletion of an already governed subject as endorsement loss through any later byte restoration; observation subjects added only through the canonical ledger enter topic and staged replay; a checkpoint requires substantive Task/spec changes plus the Task's exact canonical loop run ID bound to the observation-owning ledger entry; and CommonMark structural masking recognizes `hgroup`, thematic breaks, and setext boundaries while preserving paragraph interruption rules.
+- Additional fail-closed edge: canonical run binding now accepts only the complete canonical line (optionally followed by the repository's `in` continuation marker), so a matching run-ID prefix with forged suffix text cannot authorize the checkpoint.
+- Focused verification: the exact seven affected harness test files passed 206 tests; the direct projection/endorsement pair passed 51 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
+- Complete verification: `pnpm harness:test:contracts` passed 3,945 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
+- Review status: the four findings are fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.

@@ -327,7 +327,12 @@ function attestationIndex(entries) {
           )
         : [];
       const records = index.get(observation.subject) ?? [];
-      const record = { observation, expectationCount: expectations.length, entryIndex };
+      const record = {
+        observation,
+        expectationCount: expectations.length,
+        entryIndex,
+        runId: entry.runId,
+      };
       records.push(record);
       index.set(observation.subject, records);
     }
@@ -378,10 +383,21 @@ function observations(entries, subject) {
               candidate.agent === observation.agent,
           ).length
         : 0;
-      result.push({ observation, expectationCount });
+      result.push({ observation, expectationCount, runId: entry.runId });
     }
   }
   return result;
+}
+
+function observationSubjects(entries) {
+  const subjects = new Set();
+  for (const entry of entries) {
+    const extension = entry?.extensions?.[RECOMMENDATION_REVIEW_EXTENSION];
+    for (const observation of extension?.observations ?? []) {
+      if (typeof observation?.subject === 'string') subjects.add(observation.subject);
+    }
+  }
+  return subjects;
 }
 
 function observationKey(record) {
@@ -420,6 +436,38 @@ function exactCheckpointPaths(paths, subject) {
   );
 }
 
+function substantiveMarkdown(text) {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function exactTaskRunBinding(root, record, subject, targetRevision) {
+  if (typeof record.runId !== 'string') return false;
+  const relative = `.agents/tasks/${subject}`;
+  const targetTask =
+    targetRevision === ':index'
+      ? indexText(root, relative)
+      : bytesAt(root, targetRevision, relative);
+  const beforeRevision = targetRevision === ':index' ? 'HEAD' : `${targetRevision}^`;
+  const beforeTask = bytesAt(root, beforeRevision, relative);
+  if (targetTask === null || beforeTask === null) return false;
+  const canonicalReference = `- **Canonical loop run:** \`${record.runId}\``;
+  return (
+    targetTask
+      .split('\n')
+      .some((line) => line === canonicalReference || line === `${canonicalReference} in`) &&
+    substantiveMarkdown(targetTask) !== substantiveMarkdown(beforeTask)
+  );
+}
+
+function exactSpecCheckpointChange(root, subject, targetRevision, targetSpec) {
+  const beforeRevision = targetRevision === ':index' ? 'HEAD' : `${targetRevision}^`;
+  const beforeSpec = specAt(root, beforeRevision, subject);
+  return (
+    beforeSpec !== null &&
+    substantiveMarkdown(targetSpec.text) !== substantiveMarkdown(beforeSpec.text)
+  );
+}
+
 function validReachableReviewRecord(root, record, subject, targetRevision) {
   const { observation } = record;
   if (!commitExists(root, observation.revision)) return false;
@@ -452,6 +500,8 @@ function validCheckpointRecord(root, record, subject, targetRevision, targetSpec
     observation.verdict === 'ENDORSE' &&
     observation.unresolvedFindings === 0 &&
     observation.projectionDigest === digest &&
+    exactTaskRunBinding(root, record, subject, targetRevision) &&
+    exactSpecCheckpointChange(root, subject, targetRevision, targetSpec) &&
     exactCheckpointPaths(paths, subject)
   );
 }
@@ -585,9 +635,14 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
   const subjects = new Set();
   for (const commit of commits) {
     const parent = git(root, ['rev-parse', `${commit}^`]).trim();
-    for (const pathname of changedPaths(root, parent, commit)) {
+    const paths = changedPaths(root, parent, commit);
+    for (const pathname of paths) {
       const subject = subjectFromSpecPath(pathname);
       if (subject) subjects.add(subject);
+    }
+    if (paths.includes(LEDGER)) {
+      for (const subject of observationSubjects(ledgerAt(root, parent))) subjects.add(subject);
+      for (const subject of observationSubjects(ledgerAt(root, commit))) subjects.add(subject);
     }
   }
   for (const subject of subjects) {
@@ -595,10 +650,17 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
     if (headSpec === null) {
       if (governedHistory.has(subject)) {
         findings.push(disappearedSubjectFinding(subject, 'HEAD'));
+      } else {
+        continue;
       }
-      continue;
     }
-    if (headSpec.state === 'rejected' && !subjectWasPostApproval(root, subject, 'HEAD')) continue;
+    if (
+      headSpec !== null &&
+      headSpec.state === 'rejected' &&
+      !subjectWasPostApproval(root, subject, 'HEAD')
+    )
+      continue;
+    const findingPath = headSpec?.relative ?? `${SPEC_ROOT}/{todo,active,done,rejected}/${subject}`;
     const bootstrapDigest =
       baseline.bootstrap?.subject === subject ? baseline.bootstrap.projectionDigest : null;
     const baseSpec = specAt(root, base, subject);
@@ -606,6 +668,10 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
     let endorsedBytes = null;
     let bootstrapPending = baseSpec === null && bootstrapDigest !== null;
     let unendorsed = false;
+    let governedSeen =
+      baseSpec !== null &&
+      (GOVERNED_STATES.includes(baseSpec.state) ||
+        (baseSpec.state === 'rejected' && subjectWasPostApproval(root, subject, base)));
     if (
       baseSpec !== null &&
       !(baseSpec.state === 'rejected' && !subjectWasPostApproval(root, subject, base))
@@ -635,12 +701,31 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
     }
     for (const commit of commits) {
       const parent = git(root, ['rev-parse', `${commit}^`]).trim();
+      const paths = changedPaths(root, parent, commit);
       const atCommit = specAt(root, commit, subject);
-      if (
-        atCommit === null ||
-        (atCommit.state === 'rejected' && !subjectWasPostApproval(root, subject, commit))
-      )
+      if (atCommit === null) {
+        if (governedSeen) {
+          unendorsed = true;
+          bootstrapPending = false;
+          const implementation = paths.filter((pathname) => !planningPath(pathname, subject));
+          if (implementation.length > 0) {
+            findings.push(
+              finding(
+                findingPath,
+                `${commit.slice(0, 9)}: implementation precedes a current recommendation endorsement checkpoint (${implementation.join(', ')})`,
+              ),
+            );
+          }
+        }
         continue;
+      }
+      if (atCommit.state === 'rejected' && !subjectWasPostApproval(root, subject, commit)) continue;
+      if (
+        GOVERNED_STATES.includes(atCommit.state) ||
+        subjectWasPostApproval(root, subject, commit)
+      ) {
+        governedSeen = true;
+      }
       const matchesEndorsedBytes = endorsedBytes !== null && atCommit.text === endorsedBytes;
       let digest = matchesEndorsedBytes ? endorsedDigest : null;
       if (!matchesEndorsedBytes) {
@@ -665,7 +750,6 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
         (record) => !before.has(observationKey(record)),
       );
       if (added.length > 0) {
-        const paths = changedPaths(root, parent, commit);
         const valid = isCommittedRecommendationCheckpoint(root, parent, commit, paths);
         if (!valid) {
           findings.push(
@@ -681,12 +765,11 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
         }
       }
 
-      const paths = changedPaths(root, parent, commit);
       const implementation = paths.filter((pathname) => !planningPath(pathname, subject));
       if (unendorsed && implementation.length > 0) {
         findings.push(
           finding(
-            headSpec.relative,
+            findingPath,
             `${commit.slice(0, 9)}: implementation precedes a current recommendation endorsement checkpoint (${implementation.join(', ')})`,
           ),
         );
@@ -717,12 +800,16 @@ export function findRecommendationStagedFindings(root = WORKSPACE_ROOT, requeste
     const subject = subjectFromSpecPath(pathname);
     if (subject) subjects.add(subject);
   }
+  const beforeLedger = ledgerAt(root, 'HEAD');
+  const afterLedger = parseLedgerText(indexText(root, LEDGER));
+  if (paths.includes(LEDGER)) {
+    for (const subject of observationSubjects(beforeLedger)) subjects.add(subject);
+    for (const subject of observationSubjects(afterLedger)) subjects.add(subject);
+  }
   for (const subject of governedHistory) {
     if (indexSpec(root, subject) === null) subjects.add(subject);
   }
 
-  const beforeLedger = ledgerAt(root, 'HEAD');
-  const afterLedger = parseLedgerText(indexText(root, LEDGER));
   for (const subject of subjects) {
     const spec = indexSpec(root, subject);
     if (spec === null) {

@@ -95,7 +95,7 @@ function spec({
   ].join('\n');
 }
 
-function task(status = 'in-progress') {
+function task(status = 'in-progress', runId = 'r20260826000000') {
   return [
     '---',
     "title: 'INFRA-999: recommendation proof'",
@@ -110,6 +110,11 @@ function task(status = 'in-progress') {
     '**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`',
     '',
     'Not applicable because this is repository governance with no product surface.',
+    '',
+    '## Recommendation Gate',
+    '',
+    `- **Canonical loop run:** \`${runId}\` in`,
+    '  `.agents/loop-runs/backlog-execution-orchestrator.jsonl`.',
     '',
   ].join('\n');
 }
@@ -435,6 +440,33 @@ describe('canonical recommendation decision projection', () => {
     expect(decisionProjection(afterRawBlock).userExecutionPlan).toContain(
       'Undeclared Consecutive Owner',
     );
+  });
+
+  it('recognizes hgroup as type-6 HTML and tracks type-7 block boundaries', () => {
+    const typeSix = spec().replace(
+      '## Solution\n',
+      '<hgroup>\n## Solution\n</hgroup>\n\n## Solution\n',
+    );
+    expect(decisionProjection(typeSix).userExecutionPlan).toContain('<hgroup>');
+
+    for (const boundary of ['---', 'Setext boundary\n===']) {
+      const markdown = spec().replace(
+        '## Solution\n',
+        `${boundary}\n<custom-review>\n## Undeclared HTML Owner\n\n## Solution\n`,
+      );
+      expect(decisionProjection(markdown).userExecutionPlan).toContain('Undeclared HTML Owner');
+    }
+
+    for (const paragraphContainer of ['- list paragraph', '> quoted paragraph']) {
+      expect(() =>
+        decisionProjection(
+          spec().replace(
+            '## Solution\n',
+            `${paragraphContainer}\n<custom-review>\n## Undeclared Container Owner\n\n## Solution\n`,
+          ),
+        ),
+      ).toThrow(/unknown.*Undeclared Container Owner/i);
+    }
   });
 
   it('recognizes valid zero-to-three-space ATX owner headings', () => {
@@ -954,6 +986,36 @@ describe('topic ordering', () => {
         .join('\n'),
     ).toMatch(/implementation precedes/i);
   });
+
+  it('finds implementation while an endorsed subject is deleted before exact restoration', () => {
+    const { root, base } = endorsedTopic();
+    const original = readFileSync(path.join(root, ACTIVE_SPEC), 'utf8');
+    git(root, ['rm', ACTIVE_SPEC]);
+    commit(root, 'temporarily delete endorsed recommendation');
+    write(root, 'scripts/harness/absent-bypass.mjs', 'export const bypass = true;\n');
+    commit(root, 'implementation while recommendation is absent');
+    write(root, ACTIVE_SPEC, original);
+    commit(root, 'restore endorsed recommendation');
+
+    expect(
+      findRecommendationTopicFindings(root, base)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/implementation precedes/i);
+  });
+
+  it('replays a ledger-only observation commit and rejects it as a checkpoint', () => {
+    const { root, revision, digest } = reviewedTopic();
+    const base = git(root, ['rev-parse', 'HEAD']);
+    write(root, LEDGER, `${JSON.stringify(attestation({ digest, revision }))}\n`);
+    commit(root, 'ledger-only endorsement bypass');
+
+    expect(
+      findRecommendationTopicFindings(root, base)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/not an exact planning-only/i);
+  });
 });
 
 describe('staged ordering', () => {
@@ -1003,6 +1065,65 @@ describe('staged ordering', () => {
     write(mixed.root, 'scripts/harness/example.mjs', 'export const mixed = true;\n');
     git(mixed.root, ['add', '-A']);
     expect(findRecommendationStagedFindings(mixed.root, mixed.base).length).toBeGreaterThan(0);
+  });
+
+  it('rejects ledger-only staged observations and Tasks without an exact substantive run binding', () => {
+    const ledgerOnly = reviewedTopic();
+    ledgerOnly.base = git(ledgerOnly.root, ['rev-parse', 'HEAD']);
+    write(ledgerOnly.root, LEDGER, `${JSON.stringify(attestation(ledgerOnly))}\n`);
+    git(ledgerOnly.root, ['add', LEDGER]);
+    expect(
+      findRecommendationStagedFindings(ledgerOnly.root, ledgerOnly.base)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/not an exact planning-only/i);
+
+    const wrongRun = reviewedTopic();
+    write(
+      wrongRun.root,
+      LEDGER,
+      `${JSON.stringify(attestation({ ...wrongRun, runId: 'r20260826000001' }))}\n`,
+    );
+    write(wrongRun.root, TASK, `${task()}\nRecommendation review recorded.\n`);
+    write(
+      wrongRun.root,
+      ACTIVE_SPEC,
+      spec({ evidence: 'Recommendation endorsement checkpoint recorded.' }),
+    );
+    git(wrongRun.root, ['add', '-A']);
+    expect(findRecommendationStagedFindings(wrongRun.root, wrongRun.base).length).toBeGreaterThan(
+      0,
+    );
+
+    const suffixedRun = reviewedTopic();
+    write(suffixedRun.root, LEDGER, `${JSON.stringify(attestation(suffixedRun))}\n`);
+    write(
+      suffixedRun.root,
+      TASK,
+      `${task().replace('`r20260826000000` in', '`r20260826000000` forged in')}\nRecommendation review recorded.\n`,
+    );
+    write(
+      suffixedRun.root,
+      ACTIVE_SPEC,
+      spec({ evidence: 'Recommendation endorsement checkpoint recorded.' }),
+    );
+    git(suffixedRun.root, ['add', '-A']);
+    expect(
+      findRecommendationStagedFindings(suffixedRun.root, suffixedRun.base).length,
+    ).toBeGreaterThan(0);
+
+    const whitespaceOnly = reviewedTopic();
+    write(whitespaceOnly.root, LEDGER, `${JSON.stringify(attestation(whitespaceOnly))}\n`);
+    write(whitespaceOnly.root, TASK, `${task()}\n\n`);
+    write(
+      whitespaceOnly.root,
+      ACTIVE_SPEC,
+      spec({ evidence: 'Recommendation endorsement checkpoint recorded.' }),
+    );
+    git(whitespaceOnly.root, ['add', '-A']);
+    expect(
+      findRecommendationStagedFindings(whitespaceOnly.root, whitespaceOnly.base).length,
+    ).toBeGreaterThan(0);
   });
 
   it('does not let a staged rejection erase an approved proposal from ordering', () => {

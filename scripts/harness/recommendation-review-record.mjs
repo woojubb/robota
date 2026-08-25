@@ -59,6 +59,7 @@ const HTML_BLOCK_TAGS = new Set([
   'h6',
   'head',
   'header',
+  'hgroup',
   'hr',
   'html',
   'iframe',
@@ -98,6 +99,14 @@ function isAtxHeading(line) {
   return /^ {0,3}#{1,6}(?:[\t ]|$)/.test(line);
 }
 
+function isParagraphBoundary(line) {
+  return (
+    isAtxHeading(line) ||
+    /^ {0,3}(?:=+|-{2,})[ \t]*$/.test(line) ||
+    /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$/.test(line)
+  );
+}
+
 function maskPairedFences(lines, hidden) {
   for (let index = 0; index < lines.length; index += 1) {
     const opener = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(lines[index]);
@@ -121,7 +130,7 @@ function maskHtmlBlocks(lines, hidden) {
       continue;
     }
     const line = lines[index];
-    if (line.trim() === '' || isAtxHeading(line)) {
+    if (line.trim() === '' || isParagraphBoundary(line)) {
       paragraphOpen = false;
       continue;
     }
