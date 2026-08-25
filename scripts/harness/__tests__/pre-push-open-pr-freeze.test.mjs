@@ -49,7 +49,7 @@ function scratchRepo() {
  * comment carrying the verdict marker. A stub answering its own preferred shape would keep passing
  * while the hook stopped working.
  */
-function stubGh({ prNumber, findings, author = 'github-actions[bot]' }) {
+function stubGh({ prNumber, findings, author = 'github-actions[bot]', failingChecks = 0 }) {
   const dir = makeTemp('openpr-gh-');
   scratch.push(dir);
 
@@ -87,6 +87,12 @@ function stubGh({ prNumber, findings, author = 'github-actions[bot]' }) {
     [
       '#!/bin/bash',
       "# Run the caller's own --jq over the fixture payload, the way gh does.",
+      '# The THIRD question the guard asks (issue #2338): is a required check failing? Answered',
+      '# from the fixture like the others, so the guard reads a real number and not a stub decision.',
+      'if [[ "$*" == *"pr checks"* ]]; then',
+      `  printf '%s\\n' '${failingChecks}'`,
+      '  exit 0',
+      'fi',
       'if [[ "$*" == *"comments,reviews"* ]]; then',
       '  jqexpr=""',
       '  while [ $# -gt 0 ]; do',
@@ -106,7 +112,7 @@ function stubGh({ prNumber, findings, author = 'github-actions[bot]' }) {
   return dir;
 }
 
-function push({ findings, prNumber = 4242, author, prefix = '' }) {
+function push({ findings, prNumber = 4242, author, prefix = '', failingChecks = 0 }) {
   const dir = scratchRepo();
   const result = spawnSync('bash', [HOOK], {
     input: JSON.stringify({
@@ -119,7 +125,7 @@ function push({ findings, prNumber = 4242, author, prefix = '' }) {
     env: {
       ...process.env,
       CLAUDE_PROJECT_DIR: dir,
-      PATH: `${stubGh({ prNumber, findings, author })}${path.delimiter}${process.env.PATH}`,
+      PATH: `${stubGh({ prNumber, findings, author, failingChecks })}${path.delimiter}${process.env.PATH}`,
     },
   });
   return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
@@ -130,12 +136,18 @@ describe('pre-push open-PR freeze — RED direction', () => {
     const res = push({ findings: 0 });
     expect(res.status).toBe(2);
     expect(res.output).toMatch(/ACTIONABLE FINDINGS: 0/);
-    expect(res.output).toMatch(/nothing for this push to resolve/);
+    // What the guard OBSERVED, not a diagnosis it never established (issue #2338): the wording used
+    // to assert "new work on a merge-ready PR", which was false in every measured instance.
+    expect(res.output).toMatch(/no published finding and no red\s+.*check to resolve/s);
+    expect(res.output).not.toMatch(/already merge-ready/);
   });
 
   it('names the recovery, not only the refusal', () => {
     const res = push({ findings: 0 });
-    expect(res.output).toMatch(/open a second PR/i);
+    // It must name ALL THREE grounds, and say which two it read — a refusal that lists only the
+    // remedy it can see trains the author to override for the one it cannot (issue #2338).
+    expect(res.output).toMatch(/published\s+.*finding, a red required check, or a rebase/s);
+    expect(res.output).toMatch(/let #4242 land/i);
     // The hatch is this rule's own. It used to be PRE_PUSH_ALLOW_UNREVIEWED, and that was the
     // defect: one switch disarmed two unrelated rules while its message claimed only the first.
     expect(res.output).toMatch(/PRE_PUSH_ALLOW_FROZEN_DIFF=1/);
@@ -146,7 +158,7 @@ describe('pre-push open-PR freeze — RED direction', () => {
     // is how a session reaching for the documented one silently disarms this one too.
     const res = push({ findings: 0, prefix: 'PRE_PUSH_ALLOW_UNREVIEWED=1 ' });
     expect(res.status).toBe(2);
-    expect(res.output).toMatch(/nothing for this push to resolve/);
+    expect(res.output).toMatch(/no published finding and no red/);
   });
 
   it('its own override does excuse it', () => {
@@ -159,6 +171,31 @@ describe('pre-push open-PR freeze — RED direction', () => {
     // session obeying the record-before-push rule skipped it. The message now says so.
     const res = push({ findings: 0 });
     expect(res.output).toMatch(/Recording a local review does NOT excuse this/);
+  });
+});
+
+describe('pre-push open-PR freeze — a RED REQUIRED CHECK is ground #2 (issue #2338)', () => {
+  // Measured three times in one day across two sessions: the guard blocked a push that was fixing a
+  // failing required check, on the claim the pull request was "already merge-ready" — while
+  // merge-gate.sh would have refused that same pull request at the same instant on mergeStateStatus.
+  // The remedy it offered ("let it land, then open a second PR") named something the blocked push
+  // was the precondition for.
+  it('allows the push when a required check is failing, even at zero findings', () => {
+    const res = push({ findings: 0, failingChecks: 1 });
+    expect(res.status).toBe(0);
+  });
+
+  it('still refuses at zero findings when NO check is failing', () => {
+    // The control for the case above. Without it, a guard that never blocks would pass it.
+    const res = push({ findings: 0, failingChecks: 0 });
+    expect(res.status).toBe(2);
+  });
+
+  it('does not treat an unreadable check answer as zero failures', () => {
+    // Unknown is not zero, the same way the findings count is not. A failed read must leave the
+    // refusal standing rather than manufacture a permission out of a broken query.
+    const res = push({ findings: 0, failingChecks: 'not-a-number' });
+    expect(res.status).toBe(2);
   });
 });
 

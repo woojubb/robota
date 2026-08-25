@@ -813,14 +813,37 @@ frozen_diff_refusal() {
       --jq "([.comments[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"^github-actions(\\\\[bot\\\\])?$\"))) | map(select(.body | test(\"ACTIONABLE FINDINGS:[[:space:]]*[0-9]+\"; \"i\"))) | sort_by(.at) | last // {} | .body // \"\"" 2>/dev/null) |
     sed -nE 's/^ACTIONABLE FINDINGS: ([0-9]+)$/\1/p' | tail -1 || echo "")
   [[ "$latest_count" == "0" ]] || return 1
-  echo "[pre-push-check] Blocked: PR #$open_pr's latest review reports ACTIONABLE FINDINGS: 0," >&2
-  echo "[pre-push-check] so there is nothing for this push to resolve — it is new work on a PR" >&2
-  echo "[pre-push-check] that is already merge-ready, and a reviewer who passed it never saw it." >&2
-  echo "[pre-push-check] git-branch.md: an open PR's diff is frozen except to resolve a finding." >&2
+  # A RED REQUIRED CHECK IS THE SECOND OF THE RULE'S THREE GROUNDS, and this guard used to be blind
+  # to it — measured three times in one day across two sessions (issue #2338). A push that resolves a
+  # failing check is not new work on a merge-ready pull request; the pull request is not merge-ready,
+  # and `merge-gate.sh` would refuse it one step later on `mergeStateStatus`. Two hooks disagreeing
+  # about the same pull request at the same instant is what made the refusal unfollowable: its remedy
+  # ("let it land first") named something the blocked push was the precondition for.
+  #
+  # `--json bucket` and not `conclusion`: `gh pr checks` reports a bucket per check and `fail` is the
+  # one that matters here. Unknown is NOT zero, for the same reason as the count above — an
+  # unreadable answer must not manufacture a refusal, so a failed read leaves `failing` empty and the
+  # guard proceeds to block as before rather than silently allowing.
+  local failing
+  failing=$( (cd "$PROJECT_DIR" &&
+    bounded_gh pr checks "$open_pr" --json bucket --jq '[.[] | select(.bucket == "fail")] | length' 2>/dev/null) || echo "")
+  if [[ "$failing" =~ ^[1-9][0-9]*$ ]]; then
+    return 1
+  fi
+  # What this guard OBSERVED, not what it inferred. The previous wording asserted a diagnosis — "this
+  # is new work on a merge-ready PR" — that the guard never established, and it was wrong in every
+  # measured instance including the one where the refusal itself was correct.
+  echo "[pre-push-check] Blocked: PR #$open_pr's latest review reports ACTIONABLE FINDINGS: 0 and no" >&2
+  echo "[pre-push-check] required check is failing, so this push has no published finding and no red" >&2
+  echo "[pre-push-check] check to resolve." >&2
+  echo "[pre-push-check] git-branch.md: a push into an open PR needs a NAMED GROUND — a published" >&2
+  echo "[pre-push-check] finding, a red required check, or a rebase. The first two are read above." >&2
+  echo "[pre-push-check] If your ground is a REBASE, or a finding this hook cannot see, say which:" >&2
+  echo "[pre-push-check] PRE_PUSH_ALLOW_FROZEN_DIFF=1 inline." >&2
+  echo "[pre-push-check] If it is none of the three, the push does not happen — let #$open_pr land." >&2
   echo "[pre-push-check] Recording a local review does NOT excuse this, and neither does" >&2
   echo "[pre-push-check] PRE_PUSH_ALLOW_UNREVIEWED — that one says the diff is unreviewed, which is" >&2
-  echo "[pre-push-check] a different claim. Let #$open_pr land, then open a second PR for this work." >&2
-  echo "[pre-push-check] Deliberate exception: PRE_PUSH_ALLOW_FROZEN_DIFF=1 inline." >&2
+  echo "[pre-push-check] a different claim." >&2
   return 0
 }
 
