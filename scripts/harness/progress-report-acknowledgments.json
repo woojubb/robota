@@ -1,5 +1,5 @@
 {
-  "why": "A transcript is append-only history: a finding here cannot be fixed, only recorded. Each entry names a real violation of the quantified-progress rule that has already happened, so the scan can return to green without being disarmed. An entry whose finding no longer appears in a transcript this run READ fails the scan — see the header of scan-progress-report-quantification.mjs.",
+  "why": "A transcript is append-only history: a finding here cannot be fixed, only recorded. Each entry states WHICH of two true things it asserts, in its `kind`. `violation` (the default, and what every entry written before HARNESS-122 meant) names a real violation of the quantified-progress rule that has already happened. `false-positive` names a finding that is not a violation at all, with a reason saying how the scan read it wrong; it exists because clearing such a finding through the `violation` shape would assert something untrue, and a ledger for real violations stops meaning anything the first time it absorbs one that is not. An entry whose finding no longer appears in a transcript this run READ fails the scan — see the header of scan-progress-report-quantification.mjs.",
   "acknowledgments": [
     {
       "transcript": "50cb28dd-0dd1-4ca4-897a-f8d0b47191c7.jsonl",
@@ -276,6 +276,13 @@
       "timestamp": "2026-08-24T18:58:53.140Z",
       "ratio": "33/129",
       "reason": "The same ratio again three minutes later, in a summary table of the same session. The repeat is the argument for the scan: I had just written the number and still did not convert it, which is why this rule is mechanized rather than remembered."
+    },
+    {
+      "transcript": "a0c1017e-5b90-495b-863b-d0143b2feefb.jsonl",
+      "timestamp": "2026-08-25T11:13:46.620Z",
+      "ratio": "8/14",
+      "kind": "false-positive",
+      "reason": "Not a violation: 8/14 is 14 August, ARCH-011's completed: date, in \"ARCH-011은 완료(8/14)입니다.\" There is no countable work set in the sentence. The scan fired by its own stated rule — a partial ratio in a completion context with no percentage — because Korean joins the completion word to the parenthesis with no preposition, where English writes \"completed on 8/14\"; the five suppression classes in the engine were derived from English transcripts. An engine rule was implemented first and withdrawn: 완료(8/14) and 완료(3/20) are the same shape, and the information separating a date from a ratio is the author's intent, not anything in the text, so the guard silently dropped genuine 3-of-20 progress statements (caught in review of PR #2341). HARNESS-122, issue #2339."
     }
   ]
 }

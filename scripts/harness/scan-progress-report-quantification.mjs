@@ -74,6 +74,15 @@ import { loadHarnessConfig } from './harness-config.mjs';
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+/**
+ * What an acknowledgment entry can assert. Both are true statements about a finding; they differ in
+ * what is true. `violation` — it happened, the transcript is append-only, it is recorded rather than
+ * fixed. `false-positive` — it is not a violation, and the reason says why the scan read it wrong.
+ * An entry with no `kind` is a `violation`, which is what every entry written before HARNESS-122
+ * meant.
+ */
+export const ACKNOWLEDGMENT_KINDS = new Set(['violation', 'false-positive']);
+
 const ACKNOWLEDGMENTS_PATH = path.join(
   WORKSPACE_ROOT,
   'scripts/harness/progress-report-acknowledgments.json',
@@ -120,6 +129,26 @@ export function loadAcknowledgments(readFile = () => readFileSync(ACKNOWLEDGMENT
           'without one is a silent waiver.',
       );
     }
+    // HARNESS-122 (issue #2339): an entry says WHICH of two true things it is asserting.
+    //
+    // The ledger used to have one meaning — "a real violation happened here and history cannot be
+    // edited". A finding that is not a violation at all had no honest entry: clearing it through the
+    // old shape asserted a violation that never occurred, and a ledger for real violations stops
+    // meaning anything the first time it absorbs one that is not.
+    //
+    // The alternative considered and rejected was a pattern rule in the engine. It cannot work here:
+    // `완료(8/14)` (a date) and `완료(3/20)` (three of twenty) are the same shape, and the
+    // information that separates them is the author's intent, which is not in the text. A guess
+    // encoded as a regex trades this false positive for a false negative in the class the scan
+    // exists to catch — measured, and caught in review, before this approach replaced it.
+    //
+    // So the author states which it is, and both statements are true ones.
+    if (entry.kind !== undefined && !ACKNOWLEDGMENT_KINDS.has(entry.kind)) {
+      throw new Error(
+        `progress-report acknowledgments: ${findingKey(entry)} carries kind "${entry.kind}". ` +
+          `Valid kinds are ${[...ACKNOWLEDGMENT_KINDS].map((k) => `"${k}"`).join(' and ')}.`,
+      );
+    }
   }
   return entries;
 }
@@ -142,7 +171,14 @@ export function applyAcknowledgments(findings, acknowledgments, transcriptsRead)
     (entry) =>
       !matched.has(findingKey(entry)) && readable.has(path.basename(entry.transcript ?? '')),
   );
-  return { open, stale, cleared: matched.size };
+  // Counted by kind, because a reader of the advisory line needs to know which of the two things
+  // the ledger is asserting. "4 acknowledged" hides whether four violations happened or four
+  // findings were wrong, and those call for opposite responses.
+  const clearedByKind = { violation: 0, 'false-positive': 0 };
+  for (const key of matched) {
+    clearedByKind[acknowledged.get(key)?.kind ?? 'violation'] += 1;
+  }
+  return { open, stale, cleared: matched.size, clearedByKind };
 }
 
 /** Fenced code blocks and inline code spans are quoted material, not narrative prose. */
@@ -219,27 +255,6 @@ export function findBareRatioProgressStatements(messageText, policy) {
       // A NUMBER must sit before the arrow: `5 → 6/7` is one version to another. `작업 → 6/7 완료`
       // is a progress statement that happens to use an arrow, and stays a violation.
       if (/(?:^|[^\w.])\d[\d.]*\s*(?:->|=>|~>|→|⇒)\s*$/.test(before)) continue;
-
-      // A PARENTHESISED M/D DATE, not a ratio (HARNESS-122, issue #2339). Measured on
-      // 2026-08-25: `ARCH-011은 완료(8/14)입니다.` reported 8/14 — 14 August, the record's
-      // `completed:` date — as eight fourteenths of some work. Korean puts the completion word
-      // directly against the parenthesis, with no preposition between them the way English has
-      // ("completed on 8/14"), so the five suppression classes derived from English transcripts
-      // never covered this one.
-      //
-      // Three conditions together, because no one of them is enough:
-      //   - the parenthesis holds the ratio and NOTHING else. `(3/7 done)` is a progress note and
-      //     stays a violation;
-      //   - the first component is a possible month;
-      //   - the second component is a possible day AND is above 12. That last clause is what keeps
-      //     the class narrow: `완료(3/7)` could be three of seven, so it still fires, while
-      //     `(8/14)` cannot be read as anything but a date. A date whose day is also ≤ 12 is left
-      //     firing rather than guessed at — this errs toward reporting, which is the safe side for
-      //     a guard.
-      // Range alone would be useless: `3/7 done` is the scan's most common true positive and both
-      // of its components are in date range.
-      const parenthesised = /\(\s*$/.test(before) && /^\s*\)/.test(after);
-      if (parenthesised && completed >= 1 && completed <= 12 && total > 12 && total <= 31) continue;
 
       findings.push({
         line: i + 1,
@@ -379,7 +394,11 @@ export async function main(write = (line) => process.stdout.write(`${line}\n`), 
       : `::examined:: ${stats.messages} narrative messages`,
   );
 
-  const { open, stale, cleared } = applyAcknowledgments(findings, loadAcknowledgments(), files);
+  const { open, stale, cleared, clearedByKind } = applyAcknowledgments(
+    findings,
+    loadAcknowledgments(),
+    files,
+  );
   if (stale.length > 0) {
     write('progress-report quantification scan failed — stale acknowledgment(s):');
     for (const entry of stale) {
@@ -394,9 +413,23 @@ export async function main(write = (line) => process.stdout.write(`${line}\n`), 
   findings.length = 0;
   findings.push(...open);
   if (cleared > 0) {
+    // Split by kind. The two are not interchangeable news: a violation says the rule was broken and
+    // the transcript cannot be edited; a false positive says the SCAN was wrong and something here
+    // may need fixing. A single total reads as the first and hides the second.
+    const parts = [];
+    if (clearedByKind.violation > 0) {
+      parts.push(
+        `${clearedByKind.violation} real violation(s) recorded, not cleared by editing history`,
+      );
+    }
+    if (clearedByKind['false-positive'] > 0) {
+      parts.push(
+        `${clearedByKind['false-positive']} finding(s) the scan read wrong, each with its reason`,
+      );
+    }
     write(
       `${ADVISORY_MARKER} progress-report quantification: ${cleared} finding(s) acknowledged in ` +
-        `${path.relative(WORKSPACE_ROOT, ACKNOWLEDGMENTS_PATH)} — recorded, not cleared by editing history.`,
+        `${path.relative(WORKSPACE_ROOT, ACKNOWLEDGMENTS_PATH)} — ${parts.join('; ')}.`,
     );
   }
 

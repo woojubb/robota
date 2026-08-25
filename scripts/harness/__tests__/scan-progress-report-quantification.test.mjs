@@ -9,6 +9,7 @@ import { makeTemp } from './make-temp.mjs';
 import { loadHarnessConfig } from '../harness-config.mjs';
 import { ADVISORY_MARKER } from '../run-all-scans.mjs';
 import {
+  ACKNOWLEDGMENT_KINDS,
   applyAcknowledgments,
   extractNarrativeText,
   findBareRatioProgressStatements,
@@ -67,38 +68,6 @@ describe('findBareRatioProgressStatements — the rule', () => {
     );
     expect(finding.line).toBe(2);
     expect(finding.excerpt).toContain('Migration 4/9 complete');
-  });
-});
-
-describe('HARNESS-122: a parenthesised M/D date is not a ratio', () => {
-  // The literal line from the transcript that blocked a lane on 2026-08-25 (issue #2339).
-  // `8/14` is 14 August — ARCH-011's `completed:` date — not eight fourteenths of anything.
-  it('stays silent on a completion word joined directly to a parenthesised date', () => {
-    expect(findBareRatioProgressStatements('ARCH-011은 완료(8/14)입니다.', POLICY)).toHaveLength(0);
-  });
-
-  // THE POSITIVE CONTROL. Same words, same numbers, no parenthesis — a bare ratio in a completion
-  // context, which is exactly what this scan exists to catch. Without this case the suppression
-  // could pass by disabling the Korean completion rule outright.
-  it('still FAILS the same numbers written as a bare ratio', () => {
-    expect(findBareRatioProgressStatements('ARCH-011은 완료 8/14입니다.', POLICY)).toHaveLength(1);
-  });
-
-  // The second control: a parenthesis alone must not suppress. `3/7` can be three of seven, so a
-  // day component of 7 is not a date and the finding stands. This is the clause that keeps the
-  // class narrow rather than swallowing every parenthesised ratio.
-  it('still FAILS a parenthesised ratio whose second component could be a count', () => {
-    expect(findBareRatioProgressStatements('감사 완료(3/7)입니다.', POLICY)).toHaveLength(1);
-  });
-
-  // A parenthesis carrying more than the ratio is a progress note, not a date annotation.
-  it('still FAILS when the parenthesis holds more than the ratio', () => {
-    expect(findBareRatioProgressStatements('Audit (3/14 done) so far.', POLICY)).toHaveLength(1);
-  });
-
-  // A month above 12 is not a month. Left firing rather than guessed at.
-  it('still FAILS a parenthesised pair whose first component cannot be a month', () => {
-    expect(findBareRatioProgressStatements('작업 완료(13/28)입니다.', POLICY)).toHaveLength(1);
   });
 });
 
@@ -473,6 +442,86 @@ describe('a finding in append-only history can be acknowledged, and the ledger c
 
   it('reads the SHIPPED ledger, so a malformed one fails here rather than in CI', () => {
     expect(() => loadAcknowledgments()).not.toThrow();
+  });
+});
+
+describe('HARNESS-122: an entry says which of two true things it asserts', () => {
+  /**
+   * The ledger had one meaning — "a real violation happened and history cannot be edited". A finding
+   * that is not a violation had no honest entry, so clearing it asserted a violation that never
+   * occurred. A ledger for real violations stops meaning anything the first time it absorbs one that
+   * is not.
+   *
+   * The rejected alternative was a pattern rule in the engine. `완료(8/14)` (a date) and
+   * `완료(3/20)` (three of twenty) are the same shape, and what separates them is the author's
+   * intent, which is not in the text — so the guard silently dropped genuine progress statements
+   * with denominators in the suppressed band. Caught in review of PR #2341 and withdrawn.
+   */
+  const FINDING = {
+    file: '/somewhere/session.jsonl',
+    timestamp: '2026-08-01T00:00:00.000Z',
+    ratio: '8/14',
+  };
+  const base = { transcript: 'session.jsonl', timestamp: FINDING.timestamp, ratio: '8/14' };
+
+  it('clears a finding marked as a false positive', () => {
+    const entry = { ...base, kind: 'false-positive', reason: '8/14 is a date' };
+    const result = applyAcknowledgments([FINDING], [entry], [FINDING.file]);
+
+    expect(result.open).toEqual([]);
+    expect(result.clearedByKind['false-positive']).toBe(1);
+    expect(result.clearedByKind.violation).toBe(0);
+  });
+
+  it('counts an entry with no kind as a violation, which is what every entry before this meant', () => {
+    // The backward-compatibility case. Without it, adding the field would silently reclassify the
+    // ledger's whole existing contents.
+    const entry = { ...base, reason: 'a real one' };
+    const result = applyAcknowledgments([FINDING], [entry], [FINDING.file]);
+
+    expect(result.clearedByKind.violation).toBe(1);
+    expect(result.clearedByKind['false-positive']).toBe(0);
+  });
+
+  it('separates the two kinds in one ledger rather than reporting a single total', () => {
+    // The reason the split exists: a violation says the rule was broken; a false positive says the
+    // SCAN is wrong and something may need fixing. One total reads as the first and hides the second.
+    const otherFinding = { ...FINDING, ratio: '4/6' };
+    const entries = [
+      { ...base, kind: 'false-positive', reason: 'a date' },
+      { ...base, ratio: '4/6', reason: 'a real one' },
+    ];
+    const result = applyAcknowledgments([FINDING, otherFinding], entries, [FINDING.file]);
+
+    expect(result.cleared).toBe(2);
+    expect(result.clearedByKind).toEqual({ violation: 1, 'false-positive': 1 });
+  });
+
+  it('REFUSES an entry whose kind is not one of the two', () => {
+    // A typo — `false-postive` — would otherwise fall through the `?? 'violation'` default and clear
+    // the finding while counted as a violation: the exact silent miscount this field exists to stop.
+    const json = JSON.stringify({
+      acknowledgments: [{ ...base, kind: 'false-postive', reason: 'a date' }],
+    });
+    expect(() => loadAcknowledgments(() => json)).toThrow(/kind "false-postive"/);
+  });
+
+  it('accepts both valid kinds through the loader', () => {
+    // The positive control. Without it the refusal above passes against a loader that rejects every
+    // kind, including the two the ledger now depends on.
+    const json = JSON.stringify({
+      acknowledgments: [
+        { ...base, kind: 'false-positive', reason: 'a date' },
+        { ...base, ratio: '4/6', kind: 'violation', reason: 'a real one' },
+      ],
+    });
+    expect(loadAcknowledgments(() => json)).toHaveLength(2);
+  });
+
+  it('admits exactly two kinds', () => {
+    // Pinned as data in both directions, so a third value cannot be added to the vocabulary without
+    // a test saying what it means, and neither can be removed silently.
+    expect([...ACKNOWLEDGMENT_KINDS].sort()).toEqual(['false-positive', 'violation']);
   });
 });
 

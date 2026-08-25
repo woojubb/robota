@@ -60,17 +60,28 @@ false negative in the class the scan exists to catch.
 
 ## Direction
 
-A date suppression in the engine, alongside the five classes already there, plus a fixture carrying
-the literal line above.
+**Not a pattern rule.** One was implemented and withdrawn on review: `완료(8/14)` (a date) and
+`완료(3/20)` (three of twenty) are the same shape, and what separates them is the author's intent,
+which is not in the text. Any numeric narrowing trades this false positive for a false negative in
+the class the scan exists to catch.
+
+The author states which it is. An acknowledgment entry gains a `kind` — `violation` (the default,
+and what every earlier entry meant) or `false-positive`, each with its reason. Both are true
+statements. The advisory reports the two counts separately, because a violation says the rule was
+broken and a false positive says the scan is wrong, and a single total reads as the first.
 
 ## Test Plan
 
-- A fixture with `완료(8/14)` produces no finding.
-- **Positive control**: `완료 8/14` — the same numbers as a real bare ratio, no parenthesis — still
-  produces one. Without this, the fix could pass by disabling the completion-context rule for Korean
-  entirely.
-- A second control: `3/7 done` still fires, and `3/7 done = 43%` does not.
-- `pnpm harness:scan` green on the affected host, which is also this item's own unblock condition.
+- An entry marked `false-positive` clears its finding and is counted as one.
+- An entry with no `kind` is counted as a `violation` — the backward-compatibility case, without
+  which adding the field silently reclassifies the ledger's whole existing contents.
+- Two kinds in one ledger report as two counts, not one total.
+- **A typo'd kind is REFUSED** (`false-postive`), because it would otherwise fall through the
+  `?? 'violation'` default and clear a finding while counted as a violation.
+- **Positive control**: both valid kinds load, so the refusal above cannot pass against a loader that
+  rejects everything.
+- `ACKNOWLEDGMENT_KINDS` pinned as data in both directions.
+- `pnpm harness:scan` green on the affected host — this item's own unblock condition.
 
 ## Not deliberately unacknowledged
 

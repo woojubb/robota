@@ -34,24 +34,41 @@ progress-quantification rule, because no external product has that rule. The evi
 the design is in this repository — the scan's five existing suppression classes and their fixtures —
 and it is read directly in the Solution below rather than approximated from an external source.
 
-## Solution (draft direction)
+## Solution
 
-Add a **date class** to the engine's suppressions, beside the five already there (identifier lists,
-step/round references, decimal scores, line references, completed results).
+**An engine pattern rule was implemented first, reviewed, and withdrawn.** It suppressed a
+parenthesised `N/M` with a month-range first component and a second component in `(12, 31]`. Review
+of PR #2341 found it silently dropped genuine progress statements — `감사 완료(3/20)입니다.` matches
+every condition and is a real three-of-twenty report. Reproduced before accepting:
 
-The decidable form: an `N/M` whose components fall in date ranges (`N ≤ 12`, `M ≤ 31`) and which sits
-in a date-shaped context — parenthesised, or adjacent to a date token. **Range alone is not enough**:
-`3/7 done` is a genuine violation with both components in range, and a suppression keyed only on
-magnitude would retire the scan's most common true positive.
+```
+0 findings  ←  ARCH-011은 완료(8/14)입니다.      the intended suppression
+0 findings  ←  감사 완료(3/20)입니다.             a genuine ratio, dropped
+1 finding   ←  감사 완료(3/7)입니다.
+```
 
-This cannot be configuration. `.agents/harness.config.json` → `progressReportQuantification` carries
-`transcriptRoot`, `enforceSinceIso`, `completionKeywordPattern`, `identifierNounPattern`,
-`identifierNounSuffixPattern` — no date class. The near-miss fails: `완료` is a completion keyword,
-not an identifier noun, so listing it there would suppress genuine `완료 8/14` violations.
+**The class is not separable by pattern at all.** `완료(8/14)` and `완료(3/20)` are the same shape,
+and what distinguishes a date from a ratio is the author's intent — which is not in the text. Any
+numeric narrowing repeats this bug with a smaller footprint, trading a false positive for a false
+negative in the class the scan exists to catch. That is the outcome this document's own Problem
+section named as unacceptable.
 
-**No `pre-push` hatch is proposed.** A general "this scan is wrong" override becomes the answer to
-every red scan the moment it exists. If one is ever right it needs its own decision and its own
-evidence, not a slot in this change.
+**So the author states which it is, and the ledger carries both.** An acknowledgment entry gains a
+`kind`:
+
+- `violation` — the default, and what every entry written before this meant: the rule was broken, the
+  transcript is append-only, it is recorded rather than fixed.
+- `false-positive` — the finding is not a violation, with a reason saying how the scan read it wrong.
+
+Both are true statements, which is the property the old single-meaning ledger could not offer: clearing
+a false positive through the `violation` shape asserted something that never happened.
+
+The advisory line reports the two counts separately. A single total reads as "violations happened" and
+hides "the scan is wrong and may need fixing" — opposite responses from the same number.
+
+**No `pre-push` hatch.** A general "this scan is wrong" override would become the answer to every red
+scan the moment it existed. `kind: false-positive` is not that: it is per-finding, it carries a
+reason, and it is anti-rotted — an entry whose finding stops appearing fails the scan.
 
 ## Completion Criteria (draft)
 
@@ -76,14 +93,22 @@ evidence, not a slot in this change.
   (fix the scan / write an acknowledgment / `--no-verify` and fix later); the owner selected
   **"HARNESS-122 승인, 스캔 수정"** — approve HARNESS-122, fix the scan. A peer session's instruction
   to take this path set the ORDER of the work and was explicitly not treated as this approval.
-- 2026-08-25 — Implemented: a parenthesised-date suppression in the engine, requiring all three of a
-  parenthesis holding the ratio and nothing else, a first component ≤ 12, and a second component
-  above 12 and ≤ 31. Range alone was rejected as useless — `3/7 done` is the scan's commonest true
-  positive and both components are in range.
-- 2026-08-25 — Verified by mutation. With the guard disabled (`if (false && …)`) exactly one of the
-  five new cases fails — the suppression case — and all four positive controls still pass. So the
-  suppression case measures the guard, and the controls measure that the guard does not over-reach.
-  `pnpm exec vitest run` on the file: 54 passed. `pnpm harness:scan`: 144 passed, 0 failures.
-- 2026-08-25 — Residual, stated rather than hidden: a date whose day is also ≤ 12 (`완료(8/9)`) still
-  reports. Left firing rather than guessed at, because that errs toward reporting, which is the safe
-  side for a guard.
+- 2026-08-25 — First implementation: a parenthesised-date suppression in the engine. Mutation-verified
+  at the time — one of five new cases died with the guard disabled — and that check could not see the
+  defect, because none of its four positive controls exercised a denominator inside the band the guard
+  changed. **A mutation test proves a case measures the guard; it says nothing about whether the cases
+  cover the guard's reach.**
+- 2026-08-25 — **Withdrawn on review of PR #2341** (MUST). `감사 완료(3/20)입니다.` — a genuine
+  three-of-twenty report — was silently dropped. Reproduced against the exported predicate before
+  accepting the finding. The review's sharpest point: this document already stated that a suppression
+  keyed on magnitude would retire the scan's commonest true positive, and the implementation was
+  magnitude-plus-parenthesis.
+- 2026-08-25 — **Owner decision on the replacement**, asked as three options (ledger kind / year-only
+  date form / withdraw the PR): **"원장에 '오탐' 종류를 추가"** — add a false-positive kind to the
+  ledger.
+- 2026-08-25 — Implemented: `ACKNOWLEDGMENT_KINDS`, per-entry validation, kind-split reporting, the
+  ledger's own `why` contract updated, and one `false-positive` entry for the 8/14 finding.
+- 2026-08-25 — Verified by mutation, twice. Ignoring an entry's kind kills two cases; disabling the
+  kind validation kills one — the typo case (`false-postive`), which would otherwise fall through the
+  `?? 'violation'` default and clear a finding while counted as a violation. Baseline 55 passed;
+  `pnpm harness:scan` 144 passed, 0 failures.
