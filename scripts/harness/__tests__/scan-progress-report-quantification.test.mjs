@@ -9,6 +9,7 @@ import { makeTemp } from './make-temp.mjs';
 import { loadHarnessConfig } from '../harness-config.mjs';
 import { ADVISORY_MARKER } from '../run-all-scans.mjs';
 import {
+  ACKNOWLEDGMENT_KINDS,
   applyAcknowledgments,
   extractNarrativeText,
   findBareRatioProgressStatements,
@@ -441,6 +442,86 @@ describe('a finding in append-only history can be acknowledged, and the ledger c
 
   it('reads the SHIPPED ledger, so a malformed one fails here rather than in CI', () => {
     expect(() => loadAcknowledgments()).not.toThrow();
+  });
+});
+
+describe('HARNESS-122: an entry says which of two true things it asserts', () => {
+  /**
+   * The ledger had one meaning — "a real violation happened and history cannot be edited". A finding
+   * that is not a violation had no honest entry, so clearing it asserted a violation that never
+   * occurred. A ledger for real violations stops meaning anything the first time it absorbs one that
+   * is not.
+   *
+   * The rejected alternative was a pattern rule in the engine. `완료(8/14)` (a date) and
+   * `완료(3/20)` (three of twenty) are the same shape, and what separates them is the author's
+   * intent, which is not in the text — so the guard silently dropped genuine progress statements
+   * with denominators in the suppressed band. Caught in review of PR #2341 and withdrawn.
+   */
+  const FINDING = {
+    file: '/somewhere/session.jsonl',
+    timestamp: '2026-08-01T00:00:00.000Z',
+    ratio: '8/14',
+  };
+  const base = { transcript: 'session.jsonl', timestamp: FINDING.timestamp, ratio: '8/14' };
+
+  it('clears a finding marked as a false positive', () => {
+    const entry = { ...base, kind: 'false-positive', reason: '8/14 is a date' };
+    const result = applyAcknowledgments([FINDING], [entry], [FINDING.file]);
+
+    expect(result.open).toEqual([]);
+    expect(result.clearedByKind['false-positive']).toBe(1);
+    expect(result.clearedByKind.violation).toBe(0);
+  });
+
+  it('counts an entry with no kind as a violation, which is what every entry before this meant', () => {
+    // The backward-compatibility case. Without it, adding the field would silently reclassify the
+    // ledger's whole existing contents.
+    const entry = { ...base, reason: 'a real one' };
+    const result = applyAcknowledgments([FINDING], [entry], [FINDING.file]);
+
+    expect(result.clearedByKind.violation).toBe(1);
+    expect(result.clearedByKind['false-positive']).toBe(0);
+  });
+
+  it('separates the two kinds in one ledger rather than reporting a single total', () => {
+    // The reason the split exists: a violation says the rule was broken; a false positive says the
+    // SCAN is wrong and something may need fixing. One total reads as the first and hides the second.
+    const otherFinding = { ...FINDING, ratio: '4/6' };
+    const entries = [
+      { ...base, kind: 'false-positive', reason: 'a date' },
+      { ...base, ratio: '4/6', reason: 'a real one' },
+    ];
+    const result = applyAcknowledgments([FINDING, otherFinding], entries, [FINDING.file]);
+
+    expect(result.cleared).toBe(2);
+    expect(result.clearedByKind).toEqual({ violation: 1, 'false-positive': 1 });
+  });
+
+  it('REFUSES an entry whose kind is not one of the two', () => {
+    // A typo — `false-postive` — would otherwise fall through the `?? 'violation'` default and clear
+    // the finding while counted as a violation: the exact silent miscount this field exists to stop.
+    const json = JSON.stringify({
+      acknowledgments: [{ ...base, kind: 'false-postive', reason: 'a date' }],
+    });
+    expect(() => loadAcknowledgments(() => json)).toThrow(/kind "false-postive"/);
+  });
+
+  it('accepts both valid kinds through the loader', () => {
+    // The positive control. Without it the refusal above passes against a loader that rejects every
+    // kind, including the two the ledger now depends on.
+    const json = JSON.stringify({
+      acknowledgments: [
+        { ...base, kind: 'false-positive', reason: 'a date' },
+        { ...base, ratio: '4/6', kind: 'violation', reason: 'a real one' },
+      ],
+    });
+    expect(loadAcknowledgments(() => json)).toHaveLength(2);
+  });
+
+  it('admits exactly two kinds', () => {
+    // Pinned as data in both directions, so a third value cannot be added to the vocabulary without
+    // a test saying what it means, and neither can be removed silently.
+    expect([...ACKNOWLEDGMENT_KINDS].sort()).toEqual(['false-positive', 'violation']);
   });
 });
 
