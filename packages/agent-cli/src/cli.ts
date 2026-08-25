@@ -11,8 +11,6 @@ import {
   checkForCliUpdate,
   formatCliUpdateCheckMessage,
   resolveCliUpdateNotice,
-  readSettings,
-  getUserSettingsPath,
 } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
@@ -20,6 +18,7 @@ import type { IParsedCliArgs } from './utils/cli-args.js';
 import { resolveShellPreset } from './startup/preset-selection.js';
 import type { IShellPresetResolution } from './startup/preset-selection.js';
 import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-preset';
+import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
 import { buildPresetSurfaceOptions, toSessionOptions } from './startup/preset-surface-options.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
@@ -155,7 +154,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   // The shell's ONE preset resolution — see `resolveShellPreset` for why it is one. Resolved before
   // command setup so the preset's module-selection delta can reach `createDefaultCommandModules`.
-  const userSettings = readSettings(getUserSettingsPath());
+  const userSettings = readUserSettingsOrExit();
   const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
   const externalPresetLoad = loadExternalPresets();
   for (const { file, error } of externalPresetLoad.errors) {
