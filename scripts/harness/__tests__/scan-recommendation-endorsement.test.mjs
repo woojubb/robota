@@ -23,6 +23,7 @@ import {
 } from '../scan-recommendation-endorsement.mjs';
 
 const SUBJECT = 'INFRA-999-recommendation-proof.md';
+const GHOST_SUBJECT = 'INFRA-998-ghost-recommendation.md';
 const TASK = `.agents/tasks/${SUBJECT}`;
 const ACTIVE_SPEC = `.agents/spec-docs/active/${SUBJECT}`;
 const LEDGER = '.agents/loop-runs/backlog-execution-orchestrator.jsonl';
@@ -170,6 +171,7 @@ function attestation({
   verdict = 'ENDORSE',
   unresolvedFindings = 0,
   runId = 'r20260826000000',
+  subject = SUBJECT,
 } = {}) {
   return {
     runId,
@@ -181,7 +183,7 @@ function attestation({
         expectations: [
           {
             round: 1,
-            subject: SUBJECT,
+            subject,
             revision,
             projectionDigest: digest,
             agent: 'proposal-reviewer',
@@ -190,7 +192,7 @@ function attestation({
         observations: [
           {
             round: 1,
-            subject: SUBJECT,
+            subject,
             revision,
             projectionDigest: digest,
             agent: 'proposal-reviewer',
@@ -201,7 +203,7 @@ function attestation({
       },
     },
     terminal: 'converged',
-    ref: SUBJECT,
+    ref: subject,
   };
 }
 
@@ -392,6 +394,17 @@ describe('canonical recommendation decision projection', () => {
     ).toThrow(/unknown.*Undeclared Span Owner/i);
   });
 
+  it('does not hide a nonempty Completion Criteria list row in a multiline code span', () => {
+    expect(() =>
+      decisionProjection(
+        spec().replace(
+          '- [ ] TC-02: A stale projection is rejected.\n',
+          '- [ ] TC-02: A stale projection is rejected.\nA paragraph opens ``\n- [ ] TC-01: A duplicate cannot hide here.\n`` closes here.\n',
+        ),
+      ),
+    ).toThrow(/duplicate TC id/i);
+  });
+
   it('masks processing instructions, declarations, and CDATA only for structural headings', () => {
     const hiddenStructures = [
       '<?review',
@@ -449,7 +462,7 @@ describe('canonical recommendation decision projection', () => {
     );
     expect(decisionProjection(typeSix).userExecutionPlan).toContain('<hgroup>');
 
-    for (const boundary of ['---', 'Setext boundary\n===']) {
+    for (const boundary of ['---', 'Setext boundary\n===', 'Single hyphen boundary\n-']) {
       const markdown = spec().replace(
         '## Solution\n',
         `${boundary}\n<custom-review>\n## Undeclared HTML Owner\n\n## Solution\n`,
@@ -558,6 +571,35 @@ describe('persisted endorsement and immutable adoption', () => {
     expect(examinedRecommendationEndorsementCount()).toBe(2);
     expect(findRecommendationEndorsementFindings(root)).toEqual([]);
     expect(examinedRecommendationEndorsementCount()).toBe(2);
+  });
+
+  it('rejects a persisted observation for a ghost subject with no artifact history', () => {
+    const { root, adoptionRevision } = repository();
+    write(
+      root,
+      LEDGER,
+      `${JSON.stringify(
+        attestation({
+          digest: 'a'.repeat(64),
+          revision: adoptionRevision,
+          subject: GHOST_SUBJECT,
+        }),
+      )}\n`,
+    );
+
+    expect(
+      findRecommendationEndorsementFindings(root)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/ghost|no governed recommendation spec history/i);
+
+    write(root, `.agents/tasks/${GHOST_SUBJECT}`, task());
+    commit(root, 'add task-only ghost history');
+    expect(
+      findRecommendationEndorsementFindings(root)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/ghost|no governed recommendation spec history/i);
   });
 
   it.each([
@@ -1016,6 +1058,29 @@ describe('topic ordering', () => {
         .join('\n'),
     ).toMatch(/not an exact planning-only/i);
   });
+
+  it('rejects a topic ledger observation for a ghost subject', () => {
+    const { root, adoptionRevision } = repository();
+    const base = git(root, ['rev-parse', 'HEAD']);
+    write(
+      root,
+      LEDGER,
+      `${JSON.stringify(
+        attestation({
+          digest: 'a'.repeat(64),
+          revision: adoptionRevision,
+          subject: GHOST_SUBJECT,
+        }),
+      )}\n`,
+    );
+    commit(root, 'ghost recommendation observation');
+
+    expect(
+      findRecommendationTopicFindings(root, base)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/ghost|no current recommendation spec/i);
+  });
 });
 
 describe('staged ordering', () => {
@@ -1124,6 +1189,38 @@ describe('staged ordering', () => {
     expect(
       findRecommendationStagedFindings(whitespaceOnly.root, whitespaceOnly.base).length,
     ).toBeGreaterThan(0);
+
+    const commentOnly = reviewedTopic();
+    write(commentOnly.root, LEDGER, `${JSON.stringify(attestation(commentOnly))}\n`);
+    write(commentOnly.root, TASK, `${task()}\nRecommendation review recorded.\n`);
+    write(commentOnly.root, ACTIVE_SPEC, spec({ evidence: '<!-- endorsement checkpoint -->' }));
+    git(commentOnly.root, ['add', '-A']);
+    expect(
+      findRecommendationStagedFindings(commentOnly.root, commentOnly.base).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('rejects a staged ledger observation for a ghost subject', () => {
+    const { root, adoptionRevision } = repository();
+    const base = git(root, ['rev-parse', 'HEAD']);
+    write(
+      root,
+      LEDGER,
+      `${JSON.stringify(
+        attestation({
+          digest: 'a'.repeat(64),
+          revision: adoptionRevision,
+          subject: GHOST_SUBJECT,
+        }),
+      )}\n`,
+    );
+    git(root, ['add', LEDGER]);
+
+    expect(
+      findRecommendationStagedFindings(root, base)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/ghost|no current recommendation spec/i);
   });
 
   it('does not let a staged rejection erase an approved proposal from ordering', () => {

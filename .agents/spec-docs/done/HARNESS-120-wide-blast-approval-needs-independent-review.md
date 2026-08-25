@@ -451,3 +451,12 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Focused verification: the exact seven affected harness test files passed 206 tests; the direct projection/endorsement pair passed 51 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
 - Complete verification: `pnpm harness:test:contracts` passed 3,945 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
 - Review status: the four findings are fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.
+
+### [LOCAL REVIEW ROUND 5] — 🔁 RESOLVED | 2026-08-26
+
+- Exact review range: independent local re-review compared base `675cd814edb4121fd92023fe7721c905a1acf321` with fix head `e20c391bff0e6607c84a786278c744fc4e9cbbe4` and returned `ACTIONABLE FINDINGS: 3`.
+- Resolved findings: newly added observations for subjects without a current spec fail topic and staged replay, and persisted observations require current or historical governed-spec membership rather than arbitrary Task-only history; multiline code spans preserve paragraph-interrupting structural lines so list-owned TC rows cannot be hidden; and the spec half of a checkpoint requires a nonempty visible canonical Evidence Log change rather than whitespace or raw HTML comments.
+- Additional structural edge: CommonMark's single-hyphen setext underline is treated as a paragraph boundary, with a focused projection fixture proving an immediately following type-7 HTML block is classified structurally.
+- Focused verification: the exact seven affected harness test files passed 210 tests; the direct projection/endorsement pair passed 55 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
+- Complete verification: `pnpm harness:test:contracts` passed 3,949 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
+- Review status: the three findings are fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.

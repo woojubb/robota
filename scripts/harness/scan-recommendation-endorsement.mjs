@@ -24,6 +24,7 @@ import { resolveBaseRef } from './shared.mjs';
 import {
   RECOMMENDATION_REVIEW_EXTENSION,
   decisionProjectionDigest,
+  recommendationCheckpointEvidence,
   recommendationReviewExtensionErrors,
 } from './recommendation-review-record.mjs';
 
@@ -462,10 +463,14 @@ function exactTaskRunBinding(root, record, subject, targetRevision) {
 function exactSpecCheckpointChange(root, subject, targetRevision, targetSpec) {
   const beforeRevision = targetRevision === ':index' ? 'HEAD' : `${targetRevision}^`;
   const beforeSpec = specAt(root, beforeRevision, subject);
-  return (
-    beforeSpec !== null &&
-    substantiveMarkdown(targetSpec.text) !== substantiveMarkdown(beforeSpec.text)
-  );
+  if (beforeSpec === null) return false;
+  try {
+    const beforeEvidence = recommendationCheckpointEvidence(beforeSpec.text);
+    const targetEvidence = recommendationCheckpointEvidence(targetSpec.text);
+    return targetEvidence !== '' && targetEvidence !== beforeEvidence;
+  } catch {
+    return false;
+  }
 }
 
 function validReachableReviewRecord(root, record, subject, targetRevision) {
@@ -633,6 +638,7 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
   // actually carries a spec transition for the subject; this also avoids reparsing every immutable
   // legacy adoption document once per commit.
   const subjects = new Set();
+  const ledgerObservationSubjects = new Set();
   for (const commit of commits) {
     const parent = git(root, ['rev-parse', `${commit}^`]).trim();
     const paths = changedPaths(root, parent, commit);
@@ -641,8 +647,14 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
       if (subject) subjects.add(subject);
     }
     if (paths.includes(LEDGER)) {
-      for (const subject of observationSubjects(ledgerAt(root, parent))) subjects.add(subject);
-      for (const subject of observationSubjects(ledgerAt(root, commit))) subjects.add(subject);
+      for (const subject of observationSubjects(ledgerAt(root, parent))) {
+        subjects.add(subject);
+        ledgerObservationSubjects.add(subject);
+      }
+      for (const subject of observationSubjects(ledgerAt(root, commit))) {
+        subjects.add(subject);
+        ledgerObservationSubjects.add(subject);
+      }
     }
   }
   for (const subject of subjects) {
@@ -650,9 +662,17 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
     if (headSpec === null) {
       if (governedHistory.has(subject)) {
         findings.push(disappearedSubjectFinding(subject, 'HEAD'));
+      } else if (ledgerObservationSubjects.has(subject)) {
+        findings.push(
+          finding(
+            LEDGER,
+            `recommendation observation subject ${subject} has no current recommendation spec and cannot form a checkpoint`,
+          ),
+        );
       } else {
         continue;
       }
+      if (!governedHistory.has(subject)) continue;
     }
     if (
       headSpec !== null &&
@@ -813,6 +833,18 @@ export function findRecommendationStagedFindings(root = WORKSPACE_ROOT, requeste
   for (const subject of subjects) {
     const spec = indexSpec(root, subject);
     if (spec === null) {
+      const before = new Set(observations(beforeLedger, subject).map(observationKey));
+      const added = observations(afterLedger, subject).filter(
+        (record) => !before.has(observationKey(record)),
+      );
+      if (added.length > 0) {
+        findings.push(
+          finding(
+            LEDGER,
+            `staged recommendation observation subject ${subject} has no current recommendation spec and cannot form a checkpoint`,
+          ),
+        );
+      }
       if (governedHistory.has(subject)) {
         findings.push(disappearedSubjectFinding(subject, 'the proposed index'));
       }
@@ -898,14 +930,25 @@ export function findRecommendationEndorsementFindings(root = WORKSPACE_ROOT) {
   const baseline = readBaseline(root);
   const specs = governedSpecs(root);
   const currentSubjects = new Set(specs.map((spec) => spec.name));
-  const missingSubjects = [
-    ...historicallyGovernedSubjects(root, 'HEAD', baseline.adoptionRevision),
-  ].filter((subject) => !currentSubjects.has(subject));
+  const historicalSubjects = historicallyGovernedSubjects(root, 'HEAD', baseline.adoptionRevision);
+  const missingSubjects = [...historicalSubjects].filter(
+    (subject) => !currentSubjects.has(subject),
+  );
   examined = specs.length + missingSubjects.length;
-  const { index, errors } = attestationIndex(readLedger(root));
+  const ledgerEntries = readLedger(root);
+  const { index, errors } = attestationIndex(ledgerEntries);
+  const ghostSubjects = [...observationSubjects(ledgerEntries)].filter(
+    (subject) => !currentSubjects.has(subject) && !historicalSubjects.has(subject),
+  );
   const findings = [
     ...errors,
     ...missingSubjects.map((subject) => disappearedSubjectFinding(subject, 'the working tree')),
+    ...ghostSubjects.map((subject) =>
+      finding(
+        LEDGER,
+        `recommendation observation subject ${subject} is a ghost with no governed recommendation spec history`,
+      ),
+    ),
   ];
   for (const spec of specs) {
     const current = readFileSync(path.join(root, spec.relative), 'utf8');

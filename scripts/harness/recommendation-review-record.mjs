@@ -102,8 +102,17 @@ function isAtxHeading(line) {
 function isParagraphBoundary(line) {
   return (
     isAtxHeading(line) ||
-    /^ {0,3}(?:=+|-{2,})[ \t]*$/.test(line) ||
+    /^ {0,3}(?:=+|-+)[ \t]*$/.test(line) ||
     /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$/.test(line)
+  );
+}
+
+function interruptsInlineParagraph(line) {
+  return (
+    line.trim() === '' ||
+    isParagraphBoundary(line) ||
+    /^ {0,3}(?:[*+-]|\d{1,9}[.)])(?:[ \t]+)\S/.test(line) ||
+    /^ {0,3}>/.test(line)
   );
 }
 
@@ -223,7 +232,7 @@ function maskCodeSpans(lines) {
     const closerLine = lineAt(closer.start);
     if (openerLine < closerLine) {
       for (let line = openerLine + 1; line < closerLine; line += 1) {
-        if (!isAtxHeading(lines[line])) masked[line] = '';
+        if (!interruptsInlineParagraph(lines[line])) masked[line] = '';
       }
       const delimiter = '`'.repeat(opener.length);
       if (lines[openerLine].trim() === delimiter) masked[openerLine] = '';
@@ -339,7 +348,24 @@ function sectionRanges(lines, startAt, bodyLines = lines) {
     result.set(name, canonicalBody(bodyLines.slice(heading.index + 1, end)));
     structuralResult.set(name, canonicalBody(lines.slice(heading.index + 1, end)));
   }
-  return { title: title.title, sections: result, structuralSections: structuralResult };
+  const optionalStructuralSections = new Map();
+  for (const name of OPTIONAL_SECTIONS) {
+    const heading = headings.find((candidate) => candidate.level === 2 && candidate.title === name);
+    if (!heading) continue;
+    const next = headings.find(
+      (candidate) => candidate.index > heading.index && candidate.level <= 2,
+    );
+    optionalStructuralSections.set(
+      name,
+      canonicalBody(lines.slice(heading.index + 1, next?.index ?? lines.length)),
+    );
+  }
+  return {
+    title: title.title,
+    sections: result,
+    structuralSections: structuralResult,
+    optionalStructuralSections,
+  };
 }
 
 function tcIdsFromCriteria(section) {
@@ -444,6 +470,18 @@ export function decisionProjectionDigest(markdown) {
   return createHash('sha256')
     .update(JSON.stringify(decisionProjection(markdown)))
     .digest('hex');
+}
+
+/** Visible canonical Evidence Log content used to prove a substantive endorsement checkpoint. */
+export function recommendationCheckpointEvidence(markdown) {
+  const { projectionLines, structuralLines } = projectionAndStructuralLines(markdown);
+  const frontmatter = frontmatterProjection(projectionLines);
+  const { optionalStructuralSections } = sectionRanges(
+    structuralLines,
+    frontmatter.end + 1,
+    projectionLines,
+  );
+  return optionalStructuralSections.get('Evidence Log') ?? '';
 }
 
 export function normalizeRecommendationReviewMetadata(entry) {
