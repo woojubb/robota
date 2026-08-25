@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs';
 
 import { marked } from 'marked';
 
+import { parseFrontmatterBlock } from './frontmatter.mjs';
+
 export const RECOMMENDATION_REVIEW_EXTENSION = 'recommendationReview';
 export const RECOMMENDATION_REVIEW_OWNER = 'backlog-execution-orchestrator';
 export const RECOMMENDATION_REVIEW_AGENT = 'proposal-reviewer';
@@ -335,21 +337,22 @@ function frontmatterProjection(lines) {
     throw new Error('recommendation projection: missing opening frontmatter.');
   const end = lines.findIndex((line, index) => index > 0 && line.trim() === '---');
   if (end === -1) throw new Error('recommendation projection: unclosed frontmatter.');
+  const blockLines = lines.slice(1, end);
+  const parsed = parseFrontmatterBlock(lines.slice(0, end + 1).join('\n'));
+  const parsedEntries = parsed ? [...parsed.entries()] : [];
+  if (parsedEntries.length !== blockLines.length) {
+    throw new Error(
+      'recommendation projection: frontmatter must use unique top-level scalar key/value lines.',
+    );
+  }
   const entries = [];
-  const seen = new Set();
-  for (const line of lines.slice(1, end)) {
-    if (line.trim() === '' || /^\s/.test(line)) {
-      throw new Error(
-        'recommendation projection: frontmatter must use unique top-level scalar key/value lines.',
-      );
-    }
-    const match = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/.exec(line);
-    if (!match)
+  for (const [index, line] of blockLines.entries()) {
+    const [key] = parsedEntries[index];
+    const prefix = `${key}:`;
+    if (!line.startsWith(prefix)) {
       throw new Error(`recommendation projection: malformed frontmatter line \`${line}\`.`);
-    const [, key, value] = match;
-    if (seen.has(key))
-      throw new Error(`recommendation projection: duplicate frontmatter key \`${key}\`.`);
-    seen.add(key);
+    }
+    const value = line.slice(prefix.length);
     if (!['status', 'completed'].includes(key)) entries.push([key, value.trim()]);
   }
   return { entries: entries.sort(([left], [right]) => left.localeCompare(right)), end };

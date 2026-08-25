@@ -520,4 +520,13 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Exact review range: independent local re-review compared base `675cd814edb4121fd92023fe7721c905a1acf321` with exact head `2fa4ba2f73b7292b9bb0932eaa97c7e247b1bbee` and returned `ACTIONABLE FINDINGS: 0` after rechecking all prior findings and the whole diff for new bypasses or regressions.
 - Verification confirmed by the reviewer: the exact seven-file focused suite passed 230 tests, `pnpm harness:scan` passed its cached 145 repository scans plus 2 rerun external-tree scans, `git diff --check` passed, and the reviewed worktree was clean.
 - Loop terminal: canonical `pr-finding-resolution-loop` run `r20260825183351` records findings `[6,4,5,4,3,2,1,2,1,1,1,0]` and is closed `converged` with this exact head and verdict.
-- Review status: local pre-push review converged with no actionable finding; no implementation edit follows this zero-count verdict.
+- Review status: local pre-push review converged with no actionable finding; no discretionary implementation edit followed this zero-count verdict, while the later pre-push contract failure below supplied a new named remediation ground.
+
+### [PRE-PUSH CONTRACT REMEDIATION] — ✅ PASS | 2026-08-26
+
+- Named ground: pre-push verification at exact head `838067023695583869486d280b8dfed4f7c0f9ea` failed `frontmatter-parser-ssot.test.mjs` because `recommendation-review-record.mjs` had forked the repository's frontmatter key regex instead of importing the canonical parser.
+- Resolution: `frontmatterProjection` now imports `parseFrontmatterBlock` from `frontmatter.mjs`, uses the SSOT parser's ordered key set to reject malformed, continued, or duplicate top-level lines, and retains the original raw value bytes in the canonical decision projection.
+- Compatibility proof: the completed HARNESS-120 spec still hashes to the endorsed projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
+- Focused verification: the SSOT anti-fork test, direct recorder tests, and complete recommendation-endorsement fixture suite passed 88 tests in 3 files.
+- Complete verification: `pnpm harness:test:contracts` exited 0 across the full contract tier, and `pnpm harness:scan` passed 145 scans with 2 declared skips; `git diff --check` also exited 0.
+- Review status: the remediation requires a fresh independent exact-head review before a new local zero-finding record or push.
