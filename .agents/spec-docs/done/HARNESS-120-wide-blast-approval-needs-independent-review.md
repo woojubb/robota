@@ -469,3 +469,12 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Focused verification: the exact seven affected harness test files passed 214 tests; the direct projection/endorsement pair passed 59 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
 - Complete verification: `pnpm harness:test:contracts` passed 3,953 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
 - Review status: the two findings are fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.
+
+### [LOCAL REVIEW ROUND 7] — 🔁 RESOLVED | 2026-08-26
+
+- Exact review range: independent local re-review compared base `675cd814edb4121fd92023fe7721c905a1acf321` with fix head `c111a645eb316111f41e067fc950a2905274d8e1` and returned `ACTIONABLE FINDINGS: 1`.
+- Resolved finding: checkpoint Evidence Log canonicalization removes inline and multiline HTML comments even when appended to or inserted within visible sentences, while protecting literal comment bytes inside valid inline code spans and complete fenced code blocks.
+- Isolation: Evidence Log range extraction and comment canonicalization are separate from the decision-projection path, preserving the endorsed planning projection and its structural fail-closed rules.
+- Focused verification: the exact seven affected harness test files passed 219 tests; the direct projection/endorsement pair passed 64 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
+- Complete verification: `pnpm harness:test:contracts` passed 3,958 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
+- Review status: the finding is fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.

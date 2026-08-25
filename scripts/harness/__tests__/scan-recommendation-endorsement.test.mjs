@@ -242,13 +242,14 @@ function endorsedTopic({ implementationBeforeCheckpoint = false } = {}) {
   return { root, base };
 }
 
-function reviewedTopic() {
+function reviewedTopic({ evidence = '' } = {}) {
   const { root } = repository();
   const base = git(root, ['rev-parse', 'HEAD']);
-  write(root, ACTIVE_SPEC, spec());
+  const reviewed = spec({ evidence });
+  write(root, ACTIVE_SPEC, reviewed);
   write(root, TASK, task());
   const revision = commit(root, 'reviewed plan');
-  const digest = decisionProjectionDigest(spec());
+  const digest = decisionProjectionDigest(reviewed);
   return { root, base, revision, digest };
 }
 
@@ -1277,6 +1278,49 @@ describe('staged ordering', () => {
       expect(findRecommendationStagedFindings(root, base).length).toBeGreaterThan(0);
     }
   });
+
+  it.each([
+    [
+      'an appended comment',
+      'Existing first line. <!-- appended comment -->\nExisting second line.',
+    ],
+    [
+      'a comment between existing lines',
+      'Existing first line.<!-- inserted comment -->\nExisting second line.',
+    ],
+    [
+      'a multiline comment between words',
+      'Existing first<!-- inserted\nmultiline comment --> line.\nExisting second line.',
+    ],
+  ])('does not treat %s as substantive staged checkpoint evidence', (_description, evidence) => {
+    const reviewed = reviewedTopic({
+      evidence: 'Existing first line.\nExisting second line.',
+    });
+    write(reviewed.root, LEDGER, `${JSON.stringify(convergedAttestation(reviewed))}\n`);
+    write(reviewed.root, TASK, `${task()}\nRecommendation review recorded.\n`);
+    write(reviewed.root, ACTIVE_SPEC, spec({ evidence }));
+    git(reviewed.root, ['add', '-A']);
+
+    expect(findRecommendationStagedFindings(reviewed.root, reviewed.base).length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it.each([
+    ['an inline code span', 'Literal `<!-- kept -->` code evidence.'],
+    ['a fenced code block', '```html\n<!-- kept -->\n```'],
+  ])(
+    'accepts literal HTML comment bytes in %s as staged checkpoint evidence',
+    (_description, evidence) => {
+      const reviewed = reviewedTopic();
+      write(reviewed.root, LEDGER, `${JSON.stringify(convergedAttestation(reviewed))}\n`);
+      write(reviewed.root, TASK, `${task()}\nRecommendation review recorded.\n`);
+      write(reviewed.root, ACTIVE_SPEC, spec({ evidence }));
+      git(reviewed.root, ['add', '-A']);
+
+      expect(findRecommendationStagedFindings(reviewed.root, reviewed.base)).toEqual([]);
+    },
+  );
 
   it('rejects a staged ledger observation for a ghost subject', () => {
     const { root, adoptionRevision } = repository();

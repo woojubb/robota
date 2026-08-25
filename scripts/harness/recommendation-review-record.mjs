@@ -116,7 +116,8 @@ function interruptsInlineParagraph(line) {
   );
 }
 
-function maskPairedFences(lines, hidden) {
+function pairedFenceLineRanges(lines) {
+  const ranges = [];
   for (let index = 0; index < lines.length; index += 1) {
     const opener = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(lines[index]);
     if (opener === null || (opener[1][0] === '`' && opener[2].includes('`'))) continue;
@@ -126,9 +127,14 @@ function maskPairedFences(lines, hidden) {
     const closeAt = lines.findIndex((line, candidate) => candidate > index && closer.test(line));
     // An incomplete or malformed fence must not make planning text disappear from review.
     if (closeAt === -1) continue;
-    maskThrough(hidden, index, closeAt);
+    ranges.push({ start: index, end: closeAt });
     index = closeAt;
   }
+  return ranges;
+}
+
+function maskPairedFences(lines, hidden) {
+  for (const range of pairedFenceLineRanges(lines)) maskThrough(hidden, range.start, range.end);
 }
 
 function maskHtmlBlocks(lines, hidden) {
@@ -267,6 +273,87 @@ function canonicalBody(lines) {
   return normalized.join('\n');
 }
 
+function lineStartOffsets(lines) {
+  const starts = [0];
+  for (let index = 0; index < lines.length - 1; index += 1) {
+    starts.push(starts.at(-1) + lines[index].length + 1);
+  }
+  return starts;
+}
+
+function evidenceCodeRanges(lines) {
+  const source = lines.join('\n');
+  const lineStarts = lineStartOffsets(lines);
+  const fenceLines = pairedFenceLineRanges(lines);
+  const protectedRanges = fenceLines.map(({ start, end }) => ({
+    start: lineStarts[start],
+    end: lineStarts[end] + lines[end].length,
+  }));
+  const lineAt = (offset) => {
+    let line = 0;
+    while (line + 1 < lineStarts.length && lineStarts[line + 1] <= offset) line += 1;
+    return line;
+  };
+  const isFencedLine = (line) =>
+    fenceLines.some((range) => line >= range.start && line <= range.end);
+  const runs = [...source.matchAll(/`+/g)]
+    .filter((match) => {
+      const line = lineAt(match.index);
+      if (isFencedLine(line)) return false;
+      let escapes = 0;
+      for (let at = match.index - 1; at >= 0 && source[at] === '\\'; at -= 1) escapes += 1;
+      return escapes % 2 === 0;
+    })
+    .map((match) => ({
+      start: match.index,
+      end: match.index + match[0].length,
+      length: match[0].length,
+    }));
+  for (let index = 0; index < runs.length; index += 1) {
+    const opener = runs[index];
+    const closeIndex = runs.findIndex(
+      (candidate, candidateIndex) => candidateIndex > index && candidate.length === opener.length,
+    );
+    if (closeIndex === -1) continue;
+    const closer = runs[closeIndex];
+    const openerLine = lineAt(opener.start);
+    const closerLine = lineAt(closer.start);
+    const crossesBlockBoundary =
+      fenceLines.some((range) => range.start > openerLine && range.start < closerLine) ||
+      lines.slice(openerLine + 1, closerLine).some(interruptsInlineParagraph);
+    if (crossesBlockBoundary) continue;
+    protectedRanges.push({ start: opener.start, end: closer.end });
+    index = closeIndex;
+  }
+  return protectedRanges.sort((left, right) => left.start - right.start);
+}
+
+function canonicalVisibleEvidence(lines) {
+  const source = lines.join('\n');
+  const protectedRanges = evidenceCodeRanges(lines);
+  let output = '';
+  let at = 0;
+  let protectedIndex = 0;
+  while (at < source.length) {
+    while (protectedRanges[protectedIndex]?.end <= at) protectedIndex += 1;
+    const protectedRange = protectedRanges[protectedIndex];
+    if (protectedRange?.start === at) {
+      output += source.slice(protectedRange.start, protectedRange.end);
+      at = protectedRange.end;
+      protectedIndex += 1;
+      continue;
+    }
+    if (source.startsWith('<!--', at)) {
+      const closeAt = source.indexOf('-->', at + 4);
+      at = closeAt === -1 ? source.length : closeAt + 3;
+      continue;
+    }
+    output += source[at];
+    at += 1;
+  }
+  return output.replace(/\s+/g, ' ').trim();
+}
+
 function frontmatterProjection(lines) {
   if (lines[0]?.trim() !== '---')
     throw new Error('recommendation projection: missing opening frontmatter.');
@@ -352,23 +439,21 @@ function sectionRanges(lines, startAt, bodyLines = lines) {
     result.set(name, canonicalBody(bodyLines.slice(heading.index + 1, end)));
     structuralResult.set(name, canonicalBody(lines.slice(heading.index + 1, end)));
   }
-  const optionalStructuralSections = new Map();
+  const optionalSectionRanges = new Map();
   for (const name of OPTIONAL_SECTIONS) {
     const heading = headings.find((candidate) => candidate.level === 2 && candidate.title === name);
     if (!heading) continue;
     const next = headings.find(
       (candidate) => candidate.index > heading.index && candidate.level <= 2,
     );
-    optionalStructuralSections.set(
-      name,
-      canonicalBody(lines.slice(heading.index + 1, next?.index ?? lines.length)),
-    );
+    const end = next?.index ?? lines.length;
+    optionalSectionRanges.set(name, { start: heading.index + 1, end });
   }
   return {
     title: title.title,
     sections: result,
     structuralSections: structuralResult,
-    optionalStructuralSections,
+    optionalSectionRanges,
   };
 }
 
@@ -478,14 +563,18 @@ export function decisionProjectionDigest(markdown) {
 
 /** Visible canonical Evidence Log content used to prove a substantive endorsement checkpoint. */
 export function recommendationCheckpointEvidence(markdown) {
+  const rawLines = normalizeLines(markdown);
   const { projectionLines, structuralLines } = projectionAndStructuralLines(markdown);
   const frontmatter = frontmatterProjection(projectionLines);
-  const { optionalStructuralSections } = sectionRanges(
+  const { optionalSectionRanges } = sectionRanges(
     structuralLines,
     frontmatter.end + 1,
     projectionLines,
   );
-  return (optionalStructuralSections.get('Evidence Log') ?? '').replace(/\s+/g, ' ').trim();
+  const evidenceRange = optionalSectionRanges.get('Evidence Log');
+  return evidenceRange
+    ? canonicalVisibleEvidence(rawLines.slice(evidenceRange.start, evidenceRange.end))
+    : '';
 }
 
 export function normalizeRecommendationReviewMetadata(entry) {
