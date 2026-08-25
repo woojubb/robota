@@ -148,10 +148,6 @@ function subjectId(basename) {
   return match?.[1] ?? null;
 }
 
-function isPairPlanningPath(file, basename) {
-  return taskBasename(file) === basename || specBasename(file) === basename;
-}
-
 function isExactCheckpointPairPath(file, basename) {
   return file === `${TASK_PREFIX}${basename}` || file === `${SPEC_PREFIX}active/${basename}`;
 }
