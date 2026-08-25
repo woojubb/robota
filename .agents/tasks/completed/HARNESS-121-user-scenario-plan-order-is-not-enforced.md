@@ -70,5 +70,6 @@ user-execution scenarios. No hidden user-facing capability is introduced behind 
 - `pnpm harness:scan` passed all 144 mandatory scans with 2 declared policy skips.
 - `pnpm harness:test:contracts` passed 178 test files and 3,883 tests.
 - `pnpm build && pnpm test` completed successfully across the full monorepo.
-- After terminal archival, `pnpm harness:scan` passed 143 scans with 3 declared policy skips; folder/status,
-  Task archival, done-evidence, and backlog placement checks all passed in the final state.
+- On exact committed HEAD after the local-review fix, `pnpm harness:scan` passed 145 scans with 1 declared
+  policy skip; the canonical new-rule enforcement declaration, folder/status, Task archival,
+  done-evidence, and backlog placement checks all passed.

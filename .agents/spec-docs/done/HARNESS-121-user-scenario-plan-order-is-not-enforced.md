@@ -305,4 +305,4 @@ not become a second ordering owner.
 - Task readiness: the exact Task completed all four Plan items with no pending or blocked work before this PASS.
 - Independent verdict: the GATE-COMPLETE guardian reran the 109 focused/guard-scope tests and the two-commit live scan, verified all catalogue criteria, and returned `GATE VERDICT: PASS`.
 - Post-PASS handoff: Task status/date, Task archival, archived Task pointer, and this spec's `done` status/folder transition are applied atomically by the orchestrator.
-- Final-state verification: `pnpm harness:scan` exited 0 after archival with 143 scans passed and 3 declared policy skips; folder/status agreement, Task archival, done evidence, and backlog placement all passed.
+- Final-state verification: after exact-HEAD review required the canonical `Enforced by:` declaration, `pnpm harness:scan` exited 0 on the committed fix with 145 scans passed and 1 declared policy skip; new-rule enforcement, folder/status agreement, Task archival, done evidence, and backlog placement all passed.
