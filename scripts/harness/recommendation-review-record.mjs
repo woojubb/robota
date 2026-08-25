@@ -3,6 +3,8 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
+import { marked } from 'marked';
+
 export const RECOMMENDATION_REVIEW_EXTENSION = 'recommendationReview';
 export const RECOMMENDATION_REVIEW_OWNER = 'backlog-execution-orchestrator';
 export const RECOMMENDATION_REVIEW_AGENT = 'proposal-reviewer';
@@ -273,85 +275,16 @@ function canonicalBody(lines) {
   return normalized.join('\n');
 }
 
-function lineStartOffsets(lines) {
-  const starts = [0];
-  for (let index = 0; index < lines.length - 1; index += 1) {
-    starts.push(starts.at(-1) + lines[index].length + 1);
-  }
-  return starts;
-}
-
-function evidenceCodeRanges(lines) {
-  const source = lines.join('\n');
-  const lineStarts = lineStartOffsets(lines);
-  const fenceLines = pairedFenceLineRanges(lines);
-  const protectedRanges = fenceLines.map(({ start, end }) => ({
-    start: lineStarts[start],
-    end: lineStarts[end] + lines[end].length,
-  }));
-  const lineAt = (offset) => {
-    let line = 0;
-    while (line + 1 < lineStarts.length && lineStarts[line + 1] <= offset) line += 1;
-    return line;
-  };
-  const isFencedLine = (line) =>
-    fenceLines.some((range) => line >= range.start && line <= range.end);
-  const runs = [...source.matchAll(/`+/g)]
-    .filter((match) => {
-      const line = lineAt(match.index);
-      if (isFencedLine(line)) return false;
-      let escapes = 0;
-      for (let at = match.index - 1; at >= 0 && source[at] === '\\'; at -= 1) escapes += 1;
-      return escapes % 2 === 0;
-    })
-    .map((match) => ({
-      start: match.index,
-      end: match.index + match[0].length,
-      length: match[0].length,
-    }));
-  for (let index = 0; index < runs.length; index += 1) {
-    const opener = runs[index];
-    const closeIndex = runs.findIndex(
-      (candidate, candidateIndex) => candidateIndex > index && candidate.length === opener.length,
-    );
-    if (closeIndex === -1) continue;
-    const closer = runs[closeIndex];
-    const openerLine = lineAt(opener.start);
-    const closerLine = lineAt(closer.start);
-    const crossesBlockBoundary =
-      fenceLines.some((range) => range.start > openerLine && range.start < closerLine) ||
-      lines.slice(openerLine + 1, closerLine).some(interruptsInlineParagraph);
-    if (crossesBlockBoundary) continue;
-    protectedRanges.push({ start: opener.start, end: closer.end });
-    index = closeIndex;
-  }
-  return protectedRanges.sort((left, right) => left.start - right.start);
-}
-
 function canonicalVisibleEvidence(lines) {
-  const source = lines.join('\n');
-  const protectedRanges = evidenceCodeRanges(lines);
-  let output = '';
-  let at = 0;
-  let protectedIndex = 0;
-  while (at < source.length) {
-    while (protectedRanges[protectedIndex]?.end <= at) protectedIndex += 1;
-    const protectedRange = protectedRanges[protectedIndex];
-    if (protectedRange?.start === at) {
-      output += source.slice(protectedRange.start, protectedRange.end);
-      at = protectedRange.end;
-      protectedIndex += 1;
-      continue;
-    }
-    if (source.startsWith('<!--', at)) {
-      const closeAt = source.indexOf('-->', at + 4);
-      at = closeAt === -1 ? source.length : closeAt + 3;
-      continue;
-    }
-    output += source[at];
-    at += 1;
+  const rendered = marked.parse(lines.join('\n'), { async: false });
+  if (typeof rendered !== 'string') {
+    throw new Error('recommendation checkpoint: synchronous Markdown rendering returned no text.');
   }
-  return output.replace(/\s+/g, ' ').trim();
+  return rendered
+    .replace(/<!--[\s\S]*?(?:-->|$)/g, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function frontmatterProjection(lines) {

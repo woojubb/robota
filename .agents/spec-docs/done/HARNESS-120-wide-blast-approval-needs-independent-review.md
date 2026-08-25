@@ -478,3 +478,12 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Focused verification: the exact seven affected harness test files passed 219 tests; the direct projection/endorsement pair passed 64 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
 - Complete verification: `pnpm harness:test:contracts` passed 3,958 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
 - Review status: the finding is fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.
+
+### [LOCAL REVIEW ROUND 8] — 🔁 RESOLVED | 2026-08-26
+
+- Exact review range: independent local re-review compared base `675cd814edb4121fd92023fe7721c905a1acf321` with fix head `2c79776cefe67bba7816eb73715bc359ccb2b533` and returned `ACTIONABLE FINDINGS: 2`.
+- Resolved findings: Evidence Log canonicalization now follows the repository-declared `marked` renderer's Markdown classification, so a backslash before a real code-span closer cannot protect a following comment; escaped HTML openers and four-space indented code remain visible literal evidence alongside inline-code and fenced-code literals.
+- Simplification: the Evidence Log's bespoke code/fence range parser was removed; actual rendered HTML comments are discarded from rendered evidence and rendered tags/whitespace are canonicalized, while the independent decision-projection parser and digest remain unchanged.
+- Focused verification: the exact seven affected harness test files passed 222 tests; the direct projection/endorsement pair passed 67 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
+- Complete verification: `pnpm harness:test:contracts` passed 3,961 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
+- Review status: the two findings are fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.

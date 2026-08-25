@@ -10,6 +10,7 @@ import {
   decisionProjection,
   decisionProjectionDigest,
   normalizeRecommendationReviewMetadata,
+  recommendationCheckpointEvidence,
   recommendationReviewExtensionErrors,
   recordRecommendationExpectation,
   recordRecommendationObservation,
@@ -1306,16 +1307,36 @@ describe('staged ordering', () => {
     );
   });
 
+  it('lets a backslash-preceded code-span closer end protection before comment-only evidence', () => {
+    const before = 'Existing `code\\` tail`.';
+    const after = 'Existing `code\\` <!-- inserted comment --> tail`.';
+    expect(recommendationCheckpointEvidence(spec({ evidence: after }))).toBe(
+      recommendationCheckpointEvidence(spec({ evidence: before })),
+    );
+
+    const reviewed = reviewedTopic({ evidence: before });
+    write(reviewed.root, LEDGER, `${JSON.stringify(convergedAttestation(reviewed))}\n`);
+    write(reviewed.root, TASK, `${task()}\nRecommendation review recorded.\n`);
+    write(reviewed.root, ACTIVE_SPEC, spec({ evidence: after }));
+    git(reviewed.root, ['add', '-A']);
+
+    expect(findRecommendationStagedFindings(reviewed.root, reviewed.base).length).toBeGreaterThan(
+      0,
+    );
+  });
+
   it.each([
-    ['an inline code span', 'Literal `<!-- kept -->` code evidence.'],
-    ['a fenced code block', '```html\n<!-- kept -->\n```'],
+    ['an inline code span', '', 'Literal `<!-- kept -->` code evidence.'],
+    ['a fenced code block', '', '```html\n<!-- kept -->\n```'],
+    ['an escaped HTML opener', '\\', '\\<!-- kept literal -->'],
+    ['an indented code block', '    continued', '    <!-- kept literal -->\n    continued'],
   ])(
     'accepts literal HTML comment bytes in %s as staged checkpoint evidence',
-    (_description, evidence) => {
-      const reviewed = reviewedTopic();
+    (_description, before, after) => {
+      const reviewed = reviewedTopic({ evidence: before });
       write(reviewed.root, LEDGER, `${JSON.stringify(convergedAttestation(reviewed))}\n`);
       write(reviewed.root, TASK, `${task()}\nRecommendation review recorded.\n`);
-      write(reviewed.root, ACTIVE_SPEC, spec({ evidence }));
+      write(reviewed.root, ACTIVE_SPEC, spec({ evidence: after }));
       git(reviewed.root, ['add', '-A']);
 
       expect(findRecommendationStagedFindings(reviewed.root, reviewed.base)).toEqual([]);
