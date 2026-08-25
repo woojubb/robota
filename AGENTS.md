@@ -74,7 +74,7 @@ The most-hit refusals, in imperative form. Reasoning lives in [git-branch.md](.a
 - **Record a local review before the first push**: `pnpm harness:review:record --findings <n>`.
 - **A merge needs**: CI green, a reviewer verdict quoting the _exact_ current base and head, `ACTIONABLE FINDINGS: 0`, and every review thread **answered and resolved** — fixing a finding is not answering it.
 - **Cut branches from a freshly-fetched `origin/develop`**, one at a time.
-- **An open PR's diff is frozen** except to resolve a reported finding. `ACTIONABLE FINDINGS: 0` means STOP EDITING, not "merge now" — advice arriving with a zero count is input for a FUTURE PR, and one issue/PR is owned by exactly one session ([git-branch.md](.agents/rules/git-branch.md)).
+- **A push into an open PR needs a NAMED GROUND — a published finding, a red check, or a rebase.** Nothing else, including your own re-reading and advice attached to a passing verdict. If you cannot name which one, the push does not happen. A verdict you never published is the input to no gate ([git-branch.md](.agents/rules/git-branch.md)).
 - **Never enumerate files in a way that follows symlinks** (`find -L`, `grep -R`, `rg --follow`): in a pnpm workspace it reaches the dependency store, where a write is invisible to `git status` and to every scan.
 - **Never wait in the foreground** — a `sleep` budget over 60s, or a loop polling a remote status. Run it in the background, or use `Monitor`.
 

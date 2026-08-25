@@ -106,13 +106,13 @@ function stubGh({ prNumber, findings, author = 'github-actions[bot]' }) {
   return dir;
 }
 
-function push({ findings, prNumber = 4242, author }) {
+function push({ findings, prNumber = 4242, author, prefix = '' }) {
   const dir = scratchRepo();
   const result = spawnSync('bash', [HOOK], {
     input: JSON.stringify({
       tool_name: 'Bash',
       cwd: dir,
-      tool_input: { command: `git push -u origin ${BRANCH}` },
+      tool_input: { command: `${prefix}git push -u origin ${BRANCH}` },
     }),
     encoding: 'utf8',
     timeout: 120_000,
@@ -136,7 +136,29 @@ describe('pre-push open-PR freeze — RED direction', () => {
   it('names the recovery, not only the refusal', () => {
     const res = push({ findings: 0 });
     expect(res.output).toMatch(/open a second PR/i);
-    expect(res.output).toMatch(/PRE_PUSH_ALLOW_UNREVIEWED=1/);
+    // The hatch is this rule's own. It used to be PRE_PUSH_ALLOW_UNREVIEWED, and that was the
+    // defect: one switch disarmed two unrelated rules while its message claimed only the first.
+    expect(res.output).toMatch(/PRE_PUSH_ALLOW_FROZEN_DIFF=1/);
+  });
+
+  it('the unreviewed-diff override does NOT excuse a frozen diff', () => {
+    // The measured failure (#2323) needed no override at all, but the two hatches sharing one name
+    // is how a session reaching for the documented one silently disarms this one too.
+    const res = push({ findings: 0, prefix: 'PRE_PUSH_ALLOW_UNREVIEWED=1 ' });
+    expect(res.status).toBe(2);
+    expect(res.output).toMatch(/nothing for this push to resolve/);
+  });
+
+  it('its own override does excuse it', () => {
+    const res = push({ findings: 0, prefix: 'PRE_PUSH_ALLOW_FROZEN_DIFF=1 ' });
+    expect(res.status).not.toBe(2);
+  });
+
+  it('says that recording a local review does not excuse it either', () => {
+    // The refusal lived inside the branch that runs only when NO local review is recorded, so a
+    // session obeying the record-before-push rule skipped it. The message now says so.
+    const res = push({ findings: 0 });
+    expect(res.output).toMatch(/Recording a local review does NOT excuse this/);
   });
 });
 

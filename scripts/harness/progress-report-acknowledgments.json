@@ -264,6 +264,18 @@
       "timestamp": "2026-08-23T09:10:11.430Z",
       "ratio": "14/16",
       "reason": "The same session's SECOND violation, and it is the first one's echo: while explaining that I had reported a bare ratio, I quoted the bare ratio again. Acknowledging a violation by restating it unquantified reproduces it — the rule governs the narration, not only the original claim. Both entries stand because both findings are real and a transcript cannot be edited. Recorded with the percentage this time: 14 of 16 is 87.5%."
+    },
+    {
+      "transcript": "1dab1a14-5866-4ce5-acb6-d843c00d09b7.jsonl",
+      "timestamp": "2026-08-24T18:55:24.178Z",
+      "ratio": "33/129",
+      "reason": "A real violation, committed by me while orchestrating: I relayed a peer's measurement of missing scenario sections as 33/129 and 267/909 with no percentage. Recorded rather than fixed, because the transcript is append-only. The relevant numbers are 26% and 29%."
+    },
+    {
+      "transcript": "1dab1a14-5866-4ce5-acb6-d843c00d09b7.jsonl",
+      "timestamp": "2026-08-24T18:58:53.140Z",
+      "ratio": "33/129",
+      "reason": "The same ratio again three minutes later, in a summary table of the same session. The repeat is the argument for the scan: I had just written the number and still did not convert it, which is why this rule is mechanized rather than remembered."
     }
   ]
 }

@@ -522,6 +522,31 @@ Case: [PROC-013](https://github.com/woojubb/robota/issues/2283).
 **Zero findings obliges exactly one thing: STOP EDITING.** It is not a signal to merge, not a
 deadline, and not a reason to hurry.
 
+**A push into an open pull request requires a NAMED GROUND, and there are exactly three.** This is not
+a caution and not a preference. Work with no ground does not get done more carefully — **it does not
+get started.**
+
+1. **A finding published on that pull request.** Published means posted where the next reader sees it:
+   a reviewer verdict, or a review you posted yourself through the writer. A finding held in one
+   session is not a ground — see below.
+2. **A required check that is red.** The check names what is wrong; fixing it is the resolution.
+3. **The base moved and the branch must be rebased.** That is not an edit and does not restart the
+   loop.
+
+**Nothing else is a ground.** Not an improvement you noticed. Not your own prose re-read and found
+imprecise. Not advice a reviewer attached to a passing verdict. Not a thing that is _true_ and _better_
+and _would have been caught eventually_. Every one of those is real work and every one belongs in the
+next pull request.
+
+**Before pushing, name which of the three it is.** If you cannot name it in one sentence pointing at
+something another person can open — a comment, a check, a commit range — **there is no ground and the
+push does not happen.** "It was wrong and I fixed it" is not a ground; it is a description of the work,
+and every unjustified round in the measured case could have said it.
+
+**The burden runs the other way from intuition.** A defect you can see is not permission to touch a
+frozen diff; it is a reason to write it down somewhere it will survive. The pull request under review
+is the one place it must not go.
+
 **Advice arriving alongside a zero count is not a finding.** A reviewer may add SHOULD or CONSIDER
 notes on a diff it has just passed. Those are input for a FUTURE pull request. Acting on them
 re-opens the diff, producing a new head, a new round, and new advice on the new code — a loop with no
@@ -540,11 +565,70 @@ terminal condition, because each fix creates the surface the next round reads.
 hook cannot see. Reaching for it repeatedly is the signal that the reason has stopped being examined,
 and nothing counts repeated use.
 
+**A verdict nobody published is not a verdict — and driving your own work with one is a private gate.**
+
+The measured case ran five rounds. Every round the repository's reviewer posted `ACTIONABLE FINDINGS: 0`
+and said in words that it found nothing. The session never saw any of it:
+
+```
+pr-review-reviewer dispatched      32×  (5× on this pull request)
+pr-review-writer dispatched         0×  ← no finding ever reached a pull request
+gh pr view <the PR>                 0×  ← the gate's input was never read
+```
+
+It dispatched its own reviewer each round, consumed the findings privately, pushed a fix, and
+dispatched again. **The merge gate's input was zero from round one; the pull request could have merged
+four hours earlier.** After the first commit, non-comment `.ts` lines changed: **zero**. Four hours of
+SPEC prose, comments and changeset text, on a change the repository had already passed.
+
+**So the rule is not "the reviewer keeps suggesting things" and not "stop when the gate says zero".**
+
+- **If you dispatch a reviewer, publish its verdict.** `pr-review-writer` exists for this. An
+  unpublished verdict is the input to no gate, visible to nobody, and answerable by nobody — and a
+  session that fixes against it has built a gate only it can see, then reports being held by it.
+- **Publishing converts a finding from fuel into a record.** Published, it can be answered, deferred,
+  filed as its own issue, or refuted by someone else. Unpublished, the only thing that can be done
+  with it is the next commit.
+- **Read the gate's input before concluding you are blocked by it.** `gh pr view <n>` is the value the
+  merge gate reads. A session that has never run it does not know whether it is blocked.
+
+**And publishing is what supplies the exit.** The session's own account of why recognising the pattern
+did not stop it: _"there was no place to say this finding is real and not for this pull request."_
+There is such a place, and it is the pull request — but only for a finding that was posted to it. A
+finding that exists only in one session has nowhere to be deferred to, so the only move available is
+to fix it now.
+
+**The reverse failure is real too and the rule must not create it.** Of the local findings here, the
+first round's two MUSTs were genuine — one was a SPEC asserting _"executor injection has no public
+entry point at all"_ where at least seven public paths existed, a false universal in a
+security-adjacent document. **A rule reading only "the gate says zero, so stop" ships those.** That is
+the argument for publishing rather than for discarding: the repository's light-pass reviewer and a
+dispatched deep reviewer answer different questions, and the gap between them belongs on the pull
+request where both are visible, not inside whichever session happened to look.
+
+**The ordering is already written down and nothing checks it.** `pr-finding-resolution-loop` step 5
+reads _"Dispatch `pr-review-writer` (posts the review to the PR), **then** `pr-review-fixer`"_ — publish
+first, fix second. Measured: no file under `scripts/harness/` or `.claude/hooks/` references
+`pr-review-writer` at all, so a session can run reviewer → fixer → push, thirty-two times, and no
+mechanism notices the middle step was skipped. **The rule was not missing; its enforcement was.** What
+catches the loop today is the frozen-diff refusal below, which refuses the second push once the pull
+request's own verdict reads zero — verified against this case's branch.
+
+**The test for an edit remains: did anyone ask for it?** A finding you published and someone can read
+counts as asked. A finding only you have seen does not — and neither does your own prose, re-read.
+
 **If no more issues can be found, there is nothing left to fix.**
 
 Enforced by: `pre-push-check` for the half a machine can decide — it refuses a push into an open pull
 request whose latest reviewer verdict reports `ACTIONABLE FINDINGS: 0`, because there is then nothing
-for that push to resolve. The rest is not mechanizable here: whether to merge, and when, is a
+for that push to resolve. **That refusal was unreachable when this rule was first written**, and the
+way it was unreachable is worth keeping: the check sat inside the branch that runs only when no local
+review is recorded, so a session that recorded one — which this file REQUIRES before a first push —
+skipped the branch entirely and never reached the check. A guard bypassed by obeying the rule beside
+it is not a guard. It is now evaluated on every push, before the override short-circuit, and it has
+its own hatch: `PRE_PUSH_ALLOW_FROZEN_DIFF=1` inline. `PRE_PUSH_ALLOW_UNREVIEWED=1` does **not**
+excuse it — that one asserts the diff is unreviewed, which is a different claim about a different
+rule, and one switch disarming two unrelated gates is how both stop being asked. The rest is not mechanizable here: whether to merge, and when, is a
 judgement about a state the repository can observe but not evaluate, and a check that merged on green
 would be the automation this section exists to refuse.
 
@@ -638,6 +722,7 @@ opposite lifetime from inline and the reason this form is worth naming rather th
 | ------------------------------------------------------------------------------------------------- | ----------------------------- | ----------- |
 | `MERGE_GATE_ACK`                                                                                  | `merge-gate.sh`               | inline      |
 | `PRE_PUSH_ALLOW_UNREVIEWED`                                                                       | `pre-push-check.sh`           | inline      |
+| `PRE_PUSH_ALLOW_FROZEN_DIFF`                                                                      | `pre-push-check.sh`           | inline      |
 | `WORKTREE_CWD_GUARD_ALLOW_MAIN`                                                                   | `worktree-cwd-guard.sh`       | inline      |
 | `BRANCH_GUARD_ALLOW_DELETE`, `_BASE`, `_BRANCH_COPY`, `_OPEN_BRANCHES`, `_BADNAME`, `_MAIN_MERGE` | `branch-guard.sh`             | either      |
 | `BULK_EDIT_ACK`                                                                                   | `bulk-edit-guard.sh`          | either      |
