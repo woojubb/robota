@@ -1,7 +1,7 @@
 ---
 title: 'HARNESS-121: user-execution scenario PLAN order is not enforced'
 issue: https://github.com/woojubb/robota/issues/2327
-status: todo
+status: in-progress
 created: 2026-08-25
 priority: high
 urgency: soon
@@ -13,21 +13,37 @@ depends_on: []
 
 ## Objective
 
-Mechanically prove that the user-execution-scenario author verdict and written-scenario gate occurred
-before implementation began. HARNESS-119 ran implementation first, then added the mandatory section and
-obtained a retrospective not-applicable verdict; final-state scans could not distinguish that ordering
-violation from a valid pre-implementation PLAN.
+Mechanically prove that user-execution-scenario PLAN reached a valid terminal outcome before
+implementation began: applicable work carries a passing written-scenario gate, while not-applicable work
+carries the author verdict and reason. HARNESS-119 ran implementation first, then added the mandatory
+section and obtained a retrospective not-applicable verdict; final-state scans could not distinguish
+that ordering violation from a valid pre-implementation PLAN.
 
 ## Plan
 
 - [ ] Choose one durable lifecycle signal that binds the author verdict to the work unit and pre-code
       transition without relying on mutable prose or wall-clock inference.
-- [ ] Make the implementation gate fail closed when that signal is missing, stale, or recorded after
-      implementation evidence.
-- [ ] Add red/green fixtures for valid PLAN ordering, retrospective PLAN, not-applicable work, and
-      implementation attempted without an author verdict.
+- [ ] Make the implementation gate validate a complete Task-bound PLAN outcome and a clean whole
+      worktree, then require its PASS to be committed as a planning-only checkpoint before Phase 3.
+- [ ] Add red/green fixtures for valid applicable/not-applicable ordering, retrospective PLAN,
+      missing Stage-1, subject mismatch, ambiguous Tasks, mixed Markdown/code checkpoints, hidden
+      unstaged/untracked changes, rename/deletion paths, implementation before later Task/spec
+      introduction, and valid versus forged predecessor post-merge ledger preludes.
 - [ ] Reconcile the user-request, backlog-pipeline, and user-execution orchestrators around the single
       ordering owner.
+
+## Recommendation Review
+
+- Finding depth: `DEPTH: FOUNDATIONAL` — the same retrospective PLAN gap is present in HARNESS-119 and
+  CLI-083, while the current section scan, GATE-IMPLEMENT criteria, loop ledger, and pre-commit path do
+  not establish a causal boundary.
+- Proposal review round 1: `REVIEW VERDICT: REVISE` — remove the circular requirement that
+  GATE-IMPLEMENT find its own committed PASS; inspect the whole worktree; require Stage-1 for applicable
+  work; define the exact planning allowlist.
+- Proposal review round 2: `REVIEW VERDICT: REVISE` — audit from merge-base rather than Task/spec
+  introduction and validate the predecessor post-merge ledger as a narrow prelude.
+- Proposal review round 3: `REVIEW VERDICT: ENDORSE` — all findings resolved; commit `ea30cb844` is a
+  valid append-only predecessor prelude inside the unchanged merge-base audit range.
 
 ## Test Plan
 
@@ -37,5 +53,9 @@ violation from a valid pre-implementation PLAN.
 
 ## User Execution Test Scenarios
 
-Not applicable. This changes internal lifecycle governance and enforcement tests, not runnable product
-behavior.
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+Not applicable. The independent scenario author found that this changes internal repository lifecycle
+governance, gate ordering, and harness fixtures only. It delivers no runnable product behavior through
+the CLI, TUI, browser, or public SDK, and harness commands are engineering verification rather than
+user-execution scenarios. No hidden user-facing capability is introduced behind an internal seam.
