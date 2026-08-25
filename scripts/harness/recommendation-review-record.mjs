@@ -319,7 +319,7 @@ function canonicalVisibleEvidence(lines) {
       );
     }
     if (
-      token.type === 'text' &&
+      (token.type === 'text' || token.type === 'image') &&
       /&(?:#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]+);/.test(token.raw)
     ) {
       throw new Error(

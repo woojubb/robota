@@ -505,3 +505,12 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Focused verification: the exact seven affected harness test files passed 229 tests; the direct projection/endorsement pair passed 74 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
 - Complete verification: `pnpm harness:test:contracts` passed 3,968 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
 - Review status: the finding is fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.
+
+### [LOCAL REVIEW ROUND 11] — 🔁 RESOLVED | 2026-08-26
+
+- Exact review range: independent local re-review compared base `675cd814edb4121fd92023fe7721c905a1acf321` with fix head `933818aa7859dc39507f35b9d9e8224515df9f02` and returned `ACTIONABLE FINDINGS: 1`.
+- Resolved finding: authored entity fail-closed validation now covers image tokens, the only additional `marked` token type that directly owns visible authored text without child text tokens, so named-versus-numeric entity spelling in image alt text cannot forge a checkpoint change.
+- Token audit: code, codespan, and escape tokens retain literal provenance; other visible owners expose child tokens already covered by the text guard, while non-visible definition/spacing/break owners require no entity comparison.
+- Focused verification: the exact seven affected harness test files passed 230 tests; the direct projection/endorsement pair passed 75 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
+- Complete verification: `pnpm harness:test:contracts` passed 3,969 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
+- Review status: the finding is fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.

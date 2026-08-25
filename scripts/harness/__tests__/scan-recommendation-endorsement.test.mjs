@@ -1381,6 +1381,23 @@ describe('staged ordering', () => {
     );
   });
 
+  it('rejects named and numeric authored entity references in image alt text', () => {
+    const named = '![Existing &amp; evidence.](image.png)';
+    const numeric = '![Existing &#38; evidence.](image.png)';
+    expect(() => recommendationCheckpointEvidence(spec({ evidence: named }))).toThrow(/entity/i);
+    expect(() => recommendationCheckpointEvidence(spec({ evidence: numeric }))).toThrow(/entity/i);
+
+    const reviewed = reviewedTopic({ evidence: named });
+    write(reviewed.root, LEDGER, `${JSON.stringify(convergedAttestation(reviewed))}\n`);
+    write(reviewed.root, TASK, `${task()}\nRecommendation review recorded.\n`);
+    write(reviewed.root, ACTIVE_SPEC, spec({ evidence: numeric }));
+    git(reviewed.root, ['add', '-A']);
+
+    expect(findRecommendationStagedFindings(reviewed.root, reviewed.base).length).toBeGreaterThan(
+      0,
+    );
+  });
+
   it.each([
     ['an inline code span', '', 'Literal `<!-- kept -->` code evidence.'],
     ['a fenced code block', '', '```html\n<!-- kept -->\n```'],
