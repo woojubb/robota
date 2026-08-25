@@ -25,7 +25,6 @@
   "packages/agent-framework/src/interactive/interactive-session-skill-router.ts": 341,
   "packages/agent-framework/src/interactive/interactive-session.ts": 998,
   "packages/agent-framework/src/testing/scripted-session-harness.ts": 454,
-  "packages/agent-framework/src/update-check/update-check.ts": 305,
   "packages/agent-framework/src/user-local/memory.ts": 310,
   "packages/agent-interface-session/src/session-contracts.ts": 355,
   "packages/agent-playground/src/components/playground/assembly-canvas/assembly-canvas.tsx": 305,

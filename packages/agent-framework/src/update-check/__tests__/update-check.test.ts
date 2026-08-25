@@ -1,4 +1,15 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, mkdtempSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  mkdtempSync,
+  statSync,
+  writeFileSync,
+  openSync,
+  closeSync,
+  fstatSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,11 +21,16 @@ import {
   compareSemverVersions,
   formatCliUpdateCheckMessage,
   formatCliUpdateNotice,
-  getUserUpdateCheckCachePath,
   isNewerSemverVersion,
-  readUpdateCheckCache,
   shouldRunStartupCliUpdateCheck,
 } from '../update-check.js';
+import {
+  getUserUpdateCheckCachePath,
+  readUpdateCheckCache,
+  writeUpdateCheckCache,
+} from '../update-check-cache.js';
+
+import type { IUpdateCheckCache } from '../update-check-cache.js';
 
 const TEST_DIR = mkdtempSync(join(tmpdir(), 'robota-update-check-test-'));
 
@@ -198,5 +214,67 @@ describe('shouldRunStartupCliUpdateCheck', () => {
         disableUpdateCheck: true,
       }),
     ).toBe(false);
+  });
+});
+
+/**
+ * SEC-020 (issue #2021) made every writer into `~/.robota` owner-only and scoped `update-check.json`
+ * out. Issue #2229 is that exception: it left one file the CLI creates in its own store at 0644.
+ *
+ * The umask is set EXPLICITLY in each case and restored afterwards. A case that inherits a
+ * restrictive umask passes whether or not the mode was ever requested — it would be an assertion
+ * about the environment that ran it, not about this code.
+ */
+describe('writeUpdateCheckCache owner-only mode (issue #2229)', () => {
+  const CACHE: IUpdateCheckCache = {
+    packageName: '@robota-sdk/agent-cli',
+    checkedAt: '2026-05-01T00:00:00.000Z',
+    currentVersion: '3.0.0-beta.56',
+    latestVersion: '3.0.0-beta.57',
+  };
+
+  function withPermissiveUmask<T>(run: () => T): T {
+    const previous = process.umask(0o022);
+    try {
+      return run();
+    } finally {
+      process.umask(previous);
+    }
+  }
+
+  it('writes 0600 into a 0700 directory under a permissive umask', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'robota-update-check-mode-'));
+    const cachePath = join(dir, '.robota', 'update-check.json');
+
+    withPermissiveUmask(() => writeUpdateCheckCache(cachePath, { ...CACHE }));
+
+    expect(statSync(cachePath).mode & 0o777).toBe(0o600);
+    expect(statSync(join(dir, '.robota')).mode & 0o777).toBe(0o700);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('repairs a 0644 cache an older version left behind', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'robota-update-check-repair-'));
+    const cachePath = join(dir, '.robota', 'update-check.json');
+
+    withPermissiveUmask(() => {
+      mkdirSync(join(dir, '.robota'), { recursive: true });
+      writeFileSync(cachePath, '{}\n', { encoding: 'utf8', mode: 0o644 });
+      // The pre-condition is the point of the case: without it a green says nothing about repair.
+      expect(statSync(cachePath).mode & 0o777).toBe(0o644);
+      writeUpdateCheckCache(cachePath, { ...CACHE });
+    });
+
+    // One descriptor for both facts. `statSync(path)` followed by `readFileSync(path)` resolves the
+    // path twice, which is the check-then-act shape CodeQL rejects — the same one it caught in
+    // `owner-only-store.ts` on PR #2224, where the repository chose to fix rather than suppress.
+    const fd = openSync(cachePath, 'r');
+    try {
+      expect(fstatSync(fd).mode & 0o777).toBe(0o600);
+      expect(JSON.parse(readFileSync(fd, 'utf8')).latestVersion).toBe('3.0.0-beta.57');
+    } finally {
+      closeSync(fd);
+    }
+    rmSync(dir, { recursive: true, force: true });
   });
 });
