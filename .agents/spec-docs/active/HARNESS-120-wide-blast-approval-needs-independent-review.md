@@ -83,6 +83,8 @@ exemption.
 - `scripts/harness/__tests__/scan-recommendation-endorsement.test.mjs` — deliberate-green/red fixtures.
 - `scripts/harness/__tests__/loop-run.test.mjs` and `scripts/harness/__tests__/scan-loop-run-records.test.mjs`
   — canonical attestation command and malformed-ledger fixtures.
+- `scripts/harness/__tests__/recommendation-review-record.test.mjs` — filename-bound direct
+  digest/projection unit coverage required by the harness script import-safety floor.
 - `scripts/harness/scan-guard-scope-fail-closed.mjs` and its tests — root finder classification and absent
   governed-tree behavior.
 - `scripts/harness/scan-user-execution-plan-order.mjs` and its tests — recognize the canonical recommendation
@@ -95,6 +97,8 @@ exemption.
 - `scripts/harness/run-all-scans.mjs`, `scripts/harness/examined-adoption-baseline.json`,
   `scripts/harness/measurement-provenance-pending.json`, and root command wiring — mandatory scan
   reachability, examined-population adoption, and provenance.
+- `scripts/harness/rule-case-narrative-baseline.json` — freeze the two new owner-rule mechanism citations
+  so rule-case enforcement cannot grow silently.
 - `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md` — re-scoped work record and
   independent verdict.
 
@@ -228,6 +232,7 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - `scripts/harness/recommendation-endorsement-baseline.json`
 - `scripts/harness/__tests__/loop-run.test.mjs`
 - `scripts/harness/__tests__/scan-loop-run-records.test.mjs`
+- `scripts/harness/__tests__/recommendation-review-record.test.mjs`
 - `scripts/harness/__tests__/scan-recommendation-endorsement.test.mjs`
 - `scripts/harness/scan-guard-scope-fail-closed.mjs`
 - `scripts/harness/__tests__/scan-guard-scope-fail-closed.test.mjs`
@@ -238,6 +243,7 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - `scripts/harness/run-all-scans.mjs`
 - `scripts/harness/examined-adoption-baseline.json`
 - `scripts/harness/measurement-provenance-pending.json`
+- `scripts/harness/rule-case-narrative-baseline.json`
 - `package.json`
 - `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md`
 

@@ -33,11 +33,13 @@ new-surface placement remains an additive, stricter review concern.
 - [ ] Require GATE-APPROVAL to verify a current independent `ENDORSE` with zero unresolved findings for
       every recommendation, while retaining new-surface placement checks as additive evidence.
 - [ ] Add a mechanical scan and deliberate-red fixtures for missing expectation/observation pairs,
-      wrong subjects, stale projections, non-ENDORSE observations, and unresolved findings.
+      wrong subjects, stale projections, non-ENDORSE observations, unresolved findings, and the record
+      module's direct digest/projection entry point.
 - [ ] Adopt the enforcement prospectively through an exact frozen baseline that never invents historical
       review evidence and re-governs nonterminal work at its next transition or material revision.
 - [ ] Wire the reviewer, orchestrator, gate catalogue, scan registry, and orchestration map to the same
-      evidence owner and prove the full harness remains green.
+      evidence owner; update the rule-case citation baseline demanded by that owner-rule change; and prove
+      the full harness remains green.
 
 ## Test Plan
 
@@ -47,6 +49,10 @@ new-surface placement remains an additive, stricter review concern.
 
 ## Recommendation Gate
 
+- **Canonical loop run:** `r20260825171311` in
+  `.agents/loop-runs/backlog-execution-orchestrator.jsonl`. HARNESS-120 is the one exact bootstrap subject;
+  its pre-mechanism review rounds remain in this Task and the immutable baseline tuple rather than fabricated
+  expectation/observation fields.
 - **Depth review:** the original wide-blast-only framing was `FOUNDATIONAL` because the universal
   Recommendation Gate itself lacked enforcement. After re-scoping to that owner/enforcer mismatch, the
   independent triager returned `DEPTH: LOCAL` with `0 FOUNDATIONAL of 1` on 2026-08-26.
