@@ -301,7 +301,13 @@ function plainEvidenceRenderer() {
 }
 
 function isHtmlCommentToken(token) {
-  return token.type === 'html' && /^<!--[\s\S]*-->$/.test(token.raw.trim());
+  if (token.type !== 'html') return false;
+  let comments = 0;
+  const remainder = token.raw.replace(/<!--[\s\S]*?-->/g, () => {
+    comments += 1;
+    return '';
+  });
+  return comments > 0 && remainder.trim() === '';
 }
 
 function canonicalVisibleEvidence(lines) {

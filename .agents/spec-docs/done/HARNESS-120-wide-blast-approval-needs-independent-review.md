@@ -496,3 +496,12 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Focused verification: the exact seven affected harness test files passed 226 tests; the direct projection/endorsement pair passed 71 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
 - Complete verification: `pnpm harness:test:contracts` passed 3,965 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
 - Review status: the finding is fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.
+
+### [LOCAL REVIEW ROUND 10] — 🔁 RESOLVED | 2026-08-26
+
+- Exact review range: independent local re-review compared base `675cd814edb4121fd92023fe7721c905a1acf321` with fix head `8a5de8f25b94fb3637daa1e1b374b3e0046fb393` and returned `ACTIONABLE FINDINGS: 1`.
+- Resolved finding: an HTML token is accepted as comment-only evidence only when removing one or more individually complete non-greedy comments leaves whitespace and nothing else; visible text or a raw tag between comments now fails closed.
+- Boundary coverage: fixtures reject plain text and visible raw tags between complete comments while accepting multiple complete comments separated solely by whitespace as empty visible evidence.
+- Focused verification: the exact seven affected harness test files passed 229 tests; the direct projection/endorsement pair passed 74 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
+- Complete verification: `pnpm harness:test:contracts` passed 3,968 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
+- Review status: the finding is fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.

@@ -1341,6 +1341,29 @@ describe('staged ordering', () => {
     );
   });
 
+  it.each([
+    ['plain text', '<!--a-->VISIBLE<!--b-->'],
+    ['a raw tag', '<!--a--><span>VISIBLE</span><!--b-->'],
+  ])('rejects %s between complete HTML comments', (_description, evidence) => {
+    expect(() => recommendationCheckpointEvidence(spec({ evidence }))).toThrow(/raw HTML/i);
+
+    const reviewed = reviewedTopic();
+    write(reviewed.root, LEDGER, `${JSON.stringify(convergedAttestation(reviewed))}\n`);
+    write(reviewed.root, TASK, `${task()}\nRecommendation review recorded.\n`);
+    write(reviewed.root, ACTIVE_SPEC, spec({ evidence }));
+    git(reviewed.root, ['add', '-A']);
+
+    expect(findRecommendationStagedFindings(reviewed.root, reviewed.base).length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it('allows multiple complete HTML comments separated only by whitespace', () => {
+    expect(
+      recommendationCheckpointEvidence(spec({ evidence: '<!-- first -->\n \t\n<!-- second -->' })),
+    ).toBe('');
+  });
+
   it('rejects ambiguous authored entity references instead of comparing their spellings', () => {
     const named = 'Existing &amp; evidence.';
     const numeric = 'Existing &#38; evidence.';
