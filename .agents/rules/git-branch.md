@@ -663,7 +663,15 @@ skipped the branch entirely and never reached the check. A guard bypassed by obe
 it is not a guard. It is now evaluated on every push, before the override short-circuit, and it has
 its own hatch: `PRE_PUSH_ALLOW_FROZEN_DIFF=1` inline. `PRE_PUSH_ALLOW_UNREVIEWED=1` does **not**
 excuse it — that one asserts the diff is unreviewed, which is a different claim about a different
-rule, and one switch disarming two unrelated gates is how both stop being asked. The rest is not mechanizable here: whether to merge, and when, is a
+rule, and one switch disarming two unrelated gates is how both stop being asked.
+
+**It reads two of the three grounds and says which.** A published finding is the verdict count; a red
+required check it now reads too, because for a while it did not — and a push resolving a failing check
+was refused as work on a pull request the same hook called merge-ready while `merge-gate.sh` would
+have blocked the merge on `mergeStateStatus`. **A rebase it cannot see**, so that is the ground the
+hatch is for, and the refusal says so rather than offering a remedy the author is already following.
+An unreadable answer to either question leaves the refusal standing: unknown is not zero, in both
+directions. The rest is not mechanizable here: whether to merge, and when, is a
 judgement about a state the repository can observe but not evaluate, and a check that merged on green
 would be the automation this section exists to refuse.
 
