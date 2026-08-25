@@ -416,3 +416,11 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Task readiness: all six Plan items in the exact Task are checked, no item is blocked or pending, and the `## Tasks` pointer is archived atomically to `.agents/tasks/completed/HARNESS-120-wide-blast-approval-needs-independent-review.md` with this status transition.
 - Independent guardian: after one evidence-specific correction, `backlog-gate-guard` returned `GATE: GATE-COMPLETE`, `VERDICT: PASS`, and `UNRESOLVED FINDINGS: 0`; it independently recomputed the endorsed projection digest and confirmed all seven TC-05 test paths exist.
 - Final completed-state verification: `pnpm harness:test:contracts` again passed 3,914 tests in 180 files, and `pnpm harness:scan` passed 144 scans with 3 declared skips after the Task/spec archival moves; both commands exited 0.
+
+### [LOCAL REVIEW ROUND 1] — 🔁 RESOLVED | 2026-08-26
+
+- Exact review range: independent local review compared base `675cd814edb4121fd92023fe7721c905a1acf321` with implementation head `de0534496333ac2d626a177826defec6869866ef` before the first push and returned `ACTIONABLE FINDINGS: 6`.
+- Resolved findings: the fix makes CommonMark fence recognition fail closed; rejects unowned H2/preamble planning content; validates immutable adoption/bootstrap meaning; keeps approved-then-rejected work governed; enforces canonical review-ledger round, ordering, uniqueness, and reachability invariants; and makes required Git/base-ref queries fail closed under the shared precedence contract.
+- Focused verification: the seven affected harness test files passed 156 tests, including 30 endorsement-scan fixtures and the direct record-module tests; an explicit `--base definitely-not-a-ref` invocation failed as required.
+- Complete verification: `pnpm harness:test:contracts` passed 3,926 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
+- Review status: the six findings are fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.

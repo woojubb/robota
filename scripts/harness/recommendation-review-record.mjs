@@ -19,6 +19,7 @@ const REQUIRED_SECTIONS = [
   'Completion Criteria',
   'Test Plan',
 ];
+const OPTIONAL_SECTIONS = ['Tasks', 'Evidence Log'];
 
 function normalizeLines(text) {
   return String(text).replace(/\r\n?/g, '\n').split('\n');
@@ -26,16 +27,28 @@ function normalizeLines(text) {
 
 function visibleLines(text) {
   const lines = normalizeLines(text);
-  let fence = null;
-  return lines.map((line) => {
-    const marker = /^\s*(```+|~~~+)/.exec(line)?.[1] ?? null;
-    if (marker !== null) {
-      if (fence === null) fence = marker[0];
-      else if (marker[0] === fence) fence = null;
-      return '';
+  const hidden = new Set();
+  for (let index = 0; index < lines.length; index += 1) {
+    const opener = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(lines[index]);
+    if (opener === null || (opener[1][0] === '`' && opener[2].includes('`'))) continue;
+    const marker = opener[1][0];
+    const minimumLength = opener[1].length;
+    const closer = new RegExp(`^ {0,3}\\${marker}{${minimumLength},}[ \\t]*$`);
+    let closeAt = -1;
+    for (let candidate = index + 1; candidate < lines.length; candidate += 1) {
+      if (closer.test(lines[candidate])) {
+        closeAt = candidate;
+        break;
+      }
     }
-    return fence === null ? line : '';
-  });
+    // An incomplete or malformed fence must not make planning text disappear from review.
+    if (closeAt === -1) continue;
+    for (let hiddenIndex = index; hiddenIndex <= closeAt; hiddenIndex += 1) {
+      hidden.add(hiddenIndex);
+    }
+    index = closeAt;
+  }
+  return lines.map((line, index) => (hidden.has(index) ? '' : line));
 }
 
 function canonicalBody(lines) {
@@ -82,6 +95,34 @@ function sectionRanges(lines, startAt) {
     throw new Error(
       `recommendation projection: expected exactly one visible title, found ${h1.length}.`,
     );
+  const allowedH2 = new Set([...REQUIRED_SECTIONS, ...OPTIONAL_SECTIONS]);
+  const unknownH2 = headings.find(
+    (heading) => heading.level === 2 && !allowedH2.has(heading.title),
+  );
+  if (unknownH2) {
+    throw new Error(`recommendation projection: unknown visible H2 owner \`${unknownH2.title}\`.`);
+  }
+  for (const name of OPTIONAL_SECTIONS) {
+    const matches = headings.filter((heading) => heading.level === 2 && heading.title === name);
+    if (matches.length > 1) {
+      throw new Error(
+        `recommendation projection: duplicate ${name} section; expected at most one visible owner, found ${matches.length}.`,
+      );
+    }
+  }
+  const title = h1[0];
+  const firstH2 = headings.find((heading) => heading.level === 2);
+  const preTitle = lines.slice(startAt, title.index);
+  const postTitle = lines.slice(title.index + 1, firstH2?.index ?? lines.length);
+  if (
+    title.index < startAt ||
+    (firstH2 && firstH2.index < title.index) ||
+    [...preTitle, ...postTitle].some((line) => line.trim() !== '')
+  ) {
+    throw new Error(
+      'recommendation projection: nonblank preamble is not owned by a canonical planning section.',
+    );
+  }
   const result = new Map();
   for (const name of REQUIRED_SECTIONS) {
     const matches = headings.filter((heading) => heading.level === 2 && heading.title === name);
@@ -97,7 +138,7 @@ function sectionRanges(lines, startAt) {
     );
     result.set(name, canonicalBody(lines.slice(heading.index + 1, next?.index ?? lines.length)));
   }
-  return { title: h1[0].title, sections: result };
+  return { title: title.title, sections: result };
 }
 
 function tcIdsFromCriteria(section) {
@@ -150,8 +191,9 @@ function plannedCompletionCriteria(section) {
  * Canonical planning projection reviewed at the Recommendation Gate.
  *
  * Scope: the spec's non-lifecycle frontmatter, title, and the nine owner sections named above.
- * Excluded by design: lifecycle status/completed fields, Tasks, and Evidence Log. Fenced examples do
- * not create headings or TC rows. Duplicate visible owners and non-bijective TC plans fail closed.
+ * Excluded by design: lifecycle status/completed fields, Tasks, and Evidence Log. Only complete
+ * CommonMark fenced blocks hide headings or TC rows; malformed fences, unknown H2 owners, nonblank
+ * preambles, duplicate visible owners, and non-bijective TC plans fail closed.
  */
 export function decisionProjection(markdown) {
   const lines = visibleLines(markdown);
@@ -305,6 +347,11 @@ export function recommendationReviewExtensionErrors(entry) {
   const observationKeys = [...expectationKeys, 'unresolvedFindings', 'verdict'].sort();
   const seenExpectations = new Set();
   const seenObservations = new Set();
+  const seenExpectationRounds = new Set();
+  const seenObservationRounds = new Set();
+  const roundCount = Array.isArray(entry.roundFindings) ? entry.roundFindings.length : 0;
+  let previousExpectationRound = 0;
+  let previousObservationRound = 0;
   for (const expectation of extension.expectations) {
     if (!exactKeys(expectation, expectationKeys)) {
       errors.push('recommendation expectation has unknown or missing keys');
@@ -324,6 +371,18 @@ export function recommendationReviewExtensionErrors(entry) {
     ) {
       errors.push('recommendation expectation has invalid round or agent');
     }
+    if (Number.isInteger(expectation.round) && expectation.round > roundCount) {
+      errors.push('recommendation expectation round is outside the loop round history');
+    }
+    if (Number.isInteger(expectation.round) && expectation.round <= previousExpectationRound) {
+      errors.push('recommendation expectation round order must be strictly increasing');
+    }
+    previousExpectationRound = expectation.round;
+    const subjectRound = `${expectation.subject}\0${expectation.round}`;
+    if (seenExpectationRounds.has(subjectRound)) {
+      errors.push('duplicate recommendation expectation subject and round');
+    }
+    seenExpectationRounds.add(subjectRound);
     const key = keyOf(expectation);
     if (seenExpectations.has(key)) errors.push('duplicate recommendation expectation');
     seenExpectations.add(key);
@@ -338,6 +397,18 @@ export function recommendationReviewExtensionErrors(entry) {
       errors.push('recommendation observation has no exact expectation');
     if (seenObservations.has(key)) errors.push('duplicate recommendation observation');
     seenObservations.add(key);
+    if (Number.isInteger(observation.round) && observation.round > roundCount) {
+      errors.push('recommendation observation round is outside the loop round history');
+    }
+    if (Number.isInteger(observation.round) && observation.round <= previousObservationRound) {
+      errors.push('recommendation observation round order must be strictly increasing');
+    }
+    previousObservationRound = observation.round;
+    const subjectRound = `${observation.subject}\0${observation.round}`;
+    if (seenObservationRounds.has(subjectRound)) {
+      errors.push('duplicate recommendation observation subject and round');
+    }
+    seenObservationRounds.add(subjectRound);
     if (
       !RECOMMENDATION_VERDICTS.has(observation.verdict) ||
       !Number.isInteger(observation.unresolvedFindings) ||
@@ -346,6 +417,19 @@ export function recommendationReviewExtensionErrors(entry) {
     ) {
       errors.push('recommendation observation has invalid verdict or unresolved findings');
     }
+    if (
+      Number.isInteger(observation.round) &&
+      observation.round >= 1 &&
+      observation.round <= roundCount &&
+      entry.roundFindings[observation.round - 1] !== observation.unresolvedFindings
+    ) {
+      errors.push('recommendation observation findings differ from the canonical loop round');
+    }
+  }
+  for (const expectation of extension.expectations) {
+    const key = keyOf(expectation);
+    if (!seenObservations.has(key))
+      errors.push('recommendation expectation has no exact observation');
   }
   return errors;
 }

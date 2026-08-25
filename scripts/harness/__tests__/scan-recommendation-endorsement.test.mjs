@@ -10,6 +10,7 @@ import {
   decisionProjection,
   decisionProjectionDigest,
   normalizeRecommendationReviewMetadata,
+  recommendationReviewExtensionErrors,
   recordRecommendationExpectation,
   recordRecommendationObservation,
 } from '../recommendation-review-record.mjs';
@@ -18,6 +19,7 @@ import {
   findRecommendationStagedFindings,
   findRecommendationTopicFindings,
   examinedRecommendationEndorsementCount,
+  resolveRecommendationBaseRef,
 } from '../scan-recommendation-endorsement.mjs';
 
 const SUBJECT = 'INFRA-999-recommendation-proof.md';
@@ -128,7 +130,7 @@ function commit(root, message) {
   return git(root, ['rev-parse', 'HEAD']);
 }
 
-function repository() {
+function repository({ introduceBaseline = true } = {}) {
   const root = makeTemp('robota-recommendation-endorsement-');
   git(root, ['init', '-b', 'develop']);
   git(root, ['config', 'user.email', 'harness@example.test']);
@@ -150,8 +152,10 @@ function repository() {
   );
   write(root, LEDGER, '');
   const adoptionRevision = commit(root, 'adoption');
-  write(root, BASELINE, JSON.stringify({ adoptionRevision, bootstrap: null }, null, 2) + '\n');
-  commit(root, 'record adoption baseline');
+  if (introduceBaseline) {
+    write(root, BASELINE, JSON.stringify({ adoptionRevision, bootstrap: null }, null, 2) + '\n');
+    commit(root, 'record adoption baseline');
+  }
   return { root, adoptionRevision };
 }
 
@@ -272,6 +276,46 @@ describe('canonical recommendation decision projection', () => {
     );
     expect(decisionProjectionDigest(withFence)).toBe(decisionProjectionDigest(spec()));
   });
+
+  it('recognizes only complete CommonMark fenced blocks and leaves malformed fences visible', () => {
+    const longerClose = spec().replace(
+      '## Solution\n',
+      '   ````markdown\n## Solution\nforged\n`````   \n\n## Solution\n',
+    );
+    expect(decisionProjectionDigest(longerClose)).toBe(decisionProjectionDigest(spec()));
+
+    for (const malformed of [
+      '    ```markdown\n## Solution\nforged\n    ```\n',
+      '````markdown\n## Solution\nforged\n```\n',
+      '```markdown\n## Solution\nforged\n~~~\n',
+      '```markdown\n## Solution\nforged\n``` trailing\n',
+      '```mark`down\n## Solution\nforged\n```\n',
+      '```markdown\n## Solution\nforged\n',
+    ]) {
+      expect(() =>
+        decisionProjection(spec().replace('## Solution\n', `${malformed}\n## Solution\n`)),
+      ).toThrow(/duplicate.*Solution/i);
+    }
+  });
+
+  it('rejects unknown visible H2 owners and nonblank preambles', () => {
+    expect(() =>
+      decisionProjection(
+        spec().replace('## Problem\n', '## Undeclared Owner\n\nHidden.\n\n## Problem\n'),
+      ),
+    ).toThrow(/unknown.*Undeclared Owner/i);
+    expect(() =>
+      decisionProjection(
+        spec().replace(
+          '# INFRA-999: recommendation proof\n',
+          'Preamble.\n\n# INFRA-999: recommendation proof\n',
+        ),
+      ),
+    ).toThrow(/preamble/i);
+    expect(() =>
+      decisionProjection(spec().replace('## Problem\n', 'Preamble after title.\n\n## Problem\n')),
+    ).toThrow(/preamble/i);
+  });
 });
 
 describe('recommendation-review loop extension', () => {
@@ -328,6 +372,20 @@ describe('recommendation-review loop extension', () => {
       }),
     ).toThrow(/ENDORSE requires zero/i);
   });
+
+  it('rejects noncanonical round order and rounds outside the loop history', () => {
+    const entry = convergedAttestation({
+      digest: 'b'.repeat(64),
+      revision: 'a'.repeat(40),
+    });
+    entry.extensions.recommendationReview.expectations.reverse();
+    expect(recommendationReviewExtensionErrors(entry).join('\n')).toMatch(/round.*order/i);
+
+    const outside = attestation({ digest: 'b'.repeat(64), revision: 'a'.repeat(40) });
+    outside.extensions.recommendationReview.expectations[0].round = 2;
+    outside.extensions.recommendationReview.observations[0].round = 2;
+    expect(recommendationReviewExtensionErrors(outside).join('\n')).toMatch(/round.*history/i);
+  });
 });
 
 describe('persisted endorsement and immutable adoption', () => {
@@ -372,6 +430,35 @@ describe('persisted endorsement and immutable adoption', () => {
     expect(findRecommendationEndorsementFindings(root).length).toBeGreaterThan(0);
   });
 
+  it('rejects duplicate subject-round evidence across ledger entries', () => {
+    const { root } = repository();
+    write(root, ACTIVE_SPEC, spec());
+    write(root, TASK, task());
+    const revision = commit(root, 'reviewed plan');
+    const digest = decisionProjectionDigest(spec());
+    const record = JSON.stringify(attestation({ digest, revision }));
+    write(root, LEDGER, `${record}\n${record}\n`);
+    expect(
+      findRecommendationEndorsementFindings(root)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/duplicate.*subject.*round/i);
+  });
+
+  it('rejects persisted evidence whose reviewed revision is not semantically reachable', () => {
+    const { root } = repository();
+    write(root, ACTIVE_SPEC, spec());
+    write(root, TASK, task());
+    commit(root, 'current plan');
+    const digest = decisionProjectionDigest(spec());
+    write(root, LEDGER, `${JSON.stringify(attestation({ digest, revision: 'f'.repeat(40) }))}\n`);
+    expect(
+      findRecommendationEndorsementFindings(root)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/reachable|revision/i);
+  });
+
   it('reconstructs historical exemptions from the adoption tree and loses them on any edit', () => {
     const { root } = repository();
     expect(findRecommendationEndorsementFindings(root)).toEqual([]);
@@ -384,15 +471,103 @@ describe('persisted endorsement and immutable adoption', () => {
     ).toMatch(/historical|adoption|changed/i);
   });
 
+  it('rejects any adoption or bootstrap repoint after the baseline introduction commit', () => {
+    const { root, adoptionRevision } = repository();
+    for (const replacement of [
+      { adoptionRevision: git(root, ['rev-parse', 'HEAD']), bootstrap: null },
+      {
+        adoptionRevision,
+        bootstrap: {
+          subject: SUBJECT,
+          reviewedRevision: adoptionRevision,
+          projectionDigest: 'a'.repeat(64),
+        },
+      },
+    ]) {
+      write(root, BASELINE, `${JSON.stringify(replacement, null, 2)}\n`);
+      expect(() => findRecommendationEndorsementFindings(root)).toThrow(/immutable|introduction/i);
+    }
+  });
+
+  it('validates the bootstrap tuple against the exact reviewed subject projection', () => {
+    const { root, adoptionRevision } = repository({ introduceBaseline: false });
+    write(root, ACTIVE_SPEC, spec());
+    write(root, TASK, task());
+    const reviewedRevision = commit(root, 'reviewed bootstrap plan');
+    write(
+      root,
+      BASELINE,
+      `${JSON.stringify(
+        {
+          adoptionRevision,
+          bootstrap: {
+            subject: SUBJECT,
+            reviewedRevision,
+            projectionDigest: 'a'.repeat(64),
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    commit(root, 'introduce invalid bootstrap tuple');
+    expect(() => findRecommendationEndorsementFindings(root)).toThrow(/exact.*projection digest/i);
+  });
+
   it('excludes rejected proposals from the ENDORSE-required population', () => {
     const { root } = repository();
     const rejected = '.agents/spec-docs/rejected/INFRA-003-never-approved.md';
     write(root, rejected, spec({ status: 'rejected' }).replaceAll('INFRA-999', 'INFRA-003'));
     expect(findRecommendationEndorsementFindings(root)).toEqual([]);
   });
+
+  it('keeps an approved-then-rejected proposal in the persisted governed population', () => {
+    const { root } = repository();
+    write(root, ACTIVE_SPEC, spec());
+    write(root, TASK, task());
+    commit(root, 'approve proposal');
+    const rejected = `.agents/spec-docs/rejected/${SUBJECT}`;
+    git(root, ['mv', ACTIVE_SPEC, rejected]);
+    write(root, rejected, spec({ status: 'rejected' }));
+    commit(root, 'reject approved proposal');
+    expect(
+      findRecommendationEndorsementFindings(root)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/no recommendation observation/i);
+  });
 });
 
 describe('topic ordering', () => {
+  it('fails closed when a required Git history query cannot resolve its base', () => {
+    const { root } = reviewedTopic();
+    expect(() => findRecommendationTopicFindings(root, 'missing-base')).toThrow(/git.*rev-list/i);
+    expect(() => findRecommendationStagedFindings(root, 'missing-base')).toThrow(/git.*rev-list/i);
+  });
+
+  it('resolves base precedence as explicit, harness, PR origin, then fallback', () => {
+    const { root } = repository();
+    git(root, ['branch', 'harness-base']);
+    git(root, ['branch', 'github-base']);
+    git(root, ['update-ref', 'refs/remotes/origin/github-base', 'HEAD']);
+    expect(
+      resolveRecommendationBaseRef(root, 'explicit-base', {
+        HARNESS_BASE_REF: 'harness-base',
+        GITHUB_BASE_REF: 'github-base',
+      }),
+    ).toBe('explicit-base');
+    expect(
+      resolveRecommendationBaseRef(root, undefined, {
+        HARNESS_BASE_REF: 'harness-base',
+        GITHUB_BASE_REF: 'github-base',
+      }),
+    ).toBe('harness-base');
+    expect(resolveRecommendationBaseRef(root, undefined, { GITHUB_BASE_REF: 'github-base' })).toBe(
+      'origin/github-base',
+    );
+    expect(resolveRecommendationBaseRef(root, undefined, {})).toBe('develop');
+  });
+
   it('accepts implementation only after an exact planning-only endorsement checkpoint', () => {
     const { root, base } = endorsedTopic();
     expect(findRecommendationTopicFindings(root, base)).toEqual([]);
@@ -421,8 +596,8 @@ describe('topic ordering', () => {
   });
 
   it('seeds the exact bootstrap digest during replay and invalidates only a later projection', () => {
-    const { root, adoptionRevision } = repository();
-    const base = git(root, ['rev-parse', 'HEAD']);
+    const { root, adoptionRevision } = repository({ introduceBaseline: false });
+    const base = adoptionRevision;
     write(root, ACTIVE_SPEC, spec());
     write(root, TASK, task());
     const revision = commit(root, 'reviewed bootstrap plan');
@@ -439,7 +614,7 @@ describe('topic ordering', () => {
         2,
       )}\n`,
     );
-    commit(root, 'record exact bootstrap');
+    commit(root, 'introduce exact bootstrap');
     write(root, 'scripts/harness/example.mjs', 'export const bootstrapped = true;\n');
     commit(root, 'implement bootstrapped plan');
     expect(findRecommendationTopicFindings(root, base)).toEqual([]);
@@ -449,6 +624,25 @@ describe('topic ordering', () => {
     expect(findRecommendationTopicFindings(root, base)).toEqual([]);
     write(root, 'scripts/harness/second.mjs', 'export const changed = true;\n');
     commit(root, 'implement changed bootstrap plan');
+    expect(
+      findRecommendationTopicFindings(root, base)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/implementation precedes/i);
+  });
+
+  it('does not let rejection erase an approved proposal from topic ordering', () => {
+    const { root } = repository();
+    const base = git(root, ['rev-parse', 'HEAD']);
+    write(root, ACTIVE_SPEC, spec());
+    write(root, TASK, task());
+    commit(root, 'approve proposal');
+    const rejected = `.agents/spec-docs/rejected/${SUBJECT}`;
+    git(root, ['mv', ACTIVE_SPEC, rejected]);
+    write(root, rejected, spec({ status: 'rejected' }));
+    commit(root, 'reject approved proposal');
+    write(root, 'scripts/harness/example.mjs', 'export const afterRejection = true;\n');
+    commit(root, 'implement after rejection');
     expect(
       findRecommendationTopicFindings(root, base)
         .map((item) => item.detail)
@@ -492,5 +686,19 @@ describe('staged ordering', () => {
     write(mixed.root, 'scripts/harness/example.mjs', 'export const mixed = true;\n');
     git(mixed.root, ['add', '-A']);
     expect(findRecommendationStagedFindings(mixed.root, mixed.base).length).toBeGreaterThan(0);
+  });
+
+  it('does not let a staged rejection erase an approved proposal from ordering', () => {
+    const { root, base } = reviewedTopic();
+    const rejected = `.agents/spec-docs/rejected/${SUBJECT}`;
+    git(root, ['mv', ACTIVE_SPEC, rejected]);
+    write(root, rejected, spec({ status: 'rejected' }));
+    write(root, 'scripts/harness/example.mjs', 'export const mixed = true;\n');
+    git(root, ['add', '-A']);
+    expect(
+      findRecommendationStagedFindings(root, base)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/staged implementation precedes/i);
   });
 });

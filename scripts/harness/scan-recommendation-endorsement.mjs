@@ -3,22 +3,24 @@
 /**
  * Universal Recommendation Gate endorsement enforcement (HARNESS-120).
  *
- * Scope: post-approval spec documents under `.agents/spec-docs/{todo,active,done}`. Rejected and
- * pre-approval documents are deliberately outside the population because REJECT never authorizes
- * work and a draft has not reached GATE-APPROVAL. Each governed document must be either byte-identical
- * at the immutable adoption revision, the one exact self-bootstrap tuple, or backed by the latest
- * canonical loop-ledger observation for its current decision projection. Lifecycle fields and gate
- * results are not part of that projection; planned design and Test Plan content are.
+ * Scope: post-approval spec documents under `.agents/spec-docs/{todo,active,done,rejected}`. A
+ * proposal rejected before approval and a draft that has not reached GATE-APPROVAL are outside the
+ * population; rejection after approval does not erase governance history. Each governed document
+ * must be either byte-identical at the immutable adoption revision, the one exact self-bootstrap
+ * tuple, or backed by the latest canonical loop-ledger observation for its current decision
+ * projection. Lifecycle fields and gate results are not part of that projection; planned design and
+ * Test Plan content are.
  *
  * fail-direction: refuse — absent governed trees, malformed projection/baseline/ledger data, changed
  * historical bytes, or missing/stale/non-ENDORSE evidence are findings rather than empty populations.
  */
 
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveBaseRef } from './shared.mjs';
 import {
   RECOMMENDATION_REVIEW_EXTENSION,
   decisionProjectionDigest,
@@ -43,16 +45,39 @@ function finding(pathname, detail) {
   return { path: pathname, detail };
 }
 
-function git(root, args) {
-  try {
-    return execFileSync('git', args, {
-      cwd: root,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-  } catch (error) {
-    return null;
+function gitResult(root, args) {
+  const result = spawnSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (result.error) {
+    throw new Error(
+      `recommendation-endorsement: git ${args.join(' ')} failed (${result.error.message}).`,
+    );
   }
+  return result;
+}
+
+function git(root, args) {
+  const result = gitResult(root, args);
+  if (result.status !== 0) {
+    const detail = result.stderr.trim() || `exit ${result.status}`;
+    throw new Error(`recommendation-endorsement: git ${args.join(' ')} failed (${detail}).`);
+  }
+  return result.stdout;
+}
+
+function commitExists(root, revision) {
+  return gitResult(root, ['rev-parse', '--verify', `${revision}^{commit}`]).status === 0;
+}
+
+export function resolveRecommendationBaseRef(root, explicitBaseRef, env = process.env) {
+  return resolveBaseRef({
+    explicitBaseRef,
+    env,
+    refExists: (candidate) => commitExists(root, candidate),
+  });
 }
 
 function exactKeys(value, expected) {
@@ -64,9 +89,11 @@ function exactKeys(value, expected) {
 
 function readBaseline(root) {
   const file = path.join(root, BASELINE);
+  let source;
   let parsed;
   try {
-    parsed = JSON.parse(readFileSync(file, 'utf8'));
+    source = readFileSync(file, 'utf8');
+    parsed = JSON.parse(source);
   } catch (error) {
     throw new Error(`recommendation-endorsement: cannot parse ${BASELINE}: ${error.message}`);
   }
@@ -83,9 +110,29 @@ function readBaseline(root) {
       'recommendation-endorsement: adoptionRevision must be one full lowercase commit id.',
     );
   }
-  if (git(root, ['cat-file', '-e', `${parsed.adoptionRevision}^{commit}`]) === null) {
+  if (!commitExists(root, parsed.adoptionRevision)) {
     throw new Error(
       `recommendation-endorsement: adoption revision ${parsed.adoptionRevision} is not a commit in this repository.`,
+    );
+  }
+  const introductions = git(root, ['log', '--diff-filter=A', '--format=%H', '--', BASELINE])
+    .split('\n')
+    .filter(Boolean);
+  if (introductions.length !== 1) {
+    throw new Error(
+      `recommendation-endorsement: ${BASELINE} must have exactly one immutable introduction commit.`,
+    );
+  }
+  const introductionRevision = introductions[0];
+  const introducedBytes = bytesAt(root, introductionRevision, BASELINE);
+  if (introducedBytes !== source) {
+    throw new Error(
+      `recommendation-endorsement: ${BASELINE} differs from its immutable introduction bytes at ${introductionRevision}.`,
+    );
+  }
+  if (!isAncestor(root, parsed.adoptionRevision, introductionRevision)) {
+    throw new Error(
+      'recommendation-endorsement: adoptionRevision must be an ancestor of the immutable baseline introduction.',
     );
   }
   if (parsed.bootstrap !== null) {
@@ -104,21 +151,55 @@ function readBaseline(root) {
         'recommendation-endorsement: bootstrap tuple contains a malformed or wildcard value.',
       );
     }
+    if (!commitExists(root, parsed.bootstrap.reviewedRevision)) {
+      throw new Error(
+        `recommendation-endorsement: bootstrap reviewedRevision ${parsed.bootstrap.reviewedRevision} is not a commit.`,
+      );
+    }
+    if (
+      !isAncestor(root, parsed.adoptionRevision, parsed.bootstrap.reviewedRevision) ||
+      !isAncestor(root, parsed.bootstrap.reviewedRevision, introductionRevision)
+    ) {
+      throw new Error(
+        'recommendation-endorsement: bootstrap reviewedRevision must be between adoption and baseline introduction.',
+      );
+    }
+    const reviewed = specAt(root, parsed.bootstrap.reviewedRevision, parsed.bootstrap.subject);
+    let reviewedDigest = null;
+    try {
+      reviewedDigest = reviewed === null ? null : decisionProjectionDigest(reviewed.text);
+    } catch {
+      reviewedDigest = null;
+    }
+    if (reviewedDigest !== parsed.bootstrap.projectionDigest) {
+      throw new Error(
+        'recommendation-endorsement: bootstrap reviewedRevision does not contain the exact subject projection digest.',
+      );
+    }
   }
   return parsed;
 }
 
 function governedSpecs(root) {
   const files = [];
-  for (const state of GOVERNED_STATES) {
+  for (const state of [...GOVERNED_STATES, 'rejected']) {
     const dir = path.join(root, SPEC_ROOT, state);
     if (!existsSync(dir)) continue;
     for (const name of readdirSync(dir).sort()) {
-      if (name.endsWith('.md'))
+      if (
+        name.endsWith('.md') &&
+        (state !== 'rejected' || subjectWasPostApproval(root, name, 'HEAD'))
+      )
         files.push({ state, name, relative: `${SPEC_ROOT}/${state}/${name}` });
     }
   }
   return files;
+}
+
+function subjectWasPostApproval(root, name, revision) {
+  const governedPaths = GOVERNED_STATES.map((state) => `${SPEC_ROOT}/${state}/${name}`);
+  const output = git(root, ['rev-list', '-1', revision, '--', ...governedPaths]);
+  return output.trim() !== '';
 }
 
 function readLedger(root) {
@@ -137,17 +218,41 @@ function readLedger(root) {
   return entries;
 }
 
-function attestationIndex(entries) {
+function attestationIndex(root, entries) {
   const index = new Map();
   const errors = [];
+  const seenExpectationSubjectRounds = new Set();
+  const seenObservationSubjectRounds = new Set();
   for (const [entryIndex, entry] of entries.entries()) {
     for (const error of recommendationReviewExtensionErrors(entry)) {
       errors.push(finding(LEDGER, `entry ${entryIndex + 1}: ${error}`));
     }
     const extension = entry?.extensions?.[RECOMMENDATION_REVIEW_EXTENSION];
     if (!extension || !Array.isArray(extension.observations)) continue;
+    for (const expectation of extension.expectations ?? []) {
+      const key = `${expectation?.subject}\0${expectation?.round}`;
+      if (seenExpectationSubjectRounds.has(key)) {
+        errors.push(
+          finding(
+            LEDGER,
+            `entry ${entryIndex + 1}: duplicate recommendation expectation subject and round across ledger entries`,
+          ),
+        );
+      }
+      seenExpectationSubjectRounds.add(key);
+    }
     for (const observation of extension.observations) {
       if (typeof observation?.subject !== 'string') continue;
+      const subjectRound = `${observation.subject}\0${observation.round}`;
+      if (seenObservationSubjectRounds.has(subjectRound)) {
+        errors.push(
+          finding(
+            LEDGER,
+            `entry ${entryIndex + 1}: duplicate recommendation observation subject and round across ledger entries`,
+          ),
+        );
+      }
+      seenObservationSubjectRounds.add(subjectRound);
       const expectations = Array.isArray(extension.expectations)
         ? extension.expectations.filter(
             (candidate) =>
@@ -159,7 +264,16 @@ function attestationIndex(entries) {
           )
         : [];
       const records = index.get(observation.subject) ?? [];
-      records.push({ observation, expectationCount: expectations.length, entryIndex });
+      const record = { observation, expectationCount: expectations.length, entryIndex };
+      if (!validReachableReviewRecord(root, record, observation.subject, 'HEAD')) {
+        errors.push(
+          finding(
+            LEDGER,
+            `entry ${entryIndex + 1}: recommendation observation revision is not semantically reachable for ${observation.subject}`,
+          ),
+        );
+      }
+      records.push(record);
       index.set(observation.subject, records);
     }
   }
@@ -167,6 +281,8 @@ function attestationIndex(entries) {
 }
 
 function bytesAt(root, revision, relative) {
+  const listing = git(root, ['ls-tree', '--full-tree', '-z', revision, '--', relative]);
+  if (listing === '') return null;
   return git(root, ['show', `${revision}:${relative}`]);
 }
 
@@ -219,12 +335,12 @@ function observationKey(record) {
 
 function changedPaths(root, parent, commit) {
   const output = git(root, ['diff', '--name-only', '--no-renames', parent, commit]);
-  return output === null ? [] : output.split('\n').filter(Boolean);
+  return output.split('\n').filter(Boolean);
 }
 
 function topicCommits(root, base) {
   const output = git(root, ['rev-list', '--reverse', `${base}..HEAD`]);
-  return output === null ? [] : output.split('\n').filter(Boolean);
+  return output.split('\n').filter(Boolean);
 }
 
 function subjectFromSpecPath(pathname) {
@@ -251,6 +367,7 @@ function exactCheckpointPaths(paths, subject) {
 
 function validReachableReviewRecord(root, record, subject, targetRevision) {
   const { observation } = record;
+  if (!commitExists(root, observation.revision)) return false;
   let reviewedDigest = null;
   try {
     const reviewed = specAt(root, observation.revision, subject);
@@ -357,10 +474,18 @@ function planningPath(pathname, subject) {
 }
 
 function isAncestor(root, ancestor, descendant) {
-  return git(root, ['merge-base', '--is-ancestor', ancestor, descendant]) !== null;
+  const result = gitResult(root, ['merge-base', '--is-ancestor', ancestor, descendant]);
+  if (result.status === 0) return true;
+  if (result.status === 1) return false;
+  const detail = result.stderr.trim() || `exit ${result.status}`;
+  throw new Error(
+    `recommendation-endorsement: git merge-base --is-ancestor ${ancestor} ${descendant} failed (${detail}).`,
+  );
 }
 
 function indexText(root, relative) {
+  const listing = git(root, ['ls-files', '--stage', '--', relative]);
+  if (listing === '') return null;
   return git(root, ['show', `:${relative}`]);
 }
 
@@ -376,7 +501,7 @@ function indexSpec(root, name) {
 
 function stagedPaths(root) {
   const output = git(root, ['diff', '--cached', '--name-only', '--no-renames']);
-  return output === null ? [] : output.split('\n').filter(Boolean);
+  return output.split('\n').filter(Boolean);
 }
 
 function parseLedgerText(text) {
@@ -394,14 +519,13 @@ function parseLedgerText(text) {
  */
 export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requestedBase) {
   const baseline = readBaseline(root);
-  const base = requestedBase ?? git(root, ['merge-base', 'HEAD', 'origin/develop'])?.trim();
+  const base = resolveRecommendationBaseRef(root, requestedBase);
   if (!base) throw new Error('recommendation-endorsement: cannot resolve the topic base.');
   const commits = topicCommits(root, base);
   const findings = [];
   const subjects = new Set(governedSpecs(root).map((spec) => spec.name));
   for (const commit of commits) {
-    const parent = git(root, ['rev-parse', `${commit}^`])?.trim();
-    if (!parent) continue;
+    const parent = git(root, ['rev-parse', `${commit}^`]).trim();
     for (const pathname of changedPaths(root, parent, commit)) {
       const subject = subjectFromSpecPath(pathname);
       if (subject) subjects.add(subject);
@@ -409,7 +533,11 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
   }
   for (const subject of subjects) {
     const headSpec = specAt(root, 'HEAD', subject);
-    if (headSpec === null || headSpec.state === 'rejected') continue;
+    if (
+      headSpec === null ||
+      (headSpec.state === 'rejected' && !subjectWasPostApproval(root, subject, 'HEAD'))
+    )
+      continue;
     const current = headSpec.text;
     const adopted = bytesAt(root, baseline.adoptionRevision, headSpec.relative);
     let currentDigest;
@@ -432,10 +560,13 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
     let endorsedDigest = null;
     let unendorsed = false;
     for (const commit of commits) {
-      const parent = git(root, ['rev-parse', `${commit}^`])?.trim();
-      if (!parent) continue;
+      const parent = git(root, ['rev-parse', `${commit}^`]).trim();
       const atCommit = specAt(root, commit, subject);
-      if (atCommit === null || atCommit.state === 'rejected') continue;
+      if (
+        atCommit === null ||
+        (atCommit.state === 'rejected' && !subjectWasPostApproval(root, subject, commit))
+      )
+        continue;
       let digest;
       try {
         digest = decisionProjectionDigest(atCommit.text);
@@ -488,15 +619,14 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
 /** Proposed-index equivalent of the topic replay, used by pre-commit before the commit exists. */
 export function findRecommendationStagedFindings(root = WORKSPACE_ROOT, requestedBase) {
   const baseline = readBaseline(root);
-  const base = requestedBase ?? git(root, ['merge-base', 'HEAD', 'origin/develop'])?.trim();
+  const base = resolveRecommendationBaseRef(root, requestedBase);
   if (!base) throw new Error('recommendation-endorsement: cannot resolve the staged topic base.');
   const findings = [...findRecommendationTopicFindings(root, base)];
   const paths = stagedPaths(root);
   if (paths.length === 0) return findings;
   const subjects = new Set();
   for (const commit of topicCommits(root, base)) {
-    const parent = git(root, ['rev-parse', `${commit}^`])?.trim();
-    if (!parent) continue;
+    const parent = git(root, ['rev-parse', `${commit}^`]).trim();
     for (const pathname of changedPaths(root, parent, commit)) {
       const subject = subjectFromSpecPath(pathname);
       if (subject) subjects.add(subject);
@@ -511,7 +641,11 @@ export function findRecommendationStagedFindings(root = WORKSPACE_ROOT, requeste
   const afterLedger = parseLedgerText(indexText(root, LEDGER));
   for (const subject of subjects) {
     const spec = indexSpec(root, subject);
-    if (spec === null || spec.state === 'rejected') continue;
+    if (
+      spec === null ||
+      (spec.state === 'rejected' && !subjectWasPostApproval(root, subject, 'HEAD'))
+    )
+      continue;
     let digest;
     try {
       digest = decisionProjectionDigest(spec.text);
@@ -591,7 +725,7 @@ export function findRecommendationEndorsementFindings(root = WORKSPACE_ROOT) {
   const baseline = readBaseline(root);
   const specs = governedSpecs(root);
   examined = specs.length;
-  const { index, errors } = attestationIndex(readLedger(root));
+  const { index, errors } = attestationIndex(root, readLedger(root));
   const findings = [...errors];
   for (const spec of specs) {
     const current = readFileSync(path.join(root, spec.relative), 'utf8');
@@ -637,7 +771,7 @@ export function main(root = WORKSPACE_ROOT, args = process.argv.slice(2)) {
     const findings = staged
       ? findRecommendationStagedFindings(root, requestedBase)
       : findRecommendationEndorsementFindings(root);
-    const topicBase = requestedBase ?? git(root, ['merge-base', 'HEAD', 'origin/develop'])?.trim();
+    const topicBase = resolveRecommendationBaseRef(root, requestedBase);
     if (!staged && topicBase) findings.push(...findRecommendationTopicFindings(root, topicBase));
     process.stdout.write(
       `::examined:: ${examinedRecommendationEndorsementCount()} post-approval recommendation document(s)\n`,
