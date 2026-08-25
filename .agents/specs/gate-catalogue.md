@@ -153,6 +153,12 @@ Check every item. A single unmet item = FAIL.
 - [ ] User has provided explicit approval in the current conversation
 - [ ] Approval is a direct, unambiguous statement directed at this spec document
 - [ ] No Architecture Review or frontmatter type/tags modified after approval
+- [ ] **Universal recommendation endorsement:** the topic-mode
+      `scan-recommendation-endorsement.mjs` check passes for the exact spec. It must find the canonical
+      expectation/observation pair for the current decision projection, a reachable reviewed revision, a
+      planning-only endorsement checkpoint before implementation, and latest `ENDORSE` with zero unresolved
+      findings. A Task/spec/PR prose claim is not evidence. HARNESS-120's exact baseline bootstrap is the sole
+      prospective-adoption exception.
 - [ ] **Independent architecture validation (conditional):** IF the spec introduces a new package / app /
       surface or reclassifies a layer / product-family boundary, the Evidence Log MUST contain an independent
       `proposal-reviewer` verdict that ENDORSED the recommendation and explicitly covered the placement —
@@ -223,23 +229,18 @@ For each TC-N in `## Completion Criteria`:
   - The actual output or result observed
   - Exit code if applicable
 
-For each TC-N in `## Test Plan`:
-
-- [ ] **One of the following is recorded:**
-  - **Test written:** test file path + test function/describe name (e.g., `packages/agent-cli/src/__tests__/some-feature.test.ts > TC-01 expected behavior`)
-  - **Test skipped:** explicit reason why automated test was not written (e.g., `TC-02: ANSI color requires visual inspection — manual verification via terminal screenshot`)
-- [ ] No TC-N is silently unaddressed — every row must have either a test reference or a skip reason
-
 After all criteria:
 
 - [ ] Spec document `## Completion Criteria` checkboxes are all `[x]`
-- [ ] `## Test Plan` updated with test references or skip reasons for all TC-N rows
 - [ ] The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`
 - [ ] That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item
 
-**Evidence to record:** One Evidence entry per TC-N (verification + test reference/skip), then a final summary entry.
+**Evidence to record:** One Evidence entry per TC-N containing the actual test path/name or skip reason plus
+the verification command/action, observed output/result, and exit code; then a final summary entry. The planned
+Test Plan is not rewritten with completion results.
 
-**FAIL trigger:** Any TC-N unchecked, or checked without a matching Evidence entry. Any TC-N in Test Plan missing both a test reference and a skip reason.
+**FAIL trigger:** Any TC-N unchecked, or checked without a matching Evidence entry carrying its actual test
+reference/skip reason and verification result.
 
 **Post-PASS handoff:** task terminal status/date, task archival, the spec's archived task pointer, and
 the spec's `verifying/active → done/done` transition are PASS outputs, not guardian preconditions. Their

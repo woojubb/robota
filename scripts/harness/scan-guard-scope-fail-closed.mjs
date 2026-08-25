@@ -211,6 +211,27 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'it judges spec documents that reached implementation without a user-execution gate section; over a root with no spec tree there is no document to judge, and "zero documents are missing the section" reads exactly like "every document carries it" — while the defect it exists to catch is seven documents implemented and reported complete with no section at all',
   },
   {
+    // HARNESS-120. The persisted finder requires the spec tree, adoption anchor, and canonical ledger.
+    file: 'scan-recommendation-endorsement.mjs',
+    finder: 'findRecommendationEndorsementFindings',
+    tree: '.agents/spec-docs + recommendation baseline + backlog-execution ledger',
+    why: 'these three artifacts are the complete persisted endorsement population; without any one of them, "every approved recommendation is endorsed" would certify a projection or evidence set that was never read',
+  },
+  {
+    // HARNESS-120. The topic finder reads the immutable anchor before resolving ancestry.
+    file: 'scan-recommendation-endorsement.mjs',
+    finder: 'findRecommendationTopicFindings',
+    tree: 'recommendation baseline + .git topic history',
+    why: 'topic ancestry is the causal population that distinguishes prospective endorsement from retrospective prose; without the anchor or history an empty answer cannot prove ordering',
+  },
+  {
+    // HARNESS-120. Proposed-index authorization is a separate entry point and fails on a bare root.
+    file: 'scan-recommendation-endorsement.mjs',
+    finder: 'findRecommendationStagedFindings',
+    tree: 'recommendation baseline + .git index + topic history',
+    why: 'the proposed index is where a mixed endorsement-and-implementation commit must be refused; with no index or topic ancestry, a pass would judge no proposed transaction',
+  },
+  {
     // HARNESS-121. Measured as `findHistoryFindings(bare)`: returns a fail-closed history-query
     // finding because no repository/base ancestry can be resolved.
     file: 'scan-user-execution-plan-order.mjs',

@@ -58,6 +58,7 @@
     "harness:scan:public-project-authority": "node scripts/harness/scan-public-project-authority.mjs",
     "harness:scan:consistency": "node scripts/harness/scan-consistency.mjs",
     "harness:scan:review-token-supply": "node scripts/harness/scan-review-token-supply.mjs",
+    "harness:scan:recommendation-endorsement": "node scripts/harness/scan-recommendation-endorsement.mjs",
     "harness:review-gate": "node scripts/harness/check-review-gate.mjs",
     "harness:scan:document-authority": "node scripts/harness/check-document-authority.mjs",
     "harness:scan:document-standards": "node scripts/harness/check-document-standards-index.mjs",

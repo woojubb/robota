@@ -1,8 +1,9 @@
 ---
 title: 'HARNESS-120: recommendation endorsement is required but unenforced'
 issue: https://github.com/woojubb/robota/issues/2326
-status: in-progress
+status: done
 created: 2026-08-25
+completed: 2026-08-26
 priority: high
 urgency: soon
 area: .agents/rules, .claude/agents, scripts/harness
@@ -26,18 +27,18 @@ new-surface placement remains an additive, stricter review concern.
 
 ## Plan
 
-- [ ] Define one subject-, projection-, and revision-bound Recommendation Gate attestation contract in
+- [x] Define one subject-, projection-, and revision-bound Recommendation Gate attestation contract in
       the owning rule and canonical loop-run ledger.
-- [ ] Make the attestation a planning-only endorsement checkpoint whose ancestry is required before any
+- [x] Make the attestation a planning-only endorsement checkpoint whose ancestry is required before any
       implementation, including after a material projection change or Phase-3 scope growth.
-- [ ] Require GATE-APPROVAL to verify a current independent `ENDORSE` with zero unresolved findings for
+- [x] Require GATE-APPROVAL to verify a current independent `ENDORSE` with zero unresolved findings for
       every recommendation, while retaining new-surface placement checks as additive evidence.
-- [ ] Add a mechanical scan and deliberate-red fixtures for missing expectation/observation pairs,
+- [x] Add a mechanical scan and deliberate-red fixtures for missing expectation/observation pairs,
       wrong subjects, stale projections, non-ENDORSE observations, unresolved findings, and the record
       module's direct digest/projection entry point.
-- [ ] Adopt the enforcement prospectively through an exact frozen baseline that never invents historical
+- [x] Adopt the enforcement prospectively through an exact frozen baseline that never invents historical
       review evidence and re-governs nonterminal work at its next transition or material revision.
-- [ ] Wire the reviewer, orchestrator, gate catalogue, scan registry, and orchestration map to the same
+- [x] Wire the reviewer, orchestrator, gate catalogue, scan registry, and orchestration map to the same
       evidence owner; preserve the zero-count rule-case citation ratchet by generalizing owner-rule wording;
       and prove the full harness remains green.
 

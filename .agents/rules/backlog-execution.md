@@ -213,9 +213,34 @@ revisions) is owned by
 An endorsement is not approval. A recommendation that requires product judgment, changes ownership
 boundaries, or introduces a new dependency direction still stops for the user.
 
-**The verdict must be recorded** — the reviewer's `REVIEW VERDICT` and its date go in the backlog item
-or the PR description. A gate whose verdict leaves no trace cannot be audited, and an unrecorded
-`ENDORSE` is indistinguishable from a self-approval.
+**The verdict is canonical evidence, not prose presence.** Before dispatch, the orchestrator records an
+expectation in the open `backlog-execution-orchestrator` loop run for the exact spec basename, full reviewed
+commit, and SHA256 decision-projection digest. After the independent reviewer returns, it records the matching
+observation: round, `proposal-reviewer`, verdict, and unresolved-finding count. The Task references that exact
+run ID; a copied `REVIEW VERDICT` sentence in a Task, spec, or PR body is explanatory only and never authorizes
+work. The latest observation for the current projection must be `ENDORSE` with zero unresolved findings.
+
+The reviewed **decision projection** is the spec's non-lifecycle frontmatter, title, Problem, Prior Art
+Research, Architecture Review (including Decision), Fallback, user-execution PLAN, Solution, Affected Files,
+Completion Criteria, and the entire planned Test Plan including Notes. `status`, `completed`, Tasks, and
+Evidence Log are excluded. Required headings must be unique and unfenced; Completion Criteria and Test Plan
+TC IDs must be a bijection. Malformed or ambiguous projections fail closed. Once endorsed, planned Test Plan
+content is immutable; actual test paths, commands, outputs, results, exit codes, and skip reasons belong only
+to TC-specific Evidence Log entries.
+
+An `ENDORSE` becomes usable only in a **planning-only endorsement checkpoint** that changes the exact
+Task/spec pair and `.agents/loop-runs/backlog-execution-orchestrator.jsonl`, with no implementation path. The
+reviewed commit must precede that checkpoint, and the checkpoint must precede GATE-APPROVAL and implementation.
+A material projection change or Phase-3 scope growth resets the work unit to unendorsed and repeats this
+sequence. `scripts/harness/scan-recommendation-endorsement.mjs` enforces staged/topic ordering and validates the
+persisted projection after squash; `.husky/pre-commit` runs its staged mode.
+
+Historical records are never assigned invented reviews. The scan reconstructs unchanged exemptions from the
+exact bytes and path at the immutable adoption commit in
+`scripts/harness/recommendation-endorsement-baseline.json`; any edit or nonterminal lifecycle transition loses
+that exemption. Rejected proposals are outside the authorization population. The baseline may contain only
+the one exact self-bootstrap tuple needed to introduce this mechanism — never a wildcard or a
+second tuple.
 
 ## One-Backlog-At-A-Time Rule (mandatory, zero exceptions)
 
@@ -609,7 +634,8 @@ Each condition below halts the work. They hold whether or not a pipeline is runn
 skills treat them as terminate edges and do not restate them.
 
 - No recommendation gate was presented for the backlog or work unit.
-- The recommendation was acted on without an independent `ENDORSE`, or with the verdict unrecorded.
+- The recommendation was acted on without a current canonical independent `ENDORSE` checkpoint, after its
+  decision projection changed, or with nonzero unresolved findings.
 - A required runnable user-facing backlog lacks a user execution test scenario section.
 - A user execution test scenario is abstract, lacks exact commands/UI steps, or lacks expected
   observable results.

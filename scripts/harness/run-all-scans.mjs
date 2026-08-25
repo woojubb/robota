@@ -515,6 +515,12 @@ export const SCAN_COMMANDS = [
     name: 'user-execution-plan-order',
     command: ['node', 'scripts/harness/scan-user-execution-plan-order.mjs'],
   },
+  // HARNESS-120. A prose REVIEW VERDICT cannot prove who reviewed which revision or that review
+  // preceded implementation. The canonical ledger + decision projection makes that relation causal.
+  {
+    name: 'recommendation-endorsement',
+    command: ['node', 'scripts/harness/scan-recommendation-endorsement.mjs'],
+  },
   // D1. operational.md requires the three routing documents to stay lean, and scan-file-size scopes
   // itself to packages/apps, so nothing could see them — three of three were in violation. The
   // ratchet enforces the direction; the gap to the 80-line target is reported every run.

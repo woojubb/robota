@@ -44,6 +44,20 @@ here. See "The recommendation is not self-judged" below — this is a deliberate
 rule's previous self-assessment wording, made because an orchestrator forming a verdict on its own output
 is exactly what [enforcement-architecture.md](../../rules/enforcement-architecture.md) forbids.
 
+The rule owns what is attested; this skill owns the sequence that makes it causal:
+
+1. Commit the planning-only Task/spec revision to be reviewed. Compute its canonical projection digest with
+   `recommendation-review-record.mjs`.
+2. Before dispatch, write `recommendation-expect` to the open `backlog-execution-orchestrator` run with the
+   exact basename, full commit, and digest.
+3. Dispatch `proposal-reviewer` with those exact three values. After return, write
+   `recommendation-observe` with its verdict and unresolved-finding count, then record the round finding count.
+4. On `ENDORSE | 0`, make one planning-only endorsement checkpoint containing the exact Task/spec pair (the
+   Task references this run ID) and canonical loop ledger. Run `scan-recommendation-endorsement.mjs --staged`
+   before committing and topic mode afterwards. No implementation path belongs in this checkpoint.
+5. A revised projection starts a new expectation/observation round and checkpoint. Never amend an earlier
+   observation or let a stale digest authorize the revision.
+
 **Also dispatch `finding-depth-triager` on the item's problem statement, before the recommendation is
 formed.** Two different questions, and both have to hold: `proposal-reviewer` asks whether the chosen
 decision is right AMONG THE ALTERNATIVES; the depth verdict asks whether the problem being solved is the
@@ -57,7 +71,7 @@ above this pipeline. Asking at this moment is what makes that a cheap answer ins
 | Outcome                                                        | Route                                                                                                                                                                                                                                                                                                                      |
 | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The decision is one the rule reserves for the user             | **Terminate — halt for the user** before dispatching anyone. An independent review is not a substitute for approval the rule says only the user can give.                                                                                                                                                                  |
-| `REVIEW VERDICT: ENDORSE`                                      | Advance to phase 2. Record the endorsed recommendation; it is what the PR description must later reflect.                                                                                                                                                                                                                  |
+| `REVIEW VERDICT: ENDORSE` with `UNRESOLVED FINDINGS: 0`        | Commit and verify the exact recommendation-endorsement checkpoint, then advance to phase 2 (running GATE-APPROVAL first when the spec has not passed it). The accepted recommendation is what the PR description later reflects.                                                                                           |
 | `REVIEW VERDICT: REVISE`                                       | Revise the recommendation against the reviewer's findings and **repeat phase 1**. Stop when the same findings recur unchanged and escalate ([no-progress escape](../../rules/enforcement-architecture.md)); bounded additionally at **2 revisions**; on the third, terminate and hand the reviewer's findings to the user. |
 | `REVIEW VERDICT: REJECT`                                       | **Terminate — halt for the user** with the reviewer's reasoning. Never proceed by overriding a REJECT; the reviewer exists precisely to be able to say no.                                                                                                                                                                 |
 | The reviewer's finding is that the item's own premise is wrong | Terminate. Re-scoping an item is a decision above this pipeline.                                                                                                                                                                                                                                                           |
@@ -151,9 +165,10 @@ which has not happened yet. That bounds what is handed over, not how hard the re
 charter mandates testing premises against real source and checking architecture placement, and neither
 should be curtailed.
 
-**Record the verdict.** The rule requires the `REVIEW VERDICT` and its date to land in the work item or
-the PR description. Until a scan reads it, that record is the only thing distinguishing an endorsed gate
-from a self-approved one — do not skip it because nothing currently fails when you do.
+**Record the canonical pair.** The owner rule defines the expectation/observation schema and decision
+projection. This pipeline must use `loop-run.mjs recommendation-expect` before dispatch and
+`recommendation-observe` after return; a prose verdict copied into the Task or PR is context, not the gate.
+The Task records the exact run ID so a reader can resolve the evidence without duplicating it.
 
 ## Terminate edges that belong to this level
 

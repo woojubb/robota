@@ -156,6 +156,34 @@ describe('findLoopRunRecordFindings', () => {
     ]);
     expect(findLoopRunRecordFindings(root, NOW)[0].detail).toMatch(/signalExpectations.*array/);
   });
+
+  it('fails a recommendation observation without one exact prior expectation', () => {
+    const root = workspace({ 'backlog-execution-orchestrator': FINDING_SET });
+    ledger(root, 'backlog-execution-orchestrator', [
+      {
+        ...closed('r1', [0], 'converged'),
+        extensions: {
+          recommendationReview: {
+            expectations: [],
+            observations: [
+              {
+                round: 1,
+                subject: 'INFRA-999-proof.md',
+                revision: 'a'.repeat(40),
+                projectionDigest: 'b'.repeat(64),
+                agent: 'proposal-reviewer',
+                verdict: 'ENDORSE',
+                unresolvedFindings: 0,
+              },
+            ],
+          },
+        },
+      },
+    ]);
+    expect(findLoopRunRecordFindings(root, NOW)[0].detail).toMatch(
+      /recommendation observation.*expectation/i,
+    );
+  });
 });
 
 describe('the published examined size', () => {

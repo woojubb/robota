@@ -39,4 +39,38 @@ describe('GATE-COMPLETE transition ownership', () => {
     expect(execution).toContain('SAME commit');
     expect(orchestrator).toContain('status change and the file move are **one commit**');
   });
+
+  it('keeps planned Test Plan content immutable and actual results in the Evidence Log only', () => {
+    const catalogue = section(read('.agents/specs/gate-catalogue.md'), '### GATE-COMPLETE');
+    const recommendation = section(
+      read('.agents/rules/backlog-execution.md'),
+      '## Recommendation Gate',
+      2,
+    );
+
+    expect(catalogue).toMatch(/The planned\s+Test Plan is not rewritten with completion results/);
+    expect(catalogue).not.toContain('`## Test Plan` updated with test references');
+    expect(catalogue).toMatch(
+      /Evidence entry per TC-N[\s\S]*actual test path\/name or skip reason/,
+    );
+    expect(recommendation).toContain(
+      'actual test paths, commands, outputs, results, exit codes, and skip reasons belong only',
+    );
+  });
+});
+
+describe('pre-commit planning gate order', () => {
+  it('formats the proposed index before both ordering guards and shares endorsement classification', () => {
+    const hook = read('.husky/pre-commit');
+    const planOrder = read('scripts/harness/scan-user-execution-plan-order.mjs');
+    const lintAt = hook.indexOf('pnpm lint:fix:staged');
+    const planAt = hook.indexOf('scan-user-execution-plan-order.mjs --staged');
+    const endorsementAt = hook.indexOf('scan-recommendation-endorsement.mjs --staged');
+
+    expect(lintAt).toBeGreaterThan(-1);
+    expect(planAt).toBeGreaterThan(lintAt);
+    expect(endorsementAt).toBeGreaterThan(planAt);
+    expect(planOrder).toContain('isCommittedRecommendationCheckpoint');
+    expect(planOrder).toContain('isStagedRecommendationCheckpoint');
+  });
 });

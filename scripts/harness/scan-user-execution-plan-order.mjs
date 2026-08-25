@@ -18,12 +18,17 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 import { asScalar, frontmatterObject } from './frontmatter.mjs';
+import {
+  isCommittedRecommendationCheckpoint,
+  isStagedRecommendationCheckpoint,
+} from './scan-recommendation-endorsement.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TASK_PREFIX = '.agents/tasks/';
 const SPEC_PREFIX = '.agents/spec-docs/';
 const POST_MERGE_LEDGER = '.agents/loop-runs/post-merge-cycle.jsonl';
 const UES_LEDGER = '.agents/loop-runs/user-execution-scenario.jsonl';
+const RECOMMENDATION_LEDGER = '.agents/loop-runs/backlog-execution-orchestrator.jsonl';
 const SPEC_FOLDERS = new Set(['draft', 'backlog', 'todo', 'active', 'done']);
 const PRE_CHECKPOINT_SPEC_STATUS = new Map([
   ['draft', 'draft'],
@@ -980,9 +985,13 @@ function validateUesLedgerAppend(root, from, to, basename) {
   return successfulLoopRecord(record) && exactSubjectRef(record.ref, basename);
 }
 
-function planningPreludeProblems(paths, basename, textForPath) {
+function planningPreludeProblems(paths, basename, textForPath, allowRecommendationLedger = false) {
   const problems = [];
-  const unexpected = paths.filter((file) => !isPreCheckpointPlanningPath(file, basename));
+  const unexpected = paths.filter(
+    (file) =>
+      !isPreCheckpointPlanningPath(file, basename) &&
+      !(allowRecommendationLedger && file === RECOMMENDATION_LEDGER),
+  );
   if (unexpected.length > 0) {
     problems.push(`non-planning prelude path(s): ${unexpected.join(', ')}.`);
   }
@@ -1179,11 +1188,20 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       }
       const basenames = planningBasenames(entry.paths);
       const basename = basenames.length === 1 ? basenames[0] : null;
+      const recommendationCheckpoint = isCommittedRecommendationCheckpoint(
+        root,
+        entry.parent,
+        entry.commit,
+        entry.paths,
+      );
       const preludeProblems =
         basename === null
           ? ['paths do not identify exactly one planning unit.']
-          : planningPreludeProblems(entry.paths, basename, (file) =>
-              gitText(root, entry.commit, file),
+          : planningPreludeProblems(
+              entry.paths,
+              basename,
+              (file) => gitText(root, entry.commit, file),
+              recommendationCheckpoint,
             );
       if (
         preludeProblems.length > 0 ||
@@ -1238,8 +1256,17 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
         ),
       );
     }
-    const preludeProblems = planningPreludeProblems(entry.paths, basename, (file) =>
-      gitText(root, entry.commit, file),
+    const recommendationCheckpoint = isCommittedRecommendationCheckpoint(
+      root,
+      entry.parent,
+      entry.commit,
+      entry.paths,
+    );
+    const preludeProblems = planningPreludeProblems(
+      entry.paths,
+      basename,
+      (file) => gitText(root, entry.commit, file),
+      recommendationCheckpoint,
     );
     if (preludeProblems.length > 0) {
       findings.push(
@@ -1418,10 +1445,16 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
     if (proposed.pairs.length === 0) {
       const basenames = planningBasenames(staged);
       const basename = basenames.length === 1 ? basenames[0] : null;
+      const recommendationCheckpoint = isStagedRecommendationCheckpoint(root, staged);
       const preludeProblems =
         basename === null
           ? ['paths do not identify exactly one planning unit.']
-          : planningPreludeProblems(staged, basename, (file) => indexText(root, file));
+          : planningPreludeProblems(
+              staged,
+              basename,
+              (file) => indexText(root, file),
+              recommendationCheckpoint,
+            );
       if (
         preludeProblems.length > 0 ||
         (history.pendingBasename !== null && history.pendingBasename !== basename)

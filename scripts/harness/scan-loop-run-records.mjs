@@ -41,6 +41,7 @@ import {
   readLedger,
   readLoopDeclaration,
 } from './loop-run.mjs';
+import { recommendationReviewExtensionErrors } from './recommendation-review-record.mjs';
 import { parseDeclaration } from './scan-loop-contract.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -164,6 +165,9 @@ export function findLoopRunRecordFindings(root = WORKSPACE_ROOT, now = Date.now(
             }
           }
         }
+      }
+      for (const error of recommendationReviewExtensionErrors(entry)) {
+        at(rel, `run \`${entry.runId}\`: ${error}`);
       }
 
       const openedMs = Date.parse(entry.opened ?? '');

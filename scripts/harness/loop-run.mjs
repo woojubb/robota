@@ -39,6 +39,8 @@
  *   node scripts/harness/loop-run.mjs expect --loop <skill> --run <id> --phase <phase> --agent <agent> --subject <subject> --token <signal> [--cells <id,id>]
  *   node scripts/harness/loop-run.mjs coverage --loop <skill> --run <id> --agent <agent> --subject <subject> --cells <id,id>
  *   node scripts/harness/loop-run.mjs observe --loop <skill> --run <id> --phase <phase> --agent <agent> --subject <subject> --signal '<terminal-line>'
+ *   node scripts/harness/loop-run.mjs recommendation-expect --loop backlog-execution-orchestrator --run <id> --subject <basename> --revision <sha> --projection-digest <sha256>
+ *   node scripts/harness/loop-run.mjs recommendation-observe --loop backlog-execution-orchestrator --run <id> --subject <basename> --revision <sha> --projection-digest <sha256> --verdict <ENDORSE|REVISE|REJECT> --unresolved-findings <n>
  *   node scripts/harness/loop-run.mjs pass-through --loop <skill> --run <id> --id <finding-id>
  *   node scripts/harness/loop-run.mjs draft-finding --loop <skill> --run <id> --id <finding-id> --severity <level>
  *   node scripts/harness/loop-run.mjs final-finding --loop <skill> --run <id> --id <finding-id> --severity <level>
@@ -67,6 +69,11 @@ import {
   architectureExpectationError,
   normalizeArchitectureRefreshMetadata,
 } from './architecture-refresh-record.mjs';
+import {
+  normalizeRecommendationReviewMetadata,
+  recordRecommendationExpectation,
+  recordRecommendationObservation,
+} from './recommendation-review-record.mjs';
 import { parseDeclaration } from './scan-loop-contract.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -160,6 +167,8 @@ export function readLedger(root, skill) {
       // the next canonical write persists it for open records.
       if (entry.extensions?.architectureRefresh !== undefined)
         normalizeArchitectureRefreshMetadata(entry);
+      if (entry.extensions?.recommendationReview !== undefined)
+        normalizeRecommendationReviewMetadata(entry);
       entries.push(entry);
     } catch (error) {
       throw new Error(`${rel}:${i + 1} is not a JSON object (${error.message})`);
@@ -283,6 +292,54 @@ function requireArchitectureProtocolSkill(skill, allowed = ARCHITECTURE_PROTOCOL
       `loop-run: this architecture protocol command is not owned by \`${skill}\`; its registered validator cannot prove that field.`,
     );
   }
+}
+
+function requireRecommendationProtocolSkill(skill) {
+  if (skill !== 'backlog-execution-orchestrator') {
+    throw new Error(
+      `loop-run: recommendation review evidence is owned by \`backlog-execution-orchestrator\`, not \`${skill}\`.`,
+    );
+  }
+}
+
+export function recordRecommendationReviewExpectation({
+  root,
+  skill,
+  runId,
+  subject,
+  revision,
+  projectionDigest,
+}) {
+  requireRecommendationProtocolSkill(skill);
+  const entries = readLedger(root, skill);
+  const index = requireOpen(entries, skill, runId);
+  recordRecommendationExpectation(entries[index], { subject, revision, projectionDigest });
+  writeLedger(root, skill, entries);
+  return entries[index];
+}
+
+export function recordRecommendationReviewObservation({
+  root,
+  skill,
+  runId,
+  subject,
+  revision,
+  projectionDigest,
+  verdict,
+  unresolvedFindings,
+}) {
+  requireRecommendationProtocolSkill(skill);
+  const entries = readLedger(root, skill);
+  const index = requireOpen(entries, skill, runId);
+  recordRecommendationObservation(entries[index], {
+    subject,
+    revision,
+    projectionDigest,
+    verdict,
+    unresolvedFindings,
+  });
+  writeLedger(root, skill, entries);
+  return entries[index];
 }
 
 export function recordSignalExpectation({
@@ -596,6 +653,10 @@ function parseArgs(argv) {
     site: null,
     evidence: null,
     action: undefined,
+    revision: undefined,
+    projectionDigest: undefined,
+    verdict: undefined,
+    unresolvedFindings: undefined,
   };
   for (let i = 1; i < argv.length; i += 1) {
     if (argv[i] === '--loop') args.loop = argv[++i];
@@ -617,6 +678,10 @@ function parseArgs(argv) {
     else if (argv[i] === '--site') args.site = argv[++i];
     else if (argv[i] === '--evidence') args.evidence = argv[++i];
     else if (argv[i] === '--action') args.action = argv[++i];
+    else if (argv[i] === '--revision') args.revision = argv[++i];
+    else if (argv[i] === '--projection-digest') args.projectionDigest = argv[++i];
+    else if (argv[i] === '--verdict') args.verdict = argv[++i];
+    else if (argv[i] === '--unresolved-findings') args.unresolvedFindings = Number(argv[++i]);
     else throw new Error(`loop-run: unknown argument \`${argv[i]}\``);
   }
   if (!args.loop) throw new Error('loop-run: --loop <skill> is required');
@@ -672,6 +737,34 @@ export function main(
         signal: args.signal,
       });
       out(`loop-run: ${args.loop} run ${entry.runId} observed a signal from ${args.agent}.`);
+      return 0;
+    }
+    case 'recommendation-expect': {
+      const entry = recordRecommendationReviewExpectation({
+        root,
+        skill: args.loop,
+        runId: args.run,
+        subject: args.subject,
+        revision: args.revision,
+        projectionDigest: args.projectionDigest,
+      });
+      out(
+        `loop-run: ${args.loop} run ${entry.runId} expects recommendation review for ${args.subject}.`,
+      );
+      return 0;
+    }
+    case 'recommendation-observe': {
+      const entry = recordRecommendationReviewObservation({
+        root,
+        skill: args.loop,
+        runId: args.run,
+        subject: args.subject,
+        revision: args.revision,
+        projectionDigest: args.projectionDigest,
+        verdict: args.verdict,
+        unresolvedFindings: args.unresolvedFindings,
+      });
+      out(`loop-run: ${args.loop} run ${entry.runId} records ${args.verdict} for ${args.subject}.`);
       return 0;
     }
     case 'coverage': {
@@ -783,7 +876,7 @@ export function main(
     }
     default:
       throw new Error(
-        `loop-run: unknown command \`${args.command ?? '(none)'}\`. Use open, expect, coverage, observe, pass-through, draft-finding, final-finding, foundational, reconcile-route, disposition, link, round, close or show.`,
+        `loop-run: unknown command \`${args.command ?? '(none)'}\`. Use open, expect, coverage, observe, recommendation-expect, recommendation-observe, pass-through, draft-finding, final-finding, foundational, reconcile-route, disposition, link, round, close or show.`,
       );
   }
 }

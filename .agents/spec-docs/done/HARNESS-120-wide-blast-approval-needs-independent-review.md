@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-08-26
 type: INFRA
 tags: [async]
 ---
@@ -248,27 +249,27 @@ Update the orchestration map from PENDING only after the scan is registered and 
 
 ## Completion Criteria
 
-- [ ] TC-01: The owner rule and GATE-APPROVAL require every recommendation—not only new surfaces—to have a
+- [x] TC-01: The owner rule and GATE-APPROVAL require every recommendation—not only new surfaces—to have a
       planning-only checkpoint containing a canonical expectation plus matching independent observation for
       the exact subject/revision/projection; the latest observation is `ENDORSE` with zero unresolved findings,
       while new-surface placement remains additive; planned Test Plan content is immutable after endorsement
       and actual completion evidence has one owner in the Evidence Log.
-- [ ] TC-02: Staged/topic history accepts an exact reachable reviewed revision and endorsement checkpoint,
+- [x] TC-02: Staged/topic history accepts an exact reachable reviewed revision and endorsement checkpoint,
       then rejects implementation before endorsement, implementation after an unendorsed material projection
       change, missing/mismatched expectation/observation pairs, wrong subjects, non-ancestor revisions,
       malformed/decoy/ambiguous or stale projections, non-ENDORSE outcomes, duplicate observations, and
       nonzero unresolved findings; post-squash mode validates the attested projection without lost ancestry.
-- [ ] TC-03: Historical adoption is reconstructed from immutable revision
+- [x] TC-03: Historical adoption is reconstructed from immutable revision
       `675cd814edb4121fd92023fe7721c905a1acf321` without claiming review occurred; completed historical states
       pass unchanged, while nonterminal transitions or edits, forged/new/duplicate/stale/unnecessary exemptions,
       and any second or wildcard self-bootstrap tuple fail; rejected proposals remain outside the
       ENDORSE-required population and cannot authorize implementation.
-- [ ] TC-04: The proposal-reviewer, orchestrator, loop recorder/validator, guardian, gate catalogue, staged
+- [x] TC-04: The proposal-reviewer, orchestrator, loop recorder/validator, guardian, gate catalogue, staged
       hook, HARNESS-121 planning-order shared validator, scan registry, root command, guard-scope classifier,
       examined/provenance ledgers, and orchestration map all point to the same contract and make enforcement
       mandatory, ordered, and non-vacuous; a gate contract fixture rejects any return to duplicate actual-test
       evidence ownership in Test Plan and Evidence Log.
-- [ ] TC-05: Focused tests, the complete harness contract tier, `pnpm harness:scan`, and the repository build
+- [x] TC-05: Focused tests, the complete harness contract tier, `pnpm harness:scan`, and the repository build
       and test commands all exit 0 after deliberate-red fixtures prove each fail-closed branch.
 
 ## Test Plan
@@ -283,7 +284,7 @@ Update the orchestration map from PENDING only after the scan is registered and 
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md` — existing issue-derived
+- [x] `.agents/tasks/completed/HARNESS-120-wide-blast-approval-needs-independent-review.md` — existing issue-derived
       Task; GATE-IMPLEMENT must validate the re-scoped TC mapping.
 
 ## Evidence Log
@@ -356,3 +357,62 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Projection digest: `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
 - Independent verdict: `proposal-reviewer` returned `REVIEW VERDICT: ENDORSE` with `UNRESOLVED FINDINGS: 0` after confirming the direct record-module test remains in scope and the zero-count rule-case citation ratchet is preserved without a baseline increase.
 - Canonical evidence: open backlog execution run `r20260825171311` records one exact expectation and matching observation for the reviewed subject, revision, and projection digest.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-26
+
+**Status upgrade:** in-progress → verifying
+
+- Ordering: the prior lifecycle gate is the recorded `GATE-IMPLEMENT` PASS, and the spec was `status: in-progress` in `.agents/spec-docs/active/` when independently judged.
+- Task completion: all six Plan items in `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md` are checked, with no blocked or pending item.
+- Affected-package build/test: N/A — the staged scope changes repository harness/governance only and contains no package or application source, public API, runtime dependency, or user-facing behavior.
+- Focused verification: `pnpm exec vitest run` over the seven affected harness test files passed 175 tests in 7 files, exit code 0.
+- Contract verification: `pnpm harness:test:contracts` passed 3,914 tests in 180 files, exit code 0.
+- Harness verification: `pnpm harness:scan` passed 145 scans with 2 declared skips, exit code 0.
+- Checklist evidence: post-implementation run `r20260825180912` closed `converged` after one round with 0 findings; `git diff --cached --check` and `scan-loop-run-records.mjs` also exited 0.
+- Independent guardian: `backlog-gate-guard` independently inspected the staged 25-path harness/governance change, reran the focused tests and ledger scan, and returned `GATE: GATE-VERIFY`, `VERDICT: PASS`, `UNRESOLVED FINDINGS: 0` without editing files.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-26
+
+- Test references: `scripts/harness/__tests__/loop-run.test.mjs`, `scripts/harness/__tests__/scan-loop-run-records.test.mjs`, and `scripts/harness/__tests__/gate-completion-order.test.mjs`.
+- Command/action: the seven-file focused `pnpm exec vitest run` command plus direct inspection of `.agents/rules/backlog-execution.md`, `.agents/specs/gate-catalogue.md`, and the reviewer/guardian contracts.
+- Observed result: the focused suite passed 175 tests in 7 files; contract assertions prove universal paired attestation, independent `ENDORSE | 0`, additive placement review, and Evidence-Log-only actual results.
+- Exit code: 0.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-26
+
+- Test references: `scripts/harness/__tests__/scan-recommendation-endorsement.test.mjs` and `scripts/harness/__tests__/recommendation-review-record.test.mjs`.
+- Command/action: `pnpm exec vitest run scripts/harness/__tests__/recommendation-review-record.test.mjs scripts/harness/__tests__/scan-recommendation-endorsement.test.mjs` and `node scripts/harness/scan-recommendation-endorsement.mjs --staged`.
+- Observed result: 20 tests passed in 2 files; the suite accepts exact single- and multi-round planning checkpoints and rejects retrospective implementation, stale/material re-plans, malformed projections, invalid ancestry/verdict/finding states, and mixed staged paths. The staged live scan also passed.
+- Exit code: 0 for both commands.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-26
+
+- Test reference: `scripts/harness/__tests__/scan-recommendation-endorsement.test.mjs`, including immutable-adoption, rejected-population, and exact-bootstrap replay cases.
+- Command/action: the focused seven-file Vitest command and `pnpm harness:scan` live baseline validation.
+- Observed result: unchanged historical bytes and the one exact bootstrap digest pass; edits, nonterminal re-plans without a new endorsement, stale evidence, and rejected authorization attempts fail in deliberate-red fixtures. The live baseline remains anchored at `675cd814edb4121fd92023fe7721c905a1acf321`.
+- Exit code: 0.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-26
+
+- Test references: `scripts/harness/__tests__/scan-guard-scope-fail-closed.test.mjs`, `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`, `scripts/harness/__tests__/gate-completion-order.test.mjs`, and the complete harness contract tier.
+- Command/action: `pnpm harness:test:contracts`, `pnpm harness:scan`, and `node scripts/harness/scan-loop-run-records.mjs`.
+- Observed result: 3,914 contract tests passed in 180 files; 145 mandatory scans passed with 2 declared skips; 74 loop-run ledger entries passed schema validation. Registry/map, hook ordering, shared checkpoint classification, fail-closed scope, examined count, provenance, and single Evidence Log ownership are reachable and non-vacuous.
+- Exit code: 0 for all commands.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-26
+
+- Test references: `scripts/harness/__tests__/recommendation-review-record.test.mjs`, `scripts/harness/__tests__/scan-recommendation-endorsement.test.mjs`, `scripts/harness/__tests__/loop-run.test.mjs`, `scripts/harness/__tests__/scan-loop-run-records.test.mjs`, `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`, `scripts/harness/__tests__/scan-guard-scope-fail-closed.test.mjs`, and `scripts/harness/__tests__/gate-completion-order.test.mjs`; the root commands additionally reached all 180 harness contract files, workspace package/application tests, and 145 mandatory scans.
+- Command/action: focused `pnpm exec vitest run`, `pnpm harness:test:contracts`, `pnpm harness:scan`, `pnpm build`, and `pnpm test`.
+- Observed result: 175 focused tests passed; 3,914 contract tests passed; 145 scans passed with 2 declared skips; all 82 package builds and ordered type builds completed; the recursive test run across 109 of 110 workspace projects completed successfully. Existing non-failing bundler, React, experimental-API, and listener warnings were visible and did not change any exit verdict.
+- Exit code: 0 for every command.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-26
+
+**Status upgrade:** verifying → done
+
+- Ordering: the immediately preceding lifecycle gate is the recorded `GATE-VERIFY` PASS, and the spec was `status: verifying` in `.agents/spec-docs/active/` when judged.
+- Criteria evidence: TC-01 through TC-05 are all checked and each has one matching `[GATE-COMPLETE: TC-N]` entry with durable test references, actual commands/actions, observed results, and exit codes.
+- Planned-test ownership: `## Test Plan` remains the endorsed plan and carries no completion outputs; all actual results are owned by this Evidence Log.
+- Task readiness: all six Plan items in the exact Task are checked, no item is blocked or pending, and the `## Tasks` pointer is archived atomically to `.agents/tasks/completed/HARNESS-120-wide-blast-approval-needs-independent-review.md` with this status transition.
+- Independent guardian: after one evidence-specific correction, `backlog-gate-guard` returned `GATE: GATE-COMPLETE`, `VERDICT: PASS`, and `UNRESOLVED FINDINGS: 0`; it independently recomputed the endorsed projection digest and confirmed all seven TC-05 test paths exist.
+- Final completed-state verification: `pnpm harness:test:contracts` again passed 3,914 tests in 180 files, and `pnpm harness:scan` passed 144 scans with 3 declared skips after the Task/spec archival moves; both commands exited 0.

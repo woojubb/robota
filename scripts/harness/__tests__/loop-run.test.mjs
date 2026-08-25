@@ -601,4 +601,33 @@ describe('the CLI', () => {
       main(['frobnicate', '--loop', 'looper'], { root, now: NOW, out: () => {} }),
     ).toThrow(/unknown command/);
   });
+
+  it('records a revision/projection expectation before its exact recommendation observation', () => {
+    const root = workspace({ 'backlog-execution-orchestrator': FINDING_SET });
+    main(['open', '--loop', 'backlog-execution-orchestrator'], { root, now: NOW, out: () => {} });
+    const runId = readLedger(root, 'backlog-execution-orchestrator')[0].runId;
+    const common = [
+      '--loop',
+      'backlog-execution-orchestrator',
+      '--run',
+      runId,
+      '--subject',
+      'INFRA-999-proof.md',
+      '--revision',
+      'a'.repeat(40),
+      '--projection-digest',
+      'b'.repeat(64),
+    ];
+    expect(main(['recommendation-expect', ...common], { root, now: NOW, out: () => {} })).toBe(0);
+    expect(
+      main(
+        ['recommendation-observe', ...common, '--verdict', 'ENDORSE', '--unresolved-findings', '0'],
+        { root, now: NOW, out: () => {} },
+      ),
+    ).toBe(0);
+    const metadata = readLedger(root, 'backlog-execution-orchestrator')[0].extensions
+      .recommendationReview;
+    expect(metadata.expectations).toHaveLength(1);
+    expect(metadata.observations[0]).toMatchObject({ verdict: 'ENDORSE', unresolvedFindings: 0 });
+  });
 });

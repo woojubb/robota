@@ -97,7 +97,8 @@ your review, say so as its own judgement, separate from the verdict, and recomme
 
 ## Procedure
 
-1. Read the proposal (problem, alternatives, decision, affected scope).
+1. Require the caller to identify the exact subject basename, full reviewed commit, and canonical
+   decision-projection digest. Read the proposal from that commit, not from a later mutable working tree.
 2. Verify every load-bearing premise against the code; note any that are false or unproven.
 3. **If a new surface / boundary is introduced, run the architecture-placement check above first.**
 4. Independently derive what the correct design is, from principles — including alternatives the
@@ -124,7 +125,19 @@ Return a structured review (no edits):
 - **Recommendation** — the decision you would approve, concretely, with its reasoning and the migration
   cost stated honestly (not used as a veto).
 
-End with the exact line `REVIEW VERDICT: <ENDORSE|REVISE|REJECT>`.
+End with these exact machine-readable lines, in this order:
+
+```text
+REVIEW SUBJECT: <exact Task/spec basename>
+REVIEW REVISION: <40-character lowercase commit>
+REVIEW PROJECTION: <64-character lowercase SHA-256 digest>
+UNRESOLVED FINDINGS: <non-negative integer>
+REVIEW VERDICT: <ENDORSE|REVISE|REJECT>
+```
+
+The subject, revision, and projection must echo the artifact actually reviewed. `ENDORSE` requires
+`UNRESOLVED FINDINGS: 0`; advice that does not block the current decision belongs in the recommendation
+section and does not inflate the unresolved count. A mismatch is not a usable verdict.
 
 An approval gate may treat an `ENDORSE` (with sound reasoning and no rule conflict) as the sign-off; a
 `REVISE`/`REJECT` sends the proposal back to be rewritten before approval.

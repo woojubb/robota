@@ -38,12 +38,14 @@ if [ "${ALLOW_LESSONS_COMMIT:-0}" != "1" ]; then
   fi
 fi
 
-# HARNESS-121: the first implementation commit must have the exact Task/spec GATE-IMPLEMENT planning
-# checkpoint in HEAD's ancestry. The shared Node engine also replays the full range in harness:scan;
-# this hook supplies the proposed index plus whole-worktree view before Git creates the commit.
-node scripts/harness/scan-user-execution-plan-order.mjs --staged || exit 1
-
 # `lint:fix:staged` owns the one clone-wide lock around lint-staged. Keeping that ownership in the
 # root developer command makes the deliberate pre-verification run and this commit-time safety net
 # execute the same path without nesting `flock`. (INFRA-082, INFRA-089)
 NODE_OPTIONS="--max-old-space-size=8192" pnpm lint:fix:staged
+
+# Ordering guards MUST read the post-format index. Running them before lint-staged let Prettier turn a
+# valid author-verdict line into an indented continuation after the guard had passed (HARNESS-120).
+# HARNESS-121 proves the GATE-IMPLEMENT PLAN checkpoint; HARNESS-120 separately proves the independent
+# recommendation checkpoint. Neither accepts implementation in the commit that establishes its gate.
+node scripts/harness/scan-user-execution-plan-order.mjs --staged || exit 1
+node scripts/harness/scan-recommendation-endorsement.mjs --staged || exit 1
