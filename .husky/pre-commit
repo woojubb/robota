@@ -38,6 +38,11 @@ if [ "${ALLOW_LESSONS_COMMIT:-0}" != "1" ]; then
   fi
 fi
 
+# HARNESS-121: the first implementation commit must have the exact Task/spec GATE-IMPLEMENT planning
+# checkpoint in HEAD's ancestry. The shared Node engine also replays the full range in harness:scan;
+# this hook supplies the proposed index plus whole-worktree view before Git creates the commit.
+node scripts/harness/scan-user-execution-plan-order.mjs --staged || exit 1
+
 # `lint:fix:staged` owns the one clone-wide lock around lint-staged. Keeping that ownership in the
 # root developer command makes the deliberate pre-verification run and this commit-time safety net
 # execute the same path without nesting `flock`. (INFRA-082, INFRA-089)

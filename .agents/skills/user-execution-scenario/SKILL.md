@@ -28,12 +28,12 @@ deciding whether a scenario is good enough, stop and dispatch the guardian.
 **1. Decide applicability.** Dispatch `user-execution-scenario-author` to answer whether this work unit
 delivers runnable user-facing behavior at all.
 
-| `SCENARIO DRAFTED` outcome                                           | Route                                                                                                                                                        |
-| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `not-applicable`                                                     | Record the author's reason in the work item and return `NOT-APPLICABLE`. The caller records engineering evidence instead; it does **not** invent a scenario. |
-| `automatable` with ≥1 scenario                                       | Advance to step 3.                                                                                                                                           |
-| `manual` with ≥1 scenario                                            | Advance to step 2 — a manual label is not accepted on first return.                                                                                          |
-| The author reports an unreachable capability behind an internal seam | **Return `HALT`.** The rule forbids treating this as N/A. The caller must plan the surface wiring, or take it to the user; this pipeline cannot resolve it.  |
+| `SCENARIO DRAFTED` outcome                                           | Route                                                                                                                                                                                                                                      |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `not-applicable`                                                     | Record the subject-bound `SCENARIO DRAFTED: not-applicable \| 0` verdict and the author's reason in the exact work item, then return `NOT-APPLICABLE`. The caller records engineering evidence instead; it does **not** invent a scenario. |
+| `automatable` with ≥1 scenario                                       | Advance to step 3.                                                                                                                                                                                                                         |
+| `manual` with ≥1 scenario                                            | Advance to step 2 — a manual label is not accepted on first return.                                                                                                                                                                        |
+| The author reports an unreachable capability behind an internal seam | **Return `HALT`.** The rule forbids treating this as N/A. The caller must plan the surface wiring, or take it to the user; this pipeline cannot resolve it.                                                                                |
 
 **2. Bound the redesign search.** A manual label means no automatable surface was found. Re-dispatch the
 author to attempt an equivalent accessible path, at most **2 redesign attempts** in total.
@@ -60,7 +60,7 @@ against the work item.
 
 | `GATE VERDICT`   | Route                                                                                                                                                                                                                                                                                                     |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PASS`           | Return `PLANNED`. Implementation may begin.                                                                                                                                                                                                                                                               |
+| `PASS`           | Record the subject-bound `SCENARIO DRAFTED` verdict and this `DONE-GATE-STAGE-1` PASS in the exact work item, then return `PLANNED`. The caller must create the GATE-IMPLEMENT planning checkpoint before implementation may begin.                                                                       |
 | `FAIL`           | **Return to step 1** with the guardian's failing criterion, so the author fills what is missing. Stop when the same criteria fail unchanged and escalate ([no-progress escape](../../rules/enforcement-architecture.md)); bounded additionally at **2 re-authoring rounds**; on the third, return `HALT`. |
 | `NON-COMPLIANCE` | **Return `HALT`.** Process was bypassed — implementation started before the scenario existed, or evidence was recorded that no run produced. This is a user-facing report.                                                                                                                                |
 
@@ -109,6 +109,10 @@ Return exactly one to the caller, with the evidence behind it:
   fix; re-enter this pipeline at step 5 afterwards.
 - `HALT` — a bound was exceeded, an environment or capability gap is unresolved, or a process violation
   was found. Name which.
+
+Every terminal result is subject-bound: its `SCENARIO DRAFTED` signal and reason or Stage-1 PASS are
+recorded in the exact Task before return. A loop ledger record for PLAN carries that Task path or
+basename in `ref`; an unbound ledger entry cannot satisfy GATE-IMPLEMENT.
 
 Never return `VERIFIED` on a `NOT-APPLICABLE`, and never return it while any scenario carries an
 unexecuted, unlabelled state. Those are the two ways this gate has historically been passed without

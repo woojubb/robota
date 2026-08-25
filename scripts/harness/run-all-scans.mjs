@@ -509,6 +509,12 @@ export const SCAN_COMMANDS = [
     name: 'spec-user-execution-section',
     command: ['node', 'scripts/harness/scan-spec-user-execution-section.mjs'],
   },
+  // HARNESS-121. A final section cannot prove it existed before code. Replay the topic ancestry and
+  // require one exact Task/spec GATE-IMPLEMENT checkpoint before any implementation path changes.
+  {
+    name: 'user-execution-plan-order',
+    command: ['node', 'scripts/harness/scan-user-execution-plan-order.mjs'],
+  },
   // D1. operational.md requires the three routing documents to stay lean, and scan-file-size scopes
   // itself to packages/apps, so nothing could see them — three of three were in violation. The
   // ratchet enforces the direction; the gap to the 80-line target is reported every run.

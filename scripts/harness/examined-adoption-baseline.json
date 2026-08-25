@@ -90,6 +90,7 @@
     "tool-classification",
     "transport-admission",
     "transport-conformance",
+    "user-execution-plan-order",
     "vitest-resource-ceiling",
     "work-item-id-collision",
     "workflow-permissions",

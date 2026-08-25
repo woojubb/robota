@@ -67,11 +67,24 @@ above this pipeline. Asking at this moment is what makes that a cheap answer ins
 Dispatch [user-execution-scenario](../user-execution-scenario/SKILL.md) in **PLAN** mode. It runs before
 implementation, not after: the rule requires the scenario to exist first.
 
-| Outcome          | Route                                                                                                                                     |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `PLANNED`        | Advance to phase 3. Phase 4 will run the same pipeline in GATE mode.                                                                      |
-| `NOT-APPLICABLE` | Advance to phase 3 carrying the recorded reason. Phase 4 is **skipped**, and the PR description states the not-applicable reason instead. |
-| `HALT`           | **Terminate** with the sub-pipeline's reason. Do not implement first and plan the scenario afterwards.                                    |
+| Outcome          | Route                                                                                                                                                                        |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PLANNED`        | Advance to phase 2.5 carrying the subject-bound author verdict and Stage-1 PASS. Phase 4 will run the same pipeline in GATE mode.                                            |
+| `NOT-APPLICABLE` | Advance to phase 2.5 carrying the subject-bound author verdict and recorded reason. Phase 4 is **skipped**, and the PR description states the not-applicable reason instead. |
+| `HALT`           | **Terminate** with the sub-pipeline's reason. Do not implement first and plan the scenario afterwards.                                                                       |
+
+### Phase 2.5 — Planning checkpoint
+
+Dispatch `backlog-pipeline` for GATE-IMPLEMENT. On PASS, immediately commit the guardian's PASS, the
+`approved → in-progress` transition, the exact Task/spec pair, and any subject-bound PLAN ledger record
+as one planning-only checkpoint. Verify that HEAD contains that checkpoint before entering Phase 3.
+
+| Outcome                              | Route                                                                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| PASS committed as exact checkpoint   | Advance to Phase 3.                                                                                                       |
+| `FAIL`                               | Correct only the planning artifacts the guardian named, then re-run GATE-IMPLEMENT; do not implement.                     |
+| `NON-COMPLIANCE`                     | **Terminate.** Report the implementation or retrospective-PLAN path that crossed the gate.                                |
+| PASS exists only in the working tree | **Terminate.** A mutable PASS is not the ancestor Phase 3 requires; commit the exact planning checkpoint before resuming. |
 
 ### Phase 3 — Implementation
 
