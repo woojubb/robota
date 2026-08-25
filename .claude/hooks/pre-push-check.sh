@@ -783,10 +783,60 @@ esac
 # on `git push-x`: `\b` treats the `-` as a word boundary and matched, the explicit class does not.
 # ACK_RE carries the `PRE_PUSH_ALLOW_UNREVIEWED=1` prefix so it cannot simply be RE_PUSH_STMT, but
 # its push token uses the SAME boundary class now, not `\b`. (#1667 review)
+# PROC-013 / #2323: the frozen-diff refusal, hoisted out of the "no local review recorded" branch.
+#
+# It used to live inside `if ! REVIEW_STATE=$(recorder --show)`, which runs ONLY when the recorder
+# FAILS. So a session that recorded a local review before each push — which git-branch.md REQUIRES —
+# made the recorder succeed, skipped that whole branch, and reached `exit 0` without this check ever
+# running. Measured on PR #2323: five pushes, five reviews, every one `ACTIONABLE FINDINGS: 0`. The
+# loop guard was bypassed by doing the thing the rules mandate, which is the worst possible place to
+# put a guard. PR #2235 ran 22 rounds the same way.
+#
+# It is also evaluated BEFORE the `PRE_PUSH_ALLOW_UNREVIEWED=1` short-circuit below, because that
+# override says one thing — "this diff is unreviewed" — and the frozen-diff rule says another: "this
+# pull request is clean, stop editing it". One switch must not disarm two unrelated rules, and the
+# override's own message never claimed to excuse this one.
+frozen_diff_refusal() {
+  local branch="$1" open_pr latest_count
+  [[ -n "$branch" ]] || return 1
+  # `gh pr list --head`, not `pr view`: `pr view` takes a number, a URL or a branch and decides by
+  # shape, so a branch named `42` would be answered with pull request #42's state.
+  open_pr=$(cd "$PROJECT_DIR" &&
+    bounded_gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty' || echo "")
+  [[ "$open_pr" =~ ^[1-9][0-9]*$ ]] || return 1
+  # The reviewer filter and the unanchored marker are merge-gate.sh's, deliberately: a gate whose
+  # input its own subject can write is not a gate, and jq's regex does not anchor at line
+  # boundaries. Unknown is NOT zero — a refusal on a failed measurement blocks correct work on no
+  # evidence, so an unreadable count returns 1 and the push proceeds to the checks below.
+  latest_count=$( (cd "$PROJECT_DIR" &&
+    bounded_gh pr view "$open_pr" --json comments,reviews \
+      --jq "([.comments[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"^github-actions(\\\\[bot\\\\])?$\"))) | map(select(.body | test(\"ACTIONABLE FINDINGS:[[:space:]]*[0-9]+\"; \"i\"))) | sort_by(.at) | last // {} | .body // \"\"" 2>/dev/null) |
+    sed -nE 's/^ACTIONABLE FINDINGS: ([0-9]+)$/\1/p' | tail -1 || echo "")
+  [[ "$latest_count" == "0" ]] || return 1
+  echo "[pre-push-check] Blocked: PR #$open_pr's latest review reports ACTIONABLE FINDINGS: 0," >&2
+  echo "[pre-push-check] so there is nothing for this push to resolve — it is new work on a PR" >&2
+  echo "[pre-push-check] that is already merge-ready, and a reviewer who passed it never saw it." >&2
+  echo "[pre-push-check] git-branch.md: an open PR's diff is frozen except to resolve a finding." >&2
+  echo "[pre-push-check] Recording a local review does NOT excuse this, and neither does" >&2
+  echo "[pre-push-check] PRE_PUSH_ALLOW_UNREVIEWED — that one says the diff is unreviewed, which is" >&2
+  echo "[pre-push-check] a different claim. Let #$open_pr land, then open a second PR for this work." >&2
+  echo "[pre-push-check] Deliberate exception: PRE_PUSH_ALLOW_FROZEN_DIFF=1 inline." >&2
+  return 0
+}
+
 PUSH_RE="$RE_PUSH_STMT"
 ACK_RE='(^|[[:space:];&|(])PRE_PUSH_ALLOW_UNREVIEWED=1([[:space:]]+[[:alnum:]_]+=[^[:space:]]+)*[[:space:]]+git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*push([^-[:alnum:]_]|$)'
 PUSH_COUNT=$(printf '%s' "$COMMAND_VERBS" | grep -oE "$PUSH_RE" | grep -c . || true)
 ACK_COUNT=$(printf '%s' "$COMMAND_VERBS" | grep -oE "$ACK_RE" | grep -c . || true)
+
+# The frozen-diff rule is asked FIRST, and its own override is the only one that excuses it.
+# `PRE_PUSH_ALLOW_FROZEN_DIFF=1` is matched with the same statement-scoped shape as the other
+# override: it excuses the push it prefixes, not the shell it was typed in.
+FROZEN_ACK_RE='(^|[[:space:];&|(])PRE_PUSH_ALLOW_FROZEN_DIFF=1([[:space:]]+[[:alnum:]_]+=[^[:space:]]+)*[[:space:]]+git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*push([^-[:alnum:]_]|$)'
+FROZEN_ACK_COUNT=$(printf '%s' "$COMMAND_VERBS" | grep -oE "$FROZEN_ACK_RE" | grep -c . || true)
+if [[ "$FROZEN_ACK_COUNT" -lt "$PUSH_COUNT" ]] && frozen_diff_refusal "$CUR_BRANCH"; then
+  exit 2
+fi
 
 if [[ "$ACK_COUNT" -gt 0 && "$ACK_COUNT" -ge "$PUSH_COUNT" ]]; then
   echo "[pre-push-check] Override: PRE_PUSH_ALLOW_UNREVIEWED=1 — this push carries an unreviewed diff." >&2
@@ -880,22 +930,11 @@ if ! REVIEW_STATE=$(cd "$PROJECT_DIR" && node "$RECORDER" --show 2>&1); then
     # or `ACTIONABLE FINDINGS: 0` to block someone else's legitimate push. A gate whose input its own
     # subject can write is not a gate. Kept as its own literal because merge-gate.sh does not export
     # it — the two must be changed together, said here rather than left to be noticed.
-    REVIEWER_RE='^github-actions(\\[bot\\])?$'
-    LATEST_COUNT=$( (cd "$PROJECT_DIR" &&
-      bounded_gh pr view "$OPEN_PR" --json comments,reviews \
-        --jq "([.comments[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"$REVIEWER_RE\"))) | map(select(.body | test(\"ACTIONABLE FINDINGS:[[:space:]]*[0-9]+\"; \"i\"))) | sort_by(.at) | last // {} | .body // \"\"" 2>/dev/null) |
-      sed -nE 's/^ACTIONABLE FINDINGS: ([0-9]+)$/\1/p' | tail -1 || echo "")
-
-    if [[ "$LATEST_COUNT" == "0" ]]; then
-      echo "[pre-push-check] Blocked: PR #$OPEN_PR's latest review reports ACTIONABLE FINDINGS: 0," >&2
-      echo "[pre-push-check] so there is nothing for this push to resolve — it is new work on a PR" >&2
-      echo "[pre-push-check] that is already merge-ready, and a reviewer who passed it never saw it." >&2
-      echo "[pre-push-check] git-branch.md: an open PR's diff is frozen except to resolve a finding." >&2
-      echo "[pre-push-check] Let #$OPEN_PR land, then open a second PR for this work." >&2
-      echo "[pre-push-check] Deliberate exception: PRE_PUSH_ALLOW_UNREVIEWED=1 inline." >&2
-      exit 2
-    fi
-
+    # PROC-013 / #2323: the frozen-diff refusal used to live HERE, and that was the defect.
+    # This branch runs only when the recorder FAILS, so a session that recorded a local review —
+    # which the rules require — never reached it. It is now `frozen_diff_refusal`, called before the
+    # override short-circuit near the top of this file, so it is asked on every push regardless of
+    # local-review state. Not duplicated here: two implementations agree until one of them changes.
     echo "[pre-push-check] Open pull request on '$CUR_BRANCH': its review automation owns the review" >&2
     echo "[pre-push-check] of this push. Resolve what that review reports; do not review it again." >&2
     exit 0
