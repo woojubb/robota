@@ -6,6 +6,9 @@ import {
   mkdtempSync,
   statSync,
   writeFileSync,
+  openSync,
+  closeSync,
+  fstatSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -262,8 +265,16 @@ describe('writeUpdateCheckCache owner-only mode (issue #2229)', () => {
       writeUpdateCheckCache(cachePath, { ...CACHE });
     });
 
-    expect(statSync(cachePath).mode & 0o777).toBe(0o600);
-    expect(JSON.parse(readFileSync(cachePath, 'utf8')).latestVersion).toBe('3.0.0-beta.57');
+    // One descriptor for both facts. `statSync(path)` followed by `readFileSync(path)` resolves the
+    // path twice, which is the check-then-act shape CodeQL rejects — the same one it caught in
+    // `owner-only-store.ts` on PR #2224, where the repository chose to fix rather than suppress.
+    const fd = openSync(cachePath, 'r');
+    try {
+      expect(fstatSync(fd).mode & 0o777).toBe(0o600);
+      expect(JSON.parse(readFileSync(fd, 'utf8')).latestVersion).toBe('3.0.0-beta.57');
+    } finally {
+      closeSync(fd);
+    }
     rmSync(dir, { recursive: true, force: true });
   });
 });
