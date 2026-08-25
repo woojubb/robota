@@ -20,13 +20,33 @@ about what "composition root" covers.
 
 ## Evidence
 
-- `.agents/project-structure.md:357-370` — "the **single permitted exception** is the **composition
+- `.agents/project-structure.md:375-385` (cited as `:357-370` when filed; the text moved, not the rule) — "the **single permitted exception** is the **composition
   root** … composition-root wiring is the only valid exemption category."
 - `packages/agent-cli/src/subagents/git-worktree-isolation-adapter.ts:6-11` — value-imports
   `BackgroundTaskError` (plus port types) from `@robota-sdk/agent-executor`.
-- `scripts/harness/check-background-workspace-conformance.mjs:74-78` — a third exemption entry:
+- `scripts/harness/check-background-workspace-conformance.mjs:73-79` — a third exemption entry:
   "`…/git-worktree-isolation-adapter.ts`: 'composition root — concrete worktree adapter wiring'". The
   adapter is a concrete I/O class, not the assembly point.
+
+## The direction, and what the guard actually enforces
+
+**Issue #2048 states this backwards, and acting on its summary would enlarge the hole.** Its line 8
+says the guard exempts the adapter _"under a category **narrower** than the written rule permits"_;
+its own line 17 says _"a guard exemption **wider** than the documented category"_, which is what this
+record's title has said since it was filed. The evidence line is right and the summary line is what a
+reader acts on — someone implementing line 8 as written would widen an already-over-wide exemption
+while believing they were aligning it. Issue #2048 is closed with that noted.
+
+**The mechanism is the reason this recurs.** The guard's own comment states the requirement it
+enforces: _"every entry requires a reason string"_ (`check-background-workspace-conformance.mjs:73`).
+That is exactly what is checked — **a reason, not a true one.** The first two exemptions are the
+rule's own worked examples; the third asserts membership in the category by writing the category's
+name into a free-text string. The rule says composition-root wiring is the only valid category, and
+**nothing checks that a file claiming the category is one.**
+
+So the doc-side and code-side directions above are both still open, but neither closes this on its
+own: whichever is chosen, a category that a file can join by describing itself will drift again. That
+belongs in whatever fix lands here, not in a separate item.
 
 ## Direction
 
