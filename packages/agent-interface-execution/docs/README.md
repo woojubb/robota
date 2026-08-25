@@ -22,12 +22,12 @@ import type {
 
 The four families it owns:
 
-| family               | source                              | what it carries                                                         |
-| -------------------- | ----------------------------------- | ----------------------------------------------------------------------- |
-| background task      | `background-task-contracts.ts`      | the request per kind, status, timeout and error categories, usage, logs |
-| background job group | `background-job-group-contracts.ts` | grouping independent jobs and their result envelopes                    |
-| subagent             | `subagent-contracts.ts`             | the spawn request, job state, and job result                            |
-| execution workspace  | `execution-workspace-contracts.ts`  | an execution's origin, entries, snapshots, and detail pages             |
+| family               | source                          | what it carries                                                         |
+| -------------------- | ------------------------------- | ----------------------------------------------------------------------- |
+| background task      | `background-task-contracts.ts`  | the request per kind, status, timeout and error categories, usage, logs |
+| background job group | `background-group-contracts.ts` | grouping independent jobs and their result envelopes                    |
+| subagent             | `subagent-contracts.ts`         | the spawn request, job state, and job result                            |
+| execution workspace  | `workspace-contracts.ts`        | an execution's origin, entries, snapshots, and detail pages             |
 
 ## Documents
 
