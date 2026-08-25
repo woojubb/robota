@@ -66,7 +66,7 @@ exemption.
 - `.agents/rules/backlog-execution.md` — sole owner of the universal recommendation-review attestation,
   decision projection, two-stage verification, and prospective-adoption contracts.
 - `.agents/specs/gate-catalogue.md` — GATE-APPROVAL criterion that invokes the universal check and retains
-  new-surface placement as additive evidence.
+  new-surface placement as additive evidence; GATE-COMPLETE actual-test evidence ownership.
 - `.agents/skills/backlog-execution-orchestrator/SKILL.md` — expectation-before-dispatch,
   observation-after-return, round, and route contract.
 - `.claude/agents/proposal-reviewer.md` — subject/revision/projection/unresolved-count output contract.
@@ -88,6 +88,8 @@ exemption.
 - `scripts/harness/scan-user-execution-plan-order.mjs` and its tests — recognize the canonical recommendation
   ledger as an exact planning artifact through the shared validator, without taking ownership of endorsement
   semantics.
+- `scripts/harness/__tests__/gate-completion-order.test.mjs` — planned Test Plan versus actual Evidence Log
+  ownership contract.
 - `.husky/pre-commit` — run staged recommendation-order enforcement before a commit can make review
   retrospective.
 - `scripts/harness/run-all-scans.mjs`, `scripts/harness/examined-adoption-baseline.json`,
@@ -131,10 +133,11 @@ unfenced headings and includes every frontmatter key/value except the closed lif
 `completed`), plus title, Problem, Prior Art Research, Architecture Review and Decision, Fallback declaration,
 User Execution Test Scenario plan, Solution, Affected Files, Completion Criteria text, and the entire planned
 Test Plan table. Only the Completion Criteria checkbox marker is normalized. Test Plan Notes remain plan and
-are immutable after endorsement; runtime commands, counts, exit codes, and observed results belong only in
-the gate-owned Evidence Log. It excludes Tasks lifecycle state and Evidence Log. Missing/duplicate headings,
-unknown lifecycle exclusions, malformed tables, fenced decoys, duplicate TC IDs, or a non-bijective
-criteria/test mapping fail closed.
+are immutable after endorsement. GATE-COMPLETE no longer writes actual test references or skip dispositions
+back into Test Plan: actual test path/name, skip reason, runtime command, count, output, result, and exit code
+belong only in the TC-specific gate-owned Evidence Log. It excludes Tasks lifecycle state and Evidence Log.
+Missing/duplicate headings, unknown lifecycle exclusions, malformed tables, fenced decoys, duplicate TC IDs,
+or a non-bijective criteria/test mapping fail closed.
 
 An endorsement is a dedicated planning-only checkpoint, not merely a final-state token. Whenever a projection
 first appears or changes, the work unit becomes `unendorsed`. Until the exact Task/spec plus canonical
@@ -166,6 +169,11 @@ bootstrap tuple or wildcard.
 
 The scan exports a root finder and therefore joins the guard-scope fail-closed classification, governed-tree
 absence tests, examined-adoption baseline, and measurement-provenance ledger in the same implementation.
+
+This change also removes GATE-COMPLETE's duplicate requirement to update Test Plan with actual test references
+or skip reasons. The plan table is the approved verification intent and stays projection-stable; the Evidence
+Log is the sole completion-evidence owner. A contract fixture proves no gate still requires actual evidence in
+both places.
 
 Validation before approval covers reachability (topic mode verifies exact commit ancestry and the mandatory
 scan verifies squash-safe persisted projection), capability preservation (the existing new-surface placement
@@ -202,6 +210,7 @@ material projection change or Phase-3 scope growth. Make staged and topic-histor
 endorsement and make GATE-APPROVAL use topic mode, with new-surface placement layered on top. Implement the
 mandatory squash-safe scan over post-approval specs and the immutable adoption revision, including the
 HARNESS-121 shared planning-path validator, pre-commit, guard-scope, examined-population, and provenance wiring.
+Remove GATE-COMPLETE's duplicate Test Plan actual-evidence write so its Evidence Log is the sole result owner.
 Update the orchestration map from PENDING only after the scan is registered and tested.
 
 ## Affected Files
@@ -224,6 +233,7 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - `scripts/harness/__tests__/scan-guard-scope-fail-closed.test.mjs`
 - `scripts/harness/scan-user-execution-plan-order.mjs`
 - `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+- `scripts/harness/__tests__/gate-completion-order.test.mjs`
 - `.husky/pre-commit`
 - `scripts/harness/run-all-scans.mjs`
 - `scripts/harness/examined-adoption-baseline.json`
@@ -236,7 +246,8 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - [ ] TC-01: The owner rule and GATE-APPROVAL require every recommendation—not only new surfaces—to have a
       planning-only checkpoint containing a canonical expectation plus matching independent observation for
       the exact subject/revision/projection; the latest observation is `ENDORSE` with zero unresolved findings,
-      while new-surface placement remains additive.
+      while new-surface placement remains additive; planned Test Plan content is immutable after endorsement
+      and actual completion evidence has one owner in the Evidence Log.
 - [ ] TC-02: Staged/topic history accepts an exact reachable reviewed revision and endorsement checkpoint,
       then rejects implementation before endorsement, implementation after an unendorsed material projection
       change, missing/mismatched expectation/observation pairs, wrong subjects, non-ancestor revisions,
@@ -250,19 +261,20 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - [ ] TC-04: The proposal-reviewer, orchestrator, loop recorder/validator, guardian, gate catalogue, staged
       hook, HARNESS-121 planning-order shared validator, scan registry, root command, guard-scope classifier,
       examined/provenance ledgers, and orchestration map all point to the same contract and make enforcement
-      mandatory, ordered, and non-vacuous.
+      mandatory, ordered, and non-vacuous; a gate contract fixture rejects any return to duplicate actual-test
+      evidence ownership in Test Plan and Evidence Log.
 - [ ] TC-05: Focused tests, the complete harness contract tier, `pnpm harness:scan`, and the repository build
       and test commands all exit 0 after deliberate-red fixtures prove each fail-closed branch.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                                                                            | Notes                                                                                                                                                               |
-| ----- | --------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | INFRA     | Contract assertions over rule, catalogue, agent definitions, and loop schema                               | Prove universal scope, canonical paired attestation, and additive placement wording.                                                                                |
-| TC-02 | INFRA     | Loop-run and `scan-recommendation-endorsement.test.mjs` staged/history git fixtures                        | Green endorsement checkpoint/topic/squash paths plus retrospective implementation, re-plan, dispatch, subject, ancestry, projection, verdict, and finding failures. |
-| TC-03 | INFRA     | Adoption-revision fixture matrix and live baseline validation                                              | Reconstruct exemptions from the frozen tree and prove prospective convergence without retrospective evidence.                                                       |
-| TC-04 | INFRA     | Hook, plan-order shared-validator, registry/map, guard-scope, examined-adoption, and provenance assertions | Prevent an implemented-but-unreachable, retrospective, duplicated-owner, or vacuous guard.                                                                          |
-| TC-05 | INFRA     | Focused Vitest, harness contracts, scan, build, and tests                                                  | Record commands, counts, and exit codes in gate evidence.                                                                                                           |
+| TC-ID | Test Type | Tool / Approach                                                                                                                           | Notes                                                                                                                                                               |
+| ----- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | INFRA     | Contract assertions over rule, catalogue, agent definitions, and loop schema                                                              | Prove universal scope, canonical paired attestation, additive placement, immutable planned Test Plan, and Evidence-Log-only actual results.                         |
+| TC-02 | INFRA     | Loop-run and `scan-recommendation-endorsement.test.mjs` staged/history git fixtures                                                       | Green endorsement checkpoint/topic/squash paths plus retrospective implementation, re-plan, dispatch, subject, ancestry, projection, verdict, and finding failures. |
+| TC-03 | INFRA     | Adoption-revision fixture matrix and live baseline validation                                                                             | Reconstruct exemptions from the frozen tree and prove prospective convergence without retrospective evidence.                                                       |
+| TC-04 | INFRA     | Hook, plan-order shared-validator, gate-completion owner fixture, registry/map, guard-scope, examined-adoption, and provenance assertions | Prevent unreachable, retrospective, duplicated-owner, or vacuous enforcement and duplicate actual-test evidence ownership.                                          |
+| TC-05 | INFRA     | Focused Vitest, harness contracts, scan, build, and tests                                                                                 | Record commands, counts, and exit codes in gate evidence.                                                                                                           |
 
 ## Tasks
 

@@ -61,7 +61,12 @@ new-surface placement remains an additive, stricter review concern.
   The reviewer required a staged/history ordering proof compatible with the HARNESS-121 planning guard,
   all non-lifecycle semantic frontmatter and planned Test Plan content in the projection, an exact bootstrap
   tuple, and an explicit exclusion for never-approved rejected proposals.
-- **Independent proposal review round 3:** pending against the revised committed draft.
+- **Independent proposal review round 3:** revision
+  `ebdaee333d394807b5c755dfa7b9cf3d0857484e`; `UNRESOLVED FINDINGS: 1`; `REVIEW VERDICT: REVISE`.
+  The two round-2 findings were resolved. The remaining conflict was that the proposed immutable Test Plan
+  still met a GATE-COMPLETE criterion requiring actual test references in both Test Plan and Evidence Log.
+  The bounded run ended; the user's standing authorization re-entered the corrected single-owner design.
+- **Independent proposal review, re-entry round 1:** pending against the corrected committed draft.
 
 ## User Execution Test Scenarios
 
