@@ -63,7 +63,7 @@ describe('SELFHOST-004 P6 — permission wrapper forwards setEventService', () =
     const [wrapped] = enforcer.wrapTools([makeTool() as IToolWithEventService]);
     // Inject on the WRAPPER — must reach the original tool that originalExecute runs.
     wrapped!.setEventService(bus);
-    await wrapped!.execute({}, { executionId: 'e1' });
+    await wrapped!.execute({}, { toolName: 'spantool', parameters: {}, executionId: 'e1' });
 
     const spans = seen.filter((e) => e.type === SPAN_EVENTS.COMPLETED);
     expect(spans).toHaveLength(1);
@@ -74,7 +74,9 @@ describe('SELFHOST-004 P6 — permission wrapper forwards setEventService', () =
     const enforcer = makeEnforcer();
     const [wrapped] = enforcer.wrapTools([makeTool() as IToolWithEventService]);
     // no setEventService → original tool's bus stays unset; execute must still succeed
-    await expect(wrapped!.execute({}, { executionId: 'e1' })).resolves.toMatchObject({
+    await expect(
+      wrapped!.execute({}, { toolName: 'spantool', parameters: {}, executionId: 'e1' }),
+    ).resolves.toMatchObject({
       success: true,
     });
   });

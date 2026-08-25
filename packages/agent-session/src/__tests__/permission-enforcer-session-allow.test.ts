@@ -14,7 +14,11 @@ import { describe, it, expect, vi } from 'vitest';
 import { PermissionEnforcer } from '../permission-enforcer.js';
 import { buildPermissionEnforcer } from '../session-components.js';
 
-import type { IPermissionEnforcerOptions, TPermissionResult } from '../permission-types.js';
+import type {
+  IPermissionEnforcerOptions,
+  TPermissionHandler,
+  TPermissionResult,
+} from '../permission-types.js';
 import type { ITerminalOutput, TToolArgs } from '@robota-sdk/agent-core';
 
 // ---------------------------------------------------------------------------
@@ -52,9 +56,7 @@ const BASH_ARGS: TToolArgs = { command: 'pnpm test' };
 
 describe('PermissionEnforcer — permissionHandler session-allow', () => {
   it('Given allow-session response When called once Then adds tool to session list', async () => {
-    const handler = vi
-      .fn<[string, TToolArgs], Promise<TPermissionResult>>()
-      .mockResolvedValue('allow-session');
+    const handler = vi.fn<TPermissionHandler>().mockResolvedValue('allow-session');
     const enforcer = makeEnforcer({ permissionHandler: handler });
 
     const result = await enforcer.checkPermission('Bash', BASH_ARGS);
@@ -64,9 +66,7 @@ describe('PermissionEnforcer — permissionHandler session-allow', () => {
   });
 
   it('Given allow-session granted earlier When called again Then handler is not called again', async () => {
-    const handler = vi
-      .fn<[string, TToolArgs], Promise<TPermissionResult>>()
-      .mockResolvedValue('allow-session');
+    const handler = vi.fn<TPermissionHandler>().mockResolvedValue('allow-session');
     const enforcer = makeEnforcer({ permissionHandler: handler });
 
     await enforcer.checkPermission('Bash', BASH_ARGS);
@@ -79,9 +79,7 @@ describe('PermissionEnforcer — permissionHandler session-allow', () => {
   });
 
   it('Given session allow cleared When called again Then prompts user again', async () => {
-    const handler = vi
-      .fn<[string, TToolArgs], Promise<TPermissionResult>>()
-      .mockResolvedValue('allow-session');
+    const handler = vi.fn<TPermissionHandler>().mockResolvedValue('allow-session');
     const enforcer = makeEnforcer({ permissionHandler: handler });
 
     await enforcer.checkPermission('Bash', BASH_ARGS);
@@ -95,10 +93,8 @@ describe('PermissionEnforcer — permissionHandler session-allow', () => {
   });
 
   it('Given allow-project response When called Then calls onProjectAllowTool and adds to session', async () => {
-    const onProjectAllowTool = vi.fn<[string], void>();
-    const handler = vi
-      .fn<[string, TToolArgs], Promise<TPermissionResult>>()
-      .mockResolvedValue('allow-project');
+    const onProjectAllowTool = vi.fn<(toolName: string) => void>();
+    const handler = vi.fn<TPermissionHandler>().mockResolvedValue('allow-project');
     const enforcer = makeEnforcer({ permissionHandler: handler, onProjectAllowTool });
 
     const result = await enforcer.checkPermission('Bash', BASH_ARGS);
@@ -109,9 +105,7 @@ describe('PermissionEnforcer — permissionHandler session-allow', () => {
   });
 
   it('Given deny response When called Then returns false', async () => {
-    const handler = vi
-      .fn<[string, TToolArgs], Promise<TPermissionResult>>()
-      .mockResolvedValue(false);
+    const handler = vi.fn<TPermissionHandler>().mockResolvedValue(false);
     const enforcer = makeEnforcer({ permissionHandler: handler });
 
     const result = await enforcer.checkPermission('Bash', BASH_ARGS);
@@ -121,9 +115,7 @@ describe('PermissionEnforcer — permissionHandler session-allow', () => {
   });
 
   it('Given allow-once response When called Then returns true without adding to session list', async () => {
-    const handler = vi
-      .fn<[string, TToolArgs], Promise<TPermissionResult>>()
-      .mockResolvedValue(true);
+    const handler = vi.fn<TPermissionHandler>().mockResolvedValue(true);
     const enforcer = makeEnforcer({ permissionHandler: handler });
 
     const result = await enforcer.checkPermission('Bash', BASH_ARGS);
@@ -140,7 +132,7 @@ describe('PermissionEnforcer — permissionHandler session-allow', () => {
 describe('PermissionEnforcer — promptForApprovalFn session-allow', () => {
   it('Given allow-session from promptForApprovalFn When called once Then adds tool to session list', async () => {
     const promptFn = vi
-      .fn<[ITerminalOutput, string, TToolArgs], Promise<TPermissionResult>>()
+      .fn<NonNullable<IPermissionEnforcerOptions['promptForApprovalFn']>>()
       .mockResolvedValue('allow-session');
     const enforcer = makeEnforcer({ promptForApprovalFn: promptFn });
 
@@ -152,7 +144,7 @@ describe('PermissionEnforcer — promptForApprovalFn session-allow', () => {
 
   it('Given allow-session granted via promptFn When called again Then fn is not called again', async () => {
     const promptFn = vi
-      .fn<[ITerminalOutput, string, TToolArgs], Promise<TPermissionResult>>()
+      .fn<NonNullable<IPermissionEnforcerOptions['promptForApprovalFn']>>()
       .mockResolvedValue('allow-session');
     const enforcer = makeEnforcer({ promptForApprovalFn: promptFn });
 
@@ -166,9 +158,9 @@ describe('PermissionEnforcer — promptForApprovalFn session-allow', () => {
   });
 
   it('Given allow-project from promptForApprovalFn When called Then calls onProjectAllowTool', async () => {
-    const onProjectAllowTool = vi.fn<[string], void>();
+    const onProjectAllowTool = vi.fn<(toolName: string) => void>();
     const promptFn = vi
-      .fn<[ITerminalOutput, string, TToolArgs], Promise<TPermissionResult>>()
+      .fn<NonNullable<IPermissionEnforcerOptions['promptForApprovalFn']>>()
       .mockResolvedValue('allow-project');
     const enforcer = makeEnforcer({ promptForApprovalFn: promptFn, onProjectAllowTool });
 
@@ -190,9 +182,7 @@ describe('PermissionEnforcer — getSessionAllowedTools', () => {
   });
 
   it('After allow-session on multiple tools Returns all approved tools', async () => {
-    const handler = vi
-      .fn<[string, TToolArgs], Promise<TPermissionResult>>()
-      .mockResolvedValue('allow-session');
+    const handler = vi.fn<TPermissionHandler>().mockResolvedValue('allow-session');
     const enforcer = makeEnforcer({ permissionHandler: handler });
 
     await enforcer.checkPermission('Bash', { command: 'ls' });
@@ -204,9 +194,7 @@ describe('PermissionEnforcer — getSessionAllowedTools', () => {
   });
 
   it('After clearSessionAllowedTools Returns empty list again', async () => {
-    const handler = vi
-      .fn<[string, TToolArgs], Promise<TPermissionResult>>()
-      .mockResolvedValue('allow-session');
+    const handler = vi.fn<TPermissionHandler>().mockResolvedValue('allow-session');
     const enforcer = makeEnforcer({ permissionHandler: handler });
 
     await enforcer.checkPermission('Bash', BASH_ARGS);

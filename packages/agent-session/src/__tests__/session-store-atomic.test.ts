@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { NodeSessionStore } from '../session-store.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
 import { loadedOrMissing } from './store-load-helpers.js';
 
 let baseDir: string;
@@ -91,7 +92,9 @@ describe('SessionStore atomic persistence (CORE-019)', () => {
     // reach the destination file — the previous record must survive.
     const circular: Record<string, unknown> = {};
     circular.self = circular;
-    expect(() => store.save(createRecord({ messages: [circular] }))).toThrow();
+    expect(() =>
+      store.save(createRecord({ messages: [circular as unknown as TUniversalMessage] })),
+    ).toThrow();
 
     const loaded = loadedOrMissing(store, 'core-019-atomic');
     expect(loaded?.messages[0]?.content).toBe('original');

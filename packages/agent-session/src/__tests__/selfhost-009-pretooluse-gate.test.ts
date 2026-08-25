@@ -88,7 +88,10 @@ describe('SELFHOST-009 TC-02 — PreToolUse security gate (functional)', () => {
     const enforcer = makeEnforcer(makeDenyExecutor('outcome-deny'));
     const [wrapped] = enforcer.wrapTools([makeTool('Bash', underlying)]);
 
-    const result = await wrapped!.execute({ command: 'rm -rf /' });
+    const result = await wrapped!.execute(
+      { command: 'rm -rf /' },
+      { toolName: 'Bash', parameters: { command: 'rm -rf /' } },
+    );
 
     expect(underlying).not.toHaveBeenCalled();
     const data = JSON.parse(result.data as string) as Record<string, unknown>;
@@ -105,7 +108,10 @@ describe('SELFHOST-009 TC-02 — PreToolUse security gate (functional)', () => {
     const enforcer = makeEnforcer(makeDenyExecutor('json-deny'));
     const [wrapped] = enforcer.wrapTools([makeTool('Write', underlying)]);
 
-    const result = await wrapped!.execute({ path: '/etc/passwd', content: 'x' });
+    const result = await wrapped!.execute(
+      { path: '/etc/passwd', content: 'x' },
+      { toolName: 'Write', parameters: { path: '/etc/passwd', content: 'x' } },
+    );
 
     expect(underlying).not.toHaveBeenCalled();
     const data = JSON.parse(result.data as string) as Record<string, unknown>;
@@ -129,7 +135,10 @@ describe('SELFHOST-009 TC-02 — PreToolUse security gate (functional)', () => {
     const enforcer = makeEnforcer(passExecutor);
     const [wrapped] = enforcer.wrapTools([makeTool('Read', underlying)]);
 
-    const result = await wrapped!.execute({ path: '/x' });
+    const result = await wrapped!.execute(
+      { path: '/x' },
+      { toolName: 'Read', parameters: { path: '/x' } },
+    );
 
     expect(underlying).toHaveBeenCalledOnce();
     expect(result.data).toBe('ran');

@@ -179,7 +179,7 @@ describe('CORE-031 — nothing to summarise is a no-op, not a summary', () => {
         state: 'complete' as const,
         timestamp: new Date(),
       }),
-    } as IAIProvider;
+    } as unknown as IAIProvider;
 
     // The value that made the overwrite possible was `''` — a string the caller happily wrote over
     // the conversation with. It must not come back at all.
