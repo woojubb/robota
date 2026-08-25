@@ -85,6 +85,11 @@ exemption.
   — canonical attestation command and malformed-ledger fixtures.
 - `scripts/harness/scan-guard-scope-fail-closed.mjs` and its tests — root finder classification and absent
   governed-tree behavior.
+- `scripts/harness/scan-user-execution-plan-order.mjs` and its tests — recognize the canonical recommendation
+  ledger as an exact planning artifact through the shared validator, without taking ownership of endorsement
+  semantics.
+- `.husky/pre-commit` — run staged recommendation-order enforcement before a commit can make review
+  retrospective.
 - `scripts/harness/run-all-scans.mjs`, `scripts/harness/examined-adoption-baseline.json`,
   `scripts/harness/measurement-provenance-pending.json`, and root command wiring — mandatory scan
   reachability, examined-population adoption, and provenance.
@@ -122,28 +127,42 @@ valid history, but only the unique latest observation for the current projection
 it must be `ENDORSE` with zero unresolved findings.
 
 The canonical decision projection is section-aware rather than a whole-file hash. It requires unique,
-unfenced headings and includes frontmatter `type`/`tags`, title, Problem, Prior Art Research, Architecture
-Review and Decision, Fallback declaration, User Execution Test Scenario plan, Solution, Affected Files, and
-Completion Criteria text while normalizing only the criteria checkbox marker. For the Test Plan it includes
-TC-ID, Test Type, and Tool / Approach but excludes the lifecycle-results Notes column. It excludes frontmatter
-status, Tasks lifecycle state, and the gate-owned Evidence Log. Missing/duplicate headings, malformed tables,
-fenced decoys, duplicate TC IDs, or a non-bijective criteria/test mapping fail closed.
+unfenced headings and includes every frontmatter key/value except the closed lifecycle-key set (`status` and
+`completed`), plus title, Problem, Prior Art Research, Architecture Review and Decision, Fallback declaration,
+User Execution Test Scenario plan, Solution, Affected Files, Completion Criteria text, and the entire planned
+Test Plan table. Only the Completion Criteria checkbox marker is normalized. Test Plan Notes remain plan and
+are immutable after endorsement; runtime commands, counts, exit codes, and observed results belong only in
+the gate-owned Evidence Log. It excludes Tasks lifecycle state and Evidence Log. Missing/duplicate headings,
+unknown lifecycle exclusions, malformed tables, fenced decoys, duplicate TC IDs, or a non-bijective
+criteria/test mapping fail closed.
 
-Verification has two deliberate modes. Topic-branch GATE-APPROVAL proves the reviewed commit exists and is
-reachable from the current topic HEAD, contains the exact subject, produced the expected projection digest,
-and still matches the current projection. The mandatory post-approval scan verifies the persisted expectation
-and observation plus the current projection digest, but does not require topic ancestry after squash merge;
-the attested digest is the durable bridge across rewritten commit identity. New-surface placement remains
-additional review content under the existing rule and is not weakened or reclassified.
+An endorsement is a dedicated planning-only checkpoint, not merely a final-state token. Whenever a projection
+first appears or changes, the work unit becomes `unendorsed`. Until the exact Task/spec plus canonical
+recommendation ledger expectation/observation are committed together, staged and topic-history enforcement
+rejects every implementation path. The checkpoint must be an ancestor before GATE-APPROVAL and before Phase 3
+continues after scope growth. `scan-recommendation-endorsement` owns this state machine and replays both the
+staged index and topic range. The HARNESS-121 plan-order scan imports the shared recommendation-record
+validator only to admit that exact ledger as a planning artifact; it does not duplicate endorsement meaning.
+
+Verification has two deliberate modes. Topic/staged mode proves the reviewed commit exists and is reachable
+from the endorsement checkpoint, contains the exact subject, produced the expected projection digest, and
+still matches the checkpoint projection; it also proves no implementation commit occurs while the state is
+unendorsed. The mandatory post-approval scan verifies the persisted expectation and observation plus the
+current projection digest, but does not require topic ancestry after squash merge; the attested digest is the
+durable bridge across rewritten commit identity. New-surface placement remains additional review content
+under the existing rule and is not weakened or reclassified.
 
 The mechanical scan applies to post-approval documents. Its baseline fixes the full adoption commit
 `675cd814edb4121fd92023fe7721c905a1acf321`; each legacy exemption must be reconstructed from that tree at the
 same path with the same status and bytes, so the baseline cannot mint new historical facts. Completed
 historical states remain auditable exemptions. A nonterminal item loses its exemption on any status/folder
 transition or file change, so active work converges prospectively without fabricated evidence. New, duplicate,
-unreconstructable, already-endorsed, or unnecessary exemptions fail. HARNESS-120 itself is the unavoidable
-self-bootstrap: one named subject and exact approved projection digest is frozen in the baseline because its
-attestation writer does not exist before its own GATE-APPROVAL; the schema permits no second bootstrap entry.
+unreconstructable, already-endorsed, or unnecessary exemptions fail. Rejected documents are outside the
+ENDORSE-required population because they never passed GATE-APPROVAL; a recorded `REJECT` may explain their
+disposition but cannot authorize work. HARNESS-120 itself is the unavoidable self-bootstrap: one exact tuple
+of subject, reviewed revision, and approved projection digest is frozen in the baseline because its
+attestation writer and order guard do not exist before its own GATE-APPROVAL; the schema permits no second
+bootstrap tuple or wildcard.
 
 The scan exports a root finder and therefore joins the guard-scope fail-closed classification, governed-tree
 absence tests, examined-adoption baseline, and measurement-provenance ledger in the same implementation.
@@ -174,13 +193,16 @@ engineering scan commands are verification, not user scenarios.
 
 ## Solution
 
-Define the universal attestation, decision projection, two-stage verification, and prospective adoption in
-the owning backlog rule. Extend the loop-run recorder with a recommendation-specific expectation/observation
-extension, then make the proposal reviewer and orchestrator produce it while the Task references its run ID.
-Make GATE-APPROVAL use topic mode before approval, with new-surface placement layered on top. Implement the
-mandatory squash-safe scan over post-approval specs and the immutable adoption revision, including
-guard-scope, examined-population, and provenance wiring. Update the orchestration map from PENDING only after
-the scan is registered and tested.
+Define the universal attestation, decision projection, endorsement-checkpoint state machine, two-stage
+verification, and prospective adoption in the owning backlog rule. Extend the loop-run recorder with a
+recommendation-specific expectation/observation extension, then make the proposal reviewer and orchestrator
+produce it while the Task references its run ID. Commit the exact Task/spec/ledger as a planning-only
+endorsement checkpoint before GATE-APPROVAL or any implementation, and repeat that checkpoint after every
+material projection change or Phase-3 scope growth. Make staged and topic-history scans reject retrospective
+endorsement and make GATE-APPROVAL use topic mode, with new-surface placement layered on top. Implement the
+mandatory squash-safe scan over post-approval specs and the immutable adoption revision, including the
+HARNESS-121 shared planning-path validator, pre-commit, guard-scope, examined-population, and provenance wiring.
+Update the orchestration map from PENDING only after the scan is registered and tested.
 
 ## Affected Files
 
@@ -200,6 +222,9 @@ the scan is registered and tested.
 - `scripts/harness/__tests__/scan-recommendation-endorsement.test.mjs`
 - `scripts/harness/scan-guard-scope-fail-closed.mjs`
 - `scripts/harness/__tests__/scan-guard-scope-fail-closed.test.mjs`
+- `scripts/harness/scan-user-execution-plan-order.mjs`
+- `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+- `.husky/pre-commit`
 - `scripts/harness/run-all-scans.mjs`
 - `scripts/harness/examined-adoption-baseline.json`
 - `scripts/harness/measurement-provenance-pending.json`
@@ -209,32 +234,35 @@ the scan is registered and tested.
 ## Completion Criteria
 
 - [ ] TC-01: The owner rule and GATE-APPROVAL require every recommendation—not only new surfaces—to have a
-      canonical expectation plus matching independent observation for the exact subject/revision/projection;
-      the latest observation is `ENDORSE` with zero unresolved findings, while new-surface placement remains
-      additive.
-- [ ] TC-02: Topic mode accepts an exact reachable reviewed revision and rejects missing/mismatched
-      expectation/observation pairs, wrong subjects, non-ancestor revisions, malformed/decoy/ambiguous or
-      stale projections, non-ENDORSE outcomes, duplicate observations, and nonzero unresolved findings;
-      post-squash mode validates the same attested projection without requiring lost topic ancestry.
+      planning-only checkpoint containing a canonical expectation plus matching independent observation for
+      the exact subject/revision/projection; the latest observation is `ENDORSE` with zero unresolved findings,
+      while new-surface placement remains additive.
+- [ ] TC-02: Staged/topic history accepts an exact reachable reviewed revision and endorsement checkpoint,
+      then rejects implementation before endorsement, implementation after an unendorsed material projection
+      change, missing/mismatched expectation/observation pairs, wrong subjects, non-ancestor revisions,
+      malformed/decoy/ambiguous or stale projections, non-ENDORSE outcomes, duplicate observations, and
+      nonzero unresolved findings; post-squash mode validates the attested projection without lost ancestry.
 - [ ] TC-03: Historical adoption is reconstructed from immutable revision
       `675cd814edb4121fd92023fe7721c905a1acf321` without claiming review occurred; completed historical states
       pass unchanged, while nonterminal transitions or edits, forged/new/duplicate/stale/unnecessary exemptions,
-      and any second self-bootstrap subject fail.
-- [ ] TC-04: The proposal-reviewer, orchestrator, loop recorder/validator, guardian, gate catalogue, scan
-      registry, root command, guard-scope classifier, examined/provenance ledgers, and orchestration map all
-      point to the same contract and make the scan mandatory and non-vacuous.
+      and any second or wildcard self-bootstrap tuple fail; rejected proposals remain outside the
+      ENDORSE-required population and cannot authorize implementation.
+- [ ] TC-04: The proposal-reviewer, orchestrator, loop recorder/validator, guardian, gate catalogue, staged
+      hook, HARNESS-121 planning-order shared validator, scan registry, root command, guard-scope classifier,
+      examined/provenance ledgers, and orchestration map all point to the same contract and make enforcement
+      mandatory, ordered, and non-vacuous.
 - [ ] TC-05: Focused tests, the complete harness contract tier, `pnpm harness:scan`, and the repository build
       and test commands all exit 0 after deliberate-red fixtures prove each fail-closed branch.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                                                 | Notes                                                                                                         |
-| ----- | --------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| TC-01 | INFRA     | Contract assertions over rule, catalogue, agent definitions, and loop schema    | Prove universal scope, canonical paired attestation, and additive placement wording.                          |
-| TC-02 | INFRA     | Loop-run and `scan-recommendation-endorsement.test.mjs` git fixtures            | Green topic/squash paths plus each dispatch, subject, ancestry, projection, verdict, and finding failure.     |
-| TC-03 | INFRA     | Adoption-revision fixture matrix and live baseline validation                   | Reconstruct exemptions from the frozen tree and prove prospective convergence without retrospective evidence. |
-| TC-04 | INFRA     | Registry/command/map, guard-scope, examined-adoption, and provenance assertions | Prevent an implemented-but-unreachable or vacuous guard.                                                      |
-| TC-05 | INFRA     | Focused Vitest, harness contracts, scan, build, and tests                       | Record commands, counts, and exit codes in gate evidence.                                                     |
+| TC-ID | Test Type | Tool / Approach                                                                                            | Notes                                                                                                                                                               |
+| ----- | --------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | INFRA     | Contract assertions over rule, catalogue, agent definitions, and loop schema                               | Prove universal scope, canonical paired attestation, and additive placement wording.                                                                                |
+| TC-02 | INFRA     | Loop-run and `scan-recommendation-endorsement.test.mjs` staged/history git fixtures                        | Green endorsement checkpoint/topic/squash paths plus retrospective implementation, re-plan, dispatch, subject, ancestry, projection, verdict, and finding failures. |
+| TC-03 | INFRA     | Adoption-revision fixture matrix and live baseline validation                                              | Reconstruct exemptions from the frozen tree and prove prospective convergence without retrospective evidence.                                                       |
+| TC-04 | INFRA     | Hook, plan-order shared-validator, registry/map, guard-scope, examined-adoption, and provenance assertions | Prevent an implemented-but-unreachable, retrospective, duplicated-owner, or vacuous guard.                                                                          |
+| TC-05 | INFRA     | Focused Vitest, harness contracts, scan, build, and tests                                                  | Record commands, counts, and exit codes in gate evidence.                                                                                                           |
 
 ## Tasks
 

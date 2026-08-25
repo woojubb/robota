@@ -28,6 +28,8 @@ new-surface placement remains an additive, stricter review concern.
 
 - [ ] Define one subject-, projection-, and revision-bound Recommendation Gate attestation contract in
       the owning rule and canonical loop-run ledger.
+- [ ] Make the attestation a planning-only endorsement checkpoint whose ancestry is required before any
+      implementation, including after a material projection change or Phase-3 scope growth.
 - [ ] Require GATE-APPROVAL to verify a current independent `ENDORSE` with zero unresolved findings for
       every recommendation, while retaining new-surface placement checks as additive evidence.
 - [ ] Add a mechanical scan and deliberate-red fixtures for missing expectation/observation pairs,
@@ -54,7 +56,12 @@ new-surface placement remains an additive, stricter review concern.
   The reviewer required squash-safe two-stage verification, a lifecycle-aware decision projection,
   canonical expectation/observation attestation rather than a Task self-claim, an immutable adoption
   anchor, and complete scan anti-vacuity/provenance wiring.
-- **Independent proposal review round 2:** pending against the revised committed draft.
+- **Independent proposal review round 2:** revision
+  `5d5c21f0cbc9faae6ad3dbf2a606233c0ba04b92`; `UNRESOLVED FINDINGS: 2`; `REVIEW VERDICT: REVISE`.
+  The reviewer required a staged/history ordering proof compatible with the HARNESS-121 planning guard,
+  all non-lifecycle semantic frontmatter and planned Test Plan content in the projection, an exact bootstrap
+  tuple, and an explicit exclusion for never-approved rejected proposals.
+- **Independent proposal review round 3:** pending against the revised committed draft.
 
 ## User Execution Test Scenarios
 
