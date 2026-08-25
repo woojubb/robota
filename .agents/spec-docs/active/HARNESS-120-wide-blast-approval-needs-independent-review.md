@@ -347,3 +347,12 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Whole-worktree path inventory: `git status --short --untracked-files=all`, unstaged name-status, and staged name-status show no staged change and only the exact planning set: the paired Task modification, the paired spec's draft deletion plus approved/todo replacement (one lifecycle move), and the single subject-bound `user-execution-scenario.jsonl` PLAN record. No implementation path, unrelated planning path, rename outside the exact spec move, or other deletion is present.
 - Pre-gate branch history: `origin/develop..HEAD` changes only the HARNESS-120 Task/spec planning artifacts and the prior append-only HARNESS-121 post-merge-cycle record; no implementation file in this spec's Affected Files was modified or committed before this gate.
 - NON-COMPLIANCE trigger: N/A — the exact Task and prospective PLAN evidence predate implementation, and neither branch history nor the complete worktree contains a premature implementation path.
+
+### [RECOMMENDATION RE-REVIEW] — ✅ ENDORSE | 2026-08-26
+
+- Scope-growth routing: the full harness scan identified filename-bound direct test coverage and rule-case citation handling that required a return to the Recommendation Gate before implementation resumed.
+- Reviewed subject: `HARNESS-120-wide-blast-approval-needs-independent-review.md`.
+- Reviewed revision: `0151e71c57e0eaaa9d7078e36118ab34a39d5ab1`.
+- Projection digest: `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
+- Independent verdict: `proposal-reviewer` returned `REVIEW VERDICT: ENDORSE` with `UNRESOLVED FINDINGS: 0` after confirming the direct record-module test remains in scope and the zero-count rule-case citation ratchet is preserved without a baseline increase.
+- Canonical evidence: open backlog execution run `r20260825171311` records one exact expectation and matching observation for the reviewed subject, revision, and projection digest.

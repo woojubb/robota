@@ -78,6 +78,13 @@ HARNESS-120-wide-blast-approval-needs-independent-review.md`; `REVIEW REVISION:
   The independent reviewer endorsed the planning-only checkpoint, staged/topic ordering, squash-safe
   attestation, complete semantic projection, immutable adoption/bootstrap, rejected-population exclusion,
   and Evidence-Log-only actual completion evidence contracts on 2026-08-26.
+- **Independent proposal review, scope re-entry final:** `REVIEW SUBJECT:
+HARNESS-120-wide-blast-approval-needs-independent-review.md`; `REVIEWED REVISION:
+0151e71c57e0eaaa9d7078e36118ab34a39d5ab1`; `PROJECTION DIGEST:
+ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`;
+  `UNRESOLVED FINDINGS: 0`; `REVIEW VERDICT: ENDORSE`. The reviewer confirmed the direct record-module
+  test remains required while the rule-case citation baseline remains at zero through generic owner-rule
+  wording. Canonical loop run `r20260825171311` records the exact expectation and observation.
 
 ## User Execution Test Scenarios
 
