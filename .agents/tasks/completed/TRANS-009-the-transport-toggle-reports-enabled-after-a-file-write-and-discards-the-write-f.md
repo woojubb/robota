@@ -1,8 +1,9 @@
 ---
 title: 'TRANS-009: the transport toggle reports enabled after a file write and discards the write failure'
 issue: https://github.com/woojubb/robota/issues/2050
-status: in-progress
+status: done
 created: 2026-08-25
+completed: 2026-08-25
 priority: high
 urgency: soon
 area: packages/agent-transport, packages/agent-transport-tui
