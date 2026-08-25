@@ -190,6 +190,16 @@ delegated to the runner. Does not own interactive UI.
 `transports` block of a settings file at the path supplied to the constructor. Holds no
 concrete-transport import.
 
+**When a settings change takes effect (TRANS-009).** `setEnabled` and `setOptions` **persist only**.
+Neither starts, stops, or reconfigures a running transport: the enabled set is read by `startAll` via
+`getEnabled()` when a session starts, so a change applies from the **next** start. The registry
+exposes no per-transport start or stop — `startAll` and `stopAll` act over the whole set — so
+"immediate" is not a capability that exists to be invoked.
+
+This is stated because it was not: a surface that called `setEnabled` and then reported the transport
+as enabled was reading a persisted value as a running state, and both readings were available from a
+method list that said nothing about timing.
+
 **Runner ownership (ARCH-011).** `startAll` awaits each adapter's readiness-returning `start()`, then
 immediately owns every runner's separate completion promise. A startup generation is sealed only
 after every enabled subject is registered, so a synchronously successful first runner cannot make a
