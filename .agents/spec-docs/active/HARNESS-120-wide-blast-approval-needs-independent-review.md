@@ -97,8 +97,8 @@ exemption.
 - `scripts/harness/run-all-scans.mjs`, `scripts/harness/examined-adoption-baseline.json`,
   `scripts/harness/measurement-provenance-pending.json`, and root command wiring — mandatory scan
   reachability, examined-population adoption, and provenance.
-- `scripts/harness/rule-case-narrative-baseline.json` — freeze the two new owner-rule mechanism citations
-  so rule-case enforcement cannot grow silently.
+- `.agents/rules/backlog-execution.md` — keep the rule-case citation ratchet at zero by expressing the
+  mechanism generically rather than adding new case-specific citations.
 - `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md` — re-scoped work record and
   independent verdict.
 
@@ -243,7 +243,6 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - `scripts/harness/run-all-scans.mjs`
 - `scripts/harness/examined-adoption-baseline.json`
 - `scripts/harness/measurement-provenance-pending.json`
-- `scripts/harness/rule-case-narrative-baseline.json`
 - `package.json`
 - `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md`
 

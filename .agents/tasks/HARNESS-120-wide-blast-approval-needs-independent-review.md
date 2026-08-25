@@ -38,8 +38,8 @@ new-surface placement remains an additive, stricter review concern.
 - [ ] Adopt the enforcement prospectively through an exact frozen baseline that never invents historical
       review evidence and re-governs nonterminal work at its next transition or material revision.
 - [ ] Wire the reviewer, orchestrator, gate catalogue, scan registry, and orchestration map to the same
-      evidence owner; update the rule-case citation baseline demanded by that owner-rule change; and prove
-      the full harness remains green.
+      evidence owner; preserve the zero-count rule-case citation ratchet by generalizing owner-rule wording;
+      and prove the full harness remains green.
 
 ## Test Plan
 
