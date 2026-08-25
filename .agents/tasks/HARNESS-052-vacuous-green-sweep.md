@@ -373,6 +373,24 @@ Stated rather than implied, because an audit claiming completeness it cannot hav
   contract presence explicitly, and `orchestration-map.md` footnote § records it as a partial floor
   rather than counting it as satisfied. A check that declares what it does not cover, and a map that
   refuses to count it as coverage, is the shape this sweep is trying to produce.
+  - **And there is already a ledger for it, which is not being written.**
+    `.agents/loop-runs/pr-finding-resolution-loop.jsonl` exists to record finding-resolution rounds
+    and carries a `ref` column pointing back at the pull request. Measured at `69496794d`: it holds
+    ten rows, and **PR #2323 has none — while that pull request received nine `ACTIONABLE FINDINGS`
+    verdicts, all nine reporting zero.** Nine rounds ran and the ledger that exists to record them
+    recorded nothing.
+
+    That narrows the bullet above rather than contradicting it. A hook still cannot see a subagent
+    returning findings into a context — but it **can** see whether a row was appended for a pull
+    request whose rounds are visible in its own comment history. **The enforceable property is about
+    the artifact, and the artifact is already specified; what is missing is that it is written.** A
+    mechanism here would guard an existing ledger's completeness, not invent a new observation point.
+
+    Deliberately not carried: the ledger also has four rows with an empty `ref`, but an empty `ref`
+    cannot be told from a row that never could carry one, so that count says nothing until the two
+    are distinguished. The row-count-versus-round-count comparison above is the only signal here that
+    is unambiguous, and it is the only one recorded.
+
   - The case that prompted this — a loop reported as running many reviewer dispatches and no writer
     dispatch, losing two real findings — **is not recorded anywhere in this repository**; it reached
     this record through a session message and its counts are not reproducible from any artifact here.
