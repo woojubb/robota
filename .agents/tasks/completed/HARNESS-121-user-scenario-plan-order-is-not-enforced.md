@@ -73,3 +73,6 @@ user-execution scenarios. No hidden user-facing capability is introduced behind 
 - On exact committed HEAD after the local-review fix, `pnpm harness:scan` passed 145 scans with 1 declared
   policy skip; the canonical new-rule enforcement declaration, folder/status, Task archival,
   done-evidence, and backlog placement checks all passed.
+- The first pre-push gate caught a duplicated frontmatter `status` regex. Replacing it with the owned
+  `frontmatterObject`/`asScalar` parser made the focused SSOT/lifecycle/guard suite pass 122/122 and the
+  stripped hermetic suite pass 1,149/1,149.

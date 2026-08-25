@@ -17,6 +17,8 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
+import { asScalar, frontmatterObject } from './frontmatter.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TASK_PREFIX = '.agents/tasks/';
 const SPEC_PREFIX = '.agents/spec-docs/';
@@ -162,8 +164,8 @@ function isPreCheckpointPlanningPath(file, basename) {
 }
 
 function frontmatterStatus(text) {
-  const match = /^---\n([\s\S]*?)\n---/.exec(text ?? '');
-  return match?.[1].match(/^status:\s*([^\n]+)$/m)?.[1].trim() ?? null;
+  const status = asScalar(frontmatterObject(text ?? '').status).trim();
+  return status === '' ? null : status;
 }
 
 function isEscapedDelimiter(line, at) {
