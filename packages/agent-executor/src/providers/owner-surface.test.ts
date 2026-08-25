@@ -13,6 +13,18 @@
  */
 import { describe, expect, it } from 'vitest';
 
+// The RUNTIME surface, read as values. The type assertions below are compile-time only, and vitest
+// does not typecheck — so on their own their `expect` body is a tautology over five literal `true`s
+// that passes against the very code this file exists to forbid. This import is what makes the test
+// go red without the change.
+// Every LEVEL of the re-export chain, not just the package surface. The change spans three files —
+// `provider-factory.ts`, `providers/index.ts`, `src/index.ts` — and reversing any ONE of them leaves
+// the other two still narrowing, so a test that reads only the outermost surface stays green against
+// each single-file reversal. It would guard the whole chain and nothing in it.
+import * as FactoryModule from './provider-factory.js';
+import * as ProvidersBarrel from './index.js';
+import * as ExecutorSurface from '../index.js';
+
 import type * as Core from '@robota-sdk/agent-core';
 // The package's OWN entry source, not '@robota-sdk/agent-executor'. Importing by package name
 // resolves through `dist/`, so the assertion would describe the last build rather than this source —
@@ -42,6 +54,37 @@ const profileHelperStays: 'resolveProfileApiKey' extends keyof typeof Executor ?
   true;
 
 describe('ARCH-111: one owner for the core provider helpers', () => {
+  // Written as three plain cases rather than one `it.each`. A parameterised title is `'%s …'` in the
+  // source and interpolated at run time, so `check-regression-red-proof.mjs` — which matches the
+  // titles a diff ADDED against the titles that ran — cannot recognise it as an added case. It
+  // reported `added-cases-pass`: a case did fail with the fix reversed, and the checker could not
+  // tell it was one of mine. A test invisible to the red-proof matcher guards nothing it can prove.
+  it('provider-factory.ts does not re-export agent-core provider helpers', () => {
+    const surface = Object.keys(FactoryModule);
+    expect(surface).not.toContain('normalizeProviderConfig');
+    expect(surface).not.toContain('createProviderFromConfig');
+  });
+
+  it('providers/index.ts does not re-export agent-core provider helpers', () => {
+    const surface = Object.keys(ProvidersBarrel);
+    expect(surface).not.toContain('normalizeProviderConfig');
+    expect(surface).not.toContain('createProviderFromConfig');
+  });
+
+  it('src/index.ts does not re-export agent-core provider helpers', () => {
+    const surface = Object.keys(ExecutorSurface);
+    expect(surface).not.toContain('normalizeProviderConfig');
+    expect(surface).not.toContain('createProviderFromConfig');
+  });
+
+  it("still exports this package's own profile helpers", () => {
+    // The positive control for the case above: without it, both assertions would hold against a
+    // package whose entry file failed to export anything at all.
+    const surface = Object.keys(ExecutorSurface);
+    expect(surface).toContain('resolveProfileApiKey');
+    expect(surface).toContain('createProviderFromProfile');
+  });
+
   it('holds the surface assertions at compile time', () => {
     expect([
       normalizeIsNotExecutors,
