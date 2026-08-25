@@ -25,30 +25,183 @@ function normalizeLines(text) {
   return String(text).replace(/\r\n?/g, '\n').split('\n');
 }
 
-function visibleLines(text) {
-  const lines = normalizeLines(text);
-  const hidden = new Set();
+const HTML_BLOCK_TAGS = new Set([
+  'address',
+  'article',
+  'aside',
+  'base',
+  'basefont',
+  'blockquote',
+  'body',
+  'caption',
+  'center',
+  'col',
+  'colgroup',
+  'dd',
+  'details',
+  'dialog',
+  'dir',
+  'div',
+  'dl',
+  'dt',
+  'fieldset',
+  'figcaption',
+  'figure',
+  'footer',
+  'form',
+  'frame',
+  'frameset',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'head',
+  'header',
+  'hr',
+  'html',
+  'iframe',
+  'legend',
+  'li',
+  'link',
+  'main',
+  'menu',
+  'menuitem',
+  'nav',
+  'noframes',
+  'ol',
+  'optgroup',
+  'option',
+  'p',
+  'param',
+  'search',
+  'section',
+  'summary',
+  'table',
+  'tbody',
+  'td',
+  'tfoot',
+  'th',
+  'thead',
+  'title',
+  'tr',
+  'track',
+  'ul',
+]);
+
+function maskThrough(hidden, start, end) {
+  for (let index = start; index <= end; index += 1) hidden.add(index);
+}
+
+function maskPairedFences(lines, hidden) {
   for (let index = 0; index < lines.length; index += 1) {
     const opener = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(lines[index]);
     if (opener === null || (opener[1][0] === '`' && opener[2].includes('`'))) continue;
     const marker = opener[1][0];
     const minimumLength = opener[1].length;
     const closer = new RegExp(`^ {0,3}\\${marker}{${minimumLength},}[ \\t]*$`);
-    let closeAt = -1;
-    for (let candidate = index + 1; candidate < lines.length; candidate += 1) {
-      if (closer.test(lines[candidate])) {
-        closeAt = candidate;
-        break;
-      }
-    }
+    const closeAt = lines.findIndex((line, candidate) => candidate > index && closer.test(line));
     // An incomplete or malformed fence must not make planning text disappear from review.
     if (closeAt === -1) continue;
-    for (let hiddenIndex = index; hiddenIndex <= closeAt; hiddenIndex += 1) {
-      hidden.add(hiddenIndex);
-    }
+    maskThrough(hidden, index, closeAt);
     index = closeAt;
   }
-  return lines.map((line, index) => (hidden.has(index) ? '' : line));
+}
+
+function maskHtmlBlocks(lines, hidden) {
+  for (let index = 0; index < lines.length; index += 1) {
+    if (hidden.has(index)) continue;
+    const line = lines[index];
+    if (/^ {0,3}<!--/.test(line)) {
+      let closeAt = index;
+      while (closeAt < lines.length && !lines[closeAt].includes('-->')) closeAt += 1;
+      maskThrough(hidden, index, Math.min(closeAt, lines.length - 1));
+      index = closeAt;
+      continue;
+    }
+
+    const raw = /^ {0,3}<(script|pre|style|textarea)(?:[\t >]|$)/i.exec(line);
+    if (raw) {
+      const closing = new RegExp(`</${raw[1]}\\s*>`, 'i');
+      let closeAt = index;
+      while (closeAt < lines.length && !closing.test(lines[closeAt])) closeAt += 1;
+      maskThrough(hidden, index, Math.min(closeAt, lines.length - 1));
+      index = closeAt;
+      continue;
+    }
+
+    const tag = /^ {0,3}<\/?([A-Za-z][A-Za-z0-9-]*)(?:[\t />]|$)/.exec(line)?.[1];
+    const completeTag = /^ {0,3}<\/?[A-Za-z][A-Za-z0-9-]*(?:\s+[^<>]*)?\/?>\s*$/.test(line);
+    const typeSevenMayStart = index === 0 || lines[index - 1].trim() === '';
+    if ((tag && HTML_BLOCK_TAGS.has(tag.toLowerCase())) || (completeTag && typeSevenMayStart)) {
+      let closeAt = index;
+      while (closeAt + 1 < lines.length && lines[closeAt + 1].trim() !== '') closeAt += 1;
+      maskThrough(hidden, index, closeAt);
+      index = closeAt;
+    }
+  }
+}
+
+function maskCodeSpans(lines) {
+  const source = lines.join('\n');
+  // Fence-shaped lines left visible by the strict paired-fence pass are malformed fences, not a
+  // licence for the more permissive code-span pass to hide their contents.
+  const scanSource = lines
+    .map((line) => (/^\s*`{3,}/.test(line) ? line.replaceAll('`', '\0') : line))
+    .join('\n');
+  const lineStarts = [0];
+  for (let index = 0; index < source.length; index += 1) {
+    if (source[index] === '\n') lineStarts.push(index + 1);
+  }
+  const lineAt = (offset) => {
+    let line = 0;
+    while (line + 1 < lineStarts.length && lineStarts[line + 1] <= offset) line += 1;
+    return line;
+  };
+  const masked = [...lines];
+  const runs = [...scanSource.matchAll(/`+/g)]
+    .filter((match) => {
+      let escapes = 0;
+      for (let at = match.index - 1; at >= 0 && scanSource[at] === '\\'; at -= 1) escapes += 1;
+      return escapes % 2 === 0;
+    })
+    .map((match) => ({
+      start: match.index,
+      end: match.index + match[0].length,
+      length: match[0].length,
+    }));
+  for (let index = 0; index < runs.length; index += 1) {
+    const opener = runs[index];
+    const openerLine = lineAt(opener.start);
+    const closeIndex = runs.findIndex(
+      (candidate, candidateIndex) => candidateIndex > index && candidate.length === opener.length,
+    );
+    if (closeIndex === -1) continue;
+    const closer = runs[closeIndex];
+    const closerLine = lineAt(closer.start);
+    if (openerLine < closerLine) {
+      for (let line = openerLine + 1; line < closerLine; line += 1) masked[line] = '';
+      const delimiter = '`'.repeat(opener.length);
+      if (lines[openerLine].trim() === delimiter) masked[openerLine] = '';
+      if (lines[closerLine].trim() === delimiter) masked[closerLine] = '';
+    }
+    index = closeIndex;
+  }
+  return masked;
+}
+
+function projectionAndStructuralLines(text) {
+  const lines = normalizeLines(text);
+  const hidden = new Set();
+  maskPairedFences(lines, hidden);
+  const projectionLines = lines.map((line, index) => (hidden.has(index) ? '' : line));
+  const structuralHidden = new Set(hidden);
+  maskHtmlBlocks(lines, structuralHidden);
+  const structuralLines = maskCodeSpans(
+    lines.map((line, index) => (structuralHidden.has(index) ? '' : line)),
+  );
+  return { projectionLines, structuralLines };
 }
 
 function canonicalBody(lines) {
@@ -83,12 +236,14 @@ function frontmatterProjection(lines) {
   return { entries: entries.sort(([left], [right]) => left.localeCompare(right)), end };
 }
 
-function sectionRanges(lines, startAt) {
+function sectionRanges(lines, startAt, bodyLines = lines) {
   const headings = [];
   for (let index = startAt; index < lines.length; index += 1) {
-    const match = /^(#{1,6})\s+(.+?)\s*$/.exec(lines[index]);
-    if (match)
-      headings.push({ index, level: match[1].length, title: match[2].replace(/\s+#+\s*$/, '') });
+    const match = /^ {0,3}(#{1,6})(?:[\t ]+(.*?)[\t ]*|[\t ]*)$/.exec(lines[index]);
+    if (match) {
+      const title = (match[2] ?? '').replace(/[\t ]+#+[\t ]*$/, '');
+      headings.push({ index, level: match[1].length, title });
+    }
   }
   const h1 = headings.filter((heading) => heading.level === 1);
   if (h1.length !== 1)
@@ -112,8 +267,8 @@ function sectionRanges(lines, startAt) {
   }
   const title = h1[0];
   const firstH2 = headings.find((heading) => heading.level === 2);
-  const preTitle = lines.slice(startAt, title.index);
-  const postTitle = lines.slice(title.index + 1, firstH2?.index ?? lines.length);
+  const preTitle = bodyLines.slice(startAt, title.index);
+  const postTitle = bodyLines.slice(title.index + 1, firstH2?.index ?? bodyLines.length);
   if (
     title.index < startAt ||
     (firstH2 && firstH2.index < title.index) ||
@@ -124,6 +279,7 @@ function sectionRanges(lines, startAt) {
     );
   }
   const result = new Map();
+  const structuralResult = new Map();
   for (const name of REQUIRED_SECTIONS) {
     const matches = headings.filter((heading) => heading.level === 2 && heading.title === name);
     if (matches.length !== 1) {
@@ -136,9 +292,11 @@ function sectionRanges(lines, startAt) {
     const next = headings.find(
       (candidate) => candidate.index > heading.index && candidate.level <= 2,
     );
-    result.set(name, canonicalBody(lines.slice(heading.index + 1, next?.index ?? lines.length)));
+    const end = next?.index ?? lines.length;
+    result.set(name, canonicalBody(bodyLines.slice(heading.index + 1, end)));
+    structuralResult.set(name, canonicalBody(lines.slice(heading.index + 1, end)));
   }
-  return { title: title.title, sections: result };
+  return { title: title.title, sections: result, structuralSections: structuralResult };
 }
 
 function tcIdsFromCriteria(section) {
@@ -191,15 +349,24 @@ function plannedCompletionCriteria(section) {
  * Canonical planning projection reviewed at the Recommendation Gate.
  *
  * Scope: the spec's non-lifecycle frontmatter, title, and the nine owner sections named above.
- * Excluded by design: lifecycle status/completed fields, Tasks, and Evidence Log. Only complete
- * CommonMark fenced blocks hide headings or TC rows; malformed fences, unknown H2 owners, nonblank
- * preambles, duplicate visible owners, and non-bijective TC plans fail closed.
+ * Excluded by design: lifecycle status/completed fields, Tasks, and Evidence Log. Complete
+ * CommonMark fenced blocks are excluded from the projection; raw HTML and multiline code-span body
+ * bytes stay bound while their fake structural headings/TC rows are ignored. Malformed fences,
+ * unknown H2 owners, nonblank preambles, duplicate visible owners, and non-bijective TC plans fail
+ * closed.
  */
 export function decisionProjection(markdown) {
-  const lines = visibleLines(markdown);
-  const frontmatter = frontmatterProjection(lines);
-  const { title, sections } = sectionRanges(lines, frontmatter.end + 1);
-  assertTcBijection(sections.get('Completion Criteria'), sections.get('Test Plan'));
+  const { projectionLines, structuralLines } = projectionAndStructuralLines(markdown);
+  const frontmatter = frontmatterProjection(projectionLines);
+  const { title, sections, structuralSections } = sectionRanges(
+    structuralLines,
+    frontmatter.end + 1,
+    projectionLines,
+  );
+  assertTcBijection(
+    structuralSections.get('Completion Criteria'),
+    structuralSections.get('Test Plan'),
+  );
   return {
     frontmatter: Object.fromEntries(frontmatter.entries),
     title,

@@ -424,3 +424,12 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Focused verification: the seven affected harness test files passed 156 tests, including 30 endorsement-scan fixtures and the direct record-module tests; an explicit `--base definitely-not-a-ref` invocation failed as required.
 - Complete verification: `pnpm harness:test:contracts` passed 3,926 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
 - Review status: the six findings are fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.
+
+### [LOCAL REVIEW ROUND 2] — 🔁 RESOLVED | 2026-08-26
+
+- Exact review range: independent local re-review compared base `675cd814edb4121fd92023fe7721c905a1acf321` with fix head `be4fd9d3cc9693c1f72b7c2f96a10c007d829448` and returned `ACTIONABLE FINDINGS: 4`.
+- Resolved findings: persisted verification again accepts squash landings without topic-commit ancestry; global ledger checks allow distinct later runs while rejecting exact record replay; structural projection recognizes CommonMark HTML/comment/code-span hiding and 0–3-space ATX headings without dropping semantic body bytes; and committed or staged deletion cannot erase a previously governed subject.
+- Additional fail-closed edges: fixtures cover a reviewed topic object that remains reachable beside a squash landing, baseline partial staging with different index/worktree bytes, unowned HTML preamble content, blank-line multiline code spans, escaped backticks, and HTML type-7 paragraph interruption.
+- Focused verification: the exact seven affected harness test files passed 194 tests; the direct projection/endorsement pair passed 39 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
+- Complete verification: `pnpm harness:test:contracts` passed 3,933 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
+- Review status: the four findings are fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.

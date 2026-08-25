@@ -159,9 +159,15 @@ function repository({ introduceBaseline = true } = {}) {
   return { root, adoptionRevision };
 }
 
-function attestation({ digest, revision, verdict = 'ENDORSE', unresolvedFindings = 0 } = {}) {
+function attestation({
+  digest,
+  revision,
+  verdict = 'ENDORSE',
+  unresolvedFindings = 0,
+  runId = 'r20260826000000',
+} = {}) {
   return {
-    runId: 'r20260826000000',
+    runId,
     opened: '2026-08-26T00:00:00.000Z',
     closed: '2026-08-26T00:01:00.000Z',
     roundFindings: [unresolvedFindings],
@@ -315,6 +321,47 @@ describe('canonical recommendation decision projection', () => {
     expect(() =>
       decisionProjection(spec().replace('## Problem\n', 'Preamble after title.\n\n## Problem\n')),
     ).toThrow(/preamble/i);
+    expect(() =>
+      decisionProjection(
+        spec().replace(
+          '# INFRA-999: recommendation proof\n',
+          '<!-- unowned planning decision -->\n\n# INFRA-999: recommendation proof\n',
+        ),
+      ),
+    ).toThrow(/preamble/i);
+  });
+
+  it('masks CommonMark HTML blocks, comments, and multiline code spans structurally', () => {
+    const hiddenStructures = [
+      '<!--',
+      '## Undeclared Comment Owner',
+      '-->',
+      '',
+      '<script type="text/javascript">',
+      '## Solution',
+      '</script>',
+      '',
+      '<div class="fixture">',
+      '## Undeclared HTML Owner',
+      '</div>',
+      '',
+      '``',
+      '## Solution',
+      '',
+      '``',
+      '',
+    ].join('\n');
+    const markdown = spec().replace('## Solution\n', `${hiddenStructures}## Solution\n`);
+    expect(decisionProjection(markdown).userExecutionPlan).toContain('Undeclared HTML Owner');
+    expect(decisionProjectionDigest(markdown)).not.toBe(decisionProjectionDigest(spec()));
+    expect(() =>
+      decisionProjection(spec().replace('## Solution\n', '\\`\n## Solution\n`\n\n## Solution\n')),
+    ).toThrow(/recommendation projection/i);
+  });
+
+  it('recognizes valid zero-to-three-space ATX owner headings', () => {
+    const indented = spec().replace(/^# /m, '   # ').replace(/^## /gm, '   ## ');
+    expect(decisionProjectionDigest(indented)).toBe(decisionProjectionDigest(spec()));
   });
 });
 
@@ -430,7 +477,7 @@ describe('persisted endorsement and immutable adoption', () => {
     expect(findRecommendationEndorsementFindings(root).length).toBeGreaterThan(0);
   });
 
-  it('rejects duplicate subject-round evidence across ledger entries', () => {
+  it('rejects exact replayed expectation and observation records across ledger entries', () => {
     const { root } = repository();
     write(root, ACTIVE_SPEC, spec());
     write(root, TASK, task());
@@ -438,25 +485,99 @@ describe('persisted endorsement and immutable adoption', () => {
     const digest = decisionProjectionDigest(spec());
     const record = JSON.stringify(attestation({ digest, revision }));
     write(root, LEDGER, `${record}\n${record}\n`);
-    expect(
-      findRecommendationEndorsementFindings(root)
-        .map((item) => item.detail)
-        .join('\n'),
-    ).toMatch(/duplicate.*subject.*round/i);
+    const details = findRecommendationEndorsementFindings(root)
+      .map((item) => item.detail)
+      .join('\n');
+    expect(details).toMatch(/replayed.*expectation/i);
+    expect(details).toMatch(/replayed.*observation/i);
   });
 
-  it('rejects persisted evidence whose reviewed revision is not semantically reachable', () => {
+  it('accepts a later distinct run for the same subject and round', () => {
     const { root } = repository();
     write(root, ACTIVE_SPEC, spec());
     write(root, TASK, task());
-    commit(root, 'current plan');
+    const firstRevision = commit(root, 'first reviewed plan');
+    const firstDigest = decisionProjectionDigest(spec());
+    const changed = spec({ decision: 'Choose a distinct later mechanism.' });
+    write(root, ACTIVE_SPEC, changed);
+    const secondRevision = commit(root, 'second reviewed plan');
+    const secondDigest = decisionProjectionDigest(changed);
+    const first = attestation({
+      digest: firstDigest,
+      revision: firstRevision,
+      runId: 'r20260826000001',
+    });
+    const second = attestation({
+      digest: secondDigest,
+      revision: secondRevision,
+      runId: 'r20260826000002',
+    });
+    write(root, LEDGER, `${JSON.stringify(first)}\n${JSON.stringify(second)}\n`);
+    expect(findRecommendationEndorsementFindings(root)).toEqual([]);
+  });
+
+  it('accepts immutable bootstrap and persisted evidence in a squash-only fresh clone', () => {
+    const { root, adoptionRevision } = repository({ introduceBaseline: false });
+    write(root, ACTIVE_SPEC, spec());
+    write(root, TASK, task());
     const digest = decisionProjectionDigest(spec());
-    write(root, LEDGER, `${JSON.stringify(attestation({ digest, revision: 'f'.repeat(40) }))}\n`);
-    expect(
-      findRecommendationEndorsementFindings(root)
-        .map((item) => item.detail)
-        .join('\n'),
-    ).toMatch(/reachable|revision/i);
+    const removedTopicRevision = 'f'.repeat(40);
+    write(
+      root,
+      BASELINE,
+      `${JSON.stringify(
+        {
+          adoptionRevision,
+          bootstrap: {
+            subject: SUBJECT,
+            reviewedRevision: removedTopicRevision,
+            projectionDigest: digest,
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    write(
+      root,
+      LEDGER,
+      `${JSON.stringify(
+        attestation({ digest, revision: removedTopicRevision, runId: 'r20260826000003' }),
+      )}\n`,
+    );
+    commit(root, 'squashed recommendation landing');
+
+    const cloneParent = makeTemp('robota-recommendation-squash-clone-');
+    const clone = path.join(cloneParent, 'fresh');
+    git(root, ['clone', '--no-local', root, clone]);
+    expect(findRecommendationEndorsementFindings(clone)).toEqual([]);
+  });
+
+  it('accepts a reviewed topic commit that exists beside, not beneath, the squash landing', () => {
+    const { root, adoptionRevision } = repository({ introduceBaseline: false });
+    write(root, ACTIVE_SPEC, spec());
+    write(root, TASK, task());
+    const reviewedRevision = commit(root, 'reviewed topic plan');
+    const digest = decisionProjectionDigest(spec());
+    git(root, ['branch', 'reviewed-topic', reviewedRevision]);
+    git(root, ['reset', '--hard', adoptionRevision]);
+    write(root, ACTIVE_SPEC, spec());
+    write(root, TASK, task());
+    write(
+      root,
+      BASELINE,
+      `${JSON.stringify(
+        {
+          adoptionRevision,
+          bootstrap: { subject: SUBJECT, reviewedRevision, projectionDigest: digest },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    write(root, LEDGER, `${JSON.stringify(attestation({ digest, revision: reviewedRevision }))}\n`);
+    commit(root, 'squashed landing while reviewed topic remains reachable');
+    expect(findRecommendationEndorsementFindings(root)).toEqual([]);
   });
 
   it('reconstructs historical exemptions from the adoption tree and loses them on any edit', () => {
@@ -487,6 +608,17 @@ describe('persisted endorsement and immutable adoption', () => {
       write(root, BASELINE, `${JSON.stringify(replacement, null, 2)}\n`);
       expect(() => findRecommendationEndorsementFindings(root)).toThrow(/immutable|introduction/i);
     }
+  });
+
+  it('reads immutable baseline bytes from the proposed index under partial staging', () => {
+    const { root } = repository();
+    const original = readFileSync(path.join(root, BASELINE), 'utf8');
+    const replacement = JSON.parse(original);
+    replacement.adoptionRevision = git(root, ['rev-parse', 'HEAD']);
+    write(root, BASELINE, `${JSON.stringify(replacement, null, 2)}\n`);
+    git(root, ['add', BASELINE]);
+    write(root, BASELINE, original);
+    expect(() => findRecommendationStagedFindings(root)).toThrow(/immutable|introduction/i);
   });
 
   it('validates the bootstrap tuple against the exact reviewed subject projection', () => {
@@ -535,6 +667,29 @@ describe('persisted endorsement and immutable adoption', () => {
         .map((item) => item.detail)
         .join('\n'),
     ).toMatch(/no recommendation observation/i);
+  });
+
+  it('reports a previously governed subject that is deleted in committed history', () => {
+    const { root } = repository();
+    const base = git(root, ['rev-parse', 'HEAD']);
+    write(root, ACTIVE_SPEC, spec());
+    write(root, TASK, task());
+    commit(root, 'approve proposal');
+    git(root, ['rm', ACTIVE_SPEC]);
+    commit(root, 'delete governed proposal');
+    write(root, 'scripts/harness/example.mjs', 'export const bypass = true;\n');
+    commit(root, 'implement after governed deletion');
+
+    expect(
+      findRecommendationEndorsementFindings(root)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/previously governed.*disappeared/i);
+    expect(
+      findRecommendationTopicFindings(root, base)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/previously governed.*disappeared/i);
   });
 });
 
@@ -700,5 +855,17 @@ describe('staged ordering', () => {
         .map((item) => item.detail)
         .join('\n'),
     ).toMatch(/staged implementation precedes/i);
+  });
+
+  it('reports a staged governed-subject deletion mixed with implementation', () => {
+    const { root, base } = reviewedTopic();
+    git(root, ['rm', ACTIVE_SPEC]);
+    write(root, 'scripts/harness/example.mjs', 'export const bypass = true;\n');
+    git(root, ['add', '-A']);
+    expect(
+      findRecommendationStagedFindings(root, base)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/previously governed.*disappeared/i);
   });
 });

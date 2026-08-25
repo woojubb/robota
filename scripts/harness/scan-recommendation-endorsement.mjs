@@ -87,12 +87,13 @@ function exactKeys(value, expected) {
   return keys.length === wanted.length && keys.every((key, index) => key === wanted[index]);
 }
 
-function readBaseline(root) {
+function readBaseline(root, sourceRevision = 'worktree') {
   const file = path.join(root, BASELINE);
   let source;
   let parsed;
   try {
-    source = readFileSync(file, 'utf8');
+    source = sourceRevision === ':index' ? indexText(root, BASELINE) : readFileSync(file, 'utf8');
+    if (source === null) throw new Error('baseline is absent from the proposed index');
     parsed = JSON.parse(source);
   } catch (error) {
     throw new Error(`recommendation-endorsement: cannot parse ${BASELINE}: ${error.message}`);
@@ -151,20 +152,23 @@ function readBaseline(root) {
         'recommendation-endorsement: bootstrap tuple contains a malformed or wildcard value.',
       );
     }
-    if (!commitExists(root, parsed.bootstrap.reviewedRevision)) {
-      throw new Error(
-        `recommendation-endorsement: bootstrap reviewedRevision ${parsed.bootstrap.reviewedRevision} is not a commit.`,
-      );
-    }
+    const reviewedRevisionExists = commitExists(root, parsed.bootstrap.reviewedRevision);
     if (
-      !isAncestor(root, parsed.adoptionRevision, parsed.bootstrap.reviewedRevision) ||
-      !isAncestor(root, parsed.bootstrap.reviewedRevision, introductionRevision)
+      reviewedRevisionExists &&
+      !isAncestor(root, parsed.adoptionRevision, parsed.bootstrap.reviewedRevision)
     ) {
       throw new Error(
-        'recommendation-endorsement: bootstrap reviewedRevision must be between adoption and baseline introduction.',
+        'recommendation-endorsement: bootstrap reviewedRevision must descend from the immutable adoption revision.',
       );
     }
-    const reviewed = specAt(root, parsed.bootstrap.reviewedRevision, parsed.bootstrap.subject);
+    // A squash merge deliberately removes the topic review commit from a fresh clone. When it is
+    // still present, validate that original subject exactly; otherwise validate the immutable
+    // projection carried by the baseline-introduction landing commit.
+    const reviewed = specAt(
+      root,
+      reviewedRevisionExists ? parsed.bootstrap.reviewedRevision : introductionRevision,
+      parsed.bootstrap.subject,
+    );
     let reviewedDigest = null;
     try {
       reviewedDigest = reviewed === null ? null : decisionProjectionDigest(reviewed.text);
@@ -202,6 +206,51 @@ function subjectWasPostApproval(root, name, revision) {
   return output.trim() !== '';
 }
 
+function historicallyGovernedSubjects(root, revision, adoptionRevision) {
+  const paths = GOVERNED_STATES.map((state) => `${SPEC_ROOT}/${state}`);
+  const subjects = new Set();
+  const adoptedPaths = git(root, [
+    'ls-tree',
+    '-r',
+    '--name-only',
+    adoptionRevision,
+    '--',
+    ...paths,
+    `${SPEC_ROOT}/rejected`,
+  ]);
+  for (const line of adoptedPaths.split('\n')) {
+    const relative = line.trim();
+    const subject = subjectFromSpecPath(relative);
+    if (
+      subject &&
+      (!relative.startsWith(`${SPEC_ROOT}/rejected/`) ||
+        subjectWasPostApproval(root, subject, adoptionRevision))
+    ) {
+      subjects.add(subject);
+    }
+  }
+  const output = git(root, [
+    'log',
+    '--format=',
+    '--name-only',
+    `${adoptionRevision}..${revision}`,
+    '--',
+    ...paths,
+  ]);
+  for (const line of output.split('\n')) {
+    const subject = subjectFromSpecPath(line.trim());
+    if (subject) subjects.add(subject);
+  }
+  return subjects;
+}
+
+function disappearedSubjectFinding(subject, mode) {
+  return finding(
+    `${SPEC_ROOT}/{todo,active,done,rejected}/${subject}`,
+    `previously governed recommendation subject disappeared from ${mode}; deletion cannot erase the endorsement population`,
+  );
+}
+
 function readLedger(root) {
   const text = readFileSync(path.join(root, LEDGER), 'utf8');
   const entries = [];
@@ -218,11 +267,11 @@ function readLedger(root) {
   return entries;
 }
 
-function attestationIndex(root, entries) {
+function attestationIndex(entries) {
   const index = new Map();
   const errors = [];
-  const seenExpectationSubjectRounds = new Set();
-  const seenObservationSubjectRounds = new Set();
+  const seenExpectations = new Set();
+  const seenObservations = new Set();
   for (const [entryIndex, entry] of entries.entries()) {
     for (const error of recommendationReviewExtensionErrors(entry)) {
       errors.push(finding(LEDGER, `entry ${entryIndex + 1}: ${error}`));
@@ -230,29 +279,43 @@ function attestationIndex(root, entries) {
     const extension = entry?.extensions?.[RECOMMENDATION_REVIEW_EXTENSION];
     if (!extension || !Array.isArray(extension.observations)) continue;
     for (const expectation of extension.expectations ?? []) {
-      const key = `${expectation?.subject}\0${expectation?.round}`;
-      if (seenExpectationSubjectRounds.has(key)) {
+      const key = [
+        expectation?.round,
+        expectation?.subject,
+        expectation?.revision,
+        expectation?.projectionDigest,
+        expectation?.agent,
+      ].join('\0');
+      if (seenExpectations.has(key)) {
         errors.push(
           finding(
             LEDGER,
-            `entry ${entryIndex + 1}: duplicate recommendation expectation subject and round across ledger entries`,
+            `entry ${entryIndex + 1}: replayed recommendation expectation record across ledger entries`,
           ),
         );
       }
-      seenExpectationSubjectRounds.add(key);
+      seenExpectations.add(key);
     }
     for (const observation of extension.observations) {
       if (typeof observation?.subject !== 'string') continue;
-      const subjectRound = `${observation.subject}\0${observation.round}`;
-      if (seenObservationSubjectRounds.has(subjectRound)) {
+      const observationKey = [
+        observation.round,
+        observation.subject,
+        observation.revision,
+        observation.projectionDigest,
+        observation.agent,
+        observation.verdict,
+        observation.unresolvedFindings,
+      ].join('\0');
+      if (seenObservations.has(observationKey)) {
         errors.push(
           finding(
             LEDGER,
-            `entry ${entryIndex + 1}: duplicate recommendation observation subject and round across ledger entries`,
+            `entry ${entryIndex + 1}: replayed recommendation observation record across ledger entries`,
           ),
         );
       }
-      seenObservationSubjectRounds.add(subjectRound);
+      seenObservations.add(observationKey);
       const expectations = Array.isArray(extension.expectations)
         ? extension.expectations.filter(
             (candidate) =>
@@ -265,14 +328,6 @@ function attestationIndex(root, entries) {
         : [];
       const records = index.get(observation.subject) ?? [];
       const record = { observation, expectationCount: expectations.length, entryIndex };
-      if (!validReachableReviewRecord(root, record, observation.subject, 'HEAD')) {
-        errors.push(
-          finding(
-            LEDGER,
-            `entry ${entryIndex + 1}: recommendation observation revision is not semantically reachable for ${observation.subject}`,
-          ),
-        );
-      }
       records.push(record);
       index.set(observation.subject, records);
     }
@@ -523,7 +578,8 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
   if (!base) throw new Error('recommendation-endorsement: cannot resolve the topic base.');
   const commits = topicCommits(root, base);
   const findings = [];
-  const subjects = new Set(governedSpecs(root).map((spec) => spec.name));
+  const governedHistory = historicallyGovernedSubjects(root, 'HEAD', baseline.adoptionRevision);
+  const subjects = new Set([...governedSpecs(root).map((spec) => spec.name), ...governedHistory]);
   for (const commit of commits) {
     const parent = git(root, ['rev-parse', `${commit}^`]).trim();
     for (const pathname of changedPaths(root, parent, commit)) {
@@ -533,11 +589,13 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
   }
   for (const subject of subjects) {
     const headSpec = specAt(root, 'HEAD', subject);
-    if (
-      headSpec === null ||
-      (headSpec.state === 'rejected' && !subjectWasPostApproval(root, subject, 'HEAD'))
-    )
+    if (headSpec === null) {
+      if (governedHistory.has(subject)) {
+        findings.push(disappearedSubjectFinding(subject, 'HEAD'));
+      }
       continue;
+    }
+    if (headSpec.state === 'rejected' && !subjectWasPostApproval(root, subject, 'HEAD')) continue;
     const current = headSpec.text;
     const adopted = bytesAt(root, baseline.adoptionRevision, headSpec.relative);
     let currentDigest;
@@ -618,12 +676,13 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
 
 /** Proposed-index equivalent of the topic replay, used by pre-commit before the commit exists. */
 export function findRecommendationStagedFindings(root = WORKSPACE_ROOT, requestedBase) {
-  const baseline = readBaseline(root);
+  const baseline = readBaseline(root, ':index');
   const base = resolveRecommendationBaseRef(root, requestedBase);
   if (!base) throw new Error('recommendation-endorsement: cannot resolve the staged topic base.');
   const findings = [...findRecommendationTopicFindings(root, base)];
   const paths = stagedPaths(root);
   if (paths.length === 0) return findings;
+  const governedHistory = historicallyGovernedSubjects(root, 'HEAD', baseline.adoptionRevision);
   const subjects = new Set();
   for (const commit of topicCommits(root, base)) {
     const parent = git(root, ['rev-parse', `${commit}^`]).trim();
@@ -636,16 +695,21 @@ export function findRecommendationStagedFindings(root = WORKSPACE_ROOT, requeste
     const subject = subjectFromSpecPath(pathname);
     if (subject) subjects.add(subject);
   }
+  for (const subject of governedHistory) {
+    if (indexSpec(root, subject) === null) subjects.add(subject);
+  }
 
   const beforeLedger = ledgerAt(root, 'HEAD');
   const afterLedger = parseLedgerText(indexText(root, LEDGER));
   for (const subject of subjects) {
     const spec = indexSpec(root, subject);
-    if (
-      spec === null ||
-      (spec.state === 'rejected' && !subjectWasPostApproval(root, subject, 'HEAD'))
-    )
+    if (spec === null) {
+      if (governedHistory.has(subject)) {
+        findings.push(disappearedSubjectFinding(subject, 'the proposed index'));
+      }
       continue;
+    }
+    if (spec.state === 'rejected' && !subjectWasPostApproval(root, subject, 'HEAD')) continue;
     let digest;
     try {
       digest = decisionProjectionDigest(spec.text);
@@ -724,9 +788,16 @@ export function findRecommendationEndorsementFindings(root = WORKSPACE_ROOT) {
   });
   const baseline = readBaseline(root);
   const specs = governedSpecs(root);
-  examined = specs.length;
-  const { index, errors } = attestationIndex(root, readLedger(root));
-  const findings = [...errors];
+  const currentSubjects = new Set(specs.map((spec) => spec.name));
+  const missingSubjects = [
+    ...historicallyGovernedSubjects(root, 'HEAD', baseline.adoptionRevision),
+  ].filter((subject) => !currentSubjects.has(subject));
+  examined = specs.length + missingSubjects.length;
+  const { index, errors } = attestationIndex(readLedger(root));
+  const findings = [
+    ...errors,
+    ...missingSubjects.map((subject) => disappearedSubjectFinding(subject, 'the working tree')),
+  ];
   for (const spec of specs) {
     const current = readFileSync(path.join(root, spec.relative), 'utf8');
     const adopted = bytesAt(root, baseline.adoptionRevision, spec.relative);
