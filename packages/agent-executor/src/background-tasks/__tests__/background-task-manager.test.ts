@@ -230,7 +230,6 @@ describe('BackgroundTaskManager', () => {
       depth: 1,
       cwd: '/workspace',
       cronExpression: '0 0 * * *',
-      permissionPolicy: 'inherit-allowlist' as const,
     });
     await flushMicrotasks();
     await flushMicrotasks();
