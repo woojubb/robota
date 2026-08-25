@@ -296,6 +296,8 @@ change admitted is one append-only closed `post-merge-cycle.jsonl` record whose 
 is already an ancestor of the topic base; altered history, unverifiable provenance, or any additional
 path fails.
 
+Enforced by: `user-execution-plan-order`
+
 **Script home**: disposable live-verification scripts (evidence runs, repro probes)
 live in `scratch/src/` — a gitignored workspace home whose committed skeleton resolves
 `@robota-sdk/*` imports. Never park them inside `packages/` or `apps/`; the
