@@ -37,9 +37,14 @@ verify the git graph directly.
    `git show origin/<target>:<path>` / `git grep`/`rg` on that ref. A merge can land while a file was
    dropped by a bad conflict resolution — check the substance, not just the commit. Confirm deletions are
    truly gone and additions truly present.
-4. **CI was green.** Required checks passed on the merged PR (`gh pr checks <n>` — no `fail`; distinguish
-   a non-required pending preview deploy from a real failure). If the repo gates merges on green CI, a
-   red required check that still merged is a finding.
+4. **CI was green.** Read the exact merged PR head with `gh pr view <n> --json headRefOid`, then use
+   `gh pr checks <n> --required` as the canonical CI verdict for that head. Any current required fail,
+   cancel, or pending result blocks PASS; a query failure or indeterminate required-check set also fails
+   closed. Unfiltered checks and historical attempts are diagnostic only and must not affect the verdict.
+   They may be reported as supplemental evidence, but cannot override the provider's current required
+   projection in either direction. Acknowledgement is consumed only through the required `review-gate`;
+   it is never a blanket bypass, and the verifier does not independently reinterpret a label as permission
+   to ignore a current required failure.
 5. **No unrelated drift.** The merge did not sweep in unexpected commits or files beyond the PR's stated
    scope (compare the PR's file list / diffstat to what actually landed). Flag surprises — this catches
    the "branched off the wrong base and swept in old commits" class of error.

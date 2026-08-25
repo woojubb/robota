@@ -1,5 +1,6 @@
 ---
 title: 'HARNESS-087: most declared sizes are checked by nothing'
+issue: https://github.com/woojubb/robota/issues/2325
 status: todo
 created: 2026-08-11
 priority: medium
@@ -50,3 +51,8 @@ and a covered subject that stops meeting it is a regression: the list cannot sil
 reason or absorb work that used to be checked, and migration order is free. Batching by shape is likely
 cheapest — the `main()`-local counters all need the same holder-and-reader extraction that the eight
 covered scans already demonstrate.
+
+HARNESS-119 local review measured one concrete instance: `scan-review-findings.mjs` reads three files
+but reports nine artifacts because it increments once per assertion, and a second collection in the
+same process reports eighteen because the holder is not reset. Issue #2325 records this exact migration
+target and its required exact-value plus second-run regression tests.

@@ -13,6 +13,7 @@ const SCAN_SCRIPT = fileURLToPath(new URL('../scan-review-findings.mjs', import.
 
 const REVIEWER_PATH = '.claude/agents/pr-review-reviewer.md';
 const ORCH_PATH = '.agents/skills/pr-finding-resolution-loop/SKILL.md';
+const VERIFIER_PATH = '.claude/agents/merge-verifier.md';
 
 const GREEN_REVIEWER = `---
 name: pr-review-reviewer
@@ -28,11 +29,24 @@ The agent never merges \`main\` — do NOT merge main.
 After merging to develop, dispatch merge-verifier and require MERGE VERIFIED.
 `;
 
+const GREEN_VERIFIER = `# Merge Verifier
+
+Read the exact merged PR head with \`gh pr view <n> --json headRefOid\`.
+The canonical CI verdict is \`gh pr checks <n> --required\` for the exact merged PR head.
+Any current required fail,
+cancel, or pending result blocks PASS.
+A query failure or indeterminate required-check set fails closed.
+Unfiltered checks and historical attempts are diagnostic only and must not affect the verdict.
+Acknowledgement is consumed only through the required \`review-gate\`;
+it is never a blanket bypass.
+`;
+
 async function createFixture(overrides = {}) {
   const root = makeTemp('robota-review-findings-');
   const files = {
     [REVIEWER_PATH]: GREEN_REVIEWER,
     [ORCH_PATH]: GREEN_ORCH,
+    [VERIFIER_PATH]: GREEN_VERIFIER,
     ...overrides,
   };
   for (const [relativePath, content] of Object.entries(files)) {
@@ -114,6 +128,88 @@ describe('collectReviewFindingsFindings', () => {
     expect(findings).toEqual([
       'pr-finding-resolution-loop: no longer anchors the merge gate to git-branch.md (silent-deferral risk).',
     ]);
+  });
+
+  it('flags a missing merge-verifier agent file (RED)', async () => {
+    const root = await createFixture({ [VERIFIER_PATH]: null });
+
+    const findings = collectReviewFindingsFindings(root);
+    expect(findings).toContainEqual(`merge-verifier: file missing (${VERIFIER_PATH})`);
+  });
+
+  it('flags a verifier that dropped the required-check projection (RED)', async () => {
+    const root = await createFixture({
+      [VERIFIER_PATH]: GREEN_VERIFIER.replace(' --required', ''),
+    });
+
+    expect(collectReviewFindingsFindings(root)).toContainEqual(
+      'merge-verifier: no longer uses the current required-check projection for the CI verdict.',
+    );
+  });
+
+  it('flags a verifier that no longer reads the exact PR head (RED)', async () => {
+    const root = await createFixture({
+      [VERIFIER_PATH]: GREEN_VERIFIER.replace(
+        'Read the exact merged PR head with `gh pr view <n> --json headRefOid`.',
+        'Read the pull request.',
+      ),
+    });
+
+    expect(collectReviewFindingsFindings(root)).toContainEqual(
+      'merge-verifier: no longer reads the exact merged PR head before judging checks.',
+    );
+  });
+
+  it('flags a verifier that permits a current required non-success state (RED)', async () => {
+    const root = await createFixture({
+      [VERIFIER_PATH]: GREEN_VERIFIER.replace(
+        'Any current required fail,\ncancel, or pending result blocks PASS.',
+        'Inspect the current checks.',
+      ),
+    });
+
+    expect(collectReviewFindingsFindings(root)).toContainEqual(
+      'merge-verifier: no longer blocks every current required fail, cancel, or pending result.',
+    );
+  });
+
+  it('flags a verifier that does not fail closed on an indeterminate query (RED)', async () => {
+    const root = await createFixture({
+      [VERIFIER_PATH]: GREEN_VERIFIER.replace(
+        'A query failure or indeterminate required-check set fails closed.',
+        'If the query is unclear, continue.',
+      ),
+    });
+
+    expect(collectReviewFindingsFindings(root)).toContainEqual(
+      'merge-verifier: no longer fails closed on query failure or an indeterminate required-check set.',
+    );
+  });
+
+  it('flags a verifier that lets raw or historical checks decide the verdict (RED)', async () => {
+    const root = await createFixture({
+      [VERIFIER_PATH]: GREEN_VERIFIER.replace(
+        'Unfiltered checks and historical attempts are diagnostic only and must not affect the verdict.',
+        'Unfiltered checks and historical attempts decide the verdict.',
+      ),
+    });
+
+    expect(collectReviewFindingsFindings(root)).toContainEqual(
+      'merge-verifier: no longer limits unfiltered and historical checks to non-verdict diagnostics.',
+    );
+  });
+
+  it('flags a verifier that treats acknowledgement as a blanket bypass (RED)', async () => {
+    const root = await createFixture({
+      [VERIFIER_PATH]: GREEN_VERIFIER.replace(
+        'Acknowledgement is consumed only through the required `review-gate`;\nit is never a blanket bypass.',
+        'An acknowledgement label bypasses failed checks.',
+      ),
+    });
+
+    expect(collectReviewFindingsFindings(root)).toContainEqual(
+      'merge-verifier: no longer delegates acknowledgement to required review-gate without a blanket bypass.',
+    );
   });
 });
 
