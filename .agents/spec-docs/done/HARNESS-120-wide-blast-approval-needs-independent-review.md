@@ -433,3 +433,12 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Focused verification: the exact seven affected harness test files passed 194 tests; the direct projection/endorsement pair passed 39 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
 - Complete verification: `pnpm harness:test:contracts` passed 3,933 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
 - Review status: the four findings are fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.
+
+### [LOCAL REVIEW ROUND 3] — 🔁 RESOLVED | 2026-08-26
+
+- Exact review range: independent local re-review compared base `675cd814edb4121fd92023fe7721c905a1acf321` with fix head `0e8ee27c989551867224ad1d8613dced7d6258ae` and returned `ACTIONABLE FINDINGS: 5`.
+- Resolved findings: topic replay seeds a valid endorsement recorded before the requested base; an unendorsed spec edit remains unauthorized after its bytes are restored to adoption/bootstrap state; the structural projection models CommonMark block and paragraph interruption boundaries; the Test Plan parser accepts only the canonical four-column table grammar; and the rule text limits rejection exemption to proposals rejected before GATE-APPROVAL.
+- Additional fail-closed and performance edges: fixtures cover edit → unauthorized implementation → exact restore, pre-base endorsement followed by unrelated implementation, HTML type-7 blocks after structural blocks versus inside an open paragraph, and staged population that adds only missing historical subjects instead of reparsing unchanged legacy specs.
+- Focused verification: the exact seven affected harness test files passed 202 tests; the direct projection/endorsement pair passed 47 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
+- Complete verification: `pnpm harness:test:contracts` passed 3,941 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
+- Review status: the five findings are fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.

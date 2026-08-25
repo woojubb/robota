@@ -238,8 +238,9 @@ persisted projection after squash; `.husky/pre-commit` runs its staged mode.
 Historical records are never assigned invented reviews. The scan reconstructs unchanged exemptions from the
 exact bytes and path at the immutable adoption commit in
 `scripts/harness/recommendation-endorsement-baseline.json`; any edit or nonterminal lifecycle transition loses
-that exemption. Rejected proposals are outside the authorization population. The baseline may contain only
-the one exact self-bootstrap tuple needed to introduce this mechanism — never a wildcard or a
+that exemption. Only proposals rejected before GATE-APPROVAL are outside the authorization population; a
+proposal rejected after approval remains governed and cannot erase its endorsement history. The baseline may
+contain only the one exact self-bootstrap tuple needed to introduce this mechanism — never a wildcard or a
 second tuple.
 
 ## One-Backlog-At-A-Time Rule (mandatory, zero exceptions)

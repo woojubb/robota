@@ -579,7 +579,10 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
   const commits = topicCommits(root, base);
   const findings = [];
   const governedHistory = historicallyGovernedSubjects(root, 'HEAD', baseline.adoptionRevision);
-  const subjects = new Set([...governedSpecs(root).map((spec) => spec.name), ...governedHistory]);
+  // Persisted mode owns an unchanged base/head state. Topic replay is needed only when this topic
+  // actually carries a spec transition for the subject; this also avoids reparsing every immutable
+  // legacy adoption document once per commit.
+  const subjects = new Set();
   for (const commit of commits) {
     const parent = git(root, ['rev-parse', `${commit}^`]).trim();
     for (const pathname of changedPaths(root, parent, commit)) {
@@ -596,27 +599,40 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
       continue;
     }
     if (headSpec.state === 'rejected' && !subjectWasPostApproval(root, subject, 'HEAD')) continue;
-    const current = headSpec.text;
-    const adopted = bytesAt(root, baseline.adoptionRevision, headSpec.relative);
-    let currentDigest;
-    try {
-      currentDigest = decisionProjectionDigest(current);
-    } catch {
-      continue;
-    }
-    if (adopted === current) continue;
-    if (
-      baseline.bootstrap !== null &&
-      baseline.bootstrap.subject === subject &&
-      baseline.bootstrap.projectionDigest === currentDigest
-    ) {
-      continue;
-    }
-
     const bootstrapDigest =
       baseline.bootstrap?.subject === subject ? baseline.bootstrap.projectionDigest : null;
+    const baseSpec = specAt(root, base, subject);
     let endorsedDigest = null;
+    let endorsedBytes = null;
+    let bootstrapPending = baseSpec === null && bootstrapDigest !== null;
     let unendorsed = false;
+    if (
+      baseSpec !== null &&
+      !(baseSpec.state === 'rejected' && !subjectWasPostApproval(root, subject, base))
+    ) {
+      const adopted = bytesAt(root, baseline.adoptionRevision, baseSpec.relative);
+      if (adopted === baseSpec.text) {
+        endorsedBytes = baseSpec.text;
+        try {
+          endorsedDigest = decisionProjectionDigest(baseSpec.text);
+        } catch {
+          // Immutable legacy adoption bytes are an exemption even when they predate this grammar.
+        }
+      } else {
+        try {
+          const baseDigest = decisionProjectionDigest(baseSpec.text);
+          const { index, errors } = attestationIndex(ledgerAt(root, base));
+          const persisted =
+            errors.length === 0 && validLatestAttestation(index.get(subject), baseDigest).ok;
+          if (baseDigest === bootstrapDigest || persisted) {
+            endorsedDigest = baseDigest;
+          }
+        } catch {
+          // A malformed base projection cannot initialize endorsed replay state.
+        }
+      }
+      unendorsed = endorsedBytes === null && endorsedDigest === null;
+    }
     for (const commit of commits) {
       const parent = git(root, ['rev-parse', `${commit}^`]).trim();
       const atCommit = specAt(root, commit, subject);
@@ -625,25 +641,30 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
         (atCommit.state === 'rejected' && !subjectWasPostApproval(root, subject, commit))
       )
         continue;
-      let digest;
-      try {
-        digest = decisionProjectionDigest(atCommit.text);
-      } catch (error) {
-        findings.push(finding(atCommit.relative, `${commit.slice(0, 9)}: ${error.message}`));
-        continue;
+      const matchesEndorsedBytes = endorsedBytes !== null && atCommit.text === endorsedBytes;
+      let digest = matchesEndorsedBytes ? endorsedDigest : null;
+      if (!matchesEndorsedBytes) {
+        try {
+          digest = decisionProjectionDigest(atCommit.text);
+        } catch (error) {
+          if (bootstrapPending) continue;
+          findings.push(finding(atCommit.relative, `${commit.slice(0, 9)}: ${error.message}`));
+          continue;
+        }
       }
-      if (digest !== endorsedDigest) unendorsed = true;
-      const bootstrapped = digest === bootstrapDigest;
-      if (bootstrapped) {
+      if (bootstrapPending) {
+        if (digest !== bootstrapDigest) continue;
         endorsedDigest = digest;
         unendorsed = false;
+        bootstrapPending = false;
       }
+      if (!matchesEndorsedBytes && digest !== endorsedDigest) unendorsed = true;
 
       const before = new Set(observations(ledgerAt(root, parent), subject).map(observationKey));
       const added = observations(ledgerAt(root, commit), subject).filter(
         (record) => !before.has(observationKey(record)),
       );
-      if (added.length > 0 && !bootstrapped) {
+      if (added.length > 0) {
         const paths = changedPaths(root, parent, commit);
         const valid = isCommittedRecommendationCheckpoint(root, parent, commit, paths);
         if (!valid) {
@@ -655,6 +676,7 @@ export function findRecommendationTopicFindings(root = WORKSPACE_ROOT, requested
           );
         } else {
           endorsedDigest = digest;
+          endorsedBytes = null;
           unendorsed = false;
         }
       }

@@ -94,6 +94,10 @@ function maskThrough(hidden, start, end) {
   for (let index = start; index <= end; index += 1) hidden.add(index);
 }
 
+function isAtxHeading(line) {
+  return /^ {0,3}#{1,6}(?:[\t ]|$)/.test(line);
+}
+
 function maskPairedFences(lines, hidden) {
   for (let index = 0; index < lines.length; index += 1) {
     const opener = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(lines[index]);
@@ -110,14 +114,38 @@ function maskPairedFences(lines, hidden) {
 }
 
 function maskHtmlBlocks(lines, hidden) {
+  let paragraphOpen = false;
   for (let index = 0; index < lines.length; index += 1) {
-    if (hidden.has(index)) continue;
+    if (hidden.has(index)) {
+      paragraphOpen = false;
+      continue;
+    }
     const line = lines[index];
+    if (line.trim() === '' || isAtxHeading(line)) {
+      paragraphOpen = false;
+      continue;
+    }
     if (/^ {0,3}<!--/.test(line)) {
       let closeAt = index;
       while (closeAt < lines.length && !lines[closeAt].includes('-->')) closeAt += 1;
       maskThrough(hidden, index, Math.min(closeAt, lines.length - 1));
       index = closeAt;
+      paragraphOpen = false;
+      continue;
+    }
+
+    const boundedHtmlBlock = [
+      { opener: /^ {0,3}<\?/, closer: '?>' },
+      { opener: /^ {0,3}<![A-Z]/, closer: '>' },
+      { opener: /^ {0,3}<!\[CDATA\[/, closer: ']]>' },
+    ].find(({ opener }) => opener.test(line));
+    if (boundedHtmlBlock) {
+      let closeAt = index;
+      while (closeAt < lines.length && !lines[closeAt].includes(boundedHtmlBlock.closer))
+        closeAt += 1;
+      maskThrough(hidden, index, Math.min(closeAt, lines.length - 1));
+      index = closeAt;
+      paragraphOpen = false;
       continue;
     }
 
@@ -128,18 +156,22 @@ function maskHtmlBlocks(lines, hidden) {
       while (closeAt < lines.length && !closing.test(lines[closeAt])) closeAt += 1;
       maskThrough(hidden, index, Math.min(closeAt, lines.length - 1));
       index = closeAt;
+      paragraphOpen = false;
       continue;
     }
 
     const tag = /^ {0,3}<\/?([A-Za-z][A-Za-z0-9-]*)(?:[\t />]|$)/.exec(line)?.[1];
     const completeTag = /^ {0,3}<\/?[A-Za-z][A-Za-z0-9-]*(?:\s+[^<>]*)?\/?>\s*$/.test(line);
-    const typeSevenMayStart = index === 0 || lines[index - 1].trim() === '';
+    const typeSevenMayStart = !paragraphOpen;
     if ((tag && HTML_BLOCK_TAGS.has(tag.toLowerCase())) || (completeTag && typeSevenMayStart)) {
       let closeAt = index;
       while (closeAt + 1 < lines.length && lines[closeAt + 1].trim() !== '') closeAt += 1;
       maskThrough(hidden, index, closeAt);
       index = closeAt;
+      paragraphOpen = false;
+      continue;
     }
+    paragraphOpen = true;
   }
 }
 
@@ -181,7 +213,9 @@ function maskCodeSpans(lines) {
     const closer = runs[closeIndex];
     const closerLine = lineAt(closer.start);
     if (openerLine < closerLine) {
-      for (let line = openerLine + 1; line < closerLine; line += 1) masked[line] = '';
+      for (let line = openerLine + 1; line < closerLine; line += 1) {
+        if (!isAtxHeading(lines[line])) masked[line] = '';
+      }
       const delimiter = '`'.repeat(opener.length);
       if (lines[openerLine].trim() === delimiter) masked[openerLine] = '';
       if (lines[closerLine].trim() === delimiter) masked[closerLine] = '';
@@ -309,13 +343,28 @@ function tcIdsFromCriteria(section) {
 }
 
 function tcIdsFromPlan(section) {
-  const ids = [];
-  for (const line of section.split('\n')) {
-    const cells = line.split('|').map((cell) => cell.trim());
-    const match = /^(TC-\d+)$/.exec(cells[1] ?? '');
-    if (match) ids.push(match[1]);
+  const lines = section.split('\n');
+  const rows = lines.map((line) => {
+    if (!line.startsWith('|') || !line.endsWith('|')) return null;
+    const cells = line
+      .slice(1, -1)
+      .split('|')
+      .map((cell) => cell.trim());
+    return cells.length === 4 ? cells : null;
+  });
+  const header = ['TC-ID', 'Test Type', 'Tool / Approach', 'Notes'];
+  const valid =
+    rows.length >= 3 &&
+    rows.every((row) => row !== null) &&
+    rows[0].every((cell, index) => cell === header[index]) &&
+    rows[1].every((cell) => /^-{3,}$/.test(cell)) &&
+    rows.slice(2).every((row) => row.every((cell) => cell !== '') && /^TC-\d+$/.test(row[0]));
+  if (!valid) {
+    throw new Error(
+      'recommendation projection: Test Plan must be one canonical four-column Markdown table.',
+    );
   }
-  return ids;
+  return rows.slice(2).map((row) => row[0]);
 }
 
 function assertTcBijection(criteria, plan) {

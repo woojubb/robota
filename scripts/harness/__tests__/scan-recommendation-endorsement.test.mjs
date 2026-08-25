@@ -130,7 +130,7 @@ function commit(root, message) {
   return git(root, ['rev-parse', 'HEAD']);
 }
 
-function repository({ introduceBaseline = true } = {}) {
+function repository({ introduceBaseline = true, historicalText } = {}) {
   const root = makeTemp('robota-recommendation-endorsement-');
   git(root, ['init', '-b', 'develop']);
   git(root, ['config', 'user.email', 'harness@example.test']);
@@ -143,7 +143,7 @@ function repository({ introduceBaseline = true } = {}) {
   write(
     root,
     '.agents/spec-docs/done/INFRA-001-historical.md',
-    spec({ status: 'done' }).replaceAll('INFRA-999', 'INFRA-001'),
+    historicalText ?? spec({ status: 'done' }).replaceAll('INFRA-999', 'INFRA-001'),
   );
   write(
     root,
@@ -275,6 +275,28 @@ describe('canonical recommendation decision projection', () => {
     ).toThrow(/TC-02|bijection/i);
   });
 
+  it('requires the canonical four-column Test Plan table grammar', () => {
+    expect(decisionProjection(spec()).testPlan).toContain(
+      '| TC-ID | Test Type | Tool / Approach | Notes |',
+    );
+    for (const malformed of [
+      spec().replace('Tool / Approach', 'Tool'),
+      spec().replace('| --- | --- | --- | --- |', '| -- | --- | --- | --- |'),
+      spec().replace('matching evidence |', ' |'),
+      spec().replace(
+        '| TC-01 | INFRA | focused fixture | matching evidence |',
+        '| TC-01 | INFRA | focused fixture | matching evidence | extra |',
+      ),
+      spec().replace('| TC-01 | INFRA', 'garbage\n| TC-01 | INFRA'),
+      spec().replace(
+        '| TC-02 | INFRA | focused fixture | stale evidence |',
+        '| TC-02 | INFRA | focused fixture | stale evidence',
+      ),
+    ]) {
+      expect(() => decisionProjection(malformed)).toThrow(/Test Plan.*canonical|table/i);
+    }
+  });
+
   it('does not treat fenced heading text as an owner section', () => {
     const withFence = spec().replace(
       '## Solution\n',
@@ -331,7 +353,7 @@ describe('canonical recommendation decision projection', () => {
     ).toThrow(/preamble/i);
   });
 
-  it('masks CommonMark HTML blocks, comments, and multiline code spans structurally', () => {
+  it('masks CommonMark HTML blocks and comments structurally', () => {
     const hiddenStructures = [
       '<!--',
       '## Undeclared Comment Owner',
@@ -345,18 +367,74 @@ describe('canonical recommendation decision projection', () => {
       '## Undeclared HTML Owner',
       '</div>',
       '',
-      '``',
-      '## Solution',
-      '',
-      '``',
-      '',
     ].join('\n');
-    const markdown = spec().replace('## Solution\n', `${hiddenStructures}## Solution\n`);
+    const markdown = spec().replace('## Solution\n', `${hiddenStructures}\n## Solution\n`);
     expect(decisionProjection(markdown).userExecutionPlan).toContain('Undeclared HTML Owner');
     expect(decisionProjectionDigest(markdown)).not.toBe(decisionProjectionDigest(spec()));
     expect(() =>
       decisionProjection(spec().replace('## Solution\n', '\\`\n## Solution\n`\n\n## Solution\n')),
     ).toThrow(/recommendation projection/i);
+  });
+
+  it('lets an ATX heading interrupt a paragraph instead of hiding it in a multiline code span', () => {
+    expect(() =>
+      decisionProjection(
+        spec().replace(
+          '## Solution\n',
+          'A paragraph opens ``\n## Undeclared Span Owner\n`` closes here.\n\n## Solution\n',
+        ),
+      ),
+    ).toThrow(/unknown.*Undeclared Span Owner/i);
+  });
+
+  it('masks processing instructions, declarations, and CDATA only for structural headings', () => {
+    const hiddenStructures = [
+      '<?review',
+      '## Undeclared Processing Owner',
+      '?>',
+      '',
+      '<!REVIEW',
+      '## Undeclared Declaration Owner',
+      '>',
+      '',
+      '<![CDATA[',
+      '## Solution',
+      ']]>',
+      '',
+    ].join('\n');
+    const markdown = spec().replace('## Solution\n', `${hiddenStructures}## Solution\n`);
+    const projection = decisionProjection(markdown);
+    expect(projection.userExecutionPlan).toContain('Undeclared Processing Owner');
+    expect(projection.userExecutionPlan).toContain('Undeclared Declaration Owner');
+    expect(decisionProjectionDigest(markdown)).not.toBe(decisionProjectionDigest(spec()));
+  });
+
+  it('starts a type-7 HTML block after a heading but not in the middle of a paragraph', () => {
+    const afterHeading = spec().replace(
+      '### Decision\n\n',
+      '### Decision\n<custom-review>\n## Undeclared Type Seven Owner\n\n',
+    );
+    expect(decisionProjection(afterHeading).architectureReview).toContain(
+      'Undeclared Type Seven Owner',
+    );
+    expect(decisionProjectionDigest(afterHeading)).not.toBe(decisionProjectionDigest(spec()));
+
+    expect(() =>
+      decisionProjection(
+        spec().replace(
+          'Choose the durable mechanism.\n',
+          'Choose the durable mechanism.\n<custom-review>\n## Undeclared Paragraph Owner\n',
+        ),
+      ),
+    ).toThrow(/unknown.*Undeclared Paragraph Owner/i);
+
+    const afterRawBlock = spec().replace(
+      '## Solution\n',
+      '<script>review()</script>\n<custom-review>\n## Undeclared Consecutive Owner\n\n## Solution\n',
+    );
+    expect(decisionProjection(afterRawBlock).userExecutionPlan).toContain(
+      'Undeclared Consecutive Owner',
+    );
   });
 
   it('recognizes valid zero-to-three-space ATX owner headings', () => {
@@ -728,6 +806,21 @@ describe('topic ordering', () => {
     expect(findRecommendationTopicFindings(root, base)).toEqual([]);
   });
 
+  it('seeds replay from a persisted ENDORSE checkpoint already present at the requested base', () => {
+    const { root } = repository();
+    write(root, ACTIVE_SPEC, spec());
+    write(root, TASK, task());
+    const revision = commit(root, 'reviewed plan');
+    const digest = decisionProjectionDigest(spec());
+    write(root, LEDGER, `${JSON.stringify(attestation({ digest, revision }))}\n`);
+    write(root, ACTIVE_SPEC, spec({ evidence: 'Endorsed before the topic base.' }));
+    const base = commit(root, 'endorsement checkpoint before base');
+    write(root, 'scripts/harness/example.mjs', 'export const unrelated = true;\n');
+    commit(root, 'later unrelated implementation');
+
+    expect(findRecommendationTopicFindings(root, base)).toEqual([]);
+  });
+
   it('rejects implementation that predates the first endorsement checkpoint', () => {
     const { root, base } = endorsedTopic({ implementationBeforeCheckpoint: true });
     expect(
@@ -804,9 +897,78 @@ describe('topic ordering', () => {
         .join('\n'),
     ).toMatch(/implementation precedes/i);
   });
+
+  it('finds implementation between an adoption-byte edit and exact restoration', () => {
+    const { root } = repository();
+    const base = git(root, ['rev-parse', 'HEAD']);
+    const historical = '.agents/spec-docs/done/INFRA-001-historical.md';
+    const original = readFileSync(path.join(root, historical), 'utf8');
+    write(
+      root,
+      historical,
+      original.replace('Choose the durable mechanism.', 'Choose a temporary changed mechanism.'),
+    );
+    commit(root, 'material edit of adopted recommendation');
+    write(root, 'scripts/harness/example.mjs', 'export const unauthorized = true;\n');
+    commit(root, 'implementation while adoption edit is unendorsed');
+    write(root, historical, original);
+    commit(root, 'restore exact adoption bytes');
+
+    expect(
+      findRecommendationTopicFindings(root, base)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/implementation precedes/i);
+  });
+
+  it('finds implementation between a bootstrap edit and exact restoration', () => {
+    const { root, adoptionRevision } = repository({ introduceBaseline: false });
+    write(root, ACTIVE_SPEC, spec());
+    write(root, TASK, task());
+    const revision = commit(root, 'reviewed bootstrap plan');
+    const original = spec();
+    const digest = decisionProjectionDigest(original);
+    write(
+      root,
+      BASELINE,
+      `${JSON.stringify(
+        {
+          adoptionRevision,
+          bootstrap: { subject: SUBJECT, reviewedRevision: revision, projectionDigest: digest },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    const base = commit(root, 'introduce exact bootstrap');
+    write(root, ACTIVE_SPEC, spec({ decision: 'Choose a temporary changed mechanism.' }));
+    commit(root, 'material edit of bootstrap recommendation');
+    write(root, 'scripts/harness/example.mjs', 'export const unauthorized = true;\n');
+    commit(root, 'implementation while bootstrap edit is unendorsed');
+    write(root, ACTIVE_SPEC, original);
+    commit(root, 'restore exact bootstrap projection');
+
+    expect(
+      findRecommendationTopicFindings(root, base)
+        .map((item) => item.detail)
+        .join('\n'),
+    ).toMatch(/implementation precedes/i);
+  });
 });
 
 describe('staged ordering', () => {
+  it('does not newly parse unchanged legacy adoption documents for an unrelated staged path', () => {
+    const legacy = spec({ status: 'done' })
+      .replaceAll('INFRA-999', 'INFRA-001')
+      .replace('## Prior Art Research', '## Legacy Prior Art');
+    const { root } = repository({ historicalText: legacy });
+    const base = git(root, ['rev-parse', 'HEAD']);
+    write(root, 'scripts/harness/example.mjs', 'export const unrelated = true;\n');
+    git(root, ['add', 'scripts/harness/example.mjs']);
+
+    expect(findRecommendationStagedFindings(root, base)).toEqual([]);
+  });
+
   it('rejects the proposed first implementation commit before endorsement', () => {
     const { root, base } = reviewedTopic();
     write(root, 'scripts/harness/example.mjs', 'export const tooEarly = true;\n');
