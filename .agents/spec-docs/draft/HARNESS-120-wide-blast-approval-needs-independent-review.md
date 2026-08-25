@@ -51,33 +51,43 @@ verify. Historical work needs an explicit prospective boundary rather than fabri
 
 ### Recommendation derived from the research
 
-Require every recommendation to carry a committed-subject review record containing the exact spec subject,
-reviewed commit, zero unresolved findings, and `REVIEW VERDICT: ENDORSE`. Verify that the reviewed commit's
-decision material still matches the current spec, excluding only lifecycle status and gate-written Evidence
-Log entries. Keep new-surface placement review as additional required content. Grandfather only exact
-historical states through a frozen baseline; any nonterminal status transition or material edit invalidates
-that exemption.
+Require every recommendation dispatch to record a subject/revision/projection expectation and the independent
+reviewer's matching observation in the canonical loop-run ledger. At GATE-APPROVAL, verify the reviewed topic
+commit and current schema-aware decision projection; after squash, verify the persisted projection and
+attestation without requiring topic ancestry that no longer exists. Keep new-surface placement review as
+additional required content. Anchor historical exemptions to one immutable adoption commit so entries can be
+reconstructed rather than asserted; any nonterminal status transition or file change invalidates that
+exemption.
 
 ## Architecture Review
 
 ### Affected Scope
 
-- `.agents/rules/backlog-execution.md` — sole owner of the universal recommendation-review record and
-  prospective-adoption contract.
+- `.agents/rules/backlog-execution.md` — sole owner of the universal recommendation-review attestation,
+  decision projection, two-stage verification, and prospective-adoption contracts.
 - `.agents/specs/gate-catalogue.md` — GATE-APPROVAL criterion that invokes the universal check and retains
   new-surface placement as additive evidence.
-- `.agents/skills/backlog-execution-orchestrator/SKILL.md` — record-and-route contract for the independent
-  verdict.
-- `.claude/agents/proposal-reviewer.md` — subject/revision/unresolved-count output contract.
+- `.agents/skills/backlog-execution-orchestrator/SKILL.md` — expectation-before-dispatch,
+  observation-after-return, round, and route contract.
+- `.claude/agents/proposal-reviewer.md` — subject/revision/projection/unresolved-count output contract.
 - `.claude/agents/backlog-gate-guard.md` — guardian instruction to verify machine-checkable external evidence
   rather than accept a bare self-claim.
 - `.agents/specs/orchestration-map.md` — recommendation-gate mechanical-floor status.
-- `scripts/harness/scan-recommendation-endorsement.mjs` — exact record, revision, current-material, and
-  prospective-baseline enforcement.
-- `scripts/harness/recommendation-endorsement-baseline.json` — frozen historical states without invented
-  reviewer evidence.
+- `scripts/harness/loop-run.mjs` and `scripts/harness/recommendation-review-record.mjs` — canonical
+  recommendation expectation/observation persistence and schema validation.
+- `scripts/harness/scan-loop-run-records.mjs` — malformed recommendation-review extension rejection.
+- `scripts/harness/scan-recommendation-endorsement.mjs` — topic-gate revision validation, squash-safe
+  persisted projection validation, and prospective-adoption enforcement.
+- `scripts/harness/recommendation-endorsement-baseline.json` — immutable adoption revision plus the single
+  self-bootstrap subject, without invented reviewer evidence.
 - `scripts/harness/__tests__/scan-recommendation-endorsement.test.mjs` — deliberate-green/red fixtures.
-- `scripts/harness/run-all-scans.mjs` and root command wiring — mandatory scan reachability.
+- `scripts/harness/__tests__/loop-run.test.mjs` and `scripts/harness/__tests__/scan-loop-run-records.test.mjs`
+  — canonical attestation command and malformed-ledger fixtures.
+- `scripts/harness/scan-guard-scope-fail-closed.mjs` and its tests — root finder classification and absent
+  governed-tree behavior.
+- `scripts/harness/run-all-scans.mjs`, `scripts/harness/examined-adoption-baseline.json`,
+  `scripts/harness/measurement-provenance-pending.json`, and root command wiring — mandatory scan
+  reachability, examined-population adoption, and provenance.
 - `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md` — re-scoped work record and
   independent verdict.
 
@@ -85,41 +95,64 @@ No package, public API, application, runtime dependency, or user-facing behavior
 
 ### Alternatives Considered
 
-1. **Enforce the existing universal Recommendation Gate with a subject/current-revision record.** Pro:
-   repairs the actual rule/enforcer mismatch, prevents self-approval for every work unit, and makes stale
-   review observable. Con: every future recommendation needs a committed planning revision and independent
-   review record before approval.
+1. **Enforce the existing universal Recommendation Gate with canonical expectation/observation attestation
+   and a schema-aware decision projection.** Pro: repairs the actual rule/enforcer mismatch, records dispatch
+   separately from observation, survives squash, and makes stale review observable. Con: every future
+   recommendation needs a committed planning revision, a ledger round, and independent review before approval.
 2. **Add an independent-review condition only for a newly defined wide-blast class.** Pro: fewer proposals
    require the stronger evidence. Con: duplicates the already-universal rule, needs a fallible blast-radius
    classifier, and leaves ordinary recommendations able to repeat the measured bypass.
 3. **Keep prose-only orchestration and rely on reviewers to notice missing verdicts.** Pro: no new scan or
    historical adoption work. Con: this is the current failed state; HARNESS-119 proves that a required
    verdict can be omitted while every existing gate still passes.
-4. **Require a verdict token without binding it to subject or revision.** Pro: simplest mechanical search.
-   Con: a verdict for another proposal or an older design can satisfy the check, converting independent
-   review into a reusable label rather than evidence.
+4. **Require a Task verdict token without canonical dispatch attestation or projection binding.** Pro:
+   simplest mechanical search and human-readable record. Con: the Task can self-claim a reviewer result, a
+   verdict for another proposal or an older design can satisfy the check, and normal lifecycle edits make a
+   whole-document hash unstable.
 
 ### Decision
 
 Choose alternative 1. `backlog-execution.md` remains the single policy owner: every Recommendation Gate
-requires an independent `proposal-reviewer` ENDORSE, not just wide-blast work. The exact Task records the
-review subject basename, the full reviewed commit SHA, `UNRESOLVED FINDINGS: 0`, the dated verdict, and the
-reviewer's reasoning. GATE-APPROVAL invokes one checker that proves the revision exists, contains that
-subject, precedes the current state, and has the same decision material after normalizing only frontmatter
-status and the gate-owned Evidence Log. New-surface placement remains additional review content under the
-existing rule; it is not weakened or reclassified.
+requires an independent `proposal-reviewer` ENDORSE, not just wide-blast work. Before dispatch, the
+orchestrator records one canonical expectation in its loop-run ledger with round, exact spec subject, full
+topic commit SHA, and canonical decision-projection digest. After return, it records the matching reviewer
+observation with `ENDORSE|REVISE|REJECT`, unresolved-finding count, and the same binding fields. The Task
+references the exact run ID for human navigation; it is not the attestation owner. Multiple REVISE rounds are
+valid history, but only the unique latest observation for the current projection may authorize approval, and
+it must be `ENDORSE` with zero unresolved findings.
 
-The mechanical scan applies to post-approval documents. A frozen baseline may identify exact historical
-path/status/material-digest states that predate this enforcement; it never asserts that review happened.
-Completed historical states remain auditable exemptions. A nonterminal item loses its exemption on its next
-status/folder transition or material revision, so active work converges prospectively without fabricating
-past evidence. The scan rejects missing, mismatched, stale, non-ENDORSE, or unresolved records and stale or
-unnecessary baseline entries.
+The canonical decision projection is section-aware rather than a whole-file hash. It requires unique,
+unfenced headings and includes frontmatter `type`/`tags`, title, Problem, Prior Art Research, Architecture
+Review and Decision, Fallback declaration, User Execution Test Scenario plan, Solution, Affected Files, and
+Completion Criteria text while normalizing only the criteria checkbox marker. For the Test Plan it includes
+TC-ID, Test Type, and Tool / Approach but excludes the lifecycle-results Notes column. It excludes frontmatter
+status, Tasks lifecycle state, and the gate-owned Evidence Log. Missing/duplicate headings, malformed tables,
+fenced decoys, duplicate TC IDs, or a non-bijective criteria/test mapping fail closed.
 
-Validation before approval covers reachability (the same checker is invoked by GATE-APPROVAL and the
-mandatory scan), capability preservation (the existing new-surface placement criterion remains additive),
-and adversarial failure modes (wrong subject, non-ancestor or stale revision, later material edits, unresolved
-findings, and forged historical equivalence all fail closed).
+Verification has two deliberate modes. Topic-branch GATE-APPROVAL proves the reviewed commit exists and is
+reachable from the current topic HEAD, contains the exact subject, produced the expected projection digest,
+and still matches the current projection. The mandatory post-approval scan verifies the persisted expectation
+and observation plus the current projection digest, but does not require topic ancestry after squash merge;
+the attested digest is the durable bridge across rewritten commit identity. New-surface placement remains
+additional review content under the existing rule and is not weakened or reclassified.
+
+The mechanical scan applies to post-approval documents. Its baseline fixes the full adoption commit
+`675cd814edb4121fd92023fe7721c905a1acf321`; each legacy exemption must be reconstructed from that tree at the
+same path with the same status and bytes, so the baseline cannot mint new historical facts. Completed
+historical states remain auditable exemptions. A nonterminal item loses its exemption on any status/folder
+transition or file change, so active work converges prospectively without fabricated evidence. New, duplicate,
+unreconstructable, already-endorsed, or unnecessary exemptions fail. HARNESS-120 itself is the unavoidable
+self-bootstrap: one named subject and exact approved projection digest is frozen in the baseline because its
+attestation writer does not exist before its own GATE-APPROVAL; the schema permits no second bootstrap entry.
+
+The scan exports a root finder and therefore joins the guard-scope fail-closed classification, governed-tree
+absence tests, examined-adoption baseline, and measurement-provenance ledger in the same implementation.
+
+Validation before approval covers reachability (topic mode verifies exact commit ancestry and the mandatory
+scan verifies squash-safe persisted projection), capability preservation (the existing new-surface placement
+criterion remains additive), and adversarial failure modes (missing expectation/observation, wrong subject,
+non-ancestor topic revision, schema-decoy or stale projection, later design edits, unresolved findings,
+duplicate observations, and forged historical equivalence all fail closed).
 
 ### Architecture Review Checklist
 
@@ -141,12 +174,13 @@ engineering scan commands are verification, not user scenarios.
 
 ## Solution
 
-Define the universal review-record schema and prospective adoption in the owning backlog rule. Extend the
-proposal-reviewer output and orchestrator recording contract to produce that schema in the exact Task. Make
-GATE-APPROVAL verify it before user approval can advance, with new-surface placement checks layered on top.
-Implement one mandatory scan that pairs post-approval specs to their Tasks, validates the review revision
-against current decision material, and permits only frozen exact historical states. Update the orchestration
-map from PENDING only after the scan is registered and tested.
+Define the universal attestation, decision projection, two-stage verification, and prospective adoption in
+the owning backlog rule. Extend the loop-run recorder with a recommendation-specific expectation/observation
+extension, then make the proposal reviewer and orchestrator produce it while the Task references its run ID.
+Make GATE-APPROVAL use topic mode before approval, with new-surface placement layered on top. Implement the
+mandatory squash-safe scan over post-approval specs and the immutable adoption revision, including
+guard-scope, examined-population, and provenance wiring. Update the orchestration map from PENDING only after
+the scan is registered and tested.
 
 ## Affected Files
 
@@ -156,37 +190,51 @@ map from PENDING only after the scan is registered and tested.
 - `.claude/agents/proposal-reviewer.md`
 - `.claude/agents/backlog-gate-guard.md`
 - `.agents/specs/orchestration-map.md`
+- `scripts/harness/loop-run.mjs`
+- `scripts/harness/recommendation-review-record.mjs`
+- `scripts/harness/scan-loop-run-records.mjs`
 - `scripts/harness/scan-recommendation-endorsement.mjs`
 - `scripts/harness/recommendation-endorsement-baseline.json`
+- `scripts/harness/__tests__/loop-run.test.mjs`
+- `scripts/harness/__tests__/scan-loop-run-records.test.mjs`
 - `scripts/harness/__tests__/scan-recommendation-endorsement.test.mjs`
+- `scripts/harness/scan-guard-scope-fail-closed.mjs`
+- `scripts/harness/__tests__/scan-guard-scope-fail-closed.test.mjs`
 - `scripts/harness/run-all-scans.mjs`
+- `scripts/harness/examined-adoption-baseline.json`
+- `scripts/harness/measurement-provenance-pending.json`
 - `package.json`
 - `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md`
 
 ## Completion Criteria
 
-- [ ] TC-01: The owner rule and GATE-APPROVAL require every recommendation—not only new surfaces—to have
-      one independent, exact-subject, committed-revision `ENDORSE` with zero unresolved findings, while the
-      new-surface placement criterion remains additive.
-- [ ] TC-02: The scan accepts a current subject/revision-bound ENDORSE and rejects missing, wrong-subject,
-      non-ancestor, materially stale, non-ENDORSE, duplicate, or nonzero-unresolved records.
-- [ ] TC-03: Historical adoption records exact exemptions without claiming review occurred; completed
-      historical states pass unchanged, while nonterminal status/folder transitions, material revisions,
-      stale baseline entries, and unnecessary new exemptions fail.
-- [ ] TC-04: The proposal-reviewer, orchestrator, guardian, gate catalogue, scan registry, root command, and
-      orchestration map all point to the same evidence contract and the scan is reachable from mandatory CI.
+- [ ] TC-01: The owner rule and GATE-APPROVAL require every recommendation—not only new surfaces—to have a
+      canonical expectation plus matching independent observation for the exact subject/revision/projection;
+      the latest observation is `ENDORSE` with zero unresolved findings, while new-surface placement remains
+      additive.
+- [ ] TC-02: Topic mode accepts an exact reachable reviewed revision and rejects missing/mismatched
+      expectation/observation pairs, wrong subjects, non-ancestor revisions, malformed/decoy/ambiguous or
+      stale projections, non-ENDORSE outcomes, duplicate observations, and nonzero unresolved findings;
+      post-squash mode validates the same attested projection without requiring lost topic ancestry.
+- [ ] TC-03: Historical adoption is reconstructed from immutable revision
+      `675cd814edb4121fd92023fe7721c905a1acf321` without claiming review occurred; completed historical states
+      pass unchanged, while nonterminal transitions or edits, forged/new/duplicate/stale/unnecessary exemptions,
+      and any second self-bootstrap subject fail.
+- [ ] TC-04: The proposal-reviewer, orchestrator, loop recorder/validator, guardian, gate catalogue, scan
+      registry, root command, guard-scope classifier, examined/provenance ledgers, and orchestration map all
+      point to the same contract and make the scan mandatory and non-vacuous.
 - [ ] TC-05: Focused tests, the complete harness contract tier, `pnpm harness:scan`, and the repository build
       and test commands all exit 0 after deliberate-red fixtures prove each fail-closed branch.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                                 | Notes                                                                    |
-| ----- | --------- | --------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| TC-01 | INFRA     | Contract assertions over rule, catalogue, and agent definitions | Prove universal scope and additive placement wording.                    |
-| TC-02 | INFRA     | `scan-recommendation-endorsement.test.mjs` fixture repositories | Green exact record plus each missing/mismatch/staleness/finding failure. |
-| TC-03 | INFRA     | Baseline fixture matrix and live baseline validation            | Prove prospective adoption without retrospective evidence.               |
-| TC-04 | INFRA     | Registry/command/map reachability assertions and live scan      | Prevent an implemented-but-unreachable guard.                            |
-| TC-05 | INFRA     | Focused Vitest, harness contracts, scan, build, and tests       | Record commands, counts, and exit codes in gate evidence.                |
+| TC-ID | Test Type | Tool / Approach                                                                 | Notes                                                                                                         |
+| ----- | --------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| TC-01 | INFRA     | Contract assertions over rule, catalogue, agent definitions, and loop schema    | Prove universal scope, canonical paired attestation, and additive placement wording.                          |
+| TC-02 | INFRA     | Loop-run and `scan-recommendation-endorsement.test.mjs` git fixtures            | Green topic/squash paths plus each dispatch, subject, ancestry, projection, verdict, and finding failure.     |
+| TC-03 | INFRA     | Adoption-revision fixture matrix and live baseline validation                   | Reconstruct exemptions from the frozen tree and prove prospective convergence without retrospective evidence. |
+| TC-04 | INFRA     | Registry/command/map, guard-scope, examined-adoption, and provenance assertions | Prevent an implemented-but-unreachable or vacuous guard.                                                      |
+| TC-05 | INFRA     | Focused Vitest, harness contracts, scan, build, and tests                       | Record commands, counts, and exit codes in gate evidence.                                                     |
 
 ## Tasks
 

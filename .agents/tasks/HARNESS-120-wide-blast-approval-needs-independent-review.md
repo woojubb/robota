@@ -26,11 +26,12 @@ new-surface placement remains an additive, stricter review concern.
 
 ## Plan
 
-- [ ] Define one subject- and revision-bound Recommendation Gate evidence contract in the owning rule.
+- [ ] Define one subject-, projection-, and revision-bound Recommendation Gate attestation contract in
+      the owning rule and canonical loop-run ledger.
 - [ ] Require GATE-APPROVAL to verify a current independent `ENDORSE` with zero unresolved findings for
       every recommendation, while retaining new-surface placement checks as additive evidence.
-- [ ] Add a mechanical scan and deliberate-red fixtures for missing, wrong-subject, stale-revision,
-      non-ENDORSE, and unresolved-finding records.
+- [ ] Add a mechanical scan and deliberate-red fixtures for missing expectation/observation pairs,
+      wrong subjects, stale projections, non-ENDORSE observations, and unresolved findings.
 - [ ] Adopt the enforcement prospectively through an exact frozen baseline that never invents historical
       review evidence and re-governs nonterminal work at its next transition or material revision.
 - [ ] Wire the reviewer, orchestrator, gate catalogue, scan registry, and orchestration map to the same
@@ -48,7 +49,12 @@ new-surface placement remains an additive, stricter review concern.
   Recommendation Gate itself lacked enforcement. After re-scoping to that owner/enforcer mismatch, the
   independent triager returned `DEPTH: LOCAL` with `0 FOUNDATIONAL of 1` on 2026-08-26.
 - **User standing authorization:** `의미있는 개선사항이 없을때까지 의미있는 개선사항을 처리해서 완료할때까지 반복해. 모든 계획은 타당한 이유가 있다면 사전 승인한다`
-- **Independent proposal review:** pending against the committed draft revision.
+- **Independent proposal review round 1:** revision
+  `1e856ef9533f5dd67ba6b370332740f622fb81aa`; `UNRESOLVED FINDINGS: 5`; `REVIEW VERDICT: REVISE`.
+  The reviewer required squash-safe two-stage verification, a lifecycle-aware decision projection,
+  canonical expectation/observation attestation rather than a Task self-claim, an immutable adoption
+  anchor, and complete scan anti-vacuity/provenance wiring.
+- **Independent proposal review round 2:** pending against the revised committed draft.
 
 ## User Execution Test Scenarios
 
