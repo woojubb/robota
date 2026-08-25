@@ -1,7 +1,7 @@
 ---
 title: 'HARNESS-900: cross-check the projected interface graph against the package manifests'
 issue: https://github.com/woojubb/robota/issues/2215
-status: todo
+status: in-progress
 created: 2026-08-25
 priority: medium
 urgency: soon
@@ -63,3 +63,24 @@ remove the package-specifier branch from projectGraph
 - `pnpm harness:test` — 1149 passed across 73 files.
 - Red proof: making the oracle return an empty list fails exactly the historical-defect case and
   leaves the other 41 green.
+
+## User Execution Test Scenarios
+
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+**Not applicable**, and the reason is recorded rather than asserted. This change alters the failure
+conditions of a harness scan. No product surface changes: no command, flag, prompt, output, config
+key or exported symbol differs, and nothing a user of the CLI runs behaves differently before and
+after. The nearest executable surface is `pnpm harness:scan`, which is a developer gate — a scenario
+written against it would be a developer-execution scenario wearing a user-execution label.
+
+The evidence a reader can re-run in place of a user scenario:
+
+```
+node scripts/harness/scan-interface-family-owner.mjs
+  → ::examined:: … 4 manifest edge(s) cross-checked against the projection   → passed
+
+remove the package-specifier branch from projectGraph
+  → FAILED, four UNPROJECTED EDGE findings
+  → and `agent-interface-session` moves into migration wave 1, the reported symptom
+```

@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: RULE
 tags: [harness, scan, graph, oracle]
 ---
@@ -106,6 +106,10 @@ remove the package-specifier branch from projectGraph
   → and `agent-interface-session` moves into migration wave 1 — the exact reported symptom
 ```
 
+## Tasks
+
+- `.agents/tasks/HARNESS-900-cross-check-the-projected-interface-graph-against-the-package-manifests.md` — the record this spec is bound to.
+
 ## Evidence Log
 
 _GATE entries appended by the pipeline._
@@ -159,3 +163,17 @@ that line is `backlog-execution.md`'s, not this document's.
 Filed separately: issue #2371 records that the sequencing rule has existed unenforced and that a
 mechanism now touches one point in it, so the owner can decide the general case rather than have it
 settled item by item.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-26
+
+**Status upgrade:** approved → in-progress
+
+- Task record: `.agents/tasks/HARNESS-900-cross-check-the-projected-interface-graph-against-the-package-manifests.md` — exists, and its path is bound in the `## Tasks` section above.
+- Spec: `.agents/spec-docs/active/HARNESS-900-cross-check-the-projected-interface-graph-against-the-package-manifests.md`.
+- Its Plan carries one entry per Completion Criterion, and it holds a `## Verification` section with
+  the scan and suite results.
+- Subject-bound user-execution PLAN: `SCENARIO DRAFTED: not-applicable | 0`, with the concrete reason
+  recorded in the Task — a harness scan's failure conditions change, so no command, flag, output,
+  config key or exported symbol differs, and the nearest executable surface is a developer gate.
+- **whole-worktree** check: nothing is staged, unstaged, untracked, renamed or deleted outside the
+  exact Task/spec pair this checkpoint transitions.
