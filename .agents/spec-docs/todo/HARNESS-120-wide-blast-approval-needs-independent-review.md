@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: INFRA
 tags: [async]
 ---
@@ -282,3 +282,48 @@ Update the orchestration map from PENDING only after the scan is registered and 
       Task; GATE-IMPLEMENT must validate the re-scoped TC mapping.
 
 ## Evidence Log
+
+### [GATE-WRITE] — ✅ PASS | 2026-08-26
+
+**Status upgrade:** draft → review-ready
+
+- Ordering: GATE-WRITE is the entry gate and has no predecessor; the document is `status: draft` in `.agents/spec-docs/draft/`.
+- Frontmatter opening block: the file begins with a complete `---` YAML frontmatter block.
+- Frontmatter status: `status: draft` is present.
+- Frontmatter type: `type: INFRA` is one exact value from the permitted type list.
+- Frontmatter tags: `tags: [async]` is present.
+- Problem symptom: the document identifies the concrete mismatch in which the universal Recommendation Gate requires independent endorsement while GATE-APPROVAL and the mandatory scans do not verify that universal verdict record.
+- Problem reproduction condition: HARNESS-119 is named as a measured recurrence that changed the universal merge-verifier contract, recorded independent validation as N/A, and merged without a recorded `REVIEW VERDICT: ENDORSE`.
+- Problem specificity: the Problem is a substantiated two-paragraph account and contains neither `TBD` nor `TODO`.
+- Prior Art Research section: `## Prior Art Research` is present.
+- Research substantiation: the section cites official GitHub CODEOWNERS, protected-branch and ruleset documentation, GitLab approval-rule documentation, and NIST SP 800-53 Rev. 5.1.
+- Research waiver: N/A — qualifying primary and standards documentation is supplied, so no waiver is required.
+- Research-to-alternatives trace: the cited revision binding, separation of duties, composable protections, retained decision record, and prospective adoption patterns directly distinguish the four alternatives.
+- Research-to-decision trace: those findings support the selected canonical expectation/observation attestation, schema-aware projection, squash-safe verification, and immutable adoption boundary.
+- Architecture checklist: all four declared checklist items are checked `[x]`.
+- Sibling scan: the checked item names the Recommendation Gate, GATE-APPROVAL, proposal-reviewer, backlog-gate-guard, user-execution PLAN binding, and orchestration-map enforcement rows as inspected siblings.
+- Alternatives: four alternatives are present and each states an explicit pro and con.
+- Decision trade-off: the Decision selects universal canonical attestation because it repairs the owner/enforcer mismatch and survives revision/squash changes, while explicitly accepting a committed planning revision, ledger round, and independent review for every future recommendation.
+- New-surface placement: N/A — the Affected Scope explicitly introduces no package, application, public API, runtime dependency, user-facing behavior, presentation layer, or product-family/layer reclassification; the new files are repository-local harness enforcement within the existing harness layer.
+- Completion Criteria prefixes: all five criteria use unique `TC-01` through `TC-05` prefixes.
+- Completion Criteria coverage: separate criteria cover the universal gate contract and evidence ownership, staged/topic/squash enforcement, immutable historical adoption, mandatory non-vacuous wiring, and full verification.
+- Completion Criteria observability: every criterion names mechanically observable required states, accepted/rejected histories, exact wiring targets, or commands that must exit 0.
+- Completion Criteria wording: none uses the prohibited phrases `works correctly`, `no errors`, `implemented`, or `displays correctly`.
+- Test Plan section: `## Test Plan` is present.
+- Test Plan count: five rows map one-to-one to the five Completion Criteria (`TC-01` through `TC-05`).
+- Test Plan completeness: every row has a non-empty Test Type and Tool / Approach, with no `TBD` value.
+- Manual-test rationale: N/A — no Test Plan row uses `manual` as its tool.
+- Tasks structure: `## Tasks` is present with an unchecked pointer to the paired `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md` Task.
+- Evidence structure: `## Evidence Log` was present and empty before this first GATE-WRITE entry.
+- Body structure: the document contains neither a `## Status` nor a `## Classification` body section.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-26
+
+**Status upgrade:** review-ready → approved
+
+- Ordering: the immediately preceding GATE-WRITE entry records `✅ PASS | 2026-08-26`; the document is currently `status: review-ready` at `.agents/spec-docs/backlog/HARNESS-120-wide-blast-approval-needs-independent-review.md`, matching the required input state and folder.
+- Explicit approval in the current conversation: the user provided the standing authorization verbatim, `의미있는 개선사항이 없을때까지 의미있는 개선사항을 처리해서 완료할때까지 반복해. 모든 계획은 타당한 이유가 있다면 사전 승인한다`.
+- Direct, unambiguous application to this spec: `모든 계획` expressly includes this HARNESS-120 plan, and its stated condition `타당한 이유가 있다면` is satisfied by the document's primary-source research, four alternatives with explicit trade-offs, and the independent review of exact revision `440529b9a861a925702368ecc45c36313b7bb210` returning `REVIEW VERDICT: ENDORSE` with `UNRESOLVED FINDINGS: 0`; this is a conditional pre-approval applied to the justified current design, not silence, a shorthand answer, or approval of another item.
+- Post-approval document integrity: comparison with exact endorsed revision `440529b9a861a925702368ecc45c36313b7bb210` shows no substantive design change; only the lifecycle status/path transition, this gate evidence, and the Task's exact independent-review record were added. `## Architecture Review`, `type: INFRA`, and `tags: [async]` remain unchanged.
+- Independent architecture validation: N/A — the Affected Scope and Decision introduce no package, application, presentation/interface surface, public API, runtime dependency, layer reclassification, or product-family boundary; the proposed scripts and contract edits remain inside the existing repository harness/governance surface. New-surface placement evidence is therefore not required by the current conditional criterion.
+- Premature implementation check: `origin/develop...440529b9a861a925702368ecc45c36313b7bb210` changes only the HARNESS-120 Task/spec planning artifacts plus the preceding HARNESS-121 post-merge-cycle ledger record; the current worktree changes only the Task review record and the spec lifecycle/evidence transaction. No implementation path listed in this spec's Affected Files has been modified or committed before this gate.

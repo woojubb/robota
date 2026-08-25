@@ -66,9 +66,19 @@ new-surface placement remains an additive, stricter review concern.
   The two round-2 findings were resolved. The remaining conflict was that the proposed immutable Test Plan
   still met a GATE-COMPLETE criterion requiring actual test references in both Test Plan and Evidence Log.
   The bounded run ended; the user's standing authorization re-entered the corrected single-owner design.
-- **Independent proposal review, re-entry round 1:** pending against the corrected committed draft.
+- **Independent proposal review, re-entry round 1:** `REVIEW SUBJECT:
+HARNESS-120-wide-blast-approval-needs-independent-review.md`; `REVIEW REVISION:
+440529b9a861a925702368ecc45c36313b7bb210`; `UNRESOLVED FINDINGS: 0`; `REVIEW VERDICT: ENDORSE`.
+  The independent reviewer endorsed the planning-only checkpoint, staged/topic ordering, squash-safe
+  attestation, complete semantic projection, immutable adoption/bootstrap, rejected-population exclusion,
+  and Evidence-Log-only actual completion evidence contracts on 2026-08-26.
 
 ## User Execution Test Scenarios
 
-Not applicable. This changes internal approval governance and its mechanical tests, not a runnable
-Robota CLI, TUI, browser, or public SDK surface.
+- **Subject:** `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md`
+- **PLAN author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+- **Reason:** Not applicable because this work changes only repository-internal recommendation approval
+  governance, planning checkpoints, and harness enforcement. It delivers no runnable Robota CLI, TUI,
+  browser, public SDK, or other product behavior that a user could execute and observe, and it does not
+  introduce an unexposed user-facing capability behind an internal seam. Its verification therefore belongs
+  to the engineering Test Plan rather than a fabricated product-surface scenario.
