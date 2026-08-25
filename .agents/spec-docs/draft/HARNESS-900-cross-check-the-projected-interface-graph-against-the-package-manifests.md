@@ -20,12 +20,23 @@ become package specifiers, the projection lost every one, and `session` appeared
 nothing. **ACYCLICITY WAS GREEN THROUGHOUT** — fewer edges make acyclicity _easier_ to satisfy, so
 the verdict strengthened at exactly the rate the evidence disappeared.
 
-Issue #2215 names the class: **a guard whose green strengthens as its subject disappears is worse
+Issue issue #2215 names the class: **a guard whose green strengthens as its subject disappears is worse
 than one that fails, because it reports increasing confidence about decreasing evidence.** It is
 temporal, not structural — the check is correct when written and is degraded by subsequent,
 legitimate work, which is why "review it more carefully at authoring time" cannot catch it.
 
 ## Prior Art Research
+
+Waived: this is an internal harness guard with no external comparable. The subject is one
+repository's own scan reading one repository's own package manifests; there is no product
+documentation describing how another tool cross-checks a projected module graph against its manifest
+declarations, and a search for one would return build tools solving a different problem (dependency
+resolution) rather than this one (verifying that a parser still sees what the manifests declare).
+
+What stands in for prior art here is the repository's own history, which is stronger for this
+purpose: the same scan has had this defect twice before at different levels — ARCH-103 fixed a
+shrinking module set, and PR #2176 fixed a matcher that dropped extension-less relative imports —
+and both are recorded in the scan's own comments.
 
 The remedy is the one the issue proposes and it is checked before it is built rather than after:
 

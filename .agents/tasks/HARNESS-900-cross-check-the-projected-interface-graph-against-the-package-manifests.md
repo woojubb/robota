@@ -20,7 +20,7 @@ dependency became a package specifier.
 
 **Acyclicity stayed green while the graph emptied**, because fewer edges make acyclicity easier to
 satisfy. The verdict strengthened at the rate the evidence disappeared, which is the class issue
-#2215 names.
+issue #2215 names.
 
 Give the projection an oracle that cannot decay with it: the package manifests declare the same
 edges, are written by different work at a different time, and a parser that stops seeing a kind of
