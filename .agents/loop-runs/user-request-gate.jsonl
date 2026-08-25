@@ -12,3 +12,5 @@
 {"runId":"r20260824174724","opened":"2026-08-24T17:47:24.386Z","closed":"2026-08-24T17:51:54.479Z","roundFindings":[0],"extensions":{},"terminal":"halted-for-user","ref":null}
 {"runId":"r20260824175244","opened":"2026-08-24T17:52:44.788Z","closed":"2026-08-24T17:54:01.390Z","roundFindings":[1],"extensions":{},"terminal":"halted-for-user","ref":null}
 {"runId":"r20260824235859","opened":"2026-08-24T23:58:59.987Z","closed":"2026-08-25T00:00:02.394Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"HARNESS-119 GATE-APPROVAL PASS after explicit user approval"}
+{"runId":"r20260825170109","opened":"2026-08-25T17:01:09.678Z","closed":"2026-08-25T17:03:43.533Z","roundFindings":[1],"extensions":{},"terminal":"halted-for-user","ref":"HARNESS-120 foundational rescope required before draft"}
+{"runId":"r20260825171311","opened":"2026-08-25T17:13:11.740Z","closed":"2026-08-25T17:41:43.212Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"HARNESS-120-wide-blast-approval-needs-independent-review.md"}

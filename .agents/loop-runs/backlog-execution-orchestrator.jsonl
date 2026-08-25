@@ -3,4 +3,6 @@
 {"runId":"r20260822095743","opened":"2026-08-22T09:57:43.606Z","closed":"2026-08-22T10:34:08.324Z","roundFindings":[0,1,0],"terminal":"converged","ref":null}
 {"runId":"r20260822102755","opened":"2026-08-22T10:27:55.533Z","closed":"2026-08-22T12:32:39.798Z","roundFindings":[1],"terminal":"halted-for-user","ref":"INFRA-131"}
 {"runId":"r20260822124851","opened":"2026-08-22T12:48:51.097Z","closed":"2026-08-22T12:48:54.999Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
-{"runId":"r20260822101445","opened":"2026-08-22T10:14:45.180Z","closed":null,"roundFindings":[0],"terminal":null,"ref":null}
+{"runId":"r20260822101445","opened":"2026-08-22T10:14:45.180Z","closed":"2026-08-25T17:02:02.864Z","roundFindings":[0],"terminal":"converged","ref":"ARCH-042 PR #2160 MERGED 64ba74882a9a5e25e2081dd589c89692f4e0f2fb"}
+{"runId":"r20260825170202","opened":"2026-08-25T17:02:02.890Z","closed":"2026-08-25T17:03:43.475Z","roundFindings":[1],"extensions":{},"terminal":"halted-for-user","ref":"HARNESS-120 foundational rescope required: universal recommendation ENDORSE lacks enforcement"}
+{"runId":"r20260825171311","opened":"2026-08-25T17:13:11.770Z","closed":null,"roundFindings":[5,2,1,0],"extensions":{},"terminal":null,"ref":null}
