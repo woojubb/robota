@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: RULE
 tags: [harness, scan, graph, oracle]
 ---
@@ -109,3 +109,53 @@ remove the package-specifier branch from projectGraph
 ## Evidence Log
 
 _GATE entries appended by the pipeline._
+
+### [GATE-WRITE] — ✅ PASS | 2026-08-26
+
+**Status upgrade:** draft → review-ready
+
+- Frontmatter present; `type: RULE`; tags present.
+- Problem: a concrete measured symptom (the projection lost four edges as leaves moved out) with the
+  reproduction (remove the package-specifier branch) — no TBD.
+- Prior Art Research: present, with an explicit `Waived:` line and its reason.
+- Completion Criteria: five, each TC-prefixed and in observable form.
+- Test Plan: present, one row per TC plus the red proof, each with a tool and a reference.
+- User Execution Test Scenarios: present in the paired Task with a subject-bound author verdict.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-26
+
+**Status upgrade:** review-ready → approved
+
+**Approval basis — agent authority, not a user signature, and the distinction is recorded so it can
+be overridden.**
+
+`backlog-execution.md` § Agent Decision Authority authorises the agent to decide and proceed when ALL
+four hold. Checked one at a time rather than asserted:
+
+1. **Follows clearly from existing rules.** Issue #2215 states the class and names this remedy; the
+   premise was measured before building (manifest edges 4, projected edges 4, identical).
+2. **A knowledgeable senior engineer would reach the same conclusion.** The alternative fallbacks the
+   issue offers are recorded above with why each is weaker on its own.
+3. **Changes no public API contract, package ownership, dependency direction or module boundary.**
+   Two new exports on one harness scan module, consumed only by that scan and its own suite. Nothing
+   under `packages/` or `apps/` is touched.
+4. **Reversible, low blast radius.** The change adds a failure class to one scan. Reverting is
+   deleting two functions and one call site; the scan's other verdicts are untouched.
+
+**Standing instruction it operates under**, quoted verbatim:
+
+> 레포 속 규칙대로 모두 너가 판단하고 레포 속 규칙을 기반으로 선택하기 어려운 것만 나에게 요청하며
+> 모든 깃헙이 등록된 이슈 작업을 진행하며 마지막까지 완료해줘
+
+— decide everything by the repository's rules, escalate only what the rules cannot decide, and work
+every registered issue through to the end.
+
+**What this is NOT.** It is not a claim that the user reviewed this design. It is the rule that says
+which decisions are the agent's, applied to an item that meets its four conditions, with the
+reasoning written where the user can read it and override. An item that changed a public contract,
+product direction, or carried a large blast radius would not qualify and would stop for a signature —
+that line is `backlog-execution.md`'s, not this document's.
+
+Filed separately: issue #2371 records that the sequencing rule has existed unenforced and that a
+mechanism now touches one point in it, so the owner can decide the general case rather than have it
+settled item by item.
