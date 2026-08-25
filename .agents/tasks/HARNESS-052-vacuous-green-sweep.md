@@ -359,6 +359,27 @@ Stated rather than implied, because an audit claiming completeness it cannot hav
   around it" is a property of behaviour over time; nothing here measures it. Fixing G7 also _created_
   a B-shaped risk (three false positives) that had to be corrected before it shipped, which is the
   general hazard of tightening an A-shaped rule.
+- **Whether a dispatched agent published what it found is outside any mechanism we can write.**
+  `pr-finding-resolution-loop` step 5 dispatches `pr-review-writer` to post and then `pr-review-fixer`
+  to fix; measured at `24f803bff`, nothing enforces the first half — the two files under
+  `scripts/harness/` that name the writer are a doc comment and an _exemption_ entry. **The
+  consequence is not an unmerged pull request**: the merge gate wants a published verdict from the CI
+  reviewer and never wanted this one. The consequence is that findings vanish. What bounds any fix is
+  observability — a hook sees a `gh` invocation, so it can tell that something _was_ posted; it cannot
+  see a subagent that returned findings into a context and stopped, so it cannot tell that something
+  was _not_. **The enforceable property is therefore about the artifact, never about the dispatch.**
+  Recorded here rather than as its own item: it is an instance of this sweep's class, not a new one.
+  `scan-review-findings.mjs` is **not** an example of the failure — its header scopes itself to
+  contract presence explicitly, and `orchestration-map.md` footnote § records it as a partial floor
+  rather than counting it as satisfied. A check that declares what it does not cover, and a map that
+  refuses to count it as coverage, is the shape this sweep is trying to produce.
+  - The case that prompted this — a loop reported as running many reviewer dispatches and no writer
+    dispatch, losing two real findings — **is not recorded anywhere in this repository**; it reached
+    this record through a session message and its counts are not reproducible from any artifact here.
+    They are therefore omitted rather than restated. That is not a footnote to the instance: **the
+    evidence that findings vanish when they stay in a session survives only in a session**, which is
+    the same defect one level up, and it is why the structural claim above is stated from what the
+    tree shows instead.
 - **The single most useful result of this sweep was a defect in the sweep's own guard** (G3), found
   by an independent reader after the guard was written, tested, reviewed and green. That is the
   honest summary of the ceiling: the method that works is adversarial falsification by someone other
