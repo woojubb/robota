@@ -1326,6 +1326,39 @@ describe('staged ordering', () => {
   });
 
   it.each([
+    ['a template block', '<template>forged checkpoint</template>'],
+    ['a style block', '<style>forged checkpoint</style>'],
+    ['an inline tag with a quoted greater-than attribute', '<span title="forged > value"></span>'],
+  ])('rejects %s as ambiguous raw HTML checkpoint evidence', (_description, evidence) => {
+    const reviewed = reviewedTopic();
+    write(reviewed.root, LEDGER, `${JSON.stringify(convergedAttestation(reviewed))}\n`);
+    write(reviewed.root, TASK, `${task()}\nRecommendation review recorded.\n`);
+    write(reviewed.root, ACTIVE_SPEC, spec({ evidence }));
+    git(reviewed.root, ['add', '-A']);
+
+    expect(findRecommendationStagedFindings(reviewed.root, reviewed.base).length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it('rejects ambiguous authored entity references instead of comparing their spellings', () => {
+    const named = 'Existing &amp; evidence.';
+    const numeric = 'Existing &#38; evidence.';
+    expect(() => recommendationCheckpointEvidence(spec({ evidence: named }))).toThrow(/entity/i);
+    expect(() => recommendationCheckpointEvidence(spec({ evidence: numeric }))).toThrow(/entity/i);
+
+    const reviewed = reviewedTopic({ evidence: named });
+    write(reviewed.root, LEDGER, `${JSON.stringify(convergedAttestation(reviewed))}\n`);
+    write(reviewed.root, TASK, `${task()}\nRecommendation review recorded.\n`);
+    write(reviewed.root, ACTIVE_SPEC, spec({ evidence: numeric }));
+    git(reviewed.root, ['add', '-A']);
+
+    expect(findRecommendationStagedFindings(reviewed.root, reviewed.base).length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it.each([
     ['an inline code span', '', 'Literal `<!-- kept -->` code evidence.'],
     ['a fenced code block', '', '```html\n<!-- kept -->\n```'],
     ['an escaped HTML opener', '\\', '\\<!-- kept literal -->'],

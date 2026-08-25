@@ -487,3 +487,12 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Focused verification: the exact seven affected harness test files passed 222 tests; the direct projection/endorsement pair passed 67 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
 - Complete verification: `pnpm harness:test:contracts` passed 3,961 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
 - Review status: the two findings are fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.
+
+### [LOCAL REVIEW ROUND 9] — 🔁 RESOLVED | 2026-08-26
+
+- Exact review range: independent local re-review compared base `675cd814edb4121fd92023fe7721c905a1acf321` with fix head `1082e6736fee7cbf7f5f043fd7e8f147e92f1410` and returned `ACTIONABLE FINDINGS: 1`.
+- Resolved finding: regex tag stripping was removed from Evidence Log canonicalization; `marked` lexer provenance now allows actual HTML-comment tokens while failing closed on non-comment raw HTML and ambiguous authored entity references, and a visible-text renderer canonicalizes only parser-owned Markdown tokens.
+- Boundary coverage: fixtures reject hidden-only template/style evidence, inline tags with quoted `>` attributes, and named-versus-numeric entity spelling changes, while preserving escaped, inline-code, fenced-code, and indented-code literal evidence.
+- Focused verification: the exact seven affected harness test files passed 226 tests; the direct projection/endorsement pair passed 71 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
+- Complete verification: `pnpm harness:test:contracts` passed 3,965 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
+- Review status: the finding is fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.

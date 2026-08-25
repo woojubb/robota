@@ -275,16 +275,53 @@ function canonicalBody(lines) {
   return normalized.join('\n');
 }
 
+function plainEvidenceRenderer() {
+  const renderer = new marked.Renderer();
+  renderer.code = (code) => `${code}\n`;
+  renderer.blockquote = (quote) => `${quote}\n`;
+  renderer.html = () => '';
+  renderer.heading = (text) => `${text}\n`;
+  renderer.hr = () => '\n';
+  renderer.list = (body) => `${body}\n`;
+  renderer.listitem = (text) => `${text}\n`;
+  renderer.checkbox = (checked) => (checked ? '[x] ' : '[ ] ');
+  renderer.paragraph = (text) => `${text}\n`;
+  renderer.table = (header, body) => `${header}\n${body}\n`;
+  renderer.tablerow = (content) => `${content}\n`;
+  renderer.tablecell = (content) => `${content}\t`;
+  renderer.strong = (text) => text;
+  renderer.em = (text) => text;
+  renderer.codespan = (text) => text;
+  renderer.br = () => '\n';
+  renderer.del = (text) => text;
+  renderer.link = (_href, _title, text) => text;
+  renderer.image = (_href, _title, text) => text;
+  renderer.text = (text) => text;
+  return renderer;
+}
+
+function isHtmlCommentToken(token) {
+  return token.type === 'html' && /^<!--[\s\S]*-->$/.test(token.raw.trim());
+}
+
 function canonicalVisibleEvidence(lines) {
-  const rendered = marked.parse(lines.join('\n'), { async: false });
-  if (typeof rendered !== 'string') {
-    throw new Error('recommendation checkpoint: synchronous Markdown rendering returned no text.');
-  }
-  return rendered
-    .replace(/<!--[\s\S]*?(?:-->|$)/g, '')
-    .replace(/<[^>]*>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const tokens = marked.lexer(lines.join('\n'));
+  marked.walkTokens(tokens, (token) => {
+    if (token.type === 'html' && !isHtmlCommentToken(token)) {
+      throw new Error(
+        'recommendation checkpoint: raw HTML other than comments is ambiguous evidence.',
+      );
+    }
+    if (
+      token.type === 'text' &&
+      /&(?:#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]+);/.test(token.raw)
+    ) {
+      throw new Error(
+        'recommendation checkpoint: authored entity references are ambiguous evidence.',
+      );
+    }
+  });
+  return marked.parser(tokens, { renderer: plainEvidenceRenderer() }).replace(/\s+/g, ' ').trim();
 }
 
 function frontmatterProjection(lines) {
