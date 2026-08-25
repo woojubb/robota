@@ -31,12 +31,7 @@ export type {
   ICreateLimitedOutputCaptureOptions,
   ILimitedOutputCapture,
 } from './background-tasks/index.js';
-export {
-  createProviderFromConfig,
-  createProviderFromProfile,
-  normalizeProviderConfig,
-  resolveProfileApiKey,
-} from './providers/index.js';
+export { createProviderFromProfile, resolveProfileApiKey } from './providers/index.js';
 export {
   SubagentManager,
   WorktreeSubagentRunner,

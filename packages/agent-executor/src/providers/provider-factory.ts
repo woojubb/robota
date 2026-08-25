@@ -7,13 +7,17 @@ import {
 import type { ISerializableProviderProfile } from '../background-tasks/types.js';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
-/**
- * `normalizeProviderConfig` and `createProviderFromConfig` were relocated into `agent-core`
- * (ARCH-PROVIDER-003) — they import only `agent-core` symbols, so the one credential-resolution path can be
- * reused by the `dag-node-llm-text` leaf (which depends on `agent-core` alone). Re-exported here so existing
- * `@robota-sdk/agent-executor` consumers are unaffected.
+/*
+ * ARCH-111: `normalizeProviderConfig` and `createProviderFromConfig` are NOT re-exported.
+ *
+ * ARCH-PROVIDER-003 relocated them into `agent-core` and left a re-export here "so existing
+ * consumers are unaffected" — a backward-compatibility guarantee this repository does not make. What
+ * the duplicate name bought instead was two consumers inside one product disagreeing about the owner:
+ * `agent-framework` imported them from here while `agent-product` imported the same function from
+ * `agent-core`, and both compiled.
+ *
+ * They are imported above because this file's own helpers call them. That is a use, not a surface.
  */
-export { normalizeProviderConfig, createProviderFromConfig };
 
 /**
  * Profile-based helpers stay in `agent-executor`: they depend on the executor-owned

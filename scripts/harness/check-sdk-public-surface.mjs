@@ -386,7 +386,10 @@ export function examinedPackageCount() {
 const FROZEN_FINDING_COUNTS = {
   'agent-command': 27,
   'agent-core': 20,
-  'agent-executor': 2,
+  // ARCH-111: 2 → 1. The re-export of `agent-core`'s `normalizeProviderConfig` and
+  // `createProviderFromConfig` was removed, so the executor no longer widens the SDK surface with
+  // symbols it does not own. Re-frozen in the same change, per this ratchet's own instruction.
+  'agent-executor': 1,
   'agent-interface-transport': 1,
   'agent-plugin': 8,
   'agent-provider-anthropic': 4,
