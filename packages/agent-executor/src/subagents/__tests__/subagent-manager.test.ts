@@ -5,6 +5,7 @@ import type {
   ISubagentJobResult,
   ISubagentJobStart,
   ISubagentRunner,
+  ISubagentSpawnRequest,
 } from '../types.js';
 import type { ITokenUsage } from '@robota-sdk/agent-core';
 
@@ -83,7 +84,7 @@ function createUsageReportingRunner(output: string, usage: ITokenUsage): ISubage
   };
 }
 
-function createSpawnRequest(prompt: string) {
+function createSpawnRequest(prompt: string): ISubagentSpawnRequest {
   return {
     agentType: 'general-purpose',
     label: 'General purpose',
@@ -92,6 +93,7 @@ function createSpawnRequest(prompt: string) {
     depth: 1,
     cwd: '/workspace',
     prompt,
+    permissionPolicy: 'inherit-allowlist',
   };
 }
 
