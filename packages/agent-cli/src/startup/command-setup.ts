@@ -6,6 +6,7 @@ import {
   getStartupCliUpdateNotice,
   getUserSettingsPath,
   loadOrgPolicy,
+  OrgPolicyParseError,
   readMergedProviderSettings,
   readSettings,
   resolveProviderSettingsWriteTarget,
@@ -224,4 +225,32 @@ export function buildCommandSetup(
     remoteCommandPolicy: createDefaultRemoteCommandPolicy(), // REMOTE-006: allow-by-default (local == remote).
     workspaceComposition,
   };
+}
+
+/**
+ * `buildCommandSetup`, with the one startup failure that is terminal presented rather than thrown.
+ *
+ * Issue #2023: an org policy file that EXISTS and cannot be read means the policy is NOT applied.
+ * Starting anyway is the fail-open that change removed, and crashing with a stack trace is the
+ * "must not crash CLI startup" outcome the comment it replaced was protecting — an administrator
+ * needs to see which file to fix, not a trace.
+ *
+ * Presented the way `resolveShellPreset` presents an unknown preset id: message to stderr, exit 1.
+ * It lives HERE rather than in `cli.ts` because that file is at its size baseline, and because the
+ * presentation of a setup failure belongs beside the setup rather than in the shell that calls it.
+ *
+ * **Narrow on purpose.** A broad catch would turn every unrelated startup defect into a clean exit
+ * carrying someone else's message, which is a worse failure than the one being fixed.
+ */
+export function buildCommandSetupOrExit(
+  ...args: Parameters<typeof buildCommandSetup>
+): ReturnType<typeof buildCommandSetup> {
+  try {
+    return buildCommandSetup(...args);
+  } catch (error) {
+    if (!(error instanceof OrgPolicyParseError)) throw error;
+    // allow-fallback: an unreadable org policy is terminal — surface the file, exit
+    process.stderr.write(`${error.message}\n`);
+    process.exit(1);
+  }
 }

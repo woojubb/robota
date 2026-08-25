@@ -19,7 +19,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
-import { buildCommandSetup } from '../startup/command-setup.js';
+import { buildCommandSetup, buildCommandSetupOrExit } from '../startup/command-setup.js';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 
@@ -40,6 +40,16 @@ function homeWithPolicy(policy: unknown): string {
   homes.push(home);
   mkdirSync(join(home, '.robota'), { recursive: true });
   writeFileSync(join(home, '.robota', 'org-policy.json'), JSON.stringify(policy), 'utf8');
+  writeFileSync(join(home, '.robota', 'settings.json'), SETTINGS_JSON, 'utf8');
+  return home;
+}
+
+/** The same HOME, with a policy file written verbatim so a case can make it unreadable. */
+function homeWithRawPolicy(raw: string): string {
+  const home = mkdtempSync(join(tmpdir(), 'issue-2023-home-'));
+  homes.push(home);
+  mkdirSync(join(home, '.robota'), { recursive: true });
+  writeFileSync(join(home, '.robota', 'org-policy.json'), raw, 'utf8');
   writeFileSync(join(home, '.robota', 'settings.json'), SETTINGS_JSON, 'utf8');
   return home;
 }
@@ -120,5 +130,52 @@ describe('CLI-083: a policy file on disk reaches the enforcement', () => {
     );
 
     expect(result?.message ?? '').not.toContain('is not allowed');
+  });
+});
+
+describe('issue #2023: an unreadable policy is presented, not thrown at the user', () => {
+  it('writes the message and exits 1 instead of escaping as an unhandled exception', () => {
+    // Review finding on PR #2324: `loadOrgPolicy` throws now, and its only production caller did not
+    // catch it — so a corrupted `~/.robota/org-policy.json` crashed the CLI with a stack trace. That
+    // is the outcome the comment this change replaced was protecting against, and a stack trace does
+    // not tell an administrator which file to fix.
+    const home = homeWithRawPolicy('{"allowedProviders": ["anthropic"');
+    vi.stubEnv('HOME', home);
+    const written: string[] = [];
+    vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      written.push(String(chunk));
+      return true;
+    });
+    const exit = vi.spyOn(process, 'exit').mockImplementation((() => {
+      throw new Error('exited');
+    }) as never);
+
+    expect(() => buildCommandSetupOrExit(home, MINIMAL_ARGS, {}, '0.0.0-test')).toThrow('exited');
+
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(written.join('')).toContain('org-policy.json');
+    expect(written.join('')).toContain('Policy is NOT applied');
+  });
+
+  it("lets an unrelated startup failure through, rather than presenting someone else's message", () => {
+    // The companion the case above needs. A broad catch would turn every unrelated startup defect
+    // into a clean exit carrying the org-policy message — a worse failure than the one being fixed,
+    // and one that would still pass the assertion above.
+    //
+    // The first version of this case used a nonexistent cwd, which turns out not to fail at all, so
+    // it asserted nothing: a mutant removing the `instanceof` narrowing survived it. Measured, what
+    // `buildCommandSetup` actually throws for an unrelated reason is `SettingsParseError` — a
+    // corrupt `settings.json` beside a perfectly good policy. That mutant now dies.
+    const home = homeWithRawPolicy(JSON.stringify({ allowedProviders: ['anthropic'] }));
+    writeFileSync(join(home, '.robota', 'settings.json'), '{ not json', 'utf8');
+    vi.stubEnv('HOME', home);
+    const exit = vi.spyOn(process, 'exit').mockImplementation((() => {
+      throw new Error('exited');
+    }) as never);
+
+    expect(() => buildCommandSetupOrExit(home, MINIMAL_ARGS, {}, '0.0.0-test')).toThrow(
+      /invalid JSON/,
+    );
+    expect(exit).not.toHaveBeenCalled();
   });
 });

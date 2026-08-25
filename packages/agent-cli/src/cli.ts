@@ -50,7 +50,7 @@ import { runDiagnoseCommand } from './startup/diagnose-command.js';
 import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first-run.js';
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
-import { buildCommandSetup } from './startup/command-setup.js';
+import { buildCommandSetupOrExit } from './startup/command-setup.js';
 import { createInitialCliWorkspaceComposition } from './startup/workspace-project-composition.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
@@ -184,7 +184,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     remoteCommandPolicy,
     workspaceComposition,
     orgPolicy,
-  } = buildCommandSetup(cwd, args, options, version, packCommandModules);
+  } = buildCommandSetupOrExit(cwd, args, options, version, packCommandModules);
   // REMOTE-008: the shell owns the transport registry + the remote-control controller (it has settings, the
   // registry, and — via onChannelReady — the live session), and injects the registry into the profile. The
   // `/remote-control` command is a declarative trigger; the enable/stop wiring + status view are here.
