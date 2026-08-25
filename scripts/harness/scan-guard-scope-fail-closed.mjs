@@ -211,6 +211,22 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'it judges spec documents that reached implementation without a user-execution gate section; over a root with no spec tree there is no document to judge, and "zero documents are missing the section" reads exactly like "every document carries it" — while the defect it exists to catch is seven documents implemented and reported complete with no section at all',
   },
   {
+    // HARNESS-121. Measured as `findHistoryFindings(bare)`: returns a fail-closed history-query
+    // finding because no repository/base ancestry can be resolved.
+    file: 'scan-user-execution-plan-order.mjs',
+    finder: 'findHistoryFindings',
+    tree: '.git + topic merge-base',
+    why: 'Git ancestry is the governed population — without a repository and merge base, "no implementation preceded PLAN" cannot be evaluated, so an empty result would certify ordering over no history',
+  },
+  {
+    // HARNESS-121. Measured as `findStagedFindings(bare)`: returns a fail-closed staged-query finding
+    // because there is no index whose proposed transaction can be judged.
+    file: 'scan-user-execution-plan-order.mjs',
+    finder: 'findStagedFindings',
+    tree: '.git index + topic merge-base',
+    why: 'the Git index and its checkpoint ancestor are the governed population — without them, "this proposed implementation is authorized" would be a pass over no proposed commit or causal boundary',
+  },
+  {
     // Measured: `collectAggregateNaming(bare, …)` throws `aggregate-naming: packages missing from
     // <root>`. It is pinned separately from the findings wrapper because it is exported and takes a
     // root, so it is callable on its own — and alone it would have counted 0 over an unread tree.

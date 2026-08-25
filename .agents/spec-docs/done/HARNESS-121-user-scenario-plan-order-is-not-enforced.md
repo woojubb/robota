@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [async]
 ---
@@ -73,8 +73,8 @@ timestamps.
 - `.husky/pre-commit` — invokes the staged-change guard before a commit is created.
 - `scripts/harness/scan-user-execution-plan-order.mjs` — owns staged and branch-history enforcement.
 - `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` — red/green repository fixtures.
-- `scripts/harness/run-all-scans.mjs` and `scripts/harness/harness-test-tiers.mjs` — register the scan and
-  its contract tests in existing mandatory paths.
+- `scripts/harness/run-all-scans.mjs` and the existing auto-discovered harness test tier — register the
+  scan and its contract tests in existing mandatory paths.
 
 No package, public API, application surface, or dependency direction changes.
 
@@ -164,40 +164,39 @@ not become a second ordering owner.
 - `scripts/harness/scan-user-execution-plan-order.mjs`
 - `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
 - `scripts/harness/run-all-scans.mjs`
-- `scripts/harness/harness-test-tiers.mjs`
 - `.agents/tasks/HARNESS-121-user-scenario-plan-order-is-not-enforced.md`
 
 ## Completion Criteria
 
-- [ ] TC-01: GATE-IMPLEMENT requires the exact Task's complete PLAN outcome and a worktree with no
+- [x] TC-01: GATE-IMPLEMENT requires the exact Task's complete PLAN outcome and a worktree with no
       non-planning modification before emitting PASS; the orchestrator commits that PASS as a dedicated
       checkpoint before Phase 3. Missing, stale, retrospective, ambiguous, or unreadable evidence fails
       closed.
-- [ ] TC-02: `node scripts/harness/scan-user-execution-plan-order.mjs --staged` exits 1 when staged
+- [x] TC-02: `node scripts/harness/scan-user-execution-plan-order.mjs --staged` exits 1 when staged
       implementation has no checkpoint ancestor, when implementation is hidden unstaged/untracked during
       a proposed checkpoint, or when a rename/deletion crosses the allowlist; it exits 0 after a valid
       checkpoint.
-- [ ] TC-03: the default scan exits 1 for retrospective PLAN, implementation without an author verdict,
+- [x] TC-03: the default scan exits 1 for retrospective PLAN, implementation without an author verdict,
       applicable PLAN without DONE-GATE-STAGE-1, a subject mismatch, ambiguous Tasks, arbitrary Markdown
       implementation before later Task/spec introduction, and a checkpoint that mixes planning with
       implementation; it exits 0 for applicable and not-applicable valid sequences and for one valid
       predecessor post-merge ledger prelude.
-- [ ] TC-04: the pre-commit hook and mandatory scan/test registries invoke the one guard and its contract
+- [x] TC-04: the pre-commit hook and mandatory scan/test registries invoke the one guard and its contract
       suite, and focused/full harness verification exits 0.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                  | Notes                                                                                                                                                                                                                                                                                           |
-| ----- | --------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | INFRA     | contract fixture + text contract                 | Assert exact Task binding; N/A author verdict/reason or applicable author verdict + Stage-1 PASS; clean whole-tree check; guardian-PASS then orchestrator-commit order; fail-closed Git errors.                                                                                                 |
-| TC-02 | INFRA     | temporary Git repositories, `--staged` mode      | Prove RED before the checkpoint, for unstaged/untracked implementation and rename/delete cases, and GREEN when HEAD contains the valid planning commit.                                                                                                                                         |
-| TC-03 | INFRA     | temporary Git repositories, branch-history mode  | Cover valid applicable/N/A; valid predecessor ledger prelude; retrospective/missing author or Stage-1; subject mismatch; arbitrary Markdown before later Task/spec; Task already in base; ambiguity; mixed checkpoint; ledger-plus-code; forged/rewritten ledger; and rebased/squashed history. |
-| TC-04 | INFRA     | hook/registry assertions + focused/full commands | Verify pre-commit, scan runner, contract tier, and full harness scan reach the guard.                                                                                                                                                                                                           |
+| TC-ID | Test Type | Tool / Approach                                  | Notes                                                                                                                                                                                                                                                                                                                             |
+| ----- | --------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | INFRA     | contract fixture + text contract                 | PASS — `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` > `user-execution PLAN order — branch history`, `user-execution PLAN order — staged transaction`, and `user-execution PLAN order — repository contract` assert exact binding, canonical outcomes, isolation, checkpoint order, and fail-closed errors. |
+| TC-02 | INFRA     | temporary Git repositories, `--staged` mode      | PASS — `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` > `user-execution PLAN order — staged transaction` rejects missing checkpoints, hidden unstaged/untracked implementation, and rename/deletion crossings, then accepts a valid ancestor.                                                                |
+| TC-03 | INFRA     | temporary Git repositories, branch-history mode  | PASS — `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` > `user-execution PLAN order — branch history` covers the complete valid/invalid history matrix; the live branch scan also passed across two topic commits.                                                                                            |
+| TC-04 | INFRA     | hook/registry assertions + focused/full commands | PASS — `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` > `user-execution PLAN order — repository contract` and `scripts/harness/__tests__/scan-guard-scope-fail-closed.test.mjs` > `derivation (the half that cannot be dodged by editing a table)` / `the scan as a whole`; all full gates passed.           |
 
 ## Tasks
 
-- [x] `.agents/tasks/HARNESS-121-user-scenario-plan-order-is-not-enforced.md` — active Task; GATE-IMPLEMENT
-      validates the TC mapping after approval.
+- [x] `.agents/tasks/completed/HARNESS-121-user-scenario-plan-order-is-not-enforced.md` — completed Task;
+      GATE-IMPLEMENT validated the TC mapping after approval.
 
 ## Evidence Log
 
@@ -258,3 +257,52 @@ not become a second ordering owner.
 - Subject-bound PLAN terminal result: the exact Task's `## User Execution Test Scenarios` section records `SCENARIO DRAFTED: not-applicable | 0` and gives a concrete reason: the work changes internal lifecycle governance and harness enforcement only, with no CLI, TUI, browser, or public-SDK behavior. DONE-GATE-STAGE-1 is therefore N/A for this not-applicable outcome.
 - Whole-worktree precondition: `git status --short --untracked-files=all`, unstaged name-status, and staged name-status showed no staged change and only the exact paired planning artifacts modified/untracked: `.agents/tasks/HARNESS-121-user-scenario-plan-order-is-not-enforced.md` and `.agents/spec-docs/todo/HARNESS-121-user-scenario-plan-order-is-not-enforced.md`; no implementation path, extra planning path, rename, or deletion is present.
 - Existing-catalogue NON-COMPLIANCE trigger: N/A — the exact Task exists, and no implementation change or implementation commit exists before this gate.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-26
+
+**Status upgrade:** in-progress → verifying
+
+- Task completion: all four Plan items in `.agents/tasks/HARNESS-121-user-scenario-plan-order-is-not-enforced.md` are `[x]`; no item is pending or blocked.
+- Build: `pnpm build` completed successfully for the full monorepo with exit code 0.
+- Tests: `pnpm test` completed successfully for the full monorepo with exit code 0.
+- Independent reproduction: the verifier reran 78 focused tests, 31 guard-scope tests, the two-commit live history scan, all 144 mandatory scans with 2 declared policy skips, and 178 contract files/3,883 tests; every command exited 0.
+- Independent review: local review round A36 reported `ACTIONABLE FINDINGS: 0`, and `git diff --check` exited 0.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-26
+
+- Command/action: `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` plus direct inspection of `.agents/rules/backlog-execution.md`, `.agents/specs/gate-catalogue.md`, `.agents/skills/user-execution-scenario/SKILL.md`, and `.agents/skills/backlog-execution-orchestrator/SKILL.md`.
+- Observed result: the exact Task binding, canonical applicable/not-applicable PLAN results, whole-worktree isolation, planning-only checkpoint order, fail-closed Git errors, and single ordering owner all passed; 78 tests passed.
+- Exit code: 0.
+- Test written: `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` > `user-execution PLAN order — branch history`, `user-execution PLAN order — staged transaction`, and `user-execution PLAN order — repository contract`.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-26
+
+- Command/action: `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` with the `--staged` transaction fixtures.
+- Observed result: missing checkpoint ancestors, hidden unstaged/untracked implementation, and allowlist-crossing renames/deletions were rejected; staged implementation after a valid checkpoint was accepted.
+- Exit code: 0.
+- Test written: `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` > `user-execution PLAN order — staged transaction`.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-26
+
+- Command/action: `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` and `node scripts/harness/scan-user-execution-plan-order.mjs` on `fix/user-scenario-plan-order`.
+- Observed result: the complete retrospective/missing/mismatched/ambiguous/mixed/forged history matrix behaved as specified; the live scan examined two topic commits and reported no finding.
+- Exit code: 0 for both commands.
+- Test written: `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` > `user-execution PLAN order — branch history`.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-26
+
+- Command/action: `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs scripts/harness/__tests__/scan-guard-scope-fail-closed.test.mjs`, `pnpm harness:scan`, `pnpm harness:test:contracts`, and `pnpm build && pnpm test`.
+- Observed result: focused/guard-scope tests passed 109/109; the pre-commit and mandatory scan registries reached the guard; all 144 scans passed with 2 declared policy skips; 178 contract files/3,883 tests passed; the full build and test completed successfully.
+- Exit code: 0 for every command.
+- Test written: `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` > `user-execution PLAN order — repository contract`; `scripts/harness/__tests__/scan-guard-scope-fail-closed.test.mjs` > `derivation (the half that cannot be dodged by editing a table)` and `the scan as a whole`.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-26
+
+**Status upgrade:** verifying → done
+
+- TC evidence: TC-01 through TC-04 are all `[x]`, and every matching Evidence Log entry records the exact verification action, observed result, exit code 0, and durable test file plus describe reference.
+- Test Plan: all four rows directly name their durable test files and exact describe blocks; no TC is silently unaddressed or skipped.
+- Task readiness: the exact Task completed all four Plan items with no pending or blocked work before this PASS.
+- Independent verdict: the GATE-COMPLETE guardian reran the 109 focused/guard-scope tests and the two-commit live scan, verified all catalogue criteria, and returned `GATE VERDICT: PASS`.
+- Post-PASS handoff: Task status/date, Task archival, archived Task pointer, and this spec's `done` status/folder transition are applied atomically by the orchestrator.
+- Final-state verification: `pnpm harness:scan` exited 0 after archival with 143 scans passed and 3 declared policy skips; folder/status agreement, Task archival, done evidence, and backlog placement all passed.

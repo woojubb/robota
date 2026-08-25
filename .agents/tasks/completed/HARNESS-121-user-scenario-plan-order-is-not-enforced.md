@@ -1,8 +1,9 @@
 ---
 title: 'HARNESS-121: user-execution scenario PLAN order is not enforced'
 issue: https://github.com/woojubb/robota/issues/2327
-status: in-progress
+status: done
 created: 2026-08-25
+completed: 2026-08-26
 priority: high
 urgency: soon
 area: .agents/rules, .agents/skills, scripts/harness
@@ -21,15 +22,15 @@ that ordering violation from a valid pre-implementation PLAN.
 
 ## Plan
 
-- [ ] Choose one durable lifecycle signal that binds the author verdict to the work unit and pre-code
+- [x] Choose one durable lifecycle signal that binds the author verdict to the work unit and pre-code
       transition without relying on mutable prose or wall-clock inference.
-- [ ] Make the implementation gate validate a complete Task-bound PLAN outcome and a clean whole
+- [x] Make the implementation gate validate a complete Task-bound PLAN outcome and a clean whole
       worktree, then require its PASS to be committed as a planning-only checkpoint before Phase 3.
-- [ ] Add red/green fixtures for valid applicable/not-applicable ordering, retrospective PLAN,
+- [x] Add red/green fixtures for valid applicable/not-applicable ordering, retrospective PLAN,
       missing Stage-1, subject mismatch, ambiguous Tasks, mixed Markdown/code checkpoints, hidden
       unstaged/untracked changes, rename/deletion paths, implementation before later Task/spec
       introduction, and valid versus forged predecessor post-merge ledger preludes.
-- [ ] Reconcile the user-request, backlog-pipeline, and user-execution orchestrators around the single
+- [x] Reconcile the user-request, backlog-pipeline, and user-execution orchestrators around the single
       ordering owner.
 
 ## Recommendation Review
@@ -59,3 +60,15 @@ Not applicable. The independent scenario author found that this changes internal
 governance, gate ordering, and harness fixtures only. It delivers no runnable product behavior through
 the CLI, TUI, browser, or public SDK, and harness commands are engineering verification rather than
 user-execution scenarios. No hidden user-facing capability is introduced behind an internal seam.
+
+## Results
+
+- Added one fail-closed guard for both staged transactions and full topic-branch history, backed by 78
+  focused tests and 31 guard-scope contract tests.
+- Proved the live HARNESS-121 branch history valid across two topic commits and converged an independent
+  local review in round A36 with `ACTIONABLE FINDINGS: 0`.
+- `pnpm harness:scan` passed all 144 mandatory scans with 2 declared policy skips.
+- `pnpm harness:test:contracts` passed 178 test files and 3,883 tests.
+- `pnpm build && pnpm test` completed successfully across the full monorepo.
+- After terminal archival, `pnpm harness:scan` passed 143 scans with 3 declared policy skips; folder/status,
+  Task archival, done-evidence, and backlog placement checks all passed in the final state.

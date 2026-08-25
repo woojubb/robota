@@ -8,3 +8,4 @@
 {"runId":"r20260824171233","opened":"2026-08-24T17:12:33.472Z","closed":"2026-08-24T17:27:31.884Z","roundFindings":[3,1,0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260825001236","opened":"2026-08-25T00:12:36.883Z","closed":"2026-08-25T00:26:07.409Z","roundFindings":[4,3,0],"extensions":{},"terminal":"converged","ref":"HARNESS-119 local review A3 ACTIONABLE FINDINGS: 0; foundational HARNESS-087,HARNESS-120,HARNESS-121 contained"}
 {"runId":"r20260825003038","opened":"2026-08-25T00:30:38.217Z","closed":"2026-08-25T00:30:42.440Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"HARNESS-119 exact HEAD a627c3a3b ACTIONABLE FINDINGS: 0"}
+{"runId":"r20260825135311","opened":"2026-08-25T13:53:11.172Z","closed":"2026-08-25T15:43:40.276Z","roundFindings":[6,5,5,3,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,7,4,4,5,3,1,1,1,0],"extensions":{},"terminal":"converged","ref":"HARNESS-121 local Round A36 ACTIONABLE FINDINGS: 0"}

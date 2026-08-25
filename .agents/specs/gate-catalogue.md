@@ -184,10 +184,19 @@ Check every item. A single unmet item = FAIL.
 - [ ] Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N)
 - [ ] The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the
       `test-plans` harness scan requires development docs to carry one (else `harness:scan` fails). [AF-24]
+- [ ] The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable`
+      includes the author verdict and concrete reason; an applicable outcome includes the author verdict
+      and a `DONE-GATE-STAGE-1` PASS
+- [ ] The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the
+      exact paired Task/spec planning artifacts and any subject-bound PLAN ledger record
 
-**Evidence to record on PASS:** Tasks file path + list of tasks created.
+**Evidence to record on PASS:** Tasks file path + list of tasks created + exact PLAN outcome + whole
+worktree path inventory.
 
-**NON-COMPLIANCE trigger:** Implementation commits exist but no tasks file was created.
+**NON-COMPLIANCE trigger:** Any implementation path was modified or committed before this gate ran, or
+the PLAN evidence was added retrospectively. After PASS, the orchestrator—not this guardian—commits the
+PASS, status transition, exact Task/spec pair, and subject-bound PLAN ledger evidence as the dedicated
+planning checkpoint before Phase 3 begins.
 
 ---
 
@@ -273,7 +282,8 @@ Applies to a backlog item under `.agents/tasks/` that carries a
       result, and an evidence field
 - [ ] Every scenario carries its executability decision (`agent-executable`, or `manual-only:` with a
       **specific technical reason** — a bare "it is a UI" is not one)
-- [ ] The scenario drives a product surface. A scenario whose observable is a build, typecheck, lint, test
+- [ ] The scenario uses a canonical product-surface identity and matching invocation defined by
+      `backlog-execution.md`. A scenario whose observable is a build, typecheck, lint, test
       run, harness check, CI check, or an inspection of repository text is **not** a scenario — FAIL
 - [ ] A scenario requiring live credentials or an external service states that prerequisite **explicitly**
       (`backlog-execution.md` > Scenario Design Preference Order). An executor must learn the gate cannot
@@ -283,7 +293,12 @@ Applies to a backlog item under `.agents/tasks/` that carries a
 is recorded explicitly under each unwritten scenario. An unwritten scenario with no stated reason does not
 pass.
 
-**Evidence to record on PASS:** each scenario named, with the field-completeness result per scenario.
+**Evidence to record on PASS:** each scenario named, with
+`guardian-observable-verdict=product-behavior`, its exact canonical surface + surface rationale,
+invocation, observable type + rationale, and expected observable plus the field-completeness result. This
+guardian verdict owns the semantic product-vs-engineering judgment; the scanner binds it but does not
+replace it with prose keyword guesses. A manual scenario also binds its exact barrier, unavailable
+capability, and attempted automation evidence.
 
 ---
 

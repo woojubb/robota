@@ -1,0 +1,1956 @@
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+
+import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
+import {
+  findHistoryFindings,
+  findStagedFindings,
+  readExaminedPlanOrderCount,
+  resolveTopicMergeBase,
+} from '../scan-user-execution-plan-order.mjs';
+
+const TASK_ID = 'HARNESS-900-plan-order-fixture';
+const TASK_PATH = `.agents/tasks/${TASK_ID}.md`;
+const SPEC_PATH = `.agents/spec-docs/active/${TASK_ID}.md`;
+
+function git(root, args) {
+  return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+}
+
+function write(root, relative, text) {
+  const file = path.join(root, relative);
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, text);
+}
+
+function commit(root, message) {
+  git(root, ['add', '-A']);
+  git(root, ['commit', '-m', message]);
+  return git(root, ['rev-parse', 'HEAD']);
+}
+
+function repository({ taskInBase = false } = {}) {
+  const root = makeTemp('robota-ues-plan-order-');
+  git(root, ['init', '-b', 'develop']);
+  git(root, ['config', 'user.email', 'fixture@example.com']);
+  git(root, ['config', 'user.name', 'Fixture']);
+  write(root, 'README.md', 'base\n');
+  if (taskInBase) {
+    write(
+      root,
+      TASK_PATH,
+      ['---', 'status: todo', '---', '', `# ${TASK_ID}`, '', '## Test Plan', '', 'base task'].join(
+        '\n',
+      ),
+    );
+  }
+  const base = commit(root, 'base (#1)');
+  git(root, ['update-ref', 'refs/remotes/origin/develop', base]);
+  git(root, ['switch', '-c', 'feature']);
+  return { root, base };
+}
+
+function taskText({
+  outcome = 'not-applicable',
+  stage1 = false,
+  subject = TASK_ID,
+  browserAutomatable = false,
+} = {}) {
+  const subjectId = /^([A-Z][A-Z0-9]*-\d+)/.exec(subject)?.[1] ?? subject;
+  const signal =
+    outcome === 'not-applicable'
+      ? 'SCENARIO DRAFTED: not-applicable | 0'
+      : `SCENARIO DRAFTED: ${outcome} | 1`;
+  const manualInvocation = 'open Robota browser UI and activate the fixture control';
+  const manualCapability = 'operating-system security-key prompt interaction';
+  const manualAttempt =
+    'browser automation probe cannot access the operating-system security-key prompt';
+  const observable =
+    outcome === 'manual' || browserAutomatable
+      ? 'visible=fixture control active in browser UI'
+      : 'exit=0; output-contains=visible result';
+  const surfaceRationale =
+    outcome === 'manual' || browserAutomatable
+      ? 'shipped-interface=robota-browser-ui'
+      : 'shipped-entrypoint=robota';
+  const observableRationale =
+    outcome === 'manual' || browserAutomatable
+      ? 'source=rendered-product-ui'
+      : 'source=product-process';
+  const stageBinding =
+    outcome === 'manual'
+      ? `Scenario 1 — surface=robota-browser-ui; surface-rationale=${surfaceRationale}; invocation=${manualInvocation}; observable-type=ui-state; observable=${observable}; observable-rationale=${observableRationale}; barrier=physical-device; unavailable-capability=${manualCapability}; attempted-automation=${manualAttempt}; guardian-observable-verdict=product-behavior; `
+      : browserAutomatable
+        ? `Scenario 1 — surface=robota-browser-ui; surface-rationale=${surfaceRationale}; invocation=${manualInvocation}; observable-type=ui-state; observable=${observable}; observable-rationale=${observableRationale}; guardian-observable-verdict=product-behavior; `
+        : `Scenario 1 — surface=robota-cli; surface-rationale=${surfaceRationale}; invocation=robota fixture; observable-type=product-output; observable=${observable}; observable-rationale=${observableRationale}; guardian-observable-verdict=product-behavior; `;
+  return [
+    '---',
+    'status: in-progress',
+    '---',
+    '',
+    `# ${subjectId}: fixture`,
+    '',
+    '## Test Plan',
+    '',
+    'This fixture carries more than fifty characters of concrete verification planning.',
+    '',
+    '## User Execution Test Scenarios',
+    '',
+    `**Author verdict:** \`${signal}\``,
+    '',
+    outcome === 'not-applicable'
+      ? 'Not applicable because this fixture changes repository lifecycle governance only and exposes no product surface.'
+      : [
+          '### Scenario 1',
+          '',
+          outcome === 'manual'
+            ? '- executability: manual-only: browser security-key prompt requires physical device interaction'
+            : '- executability: agent-executable',
+          outcome === 'manual' || browserAutomatable
+            ? '- product surface: robota-browser-ui'
+            : '- product surface: robota-cli',
+          `- surface rationale: ${surfaceRationale}`,
+          '- prerequisites: fixture repository initialized',
+          outcome === 'manual'
+            ? `- UI steps: ${manualInvocation}`
+            : browserAutomatable
+              ? `- browser steps: ${manualInvocation}`
+              : '- command: `robota fixture`',
+          ...(outcome === 'manual'
+            ? [
+                '- automation barrier: physical-device',
+                `- unavailable capability: ${manualCapability}`,
+                `- attempted automation: ${manualAttempt}`,
+              ]
+            : []),
+          outcome === 'manual' || browserAutomatable
+            ? '- observable type: ui-state'
+            : '- observable type: product-output',
+          `- expected observable: ${observable}`,
+          `- observable rationale: ${observableRationale}`,
+          '- cleanup: none',
+          '- evidence: pending',
+        ].join('\n'),
+    '',
+    ...(stage1
+      ? [
+          '### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-25',
+          '',
+          '**Status upgrade:** scenario drafted → scenario written',
+          '',
+          `- ${stageBinding}executability, prerequisites, command/UI steps, expected observable, cleanup, and evidence field: complete.`,
+          '',
+        ]
+      : []),
+  ].join('\n');
+}
+
+function specText({ subject = TASK_ID, outcome = 'not-applicable' } = {}) {
+  const signal =
+    outcome === 'not-applicable'
+      ? 'SCENARIO DRAFTED: not-applicable | 0'
+      : `SCENARIO DRAFTED: ${outcome} | 1`;
+  return [
+    '---',
+    'status: in-progress',
+    'type: INFRA',
+    'tags: [async]',
+    '---',
+    '',
+    `# ${subject}`,
+    '',
+    '## Tasks',
+    '',
+    `- [x] \`.agents/tasks/${subject}.md\``,
+    '',
+    '## Evidence Log',
+    '',
+    '### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25',
+    '',
+    '**Status upgrade:** approved → in-progress',
+    '',
+    `- Task artifact: \`.agents/tasks/${subject}.md\` exists and maps the completion criteria.`,
+    `- Subject-bound PLAN terminal result: \`${signal}\` is recorded with its concrete reason.`,
+    `- Whole-worktree precondition: only \`.agents/tasks/${subject}.md\` and \`.agents/spec-docs/todo/${subject}.md\` are present; no implementation path exists.`,
+    '',
+  ].join('\n');
+}
+
+function writeCheckpoint(root, options = {}) {
+  write(root, TASK_PATH, taskText(options));
+  write(root, SPEC_PATH, specText(options));
+}
+
+function checkpoint(root, options = {}) {
+  writeCheckpoint(root, options);
+  return commit(root, 'planning checkpoint');
+}
+
+function postMergeRecord(base, runId = 'r20260825000000') {
+  return {
+    runId,
+    opened: '2026-08-25T00:00:00.000Z',
+    closed: '2026-08-25T00:01:00.000Z',
+    roundFindings: [0],
+    terminal: 'converged',
+    ref: `PR #1 MERGE VERIFIED PASS ${base}`,
+  };
+}
+
+function userScenarioRecord(ref = TASK_ID, runId = 'r20260825000000') {
+  return {
+    runId,
+    opened: '2026-08-25T00:00:00.000Z',
+    closed: '2026-08-25T00:01:00.000Z',
+    roundFindings: [0],
+    extensions: {},
+    terminal: 'converged',
+    ref,
+  };
+}
+
+function messages(findings) {
+  return findings.map((finding) => finding.problem).join('\n');
+}
+
+describe('user-execution PLAN order — branch history', () => {
+  it('treats pathless commits consistently before and after a checkpoint', () => {
+    const beforeOnly = repository();
+    expect(findStagedFindings(beforeOnly.root, beforeOnly.base)).toEqual([]);
+    git(beforeOnly.root, ['commit', '--allow-empty', '-m', 'pathless predecessor']);
+    expect(findHistoryFindings(beforeOnly.root, beforeOnly.base)).toEqual([]);
+
+    const around = repository();
+    git(around.root, ['commit', '--allow-empty', '-m', 'pathless before checkpoint']);
+    checkpoint(around.root);
+    git(around.root, ['commit', '--allow-empty', '-m', 'pathless after checkpoint']);
+    expect(findHistoryFindings(around.root, around.base)).toEqual([]);
+  });
+
+  it('accepts a not-applicable checkpoint before implementation', () => {
+    const { root, base } = repository();
+    checkpoint(root);
+    write(root, 'scripts/harness/change.mjs', 'implementation\n');
+    commit(root, 'implementation');
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('reports the exact traversed commit count and resets it on a second run', () => {
+    const { root, base } = repository();
+    checkpoint(root);
+    write(root, 'scripts/harness/change.mjs', 'implementation\n');
+    commit(root, 'implementation');
+
+    findHistoryFindings(root, base);
+    expect(readExaminedPlanOrderCount(root, base)).toBe(2);
+    findHistoryFindings(root, base);
+    expect(readExaminedPlanOrderCount(root, base)).toBe(2);
+  });
+
+  it('accepts applicable PLAN only with DONE-GATE-STAGE-1 PASS', () => {
+    const { root, base } = repository();
+    checkpoint(root, { outcome: 'automatable', stage1: true });
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('binds DONE-GATE-STAGE-1 to the declared complete scenario set', () => {
+    const mutations = [
+      (text) => text.replace(/### Scenario 1[\s\S]*?(?=### \[DONE-GATE-STAGE-1\])/, ''),
+      (text) =>
+        text.replace('SCENARIO DRAFTED: automatable | 1', 'SCENARIO DRAFTED: automatable | 2'),
+      (text) => text.replace('- prerequisites: fixture repository initialized\n', ''),
+      (text) => text.replace('- product surface: robota-cli\n', ''),
+      (text) => text.replace('- surface rationale: shipped-entrypoint=robota\n', ''),
+      (text) => text.replace('- command: `robota fixture`\n', ''),
+      (text) => text.replace('- observable type: product-output\n', ''),
+      (text) => text.replace('- expected observable: exit=0; output-contains=visible result\n', ''),
+      (text) => text.replace('- observable rationale: source=product-process\n', ''),
+      (text) => text.replace('- cleanup: none\n', ''),
+      (text) => text.replace('- evidence: pending\n', ''),
+      (text) => text.replace('- executability: agent-executable\n', ''),
+      (text) =>
+        text.replace(
+          '**Status upgrade:** scenario drafted → scenario written',
+          '**Status upgrade:** arbitrary → transition',
+        ),
+      (text) => text.replace('- Scenario 1 —', '- Scenario evidence —'),
+      (text) =>
+        text.replace(
+          'guardian-observable-verdict=product-behavior',
+          'guardian-observable-verdict=engineering-verification',
+        ),
+    ];
+
+    for (const mutate of mutations) {
+      const fixture = repository();
+      write(fixture.root, TASK_PATH, mutate(taskText({ outcome: 'automatable', stage1: true })));
+      write(fixture.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+      commit(fixture.root, 'incomplete or unbound Stage-1 evidence');
+
+      expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+        /DONE-GATE-STAGE-1|scenario|checkpoint|planning/i,
+      );
+    }
+  });
+
+  it('rejects engineering-only commands as user-execution product surfaces', () => {
+    for (const command of [
+      'pnpm test',
+      'pnpm build',
+      'pnpm lint',
+      'pnpm typecheck',
+      'pnpm harness:scan',
+      'gh pr checks',
+      'pnpm --filter @robota/core test',
+      'pnpm -w test',
+      'turbo test',
+      'nx test',
+      'make test',
+      'robota --help && pnpm test',
+      'robota --help; pnpm test',
+      'robota --help || pnpm test',
+      'robota --help $(pnpm test)',
+      'robota --help & pnpm test',
+      'robota --config <(pnpm test)',
+      'robota --help `pnpm test`',
+      '"" robota fixture',
+    ]) {
+      const fixture = repository();
+      write(
+        fixture.root,
+        TASK_PATH,
+        taskText({ outcome: 'automatable', stage1: true }).replaceAll('robota fixture', command),
+      );
+      write(fixture.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+      commit(fixture.root, 'engineering verification masquerading as user scenario');
+
+      expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+        /scenario|checkpoint|planning/i,
+      );
+    }
+
+    const fakeSurface = repository();
+    write(
+      fakeSurface.root,
+      TASK_PATH,
+      taskText({ outcome: 'automatable', stage1: true }).replaceAll(
+        'robota-cli',
+        'imaginary-product',
+      ),
+    );
+    write(fakeSurface.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+    commit(fakeSurface.root, 'arbitrary fake product surface');
+    expect(messages(findHistoryFindings(fakeSurface.root, fakeSurface.base))).toMatch(
+      /scenario|checkpoint|planning/i,
+    );
+
+    for (const invocation of [
+      'node examples/demo.mjs && pnpm test',
+      'node examples/../scripts/harness/run-all-scans.mjs',
+      'node scratch/../scripts/harness/run-all-scans.mjs',
+      'pnpm --dir examples/../scripts run scan',
+      'node examples/${EXAMPLE_PATH}',
+      'node "exa\\mples/demo.mjs"',
+      'node --test examples/demo.mjs',
+      'node --require scripts/harness/run-all-scans.mjs examples/demo.mjs',
+      'node "" examples/demo.mjs',
+      'robota --dir examples/demo run fixture',
+      'pnpm test --dir examples/demo',
+      'bash -C examples/demo',
+      'pnpm --dir examples/demo run --',
+      'pnpm --dir examples/demo run --if-present',
+    ]) {
+      const sdkChain = repository();
+      write(
+        sdkChain.root,
+        TASK_PATH,
+        taskText({ outcome: 'automatable', stage1: true })
+          .replaceAll('surface=robota-cli', 'surface=public-sdk-example')
+          .replace('product surface: robota-cli', 'product surface: public-sdk-example')
+          .replaceAll('shipped-entrypoint=robota', 'shipped-interface=public-sdk-example')
+          .replaceAll('observable-type=product-output', 'observable-type=sdk-result')
+          .replace('observable type: product-output', 'observable type: sdk-result')
+          .replaceAll('exit=0; output-contains=visible result', 'result=visible SDK value')
+          .replaceAll('source=product-process', 'source=public-sdk-return')
+          .replaceAll('robota fixture', invocation),
+      );
+      write(sdkChain.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+      commit(sdkChain.root, 'invalid public SDK invocation');
+      expect(messages(findHistoryFindings(sdkChain.root, sdkChain.base))).toMatch(
+        /scenario|checkpoint|planning/i,
+      );
+    }
+
+    for (const observable of [
+      'unit tests pass',
+      'unit test success',
+      'build successful',
+      'test suite is green',
+      'repository text contains the new rule',
+      'verification suite reports success',
+      'source file contains the new rule',
+    ]) {
+      const testObservable = repository();
+      write(
+        testObservable.root,
+        TASK_PATH,
+        taskText({ outcome: 'automatable', stage1: true }).replaceAll(
+          'exit=0; output-contains=visible result',
+          observable,
+        ),
+      );
+      write(testObservable.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+      commit(testObservable.root, 'engineering-only expected observable');
+      expect(messages(findHistoryFindings(testObservable.root, testObservable.base))).toMatch(
+        /scenario|checkpoint|planning/i,
+      );
+    }
+  });
+
+  it('allows a controlled grep pipe over product command output', () => {
+    const fixture = repository();
+    write(
+      fixture.root,
+      TASK_PATH,
+      taskText({ outcome: 'automatable', stage1: true }).replaceAll(
+        'robota fixture',
+        'robota --help | grep Usage',
+      ),
+    );
+    write(fixture.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+    commit(fixture.root, 'controlled product output assertion');
+
+    expect(findHistoryFindings(fixture.root, fixture.base)).toEqual([]);
+  });
+
+  it('parses quoted shell metacharacters and rejects unclosed quotes', () => {
+    const safe = repository();
+    write(
+      safe.root,
+      TASK_PATH,
+      taskText({ outcome: 'automatable', stage1: true }).replaceAll(
+        'robota fixture',
+        "robota ask 'A & B'",
+      ),
+    );
+    write(safe.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+    commit(safe.root, 'quoted product argument');
+    expect(findHistoryFindings(safe.root, safe.base)).toEqual([]);
+
+    const broken = repository();
+    write(
+      broken.root,
+      TASK_PATH,
+      taskText({ outcome: 'automatable', stage1: true }).replaceAll(
+        'robota fixture',
+        'robota "unterminated',
+      ),
+    );
+    write(broken.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+    commit(broken.root, 'unclosed product argument');
+    expect(messages(findHistoryFindings(broken.root, broken.base))).toMatch(
+      /scenario|checkpoint|planning/i,
+    );
+  });
+
+  it('accepts quoted SDK paths and supported leading Node options', () => {
+    for (const invocation of [
+      'node "./examples/demo.mjs"',
+      'node --enable-source-maps "./examples/demo.mjs"',
+      'tsx "./examples/demo.ts"',
+      'pnpm exec tsx "./examples/demo.ts"',
+      'pnpm --dir examples/demo run scenario.verify',
+      "node \"./examples/demo.mjs\" '2*2' '$100' '{\"x\":1}'",
+    ]) {
+      const fixture = repository();
+      const task = taskText({ outcome: 'automatable', stage1: true })
+        .replaceAll('surface=robota-cli', 'surface=public-sdk-example')
+        .replace('product surface: robota-cli', 'product surface: public-sdk-example')
+        .replaceAll('shipped-entrypoint=robota', 'shipped-interface=public-sdk-example')
+        .replaceAll('observable-type=product-output', 'observable-type=sdk-result')
+        .replace('observable type: product-output', 'observable type: sdk-result')
+        .replaceAll('exit=0; output-contains=visible result', 'result=visible SDK value')
+        .replaceAll('source=product-process', 'source=public-sdk-return')
+        .replaceAll('robota fixture', invocation);
+      write(fixture.root, TASK_PATH, task);
+      write(fixture.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+      commit(fixture.root, 'canonical quoted SDK invocation');
+      expect(findHistoryFindings(fixture.root, fixture.base)).toEqual([]);
+    }
+  });
+
+  it('requires a literal canonical product-state file path', () => {
+    const stateTask = (statePath) =>
+      taskText({ outcome: 'automatable', stage1: true })
+        .replaceAll('observable-type=product-output', 'observable-type=product-state-file')
+        .replace('observable type: product-output', 'observable type: product-state-file')
+        .replaceAll('exit=0; output-contains=visible result', 'change=updated')
+        .replace(
+          '- observable rationale: source=product-process',
+          `- observable rationale: source=robota-state-artifact\n- product state path: ${statePath}`,
+        )
+        .replace(
+          'observable-rationale=source=product-process;',
+          `observable-rationale=source=robota-state-artifact; product-state-path=${statePath};`,
+        );
+
+    const valid = repository();
+    write(valid.root, TASK_PATH, stateTask('.robota/state.json'));
+    write(valid.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+    commit(valid.root, 'literal product-state file');
+    expect(findHistoryFindings(valid.root, valid.base)).toEqual([]);
+
+    for (const statePath of [
+      '.robota/${STATE_PATH}',
+      '.robota/',
+      '.robota/*.json',
+      '.robota/{one,two}.json',
+      '.robota/../outside.json',
+      '~/.robota/state.json',
+    ]) {
+      const invalid = repository();
+      write(invalid.root, TASK_PATH, stateTask(statePath));
+      write(invalid.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+      commit(invalid.root, 'dynamic or escaping product-state path');
+      expect(messages(findHistoryFindings(invalid.root, invalid.base))).toMatch(
+        /scenario|checkpoint|planning/i,
+      );
+    }
+  });
+
+  it('accepts one-character canonical observable values', () => {
+    const tasks = [
+      taskText({ outcome: 'automatable', stage1: true }).replaceAll(
+        'exit=0; output-contains=visible result',
+        'exit=0; output-contains=X',
+      ),
+      taskText({ outcome: 'automatable', browserAutomatable: true, stage1: true }).replaceAll(
+        'visible=fixture control active in browser UI',
+        'visible=Y',
+      ),
+      taskText({ outcome: 'automatable', stage1: true })
+        .replaceAll('surface=robota-cli', 'surface=public-sdk-example')
+        .replace('product surface: robota-cli', 'product surface: public-sdk-example')
+        .replaceAll('shipped-entrypoint=robota', 'shipped-interface=public-sdk-example')
+        .replaceAll('observable-type=product-output', 'observable-type=sdk-result')
+        .replace('observable type: product-output', 'observable type: sdk-result')
+        .replaceAll('exit=0; output-contains=visible result', 'result=Z')
+        .replaceAll('source=product-process', 'source=public-sdk-return')
+        .replaceAll('robota fixture', 'node examples/demo.mjs'),
+    ];
+    for (const task of tasks) {
+      const fixture = repository();
+      write(fixture.root, TASK_PATH, task);
+      write(fixture.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+      commit(fixture.root, 'one-character product observable');
+      expect(findHistoryFindings(fixture.root, fixture.base)).toEqual([]);
+    }
+  });
+
+  it('accepts an agent-executable browser scenario with canonical browser steps', () => {
+    const fixture = repository();
+    write(
+      fixture.root,
+      TASK_PATH,
+      taskText({ outcome: 'automatable', browserAutomatable: true, stage1: true }),
+    );
+    write(fixture.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+    commit(fixture.root, 'automatable browser product scenario');
+    expect(findHistoryFindings(fixture.root, fixture.base)).toEqual([]);
+  });
+
+  it('rejects multiline command continuation hidden after the canonical field line', () => {
+    const fixture = repository();
+    write(
+      fixture.root,
+      TASK_PATH,
+      taskText({ outcome: 'automatable', stage1: true })
+        .replace('- command: `robota fixture`', '- command: `robota --help`\npnpm test')
+        .replace('invocation=robota fixture', 'invocation=robota --help'),
+    );
+    write(fixture.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+    commit(fixture.root, 'multiline command continuation');
+
+    expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+      /scenario|checkpoint|planning/i,
+    );
+  });
+
+  it('binds PLAN outcome to specific per-scenario executability decisions', () => {
+    const contradictions = [
+      taskText({ outcome: 'automatable', stage1: true }).replace(
+        'executability: agent-executable',
+        'executability: manual-only: browser security-key prompt requires physical interaction',
+      ),
+      taskText({ outcome: 'manual', stage1: true }).replace(
+        'executability: manual-only: browser security-key prompt requires physical device interaction',
+        'executability: agent-executable',
+      ),
+      taskText({ outcome: 'manual', stage1: true })
+        .replace(
+          'manual-only: browser security-key prompt requires physical device interaction',
+          'manual-only: automation is unavailable for this interaction',
+        )
+        .replace(/- automation barrier:[\s\S]*?(?=- expected observable:)/, ''),
+    ];
+
+    for (const task of contradictions) {
+      const fixture = repository();
+      write(fixture.root, TASK_PATH, task);
+      const outcome = task.includes('SCENARIO DRAFTED: manual') ? 'manual' : 'automatable';
+      write(fixture.root, SPEC_PATH, specText({ outcome }));
+      commit(fixture.root, 'contradictory or vague executability decision');
+
+      expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+        /scenario|checkpoint|planning/i,
+      );
+    }
+  });
+
+  it('binds a manual browser scenario to UI steps rather than an unrelated command', () => {
+    const fixture = repository();
+    const manualInvocation = 'open Robota browser UI and activate the fixture control';
+    write(
+      fixture.root,
+      TASK_PATH,
+      taskText({ outcome: 'manual', stage1: true })
+        .replace('- UI steps:', '- command: `robota unrelated`\n- UI steps:')
+        .replace(`invocation=${manualInvocation}`, 'invocation=robota unrelated'),
+    );
+    write(fixture.root, SPEC_PATH, specText({ outcome: 'manual' }));
+    commit(fixture.root, 'manual scenario bound to unrelated command');
+
+    expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+      /scenario|checkpoint|planning/i,
+    );
+  });
+
+  it('accepts a manual-only TUI scenario with a canonical start command and UI steps', () => {
+    const fixture = repository();
+    const browserInvocation = 'open Robota browser UI and activate the fixture control';
+    const task = taskText({ outcome: 'manual', stage1: true })
+      .replaceAll('surface=robota-browser-ui', 'surface=robota-tui')
+      .replace('product surface: robota-browser-ui', 'product surface: robota-tui')
+      .replaceAll('shipped-interface=robota-browser-ui', 'shipped-entrypoint=robota')
+      .replace(
+        `- UI steps: ${browserInvocation}`,
+        `- command: \`robota interactive\`\n- UI steps: ${browserInvocation}`,
+      )
+      .replace(
+        `invocation=${browserInvocation}`,
+        `invocation=robota interactive; ui-steps=${browserInvocation}`,
+      );
+    write(fixture.root, TASK_PATH, task);
+    write(fixture.root, SPEC_PATH, specText({ outcome: 'manual' }));
+    commit(fixture.root, 'manual TUI scenario');
+
+    expect(findHistoryFindings(fixture.root, fixture.base)).toEqual([]);
+
+    const stale = repository();
+    write(
+      stale.root,
+      TASK_PATH,
+      task.replace(
+        `- UI steps: ${browserInvocation}`,
+        '- UI steps: choose a different interactive control',
+      ),
+    );
+    write(stale.root, SPEC_PATH, specText({ outcome: 'manual' }));
+    commit(stale.root, 'stale manual TUI Stage binding');
+    expect(messages(findHistoryFindings(stale.root, stale.base))).toMatch(
+      /scenario|checkpoint|planning|DONE-GATE-STAGE-1/i,
+    );
+  });
+
+  it('requires exactly one nonempty value for every canonical scenario field', () => {
+    const automaticMutations = [
+      (text) => text.replace('- command:', '- command: `robota fixture`\n- command:'),
+      (text) =>
+        text.replace('- product surface:', '- product surface: robota-cli\n- product surface:'),
+      (text) =>
+        text.replace(
+          '- expected observable:',
+          '- expected observable: exit=0; output-contains=visible result\n- expected observable:',
+        ),
+      (text) => text.replace('- evidence:', '- evidence: duplicate\n- evidence:'),
+      (text) => text.replaceAll('exit=0; output-contains=visible result', ''),
+    ];
+    for (const mutate of automaticMutations) {
+      const fixture = repository();
+      write(fixture.root, TASK_PATH, mutate(taskText({ outcome: 'automatable', stage1: true })));
+      write(fixture.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+      commit(fixture.root, 'duplicate or empty canonical scenario field');
+      expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+        /scenario|checkpoint|planning/i,
+      );
+    }
+
+    const manual = repository();
+    write(
+      manual.root,
+      TASK_PATH,
+      taskText({ outcome: 'manual', stage1: true }).replace(
+        '- automation barrier:',
+        '- automation barrier: physical-device\n- automation barrier:',
+      ),
+    );
+    write(manual.root, SPEC_PATH, specText({ outcome: 'manual' }));
+    commit(manual.root, 'duplicate manual barrier field');
+    expect(messages(findHistoryFindings(manual.root, manual.base))).toMatch(
+      /scenario|checkpoint|planning/i,
+    );
+  });
+
+  it('does not mistake active-to-done archival deletions for a second checkpoint', () => {
+    const { root, base } = repository();
+    checkpoint(root);
+    mkdirSync(path.join(root, '.agents/tasks/completed'), { recursive: true });
+    mkdirSync(path.join(root, '.agents/spec-docs/done'), { recursive: true });
+    git(root, ['mv', TASK_PATH, `.agents/tasks/completed/${TASK_ID}.md`]);
+    git(root, ['mv', SPEC_PATH, `.agents/spec-docs/done/${TASK_ID}.md`]);
+    commit(root, 'complete work unit');
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('does not mistake a later Task plus active-spec evidence update for a second checkpoint', () => {
+    const { root, base } = repository();
+    checkpoint(root);
+    write(root, TASK_PATH, `${taskText()}\n## Evidence\n\nverified\n`);
+    write(root, SPEC_PATH, `${specText()}\n### [GATE-VERIFY] — ✅ PASS | 2026-08-25\n`);
+    commit(root, 'verification evidence');
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('rejects applicable PLAN without DONE-GATE-STAGE-1', () => {
+    const { root, base } = repository();
+    checkpoint(root, { outcome: 'automatable' });
+
+    expect(messages(findHistoryFindings(root, base))).toMatch(/DONE-GATE-STAGE-1/);
+  });
+
+  it('rejects implementation committed before a later checkpoint even when the Task existed in base', () => {
+    const { root, base } = repository({ taskInBase: true });
+    write(root, 'packages/example/src.ts', 'implementation\n');
+    commit(root, 'implementation first');
+    checkpoint(root);
+
+    expect(messages(findHistoryFindings(root, base))).toMatch(/before.*checkpoint/i);
+  });
+
+  it('treats arbitrary Markdown as implementation before the checkpoint', () => {
+    const { root, base } = repository();
+    write(root, '.agents/rules/example.md', '# implementation in Markdown\n');
+    commit(root, 'rule implementation first');
+    checkpoint(root);
+
+    expect(messages(findHistoryFindings(root, base))).toContain('.agents/rules/example.md');
+  });
+
+  it('rejects a subject-bound verdict that names another Task', () => {
+    const { root, base } = repository();
+    write(root, TASK_PATH, taskText({ subject: 'HARNESS-901-other' }));
+    write(root, SPEC_PATH, specText());
+    commit(root, 'mismatched checkpoint');
+
+    expect(messages(findHistoryFindings(root, base))).toMatch(/subject|binding/i);
+  });
+
+  it('rejects stale active-pair tokens that did not transition in the candidate commit', () => {
+    const seeded = repository();
+    git(seeded.root, ['switch', 'develop']);
+    writeCheckpoint(seeded.root);
+    const base = commit(seeded.root, 'stale active pair in base');
+    git(seeded.root, ['update-ref', 'refs/remotes/origin/develop', base]);
+    git(seeded.root, ['switch', '-C', 'feature', base]);
+    write(seeded.root, TASK_PATH, `${taskText()}\nmeaningless change\n`);
+    write(seeded.root, SPEC_PATH, `${specText()}\nmeaningless change\n`);
+    commit(seeded.root, 'touch stale pair');
+
+    expect(messages(findHistoryFindings(seeded.root, base))).toMatch(/checkpoint|transition/i);
+  });
+
+  it('rejects PLAN and gate tokens that exist only in fenced examples', () => {
+    const { root, base } = repository();
+    write(
+      root,
+      TASK_PATH,
+      [
+        '---',
+        'status: in-progress',
+        '---',
+        '',
+        '# HARNESS-900: fixture',
+        '',
+        '## User Execution Test Scenarios',
+        '',
+        'No author verdict is recorded here.',
+        '',
+        '```text',
+        'SCENARIO DRAFTED: not-applicable | 0',
+        'Not applicable because this is only an example with enough words to fool a token scan.',
+        '```',
+      ].join('\n'),
+    );
+    write(root, SPEC_PATH, specText());
+    commit(root, 'fenced token checkpoint');
+
+    expect(messages(findHistoryFindings(root, base))).toMatch(
+      /SCENARIO DRAFTED|author verdict|checkpoint|planning/i,
+    );
+  });
+
+  it('rejects section headings and verdicts whose entire section is fenced or indented code', () => {
+    const fenced = repository();
+    write(
+      fenced.root,
+      TASK_PATH,
+      [
+        '---',
+        'status: in-progress',
+        '---',
+        '',
+        '# HARNESS-900: fixture',
+        '',
+        '````md',
+        '## User Execution Test Scenarios',
+        '**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`',
+        'Not applicable because fenced text is not lifecycle evidence even when it is long enough.',
+        '```',
+        'still fenced',
+        '````',
+      ].join('\n'),
+    );
+    write(fenced.root, SPEC_PATH, specText());
+    commit(fenced.root, 'fenced section heading');
+    expect(messages(findHistoryFindings(fenced.root, fenced.base))).toMatch(
+      /SCENARIO DRAFTED|author verdict|checkpoint|planning/i,
+    );
+
+    const indented = repository();
+    write(indented.root, TASK_PATH, taskText());
+    write(
+      indented.root,
+      SPEC_PATH,
+      [
+        '---',
+        'status: in-progress',
+        '---',
+        '',
+        `# ${TASK_ID}`,
+        '',
+        `    ## Tasks`,
+        `    - [x] \`.agents/tasks/${TASK_ID}.md\``,
+        '    ## Evidence Log',
+        '    ### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25',
+      ].join('\n'),
+    );
+    commit(indented.root, 'indented code contract');
+    expect(messages(findHistoryFindings(indented.root, indented.base))).toMatch(
+      /checkpoint|transition|binding/i,
+    );
+  });
+
+  it('rejects lifecycle evidence that exists only inside HTML comments or raw HTML blocks', () => {
+    for (const wrapper of [(body) => `<!--\n${body}\n-->`, (body) => `<div>\n${body}\n</div>`]) {
+      const fixture = repository();
+      write(
+        fixture.root,
+        TASK_PATH,
+        taskText().replace(
+          /## User Execution Test Scenarios[\s\S]*$/,
+          wrapper(
+            [
+              '## User Execution Test Scenarios',
+              '**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`',
+              'Not applicable because invisible HTML content cannot be lifecycle evidence.',
+            ].join('\n'),
+          ),
+        ),
+      );
+      write(fixture.root, SPEC_PATH, specText());
+      commit(fixture.root, 'invisible HTML evidence');
+      expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+        /SCENARIO DRAFTED|author verdict|checkpoint|planning/i,
+      );
+    }
+  });
+
+  it('keeps real evidence after literal HTML-comment markers in fenced and inline code', () => {
+    for (const literal of ['```text\n<!-- literal fixture marker\n```', 'Literal `<!--` marker.']) {
+      const fixture = repository();
+      write(
+        fixture.root,
+        TASK_PATH,
+        taskText().replace(
+          '## User Execution Test Scenarios',
+          `${literal}\n\n## User Execution Test Scenarios`,
+        ),
+      );
+      write(fixture.root, SPEC_PATH, specText());
+      commit(fixture.root, 'literal HTML comment marker before real evidence');
+
+      expect(findHistoryFindings(fixture.root, fixture.base)).toEqual([]);
+    }
+  });
+
+  it('treats odd-backslash HTML comment openers as literal and even-backslash openers as comments', () => {
+    const literal = repository();
+    write(
+      literal.root,
+      TASK_PATH,
+      taskText().replace(
+        '## User Execution Test Scenarios',
+        '\\<!-- escaped literal opener\n\n## User Execution Test Scenarios',
+      ),
+    );
+    write(literal.root, SPEC_PATH, specText());
+    commit(literal.root, 'escaped literal comment opener');
+    expect(findHistoryFindings(literal.root, literal.base)).toEqual([]);
+
+    const comment = repository();
+    write(
+      comment.root,
+      TASK_PATH,
+      taskText().replace(
+        /## User Execution Test Scenarios[\s\S]*$/,
+        [
+          '\\\\<!-- even-backslash real comment opener',
+          '## User Execution Test Scenarios',
+          '**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`',
+          'Not applicable because this comment-hidden text is long enough to mimic evidence.',
+          '-->',
+        ].join('\n'),
+      ),
+    );
+    write(comment.root, SPEC_PATH, specText());
+    commit(comment.root, 'even-backslash real comment opener');
+    expect(messages(findHistoryFindings(comment.root, comment.base))).toMatch(
+      /SCENARIO DRAFTED|author verdict|checkpoint|planning/i,
+    );
+  });
+
+  it('ends a type-1 raw HTML block when its closing tag is on the opening line', () => {
+    const { root, base } = repository();
+    write(
+      root,
+      TASK_PATH,
+      taskText().replace(
+        '## User Execution Test Scenarios',
+        '<script </script>\n\n## User Execution Test Scenarios',
+      ),
+    );
+    write(root, SPEC_PATH, specText());
+    commit(root, 'same-line type-one raw HTML block');
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('keeps a type-7 inline HTML tag inside an open paragraph', () => {
+    const { root, base } = repository();
+    write(
+      root,
+      TASK_PATH,
+      taskText().replace(
+        '## User Execution Test Scenarios',
+        ['Paragraph before inline HTML.', '<span>', '## User Execution Test Scenarios'].join('\n'),
+      ),
+    );
+    write(root, SPEC_PATH, specText());
+    commit(root, 'type-seven inline HTML in open paragraph');
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('keeps indented paragraph continuation as a concrete N/A reason', () => {
+    const { root, base } = repository();
+    write(
+      root,
+      TASK_PATH,
+      taskText().replace(
+        'Not applicable because this fixture changes repository lifecycle governance only and exposes no product surface.',
+        [
+          'Not applicable:',
+          '    because this paragraph continuation records a concrete and sufficiently detailed lifecycle-only reason.',
+        ].join('\n'),
+      ),
+    );
+    write(root, SPEC_PATH, specText());
+    commit(root, 'indented paragraph continuation reason');
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('does not promote an indented paragraph continuation into a structural heading', () => {
+    const { root, base } = repository();
+    write(
+      root,
+      TASK_PATH,
+      [
+        '---',
+        'status: in-progress',
+        '---',
+        '',
+        '# HARNESS-900: fixture',
+        '',
+        'Paragraph before fake structure.',
+        '    ## User Execution Test Scenarios',
+        '    **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`',
+        '    Not applicable because this indented text is not a structural section.',
+      ].join('\n'),
+    );
+    write(root, SPEC_PATH, specText());
+    commit(root, 'indented fake lifecycle heading');
+
+    expect(messages(findHistoryFindings(root, base))).toMatch(
+      /SCENARIO DRAFTED|author verdict|checkpoint|planning/i,
+    );
+  });
+
+  it('accepts optional closing hashes but keeps an attached hash as heading content', () => {
+    const valid = repository();
+    write(
+      valid.root,
+      TASK_PATH,
+      taskText().replace('## User Execution Test Scenarios', '## User Execution Test Scenarios ##'),
+    );
+    write(
+      valid.root,
+      SPEC_PATH,
+      specText()
+        .replace('## Tasks', '## Tasks ##')
+        .replace('## Evidence Log', '## Evidence Log ##'),
+    );
+    commit(valid.root, 'optional ATX closing hashes');
+    expect(findHistoryFindings(valid.root, valid.base)).toEqual([]);
+
+    const attached = repository();
+    write(
+      attached.root,
+      TASK_PATH,
+      taskText().replace('## User Execution Test Scenarios', '## User Execution Test Scenarios#'),
+    );
+    write(attached.root, SPEC_PATH, specText());
+    commit(attached.root, 'attached hash remains heading content');
+    expect(messages(findHistoryFindings(attached.root, attached.base))).toMatch(
+      /SCENARIO DRAFTED|author verdict|checkpoint|planning/i,
+    );
+  });
+
+  it('accepts a 1–3-space Task H1 but rejects a 4-space indented-code lookalike', () => {
+    const valid = repository();
+    write(
+      valid.root,
+      TASK_PATH,
+      taskText().replace('# HARNESS-900: fixture', '   # HARNESS-900: fixture'),
+    );
+    write(valid.root, SPEC_PATH, specText());
+    commit(valid.root, 'three-space structural Task heading');
+    expect(findHistoryFindings(valid.root, valid.base)).toEqual([]);
+
+    const code = repository();
+    write(
+      code.root,
+      TASK_PATH,
+      taskText().replace('# HARNESS-900: fixture', '    # HARNESS-900: fixture'),
+    );
+    write(code.root, SPEC_PATH, specText());
+    commit(code.root, 'four-space indented Task heading lookalike');
+    expect(messages(findHistoryFindings(code.root, code.base))).toMatch(/subject|binding/i);
+  });
+
+  it('accepts a 1–3-space GATE H3 but rejects a 4-space indented-code lookalike', () => {
+    const valid = repository();
+    write(valid.root, TASK_PATH, taskText());
+    write(
+      valid.root,
+      SPEC_PATH,
+      specText().replace(
+        '### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25',
+        '   ### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25',
+      ),
+    );
+    commit(valid.root, 'three-space structural gate heading');
+    expect(findHistoryFindings(valid.root, valid.base)).toEqual([]);
+
+    const code = repository();
+    write(code.root, TASK_PATH, taskText());
+    write(
+      code.root,
+      SPEC_PATH,
+      specText().replace(
+        '### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25',
+        '    ### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25',
+      ),
+    );
+    commit(code.root, 'four-space indented gate heading lookalike');
+    expect(messages(findHistoryFindings(code.root, code.base))).toMatch(/checkpoint|transition/i);
+  });
+
+  it('rejects PASS-prefixed non-verdicts for GATE-IMPLEMENT and Stage 1', () => {
+    const gate = repository();
+    write(gate.root, TASK_PATH, taskText());
+    write(gate.root, SPEC_PATH, specText().replace('✅ PASS |', '✅ PASS-FAIL |'));
+    commit(gate.root, 'non-verdict gate heading');
+    expect(messages(findHistoryFindings(gate.root, gate.base))).toMatch(/checkpoint|transition/i);
+
+    const stage = repository();
+    write(
+      stage.root,
+      TASK_PATH,
+      taskText({ outcome: 'automatable', stage1: true }).replace(
+        '[DONE-GATE-STAGE-1] — ✅ PASS |',
+        '[DONE-GATE-STAGE-1] — ✅ PASS ❌ FAIL |',
+      ),
+    );
+    write(stage.root, SPEC_PATH, specText());
+    commit(stage.root, 'non-verdict Stage-1 heading');
+    expect(messages(findHistoryFindings(stage.root, stage.base))).toMatch(
+      /DONE-GATE-STAGE-1|checkpoint|planning/i,
+    );
+
+    const gatePipe = repository();
+    write(gatePipe.root, TASK_PATH, taskText());
+    write(gatePipe.root, SPEC_PATH, specText().replace('✅ PASS |', '✅ PASS|FAIL'));
+    commit(gatePipe.root, 'zero-space pipe gate non-verdict');
+    expect(messages(findHistoryFindings(gatePipe.root, gatePipe.base))).toMatch(
+      /checkpoint|transition/i,
+    );
+
+    const stagePipe = repository();
+    write(
+      stagePipe.root,
+      TASK_PATH,
+      taskText({ outcome: 'automatable', stage1: true }).replace(
+        '[DONE-GATE-STAGE-1] — ✅ PASS |',
+        '[DONE-GATE-STAGE-1] — ✅ PASS|FAIL',
+      ),
+    );
+    write(stagePipe.root, SPEC_PATH, specText());
+    commit(stagePipe.root, 'zero-space pipe Stage-1 non-verdict');
+    expect(messages(findHistoryFindings(stagePipe.root, stagePipe.base))).toMatch(
+      /DONE-GATE-STAGE-1|checkpoint|planning/i,
+    );
+  });
+
+  it('requires a real calendar date on GATE-IMPLEMENT and Stage-1 PASS entries', () => {
+    for (const suffix of ['', ' | ', ' | 2026-02-30']) {
+      const gate = repository();
+      write(gate.root, TASK_PATH, taskText());
+      write(gate.root, SPEC_PATH, specText().replace('✅ PASS | 2026-08-25', `✅ PASS${suffix}`));
+      commit(gate.root, 'undated or invalid-date gate entry');
+      expect(messages(findHistoryFindings(gate.root, gate.base))).toMatch(/checkpoint|transition/i);
+
+      const stage = repository();
+      write(
+        stage.root,
+        TASK_PATH,
+        taskText({ outcome: 'automatable', stage1: true }).replace(
+          '[DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-25',
+          `[DONE-GATE-STAGE-1] — ✅ PASS${suffix}`,
+        ),
+      );
+      write(stage.root, SPEC_PATH, specText());
+      commit(stage.root, 'undated or invalid-date Stage-1 entry');
+      expect(messages(findHistoryFindings(stage.root, stage.base))).toMatch(
+        /DONE-GATE-STAGE-1|checkpoint|planning/i,
+      );
+    }
+  });
+
+  it('rejects dated PASS headings with partial entry bodies', () => {
+    const gate = repository();
+    write(gate.root, TASK_PATH, taskText());
+    write(
+      gate.root,
+      SPEC_PATH,
+      specText().replace(/\n- Task artifact:[\s\S]*?- Whole-worktree precondition:[^\n]*\n/, '\n'),
+    );
+    commit(gate.root, 'partial GATE-IMPLEMENT entry');
+    expect(messages(findHistoryFindings(gate.root, gate.base))).toMatch(/checkpoint|transition/i);
+
+    const stage = repository();
+    write(
+      stage.root,
+      TASK_PATH,
+      taskText({ outcome: 'automatable', stage1: true }).replace(
+        /\n\*\*Status upgrade:\*\* scenario drafted → scenario written[\s\S]*$/,
+        '',
+      ),
+    );
+    write(stage.root, SPEC_PATH, specText());
+    commit(stage.root, 'partial Stage-1 entry');
+    expect(messages(findHistoryFindings(stage.root, stage.base))).toMatch(
+      /DONE-GATE-STAGE-1|checkpoint|planning/i,
+    );
+  });
+
+  it('binds GATE-IMPLEMENT evidence to the exact Task and actual PLAN outcome/count', () => {
+    for (const mutate of [
+      (text) => {
+        const at = text.indexOf('## Evidence Log');
+        return `${text.slice(0, at)}${text.slice(at).replaceAll(TASK_ID, 'HARNESS-901-other')}`;
+      },
+      (text) =>
+        text.replace('SCENARIO DRAFTED: not-applicable | 0', 'SCENARIO DRAFTED: automatable | 0'),
+      (text) =>
+        text.replace(
+          'SCENARIO DRAFTED: not-applicable | 0',
+          'SCENARIO DRAFTED: not-applicable | 1',
+        ),
+      (text) => {
+        const at = text.indexOf('## Evidence Log');
+        return `${text.slice(0, at)}${text
+          .slice(at)
+          .replaceAll(`${TASK_ID}.md`, `${TASK_ID}.md.bak`)}`;
+      },
+      (text) =>
+        text.replace(
+          'SCENARIO DRAFTED: not-applicable | 0',
+          'SCENARIO DRAFTED: not-applicable | 01',
+        ),
+    ]) {
+      const fixture = repository();
+      write(fixture.root, TASK_PATH, taskText());
+      write(fixture.root, SPEC_PATH, mutate(specText()));
+      commit(fixture.root, 'stale or cross-subject gate evidence');
+      expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+        /checkpoint|transition|binding/i,
+      );
+    }
+
+    const prefixedCount = repository();
+    write(prefixedCount.root, TASK_PATH, taskText({ outcome: 'automatable' }));
+    write(
+      prefixedCount.root,
+      SPEC_PATH,
+      specText({ outcome: 'automatable' }).replace(
+        'SCENARIO DRAFTED: automatable | 1',
+        'SCENARIO DRAFTED: automatable | 10',
+      ),
+    );
+    commit(prefixedCount.root, 'prefixed applicable scenario count');
+    expect(messages(findHistoryFindings(prefixedCount.root, prefixedCount.base))).toMatch(
+      /checkpoint|transition|binding/i,
+    );
+  });
+
+  it('rejects evidence hidden by a comment after unmatched backticks or an hgroup raw block', () => {
+    for (const hidden of [
+      [
+        '## User Execution Test Scenarios',
+        '`` unmatched <!--',
+        '**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`',
+        'Not applicable because this hidden comment text is long enough to mimic real evidence.',
+        '-->',
+      ].join('\n'),
+      [
+        '<hgroup> trailing raw block text',
+        '## User Execution Test Scenarios',
+        '**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`',
+        'Not applicable because this hidden raw HTML text is long enough to mimic real evidence.',
+      ].join('\n'),
+    ]) {
+      const fixture = repository();
+      write(
+        fixture.root,
+        TASK_PATH,
+        taskText().replace(/## User Execution Test Scenarios[\s\S]*$/, hidden),
+      );
+      write(fixture.root, SPEC_PATH, specText());
+      commit(fixture.root, 'hidden evidence after unmatched inline delimiter');
+
+      expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+        /SCENARIO DRAFTED|author verdict|checkpoint|planning/i,
+      );
+    }
+  });
+
+  it('does not use escaped backticks or a later block as an inline-code closer', () => {
+    for (const hidden of [
+      [
+        '## User Execution Test Scenarios',
+        '\\` escaped literal <!--',
+        '**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`',
+        'Not applicable because this comment-hidden text is long enough to mimic real evidence.',
+        '-->',
+      ].join('\n'),
+      [
+        '` unmatched <!--',
+        '# ` later ATX block with a matching-looking run',
+        '## User Execution Test Scenarios',
+        '**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`',
+        'Not applicable because this later-block text is hidden by the earlier HTML comment.',
+        '-->',
+      ].join('\n'),
+    ]) {
+      const fixture = repository();
+      write(
+        fixture.root,
+        TASK_PATH,
+        taskText().replace(/## User Execution Test Scenarios[\s\S]*$/, hidden),
+      );
+      write(fixture.root, SPEC_PATH, specText());
+      commit(fixture.root, 'escaped or cross-block false inline closer');
+
+      expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+        /SCENARIO DRAFTED|author verdict|checkpoint|planning/i,
+      );
+    }
+  });
+
+  it('stops inline-code lookahead at a Setext boundary', () => {
+    const { root, base } = repository();
+    write(
+      root,
+      TASK_PATH,
+      taskText().replace(
+        /## User Execution Test Scenarios[\s\S]*$/,
+        [
+          '## User Execution Test Scenarios',
+          '` unmatched <!--',
+          'Setext heading',
+          '===',
+          '**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`',
+          'Not applicable because this comment-hidden text is long enough to mimic real evidence.',
+          '-->',
+        ].join('\n'),
+      ),
+    );
+    write(root, SPEC_PATH, specText());
+    commit(root, 'setext cross-block false closer');
+
+    expect(messages(findHistoryFindings(root, base))).toMatch(
+      /SCENARIO DRAFTED|author verdict|checkpoint|planning/i,
+    );
+  });
+
+  it('does not treat a backtick-bearing info string as a fenced-code opener', () => {
+    const { root, base } = repository();
+    write(
+      root,
+      TASK_PATH,
+      taskText().replace(
+        '## User Execution Test Scenarios',
+        ['## User Execution Test Scenarios', '```not-a-fence`'].join('\n'),
+      ),
+    );
+    write(root, SPEC_PATH, specText());
+    commit(root, 'invalid fence-like prose before real evidence');
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('keeps a multiline code span across an inline HTML soft continuation', () => {
+    for (const literal of [
+      ['`literal marker <!--', '<span>soft continuation`'],
+      ['`literal marker <!--', '<span>', 'continuation`'],
+      ['`literal marker <!--', '    indented continuation`'],
+      ['`literal marker <!--', 'content \\`'],
+    ]) {
+      const fixture = repository();
+      write(
+        fixture.root,
+        TASK_PATH,
+        taskText().replace(
+          '## User Execution Test Scenarios',
+          [...literal, '', '## User Execution Test Scenarios'].join('\n'),
+        ),
+      );
+      write(fixture.root, SPEC_PATH, specText());
+      commit(fixture.root, 'valid multiline code span before real evidence');
+
+      expect(findHistoryFindings(fixture.root, fixture.base)).toEqual([]);
+    }
+  });
+
+  it('rejects Task binding and GATE-IMPLEMENT tokens outside their exact sections', () => {
+    const { root, base } = repository();
+    write(root, TASK_PATH, taskText());
+    write(
+      root,
+      SPEC_PATH,
+      [
+        '---',
+        'status: in-progress',
+        '---',
+        '',
+        `# ${TASK_ID}`,
+        '',
+        '## Notes',
+        '',
+        `- [x] \`.agents/tasks/${TASK_ID}.md\``,
+        '### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25',
+        '',
+        '## Tasks',
+        '',
+        'No exact binding is recorded in this section.',
+        '',
+        '## Evidence Log',
+        '',
+        'No gate verdict is recorded in this section.',
+      ].join('\n'),
+    );
+    commit(root, 'misplaced contract tokens');
+
+    expect(messages(findHistoryFindings(root, base))).toMatch(/checkpoint|transition|binding/i);
+  });
+
+  it('rejects a checkpoint that mixes two Task/spec pairs', () => {
+    const { root, base } = repository();
+    writeCheckpoint(root);
+    const other = 'HARNESS-901-other';
+    write(root, `.agents/tasks/${other}.md`, taskText({ subject: other }));
+    write(root, `.agents/spec-docs/active/${other}.md`, specText({ subject: other }));
+    commit(root, 'ambiguous checkpoint');
+
+    expect(messages(findHistoryFindings(root, base))).toMatch(/multiple|ambiguous/i);
+  });
+
+  it('rejects same-basename completed, done, or duplicate spec artifacts in a checkpoint', () => {
+    const { root, base } = repository();
+    writeCheckpoint(root);
+    write(root, `.agents/tasks/completed/${TASK_ID}.md`, taskText());
+    write(root, `.agents/spec-docs/done/${TASK_ID}.md`, specText());
+    write(
+      root,
+      `.agents/spec-docs/draft/${TASK_ID}.md`,
+      specText().replace('status: in-progress', 'status: draft'),
+    );
+    commit(root, 'checkpoint with same-basename lifecycle residue');
+
+    expect(messages(findHistoryFindings(root, base))).toMatch(/completed|done|draft|mix/i);
+  });
+
+  it('accepts one append-only closed predecessor post-merge ledger record', () => {
+    const { root, base } = repository();
+    write(root, '.agents/loop-runs/post-merge-cycle.jsonl', '');
+    write(
+      root,
+      '.agents/loop-runs/post-merge-cycle.jsonl',
+      `${JSON.stringify(postMergeRecord(base))}\n`,
+    );
+    commit(root, 'post-merge prelude');
+    checkpoint(root);
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('accepts the exact approved todo-spec source deletion during a real active move', () => {
+    const { root, base } = repository({ taskInBase: true });
+    const todoSpec = `.agents/spec-docs/todo/${TASK_ID}.md`;
+    write(
+      root,
+      todoSpec,
+      specText()
+        .replace('status: in-progress', 'status: approved')
+        .replace('### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25', 'Planning pending.'),
+    );
+    commit(root, 'approved planning prelude');
+    write(root, TASK_PATH, taskText());
+    mkdirSync(path.join(root, '.agents/spec-docs/active'), { recursive: true });
+    git(root, ['mv', todoSpec, SPEC_PATH]);
+    write(root, SPEC_PATH, specText());
+    commit(root, 'move approved spec into active checkpoint');
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('rejects more than one predecessor post-merge prelude', () => {
+    const { root, base } = repository();
+    write(
+      root,
+      '.agents/loop-runs/post-merge-cycle.jsonl',
+      `${JSON.stringify(postMergeRecord(base))}\n`,
+    );
+    commit(root, 'first prelude');
+    write(
+      root,
+      '.agents/loop-runs/post-merge-cycle.jsonl',
+      `${JSON.stringify(postMergeRecord(base))}\n${JSON.stringify(
+        postMergeRecord(base, 'r20260825000001'),
+      )}\n`,
+    );
+    commit(root, 'second prelude');
+    checkpoint(root);
+
+    expect(messages(findHistoryFindings(root, base))).toMatch(/more than one|multiple.*prelude/i);
+  });
+
+  it('rejects rewriting an earlier ledger line while appending a new one', () => {
+    const { root, base } = repository();
+    write(
+      root,
+      '.agents/loop-runs/post-merge-cycle.jsonl',
+      `${JSON.stringify(postMergeRecord(base))}\n`,
+    );
+    commit(root, 'valid prelude');
+    write(
+      root,
+      '.agents/loop-runs/post-merge-cycle.jsonl',
+      `${JSON.stringify({ ...postMergeRecord(base), terminal: 'abandoned' })}\n${JSON.stringify(
+        postMergeRecord(base, 'r20260825000001'),
+      )}\n`,
+    );
+    commit(root, 'rewrite ledger history');
+    checkpoint(root);
+
+    expect(messages(findHistoryFindings(root, base))).toMatch(/append-only|ledger/i);
+  });
+
+  it('rejects a forged predecessor ledger and a ledger mixed with implementation', () => {
+    const forged = repository();
+    write(
+      forged.root,
+      '.agents/loop-runs/post-merge-cycle.jsonl',
+      `${JSON.stringify({
+        runId: 'r20260825000000',
+        opened: '2026-08-25T00:00:00.000Z',
+        closed: '2026-08-25T00:01:00.000Z',
+        roundFindings: [0],
+        terminal: 'converged',
+        ref: 'PR #1 MERGE VERIFIED PASS deadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+      })}\n`,
+    );
+    commit(forged.root, 'forged prelude');
+    checkpoint(forged.root);
+    expect(messages(findHistoryFindings(forged.root, forged.base))).toMatch(/ledger|ancestor/i);
+
+    const mixed = repository();
+    write(
+      mixed.root,
+      '.agents/loop-runs/post-merge-cycle.jsonl',
+      `${JSON.stringify(postMergeRecord(mixed.base))}\n`,
+    );
+    write(mixed.root, 'packages/example/src.ts', 'implementation\n');
+    commit(mixed.root, 'mixed prelude');
+    checkpoint(mixed.root);
+    expect(messages(findHistoryFindings(mixed.root, mixed.base))).toContain(
+      'packages/example/src.ts',
+    );
+  });
+
+  it('rejects a squashed checkpoint mixed with implementation', () => {
+    const { root, base } = repository();
+    writeCheckpoint(root);
+    write(root, 'packages/example/src.ts', 'implementation\n');
+    commit(root, 'squashed planning and implementation');
+
+    expect(messages(findHistoryFindings(root, base))).toContain('packages/example/src.ts');
+  });
+
+  it('rejects unsuccessful predecessor ledger records even when their ref claims PASS', () => {
+    for (const record of [
+      { ...postMergeRecord('PLACEHOLDER'), terminal: 'halted-for-user' },
+      { ...postMergeRecord('PLACEHOLDER'), roundFindings: [1] },
+    ]) {
+      const fixture = repository();
+      const bound = { ...record, ref: postMergeRecord(fixture.base).ref };
+      write(fixture.root, '.agents/loop-runs/post-merge-cycle.jsonl', `${JSON.stringify(bound)}\n`);
+      commit(fixture.root, 'unsuccessful predecessor ledger');
+      checkpoint(fixture.root);
+      expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(/ledger|closed/i);
+    }
+  });
+
+  it('rejects stale single-path active, completed, and done documents as planning preludes', () => {
+    for (const target of ['active-task', 'active-spec', 'completed-task', 'done-spec']) {
+      const fixture = repository();
+      git(fixture.root, ['switch', 'develop']);
+      if (target === 'active-task' || target === 'active-spec') {
+        writeCheckpoint(fixture.root);
+      } else if (target === 'completed-task') {
+        write(fixture.root, `.agents/tasks/completed/${TASK_ID}.md`, taskText());
+      } else {
+        write(fixture.root, `.agents/spec-docs/done/${TASK_ID}.md`, specText());
+      }
+      const base = commit(fixture.root, `seed ${target}`);
+      git(fixture.root, ['update-ref', 'refs/remotes/origin/develop', base]);
+      git(fixture.root, ['switch', '-C', 'feature', base]);
+      const changedPath =
+        target === 'active-task'
+          ? TASK_PATH
+          : target === 'active-spec'
+            ? SPEC_PATH
+            : target === 'completed-task'
+              ? `.agents/tasks/completed/${TASK_ID}.md`
+              : `.agents/spec-docs/done/${TASK_ID}.md`;
+      write(
+        fixture.root,
+        changedPath,
+        `${readFileSync(path.join(fixture.root, changedPath), 'utf8')}\nstale evidence update\n`,
+      );
+      commit(fixture.root, `touch ${target}`);
+      expect(messages(findHistoryFindings(fixture.root, base))).toMatch(
+        /checkpoint|prelude|implementation|transition/i,
+      );
+    }
+  });
+
+  it('enforces exact pre-checkpoint Task and spec folder-to-status mappings', () => {
+    const cases = [
+      { path: TASK_PATH, text: taskText().replace('status: in-progress', 'status: approved') },
+      {
+        path: `.agents/spec-docs/draft/${TASK_ID}.md`,
+        text: specText()
+          .replace('status: in-progress', 'status: approved')
+          .replace('### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25', 'Planning pending.'),
+      },
+      {
+        path: `.agents/spec-docs/todo/${TASK_ID}.md`,
+        text: specText()
+          .replace('status: in-progress', 'status: draft')
+          .replace('### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25', 'Planning pending.'),
+      },
+      {
+        path: `.agents/spec-docs/active/${TASK_ID}.md`,
+        text: specText()
+          .replace('status: in-progress', 'status: approved')
+          .replace('### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25', 'Planning pending.'),
+      },
+    ];
+    for (const item of cases) {
+      const fixture = repository();
+      write(fixture.root, item.path, item.text);
+      commit(fixture.root, 'invalid pre-checkpoint lifecycle mapping');
+      expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+        /checkpoint|lifecycle|status|planning/i,
+      );
+    }
+  });
+
+  it('rejects planning artifact deletion without a valid same-basename destination', () => {
+    const fixture = repository({ taskInBase: true });
+    git(fixture.root, ['switch', 'develop']);
+    write(
+      fixture.root,
+      `.agents/spec-docs/todo/${TASK_ID}.md`,
+      specText()
+        .replace('status: in-progress', 'status: approved')
+        .replace('### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25', 'Planning pending.'),
+    );
+    const base = commit(fixture.root, 'seed todo planning pair');
+    git(fixture.root, ['update-ref', 'refs/remotes/origin/develop', base]);
+    git(fixture.root, ['switch', '-C', 'feature', base]);
+    git(fixture.root, ['rm', TASK_PATH, `.agents/spec-docs/todo/${TASK_ID}.md`]);
+    commit(fixture.root, 'delete planning pair');
+
+    expect(messages(findHistoryFindings(fixture.root, base))).toMatch(/delet|destination/i);
+  });
+
+  it('accepts a valid checkpoint after the topic is actually rebased onto a newer base', () => {
+    const { root } = repository();
+    checkpoint(root);
+    write(root, 'packages/example/src.ts', 'implementation\n');
+    commit(root, 'implementation');
+
+    git(root, ['switch', 'develop']);
+    write(root, 'BASE-ADVANCE.md', 'new integration base\n');
+    const rebasedBase = commit(root, 'advance integration base');
+    git(root, ['update-ref', 'refs/remotes/origin/develop', rebasedBase]);
+    git(root, ['switch', 'feature']);
+    git(root, ['rebase', 'develop']);
+
+    expect(findHistoryFindings(root, rebasedBase)).toEqual([]);
+  });
+});
+
+describe('user-execution PLAN order — staged transaction', () => {
+  it('rejects staged implementation before HEAD contains a checkpoint', () => {
+    const { root, base } = repository();
+    write(root, 'packages/example/src.ts', 'implementation\n');
+    git(root, ['add', 'packages/example/src.ts']);
+
+    expect(messages(findStagedFindings(root, base))).toMatch(/checkpoint/i);
+  });
+
+  it('accepts exactly one verified predecessor post-merge ledger append in the index', () => {
+    const { root, base } = repository();
+    write(
+      root,
+      '.agents/loop-runs/post-merge-cycle.jsonl',
+      `${JSON.stringify(postMergeRecord(base))}\n`,
+    );
+    git(root, ['add', '.agents/loop-runs/post-merge-cycle.jsonl']);
+
+    expect(findStagedFindings(root, base)).toEqual([]);
+  });
+
+  it('rejects forged or mixed staged predecessor post-merge ledger appends', () => {
+    const forged = repository();
+    write(
+      forged.root,
+      '.agents/loop-runs/post-merge-cycle.jsonl',
+      `${JSON.stringify({ ...postMergeRecord(forged.base), ref: `PR #1 MERGE VERIFIED PASS ${'f'.repeat(40)}` })}\n`,
+    );
+    git(forged.root, ['add', '.agents/loop-runs/post-merge-cycle.jsonl']);
+    expect(messages(findStagedFindings(forged.root, forged.base))).toMatch(/post-merge|verified/i);
+
+    const mixed = repository();
+    write(
+      mixed.root,
+      '.agents/loop-runs/post-merge-cycle.jsonl',
+      `${JSON.stringify(postMergeRecord(mixed.base))}\n`,
+    );
+    write(mixed.root, 'packages/example/implementation.ts', 'implementation\n');
+    git(mixed.root, [
+      'add',
+      '.agents/loop-runs/post-merge-cycle.jsonl',
+      'packages/example/implementation.ts',
+    ]);
+    expect(messages(findStagedFindings(mixed.root, mixed.base))).toMatch(/post-merge|mixed/i);
+  });
+
+  it('allows a planning-only draft/todo prelude before the checkpoint', () => {
+    const { root, base } = repository();
+    write(root, TASK_PATH, taskText().replace('status: in-progress', 'status: todo'));
+    write(
+      root,
+      `.agents/spec-docs/todo/${TASK_ID}.md`,
+      specText()
+        .replace('status: in-progress', 'status: approved')
+        .replace('### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25', 'Planning evidence pending.'),
+    );
+    git(root, ['add', TASK_PATH, `.agents/spec-docs/todo/${TASK_ID}.md`]);
+
+    expect(findStagedFindings(root, base)).toEqual([]);
+  });
+
+  it('rejects unstaged and untracked implementation during a planning prelude', () => {
+    for (const residue of ['untracked', 'unstaged']) {
+      const { root, base } = repository();
+      write(root, TASK_PATH, taskText().replace('status: in-progress', 'status: todo'));
+      write(
+        root,
+        `.agents/spec-docs/todo/${TASK_ID}.md`,
+        specText()
+          .replace('status: in-progress', 'status: approved')
+          .replace('### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25', 'Planning evidence pending.'),
+      );
+      git(root, ['add', TASK_PATH, `.agents/spec-docs/todo/${TASK_ID}.md`]);
+      if (residue === 'untracked') {
+        write(root, 'packages/example/hidden.ts', 'untracked implementation\n');
+      } else {
+        write(root, 'README.md', 'unstaged implementation\n');
+      }
+
+      expect(messages(findStagedFindings(root, base))).toMatch(/unstaged|untracked|worktree/i);
+    }
+  });
+
+  it('rejects a proposed checkpoint with hidden unstaged or untracked implementation', () => {
+    const { root, base } = repository();
+    writeCheckpoint(root);
+    git(root, ['add', TASK_PATH, SPEC_PATH]);
+    write(root, 'packages/example/hidden.ts', 'untracked implementation\n');
+
+    expect(messages(findStagedFindings(root, base))).toContain('packages/example/hidden.ts');
+  });
+
+  it('rejects hidden unstaged same-basename lifecycle residue during a checkpoint', () => {
+    const { root, base } = repository();
+    writeCheckpoint(root);
+    git(root, ['add', TASK_PATH, SPEC_PATH]);
+    write(root, `.agents/spec-docs/done/${TASK_ID}.md`, specText());
+
+    expect(messages(findStagedFindings(root, base))).toMatch(/done|worktree|checkpoint/i);
+  });
+
+  it('rejects rename and deletion paths mixed into a proposed checkpoint', () => {
+    const { root, base } = repository();
+    writeCheckpoint(root);
+    git(root, ['add', TASK_PATH, SPEC_PATH]);
+    git(root, ['mv', 'README.md', 'RENAMED.md']);
+
+    expect(messages(findStagedFindings(root, base))).toMatch(/README\.md|RENAMED\.md/);
+  });
+
+  it('rejects an unbound or rewritten PLAN ledger in a proposed checkpoint', () => {
+    const { root, base } = repository();
+    writeCheckpoint(root);
+    git(root, ['add', TASK_PATH, SPEC_PATH]);
+    write(
+      root,
+      '.agents/loop-runs/user-execution-scenario.jsonl',
+      `${JSON.stringify({
+        runId: 'r1',
+        opened: '2026-08-25T00:00:00.000Z',
+        closed: '2026-08-25T00:01:00.000Z',
+        roundFindings: [0],
+        terminal: 'converged',
+        ref: 'HARNESS-901-other',
+      })}\n`,
+    );
+    git(root, ['add', '.agents/loop-runs/user-execution-scenario.jsonl']);
+
+    expect(messages(findStagedFindings(root, base))).toMatch(/ledger|subject-bound/i);
+  });
+
+  it('rejects rewriting an existing PLAN ledger line while appending a bound record', () => {
+    const seeded = repository();
+    git(seeded.root, ['switch', 'develop']);
+    write(
+      seeded.root,
+      '.agents/loop-runs/user-execution-scenario.jsonl',
+      `${JSON.stringify(userScenarioRecord('HARNESS-899-prior'))}\n`,
+    );
+    const base = commit(seeded.root, 'seed prior PLAN ledger');
+    git(seeded.root, ['update-ref', 'refs/remotes/origin/develop', base]);
+    git(seeded.root, ['switch', '-C', 'feature', base]);
+    writeCheckpoint(seeded.root);
+    git(seeded.root, ['add', TASK_PATH, SPEC_PATH]);
+    write(
+      seeded.root,
+      '.agents/loop-runs/user-execution-scenario.jsonl',
+      `${JSON.stringify(userScenarioRecord('HARNESS-899-rewritten'))}\n${JSON.stringify(
+        userScenarioRecord(TASK_ID, 'r20260825000001'),
+      )}\n`,
+    );
+    git(seeded.root, ['add', '.agents/loop-runs/user-execution-scenario.jsonl']);
+
+    expect(messages(findStagedFindings(seeded.root, base))).toMatch(/append-only|ledger/i);
+  });
+
+  it('accepts one strictly shaped, exactly bound PLAN ledger append in the checkpoint', () => {
+    const { root, base } = repository();
+    writeCheckpoint(root);
+    write(
+      root,
+      '.agents/loop-runs/user-execution-scenario.jsonl',
+      `${JSON.stringify(userScenarioRecord())}\n`,
+    );
+    git(root, ['add', TASK_PATH, SPEC_PATH, '.agents/loop-runs/user-execution-scenario.jsonl']);
+
+    expect(findStagedFindings(root, base)).toEqual([]);
+  });
+
+  it('allows implementation staging after HEAD contains the valid checkpoint', () => {
+    const { root, base } = repository();
+    checkpoint(root);
+    write(root, 'packages/example/src.ts', 'implementation\n');
+    git(root, ['add', 'packages/example/src.ts']);
+
+    expect(findStagedFindings(root, base)).toEqual([]);
+  });
+
+  it('rejects a second actual Task/spec checkpoint transition in both staged and history modes', () => {
+    const { root, base } = repository();
+    checkpoint(root);
+    const other = 'HARNESS-901-second-unit';
+    const otherTask = `.agents/tasks/${other}.md`;
+    const otherSpec = `.agents/spec-docs/active/${other}.md`;
+    write(root, otherTask, taskText({ subject: other }));
+    write(root, otherSpec, specText({ subject: other }));
+    git(root, ['add', otherTask, otherSpec]);
+
+    expect(messages(findStagedFindings(root, base))).toMatch(/second|multiple|checkpoint/i);
+    commit(root, 'second checkpoint transition');
+    expect(messages(findHistoryFindings(root, base))).toMatch(/multiple.*checkpoint/i);
+  });
+
+  it('rejects a same-basename checkpoint re-transition in staged mode', () => {
+    const { root, base } = repository();
+    checkpoint(root);
+    write(
+      root,
+      TASK_PATH,
+      taskText()
+        .replace('status: in-progress', 'status: todo')
+        .replace(/\nverified\n?$/, ''),
+    );
+    write(
+      root,
+      SPEC_PATH,
+      specText()
+        .replace('status: in-progress', 'status: approved')
+        .replace('### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25', 'Planning reset.'),
+    );
+    commit(root, 'illegally reset checkpoint state');
+    writeCheckpoint(root);
+    git(root, ['add', TASK_PATH, SPEC_PATH]);
+
+    expect(messages(findStagedFindings(root, base))).toMatch(/second|checkpoint|transition/i);
+  });
+
+  it('rejects a bare Task ID or unstaged residue as PLAN ledger binding', () => {
+    const bare = repository();
+    writeCheckpoint(bare.root);
+    write(
+      bare.root,
+      '.agents/loop-runs/user-execution-scenario.jsonl',
+      `${JSON.stringify(userScenarioRecord('HARNESS-900'))}\n`,
+    );
+    git(bare.root, [
+      'add',
+      TASK_PATH,
+      SPEC_PATH,
+      '.agents/loop-runs/user-execution-scenario.jsonl',
+    ]);
+    expect(messages(findStagedFindings(bare.root, bare.base))).toMatch(/subject-bound|ledger/i);
+
+    const residue = repository();
+    writeCheckpoint(residue.root);
+    const ledger = '.agents/loop-runs/user-execution-scenario.jsonl';
+    const valid = `${JSON.stringify(userScenarioRecord())}\n`;
+    write(residue.root, ledger, valid);
+    git(residue.root, ['add', TASK_PATH, SPEC_PATH, ledger]);
+    write(residue.root, ledger, `${valid}${JSON.stringify(userScenarioRecord('HARNESS-999'))}\n`);
+    expect(messages(findStagedFindings(residue.root, residue.base))).toMatch(/worktree|ledger/i);
+  });
+});
+
+describe('user-execution PLAN order — repository contract', () => {
+  it('passes on this branch and includes the real predecessor prelude plus checkpoint', () => {
+    expect(findHistoryFindings()).toEqual([]);
+  });
+
+  it('prefers HARNESS_BASE_REF over the pull-request base for promotion verification', () => {
+    const { root, base } = repository();
+    checkpoint(root);
+    git(root, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+
+    expect(
+      resolveTopicMergeBase(root, undefined, {
+        HARNESS_BASE_REF: 'origin/develop',
+        GITHUB_BASE_REF: 'main',
+      }),
+    ).toBe(base);
+  });
+
+  it('binds the rule, gate, and orchestrators to the non-circular checkpoint sequence', () => {
+    const root = path.resolve(import.meta.dirname, '../../..');
+    const rule = readFileSync(path.join(root, '.agents/rules/backlog-execution.md'), 'utf8');
+    const catalogue = readFileSync(path.join(root, '.agents/specs/gate-catalogue.md'), 'utf8');
+    const scenario = readFileSync(
+      path.join(root, '.agents/skills/user-execution-scenario/SKILL.md'),
+      'utf8',
+    );
+    const orchestrator = readFileSync(
+      path.join(root, '.agents/skills/backlog-execution-orchestrator/SKILL.md'),
+      'utf8',
+    );
+
+    expect(rule).toContain('planning checkpoint');
+    expect(rule).toContain('whole worktree');
+    expect(catalogue).toMatch(/GATE-IMPLEMENT[\s\S]*DONE-GATE-STAGE-1/);
+    expect(catalogue).toMatch(/GATE-IMPLEMENT[\s\S]*not-applicable/);
+    expect(scenario).toContain('subject-bound');
+    expect(orchestrator).toMatch(/GATE-IMPLEMENT[\s\S]*checkpoint[\s\S]*Phase 3/);
+  });
+
+  it('is reached by both the Husky pre-commit hook and mandatory scan registry', () => {
+    const root = path.resolve(import.meta.dirname, '../../..');
+    const hook = readFileSync(path.join(root, '.husky/pre-commit'), 'utf8');
+    const runner = readFileSync(path.join(root, 'scripts/harness/run-all-scans.mjs'), 'utf8');
+
+    expect(hook).toContain('node scripts/harness/scan-user-execution-plan-order.mjs --staged');
+    expect(runner).toContain("name: 'user-execution-plan-order'");
+    expect(runner).toContain("'node', 'scripts/harness/scan-user-execution-plan-order.mjs'");
+  });
+});

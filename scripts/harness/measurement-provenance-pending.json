@@ -48,6 +48,7 @@
     "scripts/harness/scan-temp-dir-owner.mjs",
     "scripts/harness/scan-tool-classification.mjs",
     "scripts/harness/scan-transport-conformance.mjs",
+    "scripts/harness/scan-user-execution-plan-order.mjs",
     "scripts/harness/scan-work-item-id-collision.mjs",
     "scripts/harness/scan-workflow-permissions.mjs",
     "scripts/harness/scan-workflow-provenance.mjs",

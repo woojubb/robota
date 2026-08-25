@@ -276,6 +276,26 @@ Documents that predate the scan are frozen by name in
 a new document can never borrow an older one's exemption, the set may only shrink, and an exemption
 is keyed to the document's folder so a gate transition re-governs it.
 
+### Pre-implementation planning checkpoint
+
+The section floor above proves content, not order. Before implementation begins, every work unit must
+record one subject-bound PLAN terminal outcome in its exact Task: `not-applicable` carries the author
+verdict plus its concrete reason; an applicable outcome carries the author verdict plus a
+`DONE-GATE-STAGE-1` PASS. GATE-IMPLEMENT judges that outcome while the whole worktree contains no change
+outside the paired Task/spec planning artifacts.
+
+The guardian's PASS, the status transition, the paired Task/spec, and any subject-bound PLAN ledger
+record are then committed as one dedicated **planning checkpoint**. No other path—including a rule,
+skill, or documentation Markdown file—is planning merely because it is text. Implementation may begin
+only when that checkpoint is an ancestor of HEAD.
+
+Mechanized by `scripts/harness/scan-user-execution-plan-order.mjs`: Husky invokes `--staged` before each
+commit, and `harness:scan` replays every commit after the topic merge base. Both fail closed for a
+missing, mixed, ambiguous, retrospective, or unreadable checkpoint. The only pre-checkpoint non-pair
+change admitted is one append-only closed `post-merge-cycle.jsonl` record whose referenced merge commit
+is already an ancestor of the topic base; altered history, unverifiable provenance, or any additional
+path fails.
+
 **Script home**: disposable live-verification scripts (evidence runs, repro probes)
 live in `scratch/src/` — a gitignored workspace home whose committed skeleton resolves
 `@robota-sdk/*` imports. Never park them inside `packages/` or `apps/`; the
@@ -325,13 +345,49 @@ dispatched:
 Each user execution test scenario must include:
 
 - the agent-executability decision (`agent-executable` or `manual-only: <reason>`);
+- a canonical `product surface:` identity: `robota-cli`, `robota-tui`, `robota-browser-ui`, or
+  `public-sdk-example`; CLI/TUI commands begin with `robota` or `pnpm exec robota`, browser scenarios
+  name exact `browser steps:` when agent-executable or `UI steps:` when manual, and SDK examples invoke
+  a literal path below `examples/` or `scratch/`;
+- the matching canonical `surface rationale:` (`shipped-entrypoint=robota`,
+  `shipped-interface=robota-browser-ui`, or `shipped-interface=public-sdk-example`);
 - prerequisite state, sample setup, fixture data, server startup, environment variables, or other
   test environment requirements;
-- exact Bash command (for agent-executable) or exact UI steps (for manual-only) in order;
+- exact Bash command (for agent-executable CLI/TUI/SDK), exact browser steps (for agent-executable
+  browser UI), or exact UI steps (for manual-only) in order; a manual TUI scenario records both its
+  canonical `robota` start command and the interactive UI steps;
+- a canonical `observable type:` compatible with the surface: `product-output` or
+  `product-state-file` for CLI, `product-output`, `ui-state`, or `product-state-file` for TUI,
+  `ui-state` for browser UI, and `sdk-result` for public SDK examples;
+- its matching `observable rationale:` (`source=product-process`, `source=rendered-product-ui`,
+  `source=public-sdk-return`, or `source=robota-state-artifact`);
 - expected observable result, including exit code, output substring, visible UI state, or file
   change;
 - any cleanup or reset step;
 - the evidence field that must be updated after implementation when the agent runs the scenario.
+
+These are canonical single-line fields: each required label appears exactly once with a nonempty value.
+Expected values use a type-specific shape: `exit=<code>; output-contains=<literal>`,
+`visible=<state>`, `result=<SDK value>`, or `change=created|updated|deleted`; a state-file scenario also
+names a `product state path:` below `.robota/`. Product invocations may not chain or substitute another
+command; the only allowed pipeline is a single product command piped to `grep`. Shell quoting must be
+balanced. Public SDK/example paths are shell-tokenized, reject variable/glob expansion, are normalized,
+and must remain below `examples/` or `scratch/` (a lexical prefix followed by `..` is not inside the
+surface). Direct examples may use `node`, `tsx`, or `pnpm exec tsx`; all three support only
+`--enable-source-maps`, `--no-warnings`, and `--trace-warnings` before the literal script path, and
+code-loading/test-runner options are not canonical. The directory form is exactly
+`pnpm (--dir|-C) <examples-or-scratch-path> run <literal-script-name> ...`.
+
+A `manual-only` scenario additionally records three mechanically bound fields: `automation barrier:`
+(`physical-device`, `credential-bound-service`, `platform-api-unavailable`,
+`accessibility-tree-unavailable`, or `sandbox-restriction`), `unavailable capability:`, and
+`attempted automation:`. A prose assertion that automation is unavailable is not barrier evidence.
+The Stage-1 guardian owns the semantic judgment that a surface and observable are genuinely product
+behavior rather than engineering verification. Its PASS entry records
+`guardian-observable-verdict=product-behavior` and repeats the exact canonical surface, surface rationale,
+invocation, observable type, expected observable, and observable rationale for each named scenario; for
+manual scenarios it also repeats those three barrier values, and a manual TUI repeats the exact UI steps
+in addition to its start command.
 
 If the scenario requires a test fixture, demo command, local server, test project, seed data, or other
 environment that does not exist yet, the agent must either build that environment as part of the
