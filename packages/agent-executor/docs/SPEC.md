@@ -50,7 +50,7 @@ agent-executor
   │   │   └── scheduled-task-runner.ts          -- croner-based scheduled runner
   │   └── types.ts                              -- task requests, state, result, runner ports
   ├── providers/
-  │   └── provider-factory.ts                   -- normalizeProviderConfig, createProviderFromConfig/Profile
+  │   └── provider-factory.ts                   -- resolveProfileApiKey, createProviderFromProfile
   └── subagents/
       ├── types.ts                              -- subagent job contracts and runner port
       ├── subagent-manager.ts                   -- compatibility facade over BackgroundTaskManager
@@ -205,12 +205,10 @@ The package entrypoint exports these symbols explicitly from `src/index.ts`. SDK
 
 Functions in `src/providers/` resolve serializable provider config or profiles into live `IAIProvider` instances. They depend only on `@robota-sdk/agent-core` provider definitions and are provider-package-agnostic.
 
-| Export                      | Kind     | Description                                                                                    |
-| --------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `normalizeProviderConfig`   | function | Merges explicit settings with definition defaults; resolves `$ENV:` references in `apiKey`     |
-| `resolveProfileApiKey`      | function | Resolves `apiKey` (direct or `$ENV:`) or `apiKeyEnv` from an `ISerializableProviderProfile`    |
-| `createProviderFromConfig`  | function | Creates an `IAIProvider` from a resolved `IProviderConfig` using injected provider definitions |
-| `createProviderFromProfile` | function | Convenience: normalizes a profile and delegates to `createProviderFromConfig`                  |
+| Export                      | Kind     | Description                                                                                  |
+| --------------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `resolveProfileApiKey`      | function | Resolves `apiKey` (direct or `$ENV:`) or `apiKeyEnv` from an `ISerializableProviderProfile`  |
+| `createProviderFromProfile` | function | Convenience: normalizes a profile and delegates to `agent-core`'s `createProviderFromConfig` |
 
 ## Extension Points
 
@@ -376,7 +374,10 @@ Unit tests cover:
   assert both spawn paths consume the pair and unknown shells record zero spawn attempts
 - subagent manager lifecycle facade behavior
 - worktree runner clean/dirty/failure/delegation/hook behavior with fake adapters
-- provider factory: `normalizeProviderConfig`, `resolveProfileApiKey`, `createProviderFromConfig`, `createProviderFromProfile`
+- provider factory: `resolveProfileApiKey`, `createProviderFromProfile`. **`normalizeProviderConfig` and
+  `createProviderFromConfig` are `agent-core`'s and are not re-exported here (ARCH-111)** — they were,
+  "so existing consumers are unaffected", and the duplicate name is what let `agent-framework` and
+  `agent-product` import the same function from two different packages.
 
 Adapter packages or shells must add integration tests for concrete side effects such as local Git or child processes.
 
@@ -402,7 +403,9 @@ Pure helper contracts:
 - `createBackgroundTaskLogPage()` owns cursor pagination for append-only task logs.
 - `createDefaultBackgroundTaskRunners()` returns `[createManagedShellProcessRunner(), createScheduledTaskRunner()]` as the default runner set for CLI/SDK assembly.
 
-Provider factory functions (`normalizeProviderConfig`, `resolveProfileApiKey`, `createProviderFromConfig`, `createProviderFromProfile`) are pure utilities that depend only on `@robota-sdk/agent-core` provider definition types and produce `IAIProvider` instances.
+This package's provider factory functions are `resolveProfileApiKey` and `createProviderFromProfile`; they depend on the executor-owned `ISerializableProviderProfile` and delegate normalization to `agent-core`.
+
+They are **not pure**: `resolveProfileApiKey` reads `process.env` for the `apiKeyEnv` branch, and the `agent-core` normalization it delegates to resolves `$ENV:` references ambiently. This paragraph previously called all four functions "pure utilities", which was a claim about a property the code does not have; issue #2347 is the item that would make it true.
 
 Cross-package port consumers:
 

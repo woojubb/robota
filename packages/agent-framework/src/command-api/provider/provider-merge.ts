@@ -1,4 +1,4 @@
-import { normalizeProviderConfig } from '@robota-sdk/agent-executor';
+import { normalizeProviderConfig } from '@robota-sdk/agent-core';
 
 import { SettingsParseError } from '../../config/settings-parse-error.js';
 import { readSettingsSourceText } from '../../config/settings-source.js';

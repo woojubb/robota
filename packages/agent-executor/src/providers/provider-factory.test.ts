@@ -1,10 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import {
-  normalizeProviderConfig,
-  resolveProfileApiKey,
-  createProviderFromConfig,
-  createProviderFromProfile,
-} from './provider-factory.js';
+import { resolveProfileApiKey, createProviderFromProfile } from './provider-factory.js';
+// ARCH-111: these two are `agent-core`'s, and this file names their owner like every other consumer.
+// Importing them from the module under test was how the duplicate surface stayed reachable.
+import { normalizeProviderConfig, createProviderFromConfig } from '@robota-sdk/agent-core';
 import type { IProviderDefinition, IAIProvider } from '@robota-sdk/agent-core';
 import type { ISerializableProviderProfile } from '../background-tasks/types.js';
 
